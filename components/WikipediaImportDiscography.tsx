@@ -754,6 +754,36 @@ type Props = {
 
 type ActiveTab = 'studio' | 'other' | 'singles' | 'songs' | 'pending'
 
+/**
+ * Detektuoja album'o tipą iš pavadinimo heuristikomis.
+ * Music.lt scrape default'as visus įrašus žymi kaip type_studio. Šis helper'is
+ * leidžia užfix'inti display + approve flow'ą — pvz. "Metal Up Your Ass (Demo)"
+ * tampa type_demo, "S&M (Live)" tampa type_live, etc.
+ *
+ * Grąžina type string'ą arba null jei nieko nesutapatu (palieka studio).
+ */
+function detectTypeFromTitle(title: string | null | undefined): string | null {
+  if (!title) return null
+  const t = title.toLowerCase()
+  // Live recording — Wikipedia konvencija + LT scrape gyvai
+  if (/\b(live|gyvai|concert|in concert|live at|live from)\b/.test(t)) return 'live'
+  // Demo / studio demo / pre-production
+  if (/\b(demo|studio demo|pre-?production)\b/.test(t)) return 'demo'
+  // Cover album / tribute
+  if (/\b(cover|tribute)\b/.test(t)) return 'covers'
+  // Remix album
+  if (/\b(remix|remixes|remixed)\b/.test(t)) return 'remix'
+  // Soundtrack
+  if (/\b(soundtrack|score|ost)\b/.test(t)) return 'soundtrack'
+  // Compilation / greatest / best of
+  if (/\b(greatest hits|best of|compilation|collection|essential|anthology)\b/.test(t)) return 'compilation'
+  // EP — žodis su word boundary
+  if (/\b(ep|e\.p\.)\b/.test(t)) return 'ep'
+  // Holiday
+  if (/\b(christmas|xmas|holiday)\b/.test(t)) return 'holiday'
+  return null
+}
+
 // Pending record = music.lt-only įrašas (legacy_scrape_pending source). Šie
 // jau yra DB'oje, bet nematomi viešai. User'is gali "Patvirtinti" (pakeisti
 // source į legacy_scrape_v1) arba "Trinti" iš modal'o.
@@ -841,13 +871,19 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       const pAlb: PendingAlbum[] = albs
         .filter(a => a.source === 'legacy_scrape_pending')
         .map(a => {
-          const types = ['type_studio', 'type_ep', 'type_compilation', 'type_live', 'type_remix', 'type_covers', 'type_soundtrack']
-          const matchedType = types.find(k => a[k]) || 'type_studio'
+          // Detect type from DB flags first
+          const types = ['type_studio', 'type_ep', 'type_compilation', 'type_live', 'type_remix', 'type_covers', 'type_soundtrack', 'type_demo']
+          const dbType = types.find(k => a[k]) || 'type_studio'
+          let type = dbType.replace('type_', '')
+          // Music.lt scrape defaults visus į type_studio. Detect actual type
+          // iš title heuristikų — overrideina DB flag jei jos rodo kitokį.
+          const heur = detectTypeFromTitle(a.title)
+          if (heur && type === 'studio') type = heur
           return {
             id: a.id,
             title: a.title,
             year: a.year || null,
-            type: matchedType.replace('type_', ''),
+            type,
             legacy_id: a.legacy_id || null,
             cover_image_url: a.cover_image_url || null,
           }
@@ -892,10 +928,23 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     updater(p => ({ ...p, importing: true, error: undefined }))
     try {
       const endpoint = kind === 'album' ? `/api/albums/${id}` : `/api/tracks/${id}`
+      // Album'ams — visada siunčiam type_* flag set'ą iš dropdown'o (user'is
+      // gali keisti type prieš patvirtinant per UI <select>). Reset visus,
+      // set tik pasirinktą. Tai užtikrina kad music.lt 'viskas studio' default'as
+      // nepatenka į canonical po aktyvavimo.
+      const body: any = { source: 'legacy_scrape_v1' }
+      if (kind === 'album') {
+        const pAlb = pendingAlbums.find(p => p.id === id)
+        if (pAlb && pAlb.type) {
+          const allTypes = ['type_studio', 'type_ep', 'type_compilation', 'type_live', 'type_remix', 'type_covers', 'type_soundtrack', 'type_demo', 'type_holiday', 'type_single']
+          for (const k of allTypes) body[k] = false
+          body[`type_${pAlb.type}`] = true
+        }
+      }
       const r = await fetch(endpoint, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: 'legacy_scrape_v1' }),
+        body: JSON.stringify(body),
       })
       if (!r.ok) {
         const err = await r.json().catch(() => ({}))
@@ -2093,7 +2142,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                             <div className="flex items-baseline gap-1.5 flex-wrap">
                                               <span className="text-sm font-medium text-gray-900 truncate">{p.title}</span>
                                               <span className="text-[10px] text-gray-400">{p.year || '—'}</span>
-                                              <span className="text-[10px] text-violet-400">{p.type}</span>
                                               {p.legacy_id && <span className="text-[10px] text-amber-500">#{p.legacy_id}</span>}
                                               {albumTracks.length > 0 && <span className="text-[10px] text-blue-500">{albumTracks.length} dainų</span>}
                                               {p.importing && <span className="text-[10px] text-violet-400 animate-pulse">vykdoma...</span>}
@@ -2102,6 +2150,32 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                             </div>
                                             <a href={`/admin/albums/${p.id}`} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">atidaryti admin →</a>
                                           </div>
+                                          {/* Type dropdown — leidžia user'iui pakeisti tipą prieš
+                                              Patvirtinti, nes music.lt scrape dažnai mis-classifies
+                                              singles/demos kaip studio. */}
+                                          {!p.imported && !p.deleted && (
+                                            <select
+                                              value={p.type}
+                                              onChange={e => {
+                                                const newType = e.target.value
+                                                setPendingAlbums(prev => prev.map(x => x.id === p.id ? { ...x, type: newType } : x))
+                                              }}
+                                              disabled={p.importing}
+                                              className="shrink-0 text-[11px] border border-amber-200 bg-white rounded-md px-1.5 py-0.5 disabled:opacity-50"
+                                              title="Album type — naudosis aktyvavime"
+                                            >
+                                              <option value="studio">studio</option>
+                                              <option value="ep">ep</option>
+                                              <option value="single">single</option>
+                                              <option value="live">live</option>
+                                              <option value="demo">demo</option>
+                                              <option value="compilation">compilation</option>
+                                              <option value="covers">covers</option>
+                                              <option value="remix">remix</option>
+                                              <option value="soundtrack">soundtrack</option>
+                                              <option value="holiday">holiday</option>
+                                            </select>
+                                          )}
                                           {!p.imported && !p.deleted && (
                                             <div className="flex gap-1 shrink-0">
                                               <button onClick={() => approvePending('album', p.id)} disabled={p.importing}
