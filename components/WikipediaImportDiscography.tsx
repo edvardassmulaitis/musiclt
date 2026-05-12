@@ -776,6 +776,12 @@ type PendingTrack = {
   release_year: number | null
   type: string | null
   legacy_id: number | null
+  // Tracks gali turėti album_tracks JOIN priskirimą (per scrape). Saugom
+  // pirmojo album'o id + title, kad UI'us galėtų grupuoti tracks po
+  // pending album'ais (jei pending album turi tracks) arba orphan section
+  // (jei tracks neturi albumo priskirimo).
+  album_id?: number | null
+  album_title?: string | null
   importing?: boolean
   imported?: boolean
   deleted?: boolean
@@ -848,13 +854,20 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         })
       const pTrk: PendingTrack[] = trks
         .filter(t => t.source === 'legacy_scrape_pending')
-        .map(t => ({
-          id: t.id,
-          title: t.title,
-          release_year: t.release_year || null,
-          type: t.type || null,
-          legacy_id: t.legacy_id || null,
-        }))
+        .map(t => {
+          // album_tracks JOIN priskirimas — paimam pirmąjį albumą (jei yra)
+          // kad tracks grupuotusi po pending albums modal'e.
+          const firstAlbum = (t.albums_list && t.albums_list[0]) || null
+          return {
+            id: t.id,
+            title: t.title,
+            release_year: t.release_year || null,
+            type: t.type || null,
+            legacy_id: t.legacy_id || null,
+            album_id: firstAlbum ? firstAlbum.id : null,
+            album_title: firstAlbum ? firstAlbum.title : null,
+          }
+        })
       setPendingAlbums(pAlb)
       setPendingTracks(pTrk)
       if (pAlb.length || pTrk.length) {
@@ -889,6 +902,23 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         throw new Error(err.error || `${r.status}`)
       }
       updater(p => ({ ...p, importing: false, imported: true }))
+      // Cascade — jei aktyvuojam albumą, taip pat aktyvuojam jo pending tracks
+      // (kurios susietos per album_tracks). Per UI tracks rodomos po albumu —
+      // patvirtinant albumą, jos turi tapti matomos kartu.
+      if (kind === 'album') {
+        const albumTracks = pendingTracks.filter(t => t.album_id === id)
+        for (const t of albumTracks) {
+          try {
+            await fetch(`/api/tracks/${t.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ source: 'legacy_scrape_v1' }),
+            })
+            setPendingTracks(prev => prev.map(p => p.id === t.id ? { ...p, imported: true } : p))
+          } catch {}
+        }
+        if (albumTracks.length > 0) addLog(`  +${albumTracks.length} dainos kartu aktyvuotos`)
+      }
       addLog(`✓ ${kind === 'album' ? 'Albumas' : 'Daina'} #${id} aktyvuotas`)
       window.dispatchEvent(new CustomEvent('discography-updated'))
     } catch (e: any) {
@@ -2026,89 +2056,130 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         <strong>Music.lt-only įrašai</strong> — atėjo iš music.lt scrape, bet Wiki canonical sąraše jų nėra. Patvirtinti = aktyvuoti (matomas viešai). Trinti = pašalinti iš DB.
                       </div>
 
-                      {pendingAlbums.length > 0 && (
-                        <div>
-                          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2.5">Albumai · {pendingAlbums.length}</div>
-                          <div className="space-y-1">
-                            {pendingAlbums.map(p => (
-                              <div key={`pa-${p.id}`} className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
-                                p.imported ? 'border-emerald-200 bg-emerald-50/50' :
-                                p.error ? 'border-red-200 bg-red-50/50' :
-                                'border-amber-200 bg-amber-50/30'
-                              }`}>
-                                {p.cover_image_url && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={p.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-9 h-9 rounded object-cover shrink-0" />
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-baseline gap-1.5 flex-wrap">
-                                    <span className="text-sm font-medium text-gray-900 truncate">{p.title}</span>
-                                    <span className="text-[10px] text-gray-400">{p.year || '—'}</span>
-                                    <span className="text-[10px] text-violet-400">{p.type}</span>
-                                    {p.legacy_id && <span className="text-[10px] text-amber-500">#{p.legacy_id}</span>}
-                                    {p.importing && <span className="text-[10px] text-violet-400 animate-pulse">vykdoma...</span>}
-                                    {p.imported && <span className="text-[10px] text-emerald-500">✓ aktyvuotas</span>}
-                                    {p.error && <span className="text-[10px] text-red-400" title={p.error}>✗ {p.error}</span>}
-                                  </div>
-                                  <a href={`/admin/albums/${p.id}`} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">atidaryti admin →</a>
+                      {/* Group tracks under their albums (via album_id from album_tracks JOIN).
+                          Orphan tracks (be album) renderiniami atskirai apačioje. */}
+                      {(() => {
+                        const tracksByAlbum = new Map<number, PendingTrack[]>()
+                        const orphanTracks: PendingTrack[] = []
+                        for (const t of pendingTracks) {
+                          if (t.album_id != null) {
+                            const arr = tracksByAlbum.get(t.album_id) || []
+                            arr.push(t)
+                            tracksByAlbum.set(t.album_id, arr)
+                          } else {
+                            orphanTracks.push(t)
+                          }
+                        }
+                        return (
+                          <>
+                            {pendingAlbums.length > 0 && (
+                              <div>
+                                <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2.5">Albumai · {pendingAlbums.length}</div>
+                                <div className="space-y-2">
+                                  {pendingAlbums.map(p => {
+                                    const albumTracks = tracksByAlbum.get(p.id) || []
+                                    return (
+                                      <div key={`pa-${p.id}`} className={`rounded-lg border overflow-hidden transition-all ${
+                                        p.imported ? 'border-emerald-200 bg-emerald-50/50' :
+                                        p.error ? 'border-red-200 bg-red-50/50' :
+                                        'border-amber-200 bg-amber-50/30'
+                                      }`}>
+                                        <div className="flex items-center gap-2 px-3 py-2">
+                                          {p.cover_image_url && (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={p.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-9 h-9 rounded object-cover shrink-0" />
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-baseline gap-1.5 flex-wrap">
+                                              <span className="text-sm font-medium text-gray-900 truncate">{p.title}</span>
+                                              <span className="text-[10px] text-gray-400">{p.year || '—'}</span>
+                                              <span className="text-[10px] text-violet-400">{p.type}</span>
+                                              {p.legacy_id && <span className="text-[10px] text-amber-500">#{p.legacy_id}</span>}
+                                              {albumTracks.length > 0 && <span className="text-[10px] text-blue-500">{albumTracks.length} dainų</span>}
+                                              {p.importing && <span className="text-[10px] text-violet-400 animate-pulse">vykdoma...</span>}
+                                              {p.imported && <span className="text-[10px] text-emerald-500">✓ aktyvuotas</span>}
+                                              {p.error && <span className="text-[10px] text-red-400" title={p.error}>✗ {p.error}</span>}
+                                            </div>
+                                            <a href={`/admin/albums/${p.id}`} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">atidaryti admin →</a>
+                                          </div>
+                                          {!p.imported && !p.deleted && (
+                                            <div className="flex gap-1 shrink-0">
+                                              <button onClick={() => approvePending('album', p.id)} disabled={p.importing}
+                                                className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-medium hover:bg-emerald-200 disabled:opacity-50">
+                                                ✓ Patvirtinti
+                                              </button>
+                                              <button onClick={() => deletePending('album', p.id)} disabled={p.importing}
+                                                className="px-2 py-1 rounded-md bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 disabled:opacity-50">
+                                                ✕ Trinti
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                        {/* Tracks priklausančios šitam pending albumui */}
+                                        {albumTracks.length > 0 && (
+                                          <div className="border-t border-amber-200/50 bg-white/40 px-3 py-1.5 space-y-0.5">
+                                            {albumTracks.map(t => (
+                                              <div key={`pt-${t.id}`} className="flex items-center gap-2 py-0.5">
+                                                <span className="text-[11px] text-gray-700 truncate flex-1">{t.title}</span>
+                                                {t.legacy_id && <span className="text-[9px] text-amber-500">#{t.legacy_id}</span>}
+                                                {t.imported && <span className="text-[9px] text-emerald-500">✓</span>}
+                                                {t.importing && <span className="text-[9px] text-violet-400 animate-pulse">...</span>}
+                                              </div>
+                                            ))}
+                                            <div className="text-[9px] text-gray-400 italic pt-0.5">
+                                              ↑ Patvirtinus albumą — visos jo dainos taip pat aktyvuosis (per album_tracks JOIN).
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
                                 </div>
-                                {!p.imported && !p.deleted && (
-                                  <div className="flex gap-1 shrink-0">
-                                    <button onClick={() => approvePending('album', p.id)} disabled={p.importing}
-                                      className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-medium hover:bg-emerald-200 disabled:opacity-50">
-                                      ✓ Patvirtinti
-                                    </button>
-                                    <button onClick={() => deletePending('album', p.id)} disabled={p.importing}
-                                      className="px-2 py-1 rounded-md bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 disabled:opacity-50">
-                                      ✕ Trinti
-                                    </button>
-                                  </div>
-                                )}
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                            )}
 
-                      {pendingTracks.length > 0 && (
-                        <div>
-                          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-3">Dainos · {pendingTracks.length}</div>
-                          <div className="space-y-1">
-                            {pendingTracks.map(p => (
-                              <div key={`pt-${p.id}`} className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
-                                p.imported ? 'border-emerald-200 bg-emerald-50/50' :
-                                p.error ? 'border-red-200 bg-red-50/50' :
-                                'border-amber-200 bg-amber-50/30'
-                              }`}>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-baseline gap-1.5 flex-wrap">
-                                    <span className="text-sm font-medium text-gray-900 truncate">{p.title}</span>
-                                    <span className="text-[10px] text-gray-400">{p.release_year || '—'}</span>
-                                    {p.type && p.type !== 'normal' && <span className="text-[10px] text-violet-400">{p.type}</span>}
-                                    {p.legacy_id && <span className="text-[10px] text-amber-500">#{p.legacy_id}</span>}
-                                    {p.importing && <span className="text-[10px] text-violet-400 animate-pulse">vykdoma...</span>}
-                                    {p.imported && <span className="text-[10px] text-emerald-500">✓ aktyvuota</span>}
-                                    {p.error && <span className="text-[10px] text-red-400" title={p.error}>✗ {p.error}</span>}
-                                  </div>
-                                  <a href={`/admin/tracks/${p.id}`} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">atidaryti admin →</a>
+                            {orphanTracks.length > 0 && (
+                              <div>
+                                <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-3">Singlai / Orphan dainos · {orphanTracks.length}</div>
+                                <div className="space-y-1">
+                                  {orphanTracks.map(p => (
+                                    <div key={`pt-${p.id}`} className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+                                      p.imported ? 'border-emerald-200 bg-emerald-50/50' :
+                                      p.error ? 'border-red-200 bg-red-50/50' :
+                                      'border-amber-200 bg-amber-50/30'
+                                    }`}>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                                          <span className="text-sm font-medium text-gray-900 truncate">{p.title}</span>
+                                          <span className="text-[10px] text-gray-400">{p.release_year || '—'}</span>
+                                          {p.type && p.type !== 'normal' && <span className="text-[10px] text-violet-400">{p.type}</span>}
+                                          {p.legacy_id && <span className="text-[10px] text-amber-500">#{p.legacy_id}</span>}
+                                          {p.importing && <span className="text-[10px] text-violet-400 animate-pulse">vykdoma...</span>}
+                                          {p.imported && <span className="text-[10px] text-emerald-500">✓ aktyvuota</span>}
+                                          {p.error && <span className="text-[10px] text-red-400" title={p.error}>✗ {p.error}</span>}
+                                        </div>
+                                        <a href={`/admin/tracks/${p.id}`} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">atidaryti admin →</a>
+                                      </div>
+                                      {!p.imported && !p.deleted && (
+                                        <div className="flex gap-1 shrink-0">
+                                          <button onClick={() => approvePending('track', p.id)} disabled={p.importing}
+                                            className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-medium hover:bg-emerald-200 disabled:opacity-50">
+                                            ✓ Patvirtinti
+                                          </button>
+                                          <button onClick={() => deletePending('track', p.id)} disabled={p.importing}
+                                            className="px-2 py-1 rounded-md bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 disabled:opacity-50">
+                                            ✕ Trinti
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
                                 </div>
-                                {!p.imported && !p.deleted && (
-                                  <div className="flex gap-1 shrink-0">
-                                    <button onClick={() => approvePending('track', p.id)} disabled={p.importing}
-                                      className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-medium hover:bg-emerald-200 disabled:opacity-50">
-                                      ✓ Patvirtinti
-                                    </button>
-                                    <button onClick={() => deletePending('track', p.id)} disabled={p.importing}
-                                      className="px-2 py-1 rounded-md bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 disabled:opacity-50">
-                                      ✕ Trinti
-                                    </button>
-                                  </div>
-                                )}
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                            )}
+                          </>
+                        )
+                      })()}
                     </>
                   )}
                 </>
