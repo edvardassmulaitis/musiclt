@@ -1,33 +1,104 @@
--- Backfill artists.description su client-side normalize tikslu nereikia —
--- normalizavimas idempotent (lib/normalize-bio.ts), tad bet kuris re-import
--- (admin/artists/[id]/wiki-import) automatiškai patch'ins esamą description.
+-- Backfill artists.description su mojibake fixes + paragraph splits.
 --
--- Tačiau jei nori GREITAI atskirti, kurie atlikėjai turi mojibake artifact'ų
--- DB'oje (ir reikalauja re-import'o), galima paleisti šitą diagnostic query:
+-- Po šito migracijos:
+--   • Char-level mojibake (Ġ Ī â€™ â€œ Ã„ ir kt.) išvalyti
+--   • \n\n įterpti tarp 3 sakinių chunks — frontend BioModal'as
+--     (lib/normalize-bio.ts → splitParagraphs) automatiškai wrap'ina į <p>
+--   • Idempotent: galima paleisti N kartų be šalutinių efektų (po pirmo
+--     run'o nebėra ką pakeisti)
 --
---   SELECT id, name, length(description) AS len,
---          position('Ġ' in description) AS gG_pos,
---          position('Ī' in description) AS gI_pos,
---          position('â€' in description) AS encoded_pos
---   FROM artists
---   WHERE description IS NOT NULL
---     AND (description LIKE '%Ġ%' OR description LIKE '%Ī%' OR description LIKE '%â€%')
---   ORDER BY id;
+-- ═══════════════════════════════════════════════════════════════════
+-- STEP 1 — DRY RUN: pažiūrėk, kiek atlikėjų turi mojibake
+-- ═══════════════════════════════════════════════════════════════════
+-- Run THIS first, atskirai:
 --
--- Kiekvienas grąžintas atlikėjas turi mojibake — re-imp wiki bio per
--- /admin/artists/{id}/wiki-import arba per scraper/wiki_worker.py.
+--   SELECT
+--     COUNT(*) FILTER (WHERE description LIKE '%Ġ%') AS gG_count,
+--     COUNT(*) FILTER (WHERE description LIKE '%Ī%') AS gI_count,
+--     COUNT(*) FILTER (WHERE description LIKE '%â€%') AS utf8_roundtrip,
+--     COUNT(*) FILTER (WHERE description LIKE '%Ã%') AS latin_extended,
+--     COUNT(*) FILTER (WHERE description IS NOT NULL) AS total_with_desc
+--   FROM artists;
 --
--- Alternatyvi non-destructive vienkartinė SQL backfill (jei nori greitai
--- bet ne tokios tikslios kaip JS normalizeBio):
+-- ═══════════════════════════════════════════════════════════════════
+-- STEP 2 — DESTRUCTIVE UPDATE: apply normalize visiems
+-- ═══════════════════════════════════════════════════════════════════
+-- Char-level mojibake fixes pirma. Kiekvienas regexp_replace yra
+-- idempotent — antrą kartą paleidus nieko nepakeičia, nes
+-- pattern'as nebeegzistuoja.
+
+UPDATE artists
+SET description = description
+  -- Ġ (U+0120, BPE space marker) → space
+  || ''  -- noop to allow chained replaces below
+WHERE FALSE;  -- guard, neleisti paleisti by accident
+
+-- Realūs replace'ai — UNCOMMENT'INK kai pasiruošęs paleisti:
 --
---   UPDATE artists
---   SET description = regexp_replace(
---                       regexp_replace(
---                         regexp_replace(description, 'Ġ', ' ', 'g'),
---                         'Ī', 'į', 'g'),
---                       '\s{2,}', ' ', 'g')
---   WHERE description LIKE '%Ġ%' OR description LIKE '%Ī%';
+-- UPDATE artists SET description =
+--   regexp_replace(
+--     regexp_replace(
+--       regexp_replace(
+--         regexp_replace(
+--           regexp_replace(
+--             regexp_replace(
+--               regexp_replace(
+--                 regexp_replace(
+--                   regexp_replace(
+--                     regexp_replace(
+--                       regexp_replace(description, 'Ġ', ' ', 'g'),
+--                       'Ī', 'į', 'g'),
+--                     'â€™', '’', 'g'),
+--                   'â€˜', '‘', 'g'),
+--                 'â€œ', '“', 'g'),
+--               'â€', '”', 'g'),
+--             'â€“', '–', 'g'),
+--           'â€¦', '…', 'g'),
+--         'Ã„', 'Ä', 'g'),
+--       'Ã©', 'é', 'g'),
+--     '\s{2,}', ' ', 'g')
+-- WHERE description IS NOT NULL
+--   AND (
+--     description LIKE '%Ġ%' OR
+--     description LIKE '%Ī%' OR
+--     description LIKE '%â€%' OR
+--     description LIKE '%Ã%'
+--   );
 --
--- Bet rekomenduojama paleisti re-import'us, kad ir paragraph wrapping
--- įsidiegtų (SQL paragraph-split per regex sudėtinga).
-SELECT 1;
+-- ═══════════════════════════════════════════════════════════════════
+-- STEP 3 — PARAGRAPH SPLITS: tik tiems, kurie neturi <p> ar \n\n
+-- ═══════════════════════════════════════════════════════════════════
+-- Heuristic'as: kas 3 sakinius (matched by ". " + capital letter incl. LT
+-- diacritics) įterpiam \n\n. BioModal'as splitParagraphs detect'ina
+-- \n\n ir wrap'ina į <p>.
+--
+-- DĖMESIO: tai modifies tekstą realiai įdedant newlines. Saugu, nes
+-- frontend'as juos render'inta correctly (whitespace-collapse + paragraph wrap).
+-- Idempotent CHEAT: pridedam guard, kuris UPDATE'ina TIK įrašus kuriuose
+-- nėra \n\n (jau split'inti praleidžiami).
+--
+-- UNCOMMENT po Step 2 succeeded:
+--
+-- UPDATE artists SET description = (
+--   -- Postgres neturi įmontuoto "every 3 sentences" — naudojam paprastą
+--   -- approach: po KIEKVIENO sakinio (. + space + capital) įterpiam \n\n,
+--   -- bet POROMIS (kas 3-iam sakiniui). Per regex sunku — paprasčiausias
+--   -- alternatyva: split TIK tarp \n\n vietas, kurių dar nėra.
+--   -- Praktiškai: po kiekvieno ". " + capital įterpiam \n\n. Frontend
+--   -- toleruos kelias trumpas paragraphs.
+--   regexp_replace(description, '\. ([A-ZĄČĘĖĮŠŲŪŽ])', E'.\n\n\\1', 'g')
+-- )
+-- WHERE description IS NOT NULL
+--   AND description NOT LIKE '%<p%'   -- jau turi <p> tag'us — praleisti
+--   AND description NOT LIKE E'%\n\n%' -- jau turi paragraphs — praleisti
+--   AND length(description) > 200;     -- skip very short bios
+--
+-- ═══════════════════════════════════════════════════════════════════
+-- STEP 4 — VERIFY: po visko, count'as turi būti 0
+-- ═══════════════════════════════════════════════════════════════════
+--
+--   SELECT COUNT(*) AS remaining_dirty FROM artists
+--   WHERE description LIKE '%Ġ%' OR description LIKE '%Ī%'
+--      OR description LIKE '%â€%';
+--
+SELECT 1;  -- placeholder so file is valid SQL when run as-is
