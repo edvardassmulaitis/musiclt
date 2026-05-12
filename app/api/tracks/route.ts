@@ -151,6 +151,11 @@ function mapTrack(t: any) {
       })),
     album_count: albumList.length,
     albums_list: albumList,
+    // source + legacy_id — admin debug + filter'ams (pending tracks atskirti
+    // nuo Wiki canonical). Anksčiau SELECT'e buvo, bet mapTrack output'e ne
+    // → client'as visada gauna source=undefined.
+    source: t.source || null,
+    legacy_id: t.legacy_id || null,
   }
 }
 
