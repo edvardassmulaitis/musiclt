@@ -2161,19 +2161,19 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                                 setPendingAlbums(prev => prev.map(x => x.id === p.id ? { ...x, type: newType } : x))
                                               }}
                                               disabled={p.importing}
-                                              className="shrink-0 text-[11px] border border-amber-200 bg-white rounded-md px-1.5 py-0.5 disabled:opacity-50"
-                                              title="Album type — naudosis aktyvavime"
+                                              className="shrink-0 text-[11px] font-semibold text-gray-900 border border-gray-300 bg-white rounded-md px-2 py-1 min-w-[90px] cursor-pointer hover:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50"
+                                              title="Album type — bus naudojamas aktyvavime"
                                             >
-                                              <option value="studio">studio</option>
-                                              <option value="ep">ep</option>
-                                              <option value="single">single</option>
-                                              <option value="live">live</option>
-                                              <option value="demo">demo</option>
-                                              <option value="compilation">compilation</option>
-                                              <option value="covers">covers</option>
-                                              <option value="remix">remix</option>
-                                              <option value="soundtrack">soundtrack</option>
-                                              <option value="holiday">holiday</option>
+                                              <option value="studio">Studijinis</option>
+                                              <option value="ep">EP</option>
+                                              <option value="single">Singlas</option>
+                                              <option value="live">Gyvai</option>
+                                              <option value="demo">Demo</option>
+                                              <option value="compilation">Kompiliacija</option>
+                                              <option value="covers">Cover'iai</option>
+                                              <option value="remix">Remix'ai</option>
+                                              <option value="soundtrack">Garso takelis</option>
+                                              <option value="holiday">Šventinis</option>
                                             </select>
                                           )}
                                           {!p.imported && !p.deleted && (
