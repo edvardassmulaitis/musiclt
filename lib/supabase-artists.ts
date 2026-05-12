@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { normalizeBio } from '@/lib/normalize-bio'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -165,7 +166,11 @@ export async function createArtist(data: ArtistFull): Promise<number> {
       type_books: data.type_books ?? false,
       active_from: data.active_from || null,
       active_until: data.active_until || null,
-      description: data.description,
+      // Normalize bio/description: mojibake fixes (Ġ → space, etc.) +
+      // paragraph wrapping if HTML neturi <p> tag'ų. Tai uždaro problema
+      // savaime — DB jau saugo švarų tekstą, jokio runtime patch'inimo
+      // BioModal'e ar kitur. Žr. lib/normalize-bio.ts.
+      description: normalizeBio(data.description),
       spotify_id: data.spotify_id,
       youtube_channel_id: data.youtube_channel_id,
       cover_image_url: data.cover_image_url,
@@ -196,7 +201,7 @@ export async function updateArtist(id: number, data: ArtistFull, skipPhotos = fa
     type_books: data.type_books ?? false,
     active_from: data.active_from || null,
     active_until: data.active_until || null,
-    description: data.description,
+    description: normalizeBio(data.description),
     spotify_id: data.spotify_id,
     youtube_channel_id: data.youtube_channel_id,
     website: data.website,

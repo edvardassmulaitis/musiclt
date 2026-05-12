@@ -1,0 +1,33 @@
+-- Backfill artists.description su client-side normalize tikslu nereikia —
+-- normalizavimas idempotent (lib/normalize-bio.ts), tad bet kuris re-import
+-- (admin/artists/[id]/wiki-import) automatiškai patch'ins esamą description.
+--
+-- Tačiau jei nori GREITAI atskirti, kurie atlikėjai turi mojibake artifact'ų
+-- DB'oje (ir reikalauja re-import'o), galima paleisti šitą diagnostic query:
+--
+--   SELECT id, name, length(description) AS len,
+--          position('Ġ' in description) AS gG_pos,
+--          position('Ī' in description) AS gI_pos,
+--          position('â€' in description) AS encoded_pos
+--   FROM artists
+--   WHERE description IS NOT NULL
+--     AND (description LIKE '%Ġ%' OR description LIKE '%Ī%' OR description LIKE '%â€%')
+--   ORDER BY id;
+--
+-- Kiekvienas grąžintas atlikėjas turi mojibake — re-imp wiki bio per
+-- /admin/artists/{id}/wiki-import arba per scraper/wiki_worker.py.
+--
+-- Alternatyvi non-destructive vienkartinė SQL backfill (jei nori greitai
+-- bet ne tokios tikslios kaip JS normalizeBio):
+--
+--   UPDATE artists
+--   SET description = regexp_replace(
+--                       regexp_replace(
+--                         regexp_replace(description, 'Ġ', ' ', 'g'),
+--                         'Ī', 'į', 'g'),
+--                       '\s{2,}', ' ', 'g')
+--   WHERE description LIKE '%Ġ%' OR description LIKE '%Ī%';
+--
+-- Bet rekomenduojama paleisti re-import'us, kad ir paragraph wrapping
+-- įsidiegtų (SQL paragraph-split per regex sudėtinga).
+SELECT 1;
