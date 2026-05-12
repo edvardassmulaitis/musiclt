@@ -38,7 +38,19 @@ export type ArtistFull = ArtistRow & {
   genres: number[]
   substyleNames?: string[]
   links: Record<string, string>
-  photos: { url: string; caption: string; sort_order: number }[]
+  photos: {
+    url: string
+    caption: string
+    sort_order: number
+    /** ISO date string (`YYYY-MM-DD`) — kapitalizuojam metus galerijoje.
+     *  Wikimedia DateTimeOriginal metadata grąžina šią vertę per
+     *  components/WikimediaSearch.tsx. */
+    taken_at?: string | null
+    /** Photo author display name */
+    author?: string
+    /** Photo source URL (e.g., Commons file page) */
+    sourceUrl?: string
+  }[]
   related: { id: number; name: string; yearFrom: string; yearTo: string }[]
   breaks: { from: string; to: string }[]
 }
@@ -276,12 +288,24 @@ async function syncRelations(id: number, data: ArtistFull, skipPhotos = false) {
   if (!skipPhotos && data.photos?.length) {
     const validPhotos = data.photos.filter((p: any) => p.url && !p.url.startsWith('data:'))
     if (validPhotos.length) inserts.push(supabase.from('artist_photos').insert(
-      validPhotos.map((p: any, i: number) => ({
-        artist_id: id,
-        url: p.url,
-        caption: encodeCaption(p),  // stores author+sourceUrl as JSON in caption
-        sort_order: i,
-      }))
+      validPhotos.map((p: any, i: number) => {
+        // Parse taken_at if present — wiki import perduoda kaip ISO date string
+        // (WikimediaSearch.tsx DateTimeOriginal extract'as), bet field name'as
+        // gali atvykti kaip taken_at, takenAt, ar date. Best-effort parsing.
+        const rawDate = p.taken_at || p.takenAt || p.date || null
+        let takenAt: string | null = null
+        if (typeof rawDate === 'string' && rawDate.trim()) {
+          const d = new Date(rawDate.trim())
+          if (isFinite(d.getTime())) takenAt = d.toISOString().slice(0, 10)
+        }
+        return {
+          artist_id: id,
+          url: p.url,
+          caption: encodeCaption(p),  // stores author+sourceUrl as JSON in caption
+          sort_order: i,
+          taken_at: takenAt,  // metai gallery badge'ui (lib/normalize-bio.ts) + Lightbox
+        }
+      })
     ).then())
   }
 
