@@ -9,6 +9,63 @@ import WikimediaSearch from './WikimediaSearch'
 import RichTextEditor from './RichTextEditor'
 import { createPortal } from 'react-dom'
 
+/** Fetch Wikimedia Commons file metadata by descriptionurl (Commons file page).
+ *  Naudojama kai user'is pasted Commons File:... URL'ą → auto-fill'inam
+ *  author / license / sourceUrl / takenAt iš Commons API extmetadata.
+ *  Same logic as WikimediaSearch.tsx file-details fetch.
+ */
+async function tryFetchWikimediaMeta(rawUrl: string): Promise<{ author?: string; license?: string; sourceUrl?: string; takenAt?: string }> {
+  try {
+    const u = new URL(rawUrl)
+    if (!/commons\.wikimedia\.org$/i.test(u.hostname)) return {}
+    // Path: /wiki/File:xxx.jpg arba /wiki/Special:FilePath/xxx.jpg
+    let title: string | null = null
+    const wikiMatch = u.pathname.match(/^\/wiki\/(File:.+)$/)
+    if (wikiMatch) title = decodeURIComponent(wikiMatch[1])
+    if (!title) return {}
+    const params = new URLSearchParams({
+      action: 'query', prop: 'imageinfo', titles: title,
+      iiprop: 'url|size|extmetadata|timestamp', iiextmetadatamultilang: '0',
+      format: 'json', origin: '*',
+    })
+    const res = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`)
+    const data = await res.json()
+    const pages: any[] = Object.values(data.query?.pages || {})
+    const info = pages[0]?.imageinfo?.[0]
+    if (!info) return {}
+    const meta = info.extmetadata || {}
+    const authorRaw = (meta.Artist?.value || meta.Author?.value || '').replace(/<[^>]+>/g, '').trim()
+    const licenseRaw = meta.LicenseShortName?.value || meta.License?.value || ''
+    const tryParseDate = (raw: string): string | null => {
+      if (!raw) return null
+      const clean = raw.replace(/<[^>]+>/g, '').trim()
+      const m1 = clean.match(/^(\d{4})[-:](\d{1,2})[-:](\d{1,2})/)
+      if (m1) return `${m1[1]}-${String(parseInt(m1[2], 10)).padStart(2, '0')}-${String(parseInt(m1[3], 10)).padStart(2, '0')}`
+      const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december']
+      const lower = clean.toLowerCase()
+      const m2 = lower.match(/(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{4})/)
+      if (m2) return `${m2[3]}-${String(MONTHS.indexOf(m2[2]) + 1).padStart(2, '0')}-${String(parseInt(m2[1], 10)).padStart(2, '0')}`
+      const m3 = lower.match(/(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2}),?\s+(\d{4})/)
+      if (m3) return `${m3[3]}-${String(MONTHS.indexOf(m3[1]) + 1).padStart(2, '0')}-${String(parseInt(m3[2], 10)).padStart(2, '0')}`
+      const ym = clean.match(/(\d{4})/)
+      return ym ? `${ym[1]}-01-01` : null
+    }
+    const takenAt =
+      tryParseDate(meta.DateTimeOriginal?.value || '') ||
+      tryParseDate(meta.DateTime?.value || '') ||
+      tryParseDate(meta.DateTimeDigitized?.value || '') ||
+      tryParseDate(info.timestamp || '') || undefined
+    return {
+      author: authorRaw || undefined,
+      license: licenseRaw || undefined,
+      sourceUrl: info.descriptionurl || rawUrl,
+      takenAt,
+    }
+  } catch {
+    return {}
+  }
+}
+
 /** Portal wrapper — renders children in document.body, fullscreen on mobile */
 function MobileFullscreenPortal({ children }: { children: React.ReactNode }) {
   if (typeof document === 'undefined') return null
@@ -1147,7 +1204,13 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
         if (r.ok) { const d = await r.json(); if (d.url && !d.url.startsWith('data:')) finalUrl = d.url }
       } catch {}
     }
-    const next = [{ url: finalUrl }, ...photos]
+    // Wikimedia Commons URL → fetch metadata (date/author/license/sourceUrl).
+    // Anksciau URL-paste path nepaėmė nieko iš Commons file page'o, todėl
+    // user'is sukeldavo nuotraukas be metų badge'o net jei Commons page
+    // turėjo Date field'ą.
+    const wikiMeta = await tryFetchWikimediaMeta(v)
+    const newPhoto: any = { url: finalUrl, ...wikiMeta }
+    const next = [newPhoto, ...photos]
     onChange(next); saveToDb(next)
   }
 
@@ -1157,7 +1220,7 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
     if (lightboxIdx === i) setLightboxIdx(null)
   }
 
-  const updateMeta = (i: number, field: 'author' | 'sourceUrl', val: string) => {
+  const updateMeta = (i: number, field: 'author' | 'sourceUrl' | 'takenAt' | 'license', val: string) => {
     const next = photos.map((p, idx) => idx === i ? { ...p, [field]: val } : p)
     onChange(next); saveToDb(next)
   }
@@ -1321,14 +1384,23 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
             <span className="text-xs font-semibold text-[var(--text-secondary)]">Nuotrauka #{editMetaIdx + 1} — metaduomenys</span>
             <button type="button" onClick={() => setEditMetaIdx(null)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-sm leading-none">✕</button>
           </div>
-          <div className="flex gap-2">
+          {/* Eilutė 1: autorius + licencija + data */}
+          <div className="flex gap-2 flex-wrap">
             <input type="text" value={photos[editMetaIdx].author || ''} onChange={e => updateMeta(editMetaIdx, 'author', e.target.value)}
-              placeholder="© Autorius / licencija"
-              className="flex-1 px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
-            <input type="url" value={photos[editMetaIdx].sourceUrl || ''} onChange={e => updateMeta(editMetaIdx, 'sourceUrl', e.target.value)}
-              placeholder="Šaltinio URL"
-              className="flex-1 px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
+              placeholder="Autorius (pvz. Drew de F Fawkes)"
+              className="flex-1 min-w-[160px] px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
+            <input type="text" value={(photos[editMetaIdx] as any).license || ''} onChange={e => updateMeta(editMetaIdx, 'license', e.target.value)}
+              placeholder="Licencija (CC BY 2.0)"
+              className="w-[140px] px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
+            <input type="date" value={((photos[editMetaIdx] as any).takenAt || '').slice(0, 10)}
+              onChange={e => updateMeta(editMetaIdx, 'takenAt', e.target.value)}
+              title="Nuotraukos data (metai rodysis galerijoje + lightbox'e)"
+              className="w-[140px] px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
           </div>
+          {/* Eilutė 2: source URL */}
+          <input type="url" value={photos[editMetaIdx].sourceUrl || ''} onChange={e => updateMeta(editMetaIdx, 'sourceUrl', e.target.value)}
+            placeholder="Šaltinio URL (Commons file page)"
+            className="w-full px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
         </div>
       )}
 
