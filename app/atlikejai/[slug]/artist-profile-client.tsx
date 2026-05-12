@@ -2756,16 +2756,29 @@ function Lightbox({
       if (e.key === 'ArrowRight' && index < photos.length - 1) onIndex(index + 1)
     }
     window.addEventListener('keydown', h)
-    document.body.style.overflow = 'hidden'
+    // position:fixed body lock (iOS-safe). Anksčiau body.overflow=hidden
+    // neveikė kai modal'as portaled į body — page'as scroll'indavosi.
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.width = '100%'
     return () => {
       window.removeEventListener('keydown', h)
-      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.width = ''
+      window.scrollTo(0, scrollY)
     }
   }, [index, photos.length, onClose, onIndex])
 
-  return (
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/95 p-4 backdrop-blur-xl"
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/95 p-4 backdrop-blur-xl"
       onClick={onClose}
     >
       <button
@@ -2797,7 +2810,18 @@ function Lightbox({
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 font-['Outfit',sans-serif] text-[12px] font-bold text-white/40">
         {index + 1}/{photos.length}
       </div>
-    </div>
+      {/* Year badge — top-left, jei photo turi datą */}
+      {photos[index].taken_at && (() => {
+        const d = new Date(photos[index].taken_at!)
+        if (isNaN(d.getTime())) return null
+        return (
+          <div className="absolute left-4 top-4 rounded-md bg-black/70 px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-bold text-white backdrop-blur-sm">
+            {d.getFullYear()}
+          </div>
+        )
+      })()}
+    </div>,
+    document.body,
   )
 }
 
@@ -3587,11 +3611,21 @@ function DiscussionThreadModal({
           })
         })
         .catch(() => setPosts([]))
-      document.body.style.overflow = 'hidden'
+      const scrollY = window.scrollY
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.left = '0'
+      document.body.style.right = '0'
+      document.body.style.width = '100%'
       return () => {
         cancelAnimationFrame(r)
         window.removeEventListener('keydown', h)
-        document.body.style.overflow = ''
+        document.body.style.position = ''
+        document.body.style.top = ''
+        document.body.style.left = ''
+        document.body.style.right = ''
+        document.body.style.width = ''
+        window.scrollTo(0, scrollY)
       }
     }
     setMounted(false)
@@ -3600,8 +3634,7 @@ function DiscussionThreadModal({
   }, [thread?.legacy_id])
 
   const handleClose = () => {
-    setMounted(false)
-    window.setTimeout(onClose, 200)
+    onClose()
   }
 
   // Sort'inam jau gautus posts'us in-memory (visi 500 jau pull'inami).
@@ -3641,31 +3674,30 @@ function DiscussionThreadModal({
     </button>
   )
 
-  return (
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div
-      className="fixed inset-0 z-[9999]"
+      className={[
+        'fixed inset-0 z-[9999] flex items-end justify-center backdrop-blur-sm sm:items-center',
+        'bg-black/60 sm:bg-black/30',
+        'lg:justify-start lg:pl-[10%]',
+      ].join(' ')}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
-      {/* Click-outside scrim — be background dimming. Useris norėjo, kad
-          atidarius modal'ą fonas neuztemtų; click'as ant fono vis tiek
-          užda Modal'ą per onClick handler'į. */}
-      <div
-        className="absolute inset-0"
-        onClick={handleClose}
-      />
-
       <aside
         role="dialog"
         aria-label={title}
+        onClick={(e) => e.stopPropagation()}
         className={[
-          // Pamatuotas 720px platis — daugiau erdvės skaitymui (artimiau
-          // kanoninei /diskusijos/[slug] page, kuri turi 1200px content),
-          // bet vis tiek yra drawer (artist hero matomas dešinėj).
-          'absolute left-0 top-0 flex h-full w-full max-w-[720px] flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)]',
-          'transition-transform duration-200 ease-out',
-          mounted ? 'translate-x-0' : '-translate-x-full',
+          'flex w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)]',
+          'h-[90vh] rounded-t-2xl',
+          'sm:h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[720px]',
         ].join(' ')}
       >
+        {/* Mobile handle bar */}
+        <div className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden">
+          <div className="h-1 w-10 rounded-full bg-[var(--border-default)]" />
+        </div>
         {/* Top bar — minimal close + open-full action. Title stays in
             scrollable hero area (canonical-style). */}
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-2.5">
@@ -3974,7 +4006,8 @@ function DiscussionThreadModal({
         count={likesModalPostId !== null ? (postLikers[likesModalPostId]?.length || 0) : 0}
         users={likesModalPostId !== null ? (postLikers[likesModalPostId] || []) : []}
       />
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -4343,13 +4376,19 @@ export default function ArtistProfileClient({
   // (kad nesi-dubliuotų), bet jei active'ių tik 2 ir viena tampa hero'jum,
   // galerija lieka su 1. Dabar paliekam visas — vartotojas mato pilną
   // foto sąrašą + lengvai matosi kuri yra hero (ji dažnai pirma sort_order).
-  const galleryPhotos = useMemo(() => photos, [photos])
+  const galleryPhotos = useMemo(() => {
+    // Sort by taken_at DESC (newest first); photos be datos eina į galą.
+    return [...photos].sort((a, b) => {
+      const ta = a.taken_at ? new Date(a.taken_at).getTime() : 0
+      const tb = b.taken_at ? new Date(b.taken_at).getTime() : 0
+      return tb - ta
+    })
+  }, [photos])
 
-  const bioSubtitle = [
-    active,
-    genres[0]?.name,
-    substyles.map(s => s.name).join(', '),
-  ].filter(Boolean).join(' · ')
+  // BioModal subtitle — TIK active periodas (anksčiau dubliavo SideInfo
+  // stilių info: 'Pop, R&B muzika · Pop'. Stilius ir taip rodomas SideInfo
+  // strip'e + chips'uose žemiau, nereikia kartoti modal'o subtitle'yje).
+  const bioSubtitle = active || undefined
 
   const scrollToGalerija = () => {
     galerijaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })

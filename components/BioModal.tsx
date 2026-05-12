@@ -7,6 +7,55 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
+/** Normalize bio HTML:
+ *  1. Replace known mojibake artifacts (Ġ et al.) — wiki import sometimes
+ *     leaves BPE tokenizer relics or Latin-1/UTF-8 round-trip corruption.
+ *     `Ġ` (U+0120) in machine-translated text → usually a space (BPE space
+ *     marker). E.g. 'IlgĠlaikĠSpears' → 'Ilg laik Spears' (still imperfect
+ *     LT but more readable than raw artifacts).
+ *  2. If no <p> tags present, wrap paragraphs (split by 2+ newlines or
+ *     ' ... ' double-period sentence ends) so the modal renders distinct
+ *     paragraphs instead of a single wall of text.
+ */
+function normalizeBio(html: string): string {
+  if (!html) return ''
+  // 1) Mojibake fixes
+  let out = html
+    // Ġ (U+0120, BPE space marker) → space
+    .replace(/Ġ/g, ' ')
+    // Ī (U+012A) → į (educated guess for LT)
+    .replace(/Ī/g, 'į')
+    // Other common artifacts (best-effort)
+    .replace(/Â/g, '')
+    .replace(/Ã„/g, 'Ä')
+    .replace(/Ãª/g, 'ê')
+    // Collapse multi-spaces created by Ġ replacement
+    .replace(/[ \t]{2,}/g, ' ')
+
+  // 2) Wrap paragraphs if no <p> present
+  const hasP = /<p[\s>]/i.test(out)
+  if (!hasP) {
+    // Split by double-newlines (most common paragraph separator). Fallback:
+    // also split after `. ` (period + space + capital), which catches
+    // single-line bio with sentence breaks but no newlines.
+    let paragraphs: string[]
+    if (/\n\s*\n/.test(out)) {
+      paragraphs = out.split(/\n\s*\n+/).map(p => p.trim()).filter(Boolean)
+    } else {
+      // Sentence-based split, capping at 3-4 sentences per paragraph.
+      // Heuristic: chunk every 3 sentences (`. ` followed by capital).
+      const sentences = out.split(/(?<=\.) +(?=[A-ZĄČĘĖĮŠŲŪŽ])/)
+      paragraphs = []
+      for (let i = 0; i < sentences.length; i += 3) {
+        paragraphs.push(sentences.slice(i, i + 3).join(' ').trim())
+      }
+      paragraphs = paragraphs.filter(Boolean)
+    }
+    out = paragraphs.map(p => `<p>${p}</p>`).join('\n')
+  }
+  return out
+}
+
 type Props = {
   open: boolean
   onClose: () => void
@@ -96,7 +145,13 @@ export default function BioModal({ open, onClose, title, subtitle, html }: Props
           </button>
         </div>
 
-        {/* Body — scrollable readable prose */}
+        {/* Body — scrollable readable prose. Normalize HTML:
+            • Replace mojibake artifacts (Ġ → ė, etc) — duomenys is wiki
+              importo kartais turi UTF-8 round-trip corruption (BPE tokenizer
+              relics ar Latin-1 misinterpretation).
+            • Wrap raw text į <p> jei <p> tag'ų visai nėra — anksčiau bio
+              read'inosi kaip viena pastraipa, sunku skaityti.
+        */}
         <div
           style={{
             flex: 1, overflowY: 'auto',
@@ -104,7 +159,7 @@ export default function BioModal({ open, onClose, title, subtitle, html }: Props
             fontSize: 15, lineHeight: 1.78, color: 'var(--text-secondary)',
           }}
           className="bio-modal-content"
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: normalizeBio(html) }}
         />
 
         <style>{`

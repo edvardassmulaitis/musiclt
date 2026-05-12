@@ -136,6 +136,7 @@ export default function AlbumInfoModal({
 
   // Mobile tab — Dainos vs Komentarai (analogiškai TrackInfoModal Tekstas/Komentarai).
   const [mobileTab, setMobileTab] = useState<'tracks' | 'comments'>('tracks')
+  const [commentTotal, setCommentTotal] = useState(0)
   // videoStarted — false default, rodom thumbnail + orange play overlay.
   // Click → postMessage play + hide overlay (matches TrackInfoModal pattern).
   const [videoStarted, setVideoStarted] = useState(false)
@@ -512,7 +513,12 @@ export default function AlbumInfoModal({
                 : 'text-[var(--text-muted)]',
             ].join(' ')}
           >
-            Komentarai
+            <span>Komentarai</span>
+            {commentTotal > 0 && (
+              <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
+                {commentTotal}
+              </span>
+            )}
           </button>
         </div>
 
@@ -614,6 +620,7 @@ export default function AlbumInfoModal({
                 entityId={album.id}
                 compact
                 title="Komentarai"
+                onCountChange={setCommentTotal}
               />
             ) : (
               <div className="text-[12px] text-[var(--text-faint)]">Kraunama…</div>
