@@ -2305,8 +2305,16 @@ function SideInfo({
         </div>
         {/* Substyles on their own subtle line so the top row stays clean. */}
         {substyles.length > 0 && (
-          <div className="mt-2 text-[12px] leading-[1.5] text-[var(--text-muted)]">
-            {substyles.map(s => s.name).join(' · ')}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {substyles.map(s => (
+              <Link
+                key={s.name}
+                href={`/zanrai/${encodeURIComponent(s.name.toLowerCase().replace(/\s+/g, "-"))}`}
+                className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+              >
+                {s.name}
+              </Link>
+            ))}
           </div>
         )}
         {/* Bio facts: veiklos periodas + gimimo/mirties data + amžius
@@ -2372,8 +2380,16 @@ function SideInfo({
             </span>
           </div>
           {substyles.length > 0 && (
-            <div className="mt-1.5 text-[12px] leading-[1.5] text-[var(--text-muted)]">
-              {substyles.map(s => s.name).join(' · ')}
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {substyles.map(s => (
+                <Link
+                  key={s.name}
+                  href={`/zanrai/${encodeURIComponent(s.name.toLowerCase().replace(/\s+/g, "-"))}`}
+                  className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+                >
+                  {s.name}
+                </Link>
+              ))}
             </div>
           )}
         </div>
@@ -2474,17 +2490,45 @@ function SideInfo({
 // ── BioPreview + MembersInline ─────────────────────────────────────
 
 function BioPreview({ html, onOpen, maxChars = 700 }: { html: string; onOpen: () => void; maxChars?: number }) {
-  const plain = stripHtml(html)
-  // Nicer cut at last word boundary within maxChars so the preview doesn't end mid-word.
-  let excerpt = plain.slice(0, maxChars)
-  if (plain.length > maxChars) {
-    const lastSpace = excerpt.lastIndexOf(' ')
-    if (lastSpace > maxChars * 0.8) excerpt = excerpt.slice(0, lastSpace)
+  // Whitelist inline tags (<strong>, <em>, <b>, <i>, <a>) — strip block tags
+  // (<p>, <ul>, <li>, <h*>, <blockquote>, <img>, <iframe>). Anksčiau stripHtml
+  // šalindavo VISKĄ → wall of text be emphasis'ų ar links'ų.
+  const cleaned = html
+    .replace(/<(?:p|div|h[1-6]|li|blockquote)[^>]*>/gi, '')
+    .replace(/<\/(?:p|div|h[1-6]|li|blockquote)>/gi, ' ')
+    .replace(/<(?:br|hr)\s*\/?>(?=)/gi, ' ')
+    .replace(/<(\/?)(?:ul|ol|img|iframe|table|tr|td|th|tbody|thead|figure|figcaption)[^>]*>/gi, '')
+    .replace(/\son[a-z]+="[^"]*"/gi, '')
+    .replace(/\son[a-z]+='[^']*'/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+  const plainLen = cleaned.replace(/<[^>]+>/g, '').length
+  let excerpt = cleaned
+  let isLong = false
+  if (plainLen > maxChars) {
+    // Walk through, count visible chars, cut at boundary (avoid mid-tag cut).
+    let plainCount = 0
+    let cut = 0
+    let inTag = false
+    for (let i = 0; i < cleaned.length; i++) {
+      const ch = cleaned[i]
+      if (ch === '<') inTag = true
+      else if (ch === '>') { inTag = false; continue }
+      if (!inTag) plainCount++
+      if (plainCount >= maxChars) { cut = i + 1; break }
+    }
+    if (cut > 0) {
+      excerpt = cleaned.slice(0, cut)
+      const lastLt = excerpt.lastIndexOf('<')
+      const lastGt = excerpt.lastIndexOf('>')
+      if (lastLt > lastGt) excerpt = excerpt.slice(0, lastLt)
+      isLong = true
+    }
   }
-  const isLong = plain.length > maxChars
   return (
-    <div className="text-[15px] leading-[1.72] text-[var(--text-secondary)]">
-      {excerpt}{isLong && '…'}
+    <div className="text-[15px] leading-[1.72] text-[var(--text-secondary)] [&_a]:text-[var(--accent-orange)] [&_a]:no-underline hover:[&_a]:underline [&_strong]:text-[var(--text-primary)] [&_b]:text-[var(--text-primary)]">
+      <span dangerouslySetInnerHTML={{ __html: excerpt }} />
+      {isLong && '…'}
       {isLong && (
         <>
           {' '}
@@ -2822,7 +2866,7 @@ function EventVerticalCard({ e, href, hasCover, setCoverFailed, d, venue }: {
       className="group flex h-full w-full flex-col overflow-hidden rounded-xl border border-[rgba(249,115,22,0.3)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.55)] hover:shadow-[0_8px_22px_rgba(249,115,22,0.18)]"
       style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(249,115,22,0.02) 70%), var(--bg-elevated)' }}
     >
-      <div className="relative min-h-[160px] w-full flex-1 overflow-hidden bg-gradient-to-br from-[rgba(249,115,22,0.18)] to-[rgba(249,115,22,0.05)]">
+      <div className="relative min-h-[160px] w-full flex-1 overflow-hidden bg-gradient-to-br from-[var(--card-bg)] to-[var(--bg-elevated)]">
         {/* Fallback: calendar icon */}
         <div className="absolute inset-0 flex items-center justify-center">
           <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-[var(--accent-orange)]/40">
@@ -2852,7 +2896,7 @@ function EventVerticalCard({ e, href, hasCover, setCoverFailed, d, venue }: {
           {formatLtDate(d)}
         </div>
         <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)]">{e.title}</div>
-        {venue && <div className="line-clamp-1 text-[12px] text-[var(--text-secondary)]">📍 {venue}</div>}
+        {venue && <div className="flex items-center gap-1 text-[12px] text-[var(--text-secondary)]"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="line-clamp-1">{venue}</span></div>}
       </div>
     </Link>
   )
@@ -2938,7 +2982,7 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
             {e.title}
           </div>
           {venue && (
-            <div className="mt-1 truncate text-[12px] text-[var(--text-secondary)]">📍 {venue}</div>
+            <div className="mt-1 flex items-center gap-1 text-[12px] text-[var(--text-secondary)]"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="truncate">{venue}</span></div>
           )}
         </div>
       </Link>
@@ -2952,7 +2996,7 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
   return (
     <Link
       href={href}
-      className="group flex min-h-[130px] w-full items-stretch gap-0 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
+      className="group flex min-h-[130px] w-full items-stretch gap-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-default)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
       style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(249,115,22,0.04) 70%), var(--bg-elevated)' }}
     >
       {/* Cover area: backdrop fallback ALWAYS rendered (calendar + orange
@@ -2960,7 +3004,7 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
           krenta — slepiam su display:none, ir matosi backdrop. Vengiame
           conditional rendering kuris paliktų browser native broken-image
           ikoną iki onError fire. */}
-      <div className="relative w-[42%] min-w-[120px] max-w-[190px] shrink-0 overflow-hidden bg-gradient-to-br from-[rgba(249,115,22,0.18)] to-[rgba(249,115,22,0.05)]">
+      <div className="relative w-[42%] min-w-[120px] max-w-[190px] shrink-0 overflow-hidden bg-gradient-to-br from-[var(--card-bg)] to-[var(--bg-elevated)]">
         {/* Always-on fallback layer */}
         <div className="absolute inset-0 flex items-center justify-center">
           <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-[var(--accent-orange)]/40">
@@ -3000,7 +3044,7 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
         </div>
         {venue && (
           <div className="line-clamp-2 text-[12px] leading-snug text-[var(--text-secondary)]">
-            📍 {venue}
+            <span className="inline-flex items-center gap-1"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>{venue}</span>
           </div>
         )}
       </div>
@@ -3106,7 +3150,7 @@ function EventBigCard({ e }: { e: any }) {
   return (
     <Link
       href={href}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-default)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
       style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(249,115,22,0.04) 70%), var(--bg-elevated)' }}
     >
       {hasCover ? (
@@ -3132,7 +3176,7 @@ function EventBigCard({ e }: { e: any }) {
           {longDate}
         </div>
         <div className="mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-bold leading-snug text-[var(--text-primary)] sm:text-[16px]">{e.title}</div>
-        {venue && <div className="mt-1 truncate text-[12px] text-[var(--text-secondary)] sm:text-[13px]">📍 {venue}</div>}
+        {venue && <div className="mt-1 flex items-center gap-1 text-[12px] text-[var(--text-secondary)] sm:text-[13px]"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="truncate">{venue}</span></div>}
       </div>
     </Link>
   )
