@@ -12,7 +12,11 @@ export type Photo = {
   authorUrl?: string
   sourceUrl?: string
   license?: string
+  /** Data — gali būti YYYY, YYYY-MM, arba YYYY-MM-DD. UI input'as priimą bet
+   *  kokią iš šių formų; API parse'ina ir saugo kaip ISO YYYY-MM-DD. */
   takenAt?: string
+  /** Optional vieta — venue arba miestas. */
+  place?: string
   is_active?: boolean
   sort_order?: number
 }
@@ -316,16 +320,30 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
               <div className="aspect-video w-full overflow-hidden rounded-lg bg-gray-100">
                 <img src={proxyImg(editDraft.url)} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
               </div>
-              {/* takenAt — date input — frontend parses į ISO */}
+              {/* takenAt — fleksibilus text input (YYYY / YYYY-MM / YYYY-MM-DD).
+                  Anksciau buvo input[type=date] kuris reikalavo pilnos datos —
+                  daug fotografų tik metus žino. API parse'ina į ISO automatiškai. */}
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Nuotraukos data</label>
                 <input
-                  type="date"
+                  type="text"
                   value={(editDraft.takenAt || '').slice(0, 10)}
                   onChange={(e) => setEditDraft({ ...editDraft, takenAt: e.target.value || undefined })}
+                  placeholder="2016 ARBA 2016-09 ARBA 2016-09-27"
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none focus:border-blue-400"
                 />
-                <div className="text-[10px] text-gray-400 mt-0.5">Bus rodoma metai badge'as galerijoje + lightbox'e.</div>
+                <div className="text-[10px] text-gray-400 mt-0.5">Tik metai, metai+mėnuo arba pilna data. Galerijoje bus rodomi metai.</div>
+              </div>
+              {/* Place — NEW */}
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Vieta (optional)</label>
+                <input
+                  type="text"
+                  value={editDraft.place || ''}
+                  onChange={(e) => setEditDraft({ ...editDraft, place: e.target.value })}
+                  placeholder="Pvz., Roundhouse, London"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none focus:border-blue-400"
+                />
               </div>
               {/* Author */}
               <div>

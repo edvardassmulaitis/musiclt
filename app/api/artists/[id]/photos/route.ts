@@ -157,15 +157,38 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   for (let i = 0; i < validPhotos.length; i++) {
     const p = validPhotos[i]
-    const { name, license } = splitAuthorLicense(p.author || '')
+    // License: PRIORITIZE explicit p.license field (admin įvedė atskirai
+    // arba Wiki extract'as). FALLBACK į author-string split (legacy '·'
+    // separator), tik jei p.license tuščia. Anksciau API ignoravo p.license
+    // visiškai — admin form'oje įvesta licencija prarasdavosi.
+    const fromAuthor = splitAuthorLicense(p.author || '')
+    const name = fromAuthor.name
+    const license = (typeof p.license === 'string' && p.license.trim()) ? p.license.trim() : fromAuthor.license
     const sourceUrl = typeof p.sourceUrl === 'string' ? p.sourceUrl : null
     const photographerId = name ? await resolvePhotographerId(name, sourceUrl) : null
+    // Date parsing: priimam (a) YYYY-MM-DD, (b) YYYY-MM, (c) YYYY (year-only).
+    // Year-only saugom kaip YYYY-01-01 — DB date column reikalauja full date,
+    // bet UI parses metus iš taken_at.getFullYear() — display'as identiškas.
     const rawDate = p.takenAt || p.taken_at || p.date || null
     let takenAt: string | null = null
     if (typeof rawDate === 'string' && rawDate.trim()) {
-      const d = new Date(rawDate.trim())
-      if (isFinite(d.getTime())) {
-        takenAt = d.toISOString().slice(0, 10)
+      const s = rawDate.trim()
+      // YYYY-MM-DD or YYYY-MM
+      const isoMatch = s.match(/^(\d{4})(?:-(\d{1,2}))?(?:-(\d{1,2}))?/)
+      if (isoMatch) {
+        const yr = isoMatch[1]
+        const mo = String(parseInt(isoMatch[2] || '1', 10)).padStart(2, '0')
+        const dy = String(parseInt(isoMatch[3] || '1', 10)).padStart(2, '0')
+        // Validate year is reasonable (>1900)
+        if (parseInt(yr, 10) >= 1900 && parseInt(yr, 10) <= 2100) {
+          takenAt = `${yr}-${mo}-${dy}`
+        }
+      } else {
+        // Fallback — Date() constructor (handles English dates 'May 12, 2026', etc.)
+        const d = new Date(s)
+        if (isFinite(d.getTime()) && d.getFullYear() >= 1900) {
+          takenAt = d.toISOString().slice(0, 10)
+        }
       }
     }
     const base: any = {
@@ -176,6 +199,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       source_url: sourceUrl,
       taken_at: takenAt,
       sort_order: i,
+    }
+    // Place — naujas optional field'as (kur photo padaryta).
+    if (typeof p.place === 'string' && p.place.trim()) {
+      base.place = p.place.trim()
     }
     // is_active gali ateiti iš formos. Default true jei undefined.
     if (typeof p.is_active === 'boolean') base.is_active = p.is_active

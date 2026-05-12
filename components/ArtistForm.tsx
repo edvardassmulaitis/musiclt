@@ -1220,7 +1220,7 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
     if (lightboxIdx === i) setLightboxIdx(null)
   }
 
-  const updateMeta = (i: number, field: 'author' | 'sourceUrl' | 'takenAt' | 'license', val: string) => {
+  const updateMeta = (i: number, field: 'author' | 'sourceUrl' | 'takenAt' | 'license' | 'place', val: string) => {
     const next = photos.map((p, idx) => idx === i ? { ...p, [field]: val } : p)
     onChange(next); saveToDb(next)
   }
@@ -1384,20 +1384,28 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
             <span className="text-xs font-semibold text-[var(--text-secondary)]">Nuotrauka #{editMetaIdx + 1} — metaduomenys</span>
             <button type="button" onClick={() => setEditMetaIdx(null)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-sm leading-none">✕</button>
           </div>
-          {/* Eilutė 1: autorius + licencija + data */}
+          {/* Eilutė 1: autorius + licencija */}
           <div className="flex gap-2 flex-wrap">
             <input type="text" value={photos[editMetaIdx].author || ''} onChange={e => updateMeta(editMetaIdx, 'author', e.target.value)}
               placeholder="Autorius (pvz. Drew de F Fawkes)"
-              className="flex-1 min-w-[160px] px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
+              className="flex-1 min-w-[200px] px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
             <input type="text" value={(photos[editMetaIdx] as any).license || ''} onChange={e => updateMeta(editMetaIdx, 'license', e.target.value)}
               placeholder="Licencija (CC BY 2.0)"
-              className="w-[140px] px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
-            <input type="date" value={((photos[editMetaIdx] as any).takenAt || '').slice(0, 10)}
-              onChange={e => updateMeta(editMetaIdx, 'takenAt', e.target.value)}
-              title="Nuotraukos data (metai rodysis galerijoje + lightbox'e)"
-              className="w-[140px] px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
+              className="w-[180px] px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
           </div>
-          {/* Eilutė 2: source URL */}
+          {/* Eilutė 2: data (FLEKSIBILI — YYYY / YYYY-MM / YYYY-MM-DD) + vieta */}
+          <div className="flex gap-2 flex-wrap">
+            <input type="text" value={((photos[editMetaIdx] as any).takenAt || '').slice(0, 10)}
+              onChange={e => updateMeta(editMetaIdx, 'takenAt', e.target.value)}
+              placeholder="Data: 2016 ARBA 2016-09 ARBA 2016-09-27"
+              title="Galima įvesti tik metus (2016), metus+mėnesį (2016-09), arba pilną datą"
+              pattern="^\d{4}(?:-\d{1,2}(?:-\d{1,2})?)?$"
+              className="w-[260px] px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
+            <input type="text" value={(photos[editMetaIdx] as any).place || ''} onChange={e => updateMeta(editMetaIdx, 'place', e.target.value)}
+              placeholder="Vieta (Roundhouse, London) — optional"
+              className="flex-1 min-w-[180px] px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
+          </div>
+          {/* Eilutė 3: source URL */}
           <input type="url" value={photos[editMetaIdx].sourceUrl || ''} onChange={e => updateMeta(editMetaIdx, 'sourceUrl', e.target.value)}
             placeholder="Šaltinio URL (Commons file page)"
             className="w-full px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />

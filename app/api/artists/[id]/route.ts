@@ -87,7 +87,7 @@ export async function GET(
   try {
     const { data: photoRows } = await supabase
       .from('artist_photos')
-      .select('id, url, caption, sort_order, is_active, photographer_id, license, source_url, taken_at')
+      .select('id, url, caption, sort_order, is_active, photographer_id, license, source_url, taken_at, place')
       .eq('artist_id', id)
       .order('sort_order', { ascending: true })
     photosForUi = (photoRows || []).map((p: any) => {
@@ -110,6 +110,7 @@ export async function GET(
         sourceUrl,
         license: p.license || '',
         takenAt: p.taken_at || '',
+        place: p.place || '',
         caption,
         is_active: p.is_active !== false, // null/undef treat as active
         sort_order: p.sort_order,
@@ -153,6 +154,12 @@ export async function PATCH(
     // NB: 'photos' column DROPPED (db-cleanup-atlanta.sql). Photo data
     // dabar gyvena tik artist_photos lentelėje per /api/artists/[id]/photos PUT.
     'facebook','youtube','tiktok','spotify','soundcloud','bandcamp','twitter',
+    // Solo atlikėjų papildomi infobox laukai (text[] tipai DB'ėje):
+    //   roles — Singer, Songwriter, Producer, ...
+    //   instruments — Vocals, Guitar, Piano, ...
+    // Wiki import (WikipediaImport.tsx) pildo iš {{occupation}}/{{instrument}}
+    // infobox laukų; admin form'a leidžia rankiniam editavimui.
+    'roles','instruments',
   ]
 
   for (const f of dbFields) {
