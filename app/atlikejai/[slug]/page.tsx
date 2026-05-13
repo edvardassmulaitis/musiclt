@@ -778,6 +778,26 @@ async function getArtistRanks(
   return out
 }
 
+/** Custom eras for an artist (Push 3b, 2026-05-13).
+ *  Returns rows ordered by sort_order ASC. Convention: newest era first
+ *  (lowest sort_order). Frontend falls back to auto-decade grouping when
+ *  this is empty AND albums.length >= 10 AND ≥3 decades have ≥2 albums. */
+async function getArtistEras(artistId: number) {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('artist_eras')
+    .select('id, sort_order, title, subtitle, year_start, year_end, description, featured_album_ids, source')
+    .eq('artist_id', artistId)
+    .order('sort_order', { ascending: true })
+  return (data || []) as Array<{
+    id: number; sort_order: number; title: string; subtitle: string | null
+    year_start: number; year_end: number | null
+    description: string | null
+    featured_album_ids: number[] | null
+    source: string | null
+  }>
+}
+
 /** Awards for this artist — joined view from voting_participants ↔ events/editions/channels.
  *  Each row represents one nomination/win at a specific ceremony.
  *  `participants_in_event` is the # of participants in same event (1 = ceremony partially imported). */
@@ -899,7 +919,7 @@ export default async function ArtistPage({ params }: Props) {
  */
 const fetchArtistData = unstable_cache(
   async (artistId: number, country: string | null, score: number) => {
-    const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount, news, rawEvents, _allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards] = await Promise.all([
+    const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount, news, rawEvents, _allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards, eras] = await Promise.all([
       getGenres(artistId), getSubstyles(artistId), getLinks(artistId), getPhotos(artistId), getAlbums(artistId), getTracks(artistId),
       getMembers(artistId), getMemberOf(artistId), getFollowers(artistId), getLikeCount(artistId), getNews(artistId), getEvents(artistId),
       getAllArtistTrackLegacyIds(artistId),
@@ -907,6 +927,7 @@ const fetchArtistData = unstable_cache(
       getLegacyNewsThreads(artistId),
       getLinkedTrackIds(artistId),
       getArtistAwards(artistId),
+      getArtistEras(artistId),
     ])
     const linkedTrackIds = Array.from(linkedTrackIdSet)
     const albumIds = (albums as any[]).map((a: any) => a.id).filter((x: any) => typeof x === 'number')
@@ -925,12 +946,12 @@ const fetchArtistData = unstable_cache(
     const lastPostsArr = Array.from(lastPosts.entries()).map(([k, v]) => [k, v] as [number, typeof v])
     return {
       genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount,
-      news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards,
+      news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards, eras,
       similar, legacyCommunity, ranks, lastPostsArr,
     }
   },
-  // v4 — bumped po news/event card meta (likes, comments, dates)
-  ['artist-full-data-v4'],
+  // v5 — bumped po artist_eras pridėjimo (Push 3b)
+  ['artist-full-data-v5'],
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
@@ -942,7 +963,7 @@ async function ArtistContent({ artist }: { artist: any }) {
   )
   const {
     genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount,
-    news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards,
+    news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards, eras,
     similar, legacyCommunity, ranks, lastPostsArr,
   } = data
   const memberOf = (data as any).memberOf || []
@@ -1068,6 +1089,7 @@ async function ArtistContent({ artist }: { artist: any }) {
       substyles={substyles}
       linkedTrackIds={linkedTrackIds}
       awards={awards}
+      eras={eras as any}
     />
     </>
   )

@@ -113,6 +113,23 @@ type Props = {
    *  junction). Tracks NOT in this list are considered orphan ("Kitos dainos"). */
   linkedTrackIds?: number[]
   awards?: AwardRow[]
+  /** Custom eras for discography periodization (Push 3b). When ≥2 rows,
+   *  the album grid is grouped by era instead of flat chronological.
+   *  When empty, auto-decade grouping kicks in if albums.count ≥ 10 AND
+   *  ≥3 decades have ≥2 albums; otherwise flat grid is used. */
+  eras?: Era[]
+}
+/** Custom era — single period in an artist's career. */
+type Era = {
+  id: number
+  sort_order: number
+  title: string
+  subtitle: string | null
+  year_start: number
+  year_end: number | null
+  description: string | null
+  featured_album_ids: number[] | null
+  source: string | null
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -3316,6 +3333,176 @@ function MobileFilterRow({
   )
 }
 
+// ── SpotlightAlbumRow ──────────────────────────────────────────────
+//
+// Naujausio albumo „Latest release" promo'as virš grupavimo zonos.
+// Renderinasi tik kai albumas išleistas paskutiniais ~12 mėn (lookup
+// gyvena ArtistProfileClient'e — `latestAlbum` useMemo'oje). Vizualas:
+// horizontalus kortelės blokas su didesniu cover'iu kairėje + meta dešinėje
+// (pavadinimas, metai, top dainos, play CTA). Mobile'e stack'inasi
+// vertikaliai — cover viršuje, meta apačioje.
+//
+// Click ant cover'io ar pavadinimo → atidaro AlbumInfoModal. Play CTA →
+// startuoja pirmą top track'ą.
+
+function SpotlightAlbumRow({ album, artistSlug, topTracks, onOpen, onPlayTrack }: {
+  album: Album
+  artistSlug?: string
+  topTracks: Track[]
+  onOpen: () => void
+  onPlayTrack: (t: Track) => void
+}) {
+  const coverUrl = (album as any).cover_image_url
+  const [coverFailed, setCoverFailed] = useState(false)
+  const type = aType(album)
+  const showCover = !!coverUrl && !coverFailed
+  const href = artistSlug ? `/albumai/${artistSlug}-${album.slug}-${album.id}` : `/albumai/${album.slug}-${album.id}`
+  const firstTrack = topTracks[0]
+  return (
+    <div className="mb-6 overflow-hidden rounded-2xl border border-[var(--border-default)] bg-gradient-to-r from-[rgba(249,115,22,0.08)] via-[var(--bg-surface)] to-[var(--bg-surface)] p-3 sm:mb-8 sm:p-5">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="inline-flex h-5 items-center rounded-full bg-[var(--accent-orange)] px-2 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.15em] text-white">
+          Naujausias
+        </span>
+        <span className="font-['Outfit',sans-serif] text-[10.5px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+          {type}
+        </span>
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+        {/* Cover — link su preventDefault → onOpen (modal). */}
+        <a
+          href={href}
+          onClick={(e) => { e.preventDefault(); onOpen() }}
+          className="block w-full max-w-[180px] shrink-0 sm:max-w-[200px]"
+          aria-label={`Atidaryti albumą ${album.title}`}
+        >
+          <div className="aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
+            {showCover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={proxyImg(coverUrl)}
+                alt={album.title}
+                referrerPolicy="no-referrer"
+                onError={() => setCoverFailed(true)}
+                className="h-full w-full object-cover"
+                style={{ filter: 'saturate(1.05) contrast(1.02)' }}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-3xl text-[var(--text-faint)]">💿</div>
+            )}
+          </div>
+        </a>
+        <div className="min-w-0 flex-1">
+          <a
+            href={href}
+            onClick={(e) => { e.preventDefault(); onOpen() }}
+            className="block text-inherit no-underline"
+          >
+            <div className="font-['Outfit',sans-serif] text-[20px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[24px]">
+              {album.title}
+            </div>
+          </a>
+          <div className="mt-1 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)] sm:text-[13px]">
+            {album.year || '—'}
+          </div>
+          {topTracks.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-secondary)] sm:text-[13px]">
+              {topTracks.slice(0, 4).map((t, i) => (
+                <span key={t.id} className="inline-flex items-center">
+                  {i > 0 && <span aria-hidden className="mr-2 text-[var(--text-muted)]">·</span>}
+                  <a
+                    href={artistSlug ? `/dainos/${artistSlug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`}
+                    onClick={(e) => { e.preventDefault(); onPlayTrack(t) }}
+                    className="text-inherit no-underline transition-colors hover:text-[var(--accent-orange)]"
+                  >
+                    {t.title}
+                  </a>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {firstTrack && (
+              <button
+                type="button"
+                onClick={() => onPlayTrack(firstTrack)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+                Klausyti
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onOpen}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+            >
+              Albumas
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── AlbumGroupRow ─────────────────────────────────────────────────
+//
+// Vienos eros / dekados albumų eilutė — su header'iu (title + range +
+// count) ir horizontaliu snap-scroll'u (vienodas mobile + desktop'e). Right
+// edge chevron'as parodo, kad galima slinkti, kai albumų yra daugiau, nei
+// telpa į vieną row'ą.
+
+function AlbumGroupRow({ title, subtitle, description, rangeLabel, count, children }: {
+  title: string
+  subtitle?: string | null
+  description?: string | null
+  rangeLabel?: string
+  count: number
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline justify-between gap-3 border-b border-[var(--border-subtle)] pb-1.5">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h3 className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] sm:text-[15px]">
+            {title}
+          </h3>
+          {subtitle && (
+            <span className="truncate font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-secondary)]">
+              — {subtitle}
+            </span>
+          )}
+          {rangeLabel && (
+            <span className="shrink-0 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-muted)]">
+              · {rangeLabel}
+            </span>
+          )}
+        </div>
+        <span className="shrink-0 font-['Outfit',sans-serif] text-[10.5px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+          {count} {count === 1 ? 'albumas' : count < 10 ? 'albumai' : 'albumų'}
+        </span>
+      </div>
+      {description && (
+        <p className="mb-2 max-w-prose font-['Outfit',sans-serif] text-[12px] font-medium leading-snug text-[var(--text-secondary)]">
+          {description}
+        </p>
+      )}
+      <div
+        className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{
+          scrollSnapType: 'x mandatory',
+          scrollPaddingLeft: '1rem',
+          overscrollBehaviorX: 'contain',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // ── AlbumCard ──────────────────────────────────────────────────────
 
 /** Weight tier for an album card — drives subtle scaling/opacity so the
@@ -3399,18 +3586,18 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
             saugo. Truncate'inam pavadinimus, kad netiltų horizontaliai. */}
         {topTracks && topTracks.length > 0 && (
           <div
-            className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-0 font-['Outfit',sans-serif] text-[10px] leading-tight text-[var(--text-faint)] sm:text-[10.5px]"
+            className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-['Outfit',sans-serif] text-[11px] font-medium leading-tight text-[var(--text-secondary)] sm:text-[11.5px]"
             onClick={(e) => e.stopPropagation()}
           >
             {topTracks.slice(0, 3).map((t, i) => (
               <span key={t.id} className="inline-flex max-w-full items-center">
-                {i > 0 && <span aria-hidden className="mr-1 text-[var(--text-faint)]/60">·</span>}
+                {i > 0 && <span aria-hidden className="mr-1.5 text-[var(--text-muted)]">·</span>}
                 <a
                   href={artistSlug ? `/dainos/${artistSlug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`}
                   onClick={(e) => {
                     if (onPlayTrack) { e.preventDefault(); e.stopPropagation(); onPlayTrack(t) }
                   }}
-                  className="max-w-[140px] truncate text-inherit no-underline transition-colors hover:text-[var(--accent-orange)]"
+                  className="max-w-[160px] truncate text-inherit no-underline transition-colors hover:text-[var(--accent-orange)]"
                   title={t.title}
                 >
                   {t.title}
@@ -3422,16 +3609,12 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
       </div>
     </>
   )
-  // Weight tier → subtle scale + opacity. Naudojam `transform: scale()` +
-  // origin-top — kad card lieka ant viršaus aligned grid lygyje, o sumažėja
-  // į apačią. Mid'as palieka ne-scale'intą, bet šiek tiek dim'intas
-  // pavadinimas. Dim'as — 85% scale + 0.7 opacity, kad live/EP/kompilacijos
-  // matytųsi kaip „antrinis" turinys. Hover'is paima full opacity ir scale 1.
-  const weightWrapper =
-    weight === 'dim'  ? 'origin-top scale-[0.88] opacity-70 transition-all duration-200 hover:scale-100 hover:opacity-100' :
-    weight === 'mid'  ? 'opacity-95 transition-opacity duration-200 hover:opacity-100' :
-    /* full */         ''
-  const wrapperClass = `${cardClassName} ${weightWrapper}`.trim()
+  // 2026-05-13 (Push 3a fix): weight tier scaling pašalintas — skirtingo
+  // dydžio cover'iai sukūrė chaosą. Populiarumą jau perteikia PopBar dash'ai
+  // po albumo pavadinimo. `weight` prop'as palieka tik backwards-compat
+  // (gali būti naudojamas era grouping context'e). Visi card'ai full-size.
+  void weight
+  const wrapperClass = cardClassName
   if (onOpen) {
     // Modal-mode: SEO-friendly <a> with real href so crawlers index the
     // album page. Click → preventDefault → onOpen(a) opens slide-in modal.
@@ -3972,7 +4155,7 @@ export default function ArtistProfileClient({
   artist, heroImage, genres, substyles = [], links, photos, albums, tracks, members, memberOf = [], followers, likeCount,
   events, similar, newTracks,
   legacyCommunity, legacyThreads = [], legacyNews = [], ranks = [],
-  linkedTrackIds = [], awards = [],
+  linkedTrackIds = [], awards = [], eras = [],
 }: Props) {
   const [pid, setPid] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -4222,6 +4405,135 @@ export default function ArtistProfileClient({
     for (const a of nonStudioAlbums) map.set(a.id, 'dim')
     return map
   }, [albums, topTracksByAlbum])
+
+  // ── Era / decade grouping (Push 3b, 2026-05-13) ──────────────────
+  //
+  // Trijų pakopų sprendimas:
+  //   (a) Custom eras (≥2 admin rows) — naudoja exact'us year_start/year_end
+  //       boundary'us. Albumai už ribų — į "Be eros" katalizatorių apačioje.
+  //   (b) Auto-decade grouping — kai albums.count ≥ 10 IR ≥3 dekados turi ≥2
+  //       albumus. Default'iniu vis dar kompaktiškas, bet duoda struktūrą
+  //       dideliems atlikėjams be admin intervention.
+  //   (c) Flat grid — likusiems (≤9 albumai arba sparse dekados). Nedrumzta
+  //       LT atlikėjams su 3–5 release'iais.
+  //
+  // Spotlight slot'as (naujausias albumas <12 mo) renderinasi atskirai virš
+  // grupavimo zonos, todėl jis dingsta iš era'os, kuriai chronologiškai
+  // priklausytų — nepasidubliuoja.
+  type AlbumGroup = {
+    key: string
+    title: string
+    subtitle?: string | null
+    description?: string | null
+    year_start: number | null
+    year_end: number | null
+    albums: Album[]
+    featured_ids?: number[]
+  }
+  /** Decade label LT — „2020-ieji", „1990-ieji", t.t. */
+  const decadeLabel = (d: number) => `${d}-ieji`
+  /** Pad year range į vieną string'ą — pvz. „2008–2015" arba „2019–". */
+  const yearRangeLabel = (s: number | null, e: number | null) => {
+    if (s === null) return ''
+    if (e === null) return `${s}–`
+    if (s === e) return String(s)
+    return `${s}–${e}`
+  }
+
+  /** Latest album spotlight: naujausias studijinis ar EP albumas, jei jis
+   *  išleistas <=12 mo atgal. Naudojam current_year-1 kaip threshold'ą
+   *  (paprastas ir veikia per visus laiko zonos quirk'us). */
+  const latestAlbum = useMemo<Album | null>(() => {
+    const currentYear = new Date().getFullYear()
+    const threshold = currentYear - 1
+    const recent = albums
+      .filter(a => a.year && a.year >= threshold)
+      .filter(a => {
+        const t = aType(a)
+        return t === 'Studijinis' || t === 'EP' || t === 'Singlas'
+      })
+      .sort((a, b) => (b.year || 0) - (a.year || 0))
+    return recent[0] || null
+  }, [albums])
+
+  /** Albums considered for grouping (excludes the spotlight album if any —
+   *  it renders separately above to avoid duplication). */
+  const groupableAlbums = useMemo(() => {
+    if (!latestAlbum) return visibleAlbums
+    return visibleAlbums.filter(a => a.id !== latestAlbum.id)
+  }, [visibleAlbums, latestAlbum])
+
+  const albumGroups = useMemo<AlbumGroup[] | null>(() => {
+    // (a) Custom eras — admin override. ≥2 rows required (1 lone era beats
+    // the purpose of grouping).
+    if (eras.length >= 2) {
+      const groups: AlbumGroup[] = eras.map(e => ({
+        key: `era-${e.id}`,
+        title: e.title,
+        subtitle: e.subtitle,
+        description: e.description,
+        year_start: e.year_start,
+        year_end: e.year_end,
+        albums: [],
+        featured_ids: e.featured_album_ids || [],
+      }))
+      const orphans: Album[] = []
+      for (const a of groupableAlbums) {
+        if (!a.year) { orphans.push(a); continue }
+        const era = eras.find(e => {
+          const end = e.year_end ?? 9999
+          return a.year! >= e.year_start && a.year! <= end
+        })
+        if (era) {
+          groups.find(g => g.key === `era-${era.id}`)!.albums.push(a)
+        } else {
+          orphans.push(a)
+        }
+      }
+      if (orphans.length > 0) {
+        groups.push({
+          key: 'orphans',
+          title: 'Kiti įrašai',
+          year_start: null, year_end: null,
+          albums: orphans,
+        })
+      }
+      // Drop empty eras + per-era sort by year DESC
+      return groups
+        .filter(g => g.albums.length > 0)
+        .map(g => ({ ...g, albums: g.albums.slice().sort((a, b) => (b.year || 0) - (a.year || 0)) }))
+    }
+
+    // (b) Auto-decade grouping — only when warranted.
+    const yeared = groupableAlbums.filter(a => typeof a.year === 'number')
+    if (yeared.length < 10) return null
+    const byDecade = new Map<number, Album[]>()
+    for (const a of yeared) {
+      const d = Math.floor(a.year! / 10) * 10
+      const arr = byDecade.get(d) || []
+      arr.push(a)
+      byDecade.set(d, arr)
+    }
+    const decadesWith2Plus = [...byDecade.values()].filter(arr => arr.length >= 2).length
+    if (decadesWith2Plus < 3) return null
+    const decades = [...byDecade.entries()].sort((a, b) => b[0] - a[0]) // newest first
+    const groups: AlbumGroup[] = decades.map(([d, arr]) => ({
+      key: `decade-${d}`,
+      title: decadeLabel(d),
+      year_start: d, year_end: d + 9,
+      albums: arr.slice().sort((a, b) => (b.year || 0) - (a.year || 0)),
+    }))
+    // No-year orphans — į „Be metų" group
+    const noYear = groupableAlbums.filter(a => !a.year)
+    if (noYear.length > 0) {
+      groups.push({
+        key: 'no-year', title: 'Be metų',
+        year_start: null, year_end: null,
+        albums: noYear,
+      })
+    }
+    return groups
+  }, [eras, groupableAlbums])
 
   // Pop signal'as su fallback hierarchy — taip pat kaip HeroPlayer'yje.
   // Garantuoja, kad orphan ("Kitos dainos") sąraše bar'ai rodomi net jei
@@ -4704,61 +5016,105 @@ export default function ArtistProfileClient({
                 onToggle={toggleFilter}
               />
 
-              {/* Albums — horizontal scroll carousel. Card widths sized so
-                  exactly 2 recent albums fill the mobile viewport with the
-                  next card peeking in; desktop gets bigger tiles. Snap +
-                  touch momentum for a smooth swipe feel. */}
-              {visibleAlbums.length > 0 && (
-                <>
-                  {/* Mobile (<sm): horizontal snap scroll. Užima mažiau
-                      vertikalaus ploto kai atlikėjas turi daug albumų. */}
-                  <div
-                    className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                    style={{
-                      scrollSnapType: 'x mandatory',
-                      scrollPaddingLeft: '1rem',
-                      overscrollBehaviorX: 'contain',
-                      WebkitOverflowScrolling: 'touch',
-                    }}
-                  >
-                    {visibleAlbums.map((a, i) => (
-                      <div
-                        key={a.id}
-                        className="w-[46vw] max-w-[180px] shrink-0"
-                        style={{ scrollSnapAlign: 'start' }}
-                      >
+              {/* Latest-album spotlight — naujausias studijinis / EP albumas
+                  paskutinių 12 mėn (current_year-1 threshold). Renderinasi
+                  virš grupavimo zonos, kad nepasiklysų tarp 22 albumų grid'e.
+                  Jei nieko naujo nėra — slot'as dingsta. */}
+              {latestAlbum && visibleAlbums.length > 0 && (
+                <SpotlightAlbumRow
+                  album={latestAlbum}
+                  artistSlug={artist.slug}
+                  topTracks={topTracksByAlbum.get(latestAlbum.id) || []}
+                  onOpen={() => setAlbumModalOpen(latestAlbum)}
+                  onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
+                />
+              )}
+
+              {/* Grupes (eras / decades) — kiekviena gauna horizontal
+                  snap-scroll row'ą. Kiekvienoje row'oje albumai sortinti
+                  newest first. */}
+              {albumGroups && albumGroups.length > 0 ? (
+                <div className="mt-2 space-y-7">
+                  {albumGroups.map(g => (
+                    <AlbumGroupRow
+                      key={g.key}
+                      title={g.title}
+                      subtitle={g.subtitle}
+                      description={g.description}
+                      rangeLabel={yearRangeLabel(g.year_start, g.year_end)}
+                      count={g.albums.length}
+                    >
+                      {g.albums.map((a, i) => (
+                        <div
+                          key={a.id}
+                          className="w-[46vw] max-w-[180px] shrink-0 sm:w-[160px]"
+                          style={{ scrollSnapAlign: 'start' }}
+                        >
+                          <AlbumCard
+                            a={a}
+                            artistSlug={artist.slug}
+                            maxPop={maxAlbumPop}
+                            popularity={popLevel(i, g.albums.length)}
+                            onOpen={setAlbumModalOpen}
+                            topTracks={topTracksByAlbum.get(a.id)}
+                            weight={weightByAlbum.get(a.id) || 'full'}
+                            onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
+                          />
+                        </div>
+                      ))}
+                    </AlbumGroupRow>
+                  ))}
+                </div>
+              ) : (
+                groupableAlbums.length > 0 && (
+                  <div className={latestAlbum ? 'mt-4' : ''}>
+                    {/* Flat grid — small / medium artists (<10 albums or sparse
+                        decades). Mobile = snap scroll, desktop = compact grid. */}
+                    <div
+                      className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                      style={{
+                        scrollSnapType: 'x mandatory',
+                        scrollPaddingLeft: '1rem',
+                        overscrollBehaviorX: 'contain',
+                        WebkitOverflowScrolling: 'touch',
+                      }}
+                    >
+                      {groupableAlbums.map((a, i) => (
+                        <div
+                          key={a.id}
+                          className="w-[46vw] max-w-[180px] shrink-0"
+                          style={{ scrollSnapAlign: 'start' }}
+                        >
+                          <AlbumCard
+                            a={a}
+                            artistSlug={artist.slug}
+                            maxPop={maxAlbumPop}
+                            popularity={popLevel(i, groupableAlbums.length)}
+                            onOpen={setAlbumModalOpen}
+                            topTracks={topTracksByAlbum.get(a.id)}
+                            weight={weightByAlbum.get(a.id) || 'full'}
+                            onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="hidden gap-3 sm:grid sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+                      {groupableAlbums.map((a, i) => (
                         <AlbumCard
+                          key={a.id}
                           a={a}
                           artistSlug={artist.slug}
                           maxPop={maxAlbumPop}
-                          popularity={popLevel(i, visibleAlbums.length)}
+                          popularity={popLevel(i, groupableAlbums.length)}
                           onOpen={setAlbumModalOpen}
                           topTracks={topTracksByAlbum.get(a.id)}
                           weight={weightByAlbum.get(a.id) || 'full'}
                           onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
                         />
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                  {/* Desktop (sm+): pilnas grid'as, visi albumai matomi.
-                      Tankesnis grid (4-8 col), kad cover'iai būtų mažesni
-                      ir low-res quality nesimatytų. */}
-                  <div className="hidden gap-3 sm:grid sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
-                    {visibleAlbums.map((a, i) => (
-                      <AlbumCard
-                        key={a.id}
-                        a={a}
-                        artistSlug={artist.slug}
-                        maxPop={maxAlbumPop}
-                        popularity={popLevel(i, visibleAlbums.length)}
-                        onOpen={setAlbumModalOpen}
-                        topTracks={topTracksByAlbum.get(a.id)}
-                        weight={weightByAlbum.get(a.id) || 'full'}
-                        onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
-                      />
-                    ))}
-                  </div>
-                </>
+                )
               )}
 
               {/* Orphan tracks — compact list below albums when included */}
