@@ -5106,38 +5106,40 @@ export default function ArtistProfileClient({
                 />
               )}
 
-              {/* Grupes (eras / decades) — kiekviena gauna „dėžutę" su
-                  vidaus grid'u.
-                  MOBILE: horizontal snap-scroll, dėžutės po ~88vw — swipe
-                  į šoną pereiti į kitą erą (taupo vertikalų scroll'ą).
-                  DESKTOP (lg+): regular grid 2 col, dėžutės stack'inasi. */}
+              {/* Grupes (eras / decades) — kiekviena gauna „dėžutę".
+                  MOBILE: dėžutės eina vertikaliai stack'u; viduje albumai
+                  slide'inasi į šoną (horizontal snap-scroll), kad vienas
+                  era box nebūtų aukštas.
+                  DESKTOP (lg+): grid 2-col stack, viduje albumai grid 3-4 col. */}
               {albumGroups && albumGroups.length > 0 ? (
-                <div
-                  className="mt-2 -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:mx-0 lg:grid lg:grid-cols-2 lg:gap-4 lg:overflow-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden"
-                  style={{
-                    scrollSnapType: 'x mandatory',
-                    scrollPaddingLeft: '1rem',
-                    overscrollBehaviorX: 'contain',
-                    WebkitOverflowScrolling: 'touch',
-                  }}
-                >
+                <div className="mt-2 grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {albumGroups.map(g => (
-                    <div
+                    <AlbumGroupBox
                       key={g.key}
-                      className="w-[88vw] shrink-0 lg:w-auto lg:shrink"
-                      style={{ scrollSnapAlign: 'start' }}
+                      title={g.title}
+                      subtitle={g.subtitle}
+                      description={g.description}
+                      rangeLabel={g.rangeInTitle ? '' : yearRangeLabel(g.year_start, g.year_end)}
+                      count={g.albums.length}
                     >
-                      <AlbumGroupBox
-                        title={g.title}
-                        subtitle={g.subtitle}
-                        description={g.description}
-                        rangeLabel={g.rangeInTitle ? '' : yearRangeLabel(g.year_start, g.year_end)}
-                        count={g.albums.length}
+                      {/* Mobile: horizontal scroll inside box. Desktop (lg+):
+                          regular 3-4 col grid. */}
+                      <div
+                        className="-mx-3 flex gap-3 overflow-x-auto px-3 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0 lg:pb-0 xl:grid-cols-4 [&::-webkit-scrollbar]:hidden"
+                        style={{
+                          scrollSnapType: 'x mandatory',
+                          scrollPaddingLeft: '0.75rem',
+                          overscrollBehaviorX: 'contain',
+                          WebkitOverflowScrolling: 'touch',
+                        }}
                       >
-                        <div className="grid grid-cols-3 gap-3 lg:grid-cols-3 xl:grid-cols-4">
-                          {g.albums.map((a, i) => (
+                        {g.albums.map((a, i) => (
+                          <div
+                            key={a.id}
+                            className="w-[42vw] max-w-[160px] shrink-0 lg:w-auto lg:max-w-none lg:shrink"
+                            style={{ scrollSnapAlign: 'start' }}
+                          >
                             <AlbumCard
-                              key={a.id}
                               a={a}
                               artistSlug={artist.slug}
                               maxPop={maxAlbumPop}
@@ -5148,10 +5150,10 @@ export default function ArtistProfileClient({
                               onTrackClick={(t) => setTrackInfoOpen(t)}
                               aggregateViews={aggregateViewsByAlbum.get(a.id)}
                             />
-                          ))}
-                        </div>
-                      </AlbumGroupBox>
-                    </div>
+                          </div>
+                        ))}
+                      </div>
+                    </AlbumGroupBox>
                   ))}
                 </div>
               ) : (

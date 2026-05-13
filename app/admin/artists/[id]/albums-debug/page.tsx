@@ -40,12 +40,25 @@ type AlbumRow = {
   source: string | null
   legacy_id: number | null
   peak_chart_position: number | null
+  // Album-level signals
+  score: number | null
   // Computed:
   track_count: number
   singles_count: number
   lyrics_count: number
   album_likes: number
   album_comments: number
+  /** Sum of `video_views` across all tracks in this album. PRIMARY PopBar
+   *  signal — log10-scaled relative to artist max. */
+  agg_views: number
+  /** Sum of `tracks.score` across all album_tracks — secondary signal. */
+  track_score_sum: number
+  /** Sum of `tracks.like_count` across all album_tracks — tertiary. */
+  track_likes_sum: number
+  /** Composite popularity score (artist-relative). Used for PopBar level. */
+  composite: number
+  /** PopBar level 1..5 (percentile within artist's albums). */
+  popbar: number
 }
 
 async function getArtist(id: number) {
@@ -62,7 +75,7 @@ async function getAlbums(id: number): Promise<AlbumRow[]> {
   const sb = createAdminClient()
   const { data } = await sb
     .from('albums')
-    .select('id, slug, title, year, month, day, cover_image_url, spotify_id, video_url, type_studio, type_ep, type_single, type_compilation, type_live, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, source, legacy_id, peak_chart_position')
+    .select('id, slug, title, year, month, day, cover_image_url, spotify_id, video_url, type_studio, type_ep, type_single, type_compilation, type_live, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, source, legacy_id, peak_chart_position, score')
     .eq('artist_id', id)
     .order('year', { ascending: false })
     .range(0, 9999)
@@ -76,27 +89,88 @@ async function getAlbums(id: number): Promise<AlbumRow[]> {
   // šito limito — server'is grąžins tik 1000. Paginuojam tikrą while loop'ą,
   // kad nebūtų silent truncation.
   const PAGE = 1000
-  const tcMap = new Map<number, { tracks: number; singles: number; lyrics: number }>()
+  // Per-album: count tracks/singles/lyrics + aggregate views/scores/likes.
+  // Track-level signals roll up into the album popularity composite below.
+  const tcMap = new Map<number, {
+    tracks: number; singles: number; lyrics: number
+    agg_views: number; track_score_sum: number
+  }>()
   for (let i = 0; i < ids.length; i += 50) {
     const chunk = ids.slice(i, i + 50)
     let offset = 0
     while (true) {
       const { data: at } = await sb
         .from('album_tracks')
-        .select('album_id, tracks(is_single, lyrics)')
+        .select('album_id, tracks(id, is_single, lyrics, video_views, score)')
         .in('album_id', chunk)
         .range(offset, offset + PAGE - 1)
       const rows = (at || []) as any[]
       for (const r of rows) {
-        const m = tcMap.get(r.album_id) || { tracks: 0, singles: 0, lyrics: 0 }
+        const m = tcMap.get(r.album_id) || {
+          tracks: 0, singles: 0, lyrics: 0,
+          agg_views: 0, track_score_sum: 0,
+        }
         m.tracks++
         if (r.tracks?.is_single) m.singles++
         if (r.tracks?.lyrics && r.tracks.lyrics.trim().length > 10) m.lyrics++
+        m.agg_views += (r.tracks?.video_views as number) || 0
+        m.track_score_sum += (r.tracks?.score as number) || 0
         tcMap.set(r.album_id, m)
       }
       if (rows.length < PAGE) break
       offset += PAGE
     }
+  }
+
+  // Track likes per album — separate query against likes table (track entity).
+  // Two-step: collect track_ids per album, then count likes by track_id.
+  const trackIdsByAlbum = new Map<number, number[]>()
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50)
+    let offset = 0
+    while (true) {
+      const { data: at } = await sb
+        .from('album_tracks')
+        .select('album_id, track_id')
+        .in('album_id', chunk)
+        .range(offset, offset + PAGE - 1)
+      const rows = (at || []) as any[]
+      for (const r of rows) {
+        const arr = trackIdsByAlbum.get(r.album_id) || []
+        arr.push(r.track_id)
+        trackIdsByAlbum.set(r.album_id, arr)
+      }
+      if (rows.length < PAGE) break
+      offset += PAGE
+    }
+  }
+  // All distinct track_ids across all albums
+  const allTrackIds = [...new Set([...trackIdsByAlbum.values()].flat())]
+  const likeByTrackId = new Map<number, number>()
+  for (let i = 0; i < allTrackIds.length; i += 200) {
+    const chunk = allTrackIds.slice(i, i + 200)
+    let offset = 0
+    while (true) {
+      const { data: ls } = await sb
+        .from('likes')
+        .select('entity_id')
+        .eq('entity_type', 'track')
+        .in('entity_id', chunk)
+        .range(offset, offset + PAGE - 1)
+      const rows = (ls || []) as any[]
+      for (const l of rows) {
+        likeByTrackId.set(l.entity_id, (likeByTrackId.get(l.entity_id) || 0) + 1)
+      }
+      if (rows.length < PAGE) break
+      offset += PAGE
+    }
+  }
+  // Sum per album
+  const trackLikesSumByAlbum = new Map<number, number>()
+  for (const [aid, tids] of trackIdsByAlbum) {
+    let sum = 0
+    for (const tid of tids) sum += likeByTrackId.get(tid) || 0
+    trackLikesSumByAlbum.set(aid, sum)
   }
 
   // Album likes — tas pats db-max-rows pagination'as
@@ -142,13 +216,49 @@ async function getAlbums(id: number): Promise<AlbumRow[]> {
   }
 
   for (const a of albums) {
-    const tc = tcMap.get(a.id) || { tracks: 0, singles: 0, lyrics: 0 }
+    const tc = tcMap.get(a.id) || {
+      tracks: 0, singles: 0, lyrics: 0, agg_views: 0, track_score_sum: 0,
+    }
     a.track_count = tc.tracks
     a.singles_count = tc.singles
     a.lyrics_count = tc.lyrics
     a.album_likes = likeMap.get(a.id) || 0
     a.album_comments = commentMap.get(a.id) || 0
+    a.agg_views = tc.agg_views
+    a.track_score_sum = tc.track_score_sum
+    a.track_likes_sum = trackLikesSumByAlbum.get(a.id) || 0
   }
+
+  // Composite album popularity score.
+  // Formula (2026-05-13 v1):
+  //   composite = log10(agg_views + 1) × 30        // YouTube reach (dominant)
+  //             + log10(track_likes_sum + 1) × 10  // fan response across tracks
+  //             + album_likes × 5                  // direct album likes
+  //             + track_score_sum × 0.05           // Wiki track scores (uniform per artist usually, low weight)
+  //             + (album.score || 0) × 0.5         // Wiki album score (also often uniform)
+  // Coldplay'aus pavyzdys: agg_views dominuoja (Mylo Xyloto 2.5B vs Moon
+  // Music 100M → ~10× skirtumas). Track score'ai realiai per artist tokie
+  // patys (100/100), tai jų weight'as mažas, bet rodom debug'e.
+  for (const a of albums) {
+    a.composite =
+      Math.log10((a.agg_views || 0) + 1) * 30 +
+      Math.log10((a.track_likes_sum || 0) + 1) * 10 +
+      (a.album_likes || 0) * 5 +
+      (a.track_score_sum || 0) * 0.05 +
+      ((a.score as number) || 0) * 0.5
+  }
+  // Percentile-based PopBar level (5 buckets, kvintiliai). Filter out
+  // non-studio types for ranking — kompiliacijų/live'ų bar'ai paimti iš
+  // bendro pool'o iškreiptų hierarchiją.
+  const ranked = albums
+    .slice()
+    .sort((a, b) => b.composite - a.composite)
+  const N = ranked.length
+  ranked.forEach((a, i) => {
+    if (N === 0) { a.popbar = 0; return }
+    const p = i / N
+    a.popbar = p < 0.20 ? 5 : p < 0.40 ? 4 : p < 0.60 ? 3 : p < 0.80 ? 2 : 1
+  })
   return albums
 }
 
@@ -246,6 +356,20 @@ export default async function AlbumsDebugPage({ params }: Props) {
         </div>
       </div>
 
+      {/* PopBar formula explanation */}
+      <div className="mb-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[13px]">
+        <div className="mb-1.5 font-extrabold uppercase tracking-wide text-[var(--text-primary)]">PopBar formulė (album lygis):</div>
+        <pre className="overflow-x-auto rounded bg-[var(--bg-elevated)] p-2 text-[11px] leading-relaxed text-[var(--text-secondary)]"><code>{`composite =
+    log10(agg_views + 1) × 30        // YouTube reach (dominant)
+  + log10(track_likes_sum + 1) × 10  // fan response across tracks
+  + album_likes × 5                  // direct album likes
+  + track_score_sum × 0.05           // Wiki track scores
+  + album.score × 0.5                // Wiki album score
+
+PopBar = percentile(composite) per artist, 5 kvintiliai
+  Top 20% → 5/5,  20-40% → 4/5,  40-60% → 3/5,  60-80% → 2/5,  Bottom 20% → 1/5`}</code></pre>
+      </div>
+
       <div className="overflow-x-auto rounded-lg border border-[var(--border-default)]">
         <table className="w-full text-[12.5px]">
           <thead className="sticky top-0 bg-[var(--bg-elevated)] text-left text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
@@ -254,6 +378,12 @@ export default async function AlbumsDebugPage({ params }: Props) {
               <th className="px-3 py-2.5">Album</th>
               <th className="px-3 py-2.5 text-center">Date</th>
               <th className="px-3 py-2.5">Type</th>
+              <th className="px-2 py-2.5 text-center" title="PopBar level (1-5) — percentile per artist albumams">PopBar</th>
+              <th className="px-2 py-2.5 text-right" title="Composite score — formula virš lentelės">Compos.</th>
+              <th className="px-2 py-2.5 text-right" title="Sum of track video_views per album">AggViews</th>
+              <th className="px-2 py-2.5 text-right" title="Sum of tracks.score (Wiki) per album">TrkSc</th>
+              <th className="px-2 py-2.5 text-right" title="Sum of likes per track in album">TrkLk</th>
+              <th className="px-2 py-2.5 text-right" title="albums.score (Wiki)">AlbSc</th>
               <th className="px-3 py-2.5 text-right" title="Dainų kiekis per album_tracks JOIN">Tracks</th>
               <th className="px-3 py-2.5 text-right" title="Tracks su is_single=true">Singles</th>
               <th className="px-3 py-2.5 text-right" title="Tracks su lyrics > 10 chars">Lyrics</th>
@@ -287,6 +417,26 @@ export default async function AlbumsDebugPage({ params }: Props) {
                     {fmtDate(a)}
                   </td>
                   <td className="px-3 py-2 text-[10px] text-[var(--text-muted)]">{albumTypeBadges(a)}</td>
+                  {/* PopBar — 5 dashes orange tint pagal lygį */}
+                  <td className="px-2 py-2 text-center" title={`PopBar level ${a.popbar}/5`}>
+                    <span className="inline-flex gap-0.5">
+                      {[1,2,3,4,5].map(lv => (
+                        <span
+                          key={lv}
+                          className={`inline-block h-1.5 w-2.5 rounded-sm ${a.popbar >= lv ? 'bg-orange-500' : 'bg-[var(--border-subtle)]'}`}
+                        />
+                      ))}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums text-[10.5px] text-[var(--text-secondary)]">
+                    {a.composite.toFixed(1)}
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums text-[10.5px] text-[var(--text-muted)]" title={`${a.agg_views.toLocaleString('lt-LT')} views`}>
+                    {a.agg_views >= 1_000_000 ? `${(a.agg_views / 1_000_000).toFixed(1)}M` : a.agg_views >= 1_000 ? `${(a.agg_views / 1_000).toFixed(1)}k` : (a.agg_views || '—')}
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums text-[10.5px] text-[var(--text-muted)]">{a.track_score_sum || '—'}</td>
+                  <td className="px-2 py-2 text-right tabular-nums text-[10.5px] text-[var(--text-muted)]">{a.track_likes_sum || '—'}</td>
+                  <td className="px-2 py-2 text-right tabular-nums text-[10.5px] text-[var(--text-muted)]">{a.score ?? '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{a.track_count || '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{a.singles_count || '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{a.lyrics_count || '—'}</td>

@@ -781,6 +781,16 @@ function TracksDebugLink({ artistId }: { artistId: string }) {
         </svg>
         Albums
       </Link>
+      <Link href={`/admin/artists/${artistId}/eros`}
+        className="flex items-center gap-1.5 px-2 py-1 text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded-lg transition-colors font-medium"
+        title="Karjeros laikotarpiai — valdyk, kaip albumai grupuojami public puslapyje">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="6" width="6" height="12" rx="1" />
+          <rect x="11" y="3" width="6" height="18" rx="1" />
+          <rect x="19" y="9" width="2" height="6" rx="1" />
+        </svg>
+        Eros
+      </Link>
     </div>
   )
 }
