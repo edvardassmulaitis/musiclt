@@ -236,27 +236,38 @@ Pateik per submit_eras tool. Privaloma kvietimas — tekstinis atsakymas neleist
 
   let eras: any[] = []
   let candidate: any = toolUseBlock.input.eras
+  let parseErr: string | null = null
+  let parserPath = 'unknown'
   if (typeof candidate === 'string') {
     const s = candidate.trim()
     if (s.startsWith('[')) {
-      try { candidate = safeParse(s) } catch (_) { /* fall through */ }
+      try { candidate = safeParse(s); parserPath = 'string→safeParse' } catch (e: any) { parseErr = e.message; parserPath = 'safeParse-failed' }
+    } else {
+      parserPath = `string-not-array(starts:${s.slice(0, 20)})`
     }
+  } else if (Array.isArray(candidate)) {
+    parserPath = 'native-array'
+  } else {
+    parserPath = `non-string-non-array(type:${typeof candidate})`
   }
   if (Array.isArray(candidate)) {
     eras = candidate
   } else if (Array.isArray(toolUseBlock.input)) {
     eras = toolUseBlock.input
+    parserPath += '+fallback-input-array'
   } else if (typeof toolUseBlock.input === 'object') {
     const vals = Object.values(toolUseBlock.input).filter((v: any) =>
       v && typeof v === 'object' && 'title' in v && 'year_start' in v,
     )
-    if (vals.length > 0) eras = vals as any[]
+    if (vals.length > 0) { eras = vals as any[]; parserPath += '+object-map' }
   }
-  if (!Array.isArray(eras) || eras.length === 0) {
+  if (eras.length === 0) {
     return NextResponse.json({
       error: 'AI grąžino tuščią eras masyvą',
       stop_reason: apiData.stop_reason,
       sourceLength: extract.length,
+      parserPath,
+      parseErr,
       toolInput: JSON.stringify(toolUseBlock.input).slice(0, 1000),
     }, { status: 502 })
   }
