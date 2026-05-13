@@ -188,19 +188,58 @@ Pateik per submit_eras tool. Privaloma kvietimas — tekstinis atsakymas neleist
   }
   // Accept multiple shapes Claude might return:
   //   { eras: [...] }            — what we asked for
-  //   { eras: "[...]" }          — Claude wraps array in string (seen with
-  //                                claude-opus-4-5 + schema'a su array nested
-  //                                object'uose; nereaguoja į schemos type
-  //                                hint'ą, treats it like generic value)
+  //   { eras: "[...]" }          — Claude wraps array in string. The string
+  //                                often has unescaped ASCII " around album
+  //                                titles, so plain JSON.parse fails — we
+  //                                run safeParse() which repairs inner quotes.
   //   [...]                       — direct array
   //   { period_X: {...}, ... }    — object map of era objects
+  //
+  // safeParse char-walks the string, detects `"` chars that are inside string
+  // values (not delimiters) and rewrites them to a LT closing quote, then
+  // retries JSON.parse. Heuristic: a `"` is a delimiter only if it's
+  // followed by whitespace + one of `,}]:` (or EOF).
+  function safeParse(s: string): any {
+    try { return JSON.parse(s) } catch (_) { /* fall through */ }
+    const repaired: string[] = []
+    let inString = false
+    let escaped = false
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i]
+      if (escaped) {
+        repaired.push(c); escaped = false; continue
+      }
+      if (c === '\\') {
+        repaired.push(c); escaped = true; continue
+      }
+      if (c === '"') {
+        if (!inString) {
+          inString = true; repaired.push(c)
+        } else {
+          // Look ahead for delimiter.
+          let j = i + 1
+          while (j < s.length && /\s/.test(s[j])) j++
+          const next = s[j]
+          if (next === ',' || next === '}' || next === ']' || next === ':' || next === undefined) {
+            inString = false; repaired.push(c)
+          } else {
+            repaired.push('“') // inner — rewrite
+          }
+        }
+        continue
+      }
+      repaired.push(c)
+    }
+    const fixed = repaired.join('').replace(/,(\s*[}\]])/g, '$1')
+    return JSON.parse(fixed)
+  }
+
   let eras: any[] = []
   let candidate: any = toolUseBlock.input.eras
-  // Unwrap stringified JSON array
   if (typeof candidate === 'string') {
     const s = candidate.trim()
     if (s.startsWith('[')) {
-      try { candidate = JSON.parse(s) } catch (_) { /* fall through */ }
+      try { candidate = safeParse(s) } catch (_) { /* fall through */ }
     }
   }
   if (Array.isArray(candidate)) {
