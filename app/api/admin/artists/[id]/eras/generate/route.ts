@@ -132,24 +132,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
   }
 
-  const prompt = `Esi muzikos enciklopedijos redaktorius lietuviškam portalui music.lt. Tau pateikiamas Wikipedia atlikėjo straipsnio tekstas. Tavo užduotis — išgauti karjeros LAIKOTARPIUS (eras) ir pateikti per submit_eras tool.
+  const prompt = `Esi muzikos enciklopedijos redaktorius lietuviškam portalui music.lt. Tau pateikiamas Wikipedia atlikėjo straipsnio tekstas. Tavo užduotis — išgauti MUZIKINIUS karjeros LAIKOTARPIUS (eras) ir pateikti per submit_eras tool.
 
 ATLIKĖJO WIKI STRAIPSNIS:
 """
 ${sourceText}
 """
 
-KIEK ERAS: privalai pateikti BENT 3 eras (idealu 4–6). Jei tekstas trumpas — sukurk eras pagal albumų išleidimo metus iš lead paragraph'o (debiutas, ankstyvi hitai, brandos era, pertrauka/comeback, naujausi metai). Niekada negrąžink tuščio masyvo.
+SVARBIAUSIA — TIK MUZIKINĖ INFORMACIJA:
+- TURINYS turi būti TIK apie muziką — albumai, hit'ai, žanro pokyčiai, koncertų turai, kūrybinis kelias.
+- NEMINĖK: asmeninio gyvenimo dramos, teismų, konservatorijos, sveikatos problemų, skandalų, šeimos santykių. Tai pop kultūra, ne muzika.
+- Era pavadinimai turi atspindėti MUZIKINĮ pokytį, ne biografinį (NEgalima: „Atsitraukimas", „Pertrauka", „Konservatorija"; GALIMA: „Klasika", „Comeback", „Eksperimentai", „Brandos era", „Pop princesė").
+
+KIEK ERAS: privalai pateikti BENT 3 eras (idealu 4–6). Jei tekstas trumpas — sukurk eras pagal albumų išleidimo metus.
 
 KIEKVIENAI ERAI:
-- title: TRUMPAS lietuviškas pavadinimas, 1–3 žodžiai. Žmogiškas, įsimenamas — NE direct'inis EN vertimas. Pavyzdžiai: Pradžia, Klasika, Stadium pop, Eksperimentai, Solo karjera, Comeback, Atgimimas, Brandos era, Pop princesė, Pertrauka.
+- title: TRUMPAS lietuviškas pavadinimas, 1–3 žodžiai, muzikinis kontekstas. Pavyzdžiai: Pradžia, Klasika, Stadium pop, Eksperimentai, Solo karjera, Comeback, Brandos era, Pop princesė, Disco era, R&B periodas.
 - year_start: skaičius (pvz., 1999).
 - year_end: skaičius arba PRALEISK lauką visiškai, jei era tęsiasi iki dabar.
-- description: 1–2 sakiniai lietuvių kalba. Įvardyk svarbiausius albumus / dainas pavadinimais originalia kalba: „...Baby One More Time", „Toxic", „In the Zone".
+- description: 1–2 sakiniai lietuvių kalba APIE MUZIKĄ. Įvardyk pagrindinius albumus pavadinimais originalia kalba: „...Baby One More Time", „Toxic", „In the Zone". Kalbėk apie garsą, žanrą, komercinę sėkmę — ne apie biografiją.
 
 Sortuok NUO NAUJAUSIO Į SENIAUSIĄ (pirmas elementas = naujausia era). Nesutapyk metų intervalų.
 
-Pateik per submit_eras tool. Privaloma kvietimas — tekstinis atsakymas neleistinas.`
+Pateik per submit_eras tool. Privaloma kvietimas — tekstinis atsakymas neleistinas. eras lauke pateik tikrą JSON masyvą (ne string'ą).`
 
   const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -182,19 +187,31 @@ Pateik per submit_eras tool. Privaloma kvietimas — tekstinis atsakymas neleist
     }, { status: 502 })
   }
   // Accept multiple shapes Claude might return:
-  //   { eras: [...] } — what we asked for
-  //   [...]          — direct array if Claude misread
-  //   { period_X: {...}, period_Y: {...} } — object map (rare)
+  //   { eras: [...] }            — what we asked for
+  //   { eras: "[...]" }          — Claude wraps array in string (seen with
+  //                                claude-opus-4-5 + schema'a su array nested
+  //                                object'uose; nereaguoja į schemos type
+  //                                hint'ą, treats it like generic value)
+  //   [...]                       — direct array
+  //   { period_X: {...}, ... }    — object map of era objects
   let eras: any[] = []
-  if (Array.isArray(toolUseBlock.input.eras)) {
-    eras = toolUseBlock.input.eras
+  let candidate: any = toolUseBlock.input.eras
+  // Unwrap stringified JSON array
+  if (typeof candidate === 'string') {
+    const s = candidate.trim()
+    if (s.startsWith('[')) {
+      try { candidate = JSON.parse(s) } catch (_) { /* fall through */ }
+    }
+  }
+  if (Array.isArray(candidate)) {
+    eras = candidate
   } else if (Array.isArray(toolUseBlock.input)) {
     eras = toolUseBlock.input
   } else if (typeof toolUseBlock.input === 'object') {
-    const vals = Object.values(toolUseBlock.input)
-    if (vals.every(v => typeof v === 'object' && v !== null && 'title' in (v as any))) {
-      eras = vals as any[]
-    }
+    const vals = Object.values(toolUseBlock.input).filter((v: any) =>
+      v && typeof v === 'object' && 'title' in v && 'year_start' in v,
+    )
+    if (vals.length > 0) eras = vals as any[]
   }
   if (!Array.isArray(eras) || eras.length === 0) {
     return NextResponse.json({
