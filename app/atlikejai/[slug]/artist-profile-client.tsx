@@ -3535,7 +3535,7 @@ function AlbumGroupBox({ title, subtitle, description, rangeLabel, count, childr
  */
 type AlbumWeight = 'full' | 'mid' | 'dim'
 
-function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weight = 'full', onTrackClick, aggregateViews }: {
+function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weight = 'full', onTrackClick, aggregateViews, composite, popBarLevel }: {
   a: Album; popularity?: number; artistSlug?: string; maxPop?: number
   onOpen?: (a: Album) => void
   /** Top 2–3 tracks for this album (by video_views desc) — shown below title
@@ -3544,31 +3544,41 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
   topTracks?: Track[]
   weight?: AlbumWeight
   onTrackClick?: (t: Track) => void
-  /** Aggregate YouTube views for ALL tracks in this album. PRIMARY popbar
-   *  signal — kai score'as uniformiškas Coldplay'aus albumams (visi 100),
-   *  agg_views diferencijuoja: Mylo Xyloto 2.5B vs Moon Music 100M.
-   *  Pass'inamas iš parent (computed once per render). */
+  /** Aggregate YouTube views for ALL tracks in this album. */
   aggregateViews?: number
+  /** Composite popularity score — same formula as /admin/artists/[id]/albums-debug
+   *  (log10 agg_views + log10 track_likes_sum + album_likes + scores).
+   *  This is the PRIMARY popbar signal — admin and public stay in sync. */
+  composite?: number
+  /** Pre-computed PopBar level (1..5) — when provided, used directly
+   *  instead of recomputing from value/max ratio. Matches admin debug
+   *  percentile-based ranking. */
+  popBarLevel?: number
 }) {
   const type = aType(a)
   const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
   const [coverFailed, setCoverFailed] = useState(false)
   const coverUrl = (a as any).cover_image_url
   const showCover = !!coverUrl && !coverFailed
-  // Album popularity signal hierarchy (2026-05-13 v3):
-  //   1. aggregate_views  — pasirinktinis, ateina iš parent useMemo'o,
-  //      gerai diferencijuoja kai score uniformiškas (Coldplay = 100/100).
-  //   2. like_count        — tikra fan rinkliava (Mamontovo Geltona = 107).
-  //   3. score             — fallback'as kai nei agg_views, nei likes neturim.
+  // Album popularity signal hierarchy (2026-05-13 v4 — aligned with admin):
+  //   1. composite — same formula as /admin/artists/[id]/albums-debug
+  //   2. aggregate_views — fallback if composite not provided
+  //   3. like_count — tikra fan rinkliava
+  //   4. score — last resort (often uniform per artist)
   const albumScore = (a as any).score
   const albumLikes = (a as any).like_count
   const value =
+    typeof composite === 'number' && composite > 0 ? composite :
     typeof aggregateViews === 'number' && aggregateViews > 0 ? aggregateViews :
     typeof albumLikes === 'number' && albumLikes > 0 ? albumLikes :
     (typeof albumScore === 'number' ? albumScore : 0)
-  const albumPop = (maxPop && maxPop > 0)
-    ? popLevelRelative(value, maxPop)
-    : (typeof popularity === 'number' ? popularity : 0)
+  // Explicit override takes priority — parent precomputes percentile-based
+  // levels matching /admin/artists/[id]/albums-debug.
+  const albumPop =
+    typeof popBarLevel === 'number' && popBarLevel > 0 ? popBarLevel :
+    (maxPop && maxPop > 0)
+      ? popLevelRelative(value, maxPop)
+      : (typeof popularity === 'number' ? popularity : 0)
   // Modal-mode: jei parent perdavė `onOpen` callback, atidarom slide-in
   // modal'ą nepalikus artist page'o. Antraip — fallback į Link (legacy /
   // direct-link case'as kai komponentas naudojamas iš kitur).
@@ -4361,33 +4371,77 @@ export default function ArtistProfileClient({
   // Paleisk = 0). Score'as stipriai cluster'inasi (~17-18 kone visiems) ir
   // neduoda skirtumo. Score naudojamas tik kaip fallback'as kai likes data
   // dar nesurinkta.
-  // Aggregate YouTube views per album — sum'inam visus track'us per
-  // album_tracks junction. Naudojama PopBar lygiui (primary signal kai
-  // score uniformiškas) ir era weight tier'iui. Tracks turi `.albums`
-  // array iš page.tsx — invertuojam į Map<albumId, total_views>.
-  const aggregateViewsByAlbum = useMemo(() => {
-    const map = new Map<number, number>()
+  // Aggregate YouTube views + track likes + track score sums per album —
+  // sumuojam per album_tracks junction. Tracks turi `.albums` array iš
+  // page.tsx — invertuojam į Map<albumId, sums>. 2026-05-13 v2: pridėta
+  // composite formulė, identiška /admin/artists/[id]/albums-debug.
+  const trackAggregatesByAlbum = useMemo(() => {
+    const map = new Map<number, { views: number; likes: number; score: number }>()
     for (const t of tracks) {
       const v = (t as any).video_views || 0
-      if (v <= 0) continue
+      const lk = (t as any).like_count || 0
+      const sc = (t as any).score || 0
       const ta = ((t as any).albums || []) as Array<{ id: number }>
       for (const al of ta) {
-        map.set(al.id, (map.get(al.id) || 0) + v)
+        const prev = map.get(al.id) || { views: 0, likes: 0, score: 0 }
+        prev.views += v
+        prev.likes += lk
+        prev.score += sc
+        map.set(al.id, prev)
       }
     }
     return map
   }, [tracks])
+  const aggregateViewsByAlbum = useMemo(() => {
+    const m = new Map<number, number>()
+    for (const [k, v] of trackAggregatesByAlbum) m.set(k, v.views)
+    return m
+  }, [trackAggregatesByAlbum])
+  // Composite popularity score — IDENTICAL formula to admin albums-debug,
+  // so public PopBar matches what admin debugger shows. Forma:
+  //   log10(agg_views+1)*30 + log10(track_likes_sum+1)*10 +
+  //   album_likes*5 + track_score_sum*0.05 + album.score*0.5
+  const compositeByAlbum = useMemo(() => {
+    const m = new Map<number, number>()
+    for (const a of albums) {
+      const agg = trackAggregatesByAlbum.get(a.id) || { views: 0, likes: 0, score: 0 }
+      const albumLikes = (a as any).like_count || 0
+      const albumScore = (a as any).score || 0
+      const composite =
+        Math.log10(agg.views + 1) * 30 +
+        Math.log10(agg.likes + 1) * 10 +
+        albumLikes * 5 +
+        agg.score * 0.05 +
+        albumScore * 0.5
+      m.set(a.id, composite)
+    }
+    return m
+  }, [albums, trackAggregatesByAlbum])
+  // PopBar level per album — PERCENTILE-based across the whole artist
+  // discography, identiškai kaip /admin/artists/[id]/albums-debug. Tai
+  // garantuoja, kad public bar'as visada matchina admin debug'erį (anksčiau
+  // public naudojo ratio-thresholds, admin — percentile, ir jie nesutapdavo).
+  const popLevelByAlbum = useMemo(() => {
+    const m = new Map<number, number>()
+    const ranked = albums.slice().sort((a, b) =>
+      (compositeByAlbum.get(b.id) || 0) - (compositeByAlbum.get(a.id) || 0))
+    const N = ranked.length
+    ranked.forEach((a, i) => {
+      if (N === 0) { m.set(a.id, 0); return }
+      const p = i / N
+      const lvl = p < 0.20 ? 5 : p < 0.40 ? 4 : p < 0.60 ? 3 : p < 0.80 ? 2 : 1
+      m.set(a.id, lvl)
+    })
+    return m
+  }, [albums, compositeByAlbum])
   const maxAlbumPop = useMemo(() => {
     let max = 0
     for (const a of albums) {
-      const agg = aggregateViewsByAlbum.get(a.id) || 0
-      const likes = (a as any).like_count
-      const score = (a as any).score
-      const v = agg > 0 ? agg : (typeof likes === 'number' && likes > 0 ? likes : (typeof score === 'number' ? score : 0))
-      if (v > max) max = v
+      const c = compositeByAlbum.get(a.id) || 0
+      if (c > max) max = c
     }
     return max
-  }, [albums, aggregateViewsByAlbum])
+  }, [albums, compositeByAlbum])
 
   // Top 2–3 dainos kiekvienam albumui — pagal video_views desc (fallback į
   // like_count). Tracks turi `.albums` array per page.tsx, todėl matchin'am
@@ -5136,7 +5190,10 @@ export default function ArtistProfileClient({
                         {g.albums.map((a, i) => (
                           <div
                             key={a.id}
-                            className="w-[42vw] max-w-[160px] shrink-0 lg:w-auto lg:max-w-none lg:shrink"
+                            // 36vw ant mobile (vietoj 42vw) — du pilnai matomi
+                            // ir trečiojo lentelės kraštas peek'inasi, kad
+                            // useris suprastų jog galima slinkti į šoną.
+                            className="w-[36vw] max-w-[140px] shrink-0 lg:w-auto lg:max-w-none lg:shrink"
                             style={{ scrollSnapAlign: 'start' }}
                           >
                             <AlbumCard
@@ -5149,6 +5206,8 @@ export default function ArtistProfileClient({
                               weight={weightByAlbum.get(a.id) || 'full'}
                               onTrackClick={(t) => setTrackInfoOpen(t)}
                               aggregateViews={aggregateViewsByAlbum.get(a.id)}
+                              composite={compositeByAlbum.get(a.id)}
+                              popBarLevel={popLevelByAlbum.get(a.id)}
                             />
                           </div>
                         ))}
@@ -5186,6 +5245,8 @@ export default function ArtistProfileClient({
                             weight={weightByAlbum.get(a.id) || 'full'}
                             onTrackClick={(t) => setTrackInfoOpen(t)}
                             aggregateViews={aggregateViewsByAlbum.get(a.id)}
+                            composite={compositeByAlbum.get(a.id)}
+                            popBarLevel={popLevelByAlbum.get(a.id)}
                           />
                         </div>
                       ))}
@@ -5203,6 +5264,8 @@ export default function ArtistProfileClient({
                           weight={weightByAlbum.get(a.id) || 'full'}
                           onTrackClick={(t) => setTrackInfoOpen(t)}
                           aggregateViews={aggregateViewsByAlbum.get(a.id)}
+                          composite={compositeByAlbum.get(a.id)}
+                          popBarLevel={popLevelByAlbum.get(a.id)}
                         />
                       ))}
                     </div>

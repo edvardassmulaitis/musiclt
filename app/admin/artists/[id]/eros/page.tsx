@@ -52,6 +52,18 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  // Modal state — new era input (popup vietoj inline bottom-of-list add)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [draftEra, setDraftEra] = useState<Era>({
+    sort_order: 0, title: '', subtitle: '', year_start: new Date().getFullYear(),
+    year_end: null, description: '', source: 'manual',
+  })
+  // AI generator state
+  const [showAIModal, setShowAIModal] = useState(false)
+  const [aiWikiUrl, setAiWikiUrl] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState('')
+  const [aiPreview, setAiPreview] = useState<Era[] | null>(null)
 
   useEffect(() => {
     if (!isAdmin) return
@@ -71,7 +83,52 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
     setEras(prev => prev.map((e, idx) => idx === i ? { ...e, ...patch } : e))
     setSaved(false)
   }
-  const addEra = () => setEras(prev => [...prev, blankEra(prev.length)])
+  const openAddModal = () => {
+    setDraftEra({
+      sort_order: eras.length,
+      title: '',
+      subtitle: '',
+      year_start: new Date().getFullYear(),
+      year_end: null,
+      description: '',
+      source: 'manual',
+    })
+    setShowAddModal(true)
+  }
+  const confirmAddModal = () => {
+    if (!draftEra.title.trim()) return
+    setEras(prev => [...prev, { ...draftEra, sort_order: prev.length }])
+    setShowAddModal(false)
+    setSaved(false)
+  }
+
+  // AI generator: paste Wikipedia URL/title → Claude extracts career
+  // periods → preview rows → user confirms to replace existing eras.
+  const runAIGenerator = async () => {
+    setAiLoading(true); setAiError(''); setAiPreview(null)
+    try {
+      const res = await fetch(`/api/admin/artists/${id}/eras/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wikiUrl: aiWikiUrl }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+      setAiPreview(data.rows || [])
+    } catch (e: any) {
+      setAiError(e.message)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+  const applyAIPreview = () => {
+    if (!aiPreview) return
+    setEras(aiPreview.map((r, i) => ({ ...r, sort_order: i })))
+    setShowAIModal(false)
+    setAiPreview(null)
+    setAiWikiUrl('')
+    setSaved(false)
+  }
   const removeEra = (i: number) => {
     setEras(prev => prev.filter((_, idx) => idx !== i).map((e, idx) => ({ ...e, sort_order: idx })))
     setSaved(false)
@@ -169,10 +226,17 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
 
       <div className="mb-4 flex flex-wrap gap-2">
         <button
-          onClick={addEra}
+          onClick={openAddModal}
           className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-blue-700"
         >
           + Pridėti erą
+        </button>
+        <button
+          onClick={() => { setShowAIModal(true); setAiPreview(null); setAiError('') }}
+          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-1.5 text-sm font-bold text-white hover:from-purple-700 hover:to-pink-700"
+          title="Generuoti eras iš Wikipedia su Claude AI"
+        >
+          ✨ Generuoti iš Wiki (AI)
         </button>
         <button
           onClick={autoFromDecades}
@@ -193,6 +257,159 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
           </button>
         </div>
       </div>
+
+      {/* Modal — Pridėti naują erą */}
+      {showAddModal && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[560px] rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-2xl"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-extrabold text-[var(--text-primary)]">Pridėti erą</h2>
+              <button onClick={() => setShowAddModal(false)} aria-label="Uždaryti" className="text-[18px] text-[var(--text-muted)]">✕</button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="sm:col-span-2">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Pavadinimas *</span>
+                <input
+                  type="text"
+                  autoFocus
+                  value={draftEra.title}
+                  onChange={ev => setDraftEra(d => ({ ...d, title: ev.target.value }))}
+                  placeholder="Stadium pop"
+                  className="mt-1 w-full rounded border border-[var(--input-border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label>
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Metai nuo *</span>
+                <input
+                  type="number"
+                  value={draftEra.year_start}
+                  onChange={ev => setDraftEra(d => ({ ...d, year_start: parseInt(ev.target.value) || 0 }))}
+                  className="mt-1 w-full rounded border border-[var(--input-border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm tabular-nums"
+                />
+              </label>
+              <label>
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Metai iki (tuščia = „dabar")</span>
+                <input
+                  type="number"
+                  value={draftEra.year_end ?? ''}
+                  onChange={ev => setDraftEra(d => ({ ...d, year_end: ev.target.value ? parseInt(ev.target.value) : null }))}
+                  placeholder="dabar"
+                  className="mt-1 w-full rounded border border-[var(--input-border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm tabular-nums"
+                />
+              </label>
+              <label className="sm:col-span-2">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Aprašymas</span>
+                <textarea
+                  value={draftEra.description || ''}
+                  onChange={ev => setDraftEra(d => ({ ...d, description: ev.target.value }))}
+                  rows={3}
+                  placeholder="1-2 sakiniai apie šitą laikotarpį"
+                  className="mt-1 w-full rounded border border-[var(--input-border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm"
+                />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setShowAddModal(false)} className="rounded px-3 py-1.5 text-sm text-[var(--text-muted)] hover:bg-[var(--bg-hover)]">Atšaukti</button>
+              <button
+                onClick={confirmAddModal}
+                disabled={!draftEra.title.trim()}
+                className="rounded bg-blue-600 px-4 py-1.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                Pridėti
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal — AI generator iš Wikipedia */}
+      {showAIModal && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !aiLoading && setShowAIModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[680px] rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-2xl"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-extrabold text-[var(--text-primary)]">✨ Generuoti eras iš Wikipedia</h2>
+              <button onClick={() => !aiLoading && setShowAIModal(false)} aria-label="Uždaryti" className="text-[18px] text-[var(--text-muted)]" disabled={aiLoading}>✕</button>
+            </div>
+            <p className="mb-3 text-[12.5px] text-[var(--text-secondary)]">
+              Pateik EN Wikipedia atlikėjo straipsnio URL (arba pavadinimą). Claude AI išgaus pagrindinius karjeros laikotarpius su LT pavadinimais ir aprašymais — kaip Coldplay'aus seed'ai.
+            </p>
+            <label className="block">
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Wikipedia URL arba pavadinimas</span>
+              <input
+                type="text"
+                value={aiWikiUrl}
+                onChange={ev => setAiWikiUrl(ev.target.value)}
+                placeholder="https://en.wikipedia.org/wiki/Coldplay"
+                className="mt-1 w-full rounded border border-[var(--input-border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm"
+                disabled={aiLoading}
+              />
+            </label>
+            {aiError && (
+              <div className="mt-3 rounded border border-red-500/30 bg-red-500/5 p-2 text-[12px] text-red-500">
+                {aiError}
+              </div>
+            )}
+            {aiPreview && (
+              <div className="mt-4">
+                <div className="mb-2 font-bold text-[var(--text-primary)]">AI rezultatai ({aiPreview.length} eras):</div>
+                <div className="max-h-[300px] space-y-2 overflow-y-auto rounded border border-[var(--border-subtle)] p-2">
+                  {aiPreview.map((e, i) => (
+                    <div key={i} className="rounded bg-[var(--bg-elevated)] p-2 text-[12px]">
+                      <div className="flex items-baseline gap-2">
+                        <strong>{e.title}</strong>
+                        <span className="text-[11px] text-[var(--text-muted)]">{e.year_start}{e.year_end ? `–${e.year_end}` : '–dabar'}</span>
+                      </div>
+                      {e.description && <div className="mt-1 text-[var(--text-secondary)]">{e.description}</div>}
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] italic text-[var(--text-faint)]">
+                  ⚠ Pritaikius šituos rezultatus, esami eras bus pakeisti naujais (bet dar reikės paspausti „Išsaugoti" lentos lygyje).
+                </p>
+              </div>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setShowAIModal(false)} disabled={aiLoading} className="rounded px-3 py-1.5 text-sm text-[var(--text-muted)] hover:bg-[var(--bg-hover)]">Uždaryti</button>
+              {!aiPreview ? (
+                <button
+                  onClick={runAIGenerator}
+                  disabled={aiLoading || !aiWikiUrl.trim()}
+                  className="rounded bg-purple-600 px-4 py-1.5 text-sm font-bold text-white hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {aiLoading ? 'Galvoja…' : '✨ Generuoti'}
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => { setAiPreview(null) }}
+                    className="rounded border border-[var(--border-default)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+                  >
+                    Bandyti vėl
+                  </button>
+                  <button
+                    onClick={applyAIPreview}
+                    className="rounded bg-green-600 px-4 py-1.5 text-sm font-bold text-white hover:bg-green-700"
+                  >
+                    Pritaikyti ({aiPreview.length})
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {eras.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--border-default)] p-8 text-center text-[var(--text-muted)]">
