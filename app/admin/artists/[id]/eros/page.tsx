@@ -119,7 +119,16 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
         body: JSON.stringify({ wikiUrl: aiWikiUrl }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+      if (!res.ok) {
+        // Include backend debug fields if present — stop_reason, toolInput,
+        // sourceLength. Helps diagnose why eras came back empty.
+        const parts = [data.error || `HTTP ${res.status}`]
+        if (data.stop_reason) parts.push(`stop_reason: ${data.stop_reason}`)
+        if (data.sourceLength) parts.push(`wiki source: ${data.sourceLength} chars`)
+        if (data.toolInput) parts.push(`tool input: ${data.toolInput.slice(0, 400)}`)
+        if (data.raw) parts.push(`raw: ${data.raw.slice(0, 400)}`)
+        throw new Error(parts.join('\n'))
+      }
       setAiPreview(data.rows || [])
     } catch (e: any) {
       setAiError(e.message)
@@ -363,8 +372,8 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
               />
             </label>
             {aiError && (
-              <div className="mt-3 rounded border border-red-500/30 bg-red-500/5 p-2 text-[12px] text-red-500">
-                {aiError}
+              <div className="mt-3 max-h-[200px] overflow-auto rounded border border-red-500/30 bg-red-500/5 p-2 text-[11px] text-red-500">
+                <pre className="whitespace-pre-wrap break-words font-mono">{aiError}</pre>
               </div>
             )}
             {aiPreview && (
