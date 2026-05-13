@@ -12,6 +12,7 @@ import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import MusicSearchPicker, { AttachmentChips, type AttachmentHit } from '@/components/MusicSearchPicker'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
 import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
+import { normalizeBio } from '@/lib/normalize-bio'
 import { formatArtistList } from '@/lib/format-artists'
 import DropBar from '@/components/DropBar'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
@@ -2537,10 +2538,15 @@ function SideInfo({
 // ── BioPreview + MembersInline ─────────────────────────────────────
 
 function BioPreview({ html, onOpen, maxChars = 700 }: { html: string; onOpen: () => void; maxChars?: number }) {
+  // Apply mojibake fixes BEFORE excerpt processing — anksčiau tik BioModal
+  // kviesdavo normalizeBio, todėl hero excerpt'as rodydavo "kĠji"/"pasisekimĠ"
+  // BPE artifact'us net kai modal'as juos paslėpdavo. Idempotent — Britney
+  // tipo įrašai su mojibake DB'jeje gauna fix'ą display-time.
+  const normalized = normalizeBio(html)
   // Whitelist inline tags (<strong>, <em>, <b>, <i>, <a>) — strip block tags
   // (<p>, <ul>, <li>, <h*>, <blockquote>, <img>, <iframe>). Anksčiau stripHtml
   // šalindavo VISKĄ → wall of text be emphasis'ų ar links'ų.
-  const cleaned = html
+  const cleaned = normalized
     .replace(/<(?:p|div|h[1-6]|li|blockquote)[^>]*>/gi, '')
     .replace(/<\/(?:p|div|h[1-6]|li|blockquote)>/gi, ' ')
     .replace(/<(?:br|hr)\s*\/?>(?=)/gi, ' ')
