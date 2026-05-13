@@ -435,6 +435,22 @@ function PlayerCard({
   // PopBar relatyvumas per current filter — kai useris filter'is naujausiems,
   // top trending track'as gauna 5 dashes neprikl. nuo all-time top'o.
   const popInfo = useMemo(() => detectPopSignal(list), [list])
+  // Singles filter sort'inamas pagal year DESC, todėl idx jame ne
+  // popularity rank'as — bar'ai tampa monotoniškai mažėjantys. Sprendimas:
+  // skaičiuojam popbar level'į pagal track'o rank'ą `tracksAllTime` list'e
+  // (kuris jau sortintas composite desc nuo parent'o), Map'inamas vieną
+  // kartą; bet kuris filter view'as paima rank'ą iš mapo.
+  const allTimePopLevelById = useMemo(() => {
+    const map = new Map<number, number>()
+    const N = tracksAllTime.length
+    if (N === 0) return map
+    tracksAllTime.forEach((t, i) => {
+      const p = i / N
+      const lvl = p < 0.20 ? 5 : p < 0.40 ? 4 : p < 0.60 ? 3 : p < 0.80 ? 2 : 1
+      map.set(t.id, lvl)
+    })
+    return map
+  }, [tracksAllTime])
   const activeTrack = [...tracksAllTime, ...tracksTrending].find(t => t.id === activeTrackId)
   const activeVid = yt(activeTrack?.video_url)
   const firstWithVideo = list.find(t => yt(t.video_url)) || tracksAllTime.find(t => yt(t.video_url))
@@ -944,7 +960,12 @@ function PlayerCard({
               // Hierarchy: like_count → score → video_views (log) →
               // position. Naujai importuotam intl atlikėjui (kol nėra
               // likes) bar'ai rodomi pagal score arba YT views, ne 0.
-              const pop = popLevelWithFallback(t, i, list.length, popInfo)
+              // 2026-05-13 Push 3b fix: visada naudojam ALL-TIME popularity
+              // rank'ą iš `allTimePopLevelById` — taip singles tab'e (sortinta
+              // pagal year DESC) bar'ai atspindi tikrą populiarumą, ne idx
+              // chronologinį. Jei track'as nepasitaiko mapose (edge case),
+              // fallback'as į senąją idx-percentile logiką.
+              const pop = allTimePopLevelById.get(t.id) ?? popLevelWithFallback(t, i, list.length, popInfo)
               return (
                 <li key={t.id} className="group/row">
                   {/* Spotify-style split row (2026-05-10 UX):
@@ -3351,12 +3372,15 @@ function MobileFilterRow({
 // Click ant cover'io ar pavadinimo → atidaro AlbumInfoModal. Play CTA →
 // startuoja pirmą top track'ą.
 
-function SpotlightAlbumRow({ album, artistSlug, topTracks, onOpen, onPlayTrack }: {
+function SpotlightAlbumRow({ album, artistSlug, topTracks, onOpen, onPlayTrack, onTrackClick }: {
   album: Album
   artistSlug?: string
   topTracks: Track[]
   onOpen: () => void
+  /** Klausyti CTA — direct play in hero player. */
   onPlayTrack: (t: Track) => void
+  /** Track chip click — opens TrackInfoModal. */
+  onTrackClick: (t: Track) => void
 }) {
   const coverUrl = (album as any).cover_image_url
   const [coverFailed, setCoverFailed] = useState(false)
@@ -3418,7 +3442,7 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, onOpen, onPlayTrack }
                   {i > 0 && <span aria-hidden className="mr-2 text-[var(--text-muted)]">·</span>}
                   <a
                     href={artistSlug ? `/dainos/${artistSlug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`}
-                    onClick={(e) => { e.preventDefault(); onPlayTrack(t) }}
+                    onClick={(e) => { e.preventDefault(); onTrackClick(t) }}
                     className="text-inherit no-underline transition-colors hover:text-[var(--accent-orange)]"
                   >
                     {t.title}
@@ -3520,14 +3544,15 @@ function AlbumGroupRow({ title, subtitle, description, rangeLabel, count, childr
  */
 type AlbumWeight = 'full' | 'mid' | 'dim'
 
-function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weight = 'full', onPlayTrack }: {
+function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weight = 'full', onTrackClick }: {
   a: Album; popularity?: number; artistSlug?: string; maxPop?: number
   onOpen?: (a: Album) => void
   /** Top 2–3 tracks for this album (by video_views desc) — shown below title
-   *  as small clickable strip. Click → fires onPlayTrack if provided. */
+   *  as small clickable strip. Click → fires onTrackClick (parent opens
+   *  TrackInfoModal). */
   topTracks?: Track[]
   weight?: AlbumWeight
-  onPlayTrack?: (t: Track) => void
+  onTrackClick?: (t: Track) => void
 }) {
   const type = aType(a)
   const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
@@ -3601,7 +3626,7 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
                 <a
                   href={artistSlug ? `/dainos/${artistSlug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`}
                   onClick={(e) => {
-                    if (onPlayTrack) { e.preventDefault(); e.stopPropagation(); onPlayTrack(t) }
+                    if (onTrackClick) { e.preventDefault(); e.stopPropagation(); onTrackClick(t) }
                   }}
                   className="max-w-[160px] truncate text-inherit no-underline transition-colors hover:text-[var(--accent-orange)]"
                   title={t.title}
@@ -4435,16 +4460,38 @@ export default function ArtistProfileClient({
     year_end: number | null
     albums: Album[]
     featured_ids?: number[]
+    /** If true, omit the extra „· YEAR–YEAR" pill in the header — used by
+     *  auto-bucket groups where the title itself is already the year range. */
+    rangeInTitle?: boolean
   }
-  /** Decade label LT — „2020-ieji", „1990-ieji", t.t. */
-  const decadeLabel = (d: number) => `${d}-ieji`
-  /** Pad year range į vieną string'ą — pvz. „2008–2015" arba „2019–". */
+  /** Pad year range į vieną string'ą — pvz. „2008–2015". Kai range
+   *  apima current_year (ongoing era / current bucket), rodom „2020–dabar"
+   *  vietoj „2020–2029" — kad decade'as dar nebūtų „uždarytas". */
   const yearRangeLabel = (s: number | null, e: number | null) => {
     if (s === null) return ''
-    if (e === null) return `${s}–`
+    const curYear = new Date().getFullYear()
+    if (e === null) return `${s}–dabar`
     if (s === e) return String(s)
+    if (curYear >= s && curYear <= e) return `${s}–dabar`
     return `${s}–${e}`
   }
+  /** 20-year (double-decade) bucket start, aligned to current decade.
+   *  In 2026 (current decade = 2020), the buckets are:
+   *    [2010, 2029] — current double-decade
+   *    [1990, 2009]
+   *    [1970, 1989]
+   *    ...
+   *  Pora dekadų į vieną grupavimą yra geriau didelėms diskografijoms
+   *  (Coldplay 22 albumai / 4 dekados → 2 grupavimai, ne 4 sparse) —
+   *  per user feedback 2026-05-13. */
+  const doubleDecadeStart = (() => {
+    const anchor = Math.floor(new Date().getFullYear() / 10) * 10 - 10
+    return (y: number) => {
+      if (y >= anchor) return anchor
+      const stepsBack = Math.ceil((anchor - y) / 20)
+      return anchor - stepsBack * 20
+    }
+  })()
 
   /** Latest album spotlight: naujausias studijinis ar EP albumas, jei jis
    *  išleistas <=12 mo atgal. Naudojam current_year-1 kaip threshold'ą
@@ -4510,24 +4557,28 @@ export default function ArtistProfileClient({
         .map(g => ({ ...g, albums: g.albums.slice().sort((a, b) => (b.year || 0) - (a.year || 0)) }))
     }
 
-    // (b) Auto-decade grouping — only when warranted.
+    // (b) Auto-grouping into 20-year (double-decade) buckets. 2026-05-13:
+    // single-decade buckets dažnai būna sparse (Coldplay 2020s = 1 albumas
+    // be spotlight'o), kuriama daug tuščio ploto sone. Pora-dekadų grupavimas
+    // duoda 2-3 buckets su panašiu albumų kiekiu kiekvienam.
     const yeared = groupableAlbums.filter(a => typeof a.year === 'number')
     if (yeared.length < 10) return null
-    const byDecade = new Map<number, Album[]>()
+    const byBucket = new Map<number, Album[]>()
     for (const a of yeared) {
-      const d = Math.floor(a.year! / 10) * 10
-      const arr = byDecade.get(d) || []
+      const start = doubleDecadeStart(a.year!)
+      const arr = byBucket.get(start) || []
       arr.push(a)
-      byDecade.set(d, arr)
+      byBucket.set(start, arr)
     }
-    const decadesWith2Plus = [...byDecade.values()].filter(arr => arr.length >= 2).length
-    if (decadesWith2Plus < 3) return null
-    const decades = [...byDecade.entries()].sort((a, b) => b[0] - a[0]) // newest first
-    const groups: AlbumGroup[] = decades.map(([d, arr]) => ({
-      key: `decade-${d}`,
-      title: decadeLabel(d),
-      year_start: d, year_end: d + 9,
+    // Reikia bent 2 bucket'ų, kad turėtų prasmę. Single-bucket = flat grid.
+    if (byBucket.size < 2) return null
+    const sorted = [...byBucket.entries()].sort((a, b) => b[0] - a[0])
+    const groups: AlbumGroup[] = sorted.map(([start, arr]) => ({
+      key: `bucket-${start}`,
+      title: yearRangeLabel(start, start + 19),
+      year_start: start, year_end: start + 19,
       albums: arr.slice().sort((a, b) => (b.year || 0) - (a.year || 0)),
+      rangeInTitle: true,
     }))
     // No-year orphans — į „Be metų" group
     const noYear = groupableAlbums.filter(a => !a.year)
@@ -4539,7 +4590,7 @@ export default function ArtistProfileClient({
       })
     }
     return groups
-  }, [eras, groupableAlbums])
+  }, [eras, groupableAlbums, doubleDecadeStart])
 
   // Pop signal'as su fallback hierarchy — taip pat kaip HeroPlayer'yje.
   // Garantuoja, kad orphan ("Kitos dainos") sąraše bar'ai rodomi net jei
@@ -5033,6 +5084,7 @@ export default function ArtistProfileClient({
                   topTracks={topTracksByAlbum.get(latestAlbum.id) || []}
                   onOpen={() => setAlbumModalOpen(latestAlbum)}
                   onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
+                  onTrackClick={(t) => setTrackInfoOpen(t)}
                 />
               )}
 
@@ -5047,7 +5099,7 @@ export default function ArtistProfileClient({
                       title={g.title}
                       subtitle={g.subtitle}
                       description={g.description}
-                      rangeLabel={yearRangeLabel(g.year_start, g.year_end)}
+                      rangeLabel={g.rangeInTitle ? '' : yearRangeLabel(g.year_start, g.year_end)}
                       count={g.albums.length}
                     >
                       {g.albums.map((a, i) => (
@@ -5064,7 +5116,7 @@ export default function ArtistProfileClient({
                             onOpen={setAlbumModalOpen}
                             topTracks={topTracksByAlbum.get(a.id)}
                             weight={weightByAlbum.get(a.id) || 'full'}
-                            onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
+                            onTrackClick={(t) => setTrackInfoOpen(t)}
                           />
                         </div>
                       ))}
@@ -5099,7 +5151,7 @@ export default function ArtistProfileClient({
                             onOpen={setAlbumModalOpen}
                             topTracks={topTracksByAlbum.get(a.id)}
                             weight={weightByAlbum.get(a.id) || 'full'}
-                            onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
+                            onTrackClick={(t) => setTrackInfoOpen(t)}
                           />
                         </div>
                       ))}
@@ -5115,7 +5167,7 @@ export default function ArtistProfileClient({
                           onOpen={setAlbumModalOpen}
                           topTracks={topTracksByAlbum.get(a.id)}
                           weight={weightByAlbum.get(a.id) || 'full'}
-                          onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
+                          onTrackClick={(t) => setTrackInfoOpen(t)}
                         />
                       ))}
                     </div>
