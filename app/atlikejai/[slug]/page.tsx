@@ -840,7 +840,31 @@ function mockChart(albums: any[]) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params; const a = await getArtist(slug)
   if (!a) return { title: 'Nerastas' }
-  return { title: `${a.name} — music.lt`, description: plain(a.description) || `${a.name} music.lt`, openGraph: { title: `${a.name} — music.lt`, images: a.cover_image_url ? [a.cover_image_url] : [] } }
+  // Title format'as optimizuotas long-tail SEO: '{name} – dainos, albumai,
+  // biografija | music.lt'. Google rezultatuose vartotojui aiškiai matosi,
+  // kas yra šiame puslapyje (vs anksciau buvęs neutralus '{name} — music.lt').
+  const title = `${a.name} – dainos, albumai, biografija | music.lt`
+  const description = plain(a.description)
+    || `${a.name} profilis music.lt: populiariausios dainos, albumai, biografija, vaizdo klipai, nuotraukos ir naujienų archyvas.`
+  const canonical = `https://music.lt/atlikejai/${a.slug}`
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      type: 'profile',
+      images: a.cover_image_url ? [a.cover_image_url] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: a.cover_image_url ? [a.cover_image_url] : [],
+    },
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -993,10 +1017,40 @@ async function ArtistContent({ artist }: { artist: any }) {
     }
   })
 
+  // JSON-LD structured data — Person ar MusicGroup priklauso nuo type.
+  // Google rich results + AI scrapers naudoja šitą, ne meta tags.
+  // Image, URL, sameAs (Spotify/YouTube/website) — visi pridedami jei yra.
+  const isGroup = (artist.type || 'group') !== 'solo'
+  const sameAs: string[] = []
+  if (artist.website) sameAs.push(artist.website)
+  if (artist.spotify_id) sameAs.push(`https://open.spotify.com/artist/${artist.spotify_id}`)
+  if ((artist as any).youtube_channel_id) sameAs.push(`https://www.youtube.com/channel/${(artist as any).youtube_channel_id}`)
+  for (const l of tableLinks as any[]) {
+    if (l?.url && !sameAs.includes(l.url)) sameAs.push(l.url)
+  }
+  const jsonLd: any = {
+    '@context': 'https://schema.org',
+    '@type': isGroup ? 'MusicGroup' : 'Person',
+    name: artist.name,
+    url: `https://music.lt/atlikejai/${artist.slug}`,
+    ...(artist.cover_image_url ? { image: artist.cover_image_url } : {}),
+    ...(genres.length > 0 ? { genre: genres.map((g: any) => g.name) } : {}),
+    ...(artist.birth_date && !isGroup ? { birthDate: artist.birth_date } : {}),
+    ...(artist.death_date && !isGroup ? { deathDate: artist.death_date } : {}),
+    ...(artist.active_from && isGroup ? { foundingDate: String(artist.active_from) } : {}),
+    ...(sameAs.length > 0 ? { sameAs } : {}),
+  }
+
   // Score breakdown — public artist puslapis NIEKADA jo nerodo, net jei
   // žiūri admin'as. Score'ą redaguoji per /admin/artists/[id] (atskiras puslapis,
   // ten yra full Reitingas modalas). Public — tik catalog metadata.
   return (
+    <>
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
     <ArtistProfileClient
       artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until,
         // description fallback: jei `description` (Wiki canonical) tuščia
@@ -1015,5 +1069,6 @@ async function ArtistContent({ artist }: { artist: any }) {
       linkedTrackIds={linkedTrackIds}
       awards={awards}
     />
+    </>
   )
 }

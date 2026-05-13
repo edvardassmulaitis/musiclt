@@ -857,7 +857,7 @@ function PlayerCard({
                 : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]',
             ].join(' ')}
           >
-            Visos · {tracksAllTime.length}
+            Top · {tracksAllTime.length}
           </button>
           {hasSingles && (
             <button
@@ -4412,7 +4412,7 @@ export default function ArtistProfileClient({
             above the bio so they're the first thing seen without scrolling. */}
         {(() => {
           const sideInfoAvailable = !!artist.country || genres.length > 0 || links.length > 0 || artist.website || !!artist.active_from || !!artist.birth_date || !!artist.death_date
-          const bioHeader = solo ? 'Apie atlikėją' : 'Apie grupę'
+          const bioHeader = `Apie ${artist.name}`
 
           if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
 
@@ -4514,7 +4514,7 @@ export default function ArtistProfileClient({
           }
           return (
             <section>
-              <SectionTitle label="Muzika" />
+              <SectionTitle label={`${artist.name} albumai`} />
 
               {/* Desktop: all filter chips wrap on one row */}
               <div className="mb-5 hidden flex-wrap gap-1.5 sm:flex sm:gap-2">
@@ -4624,7 +4624,7 @@ export default function ArtistProfileClient({
           return (
             <section>
               <div className="flex items-center justify-between">
-                <SectionTitle label="Diskusijos" />
+                <SectionTitle label="Diskusijos iš music.lt archyvo" />
                 {overflow > 0 && (
                   <button
                     onClick={() => setDiscussionsModalOpen(true)}
@@ -4683,7 +4683,7 @@ export default function ArtistProfileClient({
         {(freshLegacyNews.length > 0 || archivedLegacyNews.length > 0) && (
           <section>
             <div className="flex items-center justify-between">
-              <SectionTitle label="Naujienos" />
+              <SectionTitle label="Naujienų archyvas" />
               {archivedLegacyNews.length > 0 && (
                 <button
                   onClick={() => setShowArchive(v => !v)}
@@ -4787,7 +4787,7 @@ export default function ArtistProfileClient({
         {/* Galerija (masonry) */}
         {galleryPhotos.length > 0 && (
           <section ref={galerijaRef} id="galerija">
-            <SectionTitle label="Galerija" count={galleryPhotos.length} />
+            <SectionTitle label={`${artist.name} nuotraukos`} count={galleryPhotos.length} />
             <MasonryGallery
               photos={galleryPhotos}
               onOpen={(i) => setLightboxIndex(i)}
@@ -4798,7 +4798,7 @@ export default function ArtistProfileClient({
         {/* Similar */}
         {similar.length > 0 && (
           <section>
-            <SectionTitle label="Panaši muzika" />
+            <SectionTitle label="Atrask toliau" />
             <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {similar.map((a: any) => (
                 <Link key={a.id} href={`/atlikejai/${a.slug}`} className="w-[110px] shrink-0 snap-start text-center no-underline sm:w-[130px]">
