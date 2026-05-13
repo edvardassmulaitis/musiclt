@@ -1,35 +1,27 @@
 -- ============================================================
--- 2026-05-13 — Genre/substyle seed fixes po quick scrape
+-- 2026-05-13 — Substyle seed fixes po quick scrape
 -- ============================================================
--- Po python3 quick_artist_stats.py --force --overwrite paleidimo radom
--- du missing-mapping issues:
+-- Po python3 quick_artist_stats.py --force paleidimo radom missing-mapping
+-- issue: 116 atlikejai turi music.lt substyle "Rock'n'roll" arba
+-- "Death'n'roll", bet DB seed (20260425_seed_genres_substyles.sql) saugo
+-- juos su escape'inta backslash apostrofu — `Rock\'n\'roll` (literal
+-- backslash chars). Lookup pagal lower(name) nematch'ina, todel substyle
+-- assignment skip'inami.
 --
--- 1. 116 atlikejai turi music.lt substyle "Rock'n'roll" arba "Death'n'roll",
---    bet DB seed (20260425_seed_genres_substyles.sql) saugo juos su escape'inta
---    backslash apostrofu — `Rock\'n\'roll` (literal backslash chars). Lookup
---    pagal `lower(name)` nematch'ina, todel substyle assignment skip'inami.
+-- "Pop muzika" main genre (2574 atlikejai music.lt'e jį turi, bet DB turi
+-- tik "Pop, R&B muzika") NEPRIDEDAM kaip atskiro genre — Edvardas (2026-05-13)
+-- nusprendė palikti DB taxonomy su 8 main genres ir alias'inti music.lt
+-- "Pop muzika" → "Pop, R&B muzika" scriptam side. Žr. quick_artist_stats.py
+-- GENRE_ALIASES dict.
 --
--- 2. 2574 atlikejai turi music.lt main genre "Pop muzika", bet DB turi tik
---    "Pop, R&B muzika". Music.lt'as taksonomiskai atskiria abu — pridedam
---    "Pop muzika" kaip 9-tą main genre.
---
--- Po migracijos paleisti retry — quick_artist_stats su tais paciais
--- atlikejais, kurie turi unknown genre/substyle. Lengviausiai per:
---   python3 scraper/quick_artist_stats.py --force --overwrite
--- (paleidžia visus, ant jau-success'inu greitai praeina nes 0 patches).
+-- Po migracijos paleisti retry: python3 scraper/quick_artist_stats.py --force
+-- (be --overwrite — saugu, junctions ON CONFLICT DO NOTHING).
 -- ============================================================
 
--- 1. Cleanup substyle backslash escapes
+-- Cleanup substyle backslash escapes (paveikti tik 2 row'ai: id 1018, 1042)
 UPDATE public.substyles
 SET name = REPLACE(name, '\', '')
 WHERE name LIKE '%\\%';
-
--- 2. Pridėti "Pop muzika" main genre (jei dar neegzistuoja).
--- Naudojam WHERE NOT EXISTS, kad nepriklausytume nuo unique constraint'o
--- ant `name` (kuris seed'e nebuvo deklaruotas).
-INSERT INTO public.genres (name)
-SELECT 'Pop muzika'
-WHERE NOT EXISTS (SELECT 1 FROM public.genres WHERE name = 'Pop muzika');
 
 -- 3. Verify (neturi return'inti backslash):
 -- SELECT id, name FROM substyles WHERE name LIKE '%\\%';
