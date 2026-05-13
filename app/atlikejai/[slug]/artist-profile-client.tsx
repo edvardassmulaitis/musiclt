@@ -362,7 +362,7 @@ function SectionTitle({ label, count }: { label: string; count?: number }) {
 
 function PlayerCard({
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack,
-  playing, onRequestPlay, onOpenTrackInfo, hasAnyVideo,
+  playing, onRequestPlay, onOpenTrackInfo, hasAnyVideo, artistSlug,
 }: {
   tracksAllTime: Track[]; tracksTrending: Track[]
   activeTrackId: number | null; onSelectTrack: (id: number) => void
@@ -372,6 +372,11 @@ function PlayerCard({
   onRequestPlay: () => void
   onOpenTrackInfo: (t: Track) => void
   hasAnyVideo: boolean
+  /** Artist slug — used to build crawlable `<a href>` URLs for each track
+   *  title (SEO). Click is preventDefault'd so the row's onClick (play)
+   *  still fires, but Google sees a real link and middle-click opens the
+   *  full track page in a new tab. */
+  artistSlug?: string
 }) {
   // Vienas track sąrašas su filter chip'ais (vietoj 2 tabų).
   // newTrackIds = tracksTrending (jau filtruotas <24 mo); singleTrackIds
@@ -961,7 +966,23 @@ function PlayerCard({
                         'flex w-full items-center gap-1.5 font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
                         isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
                       ].join(' ')}>
-                        <span className="truncate">{t.title}</span>
+                        {/* SEO: title kaip <a href> — crawler sees a real link
+                            to the track page. User click → preventDefault →
+                            bubble'inasi į parent row (play). Middle-click /
+                            cmd-click natūraliai atidaro track page naujam
+                            tab'e. Color/decoration inherit'inami iš parent
+                            div'o (kad atrodytų identiškai senam <span>). */}
+                        {artistSlug ? (
+                          <a
+                            href={`/dainos/${artistSlug}-${t.slug}-${t.id}`}
+                            onClick={(e) => e.preventDefault()}
+                            className="truncate text-inherit no-underline hover:underline"
+                          >
+                            {t.title}
+                          </a>
+                        ) : (
+                          <span className="truncate">{t.title}</span>
+                        )}
                         {(() => {
                           const yr = (t as any).release_year
                           const mo = (t as any).release_month
@@ -2075,6 +2096,7 @@ function Hero({
               onRequestPlay={onRequestPlay}
               onOpenTrackInfo={onOpenTrackInfo}
               hasAnyVideo={hasAnyVideo}
+              artistSlug={artist.slug}
             />
           </div>
         </div>
@@ -3357,15 +3379,18 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen }: { a: Album; po
     </>
   )
   if (onOpen) {
+    // Modal-mode: SEO-friendly <a> with real href so crawlers index the
+    // album page. Click → preventDefault → onOpen(a) opens slide-in modal.
+    // Middle-click / cmd-click → natural new-tab navigation to /albumai/…
     return (
-      <button
-        type="button"
-        onClick={() => onOpen(a)}
+      <a
+        href={href}
+        onClick={(e) => { e.preventDefault(); onOpen(a) }}
         aria-label={`Atidaryti albumą ${a.title}`}
         className={cardClassName}
       >
         {inner}
-      </button>
+      </a>
     )
   }
   return (
@@ -3432,7 +3457,17 @@ function TrackRow({ t, popularity, artistSlug, onOpen }: { t: Track; popularity?
     </>
   )
   if (onOpen) {
-    return <button type="button" onClick={() => onOpen(t)} className={sharedClass}>{inner}</button>
+    // Modal-mode: SEO-friendly <a href> so crawlers index the track page.
+    // Click → preventDefault → onOpen(t); middle-click → new tab as usual.
+    return (
+      <a
+        href={href}
+        onClick={(e) => { e.preventDefault(); onOpen(t) }}
+        className={sharedClass}
+      >
+        {inner}
+      </a>
+    )
   }
   return <Link href={href} className={sharedClass}>{inner}</Link>
 }
@@ -4612,6 +4647,17 @@ export default function ArtistProfileClient({
         {/* Apdovanojimai — Wikipedia awards article duomenys */}
         {awards.length > 0 && <ArtistAwards awards={awards} />}
 
+        {/* Galerija (masonry) */}
+        {galleryPhotos.length > 0 && (
+          <section ref={galerijaRef} id="galerija">
+            <SectionTitle label={`${artist.name} nuotraukos`} count={galleryPhotos.length} />
+            <MasonryGallery
+              photos={galleryPhotos}
+              onOpen={(i) => setLightboxIndex(i)}
+            />
+          </section>
+        )}
+
         {/* Diskusijos — preview grid'as (3-col desktop, 2-col tablet, 1-col
             mobile) kortelių su iki 2 paskutinių komentarų. Ribojam 6 kortelėm,
             likusios — modal'e (panašu kaip events archyvas). auto-rows-fr —
@@ -4624,7 +4670,7 @@ export default function ArtistProfileClient({
           return (
             <section>
               <div className="flex items-center justify-between">
-                <SectionTitle label="Diskusijos iš music.lt archyvo" />
+                <SectionTitle label="Diskusijos" />
                 {overflow > 0 && (
                   <button
                     onClick={() => setDiscussionsModalOpen(true)}
@@ -4659,7 +4705,7 @@ export default function ArtistProfileClient({
         {(pastEvents.length > 0 || archivedPastEvents.length > 0) && (
           <section>
             <div className="flex items-center justify-between">
-              <SectionTitle label="Įvykę renginiai" />
+              <SectionTitle label="Renginių archyvas" />
               {archivedPastEvents.length > 0 && (
                 <button
                   onClick={() => setShowArchive(v => !v)}
@@ -4781,17 +4827,6 @@ export default function ArtistProfileClient({
                 )
               })}
             </div>
-          </section>
-        )}
-
-        {/* Galerija (masonry) */}
-        {galleryPhotos.length > 0 && (
-          <section ref={galerijaRef} id="galerija">
-            <SectionTitle label={`${artist.name} nuotraukos`} count={galleryPhotos.length} />
-            <MasonryGallery
-              photos={galleryPhotos}
-              onOpen={(i) => setLightboxIndex(i)}
-            />
           </section>
         )}
 
