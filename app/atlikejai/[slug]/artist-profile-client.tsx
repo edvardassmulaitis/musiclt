@@ -4308,6 +4308,9 @@ export default function ArtistProfileClient({
   })
   const [showArchive, setShowArchive] = useState(false)
   void allLegacyNews // keep var to avoid lint
+  // Bio source: page.tsx jau handle'ina Wiki canonical (description) vs music.lt
+  // (description_legacy) fallback'ą — perduoda final value kaip artist.description.
+  // Žr. page.tsx:1056-1060 — fallback į description_legacy jei Wiki <20 chars.
   const bioHtml: string = artist.description || ''
 
   // Galerija — visos aktyvios nuotraukos. Anksčiau filtruodavom hero foto
