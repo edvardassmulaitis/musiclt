@@ -104,6 +104,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // model to emit a structured object matching the schema — Anthropic
   // handles all escaping internally, and we receive the eras as a real JS
   // object via `content[].input`.
+  // Schema'a sąmoningai paprasta — Anthropic tool_use validacija atmeta
+  // kai kuriuos JSON Schema feature'us (type unions, minItems/maxItems).
+  // year_end laikom ne-required (jei null/ongoing — Claude jį tiesiog
+  // praleidžia, mes konvertuojam į null).
   const tool = {
     name: 'submit_eras',
     description: 'Pateik atlikėjo karjeros laikotarpius (eras) lietuvių kalba.',
@@ -112,15 +116,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       properties: {
         eras: {
           type: 'array',
-          minItems: 2,
-          maxItems: 7,
           items: {
             type: 'object',
             properties: {
               title: { type: 'string', description: 'Trumpas LT pavadinimas, 1-3 žodžiai (pvz., Pradžia, Klasika, Stadium pop, Eksperimentai, Comeback). Be kabučių aplink.' },
-              year_start: { type: 'integer', description: 'Laikotarpio pradžios metai.' },
-              year_end: { type: ['integer', 'null'], description: 'Pabaigos metai, arba null jei tęsiasi iki dabar.' },
-              description: { type: 'string', description: '1-2 sakiniai LT. Albumų pavadinimus rašyk LT kabutėmis: „Yellow", „The Scientist".' },
+              year_start: { type: 'integer', description: 'Laikotarpio pradžios metai (pvz., 1999).' },
+              year_end: { type: 'integer', description: 'Pabaigos metai. Jei laikotarpis tęsiasi iki dabar — praleisk šitą lauką visiškai.' },
+              description: { type: 'string', description: '1-2 sakiniai LT. Albumų pavadinimus rašyk LT kabutėmis.' },
             },
             required: ['title', 'year_start', 'description'],
           },
@@ -130,22 +132,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
   }
 
-  const prompt = `Esi muzikos enciklopedijos redaktorius lietuviškam portalui music.lt. Tau pateikiamas EN Wikipedia atlikėjo straipsnio tekstas. Tavo užduotis — išgauti atlikėjo karjeros LAIKOTARPIUS (eras) ir pateikti per submit_eras tool.
+  const prompt = `Esi muzikos enciklopedijos redaktorius lietuviškam portalui music.lt. Tau pateikiamas Wikipedia atlikėjo straipsnio tekstas. Tavo užduotis — išgauti karjeros LAIKOTARPIUS (eras) ir pateikti per submit_eras tool.
 
 ATLIKĖJO WIKI STRAIPSNIS:
 """
 ${sourceText}
 """
 
-GAIRĖS:
-- Pateik 3–6 reikšmingus karjeros laikotarpius. Wiki "History" / "Career" sekcijos sub-headeriai (su metų intervalais + albumų pavadinimais) — gerai atskaitos taškai.
-- title: TRUMPAS lietuviškas pavadinimas, 1–3 žodžiai. Žmogiškas, įsimenamas — NE direct'inis EN vertimas. Pavyzdžiai: Pradžia, Klasika, Stadium pop, Eksperimentai, Solo karjera, Comeback, Atgimimas, Brandos era.
-- description: 1–2 sakiniai LT. Įvardyk svarbiausius albumus pavadinimais (originalia kalba, nepervedant): „Yellow", „The Scientist", „Toxic".
-- Sortuok NUO NAUJAUSIO Į SENIAUSIĄ — pirmas elementas (sort_order=0) = naujausia era.
-- NESUTAPYK metų intervalų. Kiekvienas albumas turi tilpti į vieną erą.
-- year_end=null reiškia „tęsiasi iki dabar".
+KIEK ERAS: privalai pateikti BENT 3 eras (idealu 4–6). Jei tekstas trumpas — sukurk eras pagal albumų išleidimo metus iš lead paragraph'o (debiutas, ankstyvi hitai, brandos era, pertrauka/comeback, naujausi metai). Niekada negrąžink tuščio masyvo.
 
-Pateik per submit_eras tool — JSON validacija per schema, todėl tiesiog laikykis lauko prasmių.`
+KIEKVIENAI ERAI:
+- title: TRUMPAS lietuviškas pavadinimas, 1–3 žodžiai. Žmogiškas, įsimenamas — NE direct'inis EN vertimas. Pavyzdžiai: Pradžia, Klasika, Stadium pop, Eksperimentai, Solo karjera, Comeback, Atgimimas, Brandos era, Pop princesė, Pertrauka.
+- year_start: skaičius (pvz., 1999).
+- year_end: skaičius arba PRALEISK lauką visiškai, jei era tęsiasi iki dabar.
+- description: 1–2 sakiniai lietuvių kalba. Įvardyk svarbiausius albumus / dainas pavadinimais originalia kalba: „...Baby One More Time", „Toxic", „In the Zone".
+
+Sortuok NUO NAUJAUSIO Į SENIAUSIĄ (pirmas elementas = naujausia era). Nesutapyk metų intervalų.
+
+Pateik per submit_eras tool. Privaloma kvietimas — tekstinis atsakymas neleistinas.`
 
   const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -167,17 +171,38 @@ Pateik per submit_eras tool — JSON validacija per schema, todėl tiesiog laiky
     return NextResponse.json({ error: `Claude API: ${apiRes.status} ${errBody.slice(0, 300)}` }, { status: 502 })
   }
   const apiData = await apiRes.json()
-  // Find tool_use block in content.
-  const toolUseBlock = (apiData.content || []).find((c: any) => c.type === 'tool_use' && c.name === 'submit_eras')
+  // Find tool_use block in content. Some models put it as first content
+  // item, some interleave with text — search all entries.
+  const toolUseBlock = (apiData.content || []).find((c: any) => c.type === 'tool_use')
   if (!toolUseBlock || !toolUseBlock.input) {
     return NextResponse.json({
-      error: 'AI negrąžino struktūruoto atsakymo',
-      raw: JSON.stringify(apiData).slice(0, 1000),
+      error: 'AI negrąžino tool_use bloko',
+      stop_reason: apiData.stop_reason,
+      raw: JSON.stringify(apiData).slice(0, 2000),
     }, { status: 502 })
   }
-  const eras = (toolUseBlock.input.eras || []) as any[]
+  // Accept multiple shapes Claude might return:
+  //   { eras: [...] } — what we asked for
+  //   [...]          — direct array if Claude misread
+  //   { period_X: {...}, period_Y: {...} } — object map (rare)
+  let eras: any[] = []
+  if (Array.isArray(toolUseBlock.input.eras)) {
+    eras = toolUseBlock.input.eras
+  } else if (Array.isArray(toolUseBlock.input)) {
+    eras = toolUseBlock.input
+  } else if (typeof toolUseBlock.input === 'object') {
+    const vals = Object.values(toolUseBlock.input)
+    if (vals.every(v => typeof v === 'object' && v !== null && 'title' in (v as any))) {
+      eras = vals as any[]
+    }
+  }
   if (!Array.isArray(eras) || eras.length === 0) {
-    return NextResponse.json({ error: 'AI grąžino tuščią eras masyvą' }, { status: 502 })
+    return NextResponse.json({
+      error: 'AI grąžino tuščią eras masyvą',
+      stop_reason: apiData.stop_reason,
+      sourceLength: extract.length,
+      toolInput: JSON.stringify(toolUseBlock.input).slice(0, 1000),
+    }, { status: 502 })
   }
   const rows: Era[] = eras.map((r: any, idx: number) => ({
     sort_order: idx,
