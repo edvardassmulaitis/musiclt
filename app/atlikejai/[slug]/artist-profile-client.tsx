@@ -2620,30 +2620,56 @@ function BioPreview({ html, onOpen, maxChars = 700 }: { html: string; onOpen: ()
 
 function MembersInline({ members }: { members: Member[] }) {
   if (!members.length) return null
+  // 2026-05-13 redesign per user feedback: vietoj atsitiktinai išsidėsčiusių
+  // pill'ių (kažkurie su data, kažkurie be — atrodė chaosas), padarytas
+  // horizontal snap-scroll grid'as su didesniais portretiniais card'ais.
+  // Avatar 56px, vardas + metai virš dėliojami vertikaliai. Tiek mobile,
+  // tiek desktop'e tas pats stilius — tik mobile turi -mx-4 + px-4 padding
+  // edge-to-edge swipe'ui.
   return (
-    <div className="mt-5 flex flex-wrap gap-2">
-      <span className="mr-1 inline-flex items-center font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+    <div className="mt-5">
+      <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
         Nariai
-      </span>
-      {members.map(m => (
-        <Link
-          key={m.id}
-          href={`/atlikejai/${m.slug}`}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] py-1 pl-1 pr-3 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-        >
-          {m.cover_image_url ? (
-            <img src={proxyImg(m.cover_image_url)} alt={m.name} className="h-7 w-7 shrink-0 rounded-full object-cover" />
-          ) : (
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[11px] font-black text-[var(--text-faint)]">
-              {m.name[0]}
-            </div>
-          )}
-          <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{m.name}</span>
-          {m.member_from && (
-            <span className="text-[11px] font-semibold text-[var(--text-muted)]">{m.member_from}–{m.member_until || 'dabar'}</span>
-          )}
-        </Link>
-      ))}
+      </div>
+      <div
+        className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{
+          scrollSnapType: 'x mandatory',
+          scrollPaddingLeft: '1rem',
+          overscrollBehaviorX: 'contain',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
+        {members.map(m => (
+          <Link
+            key={m.id}
+            href={`/atlikejai/${m.slug}`}
+            style={{ scrollSnapAlign: 'start' }}
+            className="group flex w-[120px] shrink-0 flex-col items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)]"
+          >
+            {m.cover_image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={proxyImg(m.cover_image_url)}
+                alt={m.name}
+                className="h-14 w-14 shrink-0 rounded-full object-cover transition-transform group-hover:scale-105"
+              />
+            ) : (
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[18px] font-black text-[var(--text-faint)]">
+                {m.name[0]}
+              </div>
+            )}
+            <span className="mt-2 line-clamp-2 text-center font-['Outfit',sans-serif] text-[12px] font-bold leading-tight text-[var(--text-primary)]">
+              {m.name}
+            </span>
+            {m.member_from && (
+              <span className="mt-0.5 text-[10px] font-semibold tabular-nums text-[var(--text-muted)]">
+                {m.member_from}–{m.member_until || 'dabar'}
+              </span>
+            )}
+          </Link>
+        ))}
+      </div>
     </div>
   )
 }
@@ -5079,7 +5105,12 @@ export default function ArtistProfileClient({
                       <h2 className="mb-3 font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
                         {bioHeader}
                       </h2>
-                      <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={700} />
+                      {/* maxChars 700 → mobile per ilga (~10 eilučių),
+                          sutrumpinta iki 420 (~6 eilučių); paspaudus
+                          „Skaityti daugiau" atsiveria BioModal su pilnu
+                          tekstu. Desktop'e dažniausiai vis tiek ne mažiau
+                          plati erdvė, todėl rodom tą patį limit'ą. */}
+                      <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={420} />
                     </>
                   )}
                   {!solo && members.length > 0 && <MembersInline members={members} />}
@@ -5487,7 +5518,7 @@ export default function ArtistProfileClient({
         {/* Similar */}
         {similar.length > 0 && (
           <section>
-            <SectionTitle label="Atrask toliau" />
+            <SectionTitle label="Panaši muzika" />
             <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {similar.map((a: any) => (
                 <Link key={a.id} href={`/atlikejai/${a.slug}`} className="w-[110px] shrink-0 snap-start text-center no-underline sm:w-[130px]">

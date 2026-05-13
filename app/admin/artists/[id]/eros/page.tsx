@@ -75,6 +75,12 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
       setEras(eRes.rows || [])
       setAlbums((aRes.rows || []).filter((a: any) => a.year))
       setArtistName(arRes.name || '')
+      // Pre-fill AI generator URL — wiki straipsnio pavadinimas dažniausiai
+      // sutampa su atlikėjo vardu (space → underscore). Useris gali keisti.
+      if (arRes.name && !aiWikiUrl) {
+        const guessTitle = String(arRes.name).trim().replace(/\s+/g, '_')
+        setAiWikiUrl(`https://en.wikipedia.org/wiki/${guessTitle}`)
+      }
       setLoading(false)
     })
   }, [id, isAdmin])
