@@ -3535,7 +3535,7 @@ function AlbumGroupBox({ title, subtitle, description, rangeLabel, count, childr
  */
 type AlbumWeight = 'full' | 'mid' | 'dim'
 
-function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weight = 'full', onTrackClick }: {
+function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weight = 'full', onTrackClick, aggregateViews }: {
   a: Album; popularity?: number; artistSlug?: string; maxPop?: number
   onOpen?: (a: Album) => void
   /** Top 2–3 tracks for this album (by video_views desc) — shown below title
@@ -3544,20 +3544,28 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
   topTracks?: Track[]
   weight?: AlbumWeight
   onTrackClick?: (t: Track) => void
+  /** Aggregate YouTube views for ALL tracks in this album. PRIMARY popbar
+   *  signal — kai score'as uniformiškas Coldplay'aus albumams (visi 100),
+   *  agg_views diferencijuoja: Mylo Xyloto 2.5B vs Moon Music 100M.
+   *  Pass'inamas iš parent (computed once per render). */
+  aggregateViews?: number
 }) {
   const type = aType(a)
   const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
   const [coverFailed, setCoverFailed] = useState(false)
   const coverUrl = (a as any).cover_image_url
   const showCover = !!coverUrl && !coverFailed
-  // Album popularity: relative tier per ATLIKĖJO max. PRIORITY like_count —
-  // tikras hit indicator'ius (Mamontovo Geltona = 107 likes, Paleisk = 0).
-  // Score'as cluster'inasi (~17-18 kone visiems), todėl tik fallback.
+  // Album popularity signal hierarchy (2026-05-13 v3):
+  //   1. aggregate_views  — pasirinktinis, ateina iš parent useMemo'o,
+  //      gerai diferencijuoja kai score uniformiškas (Coldplay = 100/100).
+  //   2. like_count        — tikra fan rinkliava (Mamontovo Geltona = 107).
+  //   3. score             — fallback'as kai nei agg_views, nei likes neturim.
   const albumScore = (a as any).score
   const albumLikes = (a as any).like_count
-  const value = typeof albumLikes === 'number' && albumLikes > 0
-    ? albumLikes
-    : (typeof albumScore === 'number' ? albumScore : 0)
+  const value =
+    typeof aggregateViews === 'number' && aggregateViews > 0 ? aggregateViews :
+    typeof albumLikes === 'number' && albumLikes > 0 ? albumLikes :
+    (typeof albumScore === 'number' ? albumScore : 0)
   const albumPop = (maxPop && maxPop > 0)
     ? popLevelRelative(value, maxPop)
     : (typeof popularity === 'number' ? popularity : 0)
@@ -3606,25 +3614,27 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
             preventDefault'as → fires onPlayTrack(t) jei perduotas. Click'as
             ant track NESPAUDŽIA album'o, nes stopPropagation atskirai
             saugo. Truncate'inam pavadinimus, kad netiltų horizontaliai. */}
+        {/* Top tracks strip — DESKTOP ONLY (mobile hides per user feedback:
+            track listas užima per daug vertikalaus ploto). Desktop'e tracks
+            stack'inami vertikaliai (kiekvienas savo eilutėje), be `·`
+            separator'ių — kortelė tampa skaitytelnesnė. */}
         {topTracks && topTracks.length > 0 && (
           <div
-            className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-['Outfit',sans-serif] text-[11px] font-medium leading-tight text-[var(--text-secondary)] sm:text-[11.5px]"
+            className="mt-1 hidden flex-col gap-0.5 font-['Outfit',sans-serif] text-[11px] font-medium leading-snug text-[var(--text-secondary)] sm:flex sm:text-[11.5px]"
             onClick={(e) => e.stopPropagation()}
           >
-            {topTracks.slice(0, 3).map((t, i) => (
-              <span key={t.id} className="inline-flex max-w-full items-center">
-                {i > 0 && <span aria-hidden className="mr-1.5 text-[var(--text-muted)]">·</span>}
-                <a
-                  href={artistSlug ? `/dainos/${artistSlug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`}
-                  onClick={(e) => {
-                    if (onTrackClick) { e.preventDefault(); e.stopPropagation(); onTrackClick(t) }
-                  }}
-                  className="max-w-[160px] truncate text-inherit no-underline transition-colors hover:text-[var(--accent-orange)]"
-                  title={t.title}
-                >
-                  {t.title}
-                </a>
-              </span>
+            {topTracks.slice(0, 3).map((t) => (
+              <a
+                key={t.id}
+                href={artistSlug ? `/dainos/${artistSlug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`}
+                onClick={(e) => {
+                  if (onTrackClick) { e.preventDefault(); e.stopPropagation(); onTrackClick(t) }
+                }}
+                className="block truncate text-inherit no-underline transition-colors hover:text-[var(--accent-orange)]"
+                title={t.title}
+              >
+                {t.title}
+              </a>
             ))}
           </div>
         )}
@@ -4351,16 +4361,33 @@ export default function ArtistProfileClient({
   // Paleisk = 0). Score'as stipriai cluster'inasi (~17-18 kone visiems) ir
   // neduoda skirtumo. Score naudojamas tik kaip fallback'as kai likes data
   // dar nesurinkta.
+  // Aggregate YouTube views per album — sum'inam visus track'us per
+  // album_tracks junction. Naudojama PopBar lygiui (primary signal kai
+  // score uniformiškas) ir era weight tier'iui. Tracks turi `.albums`
+  // array iš page.tsx — invertuojam į Map<albumId, total_views>.
+  const aggregateViewsByAlbum = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const t of tracks) {
+      const v = (t as any).video_views || 0
+      if (v <= 0) continue
+      const ta = ((t as any).albums || []) as Array<{ id: number }>
+      for (const al of ta) {
+        map.set(al.id, (map.get(al.id) || 0) + v)
+      }
+    }
+    return map
+  }, [tracks])
   const maxAlbumPop = useMemo(() => {
     let max = 0
     for (const a of albums) {
+      const agg = aggregateViewsByAlbum.get(a.id) || 0
       const likes = (a as any).like_count
       const score = (a as any).score
-      const v = typeof likes === 'number' && likes > 0 ? likes : (typeof score === 'number' ? score : 0)
+      const v = agg > 0 ? agg : (typeof likes === 'number' && likes > 0 ? likes : (typeof score === 'number' ? score : 0))
       if (v > max) max = v
     }
     return max
-  }, [albums])
+  }, [albums, aggregateViewsByAlbum])
 
   // Top 2–3 dainos kiekvienam albumui — pagal video_views desc (fallback į
   // like_count). Tracks turi `.albums` array per page.tsx, todėl matchin'am
@@ -4548,10 +4575,12 @@ export default function ArtistProfileClient({
         .map(g => ({ ...g, albums: g.albums.slice().sort((a, b) => (b.year || 0) - (a.year || 0)) }))
     }
 
-    // (b) Auto-decade grouping (revert from double-decade per user feedback
-    // 2026-05-13). Single-decade boxes — 6 metų esamoje dekadoje pakanka.
+    // (b) Auto-decade grouping. Threshold sumažintas 2026-05-13: bet kuris
+    // atlikėjas su albumais bent 2 skirtinguose dešimtmečiuose gauna boxes
+    // (anksčiau buvo ≥10 albumų reikalavimas, dėl ko Britney Spears 7-8
+    // studio albumai liko be grupavimo). LT atlikėjams su 3 albumais
+    // viename dekade vis tiek lieka flat.
     const yeared = groupableAlbums.filter(a => typeof a.year === 'number')
-    if (yeared.length < 10) return null
     const byBucket = new Map<number, Album[]>()
     for (const a of yeared) {
       const start = Math.floor(a.year! / 10) * 10
@@ -5078,36 +5107,51 @@ export default function ArtistProfileClient({
               )}
 
               {/* Grupes (eras / decades) — kiekviena gauna „dėžutę" su
-                  vidaus grid'u. Outer grid: 1 col mobile, 2 col lg+. Tai
-                  taupo vertikalų scroll'ą (Coldplay'aus 4 dekados → 2 row'os
-                  po 2 dėžutes). Dėžutės su lygiu height'u (items-stretch). */}
+                  vidaus grid'u.
+                  MOBILE: horizontal snap-scroll, dėžutės po ~88vw — swipe
+                  į šoną pereiti į kitą erą (taupo vertikalų scroll'ą).
+                  DESKTOP (lg+): regular grid 2 col, dėžutės stack'inasi. */}
               {albumGroups && albumGroups.length > 0 ? (
-                <div className="mt-2 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div
+                  className="mt-2 -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:mx-0 lg:grid lg:grid-cols-2 lg:gap-4 lg:overflow-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden"
+                  style={{
+                    scrollSnapType: 'x mandatory',
+                    scrollPaddingLeft: '1rem',
+                    overscrollBehaviorX: 'contain',
+                    WebkitOverflowScrolling: 'touch',
+                  }}
+                >
                   {albumGroups.map(g => (
-                    <AlbumGroupBox
+                    <div
                       key={g.key}
-                      title={g.title}
-                      subtitle={g.subtitle}
-                      description={g.description}
-                      rangeLabel={g.rangeInTitle ? '' : yearRangeLabel(g.year_start, g.year_end)}
-                      count={g.albums.length}
+                      className="w-[88vw] shrink-0 lg:w-auto lg:shrink"
+                      style={{ scrollSnapAlign: 'start' }}
                     >
-                      <div className="grid grid-cols-3 gap-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-                        {g.albums.map((a, i) => (
-                          <AlbumCard
-                            key={a.id}
-                            a={a}
-                            artistSlug={artist.slug}
-                            maxPop={maxAlbumPop}
-                            popularity={popLevel(i, g.albums.length)}
-                            onOpen={setAlbumModalOpen}
-                            topTracks={topTracksByAlbum.get(a.id)}
-                            weight={weightByAlbum.get(a.id) || 'full'}
-                            onTrackClick={(t) => setTrackInfoOpen(t)}
-                          />
-                        ))}
-                      </div>
-                    </AlbumGroupBox>
+                      <AlbumGroupBox
+                        title={g.title}
+                        subtitle={g.subtitle}
+                        description={g.description}
+                        rangeLabel={g.rangeInTitle ? '' : yearRangeLabel(g.year_start, g.year_end)}
+                        count={g.albums.length}
+                      >
+                        <div className="grid grid-cols-3 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+                          {g.albums.map((a, i) => (
+                            <AlbumCard
+                              key={a.id}
+                              a={a}
+                              artistSlug={artist.slug}
+                              maxPop={maxAlbumPop}
+                              popularity={popLevel(i, g.albums.length)}
+                              onOpen={setAlbumModalOpen}
+                              topTracks={topTracksByAlbum.get(a.id)}
+                              weight={weightByAlbum.get(a.id) || 'full'}
+                              onTrackClick={(t) => setTrackInfoOpen(t)}
+                              aggregateViews={aggregateViewsByAlbum.get(a.id)}
+                            />
+                          ))}
+                        </div>
+                      </AlbumGroupBox>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -5139,6 +5183,7 @@ export default function ArtistProfileClient({
                             topTracks={topTracksByAlbum.get(a.id)}
                             weight={weightByAlbum.get(a.id) || 'full'}
                             onTrackClick={(t) => setTrackInfoOpen(t)}
+                            aggregateViews={aggregateViewsByAlbum.get(a.id)}
                           />
                         </div>
                       ))}
@@ -5155,6 +5200,7 @@ export default function ArtistProfileClient({
                           topTracks={topTracksByAlbum.get(a.id)}
                           weight={weightByAlbum.get(a.id) || 'full'}
                           onTrackClick={(t) => setTrackInfoOpen(t)}
+                          aggregateViews={aggregateViewsByAlbum.get(a.id)}
                         />
                       ))}
                     </div>

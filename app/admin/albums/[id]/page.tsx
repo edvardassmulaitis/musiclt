@@ -709,6 +709,29 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
                 👁 {(form as any).page_view_count == null ? '—' : ((form as any).page_view_count as number).toLocaleString('lt-LT')}
               </span>
             )}
+            {/* PopBar debug — primary signal yra agregatas track video_views,
+                fallback'as į like_count, paskutinis — score (uniformas).
+                User'iui matosi, kodėl albumo bar'as toks, koks yra. */}
+            {!isNew && (() => {
+              const aggViews = (form.tracks || []).reduce((s: number, t: any) => s + ((t.video_views as number) || 0), 0)
+              const score = (form as any).score
+              const likes = (form as any).like_count
+              const primary = aggViews > 0 ? 'agg_views' : (likes > 0 ? 'like_count' : 'score')
+              return (
+                <span
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--input-border)]"
+                  title={[
+                    `PopBar signal hierarchy:`,
+                    `  agg_views (track sum): ${aggViews.toLocaleString('lt-LT')}`,
+                    `  like_count: ${likes ?? '—'}`,
+                    `  score: ${score ?? '—'}`,
+                    `Currently using: ${primary}`,
+                  ].join('\n')}
+                >
+                  ▮ {aggViews > 0 ? `${(aggViews / 1_000_000).toFixed(1)}M` : (likes ?? score ?? '0')}
+                </span>
+              )
+            })()}
             {!isNew && (
               <button onClick={handleDelete} disabled={deleting}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 text-red-500 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
