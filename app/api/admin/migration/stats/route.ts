@@ -1,17 +1,23 @@
 // app/api/admin/migration/stats/route.ts
 //
-// Migration progress dashboard data: kiek atlikėjų jau "sutvarkyta" (LT:
-// scrape ✓; INTL: wiki ✓ + scrape ✓), kiek dar laukia. Plius prioritetinis
-// sąrašas — top N nedarytų atlikėjų sortintas pagal `legacy_likes` desc
-// (pripildytas per scraper/quick_artist_stats.py).
+// Migration progress dashboard data — 3 buckets (LT / INTL / Unknown).
 //
-// Šaltinis: `public.v_artist_migration_status` view (žr. migration
-// 20260512_artist_migration_stats.sql), kuri agreguoja per-artist
-// has_legacy_track / has_wiki_track / has_legacy_album / has_wiki_album.
+// Query params:
+//   bucket  = 'lt' | 'intl' | 'unknown' | 'all' (default: 'all')
+//   status  = 'done' | 'pending' | 'all'        (default: 'all' summary; 'pending' priority list)
+//   limit   = N priority/list items             (default: 50, cap: 500)
+//   offset  = pagination offset                  (default: 0)
 //
-// Cache: 60s — view aggregation'as ant 12k atlikėjų yra ~50-200ms, bet
-// admin gali atnaujinti dashboard'ą dažnai. Cache'as `cache: 'no-store'`
-// nereikalingas — dashboard'as ne user-facing.
+// Done kriterijai:
+//   LT      done = scrape_done
+//   INTL    done = scrape_done AND wiki_done
+//   Unknown done = scrape_done AND wiki_done (konservatyvu)
+//
+// Dedupe: priority/list naudoja `dedup_key` (lower(trim(name))) — UI rodo
+// vieną rep per name + `dup_count`. Viskas DB lygyje galioja toliau —
+// dedupe TIK display optimizacija, kol artists merger tool dar nepasileido.
+//
+// Source: `public.v_artist_migration_status` view (žr. 20260512b_*.sql).
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -33,8 +39,69 @@ type ArtistRow = {
   track_count: number | null
   album_count: number | null
   is_lt: boolean
+  is_intl: boolean
+  is_unknown: boolean
   scrape_done: boolean
   wiki_done: boolean
+  dedup_key: string | null
+}
+
+type Bucket = 'lt' | 'intl' | 'unknown' | 'all'
+type StatusFilter = 'done' | 'pending' | 'all'
+
+function isDone(r: ArtistRow): boolean {
+  if (r.is_lt) return r.scrape_done
+  // INTL + Unknown reikalauja abu
+  return r.scrape_done && r.wiki_done
+}
+
+function inBucket(r: ArtistRow, bucket: Bucket): boolean {
+  if (bucket === 'all') return true
+  if (bucket === 'lt') return r.is_lt
+  if (bucket === 'intl') return r.is_intl
+  if (bucket === 'unknown') return r.is_unknown
+  return false
+}
+
+function rowToOut(r: ArtistRow, dupCount: number) {
+  const missing: ('scrape' | 'wiki')[] = []
+  if (!r.scrape_done) missing.push('scrape')
+  if (!r.is_lt && !r.wiki_done) missing.push('wiki')
+  return {
+    id: r.id,
+    name: r.name,
+    slug: r.slug,
+    country: r.country,
+    kind: (r.is_lt ? 'lt' : r.is_intl ? 'intl' : 'unknown') as 'lt' | 'intl' | 'unknown',
+    legacy_likes: r.legacy_likes,
+    legacy_comments: r.legacy_comments,
+    legacy_discussion_count: r.legacy_discussion_count,
+    legacy_news_count: r.legacy_news_count,
+    missing,
+    track_count: r.track_count ?? 0,
+    album_count: r.album_count ?? 0,
+    scrape_done: r.scrape_done,
+    wiki_done: r.wiki_done,
+    legacy_stats_at: r.legacy_stats_at,
+    dup_count: dupCount, // 1 = unique; 2+ = sumažinta dup_count atlikėjų DB'jeje
+  }
+}
+
+/** Group rows by `dedup_key`, keep highest-legacy_likes representative per name. */
+function dedupeRows(rows: ArtistRow[]): { rep: ArtistRow; count: number }[] {
+  const groups = new Map<string, ArtistRow[]>()
+  for (const r of rows) {
+    const key = r.dedup_key || `__id_${r.id}`
+    const arr = groups.get(key)
+    if (arr) arr.push(r)
+    else groups.set(key, [r])
+  }
+  const out: { rep: ArtistRow; count: number }[] = []
+  for (const [, arr] of groups) {
+    arr.sort((a, b) => (b.legacy_likes ?? -1) - (a.legacy_likes ?? -1))
+    out.push({ rep: arr[0], count: arr.length })
+  }
+  return out
 }
 
 export async function GET(req: Request) {
@@ -44,106 +111,89 @@ export async function GET(req: Request) {
   }
 
   const url = new URL(req.url)
-  const priorityLimit = Math.min(200, Math.max(1, Number(url.searchParams.get('priority_limit') || 25)))
+  const bucket = (url.searchParams.get('bucket') || 'all') as Bucket
+  const statusParam = (url.searchParams.get('status') || 'all') as StatusFilter
+  const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit') || 50)))
+  const offset = Math.max(0, Number(url.searchParams.get('offset') || 0))
 
   const sb = createAdminClient()
 
-  // Pull visus 12k atlikėjų iš view'o vienu request'u. PostgREST default
-  // cap'as yra 1000 — naudojam pagination su PAGE=1000 (žr.
+  // Pull all rows from view (PostgREST 1000-row pagination — žr.
   // feedback_postgrest_max_rows.md).
   const PAGE = 1000
   const all: ArtistRow[] = []
-  let offset = 0
+  let pgOffset = 0
   while (true) {
     const { data, error } = await sb
       .from('v_artist_migration_status')
       .select('*')
-      .range(offset, offset + PAGE - 1)
+      .range(pgOffset, pgOffset + PAGE - 1)
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
     const rows = (data || []) as ArtistRow[]
     all.push(...rows)
     if (rows.length < PAGE) break
-    offset += PAGE
+    pgOffset += PAGE
   }
 
-  // Agreguojame counter'ius
+  // ── Counters per bucket (RAW — not dedup'd. DB true counts.) ──
   const ltAll = all.filter(a => a.is_lt)
-  const intlAll = all.filter(a => !a.is_lt)
+  const intlAll = all.filter(a => a.is_intl)
+  const unknownAll = all.filter(a => a.is_unknown)
 
-  const ltDone = ltAll.filter(a => a.scrape_done).length
-  // INTL "done" = ir scrape, ir wiki padaryti
-  const intlDone = intlAll.filter(a => a.scrape_done && a.wiki_done).length
-  const intlWikiOnly = intlAll.filter(a => a.wiki_done && !a.scrape_done).length
-  const intlScrapeOnly = intlAll.filter(a => a.scrape_done && !a.wiki_done).length
+  const ltDone = ltAll.filter(isDone).length
+  const intlDone = intlAll.filter(isDone).length
+  const unknownDone = unknownAll.filter(isDone).length
 
-  // Atlikėjai be legacy_id — jie negali būti scrape'inami iš senos sistemos
-  // (manualiai sukurti). Į migration progress neįtraukiam, bet rodome counter'į.
-  const noLegacy = all.filter(a => a.legacy_id == null).length
-
-  // Prioritetinis sąrašas — atlikėjai, kuriems trūksta darbų, sortintas
-  // pagal legacy_likes desc (NULL'us nustumiame į galą).
-  const priority = all
-    .filter(a => a.legacy_id != null)
-    .filter(a => a.is_lt ? !a.scrape_done : !(a.scrape_done && a.wiki_done))
-    .sort((x, y) => {
-      const xl = x.legacy_likes ?? -1
-      const yl = y.legacy_likes ?? -1
-      if (xl !== yl) return yl - xl
-      // Tie-breaker — discussions count, kad UI būtų stable
-      return (y.legacy_discussion_count ?? 0) - (x.legacy_discussion_count ?? 0)
-    })
-    .slice(0, priorityLimit)
-    .map(a => ({
-      id: a.id,
-      name: a.name,
-      slug: a.slug,
-      country: a.country,
-      kind: a.is_lt ? 'lt' : 'intl' as 'lt' | 'intl',
-      legacy_likes: a.legacy_likes,
-      legacy_comments: a.legacy_comments,
-      legacy_discussion_count: a.legacy_discussion_count,
-      legacy_news_count: a.legacy_news_count,
-      missing: [
-        ...(a.scrape_done ? [] : ['scrape']),
-        ...(!a.is_lt && !a.wiki_done ? ['wiki'] : []),
-      ] as ('scrape' | 'wiki')[],
-      track_count: a.track_count ?? 0,
-      album_count: a.album_count ?? 0,
-    }))
-
-  // Stats freshness: kiek atlikėjų turi legacy_stats_at
+  // Stats coverage
   const statsCovered = all.filter(a => a.legacy_stats_at != null).length
 
-  return NextResponse.json({
-    total: {
-      artists: all.length,
-      with_legacy_id: all.length - noLegacy,
-      no_legacy_id: noLegacy,
-      done: ltDone + intlDone,
-      pct: all.length > 0 ? Math.round(((ltDone + intlDone) / all.length) * 1000) / 10 : 0,
-    },
-    lt: {
-      total: ltAll.length,
-      done: ltDone,
-      pending: ltAll.length - ltDone,
-      pct: ltAll.length > 0 ? Math.round((ltDone / ltAll.length) * 1000) / 10 : 0,
-    },
-    intl: {
-      total: intlAll.length,
-      done: intlDone,
-      wiki_only: intlWikiOnly,
-      scrape_only: intlScrapeOnly,
-      pending: intlAll.length - intlDone,
-      pct: intlAll.length > 0 ? Math.round((intlDone / intlAll.length) * 1000) / 10 : 0,
-    },
-    priority_signal: {
-      // Kiek atlikėjų turi legacy_likes pripildytus (svarbu prioritetiniam sąrašui)
-      stats_covered: statsCovered,
-      stats_missing: all.length - statsCovered,
-      pct: all.length > 0 ? Math.round((statsCovered / all.length) * 1000) / 10 : 0,
-    },
-    priority,
+  // Total duplicate ranges — kiek atlikėjų DB'jeje turi pagal name
+  // bent vieną kitą artist'ą su tuo paciu pavadinimu.
+  const dupGroups = dedupeRows(all)
+  const totalDuplicates = dupGroups.filter(g => g.count > 1).length
+  const totalDupRows = dupGroups
+    .filter(g => g.count > 1)
+    .reduce((acc, g) => acc + g.count, 0)
+
+  // ── Filtered list (bucket + status), dedup'd, paginated ──
+  const filtered = all.filter(r => {
+    if (!inBucket(r, bucket)) return false
+    if (statusParam === 'done') return isDone(r)
+    if (statusParam === 'pending') return !isDone(r)
+    return true
   })
+
+  const filteredDeduped = dedupeRows(filtered)
+    // Default sort: legacy_likes desc, then discussion_count desc
+    .sort((x, y) => {
+      const xl = x.rep.legacy_likes ?? -1
+      const yl = y.rep.legacy_likes ?? -1
+      if (xl !== yl) return yl - xl
+      return (y.rep.legacy_discussion_count ?? 0) - (x.rep.legacy_discussion_count ?? 0)
+    })
+
+  const totalFiltered = filteredDeduped.length
+  const page = filteredDeduped
+    .slice(offset, offset + limit)
+    .map(g => rowToOut(g.rep, g.count))
+
+  return NextResponse.json({
+    summary: {
+      total: all.length,
+      duplicates: { unique_groups: totalDuplicates, total_rows: totalDupRows },
+      lt:      { total: ltAll.length,     done: ltDone,     pending: ltAll.length - ltDone,     pct: pct(ltDone, ltAll.length) },
+      intl:    { total: intlAll.length,   done: intlDone,   pending: intlAll.length - intlDone, pct: pct(intlDone, intlAll.length) },
+      unknown: { total: unknownAll.length, done: unknownDone, pending: unknownAll.length - unknownDone, pct: pct(unknownDone, unknownAll.length) },
+      stats_coverage: { covered: statsCovered, missing: all.length - statsCovered, pct: pct(statsCovered, all.length) },
+    },
+    query: { bucket, status: statusParam, limit, offset, total: totalFiltered },
+    rows: page,
+  })
+}
+
+function pct(num: number, denom: number): number {
+  if (denom <= 0) return 0
+  return Math.round((num / denom) * 1000) / 10
 }
