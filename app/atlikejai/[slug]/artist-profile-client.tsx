@@ -1199,6 +1199,35 @@ export function trackCompositeScore(t: any): number {
   return viewsLog + likesLog + single + video
 }
 
+/** Adaptive variant — LT-like atlikėjams (Mamontovas, Mikutavičius) views
+ *  dengia tik kelis track'us iš šimtų (YT enrichment dar nepravažiavo per
+ *  legacy LT scrape), todėl views-dominant default'as nestabiliai eilėje
+ *  iškelia 1-2 atsitiktinius YT-su-views track'us virš visų klasikinių
+ *  community-love hit'ų.
+ *
+ *  Coverage threshold (≥30% tracks su >0 views) skiria INTL nuo LT case'o:
+ *    - INTL (≥30% coverage) → standard views-dominant trackCompositeScore.
+ *    - LT (<30%)           → likes-dominant: like_count×100 + viewsLog×5.
+ *
+ *  Sukurta vienos eilės factory'oje, kad ta pati formulė naudotų sort'ą,
+ *  popbar percentile, ir player'io „top dainos" iškėlimą. */
+export function makeArtistTrackScorer(tracks: any[]): (t: any) => number {
+  const N = tracks.length
+  if (N === 0) return trackCompositeScore
+  let withViews = 0
+  for (const t of tracks) if ((t?.video_views || 0) > 0) withViews++
+  const coverage = withViews / N
+  if (coverage >= 0.30) return trackCompositeScore
+  // LT-like artist — like_count dominates, views only break ties.
+  return (t: any) => {
+    const likesLog = Math.log10((t?.like_count || 0) + 1) * 100
+    const viewsLog = Math.log10((t?.video_views || 0) + 1) * 5
+    const single = t?.is_single ? 10 : 0
+    const video = t?.video_url ? 5 : 0
+    return likesLog + viewsLog + single + video
+  }
+}
+
 function detectPopSignal(allTracks: any[]): { signal: PopSignal; max: number } {
   let max = 0
   for (const t of allTracks) {
@@ -4720,9 +4749,11 @@ export default function ArtistProfileClient({
   // YT views — globalus, all-time, geriausias TIKRAS-populiarumo rodiklis.
   // Music.lt likes — sparse, skewed (deklinuojanti platforma); naudojam tik
   // kaip subtle tiebreaker kai data prieinama.
-  // Use shared trackCompositeScore (defined module-level) — identiška
-  // formulė PopBar level'iui (popLevelWithFallback). Vienas šaltinis truth.
-  const trackSortVal = trackCompositeScore
+  // Adaptive scorer — INTL atlikėjams (Coldplay) views dominuoja, LT
+  // atlikėjams (Mamontovas, kur YT views per scrape neapseidžia) likes
+  // dominuoja. Coverage threshold (≥30% tracks su >0 views) skiria
+  // case'us. Vienas šaltinis tiek sort'ui, tiek popbar percentile lygiui.
+  const trackSortVal = useMemo(() => makeArtistTrackScorer(tracks), [tracks])
 
   const tracksAllTime = useMemo(() => {
     // With-video tracks pirmiau (UX — instant play), bet kiekvienoje
@@ -4732,13 +4763,13 @@ export default function ArtistProfileClient({
     const withVideo = tracks.filter(t => yt(t.video_url)).slice().sort((a, b) => trackSortVal(b) - trackSortVal(a))
     const rest = tracks.filter(t => !yt(t.video_url)).slice().sort((a, b) => trackSortVal(b) - trackSortVal(a))
     return [...withVideo, ...rest]
-  }, [tracks])
+  }, [tracks, trackSortVal])
 
   const tracksTrending = useMemo(() => {
     const withVideo = newTracks.filter(t => yt(t.video_url)).slice().sort((a, b) => trackSortVal(b) - trackSortVal(a))
     const rest = newTracks.filter(t => !yt(t.video_url)).slice().sort((a, b) => trackSortVal(b) - trackSortVal(a))
     return [...withVideo, ...rest]
-  }, [newTracks])
+  }, [newTracks, trackSortVal])
 
   const hasAnyVideo = tracksAllTime.some(t => yt(t.video_url)) || tracksTrending.some(t => yt(t.video_url))
 
