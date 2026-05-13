@@ -55,17 +55,41 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!wikiTitle) return NextResponse.json({ error: 'Pateik Wikipedia URL arba pavadinimą' }, { status: 400 })
 
   // Fetch full Wikipedia extract.
-  const fullRes = await fetch(
-    `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=extracts&explaintext=true&format=json&origin=*`,
-  )
-  if (!fullRes.ok) {
-    return NextResponse.json({ error: `Wiki fetch failed: ${fullRes.status}` }, { status: 502 })
+  // Wikipedia API požiūriu user-agent privalo identifikuoti aplikaciją —
+  // be jo grįžta 429 Too Many Requests net pirmam request'ui. Per spec
+  // https://meta.wikimedia.org/wiki/User-Agent_policy reikia
+  // `<app>/<version> (<contact>)`. Vercel server'is nieko siunčia by
+  // default. 2026-05-13 fix po 429 fail'o ant Britney Spears.
+  const wikiHeaders = {
+    'User-Agent': 'MusicLt-EraExtractor/1.0 (https://music.lt; admin@music.lt)',
+    'Accept': 'application/json',
   }
-  const wikiJson = await fullRes.json()
-  const pages = wikiJson.query?.pages || {}
-  const extract: string = (Object.values(pages)[0] as any)?.extract || ''
+  let extract = ''
+  const fullRes = await fetch(
+    `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=extracts&explaintext=true&format=json`,
+    { headers: wikiHeaders },
+  )
+  if (fullRes.ok) {
+    const wikiJson = await fullRes.json()
+    const pages = wikiJson.query?.pages || {}
+    extract = (Object.values(pages)[0] as any)?.extract || ''
+  }
+  // Jei full fail'ino arba per trumpas — fallback į REST summary endpoint.
   if (!extract || extract.length < 500) {
-    return NextResponse.json({ error: 'Wiki straipsnis per trumpas arba neegzistuoja' }, { status: 404 })
+    const sumRes = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`,
+      { headers: wikiHeaders },
+    )
+    if (sumRes.ok) {
+      const sum = await sumRes.json()
+      const sumExtract: string = sum.extract || ''
+      if (sumExtract && sumExtract.length > 200) extract = sumExtract
+    }
+    if (!extract || extract.length < 200) {
+      return NextResponse.json({
+        error: `Nepavyko gauti Wiki turinio (status: ${fullRes.status}). Patikrink, ar URL teisingas.`,
+      }, { status: 502 })
+    }
   }
 
   // Trim to a reasonable size so we don't send 50k tokens for big artists.
