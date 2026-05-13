@@ -3476,14 +3476,15 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, onOpen, onPlayTrack, 
   )
 }
 
-// ── AlbumGroupRow ─────────────────────────────────────────────────
+// ── AlbumGroupBox ─────────────────────────────────────────────────
 //
-// Vienos eros / dekados albumų eilutė — su header'iu (title + range +
-// count) ir horizontaliu snap-scroll'u (vienodas mobile + desktop'e). Right
-// edge chevron'as parodo, kad galima slinkti, kai albumų yra daugiau, nei
-// telpa į vieną row'ą.
+// Vienos eros / dekados albumų „dėžutė" — su header'iu (title + range +
+// count) ir vidaus grid'u (3-4 col responsive). Pati dėžutė yra padded
+// bordered container'is, kad eras / dekados aiškiai matytųsi kaip atskiri
+// blokai. Outer grid (parent komponentas) sustato dėžutes po 1-2 col
+// pagal viewport'ą, kad jos nesudėtų vertikalaus scroll'o.
 
-function AlbumGroupRow({ title, subtitle, description, rangeLabel, count, children }: {
+function AlbumGroupBox({ title, subtitle, description, rangeLabel, count, children }: {
   title: string
   subtitle?: string | null
   description?: string | null
@@ -3492,8 +3493,8 @@ function AlbumGroupRow({ title, subtitle, description, rangeLabel, count, childr
   children: React.ReactNode
 }) {
   return (
-    <div>
-      <div className="mb-2 flex items-baseline justify-between gap-3 border-b border-[var(--border-subtle)] pb-1.5">
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 sm:p-4">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
         <div className="flex min-w-0 items-baseline gap-2">
           <h3 className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] sm:text-[15px]">
             {title}
@@ -3514,21 +3515,11 @@ function AlbumGroupRow({ title, subtitle, description, rangeLabel, count, childr
         </span>
       </div>
       {description && (
-        <p className="mb-2 max-w-prose font-['Outfit',sans-serif] text-[12px] font-medium leading-snug text-[var(--text-secondary)]">
+        <p className="mb-3 max-w-prose font-['Outfit',sans-serif] text-[12px] font-medium leading-snug text-[var(--text-secondary)]">
           {description}
         </p>
       )}
-      <div
-        className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        style={{
-          scrollSnapType: 'x mandatory',
-          scrollPaddingLeft: '1rem',
-          overscrollBehaviorX: 'contain',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        {children}
-      </div>
+      {children}
     </div>
   )
 }
@@ -4557,15 +4548,13 @@ export default function ArtistProfileClient({
         .map(g => ({ ...g, albums: g.albums.slice().sort((a, b) => (b.year || 0) - (a.year || 0)) }))
     }
 
-    // (b) Auto-grouping into 20-year (double-decade) buckets. 2026-05-13:
-    // single-decade buckets dažnai būna sparse (Coldplay 2020s = 1 albumas
-    // be spotlight'o), kuriama daug tuščio ploto sone. Pora-dekadų grupavimas
-    // duoda 2-3 buckets su panašiu albumų kiekiu kiekvienam.
+    // (b) Auto-decade grouping (revert from double-decade per user feedback
+    // 2026-05-13). Single-decade boxes — 6 metų esamoje dekadoje pakanka.
     const yeared = groupableAlbums.filter(a => typeof a.year === 'number')
     if (yeared.length < 10) return null
     const byBucket = new Map<number, Album[]>()
     for (const a of yeared) {
-      const start = doubleDecadeStart(a.year!)
+      const start = Math.floor(a.year! / 10) * 10
       const arr = byBucket.get(start) || []
       arr.push(a)
       byBucket.set(start, arr)
@@ -4575,8 +4564,8 @@ export default function ArtistProfileClient({
     const sorted = [...byBucket.entries()].sort((a, b) => b[0] - a[0])
     const groups: AlbumGroup[] = sorted.map(([start, arr]) => ({
       key: `bucket-${start}`,
-      title: yearRangeLabel(start, start + 19),
-      year_start: start, year_end: start + 19,
+      title: yearRangeLabel(start, start + 9),
+      year_start: start, year_end: start + 9,
       albums: arr.slice().sort((a, b) => (b.year || 0) - (a.year || 0)),
       rangeInTitle: true,
     }))
@@ -5088,13 +5077,14 @@ export default function ArtistProfileClient({
                 />
               )}
 
-              {/* Grupes (eras / decades) — kiekviena gauna horizontal
-                  snap-scroll row'ą. Kiekvienoje row'oje albumai sortinti
-                  newest first. */}
+              {/* Grupes (eras / decades) — kiekviena gauna „dėžutę" su
+                  vidaus grid'u. Outer grid: 1 col mobile, 2 col lg+. Tai
+                  taupo vertikalų scroll'ą (Coldplay'aus 4 dekados → 2 row'os
+                  po 2 dėžutes). Dėžutės su lygiu height'u (items-stretch). */}
               {albumGroups && albumGroups.length > 0 ? (
-                <div className="mt-2 space-y-7">
+                <div className="mt-2 grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {albumGroups.map(g => (
-                    <AlbumGroupRow
+                    <AlbumGroupBox
                       key={g.key}
                       title={g.title}
                       subtitle={g.subtitle}
@@ -5102,13 +5092,10 @@ export default function ArtistProfileClient({
                       rangeLabel={g.rangeInTitle ? '' : yearRangeLabel(g.year_start, g.year_end)}
                       count={g.albums.length}
                     >
-                      {g.albums.map((a, i) => (
-                        <div
-                          key={a.id}
-                          className="w-[46vw] max-w-[180px] shrink-0 sm:w-[160px]"
-                          style={{ scrollSnapAlign: 'start' }}
-                        >
+                      <div className="grid grid-cols-3 gap-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+                        {g.albums.map((a, i) => (
                           <AlbumCard
+                            key={a.id}
                             a={a}
                             artistSlug={artist.slug}
                             maxPop={maxAlbumPop}
@@ -5118,9 +5105,9 @@ export default function ArtistProfileClient({
                             weight={weightByAlbum.get(a.id) || 'full'}
                             onTrackClick={(t) => setTrackInfoOpen(t)}
                           />
-                        </div>
-                      ))}
-                    </AlbumGroupRow>
+                        ))}
+                      </div>
+                    </AlbumGroupBox>
                   ))}
                 </div>
               ) : (
