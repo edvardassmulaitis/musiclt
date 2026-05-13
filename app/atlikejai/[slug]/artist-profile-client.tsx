@@ -3318,7 +3318,24 @@ function MobileFilterRow({
 
 // ── AlbumCard ──────────────────────────────────────────────────────
 
-function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen }: { a: Album; popularity?: number; artistSlug?: string; maxPop?: number; onOpen?: (a: Album) => void }) {
+/** Weight tier for an album card — drives subtle scaling/opacity so the
+ *  most viewed releases visually dominate over deep cuts / live / EP'ai.
+ *  Computed parent-side per artist (relative tier).
+ *  - 'full' : top 25% pagal aggregate views — full size, full saturation
+ *  - 'mid'  : likę "real" albumai — full size, slight dim
+ *  - 'dim'  : live / EP / kompilacijos / 0-view releases — 85% size + dim
+ */
+type AlbumWeight = 'full' | 'mid' | 'dim'
+
+function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weight = 'full', onPlayTrack }: {
+  a: Album; popularity?: number; artistSlug?: string; maxPop?: number
+  onOpen?: (a: Album) => void
+  /** Top 2–3 tracks for this album (by video_views desc) — shown below title
+   *  as small clickable strip. Click → fires onPlayTrack if provided. */
+  topTracks?: Track[]
+  weight?: AlbumWeight
+  onPlayTrack?: (t: Track) => void
+}) {
   const type = aType(a)
   const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
   const [coverFailed, setCoverFailed] = useState(false)
@@ -3375,9 +3392,46 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen }: { a: Album; po
       <div className="mt-1.5 px-0.5">
         <div className="truncate font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-primary)] sm:text-[12px]">{a.title}</div>
         {albumPop > 0 && <PopBar level={albumPop} />}
+        {/* Top tracks strip — 2–3 dainos su video peak views. Kiekvienas
+            track pavadinimas yra `<a href>` (SEO + middle-click new tab) +
+            preventDefault'as → fires onPlayTrack(t) jei perduotas. Click'as
+            ant track NESPAUDŽIA album'o, nes stopPropagation atskirai
+            saugo. Truncate'inam pavadinimus, kad netiltų horizontaliai. */}
+        {topTracks && topTracks.length > 0 && (
+          <div
+            className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-0 font-['Outfit',sans-serif] text-[10px] leading-tight text-[var(--text-faint)] sm:text-[10.5px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {topTracks.slice(0, 3).map((t, i) => (
+              <span key={t.id} className="inline-flex max-w-full items-center">
+                {i > 0 && <span aria-hidden className="mr-1 text-[var(--text-faint)]/60">·</span>}
+                <a
+                  href={artistSlug ? `/dainos/${artistSlug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`}
+                  onClick={(e) => {
+                    if (onPlayTrack) { e.preventDefault(); e.stopPropagation(); onPlayTrack(t) }
+                  }}
+                  className="max-w-[140px] truncate text-inherit no-underline transition-colors hover:text-[var(--accent-orange)]"
+                  title={t.title}
+                >
+                  {t.title}
+                </a>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </>
   )
+  // Weight tier → subtle scale + opacity. Naudojam `transform: scale()` +
+  // origin-top — kad card lieka ant viršaus aligned grid lygyje, o sumažėja
+  // į apačią. Mid'as palieka ne-scale'intą, bet šiek tiek dim'intas
+  // pavadinimas. Dim'as — 85% scale + 0.7 opacity, kad live/EP/kompilacijos
+  // matytųsi kaip „antrinis" turinys. Hover'is paima full opacity ir scale 1.
+  const weightWrapper =
+    weight === 'dim'  ? 'origin-top scale-[0.88] opacity-70 transition-all duration-200 hover:scale-100 hover:opacity-100' :
+    weight === 'mid'  ? 'opacity-95 transition-opacity duration-200 hover:opacity-100' :
+    /* full */         ''
+  const wrapperClass = `${cardClassName} ${weightWrapper}`.trim()
   if (onOpen) {
     // Modal-mode: SEO-friendly <a> with real href so crawlers index the
     // album page. Click → preventDefault → onOpen(a) opens slide-in modal.
@@ -3387,14 +3441,14 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen }: { a: Album; po
         href={href}
         onClick={(e) => { e.preventDefault(); onOpen(a) }}
         aria-label={`Atidaryti albumą ${a.title}`}
-        className={cardClassName}
+        className={wrapperClass}
       >
         {inner}
       </a>
     )
   }
   return (
-    <Link href={href} className={cardClassName}>
+    <Link href={href} className={wrapperClass}>
       {inner}
     </Link>
   )
@@ -4103,6 +4157,72 @@ export default function ArtistProfileClient({
     return max
   }, [albums])
 
+  // Top 2–3 dainos kiekvienam albumui — pagal video_views desc (fallback į
+  // like_count). Tracks turi `.albums` array per page.tsx, todėl matchin'am
+  // album_id'us. Map(albumId → Track[]) — užkrauta vieną kartą per render.
+  // 2026-05-13 (Push 3a): top track strip po album card'u, padaro „Viva
+  // la Vida or Death and All His Friends" iškart suprantamu kontekste.
+  const topTracksByAlbum = useMemo(() => {
+    const map = new Map<number, Track[]>()
+    // Sukuriam track lookup pagal album.id
+    const allTracks = tracks // tracks already include top picks
+    for (const t of allTracks) {
+      const trackAlbums = ((t as any).albums || []) as Array<{ id: number }>
+      for (const al of trackAlbums) {
+        const arr = map.get(al.id) || []
+        arr.push(t)
+        map.set(al.id, arr)
+      }
+    }
+    // Sort kiekvieno albumo tracks pagal views (fallback: likes)
+    for (const [k, arr] of map) {
+      arr.sort((a, b) => {
+        const va = (a as any).video_views || 0
+        const vb = (b as any).video_views || 0
+        if (vb !== va) return vb - va
+        return ((b as any).like_count || 0) - ((a as any).like_count || 0)
+      })
+      map.set(k, arr.slice(0, 3))
+    }
+    return map
+  }, [tracks])
+
+  // Weight tier per album — relyvac'us tier'iuoja albumus pagal AGGREGATE
+  // top-track views. Top 25% (jei ≥4 albumai) — 'full', vidurys — 'mid',
+  // apačia + visi live/EP/kompilacijos — 'dim'. Mažiems atlikėjams (≤3
+  // albumai) — viskas 'full' (neverta zoom'inti hierarchijų).
+  const weightByAlbum = useMemo(() => {
+    const map = new Map<number, AlbumWeight>()
+    if (albums.length === 0) return map
+    // Skaičiuojam aggregate per album'ą: sumuojam top-3 track views
+    const aggregateByAlbum = new Map<number, number>()
+    for (const a of albums) {
+      const topTs = topTracksByAlbum.get(a.id) || []
+      const sum = topTs.reduce((s, t) => s + ((t as any).video_views || 0), 0)
+      aggregateByAlbum.set(a.id, sum)
+    }
+    // Mažas atlikėjas — viskas 'full'.
+    if (albums.length <= 3) {
+      for (const a of albums) map.set(a.id, 'full')
+      return map
+    }
+    // Sort'om pagal aggregate desc, top 25% → 'full', vidurys 50% → 'mid',
+    // apačia 25% + ne-studio → 'dim'.
+    const studioAlbums = albums.filter(a => aType(a) === 'Studijinis')
+    const nonStudioAlbums = albums.filter(a => aType(a) !== 'Studijinis')
+    const sorted = [...studioAlbums].sort((a, b) => (aggregateByAlbum.get(b.id) || 0) - (aggregateByAlbum.get(a.id) || 0))
+    const topN = Math.max(1, Math.ceil(sorted.length * 0.25))
+    const midN = Math.max(1, Math.ceil(sorted.length * 0.5))
+    sorted.forEach((a, i) => {
+      const tier: AlbumWeight = i < topN ? 'full' : i < topN + midN ? 'mid' : 'dim'
+      map.set(a.id, tier)
+    })
+    // Visi non-studio (EP, Live, Remix, OST, Demo, Single, Kompilacija) →
+    // 'dim' (kad nedraskytų akies vs studijinių).
+    for (const a of nonStudioAlbums) map.set(a.id, 'dim')
+    return map
+  }, [albums, topTracksByAlbum])
+
   // Pop signal'as su fallback hierarchy — taip pat kaip HeroPlayer'yje.
   // Garantuoja, kad orphan ("Kitos dainos") sąraše bar'ai rodomi net jei
   // like_count'ai 0 (naujai importuotam intl atlikėjui).
@@ -4604,7 +4724,16 @@ export default function ArtistProfileClient({
                         className="w-[46vw] max-w-[180px] shrink-0"
                         style={{ scrollSnapAlign: 'start' }}
                       >
-                        <AlbumCard a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} onOpen={setAlbumModalOpen} />
+                        <AlbumCard
+                          a={a}
+                          artistSlug={artist.slug}
+                          maxPop={maxAlbumPop}
+                          popularity={popLevel(i, visibleAlbums.length)}
+                          onOpen={setAlbumModalOpen}
+                          topTracks={topTracksByAlbum.get(a.id)}
+                          weight={weightByAlbum.get(a.id) || 'full'}
+                          onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
+                        />
                       </div>
                     ))}
                   </div>
@@ -4613,7 +4742,17 @@ export default function ArtistProfileClient({
                       ir low-res quality nesimatytų. */}
                   <div className="hidden gap-3 sm:grid sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
                     {visibleAlbums.map((a, i) => (
-                      <AlbumCard key={a.id} a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} onOpen={setAlbumModalOpen} />
+                      <AlbumCard
+                        key={a.id}
+                        a={a}
+                        artistSlug={artist.slug}
+                        maxPop={maxAlbumPop}
+                        popularity={popLevel(i, visibleAlbums.length)}
+                        onOpen={setAlbumModalOpen}
+                        topTracks={topTracksByAlbum.get(a.id)}
+                        weight={weightByAlbum.get(a.id) || 'full'}
+                        onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
+                      />
                     ))}
                   </div>
                 </>
