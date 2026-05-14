@@ -75,11 +75,10 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
       setEras(eRes.rows || [])
       setAlbums((aRes.rows || []).filter((a: any) => a.year))
       setArtistName(arRes.name || '')
-      // Pre-fill AI generator URL — wiki straipsnio pavadinimas dažniausiai
-      // sutampa su atlikėjo vardu (space → underscore). Useris gali keisti.
+      // Pre-fill AI generator input su atlikėjo vardu (ne URL'u — Claude
+      // nebescrape'ina wiki, naudoja training data).
       if (arRes.name && !aiWikiUrl) {
-        const guessTitle = String(arRes.name).trim().replace(/\s+/g, '_')
-        setAiWikiUrl(`https://en.wikipedia.org/wiki/${guessTitle}`)
+        setAiWikiUrl(String(arRes.name))
       }
       setLoading(false)
     })
@@ -124,7 +123,9 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
         // sourceLength. Helps diagnose why eras came back empty.
         const parts = [data.error || `HTTP ${res.status}`]
         if (data.stop_reason) parts.push(`stop_reason: ${data.stop_reason}`)
-        if (data.sourceLength) parts.push(`wiki source: ${data.sourceLength} chars`)
+        if (data.artistName) parts.push(`artistas: ${data.artistName}`)
+        if (data.parserPath) parts.push(`parser: ${data.parserPath}`)
+        if (data.parseErr) parts.push(`parse err: ${data.parseErr}`)
         if (data.toolInput) parts.push(`tool input: ${data.toolInput.slice(0, 400)}`)
         if (data.raw) parts.push(`raw: ${data.raw.slice(0, 400)}`)
         throw new Error(parts.join('\n'))
@@ -358,10 +359,10 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
               <button onClick={() => !aiLoading && setShowAIModal(false)} aria-label="Uždaryti" className="text-[18px] text-[var(--text-muted)]" disabled={aiLoading}>✕</button>
             </div>
             <p className="mb-3 text-[12.5px] text-[var(--text-secondary)]">
-              Claude AI iš savo žinių sukurs atlikėjo karjeros laikotarpius su LT pavadinimais ir aprašymais. Atlikėjo vardas paimtas iš DB — gali jį pakeisti ar pateikti Wikipedia URL alternatyvai.
+              Claude AI iš savo žinių sukurs atlikėjo karjeros laikotarpius su LT pavadinimais ir aprašymais. Atlikėjo vardas paimtas iš DB — gali jį pakeisti, jei reikia.
             </p>
             <label className="block">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Atlikėjas (arba Wikipedia URL)</span>
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Atlikėjo vardas</span>
               <input
                 type="text"
                 value={aiWikiUrl}
