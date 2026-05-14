@@ -18,6 +18,7 @@ export type ExtractedArticle = {
   text: string                  // plain text body
   html: string                  // raw HTML (be script/style)
   lead_image_url?: string
+  embed_urls: string[]          // YT/Spotify/SoundCloud/Bandcamp iš source (svarbu naujiems release'ams)
   author?: string
   published_at?: string
   source_lang?: string          // detekcija pagal HTML lang attr
@@ -73,7 +74,25 @@ export function parseHtml(html: string, baseUrl: string): ExtractedArticle {
     }
   }
 
-  // 7) Clean — pašalinti scripts/styles/nav/aside/footer/comments
+  // 7a) PRIEŠ strip'inant — extract'inam embed URLs (YT/Spotify/SoundCloud/Bandcamp)
+  const embedUrls: string[] = []
+  // iframe src
+  const iframeMatches = bodyHtml.matchAll(/<iframe[^>]+src=["']([^"']+)/gi)
+  for (const m of iframeMatches) {
+    const src = m[1]
+    if (/youtube\.com|youtu\.be|spotify\.com|soundcloud\.com|bandcamp\.com/i.test(src)) {
+      embedUrls.push(absoluteUrl(src, baseUrl))
+    }
+  }
+  // Anchor links to music platforms (Pitchfork often inline-links these)
+  const linkMatches = bodyHtml.matchAll(/<a[^>]+href=["']([^"']*(?:youtube\.com\/watch|youtu\.be\/[\w-]+|open\.spotify\.com|soundcloud\.com\/[\w-]+\/[\w-]+|[\w-]+\.bandcamp\.com)[^"']*)["']/gi)
+  for (const m of linkMatches) {
+    embedUrls.push(absoluteUrl(m[1], baseUrl))
+  }
+  // Dedupe
+  const uniqueEmbeds = Array.from(new Set(embedUrls))
+
+  // 7b) Clean — pašalinti scripts/styles/nav/aside/footer/comments
   let cleaned = bodyHtml
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -114,6 +133,7 @@ export function parseHtml(html: string, baseUrl: string): ExtractedArticle {
     text,
     html: cleaned.slice(0, 50_000), // bound
     lead_image_url,
+    embed_urls: uniqueEmbeds,
     author: author ? decodeHtml(author) : undefined,
     published_at: published,
     source_lang: lang || undefined,

@@ -179,13 +179,21 @@ export async function POST(req: NextRequest) {
       for (const rel of relevantItems) {
         try {
           const article = await extractFromUrl(rel.url)
+          // Pridedam embed'us į užklausos tekstą — Sonnet galės juos atskirti
+          const embedHint = article.embed_urls.length > 0
+            ? `\n\nSOURCE'E RASTI EMBED'AI (YT/Spotify/SoundCloud/Bandcamp) — ĮDĖK į embed_urls output'ą:\n${article.embed_urls.join('\n')}`
+            : ''
           const ai = await normalizeArticle({
-            full_text: article.text,
+            full_text: article.text + embedHint,
             source_lang: article.source_lang || (source.category === 'news_lt' ? 'lt' : 'en'),
             source_name: source.name,
             source_url: rel.url,
             artist_whitelist: artistHint,
           })
+          // Jeigu Sonnet'as nepasiūlė embed'ų, naudojam source'e rastus tiesiogiai
+          if ((!ai.embed_urls || ai.embed_urls.length === 0) && article.embed_urls.length > 0) {
+            ai.embed_urls = article.embed_urls
+          }
 
           // AI gali persigalvoti kategorijos — re-check ALLOWED
           if (!ALLOWED_CATEGORIES.has(ai.category as any)) {
@@ -234,8 +242,9 @@ export async function POST(req: NextRequest) {
                 ai_model: ai.model,
                 suggested_artist_ids: artistMatches.map(a => a.artist_id),
                 suggested_track_ids: trackMatches.map(t => t.track_id),
-                primary_artist_id: primaryArtist?.artist_id || null,
+                primary_artist_id: primaryArtist?.artist_id || artistMatches[0]?.artist_id || null,
                 suggested_image_url: article.lead_image_url || null,
+                embed_urls: ai.embed_urls || [],
                 url_canonical_hash: urlHash,
                 title_fingerprint: tFp,
                 status: 'pending',

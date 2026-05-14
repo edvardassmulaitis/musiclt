@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import WikimediaSearch from '@/components/WikimediaSearch'
+import type { Photo } from '@/components/PhotoGallery'
 
 type SuggestedArtist = {
   id: number
@@ -67,6 +69,10 @@ export default function AdminInboxPage() {
   const [editing, setEditing] = useState<Candidate | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editBody, setEditBody] = useState('')
+  const [editImage, setEditImage] = useState('')
+  const [imageOptions, setImageOptions] = useState<Array<{ url: string; label: string; source: string }>>([])
+  const [showWiki, setShowWiki] = useState(false)
+  const [wikiArtistName, setWikiArtistName] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
@@ -116,15 +122,30 @@ export default function AdminInboxPage() {
     setEditing(cand)
     setEditTitle(cand.ai_title)
     setEditBody(await fetchBody(cand.id))
+    setEditImage('')
+    // Image picker options
+    try {
+      const res = await fetch(`/api/admin/news-candidates/${cand.id}/images`)
+      const data = await res.json()
+      setImageOptions(data.options || [])
+      // Auto-pick first option (newest artist photo)
+      if (data.options?.[0]) setEditImage(data.options[0].url)
+    } catch {
+      setImageOptions([])
+    }
+    setWikiArtistName(cand.suggested_artists?.[0]?.name || cand.primary_artist?.name || '')
   }
 
   const closeEdit = () => {
     setEditing(null)
     setEditTitle('')
     setEditBody('')
+    setEditImage('')
+    setImageOptions([])
+    setShowWiki(false)
   }
 
-  const handleAction = async (id: number, action: 'approve' | 'reject', extra?: { reason?: string; title?: string; body?: string }) => {
+  const handleAction = async (id: number, action: 'approve' | 'reject', extra?: { reason?: string; title?: string; body?: string; image_url?: string }) => {
     setBusy(id)
     try {
       const res = await fetch(`/api/admin/news-candidates/${id}`, {
@@ -158,7 +179,11 @@ export default function AdminInboxPage() {
     if (!editing) return
     setSavingEdit(true)
     try {
-      await handleAction(editing.id, 'approve', { title: editTitle, body: editBody })
+      await handleAction(editing.id, 'approve', {
+        title: editTitle,
+        body: editBody,
+        image_url: editImage || undefined,
+      })
     } finally {
       setSavingEdit(false)
     }
@@ -363,6 +388,25 @@ export default function AdminInboxPage() {
         )}
       </div>
 
+      {/* Wikimedia search modal */}
+      {editing && showWiki && wikiArtistName && (
+        <WikimediaSearch
+          artistName={wikiArtistName}
+          onAddMultiple={(photos: Photo[]) => {
+            if (photos[0]?.url) {
+              setEditImage(photos[0].url)
+              // Pridėti į image options sąrašą, kad būtų matomas pasirinkimas
+              setImageOptions(prev => [
+                { url: photos[0].url, label: 'Wikimedia', source: 'wiki' },
+                ...prev,
+              ])
+            }
+            setShowWiki(false)
+          }}
+          onClose={() => setShowWiki(false)}
+        />
+      )}
+
       {/* Edit modal */}
       {editing && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto">
@@ -376,6 +420,61 @@ export default function AdminInboxPage() {
               </button>
             </div>
             <div className="px-5 py-4 space-y-4">
+              {/* Image picker */}
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-2">
+                  Nuotrauka
+                </label>
+                {imageOptions.length > 0 ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {imageOptions.map((opt, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setEditImage(opt.url)}
+                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                          editImage === opt.url
+                            ? 'border-blue-500 ring-2 ring-blue-200'
+                            : 'border-transparent hover:border-[var(--input-border)]'
+                        }`}>
+                        <img
+                          src={opt.url}
+                          alt={opt.label}
+                          className="absolute inset-0 w-full h-full object-cover bg-[var(--bg-elevated)]"
+                          onError={e => ((e.target as HTMLImageElement).style.display = 'none')}
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-white text-[10px] px-1.5 py-1 truncate">
+                          {opt.source === 'artist_photo' && '📸 '}
+                          {opt.source === 'artist_cover' && '🎤 '}
+                          {opt.source === 'source' && '🌐 '}
+                          {opt.label}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[var(--text-muted)] italic">Atlikėjo nuotraukų DB nėra.</p>
+                )}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {wikiArtistName && (
+                    <button
+                      type="button"
+                      onClick={() => setShowWiki(true)}
+                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-xs font-medium border border-amber-200">
+                      🔍 Wiki paieška: {wikiArtistName}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setEditImage('')}
+                    className="px-3 py-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] text-[var(--text-secondary)] rounded-lg text-xs font-medium">
+                    Be nuotraukos
+                  </button>
+                </div>
+                {editImage && (
+                  <p className="text-xs text-[var(--text-muted)] mt-1 truncate">Pasirinkta: {editImage}</p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
                   Antraštė

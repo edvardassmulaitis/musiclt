@@ -134,10 +134,43 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       finalSlug = `${slugBase}-${attempt}`
     }
 
-    // Body — pridėti source attribution apačioje
+    // Body — diskretiška source nuoroda (be portalo reklamavimo)
     const bodyWithSource = cand.source_url
-      ? `${overrideBody}\n\n<p class="news-source"><em>Šaltinis: <a href="${escapeAttr(cand.source_url)}" target="_blank" rel="noopener">${escapeHtml(cand.source_portal || 'pirminis šaltinis')}</a></em></p>`
+      ? `${overrideBody}\n\n<p class="news-source"><a href="${escapeAttr(cand.source_url)}" target="_blank" rel="noopener" class="text-xs text-gray-400 hover:text-gray-600">pagal pirminį šaltinį</a></p>`
       : overrideBody
+
+    // ─── Atlikėjo priskirimas — saugiai su fallback'ais ───
+    const allArtistIds: number[] = (cand.suggested_artist_ids || []) as number[]
+    const artistId1: number | null = cand.primary_artist_id || allArtistIds[0] || null
+    // artist_id2: pirmas iš sąrašo, kuris NE artistId1
+    const artistId2: number | null = artistId1
+      ? (allArtistIds.find((id: number) => id !== artistId1) ?? null)
+      : (allArtistIds[1] ?? null)
+
+    // ─── Auto image picker ───
+    // Pirmenybė: 1) user override → 2) naujausia artist_photos → 3) artist cover → 4) NULL
+    // Source image (Pitchfork ar pan.) NĖRA naudojama, kad nereklamuotume kitų sites'ų
+    let finalImage: string | null = (body.image_url as string | undefined) || null
+    if (!finalImage && artistId1) {
+      // Naujausia artist_photo (sort_order 0 = naujausia per ART form'os logic'ą)
+      const { data: photos } = await supabase
+        .from('artist_photos')
+        .select('url')
+        .eq('artist_id', artistId1)
+        .order('sort_order', { ascending: true })
+        .limit(1)
+      if (photos && photos.length > 0 && photos[0].url) {
+        finalImage = photos[0].url
+      } else {
+        // Fallback'as: atlikėjo cover_image_url
+        const { data: artist } = await supabase
+          .from('artists')
+          .select('cover_image_url')
+          .eq('id', artistId1)
+          .maybeSingle()
+        finalImage = artist?.cover_image_url || null
+      }
+    }
 
     const { data: created, error: insErr } = await supabase
       .from('news')
@@ -150,10 +183,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         author_id: (session.user as any).id || null,
         source_url: cand.source_url,
         source_name: cand.source_portal,
-        artist_id: cand.primary_artist_id,
-        artist_id2: cand.suggested_artist_ids?.[1] || null,
-        image_small_url: overrideImage,
-        image_title_url: overrideImage,
+        artist_id: artistId1,
+        artist_id2: artistId2,
+        image_small_url: finalImage,
+        image_title_url: finalImage,
         published_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
       })
@@ -162,6 +195,54 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (insErr) {
       return NextResponse.json({ error: `Publish failed: ${insErr.message}` }, { status: 500 })
+    }
+
+    // ─── news_songs: pridėti track'us + embed URLs ───
+    const songsToInsert: Array<{ news_id: number; sort_order: number; song_id?: number; title?: string; artist_name?: string; youtube_url?: string }> = []
+
+    // 1) Matched tracks iš DB (pirmenybė)
+    const trackIds: number[] = (cand.suggested_track_ids || []) as number[]
+    if (trackIds.length > 0) {
+      const { data: tracks } = await supabase
+        .from('tracks')
+        .select('id, title, video_url, artists!tracks_artist_id_fkey(name)')
+        .in('id', trackIds)
+      for (let i = 0; i < (tracks?.length || 0); i++) {
+        const t: any = (tracks as any[])[i]
+        songsToInsert.push({
+          news_id: created.id,
+          sort_order: i,
+          song_id: t.id,
+          title: t.title,
+          artist_name: t.artists?.name || '',
+          youtube_url: t.video_url || '',
+        })
+      }
+    }
+
+    // 2) Embed URLs iš source'o (jei track'as nebuvo matched — vis tiek rodome video)
+    const embeds: string[] = (cand.embed_urls || []) as string[]
+    let order = songsToInsert.length
+    for (const url of embeds) {
+      // Skipinam dublikatus jeigu tracks jau turi tą video_url
+      if (songsToInsert.some(s => s.youtube_url === url)) continue
+      songsToInsert.push({
+        news_id: created.id,
+        sort_order: order++,
+        title: '',
+        artist_name: '',
+        youtube_url: url,
+      })
+    }
+
+    if (songsToInsert.length > 0) {
+      const { error: songsErr } = await supabase
+        .from('news_songs')
+        .insert(songsToInsert)
+      if (songsErr) {
+        // Log bet ne fail'inti — naujiena jau publikuota
+        console.warn('[approve] news_songs insert failed:', songsErr.message)
+      }
     }
 
     // Mark candidate approved
@@ -175,7 +256,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       })
       .eq('id', candidateId)
 
-    return NextResponse.json({ ok: true, status: 'approved', news_id: created.id, slug: created.slug })
+    return NextResponse.json({
+      ok: true,
+      status: 'approved',
+      news_id: created.id,
+      slug: created.slug,
+      artist_id: artistId1,
+      songs_added: songsToInsert.length,
+    })
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })

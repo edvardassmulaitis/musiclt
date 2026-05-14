@@ -97,6 +97,7 @@ export type NormalizedArticle = {
   summary: string
   artists_mentioned: Array<{ name: string; confidence: number }>
   tracks_mentioned: Array<{ title: string; artist: string }>
+  embed_urls: string[]
   confidence: number
   model: string
   raw_response?: string  // debug
@@ -170,6 +171,11 @@ export async function normalizeArticle(input: {
             required: ['title'],
           },
         },
+        embed_urls: {
+          type: 'array' as const,
+          description: 'YouTube, Spotify, SoundCloud or Bandcamp URLs found in source article (especially for new release announcements). Include full URLs.',
+          items: { type: 'string' as const },
+        },
         confidence: {
           type: 'number' as const,
           description: 'Overall confidence 0..1',
@@ -231,6 +237,9 @@ export async function normalizeArticle(input: {
             artist: String(t?.artist || ''),
           })).filter((t: any) => t.title)
         : [],
+      embed_urls: Array.isArray(parsed.embed_urls)
+        ? parsed.embed_urls.map((u: any) => String(u || '')).filter(Boolean)
+        : [],
       confidence: typeof parsed.confidence === 'number'
         ? Math.max(0, Math.min(1, parsed.confidence)) : 0,
       model: SONNET_MODEL,
@@ -250,6 +259,7 @@ function emptyArticle(rawText: string): NormalizedArticle {
     summary: '',
     artists_mentioned: [],
     tracks_mentioned: [],
+    embed_urls: [],
     confidence: 0,
     model: SONNET_MODEL,
     raw_response: rawText.slice(0, 500),
