@@ -1342,11 +1342,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             cover_image_url: item.cover_image_url||'',
             certifications: item.certifications?.length ? item.certifications : null,
             peak_chart_position: item.peak_chart_position ?? null,
-            // Substyles: tik jei fetchDetails sėkmingai gavo ID'jus per
-            // matchGenresToSubstyleIds. undefined → API nelies esamų
-            // album_substyles įrašų; [] → eksplicitas reset'as (dabar
-            // niekada nesiunčiam — wiki importas tik add'ina).
+            // Substyles: matched IDs + unmatched names. Server'is bandys
+            // resolve'inti vardus per fuzzy match (atvejui jei taksonomija
+            // buvo papildyta po fetchDetails); jei vis tiek neranda —
+            // INSERT'ins naują substyle row'ą ir naudos jį. Tai automatiškai
+            // praplečia mūsų taksonomy Wikipedia importų metu.
             substyle_ids: item.substyle_ids?.length ? item.substyle_ids : undefined,
+            substyle_names: item.genres_unmatched?.length ? item.genres_unmatched : undefined,
             type_studio: item.type==='studio' || item.extraTypes?.includes('studio') || false,
             type_ep: item.type==='ep' || item.extraTypes?.includes('ep') || false,
             type_single: item.type==='single',

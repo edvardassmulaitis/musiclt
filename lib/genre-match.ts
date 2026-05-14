@@ -19,18 +19,33 @@ export type SubstyleRow = {
   slug?: string | null
 }
 
+/** Žinomos Wikipedia → mūsų taksonomy aliases. Naudojama PRIEŠ normalize'inimą.
+ *  Pridėk tik tuos atvejus, kur fuzzy match per normalize nepasiekia
+ *  (skirtingos canonical formos). */
+const GENRE_ALIASES: Record<string, string> = {
+  'rhythm and blues': 'R&B',
+  'rhythm n blues': 'R&B',
+  'r and b': 'R&B',
+  'r n b': 'R&B',
+}
+
 /** Normalizuojam vardą iki matching key'o: ASCII lowercase be specifinių
  *  separator'ių. „Synth-pop" → „synthpop"; „Pop rock" → „poprock";
  *  „rock'n'roll" → „rocknroll"; „rock and roll" → „rocknroll".
  *
- *  Konkrečiai " and " / " & " kolapsuojam į „n", kad Wikipedia formos
- *  „rock and roll" ar „rhythm and blues" sutaptų su mūsų DB formomis
- *  „Rock'n'roll" (id 1018). */
+ *  Konkrečiai:
+ *   - Wikipedia trailing „music" suffix'ą strip'inam („Country music" →
+ *     „Country", „Hip hop music" → „Hip hop") — leidžia 6+ bendrus
+ *     žanrus match'inti vienodai.
+ *   - " and " / " & " kolapsuojam į „n", kad Wikipedia formos „rock and
+ *     roll" sutaptų su mūsų DB „Rock'n'roll" (id 1018).
+ */
 export function normalizeGenreKey(raw: string): string {
   return raw
     .toLowerCase()
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')             // strip diakritikus
+    .replace(/\s+music$/i, '')          // Wikipedia trailing " music" suffix
     .replace(/\b(?:and|&)\b/g, 'n')    // „and"/„&" → „n" (rock and roll → rock n roll)
     .replace(/['’‘]/g, '')              // apostrofai
     .replace(/[-_\s/\\]+/g, '')         // separator'iai
@@ -49,6 +64,14 @@ export function matchGenreToSubstyle(
 ): SubstyleRow | null {
   if (!rawName || !substyles.length) return null
   const lcName = rawName.toLowerCase().trim()
+  // Alias map'as — žinomos Wikipedia formos, kurios fuzzy match per
+  // normalizeGenreKey nepatenka (pvz „rhythm and blues" → „R&B" — visiškai
+  // skirtingi canonical names).
+  const aliasTarget = GENRE_ALIASES[lcName]
+  if (aliasTarget) {
+    const m = substyles.find(s => s.name.toLowerCase() === aliasTarget.toLowerCase())
+    if (m) return m
+  }
   // Exact (po lowercase)
   for (const s of substyles) {
     if (s.name.toLowerCase() === lcName) return s

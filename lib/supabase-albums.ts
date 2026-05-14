@@ -13,6 +13,7 @@ function toInt(v: any): number | null {
 
 // Vieninga slugify utility — palaiko Unicode (visos kalbos). Žr. lib/slugify.ts.
 import { slugify } from './slugify'
+import { matchGenreToSubstyle, type SubstyleRow } from './genre-match'
 
 export type AlbumFull = {
   id?: number
@@ -47,6 +48,12 @@ export type AlbumFull = {
    *  Pateikus undefined — nelietam esamų album_substyles įrašų; pateikus
    *  [] — ištrinam visus (eksplicitus „nėra žanrų" reset'as). */
   substyle_ids?: number[]
+  /** Žanrų VARDAI, kurių fuzzy match'inti negalim — server'is bandys
+   *  rasti per matchGenreToSubstyle, jei neranda — INSERT'ins į
+   *  public.substyles ir gaus naują ID. Tai leidžia Wikipedia importą
+   *  automatiškai praplėsti taksonomy be admin manual'o.
+   *  Naudojama TIK Wiki importo flow'e (admin form'as siuncia substyle_ids). */
+  substyle_names?: string[]
 }
 
 export type TrackInAlbum = {
@@ -211,7 +218,11 @@ export async function createAlbum(data: AlbumFull): Promise<number> {
     console.log('[createAlbum] calling syncAlbumTracks with', data.tracks.length, 'tracks')
     await syncAlbumTracks(row.id, Number(data.artist_id), data.tracks)
   }
-  if (data.substyle_ids !== undefined) await syncAlbumSubstyles(row.id, data.substyle_ids)
+  // Substyles: union(passed_ids, resolve(passed_names → existing OR create))
+  if (data.substyle_ids !== undefined || data.substyle_names !== undefined) {
+    const allIds = await resolveSubstyleIds(data.substyle_ids || [], data.substyle_names || [])
+    await syncAlbumSubstyles(row.id, allIds)
+  }
   return row.id
 }
 
@@ -237,10 +248,78 @@ export async function updateAlbum(id: number, data: AlbumFull): Promise<void> {
   }).eq('id', id)
   if (error) throw error
   if (data.tracks !== undefined) await syncAlbumTracks(id, data.artist_id, data.tracks || [])
-  if (data.substyle_ids !== undefined) await syncAlbumSubstyles(id, data.substyle_ids)
+  if (data.substyle_ids !== undefined || data.substyle_names !== undefined) {
+    const allIds = await resolveSubstyleIds(data.substyle_ids || [], data.substyle_names || [])
+    await syncAlbumSubstyles(id, allIds)
+  }
 }
 
-/** Idempotent sync: ištrina viską ir įrašo data.substyle_ids subset'ą.
+/** Resolve'inam (ids[], names[]) → final substyle_id sąrašas. Vardai
+ *  pirma bandomi fuzzy-match'inti prieš esamus substyles (per genre-match
+ *  lib'ą); jei neranda — INSERT'ina naują substyle row'ą. Atspariam, kad
+ *  Wikipedia importas papildytų taksonomy automatiškai (pvz „religious"
+ *  Wikipedia žanrą padarys nauja substyle).
+ *
+ *  Dedupe'ina galutinę aibe — ir kad name fuzzy-match'as duotų jau įrašytą
+ *  ID, ir kad du skirtingi vardai → tas pats canonical substyle nesusi-
+ *  dvigubintų lentelėje.
+ */
+async function resolveSubstyleIds(passedIds: number[], passedNames: string[]): Promise<number[]> {
+  const finalIds = new Set<number>()
+  for (const id of passedIds) {
+    if (Number.isFinite(id) && id > 0) finalIds.add(id)
+  }
+  if (!passedNames.length) return [...finalIds]
+
+  // Load all existing substyles vieną kartą — saugiau ir greičiau nei
+  // per name iteracinis lookup'as.
+  const { data: existing } = await supabase
+    .from('substyles')
+    .select('id, name, slug')
+  const existingRows: SubstyleRow[] = (existing || []) as SubstyleRow[]
+
+  for (const rawName of passedNames) {
+    const clean = (rawName || '').trim()
+    if (!clean) continue
+    // Fuzzy match
+    const found = matchGenreToSubstyle(clean, existingRows)
+    if (found) {
+      finalIds.add(found.id)
+      continue
+    }
+    // No match → create new. Sluginam (slug column unikalus DB level'yje
+    // tikriausiai? nepatikrinam — bet on conflict do nothing tipo logika
+    // tikrai bus naudinga, jei race condition'as).
+    try {
+      const { data: newRow, error } = await supabase
+        .from('substyles')
+        .insert({ name: clean, slug: slugify(clean) })
+        .select('id')
+        .single()
+      if (!error && newRow?.id) {
+        finalIds.add(newRow.id)
+        // Pridėti naują eilutę prie existingRows kad jei to paties name'o
+        // dublikatas šitam call'e neperinsert'intųsi (race within loop).
+        existingRows.push({ id: newRow.id, name: clean, slug: slugify(clean) })
+      } else if (error) {
+        // Galimai slug conflict — bandykim look up egzistuojantį pagal slug
+        const { data: bySlug } = await supabase
+          .from('substyles')
+          .select('id')
+          .eq('slug', slugify(clean))
+          .maybeSingle()
+        if (bySlug?.id) finalIds.add(bySlug.id)
+        else console.warn('[resolveSubstyleIds] failed insert + slug lookup:', clean, error.message)
+      }
+    } catch (e: any) {
+      console.warn('[resolveSubstyleIds] insert exception:', clean, e?.message)
+    }
+  }
+
+  return [...finalIds]
+}
+
+/** Idempotent sync: ištrina viską ir įrašo final substyle_ids subset'ą.
  *  Empty array — pilnai išvalo album_substyles įrašus. undefined — caller
  *  netura kviesti, bet defensive: tiesiog nieko nedaro. */
 async function syncAlbumSubstyles(albumId: number, substyleIds: number[]): Promise<void> {
