@@ -898,6 +898,34 @@ export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>;
     }
   }
 
+  // Fallback: `== Singles ==` section'as su `=== "Title" ===` ar
+  // `=== ''Title'' ===` h3 sub-header'iais. Naudojama, kai album puslapis
+  // neturi {{Singles}} infobox template'o (pvz Martin Gore „Counterfeit²"
+  // — singles sąrašas tik sekcijos antraštėse, ne infobox'e).
+  const singlesSecRe = /^==\s*Singles\s*==\s*$([\s\S]*?)(?=^==[^=]|\z)/im
+  const secM = wikitext.match(singlesSecRe)
+  if (secM) {
+    const body = secM[1]
+    const h3Re = /^===\s*(.+?)\s*===\s*$/gm
+    let hm: RegExpExecArray | null
+    while ((hm = h3Re.exec(body)) !== null) {
+      // Strip italic/bold wrappers ir quotes: `"Stardust"` → Stardust;
+      // `''Loverman EP²''` → Loverman EP²
+      let title = hm[1]
+        .replace(/^'{2,}|'{2,}$/g, '')          // italic/bold ('')
+        .replace(/^["“„]|["”]$/g, '')           // double quotes (curly + ASCII)
+        .replace(/^['‘]|['’]$/g, '')            // single quotes
+        .replace(/\[\[([^\]|]+?)\|([^\]]+)\]\]/g, '$2')
+        .replace(/\[\[([^\]]+)\]\]/g, '$1')
+        .trim()
+      // Skipinam meta-section'us (kurie galimai pakliuvo per case mismatch)
+      if (!title || title.length < 2) continue
+      if (/^(other|notes?|see also|references)$/i.test(title)) continue
+      const norm = normalizeSingleKey(title)
+      if (norm) names.add(norm)
+    }
+  }
+
   return { names, dates }
 }
 
