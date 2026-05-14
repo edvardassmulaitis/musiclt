@@ -1,0 +1,57 @@
+name: News scout
+
+# 2x per para: 05:00 UTC (07:00 EET ryto digest), 17:00 UTC (19:00 EET vakaro digest).
+# Manual trigger via "Run workflow" button.
+on:
+  schedule:
+    - cron: '0 5 * * *'   # 07:00 EET
+    - cron: '0 17 * * *'  # 19:00 EET
+  workflow_dispatch:
+    inputs:
+      source_id:
+        description: "Konkretus source_id (palik tuscia visam batchui)"
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run (jokio inserto)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  run-scout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call news-scout endpoint
+        run: |
+          QUERY=""
+          if [ -n "${{ inputs.source_id }}" ]; then
+            QUERY="?source_id=${{ inputs.source_id }}"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            QUERY="${QUERY:+${QUERY}&}${QUERY:-?}dry_run=1"
+          fi
+
+          echo "Calling: ${{ secrets.MUSICLT_BASE_URL }}/api/internal/news-scout/run${QUERY}"
+          response=$(curl -sS -w "\n%{http_code}" \
+            -X POST "${{ secrets.MUSICLT_BASE_URL }}/api/internal/news-scout/run${QUERY}" \
+            -H "Authorization: Bearer ${{ secrets.INTERNAL_CRON_TOKEN }}" \
+            --max-time 540)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP $http_code"
+          echo "$body" | head -c 4000
+          echo
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::news-scout returned non-200"
+            exit 1
+          fi
+
+          # Sanity log — extract summary numbers from JSON
+          inserted=$(echo "$body" | grep -oP '"total_candidates_inserted":\K\d+' || echo "?")
+          errors=$(echo "$body" | grep -oP '"total_errors":\K\d+' || echo "?")
+          echo "::notice::Candidates inserted: $inserted | Errors: $errors"
