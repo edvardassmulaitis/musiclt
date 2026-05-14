@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import WikimediaSearch from '@/components/WikimediaSearch'
 import type { Photo } from '@/components/PhotoGallery'
+import InboxTabs from '@/components/InboxTabs'
 
 type SuggestedArtist = {
   id: number
@@ -218,6 +219,7 @@ export default function AdminInboxPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-5">
+        <InboxTabs />
         {/* Category filter chips */}
         <div className="flex flex-wrap gap-2 mb-5">
           {['all', 'release', 'performance', 'tour', 'career_step', 'other'].map(cat => (

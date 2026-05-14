@@ -1,0 +1,62 @@
+name: Events scout
+
+# 2x per para: 06:00 UTC (08:00 EET) + 18:00 UTC (20:00 EET).
+# Skirta nuo news scout'o, kad nesusidurtų rate limit'as Anthropic API.
+on:
+  schedule:
+    - cron: '0 6 * * *'    # 08:00 EET
+    - cron: '0 18 * * *'   # 20:00 EET
+  workflow_dispatch:
+    inputs:
+      source_id:
+        description: "Konkretus source_id (palik tuscia visam batchui)"
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run (jokio inserto)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  run-events:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        # IDs nurodyti migracijoje 20260515a — bilietai.lt(9), tiketa.lt(10), kakava.lt(11)
+        # Tikslūs ID priklauso nuo BIGSERIAL sequence — po news 8 source'ų eina nuo 9.
+        source_id: [9, 10, 11]
+    steps:
+      - name: Call events-scout for source ${{ matrix.source_id }}
+        if: ${{ !inputs.source_id || inputs.source_id == matrix.source_id }}
+        run: |
+          QUERY="?source_id=${{ matrix.source_id }}"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            QUERY="${QUERY}&dry_run=1"
+          fi
+
+          echo "Calling: ${{ secrets.MUSICLT_BASE_URL }}/api/internal/events-scout/run${QUERY}"
+          response=$(curl -sS -w "\n%{http_code}" \
+            -X POST "${{ secrets.MUSICLT_BASE_URL }}/api/internal/events-scout/run${QUERY}" \
+            -H "Authorization: Bearer ${{ secrets.INTERNAL_CRON_TOKEN }}" \
+            --max-time 90)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP $http_code"
+          echo "$body" | head -c 3000
+          echo
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::events source ${{ matrix.source_id }} returned non-200"
+            exit 1
+          fi
+
+          inserted=$(echo "$body" | grep -oP '"total_inserted":\K\d+' || echo "?")
+          not_music=$(echo "$body" | grep -oP '"total_not_music":\K\d+' || echo "?")
+          errors=$(echo "$body" | grep -oP '"total_errors":\K\d+' || echo "?")
+          echo "::notice::events source ${{ matrix.source_id }} → inserted: $inserted | filter'inta: $not_music | errors: $errors"
