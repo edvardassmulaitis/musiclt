@@ -145,14 +145,35 @@ export async function normalizeArticle(input: {
   const data = await res.json()
   const text: string = data.content?.[0]?.text || '{}'
 
-  const match = text.match(/\{[\s\S]*\}/)
+  // Sonnet'as kartais wrap'ina į ```json ... ``` fence'us. Nuvalom.
+  const cleanedText = text
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/i, '')
+
+  const match = cleanedText.match(/\{[\s\S]*\}/)
   if (!match) {
     console.warn('[ai-normalize] Sonnet no JSON found:', text.slice(0, 300))
     return emptyArticle(text)
   }
 
+  let parsed: any = null
   try {
-    const parsed = JSON.parse(match[0])
+    parsed = JSON.parse(match[0])
+  } catch (e: any) {
+    // Mėginam repair'inti — Sonnet kartais grąžina nesEscape'intus " simbolius
+    // string'ų viduje. Heuristic'as: visus „...", "...", " " viduje string value
+    // pakeičiam į lietuviškas kabutes.
+    try {
+      const repaired = repairJsonQuotes(match[0])
+      parsed = JSON.parse(repaired)
+      console.warn('[ai-normalize] Sonnet JSON repaired via quote fix')
+    } catch (e2: any) {
+      console.warn('[ai-normalize] Sonnet JSON parse failed (both attempts):', e.message, text.slice(0, 300))
+      return emptyArticle(text)
+    }
+  }
+
+  try {
     return {
       category: isValidCategory(parsed.category) ? parsed.category : 'none',
       title: String(parsed.title || ''),
@@ -193,4 +214,28 @@ function emptyArticle(rawText: string): NormalizedArticle {
     model: SONNET_MODEL,
     raw_response: rawText.slice(0, 500),
   }
+}
+
+/**
+ * Repair Sonnet'o JSON — kartais Sonnet'as įdeda neeskape'intas " kabutes
+ * į title/body_html/summary string values, sulauždamas parser'į.
+ *
+ * Strategija: Find'inam JSON fields ("title", "body_html", "summary", "name",
+ * "artist", "brief_why") ir VIDINIUS " replace'inam į „ (atveriamoji
+ * lietuviška kabutė) — taip JSON tampa validus, o turinys lieka skaitomas.
+ */
+function repairJsonQuotes(s: string): string {
+  const fields = ['title', 'body_html', 'summary', 'name', 'artist', 'brief_why']
+  let out = s
+  for (const field of fields) {
+    // Pattern: "field": "...value..."
+    // value gali turėti nesEscape'intus " — pakeisim į „
+    const re = new RegExp(`("${field}"\\s*:\\s*")((?:\\\\.|[^"\\\\])*?(?:"[^"\\\\}]*?)*)(",\\s*[\\n"]|"\\s*\\})`, 'g')
+    out = out.replace(re, (_match, prefix, value, suffix) => {
+      // Escape'inam vidinius " į „
+      const fixed = value.replace(/"/g, '\\u201E')
+      return prefix + fixed + suffix
+    })
+  }
+  return out
 }

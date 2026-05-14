@@ -137,7 +137,15 @@ STRUKTŪRA:
 
 ŠALTINIO NUORODA pridedama automatiškai apačioje — neminėk jos body'je.
 
-OUTPUT FORMATAS — TIK JSON, jokio kito teksto:
+KRITINIS REIKALAVIMAS — JSON OUTPUT VALIDUS:
+- Title/body_html/summary teksto VIDUJE NIEKADA nenaudok regularių dvigubų kabučių (")
+- Kabutės string'ų viduje turi būti TIPOGRAFINĖS lietuviškos: „atveriamasis" ir "uždarantis"
+- Pvz. NE: "title": "„Be2gether" festivalis"  → BLOGAI (sulaužo JSON)
+- TAIP: "title": "„Be2gether" festivalis"  → GERAI (lietuviškos kabutės)
+- Naudok tik tipografines kabutes, brūkšnius (–, —) ir kitus Unicode simbolius
+- " simbolis JSON'e tik kaip key/value delimiter'is, niekur kitur
+
+OUTPUT FORMATAS — TIK JSON, jokio kito teksto, jokio markdown code fence wrapper'io:
 {
   "category": "release"|"performance"|"tour"|"career_step"|"other",
   "title": "string (60-80 chars)",
