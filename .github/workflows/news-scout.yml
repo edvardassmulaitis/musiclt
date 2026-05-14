@@ -1,7 +1,8 @@
 name: News scout
 
 # 2x per para: 05:00 UTC (07:00 EET ryto digest), 17:00 UTC (19:00 EET vakaro digest).
-# Manual trigger via "Run workflow" button.
+# Matrix strategy: 8 paraleliai jobs (po vieną per source_id), max 4 concurrent —
+# Vercel Hobby plan'as turi ~60s function timeout, ne batch'u.
 on:
   schedule:
     - cron: '0 5 * * *'   # 07:00 EET
@@ -21,45 +22,48 @@ on:
 jobs:
   run-scout:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false   # vieno source'o klaida nesustabdo kitų
+      max-parallel: 4    # neperkrauname Anthropic API rate limit'o
+      matrix:
+        source_id: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
-      - name: Call news-scout endpoint
+      - name: Call news-scout for source ${{ matrix.source_id }}
+        # Skip jei dispatch'as nurodė konkretu source_id ir šitas matrix entry yra kitoks
+        if: ${{ !inputs.source_id || inputs.source_id == matrix.source_id }}
         run: |
-          PARAMS=""
-          if [ -n "${{ inputs.source_id }}" ]; then
-            PARAMS="source_id=${{ inputs.source_id }}"
-          fi
+          QUERY="?source_id=${{ matrix.source_id }}"
           if [ "${{ inputs.dry_run }}" = "true" ]; then
-            if [ -n "$PARAMS" ]; then
-              PARAMS="${PARAMS}&dry_run=1"
-            else
-              PARAMS="dry_run=1"
-            fi
-          fi
-          QUERY=""
-          if [ -n "$PARAMS" ]; then
-            QUERY="?${PARAMS}"
+            QUERY="${QUERY}&dry_run=1"
           fi
 
           echo "Calling: ${{ secrets.MUSICLT_BASE_URL }}/api/internal/news-scout/run${QUERY}"
           response=$(curl -sS -w "\n%{http_code}" \
             -X POST "${{ secrets.MUSICLT_BASE_URL }}/api/internal/news-scout/run${QUERY}" \
             -H "Authorization: Bearer ${{ secrets.INTERNAL_CRON_TOKEN }}" \
-            --max-time 540)
+            --max-time 75)
 
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | sed '$d')
 
           echo "HTTP $http_code"
-          echo "$body" | head -c 4000
+          echo "$body" | head -c 3000
           echo
 
           if [ "$http_code" != "200" ]; then
-            echo "::error::news-scout returned non-200"
+            echo "::error::source ${{ matrix.source_id }} returned non-200"
             exit 1
           fi
 
-          # Sanity log — extract summary numbers from JSON
           inserted=$(echo "$body" | grep -oP '"total_candidates_inserted":\K\d+' || echo "?")
           errors=$(echo "$body" | grep -oP '"total_errors":\K\d+' || echo "?")
-          echo "::notice::Candidates inserted: $inserted | Errors: $errors"
+          echo "::notice::source ${{ matrix.source_id }} → inserted: $inserted | errors: $errors"
+
+  summary:
+    needs: run-scout
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run finished
+        run: echo "✓ News scout run completed (8 source jobs paraleliai, see individual results above)"
