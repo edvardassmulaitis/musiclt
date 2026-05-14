@@ -35,6 +35,62 @@ const emptyAlbum: AlbumFull = {
   show_artist_name: false, show_player: false, is_upcoming: false,
   description: '',
   tracks: [],
+  substyle_ids: [],
+}
+
+// ── SubstylePicker ────────────────────────────────────────────────────────────
+// Multi-select žanrams (substyles). Užkrauna iš /api/substyles, leidžia
+// pasiūlymais filtruoti per input'ą; sandara mirror'ina ArtistForm
+// StylePicker UX'ą, bet operuoja per ID'us (ne names), nes album_substyles
+// junction lentelė stora-typed pagal ID'jus.
+function SubstylePicker({ selectedIds, onChange }: { selectedIds: number[]; onChange: (ids: number[]) => void }) {
+  const [all, setAll] = useState<Array<{ id: number; name: string }>>([])
+  const [q, setQ] = useState('')
+  useEffect(() => {
+    fetch('/api/substyles').then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.substyles) setAll(d.substyles)
+    }).catch(() => {})
+  }, [])
+  const byId = new Map(all.map(s => [s.id, s.name]))
+  const selected = selectedIds.map(id => ({ id, name: byId.get(id) || `#${id}` }))
+  const suggestions = q.trim()
+    ? all.filter(s => s.name.toLowerCase().includes(q.toLowerCase()) && !selectedIds.includes(s.id)).slice(0, 8)
+    : []
+  const add = (id: number) => { if (!selectedIds.includes(id)) onChange([...selectedIds, id]); setQ('') }
+  const remove = (id: number) => onChange(selectedIds.filter(x => x !== id))
+  return (
+    <div>
+      <p className="text-xs font-semibold text-[var(--text-muted)] mb-1">Stiliai (žanrai)</p>
+      <div className="flex items-center gap-1 flex-wrap">
+        {selected.map(s => (
+          <span key={s.id} className="flex items-center gap-0.5 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
+            {s.name}
+            <button type="button" onClick={() => remove(s.id)} className="text-blue-400 hover:text-red-500 ml-0.5 leading-none">×</button>
+          </span>
+        ))}
+        <div className="relative">
+          <input value={q} onChange={e => setQ(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); if (suggestions[0]) add(suggestions[0].id) }
+              if (e.key === 'Escape') setQ('')
+            }}
+            placeholder="+ stilius..."
+            className="w-28 px-2 py-0.5 border border-dashed border-[var(--text-faint)] rounded-full text-xs text-[var(--text-muted)] focus:outline-none focus:border-blue-400 focus:border-solid bg-[var(--bg-surface)]"
+          />
+          {suggestions.length > 0 && (
+            <div className="absolute z-40 top-7 left-0 w-52 bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl shadow-xl overflow-hidden">
+              {suggestions.map(s => (
+                <button key={s.id} type="button" onClick={() => add(s.id)}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 transition-colors border-b border-[var(--border-subtle)] last:border-0 text-[var(--text-secondary)]">
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 
@@ -659,6 +715,9 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
               )}
             </div>
           </div>
+        </div>
+        <div className="mt-2.5">
+          <SubstylePicker selectedIds={form.substyle_ids || []} onChange={ids => set('substyle_ids', ids)} />
         </div>
         <div className="mt-2.5">
           <p className="text-xs font-semibold text-[var(--text-muted)] mb-1">Aprašymas</p>

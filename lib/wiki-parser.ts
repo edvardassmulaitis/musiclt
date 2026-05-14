@@ -37,6 +37,12 @@ export type DiscographyItem = {
   tracks?: TrackEntry[]
   certifications?: CertificationEntry[]
   peak_chart_position?: number | null
+  /** Substyle IDs gauti po parseAlbumGenres + fuzzy match prieš public.substyles.
+   *  Užpildoma fetchDetails'e ir perduodama POST /api/albums payload'e. */
+  substyle_ids?: number[]
+  /** Žanrų vardai iš Wikipedia, kurie NEMATCH'INO mūsų taksonomijos.
+   *  Naudojama tik UI log'inimui — kad user'is matytų ką praleidom. */
+  genres_unmatched?: string[]
   fetched?: boolean
   importing?: boolean
   imported?: boolean
@@ -893,6 +899,111 @@ export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>;
   }
 
   return { names, dates }
+}
+
+/**
+ * Iš album infobox'o ištraukia `| genre = ...` lauką ir grąžina žanrų
+ * pavadinimus (raw — be wikilink syntax, bet su originaliu rašymu).
+ *
+ * Wikipedia palaiko du formatus:
+ *   | genre = [[Synth-pop]], [[pop rock]]           ← inline comma-separated
+ *   | genre =                                        ← bullet list
+ *   * [[Alternative rock]]
+ *   * [[pop rock]]
+ *
+ * Iškart sustojam ties next infobox lauku (`\n|` ar `\n}}`) — kad
+ * nesusijungtų su gretimu `| label = ...` ar uždarymu.
+ *
+ * Grąžiną sąrašą turi išvalytus vardus, bet ne normalize'intus —
+ * fuzzy match'inimas (Synth-pop → Synthpop) yra atskirame helper'yje
+ * `matchGenreToSubstyle` lib/genre-match.ts.
+ */
+export function parseAlbumGenres(wikitext: string): string[] {
+  // Imam tik pirmąjį infobox album (yra atvejų, kai chronology rodo kitus
+  // albumus su savo {{Infobox album}} embed'intais — saugiau imti pirmą).
+  const infoStart = wikitext.search(/\{\{Infobox\s+album/i)
+  if (infoStart === -1) return []
+  // Skopas iki kito infobox lauko po `genre`. `[^\n|]+` neapima newline ir
+  // pipe, todėl natūraliai stop'ina ties kitu | field = ... eilute.
+  // Bullet list — paimam pilną block'ą iki to paties stop sąlygos.
+  const chunk = wikitext.slice(infoStart, infoStart + 5000)
+  const gm = chunk.match(/\|\s*genre\s*=\s*([\s\S]*?)(?=\n\s*\|\s*\w+\s*=|\n\}\})/)
+  if (!gm) return []
+  // Pre-process body — eilė yra svarbi:
+  //   1) HTML komentarai + ref blokai: lauk (pvz Britney „Circus"
+  //      `<!-- All sourced in the Music...-->` lauko pradžioje; Coldplay
+  //      „X&Y" turi `<ref>{{cite web|...}}</ref>` po kiekvieno žanro).
+  //   2) Wiki link'ai → display tekstas: PIRMA, kad pipe'iai viduje
+  //      `[[X|Y]]` netaptų atskirais hlist item'ais.
+  //   3) {{hlist|X|Y}} → tarp item'ų kableliais. Tik PO link'ų flat'inimo,
+  //      kad split('|') gautų tikrus item'us.
+  let body = gm[1]
+  body = body.replace(/<!--[\s\S]*?-->/g, '')
+  body = body.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<ref[^/]*\/>/gi, '')
+  body = body.replace(/\[\[([^\]|]+?)\|([^\]]+)\]\]/g, '$2')
+  body = body.replace(/\[\[([^\]]+)\]\]/g, (_, l: string) => l.replace(/#[^\]]*$/, '').replace(/_/g, ' '))
+  body = body.replace(/\{\{\s*hlist\s*\|\s*([^}]+)\}\}/gi, (_, inner: string) =>
+    inner.split('|').map(s => s.trim()).filter(Boolean).join(','))
+  body = body.replace(/\{\{\s*flatlist\s*\|?\s*([\s\S]*?)\}\}/gi, '$1')
+
+  const results: string[] = []
+  const seen = new Set<string>()
+
+  // Pirmas variantas: bullet list (`* [[X]]` ar `*[[X]]`)
+  // Antras: inline comma/bullet-separated be eilutės pradžios bullet'ų
+  const bulletLines = body.split(/\n/).filter(l => /^\s*\*/.test(l))
+  if (bulletLines.length) {
+    for (const line of bulletLines) {
+      // pašaliname leading bullet ir indent'ą, paliekam content'ą
+      const content = line.replace(/^\s*\*\s*/, '')
+      for (const part of splitGenreList(content)) {
+        const name = cleanGenreName(part)
+        if (name && !seen.has(name.toLowerCase())) {
+          results.push(name)
+          seen.add(name.toLowerCase())
+        }
+      }
+    }
+  } else {
+    // Inline (comma/slash separated): „[[Synth-pop]], [[pop rock]]"
+    for (const part of splitGenreList(body)) {
+      const name = cleanGenreName(part)
+      if (name && !seen.has(name.toLowerCase())) {
+        results.push(name)
+        seen.add(name.toLowerCase())
+      }
+    }
+  }
+  return results
+}
+
+/** Split žanrų sąrašo virtinę į atskirus kandidatus. Palaikom kablelį,
+ *  slash'us ir „and"/„&" konektorius. */
+function splitGenreList(text: string): string[] {
+  // Pirma flat'inam wiki link'us į display tekstą, kad split'ai neperpjautų
+  // [[X|Y, Z]] viduje pipe'o. Tada split'inam.
+  const flat = text
+    .replace(/\[\[([^\]|]+?)\|([^\]]+)\]\]/g, '$2')
+    .replace(/\[\[([^\]]+)\]\]/g, '$1')
+  return flat.split(/[,;\/]|\s+(?:and|&)\s+/i).map(s => s.trim()).filter(Boolean)
+}
+
+/** Vienam žanro kandidatui: nuvalo HTML tag'us, ref'us, paaiškinimus
+ *  skliaustuose (pvz „pop rock (early)" → „pop rock"), trumpina iki
+ *  saugaus ilgio. */
+function cleanGenreName(raw: string): string {
+  let s = raw
+  s = s.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<ref[^/]*\/>/gi, '')
+  s = s.replace(/<[^>]+>/g, '')
+  s = s.replace(/\{\{[^}]*\}\}/g, '')
+  s = s.replace(/\[\[|\]\]/g, '')
+  s = s.replace(/\([^)]*\)/g, '') // paaiškinimai skliaustuose
+  s = s.replace(/['"„"]+/g, '')
+  s = s.replace(/\s+/g, ' ').trim()
+  // Praleiskim non-genre lyk'us — citation tag'us, paaiškinimus
+  if (s.length < 2 || s.length > 60) return ''
+  if (/^\s*(see|main|note|citation|ref)\b/i.test(s)) return ''
+  return s
 }
 
 /**

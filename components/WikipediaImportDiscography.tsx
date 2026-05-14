@@ -8,10 +8,11 @@ import {
   cleanWikiText, extractFeaturing, parseFeaturing,
   parseMainPageDiscography, parseDiscographyPage, parseCertifications, parsePeakChartPosition,
   extractTrackListingsWithPos, getSectionBeforePos, isReissueBlock, isDiscBlock,
-  parseSinglesFromInfobox, parseTracklist,
+  parseSinglesFromInfobox, parseTracklist, parseAlbumGenres,
   type AlbumType, type CertificationEntry, type DiscographyItem, type TrackEntry, type SingleInfoboxData,
   initializeConstants,
 } from '@/lib/wiki-parser'
+import { matchGenresToSubstyleIds, type SubstyleRow } from '@/lib/genre-match'
 
 // Initialize wiki-parser constants
 initializeConstants(COUNTRIES, SUBSTYLES)
@@ -835,6 +836,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const [items, setItems] = useState<DiscographyItem[]>([])
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [artistGroups, setArtistGroups] = useState<string[]>([])
+  // Substyle taksonomija — užkraunama vieną kartą, naudojama fuzzy match'inti
+  // Wikipedia žanrus. Greitai cache'inam moduliniu lvl-state'u kad
+  // perimport'inus kitam atlikėjui nereikėtų vėl fetchinti.
+  const [substylesList, setSubstylesList] = useState<SubstyleRow[]>([])
+  useEffect(() => {
+    if (substylesList.length) return
+    fetch('/api/substyles').then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.substyles) setSubstylesList(d.substyles)
+    }).catch(() => {})
+  }, [substylesList.length])
   const [songs, setSongs] = useState<SingleSongItem[]>([])
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
   // Pending music.lt-only records — gauti iš DB, ne iš Wiki. Rodom kaip
@@ -1250,8 +1261,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       if (longtypeStr.includes('compilation')) extraTypes.push('compilation')
       if (longtypeStr.includes('live')) extraTypes.push('live')
       if (longtypeStr.includes('ep')) extraTypes.push('ep')
-      setItems(p => p.map((it, i) => i === idx ? { ...it, tracks, fetched: true, cover_image_url: cover || it.cover_image_url, year: it.year || dateInfo.year, month: it.year ? (dateInfo.year === it.year ? dateInfo.month : it.month) : dateInfo.month, day: it.year ? (dateInfo.year === it.year ? dateInfo.day : it.day) : dateInfo.day, extraTypes: extraTypes.length ? extraTypes : it.extraTypes } : it))
-      addLog(`  → ${tracks.length} dainų${cover ? ', viršelis' : ''}`)
+      // Album žanrai iš `| genre = ...` infobox lauko → fuzzy match prieš
+      // mūsų substyles taksonomy. matched ID'jai eis į POST payload'ą;
+      // unmatched paliekam log'ui kad user'is matytų ką praleidom (galimai
+      // pridėti naują substyle ranka per Settings).
+      const rawGenres = parseAlbumGenres(wikitext)
+      const { ids: substyleIds, unmatched } = matchGenresToSubstyleIds(rawGenres, substylesList)
+      const matchedNames = substyleIds.map(id => substylesList.find(s => s.id === id)?.name).filter(Boolean) as string[]
+      setItems(p => p.map((it, i) => i === idx ? { ...it, tracks, fetched: true, cover_image_url: cover || it.cover_image_url, year: it.year || dateInfo.year, month: it.year ? (dateInfo.year === it.year ? dateInfo.month : it.month) : dateInfo.month, day: it.year ? (dateInfo.year === it.year ? dateInfo.day : it.day) : dateInfo.day, extraTypes: extraTypes.length ? extraTypes : it.extraTypes, substyle_ids: substyleIds, genres_unmatched: unmatched } : it))
+      const genreLog = matchedNames.length ? `, žanrai: ${matchedNames.join(', ')}` : ''
+      const unmatchedLog = unmatched.length ? ` (praleisti: ${unmatched.join(', ')})` : ''
+      addLog(`  → ${tracks.length} dainų${cover ? ', viršelis' : ''}${genreLog}${unmatchedLog}`)
     } catch {
       setItems(p => p.map((it, i) => i === idx ? { ...it, fetched: true, tracks: [] } : it))
       addLog(`  ✗ ${item.title}`)
@@ -1293,6 +1313,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             cover_image_url: item.cover_image_url||'',
             certifications: item.certifications?.length ? item.certifications : null,
             peak_chart_position: item.peak_chart_position ?? null,
+            // Substyles: tik jei fetchDetails sėkmingai gavo ID'jus per
+            // matchGenresToSubstyleIds. undefined → API nelies esamų
+            // album_substyles įrašų; [] → eksplicitas reset'as (dabar
+            // niekada nesiunčiam — wiki importas tik add'ina).
+            substyle_ids: item.substyle_ids?.length ? item.substyle_ids : undefined,
             type_studio: item.type==='studio' || item.extraTypes?.includes('studio') || false,
             type_ep: item.type==='ep' || item.extraTypes?.includes('ep') || false,
             type_single: item.type==='single',

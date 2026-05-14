@@ -42,6 +42,11 @@ export type AlbumFull = {
   is_upcoming?: boolean
   description?: string
   tracks?: TrackInAlbum[]
+  /** Substyle (žanrų) IDs iš public.substyles. Naudojama Wiki importe
+   *  (parseAlbumGenres + matchGenresToSubstyleIds) ir admin album form'oje.
+   *  Pateikus undefined — nelietam esamų album_substyles įrašų; pateikus
+   *  [] — ištrinam visus (eksplicitus „nėra žanrų" reset'as). */
+  substyle_ids?: number[]
 }
 
 export type TrackInAlbum = {
@@ -118,10 +123,15 @@ export async function getAlbums(artistId?: number, limit = 50, offset = 0, searc
   return { albums, total: count || 0 }
 }
 
-export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: TrackInAlbum[] }> {
+export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: TrackInAlbum[]; substyle_ids: number[] }> {
   const { data: album, error } = await supabase
     .from('albums').select('*, artists!albums_artist_id_fkey(name, cover_image_url)').eq('id', id).single()
   if (error) throw error
+
+  // Substyles per junction lentelę
+  const { data: subRows } = await supabase
+    .from('album_substyles').select('substyle_id').eq('album_id', id)
+  const substyle_ids: number[] = (subRows || []).map((r: any) => r.substyle_id).filter((n: any) => Number.isFinite(n))
 
   const { data: trackRows } = await supabase
     .from('album_tracks')
@@ -137,6 +147,7 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
 
   return {
     ...album,
+    substyle_ids,
     tracks: (trackRows || []).map((r: any, idx: number) => {
       const featuring: string[] = (r.tracks?.track_artists || [])
         .filter((ta: any) => !ta.is_primary)
@@ -200,6 +211,7 @@ export async function createAlbum(data: AlbumFull): Promise<number> {
     console.log('[createAlbum] calling syncAlbumTracks with', data.tracks.length, 'tracks')
     await syncAlbumTracks(row.id, Number(data.artist_id), data.tracks)
   }
+  if (data.substyle_ids !== undefined) await syncAlbumSubstyles(row.id, data.substyle_ids)
   return row.id
 }
 
@@ -225,6 +237,24 @@ export async function updateAlbum(id: number, data: AlbumFull): Promise<void> {
   }).eq('id', id)
   if (error) throw error
   if (data.tracks !== undefined) await syncAlbumTracks(id, data.artist_id, data.tracks || [])
+  if (data.substyle_ids !== undefined) await syncAlbumSubstyles(id, data.substyle_ids)
+}
+
+/** Idempotent sync: ištrina viską ir įrašo data.substyle_ids subset'ą.
+ *  Empty array — pilnai išvalo album_substyles įrašus. undefined — caller
+ *  netura kviesti, bet defensive: tiesiog nieko nedaro. */
+async function syncAlbumSubstyles(albumId: number, substyleIds: number[]): Promise<void> {
+  await supabase.from('album_substyles').delete().eq('album_id', albumId)
+  if (!substyleIds.length) return
+  const rows = Array.from(new Set(substyleIds.filter(n => Number.isFinite(n) && n > 0)))
+    .map(substyle_id => ({ album_id: albumId, substyle_id }))
+  if (!rows.length) return
+  const { error } = await supabase.from('album_substyles').insert(rows)
+  if (error) {
+    // Non-fatal — album already created/updated, substyles linking gali nepavykti
+    // jei substyle_id neegzistuoja arba RLS blokuoja. Log'inam ir tęsiam.
+    console.warn('[syncAlbumSubstyles] insert error:', error.message)
+  }
 }
 
 export async function deleteAlbum(id: number): Promise<void> {
