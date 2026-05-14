@@ -194,6 +194,17 @@ export async function PATCH(
       await supabase.from('artist_members').delete().eq('group_id', id)
       await supabase.from('artist_members').delete().eq('member_id', id)
 
+      // Fetch parent (this) artist info — country fallback'ui kuriam naują
+      // member'į (kad jis paveldėtų grupės country, ne klaidingai gautų LT)
+      // ir type-check'ui (kad neinsert'intume backwards rows į artist_members)
+      const { data: parentArtist } = await supabase
+        .from('artists')
+        .select('id,type,country')
+        .eq('id', parseInt(id))
+        .maybeSingle()
+      const parentCountry = parentArtist?.country || null
+      const parentType = parentArtist?.type || null
+
       const memberRows: any[] = []
 
       // Nariai (šis atlikėjas yra grupė) — sukuriame jei nėra DB
@@ -212,7 +223,11 @@ export async function PATCH(
               if (sc) finalSlug = `${mSlug}-${Date.now().toString(36)}`
               const { data: newMember } = await supabase.from('artists').insert({
                 slug: finalSlug, name: m.name, type: 'solo',
-                country: m.country || 'Lietuva',
+                // Country fallback chain: explicit member country → parent artist
+                // country (paveldim iš grupės) → NULL (NE default Lietuva).
+                // Anksčiau visi nauji members default'inai gaudavo 'Lietuva',
+                // todėl Magne Furuholmen (A-ha narys) DB tapo Lietuva atlikėju.
+                country: m.country || parentCountry || null,
                 cover_image_url: m.avatar || null,
                 active_from: m.yearStart ? parseInt(m.yearStart) : null,
                 active_until: m.yearEnd ? parseInt(m.yearEnd) : null,
@@ -263,6 +278,19 @@ export async function PATCH(
           }
         }
         if (groupId) {
+          // Sanity check — neinsert'inti backwards row, jei `groupId` faktiškai
+          // yra solo atlikėjas. Anksčiau Wiki SPARQL P361 (part_of) kartais
+          // grąžindavo grupės narius kaip "groups where artist is member" →
+          // Metallica DB pateko į artist_members 6 backwards rows. Dabar
+          // patikrinam target type pirma; jei solo, skipinam.
+          const { data: targetArtist } = await supabase
+            .from('artists').select('type').eq('id', groupId).maybeSingle()
+          if (targetArtist?.type === 'solo') {
+            console.warn(`[artist_members] skip backwards: parent=${id} (${parentType}), target=${groupId} (solo)`)
+            continue
+          }
+          // Plus: neinsert'inti save į save (atlikėjas ne savo paties narys)
+          if (groupId === parseInt(id)) continue
           memberRows.push({
             group_id: groupId, member_id: parseInt(id),
             year_from: g.yearFrom ? parseInt(g.yearFrom) : null,
