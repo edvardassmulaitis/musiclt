@@ -567,7 +567,14 @@ export function extractTrackListingsWithPos(wikitext: string): { block: string; 
  * Strict matching: requires quoted title AND duration to avoid false positives
  * (citations, bullet lists with similar formatting).
  */
-export function parseHashListTracks(wikitext: string): TrackEntry[] {
+export function parseHashListTracks(
+  wikitext: string,
+  // Optional: jei perduodam singles/dates iš parseTracklist'o, taikom is_single
+  // matching'ą + release date'us. Atskirai callable (Stay on These Roads-style
+  // hash-list albumai) — irgi suderiname per parseSinglesFromInfobox inline.
+  passedSingles?: Set<string>,
+  passedDates?: Map<string, SingleInfoboxData>,
+): TrackEntry[] {
   const tracks: TrackEntry[] = []
   // Find ==Track listing== section (case-insensitive, allow "Track list", "Tracks")
   const secMatch = wikitext.match(/^(==+)\s*(?:Track\s*list(?:ing)?|Tracks)\s*\1\s*$/im)
@@ -579,6 +586,12 @@ export function parseHashListTracks(wikitext: string): TrackEntry[] {
     ? sectionStart + nextSec.index : Math.min(sectionStart + 8000, wikitext.length)
   const body = wikitext.slice(sectionStart, sectionEnd)
 
+  // Singles ir dates — jei caller perdavė, naudoj; antraip parsuojam patys
+  // iš wikitext'o (kad funkcija liktų self-contained external naudotojams).
+  const { names: singles, dates: singleDates } = passedSingles && passedDates
+    ? { names: passedSingles, dates: passedDates }
+    : parseSinglesFromInfobox(wikitext)
+
   // Strict pattern: `# "Title" – duration` (en/em/regular dash, optional)
   // Also accepts `# "Title" (note)` with duration appended later
   // Skip lines that look like references/citations
@@ -586,7 +599,14 @@ export function parseHashListTracks(wikitext: string): TrackEntry[] {
   let lm: RegExpExecArray | null
   let order = 1
   while ((lm = lineRe.exec(body)) !== null) {
-    const title = lm[1].trim()
+    // Raw capture'as gali tureti `[[Stay on These Roads (song)|Stay on These Roads]]`
+    // tipo wikilink'us — a-ha „Stay on These Roads" hash-list formatas. Anksčiau
+    // pushindavom `lm[1].trim()` neapdorotą, todėl titles likdavo su `[[...]]`
+    // brackets. cleanWikiText išsprendžia: `[[X|Y]] → Y`, `[[X]] → X` ir t.t.
+    // Tas pats pipeline'as kaip parseTracklist eilutėje ~863-865, kad
+    // hash-list ir {{Track listing}} formatai duoda identišką output'ą.
+    const { cleanTitle, featuring: titleFeat } = parseFeaturing(lm[1].trim())
+    const title = cleanWikiText(cleanTitle)
     const noteRaw = lm[2] || ''
     const duration = lm[3]
     if (title.length < 2) continue
@@ -597,16 +617,28 @@ export function parseHashListTracks(wikitext: string): TrackEntry[] {
     else if (/\binstrumental\b/.test(noteLow)) type = 'instrumental'
     else if (/\blive\b/.test(noteLow)) type = 'live'
     else if (/\bcover\b/.test(noteLow)) type = 'covers'
-    // featuring extraction
+    // featuring extraction — pirma iš note (`(feat. X)` po dash'o), tada
+    // fallback iš title'o jei parseFeaturing kažką ištraukė inline.
     let featuring: string[] | undefined
     const featM = noteRaw.match(/(?:feat(?:uring)?\.?|with)\s+(.+)/i)
     if (featM) {
       featuring = featM[1].split(/\s+and\s+|[,&]/i).map(s => s.trim().replace(/^["']|["']$/g, '')).filter(s => s.length > 1)
     }
+    if ((!featuring || !featuring.length) && titleFeat.length) featuring = titleFeat
+    // is_single + release date — taikom tą pačią logiką kaip parseTracklist
+    // (matchAsSingle helper), kad hash-list albumai (a-ha „Stay on These Roads")
+    // gautų teisingą is_single attribution'ą ir Wikipedia infobox release date'us.
+    const normalizedTitle = title.toLowerCase().replace(/['’‘]/g, '').trim()
+    const is_single = singles.size > 0 ? matchAsSingle(normalizedTitle, singles) : undefined
+    const dateInfo = is_single ? singleDates.get(normalizedTitle) : undefined
     tracks.push({
       title, duration, sort_order: order++,
       type,
       featuring: featuring && featuring.length ? featuring : undefined,
+      is_single,
+      release_year: dateInfo?.year ?? null,
+      release_month: dateInfo?.month ?? null,
+      release_day: dateInfo?.day ?? null,
     })
   }
   return tracks
@@ -666,6 +698,46 @@ export function isDiscBlock(tl: string): boolean {
  *  → mismatch → is_single=false net real single'ams. */
 function normalizeSingleKey(name: string): string {
   return name.toLowerCase().replace(/['’‘]/g, '').trim()
+}
+
+/**
+ * Patikrina, ar `normalizedTitle` (track'o pavadinimas po apostrof valymo)
+ * atitinka kažkurį singles infobox'o key'ą. Naudojama tiek parseTracklist'e,
+ * tiek parseHashListTracks'e — kad abu formatai (`{{Track listing}}` ir
+ * `# "title" – 4:45` hash-list) gautų vienodą is_single attribution'ą.
+ *
+ * Match logika:
+ *   1) Exact set membership
+ *   2) Plural form: single "Heart" → track "Hearts"
+ *   3) Slash-split single "X/Y" → track "X" ar "Y"
+ *   4) Reverse plain prefix: single "Track Reprise" su track'u "Track"
+ *      (BE skliaustų ir BE remix/version/etc suffix'o)
+ *
+ * Sąmoningai NEpromote'inam parenthesized alt versijų:
+ *   single "We Pray" + track "We Pray (Be Our Guest)" → NE single
+ *   (Wikipedia infobox dažnai listina tik bazinį pavadinimą; album'e
+ *   parenthesized variant yra alt-take, ne atskiras single release'as.)
+ */
+function matchAsSingle(normalizedTitle: string, singles: Set<string>): boolean {
+  if (singles.size === 0) return false
+  if (singles.has(normalizedTitle)) return true
+  for (const s of singles) {
+    if (normalizedTitle === s) return true
+    if (normalizedTitle.startsWith(s)) {
+      const after = normalizedTitle.slice(s.length)
+      if (after.startsWith('s ') && !after.includes('reprise')) return true
+    }
+    if (s.includes('/')) {
+      const parts = s.split('/').map(p => p.replace(/[""„"]/g, '').trim()).filter(Boolean)
+      if (parts.some(p => p === normalizedTitle || normalizedTitle.startsWith(p + ' ') || p.startsWith(normalizedTitle))) return true
+    }
+    if (s.startsWith(normalizedTitle + ' ')) {
+      const sAfter = s.slice(normalizedTitle.length)
+      if (!/(remix|version|mix|edit|live|acoustic|instrumental|demo|dub)\b/i.test(sAfter)
+          && !sAfter.startsWith(' (')) return true
+    }
+  }
+  return false
 }
 
 export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>; dates: Map<string, SingleInfoboxData> } {
@@ -734,21 +806,61 @@ export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>;
     const chunk = wikitext.slice(singlesStart, singlesStart + 3000)
     const sRe = /\|\s*single(\d+)\s*=\s*((?:\[\[[^\]]*\]\]|[^|\n])+)/g
     let sm: RegExpExecArray | null
-    const singlesByNum: Record<string, string> = {}
+    // singlesByNum: kiekvienam single{N} sukaupiam VISUS kandidatus (display
+    // alias, link target, parenthesized-version base). Date propaguojama
+    // visiems \u2014 kad \u201eCast in Steel" track gaut\u0173 \u201eCast in Steel (Steve Osborne
+    // Version)" dat\u0105 ir kad \u201eDark Is the Night for All" track gaut\u0173 to paties
+    // single'o dat\u0105 kaip \u201eDark Is the Night".
+    const singlesByNum: Record<string, string[]> = {}
     // Double A-side track'ai (pvz "Orphans" / "Arabesque" Coldplay) \u2014 abu turi
     // gauti t\u0105 pa\u010di\u0105 release dat\u0105 i\u0161 to paties single{n}date. slashAltsByNum
     // saugo visus alternate'us pagal single number.
     const slashAltsByNum: Record<string, string[]> = {}
+    // Suffix'as kur\u012f traktuojam kaip alt-versij\u0105 \u2014 tas pats track'as, kitas
+    // mix/edit/remix etc. Cast in Steel atveju single yra \u201eCast in Steel
+    // (Steve Osborne Version)", o albume yra base \u201eCast in Steel" \u2014 pridedam
+    // base kaip atskir\u0105 kandidat\u0105, kad track gaut\u0173 is_single=true.
+    const altSuffixRe = /\s*\([^)]*\b(?:version|mix|remix|edit|edition|cut|remaster(?:ed)?|extended|radio|club|dance|acoustic|piano|orchestral|single|bonus|original)\b[^)]*\)$/i
     while ((sm = sRe.exec(chunk)) !== null) {
+      const candidates: string[] = []
+      // (1) Display alias (jei `[[X|Y]]`) arba article title (`[[X]]`)
       let name = extractName(sm[2])
       if (!name) {
         const plain = sm[2].replace(/\{\{[^}]*\}\}/g, '').replace(/<[^>]+>/g, '').replace(/['""\u201c\u201d\u2018\u2019]+/g, '').trim()
         if (plain.length > 1 && !plain.includes('|') && !plain.includes('=')) name = plain
       }
-      if (name) {
-        const norm = normalizeSingleKey(name)
-        names.add(norm)
-        singlesByNum[sm[1]] = norm
+      if (name) candidates.push(name)
+      // (2) Link target (kai `[[X|Y]]`) \u2014 track'o title gali atitikti article
+      // pavadinim\u0105, ne display alias'\u0105. Memorial Beach atveju:
+      //   single1 = [[Dark Is the Night for All|Dark Is the Night]]
+      // \u2192 display \u201eDark Is the Night", o tracks.title1 = [[Dark Is the Night
+      // for All]] \u2192 po cleanWikiText \u201eDark Is the Night for All". Pridedam
+      // target'\u0105 kaip antr\u0105 kandidat\u0105.
+      const linkM = /\[\[([^\]|]+?)\|([^\]]+)\]\]/.exec(sm[2])
+      if (linkM) {
+        const target = linkM[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/['""\u201c\u201d\u2018\u2019]+/g, '').trim()
+        if (target.length > 1 && target.toLowerCase() !== (name || '').toLowerCase()) {
+          candidates.push(target)
+        }
+      }
+      // (3) Parenthesized version suffix base form \u2014 \u017ei\u016br. altSuffixRe.
+      // Pridedam I\u0160 VIS\u0172 jau surinkt\u0173 kandidat\u0173, nes ir display, ir target
+      // gali tur\u0117ti suffix'\u0105.
+      for (const c of [...candidates]) {
+        if (altSuffixRe.test(c)) {
+          const base = c.replace(altSuffixRe, '').trim()
+          if (base.length > 1 && base.toLowerCase() !== c.toLowerCase()) candidates.push(base)
+        }
+      }
+      // Normalize + dedup; visi kandidatai eina \u012f names Set ir singlesByNum
+      const norms: string[] = []
+      for (const c of candidates) {
+        const n = normalizeSingleKey(c)
+        if (n && !norms.includes(n)) norms.push(n)
+      }
+      if (norms.length) {
+        for (const n of norms) names.add(n)
+        singlesByNum[sm[1]] = norms
       }
       const rawVal = sm[2].replace(/\[\[[^\]|]+\|([^\]]+)\]\]/g, '$1').replace(/\[\[([^\]]+)\]\]/g, '$1')
         .replace(disambigRe, '')
@@ -769,9 +881,9 @@ export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>;
     const dRe = /\|\s*single(\d+)date\s*=\s*([^\n]+)/g
     let dm: RegExpExecArray | null
     while ((dm = dRe.exec(chunk)) !== null) {
-      const singleName = singlesByNum[dm[1]]
+      const singleNames = singlesByNum[dm[1]] || []
       const date = parseDate(dm[2])
-      if (singleName) dates.set(singleName, date)
+      for (const n of singleNames) dates.set(n, date)
       // Propaguojam t\u0105 pa\u010di\u0105 dat\u0105 visiems slash-alternate'ams kad
       // "Arabesque" (antras dvigubo A-side track'as) gaut\u0173 t\u0105 pa\u010di\u0105
       // 2019-10-24 dat\u0105 kaip "Orphans".
@@ -795,8 +907,10 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
     // No {{Track listing}} / {{Tracklist}} template — bandom fallback per
     // hash-list parser (Wumpscut, senesni indie albums dažnai turi `# "Title" – 3:45`
     // formatte po ==Track listing== headeryje). Strict patternas (quoted title +
-    // duration) saugo nuo false positives (citations, bullet lists).
-    return parseHashListTracks(wikitext)
+    // duration) saugo nuo false positives (citations, bullet lists). Perduodam
+    // jau parsuotą singles/dates — kad hash-list'o tracks gautų teisingą
+    // is_single + release date'us (a-ha „Stay on These Roads" atvejis).
+    return parseHashListTracks(wikitext, singles, singleDates)
   }
 
   const parseBlock = (tl: string, startOrder: number): TrackEntry[] => {
@@ -876,34 +990,11 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
         // buvo `startsWith + ' (' bei NE-known-variant` \u2192 "We Pray (Be Our
         // Guest)" gaudavo is_single=true antr\u0105 kart\u0105, nors realyb\u0117j tai
         // album'o bonus, ne atskiras single release'as.
-        const is_single = singles.size > 0 ? (
-          singles.has(normalizedTitle) ||
-          [...singles].some(s => {
-            if (normalizedTitle === s) return true
-            // Plural form (rare): "Heart" single \u2192 "Hearts" track
-            if (normalizedTitle.startsWith(s)) {
-              const after = normalizedTitle.slice(s.length)
-              if (after.startsWith('s ') && !after.includes('reprise')) return true
-              // \u26a0 Anks\u010diau \u010dia buvo parenthesized auto-promote \u2014 i\u0161trinta,
-              // nes klaidingai mark'indavo "We Pray (Be Our Guest)" kaip
-              // atskir\u0105 single, nors tai tos pa\u010dios "We Pray" alt-versija.
-            }
-            // Slash split \u2014 "X/Y" single match'inasi su "X" ar "Y" track
-            if (s.includes('/')) {
-              const parts = s.split('/').map(p => p.replace(/["""]/g, '').trim()).filter(Boolean)
-              if (parts.some(p => p === normalizedTitle || normalizedTitle.startsWith(p + ' ') || p.startsWith(normalizedTitle))) return true
-            }
-            // Reverse case: "Track" su single "Track (Reprise)" \u2014 track yra
-            // base, single yra parenthesized; nepromote'inam track'o.
-            if (s.startsWith(normalizedTitle + ' ')) {
-              const sAfter = s.slice(normalizedTitle.length)
-              // Tik plain prefix (pvz "X" prefix'as "X Y"), ne parenthesized
-              if (!/(remix|version|mix|edit|live|acoustic|instrumental|demo|dub)\b/i.test(sAfter)
-                  && !sAfter.startsWith(' (')) return true
-            }
-            return false
-          })
-        ) : undefined
+        // is_single attribution \u2014 \u017ei\u016br. matchAsSingle (top of file). Helper
+        // dalinamas su parseHashListTracks, kad abu formatai duot\u0173 vienod\u0105
+        // is_single rezultat\u0105. `undefined` kai infobox neturi singles secijos
+        // (\u017einom \u2014 nieko negalim pasakyti); `true/false` kai turi.
+        const is_single = singles.size > 0 ? matchAsSingle(normalizedTitle, singles) : undefined
         const noteStr = (noteM?.[1] || '').toLowerCase()
         // Track type detection: griežtesnė nei bare \blive\b, nes featuring
         // artist'ai gali turėti band-name'us su "live", "cover", "remix" žodžiais
