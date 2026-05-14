@@ -30,6 +30,7 @@ const CATEGORY_LABELS: Record<string, { label: string; icon: string; color: stri
   performance: { label: 'Pasirodymas',  icon: '🎤', color: 'bg-purple-100 text-purple-700' },
   tour:        { label: 'Turas',        icon: '🎫', color: 'bg-emerald-100 text-emerald-700' },
   career_step: { label: 'Karjera',      icon: '🚀', color: 'bg-orange-100 text-orange-700' },
+  other:       { label: 'Kita',         icon: '🎶', color: 'bg-gray-100 text-gray-700' },
 }
 
 function confidenceColor(c: number) {
@@ -146,7 +147,7 @@ export default function AdminInboxPage() {
       <div className="max-w-5xl mx-auto px-4 py-5">
         {/* Category filter chips */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {['all', 'release', 'performance', 'tour', 'career_step'].map(cat => (
+          {['all', 'release', 'performance', 'tour', 'career_step', 'other'].map(cat => (
             <button
               key={cat}
               onClick={() => setFilter(cat)}

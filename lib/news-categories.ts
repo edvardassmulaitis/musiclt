@@ -50,6 +50,16 @@ export const NEWS_CATEGORIES = {
       'Žilvinas Žvagulis paleidžia naują projektą',
     ],
   },
+  other: {
+    label: 'Kita',
+    description: 'Kita muzikinė naujiena, kuri neaiškiai patenka į kitas 4 — interviu, jubiliejus, awards, chartai, dokumentika, prisiminimai, scenos news',
+    icon: '🎶',
+    examples: [
+      'M.A.M.A apdovanojimai įteikti',
+      'Atlikėjas išleido interviu apie kūrybą',
+      'Grupė švenčia 30-metį',
+    ],
+  },
 } as const
 
 export type NewsCategoryKey = keyof typeof NEWS_CATEGORIES
@@ -65,14 +75,15 @@ export const ALLOWED_CATEGORIES: ReadonlySet<NewsCategoryKey> = new Set(NEWS_CAT
  * Atmetimo gairės AI prompt'ui. Šie atvejai turi grąžinti category='none'.
  */
 export const REJECT_PATTERNS = [
-  'Asmeninis gyvenimas (santykiai, šeima) — JEIGU tai NĖRA karjeros stop ar projektas',
-  'Mada, lifestyle, soc.media drama',
-  'Apdovanojimai be muzikos konteksto (tik šou, ne albumas)',
-  'Topai / chartai / "geriausios dainos savaitės" (mes turim savo)',
+  'Visiškai NEMUZIKINĖ tema (politika, sportas, biznis be muzikos sąsajos)',
   'Reklama, sponsored content, paid promotion',
-  'Mirties pranešimai (rašome atskirai per editorial flow)',
-  'Užuominos / spėliojimai be source confirmation (gandai, kad...)',
+  'Aiškiai netinkamas turinys (erotika, agresyvi politinė retorika)',
 ]
+
+// Pastaba: anksčiau buvo griežtesni filtrai, bet praktika parodė, kad
+// Sonnet'as atmesdavo per daug. Geriau atsirinkti pasiūlymus inbox'e,
+// nei prarasti svarbias žinias. Visus muzikinius straipsnius PRIIMAM,
+// kad ir kokia kategorija — turim 'other' fallback'ą.
 
 /**
  * Music-relevance batch prompt template'as (Haiku).
@@ -81,20 +92,22 @@ export const REJECT_PATTERNS = [
 export function buildRelevancePrompt(items: Array<{ idx: number; title: string; summary?: string }>): string {
   return `Tu esi muzikos žinių klasifikatorius music.lt portale.
 
-Įvertink kiekvieną straipsnio antraštę ir įžangą. Priimk TIK šias kategorijas:
+Įvertink kiekvieną straipsnio antraštę ir įžangą. Kategorijos:
 
 ${NEWS_CATEGORY_KEYS.map(k => `- "${k}": ${NEWS_CATEGORIES[k].description}`).join('\n')}
 
-ATMESK (category="none"):
+PRIIMK plačiai — jeigu straipsnis SUSIJĘS su muzika (atlikėjais, dainomis, koncertais, festivaliais, scena, muzikos pramonės žmonėmis), priskirk geriausiai tinkamą kategoriją. Jei netinka aiškiai 4 pagrindinėms, naudok "other".
+
+ATMESK (category="none") TIK jeigu:
 ${REJECT_PATTERNS.map(p => `- ${p}`).join('\n')}
 
-Be PIRMINIO muzikinio fakto neimk. Pvz., "dainininkas dalyvavo eismo įvykyje" — ATMESK, nebent susiję su tour cancel.
+Geriau pasiūlyti redagavimui nei prarasti svarbią naujieną. Abejojant — duok "other".
 
 Straipsniai:
 ${items.map(it => `[${it.idx}] ${it.title}\n${it.summary ? `    ${it.summary.slice(0, 250)}` : ''}`).join('\n\n')}
 
 Grąžink TIK JSON array, jokio kito teksto. Schema:
-[{"idx": <number>, "category": "release"|"performance"|"tour"|"career_step"|"none", "confidence": <0..1>, "brief_why": "<10 žodžių LT>"}]`
+[{"idx": <number>, "category": "release"|"performance"|"tour"|"career_step"|"other"|"none", "confidence": <0..1>, "brief_why": "<10 žodžių LT>"}]`
 }
 
 /**
@@ -106,6 +119,8 @@ Grąžink TIK JSON array, jokio kito teksto. Schema:
 export const LIGHT_REWRITE_SYSTEM = `Tu esi muzikos žurnalistas, rašantis music.lt portalui lietuvių auditorijai.
 
 UŽDUOTIS: Iš pateikto šaltinio (gali būti EN/LT/RU) sukurk LIETUVIŠKĄ naujieną.
+
+PRIIMAM PLAČIAI: jei straipsnis susijęs su muzika, atlikėjais, dainomis, koncertais, scena ar pramone — perpasakok jį. Sonnet abejodamas, ar tinka — DUOK kategoriją "other" ir tegu admin'as nuspręs. NEATMETIK muzikinio turinio. ATMESK ('none') tik jeigu straipsnis akivaizdžiai nieko bendro neturi su muzika (politika, sportas be muzikos sąsajos, reklama, erotika).
 
 STILIUS:
 - 200-400 žodžių, 3-4 pastraipos
@@ -124,7 +139,7 @@ STRUKTŪRA:
 
 OUTPUT FORMATAS — TIK JSON, jokio kito teksto:
 {
-  "category": "release"|"performance"|"tour"|"career_step",
+  "category": "release"|"performance"|"tour"|"career_step"|"other",
   "title": "string (60-80 chars)",
   "body_html": "string — HTML su <p> tag'ais kiekvienai pastraipai",
   "summary": "string — 2 sakiniai inbox preview'ui",
@@ -133,5 +148,5 @@ OUTPUT FORMATAS — TIK JSON, jokio kito teksto:
   "confidence": 0..1
 }
 
-Jeigu straipsnis NETINKA jokiai kategorijai (gossip, asmeninis gyvenimas, reklama) — grąžink:
+Jeigu straipsnis VISIŠKAI nemuzikinis — grąžink:
 { "category": "none", "title": "", "body_html": "", "summary": "", "artists_mentioned": [], "tracks_mentioned": [], "confidence": 0 }`

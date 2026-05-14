@@ -83,7 +83,7 @@ export async function classifyMusicRelevance(
 }
 
 function isValidCategory(v: any): v is AIRelevanceCategory {
-  return v === 'release' || v === 'performance' || v === 'tour' || v === 'career_step' || v === 'none'
+  return v === 'release' || v === 'performance' || v === 'tour' || v === 'career_step' || v === 'other' || v === 'none'
 }
 
 // ─────────────────────────────────────────────────────────────
