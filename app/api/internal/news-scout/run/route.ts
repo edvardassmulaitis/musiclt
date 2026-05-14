@@ -189,14 +189,17 @@ export async function POST(req: NextRequest) {
           // AI gali persigalvoti kategorijos — re-check ALLOWED
           if (!ALLOWED_CATEGORIES.has(ai.category as any)) {
             const urlHash = canonicalUrlHash(rel.url)
+            const debugMsg = `Sonnet rejected ${rel.url}: category="${ai.category}" conf=${ai.confidence} title="${(ai.title || '').slice(0, 60)}" raw="${(ai.raw_response || '').slice(0, 200)}"`
+            counter.error_details.push(debugMsg)
             if (!dryRun) {
               await supabase.from('scout_seen_urls').insert({
                 url_hash: urlHash,
                 source_id: source.id,
                 candidate_id: null,
-                filter_reason: 'sonnet_rejected',
+                filter_reason: `sonnet_rejected:${ai.category || 'unknown'}`,
               })
             }
+            counter.classified_irrelevant++
             continue
           }
 
