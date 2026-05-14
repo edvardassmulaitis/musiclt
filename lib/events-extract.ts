@@ -46,6 +46,11 @@ export type EventDetail = {
 // ─────────────────────────────────────────────────────────────
 
 export async function fetchEventList(listUrl: string, parserKey: string): Promise<EventListItem[]> {
+  // Special-case: kakava.lt sitemap API (XML su event URLs, ne HTML)
+  if (parserKey === 'kakava') {
+    return fetchKakavaSitemap(listUrl)
+  }
+
   const res = await fetch(listUrl, {
     headers: { 'User-Agent': USER_AGENT, 'Accept': 'text/html' },
     redirect: 'follow',
@@ -53,7 +58,7 @@ export async function fetchEventList(listUrl: string, parserKey: string): Promis
   if (!res.ok) throw new Error(`List fetch HTTP ${res.status} for ${listUrl}`)
   const html = await res.text()
 
-  // First — JSON-LD Event schema
+  // First — JSON-LD Event schema (universalu visiem)
   const jsonLdEvents = extractJsonLdEvents(html, listUrl)
   if (jsonLdEvents.length > 0) {
     return jsonLdEvents
@@ -65,11 +70,36 @@ export async function fetchEventList(listUrl: string, parserKey: string): Promis
       return parseBilietaiLt(html, listUrl)
     case 'tiketa':
       return parseTiketa(html, listUrl)
-    case 'kakava':
-      return parseKakava(html, listUrl)
     default:
       return genericEventList(html, listUrl)
   }
+}
+
+/**
+ * Kakava.lt naudoja sitemap.xml su pilnu event URL'ų sąrašu.
+ * Detail page'us po to fetch'inam atskirai.
+ */
+async function fetchKakavaSitemap(sitemapUrl: string): Promise<EventListItem[]> {
+  const res = await fetch(sitemapUrl, {
+    headers: { 'User-Agent': USER_AGENT, 'Accept': 'application/xml,text/xml' },
+    redirect: 'follow',
+  })
+  if (!res.ok) throw new Error(`Sitemap fetch HTTP ${res.status} for ${sitemapUrl}`)
+  const xml = await res.text()
+
+  const items: EventListItem[] = []
+  const locRe = /<loc>([^<]+)<\/loc>/g
+  for (const m of xml.matchAll(locRe)) {
+    const url = m[1].trim()
+    // Tik event detail page'us — /lt/events/{ID}/{slug} arba /en/events/{ID}/{slug}
+    if (!/\/(?:lt|en)\/events\/\d+\//.test(url)) continue
+    items.push({
+      url,
+      title: '', // bus extract'intas iš detail page'o
+    })
+    if (items.length >= 50) break
+  }
+  return items
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -257,19 +287,44 @@ function findEventNode(node: any): any | null {
 // ─────────────────────────────────────────────────────────────
 
 function parseBilietaiLt(html: string, baseUrl: string): EventListItem[] {
-  // bilietai.lt struktūra — event cards su `.event-card` ar `<a class="event-link">`.
-  // Naudojam paprastas heuristikas — gali keistis su redizainu.
-  return genericEventList(html, baseUrl)
+  // URL pattern'as iš Explore: /renginiai/{ID}/{slug} arba /series/{ID}/{slug}
+  // ID gali būti alphanumeric (FPRQYSTDLH) arba numeric
+  const items: EventListItem[] = []
+  const seen = new Set<string>()
+  const re = /<a[^>]+href=["'](\/(?:renginiai|series)\/[A-Z0-9]+\/[^"'#?]+)["'][^>]*>([\s\S]*?)<\/a>/gi
+  for (const m of html.matchAll(re)) {
+    const url = absoluteUrl(m[1], baseUrl)
+    if (seen.has(url)) continue
+    seen.add(url)
+    const titleRaw = stripHtml(m[2]).trim()
+    if (!titleRaw || titleRaw.length < 5) continue
+    items.push({
+      url,
+      title: decodeHtml(titleRaw).slice(0, 200),
+    })
+    if (items.length >= 50) break
+  }
+  return items
 }
 
 function parseTiketa(html: string, baseUrl: string): EventListItem[] {
-  // tiketa.lt cards yra struktūruoti per `.event-item` arba next.js fragmentai
-  return genericEventList(html, baseUrl)
-}
-
-function parseKakava(html: string, baseUrl: string): EventListItem[] {
-  // kakava.lt — paprastas listing'as
-  return genericEventList(html, baseUrl)
+  // URL pattern'as iš Explore: /LT/Event/{numericID}
+  const items: EventListItem[] = []
+  const seen = new Set<string>()
+  const re = /<a[^>]+href=["'](\/LT\/Event\/\d+(?:\/[^"'#?]*)?)["'][^>]*>([\s\S]*?)<\/a>/gi
+  for (const m of html.matchAll(re)) {
+    const url = absoluteUrl(m[1], baseUrl)
+    if (seen.has(url)) continue
+    seen.add(url)
+    const titleRaw = stripHtml(m[2]).trim()
+    if (!titleRaw || titleRaw.length < 5) continue
+    items.push({
+      url,
+      title: decodeHtml(titleRaw).slice(0, 200),
+    })
+    if (items.length >= 50) break
+  }
+  return items
 }
 
 /**
