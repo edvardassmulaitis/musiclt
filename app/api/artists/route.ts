@@ -194,7 +194,12 @@ export async function POST(req: NextRequest) {
             : null
           const { data: newMember } = await supabase.from('artists').insert({
             slug: mSlug, name: m.name, type: 'solo',
-            country: m.country || 'Lietuva',
+            // Wiki member info ateina iš WikipediaImport.fetchMemberFullData
+            // su country populiuotu (jei Wiki turi P27/P19). Jei tuščias —
+            // paveldim parent grupes country (d.country); jei ir tas tuščias —
+            // NULL (NE default 'Lietuva', kuris klaidingai LT-marker'indavo
+            // visus naujus members, pvz Magne Furuholmen → Lietuva).
+            country: m.country || d.country || null,
             active_from:  m.yearStart ? parseInt(m.yearStart) : null,
             active_until: m.yearEnd   ? parseInt(m.yearEnd)   : null,
             cover_image_url: m.avatar || null,
@@ -268,7 +273,10 @@ export async function POST(req: NextRequest) {
             if (slugCheck) finalGSlug = `${gSlug}-${Date.now().toString(36)}`
             const { data: newGroup } = await supabase.from('artists').insert({
               slug: finalGSlug, name: g.name, type: 'group',
-              country: g.country || 'Lietuva',
+              // Wiki grupes info ateina iš WikipediaImport.fetchGroupFullData
+              // su country populiuotu. Jei tuščias — paveldim solo atlikejo
+              // country (d.country); jei nieks neturi — NULL.
+              country: g.country || d.country || null,
               cover_image_url: g.avatar || null,
               active_from:  g.yearStart ? parseInt(g.yearStart) : null,
               active_until: g.yearEnd   ? parseInt(g.yearEnd)   : null,
