@@ -51,8 +51,32 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // Pakraunam VISUS suggested_artists kiekvienam candidate'ui (su image + score)
+  const allArtistIds = new Set<number>()
+  for (const c of (data || [])) {
+    for (const id of (c.suggested_artist_ids || [])) allArtistIds.add(id)
+  }
+  let artistMap: Record<number, { id: number; name: string; slug: string; cover_image_url: string | null; legacy_likes: number | null }> = {}
+  if (allArtistIds.size > 0) {
+    const { data: artists } = await supabase
+      .from('artists')
+      .select('id, name, slug, cover_image_url, legacy_likes')
+      .in('id', Array.from(allArtistIds))
+    for (const a of (artists || [])) {
+      artistMap[a.id] = a as any
+    }
+  }
+
+  // Decorate per candidate'us su pilna suggested_artists info'ja
+  const decorated = (data || []).map((c: any) => ({
+    ...c,
+    suggested_artists: (c.suggested_artist_ids || [])
+      .map((id: number) => artistMap[id])
+      .filter(Boolean),
+  }))
+
   return NextResponse.json({
-    candidates: data || [],
+    candidates: decorated,
     total: count || 0,
   })
 }

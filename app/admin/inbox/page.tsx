@@ -5,6 +5,14 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+type SuggestedArtist = {
+  id: number
+  name: string
+  slug: string
+  cover_image_url: string | null
+  legacy_likes: number | null
+}
+
 type Candidate = {
   id: number
   source_type: string
@@ -17,12 +25,13 @@ type Candidate = {
   ai_confidence: number
   ai_model: string
   suggested_artist_ids: number[]
+  suggested_artists?: SuggestedArtist[]
   suggested_track_ids: number[]
   primary_artist_id: number | null
   suggested_image_url: string | null
   status: string
   created_at: string
-  primary_artist: { id: number; name: string; slug: string; cover_image_url: string | null; legacy_likes: number | null } | null
+  primary_artist: SuggestedArtist | null
 }
 
 const CATEGORY_LABELS: Record<string, { label: string; icon: string; color: string }> = {
@@ -39,6 +48,12 @@ function confidenceColor(c: number) {
   return 'text-red-500 bg-red-50'
 }
 
+function formatLikes(n: number | null | undefined): string {
+  if (!n) return '0'
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+  return String(n)
+}
+
 export default function AdminInboxPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -49,6 +64,10 @@ export default function AdminInboxPage() {
   const [busy, setBusy] = useState<number | null>(null)
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   const [bodies, setBodies] = useState<Record<number, string>>({})
+  const [editing, setEditing] = useState<Candidate | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editBody, setEditBody] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -71,28 +90,47 @@ export default function AdminInboxPage() {
     if (status === 'authenticated') load()
   }, [status, isAdmin, router, load])
 
+  const fetchBody = useCallback(async (id: number) => {
+    if (bodies[id]) return bodies[id]
+    try {
+      const res = await fetch(`/api/admin/news-candidates/${id}`)
+      const data = await res.json()
+      const body = data.candidate?.ai_body || ''
+      setBodies(prev => ({ ...prev, [id]: body }))
+      return body
+    } catch {
+      return ''
+    }
+  }, [bodies])
+
   const toggleExpand = useCallback(async (id: number) => {
     setExpanded(prev => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
-    if (!bodies[id]) {
-      try {
-        const res = await fetch(`/api/admin/news-candidates/${id}`)
-        const data = await res.json()
-        setBodies(prev => ({ ...prev, [id]: data.candidate?.ai_body || '' }))
-      } catch {}
-    }
-  }, [bodies])
+    fetchBody(id)
+  }, [fetchBody])
 
-  const handleAction = async (id: number, action: 'approve' | 'reject', reason?: string) => {
+  const openEdit = async (cand: Candidate) => {
+    setEditing(cand)
+    setEditTitle(cand.ai_title)
+    setEditBody(await fetchBody(cand.id))
+  }
+
+  const closeEdit = () => {
+    setEditing(null)
+    setEditTitle('')
+    setEditBody('')
+  }
+
+  const handleAction = async (id: number, action: 'approve' | 'reject', extra?: { reason?: string; title?: string; body?: string }) => {
     setBusy(id)
     try {
       const res = await fetch(`/api/admin/news-candidates/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, reason }),
+        body: JSON.stringify({ action, ...extra }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -102,9 +140,9 @@ export default function AdminInboxPage() {
       setCandidates(prev => prev.filter(c => c.id !== id))
       setTotal(t => t - 1)
       if (action === 'approve' && data.slug) {
-        // Open in new tab to verify
         window.open(`/news/${data.slug}`, '_blank')
       }
+      closeEdit()
     } finally {
       setBusy(null)
     }
@@ -113,7 +151,17 @@ export default function AdminInboxPage() {
   const handleReject = (id: number) => {
     const reason = prompt('Kodėl atmesti? (neprivaloma)')
     if (reason === null) return
-    handleAction(id, 'reject', reason)
+    handleAction(id, 'reject', { reason })
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editing) return
+    setSavingEdit(true)
+    try {
+      await handleAction(editing.id, 'approve', { title: editTitle, body: editBody })
+    } finally {
+      setSavingEdit(false)
+    }
   }
 
   if (status === 'loading' || loading) {
@@ -161,7 +209,6 @@ export default function AdminInboxPage() {
           ))}
         </div>
 
-        {/* Empty state */}
         {candidates.length === 0 ? (
           <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl p-16 text-center">
             <div className="text-5xl mb-4">📭</div>
@@ -175,6 +222,9 @@ export default function AdminInboxPage() {
             {candidates.map(cand => {
               const catMeta = CATEGORY_LABELS[cand.ai_category]
               const isExpanded = expanded.has(cand.id)
+              const artists = cand.suggested_artists || []
+              const hasMatch = artists.length > 0
+
               return (
                 <div
                   key={cand.id}
@@ -198,7 +248,7 @@ export default function AdminInboxPage() {
                     {/* Body */}
                     <div className="flex-1 min-w-0">
                       {/* Meta row */}
-                      <div className="flex flex-wrap items-center gap-1.5 mb-1 text-xs">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-2 text-xs">
                         {catMeta && (
                           <span className={`px-2 py-0.5 rounded-full font-medium ${catMeta.color}`}>
                             {catMeta.icon} {catMeta.label}
@@ -207,24 +257,52 @@ export default function AdminInboxPage() {
                         <span className={`px-2 py-0.5 rounded-full font-bold ${confidenceColor(cand.ai_confidence)}`}>
                           ⭐ {cand.ai_confidence.toFixed(2)}
                         </span>
-                        {cand.primary_artist && (
-                          <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
-                            🎤 {cand.primary_artist.name}
-                          </span>
-                        )}
                         <span className="text-[var(--text-muted)]">
                           {cand.source_portal || cand.source_type}
                         </span>
                       </div>
 
-                      <h2 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-1">
+                      <h2 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-2">
                         {cand.ai_title}
                       </h2>
 
                       {cand.ai_summary && (
-                        <p className="text-sm text-[var(--text-muted)] line-clamp-2 mb-2">
+                        <p className="text-sm text-[var(--text-muted)] line-clamp-2 mb-3">
                           {cand.ai_summary}
                         </p>
+                      )}
+
+                      {/* Artist chips */}
+                      {hasMatch ? (
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {artists.map(a => (
+                            <Link
+                              key={a.id}
+                              href={`/atlikejai/${a.slug}`}
+                              target="_blank"
+                              className="inline-flex items-center gap-1.5 pl-1 pr-2 py-1 bg-blue-50 hover:bg-blue-100 rounded-full text-xs font-medium text-blue-700 transition-colors">
+                              {a.cover_image_url ? (
+                                <img src={a.cover_image_url} alt="" className="w-5 h-5 rounded-full object-cover bg-blue-100" />
+                              ) : (
+                                <span className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-[10px]">🎤</span>
+                              )}
+                              <span>{a.name}</span>
+                              <span className="text-[10px] text-blue-500 font-normal">❤ {formatLikes(a.legacy_likes)}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mb-3">
+                          <button
+                            onClick={() => {
+                              const url = `/admin/artists/new?name=${encodeURIComponent(cand.ai_title.split(' ')[0])}`
+                              window.open(url, '_blank')
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 hover:bg-amber-100 rounded-full text-xs font-medium text-amber-700 border border-amber-200 transition-colors">
+                            <span>⚠ Atlikėjo nerasta DB</span>
+                            <span className="text-amber-600">+ Sukurti naują</span>
+                          </button>
+                        </div>
                       )}
 
                       {/* Actions */}
@@ -234,6 +312,12 @@ export default function AdminInboxPage() {
                           disabled={busy === cand.id}
                           className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
                           {busy === cand.id ? '...' : '✓ Patvirtinti'}
+                        </button>
+                        <button
+                          onClick={() => openEdit(cand)}
+                          disabled={busy === cand.id}
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors">
+                          ✎ Redaguoti
                         </button>
                         <button
                           onClick={() => toggleExpand(cand.id)}
@@ -278,6 +362,76 @@ export default function AdminInboxPage() {
           </div>
         )}
       </div>
+
+      {/* Edit modal */}
+      {editing && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[var(--bg-surface)] rounded-2xl shadow-2xl w-full max-w-3xl my-8">
+            <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between sticky top-0 bg-[var(--bg-surface)] rounded-t-2xl">
+              <h2 className="text-lg font-bold text-[var(--text-primary)]">✎ Redaguoti naujieną</h2>
+              <button
+                onClick={closeEdit}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-2xl leading-none">
+                ×
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
+                  Antraštė
+                </label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-base"
+                  placeholder="Naujienos pavadinimas..."
+                />
+                <p className="text-xs text-[var(--text-muted)] mt-1">{editTitle.length} simb. (rekomenduojama 60-80)</p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
+                  Tekstas (HTML — naudok &lt;p&gt; tag'us)
+                </label>
+                <textarea
+                  value={editBody}
+                  onChange={e => setEditBody(e.target.value)}
+                  rows={16}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm font-mono leading-relaxed"
+                  placeholder="<p>Naujienos tekstas...</p>"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
+                  Peržiūra
+                </label>
+                <div
+                  className="prose prose-sm max-w-none bg-[var(--bg-elevated)]/50 border border-[var(--border-subtle)] rounded-lg p-3"
+                  dangerouslySetInnerHTML={{ __html: editBody }}
+                />
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-[var(--border-subtle)] flex justify-between items-center sticky bottom-0 bg-[var(--bg-surface)] rounded-b-2xl">
+              <p className="text-xs text-[var(--text-muted)]">
+                Šaltinio nuoroda bus pridėta automatiškai.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={closeEdit}
+                  className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm font-medium text-[var(--text-secondary)]">
+                  Atšaukti
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit || !editTitle.trim() || !editBody.trim()}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-bold">
+                  {savingEdit ? '...' : '✓ Patvirtinti ir publikuoti'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
