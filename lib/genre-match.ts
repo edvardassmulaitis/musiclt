@@ -21,15 +21,20 @@ export type SubstyleRow = {
 
 /** Normalizuojam vardą iki matching key'o: ASCII lowercase be specifinių
  *  separator'ių. „Synth-pop" → „synthpop"; „Pop rock" → „poprock";
- *  „rock'n'roll" → „rocknroll". Atspari Wikipedia variacijoms. */
+ *  „rock'n'roll" → „rocknroll"; „rock and roll" → „rocknroll".
+ *
+ *  Konkrečiai " and " / " & " kolapsuojam į „n", kad Wikipedia formos
+ *  „rock and roll" ar „rhythm and blues" sutaptų su mūsų DB formomis
+ *  „Rock'n'roll" (id 1018). */
 export function normalizeGenreKey(raw: string): string {
   return raw
     .toLowerCase()
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip diakritikus
-    .replace(/['’‘]/g, '')  // apostrofai
-    .replace(/[-_\s/\\]+/g, '')        // separator'iai
-    .replace(/[^a-z0-9]/g, '')         // ne-alfanumerikai
+    .replace(/[̀-ͯ]/g, '')             // strip diakritikus
+    .replace(/\b(?:and|&)\b/g, 'n')    // „and"/„&" → „n" (rock and roll → rock n roll)
+    .replace(/['’‘]/g, '')              // apostrofai
+    .replace(/[-_\s/\\]+/g, '')         // separator'iai
+    .replace(/[^a-z0-9]/g, '')          // ne-alfanumerikai
     .trim()
 }
 

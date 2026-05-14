@@ -978,14 +978,16 @@ export function parseAlbumGenres(wikitext: string): string[] {
 }
 
 /** Split žanrų sąrašo virtinę į atskirus kandidatus. Palaikom kablelį,
- *  slash'us ir „and"/„&" konektorius. */
+ *  semicolon, slash. SĄMONINGAI NESPLIT'INAM ant " and " / " & " — Wikipedia
+ *  žanrų infobox'uose šitie žodžiai dažniausiai yra link target'o dalis
+ *  (pvz „rock and roll", „rhythm and blues"), ne separator'iai tarp žanrų. */
 function splitGenreList(text: string): string[] {
   // Pirma flat'inam wiki link'us į display tekstą, kad split'ai neperpjautų
-  // [[X|Y, Z]] viduje pipe'o. Tada split'inam.
+  // [[X|Y, Z]] viduje pipe'o. Tada split'inam tik ant griežtų separator'ių.
   const flat = text
     .replace(/\[\[([^\]|]+?)\|([^\]]+)\]\]/g, '$2')
     .replace(/\[\[([^\]]+)\]\]/g, '$1')
-  return flat.split(/[,;\/]|\s+(?:and|&)\s+/i).map(s => s.trim()).filter(Boolean)
+  return flat.split(/[,;\/]/).map(s => s.trim()).filter(Boolean)
 }
 
 /** Vienam žanro kandidatui: nuvalo HTML tag'us, ref'us, paaiškinimus
