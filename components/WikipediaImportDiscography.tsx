@@ -1240,6 +1240,27 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       const [wikitext, cover] = await Promise.all([fetchWikitext(item.wikiTitle), fetchCoverImage(item.wikiTitle)])
       const dateInfo = parseReleaseDate(wikitext)
       const tracks = parseTracklist(wikitext)
+      // Supplementary is_single iš artist-page singles lentelės — kai albumas
+      // (pvz Martin Gore „MG") savo Wiki page'e neturi {{Singles}} infobox'o
+      // nei `==Singles==` h3 section'o, bet artist page'o `===Singles===`
+      // lentelėje albumo stulpelyje yra įrašyta „MG" prie „Europa Hymn"/
+      // „Pinking" eilučių. `songs` state'as jau praparsina šitą lentelę per
+      // parseSinglesSection. Mes pridedam is_single=true tracks'ams, kurių
+      // title atitinka kažkurį iš tų singles, kuriame albumTitle = mūsų albumas.
+      const albumKey = item.title.toLowerCase().replace(/['’‘]/g, '').trim()
+      const supplFromArtist = new Set(
+        songs
+          .filter(s => s.albumTitle && s.albumTitle.toLowerCase().replace(/['’‘]/g, '').trim() === albumKey)
+          .map(s => s.title.toLowerCase().replace(/['’‘]/g, '').trim())
+      )
+      if (supplFromArtist.size) {
+        for (const t of tracks) {
+          if (!t.is_single) {
+            const tk = t.title.toLowerCase().replace(/['’‘]/g, '').trim()
+            if (supplFromArtist.has(tk)) t.is_single = true
+          }
+        }
+      }
       // Singlų datos iš albumo infobox — praturtinti songs sąrašą
       const { dates: singleDates } = parseSinglesFromInfobox(wikitext)
       if (singleDates.size > 0) {
