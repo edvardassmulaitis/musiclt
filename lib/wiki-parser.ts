@@ -417,7 +417,12 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       // po 'Collaboration albums' kuri set'ino currentType='studio'. Tributes
       // tipas neegzistuoja explicit'ai — be safety, jie tapdavo studio.
       let matched = false
-      if (h.includes('studio')) { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
+      // Bare "albums" (be prefix'o kaip „studio") — solo-artist'ų pages
+      // dažnai turi `===Albums===` root section'ą su mišriais studio
+      // albumais. Anksčiau catch-all `!matched && depth >= 3` skip'indavo
+      // šitą section'ą → Morten Harket / Dave Gahan / etc. negaudavo NIEKO.
+      if (h === 'albums' || h === 'studio albums') { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
+      else if (h.includes('studio')) { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
       else if (h.includes('collaborative') || h.includes('collaboration')) { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
       else if (h.includes('extended play') || h.includes(' ep') || h === 'eps') { currentType = 'ep'; skipSection = false; matched = true }
       else if (h.includes('single')) { currentType = 'single'; skipSection = true; inSinglesSection = true; matched = true }

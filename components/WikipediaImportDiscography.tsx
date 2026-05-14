@@ -1109,6 +1109,14 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       }
 
       if (!wikiAlbums.length) {
+        // Solo artist'ų pages (Morten Harket, Dave Gahan) discografija dažnai
+        // pateikiama wikitable formatu pačiame main page'e, ne kaip bullet'ai.
+        // parseMainPageDiscography grąžiną 0 → bandykim parseDiscographyPage
+        // ant TO PATIES main wikitext'o prieš ieškant atskiro disco page'o.
+        wikiAlbums = parseDiscographyPage(mainWikitext)
+        if (wikiAlbums.length) addLog(`✓ Albumai iš table'ių: ${wikiAlbums.length}`)
+      }
+      if (!wikiAlbums.length) {
         const { albumsWt, singlesWt } = await fetchDiscographyPages()
         if (albumsWt) {
           wikiAlbums = parseDiscographyPage(albumsWt)
