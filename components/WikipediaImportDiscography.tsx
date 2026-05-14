@@ -1739,12 +1739,28 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
               {it.error && <span className="text-[10px] text-red-400 shrink-0" title={it.error}>klaida</span>}
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               {it.year && <span className="text-[11px] text-gray-400">{it.year}</span>}
               {it.tracks !== undefined && (
                 <span className="text-[11px] text-gray-400 hidden sm:inline">
                   {it.tracks.length} dainų{it.tracks.filter(t=>t.is_single).length ? ` · ${it.tracks.filter(t=>t.is_single).length} singlai` : ''}
                 </span>
+              )}
+              {/* Žanrų chip'ai — matched substyles pavadinimai, kad user'is
+                  matytų prieš import'ą ką į DB įrašysim. Tylinčiai dingsta jei
+                  fetchDetails dar nepalietė šio album'o (substyle_ids === undefined). */}
+              {it.substyle_ids && it.substyle_ids.length > 0 && (
+                <>
+                  {it.substyle_ids.map(id => {
+                    const name = substylesList.find(s => s.id === id)?.name
+                    if (!name) return null
+                    return (
+                      <span key={id} className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+                        {name}
+                      </span>
+                    )
+                  })}
+                </>
               )}
               {it.duplicate && it.duplicateId && (
                 <>

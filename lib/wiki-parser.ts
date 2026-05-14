@@ -1304,8 +1304,24 @@ export function parseBandMembers(wikitext: string): BandMember[] {
       const display = (lm[2] || lm[1])
         .replace(/'{2,}/g, '').replace(/\[\[|\]\]/g, '').replace(/\{\{[^}]+\}\}/g, '').trim()
       if (!display || display.length < 2) continue
-      if (/^(plain ?list|flatlist|hlist|br|small|nowrap|ubl|refn|ref|cite)/i.test(display)) continue
+      // Standalone template'ų vardai (kai display'us yra tik template ID
+      // be argument'ų, pvz `[[br]]`, `[[small]]`). Reikalaujam $ anchor —
+      // anksčiau regex'as buvo open-ended ir filtravo „Brian Johnson" (br
+      // prefix), „Bradford" ir t.t.
+      if (/^(plain ?list|flatlist|hlist|br|small|nowrap|ubl|refn|ref|cite)$/i.test(display)) continue
       if (wikiTitle.includes(':')) continue
+      // Praleisti Wikipedia meta-list'us: "List of AC/DC members", "List of
+      // former members of X" ir pan. AC/DC past_members = See [[list of
+      // AC/DC members]] — anksčiau sukurdavo phantom artist'ą su tuo vardu.
+      // Tikrinam ir wikiTitle, ir display — kartais alias ne-meta („Full
+      // list" kaip alias to list article'i, todėl saugiau tikrinti raw title).
+      const titleLow = lm[1].toLowerCase().trim()
+      const displayLow = display.toLowerCase().trim()
+      if (/^list of\b/.test(titleLow)) continue
+      if (/\bmembers?$/.test(titleLow) && /^list of\b/.test(titleLow)) continue
+      // "See" / "Full list" / "More" inline antraštės — sometimes used as
+      // display aliases (`[[List of X members|Full list]]`) — atfiltruojam.
+      if (/^(see|full list|more|see also|full)$/i.test(displayLow)) continue
       if (seen.has(wikiTitle)) continue
       const cleanedName = cleanArtistName(display)
       if (!isValidArtistName(cleanedName)) continue
