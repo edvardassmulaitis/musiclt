@@ -122,6 +122,63 @@ export async function normalizeArticle(input: {
     textTruncated,
   ].filter(Boolean).join('\n')
 
+  // Tool Use API — Anthropic'as priverčia modelį grąžint validuotą JSON
+  // pagal schema. Tai eliminuoja Sonnet'o atvejus, kai jis grąžina invalid
+  // JSON su unescape'intais simboliais.
+  const tool = {
+    name: 'publish_news',
+    description: 'Publish a normalized Lithuanian news article based on the source.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        category: {
+          type: 'string' as const,
+          enum: ['release', 'performance', 'tour', 'career_step', 'other', 'none'],
+          description: 'Article category. Use "none" ONLY if article has nothing to do with music. Use "other" for borderline music articles (interviews, anniversaries, awards, charts).',
+        },
+        title: {
+          type: 'string' as const,
+          description: 'Lithuanian title, 60-80 chars. Use typographic quotes „..." for inner quotation.',
+        },
+        body_html: {
+          type: 'string' as const,
+          description: 'HTML body with <p> tags, 200-400 words in Lithuanian.',
+        },
+        summary: {
+          type: 'string' as const,
+          description: '2-sentence Lithuanian preview for inbox.',
+        },
+        artists_mentioned: {
+          type: 'array' as const,
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: { type: 'string' as const },
+              confidence: { type: 'number' as const },
+            },
+            required: ['name'],
+          },
+        },
+        tracks_mentioned: {
+          type: 'array' as const,
+          items: {
+            type: 'object' as const,
+            properties: {
+              title: { type: 'string' as const },
+              artist: { type: 'string' as const },
+            },
+            required: ['title'],
+          },
+        },
+        confidence: {
+          type: 'number' as const,
+          description: 'Overall confidence 0..1',
+        },
+      },
+      required: ['category', 'title', 'body_html', 'summary', 'confidence'],
+    },
+  }
+
   const res = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
@@ -133,6 +190,8 @@ export async function normalizeArticle(input: {
       model: SONNET_MODEL,
       max_tokens: 2048,
       system: LIGHT_REWRITE_SYSTEM,
+      tools: [tool],
+      tool_choice: { type: 'tool', name: 'publish_news' },
       messages: [{ role: 'user', content: userMsg }],
     }),
   })
@@ -143,35 +202,16 @@ export async function normalizeArticle(input: {
   }
 
   const data = await res.json()
-  const text: string = data.content?.[0]?.text || '{}'
 
-  // Sonnet'as kartais wrap'ina į ```json ... ``` fence'us. Nuvalom.
-  const cleanedText = text
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```\s*$/i, '')
-
-  const match = cleanedText.match(/\{[\s\S]*\}/)
-  if (!match) {
-    console.warn('[ai-normalize] Sonnet no JSON found:', text.slice(0, 300))
-    return emptyArticle(text)
+  // Tool Use response — JSON jau parsint'as Anthropic'o, gaunamas iš tool_use blokes.
+  const toolUseBlock = (data.content || []).find((b: any) => b.type === 'tool_use')
+  if (!toolUseBlock || !toolUseBlock.input) {
+    const textBlock = (data.content || []).find((b: any) => b.type === 'text')
+    console.warn('[ai-normalize] Sonnet no tool_use:', JSON.stringify(data.content)?.slice(0, 300))
+    return emptyArticle(textBlock?.text || JSON.stringify(data.content).slice(0, 500))
   }
-
-  let parsed: any = null
-  try {
-    parsed = JSON.parse(match[0])
-  } catch (e: any) {
-    // Mėginam repair'inti — Sonnet kartais grąžina nesEscape'intus " simbolius
-    // string'ų viduje. Heuristic'as: visus „...", "...", " " viduje string value
-    // pakeičiam į lietuviškas kabutes.
-    try {
-      const repaired = repairJsonQuotes(match[0])
-      parsed = JSON.parse(repaired)
-      console.warn('[ai-normalize] Sonnet JSON repaired via quote fix')
-    } catch (e2: any) {
-      console.warn('[ai-normalize] Sonnet JSON parse failed (both attempts):', e.message, text.slice(0, 300))
-      return emptyArticle(text)
-    }
-  }
+  const parsed = toolUseBlock.input
+  const text = JSON.stringify(parsed) // for debug raw_response
 
   try {
     return {
