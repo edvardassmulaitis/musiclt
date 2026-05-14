@@ -25,12 +25,20 @@ jobs:
     steps:
       - name: Call news-scout endpoint
         run: |
-          QUERY=""
+          PARAMS=""
           if [ -n "${{ inputs.source_id }}" ]; then
-            QUERY="?source_id=${{ inputs.source_id }}"
+            PARAMS="source_id=${{ inputs.source_id }}"
           fi
           if [ "${{ inputs.dry_run }}" = "true" ]; then
-            QUERY="${QUERY:+${QUERY}&}${QUERY:-?}dry_run=1"
+            if [ -n "$PARAMS" ]; then
+              PARAMS="${PARAMS}&dry_run=1"
+            else
+              PARAMS="dry_run=1"
+            fi
+          fi
+          QUERY=""
+          if [ -n "$PARAMS" ]; then
+            QUERY="?${PARAMS}"
           fi
 
           echo "Calling: ${{ secrets.MUSICLT_BASE_URL }}/api/internal/news-scout/run${QUERY}"
