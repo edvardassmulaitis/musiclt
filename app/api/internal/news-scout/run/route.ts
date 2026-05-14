@@ -110,9 +110,10 @@ export async function POST(req: NextRequest) {
       const items = await fetchFeed(source.feed_url)
       counter.feed_items = items.length
 
-      // 2) Filter seen
+      // 2) Filter seen — iterate visus items kol gausim MAX fresh (ne pirmus N)
       const fresh: typeof items = []
-      for (const it of items.slice(0, MAX_ITEMS_PER_SOURCE)) {
+      for (const it of items) {
+        if (fresh.length >= MAX_ITEMS_PER_SOURCE) break
         const urlHash = canonicalUrlHash(it.url)
         const { data: seen } = await supabase
           .from('scout_seen_urls')
