@@ -249,9 +249,9 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
         <button
           onClick={() => { setShowAIModal(true); setAiPreview(null); setAiError('') }}
           className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-1.5 text-sm font-bold text-white hover:from-purple-700 hover:to-pink-700"
-          title="Generuoti eras iš Wikipedia su Claude AI"
+          title="Generuoti eras su Claude AI iš savo žinių"
         >
-          ✨ Generuoti iš Wiki (AI)
+          ✨ Generuoti su AI
         </button>
         <button
           onClick={autoFromDecades}
@@ -343,7 +343,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
         </div>
       )}
 
-      {/* Modal — AI generator iš Wikipedia */}
+      {/* Modal — AI generator iš Claude'o žinių */}
       {showAIModal && (
         <div
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4"
@@ -354,19 +354,19 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
             className="w-full max-w-[680px] rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-2xl"
           >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-extrabold text-[var(--text-primary)]">✨ Generuoti eras iš Wikipedia</h2>
+              <h2 className="text-lg font-extrabold text-[var(--text-primary)]">✨ Generuoti eras su Claude AI</h2>
               <button onClick={() => !aiLoading && setShowAIModal(false)} aria-label="Uždaryti" className="text-[18px] text-[var(--text-muted)]" disabled={aiLoading}>✕</button>
             </div>
             <p className="mb-3 text-[12.5px] text-[var(--text-secondary)]">
-              Pateik EN Wikipedia atlikėjo straipsnio URL (arba pavadinimą). Claude AI išgaus pagrindinius karjeros laikotarpius su LT pavadinimais ir aprašymais — kaip Coldplay'aus seed'ai.
+              Claude AI iš savo žinių sukurs atlikėjo karjeros laikotarpius su LT pavadinimais ir aprašymais. Atlikėjo vardas paimtas iš DB — gali jį pakeisti ar pateikti Wikipedia URL alternatyvai.
             </p>
             <label className="block">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Wikipedia URL arba pavadinimas</span>
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Atlikėjas (arba Wikipedia URL)</span>
               <input
                 type="text"
                 value={aiWikiUrl}
                 onChange={ev => setAiWikiUrl(ev.target.value)}
-                placeholder="https://en.wikipedia.org/wiki/Coldplay"
+                placeholder={artistName || 'Coldplay'}
                 className="mt-1 w-full rounded border border-[var(--input-border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm"
                 disabled={aiLoading}
               />
