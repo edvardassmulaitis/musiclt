@@ -12,18 +12,31 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search') || ''
 
   // ── Dublikatų tikrinimas: ?check_titles=[...]&artist_id=123 ────────────────
+  // Naudojam case-insensitive + punctuation-normalized match'ą client-side,
+  // kad Wiki "Made in Heaven" sutaptų su music.lt "Made In Heaven" (didžiosios I).
+  // Anksčiau .in('title', titles) Postgres'e yra exact match — todėl Wiki Import
+  // tab'as rodydavo music.lt scrape'intus albums kaip naujus.
   const checkTitles = searchParams.get('check_titles')
   if (checkTitles && artistId) {
     try {
       const titles: string[] = JSON.parse(checkTitles)
       const supabase = createAdminClient()
+      // Paimam visus atlikėjo albums (paprastai < 100), match'inam client-side
       const { data } = await supabase
         .from('albums')
         .select('id, title')
         .eq('artist_id', parseInt(artistId))
-        .in('title', titles)
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
+      const dbByNorm: Record<string, { id: number; original: string }> = {}
+      for (const row of data || []) {
+        const k = norm(row.title)
+        if (!dbByNorm[k]) dbByNorm[k] = { id: row.id, original: row.title }
+      }
       const found: Record<string, number> = {}
-      for (const row of data || []) found[row.title.toLowerCase()] = row.id
+      for (const t of titles) {
+        const k = norm(t)
+        if (dbByNorm[k]) found[t.toLowerCase()] = dbByNorm[k].id
+      }
       return NextResponse.json({ found })
     } catch {
       return NextResponse.json({ found: {} })

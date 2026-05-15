@@ -33,13 +33,35 @@ export async function GET(req: NextRequest) {
   if (checkTitles && artist_id) {
     try {
       const titles: string[] = JSON.parse(checkTitles)
-      const { data } = await supabase
-        .from('tracks')
-        .select('id, title')
-        .eq('artist_id', parseInt(artist_id))
-        .in('title', titles)
+      // Case-insensitive + punctuation-normalized match (žr. albums route'o
+      // analogiška logika). Anksčiau .in() darė exact case-sensitive match.
+      // Per artist'ą paprastai < 500 tracks — paimam visus, match'inam kliente.
+      // Naudojam pagination dėl artist'ų su 1000+ tracks (PostgREST 1000-row cap).
+      const PAGE = 1000
+      let allRows: { id: number; title: string }[] = []
+      let offsetT = 0
+      while (true) {
+        const { data } = await supabase
+          .from('tracks')
+          .select('id, title')
+          .eq('artist_id', parseInt(artist_id))
+          .range(offsetT, offsetT + PAGE - 1)
+        const rows = (data || []) as { id: number; title: string }[]
+        allRows = allRows.concat(rows)
+        if (rows.length < PAGE) break
+        offsetT += PAGE
+      }
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
+      const dbByNorm: Record<string, number> = {}
+      for (const row of allRows) {
+        const k = norm(row.title)
+        if (!dbByNorm[k]) dbByNorm[k] = row.id
+      }
       const found: Record<string, number> = {}
-      for (const row of data || []) found[row.title.toLowerCase()] = row.id
+      for (const t of titles) {
+        const k = norm(t)
+        if (dbByNorm[k]) found[t.toLowerCase()] = dbByNorm[k]
+      }
       return NextResponse.json({ found })
     } catch {
       return NextResponse.json({ found: {} })

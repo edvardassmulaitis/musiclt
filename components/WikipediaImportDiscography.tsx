@@ -1292,7 +1292,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
     setArtistGroups([])
     setItems(albumsF)
-    setSelected(new Set(albumsF.map((it, i) => (!it.duplicate && AUTO_SELECT_TYPES.includes(it.type)) ? i : -1).filter(i => i !== -1)))
+    // 2026-05-15 redesign: duplicates AUTO-PAŽYMIMI (kad enrich'tųsi). Anksčiau
+    // !it.duplicate filter'a neleido duplicates pasirinkti — ir todėl music.lt
+    // scrape'inti albums niekada negaudavo Wiki release_year/peak_chart enrichment.
+    setSelected(new Set(albumsF.map((it, i) => AUTO_SELECT_TYPES.includes(it.type) ? i : -1).filter(i => i !== -1)))
     setSongs(songsF)
 
     // Default tab
@@ -1396,11 +1399,76 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     })
     setImporting(true)
     startTask('import', `Importuojama: ${artistName}`)
-    let ok = 0, fail = 0
+    let ok = 0, enriched = 0, fail = 0
     for (const idx of indices) {
       const item = snapshot[idx]
-      if (!item || item.duplicate) continue
+      if (!item) continue
       setItems(p => p.map((it, i) => i === idx ? { ...it, importing: true } : it))
+
+      // ── ENRICH EXISTING (2026-05-15 redesign) ────────────────────────────
+      // Jei album jau egzistuoja DB (per music.lt scrape arba ankstesnis Wiki
+      // import), NE skip — vietoj to enrich'inam su Wiki info: release_year,
+      // peak_chart, certifications, type tweaks, cover. Plus per album.tracks
+      // — match per name + PUT enrich (is_single, release_year, video_url, lyrics).
+      if (item.duplicate && item.duplicateId) {
+        try {
+          const enrichBody: Record<string, any> = {
+            year: item.year || null,
+            month: item.month || null,
+            day: item.day || null,
+          }
+          if (item.cover_image_url) enrichBody.cover_image_url = item.cover_image_url
+          if (item.certifications?.length) enrichBody.certifications = item.certifications
+          if (item.peak_chart_position != null) enrichBody.peak_chart_position = item.peak_chart_position
+          if (item.substyle_ids?.length) enrichBody.substyle_ids = item.substyle_ids
+          if (item.genres_unmatched?.length) enrichBody.substyle_names = item.genres_unmatched
+          // Type flags — Wiki gali tikslinti type'ą (pvz. music.lt įdėjo kaip
+          // studio, Wiki sako compilation)
+          if (item.type === 'compilation') enrichBody.type_compilation = true
+          if (item.type === 'live') enrichBody.type_live = true
+          if (item.type === 'remix') enrichBody.type_remix = true
+          if (item.type === 'covers') enrichBody.type_covers = true
+          if (item.type === 'soundtrack') enrichBody.type_soundtrack = true
+          if (item.type === 'demo') enrichBody.type_demo = true
+          if (item.type === 'holiday') enrichBody.type_holiday = true
+
+          const albRes = await fetch(`/api/albums/${item.duplicateId}`, {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(enrichBody),
+          })
+          if (!albRes.ok) throw new Error(`PUT ${albRes.status}`)
+
+          // Per album.tracks — match per name su DB tracks + PUT enrich
+          if (item.tracks?.length) {
+            const trackTitles = item.tracks.map(t => t.title)
+            const trackDups = await checkTrackDuplicates(trackTitles, artistId)
+            for (const wt of item.tracks) {
+              const dupId = trackDups[wt.title.toLowerCase()]
+              if (!dupId) continue  // Wiki-only track — paliekam, ne create new
+              const tAny = wt as any
+              const trackBody: Record<string, any> = {}
+              const ry = tAny.release_year ?? item.year
+              if (ry) trackBody.release_year = ry
+              if (tAny.release_month ?? item.month) trackBody.release_month = tAny.release_month ?? item.month
+              if (tAny.release_day ?? item.day) trackBody.release_day = tAny.release_day ?? item.day
+              if (wt.is_single) trackBody.is_single = true
+              if (Object.keys(trackBody).length > 0) {
+                try { await fetch(`/api/tracks/${dupId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(trackBody) }) } catch {}
+              }
+            }
+          }
+          addLog(`✓ ${item.title} — enrich (${item.tracks?.length||0} tracks)`)
+          enriched++
+          setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
+          setSelected(p => { const s = new Set(p); s.delete(idx); return s })
+          continue
+        } catch (e: any) {
+          setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, error: `enrich: ${e.message}` } : it))
+          addLog(`✗ ${item.title}: enrich failed: ${e.message}`); fail++
+          continue
+        }
+      }
+
       try {
         const res = await fetch('/api/albums', {
           method: 'POST', headers: {'Content-Type':'application/json'},
@@ -1472,12 +1540,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       await new Promise(r => setTimeout(r, 200))
     }
     setImporting(false)
-    addLog(`✓ ${ok} albumų${fail ? `, ${fail} klaida` : ''}`)
-    if (fail > 0) errorTask('import', `${ok} importuota, ${fail} klaidos`)
-    else finishTask('import', `${ok} albumų importuota`)
+    addLog(`✓ ${ok} naujų albumų, ${enriched} enrich'inta${fail ? `, ${fail} klaida` : ''}`)
+    if (fail > 0) errorTask('import', `${ok} naujų + ${enriched} enrich'inta, ${fail} klaidos`)
+    else finishTask('import', `${ok} naujų + ${enriched} enrich'inta`)
 
     // Pranešti parent page kad diskografija pasikeitė — kad atnaujintų sąrašą
-    if (ok > 0) window.dispatchEvent(new CustomEvent('discography-updated'))
+    if (ok > 0 || enriched > 0) window.dispatchEvent(new CustomEvent('discography-updated'))
 
     // Po albumų importo — atnaujinti singlų dublikatų statusą
     // (dainos kurios buvo albumuose dabar yra DB, todėl singlų sąraše jos turėtų rodyti "jau yra")
@@ -1843,19 +1911,25 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     const isFetching = it.fetched === false && expandedItems.has(i)
     return (
       <div key={i} className={`rounded-lg border transition-all ${
-        it.duplicate ? 'border-gray-100 bg-gray-50/50 opacity-40'
-        : it.imported ? 'border-emerald-200 bg-emerald-50/50'
-        : selected.has(i) ? 'border-violet-300 bg-violet-50'
+        // 2026-05-15 redesign: duplicate atrodo kaip "enrich" — selectable +
+        // amber tint (NE grayed out). Anksčiau atrodydavo unselectable, todėl
+        // music.lt scrape'inti albums niekada negaudavo Wiki enrichment.
+        it.imported ? 'border-emerald-200 bg-emerald-50/50'
+        : selected.has(i) && it.duplicate ? 'border-amber-300 bg-amber-50'  // enrich-on-match
+        : selected.has(i) ? 'border-violet-300 bg-violet-50'                // create new
+        : it.duplicate ? 'border-amber-200 bg-amber-50/30'
         : 'border-gray-200 bg-white hover:border-gray-300'
       }`}>
         {/* Main row */}
-        <div className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 ${it.duplicate ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-          onClick={() => !it.duplicate && !it.imported && toggleSelect(i)}>
+        <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 cursor-pointer"
+          onClick={() => !it.imported && toggleSelect(i)}>
           {/* Checkbox */}
           <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-            selected.has(i) && !it.duplicate && !it.imported ? 'border-violet-500 bg-violet-500' : 'border-gray-300'
+            selected.has(i) && !it.imported
+              ? (it.duplicate ? 'border-amber-500 bg-amber-500' : 'border-violet-500 bg-violet-500')
+              : 'border-gray-300'
           }`}>
-            {selected.has(i) && !it.duplicate && !it.imported && (
+            {selected.has(i) && !it.imported && (
               <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             )}
             {it.imported && <svg className="w-2.5 h-2.5 text-emerald-500" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -1872,7 +1946,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {it.extraTypes?.map(et => (
                 <span key={et} className="text-[10px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'Garso takelis' : et}</span>
               ))}
-              {it.duplicate && <span className="text-[10px] text-amber-500 shrink-0">jau yra</span>}
+              {it.duplicate && <span className="text-[10px] font-semibold text-amber-600 shrink-0">↻ enrich</span>}
               {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
               {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
               {it.error && <span className="text-[10px] text-red-400 shrink-0" title={it.error}>klaida</span>}
@@ -1953,7 +2027,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           {/* Expand tracks */}
           <button type="button"
             onClick={e => { e.stopPropagation(); toggleExpand(i) }}
-            disabled={it.duplicate}
             className={`shrink-0 w-6 h-6 rounded flex items-center justify-center text-[11px] transition-colors disabled:opacity-30 ${
               isExpanded ? 'bg-violet-100 text-violet-600' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'
             }`}
