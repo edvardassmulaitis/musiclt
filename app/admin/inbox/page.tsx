@@ -17,6 +17,13 @@ type SuggestedArtist = {
   legacy_likes: number | null
 }
 
+type AiTrackMention = {
+  title: string
+  artist: string
+  matched_track_id: number | null
+  youtube_url: string | null
+}
+
 type Candidate = {
   id: number
   source_type: string
@@ -36,6 +43,7 @@ type Candidate = {
   status: string
   created_at: string
   source_published_at: string | null
+  ai_tracks_mentioned: AiTrackMention[] | null
   primary_artist: SuggestedArtist | null
 }
 
@@ -81,6 +89,10 @@ export default function AdminInboxPage() {
   const [editArtistIds, setEditArtistIds] = useState<number[]>([])
   const [editPrimaryId, setEditPrimaryId] = useState<number | null>(null)
   const [artistMeta, setArtistMeta] = useState<Record<number, SuggestedArtist>>({})
+  // Wizard'o track'ų state — pasirinkti DB track_ids (matched + naujai sukurti)
+  const [editTrackIds, setEditTrackIds] = useState<number[]>([])
+  const [trackMeta, setTrackMeta] = useState<Record<number, { id: number; title: string; artist_name: string }>>({})
+  const [creatingTrack, setCreatingTrack] = useState<string | null>(null) // mention title currently being created
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -148,6 +160,10 @@ export default function AdminInboxPage() {
     // Selected = tik primary (user gali click'inti suggested chip'us, kad pridėtų)
     setEditArtistIds(primaryId ? [primaryId] : [])
     setEditPrimaryId(primaryId)
+
+    // Tracks: matched (suggested_track_ids) default checked
+    setEditTrackIds(cand.suggested_track_ids || [])
+    setTrackMeta({}) // bus papildyta kai user'is sukuria tracks
     // Image picker options
     try {
       const res = await fetch(`/api/admin/news-candidates/${cand.id}/images`)
@@ -190,6 +206,60 @@ export default function AdminInboxPage() {
     setEditArtistIds([])
     setEditPrimaryId(null)
     setArtistMeta({})
+    setEditTrackIds([])
+    setTrackMeta({})
+    setCreatingTrack(null)
+  }
+
+  const toggleEditTrack = (id: number) => {
+    setEditTrackIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const createTrackFromMention = async (mention: AiTrackMention) => {
+    if (creatingTrack) return
+    // Reikia artist'o — siūlome primary, jei sutampa pavadinime, kitaip pirmas iš sąrašo
+    const targetArtistId = editPrimaryId || editArtistIds[0]
+    if (!targetArtistId) {
+      alert('Pirma priskirk bent vieną atlikėją.')
+      return
+    }
+    setCreatingTrack(mention.title)
+    try {
+      const res = await fetch('/api/admin/tracks/quick-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: mention.title,
+          artist_id: targetArtistId,
+          youtube_url: mention.youtube_url,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(`Klaida: ${data.error || 'Nežinoma'}`)
+        return
+      }
+      // Pridedam į selected + meta cache
+      setTrackMeta(prev => ({
+        ...prev,
+        [data.track_id]: { id: data.track_id, title: data.title, artist_name: data.artist_name },
+      }))
+      setEditTrackIds(prev => prev.includes(data.track_id) ? prev : [...prev, data.track_id])
+      // Pridedam YT thumb į image options jei dar nėra
+      if (data.youtube_url) {
+        const vid = data.youtube_url.match(/[?&]v=([^&]+)/)?.[1] || data.youtube_url.match(/youtu\.be\/([^?&]+)/)?.[1]
+        if (vid) {
+          const thumbUrl = `https://img.youtube.com/vi/${vid}/hqdefault.jpg`
+          setImageOptions(prev =>
+            prev.some(o => o.url === thumbUrl)
+              ? prev
+              : [...prev, { url: thumbUrl, label: `${data.artist_name} — ${data.title}`.slice(0, 60), source: 'youtube_thumb' }]
+          )
+        }
+      }
+    } finally {
+      setCreatingTrack(null)
+    }
   }
 
   const handleAction = async (id: number, action: 'approve' | 'reject', extra?: { reason?: string; title?: string; body?: string; image_url?: string }) => {
@@ -231,7 +301,6 @@ export default function AdminInboxPage() {
 
   const handleSaveEdit = async () => {
     if (!editing) return
-    // Reorder: primary pirmas, kiti seka
     const ordered = editPrimaryId
       ? [editPrimaryId, ...editArtistIds.filter(id => id !== editPrimaryId)]
       : editArtistIds
@@ -243,6 +312,7 @@ export default function AdminInboxPage() {
         image_url: editImage || undefined,
         artist_ids: ordered,
         primary_artist_id: editPrimaryId,
+        track_ids: editTrackIds,
       } as any)
     } finally {
       setSavingEdit(false)
@@ -574,6 +644,85 @@ export default function AdminInboxPage() {
                 />
               </div>
 
+              {/* === Susijusi muzika (wizard track verification) === */}
+              <div>
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
+                  Susijusi muzika
+                </div>
+                {(() => {
+                  const mentions = editing?.ai_tracks_mentioned || []
+                  if (mentions.length === 0 && editTrackIds.length === 0) {
+                    return <p className="text-xs text-[var(--text-muted)] italic">AI'as straipsnyje nepaminėjo konkrečių dainų.</p>
+                  }
+                  return (
+                    <div className="space-y-1">
+                      {mentions.map((m, i) => {
+                        const isMatched = !!m.matched_track_id
+                        const isSelected = m.matched_track_id ? editTrackIds.includes(m.matched_track_id) : false
+                        const isCreating = creatingTrack === m.title
+                        return (
+                          <div
+                            key={`${m.title}-${i}`}
+                            className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm ${
+                              isMatched
+                                ? (isSelected ? 'bg-emerald-50 border border-emerald-300' : 'bg-[var(--bg-elevated)] border border-[var(--input-border)]')
+                                : 'bg-amber-50 border border-amber-200'
+                            }`}>
+                            {isMatched ? (
+                              <>
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleEditTrack(m.matched_track_id!)}
+                                  className="w-4 h-4"
+                                />
+                                <span className="flex-1 truncate">
+                                  <strong>{m.title}</strong>
+                                  {m.artist && <span className="text-[var(--text-muted)]"> — {m.artist}</span>}
+                                </span>
+                                <span className="text-[10px] text-emerald-600 font-semibold uppercase">DB ✓</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="flex-1 truncate text-[var(--text-secondary)]">
+                                  <strong>{m.title}</strong>
+                                  {m.artist && <span className="text-[var(--text-muted)]"> — {m.artist}</span>}
+                                  {m.youtube_url && <span className="ml-1 text-[10px] opacity-60">🎬 YT</span>}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => createTrackFromMention(m)}
+                                  disabled={isCreating || editArtistIds.length === 0}
+                                  title={editArtistIds.length === 0 ? 'Pirma priskirk atlikėją' : 'Sukurti dainą su YT video'}
+                                  className="px-2 py-1 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 text-amber-800 rounded text-xs font-medium whitespace-nowrap">
+                                  {isCreating ? '...' : '+ Sukurti'}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })}
+                      {/* User'io quick-create'ais sukurtos dainos (nėra mentions sąraše) */}
+                      {Object.values(trackMeta).filter(t => !mentions.some(m => m.matched_track_id === t.id)).map(t => (
+                        <div key={t.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm bg-emerald-50 border border-emerald-300">
+                          <input
+                            type="checkbox"
+                            checked={editTrackIds.includes(t.id)}
+                            onChange={() => toggleEditTrack(t.id)}
+                            className="w-4 h-4"
+                          />
+                          <span className="flex-1 truncate">
+                            <strong>{t.title}</strong>
+                            {t.artist_name && <span className="text-[var(--text-muted)]"> — {t.artist_name}</span>}
+                          </span>
+                          <span className="text-[10px] text-emerald-600 font-semibold uppercase">NAUJA</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
+
               {/* === Nuotrauka === */}
               <div>
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
@@ -599,7 +748,7 @@ export default function AdminInboxPage() {
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-white text-[10px] px-1.5 py-1 truncate">
                           {opt.source === 'artist_photo' && '📸 '}
                           {opt.source === 'artist_cover' && '🎤 '}
-                          {opt.source === 'source' && '🌐 '}
+                          {opt.source === 'youtube_thumb' && '🎬 '}
                           {opt.label}
                         </div>
                       </button>

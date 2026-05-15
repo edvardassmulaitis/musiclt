@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { extractVideoIdFromUrl } from '@/lib/yt-innertube'
 
 export const runtime = 'nodejs'
 
@@ -141,6 +142,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ? `${overrideBody}\n\n<p class="news-source"><a href="${escapeAttr(cand.source_url)}" target="_blank" rel="noopener" class="text-xs text-gray-400 hover:text-gray-600">pagal pirminį šaltinį</a></p>`
       : overrideBody
 
+    // ─── Track IDs (wizard override pre body.track_ids[], else AI suggested) ───
+    // Parsing'as deklaruojamas anksti, kad auto-image YT thumb fallback'as
+    // galėtų pasinaudoti.
+    const wizardTrackIdsEarly: number[] | undefined = Array.isArray(body.track_ids)
+      ? body.track_ids.filter((x: any) => typeof x === 'number' && x > 0)
+      : undefined
+    const trackIds: number[] = wizardTrackIdsEarly || (cand.suggested_track_ids || []) as number[]
+
     // ─── Atlikėjų priskirimas (wizard'as gali override'inti) ───
     // body.artist_ids — wizard'o galutinis atlikėjų sąrašas eiliškumu (primary pirmas)
     // body.primary_artist_id — wizard'o pasirinktas primary (default = pirmas iš artist_ids)
@@ -162,11 +171,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       : (allArtistIds[1] ?? null)
 
     // ─── Auto image picker ───
-    // Pirmenybė: 1) user override → 2) naujausia artist_photos → 3) artist cover → 4) NULL
-    // Source image (Pitchfork ar pan.) NĖRA naudojama, kad nereklamuotume kitų sites'ų
+    // Pirmenybė:
+    //   1) user'io override (wizard image)
+    //   2) naujausia artist_photo
+    //   3) artist.cover_image_url
+    //   4) YouTube thumbnail iš pirmojo track'o su video_url (NAUJA — unlock'ina
+    //      naujienas atlikėjams be official photos)
+    //   5) NULL
+    // Source straipsnio nuotrauka NĖRA naudojama (copyright).
     let finalImage: string | null = (body.image_url as string | undefined) || null
     if (!finalImage && artistId1) {
-      // Naujausia artist_photo (sort_order 0 = naujausia per ART form'os logic'ą)
       const { data: photos } = await supabase
         .from('artist_photos')
         .select('url')
@@ -176,13 +190,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (photos && photos.length > 0 && photos[0].url) {
         finalImage = photos[0].url
       } else {
-        // Fallback'as: atlikėjo cover_image_url
         const { data: artist } = await supabase
           .from('artists')
           .select('cover_image_url')
           .eq('id', artistId1)
           .maybeSingle()
         finalImage = artist?.cover_image_url || null
+      }
+    }
+    // YT thumb fallback'as iš track'ų su video_url
+    if (!finalImage && trackIds.length > 0) {
+      const { data: trackWithVideo } = await supabase
+        .from('tracks')
+        .select('video_url')
+        .in('id', trackIds)
+        .not('video_url', 'is', null)
+        .limit(1)
+        .maybeSingle()
+      if (trackWithVideo?.video_url) {
+        const videoId = extractVideoIdFromUrl(trackWithVideo.video_url)
+        if (videoId) {
+          finalImage = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+        }
       }
     }
 
@@ -231,8 +260,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // ─── news_songs: pridėti track'us + embed URLs ───
     const songsToInsert: Array<{ news_id: number; sort_order: number; song_id?: number; title?: string; artist_name?: string; youtube_url?: string }> = []
 
-    // 1) Matched tracks iš DB (pirmenybė)
-    const trackIds: number[] = (cand.suggested_track_ids || []) as number[]
+    // trackIds jau deklaruoti aukščiau (anksti, kad auto-image YT thumb veiktų).
     if (trackIds.length > 0) {
       const { data: tracks } = await supabase
         .from('tracks')

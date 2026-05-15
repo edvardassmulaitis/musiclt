@@ -232,6 +232,28 @@ export async function POST(req: NextRequest) {
             ? await matchTracks(ai.tracks_mentioned, [primaryArtist.artist_id])
             : []
 
+          // ai_tracks_mentioned — pilna AI extract'ija su match status'u, kad
+          // wizard'as galėtų rodyti tiek matched (✓), tiek unmatched (⚠ "Sukurti")
+          // tracks. Susiejam track'ą su pirma "panašia" YT URL'a iš embed_urls
+          // (heuristika: title appears in URL slug arba pasitenkina paskutiniu fallback'u).
+          const matchedByTitle = new Map<string, number>()
+          for (const m of trackMatches) {
+            matchedByTitle.set(m.title.toLowerCase().trim(), m.track_id)
+          }
+          const aiTracksMentioned = (ai.tracks_mentioned || []).map(t => {
+            const key = (t.title || '').toLowerCase().trim()
+            const matched = matchedByTitle.get(key) || null
+            // Pasiūlome YT URL: pirmas iš embed_urls (jeigu turime) — wizard'e
+            // galima keisti
+            const youtubeUrl = (ai.embed_urls || []).find(u => /youtube\.com|youtu\.be/.test(u)) || null
+            return {
+              title: t.title,
+              artist: t.artist,
+              matched_track_id: matched,
+              youtube_url: youtubeUrl,
+            }
+          })
+
           // Insert
           if (!dryRun) {
             const urlHash = canonicalUrlHash(rel.url)
@@ -266,6 +288,7 @@ export async function POST(req: NextRequest) {
                 primary_artist_id: primaryArtist?.artist_id || artistMatches[0]?.artist_id || null,
                 suggested_image_url: article.lead_image_url || null,
                 embed_urls: ai.embed_urls || [],
+                ai_tracks_mentioned: aiTracksMentioned,
                 url_canonical_hash: urlHash,
                 title_fingerprint: tFp,
                 status: 'pending',

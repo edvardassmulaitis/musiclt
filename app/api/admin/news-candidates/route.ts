@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       ai_category, ai_title, ai_summary, ai_confidence, ai_model,
       suggested_artist_ids, suggested_track_ids, primary_artist_id,
       suggested_image_url, status, filter_reason, reject_reason,
-      created_at, source_published_at,
+      created_at, source_published_at, ai_tracks_mentioned,
       primary_artist:artists!news_candidates_primary_artist_id_fkey(id, name, slug, cover_image_url, legacy_likes)
     `, { count: 'exact' })
     .eq('status', status)

@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { extractVideoIdFromUrl } from '@/lib/yt-innertube'
 
 export const runtime = 'nodejs'
 
@@ -31,12 +32,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const supabase = createAdminClient()
   const { data: cand, error } = await supabase
     .from('news_candidates')
-    .select('id, primary_artist_id, suggested_artist_ids, suggested_image_url')
+    .select('id, primary_artist_id, suggested_artist_ids, suggested_track_ids, suggested_image_url, embed_urls')
     .eq('id', candidateId)
     .single()
   if (error || !cand) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const options: Array<{ url: string; label: string; source: string }> = []
+  const seenYouTubeIds = new Set<string>()
 
   // 1) Auto-pick'as: naujausi artist_photos (per primary arba pirmas iš suggested)
   const primaryArtistId = cand.primary_artist_id || (cand.suggested_artist_ids?.[0] as number | undefined)
@@ -76,9 +78,58 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  // Source straipsnio nuotrauka NĖRA siūloma — copyright (3rd party images
-  // gali būti naudojami tik su license; mes naudojam tik artist_photos arba
-  // Wikimedia free-license, žr. /admin/inbox Wikimedia search button).
+  // ─── YouTube thumbnails — fallback'as kai artist neturi official photos ───
+  // Šaltiniai (du):
+  //   1) candidate.embed_urls — scout'as randa straipsnyje (YT/Spotify/etc)
+  //   2) suggested_track_ids' tracks.video_url — DB matched track'ai
+  //
+  // YT thumbnail pattern: https://img.youtube.com/vi/{ID}/hqdefault.jpg
+  // (hqdefault visada yra; maxresdefault gali 404'inti seniems video'ams)
+
+  const ytUrlCandidates: Array<{ url: string; label: string }> = []
+
+  // 1) Embed URLs iš source'o
+  for (const embed of (cand.embed_urls || []) as string[]) {
+    const vid = extractVideoIdFromUrl(embed)
+    if (vid && !seenYouTubeIds.has(vid)) {
+      seenYouTubeIds.add(vid)
+      ytUrlCandidates.push({ url: embed, label: 'iš straipsnio' })
+    }
+  }
+
+  // 2) Matched tracks su video_url
+  const trackIds = (cand.suggested_track_ids || []) as number[]
+  if (trackIds.length > 0) {
+    const { data: tracks } = await supabase
+      .from('tracks')
+      .select('id, title, video_url, artists!tracks_artist_id_fkey(name)')
+      .in('id', trackIds)
+    for (const t of (tracks || []) as any[]) {
+      if (!t.video_url) continue
+      const vid = extractVideoIdFromUrl(t.video_url)
+      if (vid && !seenYouTubeIds.has(vid)) {
+        seenYouTubeIds.add(vid)
+        const artistName = t.artists?.name || ''
+        ytUrlCandidates.push({
+          url: t.video_url,
+          label: `${artistName} — ${t.title}`.slice(0, 60),
+        })
+      }
+    }
+  }
+
+  // Sukuriame thumb options'us
+  for (const yt of ytUrlCandidates) {
+    const vid = extractVideoIdFromUrl(yt.url)
+    if (!vid) continue
+    options.push({
+      url: `https://img.youtube.com/vi/${vid}/hqdefault.jpg`,
+      label: yt.label,
+      source: 'youtube_thumb',
+    })
+  }
+
+  // Source straipsnio nuotrauka NĖRA siūloma — copyright apsauga.
 
   return NextResponse.json({
     options,
