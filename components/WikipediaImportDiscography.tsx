@@ -1440,15 +1440,21 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           if (item.peak_chart_position != null) enrichBody.peak_chart_position = item.peak_chart_position
           if (item.substyle_ids?.length) enrichBody.substyle_ids = item.substyle_ids
           if (item.genres_unmatched?.length) enrichBody.substyle_names = item.genres_unmatched
-          // Type flags — Wiki gali tikslinti type'ą (pvz. music.lt įdėjo kaip
-          // studio, Wiki sako compilation). Backend PROMOTE-ONLY semantika.
-          if (item.type === 'compilation') enrichBody.type_compilation = true
-          if (item.type === 'live') enrichBody.type_live = true
-          if (item.type === 'remix') enrichBody.type_remix = true
-          if (item.type === 'covers') enrichBody.type_covers = true
-          if (item.type === 'soundtrack') enrichBody.type_soundtrack = true
-          if (item.type === 'demo') enrichBody.type_demo = true
-          if (item.type === 'holiday') enrichBody.type_holiday = true
+          // Type flags — Wiki = CANONICAL šaltinis (2026-05-15 sprendimas).
+          // Anksčiau buvo PROMOTE-ONLY → music.lt scrape klaidos liko (pvz Queen
+          // turėjo 21 albumą nors realiai yra mažiau, kompiliacijos buvo paženk-
+          // lintos kaip studijinės). Dabar siunčiam VISUS type signal'us pagal
+          // Wiki, backend REPLACE'ina visą set'ą.
+          enrichBody.type_studio = item.type === 'studio' || !!item.extraTypes?.includes('studio')
+          enrichBody.type_ep = item.type === 'ep' || !!item.extraTypes?.includes('ep')
+          enrichBody.type_single = item.type === 'single'
+          enrichBody.type_compilation = item.type === 'compilation' || !!item.extraTypes?.includes('compilation')
+          enrichBody.type_live = item.type === 'live' || !!item.extraTypes?.includes('live')
+          enrichBody.type_remix = item.type === 'remix'
+          enrichBody.type_covers = item.type === 'covers'
+          enrichBody.type_soundtrack = item.type === 'soundtrack' || !!item.extraTypes?.includes('soundtrack')
+          enrichBody.type_demo = item.type === 'demo'
+          enrichBody.type_holiday = item.type === 'holiday'
 
           // Per-track admin pasirinkimas: kurias Wiki-only dainas TAIP PAT
           // sukurti DB ir prijungti prie šio (esamo) album'o. Filter'inam tik
@@ -1526,7 +1532,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           if (albApplied.peak_chart_position) parts.push(`#${albApplied.peak_chart_position}`)
           if (albApplied.certifications) parts.push(`${albApplied.certifications} cert`)
           if (albApplied.substyles_added) parts.push(`+${albApplied.substyles_added} žanras`)
-          if (albApplied.type_promoted?.length) parts.push(albApplied.type_promoted.join('+'))
+          if (albApplied.type_replaced?.length) parts.push(`type: ${albApplied.type_replaced.join(' ')}`)
+          if (albApplied.type_promoted?.length) parts.push(albApplied.type_promoted.join('+'))  // back-compat
           if (albApplied.tracks_created) parts.push(`+${albApplied.tracks_created} naujos dainos`)
           if (albApplied.tracks_linked_existing) parts.push(`+${albApplied.tracks_linked_existing} prijungtos`)
           if (tracksTouched) parts.push(`${tracksTouched} dainos papildytos`)
@@ -2265,16 +2272,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         )}
                       </span>
                     )}
-                    {/* Match status badge — 3 būsenos:
-                        ↻ papildyti (amber)  = DB jau turi → bus papildyta
+                    {/* Match status badge — rodom TIK įdomias būsenas:
                         + naujas    (violet) = NEW album'e visi tracks bus sukurti
                         ☐ tik Wiki  (gray)   = ENRICH album'e Wiki turi, DB neturi —
                                                default praleidžiama, BET admin gali
-                                               pažymėti checkbox'u, kad būtų sukurta. */}
+                                               pažymėti checkbox'u, kad būtų sukurta.
+                        ENRICH'inami tracks (DB jau turi) NEturi badge'o — anksčiau
+                        rodė '↻ papildyti' kiekvienai dainai, bet kadangi 99% tracks
+                        yra papildomi, tai tiesiog noise. ✓/⚠ completeness badges
+                        toliau rodo statusą. */}
                     {mapLoaded && (
-                      trackDupId ? (
-                        <span className="text-[9px] text-amber-600 shrink-0 font-semibold" title="Daina DB jau yra. Wiki papildys trūkstamus laukus: leidimo data (jei tuščia), single žymėjimas (jei Wiki sako). Title/lyrics/video neperrašomi.">↻ papildyti</span>
-                      ) : it.duplicate ? (
+                      trackDupId ? null : it.duplicate ? (
                         // ENRICH mode + Wiki-only daina → checkbox + gray badge
                         <label className="flex items-center gap-1 cursor-pointer shrink-0" onClick={e => e.stopPropagation()}>
                           <input

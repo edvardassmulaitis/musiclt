@@ -25,11 +25,12 @@ import { computeAlbumCompleteness } from '@/lib/album-completeness'
 //   peak_chart_position   — REPLACE: tas pats.
 //   substyle_ids          — UNION: pridedam prie esamų, nepašalinam jokių.
 //   substyle_names        — fuzzy → resolve → UNION (gali sukurti naują substyle).
-//   type_* (compilation, live, remix, covers, soundtrack, demo, holiday)
-//                         — PROMOTE-ONLY: Wiki sako TRUE → set TRUE.
-//                           Wiki nekvietė šio flag'o → nieko nedarom.
-//                           NIEKADA nesetinama FALSE (neprarandame music.lt
-//                           type žymėjimo).
+//   type_* (studio, ep, single, compilation, live, remix, covers, soundtrack,
+//            demo, holiday)
+//                         — REPLACE (2026-05-15): jei caller'is siunčia BENT
+//                           VIENĄ type_* boolean, REPLACE visą set'ą pagal
+//                           payload. Wiki = canonical šaltinis (taiso music.lt
+//                           scrape klaidas, pvz Queen 21 albumas).
 //
 // Response: { ok: true, applied: {...kas buvo pakeista...} }
 // Frontend gali rodyti tikslų log'ą "Pridėjom: leidimo data, peak vieta, 2 sertifikatai"
@@ -98,18 +99,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     applied.peak_chart_position = updates.peak_chart_position
   }
 
-  // ── PROMOTE-ONLY: type flags ──────────────────────────────────────────────
-  // Wiki sako TRUE → set TRUE. Niekada netrūnam į FALSE.
-  // type_studio promote'inam tik jei dabar joks tipas nesetintas (defensive).
-  const TYPE_FLAGS = ['type_compilation','type_ep','type_live','type_remix','type_covers','type_holiday','type_soundtrack','type_demo'] as const
-  const promotedTypes: string[] = []
-  for (const flag of TYPE_FLAGS) {
-    if (body[flag] === true && !(cur as any)[flag]) {
-      updates[flag] = true
-      promotedTypes.push(flag.replace('type_',''))
+  // ── REPLACE: type flags (2026-05-15: Wiki = canonical) ────────────────────
+  // Anksčiau PROMOTE-ONLY palikdavo music.lt scrape klaidas (Queen 21 albumas
+  // su daug klaidingai pažym. type_studio kompiliacijoms). Dabar Wiki = source
+  // of truth: jei client'as siunčia BENT VIENĄ type_* boolean,
+  // laikom kad Wiki turėjo opinion ir REPLACE'inam VISĄ type set'ą
+  // pagal payload (TRUE arba FALSE — lygiai ką Wiki sako).
+  // Praleidžiama tik jei visi type_* nesiunčiami (caller'is admin form'as
+  // ar kt., kuris nežinotų ka REPLACE'inti).
+  const ALL_TYPE_FLAGS = ['type_studio','type_compilation','type_ep','type_single','type_live','type_remix','type_covers','type_holiday','type_soundtrack','type_demo'] as const
+  const wikiHasAnyType = ALL_TYPE_FLAGS.some(f => typeof body[f] === 'boolean')
+  if (wikiHasAnyType) {
+    const replacedTypes: string[] = []
+    for (const flag of ALL_TYPE_FLAGS) {
+      const wikiSays = body[flag] === true
+      if (wikiSays !== !!(cur as any)[flag]) {
+        updates[flag] = wikiSays
+        replacedTypes.push(`${wikiSays ? '+' : '-'}${flag.replace('type_','')}`)
+      }
     }
+    if (replacedTypes.length > 0) applied.type_replaced = replacedTypes
   }
-  if (promotedTypes.length > 0) applied.type_promoted = promotedTypes
 
   // ── albums table UPDATE ───────────────────────────────────────────────────
   if (Object.keys(updates).length > 0) {

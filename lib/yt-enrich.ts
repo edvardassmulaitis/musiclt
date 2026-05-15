@@ -50,7 +50,7 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
 
   const { data: track, error: tErr } = await supabase
     .from('tracks')
-    .select('id, title, artist_id, video_url, youtube_searched_at, video_views, video_views_checked_at, video_uploaded_at')
+    .select('id, title, artist_id, type, video_url, youtube_searched_at, video_views, video_views_checked_at, video_uploaded_at')
     .eq('id', trackId)
     .maybeSingle()
 
@@ -79,7 +79,17 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
   let skipReason: string | null = null
   const updates: Record<string, any> = {}
 
-  const shouldSearch = !videoUrl && (force || !t.youtube_searched_at)
+  // 2026-05-15: live/remix tracks SKIP YT auto-search by default.
+  // Pvz "Bohemian Rhapsody (Live)" YT search'as grąžindavo studio versiją (ji
+  // populiaresnė) → live track gaudavo neteisingą video_url. Prevention: visi
+  // alt-version tracks (live, remix, mashup, instrumental) reikia admin'o
+  // manual įrašo. Force=true (admin button) gali bypass'inti.
+  const isAltVersion = ['live','remix','mashup','instrumental'].includes(t.type || '')
+  const shouldSearch = !videoUrl && (force || (!t.youtube_searched_at && !isAltVersion))
+  if (!shouldSearch && isAltVersion && !videoUrl && !t.youtube_searched_at) {
+    skipReason = `${t.type} versija — auto YT search praleidimas (admin įrašyk video_url manualiai)`
+    warnings.push(skipReason)
+  }
   if (shouldSearch) {
     wasSearched = true
     if (!artistName || !t.title) {
