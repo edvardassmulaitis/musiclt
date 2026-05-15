@@ -353,6 +353,16 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         .replace(/\{\{small\|.*$/i, '')
         .replace(/<span[^>]*>[\s\S]*?<\/span>/gi, '')
         .replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '')
+        // <small>...</small> — paprastai meta info, pvz. "(Bolivia-only release)",
+        // "(Japan-only release)", "(promo)" — strip'inam visiškai, kitaip likdavo
+        // prikabintas prie title kaip suffix.
+        .replace(/<small[^>]*>[\s\S]*?<\/small>/gi, '')
+        // {{efn|...}}, {{efn-ua|...}}, {{notetag|...}}, {{ref|...}} — footnote
+        // šablonai. Juose dažnai būna [[James Bond]], [[soundtrack album]] ar
+        // kitokie wikilinks, kuriuos parser'is paima kaip atskirus title parts.
+        // Pvz a-ha "The Living Daylights" efn'e cituojami James Bond filmas
+        // bei Stay on These Roads albumas → atsirasdavo kaip „singlai".
+        .replace(/\{\{(?:efn(?:-[a-z]+)?|notetag|note|ref|sfn)[^{}]*\}\}/gi, '')
         // featuring artistų parens po pagrindinio title — taip pat strip'inti
         // kad ne-title wiki-link'ai nebūtų agreguojami
         .replace(/\s*\((?:with|feat(?:uring)?\.?|ft\.?)\s+[^)]+\)/gi, '')
@@ -474,7 +484,13 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
       // Year-first formatas (Title stulpelis, hasYearCol=true)
       if (hasYearCol && !pendingTitle) {
-        const allSegs = line.split('|').map(s => s.trim()).filter(Boolean)
+        // Strip'inam <small>...</small> ir {{efn|...}} note šablonus PRIEŠ split —
+        // kitaip "(Bolivia-only release)" / [[James Bond]] iš efn'o tampa
+        // title suffix'u arba atskiru title parts.
+        const lineClean = line
+          .replace(/<small[^>]*>[\s\S]*?<\/small>/gi, '')
+          .replace(/\{\{(?:efn(?:-[a-z]+)?|notetag|note|ref|sfn)[^{}]*\}\}/gi, '')
+        const allSegs = lineClean.split('|').map(s => s.trim()).filter(Boolean)
         if (allSegs.length === 0) continue
 
         const firstSeg = allSegs[0]
