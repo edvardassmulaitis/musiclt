@@ -28,9 +28,9 @@ CREATE TABLE IF NOT EXISTS wiki_single_ignores (
   PRIMARY KEY (artist_id, wiki_title)
 );
 
--- Lookup'as: ar šis Wiki single yra ignored ant atlikėjo.
--- Compound primary key jau pateikia index'ą — papildomas nereikalingas.
+-- Lookup: is this Wiki single ignored for the artist.
+-- Compound primary key already provides index — no extra one needed.
 COMMENT ON TABLE wiki_single_ignores IS
-  'Per-artist Wiki single suggestions, kurie admin''o markinti kaip ignoruoti — neberodomi import suggestions list''e.';
+  'Per-artist Wiki single suggestions marked as ignored by admin — hidden from future import suggestions.';
 COMMENT ON COLUMN tracks.wiki_aliases IS
-  'Alt titles iš Wikipedia singles diskografijos (pvz. „Angel" alias'';as „Angel in the Snow"). Naudojamas fuzzy match''e import'o metu.';
+  'Alternate titles from Wikipedia singles discography (e.g. Angel as alias for Angel in the Snow). Used by fuzzy match during import.';
