@@ -1456,6 +1456,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           enrichBody.type_demo = item.type === 'demo'
           enrichBody.type_holiday = item.type === 'holiday'
 
+          // Auto-link matched tracks (2026-05-15 fix): visi DB track IDs,
+          // kuriuos trackDuplicateMap matchino → backend prijungs prie šio
+          // album'o jei dar neprilinkint'i. Sutvarko Queen 1973 "Seven Seas
+          // of Rhye" tipo edge case'ą — track DB yra, bet album_tracks JOIN'o
+          // nera, anksčiau likdavo "1 daina neprijungta" amžinai.
+          if (item.trackDuplicateMap) {
+            const matchedIds = Object.values(item.trackDuplicateMap).filter((n): n is number => typeof n === 'number' && n > 0)
+            if (matchedIds.length > 0) enrichBody.matched_track_ids = matchedIds
+          }
+
           // Per-track admin pasirinkimas: kurias Wiki-only dainas TAIP PAT
           // sukurti DB ir prijungti prie šio (esamo) album'o. Filter'inam tik
           // tas, kurios:
@@ -1536,6 +1546,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           if (albApplied.type_promoted?.length) parts.push(albApplied.type_promoted.join('+'))  // back-compat
           if (albApplied.tracks_created) parts.push(`+${albApplied.tracks_created} naujos dainos`)
           if (albApplied.tracks_linked_existing) parts.push(`+${albApplied.tracks_linked_existing} prijungtos`)
+          if (albApplied.tracks_auto_linked) parts.push(`+${albApplied.tracks_auto_linked} auto-link`)
           if (tracksTouched) parts.push(`${tracksTouched} dainos papildytos`)
           const detail = parts.length ? `: ${parts.join(', ')}` : ' (nieko naujo — DB jau pilna)'
           addLog(`↻ ${item.title}${detail}`)
@@ -2142,6 +2153,22 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       className="text-[10px] text-emerald-600 hover:underline" title="Atidaryti Wikipedia album page'ą">
                       Wiki ↗
                     </a>
+                  )}
+                  {/* Legacy music.lt link — admin gali nuvažiuoti į senąjį
+                      puslapį palyginti tracklist'ą, datas, viršelį ir t.t.
+                      Plus likes/comments count signal'as kaip popular'us
+                      šis album'as music.lt vartotojų — verta detaliai tvarkyti. */}
+                  {it.completeness?.legacy_url && (
+                    <a href={it.completeness.legacy_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                      className="text-[10px] text-orange-500 hover:underline" title="Atidaryti senąją music.lt album puslapį palyginimui">
+                      music.lt ↗
+                    </a>
+                  )}
+                  {it.completeness && (it.completeness.likes_count > 0 || it.completeness.comments_count > 0) && (
+                    <span className="text-[10px] text-gray-400 inline-flex items-center gap-1.5" title={`Music.lt vartotojai: ${it.completeness.likes_count} like'ų, ${it.completeness.comments_count} komentarų`}>
+                      {it.completeness.likes_count > 0 && <span className="inline-flex items-center gap-0.5">♥ {it.completeness.likes_count}</span>}
+                      {it.completeness.comments_count > 0 && <span className="inline-flex items-center gap-0.5">💬 {it.completeness.comments_count}</span>}
+                    </span>
                   )}
                 </>
               )}

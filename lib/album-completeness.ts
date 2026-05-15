@@ -36,6 +36,15 @@ export type AlbumCompleteness = {
   all_tracks_complete: boolean
   /** Album'as fully complete: meta + visi tracks. Frontend rodo žalią ✓ tik šitą TRUE. */
   fully_complete: boolean
+  /** Music.lt legacy URL + community engagement metrics — admin'ui matyti
+   *  ar verta detaliau tvarkyti šį album'ą (didelis like/comment count =
+   *  populiarus tarp music.lt vartotojų). null jei album scrape'as nesusietas
+   *  su legacy_id. */
+  legacy_id?: number | null
+  legacy_url?: string | null
+  legacy_slug?: string | null
+  likes_count: number
+  comments_count: number
 }
 
 export async function computeAlbumCompleteness(
@@ -44,7 +53,7 @@ export async function computeAlbumCompleteness(
 ): Promise<AlbumCompleteness | null> {
   const { data: album } = await sb
     .from('albums')
-    .select('cover_image_url, year, month, day, peak_chart_position, certifications')
+    .select('cover_image_url, year, month, day, peak_chart_position, certifications, legacy_id, slug')
     .eq('id', albumId)
     .single()
   if (!album) return null
@@ -53,6 +62,29 @@ export async function computeAlbumCompleteness(
     .from('album_substyles')
     .select('substyle_id')
     .eq('album_id', albumId)
+
+  // Likes/comments counts — community engagement signal for admin.
+  // Likes per `likes` lentelę (entity_type='album'), comments per `comments`
+  // (album_id direct foreign key). Naudojam HEAD count'ą — nereikia row
+  // duomenų, tik skaičių.
+  const [likesResp, commentsResp] = await Promise.all([
+    sb.from('likes')
+      .select('id', { count: 'exact', head: true })
+      .eq('entity_type', 'album')
+      .eq('entity_id', albumId),
+    sb.from('comments')
+      .select('id', { count: 'exact', head: true })
+      .eq('album_id', albumId)
+      .eq('is_deleted', false),
+  ])
+  const likes_count = (likesResp as any).count ?? 0
+  const comments_count = (commentsResp as any).count ?? 0
+
+  const legacy_id = (album as any).legacy_id || null
+  const legacy_slug = (album as any).slug || null
+  const legacy_url = legacy_id
+    ? `https://www.music.lt/lt/albumas/${encodeURIComponent(legacy_slug || 'x')}/${legacy_id}/`
+    : null
 
   const { data: trackRows } = await sb
     .from('album_tracks')
@@ -96,5 +128,10 @@ export async function computeAlbumCompleteness(
     tracks,
     all_tracks_complete,
     fully_complete,
+    legacy_id,
+    legacy_url,
+    legacy_slug,
+    likes_count,
+    comments_count,
   }
 }

@@ -283,6 +283,41 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (linkedExistingCount > 0) applied.tracks_linked_existing = linkedExistingCount
   }
 
+  // ── AUTO-LINK matched-but-not-linked tracks ──────────────────────────────
+  // Bug fix (2026-05-15): kai trackDuplicateMap matchina Wiki track → DB track
+  // pagal pavadinimą, BET tas DB track nelinkint'as į ŠĮ album'ą — anksčiau
+  // tiesiog rodydavom ↻ papildyti badge'ą ir nieko nelinkindavom.
+  // Pvz Queen 1973 'Seven Seas of Rhye' — track buvo DB (id=107616) bet
+  // album_tracks neturėjo JOIN į 100855 → admin matydavo "1 daina neprijungta"
+  // amžinai. Dabar enrich automatiškai linkina visus matched DB IDs jei dar
+  // neprilinkint'i.
+  //
+  // matched_track_ids: number[] — visi DB track IDs, kuriuos Wiki match'ino
+  // (Object.values(trackDuplicateMap)). Backend filter'ina nelinkint'us.
+  const matchedIds: number[] = Array.isArray(body.matched_track_ids)
+    ? body.matched_track_ids.filter((n: any) => Number.isFinite(Number(n)) && Number(n) > 0).map(Number)
+    : []
+  let autoLinkedCount = 0
+  if (matchedIds.length > 0) {
+    const { data: existingLinks3 } = await sb
+      .from('album_tracks')
+      .select('track_id, position')
+      .eq('album_id', albumId)
+    const linkedSet3 = new Set<number>((existingLinks3 || []).map((r: any) => r.track_id))
+    const toLink = [...new Set(matchedIds)].filter(id => !linkedSet3.has(id))
+    if (toLink.length > 0) {
+      let nextPos2 = Math.max(0, ...((existingLinks3 || []).map((r: any) => r.position || 0))) + 1
+      const rows = toLink.map(track_id => ({ album_id: albumId, track_id, position: nextPos2++ }))
+      const { error: linkErr2 } = await sb.from('album_tracks').insert(rows)
+      if (linkErr2) {
+        console.warn('[enrich auto-link] insert err:', linkErr2.message)
+      } else {
+        autoLinkedCount = toLink.length
+        applied.tracks_auto_linked = autoLinkedCount
+      }
+    }
+  }
+
   // ── COMPLETENESS state — frontend rodys ✓/⚠ badge be papildomo fetch'o ──
   // Shared helper apibūdina album + per-track pilnatvą. Žr. lib/album-completeness.
   const completeness = await computeAlbumCompleteness(sb, albumId)

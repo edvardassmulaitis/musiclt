@@ -75,6 +75,11 @@ export type DiscographyItem = {
       complete: boolean
       missing: string[]  // 'video' | 'data' | 'lyrics'
     }>
+    legacy_id?: number | null
+    legacy_url?: string | null
+    legacy_slug?: string | null
+    likes_count: number
+    comments_count: number
   }
 }
 
