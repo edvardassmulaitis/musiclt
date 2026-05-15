@@ -141,10 +141,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ? `${overrideBody}\n\n<p class="news-source"><a href="${escapeAttr(cand.source_url)}" target="_blank" rel="noopener" class="text-xs text-gray-400 hover:text-gray-600">pagal pirminį šaltinį</a></p>`
       : overrideBody
 
-    // ─── Atlikėjo priskirimas — saugiai su fallback'ais ───
-    const allArtistIds: number[] = (cand.suggested_artist_ids || []) as number[]
-    const artistId1: number | null = cand.primary_artist_id || allArtistIds[0] || null
-    // artist_id2: pirmas iš sąrašo, kuris NE artistId1
+    // ─── Atlikėjų priskirimas (wizard'as gali override'inti) ───
+    // body.artist_ids — wizard'o galutinis atlikėjų sąrašas eiliškumu (primary pirmas)
+    // body.primary_artist_id — wizard'o pasirinktas primary (default = pirmas iš artist_ids)
+    // Jei nepateikta — fallback į candidate'o AI siūlymus
+    const wizardArtistIds: number[] | undefined = Array.isArray(body.artist_ids) ? body.artist_ids : undefined
+    const allArtistIds: number[] = wizardArtistIds
+      ? wizardArtistIds.filter(x => typeof x === 'number' && x > 0)
+      : (cand.suggested_artist_ids || []) as number[]
+
+    const wizardPrimary: number | undefined = typeof body.primary_artist_id === 'number' ? body.primary_artist_id : undefined
+    const artistId1: number | null = wizardPrimary
+      || cand.primary_artist_id
+      || allArtistIds[0]
+      || null
+
+    // artist_id2 legacy slot: pirmas iš sąrašo, kuris NE artistId1
     const artistId2: number | null = artistId1
       ? (allArtistIds.find((id: number) => id !== artistId1) ?? null)
       : (allArtistIds[1] ?? null)
@@ -197,6 +209,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (insErr) {
       return NextResponse.json({ error: `Publish failed: ${insErr.message}` }, { status: 500 })
+    }
+
+    // ─── news_artists junction: ALL atlikėjai, ne tik 2 legacy slot'ai ───
+    // Pirmas allArtistIds == primary. Order'is iš wizard'o (jei pateikta) arba AI siūlymo.
+    if (allArtistIds.length > 0) {
+      const naRows = allArtistIds.map((aid, idx) => ({
+        news_id: created.id,
+        artist_id: aid,
+        is_primary: aid === artistId1,
+        sort_order: idx,
+      }))
+      const { error: naErr } = await supabase.from('news_artists').insert(naRows)
+      if (naErr) {
+        // Lentelė gali dar neegzistuoti (jeigu migracija 20260515g neaplikuota).
+        // Ne fail'inam — news jau publikuota, legacy artist_id/artist_id2 turi pagrindinius.
+        console.warn('[approve] news_artists insert failed (migration apply'd?):', naErr.message)
+      }
     }
 
     // ─── news_songs: pridėti track'us + embed URLs ───

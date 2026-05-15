@@ -7,6 +7,7 @@ import Link from 'next/link'
 import WikimediaSearch from '@/components/WikimediaSearch'
 import type { Photo } from '@/components/PhotoGallery'
 import InboxTabs from '@/components/InboxTabs'
+import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
 
 type SuggestedArtist = {
   id: number
@@ -76,6 +77,10 @@ export default function AdminInboxPage() {
   const [showWiki, setShowWiki] = useState(false)
   const [wikiArtistName, setWikiArtistName] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
+  // Wizard'o artist'ų state — visi pasirinkti į sąrašą (order'is = sort_order news_artists'e)
+  const [editArtistIds, setEditArtistIds] = useState<number[]>([])
+  const [editPrimaryId, setEditPrimaryId] = useState<number | null>(null)
+  const [artistMeta, setArtistMeta] = useState<Record<number, SuggestedArtist>>({})
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -125,17 +130,52 @@ export default function AdminInboxPage() {
     setEditTitle(cand.ai_title)
     setEditBody(await fetchBody(cand.id))
     setEditImage('')
+    // ─── Artist'ų wizard state'as ───
+    const suggested = cand.suggested_artists || []
+    const ids = suggested.map(a => a.id)
+    // Order: primary pirmas, kiti pagal originalų eiliškumą
+    const primaryId = cand.primary_artist_id || ids[0] || null
+    const ordered = primaryId
+      ? [primaryId, ...ids.filter(id => id !== primaryId)]
+      : ids
+    setEditArtistIds(ordered)
+    setEditPrimaryId(primaryId)
+    const meta: Record<number, SuggestedArtist> = {}
+    for (const a of suggested) meta[a.id] = a
+    if (cand.primary_artist && !meta[cand.primary_artist.id]) {
+      meta[cand.primary_artist.id] = cand.primary_artist
+    }
+    setArtistMeta(meta)
     // Image picker options
     try {
       const res = await fetch(`/api/admin/news-candidates/${cand.id}/images`)
       const data = await res.json()
       setImageOptions(data.options || [])
-      // Auto-pick first option (newest artist photo)
       if (data.options?.[0]) setEditImage(data.options[0].url)
     } catch {
       setImageOptions([])
     }
-    setWikiArtistName(cand.suggested_artists?.[0]?.name || cand.primary_artist?.name || '')
+    setWikiArtistName(suggested[0]?.name || cand.primary_artist?.name || '')
+  }
+
+  const removeEditArtist = (id: number) => {
+    setEditArtistIds(prev => prev.filter(x => x !== id))
+    if (editPrimaryId === id) {
+      setEditPrimaryId(prev => {
+        const remaining = editArtistIds.filter(x => x !== id)
+        return remaining[0] || null
+      })
+    }
+  }
+
+  const addEditArtist = (id: number, name: string, avatar: string | null) => {
+    if (editArtistIds.includes(id)) return
+    setEditArtistIds(prev => [...prev, id])
+    setArtistMeta(prev => ({
+      ...prev,
+      [id]: { id, name, slug: '', cover_image_url: avatar, legacy_likes: null },
+    }))
+    if (!editPrimaryId) setEditPrimaryId(id)
   }
 
   const closeEdit = () => {
@@ -145,6 +185,9 @@ export default function AdminInboxPage() {
     setEditImage('')
     setImageOptions([])
     setShowWiki(false)
+    setEditArtistIds([])
+    setEditPrimaryId(null)
+    setArtistMeta({})
   }
 
   const handleAction = async (id: number, action: 'approve' | 'reject', extra?: { reason?: string; title?: string; body?: string; image_url?: string }) => {
@@ -186,13 +229,19 @@ export default function AdminInboxPage() {
 
   const handleSaveEdit = async () => {
     if (!editing) return
+    // Reorder: primary pirmas, kiti seka
+    const ordered = editPrimaryId
+      ? [editPrimaryId, ...editArtistIds.filter(id => id !== editPrimaryId)]
+      : editArtistIds
     setSavingEdit(true)
     try {
       await handleAction(editing.id, 'approve', {
         title: editTitle,
         body: editBody,
         image_url: editImage || undefined,
-      })
+        artist_ids: ordered,
+        primary_artist_id: editPrimaryId,
+      } as any)
     } finally {
       setSavingEdit(false)
     }
@@ -360,13 +409,15 @@ export default function AdminInboxPage() {
                         </div>
                       )}
 
-                      {/* Actions — mobile: 2 primary big buttons + secondary row */}
+                      {/* Actions — direct approve panaikintas; viskas eina per wizard'ą
+                         (modalas atidaromas „Peržiūrėti", kuriame nustatomi atlikėjai, nuotrauka, tekstas).
+                         Tik atmesti likęs 1-click, nes nereikalauja setup'o. */}
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleAction(cand.id, 'approve')}
+                          onClick={() => openEdit(cand)}
                           disabled={busy === cand.id}
                           className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
-                          {busy === cand.id ? '...' : '✓ Patvirtinti'}
+                          📝 Peržiūrėti & paskelbti
                         </button>
                         <button
                           onClick={(e) => handleReject(cand.id, e)}
@@ -374,13 +425,6 @@ export default function AdminInboxPage() {
                           title="Atmesti (alt+click → su priežastimi)"
                           className="flex-1 sm:flex-none px-4 py-2 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 rounded-lg text-sm font-bold disabled:opacity-50">
                           ✗ Atmesti
-                        </button>
-                        <button
-                          onClick={() => openEdit(cand)}
-                          disabled={busy === cand.id}
-                          aria-label="Redaguoti"
-                          className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors">
-                          ✎
                         </button>
                       </div>
                     </div>
@@ -437,8 +481,65 @@ export default function AdminInboxPage() {
                 ×
               </button>
             </div>
-            <div className="px-5 py-4 space-y-4">
-              {/* Image picker */}
+            <div className="px-5 py-4 space-y-5">
+              {/* === Atlikėjai (wizard step 1) === */}
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-2">
+                  Atlikėjai ({editArtistIds.length})
+                  <span className="ml-2 text-[10px] normal-case font-normal text-[var(--text-muted)]">
+                    Pirmas (★) = pagrindinis. Spausk ant atlikėjo, kad nustatytum primary.
+                  </span>
+                </label>
+                {editArtistIds.length === 0 ? (
+                  <p className="text-sm text-amber-600 mb-2">⚠ Nei vienas atlikėjas nepriskirtas — pridėk per paiešką žemiau.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {editArtistIds.map(id => {
+                      const a = artistMeta[id]
+                      if (!a) return null
+                      const isPrimary = id === editPrimaryId
+                      return (
+                        <div
+                          key={id}
+                          className={`inline-flex items-center gap-1.5 pl-1 pr-1 py-1 rounded-full text-xs font-medium transition-colors ${
+                            isPrimary
+                              ? 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-400'
+                              : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                          }`}>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrimaryId(id)}
+                            title={isPrimary ? 'Pagrindinis atlikėjas' : 'Padaryti pagrindiniu'}
+                            className="flex items-center gap-1.5 pl-1 pr-1">
+                            {a.cover_image_url ? (
+                              <img src={a.cover_image_url} alt="" className="w-5 h-5 rounded-full object-cover" />
+                            ) : (
+                              <span className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-[10px]">🎤</span>
+                            )}
+                            <span>{isPrimary ? '★ ' : ''}{a.name}</span>
+                            {a.legacy_likes ? (
+                              <span className="text-[10px] opacity-70">❤ {formatLikes(a.legacy_likes)}</span>
+                            ) : null}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeEditArtist(id)}
+                            aria-label="Pašalinti atlikėją"
+                            className="ml-1 w-5 h-5 rounded-full hover:bg-red-200 text-red-500 flex items-center justify-center text-sm">
+                            ×
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <ArtistSearchInput
+                  placeholder="+ Pridėti atlikėją..."
+                  onSelect={(id, name, avatar) => addEditArtist(id, name, avatar || null)}
+                />
+              </div>
+
+              {/* === Nuotrauka (wizard step 2) === */}
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-2">
                   Nuotrauka
@@ -493,6 +594,7 @@ export default function AdminInboxPage() {
                 )}
               </div>
 
+              {/* === Antraštė (wizard step 3) === */}
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
                   Antraštė
@@ -506,6 +608,7 @@ export default function AdminInboxPage() {
                 />
                 <p className="text-xs text-[var(--text-muted)] mt-1">{editTitle.length} simb. (rekomenduojama 60-80)</p>
               </div>
+              {/* === Tekstas (wizard step 4) === */}
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
                   Tekstas (HTML — naudok &lt;p&gt; tag'us)
@@ -518,6 +621,7 @@ export default function AdminInboxPage() {
                   placeholder="<p>Naujienos tekstas...</p>"
                 />
               </div>
+              {/* === Peržiūra (wizard step 5) === */}
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
                   Peržiūra
@@ -540,9 +644,10 @@ export default function AdminInboxPage() {
                 </button>
                 <button
                   onClick={handleSaveEdit}
-                  disabled={savingEdit || !editTitle.trim() || !editBody.trim()}
+                  disabled={savingEdit || !editTitle.trim() || !editBody.trim() || editArtistIds.length === 0}
+                  title={editArtistIds.length === 0 ? 'Pridėk bent vieną atlikėją' : ''}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-bold">
-                  {savingEdit ? '...' : '✓ Patvirtinti ir publikuoti'}
+                  {savingEdit ? '...' : '✓ Paskelbti'}
                 </button>
               </div>
             </div>
