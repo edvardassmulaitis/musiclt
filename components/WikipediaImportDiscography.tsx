@@ -851,6 +851,19 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
   const [items, setItems] = useState<DiscographyItem[]>([])
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  // selectedNewTracks: per-album set of Wiki track titles (lowercased) kurias
+  // admin pasirinko sukurti DB. Naudojama ENRICH mode'e (album.duplicate=true)
+  // — Wiki-only dainos pagal default'ą praleidžiamos, bet admin gali pažymėti
+  // checkbox'u, kad enrich endpoint'as jas taip pat sukurtų ir prijungtų.
+  const [selectedNewTracks, setSelectedNewTracks] = useState<Record<number, Set<string>>>({})
+  const toggleNewTrack = (albumIdx: number, titleLower: string) => {
+    setSelectedNewTracks(prev => {
+      const cur = new Set(prev[albumIdx] || [])
+      if (cur.has(titleLower)) cur.delete(titleLower)
+      else cur.add(titleLower)
+      return { ...prev, [albumIdx]: cur }
+    })
+  }
   const [artistGroups, setArtistGroups] = useState<string[]>([])
   // Substyle taksonomija — užkraunama vieną kartą, naudojama fuzzy match'inti
   // Wikipedia žanrus. Greitai cache'inam moduliniu lvl-state'u kad
@@ -1437,6 +1450,37 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           if (item.type === 'demo') enrichBody.type_demo = true
           if (item.type === 'holiday') enrichBody.type_holiday = true
 
+          // Per-track admin pasirinkimas: kurias Wiki-only dainas TAIP PAT
+          // sukurti DB ir prijungti prie šio (esamo) album'o. Filter'inam tik
+          // tas, kurios:
+          //   1. yra šio album'o tracks listing'e (item.tracks)
+          //   2. NEMATCH'INO DB (trackDuplicateMap nerodė ID)
+          //   3. admin pažymėjo checkbox'u (selectedNewTracks[idx] turi title)
+          const checkedTitles = selectedNewTracks[idx]
+          if (checkedTitles && checkedTitles.size > 0 && item.tracks?.length) {
+            const tracksToCreate: any[] = []
+            for (const wt of item.tracks) {
+              const titleLower = wt.title.toLowerCase()
+              if (!checkedTitles.has(titleLower)) continue
+              // Sanity: jei trackDuplicateMap rodo ID — vadinasi DB jau turi,
+              // skip (toks atvejis turėtų būti praleistas UI lygyje)
+              if (item.trackDuplicateMap?.[titleLower]) continue
+              const tAny = wt as any
+              const ry = tAny.release_year ?? item.year
+              const rm = tAny.release_month ?? item.month
+              const rd = tAny.release_day ?? item.day
+              tracksToCreate.push({
+                title: wt.title,
+                type: wt.type || 'normal',
+                is_single: !!wt.is_single,
+                release_year: ry || null,
+                release_month: rm || null,
+                release_day: rd || null,
+              })
+            }
+            if (tracksToCreate.length > 0) enrichBody.tracks_to_create = tracksToCreate
+          }
+
           const albRes = await fetch(`/api/albums/${item.duplicateId}/enrich`, {
             method: 'PATCH', headers: {'Content-Type':'application/json'},
             body: JSON.stringify(enrichBody),
@@ -1447,6 +1491,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           }
           const albResult = await albRes.json().catch(() => ({}))
           const albApplied = albResult?.applied || {}
+          const albCompleteness = albResult?.completeness || null
 
           // Per album.tracks — match per name + PATCH /enrich
           let tracksTouched = 0
@@ -1482,11 +1527,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           if (albApplied.certifications) parts.push(`${albApplied.certifications} cert`)
           if (albApplied.substyles_added) parts.push(`+${albApplied.substyles_added} žanras`)
           if (albApplied.type_promoted?.length) parts.push(albApplied.type_promoted.join('+'))
-          if (tracksTouched) parts.push(`${tracksTouched} dainos`)
+          if (albApplied.tracks_created) parts.push(`+${albApplied.tracks_created} naujos dainos`)
+          if (albApplied.tracks_linked_existing) parts.push(`+${albApplied.tracks_linked_existing} prijungtos`)
+          if (tracksTouched) parts.push(`${tracksTouched} dainos papildytos`)
           const detail = parts.length ? `: ${parts.join(', ')}` : ' (nieko naujo — DB jau pilna)'
           addLog(`↻ ${item.title}${detail}`)
           enriched++
-          setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
+          setItems(p => p.map((it, i) => i === idx
+            ? { ...it, importing: false, imported: true, completeness: albCompleteness || it.completeness }
+            : it
+          ))
           setSelected(p => { const s = new Set(p); s.delete(idx); return s })
           continue
         } catch (e: any) {
@@ -1991,6 +2041,30 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {it.duplicate && <span className="text-[10px] font-semibold text-amber-600 shrink-0" title="Albumas DB jau yra. Wiki tik papildys trūkstamus laukus (data, viršelis, sertifikatai, žanrai). Egzistuojantys laukai neperrašomi.">↻ papildyti</span>}
               {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
               {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
+              {/* Completeness badge — po enrich grąžinta album'o pilnatva.
+                  ✓ kompletas (žalia) jei viskas užpildyta (cover/data/žanrai/all tracks);
+                  ⚠ trūksta X (geltona) su tooltip'u kas tiksliai trūksta.
+                  Wiki track count = "lubos" (kiek max'as galėtų būti); jei DB turi
+                  daugiau (music.lt scrape pridėjo extra) — laikom complete'u. */}
+              {it.imported && it.completeness && (() => {
+                const c = it.completeness
+                const wikiTrackCount = it.tracks?.length || 0
+                const missing: string[] = []
+                if (!c.has_cover) missing.push('viršelis')
+                if (!c.has_year) missing.push('data')
+                if (c.substyles_count === 0) missing.push('žanrai')
+                if (wikiTrackCount > 0 && c.tracks_count < wikiTrackCount) {
+                  missing.push(`${wikiTrackCount - c.tracks_count} dainos`)
+                }
+                const tooltip = missing.length === 0
+                  ? `Albumas pilnas:\n• Viršelis ✓\n• Leidimo data ✓ ${c.has_full_date ? '(metai/mėn/diena)' : '(tik metai)'}\n• ${c.substyles_count} žanras${c.substyles_count === 1 ? '' : c.substyles_count > 1 && c.substyles_count < 10 ? 'ai' : 'ų'}\n• ${c.tracks_count} dainų DB${c.has_peak ? '\n• Peak chart pos.' : ''}${c.has_certifications ? '\n• Sertifikacijos' : ''}`
+                  : `Trūksta:\n${missing.map(m => '• '+m).join('\n')}\n\nDB turi:\n• ${c.tracks_count} dainų${c.has_cover ? '\n• Viršelis' : ''}${c.has_year ? '\n• Leidimo data' : ''}${c.substyles_count > 0 ? `\n• ${c.substyles_count} žanras` : ''}${c.has_peak ? '\n• Peak chart' : ''}${c.has_certifications ? '\n• Sertifikacijos' : ''}`
+                return missing.length === 0 ? (
+                  <span className="text-[10px] font-semibold text-emerald-600 shrink-0" title={tooltip}>✓ kompletas</span>
+                ) : (
+                  <span className="text-[10px] font-semibold text-amber-700 shrink-0" title={tooltip}>⚠ trūksta {missing.length}</span>
+                )
+              })()}
               {it.error && <span className="text-[10px] text-red-400 shrink-0" title={it.error}>klaida</span>}
             </div>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -2109,11 +2183,32 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         )}
                       </span>
                     )}
-                    {/* Match status badge — enrich vs new (rodom TIK kai map jau patikrinta) */}
+                    {/* Match status badge — 3 būsenos:
+                        ↻ papildyti (amber)  = DB jau turi → bus papildyta
+                        + naujas    (violet) = NEW album'e visi tracks bus sukurti
+                        ☐ tik Wiki  (gray)   = ENRICH album'e Wiki turi, DB neturi —
+                                               default praleidžiama, BET admin gali
+                                               pažymėti checkbox'u, kad būtų sukurta. */}
                     {mapLoaded && (
-                      trackDupId
-                        ? <span className="text-[9px] text-amber-600 shrink-0 font-semibold" title="Daina DB jau yra. Wiki papildys trūkstamus laukus: leidimo data (jei tuščia), single žymėjimas (jei Wiki sako). Title/lyrics/video neperrašomi.">↻ papildyti</span>
-                        : <span className="text-[9px] text-violet-500 shrink-0 font-semibold" title="Daina nauja Wiki — kursime jei album'as ne dup">+ naujas</span>
+                      trackDupId ? (
+                        <span className="text-[9px] text-amber-600 shrink-0 font-semibold" title="Daina DB jau yra. Wiki papildys trūkstamus laukus: leidimo data (jei tuščia), single žymėjimas (jei Wiki sako). Title/lyrics/video neperrašomi.">↻ papildyti</span>
+                      ) : it.duplicate ? (
+                        // ENRICH mode + Wiki-only daina → checkbox + gray badge
+                        <label className="flex items-center gap-1 cursor-pointer shrink-0" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={!!selectedNewTracks[i]?.has(t.title.toLowerCase())}
+                            onChange={() => toggleNewTrack(i, t.title.toLowerCase())}
+                            className="w-3 h-3 accent-violet-500"
+                          />
+                          <span className={`text-[9px] font-semibold ${selectedNewTracks[i]?.has(t.title.toLowerCase()) ? 'text-violet-600' : 'text-gray-400'}`} title="DB neturi šios dainos. Pažymėk jei nori, kad enrich taip pat sukurtų ir prijungtų prie esamo album'o. Default — praleidimas.">
+                            {selectedNewTracks[i]?.has(t.title.toLowerCase()) ? '+ kurti' : '· tik Wiki'}
+                          </span>
+                        </label>
+                      ) : (
+                        // NEW album'e — visi tracks bus sukurti automatiškai
+                        <span className="text-[9px] text-violet-500 shrink-0 font-semibold" title="Naujas album'as — ši daina bus sukurta DB su visa Wiki info">+ naujas</span>
+                      )
                     )}
                     {t.type === 'instrumental' && <span className="text-[9px] text-gray-400 shrink-0 font-medium">instr.</span>}
                     {t.type === 'live' && <span className="text-[9px] text-blue-400 shrink-0 font-medium">live</span>}

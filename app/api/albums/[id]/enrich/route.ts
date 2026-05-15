@@ -50,10 +50,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const sb = createAdminClient()
 
   // Fetch current state — fill-only ir promote-only sprendimams reikia
-  // matyti, kas DB jau yra.
+  // matyti, kas DB jau yra. + artist_id reikia tracks_to_create flow'ui.
   const { data: cur, error: curErr } = await sb
     .from('albums')
-    .select('id, title, year, month, day, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_covers, type_holiday, type_soundtrack, type_demo')
+    .select('id, title, artist_id, year, month, day, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_covers, type_holiday, type_soundtrack, type_demo')
     .eq('id', albumId)
     .single()
   if (curErr || !cur) {
@@ -184,5 +184,119 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  return NextResponse.json({ ok: true, applied })
+  // ── CREATE Wiki-only tracks (admin opt-in per checkbox) ──────────────────
+  // body.tracks_to_create — masyvas Wiki dainų, kurias admin pažymėjo kaip
+  // "sukurti DB". Per slug match'iname, kad nesukurtume duplikato (pvz jei
+  // music.lt'as jau yra po skirtingu slug pavadinimu); jei vis vien naujas —
+  // INSERT'iname tracks + linkuojam į album_tracks JOIN'ą.
+  let createdCount = 0
+  let linkedExistingCount = 0
+  if (Array.isArray(body.tracks_to_create) && body.tracks_to_create.length > 0) {
+    // Surinkti egzistuojančias dainas šio atlikėjo, kad galetume slug match'inti
+    const { data: existingTracks } = await sb
+      .from('tracks')
+      .select('id, slug, title')
+      .eq('artist_id', cur.artist_id)
+      .limit(5000)
+    const bySlug = new Map<string, number>()
+    const byTitle = new Map<string, number>()
+    for (const t of existingTracks || []) {
+      bySlug.set((t as any).slug, (t as any).id)
+      byTitle.set(((t as any).title || '').toLowerCase().trim(), (t as any).id)
+    }
+    // album_tracks egzistuojantys link'ai (kad netyčia neduplinkintume)
+    const { data: existingLinks2 } = await sb
+      .from('album_tracks')
+      .select('track_id, position')
+      .eq('album_id', albumId)
+    const linkedSet = new Set<number>((existingLinks2 || []).map((r: any) => r.track_id))
+    let nextPos = Math.max(0, ...((existingLinks2 || []).map((r: any) => r.position || 0))) + 1
+
+    for (const t of body.tracks_to_create) {
+      const title = String(t?.title || '').trim()
+      if (!title) continue
+      const tType = (t?.type as string) || 'normal'
+      const baseSlug = slugify(title)
+      let trackId = bySlug.get(baseSlug) || byTitle.get(title.toLowerCase())
+
+      if (!trackId) {
+        // Naujas track — unikalus slug
+        let slug = baseSlug
+        let suffix = 1
+        while (true) {
+          const { data: clash } = await sb.from('tracks').select('id').eq('slug', slug).maybeSingle()
+          if (!clash) break
+          slug = `${baseSlug}-${suffix++}`
+        }
+        const insertBody: any = {
+          title,
+          slug,
+          artist_id: cur.artist_id,
+          type: tType,
+          is_single: !!t?.is_single,
+          source: 'wikipedia',
+        }
+        if (t?.release_year) insertBody.release_year = parseInt(String(t.release_year)) || null
+        if (t?.release_month) insertBody.release_month = parseInt(String(t.release_month)) || null
+        if (t?.release_day) insertBody.release_day = parseInt(String(t.release_day)) || null
+        if (t?.video_url) insertBody.video_url = t.video_url
+        const { data: newRow, error: trkErr } = await sb.from('tracks').insert(insertBody).select('id').single()
+        if (trkErr || !newRow?.id) {
+          console.warn('[enrich tracks_to_create] insert err:', trkErr?.message, title)
+          continue
+        }
+        trackId = newRow.id
+        createdCount++
+      } else if (linkedSet.has(trackId)) {
+        // jau yra ir jau prijungtas — nieko nedarom
+        continue
+      } else {
+        linkedExistingCount++
+      }
+
+      // Link į album_tracks
+      if (!trackId) continue  // narrowing: po insert/maps trackId turėtų būti, defensive
+      const finalTrackId: number = trackId
+      const { error: linkErr } = await sb.from('album_tracks').insert({
+        album_id: albumId,
+        track_id: finalTrackId,
+        position: nextPos++,
+      })
+      if (linkErr) {
+        console.warn('[enrich tracks_to_create] link err:', linkErr.message, title)
+      } else {
+        linkedSet.add(finalTrackId)
+      }
+    }
+    if (createdCount > 0) applied.tracks_created = createdCount
+    if (linkedExistingCount > 0) applied.tracks_linked_existing = linkedExistingCount
+  }
+
+  // ── COMPLETENESS state — frontend rodys ✓/⚠ badge be papildomo fetch'o ──
+  // Re-fetch: po visų update'ų ir track create'ų — kas dabar DB yra.
+  const { data: post } = await sb
+    .from('albums')
+    .select('cover_image_url, year, month, day, peak_chart_position, certifications')
+    .eq('id', albumId)
+    .single()
+  const { data: subPost } = await sb
+    .from('album_substyles')
+    .select('substyle_id', { count: 'exact', head: false })
+    .eq('album_id', albumId)
+  const { data: linksPost } = await sb
+    .from('album_tracks')
+    .select('track_id', { count: 'exact', head: false })
+    .eq('album_id', albumId)
+
+  const completeness = {
+    has_cover: !!post?.cover_image_url,
+    has_year: !!post?.year,
+    has_full_date: !!(post?.year && post?.month && post?.day),
+    has_peak: post?.peak_chart_position != null,
+    has_certifications: Array.isArray(post?.certifications) && post.certifications.length > 0,
+    substyles_count: (subPost || []).length,
+    tracks_count: (linksPost || []).length,
+  }
+
+  return NextResponse.json({ ok: true, applied, completeness })
 }

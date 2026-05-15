@@ -53,6 +53,18 @@ export type DiscographyItem = {
    *  per nested expand. {lower(track_title) → modern_track_id}.
    *  Pildoma per toggleExpand → checkTrackDuplicates(album.tracks, artistId). */
   trackDuplicateMap?: Record<string, number>
+  /** Po enrich grąžinta album'o pilnatva — naudojama UI ✓/⚠ badge'ui.
+   *  Server'is /api/albums/[id]/enrich response'e grąžina has_cover, has_year,
+   *  substyles_count, tracks_count etc. */
+  completeness?: {
+    has_cover: boolean
+    has_year: boolean
+    has_full_date: boolean
+    has_peak: boolean
+    has_certifications: boolean
+    substyles_count: number
+    tracks_count: number
+  }
 }
 
 export type TrackEntry = {
