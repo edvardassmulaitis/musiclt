@@ -39,7 +39,10 @@ jobs:
       fail-fast: false   # vieno source'o klaida nesustabdo kitų
       max-parallel: 2    # Anthropic API rate limit safety
       matrix:
-        source_id: [1, 2, 3, 4, 5, 6, 7, 8]
+        # Active news šaltiniai po 20260515e overhaul'o.
+        # LT: LRT(2), Delfi(3). INTL: Pitchfork(5), Stereogum(6), RollingStone(7),
+        # Consequence(8), NME(12), Billboard(13). 15min + Bernardinai dropped.
+        source_id: [2, 3, 5, 6, 7, 8, 12, 13]
     steps:
       - name: Call news-scout for source ${{ matrix.source_id }}
         if: ${{ !inputs.source_id || inputs.source_id == matrix.source_id }}

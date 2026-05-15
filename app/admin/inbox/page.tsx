@@ -34,6 +34,7 @@ type Candidate = {
   suggested_image_url: string | null
   status: string
   created_at: string
+  source_published_at: string | null
   primary_artist: SuggestedArtist | null
 }
 
@@ -170,10 +171,17 @@ export default function AdminInboxPage() {
     }
   }
 
-  const handleReject = (id: number) => {
-    const reason = prompt('Kodėl atmesti? (neprivaloma)')
-    if (reason === null) return
-    handleAction(id, 'reject', { reason })
+  // 1-click reject — be confirmation dialog'o, be reason. Power-user reason'o
+  // funkcionalumas (alt+click → su reason) gali būti pridėtas vėliau jei reikia.
+  const handleReject = (id: number, e?: React.MouseEvent) => {
+    const withReason = e?.altKey === true
+    if (withReason) {
+      const reason = prompt('Atmetimo priežastis:')
+      if (reason === null) return
+      handleAction(id, 'reject', { reason })
+    } else {
+      handleAction(id, 'reject', {})
+    }
   }
 
   const handleSaveEdit = async () => {
@@ -284,9 +292,24 @@ export default function AdminInboxPage() {
                         <span className={`px-2 py-0.5 rounded-full font-bold ${confidenceColor(cand.ai_confidence)}`}>
                           ⭐ {cand.ai_confidence.toFixed(2)}
                         </span>
-                        <span className="text-[var(--text-muted)]">
-                          {cand.source_portal || cand.source_type}
-                        </span>
+                        {cand.source_url ? (
+                          <a
+                            href={cand.source_url}
+                            target="_blank"
+                            rel="noopener"
+                            className="text-[var(--text-muted)] hover:text-blue-600 underline-offset-2 hover:underline">
+                            {cand.source_portal || cand.source_type} ↗
+                          </a>
+                        ) : (
+                          <span className="text-[var(--text-muted)]">
+                            {cand.source_portal || cand.source_type}
+                          </span>
+                        )}
+                        {cand.source_published_at && (
+                          <span className="text-[var(--text-muted)]">
+                            · {new Date(cand.source_published_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
                       </div>
 
                       <h2 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-2">
@@ -352,20 +375,12 @@ export default function AdminInboxPage() {
                           {isExpanded ? '▴ Sutraukti' : '▾ Peržiūrėti'}
                         </button>
                         <button
-                          onClick={() => handleReject(cand.id)}
+                          onClick={(e) => handleReject(cand.id, e)}
                           disabled={busy === cand.id}
+                          title="Atmesti (alt+click → su priežastimi)"
                           className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium disabled:opacity-50">
                           ✗ Atmesti
                         </button>
-                        {cand.source_url && (
-                          <a
-                            href={cand.source_url}
-                            target="_blank"
-                            rel="noopener"
-                            className="ml-auto text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] truncate max-w-[200px]">
-                            ↗ Šaltinis
-                          </a>
-                        )}
                       </div>
                     </div>
                   </div>

@@ -237,6 +237,13 @@ export async function POST(req: NextRequest) {
             const urlHash = canonicalUrlHash(rel.url)
             const tFp = titleFingerprint(ai.title || article.title)
 
+            // Safe ISO date parsing iš RSS pubDate (Fri, 15 May 2026 09:37:49 +0000)
+            let sourcePubAt: string | null = null
+            if (rel.published_at) {
+              const d = new Date(rel.published_at)
+              if (!isNaN(d.getTime())) sourcePubAt = d.toISOString()
+            }
+
             const { data: inserted, error: insErr } = await supabase
               .from('news_candidates')
               .insert({
@@ -244,6 +251,7 @@ export async function POST(req: NextRequest) {
                 source_id: source.id,
                 source_url: rel.url,
                 source_portal: source.parser_key,
+                source_published_at: sourcePubAt,
                 raw_text: article.text.slice(0, 20_000),
                 raw_html: null, // skip raw_html to save space; can re-fetch if needed
                 raw_lang: article.source_lang,
