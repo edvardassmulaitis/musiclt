@@ -53,9 +53,11 @@ export type DiscographyItem = {
    *  per nested expand. {lower(track_title) → modern_track_id}.
    *  Pildoma per toggleExpand → checkTrackDuplicates(album.tracks, artistId). */
   trackDuplicateMap?: Record<string, number>
-  /** Po enrich grąžinta album'o pilnatva — naudojama UI ✓/⚠ badge'ui.
-   *  Server'is /api/albums/[id]/enrich response'e grąžina has_cover, has_year,
-   *  substyles_count, tracks_count etc. */
+  /** Album'o + per-track pilnatvos snapshot. Pildoma:
+   *   • PATCH /api/albums/[id]/enrich response — po Wiki overlay
+   *   • GET   /api/albums/[id]/completeness   — read-only on expand
+   *  fully_complete = album metadata (cover/year/substyle) + visos dainos
+   *  individualiai complete (video_url + release_year + lyrics arba instrumental). */
   completeness?: {
     has_cover: boolean
     has_year: boolean
@@ -64,6 +66,15 @@ export type DiscographyItem = {
     has_certifications: boolean
     substyles_count: number
     tracks_count: number
+    all_tracks_complete: boolean
+    fully_complete: boolean
+    tracks: Array<{
+      id: number
+      title: string
+      type: string
+      complete: boolean
+      missing: string[]  // 'video' | 'data' | 'lyrics'
+    }>
   }
 }
 

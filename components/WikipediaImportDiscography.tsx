@@ -1994,6 +1994,23 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         return p
       })
     }, 0)
+    // Auto-fetch completeness duplicate album'ams — kad per-track ✓/⚠
+    // badges būtų matomi BEFORE enrich (admin gali patikrinti būklę).
+    // Naujam album'ui (be duplicateId) — completeness'o nėra (nieko DB).
+    setTimeout(() => {
+      setItems(p => {
+        const cur = p[i]
+        if (!willExpand || !cur || !cur.duplicate || !cur.duplicateId || cur.completeness) return p
+        fetch(`/api/albums/${cur.duplicateId}/completeness`)
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            if (d?.completeness) {
+              setItems(p2 => p2.map((x, idx) => idx === i ? { ...x, completeness: d.completeness } : x))
+            }
+          }).catch(() => {})
+        return p
+      })
+    }, 0)
   }
 
   // ── Album row renderer ─────────────────────────────────────────────────────
@@ -2041,29 +2058,35 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {it.duplicate && <span className="text-[10px] font-semibold text-amber-600 shrink-0" title="Albumas DB jau yra. Wiki tik papildys trūkstamus laukus (data, viršelis, sertifikatai, žanrai). Egzistuojantys laukai neperrašomi.">↻ papildyti</span>}
               {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
               {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
-              {/* Completeness badge — po enrich grąžinta album'o pilnatva.
-                  ✓ kompletas (žalia) jei viskas užpildyta (cover/data/žanrai/all tracks);
-                  ⚠ trūksta X (geltona) su tooltip'u kas tiksliai trūksta.
-                  Wiki track count = "lubos" (kiek max'as galėtų būti); jei DB turi
-                  daugiau (music.lt scrape pridėjo extra) — laikom complete'u. */}
-              {it.imported && it.completeness && (() => {
+              {/* Album completeness badge — rodoma jei completeness turim
+                  (auto-fetch on expand DUPLICATE'ams + post-enrich response'e).
+                  fully_complete = album metadata complete + visos dainos green.
+                  Jei kuri nors daina geltona — albumas geltonas. Tooltip rodo
+                  trūkstamų laukų sąrašą per album + count incomplete tracks. */}
+              {it.completeness && (() => {
                 const c = it.completeness
+                const incompleteTracks = c.tracks.filter(t => !t.complete)
                 const wikiTrackCount = it.tracks?.length || 0
-                const missing: string[] = []
-                if (!c.has_cover) missing.push('viršelis')
-                if (!c.has_year) missing.push('data')
-                if (c.substyles_count === 0) missing.push('žanrai')
+                const missingMeta: string[] = []
+                if (!c.has_cover) missingMeta.push('viršelis')
+                if (!c.has_year) missingMeta.push('data')
+                if (c.substyles_count === 0) missingMeta.push('žanrai')
                 if (wikiTrackCount > 0 && c.tracks_count < wikiTrackCount) {
-                  missing.push(`${wikiTrackCount - c.tracks_count} dainos`)
+                  missingMeta.push(`${wikiTrackCount - c.tracks_count} dainos neprijungtos`)
                 }
-                const tooltip = missing.length === 0
-                  ? `Albumas pilnas:\n• Viršelis ✓\n• Leidimo data ✓ ${c.has_full_date ? '(metai/mėn/diena)' : '(tik metai)'}\n• ${c.substyles_count} žanras${c.substyles_count === 1 ? '' : c.substyles_count > 1 && c.substyles_count < 10 ? 'ai' : 'ų'}\n• ${c.tracks_count} dainų DB${c.has_peak ? '\n• Peak chart pos.' : ''}${c.has_certifications ? '\n• Sertifikacijos' : ''}`
-                  : `Trūksta:\n${missing.map(m => '• '+m).join('\n')}\n\nDB turi:\n• ${c.tracks_count} dainų${c.has_cover ? '\n• Viršelis' : ''}${c.has_year ? '\n• Leidimo data' : ''}${c.substyles_count > 0 ? `\n• ${c.substyles_count} žanras` : ''}${c.has_peak ? '\n• Peak chart' : ''}${c.has_certifications ? '\n• Sertifikacijos' : ''}`
-                return missing.length === 0 ? (
-                  <span className="text-[10px] font-semibold text-emerald-600 shrink-0" title={tooltip}>✓ kompletas</span>
-                ) : (
-                  <span className="text-[10px] font-semibold text-amber-700 shrink-0" title={tooltip}>⚠ trūksta {missing.length}</span>
-                )
+                const totalIssues = missingMeta.length + incompleteTracks.length
+                if (c.fully_complete && totalIssues === 0) {
+                  const tooltip = `Albumas pilnas (visi laukai + visos dainos):\n• Viršelis ✓\n• Leidimo data ${c.has_full_date ? '(pilna)' : '(tik metai)'}\n• ${c.substyles_count} žanras\n• ${c.tracks_count} dainų — visos pilnos`
+                  return <span className="text-[10px] font-semibold text-emerald-600 shrink-0" title={tooltip}>✓ kompletas</span>
+                }
+                const tooltipParts: string[] = []
+                if (missingMeta.length > 0) tooltipParts.push('Album'+"'"+'as: '+missingMeta.join(', '))
+                if (incompleteTracks.length > 0) {
+                  const sample = incompleteTracks.slice(0, 5).map(t => `• ${t.title} (${t.missing.join(', ')})`).join('\n')
+                  const more = incompleteTracks.length > 5 ? `\n  …ir dar ${incompleteTracks.length - 5}` : ''
+                  tooltipParts.push(`${incompleteTracks.length} dainos nepilnos:\n${sample}${more}`)
+                }
+                return <span className="text-[10px] font-semibold text-amber-700 shrink-0" title={tooltipParts.join('\n\n')}>⚠ trūksta {totalIssues}</span>
               })()}
               {it.error && <span className="text-[10px] text-red-400 shrink-0" title={it.error}>klaida</span>}
             </div>
@@ -2152,6 +2175,48 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             ) : !it.tracks?.length ? (
               <div className="text-xs text-gray-400 py-1">Dainų nerasta. Spausk „info" mygtuką kad parsisiųstum.</div>
             ) : (
+              <>
+                {/* Bulk "Wiki-only" pažymėjimas — rodomas tik enrich mode'e
+                    (album.duplicate=true), kai trackDuplicateMap jau patikrintas
+                    ir egzistuoja bent 1 Wiki track be DB match'o.
+                    Vienu klikiu apima visus tinkamus + naujas import'ui. */}
+                {it.duplicate && it.trackDuplicateMap && (() => {
+                  const wikiOnly = it.tracks.filter(t => !it.trackDuplicateMap?.[t.title.toLowerCase()])
+                  if (wikiOnly.length === 0) return null
+                  const checkedSet = selectedNewTracks[i] || new Set<string>()
+                  const allChecked = wikiOnly.every(t => checkedSet.has(t.title.toLowerCase()))
+                  return (
+                    <div className="flex items-center justify-between gap-2 mb-1.5 pb-1.5 border-b border-gray-100 text-[11px]">
+                      <span className="text-gray-500">
+                        {wikiOnly.length} dainų tik Wiki (DB neturi)
+                      </span>
+                      <button type="button"
+                        onClick={e => {
+                          e.stopPropagation()
+                          setSelectedNewTracks(prev => {
+                            if (allChecked) {
+                              // Atžymėti visas
+                              const cur = new Set(prev[i] || [])
+                              for (const t of wikiOnly) cur.delete(t.title.toLowerCase())
+                              return { ...prev, [i]: cur }
+                            } else {
+                              // Pažymėti visas Wiki-only
+                              const cur = new Set(prev[i] || [])
+                              for (const t of wikiOnly) cur.add(t.title.toLowerCase())
+                              return { ...prev, [i]: cur }
+                            }
+                          })
+                        }}
+                        className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                          allChecked
+                            ? 'text-violet-600 bg-violet-50 hover:bg-violet-100'
+                            : 'text-violet-600 hover:bg-violet-50 border border-violet-200'
+                        }`}>
+                        {allChecked ? '☑ Visos pažymėtos — atžymėti' : `☐ Pažymėti visas ${wikiOnly.length}`}
+                      </button>
+                    </div>
+                  )
+                })()}
               <div className="space-y-0.5 max-h-48 overflow-y-auto">
                 {it.tracks.map((t, ti) => {
                   // mapLoaded: ar jau patikrinom DB (skirtumas tarp "loading"
@@ -2159,6 +2224,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   // be match'o atrodydavo nepatikrinti.
                   const mapLoaded = it.trackDuplicateMap !== undefined
                   const trackDupId = it.trackDuplicateMap?.[t.title.toLowerCase()]
+                  // Per-track completeness state — ieškom DB track'o pagal ID
+                  // it.completeness.tracks masyve. Jei nerasta (nematched arba
+                  // completeness dar nefetch'inta) — badge'as nerodomas.
+                  const trackComplete = trackDupId
+                    ? it.completeness?.tracks.find(tc => tc.id === trackDupId)
+                    : null
                   return (
                   <div key={ti} className="flex items-center gap-2 py-0.5">
                     <div className="flex items-center justify-end gap-0.5 w-5 shrink-0">
@@ -2214,10 +2285,22 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                     {t.type === 'live' && <span className="text-[9px] text-blue-400 shrink-0 font-medium">live</span>}
                     {t.type === 'remix' && <span className="text-[9px] text-purple-400 shrink-0 font-medium">remix</span>}
                     {t.type === 'covers' && <span className="text-[9px] text-orange-400 shrink-0 font-medium">cover</span>}
+                    {/* Per-track completeness — toks pats ✓/⚠ pattern'as kaip
+                        album'o lygyje. Reikalingi laukai: video_url, release_year,
+                        lyrics (be lyrics OK jei type=instrumental). Tooltip
+                        listinguoja kas tiksliai trūksta. */}
+                    {trackComplete && (
+                      trackComplete.complete ? (
+                        <span className="text-[9px] font-semibold text-emerald-600 shrink-0" title="Daina pilna: yra video, leidimo data, žodžiai (arba instrumental).">✓</span>
+                      ) : (
+                        <span className="text-[9px] font-semibold text-amber-700 shrink-0" title={`Trūksta: ${trackComplete.missing.join(', ')}`}>⚠ {trackComplete.missing.length}</span>
+                      )
+                    )}
                     {t.duration && <span className="text-[10px] text-gray-300 shrink-0">{t.duration}</span>}
                   </div>
                 )})}
               </div>
+              </>
             )}
           </div>
         )}

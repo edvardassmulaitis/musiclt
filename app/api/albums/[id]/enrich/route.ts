@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { matchGenreToSubstyle, type SubstyleRow } from '@/lib/genre-match'
 import { slugify } from '@/lib/slugify'
+import { computeAlbumCompleteness } from '@/lib/album-completeness'
 
 // PATCH /api/albums/[id]/enrich — Wiki "overlay" enrich endpoint.
 //
@@ -273,30 +274,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // ── COMPLETENESS state — frontend rodys ✓/⚠ badge be papildomo fetch'o ──
-  // Re-fetch: po visų update'ų ir track create'ų — kas dabar DB yra.
-  const { data: post } = await sb
-    .from('albums')
-    .select('cover_image_url, year, month, day, peak_chart_position, certifications')
-    .eq('id', albumId)
-    .single()
-  const { data: subPost } = await sb
-    .from('album_substyles')
-    .select('substyle_id', { count: 'exact', head: false })
-    .eq('album_id', albumId)
-  const { data: linksPost } = await sb
-    .from('album_tracks')
-    .select('track_id', { count: 'exact', head: false })
-    .eq('album_id', albumId)
-
-  const completeness = {
-    has_cover: !!post?.cover_image_url,
-    has_year: !!post?.year,
-    has_full_date: !!(post?.year && post?.month && post?.day),
-    has_peak: post?.peak_chart_position != null,
-    has_certifications: Array.isArray(post?.certifications) && post.certifications.length > 0,
-    substyles_count: (subPost || []).length,
-    tracks_count: (linksPost || []).length,
-  }
+  // Shared helper apibūdina album + per-track pilnatvą. Žr. lib/album-completeness.
+  const completeness = await computeAlbumCompleteness(sb, albumId)
 
   return NextResponse.json({ ok: true, applied, completeness })
 }
