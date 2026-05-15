@@ -864,6 +864,18 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   }, [substylesList.length])
   const [songs, setSongs] = useState<SingleSongItem[]>([])
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
+  // Wiki single aliases + ignores (per atlikėjas). Aliases pažymi konkretų
+  // Wiki single title kaip jau egzistuojantį tracker'į (pvz „Angel" → „Angel
+  // in the Snow"). Ignores paslepia Wiki single suggestions ateičiai.
+  const [wikiAliases, setWikiAliases] = useState<Record<string, { trackId: number; trackTitle: string }>>({})
+  const [wikiIgnores, setWikiIgnores] = useState<Set<string>>(new Set())
+  // allArtistTracks — Map<lowercased_title, { id, title }> šio atlikėjo trackų,
+  // naudojamas fuzzy match'e ir alias picker'yje. Užkraunamas handleSearch'e.
+  const [allArtistTracks, setAllArtistTracks] = useState<Map<string, { id: number; title: string }>>(new Map())
+  // Alias linking state — kuris Wiki single title šiuo metu link'inamas
+  // (atidaro inline picker'į).
+  const [linkAliasFor, setLinkAliasFor] = useState<string | null>(null)
+  const [aliasPickerQuery, setAliasPickerQuery] = useState('')
   // Pending music.lt-only records — gauti iš DB, ne iš Wiki. Rodom kaip
   // 4-tą tab'ą su Patvirtinti/Trinti action'ais.
   const [pendingAlbums, setPendingAlbums] = useState<PendingAlbum[]>([])
@@ -1210,17 +1222,32 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     const albumsF = foundAlbums.map(it => { const k = it.title.toLowerCase(); return albumDups[k] ? { ...it, duplicate: true, duplicateId: albumDups[k] } : it })
     // Fuzzy matching: singlo pavadinimas gali nesutapti tiksliai su treko pavadinimu
     // pvz. "Flash" singlas vs "Flash's Theme" trackas DB'e
-    // Papildomai: gauti visus atlikėjo trackus trumpais pavadinimais (singlų matching'ui)
-    let allArtistTracks: Record<string, number> = {}
+    // Papildomai: gauti visus atlikėjo trackus + Wiki meta (aliases, ignores)
+    // — visi trys užklausimai paraleliniai.
+    const tracksMap = new Map<string, { id: number; title: string }>()
+    let metaAliases: Record<string, { trackId: number; trackTitle: string }> = {}
+    let metaIgnores: string[] = []
     try {
-      const allT = await fetch(`/api/tracks?artist_id=${artistId}&limit=500`)
-      if (allT.ok) {
-        const allTData = await allT.json()
+      const [allTRes, metaRes] = await Promise.all([
+        fetch(`/api/tracks?artist_id=${artistId}&limit=500`),
+        fetch(`/api/admin/wiki-meta?artist_id=${artistId}`),
+      ])
+      if (allTRes.ok) {
+        const allTData = await allTRes.json()
         for (const t of (allTData.tracks || [])) {
-          allArtistTracks[t.title.toLowerCase()] = t.id
+          tracksMap.set(t.title.toLowerCase(), { id: t.id, title: t.title })
         }
       }
+      if (metaRes.ok) {
+        const metaData = await metaRes.json()
+        metaAliases = metaData.aliases || {}
+        metaIgnores = metaData.ignores || []
+      }
     } catch {}
+    setAllArtistTracks(tracksMap)
+    setWikiAliases(metaAliases)
+    const ignoresSet = new Set(metaIgnores)
+    setWikiIgnores(ignoresSet)
 
     // Punktuacijos-agnostiškas normalizatorius — kad „Maybe Maybe" suderintų su
     // „Maybe, Maybe" (kablelis), „St. Anger" su „St Anger" (taškas), „I'm Yours"
@@ -1231,30 +1258,37 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       .replace(/\s+/g, ' ')
       .trim()
 
-    const songsF = foundSongs.map(s => {
-      const k = s.title.toLowerCase()
-      if (songDups[k]) return { ...s, duplicate: true, duplicateId: songDups[k], selected: false }
-      // Fuzzy: dvi strategijos:
-      //  (1) punktuacijos-agnostiška equality — „Maybe Maybe" === „Maybe, Maybe"
-      //  (2) raw-lowercase prefix + suffix check — „Flash" → „Flash's Theme",
-      //      „Title" → „Title (Remix)". Naudojame raw formą, kad išvengtume
-      //      false positive'ų tipo „Walk" → „Walk On The Wild Side".
-      const normS = normTitle(s.title)
-      const rawS = k.replace(/['']/g, '')
-      const fuzzyMatch = Object.entries(allArtistTracks).find(([dbTitle]) => {
-        const normD = normTitle(dbTitle)
-        if (normD === normS) return true
-        const rawD = dbTitle.replace(/['']/g, '')
-        if (rawD === rawS) return true
-        if (!rawD.startsWith(rawS)) return false
-        const dbAfter = rawD.slice(rawS.length)
-        if (dbAfter.startsWith('s ') && !dbAfter.includes('reprise')) return true
-        if (dbAfter.startsWith(' (')) return true
-        return false
+    const songsF = foundSongs
+      // Pirmiausia atfiltruojam ignored Wiki singles — admin paspaud'a
+      // „Ignoruoti" prie suggestion'o, ir jis daugiau šio Wiki title nematys.
+      .filter(s => !ignoresSet.has(s.title))
+      .map(s => {
+        const k = s.title.toLowerCase()
+        if (songDups[k]) return { ...s, duplicate: true, duplicateId: songDups[k], selected: false }
+        // Manual alias check'as — admin'o markinta („Angel" → „Angel in the Snow")
+        const aliasHit = metaAliases[k]
+        if (aliasHit) return { ...s, duplicate: true, duplicateId: aliasHit.trackId, selected: false }
+        // Fuzzy: dvi strategijos:
+        //  (1) punktuacijos-agnostiška equality — „Maybe Maybe" === „Maybe, Maybe"
+        //  (2) raw-lowercase prefix + suffix check — „Flash" → „Flash's Theme",
+        //      „Title" → „Title (Remix)". Naudojame raw formą, kad išvengtume
+        //      false positive'ų tipo „Walk" → „Walk On The Wild Side".
+        const normS = normTitle(s.title)
+        const rawS = k.replace(/['']/g, '')
+        let fuzzyHit: { id: number; title: string } | null = null
+        for (const [dbKey, dbInfo] of tracksMap) {
+          const normD = normTitle(dbKey)
+          if (normD === normS) { fuzzyHit = dbInfo; break }
+          const rawD = dbKey.replace(/['']/g, '')
+          if (rawD === rawS) { fuzzyHit = dbInfo; break }
+          if (!rawD.startsWith(rawS)) continue
+          const dbAfter = rawD.slice(rawS.length)
+          if (dbAfter.startsWith('s ') && !dbAfter.includes('reprise')) { fuzzyHit = dbInfo; break }
+          if (dbAfter.startsWith(' (')) { fuzzyHit = dbInfo; break }
+        }
+        if (fuzzyHit) return { ...s, duplicate: true, duplicateId: fuzzyHit.id, selected: false }
+        return { ...s, selected: false }
       })
-      if (fuzzyMatch) return { ...s, duplicate: true, duplicateId: fuzzyMatch[1] as number, selected: false }
-      return { ...s, selected: false }
-    })
 
     setArtistGroups([])
     setItems(albumsF)
@@ -1690,6 +1724,46 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
   const toggleSong = (title: string) => setSongs(p => p.map(s => s.title === title && !s.duplicate && !s.imported ? { ...s, selected: !s.selected } : s))
   const selectAllSongs = (val: boolean) => setSongs(p => p.map(s => s.duplicate || s.imported ? s : { ...s, selected: val }))
+
+  // ── Wiki single alias / ignore action'ai ───────────────────────────────────
+  // Susieti: admin'as pažymi, kad konkretus Wiki single title atitinka esamą
+  // DB tracker'į (pvz „Angel" Wiki single = „Angel in the Snow" DB tracker'is).
+  // Saugoma `tracks.wiki_aliases[]` lentelėje. Po to ateities import'uose
+  // šis suggestion automatiškai bus markinamas kaip „jau yra".
+  const linkAlias = async (songTitle: string, trackId: number, trackTitle: string) => {
+    try {
+      const res = await fetch('/api/admin/wiki-meta/alias', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: trackId, alias: songTitle }),
+      })
+      if (!res.ok) { addLog(`✗ Susiejimas nepavyko: ${songTitle}`); return }
+      // Lokalus update'as — pažymėti kaip duplicate
+      setWikiAliases(p => ({ ...p, [songTitle.toLowerCase()]: { trackId, trackTitle } }))
+      setSongs(p => p.map(s => s.title === songTitle ? { ...s, duplicate: true, duplicateId: trackId, selected: false } : s))
+      setLinkAliasFor(null); setAliasPickerQuery('')
+      addLog(`🔗 ${songTitle} → ${trackTitle}`)
+    } catch (e: any) {
+      addLog(`✗ Susiejimo klaida: ${e?.message || ''}`)
+    }
+  }
+
+  // Ignoruoti: admin'as pažymi, kad Wiki single suggestion'as neaktualus —
+  // ateities import'uose jis nebebus rodomas. Saugoma `wiki_single_ignores`
+  // lentelėje (artist_id, wiki_title) primary key.
+  const ignoreWikiSong = async (songTitle: string) => {
+    try {
+      const res = await fetch('/api/admin/wiki-meta/ignore', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artist_id: artistId, wiki_title: songTitle }),
+      })
+      if (!res.ok) { addLog(`✗ Ignoravimas nepavyko: ${songTitle}`); return }
+      setWikiIgnores(p => { const next = new Set(p); next.add(songTitle); return next })
+      setSongs(p => p.filter(s => s.title !== songTitle))
+      addLog(`🚫 Ignoruoti: ${songTitle}`)
+    } catch (e: any) {
+      addLog(`✗ Ignoravimo klaida: ${e?.message || ''}`)
+    }
+  }
 
   const closeModal = () => {
     if (importing) {
@@ -2184,12 +2258,70 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                     {song.duplicate && song.duplicateId && (
                                       <a href={`/admin/tracks/${song.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
                                     )}
+                                    {/* Alias / Ignore action'ai — tik tikriems naujiems singles */}
+                                    {!song.duplicate && !song.imported && !song.importing && (
+                                      <div className="flex items-center gap-2 mt-0.5" onClick={e => e.stopPropagation()}>
+                                        <button
+                                          type="button"
+                                          onClick={e => { e.stopPropagation(); setLinkAliasFor(song.title); setAliasPickerQuery('') }}
+                                          className="text-[10px] text-blue-500 hover:underline"
+                                          title="Pažymėti, kad šis Wiki single atitinka esamą DB daina (pvz Angel = Angel in the Snow)"
+                                        >🔗 susieti su daina</button>
+                                        <button
+                                          type="button"
+                                          onClick={e => { e.stopPropagation(); ignoreWikiSong(song.title) }}
+                                          className="text-[10px] text-gray-400 hover:text-red-500 hover:underline"
+                                          title="Paslėpti šį Wiki suggestion'ą ateičiai"
+                                        >🚫 ignoruoti</button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               ))}
                             </div>
                           </div>
                         ))
+                      })()}
+                      {/* Alias picker — atidaromas paspaudus „susieti su daina" */}
+                      {linkAliasFor && (() => {
+                        const q = aliasPickerQuery.trim().toLowerCase()
+                        const matches = [...allArtistTracks.values()]
+                          .filter(t => !q || t.title.toLowerCase().includes(q))
+                          .slice(0, 30)
+                        return (
+                          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setLinkAliasFor(null)}>
+                            <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                              <div className="px-4 py-3 border-b">
+                                <div className="text-[11px] text-gray-500 mb-1">Wiki single</div>
+                                <div className="font-medium text-gray-900">{linkAliasFor}</div>
+                                <div className="text-[11px] text-gray-500 mt-2 mb-1">Susieti su esama daina:</div>
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={aliasPickerQuery}
+                                  onChange={e => setAliasPickerQuery(e.target.value)}
+                                  placeholder="Ieškoti dainos pavadinimo..."
+                                  className="w-full px-2.5 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                />
+                              </div>
+                              <div className="flex-1 overflow-y-auto px-2 py-1">
+                                {matches.length === 0 ? (
+                                  <div className="text-center text-[12px] text-gray-400 py-6">Nieko nerasta</div>
+                                ) : matches.map(t => (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => linkAlias(linkAliasFor, t.id, t.title)}
+                                    className="w-full text-left px-2.5 py-1.5 rounded hover:bg-violet-50 text-sm text-gray-900"
+                                  >{t.title}</button>
+                                ))}
+                              </div>
+                              <div className="px-4 py-2.5 border-t flex justify-end">
+                                <button type="button" onClick={() => setLinkAliasFor(null)} className="text-[12px] text-gray-500 hover:text-gray-700">Atšaukti</button>
+                              </div>
+                            </div>
+                          </div>
+                        )
                       })()}
                     </>
                   )}
