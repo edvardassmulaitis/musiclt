@@ -224,7 +224,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (naErr) {
         // Lentelė gali dar neegzistuoti (jeigu migracija 20260515g neaplikuota).
         // Ne fail'inam — news jau publikuota, legacy artist_id/artist_id2 turi pagrindinius.
-        console.warn('[approve] news_artists insert failed (migration apply'd?):', naErr.message)
+        console.warn('[approve] news_artists insert failed (migration applied?):', naErr.message)
       }
     }
 
