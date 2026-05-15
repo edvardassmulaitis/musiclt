@@ -2061,8 +2061,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {/* Album completeness badge — rodoma jei completeness turim
                   (auto-fetch on expand DUPLICATE'ams + post-enrich response'e).
                   fully_complete = album metadata complete + visos dainos green.
-                  Jei kuri nors daina geltona — albumas geltonas. Tooltip rodo
-                  trūkstamų laukų sąrašą per album + count incomplete tracks. */}
+                  Inline rodom kas TIKSLIAI trūksta (ne tik count'ą), kad admin
+                  iš karto matytų — pvz "⚠ viršelis, 3 dainos". Detalus dainų
+                  problemu sąrašas — tooltip'e (top 5). */}
               {it.completeness && (() => {
                 const c = it.completeness
                 const incompleteTracks = c.tracks.filter(t => !t.complete)
@@ -2074,19 +2075,29 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 if (wikiTrackCount > 0 && c.tracks_count < wikiTrackCount) {
                   missingMeta.push(`${wikiTrackCount - c.tracks_count} dainos neprijungtos`)
                 }
-                const totalIssues = missingMeta.length + incompleteTracks.length
-                if (c.fully_complete && totalIssues === 0) {
+                if (c.fully_complete && missingMeta.length === 0 && incompleteTracks.length === 0) {
                   const tooltip = `Albumas pilnas (visi laukai + visos dainos):\n• Viršelis ✓\n• Leidimo data ${c.has_full_date ? '(pilna)' : '(tik metai)'}\n• ${c.substyles_count} žanras\n• ${c.tracks_count} dainų — visos pilnos`
                   return <span className="text-[10px] font-semibold text-emerald-600 shrink-0" title={tooltip}>✓ kompletas</span>
                 }
-                const tooltipParts: string[] = []
-                if (missingMeta.length > 0) tooltipParts.push('Album'+"'"+'as: '+missingMeta.join(', '))
+                // Trūkumų label'as: inline'inam visus meta + dainų count.
+                // Pvz "⚠ viršelis, 3 dainos" arba "⚠ viršelis, žanrai".
+                const inlineParts: string[] = [...missingMeta]
                 if (incompleteTracks.length > 0) {
-                  const sample = incompleteTracks.slice(0, 5).map(t => `• ${t.title} (${t.missing.join(', ')})`).join('\n')
+                  inlineParts.push(`${incompleteTracks.length} ${incompleteTracks.length === 1 ? 'daina' : 'dainos'}`)
+                }
+                const tooltipParts: string[] = []
+                if (missingMeta.length > 0) tooltipParts.push('Album'+"'"+'as trūksta: ' + missingMeta.join(', '))
+                if (incompleteTracks.length > 0) {
+                  const ltLabel = (k: string) => k === 'video' ? 'video' : k === 'data' ? 'data' : k === 'lyrics' ? 'žodžiai' : k
+                  const sample = incompleteTracks.slice(0, 5).map(t => `• ${t.title} (${t.missing.map(ltLabel).join(', ')})`).join('\n')
                   const more = incompleteTracks.length > 5 ? `\n  …ir dar ${incompleteTracks.length - 5}` : ''
                   tooltipParts.push(`${incompleteTracks.length} dainos nepilnos:\n${sample}${more}`)
                 }
-                return <span className="text-[10px] font-semibold text-amber-700 shrink-0" title={tooltipParts.join('\n\n')}>⚠ trūksta {totalIssues}</span>
+                return (
+                  <span className="text-[10px] font-semibold text-amber-700 shrink-0" title={tooltipParts.join('\n\n')}>
+                    ⚠ trūksta: {inlineParts.join(', ')}
+                  </span>
+                )
               })()}
               {it.error && <span className="text-[10px] text-red-400 shrink-0" title={it.error}>klaida</span>}
             </div>
@@ -2287,14 +2298,21 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                     {t.type === 'covers' && <span className="text-[9px] text-orange-400 shrink-0 font-medium">cover</span>}
                     {/* Per-track completeness — toks pats ✓/⚠ pattern'as kaip
                         album'o lygyje. Reikalingi laukai: video_url, release_year,
-                        lyrics (be lyrics OK jei type=instrumental). Tooltip
-                        listinguoja kas tiksliai trūksta. */}
+                        lyrics (be lyrics OK jei type=instrumental). Rodom KAS
+                        tiksliai trūksta inline (ne tik count'ą), kad admin'ui
+                        nereikėtų hover'inti tooltip'o kiekvienai dainai. LT
+                        labels: video, data, žodžiai. */}
                     {trackComplete && (
                       trackComplete.complete ? (
                         <span className="text-[9px] font-semibold text-emerald-600 shrink-0" title="Daina pilna: yra video, leidimo data, žodžiai (arba instrumental).">✓</span>
-                      ) : (
-                        <span className="text-[9px] font-semibold text-amber-700 shrink-0" title={`Trūksta: ${trackComplete.missing.join(', ')}`}>⚠ {trackComplete.missing.length}</span>
-                      )
+                      ) : (() => {
+                        const ltLabel = (k: string) => k === 'video' ? 'video' : k === 'data' ? 'data' : k === 'lyrics' ? 'žodžiai' : k
+                        return (
+                          <span className="text-[9px] font-semibold text-amber-700 shrink-0" title={`Trūksta: ${trackComplete.missing.map(ltLabel).join(', ')}`}>
+                            ⚠ {trackComplete.missing.map(ltLabel).join(', ')}
+                          </span>
+                        )
+                      })()
                     )}
                     {t.duration && <span className="text-[10px] text-gray-300 shrink-0">{t.duration}</span>}
                   </div>
@@ -2420,9 +2438,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               <div className="flex items-center justify-between px-2.5 sm:px-5 py-1.5 sm:py-2 border-b border-gray-100 bg-white/95 backdrop-blur-sm shrink-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-gray-400">
-                  {activeTab === 'studio' && `${studioItems.filter(({it})=>!it.duplicate&&!it.imported).length} naujų`}
-                  {activeTab === 'other' && `${otherItems.filter(({it})=>!it.duplicate&&!it.imported).length} naujų`}
-                  {activeTab === 'singles' && `${songNewCount} naujų`}
+                  {(() => {
+                    if (activeTab === 'singles') return `${songNewCount} naujų`
+                    const list = activeTab === 'studio' ? studioItems : otherItems
+                    const newCount = list.filter(({it}) => !it.duplicate && !it.imported).length
+                    const dupCount = list.filter(({it}) => it.duplicate && !it.imported).length
+                    const parts: string[] = []
+                    if (newCount > 0) parts.push(`${newCount} nauji`)
+                    if (dupCount > 0) parts.push(`${dupCount} papildyti`)
+                    return parts.length ? parts.join(' + ') : 'viskas importuota'
+                  })()}
                   </span>
                   {/* Legend per checkbox spalvas — admin clarity:
                       ↻ enrich = papildo trūkstamus laukus, nieko netrina;
@@ -2446,9 +2471,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 </div>
                 <div className="flex items-center gap-3 text-xs">
                   {(activeTab === 'studio' || activeTab === 'other') && (<>
+                    {/* 2026-05-15 fix: bulk select dabar APIMA duplicate'us
+                        (kad enrich flow'as juos paimtų), ne tik new items.
+                        Anksčiau atlikėjui kaip Queen kur visi 15 albumų yra
+                        duplicate'ai (music.lt scrape'inti) — Pasirinkti visus
+                        select'indavo 0, nes filter'as juos atmesdavo. */}
                     <button onClick={() => {
-                      if (activeTab === 'studio') setSelected(new Set(studioItems.filter(({it})=>!it.duplicate&&!it.imported).map(({i})=>i)))
-                      else setSelected(p => { const s = new Set(p); otherItems.filter(({it})=>!it.duplicate&&!it.imported).forEach(({i})=>s.add(i)); return s })
+                      const list = activeTab === 'studio' ? studioItems : otherItems
+                      const eligible = list.filter(({it}) => !it.imported).map(({i}) => i)
+                      if (activeTab === 'studio') setSelected(new Set(eligible))
+                      else setSelected(p => { const s = new Set(p); eligible.forEach(idx => s.add(idx)); return s })
                     }} className="text-violet-600 hover:underline">Pasirinkti visus</button>
                     <button onClick={() => {
                       if (activeTab === 'studio') setSelected(p => { const s = new Set(p); studioItems.forEach(({i}) => s.delete(i)); return s })
