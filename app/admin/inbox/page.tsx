@@ -260,25 +260,20 @@ export default function AdminInboxPage() {
               const artists = cand.suggested_artists || []
               const hasMatch = artists.length > 0
 
+              // Mobile-first: rodome max 3 artist chips, likusius — kaip "+N"
+              const visibleArtists = artists.slice(0, 3)
+              const extraArtistsCount = Math.max(0, artists.length - 3)
+
               return (
                 <div
                   key={cand.id}
                   className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl overflow-hidden hover:shadow-sm transition-shadow">
-                  {/* Top row */}
-                  <div className="flex gap-4 p-4">
-                    {/* Thumb */}
-                    {cand.suggested_image_url ? (
-                      <img
-                        src={cand.suggested_image_url}
-                        alt=""
-                        className="w-20 h-20 rounded-xl object-cover shrink-0 bg-[var(--bg-elevated)]"
-                        onError={e => ((e.target as HTMLImageElement).style.display = 'none')}
-                      />
-                    ) : (
-                      <div className="w-20 h-20 rounded-xl bg-[var(--bg-elevated)] shrink-0 flex items-center justify-center text-3xl">
-                        {catMeta?.icon || '📰'}
-                      </div>
-                    )}
+                  {/* Top row — be source image (copyright). Mažesnis category icon
+                     placeholder'is mobile'e, kad daugiau erdvės title'ui */}
+                  <div className="flex gap-3 p-3 sm:gap-4 sm:p-4">
+                    <div className="hidden sm:flex w-20 h-20 rounded-xl bg-[var(--bg-elevated)] shrink-0 items-center justify-center text-3xl">
+                      {catMeta?.icon || '📰'}
+                    </div>
 
                     {/* Body */}
                     <div className="flex-1 min-w-0">
@@ -312,20 +307,25 @@ export default function AdminInboxPage() {
                         )}
                       </div>
 
-                      <h2 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-2">
+                      {/* Title — tap to expand'ina peržiūrą */}
+                      <h2
+                        onClick={() => toggleExpand(cand.id)}
+                        className="font-bold text-[var(--text-primary)] text-base sm:text-base leading-snug mb-2 cursor-pointer">
                         {cand.ai_title}
                       </h2>
 
                       {cand.ai_summary && (
-                        <p className="text-sm text-[var(--text-muted)] line-clamp-2 mb-3">
+                        <p
+                          onClick={() => toggleExpand(cand.id)}
+                          className="text-sm text-[var(--text-muted)] line-clamp-3 sm:line-clamp-2 mb-3 cursor-pointer">
                           {cand.ai_summary}
                         </p>
                       )}
 
-                      {/* Artist chips */}
+                      {/* Artist chips — max 3 visible, likusius "+N" */}
                       {hasMatch ? (
                         <div className="flex flex-wrap gap-1.5 mb-3">
-                          {artists.map(a => (
+                          {visibleArtists.map(a => (
                             <Link
                               key={a.id}
                               href={`/atlikejai/${a.slug}`}
@@ -340,6 +340,11 @@ export default function AdminInboxPage() {
                               <span className="text-[10px] text-blue-500 font-normal">❤ {formatLikes(a.legacy_likes)}</span>
                             </Link>
                           ))}
+                          {extraArtistsCount > 0 && (
+                            <span className="inline-flex items-center px-2 py-1 bg-[var(--bg-elevated)] rounded-full text-xs text-[var(--text-muted)]">
+                              +{extraArtistsCount}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <div className="mb-3">
@@ -355,31 +360,27 @@ export default function AdminInboxPage() {
                         </div>
                       )}
 
-                      {/* Actions */}
-                      <div className="flex flex-wrap items-center gap-2">
+                      {/* Actions — mobile: 2 primary big buttons + secondary row */}
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleAction(cand.id, 'approve')}
                           disabled={busy === cand.id}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
+                          className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
                           {busy === cand.id ? '...' : '✓ Patvirtinti'}
-                        </button>
-                        <button
-                          onClick={() => openEdit(cand)}
-                          disabled={busy === cand.id}
-                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors">
-                          ✎ Redaguoti
-                        </button>
-                        <button
-                          onClick={() => toggleExpand(cand.id)}
-                          className="px-3 py-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm text-[var(--text-secondary)]">
-                          {isExpanded ? '▴ Sutraukti' : '▾ Peržiūrėti'}
                         </button>
                         <button
                           onClick={(e) => handleReject(cand.id, e)}
                           disabled={busy === cand.id}
                           title="Atmesti (alt+click → su priežastimi)"
-                          className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium disabled:opacity-50">
+                          className="flex-1 sm:flex-none px-4 py-2 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 rounded-lg text-sm font-bold disabled:opacity-50">
                           ✗ Atmesti
+                        </button>
+                        <button
+                          onClick={() => openEdit(cand)}
+                          disabled={busy === cand.id}
+                          aria-label="Redaguoti"
+                          className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors">
+                          ✎
                         </button>
                       </div>
                     </div>

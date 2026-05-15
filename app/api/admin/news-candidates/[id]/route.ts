@@ -96,12 +96,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (action === 'reject') {
+    // reviewed_by laikinai NEpaduodamas — column yra INTEGER, o session.user.id
+    // yra UUID iš Supabase Auth. Po migracijos 20260515f (ALTER TO UUID) bus
+    // galima atgal pridėti audit trail'ą.
     const { error } = await supabase
       .from('news_candidates')
       .update({
         status: 'rejected',
         reviewed_at: new Date().toISOString(),
-        reviewed_by: (session.user as any).id || null,
         reject_reason: (body.reason || '').slice(0, 500),
       })
       .eq('id', candidateId)
@@ -245,16 +247,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    // Mark candidate approved
-    await supabase
+    // Mark candidate approved. reviewed_by laikinai NEpaduodamas — column yra
+    // INTEGER, o session.user.id yra UUID. Anksčiau šis update silent fail'indavo,
+    // dėl ko approved candidate'ai likdavo 'pending' ir grįždavo į inbox'ą po refresh.
+    const { error: candUpdErr } = await supabase
       .from('news_candidates')
       .update({
         status: 'approved',
         reviewed_at: new Date().toISOString(),
-        reviewed_by: (session.user as any).id || null,
         published_news_id: created.id,
       })
       .eq('id', candidateId)
+    if (candUpdErr) {
+      // News jau publikuotos — log'inam, bet ne fail'inam (geriau dublikatas inbox'e
+      // nei prarasta publikuota naujiena).
+      console.error('[approve] candidate status update failed:', candUpdErr.message)
+    }
 
     return NextResponse.json({
       ok: true,
