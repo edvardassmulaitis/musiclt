@@ -1786,7 +1786,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   // ── UI helpers ─────────────────────────────────────────────────────────────
 
   const toggleSelect = (i: number) => {
-    if (items[i]?.duplicate || items[i]?.imported) return
+    // 2026-05-15 redesign: duplikatai turi būti toggleable (enrich logic'a),
+    // tik already-imported skipinam.
+    if (items[i]?.imported) return
     setSelected(p => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s })
   }
 
@@ -1999,29 +2001,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       Wiki ↗
                     </a>
                   )}
-                  <button
-                    type="button"
-                    onClick={async e => {
-                      e.stopPropagation()
-                      if (!it.duplicateId) return
-                      if (!window.confirm(`Trinti "${it.title}" + visas šio albumo dainas (jei jos nepriklauso kitiems albumams)? Šis veiksmas leis iš naujo importuoti su naujausiu parser'iu.`)) return
-                      try {
-                        const res = await fetch(`/api/albums/${it.duplicateId}?deleteTracks=true`, { method: 'DELETE' })
-                        if (!res.ok) {
-                          alert(`Trynimas nepavyko: ${res.status}`)
-                          return
-                        }
-                        setItems(p => p.map((x, idx) => idx === i ? { ...x, duplicate: false, duplicateId: undefined, fetched: false, tracks: undefined, imported: false } : x))
-                        addLog(`🗑 ${it.title} ištrintas — galima re-importuoti`)
-                      } catch (err: any) {
-                        alert(`Klaida: ${err?.message || err}`)
-                      }
-                    }}
-                    className="text-[10px] text-rose-500 hover:underline hover:text-rose-700"
-                    title="DESTRUCTIVE: ištrinti album'ą + dainas iš DB. Naudok kai nori re-importuoti scrape rezultatą per naujausią parser'į (NE tik Wiki enrich)."
-                  >
-                    trinti+atkurti
-                  </button>
                 </>
               )}
               {!it.duplicate && it.wikiTitle && (
@@ -2074,6 +2053,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             ) : (
               <div className="space-y-0.5 max-h-48 overflow-y-auto">
                 {it.tracks.map((t, ti) => {
+                  // mapLoaded: ar jau patikrinom DB (skirtumas tarp "loading"
+                  // ir "patikrinta, no match"). Be šito visi naujieji tracks
+                  // be match'o atrodydavo nepatikrinti.
+                  const mapLoaded = it.trackDuplicateMap !== undefined
                   const trackDupId = it.trackDuplicateMap?.[t.title.toLowerCase()]
                   return (
                   <div key={ti} className="flex items-center gap-2 py-0.5">
@@ -2099,11 +2082,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         )}
                       </span>
                     )}
-                    {/* Match status badge — enrich vs new */}
-                    {trackDupId !== undefined && (
+                    {/* Match status badge — enrich vs new (rodom TIK kai map jau patikrinta) */}
+                    {mapLoaded && (
                       trackDupId
-                        ? <span className="text-[9px] text-amber-600 shrink-0 font-semibold" title="Daina jau yra DB — bus enrich'inta su Wiki info">↻</span>
-                        : <span className="text-[9px] text-violet-500 shrink-0 font-semibold" title="Daina nauja Wiki — kursime jei album'as ne dup">+</span>
+                        ? <span className="text-[9px] text-amber-600 shrink-0 font-semibold" title="Daina jau yra DB — bus enrich'inta su Wiki info">↻ enrich</span>
+                        : <span className="text-[9px] text-violet-500 shrink-0 font-semibold" title="Daina nauja Wiki — kursime jei album'as ne dup">+ naujas</span>
                     )}
                     {t.type === 'instrumental' && <span className="text-[9px] text-gray-400 shrink-0 font-medium">instr.</span>}
                     {t.type === 'live' && <span className="text-[9px] text-blue-400 shrink-0 font-medium">live</span>}
