@@ -49,6 +49,10 @@ export type DiscographyItem = {
   duplicate?: boolean
   duplicateId?: number
   error?: string
+  /** Track-level duplicate cache — naudoja WikipediaImportDiscography
+   *  per nested expand. {lower(track_title) → modern_track_id}.
+   *  Pildoma per toggleExpand → checkTrackDuplicates(album.tracks, artistId). */
+  trackDuplicateMap?: Record<string, number>
 }
 
 export type TrackEntry = {
@@ -1161,13 +1165,19 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
         const LIVE_RE = /(?:^|[\s(,\-])live(?:\s+(?:at|from|in|on|version|recording|performance|cut|take))?(?:[\s),\-.]|$)|recorded\s+live\b/i
         const COVER_RE = /(?:^|[\s(,\-])covers?(?:\s+(?:of|version))?(?:[\s),\-.]|$)|cover\s+version\b/i
         const REMIX_RE = /\bremix(?:\s+version)?\b/i
+        // Title-level checkai — TIK kai "live"/"remix" yra **viduje skliaustelių**
+        // (note convention: "Bohemian Rhapsody (Live at Wembley)"). Anksčiau
+        // bare LIVE_RE.test(titleLower) match'indavo "Let Me Live", "Live and
+        // Let Die" — tracks su žodžiu "live" pavadinime, NE live versija.
+        const TITLE_LIVE_RE = /\([^)]*\blive\b[^)]*\)/i
+        const TITLE_REMIX_RE = /\([^)]*\bremix\b[^)]*\)/i
         const titleLower = finalTitle.toLowerCase()
         let trackType: TrackEntry['type'] = 'normal'
-        if (/\binstrumental\b/.test(stripped) || /\binstrumental\b/.test(titleLower)) trackType = 'instrumental'
-        else if (LIVE_RE.test(stripped) || LIVE_RE.test(titleLower)) trackType = 'live'
-        else if (REMIX_RE.test(stripped) || REMIX_RE.test(titleLower)) trackType = 'remix'
+        if (/\binstrumental\b/.test(stripped) || /\(.*instrumental.*\)/i.test(titleLower)) trackType = 'instrumental'
+        else if (LIVE_RE.test(stripped) || TITLE_LIVE_RE.test(titleLower)) trackType = 'live'
+        else if (REMIX_RE.test(stripped) || TITLE_REMIX_RE.test(titleLower)) trackType = 'remix'
         else if (COVER_RE.test(stripped)) trackType = 'covers'
-        else if (/\bmashup\b/.test(stripped) || /\bmashup\b/.test(titleLower)) trackType = 'mashup'
+        else if (/\bmashup\b/.test(stripped) || /\(.*mashup.*\)/i.test(titleLower)) trackType = 'mashup'
         // Singles release date — jei šis track yra single, pakabinam datą iš
         // albumo {{Singles}} infobox'o (single1date / single2date / ...). Tai
         // leidžia album import flow'ui automatiškai užpildyti tracks.release_*

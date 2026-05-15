@@ -1898,10 +1898,23 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   }
 
   const toggleExpand = async (i: number) => {
-    setExpandedItems(p => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s })
-    if (!items[i].fetched && !expandedItems.has(i)) {
+    const willExpand = !expandedItems.has(i)
+    setExpandedItems(p => { const s = new Set(p); willExpand ? s.add(i) : s.delete(i); return s })
+    if (willExpand && !items[i].fetched) {
       await fetchDetails(i)
     }
+    // Track-level duplicate check — per nested rows rodom ↻ enrich vs + naujas.
+    // Daro vieną API call per album'ą (NE per track) ir cache'inam į items state.
+    setTimeout(() => {
+      setItems(p => {
+        const cur = p[i]
+        if (!willExpand || !cur || cur.trackDuplicateMap || !cur.tracks?.length) return p
+        checkTrackDuplicates(cur.tracks.map(t => t.title), artistId).then(dups => {
+          setItems(p2 => p2.map((x, idx) => idx === i ? { ...x, trackDuplicateMap: dups } : x))
+        })
+        return p
+      })
+    }, 0)
   }
 
   // ── Album row renderer ─────────────────────────────────────────────────────
@@ -1976,7 +1989,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               )}
               {it.duplicate && it.duplicateId && (
                 <>
-                  <a href={`/admin/albums/${it.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
+                  <a href={`/admin/albums/${it.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                    className="text-[10px] text-blue-500 hover:underline" title="Atidaryti album admin puslapyje">
+                    DB →
+                  </a>
+                  {it.wikiTitle && (
+                    <a href={`https://en.wikipedia.org/wiki/${encodeURIComponent(it.wikiTitle)}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                      className="text-[10px] text-emerald-600 hover:underline" title="Atidaryti Wikipedia album page'ą">
+                      Wiki ↗
+                    </a>
+                  )}
                   <button
                     type="button"
                     onClick={async e => {
@@ -1989,7 +2011,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                           alert(`Trynimas nepavyko: ${res.status}`)
                           return
                         }
-                        // Mark not-duplicate, clear cached tracks so fetchDetails refetches
                         setItems(p => p.map((x, idx) => idx === i ? { ...x, duplicate: false, duplicateId: undefined, fetched: false, tracks: undefined, imported: false } : x))
                         addLog(`🗑 ${it.title} ištrintas — galima re-importuoti`)
                       } catch (err: any) {
@@ -1997,11 +2018,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       }
                     }}
                     className="text-[10px] text-rose-500 hover:underline hover:text-rose-700"
-                    title="Ištrinti DB ir leisti re-importuoti su naujausiu parser'iu"
+                    title="DESTRUCTIVE: ištrinti album'ą + dainas iš DB. Naudok kai nori re-importuoti scrape rezultatą per naujausią parser'į (NE tik Wiki enrich)."
                   >
-                    atnaujinti ↻
+                    trinti+atkurti
                   </button>
                 </>
+              )}
+              {!it.duplicate && it.wikiTitle && (
+                <a href={`https://en.wikipedia.org/wiki/${encodeURIComponent(it.wikiTitle)}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                  className="text-[10px] text-emerald-600 hover:underline" title="Atidaryti Wikipedia album page'ą">
+                  Wiki ↗
+                </a>
               )}
             </div>
           </div>
@@ -2046,25 +2073,45 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               <div className="text-xs text-gray-400 py-1">Dainų nerasta. Spausk „info" mygtuką kad parsisiųstum.</div>
             ) : (
               <div className="space-y-0.5 max-h-48 overflow-y-auto">
-                {it.tracks.map((t, ti) => (
+                {it.tracks.map((t, ti) => {
+                  const trackDupId = it.trackDuplicateMap?.[t.title.toLowerCase()]
+                  return (
                   <div key={ti} className="flex items-center gap-2 py-0.5">
                     <div className="flex items-center justify-end gap-0.5 w-5 shrink-0">
                       {t.is_single && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" title="Singlas" />}
                       <span className="text-[10px] text-gray-300 tabular-nums">{t.sort_order}</span>
                     </div>
-                    <span className="text-xs text-gray-700 truncate flex-1">
-                      {t.title}
-                      {t.featuring && t.featuring.length > 0 && (
-                        <span className="text-violet-500 ml-1">feat. {t.featuring.join(', ')}</span>
-                      )}
-                    </span>
+                    {/* Track title — click → /admin/tracks/{id} jei egzistuoja DB */}
+                    {trackDupId ? (
+                      <a href={`/admin/tracks/${trackDupId}`} target="_blank" rel="noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-xs text-gray-700 truncate flex-1 hover:text-violet-600 hover:underline">
+                        {t.title}
+                        {t.featuring && t.featuring.length > 0 && (
+                          <span className="text-violet-500 ml-1">feat. {t.featuring.join(', ')}</span>
+                        )}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-700 truncate flex-1">
+                        {t.title}
+                        {t.featuring && t.featuring.length > 0 && (
+                          <span className="text-violet-500 ml-1">feat. {t.featuring.join(', ')}</span>
+                        )}
+                      </span>
+                    )}
+                    {/* Match status badge — enrich vs new */}
+                    {trackDupId !== undefined && (
+                      trackDupId
+                        ? <span className="text-[9px] text-amber-600 shrink-0 font-semibold" title="Daina jau yra DB — bus enrich'inta su Wiki info">↻</span>
+                        : <span className="text-[9px] text-violet-500 shrink-0 font-semibold" title="Daina nauja Wiki — kursime jei album'as ne dup">+</span>
+                    )}
                     {t.type === 'instrumental' && <span className="text-[9px] text-gray-400 shrink-0 font-medium">instr.</span>}
                     {t.type === 'live' && <span className="text-[9px] text-blue-400 shrink-0 font-medium">live</span>}
                     {t.type === 'remix' && <span className="text-[9px] text-purple-400 shrink-0 font-medium">remix</span>}
                     {t.type === 'covers' && <span className="text-[9px] text-orange-400 shrink-0 font-medium">cover</span>}
                     {t.duration && <span className="text-[10px] text-gray-300 shrink-0">{t.duration}</span>}
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </div>
@@ -2183,12 +2230,19 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             {/* Sticky controls bar */}
             {hasContent && !loading && (
               <div className="flex items-center justify-between px-2.5 sm:px-5 py-1.5 sm:py-2 border-b border-gray-100 bg-white/95 backdrop-blur-sm shrink-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-gray-400">
                   {activeTab === 'studio' && `${studioItems.filter(({it})=>!it.duplicate&&!it.imported).length} naujų`}
                   {activeTab === 'other' && `${otherItems.filter(({it})=>!it.duplicate&&!it.imported).length} naujų`}
                   {activeTab === 'singles' && `${songNewCount} naujų`}
                   </span>
+                  {/* Legend per checkbox spalvas */}
+                  {(activeTab === 'studio' || activeTab === 'other') && (
+                    <span className="flex items-center gap-2 text-[10px] text-gray-500" title="Geltonas = albumas jau egzistuoja DB (per music.lt scrape ar ankstesnis Wiki) — bus enrich'inta su Wiki info. Violetinis = naujas albumas — bus sukurtas su visais Wiki tracks.">
+                      <span className="inline-flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-amber-400"></span>↻ enrich</span>
+                      <span className="inline-flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-violet-500"></span>+ naujas</span>
+                    </span>
+                  )}
                   {(activeTab === 'studio' || activeTab === 'other' || activeTab === 'singles') && (
                     <button onClick={() => setSortDesc(p => !p)}
                       className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"

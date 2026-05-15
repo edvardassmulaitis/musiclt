@@ -51,7 +51,12 @@ export async function GET(req: NextRequest) {
         if (rows.length < PAGE) break
         offsetT += PAGE
       }
-      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
+      // Article-strip leading "a"/"the"/"an" — žr. albums route komentaro.
+      const norm = (s: string) => s.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/^(the|a|an)\s+/, '')
       const dbByNorm: Record<string, number> = {}
       for (const row of allRows) {
         const k = norm(row.title)

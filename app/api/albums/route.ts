@@ -26,7 +26,14 @@ export async function GET(req: NextRequest) {
         .from('albums')
         .select('id, title')
         .eq('artist_id', parseInt(artistId))
-      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
+      // Article-strip leading "a"/"the"/"an" — music.lt'as dažnai praleidžia
+      // priekyje (LT convention'as), Wiki išlaiko. Be šito "A Night at the Opera"
+      // (Wiki) nesutampa su "Night At The Opera" (music.lt).
+      const norm = (s: string) => s.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/^(the|a|an)\s+/, '')
       const dbByNorm: Record<string, { id: number; original: string }> = {}
       for (const row of data || []) {
         const k = norm(row.title)
