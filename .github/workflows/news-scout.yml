@@ -1,12 +1,24 @@
 name: News scout
 
-# 2x per para: 05:00 UTC (07:00 EET ryto digest), 17:00 UTC (19:00 EET vakaro digest).
-# Matrix strategy: 8 paraleliai jobs (po vieną per source_id), max 4 concurrent —
-# Vercel Hobby plan'as turi ~60s function timeout, ne batch'u.
+# 6x per parą staggered (kas 4h), kad neperkrautume Vercel funkcijos ir kad
+# breaking news catch'as būtų greitesnis. UTC times:
+#   03:00 (05:00 EET) | 07:00 (09:00 EET) | 11:00 (13:00 EET pietūs)
+#   15:00 (17:00 EET) | 19:00 (21:00 EET) | 23:00 (01:00 EET overnight US releases)
+#
+# Matrix [1..8] aktyvūs ir neaktyvūs source'ai (neaktyvūs grįžta 200 su
+# skipped flag'u — žr. 20260515d migraciją). max-parallel: 2 — Anthropic
+# rate limit safety + jei vienas job hangina, kiti laukia ne ilgiau 1 min.
+#
+# MAX_ITEMS_PER_SOURCE=3 (route.ts) leidžia kiekvienam Vercel call'ui
+# saugiai telpti į 60s timeout (3 × ~12s Sonnet = ~36s).
 on:
   schedule:
-    - cron: '0 5 * * *'   # 07:00 EET
-    - cron: '0 17 * * *'  # 19:00 EET
+    - cron: '0 3 * * *'
+    - cron: '0 7 * * *'
+    - cron: '0 11 * * *'
+    - cron: '0 15 * * *'
+    - cron: '0 19 * * *'
+    - cron: '0 23 * * *'
   workflow_dispatch:
     inputs:
       source_id:
@@ -25,12 +37,11 @@ jobs:
     timeout-minutes: 5
     strategy:
       fail-fast: false   # vieno source'o klaida nesustabdo kitų
-      max-parallel: 4    # neperkrauname Anthropic API rate limit'o
+      max-parallel: 2    # Anthropic API rate limit safety
       matrix:
         source_id: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - name: Call news-scout for source ${{ matrix.source_id }}
-        # Skip jei dispatch'as nurodė konkretu source_id ir šitas matrix entry yra kitoks
         if: ${{ !inputs.source_id || inputs.source_id == matrix.source_id }}
         run: |
           QUERY="?source_id=${{ matrix.source_id }}"
@@ -42,7 +53,7 @@ jobs:
           response=$(curl -sS -w "\n%{http_code}" \
             -X POST "${{ secrets.MUSICLT_BASE_URL }}/api/internal/news-scout/run${QUERY}" \
             -H "Authorization: Bearer ${{ secrets.INTERNAL_CRON_TOKEN }}" \
-            --max-time 75)
+            --max-time 65)
 
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | sed '$d')
@@ -58,7 +69,12 @@ jobs:
 
           inserted=$(echo "$body" | grep -oP '"total_candidates_inserted":\K\d+' || echo "?")
           errors=$(echo "$body" | grep -oP '"total_errors":\K\d+' || echo "?")
-          echo "::notice::source ${{ matrix.source_id }} → inserted: $inserted | errors: $errors"
+          skipped=$(echo "$body" | grep -oP '"skipped":"\K[^"]+' || echo "")
+          if [ -n "$skipped" ]; then
+            echo "::notice::source ${{ matrix.source_id }} → SKIPPED ($skipped)"
+          else
+            echo "::notice::source ${{ matrix.source_id }} → inserted: $inserted | errors: $errors"
+          fi
 
   summary:
     needs: run-scout
@@ -66,4 +82,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run finished
-        run: echo "✓ News scout run completed (8 source jobs paraleliai, see individual results above)"
+        run: echo "✓ News scout run completed (8 matrix jobs, max 2 paraleliai)"

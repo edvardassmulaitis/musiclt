@@ -26,10 +26,12 @@ import { ALLOWED_CATEGORIES } from '@/lib/news-categories'
 export const runtime = 'nodejs'
 export const maxDuration = 300  // Vercel max for Pro plan; smoke test ant Hobby gali timeout'inti
 
-// Cap to avoid runaway costs AND Vercel function timeout (Hobby plan ~60s).
-// Each Sonnet normalize ~15-25s; with 5 items max ~75s pipeline budget.
-const MAX_ITEMS_PER_SOURCE = 5
-const HAIKU_BATCH_SIZE = 5
+// Cap to fit Vercel Hobby 60s function timeout.
+// Each Sonnet normalize ~10-15s; with 3 items max ~30-45s pipeline budget.
+// Crow'as bega 6x/dieną → 6 runs × 3 items × 6 active sources = 108 items/d max
+// (realiai daug mažiau dėl seen_urls dedupe).
+const MAX_ITEMS_PER_SOURCE = 3
+const HAIKU_BATCH_SIZE = 3
 
 type RunCounters = {
   source_id: number

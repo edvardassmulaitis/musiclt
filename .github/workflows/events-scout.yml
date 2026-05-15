@@ -1,11 +1,15 @@
 name: Events scout
 
-# 2x per para: 06:00 UTC (08:00 EET) + 18:00 UTC (20:00 EET).
-# Skirta nuo news scout'o, kad nesusidurtų rate limit'as Anthropic API.
+# 3x per parą staggered, atskirti nuo news scout'o.
+#   06:00 UTC (08:00 EET ryto) | 14:00 UTC (16:00 EET) | 22:00 UTC (00:00 EET overnight)
+#
+# MAX_EVENTS_PER_SOURCE=3 (route.ts) leidžia kiekvienam Vercel call'ui telpti
+# į 60s timeout (3 × ~12s Sonnet = ~36s).
 on:
   schedule:
-    - cron: '0 6 * * *'    # 08:00 EET
-    - cron: '0 18 * * *'   # 20:00 EET
+    - cron: '0 6 * * *'
+    - cron: '0 14 * * *'
+    - cron: '0 22 * * *'
   workflow_dispatch:
     inputs:
       source_id:
@@ -24,10 +28,9 @@ jobs:
     timeout-minutes: 5
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: 2    # Anthropic API rate limit safety
       matrix:
-        # IDs nurodyti migracijoje 20260515a — bilietai.lt(9), tiketa.lt(10), kakava.lt(11)
-        # Tikslūs ID priklauso nuo BIGSERIAL sequence — po news 8 source'ų eina nuo 9.
+        # IDs iš migracijos 20260515a — bilietai.lt(9), tiketa.lt(10), kakava.lt(11)
         source_id: [9, 10, 11]
     steps:
       - name: Call events-scout for source ${{ matrix.source_id }}
@@ -42,7 +45,7 @@ jobs:
           response=$(curl -sS -w "\n%{http_code}" \
             -X POST "${{ secrets.MUSICLT_BASE_URL }}/api/internal/events-scout/run${QUERY}" \
             -H "Authorization: Bearer ${{ secrets.INTERNAL_CRON_TOKEN }}" \
-            --max-time 90)
+            --max-time 65)
 
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | sed '$d')
@@ -59,4 +62,9 @@ jobs:
           inserted=$(echo "$body" | grep -oP '"total_inserted":\K\d+' || echo "?")
           not_music=$(echo "$body" | grep -oP '"total_not_music":\K\d+' || echo "?")
           errors=$(echo "$body" | grep -oP '"total_errors":\K\d+' || echo "?")
-          echo "::notice::events source ${{ matrix.source_id }} → inserted: $inserted | filter'inta: $not_music | errors: $errors"
+          skipped=$(echo "$body" | grep -oP '"skipped":"\K[^"]+' || echo "")
+          if [ -n "$skipped" ]; then
+            echo "::notice::events source ${{ matrix.source_id }} → SKIPPED ($skipped)"
+          else
+            echo "::notice::events source ${{ matrix.source_id }} → inserted: $inserted | filter'inta: $not_music | errors: $errors"
+          fi

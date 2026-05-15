@@ -20,7 +20,9 @@ import { matchArtists, getTopArtistsForHint } from '@/lib/entity-matcher'
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
-const MAX_EVENTS_PER_SOURCE = 5
+// Cap to fit Vercel Hobby 60s function timeout.
+// Each Sonnet event normalize ~10-15s; 3 items max ~30-45s pipeline budget.
+const MAX_EVENTS_PER_SOURCE = 3
 
 type RunCounters = {
   source_id: number
