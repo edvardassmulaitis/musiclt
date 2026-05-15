@@ -66,8 +66,12 @@ export default function FullscreenModal({
           </button>
         </div>
 
-        {/* Scrollable content */}
-        <div className={`flex-1 overflow-y-auto ${noPadding ? '' : 'p-4'}`}>
+        {/* Content area. `noPadding`=true rezimas tikisi, kad child'as turi
+            savo flex-col layout'ą (header/scrollable/footer pattern'as su sticky
+            apačios action'ais — žr. WikimediaSearch). Šiame rezime mes neapvyniojam
+            į overflow-y-auto, kad child'as galėtų pats valdyti scroll'inimą.
+            Default'iniame rezime — paprastas scrollable container'is su padding'u. */}
+        <div className={`flex-1 min-h-0 ${noPadding ? 'flex flex-col' : 'overflow-y-auto p-4'}`}>
           {children}
         </div>
       </div>

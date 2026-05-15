@@ -131,21 +131,23 @@ export default function AdminInboxPage() {
     setEditBody(await fetchBody(cand.id))
     setEditImage('')
     // ─── Artist'ų wizard state'as ───
+    // Default: TIK primary selected. AI dažnai pasiūlo per daug ne-esminių
+    // atlikėjų (Rolling Stones article → +McCartney + Robert Smith + Steve
+    // Winwood). User'is gali pridėti kitus per chip'ų click arba paiešką.
     const suggested = cand.suggested_artists || []
-    const ids = suggested.map(a => a.id)
-    // Order: primary pirmas, kiti pagal originalų eiliškumą
-    const primaryId = cand.primary_artist_id || ids[0] || null
-    const ordered = primaryId
-      ? [primaryId, ...ids.filter(id => id !== primaryId)]
-      : ids
-    setEditArtistIds(ordered)
-    setEditPrimaryId(primaryId)
+    const primaryId = cand.primary_artist_id || suggested[0]?.id || null
+
+    // Meta visiems suggested (kad galima būtų rodyti kaip „siūlomi" chip'us)
     const meta: Record<number, SuggestedArtist> = {}
     for (const a of suggested) meta[a.id] = a
     if (cand.primary_artist && !meta[cand.primary_artist.id]) {
       meta[cand.primary_artist.id] = cand.primary_artist
     }
     setArtistMeta(meta)
+
+    // Selected = tik primary (user gali click'inti suggested chip'us, kad pridėtų)
+    setEditArtistIds(primaryId ? [primaryId] : [])
+    setEditPrimaryId(primaryId)
     // Image picker options
     try {
       const res = await fetch(`/api/admin/news-candidates/${cand.id}/images`)
@@ -349,11 +351,11 @@ export default function AdminInboxPage() {
                             {cand.source_portal || cand.source_type}
                           </span>
                         )}
-                        {cand.source_published_at && (
-                          <span className="text-[var(--text-muted)]">
-                            · {new Date(cand.source_published_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short' })}
-                          </span>
-                        )}
+                        {/* Date — fallback į scraped time jei source_published_at null
+                           (senesni candidates iš pre-migration laiko) */}
+                        <span className="text-[var(--text-muted)]">
+                          · {new Date(cand.source_published_at || cand.created_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short' })}
+                        </span>
                       </div>
 
                       {/* Title — tap to expand'ina peržiūrą */}
@@ -473,27 +475,39 @@ export default function AdminInboxPage() {
       {editing && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto">
           <div className="bg-[var(--bg-surface)] rounded-2xl shadow-2xl w-full max-w-3xl my-8">
-            <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between sticky top-0 bg-[var(--bg-surface)] rounded-t-2xl">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">✎ Redaguoti naujieną</h2>
+            <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center justify-between sticky top-0 bg-[var(--bg-surface)] rounded-t-2xl z-10">
+              <div className="flex flex-col">
+                <h2 className="text-base font-bold text-[var(--text-primary)]">✎ Redaguoti naujieną</h2>
+                {editing && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] mt-0.5">
+                    {editing.source_portal && (
+                      <a href={editing.source_url || '#'} target="_blank" rel="noopener" className="hover:underline">
+                        {editing.source_portal} ↗
+                      </a>
+                    )}
+                    {(editing.source_published_at || editing.created_at) && (
+                      <span>· {new Date(editing.source_published_at || editing.created_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={closeEdit}
+                aria-label="Uždaryti"
                 className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-2xl leading-none">
                 ×
               </button>
             </div>
-            <div className="px-5 py-4 space-y-5">
-              {/* === Atlikėjai (wizard step 1) === */}
+            <div className="px-4 py-3 space-y-4">
+              {/* === Atlikėjai === */}
               <div>
-                <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-2">
-                  Atlikėjai ({editArtistIds.length})
-                  <span className="ml-2 text-[10px] normal-case font-normal text-[var(--text-muted)]">
-                    Pirmas (★) = pagrindinis. Spausk ant atlikėjo, kad nustatytum primary.
-                  </span>
-                </label>
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
+                  Atlikėjai
+                </div>
                 {editArtistIds.length === 0 ? (
-                  <p className="text-sm text-amber-600 mb-2">⚠ Nei vienas atlikėjas nepriskirtas — pridėk per paiešką žemiau.</p>
+                  <p className="text-xs text-amber-600 mb-1.5">⚠ Nepriskirtas</p>
                 ) : (
-                  <div className="flex flex-wrap gap-1.5 mb-2">
+                  <div className="flex flex-wrap gap-1 mb-1.5">
                     {editArtistIds.map(id => {
                       const a = artistMeta[id]
                       if (!a) return null
@@ -501,31 +515,27 @@ export default function AdminInboxPage() {
                       return (
                         <div
                           key={id}
-                          className={`inline-flex items-center gap-1.5 pl-1 pr-1 py-1 rounded-full text-xs font-medium transition-colors ${
+                          className={`inline-flex items-center gap-1 pl-0.5 pr-0.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
                             isPrimary
-                              ? 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-400'
-                              : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                              ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-400'
+                              : 'bg-blue-50 text-blue-700'
                           }`}>
                           <button
                             type="button"
                             onClick={() => setEditPrimaryId(id)}
-                            title={isPrimary ? 'Pagrindinis atlikėjas' : 'Padaryti pagrindiniu'}
-                            className="flex items-center gap-1.5 pl-1 pr-1">
+                            className="flex items-center gap-1 px-1">
                             {a.cover_image_url ? (
-                              <img src={a.cover_image_url} alt="" className="w-5 h-5 rounded-full object-cover" />
+                              <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
                             ) : (
-                              <span className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-[10px]">🎤</span>
+                              <span className="w-4 h-4 rounded-full bg-blue-200 flex items-center justify-center text-[9px]">🎤</span>
                             )}
                             <span>{isPrimary ? '★ ' : ''}{a.name}</span>
-                            {a.legacy_likes ? (
-                              <span className="text-[10px] opacity-70">❤ {formatLikes(a.legacy_likes)}</span>
-                            ) : null}
                           </button>
                           <button
                             type="button"
                             onClick={() => removeEditArtist(id)}
-                            aria-label="Pašalinti atlikėją"
-                            className="ml-1 w-5 h-5 rounded-full hover:bg-red-200 text-red-500 flex items-center justify-center text-sm">
+                            aria-label="Pašalinti"
+                            className="w-4 h-4 rounded-full hover:bg-red-200 text-red-500 flex items-center justify-center text-xs">
                             ×
                           </button>
                         </div>
@@ -533,17 +543,42 @@ export default function AdminInboxPage() {
                     })}
                   </div>
                 )}
+                {/* AI siūlomi (ne aktyvūs) — clickable pridėti */}
+                {(() => {
+                  const suggested = editing?.suggested_artists || []
+                  const notYet = suggested.filter(a => !editArtistIds.includes(a.id))
+                  if (notYet.length === 0) return null
+                  return (
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      <span className="text-[10px] uppercase text-[var(--text-muted)] pt-0.5 pr-1">AI siūlo:</span>
+                      {notYet.map(a => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => addEditArtist(a.id, a.name, a.cover_image_url)}
+                          className="inline-flex items-center gap-1 pl-0.5 pr-1.5 py-0.5 rounded-full text-xs bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-dashed border-[var(--input-border)]">
+                          {a.cover_image_url ? (
+                            <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover opacity-60" />
+                          ) : (
+                            <span className="w-4 h-4 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[9px]">🎤</span>
+                          )}
+                          <span>+ {a.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })()}
                 <ArtistSearchInput
-                  placeholder="+ Pridėti atlikėją..."
+                  placeholder="Ieškoti atlikėjo..."
                   onSelect={(id, name, avatar) => addEditArtist(id, name, avatar || null)}
                 />
               </div>
 
-              {/* === Nuotrauka (wizard step 2) === */}
+              {/* === Nuotrauka === */}
               <div>
-                <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-2">
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
                   Nuotrauka
-                </label>
+                </div>
                 {imageOptions.length > 0 ? (
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {imageOptions.map((opt, i) => (
@@ -589,67 +624,57 @@ export default function AdminInboxPage() {
                     Be nuotraukos
                   </button>
                 </div>
-                {editImage && (
-                  <p className="text-xs text-[var(--text-muted)] mt-1 truncate">Pasirinkta: {editImage}</p>
-                )}
               </div>
 
-              {/* === Antraštė (wizard step 3) === */}
+              {/* === Antraštė === */}
               <div>
-                <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
-                  Antraštė
-                </label>
-                <input
-                  type="text"
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
+                  Antraštė <span className="ml-1 normal-case font-normal opacity-70">{editTitle.length}/80</span>
+                </div>
+                <textarea
                   value={editTitle}
                   onChange={e => setEditTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-base"
+                  rows={2}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-base leading-snug resize-y"
                   placeholder="Naujienos pavadinimas..."
                 />
-                <p className="text-xs text-[var(--text-muted)] mt-1">{editTitle.length} simb. (rekomenduojama 60-80)</p>
               </div>
-              {/* === Tekstas (wizard step 4) === */}
+              {/* === Tekstas === */}
               <div>
-                <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
-                  Tekstas (HTML — naudok &lt;p&gt; tag'us)
-                </label>
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
+                  Tekstas <span className="ml-1 normal-case font-normal opacity-70">HTML, &lt;p&gt; tag'ai</span>
+                </div>
                 <textarea
                   value={editBody}
                   onChange={e => setEditBody(e.target.value)}
-                  rows={16}
-                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm font-mono leading-relaxed"
+                  rows={12}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm font-mono leading-relaxed resize-y"
                   placeholder="<p>Naujienos tekstas...</p>"
                 />
-              </div>
-              {/* === Peržiūra (wizard step 5) === */}
-              <div>
-                <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
-                  Peržiūra
-                </label>
-                <div
-                  className="prose prose-sm max-w-none bg-[var(--bg-elevated)]/50 border border-[var(--border-subtle)] rounded-lg p-3"
-                  dangerouslySetInnerHTML={{ __html: editBody }}
-                />
+                {editBody.trim() && (
+                  <details className="mt-2">
+                    <summary className="text-xs text-[var(--text-muted)] cursor-pointer select-none">▾ Peržiūra</summary>
+                    <div
+                      className="prose prose-sm max-w-none bg-[var(--bg-elevated)]/50 border border-[var(--border-subtle)] rounded-lg p-3 mt-2"
+                      dangerouslySetInnerHTML={{ __html: editBody }}
+                    />
+                  </details>
+                )}
               </div>
             </div>
-            <div className="px-5 py-4 border-t border-[var(--border-subtle)] flex justify-between items-center sticky bottom-0 bg-[var(--bg-surface)] rounded-b-2xl">
-              <p className="text-xs text-[var(--text-muted)]">
-                Šaltinio nuoroda bus pridėta automatiškai.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={closeEdit}
-                  className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm font-medium text-[var(--text-secondary)]">
-                  Atšaukti
-                </button>
-                <button
-                  onClick={handleSaveEdit}
-                  disabled={savingEdit || !editTitle.trim() || !editBody.trim() || editArtistIds.length === 0}
-                  title={editArtistIds.length === 0 ? 'Pridėk bent vieną atlikėją' : ''}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-bold">
-                  {savingEdit ? '...' : '✓ Paskelbti'}
-                </button>
-              </div>
+            <div className="px-4 py-3 border-t border-[var(--border-subtle)] flex gap-2 items-center sticky bottom-0 bg-[var(--bg-surface)] rounded-b-2xl">
+              <button
+                onClick={closeEdit}
+                className="px-3 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm font-medium text-[var(--text-secondary)]">
+                Atšaukti
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={savingEdit || !editTitle.trim() || !editBody.trim() || editArtistIds.length === 0}
+                title={editArtistIds.length === 0 ? 'Pridėk bent vieną atlikėją' : ''}
+                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-bold">
+                {savingEdit ? '...' : '✓ Paskelbti'}
+              </button>
             </div>
           </div>
         </div>

@@ -76,14 +76,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  // 2) Source image — kaip last resort fallback'as
-  if (cand.suggested_image_url) {
-    options.push({
-      url: cand.suggested_image_url,
-      label: 'iš source straipsnio',
-      source: 'source',
-    })
-  }
+  // Source straipsnio nuotrauka NĖRA siūloma — copyright (3rd party images
+  // gali būti naudojami tik su license; mes naudojam tik artist_photos arba
+  // Wikimedia free-license, žr. /admin/inbox Wikimedia search button).
 
   return NextResponse.json({
     options,
