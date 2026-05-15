@@ -77,6 +77,17 @@ export async function POST(req: NextRequest) {
   const { data: sources, error: srcErr } = await sourcesQuery
   if (srcErr) return NextResponse.json({ error: srcErr.message }, { status: 500 })
   if (!sources || sources.length === 0) {
+    // Explicit source_id but source is inactive/missing — return 200 so matrix
+    // workflow doesn't fail on deactivated sources. Without source_id, this
+    // is truly an "all sources off" state and we 404 as before.
+    if (explicitSourceId) {
+      return NextResponse.json({
+        skipped: 'inactive_or_missing',
+        source_id: parseInt(explicitSourceId, 10),
+        total_candidates_inserted: 0,
+        total_errors: 0,
+      })
+    }
     return NextResponse.json({ error: 'No active sources matched' }, { status: 404 })
   }
 
