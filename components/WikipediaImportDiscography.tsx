@@ -1222,17 +1222,32 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       }
     } catch {}
 
+    // Punktuacijos-agnostiškas normalizatorius — kad „Maybe Maybe" suderintų su
+    // „Maybe, Maybe" (kablelis), „St. Anger" su „St Anger" (taškas), „I'm Yours"
+    // su „Im Yours" (apostrofas). Strip'inam VISUS ne-raidžių/ne-skaičių simbolius.
+    // \p{L} palaiko Unicode raides — svarbu LT atlikėjams (ąčęėįšųūž).
+    const normTitle = (s: string) => s.toLowerCase()
+      .replace(/[^\p{L}\p{N} ]+/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
     const songsF = foundSongs.map(s => {
       const k = s.title.toLowerCase()
       if (songDups[k]) return { ...s, duplicate: true, duplicateId: songDups[k], selected: false }
-      // Fuzzy: ieškoti tarp VISŲ atlikėjo trackų
-      const normS = k.replace(/['']/g, '')
+      // Fuzzy: dvi strategijos:
+      //  (1) punktuacijos-agnostiška equality — „Maybe Maybe" === „Maybe, Maybe"
+      //  (2) raw-lowercase prefix + suffix check — „Flash" → „Flash's Theme",
+      //      „Title" → „Title (Remix)". Naudojame raw formą, kad išvengtume
+      //      false positive'ų tipo „Walk" → „Walk On The Wild Side".
+      const normS = normTitle(s.title)
+      const rawS = k.replace(/['']/g, '')
       const fuzzyMatch = Object.entries(allArtistTracks).find(([dbTitle]) => {
-        const normD = dbTitle.replace(/['']/g, '')
+        const normD = normTitle(dbTitle)
         if (normD === normS) return true
-        // DB trackas prasideda singlu + leistinas sufiksas
-        if (!normD.startsWith(normS)) return false
-        const dbAfter = normD.slice(normS.length)
+        const rawD = dbTitle.replace(/['']/g, '')
+        if (rawD === rawS) return true
+        if (!rawD.startsWith(rawS)) return false
+        const dbAfter = rawD.slice(rawS.length)
         if (dbAfter.startsWith('s ') && !dbAfter.includes('reprise')) return true
         if (dbAfter.startsWith(' (')) return true
         return false
@@ -1315,7 +1330,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       const matchedNames = substyleIds.map(id => substylesList.find(s => s.id === id)?.name).filter(Boolean) as string[]
       setItems(p => p.map((it, i) => i === idx ? { ...it, tracks, fetched: true, cover_image_url: cover || it.cover_image_url, year: it.year || dateInfo.year, month: it.year ? (dateInfo.year === it.year ? dateInfo.month : it.month) : dateInfo.month, day: it.year ? (dateInfo.year === it.year ? dateInfo.day : it.day) : dateInfo.day, extraTypes: extraTypes.length ? extraTypes : it.extraTypes, substyle_ids: substyleIds, genres_unmatched: unmatched } : it))
       const genreLog = matchedNames.length ? `, žanrai: ${matchedNames.join(', ')}` : ''
-      const unmatchedLog = unmatched.length ? ` (praleisti: ${unmatched.join(', ')})` : ''
+      // Unmatched žanrai NĖRA praleidžiami — jie bus auto-pridėti į substyles
+      // lentelę importo metu (per resolveSubstyleIds → INSERT su slug).
+      const unmatchedLog = unmatched.length ? ` (+nauji: ${unmatched.join(', ')})` : ''
       addLog(`  → ${tracks.length} dainų${cover ? ', viršelis' : ''}${genreLog}${unmatchedLog}`)
     } catch {
       setItems(p => p.map((it, i) => i === idx ? { ...it, fetched: true, tracks: [] } : it))
