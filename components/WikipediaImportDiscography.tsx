@@ -1216,7 +1216,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       checkTrackDuplicates(foundSongs.map(s => s.title), artistId),
     ])
     const da = Object.keys(albumDups).length, ds = Object.keys(songDups).length
-    if (da+ds > 0) addLog(`⚠ ${da} albumų + ${ds} dainų jau DB`)
+    if (da+ds > 0) addLog(`⚠ ${da} albumų + ${ds} dainų jau DB → bus papildyti Wiki info (data/viršelis/sertifikatai/žanrai), egzistuojantys laukai neperrašomi`)
     else addLog('✓ Dublikatų nerasta')
 
     const albumsF = foundAlbums.map(it => { const k = it.title.toLowerCase(); return albumDups[k] ? { ...it, duplicate: true, duplicateId: albumDups[k] } : it })
@@ -1407,23 +1407,28 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
       // ── ENRICH EXISTING (2026-05-15 redesign) ────────────────────────────
       // Jei album jau egzistuoja DB (per music.lt scrape arba ankstesnis Wiki
-      // import), NE skip — vietoj to enrich'inam su Wiki info: release_year,
-      // peak_chart, certifications, type tweaks, cover. Plus per album.tracks
-      // — match per name + PUT enrich (is_single, release_year, video_url, lyrics).
+      // import), NE skip — vietoj to "enrich'inam" Wiki info'ja BE perrašymo:
+      //   • leidimo data, viršelis — FILL-ONLY (jei DB tuščia)
+      //   • peak chart, sertifikacijos — REPLACE (Wiki canonical šaltinis)
+      //   • žanrai — UNION (pridedami prie esamų)
+      //   • type flags — PROMOTE-ONLY (Wiki sako compilation → set true; FALSE
+      //     niekada nesetinama, kad neprarastume music.lt type žymėjimo)
+      // Per album.tracks — match per name + PATCH /enrich (is_single PROMOTE,
+      // release_year FILL-ONLY).
+      // Backend'as: /api/albums/[id]/enrich + /api/tracks/[id]/enrich
       if (item.duplicate && item.duplicateId) {
         try {
-          const enrichBody: Record<string, any> = {
-            year: item.year || null,
-            month: item.month || null,
-            day: item.day || null,
-          }
+          const enrichBody: Record<string, any> = {}
+          if (item.year) enrichBody.year = item.year
+          if (item.month) enrichBody.month = item.month
+          if (item.day) enrichBody.day = item.day
           if (item.cover_image_url) enrichBody.cover_image_url = item.cover_image_url
           if (item.certifications?.length) enrichBody.certifications = item.certifications
           if (item.peak_chart_position != null) enrichBody.peak_chart_position = item.peak_chart_position
           if (item.substyle_ids?.length) enrichBody.substyle_ids = item.substyle_ids
           if (item.genres_unmatched?.length) enrichBody.substyle_names = item.genres_unmatched
           // Type flags — Wiki gali tikslinti type'ą (pvz. music.lt įdėjo kaip
-          // studio, Wiki sako compilation)
+          // studio, Wiki sako compilation). Backend PROMOTE-ONLY semantika.
           if (item.type === 'compilation') enrichBody.type_compilation = true
           if (item.type === 'live') enrichBody.type_live = true
           if (item.type === 'remix') enrichBody.type_remix = true
@@ -1432,13 +1437,19 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           if (item.type === 'demo') enrichBody.type_demo = true
           if (item.type === 'holiday') enrichBody.type_holiday = true
 
-          const albRes = await fetch(`/api/albums/${item.duplicateId}`, {
-            method: 'PUT', headers: {'Content-Type':'application/json'},
+          const albRes = await fetch(`/api/albums/${item.duplicateId}/enrich`, {
+            method: 'PATCH', headers: {'Content-Type':'application/json'},
             body: JSON.stringify(enrichBody),
           })
-          if (!albRes.ok) throw new Error(`PUT ${albRes.status}`)
+          if (!albRes.ok) {
+            const errText = await albRes.text().catch(() => '')
+            throw new Error(`enrich ${albRes.status}: ${errText.slice(0,120)}`)
+          }
+          const albResult = await albRes.json().catch(() => ({}))
+          const albApplied = albResult?.applied || {}
 
-          // Per album.tracks — match per name su DB tracks + PUT enrich
+          // Per album.tracks — match per name + PATCH /enrich
+          let tracksTouched = 0
           if (item.tracks?.length) {
             const trackTitles = item.tracks.map(t => t.title)
             const trackDups = await checkTrackDuplicates(trackTitles, artistId)
@@ -1453,18 +1464,34 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               if (tAny.release_day ?? item.day) trackBody.release_day = tAny.release_day ?? item.day
               if (wt.is_single) trackBody.is_single = true
               if (Object.keys(trackBody).length > 0) {
-                try { await fetch(`/api/tracks/${dupId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(trackBody) }) } catch {}
+                try {
+                  await fetch(`/api/tracks/${dupId}/enrich`, {
+                    method: 'PATCH', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(trackBody),
+                  })
+                  tracksTouched++
+                } catch {}
               }
             }
           }
-          addLog(`✓ ${item.title} — enrich (${item.tracks?.length||0} tracks)`)
+          // Detalus log'as — admin'ui matosi KAS buvo pakeista, ne tik "ok"
+          const parts: string[] = []
+          if (albApplied.year) parts.push(`data ${albApplied.year}`)
+          if (albApplied.cover_image_url) parts.push('viršelis')
+          if (albApplied.peak_chart_position) parts.push(`#${albApplied.peak_chart_position}`)
+          if (albApplied.certifications) parts.push(`${albApplied.certifications} cert`)
+          if (albApplied.substyles_added) parts.push(`+${albApplied.substyles_added} žanras`)
+          if (albApplied.type_promoted?.length) parts.push(albApplied.type_promoted.join('+'))
+          if (tracksTouched) parts.push(`${tracksTouched} dainos`)
+          const detail = parts.length ? `: ${parts.join(', ')}` : ' (nieko naujo — DB jau pilna)'
+          addLog(`↻ ${item.title}${detail}`)
           enriched++
           setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
           setSelected(p => { const s = new Set(p); s.delete(idx); return s })
           continue
         } catch (e: any) {
           setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, error: `enrich: ${e.message}` } : it))
-          addLog(`✗ ${item.title}: enrich failed: ${e.message}`); fail++
+          addLog(`✗ ${item.title}: enrich nepavyko: ${e.message}`); fail++
           continue
         }
       }
@@ -1540,9 +1567,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       await new Promise(r => setTimeout(r, 200))
     }
     setImporting(false)
-    addLog(`✓ ${ok} naujų albumų, ${enriched} enrich'inta${fail ? `, ${fail} klaida` : ''}`)
-    if (fail > 0) errorTask('import', `${ok} naujų + ${enriched} enrich'inta, ${fail} klaidos`)
-    else finishTask('import', `${ok} naujų + ${enriched} enrich'inta`)
+    addLog(`✓ ${ok} naujų albumų, ${enriched} papildyta${fail ? `, ${fail} klaida` : ''}`)
+    if (fail > 0) errorTask('import', `${ok} naujų + ${enriched} papildyta, ${fail} klaidos`)
+    else finishTask('import', `${ok} naujų + ${enriched} papildyta`)
 
     // Pranešti parent page kad diskografija pasikeitė — kad atnaujintų sąrašą
     if (ok > 0 || enriched > 0) window.dispatchEvent(new CustomEvent('discography-updated'))
@@ -1961,7 +1988,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {it.extraTypes?.map(et => (
                 <span key={et} className="text-[10px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'Garso takelis' : et}</span>
               ))}
-              {it.duplicate && <span className="text-[10px] font-semibold text-amber-600 shrink-0">↻ enrich</span>}
+              {it.duplicate && <span className="text-[10px] font-semibold text-amber-600 shrink-0" title="Albumas DB jau yra. Wiki tik papildys trūkstamus laukus (data, viršelis, sertifikatai, žanrai). Egzistuojantys laukai neperrašomi.">↻ papildyti</span>}
               {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
               {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
               {it.error && <span className="text-[10px] text-red-400 shrink-0" title={it.error}>klaida</span>}
@@ -2085,7 +2112,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                     {/* Match status badge — enrich vs new (rodom TIK kai map jau patikrinta) */}
                     {mapLoaded && (
                       trackDupId
-                        ? <span className="text-[9px] text-amber-600 shrink-0 font-semibold" title="Daina jau yra DB — bus enrich'inta su Wiki info">↻ enrich</span>
+                        ? <span className="text-[9px] text-amber-600 shrink-0 font-semibold" title="Daina DB jau yra. Wiki papildys trūkstamus laukus: leidimo data (jei tuščia), single žymėjimas (jei Wiki sako). Title/lyrics/video neperrašomi.">↻ papildyti</span>
                         : <span className="text-[9px] text-violet-500 shrink-0 font-semibold" title="Daina nauja Wiki — kursime jei album'as ne dup">+ naujas</span>
                     )}
                     {t.type === 'instrumental' && <span className="text-[9px] text-gray-400 shrink-0 font-medium">instr.</span>}
@@ -2219,10 +2246,15 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   {activeTab === 'other' && `${otherItems.filter(({it})=>!it.duplicate&&!it.imported).length} naujų`}
                   {activeTab === 'singles' && `${songNewCount} naujų`}
                   </span>
-                  {/* Legend per checkbox spalvas */}
+                  {/* Legend per checkbox spalvas — admin clarity:
+                      ↻ enrich = papildo trūkstamus laukus, nieko netrina;
+                      + naujas = sukurs naują albumą su visais Wiki tracks. */}
                   {(activeTab === 'studio' || activeTab === 'other') && (
-                    <span className="flex items-center gap-2 text-[10px] text-gray-500" title="Geltonas = albumas jau egzistuoja DB (per music.lt scrape ar ankstesnis Wiki) — bus enrich'inta su Wiki info. Violetinis = naujas albumas — bus sukurtas su visais Wiki tracks.">
-                      <span className="inline-flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-amber-400"></span>↻ enrich</span>
+                    <span className="flex items-center gap-2 text-[10px] text-gray-500" title={
+                      'GELTONAS (↻ enrich): albumas jau yra DB. Wiki tik papildys trūkstamus laukus — leidimo data, viršelis, sertifikatai, peak chart, žanrai, type flag. Egzistuojantys laukai NIEKADA neperrašomi. Albume esančios dainos taip pat papildomos (release date, single žymėjimas).' + '\n\n' +
+                      'VIOLETINIS (+ naujas): albumas DB neegzistuoja. Bus sukurtas visas naujas album'+"'"+'as su tracks iš Wikipedia.'
+                    }>
+                      <span className="inline-flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-amber-400"></span>↻ papildyti</span>
                       <span className="inline-flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-violet-500"></span>+ naujas</span>
                     </span>
                   )}

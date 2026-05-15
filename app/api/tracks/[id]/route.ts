@@ -115,6 +115,7 @@ export async function PUT(
     if ('chords' in data) updates.chords = data.chords || null
     if ('description' in data) updates.description = data.description || null
     if ('spotify_id' in data) updates.spotify_id = data.spotify_id || null
+    if ('is_single' in data) updates.is_single = !!data.is_single  // admin form'e gali toggle
     if ('release_year' in data || 'release_month' in data || 'release_day' in data) {
       const y = data.release_year ? parseInt(data.release_year) : null
       const m = data.release_month ? parseInt(data.release_month) : null
