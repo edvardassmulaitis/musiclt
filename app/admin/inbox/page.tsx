@@ -8,6 +8,7 @@ import WikimediaSearch from '@/components/WikimediaSearch'
 import type { Photo } from '@/components/PhotoGallery'
 import InboxTabs from '@/components/InboxTabs'
 import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
+import TrackSuggestPicker, { type PickResult } from '@/components/TrackSuggestPicker'
 
 type SuggestedArtist = {
   id: number
@@ -44,6 +45,7 @@ type Candidate = {
   created_at: string
   source_published_at: string | null
   ai_tracks_mentioned: AiTrackMention[] | null
+  embed_urls: string[] | null
   primary_artist: SuggestedArtist | null
 }
 
@@ -92,7 +94,9 @@ export default function AdminInboxPage() {
   // Wizard'o track'ų state — pasirinkti DB track_ids (matched + naujai sukurti)
   const [editTrackIds, setEditTrackIds] = useState<number[]>([])
   const [trackMeta, setTrackMeta] = useState<Record<number, { id: number; title: string; artist_name: string }>>({})
-  const [creatingTrack, setCreatingTrack] = useState<string | null>(null) // mention title currently being created
+  // Track picker modal state
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerInitialQuery, setPickerInitialQuery] = useState<string>('')
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -208,58 +212,44 @@ export default function AdminInboxPage() {
     setArtistMeta({})
     setEditTrackIds([])
     setTrackMeta({})
-    setCreatingTrack(null)
+    setPickerOpen(false)
+    setPickerInitialQuery('')
   }
 
   const toggleEditTrack = (id: number) => {
     setEditTrackIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  const createTrackFromMention = async (mention: AiTrackMention) => {
-    if (creatingTrack) return
-    // Reikia artist'o — siūlome primary, jei sutampa pavadinime, kitaip pirmas iš sąrašo
+  const openTrackPicker = (initialQuery: string = '') => {
     const targetArtistId = editPrimaryId || editArtistIds[0]
     if (!targetArtistId) {
       alert('Pirma priskirk bent vieną atlikėją.')
       return
     }
-    setCreatingTrack(mention.title)
-    try {
-      const res = await fetch('/api/admin/tracks/quick-create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: mention.title,
-          artist_id: targetArtistId,
-          youtube_url: mention.youtube_url,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        alert(`Klaida: ${data.error || 'Nežinoma'}`)
-        return
+    setPickerInitialQuery(initialQuery)
+    setPickerOpen(true)
+  }
+
+  const handlePickerResult = (r: PickResult) => {
+    // Įdedam į selected + meta cache
+    setTrackMeta(prev => ({
+      ...prev,
+      [r.track_id]: { id: r.track_id, title: r.title, artist_name: r.artist_name },
+    }))
+    setEditTrackIds(prev => prev.includes(r.track_id) ? prev : [...prev, r.track_id])
+    // Jei track turi YT video — pridedam thumb į image options
+    if (r.video_url) {
+      const vid = r.video_url.match(/[?&]v=([^&]+)/)?.[1] || r.video_url.match(/youtu\.be\/([^?&]+)/)?.[1]
+      if (vid) {
+        const thumbUrl = `https://img.youtube.com/vi/${vid}/hqdefault.jpg`
+        setImageOptions(prev =>
+          prev.some(o => o.url === thumbUrl)
+            ? prev
+            : [...prev, { url: thumbUrl, label: `${r.artist_name} — ${r.title}`.slice(0, 60), source: 'youtube_thumb' }]
+        )
       }
-      // Pridedam į selected + meta cache
-      setTrackMeta(prev => ({
-        ...prev,
-        [data.track_id]: { id: data.track_id, title: data.title, artist_name: data.artist_name },
-      }))
-      setEditTrackIds(prev => prev.includes(data.track_id) ? prev : [...prev, data.track_id])
-      // Pridedam YT thumb į image options jei dar nėra
-      if (data.youtube_url) {
-        const vid = data.youtube_url.match(/[?&]v=([^&]+)/)?.[1] || data.youtube_url.match(/youtu\.be\/([^?&]+)/)?.[1]
-        if (vid) {
-          const thumbUrl = `https://img.youtube.com/vi/${vid}/hqdefault.jpg`
-          setImageOptions(prev =>
-            prev.some(o => o.url === thumbUrl)
-              ? prev
-              : [...prev, { url: thumbUrl, label: `${data.artist_name} — ${data.title}`.slice(0, 60), source: 'youtube_thumb' }]
-          )
-        }
-      }
-    } finally {
-      setCreatingTrack(null)
     }
+    setPickerOpen(false)
   }
 
   const handleAction = async (id: number, action: 'approve' | 'reject', extra?: { reason?: string; title?: string; body?: string; image_url?: string }) => {
@@ -522,6 +512,26 @@ export default function AdminInboxPage() {
         )}
       </div>
 
+      {/* Track suggest picker modal */}
+      {editing && pickerOpen && (editPrimaryId || editArtistIds[0]) && (() => {
+        const targetArtistId = editPrimaryId || editArtistIds[0]
+        const targetArtist = artistMeta[targetArtistId]
+        const targetName = targetArtist?.name || editing.primary_artist?.name || ''
+        // Scout'as save'ina embed_urls (YouTube/Spotify/etc.) — picker'ui paduodam,
+        // kad jis galėtų gauti video metadata ir pasiūlyti kaip track'us
+        const embedUrls: string[] = editing.embed_urls || []
+        return (
+          <TrackSuggestPicker
+            artistId={targetArtistId}
+            artistName={targetName}
+            initialQuery={pickerInitialQuery}
+            embedUrls={embedUrls}
+            onPick={handlePickerResult}
+            onClose={() => setPickerOpen(false)}
+          />
+        )
+      })()}
+
       {/* Wikimedia search modal */}
       {editing && showWiki && wikiArtistName && (
         <WikimediaSearch
@@ -646,20 +656,28 @@ export default function AdminInboxPage() {
 
               {/* === Susijusi muzika (wizard track verification) === */}
               <div>
-                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
-                  Susijusi muzika
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5 flex items-center justify-between">
+                  <span>Susijusi muzika</span>
+                  <button
+                    type="button"
+                    onClick={() => openTrackPicker('')}
+                    disabled={editArtistIds.length === 0}
+                    title={editArtistIds.length === 0 ? 'Pirma priskirk atlikėją' : 'Atidaryti dainos paiešką'}
+                    className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-700 rounded text-[10px] font-medium normal-case tracking-normal">
+                    + Pridėti dainą
+                  </button>
                 </div>
                 {(() => {
                   const mentions = editing?.ai_tracks_mentioned || []
-                  if (mentions.length === 0 && editTrackIds.length === 0) {
-                    return <p className="text-xs text-[var(--text-muted)] italic">AI'as straipsnyje nepaminėjo konkrečių dainų.</p>
+                  const userAddedTracks = Object.values(trackMeta).filter(t => !mentions.some(m => m.matched_track_id === t.id))
+                  if (mentions.length === 0 && userAddedTracks.length === 0) {
+                    return <p className="text-xs text-[var(--text-muted)] italic">AI'as straipsnyje nepaminėjo konkrečių dainų. Pridėk per „+ Pridėti dainą" jei norėsi YT thumb nuotraukai.</p>
                   }
                   return (
                     <div className="space-y-1">
                       {mentions.map((m, i) => {
                         const isMatched = !!m.matched_track_id
                         const isSelected = m.matched_track_id ? editTrackIds.includes(m.matched_track_id) : false
-                        const isCreating = creatingTrack === m.title
                         return (
                           <div
                             key={`${m.title}-${i}`}
@@ -691,19 +709,19 @@ export default function AdminInboxPage() {
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={() => createTrackFromMention(m)}
-                                  disabled={isCreating || editArtistIds.length === 0}
-                                  title={editArtistIds.length === 0 ? 'Pirma priskirk atlikėją' : 'Sukurti dainą su YT video'}
+                                  onClick={() => openTrackPicker(m.title)}
+                                  disabled={editArtistIds.length === 0}
+                                  title={editArtistIds.length === 0 ? 'Pirma priskirk atlikėją' : 'Atidaryti DB/YT/Wiki paiešką'}
                                   className="px-2 py-1 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 text-amber-800 rounded text-xs font-medium whitespace-nowrap">
-                                  {isCreating ? '...' : '+ Sukurti'}
+                                  Spręsti…
                                 </button>
                               </>
                             )}
                           </div>
                         )
                       })}
-                      {/* User'io quick-create'ais sukurtos dainos (nėra mentions sąraše) */}
-                      {Object.values(trackMeta).filter(t => !mentions.some(m => m.matched_track_id === t.id)).map(t => (
+                      {/* User'io pridėti tracks (per picker'į) */}
+                      {userAddedTracks.map(t => (
                         <div key={t.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm bg-emerald-50 border border-emerald-300">
                           <input
                             type="checkbox"
