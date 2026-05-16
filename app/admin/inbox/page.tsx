@@ -230,25 +230,37 @@ export default function AdminInboxPage() {
     setPickerOpen(true)
   }
 
-  const handlePickerResult = (r: PickResult) => {
-    // Įdedam į selected + meta cache
-    setTrackMeta(prev => ({
-      ...prev,
-      [r.track_id]: { id: r.track_id, title: r.title, artist_name: r.artist_name },
-    }))
-    setEditTrackIds(prev => prev.includes(r.track_id) ? prev : [...prev, r.track_id])
-    // Jei track turi YT video — pridedam thumb į image options
-    if (r.video_url) {
-      const vid = r.video_url.match(/[?&]v=([^&]+)/)?.[1] || r.video_url.match(/youtu\.be\/([^?&]+)/)?.[1]
-      if (vid) {
-        const thumbUrl = `https://img.youtube.com/vi/${vid}/hqdefault.jpg`
-        setImageOptions(prev =>
-          prev.some(o => o.url === thumbUrl)
-            ? prev
-            : [...prev, { url: thumbUrl, label: `${r.artist_name} — ${r.title}`.slice(0, 60), source: 'youtube_thumb' }]
-        )
-      }
+  const handlePickerManyResults = (results: PickResult[]) => {
+    if (!results || results.length === 0) {
+      setPickerOpen(false)
+      return
     }
+    setTrackMeta(prev => {
+      const next = { ...prev }
+      for (const r of results) {
+        next[r.track_id] = { id: r.track_id, title: r.title, artist_name: r.artist_name }
+      }
+      return next
+    })
+    setEditTrackIds(prev => {
+      const set = new Set(prev)
+      for (const r of results) set.add(r.track_id)
+      return Array.from(set)
+    })
+    // Pridedam visus YT thumbs į image options
+    setImageOptions(prev => {
+      const out = [...prev]
+      for (const r of results) {
+        if (!r.video_url) continue
+        const vid = r.video_url.match(/[?&]v=([^&]+)/)?.[1] || r.video_url.match(/youtu\.be\/([^?&]+)/)?.[1]
+        if (!vid) continue
+        const thumbUrl = `https://img.youtube.com/vi/${vid}/hqdefault.jpg`
+        if (!out.some(o => o.url === thumbUrl)) {
+          out.push({ url: thumbUrl, label: `${r.artist_name} — ${r.title}`.slice(0, 60), source: 'youtube_thumb' })
+        }
+      }
+      return out
+    })
     setPickerOpen(false)
   }
 
@@ -512,21 +524,22 @@ export default function AdminInboxPage() {
         )}
       </div>
 
-      {/* Track suggest picker modal */}
+      {/* Track suggest picker modal — visa muzikos management'as čia */}
       {editing && pickerOpen && (editPrimaryId || editArtistIds[0]) && (() => {
         const targetArtistId = editPrimaryId || editArtistIds[0]
         const targetArtist = artistMeta[targetArtistId]
         const targetName = targetArtist?.name || editing.primary_artist?.name || ''
-        // Scout'as save'ina embed_urls (YouTube/Spotify/etc.) — picker'ui paduodam,
-        // kad jis galėtų gauti video metadata ir pasiūlyti kaip track'us
         const embedUrls: string[] = editing.embed_urls || []
+        const mentions = editing.ai_tracks_mentioned || []
         return (
           <TrackSuggestPicker
             artistId={targetArtistId}
             artistName={targetName}
             initialQuery={pickerInitialQuery}
             embedUrls={embedUrls}
-            onPick={handlePickerResult}
+            aiMentions={mentions}
+            alreadySelectedIds={editTrackIds}
+            onPickMany={handlePickerManyResults}
             onClose={() => setPickerOpen(false)}
           />
         )
@@ -654,89 +667,49 @@ export default function AdminInboxPage() {
                 />
               </div>
 
-              {/* === Susijusi muzika (wizard track verification) === */}
+              {/* === Susijusi muzika — collapsed į vieną button'ą, picker'is valdo viską === */}
               <div>
-                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5 flex items-center justify-between">
-                  <span>Susijusi muzika</span>
-                  <button
-                    type="button"
-                    onClick={() => openTrackPicker('')}
-                    disabled={editArtistIds.length === 0}
-                    title={editArtistIds.length === 0 ? 'Pirma priskirk atlikėją' : 'Atidaryti dainos paiešką'}
-                    className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-700 rounded text-[10px] font-medium normal-case tracking-normal">
-                    + Pridėti dainą
-                  </button>
-                </div>
                 {(() => {
                   const mentions = editing?.ai_tracks_mentioned || []
-                  const userAddedTracks = Object.values(trackMeta).filter(t => !mentions.some(m => m.matched_track_id === t.id))
-                  if (mentions.length === 0 && userAddedTracks.length === 0) {
-                    return <p className="text-xs text-[var(--text-muted)] italic">AI'as straipsnyje nepaminėjo konkrečių dainų. Pridėk per „+ Pridėti dainą" jei norėsi YT thumb nuotraukai.</p>
-                  }
+                  const suggestedCount = mentions.length
+                  const selectedCount = editTrackIds.length
+                  const selectedTracks = editTrackIds.map(id => trackMeta[id]).filter(Boolean)
                   return (
-                    <div className="space-y-1">
-                      {mentions.map((m, i) => {
-                        const isMatched = !!m.matched_track_id
-                        const isSelected = m.matched_track_id ? editTrackIds.includes(m.matched_track_id) : false
-                        return (
-                          <div
-                            key={`${m.title}-${i}`}
-                            className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm ${
-                              isMatched
-                                ? (isSelected ? 'bg-emerald-50 border border-emerald-300' : 'bg-[var(--bg-elevated)] border border-[var(--input-border)]')
-                                : 'bg-amber-50 border border-amber-200'
-                            }`}>
-                            {isMatched ? (
-                              <>
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => toggleEditTrack(m.matched_track_id!)}
-                                  className="w-4 h-4"
-                                />
-                                <span className="flex-1 truncate">
-                                  <strong>{m.title}</strong>
-                                  {m.artist && <span className="text-[var(--text-muted)]"> — {m.artist}</span>}
-                                </span>
-                                <span className="text-[10px] text-emerald-600 font-semibold uppercase">DB ✓</span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="flex-1 truncate text-[var(--text-secondary)]">
-                                  <strong>{m.title}</strong>
-                                  {m.artist && <span className="text-[var(--text-muted)]"> — {m.artist}</span>}
-                                  {m.youtube_url && <span className="ml-1 text-[10px] opacity-60">🎬 YT</span>}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => openTrackPicker(m.title)}
-                                  disabled={editArtistIds.length === 0}
-                                  title={editArtistIds.length === 0 ? 'Pirma priskirk atlikėją' : 'Atidaryti DB/YT/Wiki paiešką'}
-                                  className="px-2 py-1 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 text-amber-800 rounded text-xs font-medium whitespace-nowrap">
-                                  Spręsti…
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )
-                      })}
-                      {/* User'io pridėti tracks (per picker'į) */}
-                      {userAddedTracks.map(t => (
-                        <div key={t.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm bg-emerald-50 border border-emerald-300">
-                          <input
-                            type="checkbox"
-                            checked={editTrackIds.includes(t.id)}
-                            onChange={() => toggleEditTrack(t.id)}
-                            className="w-4 h-4"
-                          />
-                          <span className="flex-1 truncate">
-                            <strong>{t.title}</strong>
-                            {t.artist_name && <span className="text-[var(--text-muted)]"> — {t.artist_name}</span>}
-                          </span>
-                          <span className="text-[10px] text-emerald-600 font-semibold uppercase">NAUJA</span>
+                    <>
+                      <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5 flex items-center justify-between">
+                        <span>Muzika {selectedCount > 0 && <span className="ml-1 text-emerald-600">({selectedCount})</span>}</span>
+                        <button
+                          type="button"
+                          onClick={() => openTrackPicker('')}
+                          disabled={editArtistIds.length === 0}
+                          title={editArtistIds.length === 0 ? 'Pirma priskirk atlikėją' : ''}
+                          className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-700 rounded text-[10px] font-medium normal-case tracking-normal">
+                            {suggestedCount > 0
+                              ? `🎵 Tvarkyti (${suggestedCount} siūlomos)`
+                              : '+ Pridėti dainą'}
+                        </button>
+                      </div>
+                      {selectedTracks.length === 0 ? (
+                        <p className="text-[11px] text-[var(--text-muted)] italic">
+                          {suggestedCount > 0
+                            ? `AI rado ${suggestedCount} dainas straipsnyje — paspausk „Tvarkyti".`
+                            : 'Nepridėta dainų. YT thumb iš dainos veiks kaip nuotrauka, jei nepasirinkta kita.'}
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {selectedTracks.map(t => (
+                            <div key={t.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded-full text-[11px]">
+                              <span className="truncate max-w-[180px]">{t.title}</span>
+                              <button
+                                type="button"
+                                onClick={() => toggleEditTrack(t.id)}
+                                aria-label="Pašalinti"
+                                className="w-3.5 h-3.5 rounded-full hover:bg-red-200 text-red-500 flex items-center justify-center text-xs leading-none">×</button>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      )}
+                    </>
                   )
                 })()}
               </div>
