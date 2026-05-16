@@ -565,34 +565,32 @@ export default function AdminInboxPage() {
         />
       )}
 
-      {/* Edit modal */}
+      {/* Edit modal — mobile: fullscreen (no margins, no rounded), desktop: centered card */}
       {editing && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[var(--bg-surface)] rounded-2xl shadow-2xl w-full max-w-3xl my-8">
-            <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center justify-between sticky top-0 bg-[var(--bg-surface)] rounded-t-2xl z-10">
-              <div className="flex flex-col">
-                <h2 className="text-base font-bold text-[var(--text-primary)]">✎ Redaguoti naujieną</h2>
-                {editing && (
-                  <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] mt-0.5">
-                    {editing.source_portal && (
-                      <a href={editing.source_url || '#'} target="_blank" rel="noopener" className="hover:underline">
-                        {editing.source_portal} ↗
-                      </a>
-                    )}
-                    {(editing.source_published_at || editing.created_at) && (
-                      <span>· {new Date(editing.source_published_at || editing.created_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                    )}
-                  </div>
-                )}
+        <div className="fixed inset-0 z-50 bg-black/60 sm:backdrop-blur-sm flex items-stretch sm:items-center justify-center sm:p-4 overflow-y-auto">
+          <div className="bg-[var(--bg-surface)] sm:rounded-2xl sm:shadow-2xl w-full max-w-3xl sm:my-4">
+            <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-[var(--border-subtle)] flex items-center justify-between sticky top-0 bg-[var(--bg-surface)] sm:rounded-t-2xl z-10">
+              <div className="flex flex-col min-w-0">
+                <h2 className="text-sm sm:text-base font-bold text-[var(--text-primary)] leading-tight">✎ Redaguoti naujieną</h2>
+                <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
+                  {editing.source_portal && (
+                    <a href={editing.source_url || '#'} target="_blank" rel="noopener" className="hover:underline truncate">
+                      {editing.source_portal} ↗
+                    </a>
+                  )}
+                  {(editing.source_published_at || editing.created_at) && (
+                    <span>· {new Date(editing.source_published_at || editing.created_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                  )}
+                </div>
               </div>
               <button
                 onClick={closeEdit}
                 aria-label="Uždaryti"
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-2xl leading-none">
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-2xl leading-none shrink-0 ml-2">
                 ×
               </button>
             </div>
-            <div className="px-4 py-3 space-y-4">
+            <div className="px-3 py-2 sm:px-4 sm:py-3 space-y-3 sm:space-y-4">
               {/* === Peržiūra collapsed by default — link viršuje, kad galima
                  greitai patikrinti kontent prieš/po redaguojant. Click → unfoldina. === */}
               {editBody.trim() && (
@@ -734,7 +732,7 @@ export default function AdminInboxPage() {
                   Nuotrauka
                 </div>
                 {imageOptions.length > 0 ? (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 sm:grid-cols-4 gap-1.5">
                     {imageOptions.map((opt, i) => (
                       <button
                         key={i}
@@ -809,17 +807,17 @@ export default function AdminInboxPage() {
                 />
               </div>
             </div>
-            <div className="px-4 py-3 border-t border-[var(--border-subtle)] flex gap-2 items-center sticky bottom-0 bg-[var(--bg-surface)] rounded-b-2xl">
+            <div className="px-3 py-2 sm:px-4 sm:py-3 border-t border-[var(--border-subtle)] flex gap-2 items-center sticky bottom-0 bg-[var(--bg-surface)] sm:rounded-b-2xl">
               <button
                 onClick={closeEdit}
-                className="px-3 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm font-medium text-[var(--text-secondary)]">
+                className="px-3 py-1.5 sm:py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm font-medium text-[var(--text-secondary)]">
                 Atšaukti
               </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={savingEdit || !editTitle.trim() || !editBody.trim() || editArtistIds.length === 0}
                 title={editArtistIds.length === 0 ? 'Pridėk bent vieną atlikėją' : ''}
-                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-bold">
+                className="flex-1 px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-bold">
                 {savingEdit ? '...' : '✓ Paskelbti'}
               </button>
             </div>
