@@ -253,27 +253,71 @@ export function cleanWikiText(raw: string): string {
  * Extract featuring artist names from "(feat. ...)" or "{{feat ...}}" patterns.
  */
 export function extractFeaturing(raw: string): string[] {
-  const names: string[] = []
   // Match: (feat/featuring/ft/with X) — su paren'ais. 'with' įtraukta dėl
   // Coldplay-style "(with Rihanna)" formatuotės kuri dažna duet'uose.
   const m1 = raw.match(/\((?:feat(?:uring)?\.?|ft\.?|with)\s+([^)]+)\)/i)
   if (m1) {
-    for (const p of m1[1].split(/\s+and\s+|[,&]/i)) {
-      const lm = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
-      const n = (lm ? lm[1] : p).replace(/['\[\]]/g, '').trim()
-      if (n.length > 1) names.push(n)
-    }
-    return names
+    // Split TIK pagal , ir & — and-split atlieka cleanFeaturingTokens viduje.
+    return cleanFeaturingTokens(m1[1].split(/[,&]/))
   }
   const m2 = raw.match(/\{\{(?:feat(?:uring)?\.?|ft\.?)[\s|]([^}]+)\}\}/i)
   if (m2) {
-    for (const p of m2[1].split(/\s*\|\s*|\s+and\s+|[,&]/i)) {
-      const lm = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
-      const n = (lm ? lm[1] : p).replace(/['\[\]]/g, '').trim()
-      if (n.length > 1) names.push(n)
+    return cleanFeaturingTokens(m2[1].split(/\s*\|\s*|[,&]/))
+  }
+  return []
+}
+
+/**
+ * Iš comma/&-split tokens'ų atrenka realių artistų vardus.
+ *
+ * Sprendžia Wikipedia tracklist edge case'ą:
+ *   "feat. David Bowie, Hot Space, 1982"
+ * Anksčiau parser'is split'indavo pagal , ir paima visus 3 kaip "featuring".
+ * Bet "Hot Space" yra originalo album'as, "1982" — metai.
+ *
+ * Heuristika: jei vienas iš tokens'ų yra 4-skaitm. metai (1900-2030), tai
+ * pattern'as yra "Artist, Album, Year" — paimam tik tokens'us PRIEŠ
+ * second-to-last (album'as) ir last (year). Plus filtruojam "from X",
+ * "originally X", etc. metadata prefix'us. Pabaigai split'inam per 'and'
+ * kad ištrauktume multi-artist'us iš vieno segmento.
+ */
+function cleanFeaturingTokens(commaSplit: string[]): string[] {
+  // Wiki link'ų stripping + base trim
+  const tokens = commaSplit.map(p => {
+    const lm = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
+    const cleaned = lm ? lm[1] : p
+    return cleaned.replace(/['\[\]]/g, '').replace(/^\s*\)/, '').trim()
+  }).filter(p => p.length > 1)
+  if (tokens.length === 0) return []
+
+  // Jei tokens'uose yra year — drop year + token prieš jį (originalo album'as).
+  // Pvz ['David Bowie', 'Hot Space', '1982'] → ['David Bowie'].
+  let artistTokens = tokens
+  const yearIdx = tokens.findIndex(p => /^[12]\d{3}$/.test(p))
+  if (yearIdx > 0) {
+    artistTokens = tokens.slice(0, yearIdx - 1)
+  } else if (yearIdx === 0) {
+    artistTokens = []
+  }
+
+  // Filtruojam metadata prefix'us
+  artistTokens = artistTokens.filter(p =>
+    !/^(from|originally|on|in|off|via|by|track|side|disc|album)\s+/i.test(p)
+  )
+
+  // Split each by 'and' (multi-artist segmente)
+  const result: string[] = []
+  const seen = new Set<string>()
+  for (const t of artistTokens) {
+    for (const sub of t.split(/\s+and\s+/i)) {
+      const s = sub.trim().replace(/^["']|["']$/g, '')
+      if (s.length > 1 && !/^[12]\d{3}$/.test(s) && !seen.has(s.toLowerCase())) {
+        seen.add(s.toLowerCase())
+        result.push(s)
+      }
     }
   }
-  return names
+  return result
 }
 
 /**
@@ -662,10 +706,13 @@ export function parseHashListTracks(
     else if (/\bcover\b/.test(noteLow)) type = 'covers'
     // featuring extraction — pirma iš note (`(feat. X)` po dash'o), tada
     // fallback iš title'o jei parseFeaturing kažką ištraukė inline.
+    // Naudojam cleanFeaturingTokens kuris drop'ina "X, Album, Year" patterns
+    // (anksčiau "Under Pressure feat. David Bowie, Hot Space, 1982" duodavo
+    // 3 "artist'us" tarp kurių 2 buvo album'as + metai).
     let featuring: string[] | undefined
     const featM = noteRaw.match(/(?:feat(?:uring)?\.?|with)\s+(.+)/i)
     if (featM) {
-      featuring = featM[1].split(/\s+and\s+|[,&]/i).map(s => s.trim().replace(/^["']|["']$/g, '')).filter(s => s.length > 1)
+      featuring = cleanFeaturingTokens(featM[1].split(/[,&]/))
     }
     if ((!featuring || !featuring.length) && titleFeat.length) featuring = titleFeat
     // is_single + release date — taikom tą pačią logiką kaip parseTracklist
@@ -1143,14 +1190,11 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
         // 1) feat/featuring/ft anywhere — "(featuring [[X]])" ar "featuring [[X]]"
         // 2) "with [[X]]" — Coldplay-style note10="with [[Rihanna]]" (be paren'ų)
         // 3) "(with [[X]])" — alt forma su paren'ais
+        // Naudojam cleanFeaturingTokens kuris drop'ina "X, Album, Year" patterns.
         let fm = noteM[1].match(/\b(?:feat(?:uring)?|ft)\.?\s+(.+)/i)
         if (!fm) fm = noteM[1].match(/^\s*with\s+(.+)/i)
         if (!fm) fm = noteM[1].match(/\(\s*with\s+([^)]+)\)/i)
-        if (fm) for (const p of fm[1].split(/\s+and\s+|[,&]/i)) {
-          const lm = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
-          const n = (lm ? lm[1] : p).replace(/['[\]]/g, '').replace(/^\s*\)/, '').trim()
-          if (n.length > 1) featuring.push(n)
-        }
+        if (fm) featuring = cleanFeaturingTokens(fm[1].split(/[,&]/))
       }
       const { cleanTitle, featuring: tf } = parseFeaturing(titleM[1].trim())
       if (!featuring.length) featuring = tf
