@@ -593,18 +593,19 @@ export default function AdminInboxPage() {
               </button>
             </div>
             <div className="px-4 py-3 space-y-4">
-              {/* === Naujienos peržiūra — virš antraštės, gyva (atnaujina kai
-                 redaguojama Tekstas laukelis žemiau) === */}
+              {/* === Peržiūra collapsed by default — link viršuje, kad galima
+                 greitai patikrinti kontent prieš/po redaguojant. Click → unfoldina. === */}
               {editBody.trim() && (
-                <div>
-                  <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
-                    Peržiūra <span className="ml-1 normal-case font-normal opacity-70">(atnaujinama redaguojant)</span>
-                  </div>
+                <details className="-mb-2">
+                  <summary className="text-xs text-blue-600 hover:underline cursor-pointer select-none inline-flex items-center gap-1">
+                    <span>▾ Peržiūra</span>
+                    <span className="text-[10px] text-[var(--text-muted)] normal-case">(atnaujinama redaguojant)</span>
+                  </summary>
                   <div
-                    className="prose prose-sm max-w-none bg-[var(--bg-elevated)]/50 border border-[var(--border-subtle)] rounded-lg p-3"
+                    className="prose prose-sm max-w-none bg-[var(--bg-elevated)]/50 border border-[var(--border-subtle)] rounded-lg p-3 mt-2"
                     dangerouslySetInnerHTML={{ __html: editBody }}
                   />
-                </div>
+                </details>
               )}
               {/* === Atlikėjai === */}
               <div>
