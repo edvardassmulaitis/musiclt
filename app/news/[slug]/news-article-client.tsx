@@ -159,11 +159,32 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
         <span className="mu-hdr-label">Susijusi muzika</span>
       </div>
 
-      {/* Video / thumbnail — play btn only here */}
-      <div className="mu-video">
+      {/* Video / thumbnail — play btn only here.
+         Naudoja youtube-nocookie.com (privacy-enhanced mode) — sutaupo ~20-30%
+         VEVO embed bypassed atvejais, plius geriau GDPR'iui. */}
+      <div className="mu-video" style={{ position: 'relative' }}>
         {playing && vid
-          ? <iframe src={`https://www.youtube.com/embed/${vid}?autoplay=1&rel=0`}
-              allow="autoplay; encrypted-media" allowFullScreen className="mu-iframe" />
+          ? <>
+              <iframe src={`https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0`}
+                allow="autoplay; encrypted-media" allowFullScreen className="mu-iframe" />
+              {/* Fallback button — visada matomas play state'e, jei iframe rodo
+                 'Video unavailable' (VEVO domain block ar pan.), user'is gali atidaryti
+                 YT tiesiogiai. Positioned bottom-right, nemaišo player'iui. */}
+              <a href={`https://youtube.com/watch?v=${vid}`} target="_blank" rel="noopener"
+                title="Jei video čia neveikia — atidaryti YouTube"
+                style={{
+                  position: 'absolute', bottom: 8, right: 8, zIndex: 5,
+                  background: 'rgba(0,0,0,0.7)', color: '#fff',
+                  padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4,
+                  backdropFilter: 'blur(4px)',
+                }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="#FF0000">
+                  <path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.54 15.57V8.43L15.82 12l-6.28 3.57z"/>
+                </svg>
+                <span>YouTube ↗</span>
+              </a>
+            </>
           : <div className={`mu-thumb ${!vid ? 'mu-thumb-noplay' : ''}`} onClick={() => vid && setPlaying(true)}>
               {thumb ? <img src={thumb} alt={cur.title} /> : <div className="mu-no-thumb">♪</div>}
               {vid && (

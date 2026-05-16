@@ -107,6 +107,38 @@ export function parseYtTitleForArtist(rawTitle: string, primaryArtistName: strin
 }
 
 /**
+ * Normalize title for duplicate detection — drop diacritics, lowercase,
+ * strip leading/trailing whitespace + common YT noise.
+ */
+function normalizeTitle(t: string): string {
+  return (t || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\(.*?\)|\[.*?\]/g, '') // drop bracketed annotations
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Surask DB track'ą su panašiu pavadinimu — naudojama duplicate prevention
+ * (kai user'is pasirenka YT video, perspėjam, kad jau yra DB'oje).
+ */
+function findDbDup(ytTitle: string, dbTracks: DbTrack[]): DbTrack | null {
+  const yt = normalizeTitle(ytTitle)
+  if (!yt || yt.length < 3) return null
+  for (const t of dbTracks) {
+    const db = normalizeTitle(t.title)
+    if (!db) continue
+    // Exact match arba YT title contain'ina DB pavadinimą (su ≥3 chars)
+    if (db === yt || (db.length >= 3 && yt.includes(db)) || (yt.length >= 3 && db.includes(yt))) {
+      return t
+    }
+  }
+  return null
+}
+
+/**
  * "Prieš X" formatas iš ISO date'o (santykinis laikas LT'iškai).
  */
 function timeAgo(isoDate: string): string {
@@ -157,7 +189,10 @@ export default function TrackSuggestPicker({
 }) {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<Suggestions | null>(null)
-  const [ytSearchQ, setYtSearchQ] = useState(initialQuery || '')
+  // Default search input = artist name (jei nera initialQuery) → user mato kas
+  // ieskoma, gali edit'inti / extend'inti. Search siunčia input kaip-yra (be
+  // prepend'o), kad nebūtų „Drake Drake" tipo dublikacijos.
+  const [ytSearchQ, setYtSearchQ] = useState(initialQuery ? `${artistName} ${initialQuery}` : artistName)
   const [ytSearching, setYtSearching] = useState(false)
   const [ytResults, setYtResults] = useState<YtSearchHit[]>([])
   const [selected, setSelected] = useState<SelectedRow[]>([])
@@ -178,15 +213,14 @@ export default function TrackSuggestPicker({
     }
   }, [artistId, initialQuery, embedUrls])
 
-  // YT live search. Tuščia query → ieškom tik atlikėjo (top videos).
+  // YT live search. Naudoja query as-is — input'as jau prefilled su artist'o
+  // pavadinimu, user'is gali pridėt dainos pavadinimą („Drake Iceman").
   const runYtSearch = useCallback(async (query: string) => {
     setYtSearching(true)
     try {
-      const fullQuery = query.trim()
-        ? `${artistName} ${query.trim()}`.trim()
-        : artistName.trim()
-      if (!fullQuery) { setYtResults([]); return }
-      const res = await fetch(`/api/search/youtube?q=${encodeURIComponent(fullQuery)}`)
+      const q = query.trim() || artistName.trim()
+      if (!q) { setYtResults([]); return }
+      const res = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
       const d = await res.json()
       setYtResults(Array.isArray(d.results) ? d.results.slice(0, 5) : [])
     } catch {
@@ -198,15 +232,14 @@ export default function TrackSuggestPicker({
 
   useEffect(() => {
     load()
-    // Auto-trigger YT search VISADA — jei initialQuery yra (per „Spręsti" su
-    // mention'o title), ieškom konkrečios dainos. Jei ne — ieškom tik artist'o
-    // (top results — naujausios + populiariausios atlikėjo dainos).
+    // Auto-trigger YT search — naudoja ytSearchQ (jau prefilled su artist
+    // name arba „artist initialQuery")
     if (!initialSearchDone.current) {
       initialSearchDone.current = true
-      // Empty query → runYtSearch su artistName tik (per fullQuery konstrukcija)
-      runYtSearch(initialQuery || '')
+      runYtSearch(ytSearchQ)
     }
-  }, [load, runYtSearch, initialQuery])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, runYtSearch])
 
   // ── Selection helpers ────────────────────────────────────────────
   const toggleSelected = (row: SelectedRow) => {
@@ -292,20 +325,23 @@ export default function TrackSuggestPicker({
               {ytSearching ? '...' : 'Ieškoti'}
             </button>
           </div>
-          {/* AI mentions be DB match'o — kaip quick-search pills (su click triggerintų YT paiešką)
-             Politika: nebenaudojam unmatched AI mentions kaip „sukurti be video" — track'as
-             be YT yra useless naujienos kortelėje. AI mention tampa search query siūlymu. */}
+          {/* AI extracted titles iš naujienos teksto — click triggerina YT paiešką tos dainos */}
           {aiMentions.length > 0 && (() => {
             const unmatched = aiMentions.filter(m => !m.matched_track_id)
             if (unmatched.length === 0) return null
             return (
               <div className="flex flex-wrap gap-1 mb-1 px-0.5">
-                <span className="text-[10px] text-gray-500 self-center">🤖 AI siūlo:</span>
-                {unmatched.slice(0, 5).map((m, i) => (
+                <span className="text-[10px] text-gray-500 self-center">📰 Naujienoje paminėtos:</span>
+                {unmatched.slice(0, 6).map((m, i) => (
                   <button
                     key={i}
                     type="button"
-                    onClick={() => { setYtSearchQ(m.title); runYtSearch(m.title) }}
+                    onClick={() => {
+                      const q = `${artistName} ${m.title}`.trim()
+                      setYtSearchQ(q)
+                      runYtSearch(q)
+                    }}
+                    title={`Ieškoti „${m.title}" YouTube'e`}
                     className="px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full text-[10px] font-medium border border-dashed border-blue-300">
                     {m.title}
                   </button>
@@ -328,7 +364,17 @@ export default function TrackSuggestPicker({
             const cleanTitle = parseYtTitleForArtist(r.title, artistName)
             const ago = timeAgo(r.publishedAt)
             const viewsStr = r.viewCount ? formatViews(r.viewCount) : ''
-            const subtitle = [r.channel, viewsStr, ago].filter(Boolean).join(' · ')
+            // Duplicate detection — patikrinam ar yra DB track'as su panašiu title
+            const allDbTracks = [
+              ...(data?.db_matches || []),
+              ...(data?.db_recent || []),
+              ...(data?.db_top || []),
+            ]
+            const dup = findDbDup(cleanTitle, allDbTracks)
+            const dupKey = dup ? `dbm-${dup.track_id}` : null
+            const subtitle = dup
+              ? `⚠ JAU DB: „${dup.title}" — pažymėk ją vietoj YT`
+              : [r.channel, viewsStr, ago].filter(Boolean).join(' · ')
             const row: SelectedRow = {
               key, title: cleanTitle, artist_name: artistName,
               video_url: url, source: 'yt_search',
@@ -340,9 +386,24 @@ export default function TrackSuggestPicker({
                 thumb={r.thumbnail}
                 title={cleanTitle}
                 subtitle={subtitle}
-                badge="yt"
-                selected={isSelected(key)}
-                onToggle={() => toggleSelected(row)}
+                badge={dup ? 'db' : 'yt'}
+                selected={isSelected(key) || (!!dup && isSelected(dupKey!))}
+                onToggle={() => {
+                  // Jei rastas DB dup — paspaudus YT row'ą, vietoj YT pridedam
+                  // existing DB track'ą (selectinam jo key)
+                  if (dup) {
+                    toggleSelected({
+                      key: `dbm-${dup.track_id}`,
+                      track_id: dup.track_id,
+                      title: dup.title,
+                      artist_name: artistName,
+                      video_url: dup.video_url,
+                      source: 'db',
+                    })
+                  } else {
+                    toggleSelected(row)
+                  }
+                }}
               />
             )
           })}
@@ -433,9 +494,9 @@ export default function TrackSuggestPicker({
           </SectionTight>
         )}
 
-        {/* ── DB recent ──────────────────────────────────────────── */}
+        {/* ── DB recent (expanded by default — prevent duplicates) ─ */}
         {!loading && data && data.db_recent.length > 0 && (
-          <CollapsibleSection title="🆕 Naujausi DB" count={data.db_recent.length}>
+          <CollapsibleSection title="🆕 Naujausi DB" count={data.db_recent.length} defaultOpen={true}>
             {data.db_recent.map(t => {
               const key = `dbr-${t.track_id}`
               const alreadyIn = isAlreadyIn(t.track_id)
@@ -457,9 +518,9 @@ export default function TrackSuggestPicker({
           </CollapsibleSection>
         )}
 
-        {/* ── DB top ──────────────────────────────────────────── */}
+        {/* ── DB top (expanded — leidžiam matyti visus su video) ── */}
         {!loading && data && data.db_top.length > 0 && (
-          <CollapsibleSection title="⭐ Top DB" count={data.db_top.length}>
+          <CollapsibleSection title="⭐ Top DB" count={data.db_top.length} defaultOpen={true}>
             {data.db_top.map(t => {
               const key = `dbt-${t.track_id}`
               const alreadyIn = isAlreadyIn(t.track_id)
@@ -605,7 +666,7 @@ function Row({ title, subtitle, badge, selected, disabled = false, onToggle, onT
 }
 
 function RowWithThumb({ thumb, title, subtitle, badge, selected, onToggle }: {
-  thumb: string; title: string; subtitle: string; badge: 'embed' | 'yt'
+  thumb: string; title: string; subtitle: string; badge: 'embed' | 'yt' | 'db'
   selected: boolean; onToggle: () => void
 }) {
   return (

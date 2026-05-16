@@ -684,9 +684,9 @@ export default function AdminInboxPage() {
                           disabled={editArtistIds.length === 0}
                           title={editArtistIds.length === 0 ? 'Pirma priskirk atlikėją' : ''}
                           className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-700 rounded text-[10px] font-medium normal-case tracking-normal">
-                            {suggestedCount > 0
-                              ? `🎵 Tvarkyti (${suggestedCount} siūlomos)`
-                              : '+ Pridėti dainą'}
+                            {selectedCount > 0
+                              ? '🎵 Tvarkyti'
+                              : '🎬 Surasti video'}
                         </button>
                       </div>
                       {selectedTracks.length === 0 ? (
