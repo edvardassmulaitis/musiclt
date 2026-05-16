@@ -13,6 +13,13 @@ import { buildRelevancePrompt, LIGHT_REWRITE_SYSTEM, type AIRelevanceCategory, t
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
 const SONNET_MODEL = 'claude-sonnet-4-6'
+// 2026-05-16: cost optimization — normalize'ui naudojam Haiku vietoj Sonnet'o
+// (-67% cost). Sonnet'as paliktas kaip backup model, jei kada reiks pereit
+// atgal grąžinant kokybę. Haiku 4.5 yra solid'us Tool Use JSON output'ams.
+const NORMALIZE_MODEL = HAIKU_MODEL
+// Truncate full_text iš ~8000 -> 3000 chars (-30% Sonnet input). News
+// essence paprastai yra lead'e (pirmi 2-3 paragrafai), o ne pabaigoje.
+const NORMALIZE_TEXT_LIMIT = 3000
 
 function getApiKey(): string {
   const key = process.env.ANTHROPIC_API_KEY
@@ -110,7 +117,7 @@ export async function normalizeArticle(input: {
   source_url?: string          // šaltinio URL (į prompt'ą, AI niekur jį neideda — tik kontekstui)
   artist_whitelist?: string[]  // top atlikėjų pavadinimai DB hint'ui
 }): Promise<NormalizedArticle> {
-  const textTruncated = input.full_text.slice(0, 8000) // ~2k tokens limit'as
+  const textTruncated = input.full_text.slice(0, NORMALIZE_TEXT_LIMIT)
 
   const userMsg = [
     input.source_name ? `Šaltinis: ${input.source_name}` : '',
@@ -193,7 +200,7 @@ export async function normalizeArticle(input: {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: SONNET_MODEL,
+      model: NORMALIZE_MODEL,
       max_tokens: 2048,
       system: LIGHT_REWRITE_SYSTEM,
       tools: [tool],
@@ -242,11 +249,11 @@ export async function normalizeArticle(input: {
         : [],
       confidence: typeof parsed.confidence === 'number'
         ? Math.max(0, Math.min(1, parsed.confidence)) : 0,
-      model: SONNET_MODEL,
+      model: NORMALIZE_MODEL,
       raw_response: text.slice(0, 500), // debug
     }
   } catch (e: any) {
-    console.warn('[ai-normalize] Sonnet JSON parse failed:', e.message, text.slice(0, 300))
+    console.warn('[ai-normalize] normalize JSON parse failed:', e.message, text.slice(0, 300))
     return emptyArticle(text)
   }
 }
@@ -261,7 +268,7 @@ function emptyArticle(rawText: string): NormalizedArticle {
     tracks_mentioned: [],
     embed_urls: [],
     confidence: 0,
-    model: SONNET_MODEL,
+    model: NORMALIZE_MODEL,
     raw_response: rawText.slice(0, 500),
   }
 }

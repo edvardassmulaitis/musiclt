@@ -1,15 +1,12 @@
 name: Events scout
 
-# 3x per parą staggered, atskirti nuo news scout'o.
-#   06:00 UTC (08:00 EET ryto) | 14:00 UTC (16:00 EET) | 22:00 UTC (00:00 EET overnight)
-#
-# MAX_EVENTS_PER_SOURCE=3 (route.ts) leidžia kiekvienam Vercel call'ui telpti
-# į 60s timeout (3 × ~12s Sonnet = ~36s).
+# 2x per parą (2026-05-16 cost optimization: 3x/d → 2x/d). Events keičiasi
+# lėtai (bilietai atsiranda dienomis, ne valandomis) — 12h latency OK.
+#   08:00 UTC (10:00 EET ryto) | 20:00 UTC (22:00 EET vakaro)
 on:
   schedule:
-    - cron: '0 6 * * *'
-    - cron: '0 14 * * *'
-    - cron: '0 22 * * *'
+    - cron: '0 8 * * *'
+    - cron: '0 20 * * *'
   workflow_dispatch:
     inputs:
       source_id:

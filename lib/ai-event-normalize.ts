@@ -10,6 +10,9 @@ import type { EventDetail } from './events-extract'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const SONNET_MODEL = 'claude-sonnet-4-6'
+const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
+// 2026-05-16: cost optimization — events normalize taip pat naudoja Haiku
+const NORMALIZE_MODEL = HAIKU_MODEL
 
 function getApiKey(): string {
   const key = process.env.ANTHROPIC_API_KEY
@@ -148,7 +151,7 @@ export async function normalizeEvent(input: EventDetail & { source_portal?: stri
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: SONNET_MODEL,
+      model: NORMALIZE_MODEL,
       max_tokens: 2048,
       system: EVENT_SYSTEM,
       tools: [tool],
@@ -187,7 +190,7 @@ export async function normalizeEvent(input: EventDetail & { source_portal?: stri
         })).filter((a: any) => a.name)
       : [],
     confidence: typeof p.confidence === 'number' ? Math.max(0, Math.min(1, p.confidence)) : 0,
-    model: SONNET_MODEL,
+    model: NORMALIZE_MODEL,
   }
 }
 
@@ -198,6 +201,6 @@ function emptyEvent(): NormalizedEvent {
     description_html: '',
     artists_mentioned: [],
     confidence: 0,
-    model: SONNET_MODEL,
+    model: NORMALIZE_MODEL,
   }
 }

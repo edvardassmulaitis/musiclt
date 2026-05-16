@@ -1,24 +1,16 @@
 name: News scout
 
-# 6x per parą staggered (kas 4h), kad neperkrautume Vercel funkcijos ir kad
-# breaking news catch'as būtų greitesnis. UTC times:
-#   03:00 (05:00 EET) | 07:00 (09:00 EET) | 11:00 (13:00 EET pietūs)
-#   15:00 (17:00 EET) | 19:00 (21:00 EET) | 23:00 (01:00 EET overnight US releases)
+# 2x per parą (2026-05-16 cost optimization: 6x/d → 2x/d, ~67% sutaupymas).
+# Music news ne kritiškai fresh — 12h refresh latency OK.
+#   07:00 UTC (09:00 EET ryto) | 19:00 UTC (21:00 EET vakaro)
 #
-# Matrix [1..8] aktyvūs ir neaktyvūs source'ai (neaktyvūs grįžta 200 su
-# skipped flag'u — žr. 20260515d migraciją). max-parallel: 2 — Anthropic
-# rate limit safety + jei vienas job hangina, kiti laukia ne ilgiau 1 min.
-#
-# MAX_ITEMS_PER_SOURCE=3 (route.ts) leidžia kiekvienam Vercel call'ui
-# saugiai telpti į 60s timeout (3 × ~12s Sonnet = ~36s).
+# Plius: lib/ai-normalize.ts naudoja Haiku 4.5 vietoj Sonnet 4.6 (-67% per call),
+# plius full_text truncated 8000 → 3000 chars (-30% input).
+# Kombinacija: ~95% scout cost'o sutaupymas.
 on:
   schedule:
-    - cron: '0 3 * * *'
     - cron: '0 7 * * *'
-    - cron: '0 11 * * *'
-    - cron: '0 15 * * *'
     - cron: '0 19 * * *'
-    - cron: '0 23 * * *'
   workflow_dispatch:
     inputs:
       source_id:
