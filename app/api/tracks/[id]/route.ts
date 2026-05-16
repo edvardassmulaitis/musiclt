@@ -86,18 +86,50 @@ export async function PUT(
 
   const { id } = await params
   const trackId = parseInt(id)
+  const { searchParams } = new URL(req.url)
+  const forceDupVideo = searchParams.get('force_dup_video') === '1'
 
   try {
     const data = await req.json()
 
-    // Pirma — gaunam dabartinę video_url, kad galėtumėm detektuoti pakeitimą
-    // ir auto-trigger'inti YT views fetch po update'o.
+    // Pirma — gaunam dabartinę video_url + artist_id, kad galėtumėm
+    // detektuoti pakeitimą ir patikrinti per-artist duplikatus.
     const { data: existingTrack } = await supabase
       .from('tracks')
-      .select('video_url')
+      .select('video_url, artist_id')
       .eq('id', trackId)
       .maybeSingle()
     const oldVideoUrl = (existingTrack as any)?.video_url || null
+    const oldArtistId = (existingTrack as any)?.artist_id || null
+
+    // ── DUPLICATE VIDEO URL CHECK (per artist) ─────────────────────────────
+    // 2026-05-15: jei admin set'ina video_url, kuris jau priskirtas KITAI
+    // to atlikėjo dainai — return 409 su duplicate info. Frontend gali
+    // pasakyti vartotojui ir paklausti ar tikrai keisti (force_dup_video=1
+    // query param bypass'as).
+    const incomingVideoUrl = (data?.video_url || data?.youtube_url || '').trim()
+    if (incomingVideoUrl && incomingVideoUrl !== oldVideoUrl && !forceDupVideo && oldArtistId) {
+      const { data: dupRow } = await supabase
+        .from('tracks')
+        .select('id, title, type, slug')
+        .eq('artist_id', oldArtistId)
+        .eq('video_url', incomingVideoUrl)
+        .neq('id', trackId)
+        .limit(1)
+        .maybeSingle()
+      if (dupRow) {
+        return NextResponse.json({
+          error: 'Šis YouTube linkas jau priskirtas kitai šio atlikėjo dainai',
+          duplicate_track: {
+            id: (dupRow as any).id,
+            title: (dupRow as any).title,
+            type: (dupRow as any).type,
+            slug: (dupRow as any).slug,
+          },
+          hint: 'Pridėk ?force_dup_video=1 jei tikrai nori dubliuoti URL',
+        }, { status: 409 })
+      }
+    }
 
     const updates: Record<string, any> = {}
 
@@ -128,16 +160,22 @@ export async function PUT(
         : null
     }
 
-    // Auto-reset YT enrich state'ą jei video_url pasikeitė — kad enrichTrack
-    // (žemiau) iš naujo paimtų views naujam video. Be šito, enrichTrack
-    // pamatys senus video_views laukus ir tinkamai juos atnaujins, bet
-    // explicit reset'as garantuoja, kad UI iškart matys "kraunama".
-    const newVideoUrl = updates.video_url ?? oldVideoUrl
-    const videoChanged = newVideoUrl !== oldVideoUrl
-    if (videoChanged && newVideoUrl) {
+    // Auto-reset YT enrich state'ą jei video_url pasikeitė. 2026-05-15 fix:
+    // anksčiau `updates.video_url ?? oldVideoUrl` su null → oldVideoUrl,
+    // todėl videoChanged=false kai admin clear'ino URL'ą, → views likdavo.
+    // Dabar tikslus 'video_url' in updates check'as.
+    const videoUrlInUpdates = 'video_url' in updates
+    const newVideoUrl = videoUrlInUpdates ? updates.video_url : oldVideoUrl
+    const videoChanged = videoUrlInUpdates && newVideoUrl !== oldVideoUrl
+    if (videoChanged) {
+      // Reset visa YT state'ą — views, upload date, embeddable. Cleanup
+      // taikomas tiek kai admin set'ina naują URL'ą, tiek kai clear'ina į null.
       updates.video_views = null
       updates.video_views_checked_at = null
       updates.video_embeddable = null
+      updates.video_uploaded_at = null
+      // youtube_searched_at — paliekam (kad neperieškojam auto), nebent
+      // admin explicitly force enrich per /admin/yt/track/[id]/enrich.
     }
 
     if (Object.keys(updates).length > 0) {

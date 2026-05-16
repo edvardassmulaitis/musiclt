@@ -561,8 +561,21 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     try {
       // ── FIX 1: siųsti is_single ──────────────────────────────────────────
       const payload = { title, artist_id: artistId, type: trackType, is_single: isSingle, release_year: releaseYear || null, release_month: releaseMonth || null, release_day: releaseDay || null, video_url: videoUrl, spotify_id: spotifyId, lyrics, chords, is_new: isNew, is_new_date: isNewDate, cover_url: coverUrl, featuring }
-      const res = await fetch(isNewTrack ? '/api/tracks' : `/api/tracks/${id}`, { method: isNewTrack ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      const data = await res.json()
+      const doSave = async (forceDup = false) => {
+        const url = isNewTrack
+          ? '/api/tracks'
+          : `/api/tracks/${id}${forceDup ? '?force_dup_video=1' : ''}`
+        const res = await fetch(url, { method: isNewTrack ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        return { res, data: await res.json() }
+      }
+      let { res, data } = await doSave(false)
+      // 409 = duplicate video URL — show confirm + retry with force flag
+      if (res.status === 409 && data?.duplicate_track) {
+        const d = data.duplicate_track
+        const ok = confirm(`Šis YouTube linkas jau priskirtas dainai:\n\n  "${d.title}" (id=${d.id}, type=${d.type || 'normal'})\n\nAr tikrai nori dubliuoti URL šitam track'ui?\n\n(Įprastai studio versija turi gauti URL, live/remix versijos — ne)`)
+        if (!ok) { setError('Išsaugojimas atšauktas — patikrink kitą dainą'); return }
+        ({ res, data } = await doSave(true))
+      }
       if (!res.ok) throw new Error(data.error)
       setSaved(true); setTimeout(() => setSaved(false), 2000)
       if (isNewTrack) router.push(`/admin/tracks/${data.id}`)

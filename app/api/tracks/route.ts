@@ -38,15 +38,15 @@ export async function GET(req: NextRequest) {
       // Per artist'ą paprastai < 500 tracks — paimam visus, match'inam kliente.
       // Naudojam pagination dėl artist'ų su 1000+ tracks (PostgREST 1000-row cap).
       const PAGE = 1000
-      let allRows: { id: number; title: string }[] = []
+      let allRows: { id: number; title: string; type: string | null }[] = []
       let offsetT = 0
       while (true) {
         const { data } = await supabase
           .from('tracks')
-          .select('id, title')
+          .select('id, title, type')
           .eq('artist_id', parseInt(artist_id))
           .range(offsetT, offsetT + PAGE - 1)
-        const rows = (data || []) as { id: number; title: string }[]
+        const rows = (data || []) as { id: number; title: string; type: string | null }[]
         allRows = allRows.concat(rows)
         if (rows.length < PAGE) break
         offsetT += PAGE
@@ -63,15 +63,26 @@ export async function GET(req: NextRequest) {
         .replace(/\s+/g, ' ')
         .trim()
         .replace(/^(the|a|an)\s+/, '')
-      const dbByNorm: Record<string, number> = {}
+      // 2026-05-15: jei keli DB tracks turi tą patį norm'intą title (pvz studio
+      // 'Bohemian Rhapsody' + live 'Bohemian Rhapsody'), pirmenybė type='normal'.
+      // Anksčiau first-match-wins → kartais live versija būdavo grąžinama, ir
+      // Wiki import auto-link'indavo Wiki track į live (vietoj studio).
+      const dbByNorm: Record<string, { id: number; type: string }> = {}
       for (const row of allRows) {
         const k = norm(row.title)
-        if (!dbByNorm[k]) dbByNorm[k] = row.id
+        const rowType = row.type || 'normal'
+        const existing = dbByNorm[k]
+        if (!existing) {
+          dbByNorm[k] = { id: row.id, type: rowType }
+        } else if (existing.type !== 'normal' && rowType === 'normal') {
+          // Promote — studio wins over alt-versions (live/remix/instr/etc.)
+          dbByNorm[k] = { id: row.id, type: rowType }
+        }
       }
       const found: Record<string, number> = {}
       for (const t of titles) {
         const k = norm(t)
-        if (dbByNorm[k]) found[t.toLowerCase()] = dbByNorm[k]
+        if (dbByNorm[k]) found[t.toLowerCase()] = dbByNorm[k].id
       }
       return NextResponse.json({ found })
     } catch {
