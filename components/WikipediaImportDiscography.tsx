@@ -2221,29 +2221,38 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               })()}
               {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
               {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
-              {/* Album completeness badge — rodoma jei completeness turim
-                  (auto-fetch on expand DUPLICATE'ams + post-enrich response'e).
-                  fully_complete = album metadata complete + visos dainos green.
-                  Inline rodom kas TIKSLIAI trūksta (ne tik count'ą), kad admin
-                  iš karto matytų — pvz "⚠ viršelis, 3 dainos". Detalus dainų
-                  problemu sąrašas — tooltip'e (top 5). */}
+              {/* Album completeness badge — rodom TIK kai turim pilną info:
+                  • completeness (auto-fetch on init) — DB state
+                  • Wiki tracks count (it.tracks loaded per fetchDetails) —
+                    kad žinotume "lubų" track count'ą palyginimui.
+                  Be wiki tracks count'o anksčiau klaidingai rodydavo
+                  ✓ sutvarkyta nors realiai trūko vieno track'o link'o.
+                  Renamed: 'kompletas' → 'sutvarkyta' (user feedback). */}
               {it.completeness && (() => {
                 const c = it.completeness
                 const incompleteTracks = c.tracks.filter(t => !t.complete)
-                const wikiTrackCount = it.tracks?.length || 0
+                const wikiTracksKnown = it.tracks !== undefined && it.fetched
+                const wikiTrackCount = wikiTracksKnown ? (it.tracks?.length || 0) : null
                 const missingMeta: string[] = []
                 if (!c.has_cover) missingMeta.push('viršelis')
                 if (!c.has_year) missingMeta.push('data')
                 if (c.substyles_count === 0) missingMeta.push('žanrai')
-                if (wikiTrackCount > 0 && c.tracks_count < wikiTrackCount) {
+                if (wikiTrackCount !== null && c.tracks_count < wikiTrackCount) {
                   missingMeta.push(`${wikiTrackCount - c.tracks_count} dainos neprijungtos`)
                 }
-                if (c.fully_complete && missingMeta.length === 0 && incompleteTracks.length === 0) {
-                  const tooltip = `Albumas pilnas (visi laukai + visos dainos):\n• Viršelis ✓\n• Leidimo data ${c.has_full_date ? '(pilna)' : '(tik metai)'}\n• ${c.substyles_count} žanras\n• ${c.tracks_count} dainų — visos pilnos`
-                  return <span className="text-[10px] font-semibold text-emerald-600 shrink-0" title={tooltip}>✓ kompletas</span>
+                const allOk = c.fully_complete && missingMeta.length === 0 && incompleteTracks.length === 0
+                if (allOk && wikiTracksKnown) {
+                  const tooltip = `Sutvarkyta (visi laukai + visos dainos):\n• Viršelis ✓\n• Leidimo data ${c.has_full_date ? '(pilna)' : '(tik metai)'}\n• ${c.substyles_count} žanras\n• ${c.tracks_count} dainų — visos pilnos`
+                  return <span className="text-[10px] font-semibold text-emerald-600 shrink-0" title={tooltip}>✓ sutvarkyta</span>
+                }
+                if (allOk && !wikiTracksKnown) {
+                  // DB state OK pagal tai ką žinom (visos linked dainos complete + meta),
+                  // bet nepatikrinom kiek track'ų Wiki turi (it.tracks dar neloadinta).
+                  // Rodom subtilų neutral badge'a kad admin pamatytų jog reikia
+                  // patikrinti (info button arba expand).
+                  return <span className="text-[10px] font-medium text-gray-400 shrink-0" title="DB state'as atrodo OK. Spausk info arba ▼ kad patikrintum ar Wiki tracks atitinka.">◯ DB OK · neatpatikrinta</span>
                 }
                 // Trūkumų label'as: inline'inam visus meta + dainų count.
-                // Pvz "⚠ viršelis, 3 dainos" arba "⚠ viršelis, žanrai".
                 const inlineParts: string[] = [...missingMeta]
                 if (incompleteTracks.length > 0) {
                   inlineParts.push(`${incompleteTracks.length} ${incompleteTracks.length === 1 ? 'daina' : 'dainos'}`)
@@ -2256,8 +2265,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   const more = incompleteTracks.length > 5 ? `\n  …ir dar ${incompleteTracks.length - 5}` : ''
                   tooltipParts.push(`${incompleteTracks.length} dainos nepilnos:\n${sample}${more}`)
                 }
+                // "X dainos neprijungtos" — actionable: spausk Importuoti, auto-link
+                // (per matched_track_ids) prijungs jas iškart.
+                const hasUnjoined = wikiTrackCount !== null && c.tracks_count < wikiTrackCount
+                const suffix = hasUnjoined ? ' (spausk Importuoti — auto-prijungs)' : ''
                 return (
-                  <span className="text-[10px] font-semibold text-amber-700 shrink-0" title={tooltipParts.join('\n\n')}>
+                  <span className="text-[10px] font-semibold text-amber-700 shrink-0" title={tooltipParts.join('\n\n') + suffix}>
                     ⚠ trūksta: {inlineParts.join(', ')}
                   </span>
                 )

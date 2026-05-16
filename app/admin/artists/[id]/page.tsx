@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -429,6 +429,12 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
   const [singles, setSingles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
+  // 2026-05-15: tab'ai filtravimui pagal type. Default 'studio' — admin'as
+  // dažniausiai dirba su studijiniais; kitus tipus (kompiliacijos, gyvi, EP)
+  // pasirenka kai reikia. 'Visi' tab'as rodo viską.
+  type AlbumTab = 'all' | 'studio' | 'compilation' | 'live' | 'ep' | 'other'
+  const [activeTab, setActiveTab] = useState<AlbumTab>('studio')
+
   const loadData = useCallback(() => {
     setLoading(true)
     Promise.all([
@@ -447,6 +453,26 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
       setSingles(singlesOnly.sort((a: any, b: any) => (b.release_year || 0) - (a.release_year || 0)))
     }).finally(() => setLoading(false))
   }, [artistId])
+
+  // Type counts ir filter'as — perskaičiuojami kai albums keičiasi
+  const tabCounts = useMemo(() => ({
+    all: albums.length,
+    studio: albums.filter(a => a.type_studio && !a.type_compilation && !a.type_live).length,
+    compilation: albums.filter(a => a.type_compilation).length,
+    live: albums.filter(a => a.type_live).length,
+    ep: albums.filter(a => a.type_ep && !a.type_studio).length,
+    other: albums.filter(a => !a.type_studio && !a.type_compilation && !a.type_live && !a.type_ep).length,
+  }), [albums])
+
+  const filteredAlbums = useMemo(() => {
+    if (activeTab === 'all') return albums
+    if (activeTab === 'studio') return albums.filter(a => a.type_studio && !a.type_compilation && !a.type_live)
+    if (activeTab === 'compilation') return albums.filter(a => a.type_compilation)
+    if (activeTab === 'live') return albums.filter(a => a.type_live)
+    if (activeTab === 'ep') return albums.filter(a => a.type_ep && !a.type_studio)
+    if (activeTab === 'other') return albums.filter(a => !a.type_studio && !a.type_compilation && !a.type_live && !a.type_ep)
+    return albums
+  }, [albums, activeTab])
 
   useEffect(() => { loadData() }, [artistId, refreshKey, loadData])
 
@@ -502,6 +528,35 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
           </Link>
         </div>
       </div>
+      {/* Type filter tabs — admin'as dažniausiai dirba su studijiniais,
+          bet gali greitai persijungti į kitus tipus. 'Visi' lieka, jei reikia
+          peržiūrėti visa diskografiją vienoje vietoje. Tab'as su 0 albumų
+          nerodomas. */}
+      {!loading && albums.length > 0 && (() => {
+        const tabsAll: { id: AlbumTab; label: string; count: number }[] = [
+          { id: 'studio', label: 'Studijiniai', count: tabCounts.studio },
+          { id: 'compilation', label: 'Kompiliacijos', count: tabCounts.compilation },
+          { id: 'live', label: 'Gyvi', count: tabCounts.live },
+          { id: 'ep', label: 'EP', count: tabCounts.ep },
+          { id: 'other', label: 'Kiti', count: tabCounts.other },
+          { id: 'all', label: 'Visi', count: tabCounts.all },
+        ]
+        const tabs = tabsAll.filter(t => t.id === 'all' || t.count > 0)
+        return (
+          <div className="shrink-0 flex items-center gap-0.5 px-3 py-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30 overflow-x-auto">
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                className={`shrink-0 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                  activeTab === t.id
+                    ? 'bg-blue-600 text-white'
+                    : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)]'
+                }`}>
+                {t.label} <span className={`ml-1 px-1 rounded text-[10px] font-bold ${activeTab === t.id ? 'bg-white/20' : 'bg-[var(--bg-elevated)]'}`}>{t.count}</span>
+              </button>
+            ))}
+          </div>
+        )
+      })()}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {/* Pending (music.lt-only) įrašai dabar prieinami per Wiki Import
             modal'o "Music.lt rasta" tab'ą — ne čia. Disco-panel default'e
@@ -532,7 +587,11 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
           </div>
         ) : (
           <>
-            {albums.map((album, i) => (
+            {filteredAlbums.length === 0 ? (
+              <div className="py-8 text-center text-sm text-[var(--text-muted)]">
+                Šiame tab'e nėra albumų. Persijunk į kitą tab'ą arba importuok iš Wikipedia.
+              </div>
+            ) : filteredAlbums.map((album, i) => (
               <AlbumCard key={`${album.id}-${refreshKey}`} album={album} defaultOpen={i === 0 && singles.length === 0}
                 onDeleted={loadData} />
             ))}
