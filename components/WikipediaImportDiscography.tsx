@@ -2157,12 +2157,23 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const renderAlbumRow = (it: DiscographyItem, i: number) => {
     const isExpanded = expandedItems.has(i)
     const isFetching = it.fetched === false && expandedItems.has(i)
+    // Compute "is album fully sutvarkyta" — duplicate mutually exclusive su
+    // ↻ papildyti badge'u + background tint (žalia kaip imported, kad row
+    // aiškiai būtų "done"). Sąlyga: server fully_complete=true IR jokio
+    // matomo Wiki count mismatch'o. Jei completeness dar nefetch'inta —
+    // false (kol nežinom — naudojam papildyti kaip safe default).
+    const wikiTrackCountAbs = it.fetched && it.tracks !== undefined ? it.tracks.length : null
+    const wikiCountMismatch = !!(wikiTrackCountAbs !== null && it.completeness && it.completeness.tracks_count < wikiTrackCountAbs)
+    const isAlbumSutvarkyta = !!(it.completeness?.fully_complete && !wikiCountMismatch && !it.completeness.tracks.some(t => !t.complete))
     return (
       <div key={i} className={`rounded-lg border transition-all ${
         // 2026-05-15 redesign: duplicate atrodo kaip "enrich" — selectable +
         // amber tint (NE grayed out). Anksčiau atrodydavo unselectable, todėl
         // music.lt scrape'inti albums niekada negaudavo Wiki enrichment.
-        it.imported ? 'border-emerald-200 bg-emerald-50/50'
+        // Sutvarkyta albums (po importo + auto-link) — žalias tint kaip
+        // imported, kad row aiškiai būtų "done" net ir kai turi ↻ duplicate
+        // marker'į.
+        it.imported || isAlbumSutvarkyta ? 'border-emerald-200 bg-emerald-50/50'
         : selected.has(i) && it.duplicate ? 'border-amber-300 bg-amber-50'  // enrich-on-match
         : selected.has(i) ? 'border-violet-300 bg-violet-50'                // create new
         : it.duplicate ? 'border-amber-200 bg-amber-50/30'
@@ -2194,7 +2205,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {it.extraTypes?.map(et => (
                 <span key={et} className="text-[10px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'Garso takelis' : et}</span>
               ))}
-              {it.duplicate && <span className="text-[10px] font-semibold text-amber-600 shrink-0" title="Albumas DB jau yra. Wiki tik papildys trūkstamus laukus (data, viršelis, sertifikatai, žanrai). Egzistuojantys laukai neperrašomi.">↻ papildyti</span>}
+              {/* ↻ papildyti rodom TIK kai album'as duplicate IR dar NE
+                  sutvarkytas. Jei completeness sako fully complete (po importo
+                  + auto-link) — slėpiam, kad admin'as nesirūpintų jog reikia
+                  kažką daryti. ✓ sutvarkyta badge perima žinotę. */}
+              {it.duplicate && !isAlbumSutvarkyta && <span className="text-[10px] font-semibold text-amber-600 shrink-0" title="Albumas DB jau yra. Wiki tik papildys trūkstamus laukus (data, viršelis, sertifikatai, žanrai). Egzistuojantys laukai neperrašomi.">↻ papildyti</span>}
               {/* Type diff preview — jei Wiki nori pakeisti type'ą po importo,
                   rodom 'studijinis → kompiliacija' badge'ą oranžiniu. Padeda
                   admin'ui suprasti kodėl Queen 21 studio → 15 po Wiki import'o. */}
