@@ -76,8 +76,13 @@ export async function fetchEventList(listUrl: string, parserKey: string): Promis
 }
 
 /**
- * Kakava.lt naudoja sitemap.xml su pilnu event URL'ų sąrašu.
- * Detail page'us po to fetch'inam atskirai.
+ * Kakava.lt naudoja sitemap.xml su event URL'ų sąrašu.
+ * Detail page'as React SPA — todėl naudoja api.kakava.lt JSON API
+ * (Accept-Language: lt header reikalingas).
+ *
+ * URL pattern: https://kakava.lt/renginys/{slug}/{shortId}
+ *   → shortId perduodamas i fetchEventDetail kuris pamato kakava domain'ą
+ *   ir kviečia https://api.kakava.lt/api/v1/event/{shortId}
  */
 async function fetchKakavaSitemap(sitemapUrl: string): Promise<EventListItem[]> {
   const res = await fetch(sitemapUrl, {
@@ -87,19 +92,118 @@ async function fetchKakavaSitemap(sitemapUrl: string): Promise<EventListItem[]> 
   if (!res.ok) throw new Error(`Sitemap fetch HTTP ${res.status} for ${sitemapUrl}`)
   const xml = await res.text()
 
+  // Pirma — surenkam visus event URL'us iš sitemap. Pattern: /renginys/{slug}/{shortId}
+  // Po to filter'inam pagal naujesnius lastmod (sitemap'as turi 700+ items, mes
+  // imam paskutinius 60, kurie tikriausiai yra nauji + atnaujinti).
   const items: EventListItem[] = []
-  const locRe = /<loc>([^<]+)<\/loc>/g
-  for (const m of xml.matchAll(locRe)) {
-    const url = m[1].trim()
-    // Tik event detail page'us — /lt/events/{ID}/{slug} arba /en/events/{ID}/{slug}
-    if (!/\/(?:lt|en)\/events\/\d+\//.test(url)) continue
-    items.push({
-      url,
-      title: '', // bus extract'intas iš detail page'o
-    })
-    if (items.length >= 50) break
+  const urlBlockRe = /<url>([\s\S]*?)<\/url>/g
+  const found: Array<{ url: string; lastmod: string }> = []
+  for (const m of xml.matchAll(urlBlockRe)) {
+    const block = m[1]
+    const url = block.match(/<loc>([^<]+)<\/loc>/)?.[1]?.trim() || ''
+    const lastmod = block.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1]?.trim() || ''
+    if (!url || !/\/renginys\/[^/]+\/\d+/.test(url)) continue
+    found.push({ url, lastmod })
+  }
+  // Sort by lastmod DESC (newest first) — fetch'iname tik 60 naujausių į detail loop
+  found.sort((a, b) => (b.lastmod || '').localeCompare(a.lastmod || ''))
+  for (const { url } of found.slice(0, 60)) {
+    items.push({ url, title: '' })
   }
   return items
+}
+
+/**
+ * Kakava.lt detail fetch — naudoja api.kakava.lt JSON endpoint (NE HTML scrape,
+ * kadangi front'as React SPA).
+ *
+ * Filter'inam pagal Kakava category id=1 (muzika). Kitos pagrindinės kategorijos:
+ *   1 = Muzika (KEEP)
+ *   2 = Teatras
+ *   3 = Ekskursijos
+ *   7 = Festivaliai (KEEP — dažniausiai muzikos festivaliai)
+ *   10 = Klasika (KEEP)
+ * Jei event'as neturi muzikos kategorijos → metam Error('not_music') kuris signalizuoja
+ * scout'ui, kad reikia skip'inti šitą event'ą (filter_reason='not_music_event').
+ */
+async function fetchKakavaDetail(eventUrl: string): Promise<EventDetail> {
+  const shortIdMatch = eventUrl.match(/\/renginys\/[^/]+\/(\d+)/)
+  if (!shortIdMatch) throw new Error(`Invalid Kakava URL format: ${eventUrl}`)
+  const shortId = shortIdMatch[1]
+
+  const apiUrl = `https://api.kakava.lt/api/v1/event/${shortId}`
+  const res = await fetch(apiUrl, {
+    headers: {
+      'User-Agent': USER_AGENT,
+      'Accept': 'application/json',
+      'Accept-Language': 'lt',
+    },
+  })
+  if (!res.ok) throw new Error(`Kakava API HTTP ${res.status} for event ${shortId}`)
+  const data: any = await res.json()
+
+  // Filter pagal kategorijas — tik muzika (1), festivaliai (7), klasika (10)
+  const MUSIC_CATS = new Set([1, 7, 10])
+  const cats: number[] = Array.isArray(data.categories)
+    ? data.categories.map((c: any) => c?.id).filter((id: any) => typeof id === 'number')
+    : []
+  const isMusic = cats.some(c => MUSIC_CATS.has(c))
+  if (!isMusic) {
+    throw new Error('not_music_event')
+  }
+
+  // Locations array — imam pirmą su address ir extract'inam city
+  const firstLocation = Array.isArray(data.locations) && data.locations.length > 0
+    ? data.locations[0]
+    : null
+  const venueName: string | undefined = firstLocation?.name
+  // Address pattern: "Kovo 11-osios g. 26, Kaunas, Lietuva" → Kaunas
+  const addressParts: string[] = (firstLocation?.address || '').split(',').map((s: string) => s.trim()).filter(Boolean)
+  const city: string | undefined = addressParts.length >= 2 ? addressParts[addressParts.length - 2] : undefined
+
+  // Event date — Kakava JSON'e atskirti fields'ai (visi events priklauso showtimes).
+  // Imam pirmą showtime iš `dates` arba `shows` array. Jei nėra — paliekam tik text.
+  let eventDateIso: string | undefined
+  let eventDateText: string | undefined
+  const shows = data.shows || data.dates || data.eventDates
+  if (Array.isArray(shows) && shows.length > 0) {
+    const firstDate = shows[0]?.startDate || shows[0]?.date || shows[0]
+    if (typeof firstDate === 'string') {
+      const d = new Date(firstDate)
+      if (!isNaN(d.getTime())) {
+        eventDateIso = d.toISOString()
+        eventDateText = d.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })
+      }
+    }
+  }
+
+  // Image — Kakava grąžina pictures array. Imam main / first.
+  let imageUrl: string | undefined
+  if (Array.isArray(data.pictures) && data.pictures.length > 0) {
+    const main = data.pictures.find((p: any) => p.type === 'MAIN') || data.pictures[0]
+    imageUrl = main?.url || main?.pictureUrl
+  } else if (typeof data.imageUrl === 'string') {
+    imageUrl = data.imageUrl
+  }
+
+  // Description — HTML'as su <p>, <ul>, <a> — stripinam tag'us
+  const description = stripHtml(data.eventDescription || data.description || '').slice(0, 5000)
+
+  // Title — Kakava titles dažnai turi "EVENT NAME | komedija X" formą.
+  // Sonnet'as decision'inkim, ką laikyti atlikėjais.
+  return {
+    url: eventUrl,
+    title: data.title || '',
+    description,
+    event_date: eventDateIso,
+    event_date_text: eventDateText,
+    venue_name: venueName,
+    city,
+    ticket_url: `https://kakava.lt/renginys/${data.titleSlug || ''}/${shortId}`,
+    image_url: imageUrl,
+    artist_names: [], // Sonnet'as extract'ins iš title + description
+    source_lang: 'lt',
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -107,6 +211,11 @@ async function fetchKakavaSitemap(sitemapUrl: string): Promise<EventListItem[]> 
 // ─────────────────────────────────────────────────────────────
 
 export async function fetchEventDetail(url: string): Promise<EventDetail> {
+  // Kakava — React SPA, naudoja JSON API vietoj HTML scrape
+  if (url.includes('kakava.lt/renginys/')) {
+    return fetchKakavaDetail(url)
+  }
+
   const res = await fetch(url, {
     headers: { 'User-Agent': USER_AGENT, 'Accept': 'text/html' },
     redirect: 'follow',
