@@ -101,6 +101,12 @@ export default function RichTextEditor({ value, onChange, placeholder, maxLength
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none min-h-[200px] px-4 py-3 focus:outline-none text-gray-800',
+        // Suppress iOS native keyboard accessory bar (B/I/U + arrow nav)
+        // ir spell-check siūlymus virš teksto. Mes turim savo toolbar'ą.
+        autocapitalize: 'sentences',
+        autocorrect: 'off',
+        spellcheck: 'false',
+        'data-gramm': 'false', // disable Grammarly suggestions
       },
       // Image paste/drop — Iframe extension'as handles URL paste rules savo
       // viduje, tad mes čia užsiimam tik failais (screenshot iš clipboard'o,
