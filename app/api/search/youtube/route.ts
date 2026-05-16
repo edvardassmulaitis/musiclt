@@ -74,11 +74,15 @@ export async function GET(req: NextRequest) {
 
   // ── Video paieška ─────────────────────────────────────────────────────────
   try {
-    // 1. Ieškoti video
+    // 1. Ieškoti video. NEAPRIBOTI categoryId=10 — daugelis muzikos video
+    // YT'e nepriskirti Music kategorijai (žiūrint upload metadata defaults).
+    // Ankstesnis variantas grąžindavo 0 results pvz. Lion Ceccah „Solo Quiero
+    // Más". Geriau leidžiam rezultatus pagal text relevance + remetam ant
+    // official/VEVO ranking žemiau.
     const searchRes = await fetch(
       `https://www.googleapis.com/youtube/v3/search?` +
       `part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=10` +
-      `&videoCategoryId=10&key=${apiKey}` // categoryId=10 = Music
+      `&key=${apiKey}`
     )
     const searchData = await searchRes.json()
 

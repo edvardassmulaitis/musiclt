@@ -736,11 +736,13 @@ export default function AdminInboxPage() {
                           className="absolute inset-0 w-full h-full object-cover bg-[var(--bg-elevated)]"
                           onError={e => ((e.target as HTMLImageElement).style.display = 'none')}
                         />
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-white text-[10px] px-1.5 py-1 truncate">
-                          {opt.source === 'artist_photo' && '📸 '}
-                          {opt.source === 'artist_cover' && '🎤 '}
-                          {opt.source === 'youtube_thumb' && '🎬 '}
-                          {opt.label}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-[10px] px-1.5 py-1">
+                          <div className="font-semibold opacity-90 leading-tight">
+                            {opt.source === 'artist_photo' && '📸 Galerija'}
+                            {opt.source === 'artist_cover' && '🎤 Profilio nuotrauka'}
+                            {opt.source === 'youtube_thumb' && '🎬 YT thumb'}
+                          </div>
+                          <div className="opacity-70 truncate leading-tight">{opt.label}</div>
                         </div>
                       </button>
                     ))}

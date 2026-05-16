@@ -179,12 +179,14 @@ export default function TrackSuggestPicker({
     }
   }, [artistId, initialQuery, embedUrls])
 
-  // YT live search
+  // YT live search. Tuščia query → ieškom tik atlikėjo (top videos).
   const runYtSearch = useCallback(async (query: string) => {
-    if (!query.trim()) { setYtResults([]); return }
     setYtSearching(true)
     try {
-      const fullQuery = `${artistName} ${query}`.trim()
+      const fullQuery = query.trim()
+        ? `${artistName} ${query.trim()}`.trim()
+        : artistName.trim()
+      if (!fullQuery) { setYtResults([]); return }
       const res = await fetch(`/api/search/youtube?q=${encodeURIComponent(fullQuery)}`)
       const d = await res.json()
       setYtResults(Array.isArray(d.results) ? d.results.slice(0, 5) : [])
@@ -197,10 +199,13 @@ export default function TrackSuggestPicker({
 
   useEffect(() => {
     load()
-    // Auto-trigger YT search jei initialQuery yra (pvz., „Spręsti" su mention.title)
-    if (initialQuery && !initialSearchDone.current) {
+    // Auto-trigger YT search VISADA — jei initialQuery yra (per „Spręsti" su
+    // mention'o title), ieškom konkrečios dainos. Jei ne — ieškom tik artist'o
+    // (top results — naujausios + populiariausios atlikėjo dainos).
+    if (!initialSearchDone.current) {
       initialSearchDone.current = true
-      runYtSearch(initialQuery)
+      // Empty query → runYtSearch su artistName tik (per fullQuery konstrukcija)
+      runYtSearch(initialQuery || '')
     }
   }, [load, runYtSearch, initialQuery])
 
@@ -269,70 +274,7 @@ export default function TrackSuggestPicker({
     >
       {/* Scrollable content */}
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2 bg-gray-50">
-        {/* ── AI mentions (jei yra) ─────────────────────────────── */}
-        {aiMentions.length > 0 && (
-          <SectionTight title="🤖 Iš naujienos teksto" count={aiMentions.length}>
-            {aiMentions.map((m, i) => {
-              const key = `ai-${i}`
-              const matched = m.matched_track_id ?? null
-              const alreadyIn = isAlreadyIn(matched ?? undefined)
-              const row: SelectedRow = matched
-                ? {
-                    key, track_id: matched, title: m.title, artist_name: m.artist || artistName,
-                    video_url: null, source: 'ai_mention', ai_mention_idx: i,
-                  }
-                : {
-                    key, title: m.title, artist_name: m.artist || artistName,
-                    video_url: m.youtube_url || null, source: 'ai_mention', ai_mention_idx: i,
-                    to_create: { title: m.title, ytUrl: m.youtube_url },
-                  }
-              return (
-                <Row
-                  key={key}
-                  title={m.title}
-                  subtitle={matched ? '✓ DB' : (m.youtube_url ? '🎬 YT iš teksto' : 'ne DB')}
-                  badge={matched ? 'db' : 'ai'}
-                  selected={isSelected(key) || alreadyIn}
-                  disabled={alreadyIn}
-                  onToggle={() => !alreadyIn && toggleSelected(row)}
-                  onTitleClick={() => { setYtSearchQ(m.title); runYtSearch(m.title) }}
-                />
-              )
-            })}
-          </SectionTight>
-        )}
-
-        {/* ── Article YT embeds (mostly the actual subject) ────── */}
-        {!loading && data && data.yt_embeds.length > 0 && (
-          <SectionTight title="🎬 Straipsnio embed video" count={data.yt_embeds.length}>
-            {data.yt_embeds.map(yt => {
-              const key = `emb-${yt.video_id}`
-              // Atimam atlikėjo prefix'ą ir iš embed video title (kaip ir iš search rezultatų)
-              const cleanTitle = parseYtTitleForArtist(yt.title, artistName)
-              const ago = yt.uploaded_at ? timeAgo(yt.uploaded_at) : ''
-              const viewsStr = yt.views ? formatViews(yt.views) : ''
-              const subtitle = [viewsStr, ago].filter(Boolean).join(' · ')
-              const row: SelectedRow = {
-                key, title: cleanTitle, artist_name: artistName,
-                video_url: yt.url, source: 'yt_embed',
-                to_create: { title: cleanTitle, ytUrl: yt.url },
-              }
-              return (
-                <RowWithThumb
-                  key={key}
-                  thumb={yt.thumb}
-                  title={cleanTitle}
-                  subtitle={subtitle || '—'}
-                  badge="embed"
-                  selected={isSelected(key)}
-                  onToggle={() => toggleSelected(row)}
-                />
-              )
-            })}
-          </SectionTight>
-        )}
-
-        {/* ── YT live search ─────────────────────────────────────── */}
+        {/* ── YT live search (FIRST — primary source) ────────────── */}
         <SectionTight title="🔍 YouTube paieška" count={null}>
           <div className="flex gap-1 mb-1">
             <input
@@ -352,7 +294,12 @@ export default function TrackSuggestPicker({
             </button>
           </div>
           {ytResults.length === 0 && !ytSearching && (
-            <p className="text-[10px] text-gray-400 italic px-1">Pateik užklausą — pamatysi top 5 YT video.</p>
+            <p className="text-[10px] text-gray-400 italic px-1">Nieko nerasta. Pakeisk paieškos užklausą.</p>
+          )}
+          {ytSearching && (
+            <div className="flex justify-center py-2">
+              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            </div>
           )}
           {ytResults.map(r => {
             const key = `yts-${r.videoId}`
@@ -380,6 +327,68 @@ export default function TrackSuggestPicker({
             )
           })}
         </SectionTight>
+
+        {/* ── Article YT embeds (highest priority — actual news subject) ── */}
+        {!loading && data && data.yt_embeds.length > 0 && (
+          <SectionTight title="🎬 Straipsnio embed video" count={data.yt_embeds.length}>
+            {data.yt_embeds.map(yt => {
+              const key = `emb-${yt.video_id}`
+              const cleanTitle = parseYtTitleForArtist(yt.title, artistName)
+              const ago = yt.uploaded_at ? timeAgo(yt.uploaded_at) : ''
+              const viewsStr = yt.views ? formatViews(yt.views) : ''
+              const subtitle = [viewsStr, ago].filter(Boolean).join(' · ')
+              const row: SelectedRow = {
+                key, title: cleanTitle, artist_name: artistName,
+                video_url: yt.url, source: 'yt_embed',
+                to_create: { title: cleanTitle, ytUrl: yt.url },
+              }
+              return (
+                <RowWithThumb
+                  key={key}
+                  thumb={yt.thumb}
+                  title={cleanTitle}
+                  subtitle={subtitle || '—'}
+                  badge="embed"
+                  selected={isSelected(key)}
+                  onToggle={() => toggleSelected(row)}
+                />
+              )
+            })}
+          </SectionTight>
+        )}
+
+        {/* ── AI mentions ──────────────────────────────────────── */}
+        {aiMentions.length > 0 && (
+          <SectionTight title="🤖 Iš naujienos teksto" count={aiMentions.length}>
+            {aiMentions.map((m, i) => {
+              const key = `ai-${i}`
+              const matched = m.matched_track_id ?? null
+              const alreadyIn = isAlreadyIn(matched ?? undefined)
+              const row: SelectedRow = matched
+                ? {
+                    key, track_id: matched, title: m.title, artist_name: m.artist || artistName,
+                    video_url: null, source: 'ai_mention', ai_mention_idx: i,
+                  }
+                : {
+                    key, title: m.title, artist_name: m.artist || artistName,
+                    video_url: m.youtube_url || null, source: 'ai_mention', ai_mention_idx: i,
+                    to_create: { title: m.title, ytUrl: m.youtube_url },
+                  }
+              return (
+                <Row
+                  key={key}
+                  title={m.title}
+                  subtitle={matched ? '✓ DB' : (m.youtube_url ? '🎬 YT iš teksto' : 'click → YT paieška')}
+                  badge={matched ? 'db' : 'ai'}
+                  selected={isSelected(key) || alreadyIn}
+                  disabled={alreadyIn}
+                  onToggle={() => !alreadyIn && toggleSelected(row)}
+                  onTitleClick={() => { setYtSearchQ(m.title); runYtSearch(m.title) }}
+                />
+              )
+            })}
+          </SectionTight>
+        )}
 
         {/* ── DB matches (jei q) ────────────────────────────────── */}
         {!loading && data && data.db_matches.length > 0 && (
