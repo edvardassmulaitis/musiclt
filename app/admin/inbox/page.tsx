@@ -91,6 +91,7 @@ export default function AdminInboxPage() {
   const [editArtistIds, setEditArtistIds] = useState<number[]>([])
   const [editPrimaryId, setEditPrimaryId] = useState<number | null>(null)
   const [artistMeta, setArtistMeta] = useState<Record<number, SuggestedArtist>>({})
+  const [artistSearchOpen, setArtistSearchOpen] = useState(false)
   // Wizard'o track'ų state — pasirinkti DB track_ids (matched + naujai sukurti)
   const [editTrackIds, setEditTrackIds] = useState<number[]>([])
   const [trackMeta, setTrackMeta] = useState<Record<number, { id: number; title: string; artist_name: string }>>({})
@@ -592,79 +593,93 @@ export default function AdminInboxPage() {
               </button>
             </div>
             <div className="px-4 py-3 space-y-4">
+              {/* === Naujienos peržiūra — virš antraštės, gyva (atnaujina kai
+                 redaguojama Tekstas laukelis žemiau) === */}
+              {editBody.trim() && (
+                <div>
+                  <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
+                    Peržiūra <span className="ml-1 normal-case font-normal opacity-70">(atnaujinama redaguojant)</span>
+                  </div>
+                  <div
+                    className="prose prose-sm max-w-none bg-[var(--bg-elevated)]/50 border border-[var(--border-subtle)] rounded-lg p-3"
+                    dangerouslySetInnerHTML={{ __html: editBody }}
+                  />
+                </div>
+              )}
               {/* === Atlikėjai === */}
               <div>
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
                   Atlikėjai
                 </div>
-                {editArtistIds.length === 0 ? (
-                  <p className="text-xs text-amber-600 mb-1.5">⚠ Nepriskirtas</p>
-                ) : (
-                  <div className="flex flex-wrap gap-1 mb-1.5">
-                    {editArtistIds.map(id => {
-                      const a = artistMeta[id]
-                      if (!a) return null
-                      const isPrimary = id === editPrimaryId
-                      return (
-                        <div
-                          key={id}
-                          className={`inline-flex items-center gap-1 pl-0.5 pr-0.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
-                            isPrimary
-                              ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-400'
-                              : 'bg-blue-50 text-blue-700'
-                          }`}>
-                          <button
-                            type="button"
-                            onClick={() => setEditPrimaryId(id)}
-                            className="flex items-center gap-1 px-1">
-                            {a.cover_image_url ? (
-                              <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
-                            ) : (
-                              <span className="w-4 h-4 rounded-full bg-blue-200 flex items-center justify-center text-[9px]">🎤</span>
-                            )}
-                            <span>{isPrimary ? '★ ' : ''}{a.name}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeEditArtist(id)}
-                            aria-label="Pašalinti"
-                            className="w-4 h-4 rounded-full hover:bg-red-200 text-red-500 flex items-center justify-center text-xs">
-                            ×
-                          </button>
-                        </div>
-                      )
-                    })}
+                {/* Vienoje eilutėje: selected chips + AI suggested (dashed) + search toggle */}
+                <div className="flex flex-wrap items-center gap-1">
+                  {editArtistIds.length === 0 && (
+                    <span className="text-xs text-amber-600">⚠ Nepriskirtas</span>
+                  )}
+                  {editArtistIds.map(id => {
+                    const a = artistMeta[id]
+                    if (!a) return null
+                    const isPrimary = id === editPrimaryId
+                    return (
+                      <div
+                        key={id}
+                        className={`inline-flex items-center gap-1 pl-0.5 pr-0.5 py-0.5 rounded-full text-xs font-medium ${
+                          isPrimary
+                            ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-400'
+                            : 'bg-blue-50 text-blue-700'
+                        }`}>
+                        <button type="button" onClick={() => setEditPrimaryId(id)} className="flex items-center gap-1 px-1">
+                          {a.cover_image_url ? (
+                            <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                          ) : (
+                            <span className="w-4 h-4 rounded-full bg-blue-200 flex items-center justify-center text-[9px]">🎤</span>
+                          )}
+                          <span>{isPrimary ? '★ ' : ''}{a.name}</span>
+                        </button>
+                        <button type="button" onClick={() => removeEditArtist(id)} aria-label="Pašalinti"
+                          className="w-4 h-4 rounded-full hover:bg-red-200 text-red-500 flex items-center justify-center text-xs">×</button>
+                      </div>
+                    )
+                  })}
+                  {/* AI suggested — inline, no header */}
+                  {(() => {
+                    const suggested = editing?.suggested_artists || []
+                    const notYet = suggested.filter(a => !editArtistIds.includes(a.id))
+                    return notYet.map(a => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => addEditArtist(a.id, a.name, a.cover_image_url)}
+                        title="AI siūlo iš naujienos teksto"
+                        className="inline-flex items-center gap-1 pl-0.5 pr-1.5 py-0.5 rounded-full text-xs bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-dashed border-[var(--input-border)]">
+                        {a.cover_image_url ? (
+                          <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover opacity-60" />
+                        ) : (
+                          <span className="w-4 h-4 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[9px]">🎤</span>
+                        )}
+                        <span>+ {a.name}</span>
+                      </button>
+                    ))
+                  })()}
+                  {/* Compact search toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setArtistSearchOpen(v => !v)}
+                    title="Ieškoti atlikėjo"
+                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-[var(--input-border)]">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+                    </svg>
+                  </button>
+                </div>
+                {artistSearchOpen && (
+                  <div className="mt-1.5">
+                    <ArtistSearchInput
+                      placeholder="Ieškoti atlikėjo..."
+                      onSelect={(id, name, avatar) => { addEditArtist(id, name, avatar || null); setArtistSearchOpen(false) }}
+                    />
                   </div>
                 )}
-                {/* AI siūlomi (ne aktyvūs) — clickable pridėti */}
-                {(() => {
-                  const suggested = editing?.suggested_artists || []
-                  const notYet = suggested.filter(a => !editArtistIds.includes(a.id))
-                  if (notYet.length === 0) return null
-                  return (
-                    <div className="flex flex-wrap gap-1 mb-1.5">
-                      <span className="text-[10px] uppercase text-[var(--text-muted)] pt-0.5 pr-1">AI siūlo:</span>
-                      {notYet.map(a => (
-                        <button
-                          key={a.id}
-                          type="button"
-                          onClick={() => addEditArtist(a.id, a.name, a.cover_image_url)}
-                          className="inline-flex items-center gap-1 pl-0.5 pr-1.5 py-0.5 rounded-full text-xs bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-dashed border-[var(--input-border)]">
-                          {a.cover_image_url ? (
-                            <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover opacity-60" />
-                          ) : (
-                            <span className="w-4 h-4 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[9px]">🎤</span>
-                          )}
-                          <span>+ {a.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )
-                })()}
-                <ArtistSearchInput
-                  placeholder="Ieškoti atlikėjo..."
-                  onSelect={(id, name, avatar) => addEditArtist(id, name, avatar || null)}
-                />
               </div>
 
               {/* === Susijusi muzika — collapsed į vieną button'ą, picker'is valdo viską === */}
@@ -691,9 +706,7 @@ export default function AdminInboxPage() {
                       </div>
                       {selectedTracks.length === 0 ? (
                         <p className="text-[11px] text-[var(--text-muted)] italic">
-                          {suggestedCount > 0
-                            ? `AI rado ${suggestedCount} dainas straipsnyje — paspausk „Tvarkyti".`
-                            : 'Nepridėta dainų. YT thumb iš dainos veiks kaip nuotrauka, jei nepasirinkta kita.'}
+                          Nepridėta dainų.
                         </p>
                       ) : (
                         <div className="flex flex-wrap gap-1">
@@ -781,7 +794,7 @@ export default function AdminInboxPage() {
                   placeholder="Naujienos pavadinimas..."
                 />
               </div>
-              {/* === Tekstas === */}
+              {/* === Tekstas — peržiūra virš antraštės (žiūr. viršuje) === */}
               <div>
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
                   Tekstas <span className="ml-1 normal-case font-normal opacity-70">HTML, &lt;p&gt; tag'ai</span>
@@ -793,15 +806,6 @@ export default function AdminInboxPage() {
                   className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm font-mono leading-relaxed resize-y"
                   placeholder="<p>Naujienos tekstas...</p>"
                 />
-                {editBody.trim() && (
-                  <details className="mt-2">
-                    <summary className="text-xs text-[var(--text-muted)] cursor-pointer select-none">▾ Peržiūra</summary>
-                    <div
-                      className="prose prose-sm max-w-none bg-[var(--bg-elevated)]/50 border border-[var(--border-subtle)] rounded-lg p-3 mt-2"
-                      dangerouslySetInnerHTML={{ __html: editBody }}
-                    />
-                  </details>
-                )}
               </div>
             </div>
             <div className="px-4 py-3 border-t border-[var(--border-subtle)] flex gap-2 items-center sticky bottom-0 bg-[var(--bg-surface)] rounded-b-2xl">

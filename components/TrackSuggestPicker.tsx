@@ -140,6 +140,7 @@ function findDbDup(ytTitle: string, dbTracks: DbTrack[]): DbTrack | null {
 
 /**
  * "Prieš X" formatas iš ISO date'o (santykinis laikas LT'iškai).
+ * Tinkamas LT linksniavimas pagal skaičių.
  */
 function timeAgo(isoDate: string): string {
   if (!isoDate) return ''
@@ -147,10 +148,30 @@ function timeAgo(isoDate: string): string {
   if (ms < 0) return ''
   const d = Math.floor(ms / 86_400_000)
   if (d === 0) return 'Šiandien'
-  if (d < 7) return `Prieš ${d} d.`
-  if (d < 30) return `Prieš ${Math.floor(d / 7)} sav.`
-  if (d < 365) return `Prieš ${Math.floor(d / 30)} mėn.`
-  return `Prieš ${Math.floor(d / 365)} m.`
+  if (d === 1) return 'Vakar'
+  if (d < 7) return `Prieš ${d} dienas`
+  if (d < 14) return 'Prieš savaitę'
+  if (d < 30) return `Prieš ${Math.floor(d / 7)} savaites`
+  if (d < 60) return 'Prieš mėnesį'
+  if (d < 365) return `Prieš ${Math.floor(d / 30)} mėnesius`
+  const yrs = Math.floor(d / 365)
+  if (yrs === 1) return 'Prieš metus'
+  return `Prieš ${yrs} metus`
+}
+
+/**
+ * LT pluralization helper — kaip skambės „X dainos / dainų / dainas".
+ *   1   → daina
+ *   2-9 → dainos
+ *   ≥10 → dainų
+ *   suffix'ai pagal paskutinį dešimtainį (kaip wiki-disco import'e)
+ */
+function plLt(count: number, sg: string, pl_2_9: string, pl_10: string): string {
+  const last = count % 10
+  const last2 = count % 100
+  if (last === 1 && last2 !== 11) return `${count} ${sg}`
+  if (last >= 2 && last <= 9 && (last2 < 12 || last2 > 19)) return `${count} ${pl_2_9}`
+  return `${count} ${pl_10}`
 }
 
 export type PickResult = {
@@ -588,7 +609,11 @@ export default function TrackSuggestPicker({
           onClick={handleSubmit}
           disabled={totalToProcess === 0 || submitting}
           className="flex-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded text-xs font-bold">
-          {submitting ? '...' : totalToProcess > 0 ? `✓ Pridėti ${totalToProcess}` : 'Nieko nepasirinkta'}
+          {submitting
+            ? '...'
+            : totalToProcess > 0
+              ? `✓ Pridėti ${plLt(totalToProcess, 'dainą', 'dainas', 'dainų')} prie „${artistName}"`
+              : 'Nieko nepasirinkta'}
         </button>
       </div>
     </FullscreenModal>
