@@ -25,11 +25,17 @@ export default function FullscreenModal({
   maxWidth?: string
   noPadding?: boolean
 }) {
-  // Lock body scroll
+  // Lock body scroll. Cleanup ALWAYS resets to '' (not `prev`) — anksciau
+  // jeigu kitas modal'as palieka body.style.overflow='hidden' kai uždaromas,
+  // mūsų cleanup restore'indavo i 'hidden' (stale prev), todėl page scroll'as
+  // likdavo stuck. Defensive: visada grąžinam į default.
   useEffect(() => {
-    const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    document.body.style.overscrollBehavior = 'contain'
+    return () => {
+      document.body.style.overflow = ''
+      document.body.style.overscrollBehavior = ''
+    }
   }, [])
 
   // Escape key

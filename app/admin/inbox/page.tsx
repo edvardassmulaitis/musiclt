@@ -98,6 +98,20 @@ export default function AdminInboxPage() {
   const [artistMeta, setArtistMeta] = useState<Record<number, SuggestedArtist>>({})
   const [artistSearchOpen, setArtistSearchOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+
+  // Body scroll lock kai edit modal'as atidarytas — užkerta iOS rubber-band
+  // scroll'inimą per fixed wrapper'į ir page scroll'o leak'ą kai modal'as veikia.
+  // Defensive cleanup į '' (ne prev) — kad neliktų stuck 'hidden' jeigu
+  // ankstesnis modal'as koks fail'ino.
+  useEffect(() => {
+    if (!editing) return
+    document.body.style.overflow = 'hidden'
+    document.body.style.overscrollBehavior = 'contain'
+    return () => {
+      document.body.style.overflow = ''
+      document.body.style.overscrollBehavior = ''
+    }
+  }, [editing])
   // Wizard'o track'ų state — pasirinkti DB track_ids (matched + naujai sukurti)
   const [editTrackIds, setEditTrackIds] = useState<number[]>([])
   const [trackMeta, setTrackMeta] = useState<Record<number, { id: number; title: string; artist_name: string }>>({})
@@ -581,10 +595,14 @@ export default function AdminInboxPage() {
         />
       )}
 
-      {/* Edit modal — mobile: fullscreen (no margins, no rounded), desktop: centered card */}
+      {/* Edit modal — mobile: TRUE fullscreen (min-h-screen, jokio pilkojo
+         backdrop'o peek kai scroll'inama). Desktop: centered card su backdrop. */}
       {editing && (
-        <div className="fixed inset-0 z-50 bg-black/60 sm:backdrop-blur-sm flex items-stretch sm:items-center justify-center sm:p-4 overflow-y-auto">
-          <div className="bg-[var(--bg-surface)] sm:rounded-2xl sm:shadow-2xl w-full max-w-3xl sm:my-4">
+        <div
+          className="fixed inset-0 z-50 sm:bg-black/60 sm:backdrop-blur-sm flex items-stretch sm:items-center justify-center sm:p-4 overflow-y-auto"
+          style={{ overscrollBehavior: 'contain' }}
+        >
+          <div className="bg-[var(--bg-surface)] sm:rounded-2xl sm:shadow-2xl w-full max-w-3xl sm:my-4 min-h-screen sm:min-h-0 flex flex-col">
             <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-[var(--border-subtle)] sticky top-0 bg-[var(--bg-surface)] sm:rounded-t-2xl z-10">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex flex-col min-w-0 flex-1">
