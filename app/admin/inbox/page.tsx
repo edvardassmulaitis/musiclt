@@ -131,7 +131,8 @@ export default function AdminInboxPage() {
   const [editing, setEditing] = useState<Candidate | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editBody, setEditBody] = useState('')
-  const [editImage, setEditImage] = useState('')
+  // Multi-image: ordered array. First = hero/primary, rest → image1..5_url legacy slots.
+  const [editImages, setEditImages] = useState<string[]>([])
   const [imageOptions, setImageOptions] = useState<Array<{ url: string; label: string; source: string }>>([])
   const [showWiki, setShowWiki] = useState(false)
   const [wikiArtistName, setWikiArtistName] = useState('')
@@ -223,7 +224,7 @@ export default function AdminInboxPage() {
     setEditing(cand)
     setEditTitle(cand.ai_title)
     setEditBody(await fetchBody(cand.id))
-    setEditImage('')
+    setEditImages([])
     // ─── Artist'ų wizard state'as ───
     // Default: TIK primary selected. AI dažnai pasiūlo per daug ne-esminių
     // atlikėjų (Rolling Stones article → +McCartney + Robert Smith + Steve
@@ -251,7 +252,8 @@ export default function AdminInboxPage() {
       const res = await fetch(`/api/admin/news-candidates/${cand.id}/images`)
       const data = await res.json()
       setImageOptions(data.options || [])
-      if (data.options?.[0]) setEditImage(data.options[0].url)
+      // Auto-select first option kaip primary (multi-select galima toliau)
+      if (data.options?.[0]) setEditImages([data.options[0].url])
     } catch {
       setImageOptions([])
     }
@@ -282,7 +284,7 @@ export default function AdminInboxPage() {
     setEditing(null)
     setEditTitle('')
     setEditBody('')
-    setEditImage('')
+    setEditImages([])
     setImageOptions([])
     setShowWiki(false)
     setEditArtistIds([])
@@ -325,7 +327,8 @@ export default function AdminInboxPage() {
       for (const r of results) set.add(r.track_id)
       return Array.from(set)
     })
-    // Pridedam visus YT thumbs į image options
+    // Pridedam visus YT thumbs į image options (NEPasirenkam automatiškai —
+    // user'is renkasi kuriuos naudoti per multi-select grid)
     setImageOptions(prev => {
       const out = [...prev]
       for (const r of results) {
@@ -389,7 +392,8 @@ export default function AdminInboxPage() {
       await handleAction(editing.id, 'approve', {
         title: editTitle,
         body: editBody,
-        image_url: editImage || undefined,
+        image_url: editImages[0] || undefined,
+        image_urls: editImages, // multi-image array (pirma = hero, rest → image1..5)
         artist_ids: ordered,
         primary_artist_id: editPrimaryId,
         track_ids: editTrackIds,
@@ -701,14 +705,26 @@ export default function AdminInboxPage() {
         <WikimediaSearch
           artistName={wikiArtistName}
           onAddMultiple={(photos: Photo[]) => {
-            if (photos[0]?.url) {
-              setEditImage(photos[0].url)
-              // Pridėti į image options sąrašą, kad būtų matomas pasirinkimas
-              setImageOptions(prev => [
-                { url: photos[0].url, label: 'Wikimedia', source: 'wiki' },
-                ...prev,
-              ])
-            }
+            // Multi-photo support: Wikimedia photo'us pridedam visu's į options
+            // ir auto-select kaip multi-image galeriją. User'is gali patikslinti.
+            const newOptions = photos
+              .filter(p => p.url)
+              .map(p => ({ url: p.url, label: p.author ? `Wiki · ${p.author}` : 'Wikimedia', source: 'wiki' }))
+            setImageOptions(prev => {
+              const out = [...prev]
+              for (const opt of newOptions) {
+                if (!out.some(o => o.url === opt.url)) out.push(opt)
+              }
+              return out
+            })
+            // Pridedam į selected (jei dar ne)
+            setEditImages(prev => {
+              const out = [...prev]
+              for (const opt of newOptions) {
+                if (!out.includes(opt.url)) out.push(opt.url)
+              }
+              return out
+            })
             setShowWiki(false)
           }}
           onClose={() => setShowWiki(false)}
@@ -900,38 +916,68 @@ export default function AdminInboxPage() {
                 })()}
               </div>
 
-              {/* === Nuotrauka === */}
+              {/* === Nuotraukos (multi-select, ordered: 1=hero, 2-5=galerija) === */}
               <div>
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
-                  Nuotrauka
+                  Nuotraukos
+                  {editImages.length > 0 && (
+                    <span className="ml-1 normal-case font-normal opacity-70">
+                      ({editImages.length} pasirinkta, pirma = hero)
+                    </span>
+                  )}
                 </div>
                 {imageOptions.length > 0 ? (
                   <div className="grid grid-cols-4 sm:grid-cols-4 gap-1.5">
-                    {imageOptions.map((opt, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setEditImage(opt.url)}
-                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                          editImage === opt.url
-                            ? 'border-blue-500 ring-2 ring-blue-200'
-                            : 'border-transparent hover:border-[var(--input-border)]'
-                        }`}>
-                        <img
-                          src={opt.url}
-                          alt={opt.label}
-                          className="absolute inset-0 w-full h-full object-cover bg-[var(--bg-elevated)]"
-                          onError={e => ((e.target as HTMLImageElement).style.display = 'none')}
-                        />
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-[10px] px-1.5 py-1">
-                          <div className="font-semibold opacity-90 leading-tight">
-                            {opt.source === 'artist_photo' && '📸 Galerija'}
-                            {opt.source === 'artist_cover' && '🎤 Profilio nuotrauka'}
-                            {opt.source === 'youtube_thumb' && '🎬 YT thumb'}
+                    {imageOptions.map((opt, i) => {
+                      const orderIdx = editImages.indexOf(opt.url)
+                      const isSelected = orderIdx >= 0
+                      const isPrimary = orderIdx === 0
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            // Toggle multi-select: if selected, remove; else append
+                            setEditImages(prev => {
+                              if (prev.includes(opt.url)) return prev.filter(x => x !== opt.url)
+                              if (prev.length >= 5) {
+                                alert('Max 5 nuotraukos (1 hero + 4 papildomos). Pirma pašalink.')
+                                return prev
+                              }
+                              return [...prev, opt.url]
+                            })
+                          }}
+                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                            isPrimary
+                              ? 'border-emerald-500 ring-2 ring-emerald-200'
+                              : isSelected
+                                ? 'border-blue-500 ring-1 ring-blue-200'
+                                : 'border-transparent hover:border-[var(--input-border)]'
+                          }`}>
+                          <img
+                            src={opt.url}
+                            alt={opt.label}
+                            className="absolute inset-0 w-full h-full object-cover bg-[var(--bg-elevated)]"
+                            onError={e => ((e.target as HTMLImageElement).style.display = 'none')}
+                          />
+                          {isSelected && (
+                            <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${
+                              isPrimary ? 'bg-emerald-600' : 'bg-blue-600'
+                            }`}>
+                              {orderIdx + 1}
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-[10px] px-1.5 py-1">
+                            <div className="font-semibold opacity-90 leading-tight">
+                              {opt.source === 'artist_photo' && '📸 Galerija'}
+                              {opt.source === 'artist_cover' && '🎤 Profilio nuotrauka'}
+                              {opt.source === 'youtube_thumb' && '🎬 YT thumb'}
+                              {opt.source === 'wiki' && '📖 Wikimedia'}
+                            </div>
+                            <div className="opacity-70 truncate leading-tight">{opt.label}</div>
                           </div>
-                          <div className="opacity-70 truncate leading-tight">{opt.label}</div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      )
+                    })}
                   </div>
                 ) : (
                   <p className="text-sm text-[var(--text-muted)] italic">Atlikėjo nuotraukų DB nėra.</p>
@@ -945,12 +991,14 @@ export default function AdminInboxPage() {
                       🔍 Wiki paieška: {wikiArtistName}
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setEditImage('')}
-                    className="px-3 py-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] text-[var(--text-secondary)] rounded-lg text-xs font-medium">
-                    Be nuotraukos
-                  </button>
+                  {editImages.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setEditImages([])}
+                      className="px-3 py-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] text-[var(--text-secondary)] rounded-lg text-xs font-medium">
+                      Išvalyti pasirinkimą
+                    </button>
+                  )}
                 </div>
               </div>
 

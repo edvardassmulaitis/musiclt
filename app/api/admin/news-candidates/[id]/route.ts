@@ -172,14 +172,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // ─── Auto image picker ───
     // Pirmenybė:
-    //   1) user'io override (wizard image)
+    //   1) user'io override (wizard image — pirma iš image_urls array, jei
+    //      pateikta wizard'e; arba legacy single image_url)
     //   2) naujausia artist_photo
     //   3) artist.cover_image_url
-    //   4) YouTube thumbnail iš pirmojo track'o su video_url (NAUJA — unlock'ina
-    //      naujienas atlikėjams be official photos)
+    //   4) YouTube thumbnail iš pirmojo track'o su video_url
     //   5) NULL
-    // Source straipsnio nuotrauka NĖRA naudojama (copyright).
-    let finalImage: string | null = (body.image_url as string | undefined) || null
+    // body.image_urls — multi-image: pirma = hero, kitos → image1..5_url legacy slots.
+    const wizardImages: string[] = Array.isArray(body.image_urls)
+      ? body.image_urls.filter((x: any) => typeof x === 'string' && x).slice(0, 5)
+      : ((body.image_url as string | undefined) ? [body.image_url as string] : [])
+    let finalImage: string | null = wizardImages[0] || (body.image_url as string | undefined) || null
     if (!finalImage && artistId1) {
       const { data: photos } = await supabase
         .from('artist_photos')
@@ -215,6 +218,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    // Multi-image: pirma → image_title + image_small (hero). Likusios 2-5 →
+    // image1_url..image4_url legacy slots (image5_url paliktas atskirai).
+    const galleryImages = wizardImages.slice(1, 5)
     const { data: created, error: insErr } = await supabase
       .from('news')
       .insert({
@@ -230,6 +236,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         artist_id2: artistId2,
         image_small_url: finalImage,
         image_title_url: finalImage,
+        image1_url: galleryImages[0] || null,
+        image2_url: galleryImages[1] || null,
+        image3_url: galleryImages[2] || null,
+        image4_url: galleryImages[3] || null,
         published_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
       })
