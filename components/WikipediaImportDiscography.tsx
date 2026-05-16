@@ -2459,6 +2459,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   const trackComplete = trackDupId
                     ? it.completeness?.tracks.find(tc => tc.id === trackDupId)
                     : null
+                  // MATCHED-BUT-NOT-LINKED: track yra DB pagal title, BET
+                  // nelinkint'a į šį album'ą. Anksčiau šitam atvejui nieko
+                  // nerodėm (silent state) → user'is nematė kuri daina
+                  // problemų pora. Dabar rodom oranžinį '⊕ prijungti' badge'ą
+                  // su DB link nuoroda, kad admin galėtų verify + spaust
+                  // Importuoti auto-link'ui.
+                  const matchedNotLinked = !!(
+                    trackDupId
+                    && it.completeness
+                    && !it.completeness.tracks.find(tc => tc.id === trackDupId)
+                  )
                   return (
                   <div key={ti} className="flex items-center gap-2 py-0.5">
                     <div className="flex items-center justify-end gap-0.5 w-5 shrink-0">
@@ -2493,7 +2504,18 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         yra papildomi, tai tiesiog noise. ✓/⚠ completeness badges
                         toliau rodo statusą. */}
                     {mapLoaded && (
-                      trackDupId ? null : it.duplicate ? (
+                      // MATCHED-but-NOT-LINKED → oranžinis '⊕ prijungti' badge'as.
+                      // Track yra DB pagal pavadinimą, bet album_tracks JOIN'o
+                      // šiam album'ui nėra. Pvz Queen 1973 "Seven Seas of Rhye..."
+                      // matched id=107616, bet linkint'a į kitą album'ą. Spausk
+                      // Importuoti — auto-link prijungs prie šio album'o.
+                      matchedNotLinked ? (
+                        <a href={`/admin/tracks/${trackDupId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                          className="text-[9px] font-semibold text-orange-600 shrink-0 hover:underline"
+                          title={`Daina yra DB (id=${trackDupId}) bet nelinkint'a į šį album'ą. Spausk Importuoti — auto-link prijungs.\n\nKlikink badge'ą kad atidarytum DB įrašą patikrinti, ar tai tikrai ta pati daina (ne kitas variantas).`}>
+                          ⊕ prijungti #{trackDupId}
+                        </a>
+                      ) : trackDupId ? null : it.duplicate ? (
                         // ENRICH mode + Wiki-only daina → checkbox + gray badge
                         <label className="flex items-center gap-1 cursor-pointer shrink-0" onClick={e => e.stopPropagation()}>
                           <input
