@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient()
 
+  // Sort by NEWEST first (created_at desc) — kandidatai chronologiškai.
+  // ai_confidence palieka kaip tie-breaker'is ant tos pačios dienos kandidatų.
   let q = supabase
     .from('news_candidates')
     .select(`
@@ -42,8 +44,8 @@ export async function GET(req: NextRequest) {
       primary_artist:artists!news_candidates_primary_artist_id_fkey(id, name, slug, cover_image_url, legacy_likes)
     `, { count: 'exact' })
     .eq('status', status)
-    .order('ai_confidence', { ascending: false })
     .order('created_at', { ascending: false })
+    .order('ai_confidence', { ascending: false })
     .limit(limit)
 
   if (category) q = q.eq('ai_category', category)
@@ -67,13 +69,41 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Decorate per candidate'us su pilna suggested_artists info'ja
-  const decorated = (data || []).map((c: any) => ({
-    ...c,
-    suggested_artists: (c.suggested_artist_ids || [])
+  // Decorate per candidate'us su pilna suggested_artists info'ja + score'u.
+  //
+  // Naujas score = popularity × recency × ai_confidence:
+  //   - popularity (0..1): primary_artist.legacy_likes normalized (log scale,
+  //     1000 likes ≈ 0.5, 10000 ≈ 0.8, 100000+ ≈ 1.0)
+  //   - recency (0..1): source_published_at amžius dienomis — exp decay
+  //     (1 d. = 0.95, 7 d. = 0.7, 30 d. = 0.3, 90+ d. ≈ 0)
+  //   - ai_confidence (0..1): AI'aus pasitikėjimas
+  // Score'as rodomas card'oje kaip ⭐ 0.XX (pakeitė buvusį ai_confidence).
+  const decorated = (data || []).map((c: any) => {
+    const artists = (c.suggested_artist_ids || [])
       .map((id: number) => artistMap[id])
-      .filter(Boolean),
-  }))
+      .filter(Boolean)
+    // Popularity — primary artist likes, log10-scaled
+    const primaryLikes = c.primary_artist?.legacy_likes ?? artists[0]?.legacy_likes ?? 0
+    const popularity = primaryLikes > 0
+      ? Math.min(1, Math.log10(primaryLikes + 1) / 5) // 100k+ likes ≈ 1.0
+      : 0.1
+    // Recency — dienos nuo source_published_at (fallback created_at)
+    const dateStr = c.source_published_at || c.created_at
+    const ageDays = (Date.now() - new Date(dateStr).getTime()) / 86_400_000
+    const recency = Math.max(0, Math.exp(-ageDays / 14)) // 14d half-life
+    const confidence = c.ai_confidence ?? 0.5
+    const score = popularity * recency * confidence
+    return {
+      ...c,
+      suggested_artists: artists,
+      score: Math.round(score * 100) / 100,
+      score_breakdown: {
+        popularity: Math.round(popularity * 100) / 100,
+        recency: Math.round(recency * 100) / 100,
+        confidence: Math.round(confidence * 100) / 100,
+      },
+    }
+  })
 
   return NextResponse.json({
     candidates: decorated,

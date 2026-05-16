@@ -52,6 +52,8 @@ type Candidate = {
   ai_tracks_mentioned: AiTrackMention[] | null
   embed_urls: string[] | null
   primary_artist: SuggestedArtist | null
+  score?: number
+  score_breakdown?: { popularity: number; recency: number; confidence: number }
 }
 
 const CATEGORY_LABELS: Record<string, { label: string; icon: string; color: string }> = {
@@ -72,6 +74,22 @@ function formatLikes(n: number | null | undefined): string {
   if (!n) return '0'
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return String(n)
+}
+
+// Kompaktiškas relatyvus laikas: 5m, 2h, 3d, 1sav, 2mėn
+function relativeTimeShort(isoDate: string): string {
+  const ms = Date.now() - new Date(isoDate).getTime()
+  if (ms < 0) return 'dabar'
+  const min = Math.floor(ms / 60_000)
+  if (min < 1) return 'dabar'
+  if (min < 60) return `${min}min`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h`
+  const d = Math.floor(hr / 24)
+  if (d < 7) return `${d}d`
+  if (d < 30) return `${Math.floor(d / 7)}sav`
+  if (d < 365) return `${Math.floor(d / 30)}mėn`
+  return `${Math.floor(d / 365)}m`
 }
 
 export default function AdminInboxPage() {
@@ -438,9 +456,20 @@ export default function AdminInboxPage() {
                             {catMeta.icon} {catMeta.label}
                           </span>
                         )}
-                        <span className={`px-2 py-0.5 rounded-full font-bold ${confidenceColor(cand.ai_confidence)}`}>
-                          ⭐ {cand.ai_confidence.toFixed(2)}
-                        </span>
+                        {(() => {
+                          const score = cand.score ?? cand.ai_confidence
+                          const breakdown = cand.score_breakdown
+                          const tooltip = breakdown
+                            ? `Score = popularity (${breakdown.popularity}) × recency (${breakdown.recency}) × confidence (${breakdown.confidence})`
+                            : `AI confidence: ${cand.ai_confidence}`
+                          return (
+                            <span
+                              title={tooltip}
+                              className={`px-2 py-0.5 rounded-full font-bold ${confidenceColor(score)}`}>
+                              ⭐ {score.toFixed(2)}
+                            </span>
+                          )
+                        })()}
                         {cand.source_url ? (
                           <a
                             href={cand.source_url}
@@ -454,10 +483,15 @@ export default function AdminInboxPage() {
                             {cand.source_portal || cand.source_type}
                           </span>
                         )}
-                        {/* Date — fallback į scraped time jei source_published_at null
-                           (senesni candidates iš pre-migration laiko) */}
-                        <span className="text-[var(--text-muted)]">
-                          · {new Date(cand.source_published_at || cand.created_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short' })}
+                        {/* Source publication date */}
+                        {cand.source_published_at && (
+                          <span className="text-[var(--text-muted)]" title={`Šaltinio publikacija: ${new Date(cand.source_published_at).toLocaleString('lt-LT')}`}>
+                            · {new Date(cand.source_published_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
+                        {/* Scraped timestamp — kada AI surinko (atnaujinimo proxy) */}
+                        <span className="text-[var(--text-muted)] opacity-60" title={`Surinkta į DB: ${new Date(cand.created_at).toLocaleString('lt-LT')}`}>
+                          · 🔄 {relativeTimeShort(cand.created_at)}
                         </span>
                       </div>
 
