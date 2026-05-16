@@ -21,6 +21,8 @@ export type TrackCompleteness = {
   type: string
   complete: boolean
   missing: string[]
+  likes_count: number
+  comments_count: number
 }
 
 export type AlbumCompleteness = {
@@ -45,6 +47,13 @@ export type AlbumCompleteness = {
   legacy_slug?: string | null
   likes_count: number
   comments_count: number
+  /** Esamos type flags DB — frontend palygins su Wiki ketinama type'a
+   *  ir parodys 'studijinis → kompiliacija' diff jei keisis. */
+  current_types: string[]
+  /** Admin reviewed/cleared status — naudojama Wiki import filter'avimui.
+   *  null = needs review; 'cleared' = admin patvirtino kad DB state'as
+   *  yra OK ir nereikia papildomai tvarkyti. */
+  wiki_review_status: string | null
 }
 
 export async function computeAlbumCompleteness(
@@ -53,10 +62,22 @@ export async function computeAlbumCompleteness(
 ): Promise<AlbumCompleteness | null> {
   const { data: album } = await sb
     .from('albums')
-    .select('cover_image_url, year, month, day, peak_chart_position, certifications, legacy_id, slug')
+    .select('cover_image_url, year, month, day, peak_chart_position, certifications, legacy_id, slug, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_covers, type_holiday, type_soundtrack, type_demo')
     .eq('id', albumId)
     .single()
   if (!album) return null
+
+  // wiki_review_status — optional column iš 20260515h migracijos. Bandom
+  // atskirai, kad query'as veiktų ir tuo atveju kai migracija dar neaplikuota.
+  let wiki_review_status: string | null = null
+  try {
+    const { data: meta, error: metaErr } = await sb
+      .from('albums')
+      .select('wiki_review_status')
+      .eq('id', albumId)
+      .maybeSingle()
+    if (!metaErr) wiki_review_status = (meta as any)?.wiki_review_status || null
+  } catch { /* ignore — migration not yet applied */ }
 
   const { data: subRows } = await sb
     .from('album_substyles')
@@ -93,6 +114,7 @@ export async function computeAlbumCompleteness(
     .order('position', { ascending: true })
 
   const tracks: TrackCompleteness[] = []
+  const trackIdList: number[] = []
   for (const r of (trackRows || []) as any[]) {
     const t = r.tracks
     if (!t) continue
@@ -107,8 +129,43 @@ export async function computeAlbumCompleteness(
       type: t.type || 'normal',
       complete: missing.length === 0,
       missing,
+      likes_count: 0,
+      comments_count: 0,
     })
+    trackIdList.push(t.id)
   }
+
+  // Per-track likes + comments counts — batch'iname dvejomis user'iams matomais
+  // mėtomis (likes per `likes` entity_type='track', comments per `comments`
+  // track_id FK). Naudojame .in() per visus ID + group'inam client-side.
+  if (trackIdList.length > 0) {
+    const [trackLikesResp, trackCommentsResp] = await Promise.all([
+      sb.from('likes')
+        .select('entity_id')
+        .eq('entity_type', 'track')
+        .in('entity_id', trackIdList),
+      sb.from('comments')
+        .select('track_id')
+        .in('track_id', trackIdList)
+        .eq('is_deleted', false),
+    ])
+    const likesByTrack: Record<number, number> = {}
+    for (const r of (trackLikesResp.data || []) as any[]) {
+      likesByTrack[r.entity_id] = (likesByTrack[r.entity_id] || 0) + 1
+    }
+    const commentsByTrack: Record<number, number> = {}
+    for (const r of (trackCommentsResp.data || []) as any[]) {
+      commentsByTrack[r.track_id] = (commentsByTrack[r.track_id] || 0) + 1
+    }
+    for (const tc of tracks) {
+      tc.likes_count = likesByTrack[tc.id] || 0
+      tc.comments_count = commentsByTrack[tc.id] || 0
+    }
+  }
+
+  // Current type flags — frontend rodys diff'ą su Wiki import'u
+  const TYPE_KEYS = ['studio','compilation','ep','single','live','remix','covers','holiday','soundtrack','demo']
+  const current_types = TYPE_KEYS.filter(k => (album as any)[`type_${k}`] === true)
 
   const has_cover = !!album.cover_image_url
   const has_year = !!album.year
@@ -133,5 +190,7 @@ export async function computeAlbumCompleteness(
     legacy_slug,
     likes_count,
     comments_count,
+    current_types,
+    wiki_review_status,
   }
 }

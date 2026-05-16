@@ -74,12 +74,18 @@ export type DiscographyItem = {
       type: string
       complete: boolean
       missing: string[]  // 'video' | 'data' | 'lyrics'
+      likes_count: number
+      comments_count: number
     }>
     legacy_id?: number | null
     legacy_url?: string | null
     legacy_slug?: string | null
     likes_count: number
     comments_count: number
+    /** Currently set type_* flags DB — naudojam diff'ui (esamas type → Wiki). */
+    current_types: string[]
+    /** Admin review status: null = needs review, 'cleared' = paslėpta. */
+    wiki_review_status: string | null
   }
 }
 

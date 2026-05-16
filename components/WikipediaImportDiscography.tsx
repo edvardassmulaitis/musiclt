@@ -1304,11 +1304,26 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       })
 
     setArtistGroups([])
-    setItems(albumsF)
+    // Filter ignored Wiki-only album'us (admin spaudė 🚫 ant Wiki suggestion'o).
+    // DB albums su wiki_review_status='cleared' praleidžiame paskutiniame
+    // setItems žingsnyje — kai completeness response ateis su tuo flag'u, item
+    // bus filtruojamas. Pirma load — DB ignored sąrašas iš API.
+    let filteredAlbumsF = albumsF
+    try {
+      const ignRes = await fetch(`/api/admin/wiki-ignore-album?artist_id=${artistId}`)
+      if (ignRes.ok) {
+        const ignData = await ignRes.json()
+        const ignoredTitles = new Set<string>((ignData?.ignored || []).map((r: any) => String(r.wiki_title || '').toLowerCase()))
+        if (ignoredTitles.size > 0) {
+          filteredAlbumsF = albumsF.filter(it => !ignoredTitles.has(it.title.toLowerCase()))
+        }
+      }
+    } catch { /* migration not applied yet or network err — show everything */ }
+    setItems(filteredAlbumsF)
     // 2026-05-15 redesign: duplicates AUTO-PAŽYMIMI (kad enrich'tųsi). Anksčiau
     // !it.duplicate filter'a neleido duplicates pasirinkti — ir todėl music.lt
     // scrape'inti albums niekada negaudavo Wiki release_year/peak_chart enrichment.
-    setSelected(new Set(albumsF.map((it, i) => AUTO_SELECT_TYPES.includes(it.type) ? i : -1).filter(i => i !== -1)))
+    setSelected(new Set(filteredAlbumsF.map((it, i) => AUTO_SELECT_TYPES.includes(it.type) ? i : -1).filter(i => i !== -1)))
     setSongs(songsF)
 
     // Default tab
@@ -1887,6 +1902,81 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     setSelected(p => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s })
   }
 
+  // ── Delete + Hide handlers ──────────────────────────────────────────────
+  // 2026-05-15: admin iteratively cleans up; reikia galimybės pašalinti
+  // junk DB albums (delete) arba pažymėti kad jie OK (hide → future Wiki
+  // importai nerodys kaip needing-attention).
+
+  const deleteAlbumFromDb = async (i: number) => {
+    const item = items[i]
+    if (!item?.duplicateId) return
+    if (!confirm(`Ištrinti album'ą "${item.title}" iš DB?\n\nKartu bus ištrintos jo dainos, jei jos nepriklauso kitiems albums.\n\nVeiksmas negali būti atšauktas.`)) return
+    try {
+      const res = await fetch(`/api/albums/${item.duplicateId}?deleteTracks=true`, { method: 'DELETE' })
+      if (!res.ok) {
+        addLog(`✗ ${item.title}: delete nepavyko (${res.status})`)
+        return
+      }
+      addLog(`🗑 ${item.title} ištrintas iš DB`)
+      // Remove from list visually
+      setItems(p => p.filter((_, idx) => idx !== i))
+      setSelected(p => { const s = new Set(p); s.delete(i); return s })
+      window.dispatchEvent(new CustomEvent('discography-updated'))
+    } catch (e: any) {
+      addLog(`✗ ${item.title}: ${e.message}`)
+    }
+  }
+
+  const hideAlbumInDb = async (i: number) => {
+    const item = items[i]
+    if (!item?.duplicateId) return
+    try {
+      const res = await fetch(`/api/albums/${item.duplicateId}/wiki-status`, {
+        method: 'PATCH', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ status: 'cleared' }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (j.migration_pending) {
+        addLog(`⚠ Hide reikia migracijos 20260515h. Iki tol — paslėpta tik šiai sesijai.`)
+      } else if (!res.ok) {
+        addLog(`✗ ${item.title}: hide nepavyko (${res.status})`)
+        return
+      } else {
+        addLog(`🚫 ${item.title} paslėpta (cleared)`)
+      }
+      // Hide from current list (visual only)
+      setItems(p => p.filter((_, idx) => idx !== i))
+      setSelected(p => { const s = new Set(p); s.delete(i); return s })
+    } catch (e: any) {
+      addLog(`✗ ${item.title}: ${e.message}`)
+    }
+  }
+
+  const hideWikiSuggestion = async (i: number) => {
+    const item = items[i]
+    if (!item) return
+    try {
+      const res = await fetch('/api/admin/wiki-ignore-album', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ artist_id: artistId, wiki_title: item.title }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (j.migration_pending) {
+        addLog(`⚠ Hide reikia migracijos 20260515h. Iki tol — paslėpta tik šiai sesijai.`)
+      } else if (!res.ok) {
+        addLog(`✗ ${item.title}: hide nepavyko (${res.status})`)
+        return
+      } else {
+        addLog(`🚫 ${item.title} pridėta į Wiki ignore list`)
+      }
+      // Remove from current list
+      setItems(p => p.filter((_, idx) => idx !== i))
+      setSelected(p => { const s = new Set(p); s.delete(i); return s })
+    } catch (e: any) {
+      addLog(`✗ ${item.title}: ${e.message}`)
+    }
+  }
+
   const toggleSong = (title: string) => setSongs(p => p.map(s => s.title === title && !s.duplicate && !s.imported ? { ...s, selected: !s.selected } : s))
   const selectAllSongs = (val: boolean) => setSongs(p => p.map(s => s.duplicate || s.imported ? s : { ...s, selected: val }))
 
@@ -2031,6 +2121,37 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     }, 0)
   }
 
+  // Pre-load completeness ALL duplicate album'ams (ne tik expanded'iems) —
+  // kad type-diff badge'as ir wiki_review_status filter'as veiktų iškart.
+  // Naudojame batch'ą: po search'o + items setting'o, paimam visus
+  // duplicate'us ir paraleliai fetch'inam completeness. Filter'inam tuos kur
+  // wiki_review_status='cleared' (admin pažymėjo kaip OK, nerodyti).
+  useEffect(() => {
+    if (!items.length) return
+    const needFetch = items
+      .map((it, idx) => ({ it, idx }))
+      .filter(({ it }) => it.duplicate && it.duplicateId && !it.completeness)
+    if (needFetch.length === 0) return
+    let cancelled = false
+    Promise.all(needFetch.map(({ it, idx }) =>
+      fetch(`/api/albums/${it.duplicateId}/completeness`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => ({ idx, completeness: d?.completeness || null }))
+        .catch(() => ({ idx, completeness: null as any }))
+    )).then(results => {
+      if (cancelled) return
+      setItems(p => {
+        // Apply completeness; jei wiki_review_status='cleared' — pašalinam item
+        const completenessByIdx: Record<number, any> = {}
+        for (const r of results) completenessByIdx[r.idx] = r.completeness
+        const updated = p.map((it, idx) => completenessByIdx[idx] ? { ...it, completeness: completenessByIdx[idx] } : it)
+        return updated.filter(it => it.completeness?.wiki_review_status !== 'cleared')
+      })
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length])
+
   // ── Album row renderer ─────────────────────────────────────────────────────
 
   const renderAlbumRow = (it: DiscographyItem, i: number) => {
@@ -2074,6 +2195,30 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 <span key={et} className="text-[10px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'Garso takelis' : et}</span>
               ))}
               {it.duplicate && <span className="text-[10px] font-semibold text-amber-600 shrink-0" title="Albumas DB jau yra. Wiki tik papildys trūkstamus laukus (data, viršelis, sertifikatai, žanrai). Egzistuojantys laukai neperrašomi.">↻ papildyti</span>}
+              {/* Type diff preview — jei Wiki nori pakeisti type'ą po importo,
+                  rodom 'studijinis → kompiliacija' badge'ą oranžiniu. Padeda
+                  admin'ui suprasti kodėl Queen 21 studio → 15 po Wiki import'o. */}
+              {it.duplicate && it.completeness?.current_types && (() => {
+                const ltType = (k: string): string => ({
+                  studio: 'studijinis', compilation: 'kompiliacija', ep: 'EP',
+                  single: 'singlas', live: 'gyvas', remix: 'remix',
+                  covers: 'cover', holiday: 'šventinis', soundtrack: 'garso takelis', demo: 'demo',
+                }[k] || k)
+                const wikiType = it.type
+                const wikiExtras = it.extraTypes || []
+                const wikiTypeSet = new Set<string>([wikiType, ...wikiExtras].filter(Boolean))
+                const dbTypes = new Set(it.completeness.current_types)
+                const added = [...wikiTypeSet].filter(t => !dbTypes.has(t as string))
+                const removed = [...dbTypes].filter(t => !wikiTypeSet.has(t as string))
+                if (added.length === 0 && removed.length === 0) return null
+                const tooltip = `Po importo tipo flags:\n${[...wikiTypeSet].map(t => '+ '+ltType(t as string)).join('\n')}\n\nDabar DB:\n${[...dbTypes].map(t => '• '+ltType(t)).join('\n')}`
+                return (
+                  <span className="text-[10px] font-semibold text-orange-600 shrink-0 inline-flex items-center gap-1" title={tooltip}>
+                    🔄 {removed.length > 0 && <span className="line-through opacity-60">{removed.map(t => ltType(t as string)).join('+')}</span>}
+                    {added.length > 0 && <span>→ {added.map(t => ltType(t as string)).join('+')}</span>}
+                  </span>
+                )
+              })()}
               {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
               {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
               {/* Album completeness badge — rodoma jei completeness turim
@@ -2197,6 +2342,32 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 10 10"><path d="M5 1v6M2 6l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               )}
               <span className="hidden sm:inline">{it.fetched ? 'info' : 'info'}</span>
+            </button>
+          )}
+          {/* DB album'as turi delete + hide buttons. Wiki-only (be duplicateId)
+              turi tik "paslėpti" — kad future importai nerodytų. */}
+          {it.duplicate && it.duplicateId && !it.imported && (
+            <>
+              <button type="button"
+                onClick={e => { e.stopPropagation(); hideAlbumInDb(i) }}
+                title="Paslėpti šį album'ą kaip 'sutvarkyta' — future Wiki importai nerodys"
+                className="shrink-0 px-1.5 py-1 rounded text-[11px] text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
+                🚫
+              </button>
+              <button type="button"
+                onClick={e => { e.stopPropagation(); deleteAlbumFromDb(i) }}
+                title="Ištrinti šį album'ą iš DB visam (su jo dainomis, jei nenaudojamos kitur)"
+                className="shrink-0 px-1.5 py-1 rounded text-[11px] text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                ×
+              </button>
+            </>
+          )}
+          {!it.duplicate && !it.imported && (
+            <button type="button"
+              onClick={e => { e.stopPropagation(); hideWikiSuggestion(i) }}
+              title="Paslėpti šį Wiki suggestion'ą — future importai nerodys"
+              className="shrink-0 px-1.5 py-1 rounded text-[11px] text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
+              🚫
             </button>
           )}
           {/* Expand tracks */}
@@ -2348,6 +2519,15 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                           </span>
                         )
                       })()
+                    )}
+                    {/* Per-track community signals — likes + comments.
+                        Padeda admin'ui nuspręsti kuriom dainom verta detaliai
+                        tvarkyti video/lyrics (populiarios tarp music.lt vart.). */}
+                    {trackComplete && (trackComplete.likes_count > 0 || trackComplete.comments_count > 0) && (
+                      <span className="text-[9px] text-gray-400 shrink-0 inline-flex items-center gap-1" title={`${trackComplete.likes_count} like'ų · ${trackComplete.comments_count} komentarų`}>
+                        {trackComplete.likes_count > 0 && <span>♥{trackComplete.likes_count}</span>}
+                        {trackComplete.comments_count > 0 && <span>💬{trackComplete.comments_count}</span>}
+                      </span>
                     )}
                     {t.duration && <span className="text-[10px] text-gray-300 shrink-0">{t.duration}</span>}
                   </div>
