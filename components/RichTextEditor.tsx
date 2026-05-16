@@ -100,16 +100,19 @@ export default function RichTextEditor({ value, onChange, placeholder, maxLength
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
-        // text-base (16px) mobile'e — užkerta iOS Safari auto-zoom on focus
-        // (kuris triggerinasi kai input font < 16px). Desktop: prose-sm grįžta.
-        class: 'prose max-w-none min-h-[200px] px-4 py-3 focus:outline-none text-gray-800 text-base sm:prose-sm sm:text-sm',
+        // Inline style: font-size 16px mobile (iOS zoom prevention).
+        // Tailwind .prose class'as turi specificity issue kuris dažnai
+        // override'ina text-base — inline style bypass'ina visus class selectors.
+        // Naudojam font-size: 16px (NE 0.875rem prose-sm default'ą).
+        style: 'font-size: 16px',
+        class: 'prose max-w-none min-h-[200px] px-4 py-3 focus:outline-none text-gray-800',
         // LT browser native spellcheck — jei user'is turi LT keyboard installuotą,
         // Safari/Chrome rodys suggestions konkretiems žodžiams. lang=lt
         // signalizuoja browser'iui kuria kalba tikrinti.
         lang: 'lt',
         spellcheck: 'true',
         autocapitalize: 'sentences',
-        autocorrect: 'off', // pasilieka, kad nepainiotų LT žodžių į EN
+        autocorrect: 'off',
         'data-gramm': 'false',
       },
       // Image paste/drop — Iframe extension'as handles URL paste rules savo

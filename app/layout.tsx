@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/components/AuthProvider'
 import { SiteShell } from '@/components/SiteShell'
@@ -15,6 +15,16 @@ export const metadata: Metadata = {
     shortcut: '/icon.svg',
     apple: '/icon.svg',
   },
+}
+
+// Viewport: initialScale=1 yra kritinis iOS Safari auto-zoom prevention'ui
+// kai contenteditable / input gauna focus. Be jo iOS zoom'ina į input
+// koordinates, sumaišydamas viewport'ą. Default Next'as kartais nepateikia.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  // maximumScale=1 sutaupytų zoom-į-input, bet sulaužytų pinch-zoom accessibility.
+  // Plačiausia tinkama formula — initialScale=1 + input font ≥ 16px.
 }
 
 export default function RootLayout({
