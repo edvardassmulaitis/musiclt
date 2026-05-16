@@ -471,52 +471,50 @@ export default function AdminInboxPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Renginių sekcija — kompaktiškos kortelės, redagavimas atskirame puslapyje */}
-            {events.length > 0 && (
-              <div className="space-y-2 mb-3">
-                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide flex items-center justify-between px-1">
-                  <span>🎫 Renginiai ({events.length})</span>
-                  <Link href="/admin/inbox/events" className="text-blue-600 hover:underline text-[10px] normal-case font-normal">
-                    Tvarkyti renginius →
-                  </Link>
-                </div>
-                {events.slice(0, 5).map(ev => (
-                  <Link
-                    key={`ev-${ev.id}`}
-                    href={`/admin/inbox/events`}
-                    className="block bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl px-3 py-2 hover:shadow-sm transition-shadow">
-                    <div className="flex items-center gap-2">
-                      {ev.image_url ? (
-                        <img src={ev.image_url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
-                      ) : (
-                        <div className="w-10 h-10 rounded bg-[var(--bg-elevated)] shrink-0 flex items-center justify-center text-lg">🎫</div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm text-[var(--text-primary)] truncate">{ev.title}</div>
-                        <div className="text-[10px] text-[var(--text-muted)] truncate">
-                          {ev.event_date_text || (ev.event_date && new Date(ev.event_date).toLocaleDateString('lt-LT'))}
-                          {ev.venue_name_raw && ` · ${ev.venue_name_raw}`}
-                          {ev.city && ` · ${ev.city}`}
+            {/* Mixed chronological feed — news + events interleaved by created_at desc */}
+            {(() => {
+              type FeedNews = { kind: 'news'; created_at: string; cand: Candidate }
+              type FeedEvent = { kind: 'event'; created_at: string; ev: EventCandidate }
+              const feed: Array<FeedNews | FeedEvent> = [
+                ...candidates.map(c => ({ kind: 'news' as const, created_at: c.created_at, cand: c })),
+                ...events.map(e => ({ kind: 'event' as const, created_at: e.created_at, ev: e })),
+              ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+              return feed.map(item => {
+                if (item.kind === 'event') {
+                  const ev = item.ev
+                  return (
+                    <Link
+                      key={`ev-${ev.id}`}
+                      href="/admin/inbox/events"
+                      className="block bg-amber-50/40 border border-amber-200/60 rounded-xl px-3 py-2 hover:shadow-sm transition-shadow">
+                      <div className="flex items-center gap-2">
+                        {ev.image_url ? (
+                          <img src={ev.image_url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded bg-amber-100 shrink-0 flex items-center justify-center text-lg">🎫</div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-[10px] px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded font-bold uppercase">🎫 Renginys</span>
+                            <span className="text-[10px] text-[var(--text-muted)]">{relativeTimeShort(ev.created_at)}</span>
+                          </div>
+                          <div className="font-medium text-sm text-[var(--text-primary)] truncate">{ev.title}</div>
+                          <div className="text-[10px] text-[var(--text-muted)] truncate">
+                            {ev.event_date_text || (ev.event_date && new Date(ev.event_date).toLocaleDateString('lt-LT'))}
+                            {ev.venue_name_raw && ` · ${ev.venue_name_raw}`}
+                            {ev.city && ` · ${ev.city}`}
+                          </div>
                         </div>
+                        <span className="text-blue-600 text-[10px] shrink-0">Tvarkyti →</span>
                       </div>
-                      <span className="text-[10px] text-[var(--text-muted)] shrink-0">{relativeTimeShort(ev.created_at)}</span>
-                    </div>
-                  </Link>
-                ))}
-                {events.length > 5 && (
-                  <Link href="/admin/inbox/events" className="block text-center text-xs text-blue-600 hover:underline py-1">
-                    + Dar {events.length - 5} renginiai →
-                  </Link>
-                )}
-              </div>
-            )}
-            {/* Naujienos sekcija */}
-            {candidates.length > 0 && events.length > 0 && (
-              <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide px-1 pt-2">
-                📰 Naujienos ({candidates.length})
-              </div>
-            )}
-            {candidates.map(cand => {
+                    </Link>
+                  )
+                }
+                // News card — inline JSX (extracted iš dead block'o žemiau ir
+                // perkeltas i šią vietą, kad mixed feed veiktų)
+                return (() => {
+                  const cand = item.cand
               const catMeta = CATEGORY_LABELS[cand.ai_category]
               const isExpanded = expanded.has(cand.id)
               const artists = cand.suggested_artists || []
@@ -674,7 +672,9 @@ export default function AdminInboxPage() {
                   )}
                 </div>
               )
-            })}
+                })()
+              })
+            })()}
           </div>
         )}
       </div>

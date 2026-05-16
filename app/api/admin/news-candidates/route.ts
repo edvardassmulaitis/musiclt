@@ -71,28 +71,30 @@ export async function GET(req: NextRequest) {
 
   // Decorate per candidate'us su pilna suggested_artists info'ja + score'u.
   //
-  // Naujas score = popularity × recency × ai_confidence:
-  //   - popularity (0..1): primary_artist.legacy_likes normalized (log scale,
-  //     1000 likes ≈ 0.5, 10000 ≈ 0.8, 100000+ ≈ 1.0)
-  //   - recency (0..1): source_published_at amžius dienomis — exp decay
-  //     (1 d. = 0.95, 7 d. = 0.7, 30 d. = 0.3, 90+ d. ≈ 0)
-  //   - ai_confidence (0..1): AI'aus pasitikėjimas
-  // Score'as rodomas card'oje kaip ⭐ 0.XX (pakeitė buvusį ai_confidence).
+  // Score = weighted average (NE multiplication — anksciau buvo P×R×C kuris
+  // duodavo 0.04-0.32 scale'ą, vizualiai per žema):
+  //   • popularity (40%): primary_artist.legacy_likes log10-scale
+  //     (100 likes ≈ 0.4, 1000 ≈ 0.6, 10k ≈ 0.8, 100k+ ≈ 1.0)
+  //   • recency (40%):    14-day half-life exp decay nuo source_published_at
+  //     (today=1.0, 1d=0.93, 7d=0.61, 30d=0.12)
+  //   • confidence (20%): AI'aus pasitikėjimas (0.5..0.95 typical)
+  //
+  // Praktiškai score'ai dabar 0.40-0.85 range — vizualiai aiškiau. Tooltip
+  // tooltip'e rodo breakdown.
   const decorated = (data || []).map((c: any) => {
     const artists = (c.suggested_artist_ids || [])
       .map((id: number) => artistMap[id])
       .filter(Boolean)
-    // Popularity — primary artist likes, log10-scaled
     const primaryLikes = c.primary_artist?.legacy_likes ?? artists[0]?.legacy_likes ?? 0
     const popularity = primaryLikes > 0
-      ? Math.min(1, Math.log10(primaryLikes + 1) / 5) // 100k+ likes ≈ 1.0
-      : 0.1
-    // Recency — dienos nuo source_published_at (fallback created_at)
+      ? Math.min(1, Math.log10(primaryLikes + 1) / 5)
+      : 0.2 // baseline jeigu visai nėra likes
     const dateStr = c.source_published_at || c.created_at
     const ageDays = (Date.now() - new Date(dateStr).getTime()) / 86_400_000
-    const recency = Math.max(0, Math.exp(-ageDays / 14)) // 14d half-life
+    const recency = Math.max(0, Math.exp(-ageDays / 14))
     const confidence = c.ai_confidence ?? 0.5
-    const score = popularity * recency * confidence
+    // Weighted average
+    const score = popularity * 0.4 + recency * 0.4 + confidence * 0.2
     return {
       ...c,
       suggested_artists: artists,

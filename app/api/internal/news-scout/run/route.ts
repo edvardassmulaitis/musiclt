@@ -259,6 +259,32 @@ export async function POST(req: NextRequest) {
             const urlHash = canonicalUrlHash(rel.url)
             const tFp = titleFingerprint(ai.title || article.title)
 
+            // ─── Cross-source dedupe: skip jei toks pat title fingerprint
+            // jau yra pending news_candidates (kita šaltinio versija to paties
+            // straipsnio). Sutaupom adminui review'inti dublikatus iš pvz.
+            // Pitchfork + Stereogum to paties albumo. */
+            const { data: existingFp } = await supabase
+              .from('news_candidates')
+              .select('id, source_portal')
+              .eq('title_fingerprint', tFp)
+              .eq('status', 'pending')
+              .limit(1)
+              .maybeSingle()
+            if (existingFp) {
+              counter.error_details.push(
+                `Skipping dup (title_fingerprint match with candidate #${existingFp.id} from ${existingFp.source_portal})`
+              )
+              // Vis tiek mark'inam seen_urls kad nereikėtų kitą kartą fetch'inti
+              await supabase.from('scout_seen_urls').insert({
+                url_hash: urlHash,
+                source_id: source.id,
+                candidate_id: null,
+                filter_reason: 'dup_title_fingerprint',
+              })
+              counter.classified_irrelevant++
+              continue
+            }
+
             // Safe ISO date parsing iš RSS pubDate (Fri, 15 May 2026 09:37:49 +0000)
             let sourcePubAt: string | null = null
             if (rel.published_at) {
