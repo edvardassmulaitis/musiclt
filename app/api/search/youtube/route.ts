@@ -4,6 +4,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q') || ''
   const type = searchParams.get('type') || 'video'
+  const pageToken = searchParams.get('pageToken') || ''
 
   if (!q.trim()) return NextResponse.json({ results: [] })
 
@@ -75,14 +76,13 @@ export async function GET(req: NextRequest) {
   // ── Video paieška ─────────────────────────────────────────────────────────
   try {
     // 1. Ieškoti video. NEAPRIBOTI categoryId=10 — daugelis muzikos video
-    // YT'e nepriskirti Music kategorijai (žiūrint upload metadata defaults).
-    // Ankstesnis variantas grąžindavo 0 results pvz. Lion Ceccah „Solo Quiero
-    // Más". Geriau leidžiam rezultatus pagal text relevance + remetam ant
-    // official/VEVO ranking žemiau.
+    // YT'e nepriskirti Music kategorijai. Plus pageToken support — picker'is
+    // gali užsiprašyti next page'o.
+    const ptParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''
     const searchRes = await fetch(
       `https://www.googleapis.com/youtube/v3/search?` +
       `part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=10` +
-      `&key=${apiKey}`
+      `&key=${apiKey}${ptParam}`
     )
     const searchData = await searchRes.json()
 
@@ -172,7 +172,10 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    return NextResponse.json({ results })
+    return NextResponse.json({
+      results,
+      nextPageToken: searchData.nextPageToken || null,
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, results: [] }, { status: 500 })
   }

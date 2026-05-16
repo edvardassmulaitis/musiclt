@@ -216,7 +216,10 @@ export default function TrackSuggestPicker({
   // prepend'o), kad nebūtų „Drake Drake" tipo dublikacijos.
   const [ytSearchQ, setYtSearchQ] = useState(initialQuery ? `${artistName} ${initialQuery}` : artistName)
   const [ytSearching, setYtSearching] = useState(false)
+  const [ytLoadingMore, setYtLoadingMore] = useState(false)
   const [ytResults, setYtResults] = useState<YtSearchHit[]>([])
+  const [ytNextPageToken, setYtNextPageToken] = useState<string | null>(null)
+  const [ytLastQuery, setYtLastQuery] = useState<string>('')
   const [selected, setSelected] = useState<SelectedRow[]>([])
   const [submitting, setSubmitting] = useState(false)
   const initialSearchDone = useRef(false)
@@ -237,18 +240,27 @@ export default function TrackSuggestPicker({
 
   // YT live search. Naudoja query as-is — input'as jau prefilled su artist'o
   // pavadinimu, user'is gali pridėt dainos pavadinimą („Drake Iceman").
-  const runYtSearch = useCallback(async (query: string) => {
-    setYtSearching(true)
+  // Su pageToken support — „Rodyti daugiau" pridėda papildomus 5 results.
+  const runYtSearch = useCallback(async (query: string, pageToken: string | null = null) => {
+    if (pageToken) setYtLoadingMore(true)
+    else setYtSearching(true)
     try {
       const q = query.trim() || artistName.trim()
-      if (!q) { setYtResults([]); return }
-      const res = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
+      if (!q) { setYtResults([]); setYtNextPageToken(null); return }
+      const url = pageToken
+        ? `/api/search/youtube?q=${encodeURIComponent(q)}&pageToken=${encodeURIComponent(pageToken)}`
+        : `/api/search/youtube?q=${encodeURIComponent(q)}`
+      const res = await fetch(url)
       const d = await res.json()
-      setYtResults(Array.isArray(d.results) ? d.results.slice(0, 5) : [])
+      const hits = Array.isArray(d.results) ? d.results.slice(0, 5) : []
+      setYtResults(prev => pageToken ? [...prev, ...hits] : hits)
+      setYtNextPageToken(d.nextPageToken || null)
+      setYtLastQuery(q)
     } catch {
-      setYtResults([])
+      if (!pageToken) { setYtResults([]); setYtNextPageToken(null) }
     } finally {
       setYtSearching(false)
+      setYtLoadingMore(false)
     }
   }, [artistName])
 
@@ -401,6 +413,9 @@ export default function TrackSuggestPicker({
               <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             </div>
           )}
+          {ytResults.length > 0 && ytNextPageToken && !ytSearching && (
+            null /* placeholder — button below */
+          )}
           {ytResults.map(r => {
             const key = `yts-${r.videoId}`
             const url = `https://www.youtube.com/watch?v=${r.videoId}`
@@ -451,6 +466,16 @@ export default function TrackSuggestPicker({
               />
             )
           })}
+          {/* Rodyti daugiau button — kai turim nextPageToken */}
+          {ytNextPageToken && !ytSearching && (
+            <button
+              type="button"
+              onClick={() => runYtSearch(ytLastQuery, ytNextPageToken)}
+              disabled={ytLoadingMore}
+              className="w-full mt-1 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-50 rounded font-medium">
+              {ytLoadingMore ? 'Kraunama...' : '+ Rodyti daugiau YouTube rezultatų'}
+            </button>
+          )}
         </SectionTight>
 
         {/* ── Article YT embeds (highest priority — actual news subject) ── */}
