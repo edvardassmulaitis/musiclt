@@ -1471,14 +1471,19 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           enrichBody.type_demo = item.type === 'demo'
           enrichBody.type_holiday = item.type === 'holiday'
 
-          // Auto-link matched tracks (2026-05-15 fix): visi DB track IDs,
-          // kuriuos trackDuplicateMap matchino → backend prijungs prie šio
-          // album'o jei dar neprilinkint'i. Sutvarko Queen 1973 "Seven Seas
-          // of Rhye" tipo edge case'ą — track DB yra, bet album_tracks JOIN'o
-          // nera, anksčiau likdavo "1 daina neprijungta" amžinai.
-          if (item.trackDuplicateMap) {
-            const matchedIds = Object.values(item.trackDuplicateMap).filter((n): n is number => typeof n === 'number' && n > 0)
-            if (matchedIds.length > 0) enrichBody.matched_track_ids = matchedIds
+          // Auto-link matched tracks + Wiki canonical title promotion.
+          // Siunčiam matched_tracks: [{id, wiki_title}] formatą — backend
+          // (1) prijungia track'us, kurie dar nelinkint'i prie šio album'o
+          // (Seven Seas of Rhye edge case), (2) jei DB title skiriasi nuo Wiki
+          // tik formatu (norm sutampa), atnaujina į Wiki canonical (pvz
+          // 'Fairy feller's master stroke' → 'The Fairy Feller's Master-Stroke').
+          if (item.trackDuplicateMap && item.tracks?.length) {
+            const matchedTracks: { id: number; wiki_title: string }[] = []
+            for (const wt of item.tracks) {
+              const dupId = item.trackDuplicateMap[wt.title.toLowerCase()]
+              if (dupId) matchedTracks.push({ id: dupId, wiki_title: wt.title })
+            }
+            if (matchedTracks.length > 0) enrichBody.matched_tracks = matchedTracks
           }
 
           // Per-track admin pasirinkimas: kurias Wiki-only dainas TAIP PAT
@@ -1539,6 +1544,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               if (tAny.release_month ?? item.month) trackBody.release_month = tAny.release_month ?? item.month
               if (tAny.release_day ?? item.day) trackBody.release_day = tAny.release_day ?? item.day
               if (wt.is_single) trackBody.is_single = true
+              // Wiki canonical title — backend CLEAN-ONLY promote (jei
+              // norm(wiki)==norm(db) bet skiriasi formatas).
+              if (wt.title) trackBody.title = wt.title
               if (Object.keys(trackBody).length > 0) {
                 try {
                   await fetch(`/api/tracks/${dupId}/enrich`, {
@@ -1562,6 +1570,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           if (albApplied.tracks_created) parts.push(`+${albApplied.tracks_created} naujos dainos`)
           if (albApplied.tracks_linked_existing) parts.push(`+${albApplied.tracks_linked_existing} prijungtos`)
           if (albApplied.tracks_auto_linked) parts.push(`+${albApplied.tracks_auto_linked} auto-link`)
+          if (albApplied.titles_updated) parts.push(`${albApplied.titles_updated} pervadinta`)
           if (tracksTouched) parts.push(`${tracksTouched} dainos papildytos`)
           const detail = parts.length ? `: ${parts.join(', ')}` : ' (nieko naujo — DB jau pilna)'
           addLog(`↻ ${item.title}${detail}`)

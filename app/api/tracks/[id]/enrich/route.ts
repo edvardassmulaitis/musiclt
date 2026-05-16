@@ -40,7 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const sb = createAdminClient()
   const { data: cur, error: curErr } = await sb
     .from('tracks')
-    .select('id, is_single, release_year, release_month, release_day, video_url, lyrics')
+    .select('id, title, is_single, release_year, release_month, release_day, video_url, lyrics')
     .eq('id', trackId)
     .single()
   if (curErr || !cur) {
@@ -49,6 +49,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const updates: Record<string, any> = {}
   const applied: Record<string, any> = {}
+
+  // CLEAN-ONLY: title — promote'inam Wiki canonical formatą TIK kai
+  // normalized'inti title'ai yra tie patys (same logical title, skirtingas
+  // formatavimas). Pvz DB "Fairy feller's master stroke" → Wiki
+  // "The Fairy Feller's Master-Stroke" — same song, Wiki turi taisyklingą
+  // capitalization + ASCII apostrofą + hyphen. Promote'inam Wiki.
+  // Jei logically skirtingi (norm nesutampa) — neliečiam, gali būti
+  // intentional admin rename.
+  const norm = (s: string) => (s || '').toLowerCase()
+    .replace(/[-‒–—_/]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^(the|a|an)\s+/, '')
+  if (typeof body.title === 'string' && body.title.trim()) {
+    const wikiTitle = body.title.trim()
+    const dbTitle = (cur as any).title || ''
+    if (wikiTitle !== dbTitle && norm(wikiTitle) === norm(dbTitle)) {
+      updates.title = wikiTitle
+      applied.title = { from: dbTitle, to: wikiTitle }
+    }
+  }
 
   // FILL-ONLY: release_year (+ month/day chain'as)
   if (body.release_year && !cur.release_year) {

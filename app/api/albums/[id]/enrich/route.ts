@@ -294,9 +294,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   //
   // matched_track_ids: number[] — visi DB track IDs, kuriuos Wiki match'ino
   // (Object.values(trackDuplicateMap)). Backend filter'ina nelinkint'us.
-  const matchedIds: number[] = Array.isArray(body.matched_track_ids)
-    ? body.matched_track_ids.filter((n: any) => Number.isFinite(Number(n)) && Number(n) > 0).map(Number)
-    : []
+  // matched_tracks: [{id, wiki_title}] — naujesnis formatas, leidžia ne tik
+  // link'ti, bet ir promote'inti Wiki canonical title'ą (case/punct), jei DB
+  // titulus skiriasi tik formatavimu.
+  type MatchedTrack = { id: number; wiki_title?: string }
+  let matchedItems: MatchedTrack[] = []
+  if (Array.isArray(body.matched_tracks)) {
+    matchedItems = body.matched_tracks
+      .map((x: any) => ({ id: Number(x?.id), wiki_title: typeof x?.wiki_title === 'string' ? x.wiki_title.trim() : undefined }))
+      .filter((x: MatchedTrack) => Number.isFinite(x.id) && x.id > 0)
+  } else if (Array.isArray(body.matched_track_ids)) {
+    matchedItems = body.matched_track_ids
+      .filter((n: any) => Number.isFinite(Number(n)) && Number(n) > 0)
+      .map((n: any) => ({ id: Number(n) }))
+  }
+  const matchedIds = matchedItems.map(m => m.id)
+
   let autoLinkedCount = 0
   if (matchedIds.length > 0) {
     const { data: existingLinks3 } = await sb
@@ -316,6 +329,40 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         applied.tracks_auto_linked = autoLinkedCount
       }
     }
+  }
+
+  // ── PROMOTE Wiki canonical title — case/punct cleanup ────────────────────
+  // Jei matched_tracks turi wiki_title ir norm() sutampa su DB title bet
+  // actual strings skiriasi (capitalization, apostrofai, hyphenai) — Wiki
+  // canonical formato promote'inam. Vienas track.title update'as automatišk-
+  // ai keičiasi VISUR (visuose albumuose per album_tracks JOIN naudoja tą
+  // patį track.title — tai tas pats record'as).
+  const titleNorm = (s: string) => (s || '').toLowerCase()
+    .replace(/[-‒–—_/]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^(the|a|an)\s+/, '')
+  const titleCandidates = matchedItems.filter(m => m.wiki_title)
+  let titlesUpdatedCount = 0
+  if (titleCandidates.length > 0) {
+    // Batch'iname dabartinius DB titles
+    const { data: curTitles } = await sb
+      .from('tracks')
+      .select('id, title')
+      .in('id', titleCandidates.map(m => m.id))
+    const dbTitleById = new Map<number, string>(
+      (curTitles || []).map((r: any) => [r.id as number, (r.title || '') as string])
+    )
+    for (const m of titleCandidates) {
+      const dbTitle = dbTitleById.get(m.id)
+      if (dbTitle == null || !m.wiki_title) continue
+      if (m.wiki_title !== dbTitle && titleNorm(m.wiki_title) === titleNorm(dbTitle)) {
+        const { error } = await sb.from('tracks').update({ title: m.wiki_title }).eq('id', m.id)
+        if (!error) titlesUpdatedCount++
+      }
+    }
+    if (titlesUpdatedCount > 0) applied.titles_updated = titlesUpdatedCount
   }
 
   // ── COMPLETENESS state — frontend rodys ✓/⚠ badge be papildomo fetch'o ──
