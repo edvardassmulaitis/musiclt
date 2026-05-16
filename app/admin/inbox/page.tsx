@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import WikimediaSearch from '@/components/WikimediaSearch'
 import type { Photo } from '@/components/PhotoGallery'
-import InboxTabs from '@/components/InboxTabs'
+// InboxTabs nebenaudoja — events merged į main feed (žr. žemiau)
 import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
 import TrackSuggestPicker, { type PickResult } from '@/components/TrackSuggestPicker'
 import dynamic from 'next/dynamic'
@@ -92,11 +92,37 @@ function relativeTimeShort(isoDate: string): string {
   return `${Math.floor(d / 365)}m`
 }
 
+// Event candidate tipas — minimalus, kad galim rodyti unified feed'e
+type EventCandidate = {
+  id: number
+  source_portal: string | null
+  source_url: string | null
+  title: string
+  event_date: string | null
+  event_date_text: string | null
+  venue_name_raw: string | null
+  city: string | null
+  description: string | null
+  ticket_url: string | null
+  image_url: string | null
+  primary_artist_id: number | null
+  primary_artist: SuggestedArtist | null
+  suggested_artists?: SuggestedArtist[]
+  ai_confidence: number
+  created_at: string
+}
+
+type FeedItem =
+  | { kind: 'news'; created_at: string; data: Candidate }
+  | { kind: 'event'; created_at: string; data: EventCandidate }
+
 export default function AdminInboxPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [candidates, setCandidates] = useState<Candidate[]>([])
+  const [events, setEvents] = useState<EventCandidate[]>([])
   const [total, setTotal] = useState(0)
+  const [eventsTotal, setEventsTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
   const [busy, setBusy] = useState<number | null>(null)
@@ -143,10 +169,23 @@ export default function AdminInboxPage() {
     setLoading(true)
     try {
       const q = filter === 'all' ? '' : `&category=${filter}`
-      const res = await fetch(`/api/admin/news-candidates?status=pending&limit=50${q}`)
-      const data = await res.json()
+      // Parallel fetch news + events. Events ne'turi category filter'io, todėl
+      // kviečiam visada visus, o vizualiai filtruoti UI'aj jei reikės.
+      const [newsRes, eventsRes] = await Promise.all([
+        fetch(`/api/admin/news-candidates?status=pending&limit=50${q}`),
+        fetch(`/api/admin/event-candidates?status=pending&limit=50`),
+      ])
+      const data = await newsRes.json()
       setCandidates(data.candidates || [])
       setTotal(data.total || 0)
+      try {
+        const eventsData = await eventsRes.json()
+        setEvents(eventsData.candidates || [])
+        setEventsTotal(eventsData.total || 0)
+      } catch {
+        setEvents([])
+        setEventsTotal(0)
+      }
     } finally {
       setLoading(false)
     }
@@ -377,7 +416,9 @@ export default function AdminInboxPage() {
             ←
           </Link>
           <h1 className="text-base font-bold text-[var(--text-primary)]">📥 Inbox</h1>
-          <span className="text-xs text-[var(--text-muted)]">({total})</span>
+          <span className="text-xs text-[var(--text-muted)]" title={`Naujienos: ${total} · Renginiai: ${eventsTotal}`}>
+            ({total + eventsTotal})
+          </span>
           <button
             onClick={load}
             title="Atnaujinti"
@@ -391,7 +432,7 @@ export default function AdminInboxPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3">
-        <InboxTabs />
+        {/* Events merged į main feed žemiau, atskira tab nebereikia */}
         {/* Category filter — icon-only chips mobile'e, su label desktop'e */}
         <div className="flex flex-wrap gap-1 mb-3 overflow-x-auto -mx-1 px-1">
           {['all', 'release', 'performance', 'tour', 'career_step', 'other'].map(cat => (
@@ -416,7 +457,7 @@ export default function AdminInboxPage() {
           ))}
         </div>
 
-        {candidates.length === 0 ? (
+        {candidates.length === 0 && events.length === 0 ? (
           <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl p-16 text-center">
             <div className="text-5xl mb-4">📭</div>
             <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">Inbox tuščias</h3>
@@ -426,6 +467,51 @@ export default function AdminInboxPage() {
           </div>
         ) : (
           <div className="space-y-3">
+            {/* Renginių sekcija — kompaktiškos kortelės, redagavimas atskirame puslapyje */}
+            {events.length > 0 && (
+              <div className="space-y-2 mb-3">
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide flex items-center justify-between px-1">
+                  <span>🎫 Renginiai ({events.length})</span>
+                  <Link href="/admin/inbox/events" className="text-blue-600 hover:underline text-[10px] normal-case font-normal">
+                    Tvarkyti renginius →
+                  </Link>
+                </div>
+                {events.slice(0, 5).map(ev => (
+                  <Link
+                    key={`ev-${ev.id}`}
+                    href={`/admin/inbox/events`}
+                    className="block bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl px-3 py-2 hover:shadow-sm transition-shadow">
+                    <div className="flex items-center gap-2">
+                      {ev.image_url ? (
+                        <img src={ev.image_url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded bg-[var(--bg-elevated)] shrink-0 flex items-center justify-center text-lg">🎫</div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm text-[var(--text-primary)] truncate">{ev.title}</div>
+                        <div className="text-[10px] text-[var(--text-muted)] truncate">
+                          {ev.event_date_text || (ev.event_date && new Date(ev.event_date).toLocaleDateString('lt-LT'))}
+                          {ev.venue_name_raw && ` · ${ev.venue_name_raw}`}
+                          {ev.city && ` · ${ev.city}`}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-[var(--text-muted)] shrink-0">{relativeTimeShort(ev.created_at)}</span>
+                    </div>
+                  </Link>
+                ))}
+                {events.length > 5 && (
+                  <Link href="/admin/inbox/events" className="block text-center text-xs text-blue-600 hover:underline py-1">
+                    + Dar {events.length - 5} renginiai →
+                  </Link>
+                )}
+              </div>
+            )}
+            {/* Naujienos sekcija */}
+            {candidates.length > 0 && events.length > 0 && (
+              <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide px-1 pt-2">
+                📰 Naujienos ({candidates.length})
+              </div>
+            )}
             {candidates.map(cand => {
               const catMeta = CATEGORY_LABELS[cand.ai_category]
               const isExpanded = expanded.has(cand.id)
