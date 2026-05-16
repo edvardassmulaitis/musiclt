@@ -73,12 +73,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (cand.status !== 'pending') return NextResponse.json({ error: `Already ${cand.status}` }, { status: 409 })
 
   if (action === 'reject') {
+    // reviewed_by NEpaduodamas — event_candidates.reviewed_by yra INTEGER, bet
+    // session.user.id yra UUID iš Supabase Auth. Tas pats bug'as kaip news_candidates
+    // (žr. migracija 20260515f). Defensive skip kol bus event_candidates
+    // migracija į UUID tipą.
     const { error } = await supabase
       .from('event_candidates')
       .update({
         status: 'rejected',
         reviewed_at: new Date().toISOString(),
-        reviewed_by: (session.user as any).id || null,
         reject_reason: (body.reason || '').slice(0, 500),
       })
       .eq('id', candidateId)
@@ -117,12 +120,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         })))
       }
 
+      // reviewed_by skip same reason as in reject branch above.
       await supabase
         .from('event_candidates')
         .update({
           status: 'approved',
           reviewed_at: new Date().toISOString(),
-          reviewed_by: (session.user as any).id || null,
           published_event_id: event?.id,
         })
         .eq('id', candidateId)

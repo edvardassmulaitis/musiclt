@@ -1,31 +1,52 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
+/**
+ * InboxTabs su pending count'eriais. Fetch'ina abu candidates endpoint'us
+ * count'ams. Cached per tab open session — refetch'inam tik kai pathname
+ * keičiasi.
+ */
 export default function InboxTabs() {
   const pathname = usePathname()
   const isEvents = pathname?.startsWith('/admin/inbox/events')
+  const [newsCount, setNewsCount] = useState<number | null>(null)
+  const [eventsCount, setEventsCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      fetch('/api/admin/news-candidates?status=pending&limit=1').then(r => r.json()).catch(() => null),
+      fetch('/api/admin/event-candidates?status=pending&limit=1').then(r => r.json()).catch(() => null),
+    ]).then(([n, e]) => {
+      if (cancelled) return
+      setNewsCount(n?.total ?? 0)
+      setEventsCount(e?.total ?? 0)
+    })
+    return () => { cancelled = true }
+  }, [pathname])
 
   return (
-    <div className="flex gap-1 border-b border-[var(--input-border)] mb-4">
+    <div className="flex gap-1 border-b border-[var(--input-border)] mb-3">
       <Link
         href="/admin/inbox"
-        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+        className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${
           !isEvents
             ? 'border-blue-600 text-blue-700'
             : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
         }`}>
-        📰 Naujienos
+        📰 Naujienos {newsCount !== null && <span className="text-xs opacity-70">({newsCount})</span>}
       </Link>
       <Link
         href="/admin/inbox/events"
-        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+        className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${
           isEvents
             ? 'border-blue-600 text-blue-700'
             : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
         }`}>
-        🎫 Renginiai
+        🎫 Renginiai {eventsCount !== null && <span className="text-xs opacity-70">({eventsCount})</span>}
       </Link>
     </div>
   )
