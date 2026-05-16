@@ -84,11 +84,34 @@ export async function POST(req: NextRequest) {
 
   // Validuojam YT URL (jei nevalidus — saugom NULL)
   let validatedYoutube: string | null = null
+  let videoEmbeddable: boolean | null = null
   if (youtubeUrl) {
     const vid = extractVideoIdFromUrl(youtubeUrl)
     if (vid) {
       // Normalizuojam į stabilų formatą
       validatedYoutube = `https://www.youtube.com/watch?v=${vid}`
+      // VEVO/blocked video pre-validation per YouTube oEmbed endpoint'ą.
+      // Jei video blokuojamas embed'ams (VEVO domain restrictions, region,
+      // private), oEmbed grąžina 4xx. Atmetam track creation, kad nebūtų
+      // broken iframe newsletter'e.
+      try {
+        const oembedRes = await fetch(
+          `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vid}&format=json`,
+          { signal: AbortSignal.timeout(4000) }
+        )
+        videoEmbeddable = oembedRes.ok
+        if (!oembedRes.ok) {
+          return NextResponse.json({
+            error: `YouTube video blokuojamas embed'ams (galimai VEVO ar region-restricted). Pasirink kitą versiją (audio only, lyric video, cover) per YouTube paiešką.`,
+            code: 'EMBED_BLOCKED',
+            video_id: vid,
+          }, { status: 400 })
+        }
+      } catch {
+        // Timeout arba network error — palikti embeddable=null, nebrokint
+        // creation (geriau leisti ir let user'is later spręsti)
+        videoEmbeddable = null
+      }
     }
   }
 
@@ -99,6 +122,7 @@ export async function POST(req: NextRequest) {
       slug: finalSlug,
       artist_id: artistId,
       video_url: validatedYoutube,
+      video_embeddable: videoEmbeddable,
       // created_at default per DB
     })
     .select('id, title, slug')
