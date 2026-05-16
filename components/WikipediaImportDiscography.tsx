@@ -2221,13 +2221,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               })()}
               {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
               {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
-              {/* Album completeness badge — rodom TIK kai turim pilną info:
-                  • completeness (auto-fetch on init) — DB state
-                  • Wiki tracks count (it.tracks loaded per fetchDetails) —
-                    kad žinotume "lubų" track count'ą palyginimui.
-                  Be wiki tracks count'o anksčiau klaidingai rodydavo
-                  ✓ sutvarkyta nors realiai trūko vieno track'o link'o.
-                  Renamed: 'kompletas' → 'sutvarkyta' (user feedback). */}
+              {/* Album completeness badge — trust server fully_complete=true
+                  → ✓ sutvarkyta green. Žiūrim į:
+                  • DB metadata pilnatva (cover/year/genre — has_cover etc.)
+                  • DB tracks visos individualiai complete (video/year/lyrics)
+                  • Jei Wiki tracks load'inti — palyginam count (mismatch=amber)
+                  Po refresh badge išlieka žalias jei DB state'as nepasikeitė.
+                  Wiki count mismatch detektuojam tik kai it.fetched=true. */}
               {it.completeness && (() => {
                 const c = it.completeness
                 const incompleteTracks = c.tracks.filter(t => !t.complete)
@@ -2241,16 +2241,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   missingMeta.push(`${wikiTrackCount - c.tracks_count} dainos neprijungtos`)
                 }
                 const allOk = c.fully_complete && missingMeta.length === 0 && incompleteTracks.length === 0
-                if (allOk && wikiTracksKnown) {
-                  const tooltip = `Sutvarkyta (visi laukai + visos dainos):\n• Viršelis ✓\n• Leidimo data ${c.has_full_date ? '(pilna)' : '(tik metai)'}\n• ${c.substyles_count} žanras\n• ${c.tracks_count} dainų — visos pilnos`
+                if (allOk) {
+                  const verifyHint = wikiTracksKnown ? '' : '\n\n(Wiki tracklist dar neload'+"'"+'inta — spausk info arba ▼ palyginti)'
+                  const tooltip = `Sutvarkyta:\n• Viršelis ${c.has_cover ? '✓' : '—'}\n• Leidimo data ${c.has_full_date ? '✓ (pilna)' : c.has_year ? '✓ (tik metai)' : '—'}\n• ${c.substyles_count} žanras\n• ${c.tracks_count} dainų DB — visos pilnos${verifyHint}`
                   return <span className="text-[10px] font-semibold text-emerald-600 shrink-0" title={tooltip}>✓ sutvarkyta</span>
-                }
-                if (allOk && !wikiTracksKnown) {
-                  // DB state OK pagal tai ką žinom (visos linked dainos complete + meta),
-                  // bet nepatikrinom kiek track'ų Wiki turi (it.tracks dar neloadinta).
-                  // Rodom subtilų neutral badge'a kad admin pamatytų jog reikia
-                  // patikrinti (info button arba expand).
-                  return <span className="text-[10px] font-medium text-gray-400 shrink-0" title="DB state'as atrodo OK. Spausk info arba ▼ kad patikrintum ar Wiki tracks atitinka.">◯ DB OK · neatpatikrinta</span>
                 }
                 // Trūkumų label'as: inline'inam visus meta + dainų count.
                 const inlineParts: string[] = [...missingMeta]
