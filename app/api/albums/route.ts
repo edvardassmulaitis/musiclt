@@ -29,7 +29,10 @@ export async function GET(req: NextRequest) {
       // Article-strip leading "a"/"the"/"an" — music.lt'as dažnai praleidžia
       // priekyje (LT convention'as), Wiki išlaiko. Be šito "A Night at the Opera"
       // (Wiki) nesutampa su "Night At The Opera" (music.lt).
+      // Plus hyphenai/dashes/underscore/slash → tarpas, kad "Master-Stroke"
+      // ne susiliete į "masterstroke" (atitiktų DB "Master Stroke").
       const norm = (s: string) => s.toLowerCase()
+        .replace(/[-‒–—_/]/g, ' ')
         .replace(/[^a-z0-9\s]/g, '')
         .replace(/\s+/g, ' ')
         .trim()

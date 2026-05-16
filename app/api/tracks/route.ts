@@ -52,7 +52,13 @@ export async function GET(req: NextRequest) {
         offsetT += PAGE
       }
       // Article-strip leading "a"/"the"/"an" — žr. albums route komentaro.
+      // Hyphenai/dashes/underscore/slash → tarpas PIRMA, kad "Master-Stroke"
+      // virstų į "master stroke" (atitiktų DB "Master Stroke"), ne
+      // "masterstroke". Anksčiau "The Fairy Feller's Master-Stroke"
+      // nesutapdavo su DB "Fairy Fellers Master Stroke" — hyphen išmesdavo,
+      // du žodžiai sulipdavo į "masterstroke".
       const norm = (s: string) => s.toLowerCase()
+        .replace(/[-‒–—_/]/g, ' ')
         .replace(/[^a-z0-9\s]/g, '')
         .replace(/\s+/g, ' ')
         .trim()
