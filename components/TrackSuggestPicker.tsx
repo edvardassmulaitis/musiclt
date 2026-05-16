@@ -162,7 +162,6 @@ export default function TrackSuggestPicker({
   const [ytResults, setYtResults] = useState<YtSearchHit[]>([])
   const [selected, setSelected] = useState<SelectedRow[]>([])
   const [submitting, setSubmitting] = useState(false)
-  const [manualTitle, setManualTitle] = useState('')
   const initialSearchDone = useRef(false)
 
   // Load suggestions (DB + embeds + wiki)
@@ -293,6 +292,27 @@ export default function TrackSuggestPicker({
               {ytSearching ? '...' : 'Ieškoti'}
             </button>
           </div>
+          {/* AI mentions be DB match'o — kaip quick-search pills (su click triggerintų YT paiešką)
+             Politika: nebenaudojam unmatched AI mentions kaip „sukurti be video" — track'as
+             be YT yra useless naujienos kortelėje. AI mention tampa search query siūlymu. */}
+          {aiMentions.length > 0 && (() => {
+            const unmatched = aiMentions.filter(m => !m.matched_track_id)
+            if (unmatched.length === 0) return null
+            return (
+              <div className="flex flex-wrap gap-1 mb-1 px-0.5">
+                <span className="text-[10px] text-gray-500 self-center">🤖 AI siūlo:</span>
+                {unmatched.slice(0, 5).map((m, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => { setYtSearchQ(m.title); runYtSearch(m.title) }}
+                    className="px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full text-[10px] font-medium border border-dashed border-blue-300">
+                    {m.title}
+                  </button>
+                ))}
+              </div>
+            )
+          })()}
           {ytResults.length === 0 && !ytSearching && (
             <p className="text-[10px] text-gray-400 italic px-1">Nieko nerasta. Pakeisk paieškos užklausą.</p>
           )}
@@ -357,38 +377,36 @@ export default function TrackSuggestPicker({
           </SectionTight>
         )}
 
-        {/* ── AI mentions ──────────────────────────────────────── */}
-        {aiMentions.length > 0 && (
-          <SectionTight title="🤖 Iš naujienos teksto" count={aiMentions.length}>
-            {aiMentions.map((m, i) => {
-              const key = `ai-${i}`
-              const matched = m.matched_track_id ?? null
-              const alreadyIn = isAlreadyIn(matched ?? undefined)
-              const row: SelectedRow = matched
-                ? {
-                    key, track_id: matched, title: m.title, artist_name: m.artist || artistName,
-                    video_url: null, source: 'ai_mention', ai_mention_idx: i,
-                  }
-                : {
-                    key, title: m.title, artist_name: m.artist || artistName,
-                    video_url: m.youtube_url || null, source: 'ai_mention', ai_mention_idx: i,
-                    to_create: { title: m.title, ytUrl: m.youtube_url },
-                  }
-              return (
-                <Row
-                  key={key}
-                  title={m.title}
-                  subtitle={matched ? '✓ DB' : (m.youtube_url ? '🎬 YT iš teksto' : 'click → YT paieška')}
-                  badge={matched ? 'db' : 'ai'}
-                  selected={isSelected(key) || alreadyIn}
-                  disabled={alreadyIn}
-                  onToggle={() => !alreadyIn && toggleSelected(row)}
-                  onTitleClick={() => { setYtSearchQ(m.title); runYtSearch(m.title) }}
-                />
-              )
-            })}
-          </SectionTight>
-        )}
+        {/* ── AI mentions kurie JAU yra DB ────────────────────────
+           Unmatched mentions persikėlė į YT search pills (žr. aukščiau).
+           Politika: track'as kuriamas TIK su YT video. */}
+        {aiMentions.length > 0 && (() => {
+          const matched = aiMentions.filter(m => m.matched_track_id)
+          if (matched.length === 0) return null
+          return (
+            <SectionTight title="✓ DB jau turi (paminėta straipsnyje)" count={matched.length}>
+              {matched.map((m, i) => {
+                const key = `aim-${i}`
+                const alreadyIn = isAlreadyIn(m.matched_track_id ?? undefined)
+                const row: SelectedRow = {
+                  key, track_id: m.matched_track_id!, title: m.title, artist_name: m.artist || artistName,
+                  video_url: null, source: 'ai_mention', ai_mention_idx: i,
+                }
+                return (
+                  <Row
+                    key={key}
+                    title={m.title}
+                    subtitle={m.artist || artistName}
+                    badge="db"
+                    selected={isSelected(key) || alreadyIn}
+                    disabled={alreadyIn}
+                    onToggle={() => !alreadyIn && toggleSelected(row)}
+                  />
+                )
+              })}
+            </SectionTight>
+          )
+        })()}
 
         {/* ── DB matches (jei q) ────────────────────────────────── */}
         {!loading && data && data.db_matches.length > 0 && (
@@ -486,41 +504,8 @@ export default function TrackSuggestPicker({
           </CollapsibleSection>
         )}
 
-        {/* ── Manual (advanced, rarely needed) ─────────────────── */}
-        <CollapsibleSection
-          title="⚙️ Rankiniu būdu (be YT)"
-          count={null}
-          defaultOpen={false}>
-          <p className="text-[10px] text-gray-400 italic mb-1 px-1">
-            Naudok tik tada, kai dainos NĖRA nei DB, nei Wiki, nei YouTube.
-            Track'as be video — nematomas naujienos kortelėje.
-          </p>
-          <div className="flex gap-1">
-            <input
-              type="text"
-              value={manualTitle}
-              onChange={e => setManualTitle(e.target.value)}
-              placeholder="Pavadinimas..."
-              className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs bg-white text-gray-800"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                if (!manualTitle.trim()) return
-                const key = `manual-${Date.now()}`
-                toggleSelected({
-                  key, title: manualTitle.trim(), artist_name: artistName,
-                  video_url: null, source: 'manual',
-                  to_create: { title: manualTitle.trim(), ytUrl: null },
-                })
-                setManualTitle('')
-              }}
-              disabled={!manualTitle.trim()}
-              className="px-2 py-1 bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white rounded text-xs whitespace-nowrap">
-              + Pridėti
-            </button>
-          </div>
-        </CollapsibleSection>
+        {/* Manual create (be YT) — visiškai pašalintas. Politika: track'as kuriamas
+           TIK kai turi YT video. Jei nėra YT — naudok paiešką arba Wiki disco. */}
 
         {loading && (
           <div className="flex justify-center py-4">
