@@ -34,11 +34,13 @@ type EventCandidate = {
   ai_confidence: number
   created_at: string
   primary_artist: SuggestedArtist | null
+  score?: number
+  score_breakdown?: { popularity: number; recency: number; confidence: number }
 }
 
 function confidenceColor(c: number) {
-  if (c >= 0.85) return 'text-emerald-600 bg-emerald-50'
-  if (c >= 0.55) return 'text-amber-600 bg-amber-50'
+  if (c >= 0.7) return 'text-emerald-600 bg-emerald-50'
+  if (c >= 0.4) return 'text-amber-600 bg-amber-50'
   return 'text-red-500 bg-red-50'
 }
 
@@ -58,6 +60,21 @@ function formatDate(iso: string | null, fallback: string | null) {
   return fallback || '—'
 }
 
+function relativeTimeShort(isoDate: string): string {
+  const ms = Date.now() - new Date(isoDate).getTime()
+  if (ms < 0) return 'dabar'
+  const min = Math.floor(ms / 60_000)
+  if (min < 1) return 'dabar'
+  if (min < 60) return `${min}min`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h`
+  const d = Math.floor(hr / 24)
+  if (d < 7) return `${d}d`
+  if (d < 30) return `${Math.floor(d / 7)}sav`
+  if (d < 365) return `${Math.floor(d / 30)}mėn`
+  return `${Math.floor(d / 365)}m`
+}
+
 export default function EventInboxPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -65,6 +82,7 @@ export default function EventInboxPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<number | null>(null)
+  const [expanded, setExpanded] = useState<Set<number>>(new Set())
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -109,10 +127,23 @@ export default function EventInboxPage() {
     }
   }
 
-  const handleReject = (id: number) => {
-    const reason = prompt('Kodėl atmesti? (neprivaloma)')
-    if (reason === null) return
-    handleAction(id, 'reject', reason)
+  // 1-click reject — be confirmation. Alt+click → su reason (power-user)
+  const handleReject = (id: number, e?: React.MouseEvent) => {
+    if (e?.altKey) {
+      const reason = prompt('Atmetimo priežastis:')
+      if (reason === null) return
+      handleAction(id, 'reject', reason)
+    } else {
+      handleAction(id, 'reject')
+    }
+  }
+
+  const toggleExpand = (id: number) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
   if (status === 'loading' || loading) {
@@ -125,24 +156,27 @@ export default function EventInboxPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
+      {/* Compact header — match news inbox style */}
       <div className="bg-[var(--bg-surface)]/95 backdrop-blur border-b border-[var(--input-border)] sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <div>
-            <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-sm">
-              ← Admin
-            </Link>
-            <h1 className="text-2xl font-black text-[var(--text-primary)]">📥 Inbox</h1>
-            <p className="text-xs text-[var(--text-muted)]">{total} renginiai laukia patvirtinimo</p>
-          </div>
+        <div className="max-w-5xl mx-auto px-3 py-2 flex items-center gap-2">
+          <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-base" title="Admin">
+            ←
+          </Link>
+          <h1 className="text-base font-bold text-[var(--text-primary)]">📥 Inbox</h1>
+          <span className="text-xs text-[var(--text-muted)]">({total})</span>
           <button
             onClick={load}
-            className="px-3 py-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm text-[var(--text-secondary)]">
-            ↻ Atnaujinti
+            title="Atnaujinti"
+            aria-label="Atnaujinti"
+            className="ml-auto w-7 h-7 flex items-center justify-center bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded text-[var(--text-secondary)]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>
+            </svg>
           </button>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-5">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3">
         <InboxTabs />
 
         {candidates.length === 0 ? (
@@ -150,7 +184,7 @@ export default function EventInboxPage() {
             <div className="text-5xl mb-4">🎫</div>
             <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">Renginių inbox'as tuščias</h3>
             <p className="text-[var(--text-muted)] text-sm">
-              Visi pasiūlymai peržiūrėti. Sekantis events scout vyks 07:00 / 19:00.
+              Visi pasiūlymai peržiūrėti. Sekantis events scout vyks 08:00 / 20:00 UTC.
             </p>
           </div>
         ) : (
@@ -158,49 +192,81 @@ export default function EventInboxPage() {
             {candidates.map(cand => {
               const artists = cand.suggested_artists || []
               const hasMatch = artists.length > 0
+              const visibleArtists = artists.slice(0, 3)
+              const extraArtistsCount = Math.max(0, artists.length - 3)
+              const isExpanded = expanded.has(cand.id)
+              const score = cand.score ?? cand.ai_confidence
+              const breakdown = cand.score_breakdown
+              const scoreTooltip = breakdown
+                ? `popularity ${breakdown.popularity} × recency ${breakdown.recency} × confidence ${breakdown.confidence}`
+                : `confidence ${cand.ai_confidence}`
+
               return (
                 <div
                   key={cand.id}
                   className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl overflow-hidden hover:shadow-sm transition-shadow">
-                  <div className="flex gap-4 p-4">
+                  <div className="flex gap-3 p-3 sm:gap-4 sm:p-4">
                     {cand.image_url ? (
                       <img
                         src={cand.image_url}
                         alt=""
-                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover shrink-0 bg-[var(--bg-elevated)]"
+                        className="hidden sm:block w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover shrink-0 bg-[var(--bg-elevated)]"
                         onError={e => ((e.target as HTMLImageElement).style.display = 'none')}
                       />
                     ) : (
-                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-[var(--bg-elevated)] shrink-0 flex items-center justify-center text-3xl">
+                      <div className="hidden sm:flex w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-amber-100 shrink-0 items-center justify-center text-3xl">
                         🎫
                       </div>
                     )}
 
                     <div className="flex-1 min-w-0">
+                      {/* Meta row */}
                       <div className="flex flex-wrap items-center gap-1.5 mb-2 text-xs">
-                        <span className={`px-2 py-0.5 rounded-full font-bold ${confidenceColor(cand.ai_confidence)}`}>
-                          ⭐ {cand.ai_confidence.toFixed(2)}
+                        <span
+                          title={scoreTooltip}
+                          className={`px-2 py-0.5 rounded-full font-bold ${confidenceColor(score)}`}>
+                          ⭐ {score.toFixed(2)}
                         </span>
-                        <span className="text-[var(--text-muted)]">{cand.source_portal}</span>
+                        {cand.source_url ? (
+                          <a
+                            href={cand.source_url}
+                            target="_blank"
+                            rel="noopener"
+                            className="text-[var(--text-muted)] hover:text-blue-600 underline-offset-2 hover:underline">
+                            {cand.source_portal} ↗
+                          </a>
+                        ) : (
+                          <span className="text-[var(--text-muted)]">{cand.source_portal}</span>
+                        )}
+                        <span className="text-[var(--text-muted)] opacity-60" title={`Surinkta: ${new Date(cand.created_at).toLocaleString('lt-LT')}`}>
+                          · 🔄 {relativeTimeShort(cand.created_at)}
+                        </span>
                       </div>
 
-                      <h2 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-1">
+                      {/* Title — tap to expand description */}
+                      <h2
+                        onClick={() => toggleExpand(cand.id)}
+                        className="font-bold text-[var(--text-primary)] text-base leading-snug mb-1 cursor-pointer">
                         {cand.title}
                       </h2>
 
+                      {/* Event details */}
                       <div className="text-sm text-[var(--text-secondary)] space-y-0.5 mb-2">
                         <p>📅 {formatDate(cand.event_date, cand.event_date_text)}</p>
                         {(cand.venue_name_raw || cand.city) && (
-                          <p>📍 {[cand.venue_name_raw, cand.city].filter(Boolean).join(', ')}</p>
+                          <p className="text-[var(--text-muted)]">
+                            📍 {[cand.venue_name_raw, cand.city].filter(Boolean).join(', ')}
+                          </p>
                         )}
                         {cand.price_text && (
-                          <p>💶 {cand.price_text}</p>
+                          <p className="text-[var(--text-muted)]">💶 {cand.price_text}</p>
                         )}
                       </div>
 
+                      {/* Artist chips */}
                       {hasMatch ? (
                         <div className="flex flex-wrap gap-1.5 mb-3">
-                          {artists.map(a => (
+                          {visibleArtists.map(a => (
                             <Link
                               key={a.id}
                               href={`/atlikejai/${a.slug}`}
@@ -215,23 +281,30 @@ export default function EventInboxPage() {
                               <span className="text-[10px] text-blue-500 font-normal">❤ {formatLikes(a.legacy_likes)}</span>
                             </Link>
                           ))}
+                          {extraArtistsCount > 0 && (
+                            <span className="inline-flex items-center px-2 py-1 bg-[var(--bg-elevated)] rounded-full text-xs text-[var(--text-muted)]">
+                              +{extraArtistsCount}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <p className="text-xs text-amber-600 mb-3">⚠ Atlikėjo nerasta DB</p>
                       )}
 
-                      <div className="flex flex-wrap items-center gap-2">
+                      {/* Actions — 2 primary big buttons matching news inbox */}
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleAction(cand.id, 'approve')}
                           disabled={busy === cand.id || !cand.event_date}
                           title={!cand.event_date ? 'event_date privaloma — redaguok rankomis' : undefined}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
+                          className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
                           {busy === cand.id ? '...' : '✓ Patvirtinti'}
                         </button>
                         <button
-                          onClick={() => handleReject(cand.id)}
+                          onClick={(e) => handleReject(cand.id, e)}
                           disabled={busy === cand.id}
-                          className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium disabled:opacity-50">
+                          title="Atmesti (alt+click → su priežastimi)"
+                          className="flex-1 sm:flex-none px-4 py-2 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 rounded-lg text-sm font-bold disabled:opacity-50">
                           ✗ Atmesti
                         </button>
                         {cand.ticket_url && (
@@ -239,34 +312,24 @@ export default function EventInboxPage() {
                             href={cand.ticket_url}
                             target="_blank"
                             rel="noopener"
-                            className="text-xs text-blue-600 hover:underline">
-                            🎟 Bilietai
-                          </a>
-                        )}
-                        {cand.source_url && cand.source_url !== cand.ticket_url && (
-                          <a
-                            href={cand.source_url}
-                            target="_blank"
-                            rel="noopener"
-                            className="ml-auto text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] truncate max-w-[160px]">
-                            ↗ Šaltinis
+                            title="Bilietų puslapis"
+                            className="px-2 py-2 text-xs text-blue-600 hover:bg-blue-50 rounded-lg shrink-0">
+                            🎟
                           </a>
                         )}
                       </div>
-
-                      {cand.description && (
-                        <details className="mt-2">
-                          <summary className="text-xs text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)]">
-                            Aprašymas
-                          </summary>
-                          <div
-                            className="prose prose-sm max-w-none text-sm text-[var(--text-secondary)] mt-1"
-                            dangerouslySetInnerHTML={{ __html: cand.description }}
-                          />
-                        </details>
-                      )}
                     </div>
                   </div>
+
+                  {/* Expanded description */}
+                  {isExpanded && cand.description && (
+                    <div className="border-t border-[var(--border-subtle)] p-4 bg-[var(--bg-elevated)]/40">
+                      <div
+                        className="prose prose-sm max-w-none text-[var(--text-primary)]"
+                        dangerouslySetInnerHTML={{ __html: cand.description }}
+                      />
+                    </div>
+                  )}
                 </div>
               )
             })}
