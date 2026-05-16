@@ -167,6 +167,7 @@ export async function PUT(
     const videoUrlInUpdates = 'video_url' in updates
     const newVideoUrl = videoUrlInUpdates ? updates.video_url : oldVideoUrl
     const videoChanged = videoUrlInUpdates && newVideoUrl !== oldVideoUrl
+    const videoCleared = videoChanged && !newVideoUrl  // URL ištrintas (null)
     if (videoChanged) {
       // Reset visa YT state'ą — views, upload date, embeddable. Cleanup
       // taikomas tiek kai admin set'ina naują URL'ą, tiek kai clear'ina į null.
@@ -177,10 +178,25 @@ export async function PUT(
       // youtube_searched_at — paliekam (kad neperieškojam auto), nebent
       // admin explicitly force enrich per /admin/yt/track/[id]/enrich.
     }
+    if (videoCleared) {
+      // Score'as priklauso nuo video_views — clear'ad URL → score stale.
+      // Set'inam null, kad UI rodytu "—" ir kad next recalc pakeistų.
+      updates.score = null
+      updates.score_breakdown = null
+      updates.score_updated_at = null
+    }
 
     if (Object.keys(updates).length > 0) {
       const { error } = await supabase.from('tracks').update(updates).eq('id', trackId)
       if (error) throw error
+    }
+
+    // Po video_url išvalymo — ištrinam visus track_video_views_history rows.
+    // Anksčiau likdavo stale snapshots, ir admin stats card'as toliau rodydavo
+    // "1 snapshot · 2 055 767 394 views". Jei admin'as vėliau pridės naują
+    // video — enrichTrack sukurs naują history row.
+    if (videoCleared) {
+      await supabase.from('track_video_views_history').delete().eq('track_id', trackId)
     }
 
     if (Array.isArray(data.featuring)) {
