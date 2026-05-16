@@ -94,15 +94,15 @@ export async function GET(req: NextRequest) {
     const items = searchData.items || []
     if (!items.length) return NextResponse.json({ results: [] })
 
-    // 2. Patikrinti video statusą — filtruoti nepasiekiamus
+    // 2. Patikrinti video statusą + paimti statistics (viewCount) — vienas call
     const videoIds = items.map((i: any) => i.id.videoId).join(',')
     const detailRes = await fetch(
       `https://www.googleapis.com/youtube/v3/videos?` +
-      `part=status,contentDetails&id=${videoIds}&key=${apiKey}`
+      `part=status,contentDetails,statistics&id=${videoIds}&key=${apiKey}`
     )
     const detailData = await detailRes.json()
 
-    // Sudaryti žemėlapį: videoId → statusas
+    // Sudaryti žemėlapį: videoId → statusas + statistics
     const statusMap: Record<string, any> = {}
     for (const v of detailData.items || []) statusMap[v.id] = v
 
@@ -153,13 +153,20 @@ export async function GET(req: NextRequest) {
     // Jei oEmbed patikrinimas nepavyko visiems — grąžinti nepatikrintus (fallback)
     const finalItems = reachable.length > 0 ? reachable : ranked
 
-    const results = finalItems.slice(0, 5).map((item: any) => ({
-      videoId: item.id.videoId,
-      title: item.snippet.title,
-      channel: item.snippet.channelTitle,
-      thumbnail: item.snippet.thumbnails?.default?.url || '',
-      publishedAt: item.snippet.publishedAt,
-    }))
+    const results = finalItems.slice(0, 5).map((item: any) => {
+      const vid = item.id.videoId
+      const detail = statusMap[vid] || {}
+      const stats = detail.statistics || {}
+      const viewCount = stats.viewCount ? parseInt(stats.viewCount, 10) : null
+      return {
+        videoId: vid,
+        title: item.snippet.title,
+        channel: item.snippet.channelTitle,
+        thumbnail: item.snippet.thumbnails?.default?.url || '',
+        publishedAt: item.snippet.publishedAt,
+        viewCount,
+      }
+    })
 
     return NextResponse.json({ results })
   } catch (e: any) {

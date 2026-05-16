@@ -63,6 +63,62 @@ type YtSearchHit = {
   channel: string
   thumbnail: string
   publishedAt: string
+  viewCount: number | null
+}
+
+/**
+ * Parse YT video title — atskiria pagrindinio atlikėjo prefix'ą, paliekant
+ * dainos pavadinimą + feat. info (jei turi). Reikia, kad track'as DB'oje
+ * būtų išsaugotas TIK su tikru pavadinimu, ne kaip „DRAKE - WHAT DID I MISS".
+ *
+ * Examples:
+ *   "DRAKE - WHAT DID I MISS"           + "Drake"  → "WHAT DID I MISS"
+ *   "Drake - Ran to Atlanta ft. Future" + "Drake"  → "Ran to Atlanta ft. Future"
+ *   "Drake – Iceman (Official Video)"   + "Drake"  → "Iceman"
+ *   "DRAKE: Habibti [Visualizer]"       + "Drake"  → "Habibti"
+ *   "Bad Bunny - Monaco"                + "Drake"  → "Bad Bunny - Monaco" (ne match'as)
+ */
+export function parseYtTitleForArtist(rawTitle: string, primaryArtistName: string): string {
+  let t = (rawTitle || '').trim()
+  if (!t) return ''
+
+  // 1. Drop common YT suffixes (Official Video, Lyric Video, Audio, etc.)
+  const dropPatterns = [
+    /\s*[\(\[]\s*official\s*(music\s*)?(video|audio)\s*[\)\]]\s*$/i,
+    /\s*[\(\[]\s*official\s*(lyric|visualizer)\s*[\)\]]\s*$/i,
+    /\s*[\(\[]\s*lyric\s*video\s*[\)\]]\s*$/i,
+    /\s*[\(\[]\s*lyrics\s*[\)\]]\s*$/i,
+    /\s*[\(\[]\s*audio\s*[\)\]]\s*$/i,
+    /\s*[\(\[]\s*visualizer\s*[\)\]]\s*$/i,
+    /\s*[\(\[]\s*hd\s*[\)\]]\s*$/i,
+    /\s*[\(\[]\s*4k\s*[\)\]]\s*$/i,
+    /\s*\|\s*(official\s*(music\s*)?video|audio|visualizer)\s*$/i,
+  ]
+  for (const p of dropPatterns) t = t.replace(p, '').trim()
+
+  // 2. Drop "Artist - " or "Artist – " or "ARTIST: " prefix (case-insensitive)
+  if (primaryArtistName) {
+    const artistEsc = primaryArtistName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const prefixRe = new RegExp(`^${artistEsc}\\s*[-–—:]\\s*`, 'i')
+    t = t.replace(prefixRe, '').trim()
+  }
+
+  return t || rawTitle
+}
+
+/**
+ * "Prieš X" formatas iš ISO date'o (santykinis laikas LT'iškai).
+ */
+function timeAgo(isoDate: string): string {
+  if (!isoDate) return ''
+  const ms = Date.now() - new Date(isoDate).getTime()
+  if (ms < 0) return ''
+  const d = Math.floor(ms / 86_400_000)
+  if (d === 0) return 'Šiandien'
+  if (d < 7) return `Prieš ${d} d.`
+  if (d < 30) return `Prieš ${Math.floor(d / 7)} sav.`
+  if (d < 365) return `Prieš ${Math.floor(d / 30)} mėn.`
+  return `Prieš ${Math.floor(d / 365)} m.`
 }
 
 export type PickResult = {
@@ -107,7 +163,6 @@ export default function TrackSuggestPicker({
   const [selected, setSelected] = useState<SelectedRow[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [manualTitle, setManualTitle] = useState('')
-  const [manualYtUrl, setManualYtUrl] = useState('')
   const initialSearchDone = useRef(false)
 
   // Load suggestions (DB + embeds + wiki)
@@ -252,17 +307,22 @@ export default function TrackSuggestPicker({
           <SectionTight title="🎬 Straipsnio embed video" count={data.yt_embeds.length}>
             {data.yt_embeds.map(yt => {
               const key = `emb-${yt.video_id}`
+              // Atimam atlikėjo prefix'ą ir iš embed video title (kaip ir iš search rezultatų)
+              const cleanTitle = parseYtTitleForArtist(yt.title, artistName)
+              const ago = yt.uploaded_at ? timeAgo(yt.uploaded_at) : ''
+              const viewsStr = yt.views ? formatViews(yt.views) : ''
+              const subtitle = [viewsStr, ago].filter(Boolean).join(' · ')
               const row: SelectedRow = {
-                key, title: yt.title, artist_name: artistName,
+                key, title: cleanTitle, artist_name: artistName,
                 video_url: yt.url, source: 'yt_embed',
-                to_create: { title: yt.title, ytUrl: yt.url },
+                to_create: { title: cleanTitle, ytUrl: yt.url },
               }
               return (
                 <RowWithThumb
                   key={key}
                   thumb={yt.thumb}
-                  title={yt.title}
-                  subtitle={`${formatViews(yt.views)} · ${yt.uploaded_at ? new Date(yt.uploaded_at).getFullYear() : '—'}`}
+                  title={cleanTitle}
+                  subtitle={subtitle || '—'}
                   badge="embed"
                   selected={isSelected(key)}
                   onToggle={() => toggleSelected(row)}
@@ -297,17 +357,22 @@ export default function TrackSuggestPicker({
           {ytResults.map(r => {
             const key = `yts-${r.videoId}`
             const url = `https://www.youtube.com/watch?v=${r.videoId}`
+            // Parse YT title - atimam atlikėjo prefix'ą
+            const cleanTitle = parseYtTitleForArtist(r.title, artistName)
+            const ago = timeAgo(r.publishedAt)
+            const viewsStr = r.viewCount ? formatViews(r.viewCount) : ''
+            const subtitle = [r.channel, viewsStr, ago].filter(Boolean).join(' · ')
             const row: SelectedRow = {
-              key, title: r.title, artist_name: artistName,
+              key, title: cleanTitle, artist_name: artistName,
               video_url: url, source: 'yt_search',
-              to_create: { title: r.title, ytUrl: url },
+              to_create: { title: cleanTitle, ytUrl: url },
             }
             return (
               <RowWithThumb
                 key={key}
                 thumb={r.thumbnail}
-                title={r.title}
-                subtitle={r.channel}
+                title={cleanTitle}
+                subtitle={subtitle}
                 badge="yt"
                 selected={isSelected(key)}
                 onToggle={() => toggleSelected(row)}
@@ -412,22 +477,22 @@ export default function TrackSuggestPicker({
           </CollapsibleSection>
         )}
 
-        {/* ── Manual ─────────────────────────────────────────────── */}
-        <CollapsibleSection title="✏️ Įvesti rankiniu" count={null} defaultOpen={false}>
-          <div className="space-y-1">
+        {/* ── Manual (advanced, rarely needed) ─────────────────── */}
+        <CollapsibleSection
+          title="⚙️ Rankiniu būdu (be YT)"
+          count={null}
+          defaultOpen={false}>
+          <p className="text-[10px] text-gray-400 italic mb-1 px-1">
+            Naudok tik tada, kai dainos NĖRA nei DB, nei Wiki, nei YouTube.
+            Track'as be video — nematomas naujienos kortelėje.
+          </p>
+          <div className="flex gap-1">
             <input
               type="text"
               value={manualTitle}
               onChange={e => setManualTitle(e.target.value)}
               placeholder="Pavadinimas..."
-              className="w-full px-2 py-1 border border-gray-200 rounded text-xs bg-white text-gray-800"
-            />
-            <input
-              type="url"
-              value={manualYtUrl}
-              onChange={e => setManualYtUrl(e.target.value)}
-              placeholder="YouTube URL (neprivaloma)"
-              className="w-full px-2 py-1 border border-gray-200 rounded text-xs bg-white text-gray-800"
+              className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs bg-white text-gray-800"
             />
             <button
               type="button"
@@ -436,15 +501,14 @@ export default function TrackSuggestPicker({
                 const key = `manual-${Date.now()}`
                 toggleSelected({
                   key, title: manualTitle.trim(), artist_name: artistName,
-                  video_url: manualYtUrl || null, source: 'manual',
-                  to_create: { title: manualTitle.trim(), ytUrl: manualYtUrl || null },
+                  video_url: null, source: 'manual',
+                  to_create: { title: manualTitle.trim(), ytUrl: null },
                 })
                 setManualTitle('')
-                setManualYtUrl('')
               }}
               disabled={!manualTitle.trim()}
-              className="w-full px-2 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded text-xs font-bold">
-              + Pridėti į pasirinkimus
+              className="px-2 py-1 bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white rounded text-xs whitespace-nowrap">
+              + Pridėti
             </button>
           </div>
         </CollapsibleSection>
