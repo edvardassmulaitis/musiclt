@@ -338,38 +338,48 @@ export default function AdminInboxPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      {/* Header bar */}
+      {/* Header bar — kompaktiškas, viskas vienoje eilutėje */}
       <div className="bg-[var(--bg-surface)]/95 backdrop-blur border-b border-[var(--input-border)] sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <div>
-            <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-sm">
-              ← Admin
-            </Link>
-            <h1 className="text-2xl font-black text-[var(--text-primary)]">📥 Inbox</h1>
-            <p className="text-xs text-[var(--text-muted)]">{total} laukia patvirtinimo</p>
-          </div>
+        <div className="max-w-5xl mx-auto px-3 py-2 flex items-center gap-2">
+          <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-base" title="Admin">
+            ←
+          </Link>
+          <h1 className="text-base font-bold text-[var(--text-primary)]">📥 Inbox</h1>
+          <span className="text-xs text-[var(--text-muted)]">({total})</span>
           <button
             onClick={load}
-            className="px-3 py-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm text-[var(--text-secondary)]">
-            ↻ Atnaujinti
+            title="Atnaujinti"
+            aria-label="Atnaujinti"
+            className="ml-auto w-7 h-7 flex items-center justify-center bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded text-[var(--text-secondary)]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>
+            </svg>
           </button>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-5">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3">
         <InboxTabs />
-        {/* Category filter chips */}
-        <div className="flex flex-wrap gap-2 mb-5">
+        {/* Category filter — icon-only chips mobile'e, su label desktop'e */}
+        <div className="flex flex-wrap gap-1 mb-3 overflow-x-auto -mx-1 px-1">
           {['all', 'release', 'performance', 'tour', 'career_step', 'other'].map(cat => (
             <button
               key={cat}
               onClick={() => setFilter(cat)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              title={cat === 'all' ? 'Visos' : CATEGORY_LABELS[cat]?.label}
+              className={`px-2 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap ${
                 filter === cat
                   ? 'bg-blue-600 text-white'
                   : 'bg-[var(--bg-surface)] text-[var(--text-muted)] hover:bg-[var(--bg-active)] border border-[var(--input-border)]'
               }`}>
-              {cat === 'all' ? 'Visos' : `${CATEGORY_LABELS[cat]?.icon} ${CATEGORY_LABELS[cat]?.label}`}
+              {cat === 'all'
+                ? 'Visos'
+                : (
+                  <>
+                    <span>{CATEGORY_LABELS[cat]?.icon}</span>
+                    <span className="hidden sm:inline ml-1">{CATEGORY_LABELS[cat]?.label}</span>
+                  </>
+                )}
             </button>
           ))}
         </div>

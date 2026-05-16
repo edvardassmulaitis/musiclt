@@ -100,13 +100,17 @@ export default function RichTextEditor({ value, onChange, placeholder, maxLength
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none min-h-[200px] px-4 py-3 focus:outline-none text-gray-800',
-        // Suppress iOS native keyboard accessory bar (B/I/U + arrow nav)
-        // ir spell-check siūlymus virš teksto. Mes turim savo toolbar'ą.
+        // text-base (16px) mobile'e — užkerta iOS Safari auto-zoom on focus
+        // (kuris triggerinasi kai input font < 16px). Desktop: prose-sm grįžta.
+        class: 'prose max-w-none min-h-[200px] px-4 py-3 focus:outline-none text-gray-800 text-base sm:prose-sm sm:text-sm',
+        // LT browser native spellcheck — jei user'is turi LT keyboard installuotą,
+        // Safari/Chrome rodys suggestions konkretiems žodžiams. lang=lt
+        // signalizuoja browser'iui kuria kalba tikrinti.
+        lang: 'lt',
+        spellcheck: 'true',
         autocapitalize: 'sentences',
-        autocorrect: 'off',
-        spellcheck: 'false',
-        'data-gramm': 'false', // disable Grammarly suggestions
+        autocorrect: 'off', // pasilieka, kad nepainiotų LT žodžių į EN
+        'data-gramm': 'false',
       },
       // Image paste/drop — Iframe extension'as handles URL paste rules savo
       // viduje, tad mes čia užsiimam tik failais (screenshot iš clipboard'o,
