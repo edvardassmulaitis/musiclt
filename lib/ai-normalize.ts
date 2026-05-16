@@ -9,6 +9,7 @@
  */
 
 import { buildRelevancePrompt, LIGHT_REWRITE_SYSTEM, type AIRelevanceCategory, type NewsCategoryKey } from './news-categories'
+import { applyMusicLtFixes } from './music-lt-style-guide'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
@@ -202,7 +203,17 @@ export async function normalizeArticle(input: {
     body: JSON.stringify({
       model: NORMALIZE_MODEL,
       max_tokens: 2048,
-      system: LIGHT_REWRITE_SYSTEM,
+      // Anthropic prompt caching — system prompt'as (>1024 tokens su style
+      // guide) tampa 90% pigesnis pakartotiniuose call'uose per 5 min cycle.
+      // Mūsų scout'as 2x/d × 6 active sources × 3 items = ~36 normalize'ai
+      // per cron'ą, dauguma trinks cached system → didelis sutaupymas.
+      system: [
+        {
+          type: 'text',
+          text: LIGHT_REWRITE_SYSTEM,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
       tools: [tool],
       tool_choice: { type: 'tool', name: 'publish_news' },
       messages: [{ role: 'user', content: userMsg }],
@@ -227,11 +238,16 @@ export async function normalizeArticle(input: {
   const text = JSON.stringify(parsed) // for debug raw_response
 
   try {
+    // Deterministic LT post-fix'ai ant title + body + summary (žr.
+    // lib/music-lt-style-guide.ts MUSIC_LT_REGEX_FIXES). NEMOKAMI, instant.
+    const rawTitle = String(parsed.title || '')
+    const rawBody = String(parsed.body_html || '')
+    const rawSummary = String(parsed.summary || '')
     return {
       category: isValidCategory(parsed.category) ? parsed.category : 'none',
-      title: String(parsed.title || ''),
-      body_html: String(parsed.body_html || ''),
-      summary: String(parsed.summary || ''),
+      title: applyMusicLtFixes(rawTitle),
+      body_html: applyMusicLtFixes(rawBody),
+      summary: applyMusicLtFixes(rawSummary),
       artists_mentioned: Array.isArray(parsed.artists_mentioned)
         ? parsed.artists_mentioned.map((a: any) => ({
             name: String(a?.name || ''),

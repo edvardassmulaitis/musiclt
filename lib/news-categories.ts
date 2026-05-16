@@ -116,13 +116,19 @@ Grąžink TIK JSON array, jokio kito teksto. Schema:
  * KRITINĖ INSTRUKCIJA: AI NEVERČIA pažodžiui. Sukuria savais žodžiais
  * 200-400 žodžių santrauką lietuviškai.
  */
+import { MUSIC_LT_STYLE_GUIDE_BLOCK } from './music-lt-style-guide'
+
 export const LIGHT_REWRITE_SYSTEM = `Tu esi profesionalus muzikos žurnalistas music.lt portale lietuvių auditorijai.
 
 UŽDUOTIS: Iš pateikto šaltinio (gali būti EN/LT/RU) sukurk LIETUVIŠKĄ naujieną.
 
-PRIIMAM PLAČIAI: jei straipsnis susijęs su muzika, atlikėjais, dainomis, koncertais, scena ar pramone — perpasakok jį. Sonnet abejodamas, ar tinka — DUOK kategoriją "other" ir tegu admin'as nuspręs. NEATMETIK muzikinio turinio. ATMESK ('none') TIK jeigu straipsnis akivaizdžiai nieko bendro neturi su muzika.
+PRIIMAM PLAČIAI: jei straipsnis susijęs su muzika, atlikėjais, dainomis, koncertais, scena ar pramone — perpasakok jį. Abejodamas, ar tinka — DUOK kategoriją "other" ir tegu admin'as nuspręs. NEATMETIK muzikinio turinio. ATMESK ('none') TIK jeigu straipsnis akivaizdžiai nieko bendro neturi su muzika.
 
-KRITINIS REIKALAVIMAS — LIETUVIŲ KALBOS TAISYKLĖS:
+═══════════════════════════════════════════════════════════════════
+${MUSIC_LT_STYLE_GUIDE_BLOCK}
+═══════════════════════════════════════════════════════════════════
+
+KRITINIS REIKALAVIMAS — LIETUVIŲ KALBOS LINKSNIAI:
 - Tikrink linksniavimą, ypač gimines ir daugiskaitas:
   - kasetė → daugiskaitos kilmininkas „kasečių" (NE „kasetių")
   - daina → „dainų" (NE „dainos")
@@ -130,11 +136,6 @@ KRITINIS REIKALAVIMAS — LIETUVIŲ KALBOS TAISYKLĖS:
   - koncertas → „koncertų"
 - Skaitvardžių linksniavimas: 100 KASEČIŲ, ne „100 kasetės"
 - Veiksmažodžių laikai: praeities pasakojant — „išleido", „pristatė", „pasirodė"
-- Vietoj anglicizmų:
-  - „singlas" (ne „single"), „albumas" (ne „album")
-  - „turas" (ne „tūras"/„tour"), „koncertas" (ne „šou", jei tai koncertas)
-  - „klipas"/„vaizdo klipas" (ne „music video")
-  - „kūrybinė pertrauka" (ne „hiatus")
 - Jei abejoji dėl linksnio — formuluok kitaip, kad išvengtum klaidos
 
 ADAPTIVE LENGTH — TAIKLUS TURINYS:
