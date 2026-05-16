@@ -2,8 +2,8 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useCallback, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import WikipediaImport from '@/components/WikipediaImport'
 import ArtistForm, { type ArtistFormData } from '@/components/ArtistForm'
@@ -11,6 +11,11 @@ import WikipediaImportDiscography from '@/components/WikipediaImportDiscography'
 
 export default function NewArtistPage() {
   const router = useRouter()
+  // ?name= prefill iš inbox'o flow'o — kai user'is paspaudžia „+ Sukurti naują"
+  // ant atlikėjo kurio nėra DB, redirect'inam čia su name'u, kuris auto-trigger'ina
+  // Wikipedia paiešką.
+  const searchParams = useSearchParams()
+  const prefillName = searchParams?.get('name') || ''
   const [initialData, setInitialData] = useState<Partial<ArtistFormData>>({})
   const [formKey, setFormKey] = useState(0)
   const [artistId, setArtistId] = useState<string | null>(null)
@@ -125,9 +130,9 @@ export default function NewArtistPage() {
         {/* LEFT — Wikipedia import strip + ArtistForm */}
         <div className="flex-1 min-w-0">
 
-          {/* Wikipedia import strip */}
+          {/* Wikipedia import strip — initialSearch prefill iš ?name= URL'o */}
           <div className="bg-[var(--bg-surface)] border-b border-[var(--input-border)] px-3 sm:px-4 py-3">
-            <WikipediaImport onImport={handleWikiImport} />
+            <WikipediaImport onImport={handleWikiImport} initialSearch={prefillName} />
           </div>
 
           {/* ArtistForm — hideButtons kad nerodo savo mygtukų */}

@@ -19,6 +19,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import FullscreenModal from '@/components/ui/FullscreenModal'
+import WikipediaImportDiscography from '@/components/WikipediaImportDiscography'
 
 type DbTrack = {
   track_id: number
@@ -327,6 +328,28 @@ export default function TrackSuggestPicker({
     >
       {/* Scrollable content */}
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2 bg-gray-50">
+        {/* ── Wiki disco import banner — kai DB tracks < 5 ───────── */}
+        {!loading && data && (() => {
+          const dbCount = (data.db_recent?.length || 0) + (data.db_top?.length || 0)
+          if (dbCount >= 5) return null
+          return (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 flex items-center justify-between gap-2">
+              <div className="text-xs text-purple-800 flex-1">
+                <strong>📚 {dbCount === 0 ? 'Nėra dainų DB' : `Tik ${dbCount} dainos DB`}.</strong>
+                <span className="block opacity-80 mt-0.5">Importuok diskografiją iš Wikipedia — atsiras visi albumai + dainos.</span>
+              </div>
+              <WikipediaImportDiscography
+                artistId={artistId}
+                artistName={artistName}
+                isSolo={true}
+                buttonClassName="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-semibold whitespace-nowrap"
+                buttonLabel="📥 Importuoti"
+                onClose={() => { load() }}
+              />
+            </div>
+          )
+        })()}
+
         {/* ── YT live search (FIRST — primary source) ────────────── */}
         <SectionTight title="🔍 YouTube paieška" count={null}>
           <div className="flex gap-1 mb-1">

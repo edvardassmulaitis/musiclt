@@ -709,6 +709,21 @@ export default function AdminInboxPage() {
                       <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
                     </svg>
                   </button>
+                  {/* + Sukurti naują atlikėją — kai DB ne'rasta. Redirect į
+                     /admin/artists/new?name=X kuris auto-paleidžia Wikipedia
+                     paiešką. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const defaultName = (editing?.ai_title || '').split(/[—-]/)[0].trim().slice(0, 60)
+                      const name = window.prompt('Atlikėjo pavadinimas (Wikipedia paieška auto-paleidžiama):', defaultName)
+                      if (!name?.trim()) return
+                      window.open(`/admin/artists/new?name=${encodeURIComponent(name.trim())}`, '_blank')
+                    }}
+                    title="Sukurti naują atlikėją DB'oje su Wikipedia importu"
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-dashed border-emerald-300">
+                    + Naujas atlikėjas
+                  </button>
                 </div>
                 {artistSearchOpen && (
                   <div className="mt-1.5">
