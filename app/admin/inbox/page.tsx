@@ -9,6 +9,11 @@ import type { Photo } from '@/components/PhotoGallery'
 import InboxTabs from '@/components/InboxTabs'
 import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
 import TrackSuggestPicker, { type PickResult } from '@/components/TrackSuggestPicker'
+import dynamic from 'next/dynamic'
+
+// Tiptap WYSIWYG — naudojam vietoj raw HTML textarea (be HTML tag'ų matomumo,
+// patogus formatting toolbar viršuje, B/I/U/lists/links, etc.)
+const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), { ssr: false })
 
 type SuggestedArtist = {
   id: number
@@ -92,6 +97,7 @@ export default function AdminInboxPage() {
   const [editPrimaryId, setEditPrimaryId] = useState<number | null>(null)
   const [artistMeta, setArtistMeta] = useState<Record<number, SuggestedArtist>>({})
   const [artistSearchOpen, setArtistSearchOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   // Wizard'o track'ų state — pasirinkti DB track_ids (matched + naujai sukurti)
   const [editTrackIds, setEditTrackIds] = useState<number[]>([])
   const [trackMeta, setTrackMeta] = useState<Record<number, { id: number; title: string; artist_name: string }>>({})
@@ -569,42 +575,47 @@ export default function AdminInboxPage() {
       {editing && (
         <div className="fixed inset-0 z-50 bg-black/60 sm:backdrop-blur-sm flex items-stretch sm:items-center justify-center sm:p-4 overflow-y-auto">
           <div className="bg-[var(--bg-surface)] sm:rounded-2xl sm:shadow-2xl w-full max-w-3xl sm:my-4">
-            <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-[var(--border-subtle)] flex items-center justify-between sticky top-0 bg-[var(--bg-surface)] sm:rounded-t-2xl z-10">
-              <div className="flex flex-col min-w-0">
-                <h2 className="text-sm sm:text-base font-bold text-[var(--text-primary)] leading-tight">✎ Redaguoti naujieną</h2>
-                <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
-                  {editing.source_portal && (
-                    <a href={editing.source_url || '#'} target="_blank" rel="noopener" className="hover:underline truncate">
-                      {editing.source_portal} ↗
-                    </a>
-                  )}
-                  {(editing.source_published_at || editing.created_at) && (
-                    <span>· {new Date(editing.source_published_at || editing.created_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                  )}
+            <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-[var(--border-subtle)] sticky top-0 bg-[var(--bg-surface)] sm:rounded-t-2xl z-10">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col min-w-0 flex-1">
+                  <h2 className="text-sm sm:text-base font-bold text-[var(--text-primary)] leading-tight">✎ Redaguoti naujieną</h2>
+                  <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
+                    {editing.source_portal && (
+                      <a href={editing.source_url || '#'} target="_blank" rel="noopener" className="hover:underline truncate">
+                        {editing.source_portal} ↗
+                      </a>
+                    )}
+                    {(editing.source_published_at || editing.created_at) && (
+                      <span>· {new Date(editing.source_published_at || editing.created_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    )}
+                  </div>
                 </div>
+                {/* Preview toggle header'yje — vietoj details apačioje */}
+                {editBody.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewOpen(v => !v)}
+                    className="text-[10px] sm:text-xs px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-medium shrink-0">
+                    {previewOpen ? '▴ Slėpti peržiūrą' : '▾ Peržiūra'}
+                  </button>
+                )}
+                <button
+                  onClick={closeEdit}
+                  aria-label="Uždaryti"
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-2xl leading-none shrink-0">
+                  ×
+                </button>
               </div>
-              <button
-                onClick={closeEdit}
-                aria-label="Uždaryti"
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-2xl leading-none shrink-0 ml-2">
-                ×
-              </button>
+              {/* Expandable preview iškart po header — sticky scope */}
+              {previewOpen && editBody.trim() && (
+                <div
+                  className="prose prose-sm max-w-none bg-[var(--bg-elevated)]/50 border border-[var(--border-subtle)] rounded-lg p-3 mt-2 max-h-[40vh] overflow-y-auto"
+                  dangerouslySetInnerHTML={{ __html: editBody }}
+                />
+              )}
             </div>
             <div className="px-3 py-2 sm:px-4 sm:py-3 space-y-3 sm:space-y-4">
-              {/* === Peržiūra collapsed by default — link viršuje, kad galima
-                 greitai patikrinti kontent prieš/po redaguojant. Click → unfoldina. === */}
-              {editBody.trim() && (
-                <details className="-mb-2">
-                  <summary className="text-xs text-blue-600 hover:underline cursor-pointer select-none inline-flex items-center gap-1">
-                    <span>▾ Peržiūra</span>
-                    <span className="text-[10px] text-[var(--text-muted)] normal-case">(atnaujinama redaguojant)</span>
-                  </summary>
-                  <div
-                    className="prose prose-sm max-w-none bg-[var(--bg-elevated)]/50 border border-[var(--border-subtle)] rounded-lg p-3 mt-2"
-                    dangerouslySetInnerHTML={{ __html: editBody }}
-                  />
-                </details>
-              )}
+              {/* Peržiūra — perkelta į header (toggle button + slidable panel). */}
               {/* === Atlikėjai === */}
               <div>
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
@@ -793,17 +804,15 @@ export default function AdminInboxPage() {
                   placeholder="Naujienos pavadinimas..."
                 />
               </div>
-              {/* === Tekstas — peržiūra virš antraštės (žiūr. viršuje) === */}
+              {/* === Tekstas — Tiptap WYSIWYG (B/I/U, lists, links, paragraphs). === */}
               <div>
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
-                  Tekstas <span className="ml-1 normal-case font-normal opacity-70">HTML, &lt;p&gt; tag'ai</span>
+                  Tekstas
                 </div>
-                <textarea
+                <RichTextEditor
                   value={editBody}
-                  onChange={e => setEditBody(e.target.value)}
-                  rows={12}
-                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm font-mono leading-relaxed resize-y"
-                  placeholder="<p>Naujienos tekstas...</p>"
+                  onChange={setEditBody}
+                  placeholder="Naujienos tekstas..."
                 />
               </div>
             </div>
