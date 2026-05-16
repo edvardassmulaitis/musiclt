@@ -1478,10 +1478,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           // tik formatu (norm sutampa), atnaujina į Wiki canonical (pvz
           // 'Fairy feller's master stroke' → 'The Fairy Feller's Master-Stroke').
           if (item.trackDuplicateMap && item.tracks?.length) {
-            const matchedTracks: { id: number; wiki_title: string }[] = []
+            const matchedTracks: { id: number; wiki_title: string; featuring?: string[] }[] = []
             for (const wt of item.tracks) {
               const dupId = item.trackDuplicateMap[wt.title.toLowerCase()]
-              if (dupId) matchedTracks.push({ id: dupId, wiki_title: wt.title })
+              if (dupId) {
+                const entry: any = { id: dupId, wiki_title: wt.title }
+                // Featuring iš Wiki — backend syncTrackFeaturing UNION'iškai
+                // prides David Bowie tipo featuring jei dar nelinkint'i.
+                if (wt.featuring && wt.featuring.length > 0) entry.featuring = wt.featuring
+                matchedTracks.push(entry)
+              }
             }
             if (matchedTracks.length > 0) enrichBody.matched_tracks = matchedTracks
           }
@@ -1512,6 +1518,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 release_year: ry || null,
                 release_month: rm || null,
                 release_day: rd || null,
+                // Featuring iš Wiki — backend syncTrackFeaturing prijungs DB
+                // artists (jei egzistuoja) ar sukurs naujus per findOrCreateArtist.
+                featuring: wt.featuring && wt.featuring.length > 0 ? wt.featuring : undefined,
               })
             }
             if (tracksToCreate.length > 0) enrichBody.tracks_to_create = tracksToCreate
@@ -1571,6 +1580,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           if (albApplied.tracks_linked_existing) parts.push(`+${albApplied.tracks_linked_existing} prijungtos`)
           if (albApplied.tracks_auto_linked) parts.push(`+${albApplied.tracks_auto_linked} auto-link`)
           if (albApplied.titles_updated) parts.push(`${albApplied.titles_updated} pervadinta`)
+          if (albApplied.featuring_added) parts.push(`+${albApplied.featuring_added} feat.`)
+          if (albApplied.tracks_create_featuring) parts.push(`+${albApplied.tracks_create_featuring} feat. naujiems`)
           if (tracksTouched) parts.push(`${tracksTouched} dainos papildytos`)
           const detail = parts.length ? `: ${parts.join(', ')}` : ' (nieko naujo — DB jau pilna)'
           addLog(`↻ ${item.title}${detail}`)

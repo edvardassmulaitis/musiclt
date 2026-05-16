@@ -14,6 +14,7 @@ function toInt(v: any): number | null {
 // Vieninga slugify utility — palaiko Unicode (visos kalbos). Žr. lib/slugify.ts.
 import { slugify } from './slugify'
 import { matchGenreToSubstyle, type SubstyleRow } from './genre-match'
+import { findOrCreateArtist as findOrCreateArtistShared } from './featuring-utils'
 
 export type AlbumFull = {
   id?: number
@@ -342,28 +343,9 @@ export async function deleteAlbum(id: number): Promise<void> {
   if (error) throw error
 }
 
-function cleanArtistName(raw: string): string {
-  return raw
-    .replace(/\s*\(\s*(?:singer|rapper|musician|entertainer|DJ|band|group|American|British|record producer|songwriter|actor|actress|performer|vocalist|artist|composer|producer)\s*\)/gi, '')
-    .replace(/_/g, ' ')
-    .trim()
-}
-
 async function findOrCreateArtist(name: string): Promise<number | null> {
-  const cleanName = cleanArtistName(name)
-  const slug = slugify(cleanName)
-  const { data: existing } = await supabase
-    .from('artists').select('id').eq('slug', slug).maybeSingle()
-  if (existing) return existing.id
-  // Also try ilike name match in case slug differs
-  const { data: byName } = await supabase
-    .from('artists').select('id').ilike('name', cleanName).maybeSingle()
-  if (byName) return byName.id
-  const { data: newArtist, error } = await supabase.from('artists').insert({
-    name: cleanName, slug, type: 'solo',
-  }).select('id').single()
-  if (error) { console.error('Failed to create featuring artist:', cleanName, error); return null }
-  return newArtist?.id || null
+  // Delegate'a į shared lib (lib/featuring-utils.ts) — su Wiki source flag'u.
+  return findOrCreateArtistShared(supabase, name)
 }
 
 async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackInAlbum[]) {

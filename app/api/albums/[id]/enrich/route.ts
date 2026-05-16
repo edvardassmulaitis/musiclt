@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { matchGenreToSubstyle, type SubstyleRow } from '@/lib/genre-match'
 import { slugify } from '@/lib/slugify'
 import { computeAlbumCompleteness } from '@/lib/album-completeness'
+import { syncTrackFeaturing } from '@/lib/featuring-utils'
 
 // PATCH /api/albums/[id]/enrich — Wiki "overlay" enrich endpoint.
 //
@@ -278,6 +279,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       } else {
         linkedSet.add(finalTrackId)
       }
+      // Featuring artists naujam track'ui — kvieciame syncTrackFeaturing'ą,
+      // kuris UNION'iškai prideda featuring DB artists (jei egzistuoja) ar
+      // sukuria naujus (jei dar nėra).
+      if (Array.isArray(t?.featuring) && t.featuring.length > 0) {
+        const featNames = t.featuring.filter((s: any) => typeof s === 'string' && s.trim())
+        if (featNames.length > 0) {
+          const added = await syncTrackFeaturing(sb, finalTrackId, featNames)
+          if (added > 0) {
+            applied.tracks_create_featuring = (applied.tracks_create_featuring || 0) + added
+          }
+        }
+      }
     }
     if (createdCount > 0) applied.tracks_created = createdCount
     if (linkedExistingCount > 0) applied.tracks_linked_existing = linkedExistingCount
@@ -297,11 +310,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // matched_tracks: [{id, wiki_title}] — naujesnis formatas, leidžia ne tik
   // link'ti, bet ir promote'inti Wiki canonical title'ą (case/punct), jei DB
   // titulus skiriasi tik formatavimu.
-  type MatchedTrack = { id: number; wiki_title?: string }
+  type MatchedTrack = { id: number; wiki_title?: string; featuring?: string[] }
   let matchedItems: MatchedTrack[] = []
   if (Array.isArray(body.matched_tracks)) {
     matchedItems = body.matched_tracks
-      .map((x: any) => ({ id: Number(x?.id), wiki_title: typeof x?.wiki_title === 'string' ? x.wiki_title.trim() : undefined }))
+      .map((x: any) => ({
+        id: Number(x?.id),
+        wiki_title: typeof x?.wiki_title === 'string' ? x.wiki_title.trim() : undefined,
+        featuring: Array.isArray(x?.featuring) ? x.featuring.filter((s: any) => typeof s === 'string' && s.trim()) : undefined,
+      }))
       .filter((x: MatchedTrack) => Number.isFinite(x.id) && x.id > 0)
   } else if (Array.isArray(body.matched_track_ids)) {
     matchedItems = body.matched_track_ids
@@ -364,6 +381,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     if (titlesUpdatedCount > 0) applied.titles_updated = titlesUpdatedCount
   }
+
+  // ── FEATURING ARTISTS sync (UNION) ────────────────────────────────────────
+  // Wiki parser ištraukia featuring kiekvienai dainai (cleanFeaturingTokens
+  // helper'iui — drop'ina year/album metadata). Backend pridedam į
+  // track_artists JOIN'ą — niekada netriname existing. Pvz Under Pressure
+  // (id=107575) DB neturi David Bowie kaip feat → po Wiki import bus
+  // prijungtas. Jei David Bowie egzistuoja DB (id=354 music.lt scrape) —
+  // linkina; jei ne — findOrCreateArtist'as sukurs naują 'wikipedia' source.
+  let featuringAddedTotal = 0
+  for (const m of matchedItems) {
+    if (!m.featuring || m.featuring.length === 0) continue
+    const added = await syncTrackFeaturing(sb, m.id, m.featuring)
+    featuringAddedTotal += added
+  }
+  if (featuringAddedTotal > 0) applied.featuring_added = featuringAddedTotal
 
   // ── COMPLETENESS state — frontend rodys ✓/⚠ badge be papildomo fetch'o ──
   // Shared helper apibūdina album + per-track pilnatvą. Žr. lib/album-completeness.
