@@ -83,7 +83,32 @@ export function parseYtTitleForArtist(rawTitle: string, primaryArtistName: strin
   let t = (rawTitle || '').trim()
   if (!t) return ''
 
-  // 1. Drop common YT suffixes (Official Video, Lyric Video, Audio, etc.)
+  // 1. Drop pipe-separated trailing parts ("Title | Country | Eurovision 2026 | Official")
+  // Aggressive — viskas po pirmo " | " considered metadata. Naudinga
+  // Eurovision'ams, festival'ams, kur YT title turi šaltinį/šalį/event metaduomenis.
+  // BET tik jei posjungę dalys atrodo kaip metadata (Eurovision/Official/Country/etc)
+  // — kitaip galim sulaužyti pavadinimą su pipe.
+  const METADATA_KEYWORDS = /\b(official|music|video|audio|lyric|visualizer|hd|4k|eurovision|song\s+contest|live|live\s+at|live\s+from|featuring|feat\.|ft\.|edit|remix|remaster|remastered|version|edition|extended|radio\s+edit|teaser|trailer)\b/i
+  const COUNTRY_KEYWORDS = /\b(bulgaria|lithuania|lietuva|latvia|estonia|austria|austrija|france|prancūzija|germany|vokietija|italy|italija|spain|ispanija|uk|usa|sweden|švedija|norway|norvegija|finland|suomija|denmark|danija|netherlands|poland|lenkija|ireland|airija|cyprus|kipras|israel|izraelis|portugal|portugalija|switzerland|šveicarija|ukraine|ukraina|greece|graikija|albania|albanija|armenia|armėnija|azerbaijan|azerbaidžanas|croatia|kroatija|moldova|romania|rumunija|serbia|serbija|slovenia|slovėnija|czech|čekija|hungary|vengrija|iceland|islandija|montenegro|juodkalnija|north\s+macedonia|makedonija|san\s+marino|malta)\b/i
+  if (t.includes('|')) {
+    const parts = t.split('|').map(s => s.trim()).filter(Boolean)
+    if (parts.length > 1) {
+      // Atrandam first part'ą kuris nėra metadata — tai bus title
+      const titlePart = parts[0]
+      // Sekančias dalis filter'inam — drop metadata. Jei first part'as
+      // turi metadata (pvz. tik „Official" arba „2026 Eurovision") —
+      // bandom paimti antrą part'ą.
+      if (METADATA_KEYWORDS.test(titlePart) || COUNTRY_KEYWORDS.test(titlePart)) {
+        // First nepatinka — bandom antrą be metadata
+        const cleanPart = parts.find(p => !METADATA_KEYWORDS.test(p) && !COUNTRY_KEYWORDS.test(p))
+        if (cleanPart) t = cleanPart
+      } else {
+        t = titlePart
+      }
+    }
+  }
+
+  // 2. Drop common YT suffixes (Official Video, Lyric Video, Audio, etc.) bracketed
   const dropPatterns = [
     /\s*[\(\[]\s*official\s*(music\s*)?(video|audio)\s*[\)\]]\s*$/i,
     /\s*[\(\[]\s*official\s*(lyric|visualizer)\s*[\)\]]\s*$/i,
@@ -93,16 +118,23 @@ export function parseYtTitleForArtist(rawTitle: string, primaryArtistName: strin
     /\s*[\(\[]\s*visualizer\s*[\)\]]\s*$/i,
     /\s*[\(\[]\s*hd\s*[\)\]]\s*$/i,
     /\s*[\(\[]\s*4k\s*[\)\]]\s*$/i,
-    /\s*\|\s*(official\s*(music\s*)?video|audio|visualizer)\s*$/i,
+    /\s*[\(\[]\s*official\s*[\)\]]\s*$/i,
+    // Plain trailing keywords without brackets (Eurovision atveju)
+    /\s+-\s+eurovision\s+song\s+contest\s+\d{4}\s*$/i,
+    /\s+-\s+eurovision\s+\d{4}\s*$/i,
   ]
   for (const p of dropPatterns) t = t.replace(p, '').trim()
 
-  // 2. Drop "Artist - " or "Artist – " or "ARTIST: " prefix (case-insensitive)
+  // 3. Drop "Artist - " or "Artist – " or "ARTIST: " prefix (case-insensitive)
   if (primaryArtistName) {
     const artistEsc = primaryArtistName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const prefixRe = new RegExp(`^${artistEsc}\\s*[-–—:]\\s*`, 'i')
     t = t.replace(prefixRe, '').trim()
   }
+
+  // 4. Drop trailing dash/em-dash + ALL CAPS suffix (likely metadata):
+  // "Bangaranga — BULGARIA" → "Bangaranga"
+  t = t.replace(/\s*[-–—]\s*[A-ZĄČĘĖĮŠŲŪŽ\s]{3,}\s*$/, '').trim()
 
   return t || rawTitle
 }

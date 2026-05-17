@@ -157,6 +157,11 @@ export default function AdminInboxPage() {
       document.body.style.overscrollBehavior = ''
     }
   }, [editing])
+
+  // Auto-detect artist sukurimas kitame tab'e. Kai user'is paspaudžia "+ Naujas
+  // atlikėjas", localStorage'e įrašomas {name, candidateId}. Šis effect'as
+  // listen'ina window focus event'ą — kai user'is grįžta į news tab'ą po artist
+  // sukūrimo, search'inam DB pagal name'ą ir auto-add'inam į wizard'ą.
   // Wizard'o track'ų state — pasirinkti DB track_ids (matched + naujai sukurti)
   const [editTrackIds, setEditTrackIds] = useState<number[]>([])
   const [trackMeta, setTrackMeta] = useState<Record<number, { id: number; title: string; artist_name: string }>>({})
@@ -279,6 +284,42 @@ export default function AdminInboxPage() {
     }))
     if (!editPrimaryId) setEditPrimaryId(id)
   }
+
+  // Auto-detect artist'o sukurimą kitame tab'e per focus event. Kai user'is
+  // paspaudžia „+ Naujas atlikėjas", localStorage'e įrašomas {name, candidateId}.
+  // Kai user'is grįžta į news tab'ą (focus event) — search'inam DB pagal name'ą,
+  // ir jei rasta — auto-add'inam į wizard'ą + valom localStorage.
+  useEffect(() => {
+    if (!editing) return
+    const checkPendingArtist = async () => {
+      try {
+        const raw = localStorage.getItem('pending_artist_creation')
+        if (!raw) return
+        const pending: { name: string; candidateId?: number; timestamp: number } = JSON.parse(raw)
+        // Tik šitam editing candidate'ui + recent (< 30 min)
+        if (pending.candidateId !== editing.id) return
+        if (Date.now() - pending.timestamp > 30 * 60 * 1000) {
+          localStorage.removeItem('pending_artist_creation')
+          return
+        }
+        // Search DB pagal name
+        const res = await fetch(`/api/artists?search=${encodeURIComponent(pending.name)}&limit=3&exact=1`)
+        if (!res.ok) return
+        const data = await res.json()
+        const found = (data.artists || [])[0]
+        if (found && found.id) {
+          // Pridėti į wizard'ą (jei dar nėra)
+          addEditArtist(found.id, found.name, found.cover_image_url || null)
+          localStorage.removeItem('pending_artist_creation')
+        }
+      } catch {}
+    }
+    window.addEventListener('focus', checkPendingArtist)
+    // Plus immediate check kai effect mount'inasi (jeigu user'is grįžta į tab'ą
+    // be focus event'o — pvz. browser back button'as)
+    checkPendingArtist()
+    return () => window.removeEventListener('focus', checkPendingArtist)
+  }, [editing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const closeEdit = () => {
     setEditing(null)
@@ -806,13 +847,29 @@ export default function AdminInboxPage() {
                   </button>
                   {/* + Sukurti naują atlikėją — kai DB ne'rasta. Redirect į
                      /admin/artists/new?name=X kuris auto-paleidžia Wikipedia
-                     paiešką. */}
+                     paiešką. Default name iš AI extracted primary artist
+                     (ai_tracks_mentioned[].artist) — ne iš pilno news title.
+                     Jei AI nesumatė artist'o → blank prompt. */}
                   <button
                     type="button"
                     onClick={() => {
-                      const defaultName = (editing?.ai_title || '').split(/[—-]/)[0].trim().slice(0, 60)
+                      // Pirmenybė: ai_tracks_mentioned[].artist (Sonnet'as konkrečiai
+                      // identifikavo). Atskirti EN/LT cases, sutrumpinti iki 60 chars.
+                      const aiArtist = (editing?.ai_tracks_mentioned || [])
+                        .map(t => t.artist?.trim()).filter(Boolean)[0] || ''
+                      const defaultName = aiArtist.slice(0, 60)
                       const name = window.prompt('Atlikėjo pavadinimas (Wikipedia paieška auto-paleidžiama):', defaultName)
                       if (!name?.trim()) return
+                      // Įrašom į localStorage — kai user'is grįš į šitą tab'ą po
+                      // artist sukūrimo kitame tab'e, focus event auto-search'ins
+                      // DB ir pridės atlikėją į wizard'ą be papildomo paspaudimo.
+                      try {
+                        localStorage.setItem('pending_artist_creation', JSON.stringify({
+                          name: name.trim(),
+                          candidateId: editing?.id,
+                          timestamp: Date.now(),
+                        }))
+                      } catch {}
                       window.open(`/admin/artists/new?name=${encodeURIComponent(name.trim())}`, '_blank')
                     }}
                     title="Sukurti naują atlikėją DB'oje su Wikipedia importu"
