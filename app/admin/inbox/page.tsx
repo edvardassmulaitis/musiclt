@@ -731,15 +731,17 @@ export default function AdminInboxPage() {
         />
       )}
 
-      {/* Edit modal — mobile: TRUE fullscreen (min-h-screen, jokio pilkojo
-         backdrop'o peek kai scroll'inama). Desktop: centered card su backdrop. */}
+      {/* Edit modal — mobile: TRUE fullscreen, desktop: centered card su backdrop.
+         Scroll'as VIDUJE modal panel'io (flex-col su flex-1 overflow body) —
+         ne ant outer wrapper'io. Tai užtikrina, kad sticky header neperdengtų
+         content'o kai scroll'inama (desktop bug fix). */}
       {editing && (
         <div
-          className="fixed inset-0 z-50 sm:bg-black/60 sm:backdrop-blur-sm flex items-stretch sm:items-center justify-center sm:p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 sm:bg-black/60 sm:backdrop-blur-sm flex items-stretch sm:items-center justify-center sm:p-4"
           style={{ overscrollBehavior: 'contain' }}
         >
-          <div className="bg-[var(--bg-surface)] sm:rounded-2xl sm:shadow-2xl w-full max-w-3xl sm:my-4 min-h-screen sm:min-h-0 flex flex-col">
-            <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-[var(--border-subtle)] sticky top-0 bg-[var(--bg-surface)] sm:rounded-t-2xl z-10">
+          <div className="bg-[var(--bg-surface)] sm:rounded-2xl sm:shadow-2xl w-full max-w-3xl sm:max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
+            <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] sm:rounded-t-2xl shrink-0">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex flex-col min-w-0 flex-1">
                   <h2 className="text-sm sm:text-base font-bold text-[var(--text-primary)] leading-tight">✎ Redaguoti naujieną</h2>
@@ -778,7 +780,7 @@ export default function AdminInboxPage() {
                 />
               )}
             </div>
-            <div className="px-3 py-2 sm:px-4 sm:py-3 space-y-3 sm:space-y-4">
+            <div className="px-3 py-2 sm:px-4 sm:py-3 space-y-3 sm:space-y-4 flex-1 overflow-y-auto">
               {/* Peržiūra — perkelta į header (toggle button + slidable panel). */}
               {/* === Atlikėjai === */}
               <div>
@@ -1043,7 +1045,7 @@ export default function AdminInboxPage() {
                 />
               </div>
             </div>
-            <div className="px-3 py-2 sm:px-4 sm:py-3 border-t border-[var(--border-subtle)] flex gap-2 items-center sticky bottom-0 bg-[var(--bg-surface)] sm:rounded-b-2xl">
+            <div className="px-3 py-2 sm:px-4 sm:py-3 border-t border-[var(--border-subtle)] flex gap-2 items-center bg-[var(--bg-surface)] sm:rounded-b-2xl shrink-0">
               <button
                 onClick={closeEdit}
                 className="px-3 py-1.5 sm:py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm font-medium text-[var(--text-secondary)]">
