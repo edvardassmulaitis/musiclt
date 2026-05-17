@@ -1361,8 +1361,14 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
  * Clean artist name: remove parenthetical suffixes, markup artifacts.
  */
 export function cleanArtistName(raw: string): string {
+  // Wikipedia disambiguation parens — strip'inti VISKĄ, kas baigiasi
+  // music-related role keyword'u, įskaitant nationality/language prefix'us.
+  // Pvz „(Bulgarian singer)", „(American rapper)", „(English band)", etc.
+  // Role keyword'ai: band, group, singer, rapper, duo, trio, artist,
+  //   musician, entertainer, songwriter, composer, DJ, producer, vocalist.
+  const ROLE_RE = /\s*\([^()]*\b(?:band|group|music(?:al)?\s*(?:group|act)?|singer|rapper|duo|trio|quartet|quintet|artist|musician|entertainer|songwriter|composer|DJ|producer|vocalist|rock\s*band|pop\s*group)\s*\)/gi
   let name = raw
-    .replace(/\s*\(\s*(?:band|group|music(?:al)?\s*(?:group|act)?|singer|rapper|duo|trio|quartet|artist|musician|rock\s*band|pop\s*group)\s*\)/gi, '')
+    .replace(ROLE_RE, '')
     .replace(/\s*\(\s*the\s+band\s*\)/gi, '')
     .replace(/_/g, ' ')
     .replace(/<!--[\s\S]*?-->/g, '')

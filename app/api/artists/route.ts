@@ -30,11 +30,16 @@ export async function GET(req: NextRequest) {
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const q = check.trim()
     const baseSlug = slugify(q)
-    // Ieškome pagal slug panašumą arba vardą (ilike su wildcards)
+    // Word-boundary match'as — kitaip „Dara" rasdavo „Rolandas Kindaravičius"
+    // (Kin**dara**vičius), „Eldaras" (El**dara**s), „Juodaragis" (Juo**dara**gis)
+    // ir t.t. kaip „panašius" nors jokiu būdu ne dublikatus. Reikalavimas:
+    //   - slug prasideda ta pati base
+    //   - ARBA name prasideda query'iu („Dara", „Dara (Bulgarian singer)")
+    //   - ARBA name turi query'ą kaip atskirą žodį po space („The Beatles" → „Beatles")
     const { data } = await supabase
       .from('artists')
       .select('id, name, slug, type, country, cover_image_url')
-      .or(`slug.ilike.${baseSlug}%,name.ilike.%${q}%`)
+      .or(`slug.ilike.${baseSlug}%,name.ilike.${q}%,name.ilike.% ${q}%`)
       .limit(5)
     return NextResponse.json(data || [])
   }
