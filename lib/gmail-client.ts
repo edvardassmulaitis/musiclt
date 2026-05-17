@@ -159,6 +159,19 @@ export async function getMessage(id: string): Promise<GmailMessage> {
 }
 
 /**
+ * Gauk thread'o info'ją su messages sąrašu (ID'ais). Naudojam backfill'ui,
+ * kur turim tik thread_id (iš news_candidates.source_email_thread_id) ir
+ * reikia message_id'o attachment fetch'ui.
+ */
+export async function getThread(threadId: string): Promise<{ id: string; messages: Array<{ id: string }> }> {
+  const data = await gmailFetch(`/threads/${threadId}?format=minimal`)
+  return {
+    id: data.id,
+    messages: (data.messages || []).map((m: any) => ({ id: m.id })),
+  }
+}
+
+/**
  * Attachment metadata iš message payload tree.
  * `body.attachmentId` egzistuoja tik attachment part'uose (inline + file).
  */

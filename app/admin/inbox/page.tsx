@@ -87,6 +87,28 @@ function formatLikes(n: number | null | undefined): string {
   return String(n)
 }
 
+// Kompaktiškas view count formatter: 1234 → 1.2K, 12345678 → 12M, 1234567890 → 1.2B
+function formatViewCount(n: number | null | undefined): string {
+  if (!n || n <= 0) return ''
+  if (n < 1000) return String(n)
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}K`
+  if (n < 1_000_000_000) return `${(n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0)}M`
+  return `${(n / 1_000_000_000).toFixed(1)}B`
+}
+
+// Trumpas "kada įkelta" žymėjimas YT video'ams: "5d", "2sav", "8mėn", "3m"
+function ytAgeShort(isoDate: string | null | undefined): string {
+  if (!isoDate) return ''
+  const ms = Date.now() - new Date(isoDate).getTime()
+  if (ms < 0) return ''
+  const days = Math.floor(ms / 86_400_000)
+  if (days < 1) return 'šiandien'
+  if (days < 7) return `${days}d`
+  if (days < 30) return `${Math.floor(days / 7)}sav`
+  if (days < 365) return `${Math.floor(days / 30)}mėn`
+  return `${Math.floor(days / 365)}m`
+}
+
 // Kompaktiškas relatyvus laikas: 5m, 2h, 3d, 1sav, 2mėn
 function relativeTimeShort(isoDate: string): string {
   const ms = Date.now() - new Date(isoDate).getTime()
@@ -144,7 +166,13 @@ export default function AdminInboxPage() {
   const [editBody, setEditBody] = useState('')
   // Multi-image: ordered array. First = hero/primary, rest → image1..5_url legacy slots.
   const [editImages, setEditImages] = useState<string[]>([])
-  const [imageOptions, setImageOptions] = useState<Array<{ url: string; label: string; source: string }>>([])
+  const [imageOptions, setImageOptions] = useState<Array<{
+    url: string
+    label: string
+    source: string
+    video_id?: string
+    yt_meta?: { title: string | null; channel_title: string | null; view_count: number | null; uploaded_at: string | null } | null
+  }>>([])
   const [showWiki, setShowWiki] = useState(false)
   const [wikiArtistName, setWikiArtistName] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
@@ -487,6 +515,7 @@ export default function AdminInboxPage() {
 
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3">
         <InboxTabs />
+        <BackfillGmailAttachmentsButton onDone={() => load()} />
         {/* Category filter — icon-only chips mobile'e, su label desktop'e */}
         <div className="flex flex-wrap gap-1 mb-3 overflow-x-auto -mx-1 px-1">
           {['all', 'release', 'performance', 'tour', 'career_step', 'other'].map(cat => (
@@ -1039,14 +1068,28 @@ export default function AdminInboxPage() {
                               {orderIdx + 1}
                             </div>
                           )}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-[10px] px-1.5 py-1">
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent text-white text-[10px] px-1.5 py-1">
                             <div className="font-semibold opacity-90 leading-tight">
                               {opt.source === 'artist_photo' && '📸 Galerija'}
                               {opt.source === 'artist_cover' && '🎤 Profilio nuotrauka'}
                               {opt.source === 'youtube_thumb' && '🎬 YT thumb'}
                               {opt.source === 'wiki' && '📖 Wikimedia'}
                             </div>
-                            <div className="opacity-70 truncate leading-tight">{opt.label}</div>
+                            {/* YT thumb'ams — rodom title + channel + views + age vietoj generic label'o */}
+                            {opt.source === 'youtube_thumb' && opt.yt_meta ? (
+                              <>
+                                <div className="opacity-95 leading-tight truncate" title={opt.yt_meta.title || ''}>
+                                  {opt.yt_meta.title || opt.label}
+                                </div>
+                                <div className="opacity-70 leading-tight truncate text-[9px]">
+                                  {opt.yt_meta.channel_title && <span>{opt.yt_meta.channel_title}</span>}
+                                  {opt.yt_meta.view_count && <span> · 👁 {formatViewCount(opt.yt_meta.view_count)}</span>}
+                                  {opt.yt_meta.uploaded_at && <span> · {ytAgeShort(opt.yt_meta.uploaded_at)}</span>}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="opacity-70 truncate leading-tight">{opt.label}</div>
+                            )}
                           </div>
                         </button>
                       )
@@ -1116,6 +1159,67 @@ export default function AdminInboxPage() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Backfill button — paleidžia /api/admin/news-candidates/backfill-gmail-attachments
+ * batch'iniu būdu (10 candidates per call). Kartoja kol grąžinas processed=0.
+ * Rodo progress'ą inline.
+ */
+function BackfillGmailAttachmentsButton({ onDone }: { onDone: () => void }) {
+  const [running, setRunning] = useState(false)
+  const [progress, setProgress] = useState<{ totalProcessed: number; totalFailed: number; rounds: number; lastError?: string } | null>(null)
+
+  const runBackfill = async () => {
+    if (!confirm('Pakartoti Gmail foto fetch visiems pending candidate\'ams be foto? Užtruks ~1-3 min priklausomai nuo kiekio.')) return
+    setRunning(true)
+    setProgress({ totalProcessed: 0, totalFailed: 0, rounds: 0 })
+    try {
+      let totalProcessed = 0
+      let totalFailed = 0
+      for (let round = 1; round <= 20; round++) {
+        const res = await fetch('/api/admin/news-candidates/backfill-gmail-attachments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit: 10 }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setProgress(p => ({ ...(p || { totalProcessed: 0, totalFailed: 0, rounds: 0 }), lastError: data.error || `HTTP ${res.status}` }))
+          break
+        }
+        totalProcessed += data.processed || 0
+        totalFailed += data.failed || 0
+        setProgress({ totalProcessed, totalFailed, rounds: round })
+        // Jei nieko neapdorota šitą rundą — viskas baigta
+        if ((data.candidates_processed || 0) === 0 || (data.candidates_with_images || 0) === 0) break
+      }
+      onDone()
+    } catch (e: any) {
+      setProgress(p => ({ ...(p || { totalProcessed: 0, totalFailed: 0, rounds: 0 }), lastError: e?.message || String(e) }))
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  return (
+    <div className="mb-3 flex items-center gap-2 flex-wrap text-xs">
+      <button
+        onClick={runBackfill}
+        disabled={running}
+        className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 text-amber-900 border border-amber-300 rounded font-medium disabled:opacity-50 transition-colors">
+        {running ? '⏳ Vyksta…' : '📷 Backfill Gmail foto'}
+      </button>
+      {progress && (
+        <span className="text-[var(--text-muted)]">
+          {progress.rounds > 0 && `Rounds: ${progress.rounds} · `}
+          ✓ {progress.totalProcessed} apdorota
+          {progress.totalFailed > 0 && ` · ✗ ${progress.totalFailed} fail`}
+          {progress.lastError && <span className="text-red-500 ml-2">⚠ {progress.lastError}</span>}
+        </span>
       )}
     </div>
   )

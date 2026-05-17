@@ -15,6 +15,46 @@ import { extractVideoIdFromUrl } from '@/lib/yt-innertube'
 
 export const runtime = 'nodejs'
 
+type YtMeta = {
+  title: string | null
+  channel_title: string | null
+  view_count: number | null
+  uploaded_at: string | null
+}
+
+/**
+ * Fetch YouTube Data API metadata batch'u (max 50 IDs per call). Silent fail
+ * — jei API key'aus nėra ar call neprisifail'ina, grąžinam tuščią map'ą ir
+ * frontend'as parodys thumb'us be metadata.
+ */
+async function enrichYtMetadata(videoIds: string[]): Promise<Map<string, YtMeta>> {
+  const out = new Map<string, YtMeta>()
+  if (videoIds.length === 0) return out
+  const apiKey = process.env.YOUTUBE_API_KEY
+  if (!apiKey) return out
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${encodeURIComponent(videoIds.join(','))}&key=${encodeURIComponent(apiKey)}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) return out
+    const data = (await res.json()) as any
+    for (const item of (data?.items || []) as any[]) {
+      const id = item.id as string
+      const snippet = item.snippet || {}
+      const stats = item.statistics || {}
+      const vc = parseInt(stats.viewCount || '0', 10)
+      out.set(id, {
+        title: snippet.title || null,
+        channel_title: snippet.channelTitle || null,
+        view_count: Number.isFinite(vc) && vc > 0 ? vc : null,
+        uploaded_at: snippet.publishedAt || null,
+      })
+    }
+  } catch {
+    // Silent
+  }
+  return out
+}
+
 async function requireAdmin() {
   const session = await getServerSession(authOptions)
   if (!session?.user || !['admin', 'super_admin'].includes((session.user.role as string) || '')) return null
@@ -118,15 +158,26 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  // Sukuriame thumb options'us
+  // Sukuriame thumb options'us + enrich su YT Data API metadata
+  const videoIdsForEnrich: string[] = []
+  for (const yt of ytUrlCandidates) {
+    const vid = extractVideoIdFromUrl(yt.url)
+    if (vid) videoIdsForEnrich.push(vid)
+  }
+  const ytMetaMap = await enrichYtMetadata(videoIdsForEnrich)
+
   for (const yt of ytUrlCandidates) {
     const vid = extractVideoIdFromUrl(yt.url)
     if (!vid) continue
+    const meta = ytMetaMap.get(vid)
     options.push({
       url: `https://img.youtube.com/vi/${vid}/hqdefault.jpg`,
       label: yt.label,
       source: 'youtube_thumb',
-    })
+      // Pridedam YT metadata frontend'ui — jei null, frontend'as skipina rendering'ą
+      yt_meta: meta || null,
+      video_id: vid,
+    } as any)
   }
 
   // Source straipsnio nuotrauka NĖRA siūloma — copyright apsauga.

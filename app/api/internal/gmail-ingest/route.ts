@@ -42,14 +42,13 @@ import { createAdminClient } from '@/lib/supabase'
 import { normalizeArticle, classifyMusicRelevance } from '@/lib/ai-normalize'
 import { matchArtists, matchTracks, getTopArtistsForHint } from '@/lib/entity-matcher'
 import { extractExifFromBuffer } from '@/lib/exif-extract'
-import { getMessageAttachments, getAttachmentBuffer, GmailAttachmentMeta } from '@/lib/gmail-client'
+import { processMessageAttachments, ATTACHMENTS_BUCKET } from '@/lib/gmail-attachments'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-const ATTACHMENTS_BUCKET = 'news-attachments'
-const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  // 10MB per image
-const MAX_ATTACHMENTS_PER_CANDIDATE = 8         // sanity cap
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+const MAX_ATTACHMENTS_PER_CANDIDATE = 8
 
 function sanitizeFilename(name: string): string {
   return name
@@ -220,121 +219,83 @@ export async function POST(req: NextRequest) {
     filter_reason: null,
   })
 
-  // 7) Image attachments — upload į news-attachments bucket + EXIF extract.
-  //    Du šaltiniai:
-  //      A) body.message_id — preferred. Endpoint'as pats fetch'ina via Gmail API.
-  //         SKILL.md taską supaprastina (per HTTP siunčiam tik mažus string'us).
-  //      B) body.attachments[] su base64 — fallback'as.
+  // 7) Image attachments — preferred path: body.message_id, endpoint'as pats
+  //    fetch'ina per Gmail API (server-side, mažas POST payload).
+  //    Fallback: body.attachments[] su base64 — jeigu worker'is jau encoded.
   let attachmentsProcessed = 0
   let attachmentsFailed = 0
-  let firstImageUrl: string | null = null
 
-  // Sukolektinam unified attachment job'us (su buf + meta) — vienas processing loop'as.
-  type AttachmentJob = { buf: Buffer; filename: string; mimeType: string }
-  const jobs: AttachmentJob[] = []
-
-  // A) Server-side fetch per Gmail API
   const messageId: string | undefined = typeof body.message_id === 'string' ? body.message_id.trim() : undefined
+
   if (messageId) {
-    try {
-      const metas: GmailAttachmentMeta[] = await getMessageAttachments(messageId)
-      // Tik images, tik file attachments (ne inline tracking pixels — bet inline foto
-      // press release'uose YRA tikra — taigi filter'is tik per mime + size)
-      const imageMetas = metas
-        .filter(m => /^image\//i.test(m.mimeType))
-        .filter(m => m.size > 1024 && m.size <= MAX_ATTACHMENT_BYTES)  // >1KB filter outas tracking pixels
-        .slice(0, MAX_ATTACHMENTS_PER_CANDIDATE)
-      for (const m of imageMetas) {
+    const r = await processMessageAttachments(supabase, inserted.id, messageId)
+    attachmentsProcessed = r.processed
+    attachmentsFailed = r.failed
+    if (r.errors.length > 0) {
+      console.warn('[gmail-ingest] attachment errors:', r.errors)
+    }
+  } else {
+    // Fallback'as — base64 array iš worker'io
+    const inlineAttachments: any[] = Array.isArray(body.attachments) ? body.attachments : []
+    if (inlineAttachments.length > 0) {
+      const cap = Math.min(inlineAttachments.length, MAX_ATTACHMENTS_PER_CANDIDATE)
+      let firstImageUrl: string | null = null
+      for (let i = 0; i < cap; i++) {
+        const att = inlineAttachments[i]
         try {
-          const buf = await getAttachmentBuffer(messageId, m.attachmentId)
-          jobs.push({ buf, filename: m.filename, mimeType: m.mimeType })
+          const filename: string = typeof att?.filename === 'string' ? att.filename : `attachment-${i}`
+          const mimeType: string = typeof att?.mime_type === 'string' ? att.mime_type : ''
+          const b64: string = typeof att?.base64 === 'string' ? att.base64 : ''
+          if (!/^image\//i.test(mimeType) || !b64) continue
+          const buf = Buffer.from(b64, 'base64')
+          if (buf.length === 0 || buf.length > MAX_ATTACHMENT_BYTES) {
+            attachmentsFailed++
+            continue
+          }
+          const exif = await extractExifFromBuffer(buf, mimeType)
+          const safeName = sanitizeFilename(filename)
+          const storagePath = `gmail/${inserted.id}/${Date.now()}-${i}-${safeName}`
+          const { error: uploadErr } = await supabase.storage
+            .from(ATTACHMENTS_BUCKET)
+            .upload(storagePath, buf, { contentType: mimeType, upsert: false })
+          if (uploadErr) {
+            attachmentsFailed++
+            continue
+          }
+          const { data: pubData } = supabase.storage
+            .from(ATTACHMENTS_BUCKET)
+            .getPublicUrl(storagePath)
+          const publicUrl = pubData.publicUrl
+          const { error: imgInsErr } = await supabase
+            .from('news_candidate_images')
+            .insert({
+              candidate_id: inserted.id,
+              storage_path: storagePath,
+              public_url: publicUrl,
+              filename, mime_type: mimeType, file_size: buf.length,
+              photographer: exif.photographer,
+              copyright: exif.copyright,
+              year_taken: exif.year_taken,
+              caption_exif: exif.caption_exif,
+              caption: exif.caption_exif,
+              source: 'email_attachment',
+              sort_order: i,
+            })
+          if (imgInsErr) { attachmentsFailed++; continue }
+          attachmentsProcessed++
+          if (!firstImageUrl) firstImageUrl = publicUrl
         } catch (e: any) {
           attachmentsFailed++
-          console.warn(`[gmail-ingest] gmail fetch failed for ${m.filename}:`, e?.message || e)
+          console.warn(`[gmail-ingest] inline attachment ${i} error:`, e?.message || e)
         }
       }
-    } catch (e: any) {
-      console.warn('[gmail-ingest] message attachments list failed:', e?.message || e)
-    }
-  }
-
-  // B) Fallback — explicit base64 attachments[]
-  const inlineAttachments: any[] = Array.isArray(body.attachments) ? body.attachments : []
-  if (inlineAttachments.length > 0 && jobs.length === 0) {
-    const cap = Math.min(inlineAttachments.length, MAX_ATTACHMENTS_PER_CANDIDATE)
-    for (let i = 0; i < cap; i++) {
-      const att = inlineAttachments[i]
-      const filename: string = typeof att?.filename === 'string' ? att.filename : `attachment-${i}`
-      const mimeType: string = typeof att?.mime_type === 'string' ? att.mime_type : ''
-      const b64: string = typeof att?.base64 === 'string' ? att.base64 : ''
-      if (!/^image\//i.test(mimeType) || !b64) continue
-      const buf = Buffer.from(b64, 'base64')
-      if (buf.length === 0 || buf.length > MAX_ATTACHMENT_BYTES) {
-        attachmentsFailed++
-        continue
+      if (firstImageUrl) {
+        await supabase
+          .from('news_candidates')
+          .update({ suggested_image_url: firstImageUrl })
+          .eq('id', inserted.id)
       }
-      jobs.push({ buf, filename, mimeType })
     }
-  }
-
-  // Process unified jobs
-  for (let i = 0; i < jobs.length; i++) {
-    const { buf, filename, mimeType } = jobs[i]
-    try {
-      const exif = await extractExifFromBuffer(buf, mimeType)
-      const safeName = sanitizeFilename(filename)
-      const storagePath = `gmail/${inserted.id}/${Date.now()}-${i}-${safeName}`
-
-      const { error: uploadErr } = await supabase.storage
-        .from(ATTACHMENTS_BUCKET)
-        .upload(storagePath, buf, { contentType: mimeType, upsert: false })
-      if (uploadErr) {
-        attachmentsFailed++
-        console.warn(`[gmail-ingest] storage upload failed for ${i}:`, uploadErr.message)
-        continue
-      }
-
-      const { data: pubData } = supabase.storage
-        .from(ATTACHMENTS_BUCKET)
-        .getPublicUrl(storagePath)
-      const publicUrl = pubData.publicUrl
-
-      const { error: imgInsErr } = await supabase
-        .from('news_candidate_images')
-        .insert({
-          candidate_id: inserted.id,
-          storage_path: storagePath,
-          public_url: publicUrl,
-          filename,
-          mime_type: mimeType,
-          file_size: buf.length,
-          photographer: exif.photographer,
-          copyright: exif.copyright,
-          year_taken: exif.year_taken,
-          caption_exif: exif.caption_exif,
-          caption: exif.caption_exif,
-          source: 'email_attachment',
-          sort_order: i,
-        })
-      if (imgInsErr) {
-        attachmentsFailed++
-        console.warn(`[gmail-ingest] image row insert failed for ${i}:`, imgInsErr.message)
-        continue
-      }
-
-      attachmentsProcessed++
-      if (!firstImageUrl) firstImageUrl = publicUrl
-    } catch (e: any) {
-      attachmentsFailed++
-      console.warn(`[gmail-ingest] attachment ${i} unexpected error:`, e?.message || e)
-    }
-  }
-
-  if (firstImageUrl) {
-    await supabase
-      .from('news_candidates')
-      .update({ suggested_image_url: firstImageUrl })
-      .eq('id', inserted.id)
   }
 
   return NextResponse.json({
