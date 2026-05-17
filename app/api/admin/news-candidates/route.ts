@@ -69,6 +69,30 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Pakraunam attachment'us (foto + EXIF metadata) — preview kortelėj rodysim
+  // pirmuosius 3 thumbnails. Visi attachment'ai rendinami kortelės expanded view'e.
+  const allCandidateIds = (data || []).map(c => c.id)
+  let attachmentsMap: Record<number, Array<{ id: number; public_url: string; photographer: string | null; copyright: string | null; year_taken: number | null; caption: string | null; sort_order: number }>> = {}
+  if (allCandidateIds.length > 0) {
+    const { data: imgs } = await supabase
+      .from('news_candidate_images')
+      .select('id, candidate_id, public_url, photographer, copyright, year_taken, caption, photographer_override, copyright_override, year_override, sort_order')
+      .in('candidate_id', allCandidateIds)
+      .order('sort_order', { ascending: true })
+    for (const i of (imgs || []) as any[]) {
+      const list = (attachmentsMap[i.candidate_id] ||= [])
+      list.push({
+        id: i.id,
+        public_url: i.public_url,
+        photographer: i.photographer_override || i.photographer,
+        copyright: i.copyright_override || i.copyright,
+        year_taken: i.year_override || i.year_taken,
+        caption: i.caption,
+        sort_order: i.sort_order,
+      })
+    }
+  }
+
   // Decorate per candidate'us su pilna suggested_artists info'ja + score'u.
   //
   // Score = weighted average (NE multiplication — anksciau buvo P×R×C kuris
@@ -98,6 +122,7 @@ export async function GET(req: NextRequest) {
     return {
       ...c,
       suggested_artists: artists,
+      attachments: attachmentsMap[c.id] || [],
       score: Math.round(score * 100) / 100,
       score_breakdown: {
         popularity: Math.round(popularity * 100) / 100,

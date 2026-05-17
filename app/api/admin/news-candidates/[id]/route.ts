@@ -65,7 +65,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     suggestedArtists = (arts || []) as any[]
   }
 
-  return NextResponse.json({ candidate: data, suggested_artists: suggestedArtists })
+  // Email attachments + EXIF metadata (jeigu yra Gmail šaltinio candidate'as)
+  const { data: imagesRows } = await supabase
+    .from('news_candidate_images')
+    .select('id, public_url, filename, mime_type, file_size, photographer, copyright, year_taken, caption_exif, caption, photographer_override, copyright_override, year_override, source, sort_order')
+    .eq('candidate_id', candidateId)
+    .order('sort_order', { ascending: true })
+
+  return NextResponse.json({
+    candidate: data,
+    suggested_artists: suggestedArtists,
+    attachments: imagesRows || [],
+  })
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -97,19 +108,52 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (action === 'reject') {
-    // reviewed_by laikinai NEpaduodamas — column yra INTEGER, o session.user.id
-    // yra UUID iš Supabase Auth. Po migracijos 20260515f (ALTER TO UUID) bus
-    // galima atgal pridėti audit trail'ą.
-    const { error } = await supabase
+    // 2026-05-18: pakeitėm soft delete (status='rejected') į HARD DELETE.
+    // Reason: Edvardas nenori, kad atmestos naujienos kauptųsi DB ir foto
+    // kabotų Supabase Storage'e. Sequence:
+    //   1) gauk attachment storage_path'us (kol FK CASCADE nepripuolė)
+    //   2) DELETE candidate row → CASCADE trina news_candidate_images
+    //   3) Storage.remove(paths) — atskirai, Supabase neturi DB → Storage trigger'io
+    //   4) gmail_seen_messages: jei gmail source — update filter_reason='admin_rejected'
+    //      (paliekam eilutę dedupe'ui, kad tas pats Gmail thread'as
+    //      grįžęs nepakliūtų antrąkart)
+
+    const { data: imgRows } = await supabase
+      .from('news_candidate_images')
+      .select('storage_path')
+      .eq('candidate_id', candidateId)
+    const storagePaths: string[] = (imgRows || [])
+      .map((r: any) => r.storage_path)
+      .filter(Boolean)
+
+    const { error: delErr } = await supabase
       .from('news_candidates')
-      .update({
-        status: 'rejected',
-        reviewed_at: new Date().toISOString(),
-        reject_reason: (body.reason || '').slice(0, 500),
-      })
+      .delete()
       .eq('id', candidateId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, status: 'rejected' })
+    if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 })
+
+    if (storagePaths.length > 0) {
+      const { error: storageErr } = await supabase.storage
+        .from('news-attachments')
+        .remove(storagePaths)
+      if (storageErr) {
+        // Nefail'inam — candidate jau trinta. Log'inam orphan files.
+        console.warn('[reject] storage cleanup failed:', storageErr.message, storagePaths)
+      }
+    }
+
+    if (cand.source_type === 'gmail' && cand.source_email_thread_id) {
+      await supabase
+        .from('gmail_seen_messages')
+        .update({ filter_reason: 'admin_rejected', candidate_id: null })
+        .eq('thread_id', cand.source_email_thread_id)
+    }
+
+    return NextResponse.json({
+      ok: true,
+      status: 'deleted',
+      images_removed: storagePaths.length,
+    })
   }
 
   if (action === 'approve') {

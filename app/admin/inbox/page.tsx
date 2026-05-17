@@ -30,6 +30,16 @@ type AiTrackMention = {
   youtube_url: string | null
 }
 
+type CandidateAttachment = {
+  id: number
+  public_url: string
+  photographer: string | null
+  copyright: string | null
+  year_taken: number | null
+  caption: string | null
+  sort_order: number
+}
+
 type Candidate = {
   id: number
   source_type: string
@@ -46,6 +56,7 @@ type Candidate = {
   suggested_track_ids: number[]
   primary_artist_id: number | null
   suggested_image_url: string | null
+  attachments?: CandidateAttachment[]
   status: string
   created_at: string
   source_published_at: string | null
@@ -596,6 +607,50 @@ export default function AdminInboxPage() {
                           className="text-sm text-[var(--text-muted)] line-clamp-3 sm:line-clamp-2 mb-3 cursor-pointer">
                           {cand.ai_summary}
                         </p>
+                      )}
+
+                      {/* Attachment'ai (Gmail foto su EXIF metadata) — pirmieji 3 thumbnail'ai */}
+                      {cand.attachments && cand.attachments.length > 0 && (
+                        <div className="mb-3">
+                          <div className="flex flex-wrap gap-2">
+                            {cand.attachments.slice(0, 3).map(att => (
+                              <div
+                                key={att.id}
+                                className="relative group"
+                                title={[
+                                  att.photographer ? `📷 ${att.photographer}` : null,
+                                  att.copyright ? `© ${att.copyright}` : null,
+                                  att.year_taken ? `📅 ${att.year_taken}` : null,
+                                  att.caption ? `💬 ${att.caption}` : null,
+                                ].filter(Boolean).join('\n') || 'Be metadata'}>
+                                <img
+                                  src={att.public_url}
+                                  alt={att.caption || 'attachment'}
+                                  className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded border border-[var(--border)] bg-[var(--bg-elevated)]"
+                                />
+                                {/* Metadata overlay — bottom strip */}
+                                {(att.photographer || att.copyright || att.year_taken) && (
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[9px] px-1 py-0.5 rounded-b leading-tight truncate">
+                                    {att.photographer && <span>📷 {att.photographer}</span>}
+                                    {att.photographer && att.year_taken && <span> · </span>}
+                                    {att.year_taken && <span>{att.year_taken}</span>}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                            {cand.attachments.length > 3 && (
+                              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded border border-[var(--border)] bg-[var(--bg-elevated)] flex items-center justify-center text-xs text-[var(--text-muted)]">
+                                +{cand.attachments.length - 3}
+                              </div>
+                            )}
+                          </div>
+                          {/* Copyright warning'as jeigu visi attachment'ai be metadata */}
+                          {cand.attachments.every(a => !a.photographer && !a.copyright) && (
+                            <div className="text-[10px] text-amber-600 mt-1.5">
+                              ⚠ EXIF metadata nerasta — prieš publikuojant pridėk autorių/copyright per peržiūros modal'ą.
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       {/* Artist chips — max 3 visible, likusius "+N" */}

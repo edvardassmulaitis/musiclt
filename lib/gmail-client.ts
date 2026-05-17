@@ -159,6 +159,66 @@ export async function getMessage(id: string): Promise<GmailMessage> {
 }
 
 /**
+ * Attachment metadata iš message payload tree.
+ * `body.attachmentId` egzistuoja tik attachment part'uose (inline + file).
+ */
+export type GmailAttachmentMeta = {
+  attachmentId: string
+  filename: string
+  mimeType: string
+  size: number
+  inline: boolean  // Content-Disposition: inline
+}
+
+function extractAttachments(payload: any): GmailAttachmentMeta[] {
+  const out: GmailAttachmentMeta[] = []
+  const walk = (node: any): void => {
+    if (!node) return
+    const headers: Array<{ name: string; value: string }> = node.headers || []
+    const hFind = (n: string) => headers.find(h => h.name.toLowerCase() === n.toLowerCase())?.value || ''
+    const aid = node.body?.attachmentId
+    if (aid) {
+      const disp = hFind('content-disposition').toLowerCase()
+      out.push({
+        attachmentId: aid,
+        filename: node.filename || hFind('content-disposition').match(/filename="?([^";]+)"?/i)?.[1] || 'attachment',
+        mimeType: node.mimeType || 'application/octet-stream',
+        size: node.body?.size || 0,
+        inline: disp.includes('inline'),
+      })
+    }
+    if (Array.isArray(node.parts)) {
+      for (const p of node.parts) walk(p)
+    }
+  }
+  walk(payload)
+  return out
+}
+
+/**
+ * Sąrašas attachment'ų message'e — metadata only (filename, mime, size, id).
+ * Content gaunamas atskirai per getAttachmentBuffer().
+ */
+export async function getMessageAttachments(messageId: string): Promise<GmailAttachmentMeta[]> {
+  const data = await gmailFetch(`/messages/${messageId}?format=full`)
+  return extractAttachments(data.payload)
+}
+
+/**
+ * Atsiunčia atskiro attachment'o base64 content'ą ir grąžina Buffer'į.
+ */
+export async function getAttachmentBuffer(
+  messageId: string,
+  attachmentId: string,
+): Promise<Buffer> {
+  const data = await gmailFetch(`/messages/${messageId}/attachments/${attachmentId}`)
+  // Gmail API grąžina urlsafe base64 — reikia transform'inti į standard.
+  const raw: string = data.data || ''
+  const normalized = raw.replace(/-/g, '+').replace(/_/g, '/')
+  return Buffer.from(normalized, 'base64')
+}
+
+/**
  * Apply label + mark as read. Idempotent — duomenims OK net jei jau aplikuota.
  *
  * Naudojam:

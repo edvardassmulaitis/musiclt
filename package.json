@@ -29,6 +29,7 @@
     "@tiptap/pm": "^2.10.4",
     "@tiptap/react": "^2.10.4",
     "@tiptap/starter-kit": "^2.10.4",
+    "exifr": "^7.1.3",
     "next": "^15.0.0",
     "next-auth": "^4.24.7",
     "pg": "^8.20.0",

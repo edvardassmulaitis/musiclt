@@ -10,17 +10,19 @@
  * Body:
  * {
  *   thread_id: string,           // Gmail thread ID (dedupe key)
+ *   message_id?: string,         // v2 — paskutinio message ID thread'e. Jei pateikta,
+ *                                // endpoint'as pats fetch'ina image attachments per Gmail API.
  *   from: string,                // sender email
  *   subject: string,
  *   raw_body: string,            // pilnas press release tekstas (po Gmail markup strip)
  *   detected_artists?: string[], // worker'is gali pre-extract'inti
  *   detected_dates?: string[],
  *   detected_venue?: string,
- *   attachments?: Array<{        // PHASE 2 — v1 ignoruoja
- *     type: 'image' | 'pdf' | 'docx',
- *     base64: string,
- *     filename: string,
- *   }>,
+ *   attachments?: Array<{        // v2 (2026-05-18) — fallback'as jei worker'is jau
+ *     filename: string,           // base64 encoded'ino (po pas Gmail MCP retention).
+ *     mime_type: string,          // Server-side fetch (per message_id) yra preferred path.
+ *     base64: string,             // Foto uploadinami į 'news-attachments' Storage bucket'ą,
+ *   }>,                           // EXIF extract → news_candidate_images.
  * }
  *
  * Returns:
@@ -39,9 +41,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { normalizeArticle, classifyMusicRelevance } from '@/lib/ai-normalize'
 import { matchArtists, matchTracks, getTopArtistsForHint } from '@/lib/entity-matcher'
+import { extractExifFromBuffer } from '@/lib/exif-extract'
+import { getMessageAttachments, getAttachmentBuffer, GmailAttachmentMeta } from '@/lib/gmail-client'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
+
+const ATTACHMENTS_BUCKET = 'news-attachments'
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  // 10MB per image
+const MAX_ATTACHMENTS_PER_CANDIDATE = 8         // sanity cap
+
+function sanitizeFilename(name: string): string {
+  return name
+    .replace(/[^\w.-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80) || 'attachment'
+}
 
 function canonicalHash(s: string): string {
   // Light hash — naudojam SHA-1 hex iš thread_id substring'o. Realiai
@@ -205,6 +220,123 @@ export async function POST(req: NextRequest) {
     filter_reason: null,
   })
 
+  // 7) Image attachments — upload į news-attachments bucket + EXIF extract.
+  //    Du šaltiniai:
+  //      A) body.message_id — preferred. Endpoint'as pats fetch'ina via Gmail API.
+  //         SKILL.md taską supaprastina (per HTTP siunčiam tik mažus string'us).
+  //      B) body.attachments[] su base64 — fallback'as.
+  let attachmentsProcessed = 0
+  let attachmentsFailed = 0
+  let firstImageUrl: string | null = null
+
+  // Sukolektinam unified attachment job'us (su buf + meta) — vienas processing loop'as.
+  type AttachmentJob = { buf: Buffer; filename: string; mimeType: string }
+  const jobs: AttachmentJob[] = []
+
+  // A) Server-side fetch per Gmail API
+  const messageId: string | undefined = typeof body.message_id === 'string' ? body.message_id.trim() : undefined
+  if (messageId) {
+    try {
+      const metas: GmailAttachmentMeta[] = await getMessageAttachments(messageId)
+      // Tik images, tik file attachments (ne inline tracking pixels — bet inline foto
+      // press release'uose YRA tikra — taigi filter'is tik per mime + size)
+      const imageMetas = metas
+        .filter(m => /^image\//i.test(m.mimeType))
+        .filter(m => m.size > 1024 && m.size <= MAX_ATTACHMENT_BYTES)  // >1KB filter outas tracking pixels
+        .slice(0, MAX_ATTACHMENTS_PER_CANDIDATE)
+      for (const m of imageMetas) {
+        try {
+          const buf = await getAttachmentBuffer(messageId, m.attachmentId)
+          jobs.push({ buf, filename: m.filename, mimeType: m.mimeType })
+        } catch (e: any) {
+          attachmentsFailed++
+          console.warn(`[gmail-ingest] gmail fetch failed for ${m.filename}:`, e?.message || e)
+        }
+      }
+    } catch (e: any) {
+      console.warn('[gmail-ingest] message attachments list failed:', e?.message || e)
+    }
+  }
+
+  // B) Fallback — explicit base64 attachments[]
+  const inlineAttachments: any[] = Array.isArray(body.attachments) ? body.attachments : []
+  if (inlineAttachments.length > 0 && jobs.length === 0) {
+    const cap = Math.min(inlineAttachments.length, MAX_ATTACHMENTS_PER_CANDIDATE)
+    for (let i = 0; i < cap; i++) {
+      const att = inlineAttachments[i]
+      const filename: string = typeof att?.filename === 'string' ? att.filename : `attachment-${i}`
+      const mimeType: string = typeof att?.mime_type === 'string' ? att.mime_type : ''
+      const b64: string = typeof att?.base64 === 'string' ? att.base64 : ''
+      if (!/^image\//i.test(mimeType) || !b64) continue
+      const buf = Buffer.from(b64, 'base64')
+      if (buf.length === 0 || buf.length > MAX_ATTACHMENT_BYTES) {
+        attachmentsFailed++
+        continue
+      }
+      jobs.push({ buf, filename, mimeType })
+    }
+  }
+
+  // Process unified jobs
+  for (let i = 0; i < jobs.length; i++) {
+    const { buf, filename, mimeType } = jobs[i]
+    try {
+      const exif = await extractExifFromBuffer(buf, mimeType)
+      const safeName = sanitizeFilename(filename)
+      const storagePath = `gmail/${inserted.id}/${Date.now()}-${i}-${safeName}`
+
+      const { error: uploadErr } = await supabase.storage
+        .from(ATTACHMENTS_BUCKET)
+        .upload(storagePath, buf, { contentType: mimeType, upsert: false })
+      if (uploadErr) {
+        attachmentsFailed++
+        console.warn(`[gmail-ingest] storage upload failed for ${i}:`, uploadErr.message)
+        continue
+      }
+
+      const { data: pubData } = supabase.storage
+        .from(ATTACHMENTS_BUCKET)
+        .getPublicUrl(storagePath)
+      const publicUrl = pubData.publicUrl
+
+      const { error: imgInsErr } = await supabase
+        .from('news_candidate_images')
+        .insert({
+          candidate_id: inserted.id,
+          storage_path: storagePath,
+          public_url: publicUrl,
+          filename,
+          mime_type: mimeType,
+          file_size: buf.length,
+          photographer: exif.photographer,
+          copyright: exif.copyright,
+          year_taken: exif.year_taken,
+          caption_exif: exif.caption_exif,
+          caption: exif.caption_exif,
+          source: 'email_attachment',
+          sort_order: i,
+        })
+      if (imgInsErr) {
+        attachmentsFailed++
+        console.warn(`[gmail-ingest] image row insert failed for ${i}:`, imgInsErr.message)
+        continue
+      }
+
+      attachmentsProcessed++
+      if (!firstImageUrl) firstImageUrl = publicUrl
+    } catch (e: any) {
+      attachmentsFailed++
+      console.warn(`[gmail-ingest] attachment ${i} unexpected error:`, e?.message || e)
+    }
+  }
+
+  if (firstImageUrl) {
+    await supabase
+      .from('news_candidates')
+      .update({ suggested_image_url: firstImageUrl })
+      .eq('id', inserted.id)
+  }
+
   return NextResponse.json({
     candidate_id: inserted.id,
     status: 'pending',
@@ -212,5 +344,7 @@ export async function POST(req: NextRequest) {
     ai_confidence: ai.confidence,
     artist_matches: artistMatches.length,
     track_matches: trackMatches.length,
+    attachments_processed: attachmentsProcessed,
+    attachments_failed: attachmentsFailed,
   })
 }
