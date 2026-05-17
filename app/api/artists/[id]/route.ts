@@ -223,6 +223,12 @@ export async function PATCH(
               let finalSlug = mSlug
               const { data: sc } = await supabase.from('artists').select('id').eq('slug', finalSlug).maybeSingle()
               if (sc) finalSlug = `${mSlug}-${Date.now().toString(36)}`
+              const birthDate = m.birthYear
+                ? `${m.birthYear}-${String(m.birthMonth||1).padStart(2,'0')}-${String(m.birthDay||1).padStart(2,'0')}`
+                : null
+              const deathDate = m.deathYear
+                ? `${m.deathYear}-${String(m.deathMonth||1).padStart(2,'0')}-${String(m.deathDay||1).padStart(2,'0')}`
+                : null
               const { data: newMember } = await supabase.from('artists').insert({
                 slug: finalSlug, name: m.name, type: 'solo',
                 // Country fallback chain: explicit member country → parent artist
@@ -235,6 +241,8 @@ export async function PATCH(
                 active_until: m.yearEnd ? parseInt(m.yearEnd) : null,
                 description: m.description || null,
                 gender: m.gender || null,
+                birth_date: birthDate,
+                death_date: deathDate,
                 website: m.website || null,
                 facebook: m.facebook || null,
                 twitter: m.twitter || null, spotify: m.spotify || null,

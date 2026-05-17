@@ -105,8 +105,33 @@ function formToDb(form: ArtistFormData) {
     spotify: form.spotify || null, soundcloud: form.soundcloud || null,
     bandcamp: form.bandcamp || null, twitter: form.twitter || null,
     related: (() => {
-      console.log('[formToDb] members raw:', JSON.stringify(form.members?.map(m => ({ id: m.id, name: m.name }))))
-      return (form.members||[]).map(m=>({ id: typeof m.id==='string' ? parseInt(m.id) : Number(m.id), name: m.name, avatar: m.avatar||'', yearFrom: m.yearFrom, yearTo: m.yearTo }))
+      console.log('[formToDb] members raw:', JSON.stringify(form.members?.map((m: any) => ({ id: m.id, name: m.name, isCurrent: m.isCurrent }))))
+      // Propag'inam visus narių laukus — Wiki import'as juos sukrauna
+      // (country, birthYear, gender, description, social links etc.), kad
+      // naujus kuriant DB'oje galėtume įrašyti pilną info. Anksčiau formToDb
+      // strip'indavo viską iki {id, name, avatar, yearFrom, yearTo}.
+      // Taip pat propag'inam isCurrent — kitaip past_members tampa current.
+      return (form.members||[]).map((m: any) => ({
+        id: m.id ? (typeof m.id === 'string' ? parseInt(m.id) : Number(m.id)) : null,
+        name: m.name,
+        avatar: m.avatar || '',
+        yearFrom: m.yearFrom || '',
+        yearTo: m.yearTo || '',
+        isCurrent: m.isCurrent,
+        country: m.country || '',
+        yearStart: m.yearStart || '',
+        yearEnd: m.yearEnd || '',
+        birthYear: m.birthYear || '', birthMonth: m.birthMonth || '', birthDay: m.birthDay || '',
+        deathYear: m.deathYear || '', deathMonth: m.deathMonth || '', deathDay: m.deathDay || '',
+        gender: m.gender || '',
+        description: m.description || '',
+        genre: m.genre || '',
+        substyles: m.substyles || [],
+        website: m.website || '',
+        facebook: m.facebook || '', twitter: m.twitter || '', spotify: m.spotify || '',
+        youtube: m.youtube || '', soundcloud: m.soundcloud || '',
+        tiktok: m.tiktok || '', bandcamp: m.bandcamp || '',
+      }))
     })(),
     groups: (form.groups||[]).map(g=>({ id: g.id ? (typeof g.id==='string' ? parseInt(g.id) : Number(g.id)) : null, name: g.name, yearFrom: g.yearFrom, yearTo: g.yearTo })),
   }
