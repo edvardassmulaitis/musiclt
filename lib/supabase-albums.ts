@@ -151,7 +151,12 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
   // Jei visi tracks turi position=0 (legacy scrape limit'as — music.lt nepateikia
   // track order'io album puslapyje), fallback'inam į array indeksą, kad UI nerodytų
   // "1. 1. 1. ...". Jei bent vienas turi real position — pasitikim DB.
-  const allZero = (trackRows || []).every((r: any) => (r.position || 0) === 0)
+  // 2026-05-15: papildomai detect all-same-non-zero pattern (pvz visos pos=1
+  // po tracks_to_create insert ar legacy scrape default'as) — irgi fallback.
+  const positionsRaw = (trackRows || []).map((r: any) => r.position || 0)
+  const allZero = positionsRaw.every(p => p === 0)
+  const allSame = positionsRaw.length > 0 && positionsRaw.every(p => p === positionsRaw[0])
+  const useSequentialFallback = allZero || allSame
 
   return {
     ...album,
@@ -165,7 +170,7 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
         track_id: r.track_id,
         title: r.tracks?.title || '',
         slug: r.tracks?.slug || '',
-        sort_order: allZero ? idx + 1 : (r.position || idx + 1),
+        sort_order: useSequentialFallback ? idx + 1 : (r.position || idx + 1),
         disc_number: 1,
         type: r.tracks?.type || 'normal',
         video_url: r.tracks?.video_url || '',
