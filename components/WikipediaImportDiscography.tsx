@@ -70,7 +70,7 @@ function DiscModal({ children }: { children: React.ReactNode }) {
   if (isDesktop) {
     return (
       <div style={{
-        position: 'relative', zIndex: 9999,
+        position: 'relative', zIndex: 10002,
         width: '100%', maxWidth: '48rem',
         maxHeight: '85vh', marginTop: '8vh',
         display: 'flex', flexDirection: 'column',
@@ -85,7 +85,7 @@ function DiscModal({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-      zIndex: 9999, display: 'flex', flexDirection: 'column',
+      zIndex: 10002, display: 'flex', flexDirection: 'column',
       background: 'white', overflow: 'hidden',
     }}>
       {children}
@@ -2638,7 +2638,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       {open && typeof document !== 'undefined' && createPortal(
         <>
           {/* Mobile: fullscreen fixed modal. Desktop: centered overlay. All via inline styles — no Tailwind/CSS conflicts */}
-          <div style={minimized ? {display:'none'} : {position:'fixed',top:0,left:0,right:0,bottom:0,width:'100vw',height:'100vh',zIndex:9998,display:'flex',alignItems:'flex-start',justifyContent:'center'}}>
+          <div style={minimized ? {display:'none'} : {position:'fixed',top:0,left:0,right:0,bottom:0,width:'100vw',height:'100vh',zIndex:10001,display:'flex',alignItems:'flex-start',justifyContent:'center'}}>
             {/* Backdrop — desktop only */}
             <div onClick={closeModal} className="hidden sm:block" style={{position:'fixed',top:0,left:0,right:0,bottom:0,width:'100vw',height:'100vh',background:'rgba(0,0,0,0.5)',backdropFilter:'blur(4px)'}} />
             {/* Modal panel */}
