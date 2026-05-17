@@ -31,8 +31,10 @@ export async function GET(req: NextRequest) {
       // (Wiki) nesutampa su "Night At The Opera" (music.lt).
       // Plus hyphenai/dashes/underscore/slash → tarpas, kad "Master-Stroke"
       // ne susiliete į "masterstroke" (atitiktų DB "Master Stroke").
+      // Trailing parens strip — bilingual subtitles, version markers etc.
       const norm = (s: string) => s.toLowerCase()
         .replace(/[-‒–—_/]/g, ' ')
+        .replace(/\([^)]*\)\s*$/, '')
         .replace(/[^a-z0-9\s]/g, '')
         .replace(/\s+/g, ' ')
         .trim()

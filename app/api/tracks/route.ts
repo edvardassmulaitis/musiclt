@@ -37,16 +37,38 @@ export async function GET(req: NextRequest) {
       // analogiška logika). Anksčiau .in() darė exact case-sensitive match.
       // Per artist'ą paprastai < 500 tracks — paimam visus, match'inam kliente.
       // Naudojam pagination dėl artist'ų su 1000+ tracks (PostgREST 1000-row cap).
+      // 2026-05-15: kai artist'as yra GROUP, plečiame search'ą įtraukti band
+      // members tracks. Pvz Queen Greatest Hits III turi 'Living on My Own',
+      // kuri yra Freddie Mercury solo daina. Jei Freddie'ui DB turi šitą track'ą,
+      // norim jį pasinaudoti vietoj kuriant duplicate po Queen.
+      const artistIdsToSearch: number[] = [parseInt(artist_id)]
+      const { data: thisArtist } = await supabase
+        .from('artists')
+        .select('type')
+        .eq('id', parseInt(artist_id))
+        .maybeSingle()
+      if ((thisArtist as any)?.type === 'group') {
+        const { data: memberRows } = await supabase
+          .from('artist_members')
+          .select('member_id')
+          .eq('group_id', parseInt(artist_id))
+        for (const m of (memberRows || []) as any[]) {
+          if (m.member_id && !artistIdsToSearch.includes(m.member_id)) {
+            artistIdsToSearch.push(m.member_id)
+          }
+        }
+      }
+
       const PAGE = 1000
-      let allRows: { id: number; title: string; type: string | null }[] = []
+      let allRows: { id: number; title: string; type: string | null; artist_id: number }[] = []
       let offsetT = 0
       while (true) {
         const { data } = await supabase
           .from('tracks')
-          .select('id, title, type')
-          .eq('artist_id', parseInt(artist_id))
+          .select('id, title, type, artist_id')
+          .in('artist_id', artistIdsToSearch)
           .range(offsetT, offsetT + PAGE - 1)
-        const rows = (data || []) as { id: number; title: string; type: string | null }[]
+        const rows = (data || []) as { id: number; title: string; type: string | null; artist_id: number }[]
         allRows = allRows.concat(rows)
         if (rows.length < PAGE) break
         offsetT += PAGE
@@ -54,29 +76,46 @@ export async function GET(req: NextRequest) {
       // Article-strip leading "a"/"the"/"an" — žr. albums route komentaro.
       // Hyphenai/dashes/underscore/slash → tarpas PIRMA, kad "Master-Stroke"
       // virstų į "master stroke" (atitiktų DB "Master Stroke"), ne
-      // "masterstroke". Anksčiau "The Fairy Feller's Master-Stroke"
-      // nesutapdavo su DB "Fairy Fellers Master Stroke" — hyphen išmesdavo,
-      // du žodžiai sulipdavo į "masterstroke".
+      // "masterstroke".
+      // 2026-05-15: trailing parens strip — kad "Las palabras de amor (the words
+      // of love)" sutaptų su Wiki "Las Palabras de Amor". Bilingual subtitles,
+      // version markers (kompiliacijų remix mix'ai) ir kt. trailing metadata.
       const norm = (s: string) => s.toLowerCase()
         .replace(/[-‒–—_/]/g, ' ')
+        .replace(/\([^)]*\)\s*$/, '')
         .replace(/[^a-z0-9\s]/g, '')
         .replace(/\s+/g, ' ')
         .trim()
         .replace(/^(the|a|an)\s+/, '')
-      // 2026-05-15: jei keli DB tracks turi tą patį norm'intą title (pvz studio
-      // 'Bohemian Rhapsody' + live 'Bohemian Rhapsody'), pirmenybė type='normal'.
-      // Anksčiau first-match-wins → kartais live versija būdavo grąžinama, ir
-      // Wiki import auto-link'indavo Wiki track į live (vietoj studio).
-      const dbByNorm: Record<string, { id: number; type: string }> = {}
+      // 2026-05-15: priority kai keli DB tracks turi tą patį norm'intą title:
+      //   1. Same artist (group_id) virš member artists (Queen track > Freddie's solo)
+      //   2. type='normal' virš alt-versions (live/remix/instr/cover)
+      // Tas pats artist'as svarbiau nei tipas — pvz Queen Greatest Hits III
+      // turi 'Living on My Own (Julian Raymond Album Mix)' (remix tipas) — bet
+      // šitas vis tiek geriau nei Freddie solo studio, nes jis YRA Queen
+      // diskografijoj per kompiliaciją.
+      const primaryArtistId = parseInt(artist_id)
+      const dbByNorm: Record<string, { id: number; type: string; artist_id: number }> = {}
       for (const row of allRows) {
         const k = norm(row.title)
+        if (!k) continue
         const rowType = row.type || 'normal'
         const existing = dbByNorm[k]
         if (!existing) {
-          dbByNorm[k] = { id: row.id, type: rowType }
-        } else if (existing.type !== 'normal' && rowType === 'normal') {
-          // Promote — studio wins over alt-versions (live/remix/instr/etc.)
-          dbByNorm[k] = { id: row.id, type: rowType }
+          dbByNorm[k] = { id: row.id, type: rowType, artist_id: row.artist_id }
+          continue
+        }
+        // Tiebreaker 1: same primary artist visada laimi
+        const existingIsPrimary = existing.artist_id === primaryArtistId
+        const rowIsPrimary = row.artist_id === primaryArtistId
+        if (!existingIsPrimary && rowIsPrimary) {
+          dbByNorm[k] = { id: row.id, type: rowType, artist_id: row.artist_id }
+          continue
+        }
+        if (existingIsPrimary && !rowIsPrimary) continue
+        // Tiebreaker 2: studio (normal) virš alt-versions
+        if (existing.type !== 'normal' && rowType === 'normal') {
+          dbByNorm[k] = { id: row.id, type: rowType, artist_id: row.artist_id }
         }
       }
       const found: Record<string, number> = {}
