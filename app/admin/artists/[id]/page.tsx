@@ -106,11 +106,12 @@ function formToDb(form: ArtistFormData) {
     bandcamp: form.bandcamp || null, twitter: form.twitter || null,
     related: (() => {
       console.log('[formToDb] members raw:', JSON.stringify(form.members?.map((m: any) => ({ id: m.id, name: m.name, isCurrent: m.isCurrent }))))
-      // Propag'inam visus narių laukus — Wiki import'as juos sukrauna
-      // (country, birthYear, gender, description, social links etc.), kad
-      // naujus kuriant DB'oje galėtume įrašyti pilną info. Anksčiau formToDb
-      // strip'indavo viską iki {id, name, avatar, yearFrom, yearTo}.
-      // Taip pat propag'inam isCurrent — kitaip past_members tampa current.
+      // Propag'inam VISUS narių laukus — Wiki import'as juos pildo (country,
+      // birthYear, gender, roles, social links etc.). Anksčiau formToDb
+      // strip'indavo iki {id, name, avatar, yearFrom, yearTo}, todėl
+      // server'is matydavo tik 5 laukus ir naujam artist'ui DB'oje liko
+      // tušti lauko. Taip pat propag'inam isCurrent — kritinis current vs
+      // former skirstymui.
       return (form.members||[]).map((m: any) => ({
         id: m.id ? (typeof m.id === 'string' ? parseInt(m.id) : Number(m.id)) : null,
         name: m.name,
@@ -127,6 +128,9 @@ function formToDb(form: ArtistFormData) {
         description: m.description || '',
         genre: m.genre || '',
         substyles: m.substyles || [],
+        // Profesijos — Wiki occupation+instrument sujungti į vieną sąrašą.
+        // POST/PUT route'os įdeda kaip artists.roles[] DB lauką.
+        roles: m.roles || [],
         website: m.website || '',
         facebook: m.facebook || '', twitter: m.twitter || '', spotify: m.spotify || '',
         youtube: m.youtube || '', soundcloud: m.soundcloud || '',

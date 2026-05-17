@@ -210,49 +210,86 @@ export async function PATCH(
       const memberRows: any[] = []
 
       // Nariai (šis atlikėjas yra grupė) — sukuriame jei nėra DB
+      // Helper: Wiki member info → partial UPDATE payload (only non-empty values
+      // from m, skip empty/null). Naudojam tiek backfill'ui, tiek INSERT'ui.
+      const memberPayloadFromWiki = (m: any, parentCountry: string | null) => {
+        const birthDate = m.birthYear
+          ? `${m.birthYear}-${String(m.birthMonth||1).padStart(2,'0')}-${String(m.birthDay||1).padStart(2,'0')}`
+          : null
+        const deathDate = m.deathYear
+          ? `${m.deathYear}-${String(m.deathMonth||1).padStart(2,'0')}-${String(m.deathDay||1).padStart(2,'0')}`
+          : null
+        return {
+          country: m.country || parentCountry || null,
+          cover_image_url: m.avatar || null,
+          active_from: m.yearStart ? parseInt(m.yearStart) : null,
+          active_until: m.yearEnd ? parseInt(m.yearEnd) : null,
+          description: m.description || null,
+          gender: m.gender || null,
+          birth_date: birthDate,
+          death_date: deathDate,
+          website: m.website || null,
+          facebook: m.facebook || null,
+          twitter: m.twitter || null, spotify: m.spotify || null,
+          youtube: m.youtube || null, soundcloud: m.soundcloud || null,
+          tiktok: m.tiktok || null, bandcamp: m.bandcamp || null,
+          roles: Array.isArray(m.roles) ? m.roles : null,
+        }
+      }
+
       for (const m of (membersSource as any[] || [])) {
         if (!m?.name && !m?.id) continue
         let memberId = m.id ? (typeof m.id === 'string' ? parseInt(m.id) : Number(m.id)) : null
+        // Reuse existing member by name (case-insensitive solo match).
         if (!memberId && m.name) {
           try {
             const { data: existing } = await supabase.from('artists').select('id').ilike('name', m.name).eq('type', 'solo').maybeSingle()
-            if (existing?.id) {
-              memberId = existing.id
-            } else {
-              const mSlug = m.name.toLowerCase().replace(/[ąä]/g,'a').replace(/[čç]/g,'c').replace(/[ęèėé]/g,'e').replace(/[į]/g,'i').replace(/[š]/g,'s').replace(/[ųū]/g,'u').replace(/[ž]/g,'z').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')
-              let finalSlug = mSlug
-              const { data: sc } = await supabase.from('artists').select('id').eq('slug', finalSlug).maybeSingle()
-              if (sc) finalSlug = `${mSlug}-${Date.now().toString(36)}`
-              const birthDate = m.birthYear
-                ? `${m.birthYear}-${String(m.birthMonth||1).padStart(2,'0')}-${String(m.birthDay||1).padStart(2,'0')}`
-                : null
-              const deathDate = m.deathYear
-                ? `${m.deathYear}-${String(m.deathMonth||1).padStart(2,'0')}-${String(m.deathDay||1).padStart(2,'0')}`
-                : null
-              const { data: newMember } = await supabase.from('artists').insert({
-                slug: finalSlug, name: m.name, type: 'solo',
-                // Country fallback chain: explicit member country → parent artist
-                // country (paveldim iš grupės) → NULL (NE default Lietuva).
-                // Anksčiau visi nauji members default'inai gaudavo 'Lietuva',
-                // todėl Magne Furuholmen (A-ha narys) DB tapo Lietuva atlikėju.
-                country: m.country || parentCountry || null,
-                cover_image_url: m.avatar || null,
-                active_from: m.yearStart ? parseInt(m.yearStart) : null,
-                active_until: m.yearEnd ? parseInt(m.yearEnd) : null,
-                description: m.description || null,
-                gender: m.gender || null,
-                birth_date: birthDate,
-                death_date: deathDate,
-                website: m.website || null,
-                facebook: m.facebook || null,
-                twitter: m.twitter || null, spotify: m.spotify || null,
-                youtube: m.youtube || null, soundcloud: m.soundcloud || null,
-                tiktok: m.tiktok || null, bandcamp: m.bandcamp || null,
-                is_active: true, is_verified: false, show_updated: false,
-                type_music: true, type_film: false, type_dance: false, type_books: false,
-              }).select('id').single()
-              if (newMember?.id) memberId = newMember.id
+            if (existing?.id) memberId = existing.id
+          } catch {}
+        }
+        // Backfill: jei member'is JAU egzistuoja, užpildom tuščius DB laukus
+        // Wiki info (nieko nepertašom, kas turi value). Tai svarbu re-import'ui
+        // — Brian May Wiki'oj turi country=UK, birth_date 1947-07-19, bet jei
+        // DB row'as šiuo metu turi tuščius laukus, importas užpildo.
+        if (memberId && (m.country || m.avatar || m.birthYear || m.deathYear || m.gender || m.roles?.length)) {
+          try {
+            const { data: cur } = await supabase
+              .from('artists')
+              .select('country, cover_image_url, birth_date, death_date, gender, roles, description, website')
+              .eq('id', memberId)
+              .single()
+            if (cur) {
+              const wiki = memberPayloadFromWiki(m, parentCountry)
+              const backfill: Record<string, any> = {}
+              if (!cur.country && wiki.country) backfill.country = wiki.country
+              if (!cur.cover_image_url && wiki.cover_image_url) backfill.cover_image_url = wiki.cover_image_url
+              if (!cur.birth_date && wiki.birth_date) backfill.birth_date = wiki.birth_date
+              if (!cur.death_date && wiki.death_date) backfill.death_date = wiki.death_date
+              if (!cur.gender && wiki.gender) backfill.gender = wiki.gender
+              if ((!cur.roles || (cur.roles as any[]).length === 0) && wiki.roles?.length) backfill.roles = wiki.roles
+              if (!cur.description && wiki.description) backfill.description = wiki.description
+              if (!cur.website && wiki.website) backfill.website = wiki.website
+              if (Object.keys(backfill).length > 0) {
+                await supabase.from('artists').update(backfill).eq('id', memberId)
+              }
             }
+          } catch (e: any) { console.warn('[PATCH member backfill] failed:', e?.message) }
+        }
+        // Sukuriame naują member'į jei dar neegzistuoja DB
+        if (!memberId && m.name) {
+          try {
+            const mSlug = m.name.toLowerCase().replace(/[ąä]/g,'a').replace(/[čç]/g,'c').replace(/[ęèėé]/g,'e').replace(/[į]/g,'i').replace(/[š]/g,'s').replace(/[ųū]/g,'u').replace(/[ž]/g,'z').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')
+            let finalSlug = mSlug
+            const { data: sc } = await supabase.from('artists').select('id').eq('slug', finalSlug).maybeSingle()
+            if (sc) finalSlug = `${mSlug}-${Date.now().toString(36)}`
+            const wiki = memberPayloadFromWiki(m, parentCountry)
+            const { data: newMember } = await supabase.from('artists').insert({
+              slug: finalSlug, name: m.name, type: 'solo',
+              ...wiki,
+              is_active: true, is_verified: false, show_updated: false,
+              type_music: true, type_film: false, type_dance: false, type_books: false,
+            }).select('id').single()
+            if (newMember?.id) memberId = newMember.id
           } catch (e: any) { console.error('PATCH create member error:', e.message) }
         }
         if (memberId) {

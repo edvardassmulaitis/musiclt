@@ -227,6 +227,8 @@ export async function POST(req: NextRequest) {
             soundcloud: m.soundcloud || null,
             bandcamp: m.bandcamp || null,
             twitter: m.twitter || null,
+            // Profesijos — Wiki occupation+instrument sujungti į vieną sąrašą.
+            roles: Array.isArray(m.roles) ? m.roles : null,
             is_active: true, is_verified: false, show_updated: false,
             type_music: true, type_film: false, type_dance: false, type_books: false,
           }).select('id').single()

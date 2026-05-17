@@ -40,6 +40,9 @@ type MemberFullData = {
   description: string
   genre: string
   substyles: string[]
+  // roles — Wiki P106 (occupation) + P1303 (instrument) sujungti į vieną
+  // sąrašą. Pildomas iš Wikidata, naudojamas artists.roles[] DB lauke.
+  roles: string[]
   website: string
   facebook: string; instagram: string; twitter: string
   spotify: string; youtube: string; soundcloud: string
@@ -121,7 +124,7 @@ async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
     avatar:'', country:'', yearStart:'', yearEnd:'',
     birthYear:'', birthMonth:'', birthDay:'',
     deathYear:'', deathMonth:'', deathDay:'', gender:'',
-    description:'', genre:'', substyles:[], website:'',
+    description:'', genre:'', substyles:[], roles:[], website:'',
     facebook:'', instagram:'', twitter:'', spotify:'',
     youtube:'', soundcloud:'', tiktok:'', bandcamp:'',
   }
@@ -200,6 +203,28 @@ async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
       } catch {}
     }
 
+    // Profesijos — P106 (occupation) + P1303 (instrument) sujungti į vieną sąrašą.
+    // Vienu wbgetentities call'u parsisiunčiame visus labels en kalba (pvz
+    // Q177220 → „singer", Q753110 → „songwriter", Q6168 → „guitar").
+    let roles: string[] = []
+    const occQids = all('P106').map((v:any)=>v?.id).filter(Boolean).slice(0,8)
+    const insQids = all('P1303').map((v:any)=>v?.id).filter(Boolean).slice(0,8)
+    const allRoleQids = [...new Set([...occQids, ...insQids])]
+    if (allRoleQids.length > 0) {
+      try {
+        const rlData = await (await fetch(
+          `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${allRoleQids.join('|')}&format=json&origin=*&languages=en&props=labels`
+        )).json()
+        const labels: string[] = allRoleQids.map((id:string)=>rlData.entities?.[id]?.labels?.en?.value).filter(Boolean)
+        // Dedupe case-insensitive
+        const seen = new Set<string>()
+        for (const l of labels) {
+          const k = l.toLowerCase()
+          if (!seen.has(k)) { seen.add(k); roles.push(l) }
+        }
+      } catch {}
+    }
+
 
 
     // Laukiame aprašymo
@@ -217,7 +242,7 @@ async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
       yearStart, yearEnd,
       birthYear: bdp.year, birthMonth: bdp.month, birthDay: bdp.day,
       deathYear: ddp.year, deathMonth: ddp.month, deathDay: ddp.day,
-      website, genre, substyles,
+      website, genre, substyles, roles,
       facebook: socials.facebook||'', instagram: socials.instagram||'',
       twitter: socials.twitter||'', spotify: socials.spotify||'',
       youtube: socials.youtube||'', soundcloud: socials.soundcloud||'',
@@ -700,12 +725,12 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         birthYear, birthMonth, birthDay,
         deathYear, deathMonth, deathDay,
         gender, avatar, website, photos:[],
-        // Solo atlikėjų infobox papildomi laukai — perduodami į ArtistFormData,
-        // saugomi į artists.roles ir artists.instruments. Anksčiau buvo
-        // ignoruojami, todėl Andrius Mamontovas / Mikutavičius / etc. po
-        // wiki import'o turėdavo tuščius „Veikla" + „Instrumentai" laukus.
-        roles: infoboxOccupations,
-        instruments: infoboxInstruments,
+        // Profesijos — sudedam Wiki occupation + instrument į vieną sąrašą.
+        // Anksčiau buvo du atskiri (roles + instruments), bet praktikoje
+        // skirstymas neaiškus („gitaristas" yra profesija ar instrumentas?),
+        // tad sujungta į vieną generic roles[] DB lauką.
+        roles: Array.from(new Set([...(infoboxOccupations || []), ...(infoboxInstruments || [])])),
+        instruments: [], // legacy field, paliekam tuščią — sujungta į roles
         ...socials,
       } as any)
 
@@ -749,6 +774,10 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       description: m.description || '',
       genre: m.genre || '',
       substyles: m.substyles || [],
+      // Profesijos (Wiki occupation+instrument sujungti) — propag'inam į DB
+      // narys-kuriant. Anksčiau praleisdavo, todėl Freddie Mercury sukurtas
+      // per Queen import'ą turėdavo tuščius Profesijos laukus.
+      roles: (m as any).roles || [],
       website: m.website || '',
       facebook: m.facebook || '', instagram: m.instagram || '', twitter: m.twitter || '',
       spotify: m.spotify || '', youtube: m.youtube || '', soundcloud: m.soundcloud || '',

@@ -1160,12 +1160,10 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType, 
             placeholder="MMMM" maxLength={4} inputMode="numeric"
             className="w-14 px-1 py-1 border border-[var(--text-faint)] rounded text-xs text-[var(--text-primary)] focus:outline-none focus:border-music-blue text-center" />
           {onToggle && (
-            <button type="button" onClick={()=>onToggle(i)} title={toggleIcon==='demote' ? 'Perkelti į buvusius' : 'Perkelti į dabartinius'}
-              className="text-[var(--text-muted)] hover:text-blue-600 transition-colors ml-0.5">
-              {toggleIcon==='demote'
-                ? <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 fill-current"><path d="M10 14l-5-5h10z"/></svg>
-                : <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 fill-current"><path d="M10 6l5 5H5z"/></svg>
-              }
+            <button type="button" onClick={()=>onToggle(i)}
+              title={toggleIcon==='demote' ? 'Perkelti į „Buvę nariai"' : 'Perkelti į „Dabartiniai nariai"'}
+              className="px-1.5 py-0.5 ml-0.5 rounded text-[10px] font-semibold text-[var(--text-muted)] hover:text-blue-600 hover:bg-blue-50 border border-[var(--text-faint)] transition-colors whitespace-nowrap">
+              {toggleIcon==='demote' ? '→ buvęs' : '→ dabartinis'}
             </button>
           )}
           <button type="button" onClick={()=>onRemove(i)} className="text-red-400 hover:text-red-600 font-bold text-base ml-1">×</button>
@@ -1766,14 +1764,14 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 <ArtistSearch label="Grupės" ph="Ieškoti grupės..." items={form.groups||[]}
                   onAdd={addGroup} onRemove={rmGroup} onYears={upGroup} filterType="group" />
               </div>
-              {/* Profesijos + Instrumentai — užpildoma WikipediaImport, gali būti
-                  ir manualiai redaguojama. Saugoma artists.roles / artists.instruments
-                  (text[] DB). Pavyzdžiai: dainininkas, dainų autorius, gitaristas,
-                  prodiuseris, vokalas, fortepijonas. */}
-              <TagListInput label="Profesijos" placeholder="dainininkas, dainų autorius..."
+              {/* Profesijos — viena vieta visiems Wiki infobox occupation +
+                  instrument laukams. Anksčiau buvo du atskiri (Profesijos +
+                  Instrumentai), bet praktikoje nesusiformavo aiški linija
+                  („vokalas" yra instrumentas ar profesija? „gitaristas"?).
+                  Sujungta į vieną generic chip list, saugoma DB į artists.roles[].
+                  Wiki import'as sudeda BOTH occupation + instrument values čia. */}
+              <TagListInput label="Profesijos" placeholder="dainininkas, gitaristas, prodiuseris..."
                 values={form.roles || []} onChange={v => set('roles', v)} />
-              <TagListInput label="Instrumentai" placeholder="vokalas, gitara, fortepijonas..."
-                values={form.instruments || []} onChange={v => set('instruments', v)} />
             </div>
           )}
 
@@ -1795,18 +1793,21 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                     filterType="solo" />
                   {currentMembers.length === 0 && <p className="text-xs text-[var(--text-faint)] italic">Nėra dabartinių narių</p>}
                 </div>
-                {pastMembers.length > 0 && (
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Buvę nariai</label>
-                    <ArtistSearch label="Buvę" ph="Ieškoti atlikėjo..." items={pastMembers}
-                      onAdd={(a) => addMember(a, false)}
-                      onRemove={(fi) => rmMember(realIdx(pastMembers, fi))}
-                      onYears={(fi, f, v) => upMember(realIdx(pastMembers, fi), f, v)}
-                      onToggle={(fi) => toggleMemberCurrent(realIdx(pastMembers, fi))}
-                      toggleIcon="promote"
-                      filterType="solo" />
-                  </div>
-                )}
+                {/* Visada rodom „Buvę nariai" sekciją — net jei tuščia, kad
+                    admin'as galėtų tiesiogiai pridėti past member'į, o ne tik
+                    pavertinti esamą per toggle. Anksčiau sekcija buvo paslėpta,
+                    kai pastMembers.length === 0. */}
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Buvę nariai</label>
+                  <ArtistSearch label="Buvę" ph="Ieškoti atlikėjo..." items={pastMembers}
+                    onAdd={(a) => addMember(a, false)}
+                    onRemove={(fi) => rmMember(realIdx(pastMembers, fi))}
+                    onYears={(fi, f, v) => upMember(realIdx(pastMembers, fi), f, v)}
+                    onToggle={(fi) => toggleMemberCurrent(realIdx(pastMembers, fi))}
+                    toggleIcon="promote"
+                    filterType="solo" />
+                  {pastMembers.length === 0 && <p className="text-xs text-[var(--text-faint)] italic">Nėra buvusių narių</p>}
+                </div>
               </div>
             )
           })()}
