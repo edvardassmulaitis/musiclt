@@ -769,7 +769,7 @@ type Props = {
 
 // ─── Tab tipai ────────────────────────────────────────────────────────────────
 
-type ActiveTab = 'studio' | 'other' | 'singles' | 'songs' | 'pending'
+type ActiveTab = 'studio' | 'other' | 'singles' | 'songs' | 'pending' | 'db-only'
 
 /**
  * Detektuoja album'o tipą iš pavadinimo heuristikomis.
@@ -892,6 +892,21 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   // Pending music.lt-only records — gauti iš DB, ne iš Wiki. Rodom kaip
   // 4-tą tab'ą su Patvirtinti/Trinti action'ais.
   const [pendingAlbums, setPendingAlbums] = useState<PendingAlbum[]>([])
+  // 'Tik DB' tab — aktyvūs DB album'ai, kurių Wiki neturi savo diskografijoje
+  // (pvz Pre Ordained 1971 — music.lt scrape įrašytas pre-debut demo, Wiki
+  // jo nelaiko official discography dalimi). Admin'as gali peržiūrėti +
+  // delete/hide.
+  type DbOnlyAlbum = {
+    id: number
+    title: string
+    year: number | null
+    type: string
+    legacy_id: number | null
+    likes_count: number
+    comments_count: number
+    cover_image_url: string | null
+  }
+  const [dbOnlyAlbums, setDbOnlyAlbums] = useState<DbOnlyAlbum[]>([])
   const [pendingTracks, setPendingTracks] = useState<PendingTrack[]>([])
 
   const [log, setLog] = useState<string[]>([])
@@ -958,6 +973,26 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         })
       setPendingAlbums(pAlb)
       setPendingTracks(pTrk)
+      // Active DB albums (not pending) — 'Tik DB' tab kandidatai.
+      // Po Wiki search'o paliekam tik tuos, kurie nesutapo su Wiki tracks
+      // (computed in render via useMemo, filtering against items[].duplicateId).
+      const dbOnly: DbOnlyAlbum[] = albs
+        .filter(a => a.source !== 'legacy_scrape_pending')
+        .map(a => {
+          const types = ['type_studio', 'type_ep', 'type_compilation', 'type_live', 'type_remix', 'type_covers', 'type_soundtrack', 'type_demo']
+          const dbType = types.find(k => a[k]) || 'type_studio'
+          return {
+            id: a.id,
+            title: a.title,
+            year: a.year || null,
+            type: dbType.replace('type_', ''),
+            legacy_id: a.legacy_id || null,
+            likes_count: 0, // populated separately if needed
+            comments_count: 0,
+            cover_image_url: a.cover_image_url || null,
+          }
+        })
+      setDbOnlyAlbums(dbOnly)
       if (pAlb.length || pTrk.length) {
         addLog(`📋 Music.lt rasta: ${pAlb.length} albumų + ${pTrk.length} dainų — žiūrėk "Music.lt rasta" tab'e`)
       }
@@ -2615,6 +2650,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
   const pendingActive = pendingAlbums.filter(p => !p.imported && !p.deleted).length
                        + pendingTracks.filter(p => !p.imported && !p.deleted).length
+
+  // 'Tik DB' filter — aktyvūs DB albumai, kurių Wiki neturi (nera items array
+  // su duplicateId=db_id). Pvz Pre Ordained 1971 — egzistuoja DB iš music.lt
+  // scrape, bet Wiki Queen diskografijoje jo nera. Admin gali rev/delete/hide.
+  const wikiMatchedIds = new Set<number>(items.map(it => it.duplicateId).filter((x): x is number => typeof x === 'number'))
+  const dbOnlyOrphans = dbOnlyAlbums.filter(a => !wikiMatchedIds.has(a.id))
+
   const tabDef: { id: ActiveTab; label: string; count: number; newCount: number; imported: number; hasNew: boolean; showAlways?: boolean }[] = [
     { id: 'studio', label: 'Studijiniai', count: tabCounts.studio, newCount: tabNew.studio, imported: tabImported.studio, hasNew: tabHasNew.studio },
     { id: 'other', label: 'Kiti albumai', count: tabCounts.other, newCount: tabNew.other, imported: tabImported.other, hasNew: tabHasNew.other },
@@ -2622,6 +2664,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     // Music.lt only — pending DB record'ai (legacy_scrape_pending). Wiki canonical
     // sąraše jų nėra, bet music.lt scrape rado. Patvirtinti = aktyvuoti, Trinti = pašalinti.
     { id: 'pending' as ActiveTab, label: 'Music.lt rasta', count: pendingAlbums.length + pendingTracks.length, newCount: pendingActive, imported: 0, hasNew: pendingActive > 0, showAlways: pendingAlbums.length + pendingTracks.length > 0 },
+    // Tik DB — aktyvus DB albums kurie nesutapo su jokia Wiki įrašu. Admin gali
+    // delete arba hide; arba palikti (gali būti pre-debut demo ar pan).
+    { id: 'db-only' as ActiveTab, label: 'Tik DB (ne Wiki)', count: dbOnlyOrphans.length, newCount: 0, imported: 0, hasNew: false, showAlways: dbOnlyOrphans.length > 0 },
   ]
 
   const hasContent = items.length > 0 || songs.length > 0
@@ -3127,6 +3172,99 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 </>
               )}
 
+              {/* ── Tik DB tab — DB album'ai, kurių Wiki neturi ── */}
+              {activeTab === 'db-only' && !loading && (
+                <>
+                  {dbOnlyOrphans.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-sm text-gray-500 font-medium mb-1">Visi DB albums turi Wiki match'us</p>
+                      <p className="text-[11px] text-gray-400">Nieko tvarkyti — Wiki canonical sąrašas pilnai atitinka DB</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-lg bg-orange-50 border border-orange-200 px-3 py-2 text-[12px] text-orange-700 mb-2">
+                        <strong>Tik DB — Wiki neturi</strong> — šie album'ai aktyvūs DB (matomi viešai), bet Wikipedia jų neaprašo savo diskografijoje (gali būti pre-debut demo'os, music.lt scrape klaidos ar pan.). Patikrink ar verta — × ištrina, 🚫 paslepia future Wiki importams.
+                      </div>
+                      <div className="space-y-1">
+                        {dbOnlyOrphans.map(d => (
+                          <div key={`dbo-${d.id}`} className="rounded-lg border border-orange-200 bg-orange-50/30 px-3 py-2 flex items-center gap-2">
+                            {d.cover_image_url && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={d.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-9 h-9 rounded object-cover shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[13px] font-medium text-gray-900 truncate">{d.title}</span>
+                                <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold shrink-0">{d.type}</span>
+                                {d.year && <span className="text-[11px] text-gray-400 shrink-0">{d.year}</span>}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <a href={`/admin/albums/${d.id}`} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">
+                                  DB →
+                                </a>
+                                {d.legacy_id && (
+                                  <a href={`https://www.music.lt/lt/albumas/x/${d.legacy_id}/`} target="_blank" rel="noreferrer"
+                                    className="text-[10px] text-orange-500 hover:underline">
+                                    music.lt ↗
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                            {/* Delete + Hide — reuse existing handlers via id+title shim */}
+                            <button type="button"
+                              onClick={async () => {
+                                if (!confirm(`Paslėpti "${d.title}"? Future Wiki importai jo neberodys.`)) return
+                                try {
+                                  const res = await fetch(`/api/albums/${d.id}/wiki-status`, {
+                                    method: 'PATCH', headers: {'Content-Type':'application/json'},
+                                    body: JSON.stringify({ status: 'cleared' }),
+                                  })
+                                  const j = await res.json().catch(() => ({}))
+                                  if (j.migration_pending) {
+                                    addLog(`⚠ Hide reikia migracijos 20260515h. Iki tol — session-only.`)
+                                  } else if (!res.ok) {
+                                    addLog(`✗ ${d.title}: hide nepavyko (${res.status})`)
+                                    return
+                                  } else {
+                                    addLog(`🚫 ${d.title} paslėpta (cleared)`)
+                                  }
+                                  setDbOnlyAlbums(prev => prev.filter(x => x.id !== d.id))
+                                } catch (e: any) {
+                                  addLog(`✗ ${d.title}: ${e.message}`)
+                                }
+                              }}
+                              title="Paslėpti šį album'ą kaip 'sutvarkyta' — future Wiki importai nerodys"
+                              className="shrink-0 px-1.5 py-1 rounded text-[11px] text-gray-400 hover:text-orange-500 hover:bg-orange-100 transition-colors">
+                              🚫
+                            </button>
+                            <button type="button"
+                              onClick={async () => {
+                                if (!confirm(`Ištrinti album'ą "${d.title}" iš DB?\n\nKartu bus ištrintos jo dainos, jei jos nepriklauso kitiems albums.\n\nVeiksmas negali būti atšauktas.`)) return
+                                try {
+                                  const res = await fetch(`/api/albums/${d.id}?deleteTracks=true`, { method: 'DELETE' })
+                                  if (!res.ok) {
+                                    addLog(`✗ ${d.title}: delete nepavyko (${res.status})`)
+                                    return
+                                  }
+                                  addLog(`🗑 ${d.title} ištrintas iš DB`)
+                                  setDbOnlyAlbums(prev => prev.filter(x => x.id !== d.id))
+                                  window.dispatchEvent(new CustomEvent('discography-updated'))
+                                } catch (e: any) {
+                                  addLog(`✗ ${d.title}: ${e.message}`)
+                                }
+                              }}
+                              title="Ištrinti šį album'ą iš DB visam (su jo dainomis, jei nenaudojamos kitur)"
+                              className="shrink-0 px-1.5 py-1 rounded text-[11px] text-gray-400 hover:text-red-500 hover:bg-red-100 transition-colors">
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
               {/* Log */}
               {log.length > 0 && (
                 <div ref={logRef} className="bg-gray-950 rounded-xl p-3 font-mono text-[11px] text-emerald-400 max-h-24 overflow-y-auto leading-relaxed">
@@ -3141,6 +3279,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {activeTab === 'pending' ? (
                 <div className="flex-1 py-2 sm:py-2.5 text-center text-xs text-gray-500">
                   Patvirtink / trink iš sąrašo aukščiau
+                </div>
+              ) : activeTab === 'db-only' ? (
+                <div className="flex-1 py-2 sm:py-2.5 text-center text-xs text-gray-500">
+                  Šie album'ai DB yra, bet Wiki diskografijoje nera — sutvarkyk per × / 🚫
                 </div>
               ) : activeTab === 'singles' ? (
                 <button onClick={importSongs} disabled={importing || songSelectedCount === 0}
