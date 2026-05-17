@@ -448,6 +448,9 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
   const [saved, setSaved] = useState(false)
   const [tab, setTab] = useState<'info' | 'tracks'>('info')
   const [isMobile, setIsMobile] = useState(false)
+  // Track original artist_id — kad galėtume detektuoti transfer'į (kai admin
+  // keičia atlikėją) ir paklausti, ar perkelti ir dainas.
+  const [originalArtistId, setOriginalArtistId] = useState<number | null>(null)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024)
@@ -472,6 +475,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         formRef.current = loaded
         if (data.artists?.name) { setArtistName(data.artists.name); setArtistId(data.artist_id); setArtistAvatar(data.artists.avatar || data.artists.cover_image_url || '') }
         if (data.featured_artists) setFeaturedArtists(data.featured_artists)
+        if (data.artist_id) setOriginalArtistId(data.artist_id)
       })
     }
   }, [id, isAdmin])
@@ -545,6 +549,26 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
     const cur = formRef.current
     if (!cur.title.trim()) { setError('Pavadinimas privalomas'); return }
     if (!cur.artist_id) { setError('Pasirinkite atlikėją'); return }
+
+    // ── ARTIST TRANSFER DETECTION ─────────────────────────────────────────
+    // Jei admin'as pakeitė album'o atlikėją (pvz Queen → Queen + Paul Rodgers),
+    // klausiame ar perkelti ir visus album'o tracks. Plus warning'as, jei
+    // dainos linkint'os ir į kitus albumus.
+    const artistChanged = !isNew && originalArtistId != null && cur.artist_id !== originalArtistId
+    let cascadeTracks = false
+    let skipShared = true
+    if (artistChanged) {
+      const trackCount = (cur.tracks || []).length
+      const sharedTrackIds = (cur.tracks || [])
+        .filter(t => (t as any).albums && Array.isArray((t as any).albums) && (t as any).albums.length > 1)
+      const sharedCount = sharedTrackIds.length
+      const promptMsg = sharedCount > 0
+        ? `Album'o atlikėjas keičiasi į id=${cur.artist_id}.\n\nAr perkelti ir ${trackCount} dainas šitam atlikėjui?\n\n⚠ ${sharedCount} dainos linkint'os ir į kitus albumus (gali paveikti):\n  - Pasirink OK = perkelti TIK unique dainas (saugesnis variantas)\n  - Pasirink Cancel = palikti visas dainas senam atlikėjui (album'as perkeliamas atskirai)`
+        : `Album'o atlikėjas keičiasi į id=${cur.artist_id}.\n\nAr perkelti ir visas ${trackCount} dainas šitam atlikėjui?\n\n  - OK = perkelti visas dainas\n  - Cancel = perkelti tik album'ą, dainas palikti senam atlikėjui`
+      cascadeTracks = confirm(promptMsg)
+      // skipShared lieka true — niekada netriname kitų atlikėjų albumų state'o
+    }
+
     setSaving(true); setError('')
     try {
       const payload = { ...cur, featured_artist_ids: featuredArtistsRef.current.map(a => a.id) }
@@ -555,10 +579,38 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
+
+      // Po album save — jei artist'as keitėsi ir admin'as pasirinko cascade,
+      // kviečiame transfer-artist endpoint'ą tracks cascade'ui.
+      if (artistChanged && cascadeTracks) {
+        const tres = await fetch(`/api/albums/${id}/transfer-artist`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            target_artist_id: cur.artist_id,
+            cascade_tracks: true,
+            skip_shared: skipShared,
+          }),
+        })
+        const tdata = await tres.json()
+        if (!tres.ok) {
+          setError(`Album išsaugotas, bet tracks transfer nepavyko: ${tdata.error}`)
+        } else {
+          const msg = `✓ Album'as perkeltas. Dainos perkeltos: ${tdata.tracks_updated}` +
+                      (tdata.tracks_skipped_shared > 0 ? ` (praleista ${tdata.tracks_skipped_shared} shared)` : '')
+          // Show in saved state for visibility
+          alert(msg)
+        }
+        // Update originalArtistId, kad antras save nepakartotų prompt'o
+        setOriginalArtistId(cur.artist_id)
+      } else if (artistChanged) {
+        // Admin'as pasirinko NEcascade — tik album_id pakeistas, dainos liko
+        setOriginalArtistId(cur.artist_id)
+      }
+
       setSaved(true); setTimeout(() => setSaved(false), 2000)
       if (isNew) router.push(`/admin/albums/${data.id}`)
     } catch (e: any) { setError(e.message) } finally { setSaving(false) }
-  }, [id, isNew])
+  }, [id, isNew, originalArtistId])
 
   const handleDelete = async () => {
     if (!confirm(`Ištrinti albumą "${form.title}"?`)) return
