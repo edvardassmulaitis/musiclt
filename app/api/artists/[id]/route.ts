@@ -47,21 +47,23 @@ export async function GET(
   try {
     const { data: members } = await supabase
       .from('artist_members')
-      .select('member_id, year_from, year_to, artists!artist_members_member_id_fkey(id, name, type, slug, cover_image_url)')
+      .select('member_id, year_from, year_to, is_current, artists!artist_members_member_id_fkey(id, name, type, slug, cover_image_url)')
       .eq('group_id', id)
     for (const m of members || []) {
       const a = (m as any).artists
-      if (a) related.push({ id: m.member_id, name: a.name, type: a.type || 'solo', slug: a.slug, cover_image_url: a.cover_image_url, yearFrom: m.year_from ? String(m.year_from) : '', yearTo: m.year_to ? String(m.year_to) : '' })
+      // isCurrent flag'as — kritinis past_members atskyrimui form'oje.
+      // Anksčiau GET'as jo negrąžindavo, todėl po save'inimo visi tapdavo „Dabartiniai".
+      if (a) related.push({ id: m.member_id, name: a.name, type: a.type || 'solo', slug: a.slug, cover_image_url: a.cover_image_url, yearFrom: m.year_from ? String(m.year_from) : '', yearTo: m.year_to ? String(m.year_to) : '', isCurrent: (m as any).is_current !== false })
     }
   } catch {}
   try {
     const { data: groups } = await supabase
       .from('artist_members')
-      .select('group_id, year_from, year_to, artists!artist_members_group_id_fkey(id, name, type, slug, cover_image_url)')
+      .select('group_id, year_from, year_to, is_current, artists!artist_members_group_id_fkey(id, name, type, slug, cover_image_url)')
       .eq('member_id', id)
     for (const g of groups || []) {
       const a = (g as any).artists
-      if (a) related.push({ id: g.group_id, name: a.name, type: a.type || 'group', slug: a.slug, cover_image_url: a.cover_image_url, yearFrom: g.year_from ? String(g.year_from) : '', yearTo: g.year_to ? String(g.year_to) : '' })
+      if (a) related.push({ id: g.group_id, name: a.name, type: a.type || 'group', slug: a.slug, cover_image_url: a.cover_image_url, yearFrom: g.year_from ? String(g.year_from) : '', yearTo: g.year_to ? String(g.year_to) : '', isCurrent: (g as any).is_current !== false })
     }
   } catch {}
 
@@ -250,7 +252,10 @@ export async function PATCH(
             group_id: parseInt(id), member_id: memberId,
             year_from: m.yearFrom ? parseInt(m.yearFrom) : null,
             year_to:   m.yearTo   ? parseInt(m.yearTo)   : null,
-            is_current: !m.yearTo,
+            // Respect'inam explicit isCurrent flag'ą (iš form/Wiki import);
+            // fallback į !yearTo tik jei flag'as nepateiktas. Kitaip
+            // past_members be year'ų visi tampa current.
+            is_current: m.isCurrent !== undefined ? !!m.isCurrent : !m.yearTo,
           })
         }
       }

@@ -243,6 +243,55 @@ function DateRow({ label, y, m, d, onY, onM, onD }: any) {
   )
 }
 
+// ── TagListInput — chip-style tag editor for text[] DB columns ───────────────
+// Naudojamas solo atlikėjų roles + instruments laukam (Wiki occupation /
+// instrument infobox). Vartotojas spausdina vardus, atskirtus enter'iu arba
+// kableliu — kiekvienas tampa chip'u su × pašalinti.
+function TagListInput({ label, placeholder, values, onChange }: {
+  label: string; placeholder?: string; values: string[]; onChange: (v: string[]) => void
+}) {
+  const [input, setInput] = useState('')
+  const add = (raw: string) => {
+    const parts = raw.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean)
+    if (!parts.length) return
+    const next = [...values]
+    for (const p of parts) {
+      if (!next.some(v => v.toLowerCase() === p.toLowerCase())) next.push(p)
+    }
+    onChange(next)
+    setInput('')
+  }
+  const remove = (idx: number) => onChange(values.filter((_, i) => i !== idx))
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">{label}</label>
+      <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border border-[var(--input-border)] rounded-lg bg-[var(--bg-surface)] min-h-[2.25rem]">
+        {values.map((v, i) => (
+          <span key={`${v}-${i}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
+            {v}
+            <button type="button" onClick={() => remove(i)} className="text-blue-400 hover:text-red-500" aria-label={`Pašalinti ${v}`}>×</button>
+          </span>
+        ))}
+        <input
+          type="text"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ',') {
+              e.preventDefault(); add(input)
+            } else if (e.key === 'Backspace' && !input && values.length) {
+              remove(values.length - 1)
+            }
+          }}
+          onBlur={() => { if (input.trim()) add(input) }}
+          placeholder={values.length ? '' : (placeholder || '+ pridėti')}
+          className="flex-1 min-w-[8rem] bg-transparent outline-none text-xs text-[var(--text-primary)]"
+        />
+      </div>
+    </div>
+  )
+}
+
 // ── ImageCropper ──────────────────────────────────────────────────────────────
 type CropResult = { square: Blob; original: Blob }
 
@@ -1717,6 +1766,14 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 <ArtistSearch label="Grupės" ph="Ieškoti grupės..." items={form.groups||[]}
                   onAdd={addGroup} onRemove={rmGroup} onYears={upGroup} filterType="group" />
               </div>
+              {/* Profesijos + Instrumentai — užpildoma WikipediaImport, gali būti
+                  ir manualiai redaguojama. Saugoma artists.roles / artists.instruments
+                  (text[] DB). Pavyzdžiai: dainininkas, dainų autorius, gitaristas,
+                  prodiuseris, vokalas, fortepijonas. */}
+              <TagListInput label="Profesijos" placeholder="dainininkas, dainų autorius..."
+                values={form.roles || []} onChange={v => set('roles', v)} />
+              <TagListInput label="Instrumentai" placeholder="vokalas, gitara, fortepijonas..."
+                values={form.instruments || []} onChange={v => set('instruments', v)} />
             </div>
           )}
 

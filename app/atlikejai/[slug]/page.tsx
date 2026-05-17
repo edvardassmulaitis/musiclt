@@ -599,7 +599,9 @@ async function getMembers(id: number) {
     .select('member_id, year_from, year_to, is_current, artists:member_id(id, slug, name, cover_image_url, type)')
     .eq('group_id', id)
   return (data || [])
-    .map((r: any) => ({ ...(r.artists || {}), member_from: r.year_from, member_until: r.is_current ? null : r.year_to }))
+    // Pridedam is_current explicit'ai — kitaip past narys be year_to (Wiki
+    // past_members be metų) display'us traktuoja kaip dabartinį.
+    .map((r: any) => ({ ...(r.artists || {}), member_from: r.year_from, member_until: r.is_current ? null : r.year_to, is_current: r.is_current !== false }))
     .filter((m: any) => m.id)
 }
 
@@ -613,7 +615,7 @@ async function getMemberOf(id: number) {
     .select('group_id, year_from, year_to, is_current, artists:group_id(id, slug, name, cover_image_url, type)')
     .eq('member_id', id)
   return (data || [])
-    .map((r: any) => ({ ...(r.artists || {}), member_from: r.year_from, member_until: r.is_current ? null : r.year_to }))
+    .map((r: any) => ({ ...(r.artists || {}), member_from: r.year_from, member_until: r.is_current ? null : r.year_to, is_current: r.is_current !== false }))
     .filter((g: any) => g.id)
 }
 

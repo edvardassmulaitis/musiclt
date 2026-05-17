@@ -119,6 +119,12 @@ export async function POST(req: NextRequest) {
       // NB: 'photos' column DROPPED (db-cleanup-atlanta.sql). Photo data
       // dabar gyvena artist_photos lentelėje per /api/artists/[id]/photos PUT.
       show_updated:       d.show_updated ?? false,
+      // Solo atlikėjų infobox laukai iš Wiki — singer/songwriter/guitarist
+      // ir t.t. text[] DB. Anksčiau POST'as juos ignoruodavo, todėl naujam
+      // atlikėjui per Wiki import niekada neįsisaugodavo. PUT'as priimdavo
+      // (per allowlist) — tik POST buvo praleista.
+      roles:              Array.isArray(d.roles) ? d.roles : null,
+      instruments:        Array.isArray(d.instruments) ? d.instruments : null,
       // ── Social links ────────────────────────────────────────────────────────
       facebook:           d.facebook   || null,
       youtube:            d.youtube    || null,
@@ -250,7 +256,10 @@ export async function POST(req: NextRequest) {
           group_id: artistId, member_id: memberId,
           year_from: m.yearFrom ? parseInt(m.yearFrom) : null,
           year_to:   m.yearTo   ? parseInt(m.yearTo)   : null,
-          is_current: !m.yearTo,
+          // Wiki import / form'a perduoda explicit isCurrent flag'ą — naudojam jį,
+          // tada fallback'ina į !yearTo heuristic'ą jei flag'as neperduotas.
+          // Kitaip past_members be konkrečių metų visi tampa current.
+          is_current: m.isCurrent !== undefined ? !!m.isCurrent : !m.yearTo,
         })
       }
     }
