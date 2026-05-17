@@ -111,7 +111,8 @@ export async function POST(req: NextRequest) {
       type_film:          d.type_film ?? false,
       type_dance:         d.type_dance ?? false,
       type_books:         d.type_books ?? false,
-      photos:             d.photos || [],
+      // NB: 'photos' column DROPPED (db-cleanup-atlanta.sql). Photo data
+      // dabar gyvena artist_photos lentelėje per /api/artists/[id]/photos PUT.
       show_updated:       d.show_updated ?? false,
       // ── Social links ────────────────────────────────────────────────────────
       facebook:           d.facebook   || null,
@@ -217,7 +218,6 @@ export async function POST(req: NextRequest) {
             twitter: m.twitter || null,
             is_active: true, is_verified: false, show_updated: false,
             type_music: true, type_film: false, type_dance: false, type_books: false,
-            photos: [],
           }).select('id').single()
           if (newMember?.id) {
             memberId = newMember.id
@@ -288,7 +288,6 @@ export async function POST(req: NextRequest) {
               tiktok: g.tiktok || null, bandcamp: g.bandcamp || null,
               is_active: true, is_verified: false, show_updated: false,
               type_music: true, type_film: false, type_dance: false, type_books: false,
-              photos: [],
             }).select('id').single()
             // Žanras
             if (newGroup?.id && g.genre) {

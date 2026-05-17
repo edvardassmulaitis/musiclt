@@ -239,7 +239,8 @@ export async function POST(req: NextRequest) {
       birth_date:      birthDate,
       is_active:       true,
       is_verified:     false,
-      photos:          [],
+      // NB: 'photos' column DROPPED (db-cleanup-atlanta.sql). Photos gyvena
+      // artist_photos lentelėje per /api/artists/[id]/photos endpoint'ą.
       // wiki_url not in DB schema — stored in response only
     }
 
