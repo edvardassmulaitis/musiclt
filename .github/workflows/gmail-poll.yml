@@ -1,0 +1,49 @@
+name: Gmail poll
+
+# 2x per parą — vienas batch (max 10 messages) per call'ą. Gmail rate
+# limit ne'spaudžia, mes ribojami pagal Anthropic API quota'ą Sonnet
+# normalize'e (kiekvienas press release = ~1 Sonnet call).
+#
+# Cron'ai atskiri nuo news/events scout'ų, kad neperkrautume Vercel
+# function'os tame pačiame tail'e.
+on:
+  schedule:
+    - cron: '0 9 * * *'    # 11:00 EET ryto
+    - cron: '0 21 * * *'   # 23:00 EET vakaro
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (pranešk skaičius, bet nepost'ink į ingest)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  run-poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call gmail-poll endpoint
+        run: |
+          echo "Calling: ${{ secrets.MUSICLT_BASE_URL }}/api/internal/gmail-poll"
+          response=$(curl -sS -w "\n%{http_code}" \
+            -X POST "${{ secrets.MUSICLT_BASE_URL }}/api/internal/gmail-poll" \
+            -H "Authorization: Bearer ${{ secrets.INTERNAL_CRON_TOKEN }}" \
+            --max-time 90)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP $http_code"
+          echo "$body" | head -c 3000
+          echo
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::gmail-poll returned non-200"
+            exit 1
+          fi
+
+          posted=$(echo "$body" | grep -oP '"posted":\K\d+' || echo "?")
+          fetched=$(echo "$body" | grep -oP '"fetched":\K\d+' || echo "?")
+          errors=$(echo "$body" | grep -oP '"errors":\K\d+' || echo "?")
+          echo "::notice::gmail-poll → fetched=$fetched posted=$posted errors=$errors"
