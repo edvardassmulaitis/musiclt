@@ -247,8 +247,13 @@ function DateRow({ label, y, m, d, onY, onM, onD }: any) {
 // Naudojamas solo atlikėjų roles + instruments laukam (Wiki occupation /
 // instrument infobox). Vartotojas spausdina vardus, atskirtus enter'iu arba
 // kableliu — kiekvienas tampa chip'u su × pašalinti.
-function TagListInput({ label, placeholder, values, onChange }: {
+//
+// `labelMap` neprivalomas — jei perduotas, chip'as rodo labelMap[v.toLowerCase()]
+// kaip display label (su canonical kaip tooltip). Naudojama Sritys laukui,
+// kad admin'as matytų LT vertimą iš role_translations lentelės.
+function TagListInput({ label, placeholder, values, onChange, labelMap }: {
   label: string; placeholder?: string; values: string[]; onChange: (v: string[]) => void
+  labelMap?: Record<string, string>
 }) {
   const [input, setInput] = useState('')
   const add = (raw: string) => {
@@ -266,12 +271,20 @@ function TagListInput({ label, placeholder, values, onChange }: {
     <div>
       <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">{label}</label>
       <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border border-[var(--input-border)] rounded-lg bg-[var(--bg-surface)] min-h-[2.25rem]">
-        {values.map((v, i) => (
-          <span key={`${v}-${i}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
-            {v}
-            <button type="button" onClick={() => remove(i)} className="text-blue-400 hover:text-red-500" aria-label={`Pašalinti ${v}`}>×</button>
-          </span>
-        ))}
+        {values.map((v, i) => {
+          const tr = labelMap?.[v.toLowerCase()]
+          const display = tr || v
+          return (
+            <span
+              key={`${v}-${i}`}
+              title={tr ? `${v} → ${tr}` : v}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-xs font-medium"
+            >
+              {display}
+              <button type="button" onClick={() => remove(i)} className="text-blue-400 hover:text-red-500" aria-label={`Pašalinti ${v}`}>×</button>
+            </span>
+          )
+        })}
         <input
           type="text"
           value={input}
@@ -1524,6 +1537,18 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   const [form, setForm] = useState<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
   const [dupWarning, setDupWarning] = useState<{id:string;name:string;slug:string;type:string;country:string;cover_image_url:string|null}[]>([])
   const dupTimer = useRef<ReturnType<typeof setTimeout>|null>(null)
+  // Sričių (roles) LT vertimai — fetch'inami vieną kartą, naudojami
+  // TagListInput'e kaip labelMap, kad admin'as matytų LT label tiesiogiai
+  // chip'uose (canonical EN lieka kaip tooltip + duomenų sluoksnyje).
+  const [roleLabelMap, setRoleLabelMap] = useState<Record<string, string>>({})
+  useEffect(() => {
+    fetch('/api/admin/role-translations').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d?.items) return
+      const map: Record<string, string> = {}
+      for (const it of d.items) if (it.lt) map[it.canonical] = it.lt
+      setRoleLabelMap(map)
+    }).catch(() => {})
+  }, [])
 
   const formRef = useRef<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
 
@@ -1771,7 +1796,8 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   vieną generic chip list, saugoma DB į artists.roles[]. Wiki
                   import'as sudeda BOTH occupation + instrument values čia. */}
               <TagListInput label="Sritys" placeholder="dainininkas, gitaristas, prodiuseris..."
-                values={form.roles || []} onChange={v => set('roles', v)} />
+                values={form.roles || []} onChange={v => set('roles', v)}
+                labelMap={roleLabelMap} />
             </div>
           )}
 
