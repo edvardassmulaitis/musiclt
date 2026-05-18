@@ -119,6 +119,10 @@ type Props = {
    *  When empty, auto-decade grouping kicks in if albums.count ≥ 10 AND
    *  ≥3 decades have ≥2 albums; otherwise flat grid is used. */
   eras?: Era[]
+  /** Sritys (occupation+instrument) — jau pritaikyti LT vertimai, dedup'inta
+   *  pagal display label'į, hidden values atfiltruoti. Rodom kaip chip'us
+   *  infobox sekcijoje, jei sąrašas non-empty. */
+  displayRoles?: string[]
 }
 /** Custom era — single period in an artist's career. */
 type Era = {
@@ -2206,7 +2210,7 @@ function Hero({
 // ── SideInfo: card beside bio with Kilmė / Stilius / Klausyk ───────
 
 function SideInfo({
-  artist, flag, genres, substyles, ranks, links, website, horizontal = false,
+  artist, flag, genres, substyles, ranks, links, website, horizontal = false, displayRoles = [],
 }: {
   artist: any; flag: string; genres: Genre[]; substyles: Genre[]
   ranks: Rank[]
@@ -2215,6 +2219,10 @@ function SideInfo({
    *  sit as a full-width strip instead of a tall right sidebar. Used when
    *  bio is short/empty to avoid wasted vertical space. */
   horizontal?: boolean
+  /** Sritys (occupation+instrument) — jau pritaikyti LT vertimai, dedup'inta
+   *  pagal label'į, hidden values atfiltruoti. Rodom kaip muted chip'us po
+   *  Stiliai. */
+  displayRoles?: string[]
 }) {
   const countryRank = ranks.find(r => r.scope === 'country')
   const genreRank = ranks.find(r => r.scope === 'genre')
@@ -2415,6 +2423,17 @@ function SideInfo({
             ))}
           </div>
         )}
+        {/* Sritys — chip strip po substyles (horizontal/mobile variantas). */}
+        {displayRoles.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {displayRoles.map(r => (
+              <span
+                key={r}
+                className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]"
+              >{r}</span>
+            ))}
+          </div>
+        )}
         {/* Bio facts: veiklos periodas + gimimo/mirties data + amžius
             (+ zodiakas). Visi teksto stiliai vieningi su likusiu strip'u —
             Outfit, no italic, no spalvotos emoji. */}
@@ -2490,6 +2509,23 @@ function SideInfo({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Sritys — solo atlikėjo occupation+instrument iš Wiki, jau pritaikyti
+          LT vertimai + dedup'inta pagal label'į. Rodom kaip muted chip'us
+          (be link'o — kol kas tik info). */}
+      {displayRoles.length > 0 && (
+        <div>
+          <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Sritys</div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {displayRoles.map(r => (
+              <span
+                key={r}
+                className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)]"
+              >{r}</span>
+            ))}
+          </div>
         </div>
       )}
 
@@ -4252,7 +4288,7 @@ export default function ArtistProfileClient({
   artist, heroImage, genres, substyles = [], links, photos, albums, tracks, members, memberOf = [], followers, likeCount,
   events, similar, newTracks,
   legacyCommunity, legacyThreads = [], legacyNews = [], ranks = [],
-  linkedTrackIds = [], awards = [], eras = [],
+  linkedTrackIds = [], awards = [], eras = [], displayRoles = [],
 }: Props) {
   const [pid, setPid] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -5086,6 +5122,7 @@ export default function ArtistProfileClient({
                     links={links}
                     website={artist.website}
                     horizontal
+                    displayRoles={displayRoles}
                   />
                 </div>
               )}
@@ -5119,6 +5156,7 @@ export default function ArtistProfileClient({
                         ranks={ranks}
                         links={links}
                         website={artist.website}
+                        displayRoles={displayRoles}
                       />
                     )}
                     {artist.score !== null && artist.score !== undefined && (

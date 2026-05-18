@@ -628,6 +628,45 @@ async function getSubstyles(id: number): Promise<{ id: number; name: string }[]>
     .eq('artist_id', id)
   return (data || []).map((r: any) => r.substyles).filter(Boolean)
 }
+
+/** Sritys — solo atlikėjo occupation+instrument iš Wiki (artists.roles[]).
+ *  Pritaikom role_translations LT vertimus + hidden filter'į + dedupe pagal
+ *  resultinį label'į (kad „guitar" + „guitarist" + „bass guitar" + „bass
+ *  guitarist" netaptų 4× „Gitara" — paliekam 1 iš jų). Canonical'us, kurie
+ *  neturi vertimo, rodom kaip yra (capitalized first letter).
+ *
+ *  Returns array of display labels in canonical insertion order (stabilus
+ *  per render'ius), atfilter'inant hidden ir dedup'inant.
+ */
+async function getDisplayRoles(rawRoles: string[] | null | undefined): Promise<string[]> {
+  if (!rawRoles || rawRoles.length === 0) return []
+  const canonicals = rawRoles.map(r => String(r || '').trim().toLowerCase()).filter(Boolean)
+  if (!canonicals.length) return []
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('role_translations')
+    .select('canonical, lt, hidden')
+    .in('canonical', canonicals)
+  const trMap = new Map<string, { lt: string | null; hidden: boolean }>()
+  for (const t of (data || [])) trMap.set(t.canonical, { lt: t.lt, hidden: !!t.hidden })
+
+  const result: string[] = []
+  const seenLower = new Set<string>()
+  for (const raw of rawRoles) {
+    const c = String(raw || '').trim().toLowerCase()
+    if (!c) continue
+    const tr = trMap.get(c)
+    if (tr?.hidden) continue
+    const label = tr?.lt && tr.lt.trim()
+      ? tr.lt.trim()
+      : (raw.charAt(0).toUpperCase() + raw.slice(1))
+    const key = label.toLowerCase()
+    if (seenLower.has(key)) continue
+    seenLower.add(key)
+    result.push(label)
+  }
+  return result
+}
 async function getFollowers(id: number) { const sb = createAdminClient(); const { count } = await sb.from('artist_follows').select('*', { count: 'exact', head: true }).eq('artist_id', id); return count || 0 }
 async function getLikeCount(id: number) {
   const sb = createAdminClient()
@@ -920,8 +959,8 @@ export default async function ArtistPage({ params }: Props) {
  * <50ms iš cache'o.
  */
 const fetchArtistData = unstable_cache(
-  async (artistId: number, country: string | null, score: number) => {
-    const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount, news, rawEvents, _allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards, eras] = await Promise.all([
+  async (artistId: number, country: string | null, score: number, rawRoles: string[] | null) => {
+    const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount, news, rawEvents, _allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards, eras, displayRoles] = await Promise.all([
       getGenres(artistId), getSubstyles(artistId), getLinks(artistId), getPhotos(artistId), getAlbums(artistId), getTracks(artistId),
       getMembers(artistId), getMemberOf(artistId), getFollowers(artistId), getLikeCount(artistId), getNews(artistId), getEvents(artistId),
       getAllArtistTrackLegacyIds(artistId),
@@ -930,6 +969,7 @@ const fetchArtistData = unstable_cache(
       getLinkedTrackIds(artistId),
       getArtistAwards(artistId),
       getArtistEras(artistId),
+      getDisplayRoles(rawRoles),
     ])
     const linkedTrackIds = Array.from(linkedTrackIdSet)
     const albumIds = (albums as any[]).map((a: any) => a.id).filter((x: any) => typeof x === 'number')
@@ -949,11 +989,11 @@ const fetchArtistData = unstable_cache(
     return {
       genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount,
       news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards, eras,
-      similar, legacyCommunity, ranks, lastPostsArr,
+      similar, legacyCommunity, ranks, lastPostsArr, displayRoles,
     }
   },
-  // v5 — bumped po artist_eras pridėjimo (Push 3b)
-  ['artist-full-data-v5'],
+  // v6 — bumped po displayRoles pridėjimo
+  ['artist-full-data-v6'],
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
@@ -962,11 +1002,12 @@ async function ArtistContent({ artist }: { artist: any }) {
     artist.id,
     artist.country || null,
     (artist as any).score || 0,
+    (artist as any).roles || null,
   )
   const {
     genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount,
     news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards, eras,
-    similar, legacyCommunity, ranks, lastPostsArr,
+    similar, legacyCommunity, ranks, lastPostsArr, displayRoles,
   } = data
   const memberOf = (data as any).memberOf || []
   const links = buildSocialLinks(artist, tableLinks as { platform: string; url: string }[])
@@ -1092,6 +1133,7 @@ async function ArtistContent({ artist }: { artist: any }) {
       linkedTrackIds={linkedTrackIds}
       awards={awards}
       eras={eras as any}
+      displayRoles={displayRoles}
     />
     </>
   )
