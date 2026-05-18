@@ -203,6 +203,62 @@ function parseFeaturedArtists(fullLine: string): string[] {
   return artists
 }
 
+// ─── Wiki table cell helpers ──────────────────────────────────────────────────
+// 2026-05-18: parseSinglesSection Year-first formato lūžio fix.
+// MediaWiki table cell'ai: `|attrs|content` arba `|content`. Naive `split('|')`
+// laužia (a) wiki link rename'us [[Page|Display]], (b) {{templates|args}},
+// (c) cell attributes prieš content. Reikia depth-aware split + attr-segment skip.
+
+/**
+ * Split wiki table row line on cell delimiters `|`, preserving `[[wiki|links]]`
+ * ir `{{templates|args}}` kuriose `|` naudojamas viduje.
+ */
+function splitWikiCells(line: string): string[] {
+  const out: string[] = []
+  let depth = 0
+  let buf = ''
+  let i = 0
+  if (line.startsWith('|') && !line.startsWith('||')) i = 1
+  while (i < line.length) {
+    const c = line[i], c2 = line[i+1]
+    if ((c === '[' && c2 === '[') || (c === '{' && c2 === '{')) { depth++; buf += c + c2; i += 2; continue }
+    if ((c === ']' && c2 === ']') || (c === '}' && c2 === '}')) { depth = Math.max(0, depth - 1); buf += c + c2; i += 2; continue }
+    if (depth === 0 && c === '|' && c2 === '|') { if (buf.trim()) out.push(buf.trim()); buf = ''; i += 2; continue }
+    if (depth === 0 && c === '|') { if (buf.trim()) out.push(buf.trim()); buf = ''; i++; continue }
+    buf += c; i++
+  }
+  if (buf.trim()) out.push(buf.trim())
+  return out
+}
+
+/** Skip leading cell-attribute segments (align=, rowspan=, style=, ...). */
+function findContentSegIdx(segs: string[]): number {
+  let idx = 0
+  while (idx < segs.length) {
+    if (/^(?:[a-z-]+\s*=\s*(?:["'][^"']*["']|\d+)\s*)+$/i.test(segs[idx])) { idx++; continue }
+    break
+  }
+  return idx
+}
+
+/**
+ * Parse year line accepting `|YEAR`, `|attrs|YEAR`, `|rowspan="N"|YEAR`,
+ * `|align="center" rowspan=4|YEAR`. Returns {year, rowspan} or null.
+ */
+function parseYearCellLine(line: string): { year: number; rowspan: number } | null {
+  const segs = splitWikiCells(line)
+  if (segs.length === 0) return null
+  const idx = findContentSegIdx(segs)
+  let rowspan = 1
+  for (let k = 0; k < idx; k++) {
+    const rsM = segs[k].match(/rowspan\s*=\s*["']?(\d+)["']?/i)
+    if (rsM) rowspan = parseInt(rsM[1])
+  }
+  if (idx >= segs.length) return null
+  const yM = segs[idx].match(/^((?:19|20)\d{2})$/)
+  return yM ? { year: parseInt(yM[1]), rowspan } : null
+}
+
 // ─── Singlų parsavimas ────────────────────────────────────────────────────────
 // Palaiko du Wikipedia formatus:
 //   A) "Title-first": ! scope="row"| "Title" → kita eilutė = metai (Queen stilius)
@@ -465,11 +521,13 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
     // ── Eilutė su | duomenimis ────────────────────────────────────────────────
     if (line.startsWith('|') && !line.startsWith('||')) {
 
-      // Metų eilutė: |1973  arba  |rowspan="3"|1974  arba  | rowspan=3| 1974
-      const yearM = line.match(/^\|\s*(?:rowspan\s*=\s*["']?(\d+)["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
-      if (yearM) {
-        currentYear = parseInt(yearM[2])
-        yearRowspan = yearM[1] ? parseInt(yearM[1]) : 1
+      // Metų eilutė: |1973  arba  |rowspan="3"|1974  arba  |align="center"|1985
+      // arba  |align="center" rowspan=4|1985 — naudoti parseYearCellLine
+      // helper'į kad cell attributes nebūtų laikomi non-year content'u.
+      const yc = parseYearCellLine(line)
+      if (yc) {
+        currentYear = yc.year
+        yearRowspan = yc.rowspan
         if (pendingTitle && pendingYearLine) {
           const titleParts = pendingTitle.split('\n').filter(t => t.length > 1)
           for (const t of titleParts) {
@@ -490,55 +548,93 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         const lineClean = line
           .replace(/<small[^>]*>[\s\S]*?<\/small>/gi, '')
           .replace(/\{\{(?:efn(?:-[a-z]+)?|notetag|note|ref|sfn)[^{}]*\}\}/gi, '')
-        const allSegs = lineClean.split('|').map(s => s.trim()).filter(Boolean)
+        // 2026-05-18: BUG fix — naive `split('|')` laužia wiki link rename'us
+        // [[Page|Display]] į du segments + nepraleidžia leading cell attributes
+        // `align="left"`. Naudojam splitWikiCells (depth-aware) + findContentSegIdx
+        // (attr-skip). Freddie Mercury Singles formato fix.
+        const allSegs = splitWikiCells(lineClean)
         if (allSegs.length === 0) continue
+        const titleIdx = findContentSegIdx(allSegs)
+        if (titleIdx >= allSegs.length) continue
+        const firstSeg = allSegs[titleIdx]
 
-        const firstSeg = allSegs[0]
-
-        let title = ''
-        const quotedM = firstSeg.match(/^"([^"]+)"\s*(.*)/)
-        if (quotedM) {
-          const rawSuffix = quotedM[2].replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/\[\d+\]/g, '').trim()
-          const simpleSuffix = rawSuffix.match(/^(\([^)]{1,50}\))/)
-          title = simpleSuffix ? `${quotedM[1]} ${simpleSuffix[1]}` : quotedM[1]
-        } else {
-          // Wiki link be kursyvo — bet tik jei nėra ''...'' (kursyvas = albumas)
+        // Surinkti VISAS "..." quoted dalis iš firstSeg — palaiko "X" / "Y"
+        // dvigubus singlus (Larry Lurex 1973 "I Can Hear Music" / "Goin' Back").
+        // Kiekvieną quoted segmentą valom per cleanWikiText (link rename → display).
+        const titleParts: string[] = []
+        const quotedAll = firstSeg.matchAll(/"([^"]+)"/g)
+        for (const qm of quotedAll) {
+          const inner = qm[1]
+          const linkM = inner.match(/^\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]\s*(.*)$/)
+          const t = (linkM ? cleanWikiText(linkM[2] || linkM[1]) + (linkM[3] || '') : cleanWikiText(inner)).trim()
+          if (t && t.length > 1) titleParts.push(t)
+        }
+        // Jei be kabučių — wiki link only (kai kurios lentelės naudoja just [[Title]])
+        if (titleParts.length === 0) {
           if (/^''/.test(firstSeg)) continue  // kursyvas = albumas, skip
           const wm = firstSeg.match(/^\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-          if (wm) title = cleanWikiText(wm[2] || wm[1])
+          if (wm) {
+            const t = cleanWikiText(wm[2] || wm[1]).trim()
+            if (t && t.length > 1) titleParts.push(t)
+          }
         }
+        if (titleParts.length === 0) continue
 
-        if (!title || title.length < 2) continue
-        if (/^\d{4}/.test(title) || /^\d+$/.test(title)) continue
+        // Filter junk
+        const filtered = titleParts.filter(t => {
+          if (/^\d{4}/.test(t) || /^\d+$/.test(t)) return false
+          if (/\bedition\b|\bcollection\b|\banniversary\b|\bcollector\b|\bgreatest.?hits\b|\bsoundtrack\b|\bofficial.?charts?\b|\bcharts?\s+company\b/i.test(t)) return false
+          if (/\bE\.?P\.?\s*$/i.test(t)) return false
+          if (/^(see also|notes?|references?)\s*$/i.test(t)) return false
+          return true
+        }).map(t => t.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()).filter(t => t.length > 1)
+        if (filtered.length === 0) continue
 
-        // Skip jei tai albumas/organizacija, ne daina
-        if (/\bedition\b|\bcollection\b|\banniversary\b|\bcollector\b|\bgreatest.?hits\b|\bsoundtrack\b|\bofficial.?charts?\b|\bcharts?\s+company\b/i.test(title)) continue
-        if (/\bE\.?P\.?\s*$/i.test(title)) continue
-        // Skip jei tai aiški non-single eilutė (pvz. "See also", "Notes")
-        if (/^(see also|notes?|references?)\s*$/i.test(title)) continue
-
-        // Pašalinti tik (re-release) ir (re-issue) — NE (Remix), NE (2024 Mix)
-        title = title.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
-
-        // Albumas — paskutinis segmentas su wiki link arba italics
+        // Albumas — pirma ieškom kituose cell'uose (same line), tada lookahead
+        // į kitas N eilutes (Freddie Mercury format'as — album cell ant atskiros
+        // eilutės po chart positions).
         let albumTitle: string | undefined
-        for (let sp = allSegs.length - 1; sp > 0; sp--) {
-          const seg = allSegs[sp]
-          if (/Non-album/i.test(seg)) { albumTitle = 'Non-album single'; break }
+        const scanSegForAlbum = (seg: string): string | undefined => {
+          if (/Non-album/i.test(seg)) return 'Non-album single'
           const am = seg.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
           if (am) {
             const p = cleanWikiText(am[2] || am[1])
-            if (p && p !== title && !/^\d+$/.test(p) && !/^[-–—]$/.test(p)) { albumTitle = p; break }
+            if (p && !filtered.some(t => t === p) && !/^\d+$/.test(p) && !/^[-–—]$/.test(p) && p.length > 2) return p
           }
-          // Italics be wiki link: ''Album''
           const im = seg.match(/'{2,3}([^']+)'{2,3}/)
           if (im) {
             const p = cleanWikiText(im[1])
-            if (p && p !== title && p.length > 1) { albumTitle = p; break }
+            if (p && !filtered.some(t => t === p) && p.length > 2) return p
+          }
+          return undefined
+        }
+        for (let sp = allSegs.length - 1; sp > titleIdx; sp--) {
+          const found = scanSegForAlbum(allSegs[sp])
+          if (found) { albumTitle = found; break }
+        }
+        // Lookahead į kitas eilutes (Freddie format'as — album ant atskiros eilutės)
+        if (!albumTitle) {
+          for (let k = i + 1; k < Math.min(i + 25, lines.length); k++) {
+            const nl = lines[k]
+            if (nl.trim() === '|-' || nl.startsWith('|}') || nl.startsWith('!') || nl.startsWith('{|') || /^==+/.test(nl)) break
+            if (!/^\|/.test(nl) || /^\|\|/.test(nl)) continue
+            const nlClean = nl.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<small[^>]*>[\s\S]*?<\/small>/gi, '')
+            const nlSegs = splitWikiCells(nlClean)
+            const nlIdx = findContentSegIdx(nlSegs)
+            if (nlIdx >= nlSegs.length) continue
+            const content = nlSegs[nlIdx]
+            // Skip if it's a chart position number, dash, empty, or year
+            if (/^[-–—]$/.test(content) || /^\d{1,3}$/.test(content) || /^(?:19|20)\d{2}$/.test(content) || content === '') continue
+            // Skip certifications block (UK: Gold etc.)
+            if (/^[*•]\s*[A-Z]{2,3}\s*:/m.test(content)) continue
+            const found = scanSegForAlbum(content)
+            if (found) { albumTitle = found; break }
           }
         }
 
-        singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: false })
+        for (const t of filtered) {
+          singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: false })
+        }
       }
     }
   }
