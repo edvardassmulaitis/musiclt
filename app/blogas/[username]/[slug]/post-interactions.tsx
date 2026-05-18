@@ -4,8 +4,11 @@ import { useState } from 'react'
 type Comment = {
   id: string
   content: string
+  content_html?: string | null   // legacy komentarai turi rich HTML
   created_at: string
   profiles: any
+  source?: 'modern' | 'legacy'   // discriminator iš getPostComments
+  like_count?: number
 }
 
 export default function PostInteractions({ postId, initialLikeCount, initialComments }: { postId: string; initialLikeCount: number; initialComments: Comment[] }) {
@@ -102,11 +105,30 @@ export default function PostInteractions({ postId, initialLikeCount, initialComm
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#b0bdd4]">{profile?.full_name || profile?.username || 'Vartotojas'}</span>
-                      <span className="text-[10px] text-[#334058]">{new Date(c.created_at).toLocaleDateString('lt-LT')}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {profile?.username ? (
+                        <a href={`/vartotojas/${profile.username}`} className="text-xs font-bold text-[#b0bdd4] hover:text-[#f97316] transition">
+                          {profile?.full_name || profile?.username || 'Vartotojas'}
+                        </a>
+                      ) : (
+                        <span className="text-xs font-bold text-[#b0bdd4]">{profile?.full_name || profile?.username || 'Vartotojas'}</span>
+                      )}
+                      <span className="text-[10px] text-[#334058]">{new Date(c.created_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                      {c.source === 'legacy' && (
+                        <span className="text-[9px] font-semibold uppercase tracking-wider text-[#5e7290] bg-white/[.04] border border-white/[.06] rounded-full px-1.5 py-0.5" title="Importuota iš senos music.lt">archyvas</span>
+                      )}
+                      {!!c.like_count && c.like_count > 0 && (
+                        <span className="text-[10px] text-[#5e7290]">♥ {c.like_count}</span>
+                      )}
                     </div>
-                    <p className="text-sm text-[#5e7290] mt-0.5 leading-relaxed">{c.content}</p>
+                    {c.content_html ? (
+                      <div
+                        className="text-sm text-[#b0bdd4] mt-1 leading-relaxed legacy-comment"
+                        dangerouslySetInnerHTML={{ __html: c.content_html }}
+                      />
+                    ) : (
+                      <p className="text-sm text-[#5e7290] mt-0.5 leading-relaxed whitespace-pre-wrap">{c.content}</p>
+                    )}
                   </div>
                 </div>
               )

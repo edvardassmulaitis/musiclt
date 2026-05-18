@@ -6,10 +6,104 @@ export async function getProfileByUsername(username: string) {
   const sb = createAdminClient()
   const { data } = await sb
     .from('profiles')
-    .select('id, email, full_name, username, avatar_url, bio, website, social_twitter, social_spotify, social_youtube, social_tiktok, is_public, cover_image_url, created_at')
+    .select(`
+      id, email, full_name, username, avatar_url, bio, website,
+      social_twitter, social_spotify, social_youtube, social_tiktok,
+      is_public, is_claimed, provider, cover_image_url, created_at,
+      legacy_user_id, joined_legacy_at, legacy_karma_points, is_vip_legacy,
+      legacy_age, legacy_city, mood_song_track_id, mood_song_set_at,
+      last_seen_legacy_at
+    `)
     .ilike('username', username)
     .single()
   return data
+}
+
+// ── DAILY SONG PICKS ─────────────────────────────────────────
+export async function getDailySongPicks(userId: string, limit = 20) {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('daily_song_picks')
+    .select(`
+      id, picked_on, comment, like_count, legacy_track_id, track_id,
+      tracks:track_id(id, slug, title, artist_id, artists:artist_id(id, slug, name, cover_image_url))
+    `)
+    .eq('author_id', userId)
+    .order('picked_on', { ascending: false })
+    .limit(limit)
+  return (data || []) as any[]
+}
+
+export async function getDailySongPicksCount(userId: string): Promise<number> {
+  const sb = createAdminClient()
+  const { count } = await sb
+    .from('daily_song_picks')
+    .select('*', { count: 'exact', head: true })
+    .eq('author_id', userId)
+  return count || 0
+}
+
+// ── USER CONTENT STATS ───────────────────────────────────────
+export async function getUserContentStats(userId: string) {
+  const sb = createAdminClient()
+  const [diaryRes, translateRes, creationRes, dailyRes, commentsRes] = await Promise.all([
+    sb.from('blog_posts').select('*', { count: 'exact', head: true })
+      .eq('user_id', userId).eq('legacy_source', 'diary'),
+    sb.from('blog_posts').select('*', { count: 'exact', head: true })
+      .eq('user_id', userId).eq('legacy_source', 'translate'),
+    sb.from('blog_posts').select('*', { count: 'exact', head: true })
+      .eq('user_id', userId).eq('legacy_source', 'creation'),
+    sb.from('daily_song_picks').select('*', { count: 'exact', head: true })
+      .eq('author_id', userId),
+    (async () => {
+      const { data: posts } = await sb
+        .from('blog_posts').select('id').eq('user_id', userId)
+      const ids = (posts || []).map((p: any) => p.id)
+      if (!ids.length) return { count: 0 }
+      const { count } = await sb
+        .from('comments').select('*', { count: 'exact', head: true })
+        .in('blog_post_id', ids)
+      return { count: count || 0 }
+    })(),
+  ])
+  return {
+    diary: diaryRes.count || 0,
+    translate: translateRes.count || 0,
+    creation: creationRes.count || 0,
+    daily_picks: dailyRes.count || 0,
+    comments_received: commentsRes.count || 0,
+  }
+}
+
+// ── MOOD SONG ─────────────────────────────────────────────────
+export async function getMoodSongTrack(trackId: number | null) {
+  if (!trackId) return null
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('tracks')
+    .select('id, slug, title, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .eq('id', trackId)
+    .single()
+  return data as any
+}
+
+// ── TRANSLATIONS BY USER ─────────────────────────────────────
+export async function getUserTranslations(userId: string, limit = 20) {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('blog_posts')
+    .select(`
+      id, slug, title, summary, published_at, like_count, comment_count,
+      target_artist_id, target_track_id,
+      target_artist:target_artist_id(id, slug, name),
+      target_track:target_track_id(id, slug, title),
+      blogs:blog_id(slug)
+    `)
+    .eq('user_id', userId)
+    .eq('legacy_source', 'translate')
+    .order('published_at', { ascending: false })
+    .limit(limit)
+  return (data || []) as any[]
 }
 
 export async function getProfileById(id: string) {
@@ -241,15 +335,49 @@ export async function hasUserLikedPost(postId: string, userId: string) {
 }
 
 // ── COMMENTS ────────────────────────────────────────────────
+// Blog post komentarai turi du source'us:
+//   1. `blog_comments` — modern editor'iaus rašyti (post_id, user_id, content)
+//   2. `comments` (canonical) — importuoti iš senos music.lt, link'inti per
+//      blog_post_id FK su content_html/body laukais ir author_id.
+// Šis helper'is sumerge'ina abu šaltinius ir grąžina unified shape'ą.
 export async function getPostComments(postId: string) {
   const sb = createAdminClient()
-  const { data } = await sb
-    .from('blog_comments')
-    .select('id, content, created_at, profiles:user_id(id, full_name, username, avatar_url)')
-    .eq('post_id', postId)
-    .eq('is_deleted', false)
-    .order('created_at', { ascending: true })
-  return data || []
+  const [modernRes, legacyRes] = await Promise.all([
+    sb.from('blog_comments')
+      .select('id, content, created_at, profiles:user_id(id, full_name, username, avatar_url)')
+      .eq('post_id', postId)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: true }),
+    sb.from('comments')
+      .select('id, body, content_html, created_at, like_count, music_attachments, profiles:author_id(id, full_name, username, avatar_url)')
+      .eq('blog_post_id', postId)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: true }),
+  ])
+  const modern = (modernRes.data || []).map((c: any) => ({
+    id: `m_${c.id}`,
+    content: c.content,
+    content_html: null,
+    created_at: c.created_at,
+    profiles: c.profiles,
+    source: 'modern' as const,
+    like_count: 0,
+  }))
+  const legacy = (legacyRes.data || []).map((c: any) => ({
+    id: `l_${c.id}`,
+    content: c.body || '',
+    content_html: c.content_html || null,
+    created_at: c.created_at,
+    profiles: c.profiles,
+    source: 'legacy' as const,
+    like_count: c.like_count || 0,
+    music_attachments: c.music_attachments,
+  }))
+  // Merge + sort by date asc
+  const merged = [...modern, ...legacy].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  )
+  return merged
 }
 
 export async function addComment(postId: string, userId: string, content: string) {

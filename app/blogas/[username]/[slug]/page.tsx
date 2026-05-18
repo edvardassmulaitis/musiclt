@@ -7,7 +7,7 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getPost, getPostRelatedArtists, getReviewTargetInfo } from '@/lib/supabase-blog'
+import { getPost, getPostRelatedArtists, getReviewTargetInfo, getPostComments } from '@/lib/supabase-blog'
 import { proxyImg } from '@/lib/img-proxy'
 import { PostContent } from './post-content'
 import PostInteractions from './post-interactions'
@@ -35,7 +35,10 @@ export default async function PostPage({ params }: { params: Promise<{ username:
   if (!post) notFound()
 
   const postType: BlogPostType = (post.post_type as BlogPostType) || 'article'
-  const artists = await getPostRelatedArtists(post.id)
+  const [artists, initialComments] = await Promise.all([
+    getPostRelatedArtists(post.id),
+    getPostComments(post.id),
+  ])
 
   const targetInfo = (postType === 'review' || postType === 'translation' || postType === 'event')
     ? await getReviewTargetInfo({
@@ -168,7 +171,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
 
           {/* Interactions (likes + comments) */}
           <div className="mt-10 pt-6 border-t border-white/[.05]">
-            <PostInteractions postId={post.id} initialLikeCount={post.like_count || 0} initialComments={[]} />
+            <PostInteractions postId={post.id} initialLikeCount={post.like_count || 0} initialComments={initialComments as any} />
           </div>
         </div>
       </article>
