@@ -37,6 +37,21 @@ export async function POST(req: NextRequest) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Early bailout — be OAuth credentials Gmail API neveiks. Graceful degradation:
+  // grąžinam 503 su clear error code, UI'as gali parodyti setup paaiškinimą
+  // ir nedaryti retry'ų.
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REFRESH_TOKEN) {
+    return NextResponse.json({
+      error: 'oauth_not_configured',
+      message: 'Gmail OAuth credentials missing in Vercel env. Reikia setup\'inti: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN. Be jų attachment fetch neveikia (tiek backfill, tiek new ingestion).',
+      candidates_scanned: 0,
+      candidates_processed: 0,
+      processed: 0,
+      failed: 0,
+      candidates_with_images: 0,
+    }, { status: 503 })
+  }
+
   const body = await req.json().catch(() => ({}))
   const limit = Math.max(1, Math.min(25, typeof body.limit === 'number' ? body.limit : 10))
   const onlyId: number | undefined = typeof body.candidate_id === 'number' ? body.candidate_id : undefined

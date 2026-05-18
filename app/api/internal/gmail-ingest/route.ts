@@ -227,13 +227,19 @@ export async function POST(req: NextRequest) {
 
   const messageId: string | undefined = typeof body.message_id === 'string' ? body.message_id.trim() : undefined
 
-  if (messageId) {
+  const hasOAuth = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN)
+
+  if (messageId && hasOAuth) {
     const r = await processMessageAttachments(supabase, inserted.id, messageId)
     attachmentsProcessed = r.processed
     attachmentsFailed = r.failed
     if (r.errors.length > 0) {
       console.warn('[gmail-ingest] attachment errors:', r.errors)
     }
+  } else if (messageId && !hasOAuth) {
+    // Tylus skip — be OAuth Gmail API neveiks, paliekam attachmentsProcessed=0.
+    // Foto vis tiek galima pridėt manualiai per /admin/inbox modal'ą.
+    console.warn('[gmail-ingest] Gmail OAuth not configured — skipping attachment fetch')
   } else {
     // Fallback'as — base64 array iš worker'io
     const inlineAttachments: any[] = Array.isArray(body.attachments) ? body.attachments : []

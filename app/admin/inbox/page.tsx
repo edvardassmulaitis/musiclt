@@ -244,10 +244,10 @@ export default function AdminInboxPage() {
   }, [status, isAdmin, router, load])
 
   // Auto-trigger Gmail attachment backfill once per browser session.
-  // Backfill endpoint'as idempotent — skipina jau processed'us. Running silently
-  // background'e, kad senesni Gmail candidate'ai (ingest'inti su senu endpoint'u)
-  // gautų foto be manualinio mygtuko.
-  const [backfillStats, setBackfillStats] = useState<{ scanned: number; processed: number; with_images: number } | null>(null)
+  // Idempotent — skipina jau processed'us. Be Gmail OAuth (env vars Vercel'yje)
+  // endpoint'as grąžina 503 'oauth_not_configured' — auto-trigger tada tyli,
+  // tik manualus DEBUG button parodo paaiškinimą.
+  const [backfillStats, setBackfillStats] = useState<{ scanned: number; processed: number; with_images: number; oauth_missing?: boolean } | null>(null)
   useEffect(() => {
     if (status !== 'authenticated' || !isAdmin) return
     if (sessionStorage.getItem('gmail_attachments_backfill_done') === '1') return
@@ -264,22 +264,29 @@ export default function AdminInboxPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ limit: 10 }),
           })
+          if (res.status === 503) {
+            // OAuth missing — pažymim, kad rodom UI message; nedarom retry'ų
+            const data = await res.json().catch(() => ({}))
+            if (data?.error === 'oauth_not_configured' && !cancelled) {
+              setBackfillStats({ scanned: 0, processed: 0, with_images: 0, oauth_missing: true })
+            }
+            sessionStorage.setItem('gmail_attachments_backfill_done', '1')
+            return
+          }
           if (!res.ok) break
           const data = await res.json()
           totalScanned += data.candidates_processed || 0
           totalProcessed += data.processed || 0
           totalWithImages += data.candidates_with_images || 0
-          // Sustojam kai nieko neapdorota arba nebeliko candidate'ų
           if ((data.candidates_processed || 0) === 0) break
         }
         sessionStorage.setItem('gmail_attachments_backfill_done', '1')
         if (!cancelled && totalScanned > 0) {
           setBackfillStats({ scanned: totalScanned, processed: totalProcessed, with_images: totalWithImages })
-          // Jei rado nors vieną — reload kortelės su naujom foto'om
           if (totalProcessed > 0) load()
         }
       } catch {
-        // Silent fail — button likę manual fallback'ui
+        // Silent fail
       }
     })()
     return () => { cancelled = true }
@@ -559,9 +566,18 @@ export default function AdminInboxPage() {
 
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3">
         <InboxTabs />
-        {backfillStats && (
+        {backfillStats && backfillStats.oauth_missing && (
+          <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900">
+            <strong>📷 Gmail foto fetch:</strong> NEVEIKIA, nes Vercel\'yje neset\'inti Gmail OAuth credentials.
+            Reikia: <code className="bg-amber-100 px-1 rounded">GOOGLE_CLIENT_ID</code>,{' '}
+            <code className="bg-amber-100 px-1 rounded">GOOGLE_CLIENT_SECRET</code>,{' '}
+            <code className="bg-amber-100 px-1 rounded">GOOGLE_REFRESH_TOKEN</code>.
+            Foto kortelėse nebus auto-fetch\'inamos, bet gali manualiai pridėti per Peržiūrėti modal\'ą.
+          </div>
+        )}
+        {backfillStats && !backfillStats.oauth_missing && (
           <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
-            📷 Gmail foto auto-backfill: nuskan'iuota {backfillStats.scanned} kandidatų ·
+            📷 Gmail foto auto-backfill: nuskan\'iuota {backfillStats.scanned} kandidatų ·
             ✓ {backfillStats.processed} foto pridėta į {backfillStats.with_images} kandidatų.
             {backfillStats.processed === 0 && ' Nieko nerasta — gali būti, kad press release email\'ai be image attachment\'ų (vietoj jų inline HTML).'}
           </div>
