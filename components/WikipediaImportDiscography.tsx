@@ -2821,9 +2821,44 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       ) : (() => {
                         const ltLabel = (k: string) => k === 'video' ? 'video' : k === 'data' ? 'data' : k === 'lyrics' ? 'žodžiai' : k
                         return (
-                          <span className="text-[9px] font-semibold text-amber-700 shrink-0" title={`Trūksta: ${trackComplete.missing.map(ltLabel).join(', ')}`}>
-                            ⚠ {trackComplete.missing.map(ltLabel).join(', ')}
-                          </span>
+                          <>
+                            <span className="text-[9px] font-semibold text-amber-700 shrink-0" title={`Trūksta: ${trackComplete.missing.map(ltLabel).join(', ')}`}>
+                              ⚠ {trackComplete.missing.map(ltLabel).join(', ')}
+                            </span>
+                            {/* Inline "instr" toggle — jei tik 'lyrics' missing ir track type='normal',
+                                admin gali greitai pažymėti kaip instrumental (Wiki parser dažnai
+                                nepamato — pvz Queen "Procession", "Drowse" intros). Po klikiausimo
+                                lyrics check'as praleidžiamas → track tampa ✓ pilnas. */}
+                            {trackComplete.missing.length === 1 && trackComplete.missing[0] === 'lyrics' && trackComplete.type === 'normal' && (
+                              <button type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  if (!confirm(`Pažymėti "${trackComplete.title}" kaip instrumental?\n\nLyrics check'as bus praleidžiamas — daina taps ✓ pilna.`)) return
+                                  try {
+                                    const res = await fetch(`/api/tracks/${trackComplete.id}`, {
+                                      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ type: 'instrumental' }),
+                                    })
+                                    if (!res.ok) { addLog(`✗ ${trackComplete.title}: ${res.status}`); return }
+                                    addLog(`🎹 ${trackComplete.title} → instrumental`)
+                                    // Re-fetch album completeness, kad UI atsinaujintų
+                                    if (it.duplicateId) {
+                                      const r = await fetch(`/api/albums/${it.duplicateId}/completeness`)
+                                      if (r.ok) {
+                                        const d = await r.json()
+                                        if (d?.completeness) {
+                                          setItems(p => p.map((x, idx) => idx === i ? { ...x, completeness: d.completeness } : x))
+                                        }
+                                      }
+                                    }
+                                  } catch (e: any) { addLog(`✗ ${e.message}`) }
+                                }}
+                                title="Pažymėti kaip instrumental — lyrics check'as bus praleidžiamas"
+                                className="text-[9px] font-medium text-violet-600 hover:bg-violet-50 px-1 rounded shrink-0">
+                                🎹 instr?
+                              </button>
+                            )}
+                          </>
                         )
                       })()
                     )}
