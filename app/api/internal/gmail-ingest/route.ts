@@ -298,6 +298,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Mark candidate'as kaip patikrintas attachment'ų atžvilgiu (success or empty)
+  // — apsaugo nuo re-process'inimo per backfill endpoint'ą.
+  await supabase
+    .from('news_candidates')
+    .update({ attachments_checked_at: new Date().toISOString() })
+    .eq('id', inserted.id)
+
   return NextResponse.json({
     candidate_id: inserted.id,
     status: 'pending',

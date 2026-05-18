@@ -18,8 +18,8 @@ import { getMessageAttachments, getAttachmentBuffer } from './gmail-client'
 import { extractExifFromBuffer } from './exif-extract'
 
 export const ATTACHMENTS_BUCKET = 'news-attachments'
-const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
-const MAX_ATTACHMENTS_PER_CANDIDATE = 8
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024  // Gmail max 25MB; press release foto dažnai 5-15MB hi-res
+const MAX_ATTACHMENTS_PER_CANDIDATE = 15        // Phantom/Opera press release'ai dažnai 10-15 foto
 const MIN_IMAGE_BYTES = 1024  // <1KB = greičiausiai tracking pixel ar logo bullet
 
 function sanitizeFilename(name: string): string {
@@ -34,6 +34,14 @@ export interface AttachmentResult {
   failed: number
   first_url: string | null
   errors: string[]
+  /** Diagnostic — kiek attachment'ų Gmail API grąžino prieš filtravimą. */
+  raw_count: number
+  /** Diagnostic — kiek pas image MIME type. */
+  image_count: number
+  /** Diagnostic — kiek perėjo size filter'į. */
+  size_passed: number
+  /** Diagnostic — per-attachment summary (filename, mime, size, action). */
+  details: Array<{ filename: string; mime: string; size: number; action: 'uploaded' | 'skipped_non_image' | 'skipped_size' | 'failed' }>
 }
 
 /**
@@ -47,7 +55,10 @@ export async function processMessageAttachments(
   candidateId: number,
   messageId: string,
 ): Promise<AttachmentResult> {
-  const result: AttachmentResult = { processed: 0, failed: 0, first_url: null, errors: [] }
+  const result: AttachmentResult = {
+    processed: 0, failed: 0, first_url: null, errors: [],
+    raw_count: 0, image_count: 0, size_passed: 0, details: [],
+  }
 
   let metas
   try {
@@ -55,6 +66,22 @@ export async function processMessageAttachments(
   } catch (e: any) {
     result.errors.push(`list attachments: ${e?.message || e}`)
     return result
+  }
+
+  result.raw_count = metas.length
+
+  // Tag detalizuotai kas filtruota
+  for (const m of metas) {
+    if (!/^image\//i.test(m.mimeType)) {
+      result.details.push({ filename: m.filename, mime: m.mimeType, size: m.size, action: 'skipped_non_image' })
+    } else {
+      result.image_count++
+      if (m.size < MIN_IMAGE_BYTES || m.size > MAX_ATTACHMENT_BYTES) {
+        result.details.push({ filename: m.filename, mime: m.mimeType, size: m.size, action: 'skipped_size' })
+      } else {
+        result.size_passed++
+      }
+    }
   }
 
   const imageMetas = metas
@@ -119,14 +146,17 @@ export async function processMessageAttachments(
       if (imgInsErr) {
         result.failed++
         result.errors.push(`insert ${m.filename}: ${imgInsErr.message}`)
+        result.details.push({ filename: m.filename, mime: m.mimeType, size: m.size, action: 'failed' })
         continue
       }
 
       result.processed++
+      result.details.push({ filename: m.filename, mime: m.mimeType, size: m.size, action: 'uploaded' })
       if (!result.first_url) result.first_url = publicUrl
     } catch (e: any) {
       result.failed++
       result.errors.push(`attachment ${i}: ${e?.message || e}`)
+      result.details.push({ filename: m.filename, mime: m.mimeType, size: m.size, action: 'failed' })
     }
   }
 
