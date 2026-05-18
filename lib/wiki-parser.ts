@@ -578,7 +578,12 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
         if (!year || year === currentYear) {
           const yrNext = nl.match(/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
           if (yrNext) { year = parseInt(yrNext[1]); continue }
-          const relDate = nl.match(/[Rr]eleased[^|{]*?(?:(\d{1,2})\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i)
+          // 2026-05-18: regex'as anksčiau reikalavo `[Rr]eleased` (past tense),
+          // bet daugumos country/older artistų Wiki naudoja noun-phrase formatą
+          // `Release date: April 12, 1989` (Garth Brooks, Willie Nelson, Eagles,
+          // Michael Jackson, ir kt.). Regex'as praleisdavo → years coverage
+          // krisdavo iki 1/23. `[Rr]elease(?:d)?` apima abu variantus.
+          const relDate = nl.match(/[Rr]elease(?:d)?[^|{]*?(?:(\d{1,2})\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i)
           if (relDate) {
             day = relDate[1] ? parseInt(relDate[1]) : null
             const MONTHS: Record<string, number> = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 }
@@ -586,7 +591,7 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
             year = parseInt(relDate[3])
             continue
           }
-          const relUS = nl.match(/[Rr]eleased[^|{]*?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s*(\d{4})/i)
+          const relUS = nl.match(/[Rr]elease(?:d)?[^|{]*?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s*(\d{4})/i)
           if (relUS) {
             const MONTHS: Record<string, number> = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 }
             month = MONTHS[relUS[1].toLowerCase()] || null
@@ -594,7 +599,7 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
             year = parseInt(relUS[3])
             continue
           }
-          const relYearOnly = nl.match(/[Rr]eleased[^|{]*?(\d{4})/)
+          const relYearOnly = nl.match(/[Rr]elease(?:d)?[^|{]*?(\d{4})/)
           if (relYearOnly && !year) { year = parseInt(relYearOnly[1]) }
         }
       }
