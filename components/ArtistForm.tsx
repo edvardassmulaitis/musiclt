@@ -261,6 +261,9 @@ function TagListInput({ label, placeholder, values, onChange, labelMap, hiddenSe
   hiddenSet?: Set<string>
 }) {
   const [input, setInput] = useState('')
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [overIdx, setOverIdx] = useState<number | null>(null)
+
   const add = (raw: string) => {
     const parts = raw.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean)
     if (!parts.length) return
@@ -271,23 +274,79 @@ function TagListInput({ label, placeholder, values, onChange, labelMap, hiddenSe
     onChange(next)
     setInput('')
   }
-  const remove = (idx: number) => onChange(values.filter((_, i) => i !== idx))
+
+  // Group canonical values by display label — kelios skirtingos canonical'os
+  // (singer + vocals) gali map'intis į tą patį LT vertimą (Vokalas). Display'inam
+  // vieną chip'ą, x mygtukas pašalina VISAS underlying canonical reikšmes,
+  // o drag reorder'as perkelia visą grupę.
+  const visible = values
+    .map((v, originalIdx) => ({ v, originalIdx }))
+    .filter(({ v }) => !hiddenSet?.has(v.toLowerCase()))
+  const groups: { label: string; canonicals: string[]; indices: number[]; firstIdx: number }[] = []
+  const seenLabels = new Map<string, number>()
+  for (const { v, originalIdx } of visible) {
+    const tr = labelMap?.[v.toLowerCase()]
+    const display = tr || v
+    const key = display.toLowerCase()
+    const existing = seenLabels.get(key)
+    if (existing !== undefined) {
+      groups[existing].canonicals.push(v)
+      groups[existing].indices.push(originalIdx)
+    } else {
+      seenLabels.set(key, groups.length)
+      groups.push({ label: display, canonicals: [v], indices: [originalIdx], firstIdx: originalIdx })
+    }
+  }
+
+  const removeGroup = (groupIdx: number) => {
+    const indicesToRemove = new Set(groups[groupIdx].indices)
+    onChange(values.filter((_, i) => !indicesToRemove.has(i)))
+  }
+
+  // Drag reorder: operuojam group level'ye, paskui flatten'inam atgal į
+  // values masyvą. Hidden chip'ai NĖRA grupėje — juos pridedam masyvo
+  // gale, kad nepertvarkytume jų tvarkos (jie display'us slapti vis tiek).
+  const reorder = (fromGroupIdx: number, toGroupIdx: number) => {
+    if (fromGroupIdx === toGroupIdx) return
+    const reorderedGroups = [...groups]
+    const [moved] = reorderedGroups.splice(fromGroupIdx, 1)
+    reorderedGroups.splice(toGroupIdx, 0, moved)
+    const next: string[] = []
+    for (const g of reorderedGroups) next.push(...g.canonicals)
+    // Hidden values — pridedam gale, kad nesimaišytų display'uje
+    for (const v of values) {
+      if (hiddenSet?.has(v.toLowerCase()) && !next.includes(v)) next.push(v)
+    }
+    onChange(next)
+  }
+
   return (
     <div>
       <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">{label}</label>
       <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border border-[var(--input-border)] rounded-lg bg-[var(--bg-surface)] min-h-[2.25rem]">
-        {values.map((v, i) => {
-          if (hiddenSet?.has(v.toLowerCase())) return null
-          const tr = labelMap?.[v.toLowerCase()]
-          const display = tr || v
+        {groups.map((g, gi) => {
+          const tooltip = g.canonicals.length > 1
+            ? `${g.label} (← ${g.canonicals.join(', ')})`
+            : (labelMap?.[g.canonicals[0].toLowerCase()] ? `${g.canonicals[0]} → ${g.label}` : g.canonicals[0])
           return (
             <span
-              key={`${v}-${i}`}
-              title={tr ? `${v} → ${tr}` : v}
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-xs font-medium"
+              key={`g-${gi}-${g.label}`}
+              draggable
+              onDragStart={e => { setDragIdx(gi); e.dataTransfer.effectAllowed = 'move' }}
+              onDragOver={e => { e.preventDefault(); if (dragIdx !== null && dragIdx !== gi) setOverIdx(gi) }}
+              onDragLeave={() => setOverIdx(o => o === gi ? null : o)}
+              onDrop={e => { e.preventDefault(); if (dragIdx !== null && dragIdx !== gi) reorder(dragIdx, gi); setDragIdx(null); setOverIdx(null) }}
+              onDragEnd={() => { setDragIdx(null); setOverIdx(null) }}
+              title={tooltip}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-medium cursor-grab active:cursor-grabbing select-none transition-all ${
+                overIdx === gi
+                  ? 'bg-violet-100 text-violet-800 ring-2 ring-violet-400'
+                  : 'bg-blue-50 text-blue-700'
+              } ${dragIdx === gi ? 'opacity-50' : ''}`}
             >
-              {display}
-              <button type="button" onClick={() => remove(i)} className="text-blue-400 hover:text-red-500" aria-label={`Pašalinti ${v}`}>×</button>
+              <span className="text-blue-300 mr-0.5">⋮⋮</span>
+              {g.label}
+              <button type="button" onClick={() => removeGroup(gi)} className="text-blue-400 hover:text-red-500" aria-label={`Pašalinti ${g.label}`}>×</button>
             </span>
           )
         })}
@@ -299,7 +358,7 @@ function TagListInput({ label, placeholder, values, onChange, labelMap, hiddenSe
             if (e.key === 'Enter' || e.key === ',') {
               e.preventDefault(); add(input)
             } else if (e.key === 'Backspace' && !input && values.length) {
-              remove(values.length - 1)
+              onChange(values.slice(0, -1))
             }
           }}
           onBlur={() => { if (input.trim()) add(input) }}
