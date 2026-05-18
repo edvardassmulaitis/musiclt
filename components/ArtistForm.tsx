@@ -251,9 +251,14 @@ function DateRow({ label, y, m, d, onY, onM, onD }: any) {
 // `labelMap` neprivalomas — jei perduotas, chip'as rodo labelMap[v.toLowerCase()]
 // kaip display label (su canonical kaip tooltip). Naudojama Sritys laukui,
 // kad admin'as matytų LT vertimą iš role_translations lentelės.
-function TagListInput({ label, placeholder, values, onChange, labelMap }: {
+function TagListInput({ label, placeholder, values, onChange, labelMap, hiddenSet }: {
   label: string; placeholder?: string; values: string[]; onChange: (v: string[]) => void
   labelMap?: Record<string, string>
+  /** Canonical lowercase keys, kurie pažymėti hidden role_translations
+   *  lentelėje. Display'us tų chip'ų praleidžiamas (duomenys lieka DB).
+   *  Naudinga Sritys laukui — admin'as nemato „pridėti chap'ą", o vis tiek
+   *  saugiai persist'inami DB stulpelyje. */
+  hiddenSet?: Set<string>
 }) {
   const [input, setInput] = useState('')
   const add = (raw: string) => {
@@ -272,6 +277,7 @@ function TagListInput({ label, placeholder, values, onChange, labelMap }: {
       <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">{label}</label>
       <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border border-[var(--input-border)] rounded-lg bg-[var(--bg-surface)] min-h-[2.25rem]">
         {values.map((v, i) => {
+          if (hiddenSet?.has(v.toLowerCase())) return null
           const tr = labelMap?.[v.toLowerCase()]
           const display = tr || v
           return (
@@ -1537,16 +1543,24 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   const [form, setForm] = useState<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
   const [dupWarning, setDupWarning] = useState<{id:string;name:string;slug:string;type:string;country:string;cover_image_url:string|null}[]>([])
   const dupTimer = useRef<ReturnType<typeof setTimeout>|null>(null)
-  // Sričių (roles) LT vertimai — fetch'inami vieną kartą, naudojami
-  // TagListInput'e kaip labelMap, kad admin'as matytų LT label tiesiogiai
-  // chip'uose (canonical EN lieka kaip tooltip + duomenų sluoksnyje).
+  // Sričių (roles) LT vertimai + hidden flag'ai — fetch'inami vieną kartą,
+  // naudojami TagListInput'e kaip labelMap + hiddenSet. labelMap rodo LT
+  // label chip'uose (su canonical kaip tooltip); hiddenSet praleidžia
+  // chip'ą display'uje, kai admin'as pažymėjo „hide" role_translations
+  // lentelėje (duomenys lieka DB).
   const [roleLabelMap, setRoleLabelMap] = useState<Record<string, string>>({})
+  const [roleHiddenSet, setRoleHiddenSet] = useState<Set<string>>(new Set())
   useEffect(() => {
     fetch('/api/admin/role-translations').then(r => r.ok ? r.json() : null).then(d => {
       if (!d?.items) return
       const map: Record<string, string> = {}
-      for (const it of d.items) if (it.lt) map[it.canonical] = it.lt
+      const hidden = new Set<string>()
+      for (const it of d.items) {
+        if (it.lt) map[it.canonical] = it.lt
+        if (it.hidden) hidden.add(it.canonical)
+      }
       setRoleLabelMap(map)
+      setRoleHiddenSet(hidden)
     }).catch(() => {})
   }, [])
 
@@ -1797,7 +1811,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   import'as sudeda BOTH occupation + instrument values čia. */}
               <TagListInput label="Sritys" placeholder="dainininkas, gitaristas, prodiuseris..."
                 values={form.roles || []} onChange={v => set('roles', v)}
-                labelMap={roleLabelMap} />
+                labelMap={roleLabelMap} hiddenSet={roleHiddenSet} />
             </div>
           )}
 
