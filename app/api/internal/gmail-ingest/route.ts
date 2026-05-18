@@ -39,7 +39,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { normalizeArticle, classifyMusicRelevance } from '@/lib/ai-normalize'
+import { classifyMusicRelevance } from '@/lib/ai-normalize'
 import { matchArtists, matchTracks, getTopArtistsForHint } from '@/lib/entity-matcher'
 import { extractExifFromBuffer } from '@/lib/exif-extract'
 import { processMessageAttachments, ATTACHMENTS_BUCKET } from '@/lib/gmail-attachments'
@@ -100,7 +100,11 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // 2) Haiku relevance check (saugumas — jei worker'is praleidžia non-music)
+  // 2) Haiku classify — filter not_music + gauti kategoriją (release/performance/etc)
+  //    Single Haiku call duoda mums abu duomenis kuriuos reikia: filter verdict +
+  //    category passthrough'ui (step 3 metu).
+  let haikuCategory: string = 'other'
+  let haikuConfidence: number = 0.85
   try {
     const verdicts = await classifyMusicRelevance([{
       idx: 0,
@@ -122,37 +126,72 @@ export async function POST(req: NextRequest) {
         reason: verdict.brief_why || 'Haiku classifier rejected',
       })
     }
+    if (verdict) {
+      haikuCategory = verdict.category || 'other'
+      haikuConfidence = verdict.confidence || 0.85
+    }
   } catch (e: any) {
-    // Haiku fail'ina — leidžiam praeiti į Sonnet, tikėdami worker'iu
     console.warn('[gmail-ingest] Haiku classify failed:', e.message)
   }
 
-  // 3) Sonnet normalize — pilnas tekstas
+  // 3) Press release PASSTHROUGH — Gmail šaltinis turi originalų press release tekstą,
+  //    nereikia perrašyti title/body per Sonnet. Naudojam subject kaip ai_title,
+  //    raw_body kaip ai_body (paprastam HTML formate). Sonnet praleidžiamas
+  //    (taupymas + tikslesnis tekstas). Entity matching daromas paprasta substring
+  //    paieška prieš top 500 atlikėjų sąrašą; admin'as gali pritempt'i daugiau per UI.
+
+  // Title cleanup — nuimam common press release prefiksus
+  const cleanTitle = (subject || '')
+    .replace(/^\s*(pranešimas spaudai|press release|spaudai|fwd?:?|re:?)\s*[:\-–—]?\s*/i, '')
+    .trim()
+    || 'Be antraštės'
+
+  // Body → paragraph-split HTML (vienas <p> per paragrafą, vidiniai newline'ai → <br>)
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const bodyHtml = rawBody
+    .split(/\n\s*\n/)
+    .map(p => p.trim())
+    .filter(p => p.length > 0)
+    .map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+    .join('\n')
+
+  // Summary — pirmas paragrafas (max 300 chars)
+  const firstPara = rawBody.split(/\n\s*\n/).map(p => p.trim()).find(p => p.length > 20) || rawBody.slice(0, 300)
+  const summary = firstPara.slice(0, 280).replace(/\s+\S*$/, '').trim() + (firstPara.length > 280 ? '…' : '')
+
+  // Embed URLs — YouTube/Spotify links iš teksto
+  const urlMatches = (`${subject || ''} ${rawBody}`).match(/https?:\/\/[^\s<>"]+/gi) || []
+  const embedUrls = Array.from(new Set(urlMatches.filter(u =>
+    /(youtube\.com\/watch|youtu\.be\/|spotify\.com\/(track|album|artist|playlist))/i.test(u)
+  )))
+
+  // Artist scan — substring match prieš top 500 (case-insensitive, žodžio ribos)
   const artistHint = await getTopArtistsForHint(500)
-  let ai
-  try {
-    ai = await normalizeArticle({
-      full_text: `${subject || ''}\n\n${rawBody}`.trim(),
-      source_lang: 'en', // press releases dažniausiai EN; AI auto-detect'ina
-      source_name: fromEmail || 'press@email',
-      artist_whitelist: artistHint,
-    })
-  } catch (e: any) {
-    return NextResponse.json({ error: `AI normalize failed: ${e.message}` }, { status: 500 })
+  const fullText = `${subject || ''} ${rawBody}`.toLowerCase()
+  const artistsMentioned: Array<{ name: string }> = []
+  for (const a of artistHint as any[]) {
+    const name = (a?.name || '').toLowerCase()
+    if (!name || name.length < 3) continue
+    // Word-boundary check kad „bo" nematchintų į „bonus"
+    const pattern = new RegExp(`(^|\\W)${name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}(\\W|$)`)
+    if (pattern.test(fullText)) {
+      artistsMentioned.push({ name: a.name })
+      if (artistsMentioned.length >= 5) break
+    }
   }
 
-  if (!ai || ai.category === 'none') {
-    await supabase.from('gmail_seen_messages').insert({
-      thread_id: threadId,
-      from_email: fromEmail || null,
-      subject: subject || null,
-      filter_reason: 'sonnet_rejected',
-    })
-    return NextResponse.json({
-      status: 'rejected',
-      filter_reason: 'sonnet_rejected',
-      raw_response: ai?.raw_response,
-    })
+  // Category — iš anksčiau gauto Haiku verdict'o (step 2)
+  const ai = {
+    category: haikuCategory,
+    title: cleanTitle,
+    body_html: bodyHtml,
+    summary,
+    confidence: haikuConfidence,
+    model: 'gmail-passthrough',
+    artists_mentioned: artistsMentioned,
+    tracks_mentioned: [] as Array<{ title: string; artist: string }>,
+    embed_urls: embedUrls,
   }
 
   // 4) Entity matching
