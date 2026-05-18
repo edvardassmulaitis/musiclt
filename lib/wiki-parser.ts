@@ -672,9 +672,14 @@ export function parseHashListTracks(
   // Find ==Track listing== section (case-insensitive, allow "Track list", "Tracks")
   const secMatch = wikitext.match(/^(==+)\s*(?:Track\s*list(?:ing)?|Tracks)\s*\1\s*$/im)
   if (!secMatch || secMatch.index === undefined) return []
+  const sectionLevel = secMatch[1].length  // count of '=' chars (e.g. 2 for ==X==)
   const sectionStart = secMatch.index + secMatch[0].length
-  // Find next == section header to bound scope
-  const nextSec = wikitext.slice(sectionStart).match(/^==+[^=]/m)
+  // 2026-05-15 fix: boundary = SAME or HIGHER level section. Anksčiau bet kokia
+  // `==+` matchindavo, todėl nested sub-sections (pvz `===''The Freddie Mercury
+  // Album''===` po `==Track listing==`) iškart bound'indavo body į 0 chars.
+  // Reikia matchint tik `=` count <= sectionLevel.
+  const boundaryRe = new RegExp(`^={1,${sectionLevel}}[^=]`, 'm')
+  const nextSec = wikitext.slice(sectionStart).match(boundaryRe)
   const sectionEnd = nextSec && nextSec.index !== undefined
     ? sectionStart + nextSec.index : Math.min(sectionStart + 8000, wikitext.length)
   const body = wikitext.slice(sectionStart, sectionEnd)
