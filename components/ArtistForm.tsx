@@ -1764,13 +1764,13 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 <ArtistSearch label="Grupės" ph="Ieškoti grupės..." items={form.groups||[]}
                   onAdd={addGroup} onRemove={rmGroup} onYears={upGroup} filterType="group" />
               </div>
-              {/* Profesijos — viena vieta visiems Wiki infobox occupation +
-                  instrument laukams. Anksčiau buvo du atskiri (Profesijos +
-                  Instrumentai), bet praktikoje nesusiformavo aiški linija
-                  („vokalas" yra instrumentas ar profesija? „gitaristas"?).
-                  Sujungta į vieną generic chip list, saugoma DB į artists.roles[].
-                  Wiki import'as sudeda BOTH occupation + instrument values čia. */}
-              <TagListInput label="Profesijos" placeholder="dainininkas, gitaristas, prodiuseris..."
+              {/* „Sritys" — generic kategorijos: occupation + instrument iš
+                  Wiki infobox. Anksčiau buvo du atskiri laukai (Profesijos +
+                  Instrumentai), bet praktikoje skirstymas neaiškus („vokalas"
+                  yra instrumentas ar profesija? „gitaristas"?). Sujungta į
+                  vieną generic chip list, saugoma DB į artists.roles[]. Wiki
+                  import'as sudeda BOTH occupation + instrument values čia. */}
+              <TagListInput label="Sritys" placeholder="dainininkas, gitaristas, prodiuseris..."
                 values={form.roles || []} onChange={v => set('roles', v)} />
             </div>
           )}
