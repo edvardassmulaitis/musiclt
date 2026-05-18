@@ -67,6 +67,11 @@ function dbToForm(data: any): ArtistFormData {
     twitter:     data.links?.twitter || '',
     members:     data.related?.filter((r: any) => r.type === 'solo').map((r: any) => ({ ...r, avatar: r.cover_image_url || null })) || [],
     groups:      data.related?.filter((r: any) => r.type === 'group').map((r: any) => ({ ...r, avatar: r.cover_image_url || null })) || [],
+    // Sritys (occupation+instrument) — text[] DB lauke. Anksčiau dbToForm
+    // šio lauko visai neima, todėl po reload „Sritys" form'oje tuščia
+    // net jei DB row turi saved values.
+    roles:       Array.isArray(data.roles) ? data.roles : [],
+    instruments: Array.isArray(data.instruments) ? data.instruments : [],
   }
 }
 
@@ -104,6 +109,11 @@ function formToDb(form: ArtistFormData) {
     youtube: form.youtube || null, tiktok: form.tiktok || null,
     spotify: form.spotify || null, soundcloud: form.soundcloud || null,
     bandcamp: form.bandcamp || null, twitter: form.twitter || null,
+    // Sritys — solo atlikėjo occupation+instrument sujungti. PUT'as priima
+    // per dbFields allowlist „roles". Anksčiau formToDb šio lauko visai
+    // negrąžindavo top-level — todėl po išsaugojimo + reload roles tapdavo
+    // tuščias (Freddie Mercury case).
+    roles: Array.isArray(form.roles) ? form.roles : null,
     related: (() => {
       console.log('[formToDb] members raw:', JSON.stringify(form.members?.map((m: any) => ({ id: m.id, name: m.name, isCurrent: m.isCurrent }))))
       // Propag'inam VISUS narių laukus — Wiki import'as juos pildo (country,
