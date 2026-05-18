@@ -30,6 +30,31 @@ function fmtDate(year?: string, month?: string, day?: string): string {
 }
 
 
+// Parse occupation / instrument flatlist iš Wiki infobox raw blocko.
+// Naudojama tiek solo artist preview, tiek member fetch'e — kad abu turėtų
+// vienodą curated list (5-7 items), o ne Wikidata P106/P1303 broader set
+// (kuriame Freddie Mercury tampa 13+ items: composer, pianist, painter,
+// manufacturer, etc.).
+function parseRoleFlatList(raw: string): string[] {
+  if (!raw) return []
+  let s = raw
+  s = s.replace(/\{\{(?:flatlist|plainlist|hlist|ubl|unbulleted list)\s*\|/gi, '')
+  s = s.replace(/\}\}/g, '')
+  s = s.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+  s = s.replace(/<!--[\s\S]*?-->/g, '')
+  s = s.replace(/<[^>]+>/g, ' ')
+  s = s.replace(/\[\[(?:[^\]|]+\|)?([^\]]+)\]\]/g, '$1')
+  // Splittinam pagal | (template separator), * (list item), comma, newline
+  const parts = s.split(/\s*[|*\n]+\s*|,\s+/).map(p => p.trim()).filter(p => p.length >= 2 && p.length <= 40)
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const p of parts) {
+    const key = p.toLowerCase()
+    if (!seen.has(key)) { seen.add(key); out.push(p) }
+  }
+  return out.slice(0, 8)
+}
+
 type MemberFullData = {
   avatar: string
   country: string
@@ -203,27 +228,35 @@ async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
       } catch {}
     }
 
-    // Profesijos — P106 (occupation) + P1303 (instrument) sujungti į vieną sąrašą.
-    // Vienu wbgetentities call'u parsisiunčiame visus labels en kalba (pvz
-    // Q177220 → „singer", Q753110 → „songwriter", Q6168 → „guitar").
+    // Profesijos — fetch'inam member raw wikitext ir parse'inam
+    // infobox `occupation` + `instruments` fields. NAUDOJAM wikitext
+    // (curated 5-7 items), o ne Wikidata P106+P1303, kuris grąžina
+    // platų sąrašą (pvz Freddie Mercury → composer, pianist, painter,
+    // manufacturer, ir t.t. — 13+ items, kurių dauguma neaktualūs
+    // muzikos kontekste). Wiki infobox sąrašas yra curator'iaus
+    // patikrintas ir trumpesnis.
     let roles: string[] = []
-    const occQids = all('P106').map((v:any)=>v?.id).filter(Boolean).slice(0,8)
-    const insQids = all('P1303').map((v:any)=>v?.id).filter(Boolean).slice(0,8)
-    const allRoleQids = [...new Set([...occQids, ...insQids])]
-    if (allRoleQids.length > 0) {
-      try {
-        const rlData = await (await fetch(
-          `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${allRoleQids.join('|')}&format=json&origin=*&languages=en&props=labels`
-        )).json()
-        const labels: string[] = allRoleQids.map((id:string)=>rlData.entities?.[id]?.labels?.en?.value).filter(Boolean)
-        // Dedupe case-insensitive
+    try {
+      const wtRes = await (await fetch(
+        `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=revisions&rvprop=content&rvslots=main&format=json&origin=*`
+      )).json()
+      const pages = wtRes.query?.pages || {}
+      const firstPage = Object.values(pages)[0] as any
+      const rawWikitext: string = firstPage?.['revisions']?.[0]?.['slots']?.['main']?.['*']
+        || firstPage?.['revisions']?.[0]?.['*']
+        || ''
+      if (rawWikitext) {
+        const occRaw = extractFieldNested(rawWikitext, 'occupations') || extractFieldNested(rawWikitext, 'occupation')
+        const insRaw = extractFieldNested(rawWikitext, 'instruments') || extractFieldNested(rawWikitext, 'instrument')
+        const occ = parseRoleFlatList(occRaw)
+        const ins = parseRoleFlatList(insRaw)
         const seen = new Set<string>()
-        for (const l of labels) {
-          const k = l.toLowerCase()
-          if (!seen.has(k)) { seen.add(k); roles.push(l) }
+        for (const v of [...occ, ...ins]) {
+          const k = v.toLowerCase()
+          if (!seen.has(k)) { seen.add(k); roles.push(v) }
         }
-      } catch {}
-    }
+      }
+    } catch {}
 
 
 
@@ -489,32 +522,14 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         // Occupations / Instruments — solo atlikėjų infobox laukai. Wiki
         // pavadina juos arba „occupation"/„occupations", arba
         // „instrument"/„instruments". Reikšmės dažniausiai delimitintos
-        // {{flatlist}}/{{plainlist}} arba comma-separated. Naudojam
-        // wiki-parser extractFieldNested kad gauti pilną wikitext segmento
-        // turinį net su nested template'ais.
-        const parseFlatList = (raw: string): string[] => {
-          if (!raw) return []
-          let s = raw
-          s = s.replace(/\{\{(?:flatlist|plainlist|hlist|ubl|unbulleted list)\s*\|/gi, '')
-          s = s.replace(/\}\}/g, '')
-          s = s.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
-          s = s.replace(/<[^>]+>/g, ' ')
-          s = s.replace(/\[\[(?:[^\]|]+\|)?([^\]]+)\]\]/g, '$1')
-          // Splittinam pagal | (template separator), * (list item), comma, newline
-          const parts = s.split(/\s*[|*\n]+\s*|,\s+/).map(p => p.trim()).filter(p => p.length >= 2 && p.length <= 40)
-          // Dedupe + lowercase first letter normalizacija
-          const seen = new Set<string>()
-          const out: string[] = []
-          for (const p of parts) {
-            const key = p.toLowerCase()
-            if (!seen.has(key)) { seen.add(key); out.push(p) }
-          }
-          return out.slice(0, 8)
-        }
+        // {{flatlist}}/{{plainlist}} arba comma-separated. Refaktoruota į
+        // module-level parseRoleFlatList helper'į (tas pats kodas naudojamas
+        // fetchMemberFullData'oje, kad solo + member roles atitiktų
+        // wikitext infobox curated list, ne Wikidata broader set).
         const occRaw = extractFieldNested(rawWikitext, 'occupations') || extractFieldNested(rawWikitext, 'occupation')
-        infoboxOccupations = parseFlatList(occRaw)
+        infoboxOccupations = parseRoleFlatList(occRaw)
         const insRaw = extractFieldNested(rawWikitext, 'instruments') || extractFieldNested(rawWikitext, 'instrument')
-        infoboxInstruments = parseFlatList(insRaw)
+        infoboxInstruments = parseRoleFlatList(insRaw)
         parsedMembers = parseBandMembers(rawWikitext)
       } catch {}
 
