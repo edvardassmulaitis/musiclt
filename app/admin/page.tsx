@@ -184,6 +184,7 @@ export default function AdminDashboardPage() {
 
   const system: AdminCard[] = [
     { href: '/admin/genres', icon: '🎨', label: 'Žanrai' },
+    { href: '/admin/role-translations', icon: '🌐', label: 'Sričių vertimai' },
     { href: '/admin/eventai', icon: '📅', label: 'Eventai (legacy)' },
     { href: '/admin/search', icon: '🔍', label: 'Paieška' },
     { href: '/admin/users', icon: '👥', label: 'Vartotojai' },
