@@ -851,6 +851,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
   const [items, setItems] = useState<DiscographyItem[]>([])
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  // Help banner collapsed by default — taupom vertical space, bet kiekvienam
+  // naujam admin'ui visada matomas (žinom ar peržiūrėjo per localStorage).
+  const [helpOpen, setHelpOpen] = useState(false)
   // selectedNewTracks: per-album set of Wiki track titles (lowercased) kurias
   // admin pasirinko sukurti DB. Naudojama ENRICH mode'e (album.duplicate=true)
   // — Wiki-only dainos pagal default'ą praleidžiamos, bet admin gali pažymėti
@@ -2313,6 +2316,55 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
   // ── Album row renderer ─────────────────────────────────────────────────────
 
+  // Computes a HUMAN-READABLE preview of what Wiki import will do for this
+  // album. Returns array of action strings. Computed as diff between DB state
+  // (from completeness) and Wiki data (from item.year/cover/peak/certs/etc.).
+  // Examples:
+  //   ['data 1974', 'viršelis', '+2 žanrai', 'peak #5', '2 cert', '+3 dainos prijungs']
+  // Naudojama vietoj generic '↻ papildyti' badge'o — admin'as iškart mato
+  // ką konkrečiai gaus, neturi hover'inti tooltip'o.
+  const computeImportPreview = (it: DiscographyItem): string[] => {
+    if (!it.duplicate) return []
+    const c = it.completeness
+    if (!c) return []  // dar neload'inta — neturim ką palyginti
+    const out: string[] = []
+    // Album metadata diff
+    if (it.year && !c.has_year) out.push(`data ${it.year}`)
+    if (it.cover_image_url && !c.has_cover) out.push('viršelis')
+    const dbSubsCount = c.substyles_count
+    const wikiSubsCount = (it.substyle_ids?.length || 0) + (it.genres_unmatched?.length || 0)
+    if (wikiSubsCount > dbSubsCount) out.push(`+${wikiSubsCount - dbSubsCount} žanras`)
+    if (it.peak_chart_position != null && !c.has_peak) out.push(`peak #${it.peak_chart_position}`)
+    if (it.certifications?.length && !c.has_certifications) {
+      out.push(`${it.certifications.length} cert`)
+    }
+    // Type change (Wiki canonical REPLACE)
+    if (c.current_types) {
+      const wikiTypes = new Set<string>([it.type, ...(it.extraTypes || [])].filter(Boolean) as string[])
+      const dbTypes = new Set<string>(c.current_types)
+      const added = [...wikiTypes].filter(t => !dbTypes.has(t))
+      const removed = [...dbTypes].filter(t => !wikiTypes.has(t))
+      const ltType = (k: string): string => ({
+        studio: 'studijinis', compilation: 'kompiliacija', ep: 'EP',
+        single: 'singlas', live: 'gyvas', remix: 'remix',
+        covers: 'cover', holiday: 'šventinis', soundtrack: 'garso takelis', demo: 'demo',
+      }[k] || k)
+      if (added.length || removed.length) {
+        const parts: string[] = []
+        if (added.length) parts.push('+' + added.map(t => ltType(t as string)).join('+'))
+        if (removed.length) parts.push('-' + removed.map(t => ltType(t as string)).join('+'))
+        out.push(`type ${parts.join(' ')}`)
+      }
+    }
+    // Tracks count delta
+    const wikiTracksKnown = it.fetched && it.tracks !== undefined
+    if (wikiTracksKnown) {
+      const delta = (it.tracks?.length || 0) - c.tracks_count
+      if (delta > 0) out.push(`+${delta} ${delta === 1 ? 'daina' : 'dainos'} prijungs`)
+    }
+    return out
+  }
+
   const renderAlbumRow = (it: DiscographyItem, i: number) => {
     const isExpanded = expandedItems.has(i)
     const isFetching = it.fetched === false && expandedItems.has(i)
@@ -2377,11 +2429,21 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {it.extraTypes?.map(et => (
                 <span key={et} className="text-[10px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'Garso takelis' : et}</span>
               ))}
-              {/* ↻ papildyti rodom TIK kai Wiki tikrai gali padėti (year,
-                  cover, žanrai, count mismatch). Jei trūksta tik external
-                  duomenų (video_url, lyrics) — Wiki nieko negali pagelbėti,
-                  ↻ papildyti slepiamas, lieka tik ⚠ trūksta. */}
-              {showPapildyti && <span className="text-[10px] font-semibold text-amber-600 shrink-0" title="Wiki turi duomenų, kurių DB neturi: leidimo data, viršelis, žanrai, sertifikatai arba dainų count'as. Egzistuojantys laukai neperrašomi.">↻ papildyti</span>}
+              {/* ↻ Action preview — specific lista what Wiki pridės. Vietoj
+                  generic 'papildyti' badge'o, admin mato KONKREČIAI kas bus
+                  daroma: 'pridurs: data 1974, peak #5, +2 cert'. Jei nieko
+                  konkretaus — papildyti badge'as nerodomas (Wiki neturi
+                  duomenų be to, ką DB jau turi). */}
+              {showPapildyti && (() => {
+                const preview = computeImportPreview(it)
+                if (preview.length === 0) {
+                  // Wiki gali padėti, bet konkretūs duomenys dar nežinom (completeness neload'inta)
+                  return <span className="text-[10px] font-semibold text-amber-600 shrink-0" title="Wiki turi duomenų. Spausk info arba expand kad pamatytum kas konkrečiai.">↻ pridurs</span>
+                }
+                const inline = preview.slice(0, 3).join(', ') + (preview.length > 3 ? `, +${preview.length - 3}` : '')
+                const tooltip = `Wiki pridurs:\n• ${preview.join('\n• ')}\n\nFILL-ONLY: egzistuojantys laukai neperrašomi.\nUNION žanrai, REPLACE cert/peak/type.`
+                return <span className="text-[10px] font-semibold text-amber-600 shrink-0" title={tooltip}>↻ {inline}</span>
+              })()}
               {/* Type diff preview — jei Wiki nori pakeisti type'ą po importo,
                   rodom 'studijinis → kompiliacija' badge'ą oranžiniu. Padeda
                   admin'ui suprasti kodėl Queen 21 studio → 15 po Wiki import'o. */}
@@ -2578,6 +2640,34 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         {/* Tracks preview */}
         {isExpanded && (
           <div className="border-t border-gray-100 px-3 py-2">
+            {/* ── DB vs Wiki snapshot — duplikate album'ams ─────────────── */}
+            {it.duplicate && it.completeness && it.fetched && (() => {
+              const c = it.completeness!
+              const dbFacts: string[] = []
+              dbFacts.push(c.has_cover ? '✓ viršelis' : '— be viršelio')
+              dbFacts.push(c.has_year ? (c.has_full_date ? `✓ data (pilna)` : `✓ tik metai`) : '— be datos')
+              dbFacts.push(c.substyles_count > 0 ? `✓ ${c.substyles_count} žanras` : '— be žanrų')
+              dbFacts.push(`✓ ${c.tracks_count} dainų`)
+              if (c.has_peak) dbFacts.push('✓ peak chart')
+              if (c.has_certifications) dbFacts.push('✓ cert')
+              const wikiPreview = computeImportPreview(it)
+              return (
+                <div className="mb-2 pb-2 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <div className="font-semibold text-gray-600 mb-1">DB turi:</div>
+                    <div className="text-gray-500 leading-relaxed">{dbFacts.join(' · ')}</div>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-amber-700 mb-1">Wiki pridurs:</div>
+                    {wikiPreview.length > 0 ? (
+                      <div className="text-amber-700 leading-relaxed">{wikiPreview.join(' · ')}</div>
+                    ) : (
+                      <div className="text-gray-400 italic">Nieko naujo — Wiki = DB</div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
             {!it.fetched ? (
               <div className="text-xs text-gray-400 py-1 flex items-center gap-2">
                 <div className="w-3 h-3 border border-gray-300 border-t-violet-500 rounded-full animate-spin" />
@@ -2844,6 +2934,46 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   <button onClick={() => search('__all__')} className="px-2.5 py-1 bg-gray-200 text-gray-700 rounded-md text-xs">Visi</button>
                   {artistGroups.map(g => <button key={g} onClick={() => search(g)} className="px-2.5 py-1 bg-white border border-gray-200 text-gray-600 rounded-md text-xs hover:bg-gray-50">{g}</button>)}
                 </div>
+              </div>
+            )}
+
+            {/* ── HELP + LEGEND banner ─────────────────────────────────── */}
+            {hasContent && !loading && (
+              <div className="shrink-0 border-b border-gray-100 bg-gradient-to-b from-gray-50/50 to-white px-3 sm:px-5 py-1.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  {/* Legend chips — always visible */}
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] flex-wrap">
+                    <span className="font-semibold text-gray-500">Spalvos:</span>
+                    <span className="inline-flex items-center gap-0.5 text-amber-700"><span className="w-2 h-2 rounded-sm bg-amber-400" />↻ pridurs</span>
+                    <span className="inline-flex items-center gap-0.5 text-emerald-700"><span className="w-2 h-2 rounded-sm bg-emerald-400" />✓ sutvarkyta</span>
+                    <span className="inline-flex items-center gap-0.5 text-amber-700"><span className="w-2 h-2 rounded-sm bg-amber-600" />⚠ trūksta</span>
+                    <span className="inline-flex items-center gap-0.5 text-violet-700"><span className="w-2 h-2 rounded-sm bg-violet-500" />+ naujas</span>
+                    <span className="inline-flex items-center gap-0.5 text-gray-500"><span className="w-2 h-2 rounded-sm bg-gray-400" />· tik Wiki</span>
+                  </div>
+                  <button onClick={() => setHelpOpen(p => !p)} type="button"
+                    className="text-[11px] text-violet-600 hover:underline font-medium shrink-0">
+                    {helpOpen ? '▲ Slėpti pagalbą' : '❓ Kaip veikia?'}
+                  </button>
+                </div>
+                {helpOpen && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 text-[11px] text-gray-600 space-y-1.5">
+                    <div className="font-semibold text-gray-700">Pilnas importo flow (1 mygtukas):</div>
+                    <ol className="list-decimal list-inside space-y-0.5 ml-1">
+                      <li><b>Wiki overlay</b> — pridurs trūkstamus laukus: leidimo data, viršelis, žanrai, peak chart, sertifikatai. Egzistuojantys laukai NIEKADA neperrašomi. Type flags REPLACE (Wiki canonical). Featuring artists UNION (priedam, netriname).</li>
+                      <li><b>YouTube enrich</b> — kiekvienam track be video_url ieško YT, ima view count + upload date. Live/remix/instrumental skip'inami auto (admin gali rankiniu).</li>
+                      <li><b>LRCLib lyrics</b> — kiekvienam track be lyrics ieško per LRCLib API (free, no auth).</li>
+                      <li><b>Score recalc</b> — composite scores atnaujinami pagal naujus video_views + cert + peak.</li>
+                    </ol>
+                    <div className="font-semibold text-gray-700 mt-2">Badge'ai per album:</div>
+                    <ul className="list-disc list-inside space-y-0.5 ml-1">
+                      <li><b>↻ pridurs: X, Y, Z</b> — Wiki turi konkrečių duomenų, kuriuos pridurs (data, viršelis, žanrai, etc.)</li>
+                      <li><b>✓ sutvarkyta</b> — viskas užpildyta, nieko nereikia</li>
+                      <li><b>⚠ trūksta: X</b> — kažko trūksta (vienoks ar kitoks). Tooltip rodo specifiškai. Jei tik external (video/lyrics) — Wiki to neturi, kiti tool'ai apdoros (YT/LRCLib).</li>
+                      <li><b>+ naujas</b> — DB neturi šio album'o, bus sukurtas su visomis Wiki dainomis.</li>
+                      <li><b>🔄 type: +X -Y</b> — Wiki tipas skiriasi nuo DB; po importo bus pakeista.</li>
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 
