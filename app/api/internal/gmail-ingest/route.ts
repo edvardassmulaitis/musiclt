@@ -42,6 +42,8 @@ import { createAdminClient } from '@/lib/supabase'
 import { classifyMusicRelevance } from '@/lib/ai-normalize'
 import { matchArtists, matchTracks, getTopArtistsForHint } from '@/lib/entity-matcher'
 import { extractExifFromBuffer } from '@/lib/exif-extract'
+import { extractDocxFromBuffer } from '@/lib/docx-extract'
+import { getMessageAttachments, getAttachmentBuffer } from '@/lib/gmail-client'
 import { processMessageAttachments, ATTACHMENTS_BUCKET } from '@/lib/gmail-attachments'
 
 export const runtime = 'nodejs'
@@ -134,30 +136,64 @@ export async function POST(req: NextRequest) {
     console.warn('[gmail-ingest] Haiku classify failed:', e.message)
   }
 
-  // 3) Press release PASSTHROUGH — Gmail šaltinis turi originalų press release tekstą,
-  //    nereikia perrašyti title/body per Sonnet. Naudojam subject kaip ai_title,
-  //    raw_body kaip ai_body (paprastam HTML formate). Sonnet praleidžiamas
-  //    (taupymas + tikslesnis tekstas). Entity matching daromas paprasta substring
-  //    paieška prieš top 500 atlikėjų sąrašą; admin'as gali pritempt'i daugiau per UI.
+  // 3) Press release PASSTHROUGH — Gmail šaltinis turi originalų press release tekstą.
+  //
+  //    PRIORITETAS:
+  //      A) .docx attachment (oficialus press release dokumentas su antrašte) — jei yra
+  //      B) Email subject + raw_body fallback
+  //
+  //    Sonnet rewrite'as praleidžiamas — visi tekstai naudojami originaliame
+  //    formate (taupymas + tikslesnis tekstas). Entity matching daromas paprasta
+  //    substring paieška prieš top 500 atlikėjų sąrašą; admin'as gali pritempt'i
+  //    daugiau per UI.
 
-  // Title cleanup — nuimam common press release prefiksus
-  const cleanTitle = (subject || '')
+  const messageIdForDocx: string | undefined = typeof body.message_id === 'string' ? body.message_id.trim() : undefined
+
+  // A) Bandom rasti .docx press release attachment'ą thread'e
+  let docxTitle: string | null = null
+  let docxBodyHtml: string | null = null
+  let docxBodyText: string | null = null
+
+  if (messageIdForDocx) {
+    try {
+      const metas = await getMessageAttachments(messageIdForDocx)
+      const docxMeta = metas.find(m =>
+        /^application\/(vnd\.openxmlformats-officedocument\.wordprocessingml\.document|msword)$/i.test(m.mimeType)
+        && m.size > 1000 && m.size < 10 * 1024 * 1024
+      )
+      if (docxMeta) {
+        const buf = await getAttachmentBuffer(messageIdForDocx, docxMeta.attachmentId)
+        const extracted = await extractDocxFromBuffer(buf)
+        if (extracted.has_content) {
+          docxTitle = extracted.title
+          docxBodyHtml = extracted.body_html
+          docxBodyText = extracted.body_text
+        }
+      }
+    } catch (e: any) {
+      console.warn('[gmail-ingest] docx extract failed:', e?.message || e)
+    }
+  }
+
+  // Title — docx pirmiausia, tada subject su cleanup'u
+  const cleanSubject = (subject || '')
     .replace(/^\s*(pranešimas spaudai|press release|spaudai|fwd?:?|re:?)\s*[:\-–—]?\s*/i, '')
     .trim()
-    || 'Be antraštės'
+  const cleanTitle = docxTitle || cleanSubject || 'Be antraštės'
 
-  // Body → paragraph-split HTML (vienas <p> per paragrafą, vidiniai newline'ai → <br>)
+  // Body — docx HTML pirmiausia (turi heading + paragraphus), tada raw_body
   const escapeHtml = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const bodyHtml = rawBody
+  const bodyHtml = docxBodyHtml || rawBody
     .split(/\n\s*\n/)
     .map(p => p.trim())
     .filter(p => p.length > 0)
     .map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
     .join('\n')
 
-  // Summary — pirmas paragrafas (max 300 chars)
-  const firstPara = rawBody.split(/\n\s*\n/).map(p => p.trim()).find(p => p.length > 20) || rawBody.slice(0, 300)
+  // Summary — pirmas paragrafas iš docx text arba raw_body (max 280 chars)
+  const summarySource = docxBodyText || rawBody
+  const firstPara = summarySource.split(/\n\s*\n/).map(p => p.trim()).find(p => p.length > 20) || summarySource.slice(0, 300)
   const summary = firstPara.slice(0, 280).replace(/\s+\S*$/, '').trim() + (firstPara.length > 280 ? '…' : '')
 
   // Embed URLs — YouTube/Spotify links iš teksto
