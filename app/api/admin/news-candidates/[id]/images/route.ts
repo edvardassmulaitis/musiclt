@@ -77,8 +77,36 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .single()
   if (error || !cand) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const options: Array<{ url: string; label: string; source: string }> = []
+  const options: Array<{ url: string; label: string; source: string; meta?: any }> = []
   const seenYouTubeIds = new Set<string>()
+
+  // 0) Email attachment'ai (Gmail press release) — pirmiausia rodom šituos,
+  //    nes jie tiesiogiai iš press release'o (geriausia kokybė + EXIF metadata).
+  const { data: emailImgs } = await supabase
+    .from('news_candidate_images')
+    .select('id, public_url, filename, caption, photographer, copyright, year_taken, photographer_override, copyright_override, year_override, sort_order')
+    .eq('candidate_id', candidateId)
+    .order('sort_order', { ascending: true })
+  for (const img of (emailImgs || []) as any[]) {
+    if (!img.public_url) continue
+    const photographer = img.photographer_override || img.photographer
+    const year = img.year_override || img.year_taken
+    const labelParts = [img.caption || img.filename || 'press foto']
+    if (photographer) labelParts.push(`📷 ${photographer}`)
+    if (year) labelParts.push(String(year))
+    options.push({
+      url: img.public_url,
+      label: labelParts.join(' · ').slice(0, 80),
+      source: 'email_attachment',
+      meta: {
+        photographer,
+        copyright: img.copyright_override || img.copyright,
+        year_taken: year,
+        caption: img.caption,
+        image_id: img.id,
+      },
+    })
+  }
 
   // 1) Auto-pick'as: naujausi artist_photos (per primary arba pirmas iš suggested)
   const primaryArtistId = cand.primary_artist_id || (cand.suggested_artist_ids?.[0] as number | undefined)

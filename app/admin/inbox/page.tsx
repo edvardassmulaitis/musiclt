@@ -172,6 +172,7 @@ export default function AdminInboxPage() {
     source: string
     video_id?: string
     yt_meta?: { title: string | null; channel_title: string | null; view_count: number | null; uploaded_at: string | null } | null
+    meta?: { photographer?: string | null; copyright?: string | null; year_taken?: number | null; caption?: string | null; image_id?: number }
   }>>([])
   const [showWiki, setShowWiki] = useState(false)
   const [wikiArtistName, setWikiArtistName] = useState('')
@@ -241,6 +242,49 @@ export default function AdminInboxPage() {
     if (status === 'authenticated' && !isAdmin) { router.push('/'); return }
     if (status === 'authenticated') load()
   }, [status, isAdmin, router, load])
+
+  // Auto-trigger Gmail attachment backfill once per browser session.
+  // Backfill endpoint'as idempotent — skipina jau processed'us. Running silently
+  // background'e, kad senesni Gmail candidate'ai (ingest'inti su senu endpoint'u)
+  // gautų foto be manualinio mygtuko.
+  const [backfillStats, setBackfillStats] = useState<{ scanned: number; processed: number; with_images: number } | null>(null)
+  useEffect(() => {
+    if (status !== 'authenticated' || !isAdmin) return
+    if (sessionStorage.getItem('gmail_attachments_backfill_done') === '1') return
+    let cancelled = false
+    ;(async () => {
+      try {
+        let totalScanned = 0
+        let totalProcessed = 0
+        let totalWithImages = 0
+        for (let round = 1; round <= 20; round++) {
+          if (cancelled) return
+          const res = await fetch('/api/admin/news-candidates/backfill-gmail-attachments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ limit: 10 }),
+          })
+          if (!res.ok) break
+          const data = await res.json()
+          totalScanned += data.candidates_processed || 0
+          totalProcessed += data.processed || 0
+          totalWithImages += data.candidates_with_images || 0
+          // Sustojam kai nieko neapdorota arba nebeliko candidate'ų
+          if ((data.candidates_processed || 0) === 0) break
+        }
+        sessionStorage.setItem('gmail_attachments_backfill_done', '1')
+        if (!cancelled && totalScanned > 0) {
+          setBackfillStats({ scanned: totalScanned, processed: totalProcessed, with_images: totalWithImages })
+          // Jei rado nors vieną — reload kortelės su naujom foto'om
+          if (totalProcessed > 0) load()
+        }
+      } catch {
+        // Silent fail — button likę manual fallback'ui
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, isAdmin])
 
   const fetchBody = useCallback(async (id: number) => {
     if (bodies[id]) return bodies[id]
@@ -515,6 +559,13 @@ export default function AdminInboxPage() {
 
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3">
         <InboxTabs />
+        {backfillStats && (
+          <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
+            📷 Gmail foto auto-backfill: nuskan'iuota {backfillStats.scanned} kandidatų ·
+            ✓ {backfillStats.processed} foto pridėta į {backfillStats.with_images} kandidatų.
+            {backfillStats.processed === 0 && ' Nieko nerasta — gali būti, kad press release email\'ai be image attachment\'ų (vietoj jų inline HTML).'}
+          </div>
+        )}
         <BackfillGmailAttachmentsButton onDone={() => load()} />
         {/* Category filter — icon-only chips mobile'e, su label desktop'e */}
         <div className="flex flex-wrap gap-1 mb-3 overflow-x-auto -mx-1 px-1">
@@ -1070,13 +1121,28 @@ export default function AdminInboxPage() {
                           )}
                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent text-white text-[10px] px-1.5 py-1">
                             <div className="font-semibold opacity-90 leading-tight">
+                              {opt.source === 'email_attachment' && '📧 Press foto'}
                               {opt.source === 'artist_photo' && '📸 Galerija'}
                               {opt.source === 'artist_cover' && '🎤 Profilio nuotrauka'}
                               {opt.source === 'youtube_thumb' && '🎬 YT thumb'}
                               {opt.source === 'wiki' && '📖 Wikimedia'}
                             </div>
-                            {/* YT thumb'ams — rodom title + channel + views + age vietoj generic label'o */}
-                            {opt.source === 'youtube_thumb' && opt.yt_meta ? (
+                            {/* Email attachment — photographer/copyright/year */}
+                            {opt.source === 'email_attachment' && opt.meta ? (
+                              <>
+                                <div className="opacity-95 leading-tight truncate text-[9px]">
+                                  {opt.meta.caption && <span>{opt.meta.caption}</span>}
+                                  {!opt.meta.caption && opt.meta.photographer && <span>📷 {opt.meta.photographer}</span>}
+                                </div>
+                                <div className="opacity-70 leading-tight truncate text-[9px]">
+                                  {opt.meta.photographer && opt.meta.caption && <span>📷 {opt.meta.photographer}</span>}
+                                  {opt.meta.year_taken && <span> · {opt.meta.year_taken}</span>}
+                                  {opt.meta.copyright && <span> · © {opt.meta.copyright}</span>}
+                                </div>
+                              </>
+                            ) :
+                            /* YT thumb'ams — rodom title + channel + views + age vietoj generic label'o */
+                            opt.source === 'youtube_thumb' && opt.yt_meta ? (
                               <>
                                 <div className="opacity-95 leading-tight truncate" title={opt.yt_meta.title || ''}>
                                   {opt.yt_meta.title || opt.label}
@@ -1165,21 +1231,26 @@ export default function AdminInboxPage() {
 }
 
 /**
- * Backfill button — paleidžia /api/admin/news-candidates/backfill-gmail-attachments
- * batch'iniu būdu (10 candidates per call). Kartoja kol grąžinas processed=0.
- * Rodo progress'ą inline.
+ * Backfill button — manual fallback'as / debug tool'as. Pagrinde backfill'as
+ * auto-trigger'inamas page mount metu (žiūr. useEffect AdminInboxPage komponente).
+ * Šitą mygtuką pasilieka kol patvirtinsim, kad auto veikia.
  */
 function BackfillGmailAttachmentsButton({ onDone }: { onDone: () => void }) {
   const [running, setRunning] = useState(false)
-  const [progress, setProgress] = useState<{ totalProcessed: number; totalFailed: number; rounds: number; lastError?: string } | null>(null)
+  const [progress, setProgress] = useState<{ totalProcessed: number; totalFailed: number; rounds: number; totalScanned: number; lastResults?: any[]; lastError?: string } | null>(null)
+  const [showDetails, setShowDetails] = useState(false)
 
   const runBackfill = async () => {
-    if (!confirm('Pakartoti Gmail foto fetch visiems pending candidate\'ams be foto? Užtruks ~1-3 min priklausomai nuo kiekio.')) return
+    if (!confirm('Force backfill — kviečia endpoint visiems pending Gmail candidate\'ams be foto. Užtruks ~30s-3min.')) return
     setRunning(true)
-    setProgress({ totalProcessed: 0, totalFailed: 0, rounds: 0 })
+    setProgress({ totalProcessed: 0, totalFailed: 0, rounds: 0, totalScanned: 0 })
     try {
       let totalProcessed = 0
       let totalFailed = 0
+      let totalScanned = 0
+      let lastResults: any[] = []
+      // Force ignore session flag — manual run visada vykdo
+      sessionStorage.removeItem('gmail_attachments_backfill_done')
       for (let round = 1; round <= 20; round++) {
         const res = await fetch('/api/admin/news-candidates/backfill-gmail-attachments', {
           method: 'POST',
@@ -1188,38 +1259,54 @@ function BackfillGmailAttachmentsButton({ onDone }: { onDone: () => void }) {
         })
         const data = await res.json()
         if (!res.ok) {
-          setProgress(p => ({ ...(p || { totalProcessed: 0, totalFailed: 0, rounds: 0 }), lastError: data.error || `HTTP ${res.status}` }))
+          setProgress(p => ({ ...(p || { totalProcessed: 0, totalFailed: 0, rounds: 0, totalScanned: 0 }), lastError: data.error || `HTTP ${res.status}` }))
           break
         }
         totalProcessed += data.processed || 0
         totalFailed += data.failed || 0
-        setProgress({ totalProcessed, totalFailed, rounds: round })
-        // Jei nieko neapdorota šitą rundą — viskas baigta
-        if ((data.candidates_processed || 0) === 0 || (data.candidates_with_images || 0) === 0) break
+        totalScanned += data.candidates_processed || 0
+        lastResults = data.results || []
+        setProgress({ totalProcessed, totalFailed, rounds: round, totalScanned, lastResults })
+        if ((data.candidates_processed || 0) === 0) break
       }
+      sessionStorage.setItem('gmail_attachments_backfill_done', '1')
       onDone()
     } catch (e: any) {
-      setProgress(p => ({ ...(p || { totalProcessed: 0, totalFailed: 0, rounds: 0 }), lastError: e?.message || String(e) }))
+      setProgress(p => ({ ...(p || { totalProcessed: 0, totalFailed: 0, rounds: 0, totalScanned: 0 }), lastError: e?.message || String(e) }))
     } finally {
       setRunning(false)
     }
   }
 
   return (
-    <div className="mb-3 flex items-center gap-2 flex-wrap text-xs">
-      <button
-        onClick={runBackfill}
-        disabled={running}
-        className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 text-amber-900 border border-amber-300 rounded font-medium disabled:opacity-50 transition-colors">
-        {running ? '⏳ Vyksta…' : '📷 Backfill Gmail foto'}
-      </button>
-      {progress && (
-        <span className="text-[var(--text-muted)]">
-          {progress.rounds > 0 && `Rounds: ${progress.rounds} · `}
-          ✓ {progress.totalProcessed} apdorota
-          {progress.totalFailed > 0 && ` · ✗ ${progress.totalFailed} fail`}
-          {progress.lastError && <span className="text-red-500 ml-2">⚠ {progress.lastError}</span>}
-        </span>
+    <div className="mb-3 text-xs">
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={runBackfill}
+          disabled={running}
+          className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 text-amber-900 border border-amber-300 rounded font-medium disabled:opacity-50 transition-colors">
+          {running ? '⏳ Vyksta…' : '📷 Force backfill Gmail foto'}
+        </button>
+        {progress && (
+          <span className="text-[var(--text-muted)]">
+            Scanned: {progress.totalScanned} ·
+            ✓ {progress.totalProcessed} foto pridėta
+            {progress.totalFailed > 0 && ` · ✗ ${progress.totalFailed} fail`}
+            {progress.lastError && <span className="text-red-500 ml-2">⚠ {progress.lastError}</span>}
+            {progress.lastResults && progress.lastResults.length > 0 && (
+              <button
+                onClick={() => setShowDetails(s => !s)}
+                className="ml-2 underline text-blue-600">
+                {showDetails ? 'slėpti detales' : 'rodyti detales'}
+              </button>
+            )}
+          </span>
+        )}
+      </div>
+      {showDetails && progress?.lastResults && (
+        <pre className="mt-2 p-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded text-[10px] overflow-x-auto max-h-60">
+{JSON.stringify(progress.lastResults, null, 2)}
+        </pre>
       )}
     </div>
   )

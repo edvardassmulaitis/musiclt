@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
     message_id: string | null
     processed: number
     failed: number
+    attachments_found: number   // image attachments aptiktų Gmail API'aj prieš filtravimą
     error?: string
   }> = []
 
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
       message_id: null,
       processed: 0,
       failed: 0,
+      attachments_found: 0,
     }
     try {
       const thread = await getThread(tid)
@@ -101,15 +103,25 @@ export async function POST(req: NextRequest) {
         results.push(entry)
         continue
       }
-      // Imam paskutinį message'ą — press release dažniausiai vienas message'as,
-      // o jei daugiau (pvz., reply'jai) — paskutinis turi visus attachment'us.
-      const lastMsg = messages[messages.length - 1]
-      entry.message_id = lastMsg.id
-
-      const r = await processMessageAttachments(supabase, cand.id, lastMsg.id)
-      entry.processed = r.processed
-      entry.failed = r.failed
-      if (r.errors.length > 0) entry.error = r.errors.join('; ').slice(0, 200)
+      // Iteruojam VISUS thread message'us — kartais press release'ai turi
+      // attachment'us pirmame message'e, ne paskutiniame (ypač jei buvo
+      // forward'inta / reply'inta su atskirais attachment'ais).
+      let totalProcessed = 0
+      let totalFailed = 0
+      const messageIdsUsed: string[] = []
+      for (const m of messages) {
+        const r = await processMessageAttachments(supabase, cand.id, m.id)
+        totalProcessed += r.processed
+        totalFailed += r.failed
+        if (r.processed > 0) messageIdsUsed.push(m.id)
+        if (r.errors.length > 0) {
+          entry.error = (entry.error ? entry.error + '; ' : '') + r.errors.join('; ').slice(0, 200)
+        }
+      }
+      entry.message_id = messageIdsUsed[messageIdsUsed.length - 1] || messages[messages.length - 1].id
+      entry.processed = totalProcessed
+      entry.failed = totalFailed
+      entry.attachments_found = totalProcessed + totalFailed
     } catch (e: any) {
       entry.error = e?.message || String(e)
     }
