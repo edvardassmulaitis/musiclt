@@ -40,17 +40,20 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const limit = Math.max(1, Math.min(25, typeof body.limit === 'number' ? body.limit : 10))
   const onlyId: number | undefined = typeof body.candidate_id === 'number' ? body.candidate_id : undefined
+  // force=true ignoruoja attachments_checked_at filter'į (re-check viskam)
+  const force: boolean = body.force === true
+  // clean=true trina esamus news_candidate_images rows + Storage failus prieš
+  // re-fetch'inant fresh (idempotent re-import).
+  const cleanFirst: boolean = body.clean === true
 
   const supabase = createAdminClient()
 
   // Suranda Gmail candidate'us, kurie dar nepatikrinti.
-  // Filter:
+  // Filter (visada — tai apsaugo nuo accidentinio non-Gmail processing'o):
+  //   - source_type='gmail' (HARD constraint)
   //   - pending status (aktyvioj inbox queue)
-  //   - source_type='gmail'
   //   - source_email_thread_id NOT NULL
-  //   - attachments_checked_at IS NULL (nepatikrintas → reikia bandyti)
-  // Manual override: jei onlyId pateikta, ignorinam checked_at filter'į
-  // (force re-check tam vienam).
+  //   - attachments_checked_at IS NULL (nepatikrintas) — UNLESS force=true
   let q = supabase
     .from('news_candidates')
     .select('id, source_email_thread_id, status, ai_title')
@@ -62,7 +65,7 @@ export async function POST(req: NextRequest) {
 
   if (onlyId) {
     q = q.eq('id', onlyId)
-  } else {
+  } else if (!force) {
     q = q.is('attachments_checked_at', null)
   }
 
@@ -98,6 +101,25 @@ export async function POST(req: NextRequest) {
       attachments_found: 0,
     }
     try {
+      // Clean — trina esamus rows + Storage failus prieš re-fetch'inant
+      // (force re-import scenarius, kai pirmas bandymas paliko trash data).
+      if (cleanFirst) {
+        const { data: oldImgs } = await supabase
+          .from('news_candidate_images')
+          .select('storage_path')
+          .eq('candidate_id', cand.id)
+        const oldPaths = (oldImgs || [])
+          .map((r: any) => r.storage_path)
+          .filter(Boolean)
+        await supabase
+          .from('news_candidate_images')
+          .delete()
+          .eq('candidate_id', cand.id)
+        if (oldPaths.length > 0) {
+          await supabase.storage.from('news-attachments').remove(oldPaths)
+        }
+      }
+
       const thread = await getThread(tid)
       const messages = thread.messages || []
       if (messages.length === 0) {

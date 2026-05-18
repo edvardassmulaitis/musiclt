@@ -1240,22 +1240,25 @@ function BackfillGmailAttachmentsButton({ onDone }: { onDone: () => void }) {
   const [progress, setProgress] = useState<{ totalProcessed: number; totalFailed: number; rounds: number; totalScanned: number; lastResults?: any[]; lastError?: string } | null>(null)
   const [showDetails, setShowDetails] = useState(false)
 
+  const [needsReload, setNeedsReload] = useState(false)
+
   const runBackfill = async () => {
-    if (!confirm('Force backfill — kviečia endpoint visiems pending Gmail candidate\'ams be foto. Užtruks ~30s-3min.')) return
+    if (!confirm('Force backfill — re-check ALL pending Gmail candidate\'ams ignoruojant attachments_checked_at flag\'ą, ir wipina esamas foto. Užtruks ~30s-3min. Naudoti DEBUG\'ui.')) return
     setRunning(true)
     setProgress({ totalProcessed: 0, totalFailed: 0, rounds: 0, totalScanned: 0 })
+    setNeedsReload(false)
     try {
       let totalProcessed = 0
       let totalFailed = 0
       let totalScanned = 0
       let lastResults: any[] = []
-      // Force ignore session flag — manual run visada vykdo
       sessionStorage.removeItem('gmail_attachments_backfill_done')
       for (let round = 1; round <= 20; round++) {
         const res = await fetch('/api/admin/news-candidates/backfill-gmail-attachments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ limit: 10 }),
+          // force=true → ignore checked_at; clean=true → wipe esamas foto pirma
+          body: JSON.stringify({ limit: 10, force: true, clean: true }),
         })
         const data = await res.json()
         if (!res.ok) {
@@ -1270,7 +1273,8 @@ function BackfillGmailAttachmentsButton({ onDone }: { onDone: () => void }) {
         if ((data.candidates_processed || 0) === 0) break
       }
       sessionStorage.setItem('gmail_attachments_backfill_done', '1')
-      onDone()
+      setNeedsReload(true)
+      // NESIKVIEČIAM onDone() automatiškai — paliekam user'iui inspektuoti detales
     } catch (e: any) {
       setProgress(p => ({ ...(p || { totalProcessed: 0, totalFailed: 0, rounds: 0, totalScanned: 0 }), lastError: e?.message || String(e) }))
     } finally {
@@ -1285,27 +1289,39 @@ function BackfillGmailAttachmentsButton({ onDone }: { onDone: () => void }) {
           onClick={runBackfill}
           disabled={running}
           className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 text-amber-900 border border-amber-300 rounded font-medium disabled:opacity-50 transition-colors">
-          {running ? '⏳ Vyksta…' : '📷 Force backfill Gmail foto'}
+          {running ? '⏳ Vyksta…' : '📷 Force backfill Gmail foto (DEBUG)'}
         </button>
+        {progress && !running && (
+          <button
+            onClick={() => setShowDetails(s => !s)}
+            className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded font-medium">
+            {showDetails ? '🙈 slėpti detales' : '👁 rodyti detales'}
+          </button>
+        )}
+        {needsReload && !running && (
+          <button
+            onClick={() => { setNeedsReload(false); onDone() }}
+            className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded font-medium">
+            🔄 Atnaujinti sąrašą
+          </button>
+        )}
         {progress && (
           <span className="text-[var(--text-muted)]">
             Scanned: {progress.totalScanned} ·
             ✓ {progress.totalProcessed} foto pridėta
             {progress.totalFailed > 0 && ` · ✗ ${progress.totalFailed} fail`}
             {progress.lastError && <span className="text-red-500 ml-2">⚠ {progress.lastError}</span>}
-            {progress.lastResults && progress.lastResults.length > 0 && (
-              <button
-                onClick={() => setShowDetails(s => !s)}
-                className="ml-2 underline text-blue-600">
-                {showDetails ? 'slėpti detales' : 'rodyti detales'}
-              </button>
-            )}
           </span>
         )}
       </div>
-      {showDetails && progress?.lastResults && (
-        <pre className="mt-2 p-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded text-[10px] overflow-x-auto max-h-60">
-{JSON.stringify(progress.lastResults, null, 2)}
+      {showDetails && progress && (
+        <pre className="mt-2 p-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded text-[10px] overflow-x-auto max-h-80">
+{progress.lastResults && progress.lastResults.length > 0
+  ? JSON.stringify(progress.lastResults, null, 2)
+  : 'Tuščia — Force backfill neapdorojo nei vieno kandidato. Galimos priežastys:\n' +
+    '  - Visi pending Gmail kandidatai jau patikrinti ir wipinti šio run\'o metu (per-round limit 10)\n' +
+    '  - Auto-backfill jau pažymėjo, o filter\'is filtruoja juos (BET force=true jį turi išjungti)\n' +
+    '  - Migracija 20260518b neaplikuota → attachments_checked_at column missing → silent error'}
         </pre>
       )}
     </div>
