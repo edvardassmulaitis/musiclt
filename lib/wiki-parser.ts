@@ -632,11 +632,14 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
  */
 export function extractTrackListingsWithPos(wikitext: string): { block: string; pos: number }[] {
   const results: { block: string; pos: number }[] = []
-  // Apima abu pavadinimo variantai: {{Track listing}} (kanoninis su tarpu) ir
-  // {{Tracklist}} (alias / be tarpo). The Beatles 'With the Beatles' atveju
-  // naudojama {{tracklist|...}} — anksčiau regex'as match'indavo tik
-  // 'Track Listing' su tarpu → 0 tracks paimama.
-  const pattern = /\{\{\s*[Tt]rack\s*[Ll]ist(?:ing)?\b/g
+  // Apima TRIS pavadinimo variantus:
+  //   {{Track listing}}  — kanoninis su tarpu
+  //   {{Tracklist}}      — alias be tarpo (The Beatles 'With the Beatles')
+  //   {{Track_listing}}  — underscore variantas (Björk 'Post', Bowie albumų dauguma)
+  // Anksčiau regex'as match'indavo TIK tarpą ar nieko, ne underscore →
+  // Björk Post pages 3 tracklist'ai (Standard + Japanese + Australian) = 0 tracks.
+  // [\s_] grupė apima abu pelio delimiterius.
+  const pattern = /\{\{[\s_]*[Tt]rack[\s_]*[Ll]ist(?:ing)?\b/g
   let m: RegExpExecArray | null
   while ((m = pattern.exec(wikitext)) !== null) {
     let depth = 0, i = m.index
