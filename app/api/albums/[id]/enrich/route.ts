@@ -355,8 +355,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // ai keičiasi VISUR (visuose albumuose per album_tracks JOIN naudoja tą
   // patį track.title — tai tas pats record'as).
   const titleNorm = (s: string) => (s || '').toLowerCase()
-    .replace(/[-‒–—_/]/g, ' ')
-    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\([^)]*\)\s*$/, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/^(the|a|an)\s+/, '')

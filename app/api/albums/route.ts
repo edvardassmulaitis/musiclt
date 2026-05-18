@@ -27,15 +27,14 @@ export async function GET(req: NextRequest) {
         .select('id, title')
         .eq('artist_id', parseInt(artistId))
       // Article-strip leading "a"/"the"/"an" — music.lt'as dažnai praleidžia
-      // priekyje (LT convention'as), Wiki išlaiko. Be šito "A Night at the Opera"
-      // (Wiki) nesutampa su "Night At The Opera" (music.lt).
-      // Plus hyphenai/dashes/underscore/slash → tarpas, kad "Master-Stroke"
-      // ne susiliete į "masterstroke" (atitiktų DB "Master Stroke").
-      // Trailing parens strip — bilingual subtitles, version markers etc.
+      // priekyje (LT convention'as), Wiki išlaiko.
+      // Visi non-alphanumeric → tarpas (ne strip): "Master-Stroke",
+      // "Gods...Revisited", "AC/DC" virsta keliais žodžiais. Trailing parens
+      // (bilingual subtitles) PIRMA, kad "Las palabras de amor (the words of
+      // love)" virstų į "las palabras de amor".
       const norm = (s: string) => s.toLowerCase()
-        .replace(/[-‒–—_/]/g, ' ')
         .replace(/\([^)]*\)\s*$/, '')
-        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
         .replace(/^(the|a|an)\s+/, '')

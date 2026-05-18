@@ -74,16 +74,16 @@ export async function GET(req: NextRequest) {
         offsetT += PAGE
       }
       // Article-strip leading "a"/"the"/"an" — žr. albums route komentaro.
-      // Hyphenai/dashes/underscore/slash → tarpas PIRMA, kad "Master-Stroke"
-      // virstų į "master stroke" (atitiktų DB "Master Stroke"), ne
-      // "masterstroke".
-      // 2026-05-15: trailing parens strip — kad "Las palabras de amor (the words
-      // of love)" sutaptų su Wiki "Las Palabras de Amor". Bilingual subtitles,
-      // version markers (kompiliacijų remix mix'ai) ir kt. trailing metadata.
+      // Visi non-alphanumeric → tarpas (ne strip), kad "Master-Stroke",
+      // "Gods...Revisited", "AC/DC" virstų į kelis žodžius. Anksčiau buvo
+      // tik [-_/] → tarpas + likę strip'inami → "Gods...Revisited" tapdavo
+      // "godsrevisited" be tarpo, nesutapdavo su DB "Gods - Revisited".
+      // 2026-05-15: trailing parens strip PIRMA (kad "Las palabras de amor
+      // (the words of love)" virstų į tik "las palabras de amor", o ne
+      // "las palabras de amor the words of love").
       const norm = (s: string) => s.toLowerCase()
-        .replace(/[-‒–—_/]/g, ' ')
         .replace(/\([^)]*\)\s*$/, '')
-        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
         .replace(/^(the|a|an)\s+/, '')

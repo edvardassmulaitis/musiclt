@@ -58,8 +58,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Jei logically skirtingi (norm nesutampa) — neliečiam, gali būti
   // intentional admin rename.
   const norm = (s: string) => (s || '').toLowerCase()
-    .replace(/[-‒–—_/]/g, ' ')
-    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\([^)]*\)\s*$/, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/^(the|a|an)\s+/, '')
