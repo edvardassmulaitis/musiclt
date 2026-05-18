@@ -1704,10 +1704,114 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       }
       await new Promise(r => setTimeout(r, 200))
     }
-    setImporting(false)
     addLog(`✓ ${ok} naujų albumų, ${enriched} papildyta${fail ? `, ${fail} klaida` : ''}`)
+
+    // ─── AUTO-CASCADE: YT enrich + LRCLib lyrics + score recalc ──────────
+    // 2026-05-15: po Wiki overlay'aus automatiškai paleidžiam:
+    //   1) YT enrich kiekvienam track be video_url (type=normal, skip live/remix)
+    //   2) LRCLib search kiekvienam track be lyrics (skip instrumental)
+    //   3) Artist score recalc — composite atspindi naujus video_views
+    // Tikslas: vienu klikiu album'ai turi tapti pilnai ✓ sutvarkyta.
+    const importedAlbumIds: number[] = []
+    for (const idx of indices) {
+      const it = snapshot[idx]
+      if (!it) continue
+      if (it.duplicate && it.duplicateId) importedAlbumIds.push(it.duplicateId)
+    }
+    if (importedAlbumIds.length > 0) {
+      updateTask('import', 'auto-enrich: kraunama track sąrašai...')
+      try {
+        // Re-fetch completeness po importo, kad tikrai turėtume aktualų state
+        const completenessByAlbum = new Map<number, any>()
+        await Promise.all(importedAlbumIds.map(async aid => {
+          try {
+            const r = await fetch(`/api/albums/${aid}/completeness`)
+            if (r.ok) {
+              const d = await r.json()
+              if (d?.completeness) completenessByAlbum.set(aid, d.completeness)
+            }
+          } catch {}
+        }))
+        // Visi unique tracks su issues (video arba lyrics missing)
+        const tracksNeedingYt = new Map<number, string>()  // id → title
+        const tracksNeedingLyrics = new Map<number, string>()
+        for (const [, comp] of completenessByAlbum) {
+          for (const t of comp.tracks || []) {
+            if (t.missing?.includes('video')) tracksNeedingYt.set(t.id, t.title)
+            if (t.missing?.includes('lyrics')) tracksNeedingLyrics.set(t.id, t.title)
+          }
+        }
+        const ytCount = tracksNeedingYt.size
+        const lyrCount = tracksNeedingLyrics.size
+        if (ytCount > 0 || lyrCount > 0) {
+          addLog(`🔧 Auto-enrich: ${ytCount} dainų ieškoti YT + ${lyrCount} dainų ieškoti lyrics`)
+        }
+
+        // YT enrich sequentially (rate-limit safe)
+        let ytFound = 0
+        let ytI = 0
+        for (const [tid, ttitle] of tracksNeedingYt) {
+          ytI++
+          updateTask('import', `YT enrich: ${ytI}/${ytCount} (${ttitle.slice(0, 30)})`)
+          try {
+            const r = await fetch(`/api/admin/yt/track/${tid}/enrich`, { method: 'POST' })
+            if (r.ok) {
+              const d = await r.json().catch(() => ({}))
+              if (d?.videoUrl || d?.wasFound) ytFound++
+            }
+          } catch {}
+          await new Promise(r => setTimeout(r, 300))
+        }
+        if (ytCount > 0) addLog(`  YouTube: rasta ${ytFound}/${ytCount}`)
+
+        // LRCLib lyrics sequentially
+        let lyrFound = 0
+        let lyrI = 0
+        for (const [tid, ttitle] of tracksNeedingLyrics) {
+          lyrI++
+          updateTask('import', `Lyrics: ${lyrI}/${lyrCount} (${ttitle.slice(0, 30)})`)
+          try {
+            const r = await fetch('/api/admin/lyrics/lrclib', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ track_id: tid }),
+            })
+            if (r.ok) {
+              const d = await r.json().catch(() => ({}))
+              if (d?.found) lyrFound++
+            }
+          } catch {}
+          await new Promise(r => setTimeout(r, 200))
+        }
+        if (lyrCount > 0) addLog(`  Lyrics: rasta ${lyrFound}/${lyrCount}`)
+
+        // Final: artist score recalc — query param (ne body)
+        updateTask('import', 'Score recalc...')
+        try {
+          await fetch(`/api/admin/recalc-artist-cascade?artist_id=${artistId}`, { method: 'POST' })
+          addLog(`  Score recalc atliktas`)
+        } catch (e: any) {
+          addLog(`  ⚠ Score recalc nepavyko: ${e?.message}`)
+        }
+
+        // Refresh completeness UI state po viso enrich
+        await Promise.all(importedAlbumIds.map(async aid => {
+          try {
+            const r = await fetch(`/api/albums/${aid}/completeness`)
+            if (r.ok) {
+              const d = await r.json()
+              if (d?.completeness) {
+                setItems(p => p.map(it => it.duplicateId === aid ? { ...it, completeness: d.completeness } : it))
+              }
+            }
+          } catch {}
+        }))
+      } catch (e: any) {
+        addLog(`✗ Auto-enrich klaida: ${e?.message}`)
+      }
+    }
+    setImporting(false)
     if (fail > 0) errorTask('import', `${ok} naujų + ${enriched} papildyta, ${fail} klaidos`)
-    else finishTask('import', `${ok} naujų + ${enriched} papildyta`)
+    else finishTask('import', `${ok} naujų + ${enriched} papildyta + auto-enrich`)
 
     // Pranešti parent page kad diskografija pasikeitė — kad atnaujintų sąrašą
     if (ok > 0 || enriched > 0) window.dispatchEvent(new CustomEvent('discography-updated'))
