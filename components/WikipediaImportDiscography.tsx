@@ -2213,13 +2213,26 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     const isExpanded = expandedItems.has(i)
     const isFetching = it.fetched === false && expandedItems.has(i)
     // Compute "is album fully sutvarkyta" — duplicate mutually exclusive su
-    // ↻ papildyti badge'u + background tint (žalia kaip imported, kad row
-    // aiškiai būtų "done"). Sąlyga: server fully_complete=true IR jokio
-    // matomo Wiki count mismatch'o. Jei completeness dar nefetch'inta —
-    // false (kol nežinom — naudojam papildyti kaip safe default).
+    // ↻ papildyti badge'u + background tint.
+    // 2026-05-15: atskiriam DU tipus issues'ų:
+    //   wikiCanHelp   — duomenys, kuriuos Wiki gali pateikti (year, cover,
+    //                   genre, peak chart, count mismatch). Jei taip → papildyti.
+    //   externalOnly  — duomenys, kuriuos Wiki neturi (video_url, lyrics).
+    //                   Jei tik šie trūksta → ⚠ trūksta lieka, bet papildyti
+    //                   NEBESIRODO (Wiki jau nieko negali pagelbėti).
     const wikiTrackCountAbs = it.fetched && it.tracks !== undefined ? it.tracks.length : null
     const wikiCountMismatch = !!(wikiTrackCountAbs !== null && it.completeness && it.completeness.tracks_count < wikiTrackCountAbs)
-    const isAlbumSutvarkyta = !!(it.completeness?.fully_complete && !wikiCountMismatch && !it.completeness.tracks.some(t => !t.complete))
+    const c = it.completeness
+    const wikiCanHelp = !!(c && (
+      !c.has_cover ||
+      !c.has_year ||
+      c.substyles_count === 0 ||
+      wikiCountMismatch
+    ))
+    const externalIssues = !!(c && c.tracks.some(t => !t.complete))  // video/lyrics
+    const isAlbumSutvarkyta = !!(c?.fully_complete && !wikiCountMismatch && !externalIssues)
+    // ↻ papildyti rodom TIK kai Wiki gali padėti (ne vien external issues).
+    const showPapildyti = !!(it.duplicate && !isAlbumSutvarkyta && wikiCanHelp)
     return (
       <div key={i} className={`rounded-lg border transition-all ${
         // 2026-05-15 redesign: duplicate atrodo kaip "enrich" — selectable +
@@ -2260,11 +2273,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {it.extraTypes?.map(et => (
                 <span key={et} className="text-[10px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'Garso takelis' : et}</span>
               ))}
-              {/* ↻ papildyti rodom TIK kai album'as duplicate IR dar NE
-                  sutvarkytas. Jei completeness sako fully complete (po importo
-                  + auto-link) — slėpiam, kad admin'as nesirūpintų jog reikia
-                  kažką daryti. ✓ sutvarkyta badge perima žinotę. */}
-              {it.duplicate && !isAlbumSutvarkyta && <span className="text-[10px] font-semibold text-amber-600 shrink-0" title="Albumas DB jau yra. Wiki tik papildys trūkstamus laukus (data, viršelis, sertifikatai, žanrai). Egzistuojantys laukai neperrašomi.">↻ papildyti</span>}
+              {/* ↻ papildyti rodom TIK kai Wiki tikrai gali padėti (year,
+                  cover, žanrai, count mismatch). Jei trūksta tik external
+                  duomenų (video_url, lyrics) — Wiki nieko negali pagelbėti,
+                  ↻ papildyti slepiamas, lieka tik ⚠ trūksta. */}
+              {showPapildyti && <span className="text-[10px] font-semibold text-amber-600 shrink-0" title="Wiki turi duomenų, kurių DB neturi: leidimo data, viršelis, žanrai, sertifikatai arba dainų count'as. Egzistuojantys laukai neperrašomi.">↻ papildyti</span>}
               {/* Type diff preview — jei Wiki nori pakeisti type'ą po importo,
                   rodom 'studijinis → kompiliacija' badge'ą oranžiniu. Padeda
                   admin'ui suprasti kodėl Queen 21 studio → 15 po Wiki import'o. */}
@@ -2329,10 +2342,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   const more = incompleteTracks.length > 5 ? `\n  …ir dar ${incompleteTracks.length - 5}` : ''
                   tooltipParts.push(`${incompleteTracks.length} dainos nepilnos:\n${sample}${more}`)
                 }
-                // "X dainos neprijungtos" — actionable: spausk Importuoti, auto-link
-                // (per matched_track_ids) prijungs jas iškart.
+                // Kontekstinis hint suffix'as:
                 const hasUnjoined = wikiTrackCount !== null && c.tracks_count < wikiTrackCount
-                const suffix = hasUnjoined ? ' (spausk Importuoti — auto-prijungs)' : ''
+                let suffix = ''
+                if (hasUnjoined) suffix = ' (spausk Importuoti — auto-prijungs)'
+                else if (!wikiCanHelp && externalIssues) suffix = ' (Wiki šito nepateikia — reikia rankinio darbo: YT, lyrics)'
                 return (
                   <span className="text-[10px] font-semibold text-amber-700 shrink-0" title={tooltipParts.join('\n\n') + suffix}>
                     ⚠ trūksta: {inlineParts.join(', ')}
