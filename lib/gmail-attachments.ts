@@ -16,6 +16,7 @@
 
 import { getMessageAttachments, getAttachmentBuffer } from './gmail-client'
 import { extractExifFromBuffer } from './exif-extract'
+import { extractPhotographerFromFilename } from './extract-credits'
 
 export const ATTACHMENTS_BUCKET = 'news-attachments'
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024  // Gmail max 25MB; press release foto dažnai 5-15MB hi-res
@@ -50,10 +51,15 @@ export interface AttachmentResult {
  * .from() ir .storage. Manualiai netipiname kad išvengti svarbo importų,
  * vis tiek runtime per createAdminClient() ateina tinkamas tipas.
  */
+/**
+ * Optional fallback'as photographer'iui — naudojam kai EXIF tuščias ir filename
+ * neturi CREDIT pattern'o. Pateikiamas iš gmail-ingest body-text scan'o.
+ */
 export async function processMessageAttachments(
   supabase: any,
   candidateId: number,
   messageId: string,
+  options: { fallbackPhotographer?: string | null } = {},
 ): Promise<AttachmentResult> {
   const result: AttachmentResult = {
     processed: 0, failed: 0, first_url: null, errors: [],
@@ -109,6 +115,16 @@ export async function processMessageAttachments(
       }
 
       const exif = await extractExifFromBuffer(buf, m.mimeType)
+
+      // Photographer fallback chain: EXIF → filename CREDIT_xxx → body text fallback
+      let finalPhotographer = exif.photographer
+      if (!finalPhotographer) {
+        finalPhotographer = extractPhotographerFromFilename(m.filename)
+      }
+      if (!finalPhotographer && options.fallbackPhotographer) {
+        finalPhotographer = options.fallbackPhotographer
+      }
+
       const safeName = sanitizeFilename(m.filename)
       const storagePath = `gmail/${candidateId}/${Date.now()}-${i}-${safeName}`
 
@@ -135,7 +151,7 @@ export async function processMessageAttachments(
           filename: m.filename,
           mime_type: m.mimeType,
           file_size: buf.length,
-          photographer: exif.photographer,
+          photographer: finalPhotographer,
           copyright: exif.copyright,
           year_taken: exif.year_taken,
           caption_exif: exif.caption_exif,

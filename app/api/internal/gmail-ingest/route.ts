@@ -43,6 +43,7 @@ import { classifyMusicRelevance } from '@/lib/ai-normalize'
 import { matchArtists, matchTracks, getTopArtistsForHint } from '@/lib/entity-matcher'
 import { extractExifFromBuffer } from '@/lib/exif-extract'
 import { extractDocxFromBuffer } from '@/lib/docx-extract'
+import { extractPhotographerFromText, extractDriveLinks } from '@/lib/extract-credits'
 import { getMessageAttachments, getAttachmentBuffer } from '@/lib/gmail-client'
 import { processMessageAttachments, ATTACHMENTS_BUCKET } from '@/lib/gmail-attachments'
 
@@ -196,11 +197,24 @@ export async function POST(req: NextRequest) {
   const firstPara = summarySource.split(/\n\s*\n/).map(p => p.trim()).find(p => p.length > 20) || summarySource.slice(0, 300)
   const summary = firstPara.slice(0, 280).replace(/\s+\S*$/, '').trim() + (firstPara.length > 280 ? '…' : '')
 
-  // Embed URLs — YouTube/Spotify links iš teksto
-  const urlMatches = (`${subject || ''} ${rawBody}`).match(/https?:\/\/[^\s<>"]+/gi) || []
+  // Embed URLs — YouTube/Spotify/Drive links iš teksto + docx
+  const allText = `${subject || ''} ${rawBody} ${docxBodyText || ''}`
+  const urlMatches = allText.match(/https?:\/\/[^\s<>"]+/gi) || []
   const embedUrls = Array.from(new Set(urlMatches.filter(u =>
     /(youtube\.com\/watch|youtu\.be\/|spotify\.com\/(track|album|artist|playlist))/i.test(u)
   )))
+  // Drive links — atskirai į embed_urls kad admin'as galėtų nueiti
+  // ir parsiųsti foto manualiai jei reikia
+  const driveLinks = extractDriveLinks(allText)
+  for (const dl of driveLinks) {
+    if (!embedUrls.includes(dl)) embedUrls.push(dl)
+  }
+
+  // Photographer scan iš body teksto + docx — naudojama kaip fallback'as
+  // attachment'ams, kurių EXIF tuščias ir filename'as be CREDIT'o
+  const bodyPhotographer =
+    extractPhotographerFromText(docxBodyText || '') ||
+    extractPhotographerFromText(rawBody)
 
   // Artist scan — substring match prieš top 500 (case-insensitive, žodžio ribos)
   const artistHint = await getTopArtistsForHint(500)
@@ -305,7 +319,9 @@ export async function POST(req: NextRequest) {
   const hasOAuth = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN)
 
   if (messageId && hasOAuth) {
-    const r = await processMessageAttachments(supabase, inserted.id, messageId)
+    const r = await processMessageAttachments(supabase, inserted.id, messageId, {
+      fallbackPhotographer: bodyPhotographer,
+    })
     attachmentsProcessed = r.processed
     attachmentsFailed = r.failed
     if (r.errors.length > 0) {

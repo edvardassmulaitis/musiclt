@@ -23,6 +23,7 @@ import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { getThread } from '@/lib/gmail-client'
 import { processMessageAttachments } from '@/lib/gmail-attachments'
+import { extractPhotographerFromText } from '@/lib/extract-credits'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
   //   - attachments_checked_at IS NULL (nepatikrintas) — UNLESS force=true
   let q = supabase
     .from('news_candidates')
-    .select('id, source_email_thread_id, status, ai_title')
+    .select('id, source_email_thread_id, status, ai_title, raw_text, ai_body')
     .eq('source_type', 'gmail')
     .eq('status', 'pending')
     .not('source_email_thread_id', 'is', null)
@@ -152,8 +153,15 @@ export async function POST(req: NextRequest) {
       let totalSizePassed = 0
       const allDetails: any[] = []
       const messageIdsUsed: string[] = []
+      // Scan candidate raw_text/ai_body for photographer credit (fallback'as
+      // attachment'ams be EXIF / filename CREDIT'o)
+      const bodyPhotographer = extractPhotographerFromText(cand.raw_text || '') ||
+        extractPhotographerFromText(String(cand.ai_body || '').replace(/<[^>]+>/g, ' '))
+
       for (const m of messages) {
-        const r = await processMessageAttachments(supabase, cand.id, m.id)
+        const r = await processMessageAttachments(supabase, cand.id, m.id, {
+          fallbackPhotographer: bodyPhotographer,
+        })
         totalProcessed += r.processed
         totalFailed += r.failed
         totalRaw += r.raw_count
