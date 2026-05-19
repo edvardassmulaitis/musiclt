@@ -1,183 +1,109 @@
-# Wiki Batch Reconciliation — Plan + Handoff
+# Wiki Batch Reconciliation — Handoff
 **Sukurta:** 2026-05-19
-**Pradinis statusas:** Plan'as patvirtintas, dev pradedam kita sesija
-**Repo:** `musiclt/` (origin/main `22259f2` arba naujesnis)
+**Statusas:** Pasirengimo etapas baigtas (migration aplikuota, Queen Barcelona/GP merge'inti). Tęsiame batch'ą per Cowork sesijas.
 
 ---
 
 ## Tikslas
 
-Vienkartinis sutvarkymas: ~12k atlikėjų DB (legacy_scrape_v1 source) sinkronizuoti su Wikipedia kaip canonical reference. Tikslas — užbaigti grupių/atlikėjų metadata struktūrą (albumai, dates, types, covers, track_count), kad būtų konsistentinė data foundation.
+Vienkartinis darbas: ~12k atlikėjų DB (legacy_scrape_v1 source) sutvarkyti naudojant Wikipedia kaip canonical reference. Album-level metadata (release dates, types, covers, track_count, wiki_url/wikidata_id) konsoliduoti.
 
-**Out of scope (paliekam):**
-- Tracks-level Wiki integration (lyrics, video_url, individual track years)
+**Out of scope:**
+- Tracks-level Wiki integration (lyrics/video tvarkomi per egzistuojančius `enrich` tools'us)
 - Description'ai (per `project_description_policy_2026_05_08.md` — OFF)
-- Awards / voting backfill (atskira sistema)
-- Likes/comments — sacrosanct, niekada netoušiama
+- Likes/comments — sacrosanct
+- Atskirų script'ų ar UI infrastructure'os build'as. Tai vienkartis darbas — viską darau gyvai per Cowork sesijas.
 
 ---
 
-## Procesi pasitikėjimo pattern'as
+## Procesas
 
-Per kiekvieną sesiją:
-1. **Auto-apply** kur per-field decision rules aiški (žr. žemiau)
-2. **Klausiu Edvardo** kai matau neatitikimą, kurio rules neaprašo
-3. Edvardas patikrina/sprendžia
-4. **Įrašau į memory** kaip naują decision rule
-5. **Tęsiu batch** su nauju rule galiojant ateičiai
+Aš per Cowork sesiją iteruoju per atlikėjus. Vienam atlikėjui:
 
-Memory rules kaupiasi → pirmose 3-5 sesijose sukaupiama ~90% standartinių pattern'ų → vėliau sesijos eina greitai be daug klausimų.
+1. Fetch Wiki main + disco page (jau patikimas po `22259f2` parser fix'o)
+2. Diff prieš DB albumus
+3. Auto-apply, kur turiu rule (žr. žemiau)
+4. Flagged neatitikimui — **klausiu Edvardo**, jis sprendžia
+5. Sprendimą **įrašau į memory**, ateičiai auto-apply pagal kaupiamą rule set'ą
+6. Tęsiu sekantį atlikėją
 
----
-
-## Per-field decision rules (initial set — bus papildyta)
-
-| Field | Rule | Source |
-|---|---|---|
-| `release_year` | DB=NULL → Wiki FILL; DB≠Wiki ir source=legacy_scrape → Wiki wins; DB≠Wiki ir source=manual → DB wins, FLAG | Wiki autoritetingesnis dažnai |
-| `release_month` / `day` | DB=NULL → Wiki FILL; mismatch → Wiki wins | Wiki dažnai turi precise date |
-| `cover_image_url` | DB=NULL → Wiki FILL; DB=X → palik | Legacy turi often unique versijų |
-| `type_studio/compilation/live/...` | Mismatch → Wiki wins | Wiki sekcija = canonical klasifikacija |
-| `track_count` | Visada perskaičiuoti iš `album_tracks` count | Derived |
-| `title` | Mismatch → FLAG (galimai dublikatas) | Manual sprendimas |
-| `wiki_url` / `wikidata_id` | DB=NULL → Wiki FILL | Identifier'iai |
-| `description` | NIEKADA neliesti | Per policy |
-
-**Flagged scenarijai (klausiu Edvardo):**
-- Wiki album'as su year ±2 metų skirtumu nuo DB → dublikatas ar legitimate
-- DB album'as su `track_count=0` → broken legacy ar reall empty
-- Wiki turi N albumų, DB turi M, |N-M| > 5 — gali būti scope mismatch (solo vs band)
-- DB album'as su `legacy_id` bet be Wiki match'o — palik ar suspect'as
+Tikslas: pirmose 3-5 sesijose sukaupti ~90% standartinių pattern'ų. Vėliau sesijos eina greitai be klausimų.
 
 ---
 
-## Capacity per sesija
+## Initial decision rules
 
-| Stage | Realistic per session |
+| Field | Rule |
 |---|---|
-| Pirmos 3-5 sesijos (memory rules sukaupimas, daug klausimų) | **50-100 atlikėjų** |
-| Stabilios sesijos (rules turtingos) | **200-300 atlikėjų** |
-| Wikipedia rate limit safe: | 1 req/s, ~3 req per artist = 6-8s/artist |
+| `release_year` | DB=NULL → Wiki FILL (auto); DB≠Wiki ir source=legacy → Wiki wins (auto); DB≠Wiki ir source=manual → DB wins, FLAG |
+| `release_month` / `day` | DB=NULL → FILL; mismatch → Wiki wins |
+| `cover_image_url` | DB=NULL → FILL; DB=X → palik (legacy turi unique versijų) |
+| `type_*` (studio/comp/live/...) | Mismatch → Wiki wins |
+| `track_count` | Visada perskaičiuoti iš `album_tracks` |
+| `wiki_url`, `wikidata_id` | DB=NULL → Wiki FILL |
+| `title` mismatch tarp matched | FLAG (galimai dublikatas) |
+| `description` | NIEKADA neliesti |
 
-**Total ETA:** ~30-40 Cowork sesijų visiems 8500 (atlikėjai su Wiki).
-
----
-
-## Architektūra
-
-### 1. `scripts/wiki-diff.mjs` (statau sesijoje 2)
-```bash
-node scripts/wiki-diff.mjs --artist-id=500 --output=diff_queen.json
-node scripts/wiki-diff.mjs --batch=100 --start-from-id=500
-```
-
-Output JSON struktūra:
-```json
-{
-  "artist_id": 500,
-  "wiki_url": "https://en.wikipedia.org/wiki/Queen",
-  "wiki_albums_count": 44,
-  "db_albums_count": 25,
-  "matched": [
-    {
-      "db_id": 100835,
-      "db_title": "Absolute Greatest",
-      "wiki_title": "Absolute Greatest",
-      "diffs": [
-        { "field": "release_year", "db": null, "wiki": 2009, "decision": "AUTO_FILL" },
-        { "field": "type_compilation", "db": true, "wiki": true, "decision": "OK" }
-      ]
-    }
-  ],
-  "unmatched_wiki": [
-    { "title": "Live at the Rainbow '74", "year": 2014, "type": "live", "decision": "FLAG_NEW_ALBUM" }
-  ],
-  "unmatched_db": [
-    { "id": 100864, "title": "Live At Wembley '86", "track_count": 0, "decision": "FLAG_BROKEN" }
-  ],
-  "flagged": [...]
-}
-```
-
-### 2. `scripts/wiki-apply.mjs`
-```bash
-node scripts/wiki-apply.mjs --diff=diff_queen.json --dry-run
-node scripts/wiki-apply.mjs --diff=diff_queen.json --apply
-```
-
-Vykdo `AUTO_*` decisions tiesiogiai į DB (per service role). Flagged items → output kaip `flagged_queue.json` review'ui.
-
-### 3. Cowork session loop (aš per sesijos vykdau)
-```
-foreach artist in batch:
-  1. wiki-diff → diff.json
-  2. patikrint flagged items prieš apply
-  3. jei flagged turi unknown pattern'us — klausiu Edvardo
-  4. wiki-apply (auto + manual decisions po confirm)
-  5. update progress: artists_completed_session.json
-```
-
-### 4. `/admin/wiki-flagged` (jei reikės — pridėsim vėliau)
-Statyti UI tik jei flagged queue tampa per didelis (200+ pending). Pirma matom kaip auga.
+Memory rules atsiranda kai matom edge case'us (kaupiamas `feedback_wiki_diff_rules.md`).
 
 ---
 
-## Pradinis pilot — Queen (sesija 2)
+## Capacity per sesiją
 
-Queen jau turi:
-- 25 DB albumus
-- 44 Wiki albumus (po parser fix'o 22259f2)
-- 9 unmatched Wiki (Queen+Paul Rodgers albumus, "On Air", "Queen Rock Montreal", etc.)
-- 3 broken DB albumai (Wembley/Magic/GH1981 — track_count = 0)
-- 4 duplikatai su FM (2 merge'inti, 2 palikt)
+**Pradinė strategija:** 1-by-1 atlikėjas pirmose 2-3 sesijose, kad išvystytume rule set'ą ir validuotume diff logic'ą. Pradedam Queen'u (sesija 2).
 
-**Sesija 2 pirmasis run:** Queen-only end-to-end. Validate diff'o accuracy → adjust rules → tada batch'ai.
+**Vėliau, kai rules stabilios:** batch'ai po N atlikėjus per sesiją.
+
+| Stage | Per session |
+|---|---|
+| Sesija 2-3 (rule discovery, 1-by-1) | **3-10 atlikėjų** |
+| Sesija 4-5 (small batches, sąrašu) | **20-50 atlikėjų** |
+| Stabilios (rules turtingos) | **150-250 atlikėjų** |
+
+Wikipedia rate limit safe: ~1 req/s, ~3 fetch'ai per atlikėją = 5-8s/artist + parse + DB apply.
+
+**Total ETA:** ~30-40 Cowork sesijų visiems ~8500 atlikėjų (kurie turi Wiki). Per kelias savaites darbų.
 
 ---
 
-## Kuriose vietose memory rules kauptis
+## Pre-flight checklist (jau padaryta šios sesijos)
 
-`feedback_wiki_diff_rules.md` — naujas memory file. Per sesijas pridėsiu rules formatu:
+- [x] `merge_tracks` RPC v2 migracija aplikuota (Edvardas paleido sėkmingai)
+- [x] Barcelona + Great Pretender merge'ai įvykdyti (`scripts/queen_merge_postmigration.sh`)
+- [x] Parser fix appearance sekcijoms (`22259f2`)
+- [x] Queen 25 albumų `track_count` backfilled
+- [x] Memory rules pradiniai įrašai
+
+## Pasiruošimas sesijai 2
+
+- [ ] Patikrinti Queen Greatest Hits III UI'e — track #6 Barcelona dabar FM, track #9 Great Pretender dabar FM
+- [ ] DATABASE_URL `.env.local`'e išlieka (būsim naudoti per sesijas)
+- [ ] Pakankamai laiko fokus'u 30-40 min — Queen pilot reikalauja klausimų
+
+---
+
+## Sesija 2 kickoff prompt
+
 ```
-- release_year mismatch su source=legacy_scrape → Wiki wins (Edvardas 2026-05-XX)
-- "Greatest Hits Vol. X" prie atlikėjo su daugiau nei 3 GH compilations → FLAG (galimai compilation noise)
-- ...
+Tęsiame Wiki batch reconciliation pagal WIKI_BATCH_HANDOFF.md.
+Pradedam pilot ant Queen (artist_id=500): fetch Wiki, diff prieš DB,
+auto-apply pagal rules, klausk apie flagged items. Po Queen tęsiam
+sekantį atlikėją pagal legacy_likes prioritization.
 ```
 
 ---
 
-## Pre-flight checklist sesijai 2
+## Šios sesijos (2026-05-19) commits
 
-- [ ] Confirm migration `20260519_merge_tracks_likes_comments.sql` aplikuota
-- [ ] Confirm Barcelona + Great Pretender merge'ai paleisti (`bash scripts/queen_merge_postmigration.sh`)
-- [ ] Verify Queen disko UI dabar rodo realius 44 albumus (po parser fix 22259f2)
-- [ ] DATABASE_URL nustatytas `.env.local` (reikia migracijai + scripts run-migration.mjs)
-- [ ] Edvardas turi 30-40 min focused dėmesio pirmoms sesijoms (klausimų bus daug)
+| Commit | Kas |
+|---|---|
+| `08522a6` | Wiki parser Brazilian year extraction |
+| `47ec51d` | `merge_tracks` RPC v2 migracija |
+| `ec890cf` | Queen audit handoff + merge script |
+| `22259f2` | Parser fix appearance sekcijoms |
+| `31ef674` | (perrašytas šitas dokumentas) |
 
----
-
-## Session 2 kickoff prompt
-```
-Tęsiame Wiki batch reconciliation pagal WIKI_BATCH_HANDOFF.md. Pirma 
-pilot ant Queen'o (artist_id=500) — statyk wiki-diff.mjs + wiki-apply.mjs, 
-paleisk ant Queen, parodyk diff'us prieš apply. Klauk apie flagged 
-items pagal pasitikėjimo pattern'ą.
-```
-
----
-
-## Šios sesijos (2026-05-19) pasiekimai
-
-Commits push'inti į `origin/main`:
-- `08522a6` — Wiki parser Brazilian year extraction
-- `47ec51d` — merge_tracks RPC v2 migration
-- `ec890cf` — Queen audit handoff + post-merge script
-- `22259f2` — parseDiscographyPage skip "Collaborations and other appearances" sections
-
-DB pakeitimai:
-- Queen 25 albumų `track_count` backfilled
-
-Memory updates (2 nauji entry'iai):
-- `feedback_merge_tracks_v2.md` — RPC v2 dėl cross-artist merge'ų
-- `project_queen_audit_2026_05_19.md` — Queen audit current state
-- `feedback_disco_section_skip.md` — parser pattern už appearance section'us
+Memory updates:
+- `feedback_merge_tracks_v2.md`
+- `project_queen_audit_2026_05_19.md`
+- `feedback_disco_section_skip.md`
