@@ -1,8 +1,9 @@
 'use client'
 // app/atlikejai/artists-list-client.tsx
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { HeaderAuth } from '@/components/HeaderAuth'
 
 type Artist = {
@@ -32,10 +33,28 @@ type Genre = { id: number; name: string }
 const NAV = ['Topai', 'Muzika', 'Renginiai', 'Atlikėjai', 'Bendruomenė']
 
 export default function ArtistsListClient({ artists, genres }: { artists: Artist[]; genres: Genre[] }) {
+  // URL params palaikymas — atlikėjo puslapyje Hero zonoje šalies vėliava
+  // ir žanro chip'as veda į /atlikejai?country=X / ?genre=Y. Pirma render'as
+  // pasiima default'us iš query string'o. Klientas neatnaujina URL'o kai
+  // useris keičia filter'į UI'e (kad nesilūžtų browser back'as).
+  const searchParams = useSearchParams()
+  const initialCountry = searchParams?.get('country') || 'all'
+  const initialGenre = searchParams?.get('genre') || 'all'
+
   const [search, setSearch] = useState('')
-  const [country, setCountry] = useState('all')
-  const [genre, setGenre] = useState('all')
+  const [country, setCountry] = useState(initialCountry)
+  const [genre, setGenre] = useState(initialGenre)
   const [typeFilter, setTypeFilter] = useState('all')
+
+  // Jei URL keičiasi (pvz., naudotojas paspaudžia kitokio atlikėjo puslapyje
+  // savo vėliavą, kuri redirect'ina į /atlikejai?country=X) — sync'inam
+  // state'ą su naujais query params'ais.
+  useEffect(() => {
+    const c = searchParams?.get('country')
+    const g = searchParams?.get('genre')
+    if (c !== null && c !== undefined) setCountry(c || 'all')
+    if (g !== null && g !== undefined) setGenre(g || 'all')
+  }, [searchParams])
 
   const countries = useMemo(() => {
     const set = new Set(artists.map(a => a.country).filter(Boolean) as string[])

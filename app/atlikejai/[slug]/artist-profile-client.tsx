@@ -123,6 +123,10 @@ type Props = {
    *  pagal display label'į, hidden values atfiltruoti. Rodom kaip chip'us
    *  infobox sekcijoje, jei sąrašas non-empty. */
   displayRoles?: string[]
+  /** Score-based PopBar level (0..5). Šis percentilis tarp VISŲ atlikėjų su
+   *  score>0 (server-side compute). 0 = bar'as nerodomas (placeholder/empty
+   *  score). 1..5 — dot count. */
+  popBarLevel?: number
 }
 /** Custom era — single period in an artist's career. */
 type Era = {
@@ -1959,14 +1963,13 @@ function FilterChipMini({ active, onClick, children }: {
 // ── Hero: split photo + player, title + likes below title ──────────
 
 function Hero({
-  artist, heroImage, loaded, likes, selfLiked, onToggleLike, onOpenLikersModal, selfLikePending,
+  artist, heroImage, loaded,
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack,
   playing, onRequestPlay, onOpenTrackInfo, hasAnyVideo,
   upcomingEvents, onOpenEventsModal, onOpenHeroLightbox, onOpenEvent,
+  popBarLevel, genres,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
-  likes: number; selfLiked?: boolean
-  onToggleLike: () => void; onOpenLikersModal: () => void; selfLikePending: boolean
   tracksAllTime: Track[]; tracksTrending: Track[]
   activeTrackId: number | null; onSelectTrack: (id: number) => void
   playing: boolean; onRequestPlay: () => void
@@ -1978,7 +1981,14 @@ function Hero({
   onOpenHeroLightbox?: () => void
   /** Open EventInfoModal for given event. Forwarded to EventCard variants. */
   onOpenEvent?: (e: any) => void
+  /** Score-based popularity bar level (0..5). 0 = neradom — bar'as
+   *  paslepiamas. Kitos reikšmės — 5-dot bar'as kaip albumams/tracks. */
+  popBarLevel: number
+  /** Primary genre + visi žanrai — naudojam pirmajį chip'e po pavadinimu.
+   *  Clickable į /atlikejai?genre={name}. */
+  genres: Genre[]
 }) {
+  const flag = artist.country ? (FLAGS[artist.country] || '') : ''
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
   // Hero foto FIXED width 600px desktop'e — be JS-based dimension detection.
   // Anksčiau buvo adaptyvus (380/480/720 pagal natural aspect ratio onLoad'e),
@@ -2129,15 +2139,42 @@ function Hero({
             </span>
             )}
           </h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <LikePill
-              likes={likes}
-              selfLiked={selfLiked}
-              onToggle={onToggleLike}
-              onOpenModal={onOpenLikersModal}
-              pending={selfLikePending}
-              variant="light"
-            />
+          {/* Naujas meta row'as po title: 5-dot PopBar (pagal score percentil),
+              clickable šalies vėliava (no text, hover tooltip), pirmas žanras
+              kaip clickable chip'as. Buvęs LikePill perkeltas į SideInfo
+              kortelę kaip „Sekti" mygtukas — popularumo metrika nebėra
+              dominuojanti, nes nauji atlikėjai negali konkuruoti su istoriniu
+              like aktyvumu. PopBar visiems atlikėjams su score>0 vaidina tą
+              vaidmenį dabar — top 20% gauna 5 dot'us nepriklausomai nuo
+              like'ų.
+              Responsive style:
+                Mobile: solid bg-[var(--card-bg)] (foto neuždengia background'o)
+                Desktop (lg+): white glass su backdrop-blur (foto nuotrauka už nugaros) */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {popBarLevel > 0 && (
+              <div className="rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1 lg:border-white/15 lg:bg-white/10 lg:backdrop-blur-md">
+                <PopBar level={popBarLevel} />
+              </div>
+            )}
+            {flag && artist.country && (
+              <Link
+                href={`/atlikejai?country=${encodeURIComponent(artist.country)}`}
+                title={`Visi atlikėjai iš ${artist.country}`}
+                aria-label={`Šalis: ${artist.country}. Žiūrėti visus atlikėjus.`}
+                className="inline-flex items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1 text-[20px] leading-none transition-all hover:scale-110 hover:border-[var(--accent-orange)] lg:border-white/20 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20"
+              >
+                <span aria-hidden>{flag}</span>
+              </Link>
+            )}
+            {genres[0] && (
+              <Link
+                href={`/atlikejai?genre=${encodeURIComponent(genres[0].name)}`}
+                title={`Visi atlikėjai: ${genres[0].name}`}
+                className="inline-flex items-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] no-underline lg:border-white/20 lg:bg-white/10 lg:text-white lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20 lg:hover:text-white"
+              >
+                {genres[0].name}
+              </Link>
+            )}
           </div>
         </div>
 
@@ -2245,10 +2282,92 @@ function Hero({
   )
 }
 
+// ── FollowPill: „Sekti" mygtukas ────────────────────────────────────
+//
+// Po 2026-05-20 redesign'o buvęs LikePill (Hero zonoje) perkeltas į
+// SideInfo kortelę kaip „Sekti" pill su tikrai aiškiu CTA: ❤ + Sekti +
+// count. Naudoja TUOS PAČIUS likes lentelės įrašus (entity_type='artist'),
+// nieks DB lygyje nesikeičia — tik UX/UI atskirti istorinį like aktyvumą
+// nuo realios populiarumo metrikos (PopBar pagal score).
+//
+// CSS var-based fone — light + dark mode'ai veikia abu, skirtingai nei
+// senas LikePill 'light' variant (white/10 background buvo nematomas
+// light theme'ai).
+function FollowPill({
+  likes, selfLiked, onToggle, onOpenModal, pending,
+}: {
+  likes: number; selfLiked: boolean
+  onToggle: () => void; onOpenModal: () => void; pending: boolean
+}) {
+  const heartFilled = !!selfLiked
+  const countClickable = likes > 0
+
+  return (
+    <div
+      className={[
+        'inline-flex overflow-hidden rounded-full transition-colors',
+        heartFilled
+          ? 'border border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_6px_18px_rgba(249,115,22,0.35)]'
+          : 'border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-primary)]',
+      ].join(' ')}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={pending}
+        title={heartFilled ? 'Sekti — nustoti' : 'Sekti šį atlikėją'}
+        aria-label={heartFilled ? 'Nesekti' : 'Sekti'}
+        aria-pressed={heartFilled}
+        className={[
+          'flex items-center gap-1.5 px-3.5 py-2 transition-colors',
+          pending ? 'cursor-wait opacity-70' : 'cursor-pointer',
+          !heartFilled ? 'hover:bg-[var(--bg-hover)]' : 'hover:opacity-90',
+        ].join(' ')}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill={heartFilled ? '#fff' : 'currentColor'}
+          className={['h-[16px] w-[16px] transition-transform', heartFilled ? 'scale-110 text-white' : 'text-[var(--accent-orange)]'].join(' ')}
+          aria-hidden
+        >
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        </svg>
+        <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold tracking-tight">
+          {heartFilled ? 'Seki' : 'Sekti'}
+        </span>
+      </button>
+      {/* Count zona — clickable kai >0 (atidaro likers modal'ą). */}
+      {countClickable ? (
+        <button
+          type="button"
+          onClick={onOpenModal}
+          title="Pamatyk kas seka"
+          className={[
+            'flex items-center border-l px-3.5 py-2 font-["Outfit",sans-serif] text-[13px] font-extrabold tabular-nums tracking-wide transition-colors',
+            heartFilled
+              ? 'border-white/30 hover:opacity-90'
+              : 'border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]',
+          ].join(' ')}
+        >
+          {likes.toLocaleString('lt-LT')}
+        </button>
+      ) : (
+        <span className={[
+          'flex items-center border-l px-3.5 py-2 font-["Outfit",sans-serif] text-[13px] font-extrabold tabular-nums tracking-wide',
+          heartFilled ? 'border-white/30' : 'border-[var(--border-subtle)] opacity-70',
+        ].join(' ')}>
+          0
+        </span>
+      )}
+    </div>
+  )
+}
+
 // ── SideInfo: card beside bio with Kilmė / Stilius / Klausyk ───────
 
 function SideInfo({
   artist, flag, genres, substyles, ranks, links, website, horizontal = false, displayRoles = [],
+  followControls,
 }: {
   artist: any; flag: string; genres: Genre[]; substyles: Genre[]
   ranks: Rank[]
@@ -2261,9 +2380,24 @@ function SideInfo({
    *  pagal label'į, hidden values atfiltruoti. Rodom kaip muted chip'us po
    *  Stiliai. */
   displayRoles?: string[]
+  /** „Sekti" pill controls — likes lentelės įrašai šiuo metu naudojami kaip
+   *  follow signal. Buvęs LikePill iš Hero zonos perkeltas čia, su žodžiu
+   *  „Sekti" + count, nes nauji atlikėjai negali konkuruoti istorinę like'ų
+   *  bazę. Real popularumas dabar — PopBar Hero zonoje. */
+  followControls?: {
+    likes: number
+    selfLiked: boolean
+    onToggle: () => void
+    onOpenModal: () => void
+    pending: boolean
+  }
 }) {
-  const countryRank = ranks.find(r => r.scope === 'country')
-  const genreRank = ranks.find(r => r.scope === 'genre')
+  // countryRank ir genreRank specifiškai NEIMAM — buvo rodomi kaip #N badge'ai
+  // tarp šalies/žanro pavadinimo, bet tas info dabar perkeltas į Hero zoną
+  // (clickable šalies vėliava + žanro chip'as) be rank'o. Rank'o eskpoziciją
+  // nutraukėm sąmoningai — istorinis aktyvumas darydavo neteisingą poveikį
+  // naujiems atlikėjams. PopBar Hero zonoje yra tinkamesnis populiarumo
+  // signal'as. globalRank lieka (tik top 50 pasaulyje — kaip „achievement").
   const globalRank = ranks.find(r => r.scope === 'global')
   const hasSocials = links.some(l => SOC[l.platform]) || !!website
 
@@ -2378,31 +2512,18 @@ function SideInfo({
   )
 
   // ── Horizontal variant — single wrapping row ──────────────────────
-  // Primary row: country + main genre + socials. Substyles get their own
-  // subtle line below so the top row stays clean on mobile where a long
-  // substyle list otherwise wraps awkwardly into the genre cell.
+  // Primary row: „Sekti" pill (be jo card'as atrodo pustuštis) + socials.
+  // Šalies/žanro info iškelta į Hero (po pavadinimu), todėl čia ji
+  // praleidžiama, kad nesidubliuotų. globalRank lieka kaip atskira info
+  // kortelė tik labai aukšto reitingavimo atvejais (#1, #2, #3 pasaulyje).
   if (horizontal) {
     return (
       <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:gap-x-6">
-          {artist.country && (
-            <div className="flex items-baseline gap-2">
-              {countryRank && <RankChip n={countryRank.rank} />}
-              <span className="inline-flex items-baseline gap-1.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
-                <span>{artist.country}</span>
-                <span className="text-[16px] leading-none">{flag}</span>
-              </span>
-            </div>
+          {followControls && (
+            <FollowPill {...followControls} />
           )}
-          {genres[0] && (
-            <div className="flex items-baseline gap-2">
-              {genreRank && <RankChip n={genreRank.rank} />}
-              <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
-                {genres[0].name}
-              </span>
-            </div>
-          )}
-          {globalRank && (
+          {globalRank && globalRank.rank <= 50 && (
             <div className="flex items-baseline gap-2">
               <RankChip n={globalRank.rank} />
               <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
@@ -2513,40 +2634,33 @@ function SideInfo({
   // sized: jei bio ilgas, kortelė lieka apačioj; jei trumpas — abu kartu.
   return (
     <aside className="flex h-fit flex-col gap-4 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
-      {/* Country — rank chip first, then name, then flag after. Keeps the
-          text baselines flush-left between country + genre rows. */}
-      {artist.country && (
-        <div className="flex flex-wrap items-baseline gap-2">
-          {countryRank && <RankChip n={countryRank.rank} />}
-          <span className="inline-flex items-baseline gap-1.5 font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-primary)]">
-            <span>{artist.country}</span>
-            <span className="text-[17px] leading-none">{flag}</span>
-          </span>
-        </div>
+      {/* „Sekti" pill — primary action card'o viršuje. ❤ + skaičius +
+          žodis „Sekti". Buvo LikePill 'light' variant Hero zonoje, bet jis
+          neveikdavo light mode + nauji atlikėjai negalėjo konkuruoti
+          istoriniu like aktyvumu. Dabar perkeltas čia kaip aiškus follow
+          signal'as, atskirtas nuo popularumo metrikos (PopBar Hero zonoje).
+          Pilnas plotis kortelės, kad funkcija aiški iš karto. */}
+      {followControls && (
+        <FollowPill {...followControls} />
       )}
 
-      {/* Main genre — rank chip first, then name, then substyles below */}
-      {genres[0] && (
+      {/* Substyles — main žanro chip'as perkeltas į Hero zoną, čia lieka tik
+          papildomi sub-žanrai. Jei jų nėra ir main genre = vienas — sekcija
+          praleidžiama (PostgREST grąžins tuščią substyles[]). */}
+      {substyles.length > 0 && (
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            {genreRank && <RankChip n={genreRank.rank} />}
-            <span className="font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-primary)]">
-              {genres[0].name}
-            </span>
+          <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Stiliai</div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {substyles.map(s => (
+              <Link
+                key={s.name}
+                href={`/zanrai/${encodeURIComponent(s.name.toLowerCase().replace(/\s+/g, "-"))}`}
+                className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+              >
+                {s.name}
+              </Link>
+            ))}
           </div>
-          {substyles.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {substyles.map(s => (
-                <Link
-                  key={s.name}
-                  href={`/zanrai/${encodeURIComponent(s.name.toLowerCase().replace(/\s+/g, "-"))}`}
-                  className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
-                >
-                  {s.name}
-                </Link>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
@@ -2567,7 +2681,11 @@ function SideInfo({
         </div>
       )}
 
-      {globalRank && (
+      {/* Globalus rank'as rodomas TIK labai aukšto reitingavimo atvejais
+          (top 50 pasaulyje), kad nebūtų kasdienis chip'as. PopBar Hero zonoje
+          jau perteikia bendrą populiarumą — globalRank tampa „achievement"
+          signalu, ne metrika. */}
+      {globalRank && globalRank.rank <= 50 && (
         <div className="flex items-center gap-2">
           <RankChip n={globalRank.rank} />
           <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
@@ -4508,7 +4626,7 @@ export default function ArtistProfileClient({
   artist, heroImage, genres, substyles = [], links, photos, albums, tracks, members, memberOf = [], followers, likeCount,
   events, similar, newTracks,
   legacyCommunity, legacyThreads = [], legacyNews = [], ranks = [],
-  linkedTrackIds = [], awards = [], eras = [], displayRoles = [],
+  linkedTrackIds = [], awards = [], eras = [], displayRoles = [], popBarLevel = 0,
 }: Props) {
   const [pid, setPid] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -5102,11 +5220,8 @@ export default function ArtistProfileClient({
         artist={artist}
         heroImage={heroImage}
         loaded={loaded}
-        likes={likes}
-        selfLiked={selfLiked}
-        selfLikePending={selfLikePending}
-        onToggleLike={toggleSelfLike}
-        onOpenLikersModal={() => setLikesModalOpen(true)}
+        popBarLevel={popBarLevel}
+        genres={genres}
         tracksAllTime={tracksAllTime}
         tracksTrending={tracksTrending}
         activeTrackId={pid}
@@ -5327,7 +5442,10 @@ export default function ArtistProfileClient({
             The mobile stack surfaces details (country / genre / socials)
             above the bio so they're the first thing seen without scrolling. */}
         {(() => {
-          const sideInfoAvailable = !!artist.country || genres.length > 0 || links.length > 0 || artist.website || !!artist.active_from || !!artist.birth_date || !!artist.death_date
+          // SideInfo card visada renderinamas, nes po 2026-05-20 redesign'o
+          // jis turi „Sekti" pill perkeltą iš Hero zonos — vartotojas turi
+          // follow'inti net naują/tuščią atlikėją.
+          const sideInfoAvailable = true
           const bioHeader = `Apie ${artist.name}`
 
           if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
@@ -5347,6 +5465,13 @@ export default function ArtistProfileClient({
                     website={artist.website}
                     horizontal
                     displayRoles={displayRoles}
+                    followControls={{
+                      likes,
+                      selfLiked: !!selfLiked,
+                      onToggle: toggleSelfLike,
+                      onOpenModal: () => setLikesModalOpen(true),
+                      pending: selfLikePending,
+                    }}
                   />
                 </div>
               )}
@@ -5381,6 +5506,13 @@ export default function ArtistProfileClient({
                         links={links}
                         website={artist.website}
                         displayRoles={displayRoles}
+                        followControls={{
+                          likes,
+                          selfLiked: !!selfLiked,
+                          onToggle: toggleSelfLike,
+                          onOpenModal: () => setLikesModalOpen(true),
+                          pending: selfLikePending,
+                        }}
                       />
                     )}
                     {artist.score !== null && artist.score !== undefined && (
