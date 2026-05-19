@@ -148,7 +148,9 @@ function albumType(a: any) {
   if (a.type_live) return 'Live'
   if (a.type_compilation) return 'Rinkinys'
   if (a.type_remix) return 'Remix'
-  if (a.type_soundtrack) return 'OST'
+  // Pure soundtrack be type_studio → 'Garso takeliai'; dual-type
+  // (studio+soundtrack, pvz Flash Gordon) → primary 'Albumas'.
+  if (a.type_soundtrack && !a.type_studio) return 'Garso takeliai'
   if (a.type_demo) return 'Demo'
   return 'Albumas'
 }

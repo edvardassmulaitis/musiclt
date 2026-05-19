@@ -18,7 +18,7 @@ function albumType(a: any) {
   if (a?.type_live) return 'Live'
   if (a?.type_compilation) return 'Rinkinys'
   if (a?.type_remix) return 'Remix'
-  if (a?.type_soundtrack) return 'OST'
+  if (a?.type_soundtrack && !a?.type_studio) return 'Garso takeliai'
   if (a?.type_demo) return 'Demo'
   return 'Albumas'
 }

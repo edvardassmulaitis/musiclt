@@ -220,15 +220,39 @@ function slugToForumTitle(slug: string): string {
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
 }
 
+/** Primary type — single canonical label for display badge.
+ *  Soundtrack albumai dažnai yra ir type_studio=true (Flash Gordon style)
+ *  → grąžinam 'Studijinis' (default), bet aTypes() rodys ir 'Garso takeliai'. */
 const aType = (a: Album) => {
   if (a.type_ep) return 'EP'
   if (a.type_single) return 'Singlas'
   if (a.type_live) return 'Live'
   if (a.type_compilation) return 'Rinkinys'
   if (a.type_remix) return 'Remix'
-  if (a.type_soundtrack) return 'OST'
+  // type_soundtrack be type_studio → 'Garso takeliai' (pure soundtrack);
+  // type_soundtrack + type_studio → 'Studijinis' (dual-purpose album,
+  // soundtrack rodomas kaip secondary type per aTypes()).
+  if (a.type_soundtrack && !a.type_studio) return 'Garso takeliai'
   if (a.type_demo) return 'Demo'
   return 'Studijinis'
+}
+
+/** All applicable types — used for filter membership ir multi-badge.
+ *  Dual-type album (Flash Gordon: type_studio + type_soundtrack) rodomas
+ *  ir Studijiniai tab, ir Garso takeliai tab. */
+const aTypes = (a: Album): string[] => {
+  const out: string[] = []
+  if (a.type_ep) out.push('EP')
+  if (a.type_single) out.push('Singlas')
+  if (a.type_live) out.push('Live')
+  if (a.type_compilation) out.push('Rinkinys')
+  if (a.type_remix) out.push('Remix')
+  if (a.type_soundtrack) out.push('Garso takeliai')
+  if (a.type_demo) out.push('Demo')
+  if (a.type_studio) out.push('Studijinis')
+  // Jei nė vienas type_ nesetinta — default 'Studijinis' (legacy data fallback).
+  if (out.length === 0) out.push('Studijinis')
+  return out
 }
 
 /** Filter-tab labels. 'all' acts as reset-to-everything. */
@@ -240,7 +264,7 @@ const FILTER_LABEL: Record<string, string> = {
   Live: 'Gyvai įrašyti albumai',
   Rinkinys: 'Rinkiniai',
   Remix: 'Remiksų albumai',
-  OST: 'OST albumai',
+  'Garso takeliai': 'Garso takeliai',
   Demo: 'Demo albumai',
   orphan: 'Kitos dainos',
 }
@@ -4418,7 +4442,9 @@ export default function ArtistProfileClient({
 
   // Discography filters — album types + "Kitos dainos" (orphan tracks).
   // Multi-select: Set of active keys. 'all' sentinel = show everything.
-  const atypes = [...new Set(albums.map(aType))]
+  // 2026-05-19: use aTypes() (multi) so dual-type albums (Flash Gordon)
+  // surface ALL their types in tabs list, ne tik primary.
+  const atypes = [...new Set(albums.flatMap(aTypes))]
   const hasStudio = atypes.includes('Studijinis')
   const linkedSet = useMemo(() => new Set(linkedTrackIds), [linkedTrackIds])
   const orphanTracks = useMemo(
@@ -4454,7 +4480,9 @@ export default function ArtistProfileClient({
   const showAll = activeFilters.has('all')
   const visibleAlbums = showAll
     ? albums
-    : albums.filter(a => activeFilters.has(aType(a)))
+    // 2026-05-19: filter per aTypes() (multi) — dual-type albums (Flash Gordon
+    // studio + soundtrack) rodomi BOTH tab'uose pagal koks aktyvus.
+    : albums.filter(a => aTypes(a).some(t => activeFilters.has(t)))
   const showOrphans = hasOrphanTracks && (showAll || activeFilters.has('orphan'))
 
   // Max album popularity tarp visų atlikėjo albumų — relatyviam PopBar.
@@ -5223,7 +5251,7 @@ export default function ArtistProfileClient({
                     key={t}
                     k={t}
                     label={FILTER_LABEL[t] || t}
-                    count={albums.filter(a => aType(a) === t).length}
+                    count={albums.filter(a => aTypes(a).includes(t)).length}
                   />
                 ))}
                 {hasOrphanTracks && (
@@ -5238,7 +5266,7 @@ export default function ArtistProfileClient({
               <MobileFilterRow
                 all={{ key: 'all', label: FILTER_LABEL.all, count: allCount }}
                 items={[
-                  ...atypes.map(t => ({ key: t, label: FILTER_LABEL[t] || t, count: albums.filter(a => aType(a) === t).length })),
+                  ...atypes.map(t => ({ key: t, label: FILTER_LABEL[t] || t, count: albums.filter(a => aTypes(a).includes(t)).length })),
                   ...(hasOrphanTracks ? [{ key: 'orphan', label: FILTER_LABEL.orphan, count: orphanTracks.length }] : []),
                 ]}
                 activeFilters={activeFilters}
