@@ -1376,14 +1376,21 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
         .filter(({ block, pos }) => {
           const hl = getHeadline(block)
           if (!isReissueBlock(hl, block)) return false
-          // 2026-05-19: exclude video/DVD/gallery blocks from singles second-pass.
-          // Anksčiau Flash Gordon Wiki turi atskirą {{Track listing}} su
-          // headline="Bonus videos (2011 iTunes deluxe edition)" — title="Flash"
-          // (music video, NE audio track). Per matchAsSingle "flash" sutapdavo
-          // su Singles infobox single1 ir pridedavo kaip phantom track #19.
-          // Main pass šituos blokus jau skipina; second-pass turi tas pat.
+          // 2026-05-19: exclude video/DVD/gallery + bonus EP/disc 2 blocks from
+          // singles second-pass. Originali second-pass intencija: pagauti
+          // singles, kurių NĖRA original tracklist'e (rare edge case). Bet
+          // bonus EP / disc 2 / bonus track blokai dažnai turi single-edit
+          // ALTERNATE versijų toms pačioms dainoms — pvz Flash Gordon
+          // Template 4 "Disc 2: Bonus EP (2011 Universal Music CD reissue)"
+          // turi `title1="Flash"` kuris yra Flash single edit, o original
+          // Template 1 turi `title1=[[Flash (Queen song)|Flash's Theme]]`
+          // — TIE patys recording'ai skirtingais titles. Dedupe ("flashs
+          // theme" vs "flash") nesusiveda → second-pass pridėjo "Flash"
+          // kaip phantom track #19. Geriau šituos blokus iš viso skipinti
+          // ir nepasitikėti, kad reissues turės "naujų" singles.
           const hlLow = hl.toLowerCase()
           if (/\b(documentary|film|movie|featurette|trailer|interview|behind\s+the\s+scenes|making\s+of|music\s+video|video\s+album|video\s+edition|photo\s+gallery|gallery|bonus\s+dvd|videos?\b|dvd)\b/.test(hlLow)) return false
+          if (/\b(disc\s*\d+|bonus\s+ep|bonus\s+track|bonus\s+disc|bonus\s+disk)\b/i.test(hlLow)) return false
           const sectionBefore = getSectionBeforePos(wikitext, pos)
           if (/\b(documentary|dvd|film|movie|featurette|trailer|video\s+album|video\s+edition|photo\s+gallery)\b/i.test(sectionBefore)) return false
           return !/reissue|remaster|anniversary|box.?set|collector|deluxe|expanded|demo|outtake/i.test(sectionBefore)
