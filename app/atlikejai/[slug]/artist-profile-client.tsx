@@ -59,7 +59,7 @@ type Track = {
   /** Albums this track belongs to — small chips in the modal's meta row. */
   albums?: Array<{ id: number; slug: string; title: string; cover_image_url: string | null }>
 }
-type Member = { id: number; slug: string; name: string; cover_image_url?: string; member_from?: number; member_until?: number }
+type Member = { id: number; slug: string; name: string; cover_image_url?: string; member_from?: number; member_until?: number; is_current?: boolean; type?: string }
 type Photo = {
   url: string
   /** Legacy JSON blob — {"a":"author · license","s":"source url"}. Parsed via parsePhotoCaption. */
@@ -2715,10 +2715,52 @@ function MembersInline({ members }: { members: Member[] }) {
   // Avatar 56px, vardas + metai virš dėliojami vertikaliai. Tiek mobile,
   // tiek desktop'e tas pats stilius — tik mobile turi -mx-4 + px-4 padding
   // edge-to-edge swipe'ui.
+  //
+  // 2026-05-20 redesign: atskirti CURRENT vs FORMER. RHCP atveju 13 narių (4
+  // current + 9 former) — chaotiškai vienoje eilėje atrodo bjauriai. Dabar:
+  //   • Esami nariai — viršuje, didesni card'ai (avatar 56px), antraštė
+  //     „Esami nariai" (jeigu yra ne tik current — kitu atveju tik „Nariai")
+  //   • Buvę nariai — mažiau dėmesio: mažesnis avatar (40px), kompaktiškesnis
+  //     card'as, antraštė „Buvę nariai"
+  //   • Jeigu yra TIK current arba TIK former, antraštė lieka „Nariai"
+  const current = members.filter(m => m.is_current !== false)
+  const former  = members.filter(m => m.is_current === false)
+  const hasBoth = current.length > 0 && former.length > 0
+
   return (
     <div className="mt-5">
+      {current.length > 0 && (
+        <MemberRow
+          title={hasBoth ? 'Esami nariai' : 'Nariai'}
+          members={current}
+          variant="prominent"
+        />
+      )}
+      {former.length > 0 && (
+        <MemberRow
+          title={hasBoth ? 'Buvę nariai' : 'Nariai'}
+          members={former}
+          variant="compact"
+          className={hasBoth ? 'mt-4' : ''}
+        />
+      )}
+    </div>
+  )
+}
+
+/** Bendras member row'as — naudojamas ir esamiems, ir buvusiems. Skiriasi tik
+ *  vizualinis svoris (avatar dydis, card padding, type label muted). */
+function MemberRow({ title, members, variant, className = '' }: {
+  title: string
+  members: Member[]
+  variant: 'prominent' | 'compact'
+  className?: string
+}) {
+  const isProm = variant === 'prominent'
+  return (
+    <div className={className}>
       <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-        Nariai
+        {title}
       </div>
       <div
         className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -2734,25 +2776,35 @@ function MembersInline({ members }: { members: Member[] }) {
             key={m.id}
             href={`/atlikejai/${m.slug}`}
             style={{ scrollSnapAlign: 'start' }}
-            className="group flex w-[120px] shrink-0 flex-col items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)]"
+            className={`group flex shrink-0 flex-col items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)] ${
+              isProm ? 'w-[120px] p-3' : 'w-[100px] p-2.5 opacity-90'
+            }`}
           >
             {m.cover_image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={proxyImg(m.cover_image_url)}
                 alt={m.name}
-                className="h-14 w-14 shrink-0 rounded-full object-cover transition-transform group-hover:scale-105"
+                className={`shrink-0 rounded-full object-cover transition-transform group-hover:scale-105 ${
+                  isProm ? 'h-14 w-14' : 'h-10 w-10'
+                }`}
               />
             ) : (
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[18px] font-black text-[var(--text-faint)]">
+              <div className={`flex shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] font-black text-[var(--text-faint)] ${
+                isProm ? 'h-14 w-14 text-[18px]' : 'h-10 w-10 text-[14px]'
+              }`}>
                 {m.name[0]}
               </div>
             )}
-            <span className="mt-2 line-clamp-2 text-center font-['Outfit',sans-serif] text-[12px] font-bold leading-tight text-[var(--text-primary)]">
+            <span className={`mt-2 line-clamp-2 text-center font-['Outfit',sans-serif] font-bold leading-tight text-[var(--text-primary)] ${
+              isProm ? 'text-[12px]' : 'text-[11px]'
+            }`}>
               {m.name}
             </span>
             {m.member_from && (
-              <span className="mt-0.5 text-[10px] font-semibold tabular-nums text-[var(--text-muted)]">
+              <span className={`mt-0.5 tabular-nums font-semibold text-[var(--text-muted)] ${
+                isProm ? 'text-[10px]' : 'text-[9px]'
+              }`}>
                 {m.member_from}–{m.member_until || 'dabar'}
               </span>
             )}
@@ -5211,7 +5263,12 @@ export default function ArtistProfileClient({
                     </>
                   )}
                   {!solo && members.length > 0 && <MembersInline members={members} />}
-                  {memberOf && memberOf.length > 0 && <MemberOfInline groups={memberOf} />}
+                  {/* MemberOfInline rodom TIK solo atlikėjams. Grupė negali būti
+                      narys kitos grupės — RHCP DB turėjo broken record
+                      (group_id=Jack_Irons, member_id=RHCP) kuris rodė
+                      „Narys grupėse: Jack Irons" prie RHCP profilio. Po DB
+                      fix'o defensive guard'as gardiečia ateityje. */}
+                  {solo && memberOf && memberOf.length > 0 && <MemberOfInline groups={memberOf} />}
                 </div>
               </div>
             </section>
