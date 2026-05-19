@@ -469,7 +469,14 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
     if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle) || /^[A-Z]{2,3}$/.test(title)) continue
     const bad = ['discography', 'songs', 'videography', 'filmography', 'certification', 'chart']
     if (bad.some(b => title.toLowerCase().includes(b) || wikiTitle.toLowerCase().includes(b))) continue
+    // Year extraction — bandom kelis pattern'us:
+    // 1. `(YYYY)` inline — standartas EN Wikipedia
+    // 2. `* YYYY:` arba `*YYYY:` prefix — Brazilian/PT-influenced pages (Caetano Veloso, Gilberto Gil, Tom Zé)
+    // 3. `* '''YYYY'''` bold prefix — kai kurie naudoja bold metus
+    // 4. `* YYYY —` arba `* YYYY -` dash separator
     const yearM = line.match(/\((\d{4})\)/)
+      || line.match(/^\*\s*'''(\d{4})'''/)
+      || line.match(/^\*\s*(\d{4})\s*[:：\-—–]/)
     albums.push({ title, year: yearM ? parseInt(yearM[1]) : null, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
   }
   return albums
