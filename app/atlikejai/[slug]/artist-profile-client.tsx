@@ -2743,7 +2743,7 @@ function MembersInline({ members }: { members: Member[] }) {
       <div className="mt-5">
         <div className="mb-2 flex items-baseline justify-between">
           <div className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-            Nariai{total > 4 ? ` (${total})` : ''}
+            Nariai
           </div>
           {showAllTrigger && (
             <button
@@ -2751,7 +2751,7 @@ function MembersInline({ members }: { members: Member[] }) {
               onClick={() => setModalOpen(true)}
               className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--accent-orange)] transition-colors hover:text-[color-mix(in_srgb,var(--accent-orange)_80%,#fff)]"
             >
-              Visi →
+              Visi ({total}) →
             </button>
           )}
         </div>
@@ -2835,21 +2835,16 @@ function MemberCard({ m, variant }: { m: Member; variant: 'prominent' | 'compact
   )
 }
 
-/** Vertical separator tarp esamų ir buvusių member card'ų horizontal eilėje.
- *  Plonas raštas + rotuotas „BUVĘ" label'is kad neužimtų daug horizontal vietos. */
+/** Separator tarp esamų ir buvusių member card'ų horizontal eilėje.
+ *  Horizontal „Buvę" label viršuje + thin connector line žemiau, kad atrodytų
+ *  kaip card'o pločio antraštė virš pirmojo former card'o. */
 function MemberSeparator() {
   return (
-    <div className="flex shrink-0 items-center justify-center self-stretch" aria-hidden>
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-1">
-        <div className="h-3 w-px bg-[var(--border-subtle)]" />
-        <span
-          className="font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--text-faint)]"
-          style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-        >
-          Buvę
-        </span>
-        <div className="h-3 w-px bg-[var(--border-subtle)]" />
-      </div>
+    <div className="flex shrink-0 flex-col items-center justify-center self-stretch px-1" aria-hidden>
+      <span className="font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--text-faint)] whitespace-nowrap">
+        Buvę
+      </span>
+      <div className="mt-1 h-px w-8 bg-[var(--border-subtle)]" />
     </div>
   )
 }
@@ -2881,7 +2876,7 @@ function MembersModal({ current, former, onClose }: {
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-3xl rounded-t-2xl bg-[var(--card-bg)] p-5 shadow-2xl sm:rounded-2xl sm:p-7"
+        className="relative w-full max-w-3xl rounded-t-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5 shadow-2xl sm:rounded-2xl sm:p-7"
         onClick={(e) => e.stopPropagation()}
         style={{ maxHeight: '85vh', overflowY: 'auto' }}
       >
@@ -2932,7 +2927,7 @@ function MemberModalCard({ m }: { m: Member }) {
   return (
     <Link
       href={`/atlikejai/${m.slug}`}
-      className="group flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 no-underline transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+      className="group flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.04)] p-3 no-underline transition-all hover:border-[var(--border-strong)] hover:bg-[rgba(255,255,255,0.08)]"
     >
       {m.cover_image_url ? (
         // eslint-disable-next-line @next/next/no-img-element

@@ -591,18 +591,37 @@ async function getLegacyNewsThreads(artistId: number, limit = 200) {
 }
 /** Members — admin saves to artist_members (group_id + member_id pair).
  * When this artist IS the group, rows where group_id = artistId; join artists
- * on member_id to get the member's profile. */
+ * on member_id to get the member's profile.
+ *
+ * 2026-05-20: pridėtas like_count enrichment + sort. Pirma sort'inam pagal
+ * is_current (esami priekyje), tada pagal like_count desc — populiariausi
+ * grupes nariai svarbesni „virš fold'o" priežiūrai.
+ */
 async function getMembers(id: number) {
   const sb = createAdminClient()
   const { data } = await sb
     .from('artist_members')
     .select('member_id, year_from, year_to, is_current, artists:member_id(id, slug, name, cover_image_url, type)')
     .eq('group_id', id)
-  return (data || [])
+  const members = (data || [])
     // Pridedam is_current explicit'ai — kitaip past narys be year_to (Wiki
     // past_members be metų) display'us traktuoja kaip dabartinį.
-    .map((r: any) => ({ ...(r.artists || {}), member_from: r.year_from, member_until: r.is_current ? null : r.year_to, is_current: r.is_current !== false }))
+    .map((r: any) => ({
+      ...(r.artists || {}),
+      member_from: r.year_from,
+      member_until: r.is_current ? null : r.year_to,
+      is_current: r.is_current !== false,
+    }))
     .filter((m: any) => m.id)
+  // Like-based ranking — populiariausi nariai pirmiausia visose grupėse
+  const memberIds = members.map((m: any) => m.id).filter((x: any) => typeof x === 'number')
+  const counts = await fetchLikeCounts(sb, 'artist', memberIds)
+  for (const m of members) (m as any).like_count = counts.get((m as any).id) || 0
+  members.sort((a: any, b: any) => {
+    if (a.is_current !== b.is_current) return a.is_current ? -1 : 1
+    return (b.like_count || 0) - (a.like_count || 0)
+  })
+  return members
 }
 
 /** Member of — reverse lookup: kuriose grupėse šis atlikėjas yra narys.
