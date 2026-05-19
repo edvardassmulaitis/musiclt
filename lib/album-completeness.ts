@@ -109,7 +109,7 @@ export async function computeAlbumCompleteness(
 
   const { data: trackRows } = await sb
     .from('album_tracks')
-    .select('track_id, position, tracks(id, title, type, video_url, lyrics, release_year)')
+    .select('track_id, position, tracks(id, title, type, video_url, lyrics, lyrics_searched_at, release_year)')
     .eq('album_id', albumId)
     .order('position', { ascending: true })
 
@@ -121,8 +121,13 @@ export async function computeAlbumCompleteness(
     const missing: string[] = []
     if (!t.video_url) missing.push('video')
     if (!t.release_year) missing.push('data')
-    // Instrumental dainos lyrics nereikalingos pagal default'ą.
-    if (!t.lyrics && t.type !== 'instrumental') missing.push('lyrics')
+    // Lyrics warning praleidžiamas:
+    //   1) Jei track pažymėtas type='instrumental' (admin set)
+    //   2) Jei lyrics buvo ieškoti (lyrics_searched_at NOT NULL) bet nerasti —
+    //      reiškia LRCLib/genius/etc nerado, very likely instrumental ar
+    //      retas track be online lyrics; warning'as nieko nepasiūlys naujo.
+    //      Admin gali rankiniu pažymėti type='instrumental' jei nori clean ✓.
+    if (!t.lyrics && t.type !== 'instrumental' && !t.lyrics_searched_at) missing.push('lyrics')
     tracks.push({
       id: t.id,
       title: t.title || '',
