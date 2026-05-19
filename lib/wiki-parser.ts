@@ -1103,6 +1103,12 @@ export function parseAlbumGenres(wikitext: string): string[] {
   body = body.replace(/\{\{\s*hlist\s*\|\s*([^}]+)\}\}/gi, (_, inner: string) =>
     inner.split('|').map(s => s.trim()).filter(Boolean).join(','))
   body = body.replace(/\{\{\s*flatlist\s*\|?\s*([\s\S]*?)\}\}/gi, '$1')
+  // 2026-05-19: NESTED-SAFE recursive strip remaining `{{...}}` templates
+  // (cite web, citation, sfn, nowrap, etc). Anksčiau `[^}]*` regex sušlubdavo
+  // ant nested templates ir cite fragments → split('|') → DB substyles kaip
+  // "www.udiscovermusic.com", "title= The Works...". Repro: Queen The Works
+  // | genre = ...synth-pop{{cite web|url=...|title=...}} (be <ref> wrappers).
+  body = stripBalancedTemplates(body)
 
   const results: string[] = []
   const seen = new Set<string>()
@@ -1155,7 +1161,7 @@ function cleanGenreName(raw: string): string {
   let s = raw
   s = s.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<ref[^/]*\/>/gi, '')
   s = s.replace(/<[^>]+>/g, '')
-  s = s.replace(/\{\{[^}]*\}\}/g, '')
+  s = stripBalancedTemplates(s)
   s = s.replace(/\[\[|\]\]/g, '')
   s = s.replace(/\([^)]*\)/g, '') // paaiškinimai skliaustuose
   s = s.replace(/['"„"]+/g, '')
@@ -1163,7 +1169,24 @@ function cleanGenreName(raw: string): string {
   // Praleiskim non-genre lyk'us — citation tag'us, paaiškinimus
   if (s.length < 2 || s.length > 60) return ''
   if (/^\s*(see|main|note|citation|ref)\b/i.test(s)) return ''
+  // Drop fragments su URL/cite parametrų — `title=`, `url=`, `www.`, `http`
+  if (/(?:^|\s)(?:title|url|publisher|website|date|first|last|access-date)\s*=/i.test(s)) return ''
+  if (/\b(?:https?|www\.|\.com|\.org|\.net)\b/i.test(s)) return ''
   return s
+}
+
+/** Recursive balanced `{{...}}` strip — handles nested templates per `{{cite web|
+ *  url=...|title=...}}` and `{{nowrap|x|y}}`. Naive `[^}]*` regex would stop at
+ *  first `}` ir cite parametrų likučius. Visada paima visus depth-0 close'us. */
+function stripBalancedTemplates(s: string): string {
+  let out = ''
+  let depth = 0
+  for (let i = 0; i < s.length; i++) {
+    if (i + 1 < s.length && s[i] === '{' && s[i + 1] === '{') { depth++; i++; continue }
+    if (i + 1 < s.length && s[i] === '}' && s[i + 1] === '}' && depth > 0) { depth--; i++; continue }
+    if (depth === 0) out += s[i]
+  }
+  return out
 }
 
 /**
