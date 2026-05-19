@@ -1376,7 +1376,16 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
         .filter(({ block, pos }) => {
           const hl = getHeadline(block)
           if (!isReissueBlock(hl, block)) return false
+          // 2026-05-19: exclude video/DVD/gallery blocks from singles second-pass.
+          // Anksčiau Flash Gordon Wiki turi atskirą {{Track listing}} su
+          // headline="Bonus videos (2011 iTunes deluxe edition)" — title="Flash"
+          // (music video, NE audio track). Per matchAsSingle "flash" sutapdavo
+          // su Singles infobox single1 ir pridedavo kaip phantom track #19.
+          // Main pass šituos blokus jau skipina; second-pass turi tas pat.
+          const hlLow = hl.toLowerCase()
+          if (/\b(documentary|film|movie|featurette|trailer|interview|behind\s+the\s+scenes|making\s+of|music\s+video|video\s+album|video\s+edition|photo\s+gallery|gallery|bonus\s+dvd|videos?\b|dvd)\b/.test(hlLow)) return false
           const sectionBefore = getSectionBeforePos(wikitext, pos)
+          if (/\b(documentary|dvd|film|movie|featurette|trailer|video\s+album|video\s+edition|photo\s+gallery)\b/i.test(sectionBefore)) return false
           return !/reissue|remaster|anniversary|box.?set|collector|deluxe|expanded|demo|outtake/i.test(sectionBefore)
         })
         .map(({ block }) => block)
