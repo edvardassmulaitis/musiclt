@@ -2035,6 +2035,16 @@ function Hero({
               referrerPolicy="no-referrer"
               loading="eager"
               fetchPriority="high"
+              onError={(e) => {
+                // Jei weserv.nl proxy lūžta (503/404 — 2026-05-19 bug ant
+                // Wikimedia URL'ų be `https://` protocol), pereinam į
+                // tiesioginį source URL. Apsauga nuo infinite loop'o per
+                // data-fb-tried marker'į.
+                const img = e.currentTarget as HTMLImageElement
+                if (img.dataset.fbTried) return
+                img.dataset.fbTried = '1'
+                if (heroImage && img.src !== heroImage) img.src = heroImage
+              }}
               onClick={() => {
                 // Open Lightbox at photo[0] (cursor-zoom-in expectation match).
                 // Anksčiau buvo desktop-only scrollIntoView('#galerija') — mobile
@@ -2708,110 +2718,245 @@ function BioPreview({ html, onOpen, maxChars = 700 }: { html: string; onOpen: ()
 }
 
 function MembersInline({ members }: { members: Member[] }) {
-  if (!members.length) return null
-  // 2026-05-13 redesign per user feedback: vietoj atsitiktinai išsidėsčiusių
-  // pill'ių (kažkurie su data, kažkurie be — atrodė chaosas), padarytas
-  // horizontal snap-scroll grid'as su didesniais portretiniais card'ais.
-  // Avatar 56px, vardas + metai virš dėliojami vertikaliai. Tiek mobile,
-  // tiek desktop'e tas pats stilius — tik mobile turi -mx-4 + px-4 padding
-  // edge-to-edge swipe'ui.
+  // 2026-05-20 redesign v3: vienoje horizontal eilėje rodom ESAMUS pirmus
+  // (full size 120px), tada vertical separator + label „Buvę", tada FORMER
+  // narius mažesniame stiliuje (96px). Gale — „+N daugiau" trigger'is, kuris
+  // atidaro pilnaverčio sąrašo modal'ą (esami + buvę gražiai segmentuoti
+  // grid'e). Tas pats tiek desktop, tiek mobile — nereikia separate'ų layout'ų.
   //
-  // 2026-05-20 redesign: atskirti CURRENT vs FORMER. RHCP atveju 13 narių (4
-  // current + 9 former) — chaotiškai vienoje eilėje atrodo bjauriai. Dabar:
-  //   • Esami nariai — viršuje, didesni card'ai (avatar 56px), antraštė
-  //     „Esami nariai" (jeigu yra ne tik current — kitu atveju tik „Nariai")
-  //   • Buvę nariai — mažiau dėmesio: mažesnis avatar (40px), kompaktiškesnis
-  //     card'as, antraštė „Buvę nariai"
-  //   • Jeigu yra TIK current arba TIK former, antraštė lieka „Nariai"
+  // Anksčiau (v2) buvo dvi sekcijos vertikaliai — buvusiems atiteko per daug
+  // dėmesio (visi vienoje eilėje su sava antraite). Dabar buvę „stūmiami" iš
+  // viewport'o pasibaigus esamams, plius modal'as visam sąrašui.
+  const [modalOpen, setModalOpen] = useState(false)
+  if (!members.length) return null
+
   const current = members.filter(m => m.is_current !== false)
   const former  = members.filter(m => m.is_current === false)
   const hasBoth = current.length > 0 && former.length > 0
+  const total = members.length
+  // Trigger modal'ą jeigu yra daugiau nei 6 narių (mažuose case'uose
+  // viskas tilps ekrane be papildomos navigacijos).
+  const showAllTrigger = total > 6
 
   return (
-    <div className="mt-5">
-      {current.length > 0 && (
-        <MemberRow
-          title={hasBoth ? 'Esami nariai' : 'Nariai'}
-          members={current}
-          variant="prominent"
+    <>
+      <div className="mt-5">
+        <div className="mb-2 flex items-baseline justify-between">
+          <div className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+            Nariai{total > 4 ? ` (${total})` : ''}
+          </div>
+          {showAllTrigger && (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--accent-orange)] transition-colors hover:text-[color-mix(in_srgb,var(--accent-orange)_80%,#fff)]"
+            >
+              Visi →
+            </button>
+          )}
+        </div>
+        <div
+          className="-mx-4 flex items-stretch gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{
+            scrollSnapType: 'x mandatory',
+            scrollPaddingLeft: '1rem',
+            overscrollBehaviorX: 'contain',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {current.map(m => <MemberCard key={m.id} m={m} variant="prominent" />)}
+          {hasBoth && <MemberSeparator />}
+          {former.map(m => <MemberCard key={m.id} m={m} variant="compact" />)}
+          {showAllTrigger && (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              style={{ scrollSnapAlign: 'start' }}
+              className="flex w-[100px] shrink-0 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-default)] bg-transparent p-3 text-[var(--text-muted)] transition-all hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current font-['Outfit',sans-serif] text-[14px] font-black">
+                {total}
+              </span>
+              <span className="mt-2 font-['Outfit',sans-serif] text-[11px] font-bold leading-tight">Visi nariai</span>
+            </button>
+          )}
+        </div>
+      </div>
+      {modalOpen && (
+        <MembersModal
+          current={current}
+          former={former}
+          onClose={() => setModalOpen(false)}
         />
       )}
-      {former.length > 0 && (
-        <MemberRow
-          title={hasBoth ? 'Buvę nariai' : 'Nariai'}
-          members={former}
-          variant="compact"
-          className={hasBoth ? 'mt-4' : ''}
+    </>
+  )
+}
+
+function MemberCard({ m, variant }: { m: Member; variant: 'prominent' | 'compact' }) {
+  const isProm = variant === 'prominent'
+  return (
+    <Link
+      href={`/atlikejai/${m.slug}`}
+      style={{ scrollSnapAlign: 'start' }}
+      className={`group flex shrink-0 flex-col items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)] ${
+        isProm ? 'w-[120px] p-3' : 'w-[96px] p-2.5'
+      }`}
+    >
+      {m.cover_image_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={proxyImg(m.cover_image_url)}
+          alt={m.name}
+          className={`shrink-0 rounded-full object-cover transition-transform group-hover:scale-105 ${
+            isProm ? 'h-14 w-14' : 'h-10 w-10'
+          }`}
         />
+      ) : (
+        <div className={`flex shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] font-black text-[var(--text-faint)] ${
+          isProm ? 'h-14 w-14 text-[18px]' : 'h-10 w-10 text-[14px]'
+        }`}>
+          {m.name[0]}
+        </div>
       )}
+      <span className={`mt-2 line-clamp-2 text-center font-['Outfit',sans-serif] font-bold leading-tight text-[var(--text-primary)] ${
+        isProm ? 'text-[12px]' : 'text-[11px]'
+      }`}>
+        {m.name}
+      </span>
+      {m.member_from && (
+        <span className={`mt-0.5 tabular-nums font-semibold text-[var(--text-muted)] ${
+          isProm ? 'text-[10px]' : 'text-[9px]'
+        }`}>
+          {m.member_from}–{m.member_until || 'dabar'}
+        </span>
+      )}
+    </Link>
+  )
+}
+
+/** Vertical separator tarp esamų ir buvusių member card'ų horizontal eilėje.
+ *  Plonas raštas + rotuotas „BUVĘ" label'is kad neužimtų daug horizontal vietos. */
+function MemberSeparator() {
+  return (
+    <div className="flex shrink-0 items-center justify-center self-stretch" aria-hidden>
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-1">
+        <div className="h-3 w-px bg-[var(--border-subtle)]" />
+        <span
+          className="font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--text-faint)]"
+          style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+        >
+          Buvę
+        </span>
+        <div className="h-3 w-px bg-[var(--border-subtle)]" />
+      </div>
     </div>
   )
 }
 
-/** Bendras member row'as — naudojamas ir esamiems, ir buvusiems. Skiriasi tik
- *  vizualinis svoris (avatar dydis, card padding, type label muted). */
-function MemberRow({ title, members, variant, className = '' }: {
-  title: string
-  members: Member[]
-  variant: 'prominent' | 'compact'
-  className?: string
+/** Modal'as su pilnu narių sąrašu. Esami / Buvę aiškiai atskirti, grid layout
+ *  desktop'e, viena kolona mobile. Portal'inamas į body, kad route-enter
+ *  wrapper'is nelaužytų position:fixed (žr. feedback_route_enter_fixed_trap). */
+function MembersModal({ current, former, onClose }: {
+  current: Member[]
+  former: Member[]
+  onClose: () => void
 }) {
-  const isProm = variant === 'prominent'
-  return (
-    <div className={className}>
-      <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-        {title}
-      </div>
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [onClose])
+  if (!mounted || typeof document === 'undefined') return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1000] flex items-end justify-center overflow-y-auto bg-black/60 backdrop-blur-sm sm:items-center"
+      onClick={onClose}
+    >
       <div
-        className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        style={{
-          scrollSnapType: 'x mandatory',
-          scrollPaddingLeft: '1rem',
-          overscrollBehaviorX: 'contain',
-          WebkitOverflowScrolling: 'touch',
-        }}
+        className="relative w-full max-w-3xl rounded-t-2xl bg-[var(--card-bg)] p-5 shadow-2xl sm:rounded-2xl sm:p-7"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxHeight: '85vh', overflowY: 'auto' }}
       >
-        {members.map(m => (
-          <Link
-            key={m.id}
-            href={`/atlikejai/${m.slug}`}
-            style={{ scrollSnapAlign: 'start' }}
-            className={`group flex shrink-0 flex-col items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)] ${
-              isProm ? 'w-[120px] p-3' : 'w-[100px] p-2.5 opacity-90'
-            }`}
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="font-['Outfit',sans-serif] text-[20px] font-black text-[var(--text-primary)]">
+            Nariai ({current.length + former.length})
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Uždaryti"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
           >
-            {m.cover_image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={proxyImg(m.cover_image_url)}
-                alt={m.name}
-                className={`shrink-0 rounded-full object-cover transition-transform group-hover:scale-105 ${
-                  isProm ? 'h-14 w-14' : 'h-10 w-10'
-                }`}
-              />
-            ) : (
-              <div className={`flex shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] font-black text-[var(--text-faint)] ${
-                isProm ? 'h-14 w-14 text-[18px]' : 'h-10 w-10 text-[14px]'
-              }`}>
-                {m.name[0]}
-              </div>
-            )}
-            <span className={`mt-2 line-clamp-2 text-center font-['Outfit',sans-serif] font-bold leading-tight text-[var(--text-primary)] ${
-              isProm ? 'text-[12px]' : 'text-[11px]'
-            }`}>
-              {m.name}
-            </span>
-            {m.member_from && (
-              <span className={`mt-0.5 tabular-nums font-semibold text-[var(--text-muted)] ${
-                isProm ? 'text-[10px]' : 'text-[9px]'
-              }`}>
-                {m.member_from}–{m.member_until || 'dabar'}
-              </span>
-            )}
-          </Link>
-        ))}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M6 6L18 18M6 18L18 6" />
+            </svg>
+          </button>
+        </div>
+
+        {current.length > 0 && (
+          <section>
+            <h3 className="mb-3 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+              Esami nariai ({current.length})
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {current.map(m => <MemberModalCard key={m.id} m={m} />)}
+            </div>
+          </section>
+        )}
+
+        {former.length > 0 && (
+          <section className={current.length > 0 ? 'mt-7' : ''}>
+            <h3 className="mb-3 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+              Buvę nariai ({former.length})
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {former.map(m => <MemberModalCard key={m.id} m={m} />)}
+            </div>
+          </section>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
+  )
+}
+
+function MemberModalCard({ m }: { m: Member }) {
+  return (
+    <Link
+      href={`/atlikejai/${m.slug}`}
+      className="group flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 no-underline transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+    >
+      {m.cover_image_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={proxyImg(m.cover_image_url)}
+          alt={m.name}
+          className="h-12 w-12 shrink-0 rounded-full object-cover"
+        />
+      ) : (
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[16px] font-black text-[var(--text-faint)]">
+          {m.name[0]}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-bold leading-tight text-[var(--text-primary)]">
+          {m.name}
+        </div>
+        {m.member_from && (
+          <div className="mt-0.5 text-[11px] font-semibold tabular-nums text-[var(--text-muted)]">
+            {m.member_from}–{m.member_until || 'dabar'}
+          </div>
+        )}
+      </div>
+    </Link>
   )
 }
 
