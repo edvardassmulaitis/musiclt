@@ -499,7 +499,14 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
     if (hm) {
       const depth = hm[1].length, h = hm[2].toLowerCase()
       if (depth === 2 && /^album/.test(h)) inSinglesSection = false
-      skipSection = /video|dvd|film|promo|tour|guest|appear|certif|box.?set|music.video/.test(h)
+      // 2026-05-19: isAppearanceSection — pre-cache'inam, kad žinotume ar tai
+      // "guest/appearances/promo" context'as. Anksčiau šitą result'ą perrašydavo
+      // žemiau einantis `collaboration` match'as → "Collaborations and other
+      // appearances" (Queen disco h2 sekcija su Various Artists albumais)
+      // gaudavo skipSection=false ir Various Artists soundtracks (Sucker Punch,
+      // Symphony of British Music, Beside Bowie, etc.) tapdavo "Queen studio".
+      const isAppearanceSection = /video|dvd|film|promo|tour|guest|appear|certif|box.?set|music.video/.test(h)
+      skipSection = isAppearanceSection
       // matched track flag — kad žinotume ar dabartinė sekcija yra
       // atpažintas album tipas. Jei NĖRA — currentType paveldima iš ankstesnės
       // sekcijos, kuri buvo bug priežastis: Metallica 'Tribute albums' ėjo
@@ -512,7 +519,16 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       // šitą section'ą → Morten Harket / Dave Gahan / etc. negaudavo NIEKO.
       if (h === 'albums' || h === 'studio albums') { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
       else if (h.includes('studio')) { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
-      else if (h.includes('collaborative') || h.includes('collaboration')) { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
+      else if (h.includes('collaborative') || h.includes('collaboration')) {
+        // 2026-05-19 fix: jei sekcijos header'is taip pat turi "appearance" /
+        // "guest" / "promo" — tai Various Artists context'as (Queen disco
+        // „Collaborations and other appearances"), ne primary-artist'o
+        // collaborations. Skip'inam, kad neimport'intume Sucker Punch /
+        // Symphony of British Music / Beside Bowie ir kt. kaip „Queen studio".
+        // True „Collaboration albums" (be 'appearance') vis dar parse'inami.
+        if (isAppearanceSection) { skipSection = true; matched = true }
+        else { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
+      }
       else if (h.includes('extended play') || h.includes(' ep') || h === 'eps') { currentType = 'ep'; skipSection = false; matched = true }
       else if (h.includes('single')) { currentType = 'single'; skipSection = true; inSinglesSection = true; matched = true }
       else if (h.includes('remix')) { currentType = 'remix'; skipSection = false; matched = true }
