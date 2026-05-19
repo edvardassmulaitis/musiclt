@@ -60,15 +60,15 @@ export async function GET(req: NextRequest) {
       }
 
       const PAGE = 1000
-      let allRows: { id: number; title: string; type: string | null; artist_id: number }[] = []
+      let allRows: { id: number; title: string; type: string | null; artist_id: number; wiki_aliases: string[] | null }[] = []
       let offsetT = 0
       while (true) {
         const { data } = await supabase
           .from('tracks')
-          .select('id, title, type, artist_id')
+          .select('id, title, type, artist_id, wiki_aliases')
           .in('artist_id', artistIdsToSearch)
           .range(offsetT, offsetT + PAGE - 1)
-        const rows = (data || []) as { id: number; title: string; type: string | null; artist_id: number }[]
+        const rows = (data || []) as { id: number; title: string; type: string | null; artist_id: number; wiki_aliases: string[] | null }[]
         allRows = allRows.concat(rows)
         if (rows.length < PAGE) break
         offsetT += PAGE
@@ -96,26 +96,37 @@ export async function GET(req: NextRequest) {
       // diskografijoj per kompiliaciją.
       const primaryArtistId = parseInt(artist_id)
       const dbByNorm: Record<string, { id: number; type: string; artist_id: number }> = {}
-      for (const row of allRows) {
-        const k = norm(row.title)
-        if (!k) continue
+      // Helper: index'ina vieną norm'intą key'ą į DB row'ą su tiebreaker logic
+      const indexKey = (k: string, row: typeof allRows[number]) => {
+        if (!k) return
         const rowType = row.type || 'normal'
         const existing = dbByNorm[k]
         if (!existing) {
           dbByNorm[k] = { id: row.id, type: rowType, artist_id: row.artist_id }
-          continue
+          return
         }
         // Tiebreaker 1: same primary artist visada laimi
         const existingIsPrimary = existing.artist_id === primaryArtistId
         const rowIsPrimary = row.artist_id === primaryArtistId
         if (!existingIsPrimary && rowIsPrimary) {
           dbByNorm[k] = { id: row.id, type: rowType, artist_id: row.artist_id }
-          continue
+          return
         }
-        if (existingIsPrimary && !rowIsPrimary) continue
+        if (existingIsPrimary && !rowIsPrimary) return
         // Tiebreaker 2: studio (normal) virš alt-versions
         if (existing.type !== 'normal' && rowType === 'normal') {
           dbByNorm[k] = { id: row.id, type: rowType, artist_id: row.artist_id }
+        }
+      }
+      for (const row of allRows) {
+        // Primary title
+        indexKey(norm(row.title), row)
+        // Wiki aliases — Wiki Singles section sometimes uses short form name
+        // (`"Flash"`) while album tracklist uses full canonical (`"Flash's Theme"`).
+        // wiki_aliases lentelėje admin saugo abu mapping'us, kad ateities
+        // Wiki import'as nesiūlytų "+ kurti naują" duplikato. 2026-05-19.
+        for (const alias of (row.wiki_aliases || [])) {
+          if (typeof alias === 'string' && alias.trim()) indexKey(norm(alias), row)
         }
       }
       const found: Record<string, number> = {}
