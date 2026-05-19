@@ -541,15 +541,19 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
     }
 
     // yearMode aktivuojama, kai pamatom `! Year` table header (su ar be
-    // rowspan). Anksčiau buvo reikalingas rowspan eksplicit'as → table'ai be
-    // jo (pvz Wumpscut: `! Year` plain) neaktivuodavo yearMode → albumai
-    // nesurandami. Dabar bet kuris ! Year header trigger'ina.
-    if (/^!\s*Year\s*$/i.test(line) || /!.*rowspan.*Year|!rowspan.*Year/i.test(line)) { yearMode = true; continue }
+    // rowspan, su ar be cell attrs). 2026-05-18 fix: anksčiau praleisdavo
+    // `!width="35"|Year` (cell attrs be rowspan'o, Harold Budd-style table'ai).
+    // Naujas check: bet koks `!...|Year` arba `!Year` arba `!attr Year`.
+    if (/^!\s*Year\s*$/i.test(line) || /^!.*?(?:\|\s*Year\s*$|rowspan.*?Year\b|\bYear\s*$)/i.test(line)) { yearMode = true; continue }
 
-    const yearM = line.match(/^\|\s*(?:rowspan\s*=\s*["']?(\d+)["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
+    // Year row: |YEAR ar |attrs|YEAR ar |rowspan=N|YEAR ar |align="center"|YEAR.
+    // 2026-05-18 fix: anksčiau cell attrs (align, style) prieš YEAR praleisdavo.
+    const yearM = line.match(/^\|\s*(?:([^|]*?)\|)?\s*((?:19|20)\d{2})\s*$/)
     if (yearM) {
       currentYear = parseInt(yearM[2])
-      yearRowspan = yearM[1] ? parseInt(yearM[1]) : 1
+      const attrs = yearM[1] || ''
+      const rsM = attrs.match(/rowspan\s*=\s*["']?(\d+)["']?/i)
+      yearRowspan = rsM ? parseInt(rsM[1]) : 1
       continue
     }
 
