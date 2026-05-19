@@ -43,7 +43,7 @@ function buildSocialLinks(
   tableLinks: { platform: string; url: string }[],
 ): { platform: string; url: string }[] {
   const fromCols: { platform: string; url: string }[] = []
-  const fields: Array<keyof any> = ['spotify', 'youtube', 'facebook', 'tiktok', 'twitter', 'soundcloud', 'bandcamp']
+  const fields: Array<keyof any> = ['spotify', 'youtube', 'facebook', 'instagram', 'tiktok', 'twitter', 'soundcloud', 'bandcamp']
   for (const f of fields) {
     const val = (artist as any)[f]
     if (val && typeof val === 'string' && val.trim()) {

@@ -69,6 +69,7 @@ export async function GET(
 
   const links: Record<string, string> = {
     facebook:   artist.facebook   || '',
+    instagram:  artist.instagram  || '',
     youtube:    artist.youtube    || '',
     tiktok:     artist.tiktok     || '',
     spotify:    artist.spotify    || '',
@@ -166,7 +167,7 @@ export async function PATCH(
     'show_updated','active_from','active_until','slug',
     // NB: 'photos' column DROPPED (db-cleanup-atlanta.sql). Photo data
     // dabar gyvena tik artist_photos lentelėje per /api/artists/[id]/photos PUT.
-    'facebook','youtube','tiktok','spotify','soundcloud','bandcamp','twitter',
+    'facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter',
     // Solo atlikėjų papildomi infobox laukai (text[] tipai DB'ėje):
     //   roles — Singer, Songwriter, Producer, ...
     //   instruments — Vocals, Guitar, Piano, ...
@@ -229,7 +230,7 @@ export async function PATCH(
           birth_date: birthDate,
           death_date: deathDate,
           website: m.website || null,
-          facebook: m.facebook || null,
+          facebook: m.facebook || null, instagram: m.instagram || null,
           twitter: m.twitter || null, spotify: m.spotify || null,
           youtube: m.youtube || null, soundcloud: m.soundcloud || null,
           tiktok: m.tiktok || null, bandcamp: m.bandcamp || null,

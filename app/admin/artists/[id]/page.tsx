@@ -59,6 +59,7 @@ function dbToForm(data: any): ArtistFormData {
     deathMonth:  data.death_date ? data.death_date.split('-')[1] : '',
     deathDay:    data.death_date ? data.death_date.split('-')[2] : '',
     facebook:    data.links?.facebook || '',
+    instagram:   data.links?.instagram || '',
     youtube:     data.links?.youtube || '',
     tiktok:      data.links?.tiktok || '',
     spotify:     data.links?.spotify || '',
@@ -105,7 +106,7 @@ function formToDb(form: ArtistFormData) {
     birth_date: birthDate, death_date: deathDate,
     genres: genreIds, substyleNames: form.substyles || [],
     breaks: form.breaks, photos: form.photos,
-    facebook: form.facebook || null,
+    facebook: form.facebook || null, instagram: form.instagram || null,
     youtube: form.youtube || null, tiktok: form.tiktok || null,
     spotify: form.spotify || null, soundcloud: form.soundcloud || null,
     bandcamp: form.bandcamp || null, twitter: form.twitter || null,
@@ -142,7 +143,7 @@ function formToDb(form: ArtistFormData) {
         // POST/PUT route'os įdeda kaip artists.roles[] DB lauką.
         roles: m.roles || [],
         website: m.website || '',
-        facebook: m.facebook || '', twitter: m.twitter || '', spotify: m.spotify || '',
+        facebook: m.facebook || '', instagram: m.instagram || '', twitter: m.twitter || '', spotify: m.spotify || '',
         youtube: m.youtube || '', soundcloud: m.soundcloud || '',
         tiktok: m.tiktok || '', bandcamp: m.bandcamp || '',
       }))
@@ -1548,7 +1549,7 @@ export default function EditArtist() {
                       yearStart:'', yearEnd:'', breaks:[], members:[],
                       birthYear:'', birthMonth:'', birthDay:'',
                       deathYear:'', deathMonth:'', deathDay:'', gender:'' as const,
-                      facebook:'', twitter:'', youtube:'',
+                      facebook:'', instagram:'', twitter:'', youtube:'',
                       spotify:'', soundcloud:'', tiktok:'', bandcamp:'',
                       groups:[], subdomain:'',
                     }

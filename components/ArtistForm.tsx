@@ -103,11 +103,24 @@ const SocialIcons: Record<string, React.ReactNode> = {
   twitter: (
     <svg viewBox="0 0 24 24" className="w-4 h-4"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.259 5.63zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="#000"/></svg>
   ),
+  instagram: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="url(#igGrad)" aria-hidden="true">
+      <defs>
+        <radialGradient id="igGrad" cx="0.3" cy="1" r="1.2">
+          <stop offset="0" stopColor="#FFC107" />
+          <stop offset="0.45" stopColor="#FF1744" />
+          <stop offset="0.85" stopColor="#A020F0" />
+        </radialGradient>
+      </defs>
+      <path d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9a5.5 5.5 0 0 1-5.5 5.5h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4h-9zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm5.75-2.75a.95.95 0 1 1-1.9 0 .95.95 0 0 1 1.9 0z"/>
+    </svg>
+  ),
 }
 
 const SOCIALS = [
   { key:'website',    label:'Oficialus puslapis', ph:'https://...', type:'url' },
   { key:'facebook',   label:'Facebook',   ph:'https://facebook.com/...' },
+  { key:'instagram',  label:'Instagram',  ph:'https://instagram.com/...' },
   { key:'youtube',    label:'YouTube',    ph:'https://youtube.com/...' },
   { key:'tiktok',     label:'TikTok',     ph:'https://tiktok.com/...' },
   { key:'spotify',    label:'Spotify',    ph:'https://open.spotify.com/...' },
@@ -154,7 +167,7 @@ export type ArtistFormData = {
   birthYear: string; birthMonth: string; birthDay: string
   deathYear: string; deathMonth: string; deathDay: string
   gender: 'male'|'female'|''
-  facebook: string; youtube: string; tiktok: string
+  facebook: string; youtube: string; tiktok: string; instagram: string
   spotify: string; soundcloud: string; bandcamp: string; twitter: string
   // Solo atlikėjų infobox laukai — užpildomi WikipediaImport, saugomi į
   // artists.roles / artists.instruments (text[] DB tipai).
@@ -167,7 +180,7 @@ export const emptyArtistForm: ArtistFormData = {
   avatar:'', avatarWide:'', avatarPosition:'center 20%', photos:[], website:'', subdomain:'',
   birthYear:'', birthMonth:'', birthDay:'',
   deathYear:'', deathMonth:'', deathDay:'', gender:'',
-  facebook:'', youtube:'', tiktok:'',
+  facebook:'', youtube:'', tiktok:'', instagram:'',
   spotify:'', soundcloud:'', bandcamp:'', twitter:'',
   roles: [], instruments: [],
 }
@@ -1550,7 +1563,7 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
 // ── SocialsSection ────────────────────────────────────────────────────────────
 function SocialsSection({ form, set }: { form: ArtistFormData; set: (k: keyof ArtistFormData, v: any) => void }) {
   const [open, setOpen] = useState(false)
-  const filledCount = ['website','facebook','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']
+  const filledCount = ['website','facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']
     .filter(k => !!(form as any)[k]).length
 
   return (
@@ -1669,6 +1682,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
       ...(initialData.roles !== prev.roles ? { roles: initialData.roles } : {}),
       ...(initialData.instruments !== prev.instruments ? { instruments: initialData.instruments } : {}),
       ...(initialData.facebook !== prev.facebook ? { facebook: initialData.facebook } : {}),
+      ...(initialData.instagram !== prev.instagram ? { instagram: initialData.instagram } : {}),
       ...(initialData.youtube !== prev.youtube ? { youtube: initialData.youtube } : {}),
       ...(initialData.tiktok !== prev.tiktok ? { tiktok: initialData.tiktok } : {}),
       ...(initialData.spotify !== prev.spotify ? { spotify: initialData.spotify } : {}),
