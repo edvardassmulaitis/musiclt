@@ -109,7 +109,7 @@ export async function computeAlbumCompleteness(
 
   const { data: trackRows } = await sb
     .from('album_tracks')
-    .select('track_id, position, tracks(id, title, type, video_url, lyrics, lyrics_searched_at, release_year)')
+    .select('track_id, position, tracks(id, title, type, video_url, lyrics, lyrics_searched_at, youtube_searched_at, release_year)')
     .eq('album_id', albumId)
     .order('position', { ascending: true })
 
@@ -119,7 +119,11 @@ export async function computeAlbumCompleteness(
     const t = r.tracks
     if (!t) continue
     const missing: string[] = []
-    if (!t.video_url) missing.push('video')
+    // Video warning praleidžiamas jei YouTube buvo ieškotas (youtube_searched_at
+    // NOT NULL) bet nerasta — reiškia ytmusic/YT Data API nerado, very likely
+    // obscure track be YT video; warning'as nieko nepasiūlys naujo. Tas pats
+    // logic kaip lyrics warning su lyrics_searched_at.
+    if (!t.video_url && !t.youtube_searched_at) missing.push('video')
     if (!t.release_year) missing.push('data')
     // Lyrics warning praleidžiamas:
     //   1) Jei track pažymėtas type='instrumental' (admin set)
