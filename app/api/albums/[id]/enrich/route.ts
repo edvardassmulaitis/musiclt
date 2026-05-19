@@ -100,27 +100,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     applied.peak_chart_position = updates.peak_chart_position
   }
 
-  // ── REPLACE: type flags (2026-05-15: Wiki = canonical) ────────────────────
-  // Anksčiau PROMOTE-ONLY palikdavo music.lt scrape klaidas (Queen 21 albumas
-  // su daug klaidingai pažym. type_studio kompiliacijoms). Dabar Wiki = source
-  // of truth: jei client'as siunčia BENT VIENĄ type_* boolean,
-  // laikom kad Wiki turėjo opinion ir REPLACE'inam VISĄ type set'ą
-  // pagal payload (TRUE arba FALSE — lygiai ką Wiki sako).
-  // Praleidžiama tik jei visi type_* nesiunčiami (caller'is admin form'as
-  // ar kt., kuris nežinotų ka REPLACE'inti).
+  // ── PROMOTE-ONLY: type flags (2026-05-19: dual-type albums need UNION) ────
+  // Anksčiau REPLACE semantika (2026-05-15) trindavo dual-type albumus —
+  // Flash Gordon DB turėjo type_studio=true + type_soundtrack=true
+  // (Wikipedia native rodo `Flash Gordon (soundtrack)` BET disco section'e
+  // listina kaip Studio Album → Wiki gives "studio" only). REPLACE wipe'indavo
+  // type_soundtrack į false → prarandama dual-type info. Music.lt scrape klaidų
+  // taisymą (Queen 21 albumas pažym. studio kompiliacijoms) atskirai per
+  // album admin form'ą — Wiki canonical type signals tik PRIDEDAMI, niekada
+  // netriname esamų. Jei Wiki sako "studio" + DB jau yra "soundtrack" →
+  // result'as = "studio + soundtrack" (dual).
   const ALL_TYPE_FLAGS = ['type_studio','type_compilation','type_ep','type_single','type_live','type_remix','type_covers','type_holiday','type_soundtrack','type_demo'] as const
-  const wikiHasAnyType = ALL_TYPE_FLAGS.some(f => typeof body[f] === 'boolean')
-  if (wikiHasAnyType) {
-    const replacedTypes: string[] = []
-    for (const flag of ALL_TYPE_FLAGS) {
-      const wikiSays = body[flag] === true
-      if (wikiSays !== !!(cur as any)[flag]) {
-        updates[flag] = wikiSays
-        replacedTypes.push(`${wikiSays ? '+' : '-'}${flag.replace('type_','')}`)
-      }
+  const promotedTypes: string[] = []
+  for (const flag of ALL_TYPE_FLAGS) {
+    if (body[flag] === true && !(cur as any)[flag]) {
+      updates[flag] = true
+      promotedTypes.push(`+${flag.replace('type_','')}`)
     }
-    if (replacedTypes.length > 0) applied.type_replaced = replacedTypes
   }
+  if (promotedTypes.length > 0) applied.type_promoted = promotedTypes
 
   // ── albums table UPDATE ───────────────────────────────────────────────────
   if (Object.keys(updates).length > 0) {
