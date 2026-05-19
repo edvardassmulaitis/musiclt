@@ -4,6 +4,8 @@
  * for use by both UI and Python bulk worker.
  */
 
+import { wikiTitleCase } from './text-utils'
+
 // Will be provided by importing modules; kept as placeholder for type safety
 let COUNTRIES: string[] = []
 let SUBSTYLES: Record<string, string[]> = {}
@@ -748,7 +750,8 @@ export function parseHashListTracks(
     // Tas pats pipeline'as kaip parseTracklist eilutėje ~863-865, kad
     // hash-list ir {{Track listing}} formatai duoda identišką output'ą.
     const { cleanTitle, featuring: titleFeat } = parseFeaturing(lm[1].trim())
-    const title = cleanWikiText(cleanTitle)
+    // Wiki Style title case — toks pats kaip {{Track listing}} pipeline'e
+    const title = wikiTitleCase(cleanWikiText(cleanTitle))
     const noteRaw = lm[2] || ''
     const duration = lm[3]
     if (title.length < 2) continue
@@ -1276,7 +1279,12 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
       }
       const { cleanTitle, featuring: tf } = parseFeaturing(titleM[1].trim())
       if (!featuring.length) featuring = tf
-      const finalTitle = cleanWikiText(cleanTitle)
+      // Wiki Style title case: legacy music.lt'as turėjo mažom raidėm `good
+      // old fashioned lover boy` — Wiki canonical yra normalizuotas, todėl
+      // apply'inam taisyklingą Title Case'ą importuojant (2026-05-19 Queen
+      // backfill — 28 trackai pataisyti). wikiTitleCase preserves acronyms,
+      // small words po `(`/`:` kaip first-in-segment cap'inti.
+      const finalTitle = wikiTitleCase(cleanWikiText(cleanTitle))
       if (finalTitle) {
         // Apostrophe normalization: match `normalizeSingleKey` exactly so
         // tracks like "Don't Panic" lookup correctly against the singles Set
