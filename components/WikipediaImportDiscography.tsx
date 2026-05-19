@@ -1611,10 +1611,24 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           // (Seven Seas of Rhye edge case), (2) jei DB title skiriasi nuo Wiki
           // tik formatu (norm sutampa), atnaujina į Wiki canonical (pvz
           // 'Fairy feller's master stroke' → 'The Fairy Feller's Master-Stroke').
-          if (item.trackDuplicateMap && item.tracks?.length) {
+          //
+          // 2026-05-19: AUTO-FETCH trackDuplicateMap prieš enrich call jei
+          // admin nebuvo expanded album'o. Anksčiau matched_tracks siunčiama
+          // TIK jei trackDuplicateMap jau loaded (per expand) → batch importas
+          // be expand'ų NIEKO neprijungdavo. Dabar pre-fetch garantuoja, kad
+          // matched-but-not-linked tracks visada bus auto-link'inami.
+          let effectiveDupMap = item.trackDuplicateMap
+          if (!effectiveDupMap && item.tracks?.length && item.duplicate) {
+            try {
+              effectiveDupMap = await checkTrackDuplicates(item.tracks.map(t => t.title), artistId)
+              // Update state so UI reflects (post-import the dialog can re-render correct counts)
+              setItems(p2 => p2.map((x, ix) => ix === idx ? { ...x, trackDuplicateMap: effectiveDupMap } : x))
+            } catch { /* fail silent — fallback to non-linked behavior */ }
+          }
+          if (effectiveDupMap && item.tracks?.length) {
             const matchedTracks: { id: number; wiki_title: string; featuring?: string[] }[] = []
             for (const wt of item.tracks) {
-              const dupId = item.trackDuplicateMap[wt.title.toLowerCase()]
+              const dupId = effectiveDupMap[wt.title.toLowerCase()]
               if (dupId) {
                 const entry: any = { id: dupId, wiki_title: wt.title }
                 // Featuring iš Wiki — backend syncTrackFeaturing UNION'iškai
