@@ -2578,17 +2578,41 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 const incompleteTracks = c.tracks.filter(t => !t.complete)
                 const wikiTracksKnown = it.tracks !== undefined && it.fetched
                 const wikiTrackCount = wikiTracksKnown ? (it.tracks?.length || 0) : null
+                // 2026-05-19: matched-but-not-linked tracks — DB turi track
+                // (per title match arba wiki_alias), bet album_tracks JOIN
+                // šiam album'ui jo nėra. Anksčiau tas case nebuvo įtrauktas
+                // į missing meta → collapse rodydavo ✓ sutvarkyta, expand —
+                // ↻ +N daina prijungs warning. Dabar count'iname tuos kaip
+                // "N neprijungtos" missing meta įrašą.
+                const matchedNotLinkedCount = (it.trackDuplicateMap && it.tracks)
+                  ? it.tracks.filter(wt => {
+                      const dupId = it.trackDuplicateMap![wt.title.toLowerCase()]
+                      return !!dupId && !c.tracks.find(t => t.id === dupId)
+                    }).length
+                  : 0
                 const missingMeta: string[] = []
                 if (!c.has_cover) missingMeta.push('viršelis')
                 if (!c.has_year) missingMeta.push('data')
                 if (c.substyles_count === 0) missingMeta.push('žanrai')
                 if (wikiTrackCount !== null && c.tracks_count < wikiTrackCount) {
                   missingMeta.push(`${wikiTrackCount - c.tracks_count} dainos neprijungtos`)
+                } else if (matchedNotLinkedCount > 0) {
+                  // Same count via different path (DB has track but album_tracks
+                  // missing). Avoid double-count when both checks fire.
+                  missingMeta.push(`${matchedNotLinkedCount} ${matchedNotLinkedCount === 1 ? 'daina neprijungta' : 'dainos neprijungtos'}`)
                 }
                 const allOk = c.fully_complete && missingMeta.length === 0 && incompleteTracks.length === 0
                 if (allOk) {
-                  const verifyHint = wikiTracksKnown ? '' : '\n\n(Wiki tracklist dar neload'+"'"+'inta — spausk info arba ▼ palyginti)'
-                  const tooltip = `Sutvarkyta:\n• Viršelis ${c.has_cover ? '✓' : '—'}\n• Leidimo data ${c.has_full_date ? '✓ (pilna)' : c.has_year ? '✓ (tik metai)' : '—'}\n• ${c.substyles_count} žanras\n• ${c.tracks_count} dainų DB — visos pilnos${verifyHint}`
+                  // 2026-05-19: jei Wiki tracklist dar neload'inta, NEgalime
+                  // garantuoti pilno "sutvarkyta" status'o — gali pasirodyti
+                  // matched-but-not-linked tracks po expand. Rodom preliminary
+                  // status'ą `✓ DB pilna` (žalsvas amber), kad admin žinotų,
+                  // jog Wiki dar nepatikrinta. Po expand'o → ✓ sutvarkyta.
+                  if (!wikiTracksKnown) {
+                    const tooltip = `DB metadata pilna:\n• Viršelis ${c.has_cover ? '✓' : '—'}\n• Leidimo data ${c.has_full_date ? '✓ (pilna)' : c.has_year ? '✓ (tik metai)' : '—'}\n• ${c.substyles_count} žanras\n• ${c.tracks_count} dainų DB — visos pilnos\n\nWiki tracklist DAR neload'inta — spausk ▼ palyginti su Wiki, ar nieko netrūksta tracklist'e.`
+                    return <span className="text-[10px] font-semibold text-teal-600 shrink-0" title={tooltip}>✓ DB pilna</span>
+                  }
+                  const tooltip = `Sutvarkyta:\n• Viršelis ${c.has_cover ? '✓' : '—'}\n• Leidimo data ${c.has_full_date ? '✓ (pilna)' : c.has_year ? '✓ (tik metai)' : '—'}\n• ${c.substyles_count} žanras\n• ${c.tracks_count} dainų DB — visos pilnos\n• Wiki tracklist patikrinta — sutampa`
                   return <span className="text-[10px] font-semibold text-emerald-600 shrink-0" title={tooltip}>✓ sutvarkyta</span>
                 }
                 // Trūkumų label'as: inline'inam visus meta + dainų count.
