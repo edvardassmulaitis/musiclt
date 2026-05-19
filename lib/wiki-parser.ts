@@ -226,6 +226,9 @@ export function cleanWikiText(raw: string): string {
   s = s.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
   s = s.replace(/<ref[^/]*\/>/gi, '')
   s = s.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '')
+  // Strip pair of quotes wrapping ONLY a [[wikilink]] \u2014 pvz `"[[We Will Rock You]]" (Fast)`
+  // anks\u010diau po link extraction palikdavo `We Will Rock You" (Fast)` (stray middle quote).
+  s = s.replace(/["\u201c\u2018]\s*(\[\[[^\]]+\]\])\s*["\u201d\u2019]/g, '$1')
   s = s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_: string, _l: string, d: string) => d.replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
   s = s.replace(/\[\[([^\]]+)\]\]/g, (_: string, l: string) => l.replace(/#[^\]]*$/, '').replace(/_/g, ' ').replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
 
@@ -261,7 +264,11 @@ export function cleanWikiText(raw: string): string {
 export function extractFeaturing(raw: string): string[] {
   // Match: (feat/featuring/ft/with X) — su paren'ais. 'with' įtraukta dėl
   // Coldplay-style "(with Rihanna)" formatuotės kuri dažna duet'uose.
-  const m1 = raw.match(/\((?:feat(?:uring)?\.?|ft\.?|with)\s+([^)]+)\)/i)
+  // Balanced paren handling: leidžia vienakart nested `(...)` (pvz wiki disambig
+  // `[[Mustapha (song)|Mustapha]]` — anksčiau `[^)]+` stop'indavo prie pirmojo
+  // `)` ir Live Killers track "(with "[[Mustapha (song)|Mustapha]]" intro)"
+  // tapdavo featuring=["Mustapha (song"], title=`Bohemian Rhapsody|Mustapha"` etc.
+  const m1 = raw.match(/\((?:feat(?:uring)?\.?|ft\.?|with)\s+((?:[^()]+|\([^()]*\))+)\)/i)
   if (m1) {
     // Split TIK pagal , ir & — and-split atlieka cleanFeaturingTokens viduje.
     return cleanFeaturingTokens(m1[1].split(/[,&]/))
@@ -335,7 +342,9 @@ export function parseFeaturing(raw: string): { cleanTitle: string; featuring: st
   // of China (with Rihanna)" — title turi būti "Princess of China", o
   // featuring atskirai per track_artists junction'į.
   const cleanTitle = cleanWikiText(
-    raw.replace(/\s*\((?:feat(?:uring)?\.?|ft\.?|with)\s+[^)]+\)/gi, '')
+    // Balanced paren — žr. extractFeaturing komentarą; tas pats su (song)/(album)
+    // Wiki disambig'ais featuring paren'o viduje.
+    raw.replace(/\s*\((?:feat(?:uring)?\.?|ft\.?|with)\s+(?:[^()]+|\([^()]*\))+\)/gi, '')
        .replace(/\s*\{\{(?:feat(?:uring)?\.?|ft\.?)[\s|][^}]+\}\}/gi, '').trim()
   )
   return { cleanTitle, featuring }
@@ -1262,7 +1271,7 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
         // Naudojam cleanFeaturingTokens kuris drop'ina "X, Album, Year" patterns.
         let fm = noteM[1].match(/\b(?:feat(?:uring)?|ft)\.?\s+(.+)/i)
         if (!fm) fm = noteM[1].match(/^\s*with\s+(.+)/i)
-        if (!fm) fm = noteM[1].match(/\(\s*with\s+([^)]+)\)/i)
+        if (!fm) fm = noteM[1].match(/\(\s*with\s+((?:[^()]+|\([^()]*\))+)\)/i)
         if (fm) featuring = cleanFeaturingTokens(fm[1].split(/[,&]/))
       }
       const { cleanTitle, featuring: tf } = parseFeaturing(titleM[1].trim())
