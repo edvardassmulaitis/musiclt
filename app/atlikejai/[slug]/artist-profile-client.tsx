@@ -1340,18 +1340,26 @@ function Equalizer() {
 }
 
 /** 5-dot popularity bar. Anksčiau buvo 4 — su 5 lygiais geriau matosi
- *  skirtumai tarp top hit'o, vidutinio ir silpnesnio įrašo. */
-function PopBar({ level }: { level: number }) {
+ *  skirtumai tarp top hit'o, vidutinio ir silpnesnio įrašo.
+ *
+ *  Size variants:
+ *    'sm' (default) — h-[3px] w-[14px] dashes — track/album cards
+ *    'lg'           — h-[6px] w-[32px] dashes — artist hero (po pavadinimu)
+ *                     prominence, kad vartotojas iš karto matytų signal'ą. */
+function PopBar({ level, size = 'sm' }: { level: number; size?: 'sm' | 'lg' }) {
   const total = 5
+  const isLg = size === 'lg'
   return (
-    <div className="mt-1 flex gap-[3px]" aria-hidden>
+    <div className={isLg ? 'flex gap-[4px]' : 'mt-1 flex gap-[3px]'} aria-hidden>
       {Array.from({ length: total }).map((_, i) => {
         const filled = i < level
         return (
           <span
             key={i}
             className={[
-              'h-[3px] w-[14px] rounded-[2px] transition-colors',
+              isLg
+                ? 'h-[6px] w-[32px] rounded-[3px] transition-colors sm:w-[40px]'
+                : 'h-[3px] w-[14px] rounded-[2px] transition-colors',
               filled ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]',
             ].join(' ')}
             style={{ opacity: filled ? 0.55 + (0.45 * (i + 1) / total) : 1 }}
@@ -1967,7 +1975,7 @@ function Hero({
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack,
   playing, onRequestPlay, onOpenTrackInfo, hasAnyVideo,
   upcomingEvents, onOpenEventsModal, onOpenHeroLightbox, onOpenEvent,
-  popBarLevel, genres,
+  popBarLevel, genres, substyles = [], ranks = [], onOpenTopArtists,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
   tracksAllTime: Track[]; tracksTrending: Track[]
@@ -1985,10 +1993,25 @@ function Hero({
    *  paslepiamas. Kitos reikšmės — 5-dot bar'as kaip albumams/tracks. */
   popBarLevel: number
   /** Primary genre + visi žanrai — naudojam pirmajį chip'e po pavadinimu.
-   *  Clickable į /atlikejai?genre={name}. */
+   *  Clickable į TopArtistsModal. */
   genres: Genre[]
+  /** Substyles — perkelti iš SideInfo į Hero (po main genre chip'o), kad
+   *  visi žanrai būtų vienoje vietoje. */
+  substyles?: Genre[]
+  /** Ranks — naudojam #X chip'ą šalia main genre. LT → country rank,
+   *  non-LT → global rank. */
+  ranks?: Rank[]
+  /** Atidaro TopArtistsModal su filtru (country/genre/substyle). */
+  onOpenTopArtists?: (filter: { country?: string; genre?: string }) => void
 }) {
   const flag = artist.country ? (FLAGS[artist.country] || '') : ''
+  // Rank logic: LT artist → country rank; ne LT → global rank.
+  // Naudojam šalia main genre kaip „#X" badge'ą. Jei rank duomenų nėra
+  // (placeholder atlikėjas su score=0), badge'as nerodomas.
+  const isLT = artist.country === 'Lietuva'
+  const primaryRank = isLT
+    ? ranks.find(r => r.scope === 'country')
+    : ranks.find(r => r.scope === 'global')
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
   // Hero foto FIXED width 600px desktop'e — be JS-based dimension detection.
   // Anksčiau buvo adaptyvus (380/480/720 pagal natural aspect ratio onLoad'e),
@@ -2139,42 +2162,63 @@ function Hero({
             </span>
             )}
           </h1>
-          {/* Naujas meta row'as po title: 5-dot PopBar (pagal score percentil),
-              clickable šalies vėliava (no text, hover tooltip), pirmas žanras
-              kaip clickable chip'as. Buvęs LikePill perkeltas į SideInfo
-              kortelę kaip „Sekti" mygtukas — popularumo metrika nebėra
-              dominuojanti, nes nauji atlikėjai negali konkuruoti su istoriniu
-              like aktyvumu. PopBar visiems atlikėjams su score>0 vaidina tą
-              vaidmenį dabar — top 20% gauna 5 dot'us nepriklausomai nuo
-              like'ų.
-              Responsive style:
-                Mobile: solid bg-[var(--card-bg)] (foto neuždengia background'o)
-                Desktop (lg+): white glass su backdrop-blur (foto nuotrauka už nugaros) */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          {/* Naujas meta blokas po title — dviejose eilutėse, kad PopBar
+              būtų aiškiai prominent'inis (pagrindinis populiarumo signal'as
+              dabar) ir nesimaišytų su šalies/žanro info.
+                Row 1: didelis 5-dot PopBar (jei score>0)
+                Row 2: 🇺🇸 flag chip + main genre #X + substyles
+              Visi chip'ai atidaro TopArtistsModal'ą (ne navigaciją) — užtikriną
+              vienos sesijos browsing flow. Mobile: solid bg-[var(--card-bg)],
+              desktop lg+: white glass over hero photo. */}
+          <div className="flex flex-col gap-2.5">
             {popBarLevel > 0 && (
-              <div className="rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1 lg:border-white/15 lg:bg-white/10 lg:backdrop-blur-md">
-                <PopBar level={popBarLevel} />
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1.5 lg:border-white/15 lg:bg-white/10 lg:backdrop-blur-md">
+                <PopBar level={popBarLevel} size="lg" />
+                <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-faint)] lg:text-white/70">Populiarumas</span>
               </div>
             )}
-            {flag && artist.country && (
-              <Link
-                href={`/atlikejai?country=${encodeURIComponent(artist.country)}`}
-                title={`Visi atlikėjai iš ${artist.country}`}
-                aria-label={`Šalis: ${artist.country}. Žiūrėti visus atlikėjus.`}
-                className="inline-flex items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1 text-[20px] leading-none transition-all hover:scale-110 hover:border-[var(--accent-orange)] lg:border-white/20 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20"
-              >
-                <span aria-hidden>{flag}</span>
-              </Link>
-            )}
-            {genres[0] && (
-              <Link
-                href={`/atlikejai?genre=${encodeURIComponent(genres[0].name)}`}
-                title={`Visi atlikėjai: ${genres[0].name}`}
-                className="inline-flex items-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] no-underline lg:border-white/20 lg:bg-white/10 lg:text-white lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20 lg:hover:text-white"
-              >
-                {genres[0].name}
-              </Link>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {flag && artist.country && (
+                <button
+                  type="button"
+                  onClick={() => onOpenTopArtists?.({ country: artist.country })}
+                  title={`Top atlikėjai: ${artist.country}`}
+                  aria-label={`Šalis: ${artist.country}. Atidaryti top sąrašą.`}
+                  className="inline-flex items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1 text-[20px] leading-none transition-all hover:scale-110 hover:border-[var(--accent-orange)] lg:border-white/20 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20"
+                >
+                  <span aria-hidden>{flag}</span>
+                </button>
+              )}
+              {genres[0] && (
+                <button
+                  type="button"
+                  onClick={() => onOpenTopArtists?.({ genre: genres[0].name })}
+                  title={`Top atlikėjai: ${genres[0].name}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] py-1 pl-3 pr-3 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] lg:border-white/20 lg:bg-white/10 lg:text-white lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20 lg:hover:text-white"
+                >
+                  {primaryRank && primaryRank.rank > 0 && (
+                    <span
+                      className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.18)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--accent-orange)] lg:bg-white/20 lg:text-white"
+                      title={isLT ? `#${primaryRank.rank} Lietuvoje` : `#${primaryRank.rank} pasaulyje`}
+                    >
+                      #{primaryRank.rank}
+                    </span>
+                  )}
+                  <span>{genres[0].name}</span>
+                </button>
+              )}
+              {substyles.map(s => (
+                <button
+                  type="button"
+                  key={s.name}
+                  onClick={() => onOpenTopArtists?.({ genre: s.name })}
+                  title={`Top atlikėjai: ${s.name}`}
+                  className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] lg:border-white/15 lg:bg-white/5 lg:text-white/85 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/15 lg:hover:text-white"
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -2279,6 +2323,153 @@ function Hero({
         </div>
       )}
     </section>
+  )
+}
+
+// ── TopArtistsModal — paspaudus šalies vėliavą / žanro chip'ą Hero zonoje
+//
+// Modal'as fetchina /api/artists/top?country=X arba ?genre=Y, sort by score
+// desc, ir rodo gražų top sąrašą (cover'iai + #N pozicija + score bar).
+// Vienos sesijos browsing flow (ne navigacija į /atlikejai), nes useris
+// gali norėti tyrinėti kelis filtrus iš to paties atlikėjo puslapio.
+type TopArtistItem = {
+  id: number; slug: string; name: string
+  country: string | null; cover_image_url: string | null
+  cover_image_position?: string | null
+  score: number; type: string; is_verified: boolean
+}
+function TopArtistsModal({
+  filter, onClose,
+}: {
+  filter: { country?: string; genre?: string }
+  onClose: () => void
+}) {
+  const [items, setItems] = useState<TopArtistItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const title = filter.country
+    ? `${FLAGS[filter.country] || '🌍'} ${filter.country} — top atlikėjai`
+    : filter.genre
+    ? `${filter.genre} — top atlikėjai`
+    : 'Top atlikėjai'
+
+  useEffect(() => {
+    let abort = false
+    setLoading(true); setError(null)
+    const params = new URLSearchParams()
+    if (filter.country) params.set('country', filter.country)
+    if (filter.genre) params.set('genre', filter.genre)
+    params.set('limit', '20')
+    fetch(`/api/artists/top?${params.toString()}`)
+      .then(r => r.json())
+      .then(d => {
+        if (abort) return
+        if (!d?.ok) throw new Error(d?.error || 'fail')
+        setItems(d.items || [])
+        setLoading(false)
+      })
+      .catch(e => {
+        if (abort) return
+        setError(e?.message || 'Klaida')
+        setLoading(false)
+      })
+    return () => { abort = true }
+  }, [filter.country, filter.genre])
+
+  // Esc + outside-click uždaro
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="top-artists-modal-title"
+    >
+      <div className="flex max-h-[85vh] w-full flex-col rounded-t-3xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl sm:max-w-[520px] sm:rounded-3xl">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+          <h2 id="top-artists-modal-title" className="font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-tight text-[var(--text-primary)]">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Uždaryti"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-2 py-2">
+          {loading && (
+            <div className="flex items-center justify-center py-10 text-[13px] text-[var(--text-muted)]">Kraunama…</div>
+          )}
+          {error && !loading && (
+            <div className="flex items-center justify-center py-10 text-[13px] text-red-500">Klaida: {error}</div>
+          )}
+          {!loading && !error && items.length === 0 && (
+            <div className="flex items-center justify-center py-10 text-[13px] text-[var(--text-muted)]">Nieko nerasta</div>
+          )}
+          {!loading && !error && items.length > 0 && (
+            <ul className="flex flex-col">
+              {items.map((a, i) => {
+                const pos = parseCoverPos(a.cover_image_position || 'center 30%')
+                return (
+                  <li key={a.id}>
+                    <Link
+                      href={`/atlikejai/${a.slug}`}
+                      onClick={onClose}
+                      className="group flex items-center gap-3 rounded-xl px-3 py-2 no-underline transition-colors hover:bg-[var(--bg-hover)]"
+                    >
+                      <span className="w-7 shrink-0 text-right font-['Outfit',sans-serif] text-[14px] font-extrabold tabular-nums text-[var(--text-faint)] group-hover:text-[var(--accent-orange)]">
+                        {i + 1}
+                      </span>
+                      <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--card-bg)]">
+                        {a.cover_image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={proxyImgResized(a.cover_image_url, 100)}
+                            alt={a.name}
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover"
+                            style={{ objectPosition: `${pos.x}% ${pos.y}%` }}
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-[12px] font-bold uppercase text-[var(--text-faint)]">
+                            {a.name.charAt(0)}
+                          </span>
+                        )}
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="flex items-center gap-1.5 truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+                          {a.name}
+                          {a.is_verified && (
+                            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8]">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+                            </span>
+                          )}
+                        </span>
+                        {a.country && (
+                          <span className="font-['Outfit',sans-serif] text-[11.5px] font-medium text-[var(--text-muted)]">
+                            {FLAGS[a.country] || ''} {a.country}
+                          </span>
+                        )}
+                      </span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -2568,20 +2759,9 @@ function SideInfo({
             </div>
           )}
         </div>
-        {/* Substyles on their own subtle line so the top row stays clean. */}
-        {substyles.length > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            {substyles.map(s => (
-              <Link
-                key={s.name}
-                href={`/zanrai/${encodeURIComponent(s.name.toLowerCase().replace(/\s+/g, "-"))}`}
-                className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
-              >
-                {s.name}
-              </Link>
-            ))}
-          </div>
-        )}
+        {/* Substyles iškelti į Hero (žr. komentarą vertical variant'e). Mobile
+            SideInfo (horizontal) nebepririekia chip'ų, nes jie jau matomi
+            virš šito strip'o po pavadinimu. */}
         {/* Sritys — chip strip po substyles (horizontal/mobile variantas). */}
         {displayRoles.length > 0 && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -2644,25 +2824,11 @@ function SideInfo({
         <FollowPill {...followControls} />
       )}
 
-      {/* Substyles — main žanro chip'as perkeltas į Hero zoną, čia lieka tik
-          papildomi sub-žanrai. Jei jų nėra ir main genre = vienas — sekcija
-          praleidžiama (PostgREST grąžins tuščią substyles[]). */}
-      {substyles.length > 0 && (
-        <div>
-          <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Stiliai</div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {substyles.map(s => (
-              <Link
-                key={s.name}
-                href={`/zanrai/${encodeURIComponent(s.name.toLowerCase().replace(/\s+/g, "-"))}`}
-                className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
-              >
-                {s.name}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Substyles — perkelti į Hero zoną (po main genre chip'o), kad visi
+          žanrai būtų vienoje vietoje (user feedback 2026-05-20: anksčiau
+          buvo išskaidyta į dvi vietas, atrodė nei šis nei tas).
+          Šitas blokas tyčia tuščias — palieku komentarą kaip placeholder, kad
+          būsimi reviewer'iai matytų istoriją. */}
 
       {/* Sritys — solo atlikėjo occupation+instrument iš Wiki, jau pritaikyti
           LT vertimai + dedup'inta pagal label'į. Rodom kaip muted chip'us
@@ -4644,6 +4810,10 @@ export default function ArtistProfileClient({
   const [activeNews, setActiveNews] = useState<NewsPreview | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
+  // TopArtistsModal — atidaromas paspaudus šalies vėliavą/žanro chip'ą Hero
+  // zonoje. Modal'as rodo top N atlikėjų pagal score filter'iui (country
+  // arba genre). null reiškia closed.
+  const [topArtistsFilter, setTopArtistsFilter] = useState<{ country?: string; genre?: string } | null>(null)
   const [bioModalOpen, setBioModalOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   // Mobile'e modal'as turi savo inline iframe'ą — kai jis aktyvus, hero
@@ -5222,6 +5392,9 @@ export default function ArtistProfileClient({
         loaded={loaded}
         popBarLevel={popBarLevel}
         genres={genres}
+        substyles={substyles}
+        ranks={ranks}
+        onOpenTopArtists={(filter) => setTopArtistsFilter(filter)}
         tracksAllTime={tracksAllTime}
         tracksTrending={tracksTrending}
         activeTrackId={pid}
@@ -5283,6 +5456,13 @@ export default function ArtistProfileClient({
         onToggleSelfLike={toggleSelfLike}
         selfLikePending={selfLikePending}
       />
+
+      {topArtistsFilter && (
+        <TopArtistsModal
+          filter={topArtistsFilter}
+          onClose={() => setTopArtistsFilter(null)}
+        />
+      )}
 
       <BioModal
         open={bioModalOpen}

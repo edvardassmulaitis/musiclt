@@ -835,6 +835,23 @@ async function getArtistRanks(
     out.push({ category: g.name, rank: higher + 1, total: others.length + 1, scope: 'genre' })
   }
 
+  // Global rank — visiems atlikėjams (ne tik top 50). Naudojam count() head
+  // requests dėl performance (12k atlikėjų — vienos atminčios load atlieka
+  // ~5-10s, count() ~30ms). Vis dėlto rodom UI'e tik non-LT atlikėjams
+  // (LT atvejui pakanka country rank'o, kuris jau yra Lietuvoje).
+  {
+    const [{ count: total }, { count: below }] = await Promise.all([
+      sb.from('artists').select('id', { count: 'exact', head: true }).gt('score', 0),
+      sb.from('artists').select('id', { count: 'exact', head: true }).gt('score', 0).lt('score', artistScore),
+    ])
+    if (total && total > 0) {
+      // rank = (total - below) — atlikėjai, kurių score >= mūsų, įskaitant
+      // patį mūsų. Mes esam pirmasis su lygiu score.
+      const rank = (total || 0) - (below || 0)
+      out.push({ category: 'Pasaulyje', rank, total, scope: 'global' })
+    }
+  }
+
   return out
 }
 
