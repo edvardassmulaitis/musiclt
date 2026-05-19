@@ -1229,6 +1229,67 @@ function PhotosFixButton({ artistId, onDone }: { artistId: string; onDone?: () =
   )
 }
 
+/** Rehost'ina visus external (Wikimedia, kt) URL'us pas mus į Supabase
+ *  Storage `covers` bucket. Po šito atlikėjas nebeprivalo nuo weserv.nl
+ *  proxy'o, kuris periodiškai 503/404 Wikimedia URL'ams (žr. bug 2026-05-19
+ *  Anthony Kiedis hero photo).
+ *
+ *  Apima: cover_image_url, cover_image_wide_url, artist_photos.url
+ *  Praleidžia: jau Supabase storage URL'us; music.lt URL'us (jei nori juos
+ *  perkelti — admin custom call su body.includeMusicLt=true). */
+function RehostImagesButton({ artistId, onDone }: { artistId: string; onDone?: () => void }) {
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<{ processed: number; updated: number; errors: number } | null>(null)
+  const [errMsg, setErrMsg] = useState('')
+
+  const run = async () => {
+    setStatus('running'); setResult(null); setErrMsg('')
+    try {
+      const r = await fetch(`/api/admin/artists/${artistId}/rehost-images`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const j = await r.json()
+      if (!r.ok || !j.ok) throw new Error(j?.error || 'fail')
+      setResult({
+        processed: j.processed ?? 0,
+        updated: j.updated ?? 0,
+        errors: (j.errors || []).length,
+      })
+      setStatus('done')
+      onDone?.()
+      setTimeout(() => setStatus('idle'), 10000)
+    } catch (e: any) {
+      setErrMsg(e?.message || 'fail')
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 6000)
+    }
+  }
+
+  const label = status === 'running' ? 'Rehost'+'ina…'
+              : status === 'done' && result
+                ? `✓ ${result.updated}/${result.processed} rehost'inta${result.errors ? ` (${result.errors} klaidos)` : ''}`
+              : status === 'error' ? `✗ ${errMsg.slice(0, 30)}`
+              : '☁ Rehost foto'
+
+  return (
+    <button
+      type="button"
+      onClick={run}
+      disabled={status === 'running'}
+      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+        status === 'done'  ? 'bg-green-50 text-green-700 border border-green-200'
+        : status === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
+        : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200'
+      } disabled:opacity-50`}
+      title="Atsisiunčia visus external (Wikimedia) paveiksliukus į Supabase Storage. Pašalina priklausomybę nuo weserv.nl proxy'o."
+    >
+      {label}
+    </button>
+  )
+}
+
 /** Wipe YT enrichment data for one artist's tracks. Naudinga kai pirmas
  *  pass'as buvo daromas su silpnu match scoring (pvz Atlanta) ir prikalinėjo
  *  random video. Po wipe'o YT enrich su threshold'u priskirs tik confident match'us. */
@@ -1513,6 +1574,12 @@ export default function EditArtist() {
               <ActionsOverflowMenu>
                 <ScrapeCommandFullRow artistId={artistId} artistName={artistName} />
                 <PhotosFixButton artistId={artistId} onDone={() => {
+                  fetch(`/api/artists/${artistId}`).then(r => r.json()).then(data => {
+                    if (!data?.error) setInitialData(dbToForm(data))
+                  }).catch(() => {})
+                  setFormKey(k => k + 1)
+                }} />
+                <RehostImagesButton artistId={artistId} onDone={() => {
                   fetch(`/api/artists/${artistId}`).then(r => r.json()).then(data => {
                     if (!data?.error) setInitialData(dbToForm(data))
                   }).catch(() => {})
