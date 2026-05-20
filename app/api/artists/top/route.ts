@@ -80,41 +80,88 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── sort=recent branch — top atlikėjai pagal 30d like aktyvumą ────────
-  // Skirtinga query'ė: GROUP BY entity_id likes lentelėje + sort count desc.
-  // PostgREST neturi GROUP BY syntax'o, todėl darom rows fetch + JS aggregate.
-  // 30 dienų likes scale paprastai <2000 įrašų, vienas page'as pakanka;
-  // chunk'inam saugumo dėlei (PostgREST max-rows 1000).
+  // ── sort=recent branch — top atlikėjai pagal pastarųjų 2 metų performance ─
+  // Recent score formulė (atitinka getRecentPopBarLevel page.tsx'e):
+  //    sum(tracks.score WHERE release_year >= sinceYear)
+  //  + sum(albums.score WHERE year >= sinceYear)
+  //  + count(awards) * 50  (50pt už kiekvieną nominaciją/laimėjimą)
+  //
+  // Performance: 3 parallel paginated fetch'ai + JS aggregation. LT scene'oje
+  // tracks released last 2y maždaug 500-2000 įrašų; albums ~100-300; awards
+  // ~50-150. Total Network 1-3 round-trips per source.
   if (sort === 'recent') {
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const sinceYear = new Date().getFullYear() - 2
     const PAGE = 1000
-    const counts = new Map<number, number>()
-    let offset = 0
-    while (true) {
-      const { data: likeRows } = await sb
-        .from('likes')
-        .select('entity_id')
-        .eq('entity_type', 'artist')
-        .gte('created_at', since)
-        .range(offset, offset + PAGE - 1)
-      const arr = (likeRows || []) as { entity_id: number }[]
-      for (const r of arr) {
-        if (r.entity_id) counts.set(r.entity_id, (counts.get(r.entity_id) || 0) + 1)
+
+    const recentScore = new Map<number, number>()
+
+    // Tracks
+    {
+      let offset = 0
+      while (true) {
+        const { data: rows } = await sb
+          .from('tracks')
+          .select('artist_id, score')
+          .gte('release_year', sinceYear)
+          .range(offset, offset + PAGE - 1)
+        const arr = (rows || []) as { artist_id: number; score: number | null }[]
+        for (const r of arr) {
+          if (!r.artist_id) continue
+          recentScore.set(r.artist_id, (recentScore.get(r.artist_id) || 0) + (Number(r.score) || 0))
+        }
+        if (arr.length < PAGE) break
+        offset += PAGE
+        if (offset > 100000) break
       }
-      if (arr.length < PAGE) break
-      offset += PAGE
-      if (offset > 100000) break // safety net
     }
+    // Albums
+    {
+      let offset = 0
+      while (true) {
+        const { data: rows } = await sb
+          .from('albums')
+          .select('artist_id, score')
+          .gte('year', sinceYear)
+          .range(offset, offset + PAGE - 1)
+        const arr = (rows || []) as { artist_id: number; score: number | null }[]
+        for (const r of arr) {
+          if (!r.artist_id) continue
+          recentScore.set(r.artist_id, (recentScore.get(r.artist_id) || 0) + (Number(r.score) || 0))
+        }
+        if (arr.length < PAGE) break
+        offset += PAGE
+        if (offset > 100000) break
+      }
+    }
+    // Awards — voting_participants joined to editions.year
+    {
+      let offset = 0
+      while (true) {
+        const { data: rows } = await sb
+          .from('voting_participants')
+          .select('artist_id, voting_events!inner(voting_editions!inner(year))')
+          .gte('voting_events.voting_editions.year', sinceYear)
+          .range(offset, offset + PAGE - 1)
+        const arr = (rows || []) as any[]
+        for (const r of arr) {
+          if (!r.artist_id) continue
+          recentScore.set(r.artist_id, (recentScore.get(r.artist_id) || 0) + 50)
+        }
+        if (arr.length < PAGE) break
+        offset += PAGE
+        if (offset > 100000) break
+      }
+    }
+
     // Apply genre filter (intersect)
-    let candidateIds = Array.from(counts.keys())
+    let candidateIds = Array.from(recentScore.keys()).filter(id => (recentScore.get(id) || 0) > 0)
     if (artistIdFilter) {
       const set = new Set(artistIdFilter)
       candidateIds = candidateIds.filter(id => set.has(id))
     }
-    // Apply country filter — fetch artists per ID and filter (only if country given)
+    // Apply country filter — fetch artists per ID and filter
     if (country && candidateIds.length > 0) {
       const ctxIds: number[] = []
-      // PostgREST .in() limit'as ~1000 — chunk'inam jei reikia
       for (let i = 0; i < candidateIds.length; i += 500) {
         const chunk = candidateIds.slice(i, i + 500)
         const { data: aRows } = await sb
@@ -126,15 +173,15 @@ export async function GET(req: NextRequest) {
       }
       candidateIds = ctxIds
     }
-    candidateIds.sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0))
+    candidateIds.sort((a, b) => (recentScore.get(b) || 0) - (recentScore.get(a) || 0))
     const topIds = candidateIds.slice(0, limit)
 
-    // includeRankFor recent — rank pagal recent count
+    // includeRankFor recent — rank pagal recent_score
     let myRankRecent: { rank: number; total: number } | null = null
     if (includeRankFor) {
-      const myCount = counts.get(includeRankFor) || 0
-      if (myCount > 0) {
-        const above = candidateIds.filter(id => (counts.get(id) || 0) > myCount).length
+      const myScore = recentScore.get(includeRankFor) || 0
+      if (myScore > 0) {
+        const above = candidateIds.filter(id => (recentScore.get(id) || 0) > myScore).length
         myRankRecent = { rank: above + 1, total: candidateIds.length }
       }
     }
@@ -157,7 +204,7 @@ export async function GET(req: NextRequest) {
     const items = topIds
       .map(id => {
         const a = map.get(id)
-        return a ? { ...a, recent_likes: counts.get(id) || 0 } : null
+        return a ? { ...a, recent_score: Math.round(recentScore.get(id) || 0) } : null
       })
       .filter(Boolean)
 

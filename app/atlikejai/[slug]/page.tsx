@@ -868,39 +868,64 @@ async function getArtistRanks(
  *  „#1", visi kiti atrodo „nereikšmingi". PopBar yra qualitative signal
  *  („populiarus", „vidutiniškas") — naujam atlikėjui su gerais YT views
  *  jau pakanka 2-3 dot'ų. */
-/** Recent activity PopBar — atskira metrika nuo cumulative score'o.
- *  Skaičiuoja `likes` per pastarąsias 30 dienų (entity_type='artist').
- *  Naudoja fixed thresholds vs percentile — pigiau (1 count query) ir
- *  geriau scale'inasi 12k atlikėjų. Slenksčiai parinkti tinkami music.lt
- *  vartotojų bazei (LT ~6k MAU). Vėliau, jei reikės, galim perdaryti į
- *  proper percentile per RPC.
+/** RECENT_SINCE_YEAR — paskutinių 2 metų cutoff'as recent metrikoms. */
+const RECENT_SINCE_YEAR = new Date().getFullYear() - 2  // pvz. 2024 jei dabartiniai yra 2026
+
+/** Recent performance PopBar (mėlynas) — atskira metrika nuo cumulative
+ *  score'o. Sumuoja:
+ *    - tracks score'us iš releases per pastaruosius 2 metus
+ *    - albums score'us iš releases per pastaruosius 2 metus
+ *    - awards (50 pts už kiekvieną nominaciją; daugiau ateityje, jei reikės
+ *      atskirti won vs nominated)
  *
- *  Thresholds:
- *    0      → 0 (bar'as nerodomas)
- *    1-2    → 1 (tik registracija „dar gyvas")
- *    3-9    → 2
- *    10-29  → 3
- *    30-99  → 4
- *    100+   → 5 (viral momentas / nauja release wave)
+ *  Kodėl 2 metai: trumpesnis langas (30d) buvo nepatikimas — atlikėjas su
+ *  hit'u prieš 2 mėnesius bet jokios naujos like aktyvumos atrodė neaktyvus.
+ *  2 metų performance gerai atspindi „recent relevance" net jei naujos
+ *  release wave jau praėjo, bet hit'as dar trinasi.
  *
- *  Vizualas: žalias bar'as (kitokia spalva nei pagrindinis oranžinis
- *  score-based bar'as), kad būtų aišku, jog tai TRENDING signal'as, ne
- *  cumulative. */
+ *  Thresholds (recent_score):
+ *    0       → 0 (bar'as nerodomas — naujas/be naujų release'ų atlikėjas)
+ *    1-99    → 1
+ *    100-499 → 2
+ *    500-1999 → 3
+ *    2000-9999 → 4
+ *    10000+   → 5
+ *
+ *  Vėliau galim:
+ *    - Pridėti YouTube views year-over-year delta
+ *    - Atskirti won vs nominated svorius (won = 200pt, nominated = 50pt)
+ *    - Recency boost'as: 2026 metų track score svorį x2 vs 2024 (svarbiau
+ *      naujesni hit'ai)
+ *
+ *  Implementacija: 3 parallel queries. Per atlikėją ~50-150ms.
+ */
 async function getRecentPopBarLevel(artistId: number): Promise<number> {
   const sb = createAdminClient()
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  const { count } = await sb
-    .from('likes')
-    .select('id', { count: 'exact', head: true })
-    .eq('entity_type', 'artist')
-    .eq('entity_id', artistId)
-    .gte('created_at', since)
-  const n = count || 0
-  if (n >= 100) return 5
-  if (n >= 30) return 4
-  if (n >= 10) return 3
-  if (n >= 3) return 2
-  if (n >= 1) return 1
+  const sinceYear = RECENT_SINCE_YEAR
+
+  const [tRes, aRes, awRes] = await Promise.all([
+    // Tracks released last 2y — sum scores
+    sb.from('tracks').select('score').eq('artist_id', artistId).gte('release_year', sinceYear).range(0, 9999),
+    // Albums released last 2y — sum scores
+    sb.from('albums').select('score').eq('artist_id', artistId).gte('year', sinceYear).range(0, 9999),
+    // Awards (voting_participants joined to editions.year)
+    sb.from('voting_participants')
+      .select('id, voting_events!inner(voting_editions!inner(year))')
+      .eq('artist_id', artistId)
+      .gte('voting_events.voting_editions.year', sinceYear)
+      .range(0, 999),
+  ])
+
+  let total = 0
+  for (const t of (tRes.data || []) as any[]) total += Number(t.score) || 0
+  for (const a of (aRes.data || []) as any[]) total += Number(a.score) || 0
+  total += ((awRes.data || []) as any[]).length * 50
+
+  if (total >= 10000) return 5
+  if (total >= 2000) return 4
+  if (total >= 500) return 3
+  if (total >= 100) return 2
+  if (total >= 1) return 1
   return 0
 }
 

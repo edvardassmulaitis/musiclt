@@ -2206,8 +2206,8 @@ function Hero({
                 <button
                   type="button"
                   onClick={() => onOpenTopArtists?.({ recent: true })}
-                  title="Top atlikėjai pagal 30 dienų populiarumą"
-                  aria-label="Atidaryti recent top atlikėjų sąrašą"
+                  title="Naujausi top atlikėjai — pagal pastarųjų 2 metų dainų, albumų ir apdovanojimų rezultatus"
+                  aria-label="Atidaryti naujausių top atlikėjų sąrašą"
                   className="inline-flex w-fit items-center rounded-full border border-[#3b82f6]/40 bg-[#3b82f6]/10 px-3 py-1.5 transition-all hover:scale-[1.03] hover:border-[#3b82f6]/70 hover:bg-[#3b82f6]/20 lg:border-[#3b82f6]/40 lg:bg-[#3b82f6]/15 lg:backdrop-blur-md"
                 >
                   <PopBar level={recentPopBarLevel} size="lg" color="blue" />
@@ -2390,7 +2390,7 @@ function TopArtistsModal({
   const [error, setError] = useState<string | null>(null)
   const [myRank, setMyRank] = useState<{ rank: number; total: number } | null>(null)
   const title = filter.recent
-    ? '🔥 Top atlikėjai (30 dienų)'
+    ? '🔥 Naujausi top atlikėjai'
     : filter.country
     ? `${FLAGS[filter.country] || '🌍'} ${filter.country} — top atlikėjai`
     : filter.genre
