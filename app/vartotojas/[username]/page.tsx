@@ -13,6 +13,8 @@ import { notFound } from 'next/navigation'
 import {
   getProfileByUsername,
   getProfileFavoriteArtists,
+  getProfileFavoriteStyles,
+  getProfileFriends,
   getBlogByUserId,
   getUserContentStats,
   getDailySongPicks,
@@ -40,8 +42,10 @@ export default async function UserProfilePage({ params }: Props) {
   const profile: any = await getProfileByUsername(username)
   if (!profile || !profile.is_public) notFound()
 
-  const [favoriteArtists, blog, stats, moodTrack, dailyPicks, translations] = await Promise.all([
+  const [favoriteArtists, favoriteStyles, friends, blog, stats, moodTrack, dailyPicks, translations] = await Promise.all([
     getProfileFavoriteArtists(profile.id),
+    getProfileFavoriteStyles(profile.id),
+    getProfileFriends(profile.id, 30),
     getBlogByUserId(profile.id),
     getUserContentStats(profile.id),
     getMoodSongTrack(profile.mood_song_track_id ?? null),
@@ -74,6 +78,8 @@ export default async function UserProfilePage({ params }: Props) {
     <ProfileView
       profile={profile}
       favoriteArtists={favoriteArtists}
+      favoriteStyles={favoriteStyles}
+      friends={friends}
       blog={blog}
       blogPosts={blogPosts}
       memberSince={memberSince}
@@ -86,7 +92,7 @@ export default async function UserProfilePage({ params }: Props) {
 }
 
 function ProfileView({
-  profile, favoriteArtists, blog, blogPosts, memberSince,
+  profile, favoriteArtists, favoriteStyles, friends, blog, blogPosts, memberSince,
   stats, moodTrack, dailyPicks, translations,
 }: any) {
   const socials = [
@@ -165,8 +171,87 @@ function ProfileView({
           </div>
         )}
 
-        {/* Bio */}
-        {profile.bio && <p className="text-sm text-[#b0bdd4] leading-relaxed mb-6 max-w-xl">{profile.bio}</p>}
+        {/* Bio (whitespace-preserving — legacy „Apie save" yra multi-line) */}
+        {profile.bio && (
+          <div className="text-sm text-[#b0bdd4] leading-relaxed mb-6 max-w-xl whitespace-pre-line">
+            {profile.bio}
+          </div>
+        )}
+
+        {/* Papildoma informacija — birth, occupation, books, signature */}
+        {(profile.legacy_birth_date || profile.legacy_occupation || profile.legacy_favorite_books || profile.legacy_signature) && (
+          <section className="mb-8 max-w-xl">
+            <div className="space-y-2 text-sm">
+              {profile.legacy_birth_date && (
+                <InfoRow label="Gimimo data" value={
+                  new Date(profile.legacy_birth_date).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })
+                } />
+              )}
+              {profile.legacy_occupation && <InfoRow label="Užsiėmimas" value={profile.legacy_occupation} />}
+              {profile.legacy_favorite_books && <InfoRow label="Mėgstamiausios knygos" value={profile.legacy_favorite_books} />}
+              {profile.legacy_signature && (
+                <div className="pt-2 mt-2 border-t border-white/[.05]">
+                  <p className="text-xs text-[#5e7290] italic">{profile.legacy_signature}</p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Mėgstami stiliai — chip'ai */}
+        {favoriteStyles && favoriteStyles.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-[10px] font-extrabold uppercase tracking-wider text-[#334058] mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              Mėgstami stiliai
+            </h2>
+            <div className="flex flex-wrap gap-1.5">
+              {favoriteStyles.map((s: any) => (
+                <span key={s.legacy_style_id} className="text-xs font-semibold text-[#b0bdd4] bg-white/[.04] border border-white/[.06] rounded-full px-3 py-1">
+                  {s.style_name}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Muzikometras — broad style proportions */}
+        {profile.legacy_music_meter && Array.isArray(profile.legacy_music_meter) && profile.legacy_music_meter.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-[10px] font-extrabold uppercase tracking-wider text-[#334058] mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              Muzikometras
+            </h2>
+            <MusicMeter meter={profile.legacy_music_meter} />
+          </section>
+        )}
+
+        {/* Legacy stats — vote averages, login count, message count */}
+        {(profile.legacy_login_count || profile.legacy_message_count || profile.legacy_vote_avg_track) && (
+          <section className="mb-8">
+            <h2 className="text-[10px] font-extrabold uppercase tracking-wider text-[#334058] mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              Statistika
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              {profile.legacy_login_count !== null && profile.legacy_login_count !== undefined && (
+                <StatRow label="Buvo prisijungęs" value={profile.legacy_login_count.toLocaleString('lt-LT')} suffix="kartų" />
+              )}
+              {profile.legacy_message_count !== null && profile.legacy_message_count !== undefined && (
+                <StatRow label="Parašė žinučių" value={profile.legacy_message_count.toLocaleString('lt-LT')} />
+              )}
+              {profile.legacy_avg_message_len !== null && profile.legacy_avg_message_len !== undefined && (
+                <StatRow label="Vidut. ilgis" value={Number(profile.legacy_avg_message_len).toFixed(1)} suffix="ž." />
+              )}
+              {profile.legacy_vote_avg_track !== null && profile.legacy_vote_avg_track !== undefined && (
+                <StatRow label="Dainų vert. vid." value={Number(profile.legacy_vote_avg_track).toFixed(2)} />
+              )}
+              {profile.legacy_vote_avg_album !== null && profile.legacy_vote_avg_album !== undefined && (
+                <StatRow label="Albumų vert. vid." value={Number(profile.legacy_vote_avg_album).toFixed(2)} />
+              )}
+              {profile.legacy_vote_avg_artist !== null && profile.legacy_vote_avg_artist !== undefined && (
+                <StatRow label="Grupių vert. vid." value={Number(profile.legacy_vote_avg_artist).toFixed(2)} />
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Socials */}
         {socials.length > 0 && (
@@ -314,6 +399,30 @@ function ProfileView({
           </section>
         )}
 
+        {/* Draugai */}
+        {friends && friends.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-[10px] font-extrabold uppercase tracking-wider text-[#334058] mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              Draugai ({friends.length}{friends.length === 30 ? '+' : ''})
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {friends.map((f: any) => (
+                <Link key={f.id} href={`/vartotojas/${f.username}`} className="inline-flex items-center gap-2 bg-white/[.03] border border-white/[.06] rounded-lg px-2.5 py-1.5 hover:border-white/[.1] transition text-xs font-semibold">
+                  {f.avatar_url ? (
+                    <img src={f.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-[#111822] flex items-center justify-center text-[8px] text-[#334058]">
+                      {(f.full_name || f.username || '?')[0].toUpperCase()}
+                    </div>
+                  )}
+                  <span className="text-[#b0bdd4]">{f.full_name || f.username}</span>
+                  {f.is_vip_legacy && <span className="text-[8px] font-bold text-amber-400">VIP</span>}
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Footer stats */}
         <div className="text-xs text-[#334058] pb-12 flex flex-wrap items-center gap-x-2">
           {totalContent > 0 && <span>{totalContent.toLocaleString('lt-LT')} įrašų · </span>}
@@ -400,4 +509,71 @@ function labelForLegacySource(src: string): string {
     case 'topas':     return 'topas'
     default:          return src
   }
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-3">
+      <span className="text-[#5e7290] flex-shrink-0 min-w-[140px]">{label}:</span>
+      <span className="text-[#b0bdd4]">{value}</span>
+    </div>
+  )
+}
+
+function StatRow({ label, value, suffix }: { label: string; value: string; suffix?: string }) {
+  return (
+    <div className="px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.05]">
+      <div className="text-[9px] uppercase tracking-wider text-[#5e7290] font-semibold">{label}</div>
+      <div className="text-sm font-bold text-[#f0f2f5]">
+        {value}{suffix && <span className="text-[10px] font-normal text-[#5e7290] ml-1">{suffix}</span>}
+      </div>
+    </div>
+  )
+}
+
+type MeterEntry = { slug: string; name: string; legacy_id: number; percent?: number; width_px?: number }
+
+function MusicMeter({ meter }: { meter: MeterEntry[] }) {
+  // Sort by width_px / percent descending
+  const sorted = [...meter].sort((a, b) => (b.percent || b.width_px || 0) - (a.percent || a.width_px || 0))
+  // Color palette per category
+  const palette: Record<string, string> = {
+    'Rokas': '#f97316',
+    'Sunkioji': '#dc2626',
+    'Alternatyva': '#a78bfa',
+    'Pop, R&B': '#f472b6',
+    'Pop-RB': '#f472b6',
+    'Rimtoji': '#60a5fa',
+    'Elektronika': '#34d399',
+    'Hip-hop': '#fbbf24',
+    'Kita': '#94a3b8',
+  }
+  return (
+    <div>
+      {/* Stacked bar */}
+      <div className="flex h-3 rounded-full overflow-hidden bg-white/[.02] border border-white/[.05]">
+        {sorted.map((s) => {
+          const pct = s.percent ?? (s.width_px ? (s.width_px / 509) * 100 : 0)
+          if (pct < 0.5) return null
+          return (
+            <div
+              key={s.legacy_id}
+              title={`${s.name} — ${pct.toFixed(1)}%`}
+              style={{ width: `${pct}%`, background: palette[s.name] || '#5e7290' }}
+            />
+          )
+        })}
+      </div>
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[10px]">
+        {sorted.filter((s) => (s.percent ?? 0) >= 0.5).map((s) => (
+          <div key={s.legacy_id} className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full" style={{ background: palette[s.name] || '#5e7290' }} />
+            <span className="text-[#b0bdd4]">{s.name}</span>
+            <span className="text-[#5e7290]">{(s.percent || 0).toFixed(1)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }

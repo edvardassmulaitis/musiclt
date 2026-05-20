@@ -12,11 +12,38 @@ export async function getProfileByUsername(username: string) {
       is_public, is_claimed, provider, cover_image_url, created_at,
       legacy_user_id, joined_legacy_at, legacy_karma_points, is_vip_legacy,
       legacy_age, legacy_city, mood_song_track_id, mood_song_set_at,
-      last_seen_legacy_at
+      last_seen_legacy_at, legacy_birth_date, legacy_occupation,
+      legacy_favorite_books, legacy_signature, legacy_login_count,
+      legacy_message_count, legacy_avg_message_len, legacy_vote_avg_track,
+      legacy_vote_avg_album, legacy_vote_avg_artist,
+      legacy_liked_artist_count, legacy_liked_album_count,
+      legacy_liked_track_count, legacy_music_meter
     `)
     .ilike('username', username)
     .single()
   return data
+}
+
+// ── FAVORITE STYLES (music.lt /lt/stilius/<slug>/<id>/) ──────
+export async function getProfileFavoriteStyles(profileId: string) {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('profile_favorite_styles')
+    .select('legacy_style_id, style_slug, style_name, sort_order')
+    .eq('profile_id', profileId)
+    .order('sort_order')
+  return (data || []) as any[]
+}
+
+// ── FRIENDS LIST (user_friendships) ──────────────────────────
+export async function getProfileFriends(profileId: string, limit = 30) {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('user_friendships')
+    .select('friend_id, friend:friend_id(id, username, full_name, avatar_url, is_vip_legacy)')
+    .eq('profile_id', profileId)
+    .limit(limit)
+  return (data || []).map((r: any) => r.friend).filter(Boolean)
 }
 
 // ── DAILY SONG PICKS ─────────────────────────────────────────
