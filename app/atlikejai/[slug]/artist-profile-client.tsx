@@ -2641,11 +2641,179 @@ function FollowPill({
   )
 }
 
+// ── BioFactsInline — Veikla + Gimimo data + zodiakas main column'e ──
+//
+// Po 2026-05-20 redesign'o šie info bloki perkelti iš SideInfo dešinio
+// sidebar'o į main column (po BioPreview). Logika ta pati kaip SideInfo'je
+// (yearsActiveRange + birthLine + zodiac), tik render'as horizontal/inline
+// kompaktiškai, kaip metaduomenys, ne kortelės.
+function BioFactsInline({ artist }: { artist: any }) {
+  const isSolo = artist.type === 'solo'
+  const yearsBetween = (from: number, until?: number | null): number => {
+    const end = until ?? new Date().getFullYear()
+    const n = end - from
+    return n >= 0 ? n : 0
+  }
+  const activeYears = artist.active_from ? yearsBetween(artist.active_from, artist.active_until) : 0
+  const yearsActiveRange = artist.active_from
+    ? `${artist.active_from}–${artist.active_until || 'dabar'}`
+    : null
+  const yearsActiveTail = activeYears > 0 ? `${activeYears} m.` : null
+  const ageFromBirth = (birth: string, end?: string | null): number | null => {
+    const b = new Date(birth)
+    if (isNaN(b.getTime())) return null
+    const e = end ? new Date(end) : new Date()
+    if (isNaN(e.getTime())) return null
+    let age = e.getFullYear() - b.getFullYear()
+    const m = e.getMonth() - b.getMonth()
+    if (m < 0 || (m === 0 && e.getDate() < b.getDate())) age -= 1
+    return age >= 0 && age <= 130 ? age : null
+  }
+  const LT_MONTH_GENITIVE = [
+    'sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio',
+    'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio',
+  ]
+  const fmtLtDate = (iso: string): string => {
+    const d = new Date(iso); if (isNaN(d.getTime())) return iso
+    return `${d.getFullYear()} m. ${LT_MONTH_GENITIVE[d.getMonth()]} ${d.getDate()} d.`
+  }
+  const TEXT_VARIATION = '︎'
+  const zodiacOf = (iso: string): { name: string; glyph: string } | null => {
+    const d = new Date(iso); if (isNaN(d.getTime())) return null
+    const m = d.getMonth() + 1, day = d.getDate()
+    const cmp = (mm: number, dd: number, mm2: number, dd2: number) =>
+      (m === mm && day >= dd) || (m === mm2 && day <= dd2)
+    if (cmp(3, 21, 4, 19)) return { name: 'Avinas', glyph: '♈' + TEXT_VARIATION }
+    if (cmp(4, 20, 5, 20)) return { name: 'Jautis', glyph: '♉' + TEXT_VARIATION }
+    if (cmp(5, 21, 6, 20)) return { name: 'Dvyniai', glyph: '♊' + TEXT_VARIATION }
+    if (cmp(6, 21, 7, 22)) return { name: 'Vėžys', glyph: '♋' + TEXT_VARIATION }
+    if (cmp(7, 23, 8, 22)) return { name: 'Liūtas', glyph: '♌' + TEXT_VARIATION }
+    if (cmp(8, 23, 9, 22)) return { name: 'Mergelė', glyph: '♍' + TEXT_VARIATION }
+    if (cmp(9, 23, 10, 22)) return { name: 'Svarstyklės', glyph: '♎' + TEXT_VARIATION }
+    if (cmp(10, 23, 11, 21)) return { name: 'Skorpionas', glyph: '♏' + TEXT_VARIATION }
+    if (cmp(11, 22, 12, 21)) return { name: 'Šaulys', glyph: '♐' + TEXT_VARIATION }
+    if ((m === 12 && day >= 22) || (m === 1 && day <= 19)) return { name: 'Ožiaragis', glyph: '♑' + TEXT_VARIATION }
+    if (cmp(1, 20, 2, 18)) return { name: 'Vandenis', glyph: '♒' + TEXT_VARIATION }
+    if (cmp(2, 19, 3, 20)) return { name: 'Žuvys', glyph: '♓' + TEXT_VARIATION }
+    return null
+  }
+  const birthLine: {
+    label: string; main: string; tail: string | null
+    zodiac: { name: string; glyph: string } | null
+  } | null = isSolo && artist.birth_date
+    ? (() => {
+        const yr = ageFromBirth(artist.birth_date, artist.death_date)
+        const z = zodiacOf(artist.birth_date)
+        if (artist.death_date) {
+          const lived = ageFromBirth(artist.birth_date, artist.death_date)
+          return {
+            label: 'Gyveno',
+            main: `${fmtLtDate(artist.birth_date)} – ${fmtLtDate(artist.death_date)}`,
+            tail: lived != null ? `${lived} m.` : null,
+            zodiac: z,
+          }
+        }
+        return {
+          label: 'Gimimo data',
+          main: fmtLtDate(artist.birth_date),
+          tail: yr != null ? `${yr} m.` : null,
+          zodiac: z,
+        }
+      })()
+    : null
+  const showActive = !!yearsActiveRange && !(isSolo && artist.birth_date && artist.active_from === new Date(artist.birth_date).getFullYear())
+  if (!birthLine && !showActive) return null
+
+  return (
+    <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-2">
+      {showActive && (
+        <div className="flex items-baseline gap-2">
+          <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</span>
+          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{yearsActiveRange}</span>
+          {yearsActiveTail && (
+            <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({yearsActiveTail})</span>
+          )}
+        </div>
+      )}
+      {birthLine && (
+        <div className="flex items-baseline gap-2">
+          <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</span>
+          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{birthLine.main}</span>
+          {birthLine.tail && (
+            <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({birthLine.tail})</span>
+          )}
+          {birthLine.zodiac && (
+            <span
+              title={birthLine.zodiac.name}
+              aria-label={birthLine.zodiac.name}
+              className="ml-0.5 text-[14px] leading-none text-[var(--accent-orange)]"
+            >
+              {birthLine.zodiac.glyph}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── FollowAvatarsRow — overlapping avatars under FollowPill ─────────
+//
+// Social proof element šalia „Sekti" mygtuko. Rodo top 4-5 sekėjų
+// nuotraukas overlapping stack'u + „+N" jei daugiau. Kai useris auth'intas
+// ir turi „draugus" (ateityje), pirma rodysim juos; kol kas — top fans
+// pagal rank. Click'as atidaro LikesModal'ą (pilnas sąrašas).
+function FollowAvatarsRow({
+  fans, totalCount, onOpen,
+}: {
+  fans: { user_username: string; user_avatar_url: string | null }[]
+  totalCount: number
+  onOpen: () => void
+}) {
+  if (fans.length === 0) return null
+  const visible = fans.slice(0, 5)
+  const extra = Math.max(0, totalCount - visible.length)
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title="Žiūrėti visus sekėjus"
+      className="group flex items-center gap-2 self-start rounded-full px-1.5 py-1 transition-colors hover:bg-[var(--bg-hover)]"
+    >
+      <div className="flex -space-x-2">
+        {visible.map(f => (
+          <span
+            key={f.user_username}
+            className="relative h-7 w-7 overflow-hidden rounded-full border-2 border-[var(--bg-surface)] bg-[var(--card-bg)]"
+          >
+            {f.user_avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={proxyImg(f.user_avatar_url)}
+                alt={f.user_username}
+                className="h-full w-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center font-['Outfit',sans-serif] text-[10px] font-black uppercase text-[var(--text-faint)]">
+                {f.user_username.charAt(0)}
+              </span>
+            )}
+          </span>
+        ))}
+      </div>
+      <span className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-muted)] transition-colors group-hover:text-[var(--text-primary)]">
+        {extra > 0 ? `+${extra} sekėjų` : (totalCount === 1 ? '1 sekėjas' : `${totalCount} sekėjų`)}
+      </span>
+    </button>
+  )
+}
+
 // ── SideInfo: card beside bio with Kilmė / Stilius / Klausyk ───────
 
 function SideInfo({
   artist, flag, genres, substyles, ranks, links, website, horizontal = false, displayRoles = [],
-  followControls,
+  followControls, topFans = [], totalFans = 0,
 }: {
   artist: any; flag: string; genres: Genre[]; substyles: Genre[]
   ranks: Rank[]
@@ -2669,6 +2837,11 @@ function SideInfo({
     onOpenModal: () => void
     pending: boolean
   }
+  /** Top fans (su user_avatar_url + user_username) — rodom kaip
+   *  overlapping avatarus po FollowPill. Ateityje galim filtruoti pagal
+   *  current user'io friends — kol kas tiesiog top pagal rank. */
+  topFans?: Array<{ user_username: string; user_avatar_url: string | null }>
+  totalFans?: number
 }) {
   // countryRank ir genreRank specifiškai NEIMAM — buvo rodomi kaip #N badge'ai
   // tarp šalies/žanro pavadinimo, bet tas info dabar perkeltas į Hero zoną
@@ -2679,115 +2852,11 @@ function SideInfo({
   const globalRank = ranks.find(r => r.scope === 'global')
   const hasSocials = links.some(l => SOC[l.platform]) || !!website
 
-  // ── Bio facts: veiklos periodas + gimimo/mirties datos + amžius ──
-  // Music.lt teikia visus tris laukus (active_from, birth_date, death_date)
-  // ir mes juos importuojam, bet seniau jų niekur nerodėm. Skaičiavimai:
-  //   - solo gyvas:  amžius = today.year - birth_year (su tikslia mėnesio/dienos correction)
-  //   - solo miręs:  gyveno = death_year - birth_year (-1 jei nebuvo dar gimtadienio)
-  //   - grupė:        veiklos pradžia – pabaiga (arba "dabar")
-  const isSolo = artist.type === 'solo'
-  const yearsBetween = (from: number, until?: number | null): number => {
-    const end = until ?? new Date().getFullYear()
-    const n = end - from
-    return n >= 0 ? n : 0
-  }
-  const activeYears = artist.active_from ? yearsBetween(artist.active_from, artist.active_until) : 0
-  const yearsActiveRange = artist.active_from
-    ? `${artist.active_from}–${artist.active_until || 'dabar'}`
-    : null
-  // "(43 m.)" rodom atskirai — kaip muted tail po pagrindinio reikšmės teksto,
-  // kad pagrindinis stilius išliktų vieningas su likusiu sidebar'iu.
-  const yearsActiveTail = activeYears > 0 ? `${activeYears} m.` : null
-  const ageFromBirth = (birth: string, end?: string | null): number | null => {
-    const b = new Date(birth)
-    if (isNaN(b.getTime())) return null
-    const e = end ? new Date(end) : new Date()
-    if (isNaN(e.getTime())) return null
-    let age = e.getFullYear() - b.getFullYear()
-    const m = e.getMonth() - b.getMonth()
-    if (m < 0 || (m === 0 && e.getDate() < b.getDate())) age -= 1
-    return age >= 0 && age <= 130 ? age : null
-  }
-  // Lithuanian-style "1971 m. balandžio 19 d." formatas — daug labiau natural
-  // negu ISO. Mėnuo kilmininku.
-  const LT_MONTH_GENITIVE = [
-    'sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio',
-    'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio',
-  ]
-  const fmtLtDate = (iso: string): string => {
-    const d = new Date(iso); if (isNaN(d.getTime())) return iso
-    return `${d.getFullYear()} m. ${LT_MONTH_GENITIVE[d.getMonth()]} ${d.getDate()} d.`
-  }
-  // Zodiac iš gimimo datos. Naudojam Unicode astrologines glifas su U+FE0E
-  // text-presentation selektoriumi — kad naršyklės renderintų jas kaip
-  // monochrome simbolį (currentColor), o ne spalvotą emoji. Tai integruojasi
-  // su likusiu UI (visi label'iai uppercase muted, jokios brand'intos
-  // emoji spalvos).
-  const TEXT_VARIATION = '︎'
-  const zodiacOf = (iso: string): { name: string; glyph: string } | null => {
-    const d = new Date(iso); if (isNaN(d.getTime())) return null
-    const m = d.getMonth() + 1, day = d.getDate()
-    const cmp = (mm: number, dd: number, mm2: number, dd2: number) =>
-      (m === mm && day >= dd) || (m === mm2 && day <= dd2)
-    if (cmp(3, 21, 4, 19)) return { name: 'Avinas', glyph: '♈' + TEXT_VARIATION }
-    if (cmp(4, 20, 5, 20)) return { name: 'Jautis', glyph: '♉' + TEXT_VARIATION }
-    if (cmp(5, 21, 6, 20)) return { name: 'Dvyniai', glyph: '♊' + TEXT_VARIATION }
-    if (cmp(6, 21, 7, 22)) return { name: 'Vėžys', glyph: '♋' + TEXT_VARIATION }
-    if (cmp(7, 23, 8, 22)) return { name: 'Liūtas', glyph: '♌' + TEXT_VARIATION }
-    if (cmp(8, 23, 9, 22)) return { name: 'Mergelė', glyph: '♍' + TEXT_VARIATION }
-    if (cmp(9, 23, 10, 22)) return { name: 'Svarstyklės', glyph: '♎' + TEXT_VARIATION }
-    if (cmp(10, 23, 11, 21)) return { name: 'Skorpionas', glyph: '♏' + TEXT_VARIATION }
-    if (cmp(11, 22, 12, 21)) return { name: 'Šaulys', glyph: '♐' + TEXT_VARIATION }
-    if ((m === 12 && day >= 22) || (m === 1 && day <= 19)) return { name: 'Ožiaragis', glyph: '♑' + TEXT_VARIATION }
-    if (cmp(1, 20, 2, 18)) return { name: 'Vandenis', glyph: '♒' + TEXT_VARIATION }
-    if (cmp(2, 19, 3, 20)) return { name: 'Žuvys', glyph: '♓' + TEXT_VARIATION }
-    return null
-  }
-  // birthLine'as turi 3 dalis: label ('Gimimo data'), pagrindinis date string,
-  // ir tail su amžium "(58 m.)" — pastarasis renderinamas muted, kad būtų
-  // matomas, bet nebūtų vienodos svarbos kaip pati data.
-  const birthLine: {
-    label: string
-    main: string
-    tail: string | null
-    zodiac: { name: string; glyph: string } | null
-  } | null = isSolo && artist.birth_date
-    ? (() => {
-        const yr = ageFromBirth(artist.birth_date, artist.death_date)
-        const z = zodiacOf(artist.birth_date)
-        if (artist.death_date) {
-          const lived = ageFromBirth(artist.birth_date, artist.death_date)
-          return {
-            label: 'Gyveno',
-            main: `${fmtLtDate(artist.birth_date)} – ${fmtLtDate(artist.death_date)}`,
-            tail: lived != null ? `${lived} m.` : null,
-            zodiac: z,
-          }
-        }
-        return {
-          label: 'Gimimo data',
-          main: fmtLtDate(artist.birth_date),
-          tail: yr != null ? `${yr} m.` : null,
-          zodiac: z,
-        }
-      })()
-    : null
-  // Solo artist'ams paslėpiam "Veiklos pradžia" row'ą jei jis sutampa su
-  // birth_date metais (kartais music.lt užrašo veiklos = gimimo data,
-  // kas neinformatyvu).
-  const showActive = !!yearsActiveRange && !(isSolo && artist.birth_date && artist.active_from === new Date(artist.birth_date).getFullYear())
-  const hasBioFacts = !!birthLine || showActive
-
-  const Label = ({ children }: { children: React.ReactNode }) => (
-    <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-      {children}
-    </div>
-  )
-  const RankChip = ({ n }: { n: number }) => (
-    <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.14)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
-      #{n}
-    </span>
-  )
+  // Bio facts (Veikla, Gimimo data, zodiakas) PAŠALINTI iš SideInfo
+  // (2026-05-21 redesign'as) — gyvuoja BioFactsInline main column'e, po
+  // aprašymu. Pagal istoriją: ankstesnis SideInfo turi dengrandavusią logiką
+  // dėl visų laukų, kuri dabar atskirame komponente.
+  // RankChip taip pat pašalintas — rank metrika gyvuoja Hero zonoje.
 
   // ── Horizontal variant — single wrapping row ──────────────────────
   // Primary row: „Sekti" pill + socials + website. Po 2026-05-20 redesign'o
@@ -2839,39 +2908,10 @@ function SideInfo({
             </div>
           )}
         </div>
-        {/* Substyles + Sritys perkelti į main column (po aprašymu, prieš
-            narius). Mobile SideInfo (horizontal) nebeturi šių chip'ų, nes
-            jie jau matomi atskirose vietose ant page'o. */}
-        {/* Bio facts: veiklos periodas + gimimo/mirties data + amžius
-            (+ zodiakas). Visi teksto stiliai vieningi su likusiu strip'u —
-            Outfit, no italic, no spalvotos emoji. */}
-        {hasBioFacts && (
-          <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px] leading-[1.5] text-[var(--text-muted)]">
-            {showActive && (
-              <span className="inline-flex items-baseline gap-1.5">
-                <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</span>
-                <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{yearsActiveRange}</span>
-                {yearsActiveTail && (
-                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">({yearsActiveTail})</span>
-                )}
-              </span>
-            )}
-            {birthLine && (
-              <span className="inline-flex items-baseline gap-1.5">
-                <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</span>
-                <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{birthLine.main}</span>
-                {birthLine.tail && (
-                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">({birthLine.tail})</span>
-                )}
-                {birthLine.zodiac && (
-                  <span title={birthLine.zodiac.name} aria-label={birthLine.zodiac.name} className="ml-0.5 text-[14px] leading-none text-[var(--accent-orange)]">
-                    {birthLine.zodiac.glyph}
-                  </span>
-                )}
-              </span>
-            )}
-          </div>
-        )}
+        {/* Substyles + Sritys + Bio facts (Veikla, Gimimo data) perkelti į
+            main column (po aprašymu, virš narių/grupių). Mobile SideInfo
+            (horizontal) tapo pure „Sekti" zone — tik FollowPill + social
+            ikonos + website. */}
       </div>
     )
   }
@@ -2883,93 +2923,56 @@ function SideInfo({
   // sized: jei bio ilgas, kortelė lieka apačioj; jei trumpas — abu kartu.
   return (
     <aside className="flex h-fit flex-col gap-4 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
-      {/* SideInfo struktūra (po 2026-05-20 redesign'o):
-            1) Veikla (active_from–until) — jeigu yra
-            2) Gimimo data / Gyveno (solo atlikėjui) — jeigu yra
-            3) „Sekti" zona: pill + social ikonos + oficiali svetainė
-          Visi rank chip'ai (#X Pasaulyje, country/genre rank) PAŠALINTI —
-          tie metrika gyvuoja Hero zonoje (PopBars + main genre chip).
-          Sritys (displayRoles) perkelti į main column po aprašymu. */}
+      {/* SideInfo TAPO „Sekti" zona (po 2026-05-21 redesign'o).
+          Turinys (sequentially):
+            1) FollowPill — širdis + count + žodis „Sekti"
+            2) Avatarai (overlapping, top 5 fans) — social proof + click
+               atidaro LikesModal su pilnu sąrašu
+            3) Social ikonos (Spotify, YouTube, Facebook...) + website
+          Visi kiti elementai — bio facts (Veikla/Gimimo data), rank chip'ai,
+          Sritys, Substyles — perkelti į main column (po aprašymu) ar
+          Hero zoną. SideInfo specializuojasi į social/follow funkciją. */}
 
-      {hasBioFacts && (
+      {followControls && (
         <div className="flex flex-col gap-2.5">
-          {showActive && (
-            <div>
-              <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</div>
-              <div className="mt-0.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
-                {yearsActiveRange}
-                {yearsActiveTail && (
-                  <span className="ml-1.5 font-medium text-[12.5px] text-[var(--text-muted)]">({yearsActiveTail})</span>
-                )}
-              </div>
-            </div>
-          )}
-          {birthLine && (
-            <div>
-              <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</div>
-              <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
-                <span>{birthLine.main}</span>
-                {birthLine.tail && (
-                  <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({birthLine.tail})</span>
-                )}
-                {birthLine.zodiac && (
-                  <span
-                    title={birthLine.zodiac.name}
-                    aria-label={birthLine.zodiac.name}
-                    className="ml-1 text-[15px] leading-none text-[var(--accent-orange)]"
-                  >
-                    {birthLine.zodiac.glyph}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+          <FollowPill {...followControls} />
+          <FollowAvatarsRow fans={topFans} totalCount={totalFans || followControls.likes} onOpen={followControls.onOpenModal} />
         </div>
       )}
 
-      {/* „Sekti" combined zona — Follow pill + social icons + website
-          viename bloke. Visual hierarchy: Sekti dominuoja viršuje,
-          socialai ir svetainė kaip secondary actions po juo. */}
-      {(followControls || hasSocials) && (
-        <div className="flex flex-col gap-2.5">
-          {followControls && (
-            <FollowPill {...followControls} />
-          )}
-          {hasSocials && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {links.filter(l => SOC[l.platform]).map(l => {
-                const p = SOC[l.platform]
-                return (
-                  <a
-                    key={l.platform}
-                    href={l.url}
-                    target="_blank"
-                    rel="noopener"
-                    title={p.l}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                  >
-                    <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="13" height="13" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
-                  </a>
-                )
-              })}
-              {website && (() => {
-                let domain = ''
-                try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
-                return (
-                  <a
-                    href={website}
-                    target="_blank"
-                    rel="noopener"
-                    title="Oficiali svetainė"
-                    className="flex h-8 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-                    <span className="font-['Outfit',sans-serif] text-[12px] font-bold tracking-tight">{domain}</span>
-                  </a>
-                )
-              })()}
-            </div>
-          )}
+      {hasSocials && (
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-[var(--border-subtle)] pt-3">
+          {links.filter(l => SOC[l.platform]).map(l => {
+            const p = SOC[l.platform]
+            return (
+              <a
+                key={l.platform}
+                href={l.url}
+                target="_blank"
+                rel="noopener"
+                title={p.l}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+              >
+                <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="13" height="13" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+              </a>
+            )
+          })}
+          {website && (() => {
+            let domain = ''
+            try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
+            return (
+              <a
+                href={website}
+                target="_blank"
+                rel="noopener"
+                title="Oficiali svetainė"
+                className="flex h-8 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                <span className="font-['Outfit',sans-serif] text-[12px] font-bold tracking-tight">{domain}</span>
+              </a>
+            )
+          })()}
         </div>
       )}
     </aside>
@@ -5671,39 +5674,11 @@ export default function ArtistProfileClient({
 
           return (
             <section>
-              {/* Mobile: horizontal strip on top */}
-              {sideInfoAvailable && (
-                <div className="mb-6 lg:hidden">
-                  <SideInfo
-                    artist={artist}
-                    flag={flag}
-                    genres={genres}
-                    substyles={substyles}
-                    ranks={ranks}
-                    links={links}
-                    website={artist.website}
-                    horizontal
-                    displayRoles={displayRoles}
-                    followControls={{
-                      likes,
-                      selfLiked: !!selfLiked,
-                      onToggle: toggleSelfLike,
-                      onOpenModal: () => setLikesModalOpen(true),
-                      pending: selfLikePending,
-                    }}
-                  />
-                </div>
-              )}
-              {/* Mobile: score card below sideinfo strip */}
-              {artist.score !== null && artist.score !== undefined && (
-                <div className="mb-6 lg:hidden">
-                  <ScoreCard
-                    entityType="artist"
-                    score={artist.score}
-                    breakdown={artist.score_breakdown}
-                  />
-                </div>
-              )}
+              {/* Mobile sidebar strip — PO 2026-05-21 redesign'o perkeltas ant
+                  pačio apačios (po nariais/grupėmis), o ne ant viršaus. Tegu
+                  vartotojas pirma matys bio + sritys + grupes, ir tik tada
+                  socialinę „Sekti" kortelę. Žr. render'inima žemiau, po
+                  members/groups. */}
               {/* Desktop: float right'as info card'ams — bio teksto srautas
                   apgaubia kortelę. Anksčiau buvo 2-col grid'as su fiksuotu
                   320px sidebar'iu, dėl ko atsirasdavo tuščia erdvė po trumpu
@@ -5732,6 +5707,11 @@ export default function ArtistProfileClient({
                           onOpenModal: () => setLikesModalOpen(true),
                           pending: selfLikePending,
                         }}
+                        topFans={allLikesUsers.slice(0, 5).map(u => ({
+                          user_username: u.user_username,
+                          user_avatar_url: u.user_avatar_url,
+                        }))}
+                        totalFans={likes}
                       />
                     )}
                     {artist.score !== null && artist.score !== undefined && (
@@ -5757,6 +5737,10 @@ export default function ArtistProfileClient({
                       <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={420} />
                     </>
                   )}
+                  {/* Bio facts (Veikla, Gimimo data, zodiakas) — perkelta čia
+                      iš SideInfo (2026-05-21). Inline-compact stilius, gyvuoja
+                      tarp aprašymo ir Sričių. */}
+                  <BioFactsInline artist={artist} />
                   {/* Sritys (solo atlikėjo occupation+instrument) — perkelta čia
                       iš SideInfo kortelės (2026-05-20). Logiškai groups'iuosi
                       su bio: tai apie atlikėją kaip žmogų. Rodoma virš grupių
@@ -5783,6 +5767,48 @@ export default function ArtistProfileClient({
                       „Narys grupėse: Jack Irons" prie RHCP profilio. Po DB
                       fix'o defensive guard'as gardiečia ateityje. */}
                   {solo && memberOf && memberOf.length > 0 && <MemberOfInline groups={memberOf} />}
+                  {/* Mobile-only: SideInfo „Sekti" strip POSTPOSED. Po 2026-05-21
+                      redesign'o jis nebebuvo prie viršaus, o čia po viso bio
+                      konteksto (sritys, nariai/grupės). Lankytojas pirma
+                      susipažįsta su atlikėju, paskui — gali sekti / aplankyti
+                      socialinius. lg+ versija lieka float-right'e su flow-root. */}
+                  {sideInfoAvailable && (
+                    <div className="mt-8 lg:hidden">
+                      <SideInfo
+                        artist={artist}
+                        flag={flag}
+                        genres={genres}
+                        substyles={substyles}
+                        ranks={ranks}
+                        links={links}
+                        website={artist.website}
+                        horizontal
+                        displayRoles={displayRoles}
+                        followControls={{
+                          likes,
+                          selfLiked: !!selfLiked,
+                          onToggle: toggleSelfLike,
+                          onOpenModal: () => setLikesModalOpen(true),
+                          pending: selfLikePending,
+                        }}
+                        topFans={allLikesUsers.slice(0, 5).map(u => ({
+                          user_username: u.user_username,
+                          user_avatar_url: u.user_avatar_url,
+                        }))}
+                        totalFans={likes}
+                      />
+                    </div>
+                  )}
+                  {/* Mobile: score card po SideInfo strip. */}
+                  {artist.score !== null && artist.score !== undefined && (
+                    <div className="mt-4 lg:hidden">
+                      <ScoreCard
+                        entityType="artist"
+                        score={artist.score}
+                        breakdown={artist.score_breakdown}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
