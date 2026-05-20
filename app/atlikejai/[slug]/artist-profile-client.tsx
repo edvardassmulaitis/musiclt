@@ -2757,74 +2757,27 @@ function BioFactsInline({ artist }: { artist: any }) {
   )
 }
 
-// ── FollowAvatarsRow — overlapping avatars under FollowPill ─────────
-//
-// Social proof element šalia „Sekti" mygtuko. Rodo top 4-5 sekėjų
-// nuotraukas overlapping stack'u + „+N" jei daugiau. Kai useris auth'intas
-// ir turi „draugus" (ateityje), pirma rodysim juos; kol kas — top fans
-// pagal rank. Click'as atidaro LikesModal'ą (pilnas sąrašas).
-function FollowAvatarsRow({
-  fans, totalCount, onOpen,
-}: {
-  fans: { user_username: string; user_avatar_url: string | null }[]
-  totalCount: number
-  onOpen: () => void
-}) {
-  if (fans.length === 0) return null
-  const visible = fans.slice(0, 5)
-  const extra = Math.max(0, totalCount - visible.length)
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      title="Žiūrėti visus sekėjus"
-      className="group flex items-center gap-2 self-start rounded-full px-1.5 py-1 transition-colors hover:bg-[var(--bg-hover)]"
-    >
-      <div className="flex -space-x-2">
-        {visible.map(f => (
-          <span
-            key={f.user_username}
-            className="relative h-7 w-7 overflow-hidden rounded-full border-2 border-[var(--bg-surface)] bg-[var(--card-bg)]"
-          >
-            {f.user_avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={proxyImg(f.user_avatar_url)}
-                alt={f.user_username}
-                className="h-full w-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <span className="flex h-full w-full items-center justify-center font-['Outfit',sans-serif] text-[10px] font-black uppercase text-[var(--text-faint)]">
-                {f.user_username.charAt(0)}
-              </span>
-            )}
-          </span>
-        ))}
-      </div>
-      <span className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-muted)] transition-colors group-hover:text-[var(--text-primary)]">
-        {extra > 0 ? `+${extra} sekėjų` : (totalCount === 1 ? '1 sekėjas' : `${totalCount} sekėjų`)}
-      </span>
-    </button>
-  )
-}
+// FollowAvatarsRow buvo pridėtas 2026-05-21 (social proof overlap'iniai
+// avatarai), bet pašalintas v2 redesign'e — skaičiai nesutapdavo (legacy
+// fans vs current likes count), value/space ratio prastas. Ateityje
+// galim grąžinti su auth'ed user friends layer'iu.
 
 // ── SideInfo: card beside bio with Kilmė / Stilius / Klausyk ───────
 
 function SideInfo({
-  artist, flag, genres, substyles, ranks, links, website, horizontal = false, displayRoles = [],
-  followControls, topFans = [], totalFans = 0,
+  artist: _artist, flag: _flag, genres: _genres, substyles: _substyles, ranks: _ranks,
+  links, website, horizontal = false, displayRoles: _displayRoles = [],
+  followControls,
 }: {
   artist: any; flag: string; genres: Genre[]; substyles: Genre[]
   ranks: Rank[]
   links: { platform: string; url: string }[]; website?: string | null
   /** When true, renders the info card as a horizontal wrap-flow so it can
-   *  sit as a full-width strip instead of a tall right sidebar. Used when
-   *  bio is short/empty to avoid wasted vertical space. */
+   *  sit as a full-width strip instead of a tall right sidebar. */
   horizontal?: boolean
-  /** Sritys (occupation+instrument) — jau pritaikyti LT vertimai, dedup'inta
-   *  pagal label'į, hidden values atfiltruoti. Rodom kaip muted chip'us po
-   *  Stiliai. */
+  /** Sritys/Genres/Ranks props vis dar accept'inami atgaliniam suderinamumui
+   *  (parent dar perduoda), bet SideInfo body jų nebenaudoja — visi šie
+   *  duomenys perkelti į Hero zoną arba main column'ą. */
   displayRoles?: string[]
   /** „Sekti" pill controls — likes lentelės įrašai šiuo metu naudojami kaip
    *  follow signal. Buvęs LikePill iš Hero zonos perkeltas čia, su žodžiu
@@ -2837,19 +2790,12 @@ function SideInfo({
     onOpenModal: () => void
     pending: boolean
   }
-  /** Top fans (su user_avatar_url + user_username) — rodom kaip
-   *  overlapping avatarus po FollowPill. Ateityje galim filtruoti pagal
-   *  current user'io friends — kol kas tiesiog top pagal rank. */
-  topFans?: Array<{ user_username: string; user_avatar_url: string | null }>
-  totalFans?: number
 }) {
-  // countryRank ir genreRank specifiškai NEIMAM — buvo rodomi kaip #N badge'ai
-  // tarp šalies/žanro pavadinimo, bet tas info dabar perkeltas į Hero zoną
-  // (clickable šalies vėliava + žanro chip'as) be rank'o. Rank'o eskpoziciją
-  // nutraukėm sąmoningai — istorinis aktyvumas darydavo neteisingą poveikį
-  // naujiems atlikėjams. PopBar Hero zonoje yra tinkamesnis populiarumo
-  // signal'as. globalRank lieka (tik top 50 pasaulyje — kaip „achievement").
-  const globalRank = ranks.find(r => r.scope === 'global')
+  // Visi rank chip'ai (country/genre/global) PAŠALINTI iš SideInfo
+  // (2026-05-21 redesign'as). Rank metrika gyvuoja Hero zonoje (PopBar +
+  // main genre chip'as su #N). Istorinis aktyvumas darydavo neteisingą
+  // poveikį naujiems atlikėjams — PopBar percentile yra tinkamesnis
+  // populiarumo signal'as.
   const hasSocials = links.some(l => SOC[l.platform]) || !!website
 
   // Bio facts (Veikla, Gimimo data, zodiakas) PAŠALINTI iš SideInfo
@@ -2858,60 +2804,57 @@ function SideInfo({
   // dėl visų laukų, kuri dabar atskirame komponente.
   // RankChip taip pat pašalintas — rank metrika gyvuoja Hero zonoje.
 
-  // ── Horizontal variant — single wrapping row ──────────────────────
-  // Primary row: „Sekti" pill + socials + website. Po 2026-05-20 redesign'o
-  // šalies/žanro/rank chip'ai PAŠALINTI (gyvuoja Hero zonoje). Bio facts
-  // (Veikla, Gimimo data) renderinami atskiroje row'oje žemiau.
+  // ── Horizontal variant — mobile „Sekti" kortelė ─────────────────────
+  // Po 2026-05-21 v2 redesign'o:
+  //   - Socials + website kompaktiškai viršuje (wrap'inasi jei daug)
+  //   - Divider line (jei yra abu)
+  //   - FollowPill apačioje, items-start ir w-fit'as → niekada nestrechinasi
+  // Atitinka vertical variant'o logiką, tik su mažesniais padding'ais.
   if (horizontal) {
+    if (!followControls && !hasSocials) return null
     return (
-      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:gap-x-6">
-          {followControls && (
+      <div className="flex flex-col items-start gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
+        {hasSocials && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {links.filter(l => SOC[l.platform]).map(l => {
+              const p = SOC[l.platform]
+              return (
+                <a
+                  key={l.platform}
+                  href={l.url}
+                  target="_blank"
+                  rel="noopener"
+                  title={p.l}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                >
+                  <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+                </a>
+              )
+            })}
+            {website && (() => {
+              let domain = ''
+              try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
+              return (
+                <a
+                  href={website}
+                  target="_blank"
+                  rel="noopener"
+                  title="Oficiali svetainė"
+                  className="flex h-10 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                  <span className="max-w-[200px] truncate font-['Outfit',sans-serif] text-[12.5px] font-bold tracking-tight sm:max-w-none">{domain}</span>
+                </a>
+              )
+            })()}
+          </div>
+        )}
+        {followControls && (
+          <>
+            {hasSocials && <div className="w-full border-t border-[var(--border-subtle)]" />}
             <FollowPill {...followControls} />
-          )}
-          {hasSocials && (
-            // MOBILE: leidžiam socials/website wrap'intis į kitą eilutę
-            // (visa eilutė 6 icons + website chip dažnai > 400px → mobile'e
-            // horizontal scroll). DESKTOP (sm+): ml-auto right-align + nowrap.
-            <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5 sm:ml-auto sm:w-auto sm:flex-nowrap">
-              {links.filter(l => SOC[l.platform]).map(l => {
-                const p = SOC[l.platform]
-                return (
-                  <a
-                    key={l.platform}
-                    href={l.url}
-                    target="_blank"
-                    rel="noopener"
-                    title={p.l}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                  >
-                    <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
-                  </a>
-                )
-              })}
-              {website && (() => {
-                let domain = ''
-                try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
-                return (
-                  <a
-                    href={website}
-                    target="_blank"
-                    rel="noopener"
-                    title="Oficiali svetainė"
-                    className="flex h-10 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-                    <span className="max-w-[160px] truncate font-['Outfit',sans-serif] text-[12.5px] font-bold tracking-tight sm:max-w-none">{domain}</span>
-                  </a>
-                )
-              })()}
-            </div>
-          )}
-        </div>
-        {/* Substyles + Sritys + Bio facts (Veikla, Gimimo data) perkelti į
-            main column (po aprašymu, virš narių/grupių). Mobile SideInfo
-            (horizontal) tapo pure „Sekti" zone — tik FollowPill + social
-            ikonos + website. */}
+          </>
+        )}
       </div>
     )
   }
@@ -2921,27 +2864,36 @@ function SideInfo({
   // Anksčiau buvo `h-full min-h-[200px]` ir kortelė tempėsi į grid row'o
   // aukštį, paliekant tarpą jei bio trumpas. Dabar — kompaktiška, content-
   // sized: jei bio ilgas, kortelė lieka apačioj; jei trumpas — abu kartu.
+  // 2026-05-21 v2: SideInfo card redesign'as iš esmės.
+  //
+  // Problemos su v1:
+  //   - FollowPill stretch'inosi į full width (parent flex-col su default
+  //     items-stretch → inline-flex child'as gauna 100% width)
+  //   - Avatarai sekėjų — skaičiai nesutapdavo (legacy fans vs total likes)
+  //     ir vizualiai atrodė chaotic
+  //   - Ant mobile su 1 social link'u (Muse → tik Spotify) card atrodė
+  //     pustuščia, bet vis tiek didelio aukščio
+  //
+  // v2 sprendimas:
+  //   - items-start ant aside → children NIEKADA nesistretch'ina, visi
+  //     content-sized
+  //   - Socials icons grid'as wrap'inasi natūraliai (gap-1.5), veikia su
+  //     0/1/2/many platformų
+  //   - Website kaip atskira pill kortelė po socials (jei yra)
+  //   - Sekti pill apačioje su divider — vizualiai paryškinta kaip CTA
+  //   - Avatarai DROP'inti (skaičiai nesutapdavo, value/space ratio prastas)
+  //   - Card padding sumažintas iki p-4 (vietoj p-5) — be avatarų zonos
+  //     nereikia tiek tarpo
+
+  if (!followControls && !hasSocials) return null
+
   return (
-    <aside className="flex h-fit flex-col gap-4 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
-      {/* SideInfo TAPO „Sekti" zona (po 2026-05-21 redesign'o).
-          Turinys (sequentially):
-            1) FollowPill — širdis + count + žodis „Sekti"
-            2) Avatarai (overlapping, top 5 fans) — social proof + click
-               atidaro LikesModal su pilnu sąrašu
-            3) Social ikonos (Spotify, YouTube, Facebook...) + website
-          Visi kiti elementai — bio facts (Veikla/Gimimo data), rank chip'ai,
-          Sritys, Substyles — perkelti į main column (po aprašymu) ar
-          Hero zoną. SideInfo specializuojasi į social/follow funkciją. */}
-
-      {followControls && (
-        <div className="flex flex-col gap-2.5">
-          <FollowPill {...followControls} />
-          <FollowAvatarsRow fans={topFans} totalCount={totalFans || followControls.likes} onOpen={followControls.onOpenModal} />
-        </div>
-      )}
-
+    <aside className="flex h-fit flex-col items-start gap-3 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+      {/* Socials + website — pirmiausia (sekundara informacija, kad
+          „Sekti" CTA dominuotų apačioje). Items-center + flex-wrap leidžia
+          gracefully wrap'tis su 1-8 platformų. */}
       {hasSocials && (
-        <div className="flex flex-wrap items-center gap-1.5 border-t border-[var(--border-subtle)] pt-3">
+        <div className="flex flex-wrap items-center gap-1.5">
           {links.filter(l => SOC[l.platform]).map(l => {
             const p = SOC[l.platform]
             return (
@@ -2974,6 +2926,15 @@ function SideInfo({
             )
           })()}
         </div>
+      )}
+
+      {/* Music.lt „Sekti" CTA — primary action card'o apačioje. Divider
+          tik kai virš jo yra socials block'as. */}
+      {followControls && (
+        <>
+          {hasSocials && <div className="w-full border-t border-[var(--border-subtle)]" />}
+          <FollowPill {...followControls} />
+        </>
       )}
     </aside>
   )
@@ -5707,11 +5668,6 @@ export default function ArtistProfileClient({
                           onOpenModal: () => setLikesModalOpen(true),
                           pending: selfLikePending,
                         }}
-                        topFans={allLikesUsers.slice(0, 5).map(u => ({
-                          user_username: u.user_username,
-                          user_avatar_url: u.user_avatar_url,
-                        }))}
-                        totalFans={likes}
                       />
                     )}
                     {artist.score !== null && artist.score !== undefined && (
@@ -5791,11 +5747,6 @@ export default function ArtistProfileClient({
                           onOpenModal: () => setLikesModalOpen(true),
                           pending: selfLikePending,
                         }}
-                        topFans={allLikesUsers.slice(0, 5).map(u => ({
-                          user_username: u.user_username,
-                          user_avatar_url: u.user_avatar_url,
-                        }))}
-                        totalFans={likes}
                       />
                     </div>
                   )}
