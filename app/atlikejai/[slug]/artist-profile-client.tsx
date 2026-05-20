@@ -2030,6 +2030,15 @@ function Hero({
   // ŽANRO modal'ą — ten matomas genre rank (Muse — #4 iš 51 Roko muzikoj).
   // Kad numeris chip'e ir modal'e SUTAPTŲ, abu naudoja žanro rank'ą.
   const primaryRank = ranks.find(r => r.scope === 'genre')
+  // Grayscale efektas hero foto, kai:
+  //   - Solo atlikėjas miręs (death_date)
+  //   - Grupė pabaigė veiklą (active_until <= currentYear)
+  // Vizualus signal'as „nebevyksta nauja kūryba". Foto desaturate'inta,
+  // šiek tiek pritamsinta — kad nebūtų grim atmosfera.
+  const isSolo = artist.type === 'solo'
+  const isInactive = isSolo
+    ? !!artist.death_date
+    : !!(artist.active_until && Number(artist.active_until) < new Date().getFullYear() + 1)
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
   // Hero foto FIXED width 600px desktop'e — be JS-based dimension detection.
   // Anksčiau buvo adaptyvus (380/480/720 pagal natural aspect ratio onLoad'e),
@@ -2068,7 +2077,12 @@ function Hero({
                 backgroundImage: `url(${proxyImgResized(heroImage, 400)})`,
                 backgroundSize: 'cover',
                 backgroundPosition: `${coverPos.x}% ${coverPos.y}%`,
-                filter: 'blur(60px) saturate(1.3) brightness(0.85)',
+                // Inactive (miręs solo / pasibaigusi grupė) → desaturate
+                // backdrop'ą iki grayscale, šiek tiek pritamsinti — vizualus
+                // signal'as „nebevyksta aktyvi kūryba".
+                filter: isInactive
+                  ? 'blur(60px) saturate(0) brightness(0.7)'
+                  : 'blur(60px) saturate(1.3) brightness(0.85)',
                 transform: 'scale(1.3)',
               }}
             />
@@ -2116,7 +2130,11 @@ function Hero({
                 // upscale'inimas jau minimalus, o blur'as faktiškai pablogina
                 // kokybę (ypač mobile). Pašalinta — saturate/contrast palikta
                 // šiek tiek pagilinti spalvas.
-                filter: 'saturate(1.1) contrast(1.03)',
+                // Inactive (miręs / pabaigta veikla) → grayscale + slightly
+                // darker. Signal'as: nebevyksta aktyvi kūryba.
+                filter: isInactive
+                  ? 'grayscale(1) contrast(1.05) brightness(0.95)'
+                  : 'saturate(1.1) contrast(1.03)',
                 imageRendering: 'auto',
               }}
             />
@@ -2404,7 +2422,7 @@ type TopArtistItem = {
 function TopArtistsModal({
   filter, currentArtistId, currentArtistName, onClose,
 }: {
-  filter: { country?: string; genre?: string; global?: boolean; recent?: boolean }
+  filter: { country?: string; genre?: string; global?: boolean; recent?: boolean; zodiac?: string }
   /** Šio atlikėjo ID — naudojamas highlight'inti jo eilutę ir parodyti
    *  poziciją header'yje („Tavo vieta — #N"). */
   currentArtistId?: number
@@ -2415,8 +2433,17 @@ function TopArtistsModal({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [myRank, setMyRank] = useState<{ rank: number; total: number } | null>(null)
+  // Zodiako glifa tooltip headeryje — Unicode astrologinis simbolis su
+  // U+FE0E text-presentation, kad būtų monochrome (currentColor).
+  const ZODIAC_GLYPH: Record<string, string> = {
+    'Avinas': '♈', 'Jautis': '♉', 'Dvyniai': '♊', 'Vėžys': '♋',
+    'Liūtas': '♌', 'Mergelė': '♍', 'Svarstyklės': '♎', 'Skorpionas': '♏',
+    'Šaulys': '♐', 'Ožiaragis': '♑', 'Vandenis': '♒', 'Žuvys': '♓',
+  }
   const title = filter.recent
     ? '🔥 Naujausi top atlikėjai'
+    : filter.zodiac
+    ? `${ZODIAC_GLYPH[filter.zodiac] || '✶'} ${filter.zodiac} — top atlikėjai`
     : filter.country
     ? `${FLAGS[filter.country] || '🌍'} ${filter.country} — top atlikėjai`
     : filter.genre
@@ -2430,6 +2457,7 @@ function TopArtistsModal({
     if (filter.country) params.set('country', filter.country)
     if (filter.genre) params.set('genre', filter.genre)
     if (filter.recent) params.set('sort', 'recent')
+    if (filter.zodiac) params.set('zodiac', filter.zodiac)
     params.set('limit', '20')
     if (currentArtistId) params.set('includeRankFor', String(currentArtistId))
     fetch(`/api/artists/top?${params.toString()}`)
@@ -2447,7 +2475,7 @@ function TopArtistsModal({
         setLoading(false)
       })
     return () => { abort = true }
-  }, [filter.country, filter.genre, filter.global, filter.recent, currentArtistId])
+  }, [filter.country, filter.genre, filter.global, filter.recent, filter.zodiac, currentArtistId])
 
   // Esc + outside-click uždaro
   useEffect(() => {
@@ -2705,7 +2733,14 @@ function FollowPill({
 // sidebar'o į main column (po BioPreview). Logika ta pati kaip SideInfo'je
 // (yearsActiveRange + birthLine + zodiac), tik render'as horizontal/inline
 // kompaktiškai, kaip metaduomenys, ne kortelės.
-function BioFactsInline({ artist }: { artist: any }) {
+function BioFactsInline({
+  artist, onOpenTopArtists,
+}: {
+  artist: any
+  /** Optional — paspaudus zodiako simbolį atidaro modal'ą su tos pačios
+   *  zodiako atlikėjais (top pagal score). */
+  onOpenTopArtists?: (filter: { zodiac?: string }) => void
+}) {
   const isSolo = artist.type === 'solo'
   const yearsBetween = (from: number, until?: number | null): number => {
     const end = until ?? new Date().getFullYear()
@@ -2755,32 +2790,32 @@ function BioFactsInline({ artist }: { artist: any }) {
     if (cmp(2, 19, 3, 20)) return { name: 'Žuvys', glyph: '♓' + TEXT_VARIATION }
     return null
   }
-  const birthLine: {
-    label: string; main: string; tail: string | null
-    zodiac: { name: string; glyph: string } | null
-  } | null = isSolo && artist.birth_date
-    ? (() => {
-        const yr = ageFromBirth(artist.birth_date, artist.death_date)
-        const z = zodiacOf(artist.birth_date)
-        if (artist.death_date) {
-          const lived = ageFromBirth(artist.birth_date, artist.death_date)
-          return {
-            label: 'Gyveno',
-            main: `${fmtLtDate(artist.birth_date)} – ${fmtLtDate(artist.death_date)}`,
-            tail: lived != null ? `${lived} m.` : null,
-            zodiac: z,
-          }
-        }
-        return {
-          label: 'Gimimo data',
-          main: fmtLtDate(artist.birth_date),
-          tail: yr != null ? `${yr} m.` : null,
-          zodiac: z,
-        }
-      })()
+
+  // 2026-05-21 v3: Gyveno (joint range) išskaidytas į 2 atskiras eilutes
+  // — „Gimė" + „Mirė" — kad būtų lengviau skaityti ir verifikuoti datas.
+  // Zodiakas LIEKA tik prie „Gimė" (kur jis logiškai priklauso).
+  const birthInfo = isSolo && artist.birth_date
+    ? {
+        date: fmtLtDate(artist.birth_date),
+        zodiac: zodiacOf(artist.birth_date),
+        // Amžius rodom tik kai gyvas (kitaip „Mirė" eilutėj rodysim gyveno-amžių)
+        ageTail: !artist.death_date && ageFromBirth(artist.birth_date) != null
+          ? `${ageFromBirth(artist.birth_date)} m.`
+          : null,
+      }
     : null
+  const deathInfo = isSolo && artist.death_date
+    ? {
+        date: fmtLtDate(artist.death_date),
+        // „Mirė ... (45 m.)" — gyveno tiek metų. Tail muted.
+        livedTail: artist.birth_date && ageFromBirth(artist.birth_date, artist.death_date) != null
+          ? `${ageFromBirth(artist.birth_date, artist.death_date)} m.`
+          : null,
+      }
+    : null
+
   const showActive = !!yearsActiveRange && !(isSolo && artist.birth_date && artist.active_from === new Date(artist.birth_date).getFullYear())
-  if (!birthLine && !showActive) return null
+  if (!birthInfo && !showActive) return null
 
   return (
     <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-2">
@@ -2793,21 +2828,42 @@ function BioFactsInline({ artist }: { artist: any }) {
           )}
         </div>
       )}
-      {birthLine && (
+      {birthInfo && (
         <div className="flex items-baseline gap-2">
-          <span className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">{birthLine.label}</span>
-          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{birthLine.main}</span>
-          {birthLine.tail && (
-            <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({birthLine.tail})</span>
+          <span className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Gimė</span>
+          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{birthInfo.date}</span>
+          {birthInfo.ageTail && (
+            <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({birthInfo.ageTail})</span>
           )}
-          {birthLine.zodiac && (
-            <span
-              title={birthLine.zodiac.name}
-              aria-label={birthLine.zodiac.name}
-              className="ml-0.5 text-[14px] leading-none text-[var(--accent-orange)]"
-            >
-              {birthLine.zodiac.glyph}
-            </span>
+          {birthInfo.zodiac && (
+            onOpenTopArtists ? (
+              <button
+                type="button"
+                onClick={() => onOpenTopArtists({ zodiac: birthInfo.zodiac!.name })}
+                title={`${birthInfo.zodiac.name} — top atlikėjai`}
+                aria-label={`Zodiakas: ${birthInfo.zodiac.name}. Atidaryti top sąrašą.`}
+                className="ml-0.5 inline-flex items-center justify-center text-[14px] leading-none text-[var(--accent-orange)] transition-transform hover:scale-125"
+              >
+                {birthInfo.zodiac.glyph}
+              </button>
+            ) : (
+              <span
+                title={birthInfo.zodiac.name}
+                aria-label={birthInfo.zodiac.name}
+                className="ml-0.5 text-[14px] leading-none text-[var(--accent-orange)]"
+              >
+                {birthInfo.zodiac.glyph}
+              </span>
+            )
+          )}
+        </div>
+      )}
+      {deathInfo && (
+        <div className="flex items-baseline gap-2">
+          <span className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Mirė</span>
+          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{deathInfo.date}</span>
+          {deathInfo.livedTail && (
+            <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({deathInfo.livedTail})</span>
           )}
         </div>
       )}
@@ -4882,7 +4938,7 @@ export default function ArtistProfileClient({
   // TopArtistsModal — atidaromas paspaudus šalies vėliavą/žanro chip'ą Hero
   // zonoje. Modal'as rodo top N atlikėjų pagal score filter'iui (country
   // arba genre). null reiškia closed.
-  const [topArtistsFilter, setTopArtistsFilter] = useState<{ country?: string; genre?: string; global?: boolean; recent?: boolean } | null>(null)
+  const [topArtistsFilter, setTopArtistsFilter] = useState<{ country?: string; genre?: string; global?: boolean; recent?: boolean; zodiac?: string } | null>(null)
   const [bioModalOpen, setBioModalOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   // Mobile'e modal'as turi savo inline iframe'ą — kai jis aktyvus, hero
@@ -5762,10 +5818,14 @@ export default function ArtistProfileClient({
                       <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={420} />
                     </>
                   )}
-                  {/* Bio facts (Veikla, Gimimo data, zodiakas) — perkelta čia
+                  {/* Bio facts (Veikla, Gimė, Mirė, zodiakas) — perkelta čia
                       iš SideInfo (2026-05-21). Inline-compact stilius, gyvuoja
-                      tarp aprašymo ir Sričių. */}
-                  <BioFactsInline artist={artist} />
+                      tarp aprašymo ir Sričių. Zodiakas clickable atidaro modal'ą
+                      su to paties zodiako top atlikėjais. */}
+                  <BioFactsInline
+                    artist={artist}
+                    onOpenTopArtists={(filter) => setTopArtistsFilter(filter)}
+                  />
                   {/* Sritys (solo atlikėjo occupation+instrument) — perkelta čia
                       iš SideInfo kortelės (2026-05-20). Logiškai groups'iuosi
                       su bio: tai apie atlikėją kaip žmogų. Rodoma virš grupių

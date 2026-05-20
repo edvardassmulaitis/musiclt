@@ -1,15 +1,18 @@
 /**
- * GET /api/artists/top?country=X&genre=Y&sort=recent&limit=20&includeRankFor=NN
+ * GET /api/artists/top?country=X&genre=Y&zodiac=Z&sort=recent&limit=20&includeRankFor=NN
  *
  * Grąžina top atlikėjus. Pagal default'ą sort'inta pagal score (desc).
  * Su sort=recent — sort'inama pagal 30d like aktyvumą (count(likes) per
- * artist where created_at >= NOW()-30d). Filtruojama pagal šalies arba
- * žanro pavadinimą (arba abu tuščius — global'us top).
+ * artist where created_at >= NOW()-30d). Filtruojama pagal šalies, žanro
+ * arba zodiako pavadinimą (arba visus tuščius — global'us top).
  *
  * Query params:
  *   country         — exact match (artists.country)
  *   genre           — name match per artist_genres JOIN (case-insensitive).
  *                     VEIKIA ir su substyle pavadinimais.
+ *   zodiac          — LT zodiako pavadinimas (Skorpionas, Avinas...). Filtras
+ *                     skaičiuojamas iš birth_date month/day diapazono — tik
+ *                     solo atlikėjams su užpildytu birth_date.
  *   sort            — 'score' (default) arba 'recent' (30d like activity)
  *   limit           — default 20, max 50
  *   includeRankFor  — artist ID; grąžinam papildomai myRank.rank+total
@@ -24,10 +27,45 @@ import { createAdminClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
+// Zodiako datų diapazonai — month/day pairs. Reikšmės atitinka frontend'o
+// zodiacOf() logiką BioFactsInline komponente.
+// Format: [[startMonth, startDay, endMonth, endDay], ...] (gali būti 1-2 segmentai
+// — Ožiaragis spans gruodis→sausis, todėl dvi)
+const ZODIAC_RANGES: Record<string, Array<[number, number, number, number]>> = {
+  'Avinas':       [[3, 21, 4, 19]],
+  'Jautis':       [[4, 20, 5, 20]],
+  'Dvyniai':      [[5, 21, 6, 20]],
+  'Vėžys':        [[6, 21, 7, 22]],
+  'Liūtas':       [[7, 23, 8, 22]],
+  'Mergelė':      [[8, 23, 9, 22]],
+  'Svarstyklės':  [[9, 23, 10, 22]],
+  'Skorpionas':   [[10, 23, 11, 21]],
+  'Šaulys':       [[11, 22, 12, 21]],
+  'Ožiaragis':    [[12, 22, 12, 31], [1, 1, 1, 19]],
+  'Vandenis':     [[1, 20, 2, 18]],
+  'Žuvys':        [[2, 19, 3, 20]],
+}
+
+function matchesZodiac(birthDateISO: string, zodiac: string): boolean {
+  const ranges = ZODIAC_RANGES[zodiac]
+  if (!ranges) return false
+  const d = new Date(birthDateISO)
+  if (isNaN(d.getTime())) return false
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  return ranges.some(([sm, sd, em, ed]) => {
+    if (sm === em) {
+      return m === sm && day >= sd && day <= ed
+    }
+    return (m === sm && day >= sd) || (m === em && day <= ed)
+  })
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const country = searchParams.get('country')?.trim() || null
   const genre = searchParams.get('genre')?.trim() || null
+  const zodiac = searchParams.get('zodiac')?.trim() || null
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || 20)))
   const includeRankFor = Number(searchParams.get('includeRankFor') || 0) || null
   const sort = (searchParams.get('sort')?.trim().toLowerCase() === 'recent') ? 'recent' : 'score'
@@ -36,6 +74,41 @@ export async function GET(req: NextRequest) {
   // (2026-05-20) pridedam global mode'ą main PopBar'ui Hero zonoje.
 
   const sb = createAdminClient()
+
+  // ── Zodiac filter — atitinka tik solo atlikėjus su užpildytu birth_date.
+  // Filtravimas JS pusėje (PostgREST neturi EXTRACT month/day operatoriaus
+  // be RPC). Fetch'inam solo atlikėjus su birth_date NOT NULL ir score > 0,
+  // tada filter'inam pagal zodiako diapazoną. Output → zodiacArtistIds,
+  // kuris intersect'inamas su kitais filter'iais žemiau.
+  let zodiacArtistIds: number[] | null = null
+  if (zodiac) {
+    if (!ZODIAC_RANGES[zodiac]) {
+      return NextResponse.json({ ok: true, items: [], total: 0 })
+    }
+    const PAGE_Z = 1000
+    const ids: number[] = []
+    let offset = 0
+    while (true) {
+      const { data: rows } = await sb
+        .from('artists')
+        .select('id, birth_date')
+        .eq('type', 'solo')
+        .gt('score', 0)
+        .not('birth_date', 'is', null)
+        .range(offset, offset + PAGE_Z - 1)
+      const arr = (rows || []) as { id: number; birth_date: string }[]
+      for (const a of arr) {
+        if (matchesZodiac(a.birth_date, zodiac)) ids.push(a.id)
+      }
+      if (arr.length < PAGE_Z) break
+      offset += PAGE_Z
+      if (offset > 100000) break
+    }
+    zodiacArtistIds = ids
+    if (zodiacArtistIds.length === 0) {
+      return NextResponse.json({ ok: true, items: [], total: 0 })
+    }
+  }
 
   // ── Genre filter — surenkam artist_id'us iš artist_genres / artist_substyles
   // pirmyn (tarsi prefilter'is). Tada main query'ė pasiima artists su tais id.
@@ -78,6 +151,18 @@ export async function GET(req: NextRequest) {
     if (artistIdFilter.length === 0) {
       return NextResponse.json({ ok: true, items: [], total: 0 })
     }
+  }
+
+  // Intersect zodiac + genre prefilter'iai (jei abu yra). Tai užtikrina,
+  // kad gauname tik tuos atlikėjus, kurie atitinka VISUS filter'ius.
+  if (zodiacArtistIds && artistIdFilter) {
+    const set = new Set(artistIdFilter)
+    artistIdFilter = zodiacArtistIds.filter(id => set.has(id))
+    if (artistIdFilter.length === 0) {
+      return NextResponse.json({ ok: true, items: [], total: 0 })
+    }
+  } else if (zodiacArtistIds && !artistIdFilter) {
+    artistIdFilter = zodiacArtistIds
   }
 
   // ── sort=recent branch — top atlikėjai pagal pastarųjų 2 metų performance ─
