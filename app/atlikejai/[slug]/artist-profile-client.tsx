@@ -2206,8 +2206,12 @@ function Hero({
                     onClick={() => onOpenTopArtists?.({ global: true })}
                     title="Bendras populiarumas — pasaulinis top atlikėjų sąrašas"
                     aria-label="Atidaryti pasaulinį top sąrašą"
-                    className="inline-flex w-fit items-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1 transition-all hover:scale-[1.03] hover:border-[var(--accent-orange)] lg:border-white/15 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20"
+                    className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1 transition-all hover:scale-[1.03] hover:border-[var(--accent-orange)] lg:border-white/15 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20"
                   >
+                    {/* ⭐ Trophy/star — all-time signal */}
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
+                      <path d="M12 2l2.39 7.36H22l-6.18 4.48L18.21 22 12 17.27 5.79 22l2.39-8.16L2 9.36h7.61z" />
+                    </svg>
                     <PopBar level={popBarLevel} size="md" />
                   </button>
                 )}
@@ -2217,8 +2221,12 @@ function Hero({
                     onClick={() => onOpenTopArtists?.({ recent: true })}
                     title="Naujausi top atlikėjai — pagal pastarųjų 2 metų dainų, albumų ir apdovanojimų rezultatus"
                     aria-label="Atidaryti naujausių top atlikėjų sąrašą"
-                    className="inline-flex w-fit items-center rounded-full border border-[#3b82f6]/40 bg-[#3b82f6]/10 px-2.5 py-1 transition-all hover:scale-[1.03] hover:border-[#3b82f6]/70 hover:bg-[#3b82f6]/20 lg:border-[#3b82f6]/40 lg:bg-[#3b82f6]/15 lg:backdrop-blur-md"
+                    className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#3b82f6]/40 bg-[#3b82f6]/10 px-2.5 py-1 transition-all hover:scale-[1.03] hover:border-[#3b82f6]/70 hover:bg-[#3b82f6]/20 lg:border-[#3b82f6]/40 lg:bg-[#3b82f6]/15 lg:backdrop-blur-md"
                   >
+                    {/* 🔥 Flame — recent/trending signal. Solid blue path. */}
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[#3b82f6]" aria-hidden>
+                      <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
+                    </svg>
                     <PopBar level={recentPopBarLevel} size="md" color="blue" />
                   </button>
                 )}
@@ -2782,22 +2790,15 @@ function SideInfo({
   )
 
   // ── Horizontal variant — single wrapping row ──────────────────────
-  // Primary row: „Sekti" pill (be jo card'as atrodo pustuštis) + socials.
-  // Šalies/žanro info iškelta į Hero (po pavadinimu), todėl čia ji
-  // praleidžiama, kad nesidubliuotų. globalRank lieka kaip atskira info
-  // kortelė tik labai aukšto reitingavimo atvejais (#1, #2, #3 pasaulyje).
+  // Primary row: „Sekti" pill + socials + website. Po 2026-05-20 redesign'o
+  // šalies/žanro/rank chip'ai PAŠALINTI (gyvuoja Hero zonoje). Bio facts
+  // (Veikla, Gimimo data) renderinami atskiroje row'oje žemiau.
   if (horizontal) {
     return (
       <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:gap-x-6">
           {followControls && (
             <FollowPill {...followControls} />
-          )}
-          {globalRank && globalRank.rank <= 50 && (
-            <div className="flex items-baseline gap-2">
-              <RankChip n={globalRank.rank} />
-              <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
-            </div>
           )}
           {hasSocials && (
             // MOBILE: leidžiam socials/website wrap'intis į kitą eilutę
@@ -2838,20 +2839,9 @@ function SideInfo({
             </div>
           )}
         </div>
-        {/* Substyles iškelti į Hero (žr. komentarą vertical variant'e). Mobile
-            SideInfo (horizontal) nebepririekia chip'ų, nes jie jau matomi
-            virš šito strip'o po pavadinimu. */}
-        {/* Sritys — chip strip po substyles (horizontal/mobile variantas). */}
-        {displayRoles.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {displayRoles.map(r => (
-              <span
-                key={r}
-                className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]"
-              >{r}</span>
-            ))}
-          </div>
-        )}
+        {/* Substyles + Sritys perkelti į main column (po aprašymu, prieš
+            narius). Mobile SideInfo (horizontal) nebeturi šių chip'ų, nes
+            jie jau matomi atskirose vietose ant page'o. */}
         {/* Bio facts: veiklos periodas + gimimo/mirties data + amžius
             (+ zodiakas). Visi teksto stiliai vieningi su likusiu strip'u —
             Outfit, no italic, no spalvotos emoji. */}
@@ -2893,55 +2883,14 @@ function SideInfo({
   // sized: jei bio ilgas, kortelė lieka apačioj; jei trumpas — abu kartu.
   return (
     <aside className="flex h-fit flex-col gap-4 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
-      {/* „Sekti" pill — primary action card'o viršuje. ❤ + skaičius +
-          žodis „Sekti". Buvo LikePill 'light' variant Hero zonoje, bet jis
-          neveikdavo light mode + nauji atlikėjai negalėjo konkuruoti
-          istoriniu like aktyvumu. Dabar perkeltas čia kaip aiškus follow
-          signal'as, atskirtas nuo popularumo metrikos (PopBar Hero zonoje).
-          Pilnas plotis kortelės, kad funkcija aiški iš karto. */}
-      {followControls && (
-        <FollowPill {...followControls} />
-      )}
+      {/* SideInfo struktūra (po 2026-05-20 redesign'o):
+            1) Veikla (active_from–until) — jeigu yra
+            2) Gimimo data / Gyveno (solo atlikėjui) — jeigu yra
+            3) „Sekti" zona: pill + social ikonos + oficiali svetainė
+          Visi rank chip'ai (#X Pasaulyje, country/genre rank) PAŠALINTI —
+          tie metrika gyvuoja Hero zonoje (PopBars + main genre chip).
+          Sritys (displayRoles) perkelti į main column po aprašymu. */}
 
-      {/* Substyles — perkelti į Hero zoną (po main genre chip'o), kad visi
-          žanrai būtų vienoje vietoje (user feedback 2026-05-20: anksčiau
-          buvo išskaidyta į dvi vietas, atrodė nei šis nei tas).
-          Šitas blokas tyčia tuščias — palieku komentarą kaip placeholder, kad
-          būsimi reviewer'iai matytų istoriją. */}
-
-      {/* Sritys — solo atlikėjo occupation+instrument iš Wiki, jau pritaikyti
-          LT vertimai + dedup'inta pagal label'į. Rodom kaip muted chip'us
-          (be link'o — kol kas tik info). */}
-      {displayRoles.length > 0 && (
-        <div>
-          <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Sritys</div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {displayRoles.map(r => (
-              <span
-                key={r}
-                className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)]"
-              >{r}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Globalus rank'as rodomas TIK labai aukšto reitingavimo atvejais
-          (top 50 pasaulyje), kad nebūtų kasdienis chip'as. PopBar Hero zonoje
-          jau perteikia bendrą populiarumą — globalRank tampa „achievement"
-          signalu, ne metrika. */}
-      {globalRank && globalRank.rank <= 50 && (
-        <div className="flex items-center gap-2">
-          <RankChip n={globalRank.rank} />
-          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
-        </div>
-      )}
-
-      {/* Bio facts: veiklos periodas + gimimo/mirties data (+ amžius +
-          zodiakas). Stilius vieningas su likusiu sidebar'iu — Outfit
-          everywhere; "(43 m.)" / "(58 m.)" kaip muted tail po pagrindinės
-          reikšmės; zodiakas — monochrome simbolis (U+FE0E text-presentation),
-          spalvos tos pačios kaip text-faint, ne emoji. */}
       {hasBioFacts && (
         <div className="flex flex-col gap-2.5">
           {showActive && (
@@ -2978,44 +2927,49 @@ function SideInfo({
         </div>
       )}
 
-      {hasSocials && (
-        <div className="mt-auto pt-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {links.filter(l => SOC[l.platform]).map(l => {
-              const p = SOC[l.platform]
-              return (
-                <a
-                  key={l.platform}
-                  href={l.url}
-                  target="_blank"
-                  rel="noopener"
-                  title={p.l}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                >
-                  <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="13" height="13" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
-                </a>
-              )
-            })}
-            {website && (() => {
-              // Domain'ą rodom šalia globe ikonos — vienas pliokštas pill'as,
-              // ne tuščias kvadratukas. host'as be www. ir be path'o, kad
-              // sidebar'e nesusispaustų ant ilgų URL'ų.
-              let domain = ''
-              try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
-              return (
-                <a
-                  href={website}
-                  target="_blank"
-                  rel="noopener"
-                  title="Oficiali svetainė"
-                  className="flex h-8 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-                  <span className="font-['Outfit',sans-serif] text-[12px] font-bold tracking-tight">{domain}</span>
-                </a>
-              )
-            })()}
-          </div>
+      {/* „Sekti" combined zona — Follow pill + social icons + website
+          viename bloke. Visual hierarchy: Sekti dominuoja viršuje,
+          socialai ir svetainė kaip secondary actions po juo. */}
+      {(followControls || hasSocials) && (
+        <div className="flex flex-col gap-2.5">
+          {followControls && (
+            <FollowPill {...followControls} />
+          )}
+          {hasSocials && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {links.filter(l => SOC[l.platform]).map(l => {
+                const p = SOC[l.platform]
+                return (
+                  <a
+                    key={l.platform}
+                    href={l.url}
+                    target="_blank"
+                    rel="noopener"
+                    title={p.l}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                  >
+                    <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="13" height="13" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+                  </a>
+                )
+              })}
+              {website && (() => {
+                let domain = ''
+                try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
+                return (
+                  <a
+                    href={website}
+                    target="_blank"
+                    rel="noopener"
+                    title="Oficiali svetainė"
+                    className="flex h-8 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                    <span className="font-['Outfit',sans-serif] text-[12px] font-bold tracking-tight">{domain}</span>
+                  </a>
+                )
+              })()}
+            </div>
+          )}
         </div>
       )}
     </aside>
@@ -3323,31 +3277,34 @@ function MemberModalCard({ m }: { m: Member }) {
 }
 
 function MemberOfInline({ groups }: { groups: Member[] }) {
+  // 2026-05-20 redesign: ta pati horizontalia scroll struktūra kaip
+  // MembersInline (foto card'ai + metai + esami/buvę atskirti). Anksciau
+  // buvo paprasti pill'ai („Narys grupėse: Queen") — neatitiko grupių UI
+  // simetrijos.
   if (!groups.length) return null
+  const current = groups.filter(g => g.is_current !== false)
+  const former  = groups.filter(g => g.is_current === false)
+  const hasBoth = current.length > 0 && former.length > 0
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      <span className="mr-1 inline-flex items-center font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-        Narys grupėse
-      </span>
-      {groups.map(g => (
-        <Link
-          key={g.id}
-          href={`/atlikejai/${g.slug}`}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] py-1 pl-1 pr-3 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-        >
-          {g.cover_image_url ? (
-            <img src={proxyImg(g.cover_image_url)} alt={g.name} className="h-7 w-7 shrink-0 rounded-full object-cover" />
-          ) : (
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[11px] font-black text-[var(--text-faint)]">
-              {g.name[0]}
-            </div>
-          )}
-          <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{g.name}</span>
-          {g.member_from && (
-            <span className="text-[11px] font-semibold text-[var(--text-muted)]">{g.member_from}–{g.member_until || 'dabar'}</span>
-          )}
-        </Link>
-      ))}
+    <div className="mt-5">
+      <div className="mb-2 flex items-baseline justify-between">
+        <div className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+          Grupės
+        </div>
+      </div>
+      <div
+        className="-mx-4 flex items-stretch gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{
+          scrollSnapType: 'x mandatory',
+          scrollPaddingLeft: '1rem',
+          overscrollBehaviorX: 'contain',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
+        {current.map(g => <MemberCard key={g.id} m={g} variant="prominent" />)}
+        {hasBoth && <MemberSeparator />}
+        {former.map(g => <MemberCard key={g.id} m={g} variant="compact" />)}
+      </div>
     </div>
   )
 }
@@ -5799,6 +5756,25 @@ export default function ArtistProfileClient({
                           plati erdvė, todėl rodom tą patį limit'ą. */}
                       <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={420} />
                     </>
+                  )}
+                  {/* Sritys (solo atlikėjo occupation+instrument) — perkelta čia
+                      iš SideInfo kortelės (2026-05-20). Logiškai groups'iuosi
+                      su bio: tai apie atlikėją kaip žmogų. Rodoma virš grupių
+                      sąrašo. */}
+                  {solo && displayRoles.length > 0 && (
+                    <div className="mt-5">
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                        Veiklos sritys
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {displayRoles.map(r => (
+                          <span
+                            key={r}
+                            className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-secondary)]"
+                          >{r}</span>
+                        ))}
+                      </div>
+                    </div>
                   )}
                   {!solo && members.length > 0 && <MembersInline members={members} />}
                   {/* MemberOfInline rodom TIK solo atlikėjams. Grupė negali būti

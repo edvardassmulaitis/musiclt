@@ -806,33 +806,58 @@ async function getArtistRanks(
   // atlikėją be jokio scrape'o, kuris natūraliai iškrenta iš pool'o.
   // Rank'inam tarp peerių su score > 0.
 
-  // Country rank
+  // Country rank — count() head requests (vietoj full list su 1000-row cap).
+  // Anksčiau .select('id, score') grąžindavo max 1000 įrašų, todėl populiariems
+  // žanrams (Roko muzika ~3000+ atlikėjų) visi rodydavosi kaip #1 — buvo
+  // matomi tik pirmi 1000.
   if (country) {
-    const { data: peers } = await sb
-      .from('artists')
-      .select('id, score')
-      .eq('country', country)
-      .gt('score', 0)
-    const peerScores = (peers || []) as { id: number; score: number }[]
-    const others = peerScores.filter(p => p.id !== artistId)
-    const higher = others.filter(p => (p.score || 0) > artistScore).length
-    out.push({ category: country, rank: higher + 1, total: others.length + 1, scope: 'country' })
+    const [{ count: totalCnt }, { count: aboveCnt }] = await Promise.all([
+      sb.from('artists').select('id', { count: 'exact', head: true }).eq('country', country).gt('score', 0),
+      sb.from('artists').select('id', { count: 'exact', head: true }).eq('country', country).gt('score', artistScore),
+    ])
+    const total = totalCnt || 1
+    out.push({ category: country, rank: (aboveCnt || 0) + 1, total, scope: 'country' })
   }
 
-  // Genre rank (top genre only)
+  // Genre rank (top genre only) — taip pat count() head approach.
+  // Pirma surenkam artist_id'us tame žanre (paginated, kad netruktų prie
+  // 1000 cap'o), tada count'u žiūrim kiek tų atlikėjų turi didesnį score.
   if (genres.length > 0) {
     const g = genres[0]
-    const { data: gpeers } = await sb
-      .from('artist_genres')
-      .select('artist_id, artists:artist_id(id, score)')
-      .eq('genre_id', g.id)
-    const peerScores = (gpeers || [])
-      .map((r: any) => r.artists)
-      .filter(Boolean)
-      .filter((a: any) => (a.score || 0) > 0) as { id: number; score: number }[]
-    const others = peerScores.filter(p => p.id !== artistId)
-    const higher = others.filter(p => (p.score || 0) > artistScore).length
-    out.push({ category: g.name, rank: higher + 1, total: others.length + 1, scope: 'genre' })
+    const PAGE = 1000
+    const genreArtistIds: number[] = []
+    let offset = 0
+    while (true) {
+      const { data: gp } = await sb
+        .from('artist_genres')
+        .select('artist_id')
+        .eq('genre_id', g.id)
+        .range(offset, offset + PAGE - 1)
+      const arr = (gp || []) as { artist_id: number }[]
+      for (const r of arr) if (r.artist_id) genreArtistIds.push(r.artist_id)
+      if (arr.length < PAGE) break
+      offset += PAGE
+      if (offset > 50000) break  // safety
+    }
+    if (genreArtistIds.length === 0) {
+      out.push({ category: g.name, rank: 1, total: 1, scope: 'genre' })
+    } else {
+      // Count tarp tų artist_id su score > 0 (total) ir score > mūsų (above).
+      // .in() max ~1000 IDs per query — chunk'inam jei reikia.
+      let totalCnt = 0
+      let aboveCnt = 0
+      for (let i = 0; i < genreArtistIds.length; i += 500) {
+        const chunk = genreArtistIds.slice(i, i + 500)
+        const [{ count: t }, { count: a }] = await Promise.all([
+          sb.from('artists').select('id', { count: 'exact', head: true }).in('id', chunk).gt('score', 0),
+          sb.from('artists').select('id', { count: 'exact', head: true }).in('id', chunk).gt('score', artistScore),
+        ])
+        totalCnt += t || 0
+        aboveCnt += a || 0
+      }
+      const total = totalCnt || 1
+      out.push({ category: g.name, rank: aboveCnt + 1, total, scope: 'genre' })
+    }
   }
 
   // Global rank — visiems atlikėjams (ne tik top 50). Naudojam count() head
