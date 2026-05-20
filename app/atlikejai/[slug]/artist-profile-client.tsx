@@ -2250,56 +2250,59 @@ function Hero({
                 )}
               </div>
             )}
-            <div className="flex flex-wrap items-center gap-2">
-              {flag && artist.country && (
-                <button
-                  type="button"
-                  onClick={() => onOpenTopArtists?.({ country: artist.country })}
-                  title={`Top atlikėjai: ${artist.country}`}
-                  aria-label={`Šalis: ${artist.country}. Atidaryti top sąrašą.`}
-                  className="inline-flex items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1.5 text-[20px] leading-none transition-all hover:scale-110 hover:border-[var(--accent-orange)] lg:border-white/20 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20"
-                >
-                  <span aria-hidden>{flag}</span>
-                </button>
-              )}
-              {genres[0] && (
-                <button
-                  type="button"
-                  onClick={() => onOpenTopArtists?.({ genre: genres[0].name })}
-                  title={`Top atlikėjai: ${genres[0].name}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] py-1.5 pl-3 pr-3.5 font-['Outfit',sans-serif] text-[13px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)] lg:bg-[rgba(249,115,22,0.18)] lg:backdrop-blur-md lg:hover:bg-[rgba(249,115,22,0.28)]"
-                >
-                  {primaryRank && primaryRank.rank > 0 && (
-                    <span
-                      className="inline-flex items-center rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-black tabular-nums text-white"
-                      title={`#${primaryRank.rank} iš ${primaryRank.total} žanre „${genres[0].name}"`}
-                    >
-                      #{primaryRank.rank}
-                    </span>
-                  )}
-                  <span>{genres[0].name}</span>
-                </button>
-              )}
-            </div>
-            {substyles.length > 0 && (
+            {/* Flag + main genre + substyles vienoje eilutėje. Po stiliaus
+                hierarchijos pasikeitimo (main = orange-tinted bg, substyles =
+                outline-only) vizualinis skirtumas pakankamas — viskas telpa
+                kartu. Mobile: horizontal scroll (-mx-4 padding bleed,
+                flex-nowrap, scrollbar paslėptas); sm+: flex-wrap.
+                Žanro elementai shrink-0 — kad neperpjautų teksto, lieka
+                pilno pločio (scroll'ina visa eilute). */}
+            {(flag && artist.country) || genres[0] || substyles.length > 0 ? (
               <div
                 className="-mx-4 flex flex-nowrap items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:px-0 lg:-mx-10 lg:px-10"
-                role="list"
-                aria-label="Papildomi stiliai"
               >
+                {flag && artist.country && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenTopArtists?.({ country: artist.country })}
+                    title={`Top atlikėjai: ${artist.country}`}
+                    aria-label={`Šalis: ${artist.country}. Atidaryti top sąrašą.`}
+                    className="inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1.5 text-[20px] leading-none transition-all hover:scale-110 hover:border-[var(--accent-orange)] lg:border-white/20 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20"
+                  >
+                    <span aria-hidden>{flag}</span>
+                  </button>
+                )}
+                {genres[0] && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenTopArtists?.({ genre: genres[0].name })}
+                    title={`Top atlikėjai: ${genres[0].name}`}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] py-1.5 pl-3 pr-3.5 font-['Outfit',sans-serif] text-[13px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)] lg:bg-[rgba(249,115,22,0.18)] lg:backdrop-blur-md lg:hover:bg-[rgba(249,115,22,0.28)]"
+                  >
+                    {primaryRank && primaryRank.rank > 0 && (
+                      <span
+                        className="inline-flex items-center rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-black tabular-nums text-white"
+                        title={`#${primaryRank.rank} iš ${primaryRank.total} žanre „${genres[0].name}"`}
+                      >
+                        #{primaryRank.rank}
+                      </span>
+                    )}
+                    <span>{genres[0].name}</span>
+                  </button>
+                )}
                 {substyles.map(s => (
                   <button
                     type="button"
                     key={s.name}
                     onClick={() => onOpenTopArtists?.({ genre: s.name })}
                     title={`Top atlikėjai: ${s.name}`}
-                    className="inline-flex shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-transparent px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--text-muted)] hover:text-[var(--text-primary)] sm:shrink lg:border-white/15 lg:text-white/65 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/10 lg:hover:text-white/95"
+                    className="inline-flex shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-transparent px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--text-muted)] hover:text-[var(--text-primary)] lg:border-white/15 lg:text-white/65 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/10 lg:hover:text-white/95"
                   >
                     {s.name}
                   </button>
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
