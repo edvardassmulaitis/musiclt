@@ -2560,6 +2560,64 @@ function TopArtistsModal({
   )
 }
 
+// ── ShareButton: dalinimosi mygtukas šalia Sekti ────────────────────
+//
+// Native Web Share API kai palaiko (mobile), kitur — clipboard copy +
+// trumpalaikis „Nukopijuota" feedback. Stilius derintas su FollowPill,
+// kad SideInfo „Sekti + Dalintis" row atrodytų kaip vienetinis CTA blokas.
+function ShareButton({ url, title }: { url: string; title: string }) {
+  const [copied, setCopied] = useState(false)
+  const onShare = async () => {
+    if (!url) return
+    // Web Share API — mobile naršyklėse atidaro native share sheet
+    if (typeof navigator !== 'undefined' && (navigator as any).share) {
+      try {
+        await (navigator as any).share({ url, title: `${title} — music.lt` })
+        return
+      } catch {
+        // user cancel — fall through to clipboard
+      }
+    }
+    // Fallback — clipboard copy + 1.5s „Nukopijuota" toast'as
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // nieko nedarom — silent fail
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={onShare}
+      title="Dalintis atlikėju"
+      aria-label="Dalintis"
+      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3.5 py-2 text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)]"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-[16px] w-[16px] text-[var(--accent-orange)]"
+        aria-hidden
+      >
+        <circle cx="18" cy="5" r="3" />
+        <circle cx="6" cy="12" r="3" />
+        <circle cx="18" cy="19" r="3" />
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+      </svg>
+      <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold tracking-tight">
+        {copied ? 'Nukopijuota!' : 'Dalintis'}
+      </span>
+    </button>
+  )
+}
+
 // ── FollowPill: „Sekti" mygtukas ────────────────────────────────────
 //
 // Po 2026-05-20 redesign'o buvęs LikePill (Hero zonoje) perkeltas į
@@ -2728,7 +2786,7 @@ function BioFactsInline({ artist }: { artist: any }) {
     <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-2">
       {showActive && (
         <div className="flex items-baseline gap-2">
-          <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</span>
+          <span className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Veikla</span>
           <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{yearsActiveRange}</span>
           {yearsActiveTail && (
             <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({yearsActiveTail})</span>
@@ -2737,7 +2795,7 @@ function BioFactsInline({ artist }: { artist: any }) {
       )}
       {birthLine && (
         <div className="flex items-baseline gap-2">
-          <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</span>
+          <span className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">{birthLine.label}</span>
           <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{birthLine.main}</span>
           {birthLine.tail && (
             <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({birthLine.tail})</span>
@@ -2765,7 +2823,7 @@ function BioFactsInline({ artist }: { artist: any }) {
 // ── SideInfo: card beside bio with Kilmė / Stilius / Klausyk ───────
 
 function SideInfo({
-  artist: _artist, flag: _flag, genres: _genres, substyles: _substyles, ranks: _ranks,
+  artist, flag: _flag, genres: _genres, substyles: _substyles, ranks: _ranks,
   links, website, horizontal = false, displayRoles: _displayRoles = [],
   followControls,
 }: {
@@ -2839,11 +2897,10 @@ function SideInfo({
                   href={website}
                   target="_blank"
                   rel="noopener"
-                  title="Oficiali svetainė"
-                  className="flex h-10 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                  title={`Oficiali svetainė — ${domain}`}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-                  <span className="max-w-[200px] truncate font-['Outfit',sans-serif] text-[12.5px] font-bold tracking-tight sm:max-w-none">{domain}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
                 </a>
               )
             })()}
@@ -2852,7 +2909,10 @@ function SideInfo({
         {followControls && (
           <>
             {hasSocials && <div className="w-full border-t border-[var(--border-subtle)]" />}
-            <FollowPill {...followControls} />
+            <div className="flex flex-wrap items-center gap-2">
+              <FollowPill {...followControls} />
+              <ShareButton url={typeof window !== 'undefined' ? window.location.href : ''} title={artist.name} />
+            </div>
           </>
         )}
       </div>
@@ -2889,9 +2949,9 @@ function SideInfo({
 
   return (
     <aside className="flex h-fit flex-col items-start gap-3 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-      {/* Socials + website — pirmiausia (sekundara informacija, kad
-          „Sekti" CTA dominuotų apačioje). Items-center + flex-wrap leidžia
-          gracefully wrap'tis su 1-8 platformų. */}
+      {/* Socials icons row — visi į vieną eilutę, įskaitant oficialios
+          svetainės globe ikoną gale (po 2026-05-21 v3: domeno tekstas
+          dingsta, kad viskas tilptų į vieną liniją net su 8 platformomis). */}
       {hasSocials && (
         <div className="flex flex-wrap items-center gap-1.5">
           {links.filter(l => SOC[l.platform]).map(l => {
@@ -2917,23 +2977,25 @@ function SideInfo({
                 href={website}
                 target="_blank"
                 rel="noopener"
-                title="Oficiali svetainė"
-                className="flex h-8 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                title={`Oficiali svetainė — ${domain}`}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-                <span className="font-['Outfit',sans-serif] text-[12px] font-bold tracking-tight">{domain}</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
               </a>
             )
           })()}
         </div>
       )}
 
-      {/* Music.lt „Sekti" CTA — primary action card'o apačioje. Divider
+      {/* Sekti + Share row — primary action card'o apačioje. Divider
           tik kai virš jo yra socials block'as. */}
       {followControls && (
         <>
           {hasSocials && <div className="w-full border-t border-[var(--border-subtle)]" />}
-          <FollowPill {...followControls} />
+          <div className="flex flex-wrap items-center gap-2">
+            <FollowPill {...followControls} />
+            <ShareButton url={typeof window !== 'undefined' ? window.location.href : ''} title={artist.name} />
+          </div>
         </>
       )}
     </aside>
@@ -3057,12 +3119,12 @@ function MembersInline({ members }: { members: Member[] }) {
               type="button"
               onClick={() => setModalOpen(true)}
               style={{ scrollSnapAlign: 'start' }}
-              className="flex w-[100px] shrink-0 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-default)] bg-transparent p-3 text-[var(--text-muted)] transition-all hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+              className="flex shrink-0 items-center gap-2.5 rounded-xl border border-dashed border-[var(--border-default)] bg-transparent p-2.5 text-[var(--text-muted)] transition-all hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current font-['Outfit',sans-serif] text-[14px] font-black">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-current font-['Outfit',sans-serif] text-[13px] font-black">
                 {total}
               </span>
-              <span className="mt-2 font-['Outfit',sans-serif] text-[11px] font-bold leading-tight">Visi nariai</span>
+              <span className="font-['Outfit',sans-serif] text-[12px] font-bold leading-tight">Visi nariai</span>
             </button>
           )}
         </div>
@@ -3079,13 +3141,18 @@ function MembersInline({ members }: { members: Member[] }) {
 }
 
 function MemberCard({ m, variant }: { m: Member; variant: 'prominent' | 'compact' }) {
+  // 2026-05-21 v3: horizontal-compact layout (photo kairėje, vardas+metai
+  // dešinėje). Anksciau buvo vertikalus stack su w-[120px] kortele ir
+  // dideliais 56px foto — užimdavo per daug aukščio. Dabar `min-w-[170px]`
+  // (prominent) / `min-w-[150px]` (compact), aukštis ~60px, į šonus
+  // ekstensyvesnis. Tinka horizontal scroll-snap'ui.
   const isProm = variant === 'prominent'
   return (
     <Link
       href={`/atlikejai/${m.slug}`}
       style={{ scrollSnapAlign: 'start' }}
-      className={`group flex shrink-0 flex-col items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)] ${
-        isProm ? 'w-[120px] p-3' : 'w-[96px] p-2.5'
+      className={`group flex shrink-0 items-center gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] no-underline transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] ${
+        isProm ? 'min-w-[170px] p-2.5' : 'min-w-[150px] p-2 opacity-90'
       }`}
     >
       {m.cover_image_url ? (
@@ -3094,28 +3161,30 @@ function MemberCard({ m, variant }: { m: Member; variant: 'prominent' | 'compact
           src={proxyImg(m.cover_image_url)}
           alt={m.name}
           className={`shrink-0 rounded-full object-cover transition-transform group-hover:scale-105 ${
-            isProm ? 'h-14 w-14' : 'h-10 w-10'
+            isProm ? 'h-11 w-11' : 'h-9 w-9'
           }`}
         />
       ) : (
         <div className={`flex shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] font-black text-[var(--text-faint)] ${
-          isProm ? 'h-14 w-14 text-[18px]' : 'h-10 w-10 text-[14px]'
+          isProm ? 'h-11 w-11 text-[15px]' : 'h-9 w-9 text-[13px]'
         }`}>
           {m.name[0]}
         </div>
       )}
-      <span className={`mt-2 line-clamp-2 text-center font-['Outfit',sans-serif] font-bold leading-tight text-[var(--text-primary)] ${
-        isProm ? 'text-[12px]' : 'text-[11px]'
-      }`}>
-        {m.name}
-      </span>
-      {m.member_from && (
-        <span className={`mt-0.5 tabular-nums font-semibold text-[var(--text-muted)] ${
-          isProm ? 'text-[10px]' : 'text-[9px]'
+      <div className="min-w-0 flex-1">
+        <div className={`truncate font-['Outfit',sans-serif] font-bold leading-tight text-[var(--text-primary)] ${
+          isProm ? 'text-[13px]' : 'text-[12px]'
         }`}>
-          {m.member_from}–{m.member_until || 'dabar'}
-        </span>
-      )}
+          {m.name}
+        </div>
+        {m.member_from && (
+          <div className={`mt-0.5 truncate tabular-nums font-semibold text-[var(--text-muted)] ${
+            isProm ? 'text-[10.5px]' : 'text-[10px]'
+          }`}>
+            {m.member_from}–{m.member_until || 'dabar'}
+          </div>
+        )}
+      </div>
     </Link>
   )
 }
