@@ -38,6 +38,11 @@ import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
 import { enrichTrack, type EnrichResult } from '@/lib/yt-enrich'
 
+// 2026-05-20: Pro plan'as palaiko iki 800s function timeout. Anksciau 300s
+// default'as nepakakdavo RHCP/Mamontovas (~300 tracks po ~1-2s = 300-600s).
+// Client'as ima ~600s, palieka 200s buffer.
+export const maxDuration = 800
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -72,6 +77,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const refreshViews = body?.refreshViews !== false // default true
   const refreshAfterDays = Number(body?.refreshAfterDays) || 30
   const limit = Number(body?.limit) || 0
+  // 2026-05-20: pridėtas `offset` palaikymas — leidžia client'ui chunk'inti
+  // didelius atlikėjus (RHCP 300 tracks → 3x chunk'ai po 100). Be offset'o
+  // limit'as paimdavo TIK pirmus N pagal id — kiti tracks niekada nebuvo
+  // apdoroti.
+  const offset = Math.max(0, Number(body?.offset) || 0)
 
   // Paimam visus artist'o trackus su minimaliu select'u — sprendžiam, ką
   // reikia processint (force / žymėjimo flag'ai), o pati enrichTrack
@@ -82,7 +92,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .eq('artist_id', artistId)
     .order('id', { ascending: true })
 
-  if (limit > 0) q = q.limit(limit)
+  if (limit > 0) {
+    q = q.range(offset, offset + limit - 1)
+  } else if (offset > 0) {
+    q = q.range(offset, offset + 9999)
+  }
 
   const { data: trackRows, error: tErr } = await q
   if (tErr) return NextResponse.json({ error: tErr.message }, { status: 500 })
