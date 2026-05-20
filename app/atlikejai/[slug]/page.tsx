@@ -868,6 +868,42 @@ async function getArtistRanks(
  *  „#1", visi kiti atrodo „nereikšmingi". PopBar yra qualitative signal
  *  („populiarus", „vidutiniškas") — naujam atlikėjui su gerais YT views
  *  jau pakanka 2-3 dot'ų. */
+/** Recent activity PopBar — atskira metrika nuo cumulative score'o.
+ *  Skaičiuoja `likes` per pastarąsias 30 dienų (entity_type='artist').
+ *  Naudoja fixed thresholds vs percentile — pigiau (1 count query) ir
+ *  geriau scale'inasi 12k atlikėjų. Slenksčiai parinkti tinkami music.lt
+ *  vartotojų bazei (LT ~6k MAU). Vėliau, jei reikės, galim perdaryti į
+ *  proper percentile per RPC.
+ *
+ *  Thresholds:
+ *    0      → 0 (bar'as nerodomas)
+ *    1-2    → 1 (tik registracija „dar gyvas")
+ *    3-9    → 2
+ *    10-29  → 3
+ *    30-99  → 4
+ *    100+   → 5 (viral momentas / nauja release wave)
+ *
+ *  Vizualas: žalias bar'as (kitokia spalva nei pagrindinis oranžinis
+ *  score-based bar'as), kad būtų aišku, jog tai TRENDING signal'as, ne
+ *  cumulative. */
+async function getRecentPopBarLevel(artistId: number): Promise<number> {
+  const sb = createAdminClient()
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const { count } = await sb
+    .from('likes')
+    .select('id', { count: 'exact', head: true })
+    .eq('entity_type', 'artist')
+    .eq('entity_id', artistId)
+    .gte('created_at', since)
+  const n = count || 0
+  if (n >= 100) return 5
+  if (n >= 30) return 4
+  if (n >= 10) return 3
+  if (n >= 3) return 2
+  if (n >= 1) return 1
+  return 0
+}
+
 async function getScorePopBarLevel(artistScore: number): Promise<number> {
   if (!artistScore || artistScore <= 0) return 0
   const sb = createAdminClient()
@@ -1043,23 +1079,24 @@ const fetchArtistData = unstable_cache(
       ...(legacyThreads as any[]).map((t) => t.legacy_id),
       ...(legacyNews as any[]).map((t) => t.legacy_id),
     ]
-    const [similar, legacyCommunity, ranks, lastPosts, popBarLevel] = await Promise.all([
+    const [similar, legacyCommunity, ranks, lastPosts, popBarLevel, recentPopBarLevel] = await Promise.all([
       getSimilar(artistId, genres.map((g: any) => g.id)),
       getLegacyCommunity(artistId, albumIds, allTrackIds),
       getArtistRanks(artistId, country, genres as { id: number; name: string }[], score),
       getLastPostsByThread(allThreadIds, 2),
       getScorePopBarLevel(score),
+      getRecentPopBarLevel(artistId),
     ])
     // Convert Map<number, PostInfo[]> to array for serialization
     const lastPostsArr = Array.from(lastPosts.entries()).map(([k, v]) => [k, v] as [number, typeof v])
     return {
       genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount,
       news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards, eras,
-      similar, legacyCommunity, ranks, lastPostsArr, displayRoles, popBarLevel,
+      similar, legacyCommunity, ranks, lastPostsArr, displayRoles, popBarLevel, recentPopBarLevel,
     }
   },
-  // v7 — bumped po popBarLevel pridėjimo
-  ['artist-full-data-v7'],
+  // v8 — bumped po recentPopBarLevel pridėjimo
+  ['artist-full-data-v8'],
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
@@ -1073,7 +1110,7 @@ async function ArtistContent({ artist }: { artist: any }) {
   const {
     genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount,
     news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards, eras,
-    similar, legacyCommunity, ranks, lastPostsArr, displayRoles, popBarLevel,
+    similar, legacyCommunity, ranks, lastPostsArr, displayRoles, popBarLevel, recentPopBarLevel,
   } = data
   const memberOf = (data as any).memberOf || []
   const links = buildSocialLinks(artist, tableLinks as { platform: string; url: string }[])
@@ -1201,6 +1238,7 @@ async function ArtistContent({ artist }: { artist: any }) {
       eras={eras as any}
       displayRoles={displayRoles}
       popBarLevel={popBarLevel}
+      recentPopBarLevel={recentPopBarLevel}
     />
     </>
   )
