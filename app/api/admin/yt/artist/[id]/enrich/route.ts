@@ -38,10 +38,14 @@ import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
 import { enrichTrack, type EnrichResult } from '@/lib/yt-enrich'
 
-// 2026-05-20: Pro plan'as palaiko iki 800s function timeout. Anksciau 300s
-// default'as nepakakdavo RHCP/Mamontovas (~300 tracks po ~1-2s = 300-600s).
-// Client'as ima ~600s, palieka 200s buffer.
-export const maxDuration = 800
+// 2026-05-20: Pro plan'o default max yra 300s — 800s atmestas build'e
+// ("Function maxDuration exceeded plan limit"), todėl 800s reikšmė užblokavo
+// visus deploy'us (cb5d4ec → all subsequent). Grąžinam į 300s — Vercel Pro
+// standard max. Didesniems batch'ams (RHCP/Mamontovas su ~300 tracks)
+// reikės arba chunking'o ant client'o pusės (offset parametro — tas jau
+// pridėtas tam pačiame commit'e), arba Fluid Compute migracijos, kuri
+// palaiko iki 800s.
+export const maxDuration = 300
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
