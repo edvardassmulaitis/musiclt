@@ -36,14 +36,23 @@ export async function getProfileFavoriteStyles(profileId: string) {
 }
 
 // ── FRIENDS LIST (user_friendships) ──────────────────────────
+// SUPABASE — du FK į profiles (profile_id + friend_id), todėl reikia
+// explicit FK hint per !user_friendships_friend_id_fkey arba dvi užklausos.
+// Pasirinkom dvi užklausas — paprastesnis schema invarianto požiūriu.
 export async function getProfileFriends(profileId: string, limit = 30) {
   const sb = createAdminClient()
-  const { data } = await sb
+  const { data: links } = await sb
     .from('user_friendships')
-    .select('friend_id, friend:friend_id(id, username, full_name, avatar_url, is_vip_legacy)')
+    .select('friend_id')
     .eq('profile_id', profileId)
     .limit(limit)
-  return (data || []).map((r: any) => r.friend).filter(Boolean)
+  const friendIds = (links || []).map((r: any) => r.friend_id).filter(Boolean)
+  if (!friendIds.length) return []
+  const { data: profiles } = await sb
+    .from('profiles')
+    .select('id, username, full_name, avatar_url, is_vip_legacy')
+    .in('id', friendIds)
+  return (profiles || []) as any[]
 }
 
 // ── DAILY SONG PICKS ─────────────────────────────────────────
