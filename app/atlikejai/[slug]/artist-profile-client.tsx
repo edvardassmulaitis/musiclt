@@ -1350,13 +1350,13 @@ function Equalizer() {
  *    'sm' (default) — h-[3px] w-[14px] dashes — track/album cards
  *    'lg'           — h-[6px] w-[32px] dashes — artist hero (po pavadinimu)
  *                     prominence, kad vartotojas iš karto matytų signal'ą. */
-function PopBar({ level, size = 'sm', color = 'orange' }: { level: number; size?: 'sm' | 'lg'; color?: 'orange' | 'green' }) {
+function PopBar({ level, size = 'sm', color = 'orange' }: { level: number; size?: 'sm' | 'lg'; color?: 'orange' | 'blue' }) {
   const total = 5
   const isLg = size === 'lg'
-  // Recent activity bar — žalia spalva, kad atskirtų nuo cumulative score
-  // (orange). Naudojam Tailwind emerald-500 (#10b981) — geras kontrastas
-  // ant dark + light theme'ų.
-  const filledBg = color === 'green' ? 'bg-[#10b981]' : 'bg-[var(--accent-orange)]'
+  // Recent activity bar — mėlyna spalva (#3b82f6, ta pati kaip verified
+  // badge), kad atskirtų nuo cumulative score (orange). Ant dark + light
+  // theme'ų matosi vienodai gerai.
+  const filledBg = color === 'blue' ? 'bg-[#3b82f6]' : 'bg-[var(--accent-orange)]'
   return (
     <div className={isLg ? 'flex gap-[4px]' : 'mt-1 flex gap-[3px]'} aria-hidden>
       {Array.from({ length: total }).map((_, i) => {
@@ -2012,9 +2012,10 @@ function Hero({
   /** Ranks — naudojam #X chip'ą šalia main genre. LT → country rank,
    *  non-LT → global rank. */
   ranks?: Rank[]
-  /** Atidaro TopArtistsModal su filtru — country/genre/substyle ARBA empty
-   *  object {} = global top (visi atlikėjai sort by score). */
-  onOpenTopArtists?: (filter: { country?: string; genre?: string; global?: boolean }) => void
+  /** Atidaro TopArtistsModal su filtru — country/genre/substyle ARBA
+   *  empty object {} su global=true (visi atlikėjai sort by score), ARBA
+   *  recent=true (visi atlikėjai sort by 30d like count). */
+  onOpenTopArtists?: (filter: { country?: string; genre?: string; global?: boolean; recent?: boolean }) => void
 }) {
   const flag = artist.country ? (FLAGS[artist.country] || '') : ''
   // Rank logic: LT artist → country rank; ne LT → global rank.
@@ -2202,13 +2203,15 @@ function Hero({
                 </button>
               )}
               {recentPopBarLevel > 0 && (
-                <div
-                  className="inline-flex w-fit items-center gap-2 rounded-full border border-[#10b981]/40 bg-[#10b981]/10 px-3 py-1.5 lg:border-[#10b981]/40 lg:bg-[#10b981]/15 lg:backdrop-blur-md"
-                  title="30 dienų populiarumas — kiek vartotojų neseniai pamilo atlikėją"
+                <button
+                  type="button"
+                  onClick={() => onOpenTopArtists?.({ recent: true })}
+                  title="Top atlikėjai pagal 30 dienų populiarumą"
+                  aria-label="Atidaryti recent top atlikėjų sąrašą"
+                  className="inline-flex w-fit items-center rounded-full border border-[#3b82f6]/40 bg-[#3b82f6]/10 px-3 py-1.5 transition-all hover:scale-[1.03] hover:border-[#3b82f6]/70 hover:bg-[#3b82f6]/20 lg:border-[#3b82f6]/40 lg:bg-[#3b82f6]/15 lg:backdrop-blur-md"
                 >
-                  <PopBar level={recentPopBarLevel} size="lg" color="green" />
-                  <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#10b981]">30d</span>
-                </div>
+                  <PopBar level={recentPopBarLevel} size="lg" color="blue" />
+                </button>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -2375,7 +2378,7 @@ type TopArtistItem = {
 function TopArtistsModal({
   filter, currentArtistId, currentArtistName, onClose,
 }: {
-  filter: { country?: string; genre?: string; global?: boolean }
+  filter: { country?: string; genre?: string; global?: boolean; recent?: boolean }
   /** Šio atlikėjo ID — naudojamas highlight'inti jo eilutę ir parodyti
    *  poziciją header'yje („Tavo vieta — #N"). */
   currentArtistId?: number
@@ -2386,7 +2389,9 @@ function TopArtistsModal({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [myRank, setMyRank] = useState<{ rank: number; total: number } | null>(null)
-  const title = filter.country
+  const title = filter.recent
+    ? '🔥 Top atlikėjai (30 dienų)'
+    : filter.country
     ? `${FLAGS[filter.country] || '🌍'} ${filter.country} — top atlikėjai`
     : filter.genre
     ? `${filter.genre} — top atlikėjai`
@@ -2398,6 +2403,7 @@ function TopArtistsModal({
     const params = new URLSearchParams()
     if (filter.country) params.set('country', filter.country)
     if (filter.genre) params.set('genre', filter.genre)
+    if (filter.recent) params.set('sort', 'recent')
     params.set('limit', '20')
     if (currentArtistId) params.set('includeRankFor', String(currentArtistId))
     fetch(`/api/artists/top?${params.toString()}`)
@@ -2415,7 +2421,7 @@ function TopArtistsModal({
         setLoading(false)
       })
     return () => { abort = true }
-  }, [filter.country, filter.genre, filter.global, currentArtistId])
+  }, [filter.country, filter.genre, filter.global, filter.recent, currentArtistId])
 
   // Esc + outside-click uždaro
   useEffect(() => {
@@ -4868,7 +4874,7 @@ export default function ArtistProfileClient({
   // TopArtistsModal — atidaromas paspaudus šalies vėliavą/žanro chip'ą Hero
   // zonoje. Modal'as rodo top N atlikėjų pagal score filter'iui (country
   // arba genre). null reiškia closed.
-  const [topArtistsFilter, setTopArtistsFilter] = useState<{ country?: string; genre?: string } | null>(null)
+  const [topArtistsFilter, setTopArtistsFilter] = useState<{ country?: string; genre?: string; global?: boolean; recent?: boolean } | null>(null)
   const [bioModalOpen, setBioModalOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   // Mobile'e modal'as turi savo inline iframe'ą — kai jis aktyvus, hero
