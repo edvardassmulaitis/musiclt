@@ -41,12 +41,14 @@ async function requireAdmin() {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const id = parseInt(params.id, 10)
+  // Next.js 15: params yra Promise (žr. kitus /admin/news-candidates/[id] endpoint'us)
+  const { id: idParam } = await params
+  const id = parseInt(idParam, 10)
   if (!id) return NextResponse.json({ error: 'Bad id' }, { status: 400 })
 
   const supabase = createAdminClient()
