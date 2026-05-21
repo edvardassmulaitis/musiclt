@@ -638,11 +638,49 @@ export async function calculateArtistScore(
   // Get artist basic info
   const { data: artist } = await supabase
     .from('artists')
-    .select('country, active_from, active_until, score_override')
+    .select('country, active_from, active_until, score_override, source')
     .eq('id', artistId)
     .single()
 
   const isLT = !artist?.country || artist.country === 'Lietuva'
+
+  // ── Wiki-factor gating (2026-05-21 v2 — GLOBAL flag) ───────────
+  // Wiki-dependent komponentai (INT: chart 30, commercial 20, awards 15;
+  // LT: awards 20) GLOBALLY atjungti, kol Wiki overlay neaplikuotas
+  // didžiajai daliai TOP INT atlikėjų. Edvardo intent (2026-05-21):
+  // "kol neturime info visiems top atlikėjams apie Wiki, neapsunkinti
+  // formulės — web'e topuose/rankings'uose remtis tik music.lt + YT views,
+  // kad visi vertinasi pagal tą patį info".
+  //
+  // Įjungimas: set SCORING_USE_WIKI_FACTORS=true Vercel env (ar .env.local
+  // lokaliai), kai Wiki overlay pritaikytas >50% TOP INT atlikėjų. Tada
+  // formulė automatiškai pradės pridurti chart+commercial+awards iš Wiki.
+  //
+  // Per-artist Wiki detection (kai global flag true): artists.source
+  // LIKE '%wiki%' ARBA bent vienas wiki-sourced track/album. Mirror'ina
+  // v_artist_migration_status.wiki_done logiką.
+  const wikiFactorsGloballyEnabled = process.env.SCORING_USE_WIKI_FACTORS === 'true'
+  let wikiDone = false
+  if (wikiFactorsGloballyEnabled) {
+    const sourceHasWiki = (artist?.source || '').toLowerCase().includes('wiki')
+    wikiDone = sourceHasWiki
+    if (!wikiDone) {
+      const { count: wikiTracks } = await supabase
+        .from('tracks')
+        .select('*', { count: 'exact', head: true })
+        .eq('artist_id', artistId)
+        .ilike('source', '%wiki%')
+      if ((wikiTracks || 0) > 0) wikiDone = true
+    }
+    if (!wikiDone) {
+      const { count: wikiAlbums } = await supabase
+        .from('albums')
+        .select('*', { count: 'exact', head: true })
+        .eq('artist_id', artistId)
+        .ilike('source', '%wiki%')
+      if ((wikiAlbums || 0) > 0) wikiDone = true
+    }
+  }
 
   // Count albums
   const { count: n_albums } = await supabase
@@ -722,18 +760,27 @@ export async function calculateArtistScore(
   // We join 3 levels: participants → events → editions → channels.
   // Filter by metadata.imported_from_award so only Wikipedia-imported entries
   // (not user-voted active competitions) feed into the score.
-  const { data: awardRows } = await supabase
-    .from('voting_participants')
-    .select('metadata, voting_events!inner(voting_editions!inner(voting_channels!inner(name)))')
-    .eq('artist_id', artistId)
-  const awardEntries: { channel_name: string; result: string }[] = []
-  for (const r of (awardRows || []) as any[]) {
-    if (!r.metadata?.imported_from_award) continue
-    const ch = r.voting_events?.voting_editions?.voting_channels
-    if (!ch?.name) continue
-    awardEntries.push({ channel_name: ch.name, result: r.metadata?.result || 'other' })
+  //
+  // 2026-05-21 gating: jei wiki_done=false, awards nuliuojami. Awards
+  // ateina iš Wiki parseAwardsArticle → voting_participants su flag'u
+  // imported_from_award. Jei Wiki overlay neaplikuotas, score'as turi
+  // reflect'inti tik music.lt + YT duomenis, ne "0 awards / per anksti".
+  let awardsAgg = { major_won: 0, major_nominated: 0, major_inducted: 0,
+                    other_won: 0, other_nominated: 0, channels: 0 }
+  if (wikiDone) {
+    const { data: awardRows } = await supabase
+      .from('voting_participants')
+      .select('metadata, voting_events!inner(voting_editions!inner(voting_channels!inner(name)))')
+      .eq('artist_id', artistId)
+    const awardEntries: { channel_name: string; result: string }[] = []
+    for (const r of (awardRows || []) as any[]) {
+      if (!r.metadata?.imported_from_award) continue
+      const ch = r.voting_events?.voting_editions?.voting_channels
+      if (!ch?.name) continue
+      awardEntries.push({ channel_name: ch.name, result: r.metadata?.result || 'other' })
+    }
+    awardsAgg = aggregateAwardsData(awardEntries)
   }
-  const awardsAgg = aggregateAwardsData(awardEntries)
 
   const baseData = {
     n_albums: n_albums || 0,
@@ -752,13 +799,21 @@ export async function calculateArtistScore(
   if (isLT) {
     breakdown = computeLTScore(baseData)
   } else {
-    // INT: also get chart/certification data from albums
-    const { data: albumRows } = await supabase
-      .from('albums')
-      .select('certifications, peak_chart_position')
-      .eq('artist_id', artistId)
-
-    const certData = aggregateCertData(albumRows || [])
+    // INT: chart 30 + commercial 20 ateina iš Wiki albums (certifications,
+    // peak_chart_position). Be Wiki — pass zero cert data, kad chart=0,
+    // commercial=0. Reach + catalog ir toliau veikia iš music.lt scrape'o.
+    let certData = {
+      n_charted_albums: 0, n_top10_albums: 0, n_number1_albums: 0,
+      n_certified_albums: 0, n_platinum_albums: 0, n_diamond_albums: 0,
+      total_cert_points: 0,
+    }
+    if (wikiDone) {
+      const { data: albumRows } = await supabase
+        .from('albums')
+        .select('certifications, peak_chart_position')
+        .eq('artist_id', artistId)
+      certData = aggregateCertData(albumRows || [])
+    }
     breakdown = computeINTScore({ ...baseData, ...certData })
   }
 
