@@ -1350,7 +1350,7 @@ function Equalizer() {
  *    'sm' (default) — h-[3px] w-[14px] dashes — track/album cards
  *    'lg'           — h-[6px] w-[32px] dashes — artist hero (po pavadinimu)
  *                     prominence, kad vartotojas iš karto matytų signal'ą. */
-function PopBar({ level, size = 'sm', color = 'orange', animate = false }: { level: number; size?: 'sm' | 'md' | 'lg'; color?: 'orange' | 'blue'; animate?: boolean }) {
+function PopBar({ level, size = 'sm', color = 'orange' }: { level: number; size?: 'sm' | 'md' | 'lg'; color?: 'orange' | 'blue' }) {
   const total = 5
   // Recent activity bar — mėlyna spalva (#3b82f6, ta pati kaip verified
   // badge), kad atskirtų nuo cumulative score (orange). Ant dark + light
@@ -1369,19 +1369,6 @@ function PopBar({ level, size = 'sm', color = 'orange', animate = false }: { lev
     <div className={`flex ${gapCls}`} aria-hidden>
       {Array.from({ length: total }).map((_, i) => {
         const filled = i < level
-        // 2026-05-21 v5: animate=true paleidžia cascading fill (po 80ms per dot
-        // su scale + opacity easing). Naudojama Hero zonoje, kur PopBar yra
-        // prominent — micro-interaction polish ant pirmojo paint'o.
-        // Default — be animacijos (track/album cards rodom statically, kad
-        // nebūtų visur „šokčiojanti" UI).
-        const animStyle: React.CSSProperties = animate && filled
-          ? {
-              opacity: 0,
-              transform: 'scale(0.4)',
-              transformOrigin: 'left center',
-              animation: `popBarFill 380ms cubic-bezier(0.22, 1, 0.36, 1) ${80 * i}ms forwards`,
-            }
-          : { opacity: filled ? 0.55 + (0.45 * (i + 1) / total) : 1 }
         return (
           <span
             key={i}
@@ -1390,7 +1377,7 @@ function PopBar({ level, size = 'sm', color = 'orange', animate = false }: { lev
               'transition-colors',
               filled ? filledBg : 'bg-[var(--border-default)]',
             ].join(' ')}
-            style={animStyle}
+            style={{ opacity: filled ? 0.55 + (0.45 * (i + 1) / total) : 1 }}
           />
         )
       })}
@@ -2053,41 +2040,6 @@ function Hero({
     ? !!artist.death_date
     : !!(artist.active_until && Number(artist.active_until) < new Date().getFullYear() + 1)
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
-
-  // Hero parallax scroll effect (2026-05-21 v6): foto šliaužia lėčiau už
-  // content'ą scroll'inant į apačią — cinematic depth. Naudojam transform
-  // translateY su rAF, ne kiekvieno scroll event'o callback'e (smooth 60fps).
-  // Reduced-motion preference'us gerbiam: tada parallax išjungiamas, foto
-  // lieka static (nes scroll-linked animacijos sukelia diskomfort'ą).
-  const heroPhotoRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
-    let raf = 0
-    let lastY = -1
-    const onScroll = () => {
-      if (raf) return
-      raf = requestAnimationFrame(() => {
-        raf = 0
-        const y = window.scrollY
-        if (y === lastY) return
-        lastY = y
-        // Parallax intensity: 0.3 reiškia foto juda 30% scroll greičio.
-        // Cap at 200px max translation (nesiranda po Hero kraštų).
-        const translate = Math.min(200, y * 0.3)
-        if (heroPhotoRef.current) {
-          heroPhotoRef.current.style.transform = `translate3d(0, ${translate}px, 0)`
-        }
-      })
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    onScroll()
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-      if (raf) cancelAnimationFrame(raf)
-    }
-  }, [])
-
   // Hero foto FIXED width 600px desktop'e — be JS-based dimension detection.
   // Anksčiau buvo adaptyvus (380/480/720 pagal natural aspect ratio onLoad'e),
   // bet tai sukeldavo CLS (Cumulative Layout Shift): SSR render'inosi 480px
@@ -2108,8 +2060,7 @@ function Hero({
             (portrait 380, square 480, landscape 720) — kraštai nukerpa
             mažiau svarbių dalių, kompozicija išlieka. */}
       <div
-        ref={heroPhotoRef}
-        className="relative aspect-[3/2] w-full overflow-hidden bg-black will-change-transform lg:absolute lg:inset-y-0 lg:left-0 lg:right-auto lg:aspect-auto lg:w-[var(--hero-w,480px)]"
+        className="relative aspect-[3/2] w-full overflow-hidden bg-black lg:absolute lg:inset-y-0 lg:left-0 lg:right-auto lg:aspect-auto lg:w-[var(--hero-w,480px)]"
         style={{ ['--hero-w' as any]: `${heroWidth}px` } as React.CSSProperties}
       >
         {heroImage ? (
@@ -2191,18 +2142,6 @@ function Hero({
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
         )}
-        {/* Adaptive accent glow — radial gradient su iš foto extract'inta
-            dominuojančia spalva. Subtilus (mix-blend-overlay + opacity-25),
-            kad fonas „atgytų" atlikėjo palete bet nepritrenktų. CSS var
-            --artist-accent (R,G,B triplet) set'inamas iš JS (žr.
-            ArtistProfileClient useEffect). */}
-        <div
-          className="pointer-events-none absolute inset-0 mix-blend-overlay"
-          style={{
-            background: 'radial-gradient(circle at 25% 30%, rgba(var(--artist-accent, 249 115 22), 0.55), transparent 65%)',
-            opacity: 0.35,
-          }}
-        />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
         {/* Mobile: soft fade at the bottom edge into the page surface so the
             photo doesn't end in a hard horizontal line. Hidden on desktop
@@ -2214,13 +2153,7 @@ function Hero({
         <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[120px] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
       </div>
 
-      <style>{`
-        @keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}
-        @keyframes popBarFill {
-          0% { opacity: 0; transform: scale(0.4); }
-          100% { opacity: 1; transform: scale(1); }
-        }
-      `}</style>
+      <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>
 
       <div
         className={[
@@ -2297,7 +2230,7 @@ function Hero({
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
                       <path d="M12 2l2.39 7.36H22l-6.18 4.48L18.21 22 12 17.27 5.79 22l2.39-8.16L2 9.36h7.61z" />
                     </svg>
-                    <PopBar level={popBarLevel} size="md" animate />
+                    <PopBar level={popBarLevel} size="md" />
                   </button>
                 )}
                 {recentPopBarLevel > 0 && (
@@ -2312,7 +2245,7 @@ function Hero({
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[#3b82f6]" aria-hidden>
                       <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
                     </svg>
-                    <PopBar level={recentPopBarLevel} size="md" color="blue" animate />
+                    <PopBar level={recentPopBarLevel} size="md" color="blue" />
                   </button>
                 )}
               </div>
@@ -2658,87 +2591,6 @@ function TopArtistsModal({
   )
 }
 
-// ── MiniPlayer — sticky bottom bar po hero ──────────────────────────
-//
-// Atsiranda kai vartotojas nuscroll'ina pro hero IR yra pasirinktas
-// track'as (activeTrackId != null). Rodo: cover thumb + track name +
-// play/pause control + close. Click'as ant title ar cover scroll'inta
-// atgal į hero player'į (smooth scroll to top).
-//
-// Naudoja portal'ą į body, kad route-enter transform wrapper'is nelaužtų
-// position:fixed (memory: route_enter_fixed_trap).
-function MiniPlayer({
-  track, artistName, playing, onTogglePlay, onClose, onExpand,
-}: {
-  track: Track
-  artistName: string
-  playing: boolean
-  onTogglePlay: () => void
-  onClose: () => void
-  onExpand: () => void
-}) {
-  if (typeof document === 'undefined') return null
-  const coverSrc = track.cover_url || ''
-  return createPortal(
-    <div className="fixed inset-x-0 bottom-0 z-[200] animate-[miniSlideUp_220ms_cubic-bezier(0.22,1,0.36,1)_both] border-t border-[var(--border-default)] bg-[var(--bg-surface)]/95 backdrop-blur-md">
-      <style>{`
-        @keyframes miniSlideUp { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
-      `}</style>
-      <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 py-2.5 sm:px-6">
-        <button
-          type="button"
-          onClick={onExpand}
-          className="flex min-w-0 flex-1 items-center gap-3 text-left transition-opacity hover:opacity-80"
-          title="Grįžti į hero player"
-        >
-          {coverSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={proxyImg(coverSrc)}
-              alt=""
-              className="h-10 w-10 shrink-0 rounded-md object-cover"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--card-bg)] font-['Outfit',sans-serif] text-[12px] font-black text-[var(--text-faint)]">
-              ♪
-            </span>
-          )}
-          <div className="min-w-0">
-            <div className="truncate font-['Outfit',sans-serif] text-[13.5px] font-bold leading-tight text-[var(--text-primary)]">
-              {track.title}
-            </div>
-            <div className="truncate font-['Outfit',sans-serif] text-[11.5px] font-medium text-[var(--text-muted)]">
-              {artistName}
-            </div>
-          </div>
-        </button>
-        <button
-          type="button"
-          onClick={onTogglePlay}
-          aria-label={playing ? 'Pauzė' : 'Groti'}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.4)] transition-transform hover:scale-105 active:scale-95"
-        >
-          {playing ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Uždaryti mini player"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-        </button>
-      </div>
-    </div>,
-    document.body,
-  )
-}
-
 // ── ShareButton: dalinimosi mygtukas šalia Sekti ────────────────────
 //
 // Native Web Share API kai palaiko (mobile), kitur — clipboard copy +
@@ -2874,112 +2726,6 @@ function FollowPill({
           0
         </span>
       )}
-    </div>
-  )
-}
-
-// ── ReleaseTimeline — bar chart per metus su release counts ─────────
-//
-// Vizualinis bio sekcijos elementas: rodo release'ų aktyvumą per metus.
-// Y axis — albumų + track'ų skaičius / score sum tais metais; X axis —
-// metai. Bar'ų aukštis normalizuotas pagal peak metus (didžiausias bar
-// = 100%, kiti proporcingai). Hover'inant rodom tooltip su konkrečiu
-// metų count + (jei score > 0) score breakdown'as.
-//
-// Inactive (mires/pasibaigusi) atlikejui CUT-OFF lygus active_until ar
-// death_year — nebevaizduoju ateities metų.
-function ReleaseTimeline({
-  albums, tracks, artist,
-}: {
-  albums: Album[]
-  tracks: Track[]
-  artist: any
-}) {
-  // Aggregate per year
-  const yearMap = new Map<number, { releases: number; score: number }>()
-  for (const a of albums) {
-    if (typeof a.year === 'number' && a.year >= 1950) {
-      const e = yearMap.get(a.year) || { releases: 0, score: 0 }
-      e.releases += 1
-      e.score += Number((a as any).score || 0)
-      yearMap.set(a.year, e)
-    }
-  }
-  for (const t of tracks) {
-    const yr = (t as any).release_year as number | null | undefined
-    if (typeof yr === 'number' && yr >= 1950) {
-      const e = yearMap.get(yr) || { releases: 0, score: 0 }
-      e.releases += 1
-      e.score += Number((t as any).score || 0)
-      yearMap.set(yr, e)
-    }
-  }
-  if (yearMap.size < 2) return null  // mažiau nei 2 metai — neverta rodyti
-
-  const years = Array.from(yearMap.keys()).sort((a, b) => a - b)
-  const firstYear = Math.min(years[0], artist.active_from || years[0])
-  const isSolo = artist.type === 'solo'
-  const deathYear = isSolo && artist.death_date ? new Date(artist.death_date).getFullYear() : null
-  const cutoffYear = deathYear || artist.active_until || new Date().getFullYear()
-  const lastYear = Math.max(years[years.length - 1], cutoffYear)
-  const yearRange: number[] = []
-  for (let y = firstYear; y <= lastYear; y++) yearRange.push(y)
-
-  // Normalize: bar'ai turi WEIGHTED metric — releases × 10 + score (kad
-  // viralinis hit'as su didelio score solo singliu būtų ne mažesnis nei
-  // dvi neutralios album'os).
-  const weightOf = (e: { releases: number; score: number } | undefined): number => {
-    if (!e) return 0
-    return e.releases * 10 + Math.sqrt(e.score)
-  }
-  const maxWeight = Math.max(...yearRange.map(y => weightOf(yearMap.get(y))))
-  if (maxWeight === 0) return null
-
-  return (
-    <div className="mt-6">
-      <div className="mb-3 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-        Veiklos chronologija
-      </div>
-      <div className="flex h-[88px] items-end gap-[2px] overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-[3px]">
-        {yearRange.map(y => {
-          const e = yearMap.get(y)
-          const w = weightOf(e)
-          const heightPct = w > 0 ? Math.max(6, Math.round((w / maxWeight) * 100)) : 2  // min 2% kad „nuli" bar'as buvo subtiliai matomas
-          const isPeak = w === maxWeight && maxWeight > 0
-          const isDecadeMark = y % 10 === 0
-          const tooltip = e
-            ? `${y} m.: ${e.releases} ${e.releases === 1 ? 'leidinys' : 'leidiniai'}${e.score ? ` · score ${Math.round(e.score)}` : ''}`
-            : `${y} m.: nieko`
-          return (
-            <div
-              key={y}
-              className="group/bar relative flex h-full min-w-[6px] flex-1 flex-col justify-end"
-              title={tooltip}
-            >
-              <span
-                className={[
-                  'w-full rounded-sm transition-all',
-                  e ? (isPeak ? 'bg-[var(--accent-orange)]' : 'bg-[var(--accent-orange)]/55') : 'bg-[var(--border-default)]',
-                  'group-hover/bar:bg-[var(--accent-orange)]',
-                ].join(' ')}
-                style={{ height: `${heightPct}%`, opacity: e ? 1 : 0.4 }}
-              />
-              {isDecadeMark && (
-                <span className="absolute -bottom-0 left-1/2 -translate-x-1/2 translate-y-full whitespace-nowrap font-['Outfit',sans-serif] text-[9.5px] font-bold tabular-nums text-[var(--text-faint)]">
-                  {y}
-                </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
-      {/* Subtle label'ai apačioje: pirmas metai dešinėje, paskutiniai
-          kairėje, kad būtų aišku diapazonas net jei dekados markeriai
-          tinkami. */}
-      <div className="mt-4 flex items-center justify-between font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-        <span>{firstYear}</span>
-        <span>{lastYear === new Date().getFullYear() ? 'dabar' : lastYear}</span>
-      </div>
     </div>
   )
 }
@@ -4461,27 +4207,17 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, onOpen, onPlayTrack, 
 // blokai. Outer grid (parent komponentas) sustato dėžutes po 1-2 col
 // pagal viewport'ą, kad jos nesudėtų vertikalaus scroll'o.
 
-function AlbumGroupBox({ title, subtitle, description, rangeLabel, count, peak = false, children }: {
+function AlbumGroupBox({ title, subtitle, description, rangeLabel, count, children }: {
   title: string
   subtitle?: string | null
   description?: string | null
   rangeLabel?: string
   count: number
-  /** Auto-detected peak era — pridedam ✨ Auksinis periodas badge'ą ir
-   *  subtilų accent ring. Vienas group'as iš visų gauna šią žymę. */
-  peak?: boolean
   children: React.ReactNode
 }) {
   return (
-    <div
-      className={[
-        'rounded-xl border bg-[var(--bg-surface)] p-3 sm:p-4',
-        peak
-          ? 'border-[rgba(249,115,22,0.45)] shadow-[0_0_0_1px_rgba(249,115,22,0.15)]'
-          : 'border-[var(--border-subtle)]',
-      ].join(' ')}
-    >
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 sm:p-4">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
         <div className="flex min-w-0 items-baseline gap-2">
           <h3 className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] sm:text-[15px]">
             {title}
@@ -4494,14 +4230,6 @@ function AlbumGroupBox({ title, subtitle, description, rangeLabel, count, peak =
           {rangeLabel && (
             <span className="shrink-0 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-muted)]">
               · {rangeLabel}
-            </span>
-          )}
-          {peak && (
-            <span
-              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]"
-              title="Auto-detect'inta era pagal didžiausią albumų score sumą"
-            >
-              ✨ Auksinis periodas
             </span>
           )}
         </div>
@@ -5194,77 +4922,9 @@ export default function ArtistProfileClient({
   legacyCommunity, legacyThreads = [], legacyNews = [], ranks = [],
   linkedTrackIds = [], awards = [], eras = [], displayRoles = [], popBarLevel = 0, recentPopBarLevel = 0,
 }: Props) {
-  // ── Adaptive accent color (2026-05-21 v6) ────────────────────────────
-  // Iš hero foto extract'inam dominuojančią ne-pilką spalvą JS pusėj,
-  // tada per CSS var --artist-accent ant root div'o aplikuojam subtilus
-  // akcentus (hero overlay gradient, kt.). Default orange palieka visur,
-  // kur dirba --accent-orange — keičiam tik gradientai/glow'ai per naują
-  // var'ą.
-  const [artistAccent, setArtistAccent] = useState<string | null>(null)
-  useEffect(() => {
-    if (!heroImage || typeof window === 'undefined') return
-    // Inactive (mires / pabaiges) — paliekam default akcentą, kad
-    // memorial atmosfera neuzklotu spalvotais blizgesiais.
-    if (artist.type === 'solo' ? !!artist.death_date : !!(artist.active_until && Number(artist.active_until) < new Date().getFullYear() + 1)) {
-      return
-    }
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas')
-        const size = 48
-        canvas.width = size; canvas.height = size
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
-        ctx.drawImage(img, 0, 0, size, size)
-        const data = ctx.getImageData(0, 0, size, size).data
-        // Find dominant saturated color — atmesti pilkas/labai tamsias/labai
-        // šviesias pikselius (jie neturi pakankamai spalvos signalo).
-        let r = 0, g = 0, b = 0, count = 0
-        for (let i = 0; i < data.length; i += 4) {
-          const rr = data[i], gg = data[i + 1], bb = data[i + 2]
-          const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb)
-          const lum = (max + min) / 2
-          if (max - min < 35) continue           // grey
-          if (lum < 40 || lum > 215) continue    // too dark / too light
-          r += rr; g += gg; b += bb; count++
-        }
-        if (count > 20) {
-          // Boost'inam saturaciją šiek tiek (kad spalva nebūtų pretty
-          // washed-out tarp daugelio neutralių pikselių).
-          const ar = Math.round(r / count), ag = Math.round(g / count), ab = Math.round(b / count)
-          setArtistAccent(`${ar}, ${ag}, ${ab}`)
-        }
-      } catch {
-        // CORS / canvas error — silent fallback į default orange
-      }
-    }
-    img.src = proxyImgResized(heroImage, 200)
-  }, [heroImage, artist.type, artist.death_date, artist.active_until])
   const [pid, setPid] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
   const [trackInfoOpen, setTrackInfoOpen] = useState<Track | null>(null)
-  // Sticky mini-player apačioje — atsiranda, kai vartotojas nuscroll'ina
-  // pro Hero zoną IR yra pasirinkęs track'ą (pid !== null). Anksciau nieko
-  // panašaus nebuvo — vartotojui norint išjungti/pakeisti pesnę reikėdavo
-  // scroll'inti atgal į Hero. Su sticky mini, valdymas visada po ranka.
-  const [showMiniPlayer, setShowMiniPlayer] = useState(false)
-  const heroSentinelRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (!heroSentinelRef.current) return
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        // Kai Hero sentinel'as išplaukia iš viewport'o (apačios link), rodom
-        // mini player. Kai grįžta į view — slepiam.
-        setShowMiniPlayer(!entry.isIntersecting && entry.boundingClientRect.top < 0)
-      },
-      { threshold: 0, rootMargin: '0px' },
-    )
-    obs.observe(heroSentinelRef.current)
-    return () => obs.disconnect()
-  }, [])
   // AlbumInfoModal — slide-in drawer'is su album turiniu. Saugom tik
   // hint'ą (id + title + cover) — modal'as pats fetch'ina pilnus duomenis.
   const [albumModalOpen, setAlbumModalOpen] = useState<Album | null>(null)
@@ -5853,10 +5513,7 @@ export default function ArtistProfileClient({
     // route-enter: 280ms fade+slide-in kai loading.tsx (equalizer skeleton'as)
     // pakeičiamas faktiniu content'u. Be šitos klasės swap'as matosi kaip
     // abrupt blink — naudotojas pastebėjo, kad atrodo "lyg viskas persikrauna".
-    <div
-      className="route-enter min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased"
-      style={artistAccent ? ({ ['--artist-accent' as any]: artistAccent } as React.CSSProperties) : undefined}
-    >
+    <div className="route-enter min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
       <Hero
         artist={artist}
         heroImage={heroImage}
@@ -5882,11 +5539,6 @@ export default function ArtistProfileClient({
         onOpenHeroLightbox={() => { if (galleryPhotos.length > 0) setLightboxIndex(0) }}
         onOpenEvent={setActiveEvent}
       />
-
-      {/* Sentinel'as Hero apačiai — IntersectionObserver stebi šitą div'ą.
-          Kai jis išplaukia iš viewport'o (apačios pusėn), parodo MiniPlayer'į;
-          kai grįžta į view, slepia. Pakanka 1px aukščio. */}
-      <div ref={heroSentinelRef} aria-hidden className="h-px w-full" />
 
       <EventsModal
         open={eventsModalOpen}
@@ -5942,24 +5594,6 @@ export default function ArtistProfileClient({
           onClose={() => setTopArtistsFilter(null)}
         />
       )}
-
-      {/* Sticky mini player — rodom tik kai showMiniPlayer=true (sentinel
-          out of view) IR pasirinktas track'as. Naudoja sąrašą activeTrack
-          fallback'ui (tracks su pid). */}
-      {showMiniPlayer && pid !== null && (() => {
-        const activeTrack = tracks.find(t => t.id === pid)
-        if (!activeTrack) return null
-        return (
-          <MiniPlayer
-            track={activeTrack}
-            artistName={artist.name}
-            playing={playing}
-            onTogglePlay={() => setPlaying(p => !p)}
-            onClose={() => { setPid(null); setPlaying(false) }}
-            onExpand={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          />
-        )
-      })()}
 
       <BioModal
         open={bioModalOpen}
@@ -6195,10 +5829,6 @@ export default function ArtistProfileClient({
                     artist={artist}
                     onOpenTopArtists={(filter) => setTopArtistsFilter(filter)}
                   />
-                  {/* Veiklos chronologija — bar chart per metus (albumai + tracks
-                      weighted score). Vizualinis aktyvumo žemėlapis: matoma
-                      „peak era", quiet periods, recent activity. */}
-                  <ReleaseTimeline albums={albums} tracks={tracks} artist={artist} />
                   {/* Sritys (solo atlikėjo occupation+instrument) — perkelta čia
                       iš SideInfo kortelės (2026-05-20). Logiškai groups'iuosi
                       su bio: tai apie atlikėją kaip žmogų. Rodoma virš grupių
@@ -6343,27 +5973,7 @@ export default function ArtistProfileClient({
                   slide'inasi į šoną (horizontal snap-scroll), kad vienas
                   era box nebūtų aukštas.
                   DESKTOP (lg+): grid 2-col stack, viduje albumai grid 3-4 col. */}
-              {albumGroups && albumGroups.length > 0 ? (() => {
-                // Auto-detect „Auksinis periodas" — grupė su didžiausia album
-                // score suma. Reikalavimai: ≥2 grupės iš viso (kitaip neturi
-                // prasmės), ir peak grupė turi ≥3 albumus + ≥2 kartus
-                // didesnį score negu vidutinis (kitaip visi „panašiai geri").
-                let peakKey: string | null = null
-                if (albumGroups.length >= 2) {
-                  const scores = albumGroups.map(g => ({
-                    key: g.key,
-                    albums: g.albums.length,
-                    score: g.albums.reduce((s, a) => s + (Number((a as any).score) || 0), 0),
-                  }))
-                  const eligible = scores.filter(s => s.albums >= 2 && s.score > 0)
-                  if (eligible.length > 0) {
-                    eligible.sort((a, b) => b.score - a.score)
-                    const top = eligible[0]
-                    const avg = eligible.reduce((s, x) => s + x.score, 0) / eligible.length
-                    if (top.score >= avg * 1.5) peakKey = top.key
-                  }
-                }
-                return (
+              {albumGroups && albumGroups.length > 0 ? (
                 <div className="mt-2 grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {albumGroups.map(g => (
                     <AlbumGroupBox
@@ -6373,7 +5983,6 @@ export default function ArtistProfileClient({
                       description={g.description}
                       rangeLabel={g.rangeInTitle ? '' : yearRangeLabel(g.year_start, g.year_end)}
                       count={g.albums.length}
-                      peak={g.key === peakKey}
                     >
                       {/* Mobile: horizontal scroll inside box. Desktop (lg+):
                           regular 3-4 col grid. */}
@@ -6414,8 +6023,7 @@ export default function ArtistProfileClient({
                     </AlbumGroupBox>
                   ))}
                 </div>
-                )
-              })() : (
+              ) : (
                 groupableAlbums.length > 0 && (
                   <div className={latestAlbum ? 'mt-4' : ''}>
                     {/* Flat grid — small / medium artists (<10 albums or sparse
