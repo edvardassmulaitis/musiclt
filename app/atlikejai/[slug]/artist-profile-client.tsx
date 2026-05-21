@@ -1369,16 +1369,27 @@ function PopBar({ level, size = 'sm', color = 'orange', animate = false }: { lev
     <div className={`flex ${gapCls}`} aria-hidden>
       {Array.from({ length: total }).map((_, i) => {
         const filled = i < level
-        // 2026-05-21 v2: animate=true paleidžia cascading fill (po 80ms per
-        // dot, 380ms ease-out fill su scale 0.4→1 + opacity 0→1). Naudojama
-        // TIK Hero zonoje, kur PopBar yra prominent. Default — be animacijos
-        // (track/album cards rodom statically, kad nesimaišytų UI).
+        // 2026-05-21 v3: dramatiškesnė cascading fill animacija — useris
+        // ankstesnėj versijoj nesuprasdavo, kad tai yra animacija (per
+        // greitai praeidavo). Pakeitimai:
+        //   - Initial delay 300ms (kad page settle'intų pirma)
+        //   - Per-dot delay 200ms (was 80ms)
+        //   - Per-dot duration 650ms (was 380ms)
+        //   - Pradinis transform translateX(-8px) + scale(0.3) — dot'as
+        //     atplaukia iš kairės, „crash'inasi" į vietą
+        //   - Pulse glow flash kiekvienam dot'ui ant landing'o (box-shadow
+        //     accent flare)
+        //
+        // Bendras animacijos trukmė: 300 + 5*200 + 650 = ~1950ms (vs prieš —
+        // 780ms). Pakankamai lėtas, kad useris pamato „eilutę užsipildant".
+        const accentColor = color === 'blue' ? '#3b82f6' : 'var(--accent-orange)'
         const animStyle: React.CSSProperties = animate && filled
           ? {
               opacity: 0,
-              transform: 'scale(0.4)',
+              transform: 'translateX(-8px) scale(0.3)',
               transformOrigin: 'left center',
-              animation: `popBarFill 380ms cubic-bezier(0.22, 1, 0.36, 1) ${80 * i}ms forwards`,
+              animation: `popBarFill 650ms cubic-bezier(0.22, 1, 0.36, 1) ${300 + 200 * i}ms forwards`,
+              ['--popbar-flash' as any]: accentColor,
             }
           : { opacity: filled ? 0.55 + (0.45 * (i + 1) / total) : 1 }
         return (
@@ -2168,8 +2179,9 @@ function Hero({
       <style>{`
         @keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}
         @keyframes popBarFill {
-          0% { opacity: 0; transform: scale(0.4); }
-          100% { opacity: 1; transform: scale(1); }
+          0%   { opacity: 0; transform: translateX(-8px) scale(0.3); box-shadow: 0 0 0 0 transparent; }
+          55%  { opacity: 1; transform: translateX(0) scale(1.18); box-shadow: 0 0 12px 2px var(--popbar-flash, var(--accent-orange)); }
+          100% { opacity: 1; transform: translateX(0) scale(1); box-shadow: 0 0 0 0 transparent; }
         }
       `}</style>
 
