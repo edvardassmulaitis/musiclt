@@ -5144,36 +5144,39 @@ export default function ArtistProfileClient({
   // tuomet hero player'is taip pat suppress'inamas.
   const [modalUsesDocked, setModalUsesDocked] = useState(false)
   // 2026-05-21 Sticky mini player'is: matomas kai (a) Hero player'is
-  // išėjo iš viewport ir (b) yra active track + playing. Sekam Hero
-  // matomumą per IntersectionObserver ant `[data-hero-player]` element'o
-  // (pati video frame'as, ne visa PlayerCard, kad observer trigger'intų
-  // anksčiau).
+  // išėjo iš viewport ir (b) yra active track + playing. Naudojam
+  // scroll listener + getBoundingClientRect (vietoj IntersectionObserver,
+  // kuris production'e nepatikimai nepfire'indavo ant Hero element'o).
+  // rAF throttling — vieną update per frame.
   const [heroPlayerVisible, setHeroPlayerVisible] = useState(true)
   useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return
-    let obs: IntersectionObserver | null = null
-    let cancelled = false
-    let pollTimeout: ReturnType<typeof setTimeout> | null = null
-    const tryAttach = () => {
-      if (cancelled) return
+    let ticking = false
+    const update = () => {
       const el = document.querySelector('[data-hero-player]')
-      if (!el) {
-        // Element'as dar ne DOM'e (pvz., async data load arba Strict
-        // Mode flush). Retry po 200ms iki 10 kartų (~2s).
-        pollTimeout = setTimeout(tryAttach, 200)
-        return
+      if (el) {
+        const rect = (el as HTMLElement).getBoundingClientRect()
+        // Element'as „matomas" jei jo apačia yra žemiau viewport
+        // viršaus (>0). Kitaip — visiškai išskrolintas aukštyn.
+        // 80px buffer'is, kad mini parodytų šiek tiek anksčiau,
+        // kol player'is dar baigia išeit iš viewport (psichologiškai
+        // jaučiasi sklandžiau).
+        setHeroPlayerVisible(rect.bottom > 80)
       }
-      obs = new IntersectionObserver(
-        ([entry]) => setHeroPlayerVisible(entry.isIntersecting),
-        { threshold: 0 }
-      )
-      obs.observe(el)
+      ticking = false
     }
-    tryAttach()
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(update)
+        ticking = true
+      }
+    }
+    // Initial check + scroll/resize listener'iai.
+    update()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll, { passive: true })
     return () => {
-      cancelled = true
-      if (pollTimeout) clearTimeout(pollTimeout)
-      obs?.disconnect()
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
     }
   }, [])
 
