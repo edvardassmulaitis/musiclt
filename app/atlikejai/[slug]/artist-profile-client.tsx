@@ -3918,35 +3918,54 @@ function Lightbox({
 function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: number) => void }) {
   const limited = photos.slice(0, 24)
   if (!limited.length) return null
-  // CSS-columns masonry — flows naturally by image aspect ratio, no JS
-  // measurement, no layout shift, images keep their true shape. Simpler
-  // and tidier than a row/col-span grid.
+  // 2026-05-21: kai mažai photos (1-3), masonry columns palieka tuščius
+  // stulpelius dešinėje ir vizualiai atrodo netvarkingai. Naudojam flex
+  // justify-center su max'iniu kortelės pločiu — visi photo centruoti
+  // ir vienodai išdėstyti. Kai photos >= 4 — palieka masonry (natūralus
+  // flow dideliam sąrašui).
+  const isSparse = limited.length <= 3
+  const photoCard = (p: Photo, i: number) => {
+    const year = photoYear(p.taken_at)
+    return (
+      <button
+        key={i}
+        onClick={() => onOpen(i)}
+        className={[
+          'group relative block overflow-hidden rounded-xl border-0 bg-transparent p-0',
+          isSparse
+            ? 'w-full max-w-[320px] sm:max-w-[300px]'
+            : 'mb-2 w-full md:mb-3',
+        ].join(' ')}
+        style={isSparse ? undefined : { breakInside: 'avoid' }}
+      >
+        <img
+          src={proxyImg(p.url)}
+          alt={parsePhotoCaption(p.caption).author || ''}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="block w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+        />
+        {year && (
+          <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-white backdrop-blur-sm">
+            {year}
+          </span>
+        )}
+      </button>
+    )
+  }
+  if (isSparse) {
+    // 1-3 photos: flex justify-center su gap'u; mobile bumps į 1 col
+    // jei tik 1 photo, kitur 2-3 col pagal kiekį.
+    return (
+      <div className="flex flex-wrap items-start justify-center gap-3 md:gap-4">
+        {limited.map(photoCard)}
+      </div>
+    )
+  }
+  // 4+ photos: CSS-columns masonry — flows naturally by image aspect ratio
   return (
     <div className="columns-2 gap-2 sm:columns-3 md:gap-3 lg:columns-4">
-      {limited.map((p, i) => {
-        const year = photoYear(p.taken_at)
-        return (
-          <button
-            key={i}
-            onClick={() => onOpen(i)}
-            className="group relative mb-2 block w-full overflow-hidden rounded-xl border-0 bg-transparent p-0 md:mb-3"
-            style={{ breakInside: 'avoid' }}
-          >
-            <img
-              src={proxyImg(p.url)}
-              alt={parsePhotoCaption(p.caption).author || ''}
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              className="block w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-            />
-            {year && (
-              <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-white backdrop-blur-sm">
-                {year}
-              </span>
-            )}
-          </button>
-        )
-      })}
+      {limited.map(photoCard)}
     </div>
   )
 }
@@ -6585,13 +6604,10 @@ export default function ArtistProfileClient({
                         <button
                           type="button"
                           onClick={() => setOrphanModalOpen(true)}
-                          className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border-default)] bg-transparent p-2 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
+                          className="flex items-center justify-center rounded-xl border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] p-2 font-['Outfit',sans-serif] text-[12.5px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)]"
                           aria-label={`Atidaryti visas dainas (${orphanTracks.length})`}
                         >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
-                            <path d="M5 12h14M12 5l7 7-7 7" />
-                          </svg>
-                          <span>+{extraOrphans} daugiau</span>
+                          +{extraOrphans} daugiau
                         </button>
                       )}
                     </div>

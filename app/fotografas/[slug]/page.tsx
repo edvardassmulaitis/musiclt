@@ -44,10 +44,16 @@ async function getPhotos(photographerId: number) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const p = await getPhotographer(slug)
-  if (!p) return { title: 'Fotografas' }
+  if (!p) return { title: 'Fotografas', robots: { index: false, follow: false } }
   return {
     title: `${p.name} — fotografas · music.lt`,
     description: p.bio || `${p.name} nuotraukos music.lt`,
+    // 2026-05-21: noindex — fotografų sąraše atsiranda daug auto-imported
+    // entry'jų su nevalidžiais URL'ais (pvz „distributed-by-elektra-records"),
+    // kurie nelabai naudingi public'iui. Hide'inam nuo Google index'o, kad
+    // nesusikurtų bereikalingų indexed page'ų. follow:true — link'ai į
+    // atlikėjus iš čia vis tiek crawler'iui leidžiami.
+    robots: { index: false, follow: true },
   }
 }
 
@@ -92,16 +98,28 @@ export default async function Page({ params }: Props) {
                 Svetainė
               </a>
             )}
-            {photographer.external_url && (
-              <a
-                href={photographer.external_url}
-                target="_blank"
-                rel="noopener"
-                className="text-[var(--accent-orange)] hover:underline"
-              >
-                {photographer.source === 'wikimedia' ? 'Wikimedia profilis' : 'Profilis'}
-              </a>
-            )}
+            {photographer.external_url && (() => {
+              // 2026-05-21: rodome external_url tik jei jis tikrai veda į
+              // wikipedia.org / commons.wikimedia.org / wikidata.org —
+              // anksciau auto-import sukurdavo path'us, kurie veda į 404
+              // („distributed by elektra records" pseudo-photographer →
+              // /wiki/Distributed_By_Elektra_Records, kuris neegzistuoja).
+              // Manual entries ir tikri Wikimedia link'ai vis tiek veikia.
+              let host = ''
+              try { host = new URL(photographer.external_url).host.toLowerCase() } catch { return null }
+              const isWiki = /(?:^|\.)wikipedia\.org$|(?:^|\.)wikimedia\.org$|(?:^|\.)wikidata\.org$/.test(host)
+              if (!isWiki) return null
+              return (
+                <a
+                  href={photographer.external_url}
+                  target="_blank"
+                  rel="noopener"
+                  className="text-[var(--accent-orange)] hover:underline"
+                >
+                  {photographer.source === 'wikimedia' ? 'Wikimedia profilis' : 'Profilis'}
+                </a>
+              )
+            })()}
           </div>
           {photographer.bio && (
             <p className="mt-3 max-w-3xl text-[14px] leading-[1.6] text-[var(--text-secondary)]">
