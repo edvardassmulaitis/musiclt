@@ -56,18 +56,28 @@ export async function getProfileFriends(profileId: string, limit = 30) {
 }
 
 // ── DAILY SONG PICKS ─────────────────────────────────────────
+// Dvi atskiros užklausos: pirma — picks (visi, įskaitant NULL track_id),
+// antra — enrich'inam tik tuos, kuriems track_id žinomas. Supabase nested
+// join'as su NULL FK kartais grąžina iš dalies sulaužytus rezultatus, todėl
+// einame saugiu keliu.
 export async function getDailySongPicks(userId: string, limit = 20) {
   const sb = createAdminClient()
-  const { data } = await sb
+  const { data: picks } = await sb
     .from('daily_song_picks')
-    .select(`
-      id, picked_on, comment, like_count, legacy_track_id, track_id,
-      tracks:track_id(id, slug, title, artist_id, artists:artist_id(id, slug, name, cover_image_url))
-    `)
+    .select('id, picked_on, comment, like_count, legacy_track_id, track_id')
     .eq('author_id', userId)
     .order('picked_on', { ascending: false })
     .limit(limit)
-  return (data || []) as any[]
+  const rows = (picks || []) as any[]
+  if (!rows.length) return rows
+  const trackIds = rows.map((r) => r.track_id).filter(Boolean) as number[]
+  if (!trackIds.length) return rows.map((r) => ({ ...r, tracks: null }))
+  const { data: tracks } = await sb
+    .from('tracks')
+    .select('id, slug, title, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .in('id', trackIds)
+  const trackMap = new Map((tracks || []).map((t: any) => [t.id, t]))
+  return rows.map((r) => ({ ...r, tracks: r.track_id ? trackMap.get(r.track_id) || null : null }))
 }
 
 export async function getDailySongPicksCount(userId: string): Promise<number> {

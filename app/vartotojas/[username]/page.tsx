@@ -1,21 +1,30 @@
 // app/vartotojas/[username]/page.tsx
 //
-// Profilis kaip muzikos overview, ne stats dashboard.
-// Pagrindinis fokusas: MĖGSTAMA (ne klausoma) muzika — equalizer + stiliai
-// + atlikėjai + dienos dainos. Tinklaraštis su tipais ir tagais kaip
-// papildomas content layer'is.
+// V4 — dashboard layout. Plotis išnaudojamas, sekcijos kompaktiškos.
+// Equalizer side-panel'e kaip artist player slot'e.
 //
-// V3 dizaino principai:
-//   - HERO compact: mažas avatar + name + 1 eilutė meta (ne pilno screen)
-//   - MUZIKINIS SKONIS — big working equalizer + expandable stylių chip'ai
-//   - NUOTAIKOS DAINA — full-bleed vinyl visual (atskira sekcija)
-//   - DIENOS DAINOS — horizontal album cover carousel
-//   - MĖGSTAMI ATLIKĖJAI — visual cover grid
-//   - ĮRAŠAI (renamed from „Tinklaraštis") — su post type badge + tagais
-//   - TOPAI — sava sekcija jei yra
-//   - VERTIMAI — atskira sekcija
-//   - DRAUGAI — avatarai only
-//   - Footer: 1 eilutė meta + claim CTA
+// Layout overview (desktop):
+//
+//   ┌──────────────────────────────────────┬──────────────────────┐
+//   │ Identity (avatar, name, meta, bio)   │  Side Equalizer      │
+//   │                                       │  (fixed order, GENRE │
+//   │ Mėgstami stiliai chips (popularity)  │  COLORS palette)     │
+//   └──────────────────────────────────────┴──────────────────────┘
+//   ┌──────────────────────────────────────────────────────────────┐
+//   │ Nuotaikos daina — compact horizontal card                    │
+//   └──────────────────────────────────────────────────────────────┘
+//   ┌──────────────────────────────────────────────────────────────┐
+//   │ Dienos dainos carousel                                       │
+//   └──────────────────────────────────────────────────────────────┘
+//   ┌─────────────────────────────┬────────────────────────────────┐
+//   │ Mėgstami atlikėjai grid     │ Tinklaraščio įrašai            │
+//   └─────────────────────────────┴────────────────────────────────┘
+//   ┌─────────────────────────────┬────────────────────────────────┐
+//   │ Topai                       │ Vertimai                       │
+//   └─────────────────────────────┴────────────────────────────────┘
+//   ┌──────────────────────────────────────────────────────────────┐
+//   │ Draugai avatarai                                             │
+//   └──────────────────────────────────────────────────────────────┘
 
 import { notFound } from 'next/navigation'
 import {
@@ -32,8 +41,8 @@ import {
 import { createAdminClient } from '@/lib/supabase'
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { MusicTasteShowcase } from '@/components/profile/MusicTasteShowcase'
-import { MoodSongShowcase } from '@/components/profile/MoodSongShowcase'
+import { SideEqualizer } from '@/components/profile/SideEqualizer'
+import { FavoriteStylesChips } from '@/components/profile/FavoriteStylesChips'
 
 type Props = { params: Promise<{ username: string }> }
 
@@ -60,10 +69,9 @@ export default async function UserProfilePage({ params }: Props) {
     getUserContentStats(profile.id),
     getMoodSongTrack(profile.mood_song_track_id ?? null),
     getDailySongPicks(profile.id, 12),
-    getUserTranslations(profile.id, 3),
+    getUserTranslations(profile.id, 4),
   ])
 
-  // Posts — distinguish topai (kept separate) vs „regular" (article/review/event)
   let regularPosts: any[] = []
   let topasPosts: any[] = []
   if (blog) {
@@ -77,13 +85,11 @@ export default async function UserProfilePage({ params }: Props) {
       .order('published_at', { ascending: false })
       .limit(20)
     const all = data || []
-    regularPosts = all.filter((p: any) => p.post_type !== 'topas' && p.post_type !== 'translation').slice(0, 6)
+    regularPosts = all.filter((p: any) => p.post_type !== 'topas' && p.post_type !== 'translation').slice(0, 4)
     topasPosts = all.filter((p: any) => p.post_type === 'topas').slice(0, 4)
   }
 
-  const memberSinceDate = profile.joined_legacy_at
-    ? new Date(profile.joined_legacy_at)
-    : new Date(profile.created_at)
+  const memberSinceDate = profile.joined_legacy_at ? new Date(profile.joined_legacy_at) : new Date(profile.created_at)
   const memberSinceYear = memberSinceDate.getFullYear()
 
   return (
@@ -110,116 +116,205 @@ export default async function UserProfilePage({ params }: Props) {
 
 function ProfileView({
   profile, favoriteArtists, favoriteStyles, friends, blog,
-  regularPosts, topasPosts,
-  memberSinceYear, stats, moodTrack, dailyPicks, translations,
+  regularPosts, topasPosts, memberSinceYear, stats, moodTrack, dailyPicks, translations,
 }: any) {
   const isLegacy = profile.provider === 'legacy_forum' || !!profile.legacy_user_id
   const isUnclaimed = !profile.is_claimed
   const totalContent = stats.diary + stats.translate + stats.creation + stats.daily_picks
+  const heroImage = profile.cover_image_url || profile.avatar_url
 
   return (
     <div className="min-h-screen bg-[var(--bg-surface,#080c12)] text-[var(--text-primary,#f0f2f5)]">
+      {/* ── Subtle backdrop ──────────────────────────────────────── */}
+      <section className="relative isolate">
+        <div className="absolute inset-0 -z-10 max-h-[600px] overflow-hidden">
+          {heroImage ? (
+            <>
+              <div
+                aria-hidden
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url(${heroImage})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: 'blur(80px) saturate(1.6) brightness(0.4)',
+                  transform: 'scale(1.4)',
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/55 to-[var(--bg-surface,#080c12)]" />
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] via-[#0f1622] to-[#080c12]" />
+          )}
+        </div>
 
-      {/* ── 1. COMPACT HERO ────────────────────────────────────────── */}
-      <CompactHero
-        profile={profile}
-        favoriteStyles={favoriteStyles}
-        memberSinceYear={memberSinceYear}
-        isLegacy={isLegacy}
-        isUnclaimed={isUnclaimed}
-      />
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-12">
 
-      {/* ── 2. MUZIKINIS SKONIS — equalizer + expandable stiliai ───── */}
-      <div className="mt-6 sm:mt-10">
-        <MusicTasteShowcase
-          favoriteStyles={favoriteStyles}
-          musicMeter={profile.legacy_music_meter}
-        />
-      </div>
+          {/* ── Identity row — left identity + right equalizer ──── */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 lg:gap-8 lg:items-start">
 
-      {/* ── 3. NUOTAIKOS DAINA — full-width vinyl ─────────────────── */}
-      {moodTrack && (
-        <MoodSongShowcase
-          track={moodTrack}
-          username={profile.full_name || profile.username}
-        />
-      )}
+            {/* LEFT — identity */}
+            <div className="min-w-0">
+              <div className="flex items-center gap-4 sm:gap-5 mb-4">
+                {/* Avatar */}
+                <div className="relative flex-shrink-0">
+                  {profile.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={profile.full_name || profile.username}
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border-2 border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-[#1a2436] to-[#0f1622] flex items-center justify-center text-3xl sm:text-4xl font-black text-white/30 border-2 border-white/10">
+                      {(profile.full_name || profile.username || '?')[0].toUpperCase()}
+                    </div>
+                  )}
+                  {profile.is_vip_legacy && (
+                    <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-amber-600 text-black text-[9px] font-extrabold uppercase tracking-wider shadow">
+                      VIP
+                    </span>
+                  )}
+                </div>
 
-      <div className="max-w-[1200px] mx-auto px-5 sm:px-8 pb-24">
+                {/* Name + meta */}
+                <div className="min-w-0 flex-1">
+                  <h1
+                    className="font-black leading-[0.95] tracking-[-0.04em] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.6)]"
+                    style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.5rem)', fontFamily: "'Outfit', sans-serif" }}
+                  >
+                    {profile.full_name || profile.username}
+                  </h1>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-sm text-[#b0bdd4]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                    <span className="font-semibold">@{profile.username}</span>
+                    {profile.legacy_city && <><span className="text-[#5e7290]">·</span><span>{profile.legacy_city}</span></>}
+                    {profile.legacy_age && <><span className="text-[#5e7290]">·</span><span>{profile.legacy_age} m.</span></>}
+                    <span className="text-[#5e7290]">·</span>
+                    <span>nuo {memberSinceYear}</span>
+                    {isLegacy && isUnclaimed && (
+                      <span className="text-[9px] font-bold text-[#5e7290] uppercase tracking-wider bg-white/[.04] border border-white/[.08] rounded-full px-2 py-0.5">
+                        archyvinis
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-        {/* ── 4. DIENOS DAINOS — horizontal scroll ────────────────── */}
+              {/* Bio — compact */}
+              {profile.bio && (
+                <div className="mb-4 text-sm sm:text-[15px] text-[#c8d8f0] leading-relaxed whitespace-pre-line line-clamp-3 max-w-[680px]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                  {profile.bio}
+                </div>
+              )}
+
+              {/* Stats inline chips */}
+              <div className="flex flex-wrap gap-1.5 mb-5">
+                {profile.legacy_karma_points !== null && profile.legacy_karma_points !== undefined && (
+                  <InlineStat label="taškų" value={profile.legacy_karma_points.toLocaleString('lt-LT')} accent="#f97316" />
+                )}
+                {stats.diary > 0 && <InlineStat label="dienoraščiai" value={stats.diary.toString()} accent="#fbbf24" />}
+                {stats.daily_picks > 0 && <InlineStat label="dienos dainos" value={stats.daily_picks.toLocaleString('lt-LT')} accent="#10b981" />}
+                {stats.translate > 0 && <InlineStat label="vertimai" value={stats.translate.toString()} accent="#a855f7" />}
+                {stats.comments_received > 0 && <InlineStat label="komentarai" value={stats.comments_received.toLocaleString('lt-LT')} accent="#06b6d4" />}
+              </div>
+
+              {/* Favorite styles chips (popularity flavor) */}
+              {favoriteStyles && favoriteStyles.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#5e7290] mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                    Mėgstamiausi stiliai
+                  </div>
+                  <FavoriteStylesChips styles={favoriteStyles} />
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT — side equalizer */}
+            <div className="lg:sticky lg:top-6">
+              <SideEqualizer meter={profile.legacy_music_meter} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Body sections ────────────────────────────────────────── */}
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-24">
+
+        {/* Mood song — compact horizontal card (NE full-bleed vinyl) */}
+        {moodTrack && (
+          <CompactMoodSong track={moodTrack} username={profile.full_name || profile.username} />
+        )}
+
+        {/* Daily picks carousel */}
         {dailyPicks.length > 0 && (
-          <section className="mt-16 sm:mt-20">
+          <section className="mt-10 sm:mt-14">
             <SectionHeader
               eyebrow="Dienos dainos"
               title="Kasdienis pasirinkimas"
-              meta={stats.daily_picks > dailyPicks.length ? `${stats.daily_picks.toLocaleString('lt-LT')} pasirinkimų istorijoje` : null}
+              meta={`${stats.daily_picks.toLocaleString('lt-LT')} pasirinkimų`}
               link={stats.daily_picks > dailyPicks.length ? { href: `/vartotojas/${profile.username}/dienos-dainos`, label: 'Visa istorija →' } : undefined}
             />
             <DailyPicksCarousel picks={dailyPicks} />
           </section>
         )}
 
-        {/* ── 5. MĖGSTAMI ATLIKĖJAI — visual grid ─────────────────── */}
-        {favoriteArtists.length > 0 && (
-          <section className="mt-16 sm:mt-20">
-            <SectionHeader
-              eyebrow="Mėgstami atlikėjai"
-              title="Garsai, kurie kuria nuotaiką"
-            />
-            <FavoriteArtistsVisualGrid artists={favoriteArtists.slice(0, 12)} />
-          </section>
+        {/* Two-col: Atlikėjai | Įrašai */}
+        {(favoriteArtists.length > 0 || (blog && regularPosts.length > 0)) && (
+          <div className="mt-10 sm:mt-14 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
+            {favoriteArtists.length > 0 && (
+              <section>
+                <SectionHeader eyebrow="Mėgstami atlikėjai" title="Kuria nuotaiką" />
+                <FavoriteArtistsCompact artists={favoriteArtists.slice(0, 8)} />
+              </section>
+            )}
+            {blog && regularPosts.length > 0 && (
+              <section>
+                <SectionHeader
+                  eyebrow="Tinklaraštis"
+                  title="Įrašai"
+                  meta={stats.diary > regularPosts.length ? `${stats.diary} įrašų` : null}
+                  link={{ href: `/blogas/${blog.slug}`, label: 'Visi →' }}
+                />
+                <PostsCompact blogSlug={blog.slug} posts={regularPosts} />
+              </section>
+            )}
+          </div>
         )}
 
-        {/* ── 6. ĮRAŠAI — su post type badges + tagais ─────────────── */}
-        {blog && regularPosts.length > 0 && (
-          <section className="mt-16 sm:mt-20">
-            <SectionHeader
-              eyebrow="Tinklaraštis"
-              title="Įrašai"
-              meta={stats.diary > regularPosts.length ? `${stats.diary.toLocaleString('lt-LT')} įrašų` : null}
-              link={{ href: `/blogas/${blog.slug}`, label: 'Visi įrašai →' }}
-            />
-            <PostsLayout blogSlug={blog.slug} posts={regularPosts} />
-          </section>
+        {/* Two-col: Topai | Vertimai */}
+        {(topasPosts.length > 0 || translations.length > 0) && (
+          <div className="mt-10 sm:mt-14 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
+            {blog && topasPosts.length > 0 && (
+              <section>
+                <SectionHeader
+                  eyebrow="Topai"
+                  title="Sąrašai"
+                  link={{ href: `/blogas/${blog.slug}?type=topas`, label: 'Visi →' }}
+                />
+                <TopasCompact blogSlug={blog.slug} posts={topasPosts} />
+              </section>
+            )}
+            {translations.length > 0 && (
+              <section>
+                <SectionHeader
+                  eyebrow="Vertimai"
+                  title="Lyrics į lietuvių"
+                  meta={`${stats.translate}`}
+                />
+                <TranslationsCompact translations={translations} blogSlug={blog?.slug} />
+              </section>
+            )}
+          </div>
         )}
 
-        {/* ── 7. TOPAI — atskira sekcija ───────────────────────────── */}
-        {blog && topasPosts.length > 0 && (
-          <section className="mt-16 sm:mt-20">
-            <SectionHeader
-              eyebrow="Topai"
-              title="Mėgstamiausių sąrašai"
-              link={{ href: `/blogas/${blog.slug}?type=topas`, label: 'Visi topai →' }}
-            />
-            <TopasGrid blogSlug={blog.slug} posts={topasPosts} />
-          </section>
-        )}
-
-        {/* ── 8. VERTIMAI ─────────────────────────────────────────── */}
-        {translations.length > 0 && (
-          <section className="mt-16 sm:mt-20">
-            <SectionHeader
-              eyebrow="Vertimai"
-              title="Lyrics į lietuvių kalbą"
-              meta={`${stats.translate} ${stats.translate === 1 ? 'vertimas' : 'vertimai'}`}
-            />
-            <TranslationsMinimal translations={translations} blogSlug={blog?.slug} />
-          </section>
-        )}
-
-        {/* ── 9. DRAUGAI — tik avatarai ────────────────────────────── */}
+        {/* Friends */}
         {friends && friends.length > 0 && (
-          <section className="mt-16 sm:mt-20">
-            <SectionHeader
-              eyebrow="Bendrabūviai"
-              title="Žmonės su panašiu skoniu"
-            />
+          <section className="mt-10 sm:mt-14">
+            <SectionHeader eyebrow="Bendrabūviai" title="Panašaus skonio nariai" />
             <FriendsAvatarGrid friends={friends} />
           </section>
         )}
 
-        {/* ── 10. FOOTER — subtle meta ────────────────────────────── */}
+        {/* Footer */}
         <ProfileFooter
           profile={profile}
           memberSinceYear={memberSinceYear}
@@ -233,94 +328,19 @@ function ProfileView({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HERO — compact identity bar, ne pilno ekrano
+// Inline stat chip
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CompactHero({ profile, favoriteStyles, memberSinceYear, isLegacy, isUnclaimed }: any) {
-  const heroImage = profile.cover_image_url || profile.avatar_url
-  const topStyles = (favoriteStyles || []).slice(0, 3).map((s: any) => s.style_name)
-
+function InlineStat({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
-    <section className="relative isolate overflow-hidden">
-      {/* Subtle backdrop */}
-      <div className="absolute inset-0 -z-10">
-        {heroImage ? (
-          <>
-            <div
-              aria-hidden
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url(${heroImage})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                filter: 'blur(80px) saturate(1.6) brightness(0.45)',
-                transform: 'scale(1.4)',
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/55 to-[var(--bg-surface,#080c12)]" />
-          </>
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] via-[#0f1622] to-[#080c12]" />
-        )}
-      </div>
-
-      <div className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-10 sm:pt-14 pb-6 sm:pb-8">
-        <div className="flex items-center gap-5 sm:gap-7">
-          {/* Avatar — kompaktiškas */}
-          <div className="relative flex-shrink-0">
-            {profile.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt={profile.full_name || profile.username}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border-2 border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-              />
-            ) : (
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-[#1a2436] to-[#0f1622] flex items-center justify-center text-3xl sm:text-4xl font-black text-white/30 border-2 border-white/10">
-                {(profile.full_name || profile.username || '?')[0].toUpperCase()}
-              </div>
-            )}
-            {profile.is_vip_legacy && (
-              <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-amber-600 text-black text-[9px] font-extrabold uppercase tracking-wider shadow">
-                VIP
-              </span>
-            )}
-          </div>
-
-          {/* Name + meta */}
-          <div className="min-w-0 flex-1">
-            <h1
-              className="font-black leading-[0.95] tracking-[-0.04em] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.6)]"
-              style={{ fontSize: 'clamp(1.75rem, 4vw, 3rem)', fontFamily: "'Outfit', sans-serif" }}
-            >
-              {profile.full_name || profile.username}
-            </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-sm text-[#b0bdd4]" style={{ fontFamily: "'Outfit', sans-serif" }}>
-              <span className="font-semibold">@{profile.username}</span>
-              {profile.legacy_city && <><span className="text-[#5e7290]">·</span><span>{profile.legacy_city}</span></>}
-              {profile.legacy_age && <><span className="text-[#5e7290]">·</span><span>{profile.legacy_age} m.</span></>}
-              <span className="text-[#5e7290]">·</span>
-              <span>nuo {memberSinceYear}</span>
-              {isLegacy && isUnclaimed && (
-                <span className="text-[10px] font-bold text-[#5e7290] uppercase tracking-wider bg-white/[.04] border border-white/[.08] rounded-full px-2 py-0.5 ml-1">
-                  archyvinis
-                </span>
-              )}
-            </div>
-            {topStyles.length > 0 && (
-              <p className="mt-2.5 text-sm sm:text-base text-[#dde8f8]" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                mėgsta{' '}
-                {topStyles.map((s: string, i: number) => (
-                  <span key={i}>
-                    <span className="font-bold text-white">{s.toLowerCase()}</span>
-                    {i < topStyles.length - 2 ? ', ' : i === topStyles.length - 2 ? ' ir ' : ''}
-                  </span>
-                ))}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
+    <span
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[.04] border border-white/[.06] text-xs font-bold"
+      style={{ fontFamily: "'Outfit', sans-serif" }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: accent }} />
+      <span className="text-white">{value}</span>
+      <span className="text-[#8aa0c0] font-medium">{label}</span>
+    </span>
   )
 }
 
@@ -332,25 +352,22 @@ function SectionHeader({ eyebrow, title, meta, link }: {
   eyebrow: string; title: string; meta?: string | null; link?: { href: string; label: string }
 }) {
   return (
-    <div className="mb-6 sm:mb-8 flex items-end justify-between gap-4 flex-wrap">
+    <div className="mb-4 sm:mb-5 flex items-end justify-between gap-3 flex-wrap">
       <div>
-        <div className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#f97316] mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <div className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#f97316] mb-1.5" style={{ fontFamily: "'Outfit', sans-serif" }}>
           {eyebrow}
         </div>
-        <h2
-          className="font-black tracking-[-0.025em] text-[#f0f2f5] leading-[1.05]"
-          style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.5rem, 3.5vw, 2.25rem)' }}
-        >
+        <h2 className="font-black tracking-[-0.025em] text-[#f0f2f5] leading-[1.05]" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)' }}>
           {title}
         </h2>
         {meta && (
-          <p className="text-sm text-[#5e7290] mt-1.5" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-xs text-[#5e7290] mt-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {meta}
           </p>
         )}
       </div>
       {link && (
-        <Link href={link.href} className="text-sm font-bold text-[#f97316] hover:text-[#fb923c] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <Link href={link.href} className="text-xs sm:text-sm font-bold text-[#f97316] hover:text-[#fb923c] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
           {link.label}
         </Link>
       )}
@@ -359,13 +376,92 @@ function SectionHeader({ eyebrow, title, meta, link }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Daily picks — horizontal scroll
+// Compact mood song (horizontal card, ne full-bleed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CompactMoodSong({ track, username }: { track: any; username: string }) {
+  const artist = Array.isArray(track.artists) ? track.artists[0] : track.artists
+  const coverImage = artist?.cover_image_url
+
+  return (
+    <section className="mt-10 sm:mt-12">
+      <div className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#f97316] mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        Nuotaikos daina
+      </div>
+      <Link href={artist ? `/atlikejai/${artist.slug}` : '#'} className="group block">
+        <div className="relative flex items-center gap-4 sm:gap-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-orange-500/[.08] via-rose-500/[.04] to-transparent border border-orange-500/15 overflow-hidden">
+          {/* Backdrop blur on cover */}
+          {coverImage && (
+            <>
+              <div
+                aria-hidden
+                className="absolute inset-0 -z-10 opacity-60"
+                style={{
+                  backgroundImage: `url(${coverImage})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: 'blur(60px) saturate(1.6) brightness(0.5)',
+                  transform: 'scale(1.4)',
+                }}
+              />
+              <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-black/40 via-black/30 to-black/50" />
+            </>
+          )}
+
+          {/* Cover with vinyl ring */}
+          <div className="relative flex-shrink-0">
+            <div
+              className="absolute -inset-1.5 rounded-full opacity-40"
+              style={{
+                background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #60a5fa, #34d399, #fbbf24, #f97316)',
+                animation: 'moodSpinV4 12s linear infinite',
+                filter: 'blur(4px)',
+              }}
+            />
+            {coverImage ? (
+              <img
+                src={coverImage}
+                alt=""
+                className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-white/15"
+                style={{ animation: 'moodSpinV4 30s linear infinite' }}
+              />
+            ) : (
+              <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-3xl">♬</div>
+            )}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#080c12] border border-white/20" />
+          </div>
+
+          {/* Text */}
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-orange-300 mb-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              ♬ {username} pasirinkimas
+            </p>
+            <h3
+              className="font-extrabold text-white leading-tight tracking-[-0.02em] group-hover:text-orange-300 transition truncate"
+              style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)' }}
+            >
+              {track.title}
+            </h3>
+            <p className="text-sm sm:text-base text-[#dde8f8] mt-0.5 font-semibold truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              {artist?.name || 'Nežinomas atlikėjas'}
+            </p>
+          </div>
+        </div>
+      </Link>
+
+      <style>{`@keyframes moodSpinV4 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </section>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Daily picks carousel (kompaktiškesni)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DailyPicksCarousel({ picks }: { picks: any[] }) {
   return (
-    <div className="-mx-5 sm:-mx-8 px-5 sm:px-8 overflow-x-auto pb-4 scrollbar-thin">
-      <div className="flex gap-3 sm:gap-4" style={{ width: 'max-content' }}>
+    <div className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 overflow-x-auto pb-3 scrollbar-thin">
+      <div className="flex gap-3" style={{ width: 'max-content' }}>
         {picks.map((p: any) => {
           const tracks = Array.isArray(p.tracks) ? p.tracks[0] : p.tracks
           const artist = tracks ? (Array.isArray(tracks.artists) ? tracks.artists[0] : tracks.artists) : null
@@ -376,37 +472,34 @@ function DailyPicksCarousel({ picks }: { picks: any[] }) {
           const year = dateObj.getFullYear()
 
           return (
-            <div key={p.id} className="w-[200px] sm:w-[220px] flex-shrink-0">
-              <div className="relative aspect-square rounded-2xl overflow-hidden bg-[#111822] mb-3">
+            <div key={p.id} className="w-[160px] sm:w-[180px] flex-shrink-0">
+              <div className="relative aspect-square rounded-xl overflow-hidden bg-[#111822] mb-2">
                 {trackKnown && artist?.cover_image_url ? (
                   <Link href={`/atlikejai/${artist.slug}`} className="block group h-full">
-                    <img src={artist.cover_image_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-black/0" />
+                    <img src={artist.cover_image_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/0 to-black/0" />
                   </Link>
                 ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] to-[#080c12] flex items-center justify-center text-5xl text-white/10">♪</div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] to-[#080c12] flex items-center justify-center text-4xl text-white/10">♪</div>
                 )}
-                <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm">
-                  <div className="text-xs font-extrabold text-white leading-none" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                    {day} {month}
-                  </div>
-                  <div className="text-[9px] text-white/60 mt-0.5">{year}</div>
+                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-sm">
+                  <span className="text-[10px] font-extrabold text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                    {day} {month} {year}
+                  </span>
                 </div>
                 {p.like_count > 0 && (
-                  <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-rose-500/90 backdrop-blur-sm text-[10px] font-extrabold text-white">
+                  <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded-full bg-rose-500/90 backdrop-blur-sm text-[9px] font-extrabold text-white">
                     ♥ {p.like_count}
                   </div>
                 )}
               </div>
-              <div>
-                <p className="text-sm font-bold text-white truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                  {trackKnown ? tracks.title : <span className="text-[#5e7290] italic">Neimportuota</span>}
-                </p>
-                <p className="text-xs text-[#8aa0c0] truncate">{trackKnown ? artist?.name : `#${p.legacy_track_id}`}</p>
-                {p.comment && (
-                  <p className="text-[11px] text-[#5e7290] italic mt-1.5 line-clamp-2 leading-snug">„{p.comment}"</p>
-                )}
-              </div>
+              <p className="text-xs font-bold text-white truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                {trackKnown ? tracks.title : <span className="text-[#5e7290] italic">Neimportuota</span>}
+              </p>
+              <p className="text-[11px] text-[#8aa0c0] truncate">{trackKnown ? artist?.name : `#${p.legacy_track_id}`}</p>
+              {p.comment && (
+                <p className="text-[10px] text-[#5e7290] italic mt-1 line-clamp-2 leading-snug">„{p.comment}"</p>
+              )}
             </div>
           )
         })}
@@ -416,24 +509,24 @@ function DailyPicksCarousel({ picks }: { picks: any[] }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Favorite artists — visual grid
+// Favorite artists — 2-col stacked rows (kompaktiškiau nei aspect-[3/4] cards)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FavoriteArtistsVisualGrid({ artists }: { artists: any[] }) {
+function FavoriteArtistsCompact({ artists }: { artists: any[] }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
       {artists.map((a: any) => (
-        <Link key={a.id} href={`/atlikejai/${a.slug}`} className="group relative aspect-[3/4] rounded-2xl overflow-hidden bg-[#111822]">
+        <Link key={a.id} href={`/atlikejai/${a.slug}`} className="group relative aspect-square rounded-xl overflow-hidden bg-[#111822]">
           {a.cover_image_url ? (
-            <img src={a.cover_image_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
+            <img src={a.cover_image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-[#1a2436] to-[#080c12] flex items-center justify-center text-6xl font-black text-white/10" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <div className="w-full h-full bg-gradient-to-br from-[#1a2436] to-[#080c12] flex items-center justify-center text-3xl font-black text-white/10" style={{ fontFamily: "'Outfit', sans-serif" }}>
               {a.name[0].toUpperCase()}
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-4">
-            <p className="text-base font-extrabold text-white leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-2.5">
+            <p className="text-sm font-extrabold text-white leading-tight truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
               {a.name}
             </p>
           </div>
@@ -444,157 +537,94 @@ function FavoriteArtistsVisualGrid({ artists }: { artists: any[] }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Posts layout — magazine style su post_type badges + tagais
+// Posts compact list (kompaktiškas vienas-zonos sąrašas, ne magazine layout)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const POST_TYPE_LABEL: Record<string, string> = {
-  article: 'Straipsnis',
-  review: 'Recenzija',
-  event: 'Renginio apžvalga',
-  creation: 'Kūryba',
-  translation: 'Vertimas',
-  topas: 'Topas',
+  article: 'Straipsnis', review: 'Recenzija', event: 'Renginys', creation: 'Kūryba',
+  translation: 'Vertimas', topas: 'Topas',
 }
-
 const POST_TYPE_COLOR: Record<string, string> = {
-  article: '#f97316',
-  review: '#fbbf24',
-  event: '#34d399',
-  creation: '#f472b6',
-  translation: '#a78bfa',
-  topas: '#60a5fa',
+  article: '#f97316', review: '#fbbf24', event: '#34d399', creation: '#f472b6',
+  translation: '#a78bfa', topas: '#60a5fa',
 }
 
-function PostsLayout({ blogSlug, posts }: { blogSlug: string; posts: any[] }) {
-  if (!posts.length) return null
-  const [hero, ...rest] = posts
+function PostsCompact({ blogSlug, posts }: { blogSlug: string; posts: any[] }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-      {/* Big featured */}
-      <Link href={`/blogas/${blogSlug}/${hero.slug}`} className="lg:col-span-2 group block rounded-2xl overflow-hidden bg-white/[.03] border border-white/[.05] hover:border-white/[.12] transition">
-        {hero.cover_image_url ? (
-          <div className="aspect-[16/9] overflow-hidden bg-[#111822]">
-            <img src={hero.cover_image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition duration-700" />
-          </div>
-        ) : (
-          <div className="aspect-[16/9] bg-gradient-to-br from-orange-500/20 to-rose-600/20" />
-        )}
-        <div className="p-6 sm:p-7">
-          <div className="flex items-center gap-2 flex-wrap mb-3">
-            <span
-              className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full"
-              style={{
-                fontFamily: "'Outfit', sans-serif",
-                background: `${POST_TYPE_COLOR[hero.post_type] || '#5e7290'}20`,
-                color: POST_TYPE_COLOR[hero.post_type] || '#b0bdd4',
-                border: `1px solid ${POST_TYPE_COLOR[hero.post_type] || '#5e7290'}40`,
-              }}
-            >
-              {POST_TYPE_LABEL[hero.post_type] || hero.post_type}
-            </span>
-            {Array.isArray(hero.tags) && hero.tags.slice(0, 3).map((t: string) => (
-              <span key={t} className="text-[10px] font-bold text-[#8aa0c0] bg-white/[.04] border border-white/[.06] rounded-full px-2 py-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                #{t}
+    <div className="flex flex-col gap-2.5">
+      {posts.map((p: any) => (
+        <Link key={p.id} href={`/blogas/${blogSlug}/${p.slug}`} className="group flex gap-3 p-3 rounded-xl bg-white/[.02] border border-white/[.04] hover:border-white/[.1] transition">
+          {p.cover_image_url ? (
+            <img src={p.cover_image_url} alt="" className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover flex-shrink-0" />
+          ) : (
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-gradient-to-br from-orange-500/15 to-rose-600/15 flex-shrink-0 flex items-center justify-center text-2xl text-white/15">{POST_TYPE_LABEL[p.post_type]?.[0] || '?'}</div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+              <span
+                className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                style={{
+                  fontFamily: "'Outfit', sans-serif",
+                  background: `${POST_TYPE_COLOR[p.post_type] || '#5e7290'}25`,
+                  color: POST_TYPE_COLOR[p.post_type] || '#b0bdd4',
+                  border: `1px solid ${POST_TYPE_COLOR[p.post_type] || '#5e7290'}40`,
+                }}
+              >
+                {POST_TYPE_LABEL[p.post_type] || p.post_type}
               </span>
-            ))}
-          </div>
-          <h3 className="text-2xl sm:text-3xl font-black text-white leading-tight group-hover:text-[#f97316] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            {hero.title}
-          </h3>
-          {hero.summary && <p className="text-sm sm:text-base text-[#b0bdd4] mt-3 line-clamp-2 leading-relaxed">{hero.summary}</p>}
-          <div className="text-[10px] text-[#5e7290] mt-4 uppercase tracking-wider font-bold flex gap-3 flex-wrap">
-            <span>{new Date(hero.published_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-            {hero.reading_time_min && <span>{hero.reading_time_min} min</span>}
-            {hero.like_count > 0 && <span>♥ {hero.like_count}</span>}
-            {hero.comment_count > 0 && <span>💬 {hero.comment_count}</span>}
-          </div>
-        </div>
-      </Link>
-
-      {/* Small posts */}
-      <div className="flex flex-col gap-3">
-        {rest.slice(0, 3).map((p: any) => (
-          <Link key={p.id} href={`/blogas/${blogSlug}/${p.slug}`} className="group flex gap-3 p-3 rounded-xl bg-white/[.02] border border-white/[.04] hover:border-white/[.1] transition">
-            {p.cover_image_url ? (
-              <img src={p.cover_image_url} alt="" className="w-20 h-20 rounded-lg object-cover flex-shrink-0" />
-            ) : (
-              <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-orange-500/20 to-rose-600/20 flex-shrink-0 flex items-center justify-center text-2xl text-white/20">{POST_TYPE_LABEL[p.post_type]?.[0] || '?'}</div>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                <span
-                  className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-                  style={{
-                    fontFamily: "'Outfit', sans-serif",
-                    background: `${POST_TYPE_COLOR[p.post_type] || '#5e7290'}20`,
-                    color: POST_TYPE_COLOR[p.post_type] || '#b0bdd4',
-                  }}
-                >
-                  {POST_TYPE_LABEL[p.post_type] || p.post_type}
-                </span>
-                {Array.isArray(p.tags) && p.tags.slice(0, 1).map((t: string) => (
-                  <span key={t} className="text-[9px] font-bold text-[#5e7290]">#{t}</span>
-                ))}
-              </div>
-              <h4 className="text-sm font-bold text-white leading-tight line-clamp-2 group-hover:text-[#f97316] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                {p.title}
-              </h4>
-              <p className="text-[10px] text-[#5e7290] mt-1.5 uppercase tracking-wider font-bold">
-                {new Date(p.published_at).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}
-              </p>
+              {Array.isArray(p.tags) && p.tags.slice(0, 2).map((t: string) => (
+                <span key={t} className="text-[9px] font-bold text-[#8aa0c0]">#{t}</span>
+              ))}
             </div>
-          </Link>
-        ))}
-      </div>
+            <h4 className="text-sm font-bold text-white leading-tight line-clamp-2 group-hover:text-[#f97316] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              {p.title}
+            </h4>
+            <p className="text-[10px] text-[#5e7290] mt-1 uppercase tracking-wider font-bold flex gap-2">
+              <span>{new Date(p.published_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+              {p.like_count > 0 && <span>♥ {p.like_count}</span>}
+              {p.comment_count > 0 && <span>💬 {p.comment_count}</span>}
+            </p>
+          </div>
+        </Link>
+      ))}
     </div>
   )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Topai grid — daugiau visualus negu PostsLayout
+// Topas compact
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TopasGrid({ blogSlug, posts }: { blogSlug: string; posts: any[] }) {
+function TopasCompact({ blogSlug, posts }: { blogSlug: string; posts: any[] }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {posts.map((p: any) => {
         const items = Array.isArray(p.list_items) ? p.list_items : []
         return (
-          <Link key={p.id} href={`/blogas/${blogSlug}/${p.slug}`} className="group block rounded-2xl overflow-hidden bg-gradient-to-br from-[#1a2436] to-[#0f1622] border border-white/[.06] hover:border-[#60a5fa]/30 transition">
-            {/* Cover collage iš pirmų 4 list_items */}
+          <Link key={p.id} href={`/blogas/${blogSlug}/${p.slug}`} className="group block rounded-xl overflow-hidden bg-gradient-to-br from-[#1a2436] to-[#0f1622] border border-white/[.06] hover:border-[#60a5fa]/30 transition">
             <div className="relative aspect-[4/3] overflow-hidden">
               {items.length >= 4 ? (
                 <div className="grid grid-cols-2 grid-rows-2 h-full">
                   {items.slice(0, 4).map((it: any, i: number) => (
                     <div key={i} className="bg-[#080c12] overflow-hidden">
-                      {it.image_url ? (
-                        <img src={it.image_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xl text-white/10">{i + 1}</div>
-                      )}
+                      {it.image_url ? <img src={it.image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-base text-white/10">{i + 1}</div>}
                     </div>
                   ))}
                 </div>
               ) : p.cover_image_url ? (
                 <img src={p.cover_image_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-4xl text-white/10">📋</div>
+                <div className="w-full h-full flex items-center justify-center text-3xl text-white/10">📋</div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-              <div className="absolute top-3 left-3">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full bg-blue-500/30 text-blue-200 backdrop-blur-sm">
-                  Topas · {items.length || '?'}
-                </span>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+              <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full bg-blue-500/30 text-blue-200 backdrop-blur-sm text-[9px] font-extrabold uppercase tracking-wider">
+                Topas · {items.length || '?'}
               </div>
             </div>
-            <div className="p-4">
-              <h3 className="text-base font-extrabold text-white leading-tight group-hover:text-[#60a5fa] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <div className="p-3">
+              <h3 className="text-sm font-extrabold text-white leading-tight group-hover:text-[#60a5fa] transition line-clamp-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
                 {p.title}
               </h3>
-              <div className="text-[10px] text-[#5e7290] mt-2 uppercase tracking-wider font-bold">
-                {new Date(p.published_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short' })}
-                {p.like_count > 0 && <> · ♥ {p.like_count}</>}
-              </div>
             </div>
           </Link>
         )
@@ -604,27 +634,27 @@ function TopasGrid({ blogSlug, posts }: { blogSlug: string; posts: any[] }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Translations
+// Translations compact
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TranslationsMinimal({ translations, blogSlug }: { translations: any[]; blogSlug?: string }) {
+function TranslationsCompact({ translations, blogSlug }: { translations: any[]; blogSlug?: string }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="flex flex-col gap-2.5">
       {translations.map((t: any) => {
         const slug = Array.isArray(t.blogs) ? t.blogs[0]?.slug : t.blogs?.slug
         const targetArtist = Array.isArray(t.target_artist) ? t.target_artist[0] : t.target_artist
         const targetTrack = Array.isArray(t.target_track) ? t.target_track[0] : t.target_track
         return (
           <Link key={t.id} href={slug ? `/blogas/${slug}/${t.slug}` : '#'}
-                className="block p-5 rounded-2xl bg-gradient-to-br from-violet-500/[.07] to-purple-600/[.04] border border-violet-500/15 hover:border-violet-400/30 transition group">
-            <div className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-violet-300 mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                className="block p-3.5 rounded-xl bg-gradient-to-br from-violet-500/[.07] to-purple-600/[.04] border border-violet-500/15 hover:border-violet-400/30 transition group">
+            <div className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-violet-300 mb-1.5" style={{ fontFamily: "'Outfit', sans-serif" }}>
               vertimas
             </div>
-            <h3 className="text-lg font-bold text-white leading-tight group-hover:text-violet-300 transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <h3 className="text-sm font-bold text-white leading-tight group-hover:text-violet-300 transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
               {t.title}
             </h3>
             {targetArtist && (
-              <p className="text-sm text-[#8aa0c0] mt-2">
+              <p className="text-xs text-[#8aa0c0] mt-1">
                 {targetArtist.name}
                 {targetTrack && <> — <span className="italic">{targetTrack.title}</span></>}
               </p>
@@ -637,24 +667,22 @@ function TranslationsMinimal({ translations, blogSlug }: { translations: any[]; 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Friends — avatar grid
+// Friends
 // ─────────────────────────────────────────────────────────────────────────────
 
 function FriendsAvatarGrid({ friends }: { friends: any[] }) {
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap gap-2.5">
       {friends.map((f: any) => (
         <Link key={f.id} href={`/vartotojas/${f.username}`} className="group relative">
           {f.avatar_url ? (
-            <img src={f.avatar_url} alt="" className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-white/[.08] group-hover:border-[#60a5fa]/60 transition" />
+            <img src={f.avatar_url} alt="" className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-white/[.08] group-hover:border-[#60a5fa]/60 transition" />
           ) : (
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-[#1a2436] to-[#0f1622] flex items-center justify-center text-lg font-bold text-white/30 border-2 border-white/[.08] group-hover:border-[#60a5fa]/60 transition">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-[#1a2436] to-[#0f1622] flex items-center justify-center text-base font-bold text-white/30 border-2 border-white/[.08] group-hover:border-[#60a5fa]/60 transition">
               {(f.full_name || f.username || '?')[0].toUpperCase()}
             </div>
           )}
-          {f.is_vip_legacy && (
-            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 border-2 border-[#080c12]" title="VIP" />
-          )}
+          {f.is_vip_legacy && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-[#080c12]" title="VIP" />}
           <span className="absolute left-1/2 -translate-x-1/2 -bottom-7 whitespace-nowrap text-[10px] font-bold text-white bg-black/90 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
             {f.full_name || f.username}
           </span>
@@ -670,18 +698,18 @@ function FriendsAvatarGrid({ friends }: { friends: any[] }) {
 
 function ProfileFooter({ profile, memberSinceYear, totalContent, isLegacy, isUnclaimed }: any) {
   return (
-    <footer className="mt-24 pt-8 border-t border-white/[.05]">
-      <p className="text-xs text-[#5e7290] text-center mb-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
+    <footer className="mt-16 sm:mt-20 pt-6 border-t border-white/[.05]">
+      <p className="text-xs text-[#5e7290] text-center mb-5" style={{ fontFamily: "'Outfit', sans-serif" }}>
         Music.lt narys nuo {memberSinceYear}
         {totalContent > 0 && <> · {totalContent.toLocaleString('lt-LT')} įrašų / dienos dainų</>}
         {profile.legacy_karma_points && <> · {profile.legacy_karma_points.toLocaleString('lt-LT')} reitingo taškų</>}
       </p>
       {isLegacy && isUnclaimed && (
-        <div className="max-w-xl mx-auto text-center p-5 rounded-2xl border border-amber-500/15 bg-amber-500/[.04]">
-          <p className="text-sm text-[#dde8f8] leading-relaxed mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <div className="max-w-xl mx-auto text-center p-4 rounded-2xl border border-amber-500/15 bg-amber-500/[.04]">
+          <p className="text-sm text-[#dde8f8] leading-relaxed mb-2.5" style={{ fontFamily: "'Outfit', sans-serif" }}>
             <span className="font-bold">Tai jūsų profilis?</span> Užsiregistruokite naujoje music.lt sistemoje tuo pačiu email'u — automatiškai sujungsime visą jūsų istoriją.
           </p>
-          <Link href="/auth/signin" className="inline-block px-5 py-2 rounded-full bg-amber-500 text-black text-xs font-extrabold hover:bg-amber-400 transition uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <Link href="/auth/signin" className="inline-block px-4 py-2 rounded-full bg-amber-500 text-black text-xs font-extrabold hover:bg-amber-400 transition uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif" }}>
             Atgauti accountą
           </Link>
         </div>
