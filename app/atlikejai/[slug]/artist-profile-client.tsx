@@ -14,6 +14,7 @@ import LyricsWithReactions from '@/components/LyricsWithReactions'
 import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
 import { normalizeBio } from '@/lib/normalize-bio'
 import { formatArtistList } from '@/lib/format-artists'
+import { accusativeArtistName } from '@/lib/text-utils'
 import DropBar from '@/components/DropBar'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
 import EventInfoModal, { type EventPreview } from '@/components/EventInfoModal'
@@ -2347,9 +2348,13 @@ function Hero({
                   <button
                     type="button"
                     onClick={() => onOpenTopArtists?.({ country: artist.country })}
-                    title={`Top atlikėjai: ${artist.country}`}
+                    title={`${artist.country} top atlikėjai ir grupės`}
                     aria-label={`Šalis: ${artist.country}. Atidaryti top sąrašą.`}
-                    className="inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1.5 text-[20px] leading-none transition-all hover:scale-110 hover:border-[var(--accent-orange)] lg:border-white/20 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20"
+                    // 2026-05-21: hover state'ą sustipriname — anksčiau
+                    // `lg:hover:border-white/40` buvo per faded, atrodė
+                    // tarsi border dingtų. Dabar pereinam į orange accent
+                    // (kaip žanro chip'as), kad hover'is būtų matomas.
+                    className="inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1.5 text-[20px] leading-none transition-all hover:scale-110 hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.12)] lg:border-white/20 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-[var(--accent-orange)] lg:hover:bg-[rgba(249,115,22,0.18)]"
                   >
                     <span aria-hidden>{flag}</span>
                   </button>
@@ -2526,14 +2531,14 @@ function TopArtistsModal({
     'Šaulys': '♐', 'Ožiaragis': '♑', 'Vandenis': '♒', 'Žuvys': '♓',
   }
   const title = filter.recent
-    ? '🔥 Naujausi top atlikėjai'
+    ? '🔥 Naujausi top atlikėjai ir grupės'
     : filter.zodiac
-    ? `${ZODIAC_GLYPH[filter.zodiac] || '✶'} ${filter.zodiac} — top atlikėjai`
+    ? `${ZODIAC_GLYPH[filter.zodiac] || '✶'} ${filter.zodiac} — top atlikėjai ir grupės`
     : filter.country
-    ? `${FLAGS[filter.country] || '🌍'} ${filter.country} — top atlikėjai`
+    ? `${FLAGS[filter.country] || '🌍'} ${filter.country} top atlikėjai ir grupės`
     : filter.genre
-    ? `${filter.genre} — top atlikėjai`
-    : 'Top atlikėjai pasaulyje'
+    ? `${filter.genre} — top atlikėjai ir grupės`
+    : 'Pasaulio top atlikėjai ir grupės'
 
   useEffect(() => {
     let abort = false
@@ -2678,7 +2683,7 @@ function TopArtistsModal({
 // Native Web Share API kai palaiko (mobile), kitur — clipboard copy +
 // trumpalaikis „Nukopijuota" feedback. Stilius derintas su FollowPill,
 // kad SideInfo „Sekti + Dalintis" row atrodytų kaip vienetinis CTA blokas.
-function ShareButton({ url, title }: { url: string; title: string }) {
+function ShareButton({ url, title, fullWidth = false }: { url: string; title: string; fullWidth?: boolean }) {
   const [copied, setCopied] = useState(false)
   const onShare = async () => {
     if (!url) return
@@ -2706,7 +2711,10 @@ function ShareButton({ url, title }: { url: string; title: string }) {
       onClick={onShare}
       title="Dalintis atlikėju"
       aria-label="Dalintis"
-      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3.5 py-2 text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)]"
+      className={[
+        fullWidth ? 'flex w-full justify-center' : 'inline-flex',
+        'items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3.5 py-2 text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)]',
+      ].join(' ')}
     >
       <svg
         viewBox="0 0 24 24"
@@ -2743,10 +2751,12 @@ function ShareButton({ url, title }: { url: string; title: string }) {
 // senas LikePill 'light' variant (white/10 background buvo nematomas
 // light theme'ai).
 function FollowPill({
-  likes, selfLiked, onToggle, onOpenModal, pending,
+  likes, selfLiked, onToggle, onOpenModal, pending, fullWidth = false,
 }: {
   likes: number; selfLiked: boolean
   onToggle: () => void; onOpenModal: () => void; pending: boolean
+  /** When true, pill rendered as full-width flex (vietoj inline-flex). */
+  fullWidth?: boolean
 }) {
   const heartFilled = !!selfLiked
   const countClickable = likes > 0
@@ -2754,7 +2764,8 @@ function FollowPill({
   return (
     <div
       className={[
-        'inline-flex overflow-hidden rounded-full transition-colors',
+        fullWidth ? 'flex w-full' : 'inline-flex',
+        'overflow-hidden rounded-full transition-colors',
         heartFilled
           ? 'border border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_6px_18px_rgba(249,115,22,0.35)]'
           : 'border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-primary)]',
@@ -2768,6 +2779,7 @@ function FollowPill({
         aria-label={heartFilled ? 'Nesekti' : 'Sekti'}
         aria-pressed={heartFilled}
         className={[
+          fullWidth ? 'flex-1 justify-center' : '',
           'flex items-center gap-1.5 px-3.5 py-2 transition-colors',
           pending ? 'cursor-wait opacity-70' : 'cursor-pointer',
           !heartFilled ? 'hover:bg-[var(--bg-hover)]' : 'hover:opacity-90',
@@ -2966,7 +2978,7 @@ function BioFactsInline({
 function SideInfo({
   artist, flag: _flag, genres: _genres, substyles: _substyles, ranks: _ranks,
   links, website, horizontal = false, displayRoles: _displayRoles = [],
-  followControls,
+  followControls, onOpenSocialModal,
 }: {
   artist: any; flag: string; genres: Genre[]; substyles: Genre[]
   ranks: Rank[]
@@ -2989,6 +3001,9 @@ function SideInfo({
     onOpenModal: () => void
     pending: boolean
   }
+  /** Atidaro SocialLinksModal su pilnu sąrašu — naudojam vertical
+   *  variant'e kai socials > 5 (overflow „+N" mygtukas). */
+  onOpenSocialModal?: () => void
 }) {
   // Visi rank chip'ai (country/genre/global) PAŠALINTI iš SideInfo
   // (2026-05-21 redesign'as). Rank metrika gyvuoja Hero zonoje (PopBar +
@@ -3088,14 +3103,26 @@ function SideInfo({
 
   if (!followControls && !hasSocials) return null
 
+  // 2026-05-21 v3 redesign: adaptive socials layout.
+  //   • ≤2 socials (+optional website): rodom su label tekstu (logo + Spotify)
+  //   • 3-5 socials: ikonos only (kompakt)
+  //   • >5: pirmi 5 ikonomis + „+N daugiau" mygtukas → SocialLinksModal
+  // Sekti + Dalintis perdaryti full-width (vienas po kito), kad CTA užimtų
+  // visą card pločio.
+  const socialList = links.filter(l => SOC[l.platform])
+  const hasWebsite = !!website
+  const totalSocialItems = socialList.length + (hasWebsite ? 1 : 0)
+  const useLabels = totalSocialItems > 0 && totalSocialItems <= 2
+  const ICON_LIMIT = 5
+  const overflowCount = !useLabels && socialList.length > ICON_LIMIT ? socialList.length - ICON_LIMIT : 0
+  const visibleIconSocials = !useLabels && overflowCount > 0 ? socialList.slice(0, ICON_LIMIT) : socialList
+
   return (
-    <aside className="flex h-fit flex-col items-start gap-3 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-      {/* Socials icons row — visi į vieną eilutę, įskaitant oficialios
-          svetainės globe ikoną gale (po 2026-05-21 v3: domeno tekstas
-          dingsta, kad viskas tilptų į vieną liniją net su 8 platformomis). */}
-      {hasSocials && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {links.filter(l => SOC[l.platform]).map(l => {
+    <aside className="flex h-fit flex-col items-stretch gap-3 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+      {hasSocials && useLabels && (
+        // Labeled mode — vertical stack, kiekvienas item full row su logo + name
+        <div className="flex w-full flex-col gap-1.5">
+          {socialList.map(l => {
             const p = SOC[l.platform]
             return (
               <a
@@ -3103,10 +3130,12 @@ function SideInfo({
                 href={l.url}
                 target="_blank"
                 rel="noopener"
-                title={p.l}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                className="flex w-full items-center gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-2 text-left no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
               >
-                <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="13" height="13" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+                  <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="15" height="15" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+                </span>
+                <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{p.l}</span>
               </a>
             )
           })}
@@ -3118,24 +3147,72 @@ function SideInfo({
                 href={website}
                 target="_blank"
                 rel="noopener"
-                title={`Oficiali svetainė — ${domain}`}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                title={domain}
+                className="flex w-full items-center gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-2 text-left no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--text-muted)]">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                </span>
+                <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">Oficiali svetainė</span>
               </a>
             )
           })()}
         </div>
       )}
+      {hasSocials && !useLabels && (
+        // Compact mode — ikonos with optional overflow modal
+        <div className="flex w-full flex-wrap items-center gap-1.5">
+          {visibleIconSocials.map(l => {
+            const p = SOC[l.platform]
+            return (
+              <a
+                key={l.platform}
+                href={l.url}
+                target="_blank"
+                rel="noopener"
+                title={p.l}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
+              >
+                <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+              </a>
+            )
+          })}
+          {website && overflowCount === 0 && (() => {
+            let domain = ''
+            try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
+            return (
+              <a
+                href={website}
+                target="_blank"
+                rel="noopener"
+                title={`Oficiali svetainė — ${domain}`}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+              </a>
+            )
+          })()}
+          {overflowCount > 0 && (
+            <button
+              type="button"
+              onClick={onOpenSocialModal}
+              title="Visi linkai"
+              className="flex h-9 items-center gap-1 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-3 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
+            >
+              +{overflowCount + (website ? 1 : 0)}
+            </button>
+          )}
+        </div>
+      )}
 
-      {/* Sekti + Share row — primary action card'o apačioje. Divider
-          tik kai virš jo yra socials block'as. */}
+      {/* Sekti + Dalintis — full-width buttons stacked. „Isplesti per visa
+          boxo ploti" per user feedback 2026-05-21. */}
       {followControls && (
         <>
           {hasSocials && <div className="w-full border-t border-[var(--border-subtle)]" />}
-          <div className="flex flex-wrap items-center gap-2">
-            <FollowPill {...followControls} />
-            <ShareButton url={typeof window !== 'undefined' ? window.location.href : ''} title={artist.name} />
+          <div className="flex w-full flex-col gap-2">
+            <FollowPill {...followControls} fullWidth />
+            <ShareButton url={typeof window !== 'undefined' ? window.location.href : ''} title={artist.name} fullWidth />
           </div>
         </>
       )}
@@ -3447,6 +3524,130 @@ function MemberModalCard({ m }: { m: Member }) {
         )}
       </div>
     </Link>
+  )
+}
+
+// ── SocialLinksModal ────────────────────────────────────────────────
+//
+// 2026-05-21: Modal'as, kuris rodo pilną sąrašą social platformų + website
+// + follow/share control'ius. Naudojam dviem scenarijams:
+//   1) Desktop: kai socials per daug — pirmi 5 ikonomis SideInfo card'e,
+//      „+N daugiau" mygtukas atidaro šitą modal'ą su pilnu sąrašu.
+//   2) Mobile: vietoj SideInfo card'o rodom paprastą „Daugiau" link'ą po
+//      Nariais — paspaudus atsidaro šitas modal'as su visu turiniu.
+//
+// Kiekvienas link'as — full row su ikona + platformos pavadinimu + domain'u.
+// Atsidaro naujam tab'e (target="_blank" + rel="noopener").
+
+function SocialLinksModal({
+  artistName, links, website, followControls, onClose,
+}: {
+  artistName: string
+  links: { platform: string; url: string }[]
+  website?: string | null
+  followControls?: {
+    likes: number
+    selfLiked: boolean
+    onToggle: () => void
+    onOpenModal: () => void
+    pending: boolean
+  }
+  onClose: () => void
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  const socialList = links.filter(l => SOC[l.platform])
+  let websiteDomain = ''
+  if (website) {
+    try { websiteDomain = new URL(website).host.replace(/^www\./, '') } catch { websiteDomain = website }
+  }
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="social-links-modal-title"
+    >
+      <div className="flex max-h-[85vh] w-full flex-col rounded-t-3xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl sm:max-w-[460px] sm:rounded-3xl">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+          <h2 id="social-links-modal-title" className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-tight text-[var(--text-primary)]">
+            Daugiau — {artistName}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Uždaryti"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          {/* Follow + Share — full width buttons viršuje */}
+          {followControls && (
+            <div className="mb-3 flex flex-col gap-2">
+              <FollowPill {...followControls} fullWidth />
+              <ShareButton url={shareUrl} title={artistName} fullWidth />
+            </div>
+          )}
+          {/* Social links — full rows */}
+          {socialList.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              {socialList.map(l => {
+                const p = SOC[l.platform]
+                let domain = ''
+                try { domain = new URL(l.url).host.replace(/^www\./, '') } catch { domain = l.url }
+                return (
+                  <a
+                    key={l.platform}
+                    href={l.url}
+                    target="_blank"
+                    rel="noopener"
+                    className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-2.5 text-left no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--bg-elevated)]">
+                      <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="16" height="16" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-primary)]">{p.l}</div>
+                      <div className="truncate font-['DM_Sans',sans-serif] text-[11.5px] text-[var(--text-muted)]">{domain}</div>
+                    </div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)]" aria-hidden>
+                      <path d="M7 17L17 7M9 7h8v8" />
+                    </svg>
+                  </a>
+                )
+              })}
+              {website && (
+                <a
+                  href={website}
+                  target="_blank"
+                  rel="noopener"
+                  className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-2.5 text-left no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--bg-elevated)]">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-primary)]">Oficiali svetainė</div>
+                    <div className="truncate font-['DM_Sans',sans-serif] text-[11.5px] text-[var(--text-muted)]">{websiteDomain}</div>
+                  </div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)]" aria-hidden>
+                    <path d="M7 17L17 7M9 7h8v8" />
+                  </svg>
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -4996,6 +5197,68 @@ function AvatarBubble({ name, size = 28 }: { name: string; size?: number }) {
   )
 }
 
+// ── OrphanTracksModal ───────────────────────────────────────────────
+//
+// 2026-05-21: Modalas, kuris rodo „Kitos dainos" pilną sąrašą. Pradžioje
+// artist puslapyje rodom tik first 4, su „+N daugiau" mygtuku, kuris šitą
+// modal'ą atidaro. Reikalingas, kad ilgi orphan track sąrašai (kartais
+// kelios dešimtys) nesudarytų ilgo scroll'o profile page'e.
+
+function OrphanTracksModal({
+  tracks, artistName, artistSlug, onClose, onSelectTrack,
+}: {
+  tracks: Track[]
+  artistName: string
+  artistSlug: string
+  onClose: () => void
+  onSelectTrack: (t: Track) => void
+}) {
+  // Esc handler
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="orphan-tracks-modal-title"
+    >
+      <div className="flex max-h-[85vh] w-full flex-col rounded-t-3xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl sm:max-w-[560px] sm:rounded-3xl">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+          <h2 id="orphan-tracks-modal-title" className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-tight text-[var(--text-primary)]">
+            Kitos {artistName} dainos · {tracks.length}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Uždaryti"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            {tracks.map((t) => (
+              <TrackRow
+                key={t.id}
+                t={t}
+                artistSlug={artistSlug}
+                onOpen={(track) => { onClose(); onSelectTrack(track) }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 // ── Main ────────────────────────────────────────────────────────────
 
 export default function ArtistProfileClient({
@@ -5032,6 +5295,14 @@ export default function ArtistProfileClient({
   // Desktop'e modal'as gali turėti dock'uotą player'į (≥1280px viewport) —
   // tuomet hero player'is taip pat suppress'inamas.
   const [modalUsesDocked, setModalUsesDocked] = useState(false)
+  // „Kitos dainos" modal'as — atidaromas su „+N daugiau" mygtuku, kai orphan
+  // tracks > 4. Profile page'e rodom tik first 4, modal'e visus.
+  const [orphanModalOpen, setOrphanModalOpen] = useState(false)
+  // Socials + follow + share modal'as. Naudojam dviems scenarijams:
+  //   • Desktop: kai socials > 5 → „+N" overflow mygtukas SideInfo card'e
+  //   • Mobile: vietoj horizontal SideInfo strip rodom „Daugiau" punktą
+  //     po Nariais — atsiveria visas turinys čia.
+  const [socialModalOpen, setSocialModalOpen] = useState(false)
 
   const galerijaRef = useRef<HTMLDivElement>(null)
 
@@ -5680,7 +5951,7 @@ export default function ArtistProfileClient({
       <BioModal
         open={bioModalOpen}
         onClose={() => setBioModalOpen(false)}
-        title={`Apie ${artist.name}`}
+        title={`Apie ${accusativeArtistName(artist.name, artist.country)}`}
         subtitle={bioSubtitle}
         html={bioHtml}
       />
@@ -5723,6 +5994,32 @@ export default function ArtistProfileClient({
           return () => { setPid(next.id); setPlaying(true); setTrackInfoOpen(next) }
         })()}
       />
+
+      {orphanModalOpen && (
+        <OrphanTracksModal
+          tracks={orphanTracks}
+          artistName={artist.name}
+          artistSlug={artist.slug}
+          onClose={() => setOrphanModalOpen(false)}
+          onSelectTrack={(t) => setTrackInfoOpen(t)}
+        />
+      )}
+
+      {socialModalOpen && (
+        <SocialLinksModal
+          artistName={artist.name}
+          links={links}
+          website={artist.website}
+          followControls={{
+            likes,
+            selfLiked: !!selfLiked,
+            onToggle: toggleSelfLike,
+            onOpenModal: () => setLikesModalOpen(true),
+            pending: selfLikePending,
+          }}
+          onClose={() => setSocialModalOpen(false)}
+        />
+      )}
 
       <AlbumInfoModal
         albumId={albumModalOpen?.id ?? null}
@@ -5839,7 +6136,7 @@ export default function ArtistProfileClient({
           // jis turi „Sekti" pill perkeltą iš Hero zonos — vartotojas turi
           // follow'inti net naują/tuščią atlikėją.
           const sideInfoAvailable = true
-          const bioHeader = `Apie ${artist.name}`
+          const bioHeader = `Apie ${accusativeArtistName(artist.name, artist.country)}`
 
           if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
 
@@ -5871,6 +6168,7 @@ export default function ArtistProfileClient({
                         links={links}
                         website={artist.website}
                         displayRoles={displayRoles}
+                        onOpenSocialModal={() => setSocialModalOpen(true)}
                         followControls={{
                           likes,
                           selfLiked: !!selfLiked,
@@ -5937,31 +6235,35 @@ export default function ArtistProfileClient({
                       „Narys grupėse: Jack Irons" prie RHCP profilio. Po DB
                       fix'o defensive guard'as gardiečia ateityje. */}
                   {solo && memberOf && memberOf.length > 0 && <MemberOfInline groups={memberOf} />}
-                  {/* Mobile-only: SideInfo „Sekti" strip POSTPOSED. Po 2026-05-21
-                      redesign'o jis nebebuvo prie viršaus, o čia po viso bio
-                      konteksto (sritys, nariai/grupės). Lankytojas pirma
-                      susipažįsta su atlikėju, paskui — gali sekti / aplankyti
-                      socialinius. lg+ versija lieka float-right'e su flow-root. */}
+                  {/* Mobile-only: vietoj SideInfo card'o rodom paprastą
+                      „Daugiau" punktą (po Nariais/grupėmis) — atveria
+                      SocialLinksModal su sekti, dalintis ir social linkais.
+                      Per 2026-05-21 user feedback: box ant mobile atrodė per
+                      bulky, švaresnis menu pattern'as. lg+ — vis tiek
+                      float-right SideInfo card'as su flow-root. */}
                   {sideInfoAvailable && (
                     <div className="mt-8 lg:hidden">
-                      <SideInfo
-                        artist={artist}
-                        flag={flag}
-                        genres={genres}
-                        substyles={substyles}
-                        ranks={ranks}
-                        links={links}
-                        website={artist.website}
-                        horizontal
-                        displayRoles={displayRoles}
-                        followControls={{
-                          likes,
-                          selfLiked: !!selfLiked,
-                          onToggle: toggleSelfLike,
-                          onOpenModal: () => setLikesModalOpen(true),
-                          pending: selfLikePending,
-                        }}
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setSocialModalOpen(true)}
+                        className="flex w-full items-center justify-between rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3.5 text-left transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          {/* ❤ icon — kvietimas sekti, primary action */}
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                          </svg>
+                          <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
+                            Daugiau
+                          </span>
+                          <span className="font-['DM_Sans',sans-serif] text-[12px] text-[var(--text-muted)]">
+                            Sekti · Dalintis · Linkai
+                          </span>
+                        </div>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-[var(--text-faint)]" aria-hidden>
+                          <path d="M9 6l6 6-6 6" />
+                        </svg>
+                      </button>
                     </div>
                   )}
                   {/* Mobile: score card po SideInfo strip. */}
@@ -6163,27 +6465,42 @@ export default function ArtistProfileClient({
                 )
               )}
 
-              {/* Orphan tracks — compact list below albums when included */}
-              {showOrphans && orphanTracks.length > 0 && (
-                <div className={visibleAlbums.length > 0 ? 'mt-6' : ''}>
-                  {visibleAlbums.length > 0 && (
-                    <div className="mb-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-                      Kitos dainos
+              {/* Orphan tracks — compact list below albums when included.
+                  2026-05-21: rodom tik first 4, „+N daugiau" → modal'as. */}
+              {showOrphans && orphanTracks.length > 0 && (() => {
+                const ORPHAN_VISIBLE = 4
+                const visibleOrphans = orphanTracks.slice(0, ORPHAN_VISIBLE)
+                const extraOrphans = orphanTracks.length - ORPHAN_VISIBLE
+                return (
+                  <div className={visibleAlbums.length > 0 ? 'mt-6' : ''}>
+                    {visibleAlbums.length > 0 && (
+                      <div className="mb-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                        Kitos dainos
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+                      {visibleOrphans.map((t, i) => (
+                        <TrackRow
+                          key={t.id}
+                          t={t}
+                          artistSlug={artist.slug}
+                          popularity={popLevelWithFallback(t, i, orphanTracks.length, popInfoTracks)}
+                          onOpen={setTrackInfoOpen}
+                        />
+                      ))}
                     </div>
-                  )}
-                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-                    {orphanTracks.map((t, i) => (
-                      <TrackRow
-                        key={t.id}
-                        t={t}
-                        artistSlug={artist.slug}
-                        popularity={popLevelWithFallback(t, i, orphanTracks.length, popInfoTracks)}
-                        onOpen={setTrackInfoOpen}
-                      />
-                    ))}
+                    {extraOrphans > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setOrphanModalOpen(true)}
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-3.5 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
+                      >
+                        +{extraOrphans} daugiau
+                      </button>
+                    )}
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </section>
           )
         })()}

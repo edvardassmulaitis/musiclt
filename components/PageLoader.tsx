@@ -18,11 +18,14 @@ export function PageLoader({ variant = 'generic' }: { variant?: PageLoaderVarian
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: '20px 16px' }}>
       {/* Centruotas equalizer + tagline. Music.lt logo pašalintas — jis
           jau matosi site header'yje, dvigubėdavo per loading state'ą.
-          „Tavo muzikos pasaulis" tagline'as suteikia šiltą identitetą. */}
+          „Tavo muzikos pasaulis" tagline'as suteikia šiltą identitetą.
+          2026-05-21: min-height 70vh — kad loader'is sėdėtų vertikaliai
+          centruotame viewport'e, ne arti viršaus. Hints'ai lieka apačioje
+          (scroll'inant matomi). */}
       <div style={{
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        gap: 16, padding: '60px 16px 40px',
+        gap: 16, padding: '20px 16px', minHeight: '70vh',
       }}>
         <span className="eq-loader-big" aria-label="Loading">
           <span /><span /><span /><span /><span />

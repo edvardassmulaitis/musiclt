@@ -63,6 +63,87 @@ function capWord(w: string): string {
 }
 
 /**
+ * Lietuviški linksniai — galininkas (accusative) atlikėjų vardams.
+ *
+ * Konvertuoja vardą iš vardininko (nominatyvo) į galininką (akuzatyvo),
+ * naudojant heuristic'inį žodžio galūnės pakeitimą. Skirta „Apie {vardas}"
+ * kontekstui artist puslapyje (naudotojo skundas: „Apie Marijonas Mikutavičius"
+ * → turi būti „Apie Marijoną Mikutavičių").
+ *
+ * Taisyklės (LT 1-2 deklinacijos masc./fem. variantai):
+ *   masc.: -as → -ą,  -is → -į,  -ys → -į,  -ius → -ių,  -us → -ų,
+ *          -ičius → -ičių (jau covered by -ius),
+ *          -ėnas → -ėną (covered by -as)
+ *   fem.:  -a → -ą,  -ė → -ę,  -ienė → -ienę,  -aitė/-utė/-ytė/-iūtė → -*ę
+ *
+ * Tinka tiek vardams (Marijonas → Marijoną), tiek pavardėms (Mikutavičius →
+ * Mikutavičių). Multi-word atlikėjui transform'inam kiekvieną žodį atskirai
+ * („Marijonas Mikutavičius" → „Marijoną Mikutavičių").
+ *
+ * NETAIKO ne LT vardams — `onlyForLt=true` (default) reikalauja country flag'o
+ * iš caller'io (žiūrėk `accusativeArtistName()`). Jei netinka, grąžinam
+ * vardą nepakitusį.
+ *
+ * Edge case'ai (kol kas neapdorojam — heuristic'as klystės):
+ *   • Foreign band names su LT-look galūnėmis („Sister" → grąžins „Sisterę"
+ *     fail'aujas, bet ten ir taip nereiks accusative — country čekas saugiausias)
+ *   • Trumpiniai (G&G, AC/DC) — pavyzdžiui „G&G Sindikatas" → „G&G Sindikatą"
+ *     (veiks per per-word loop)
+ *   • Vardai jau galininke (Marijoną) — recursive apply nedaro įtakos
+ *     („Marijoną" baigiasi su „ą" — joks rule nematch'ina, paliekam)
+ */
+const ACCUSATIVE_ENDINGS: [string, string][] = [
+  // Specific endings PRIEŠ generic (longer match first)
+  ['ičius',  'ičių'],   // Mikutavičius → Mikutavičių (covered by 'ius', bet aiškiau)
+  ['ienė',   'ienę'],   // Janulaitienė → Janulaitienę
+  ['iūtė',   'iūtę'],   // Mikutavičiūtė → Mikutavičiūtę
+  ['aitė',   'aitę'],
+  ['utė',    'utę'],
+  ['ytė',    'ytę'],
+  ['ėnas',   'ėną'],    // Lukšėnas → Lukšėną (covered by 'as')
+  ['ius',    'ių'],     // Andrius → Andrių
+  ['as',     'ą'],      // Marijonas → Marijoną, Vytautas → Vytautą
+  ['is',     'į'],      // Karolis → Karolį
+  ['ys',     'į'],      // (retas)
+  ['us',     'ų'],      // Adamkus → Adamkų
+  ['ė',      'ę'],      // Aistė → Aistę
+  ['a',      'ą'],      // Justina → Justiną
+]
+
+function toAccusativeWord(word: string): string {
+  // Acronyms / short tokens — paliekam
+  if (word.length < 2) return word
+  // Foreign chars (q/w/x ar non-LT diakritika)? — skip
+  if (/[qwx]/i.test(word)) return word
+  // Jau gali būti galininke (galūnė ą/ę/į/ų) — nedarom „double accusative"
+  if (/[ąęįų]$/.test(word)) return word
+  for (const [from, to] of ACCUSATIVE_ENDINGS) {
+    if (word.length > from.length && word.toLowerCase().endsWith(from)) {
+      return word.slice(0, word.length - from.length) + to
+    }
+  }
+  return word
+}
+
+/**
+ * Konvertuoja viso atlikėjo vardo string'ą į galininką. Multi-word transform —
+ * kiekvienas žodis atskirai. Atskyriklys: space arba hyphen.
+ *
+ * @param name        Vardas vardininko forma (pvz. „Marijonas Mikutavičius")
+ * @param countryHint Jei perduotas ir != 'Lietuva' — grąžinam unchanged.
+ *                    Default: praleidžiam šitą čeką (caller'is atsakingas).
+ */
+export function accusativeArtistName(name: string, countryHint?: string | null): string {
+  if (!name) return name
+  if (countryHint && countryHint !== 'Lietuva') return name
+  // Per-word transform (space + hyphen separators)
+  return name.split(/(\s+|-)/).map(part => {
+    if (/^\s+$/.test(part) || part === '-') return part
+    return toAccusativeWord(part)
+  }).join('')
+}
+
+/**
  * Wiki-style title case (anglų MOS): articles/prepositions/short conjunctions
  * paliekamos mažom JEI nėra pirmas/paskutinis žodis savo segmente.
  *

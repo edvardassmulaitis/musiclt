@@ -258,16 +258,24 @@ export async function GET(req: NextRequest) {
       }
       candidateIds = ctxIds
     }
-    candidateIds.sort((a, b) => (recentScore.get(b) || 0) - (recentScore.get(a) || 0))
+    // 2026-05-21: Deterministic sort — primary recent_score DESC, tiebreaker
+    // id ASC. Tai užtikrina, kad rank skaičiavimas (indexOf žemiau) sutaps
+    // su list pozicijomis (anksčiau buvo non-deterministic ties → rank
+    // mismatch headeryje vs list'e).
+    candidateIds.sort((a, b) => {
+      const sa = recentScore.get(a) || 0
+      const sb = recentScore.get(b) || 0
+      if (sa !== sb) return sb - sa
+      return a - b
+    })
     const topIds = candidateIds.slice(0, limit)
 
-    // includeRankFor recent — rank pagal recent_score
+    // includeRankFor recent — rank pagal indexOf (exact match su list order).
     let myRankRecent: { rank: number; total: number } | null = null
     if (includeRankFor) {
-      const myScore = recentScore.get(includeRankFor) || 0
-      if (myScore > 0) {
-        const above = candidateIds.filter(id => (recentScore.get(id) || 0) > myScore).length
-        myRankRecent = { rank: above + 1, total: candidateIds.length }
+      const idx = candidateIds.indexOf(includeRankFor)
+      if (idx >= 0) {
+        myRankRecent = { rank: idx + 1, total: candidateIds.length }
       }
     }
 
@@ -303,11 +311,16 @@ export async function GET(req: NextRequest) {
 
   // ── Main artists query (filtruojam pagal country + artistIdFilter, sort
   // by score desc). PostgREST max-rows = 1000 — limit'as <= 50, nieks nesilauš.
+  //
+  // 2026-05-21: Deterministic secondary sort 'id ASC' — kad tied score
+  // atvejais pozicijos sąraše būtų stable ir sutaptų su myRank skaičiavimu
+  // (kuris naudoja tą pačią tiebreaker logiką — žiūrėk aboveQ žemiau).
   let q = sb
     .from('artists')
     .select('id, slug, name, country, cover_image_url, cover_image_position, score, type, is_verified', { count: 'exact' })
     .gt('score', 0)
     .order('score', { ascending: false })
+    .order('id', { ascending: true })
     .limit(limit)
 
   if (country) q = q.eq('country', country)
@@ -321,6 +334,13 @@ export async function GET(req: NextRequest) {
   // includeRankFor — papildomai grąžinam atlikėjo poziciją (rank) visame
   // filtruotame sąraše, ne tik top 20. Naudojam count() requests, nes 12k
   // atlikėjų į memory load'inti vien dėl rank skaičiavimo per brangu.
+  //
+  // 2026-05-21: Tiebreaker fix — anksčiau aboveQ skaičiuodavo tik artists
+  // su score > myScore (strict). Jei kelis turi tą patį score (tied),
+  // sąrašo poziciją lemia secondary sort (id ASC), bet rank to neatspindi
+  // → header'is rodydavo #11, sąrašas #12 ir t.t. Naujasis condition'as:
+  //   above = score > myScore  OR  (score == myScore AND id < myId)
+  // tiksliai atitinka 'score DESC, id ASC' tvarką.
   let myRank: { rank: number; total: number } | null = null
   if (includeRankFor) {
     // Mūsų atlikėjo score
@@ -331,9 +351,12 @@ export async function GET(req: NextRequest) {
       .maybeSingle()
     if (my && (my.score || 0) > 0) {
       const myScore = Number(my.score)
-      // Total filtered + count su didesniu score
+      const myId = Number(my.id)
+      // Total filtered + count su didesniu score (ar tied su mažesniu id).
       let totalQ = sb.from('artists').select('id', { count: 'exact', head: true }).gt('score', 0)
-      let aboveQ = sb.from('artists').select('id', { count: 'exact', head: true }).gt('score', myScore)
+      let aboveQ = sb.from('artists').select('id', { count: 'exact', head: true })
+        .or(`score.gt.${myScore},and(score.eq.${myScore},id.lt.${myId})`)
+        .gt('score', 0)
       if (country) {
         totalQ = totalQ.eq('country', country)
         aboveQ = aboveQ.eq('country', country)
