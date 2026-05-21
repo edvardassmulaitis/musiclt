@@ -2,33 +2,32 @@
 
 // components/profile/DailyPicksCards.tsx
 //
-// V6 — vizualios kortelės dienos dainoms, panašios į artist page'o track
-// tiles. Naudoja artist cover_image_url kaip background; pending dainoms
-// (kurios neturi track_id) — gradient placeholder pagal mėnesio spalvą.
-//
-// Layout: 3-col grid desktop, 2-col tablet, 1-col mobile. Hover lift +
-// gradient overlay. Klik atveda į atlikėjo puslapį, jei žinomas, kitaip
-// — placeholder.
+// V7 — kompaktiškos elegantiškos kortelės. Atsisakyta loud per-month
+// gradient placeholder'ių; pending track'ai (be cover image) rodomi
+// subtle dark card'e su date emphasis. Resolved track'ai rodomi su
+// cover image kaip background. 4-col grid desktop, kompaktiškas 1:1
+// aspect ratio.
 
 import Link from 'next/link'
 
-// Mėnesių spalvos (12 spalvų sezonams) — naudojama pending placeholder'iams.
-const MONTH_COLORS = [
-  ['#3b82f6', '#1e3a8a'], // sausis  — winter blue
-  ['#6366f1', '#312e81'], // vasaris — late winter indigo
-  ['#06b6d4', '#0e7490'], // kovas   — spring cyan
-  ['#10b981', '#065f46'], // balandis — fresh green
-  ['#84cc16', '#4d7c0f'], // gegužė  — bright lime
-  ['#eab308', '#854d0e'], // birželis — summer yellow
-  ['#f97316', '#9a3412'], // liepa   — summer orange
-  ['#ef4444', '#991b1b'], // rugpjūtis — peak summer red
-  ['#a855f7', '#6b21a8'], // rugsėjis — autumn purple
-  ['#ec4899', '#9d174d'], // spalis  — pink/rose
-  ['#64748b', '#334155'], // lapkritis — slate
-  ['#475569', '#1e293b'], // gruodis — winter dark
-]
+const MONTH_LT = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio',
+                  'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio']
 
-const MONTH_LT = ['sau', 'vas', 'kov', 'bal', 'geg', 'bir', 'lie', 'rgp', 'rgs', 'spl', 'lap', 'grd']
+// Diskretiškas mėnesio accent (RGB tuple, naudojama vos vos color hint'ui)
+const MONTH_TINT = [
+  [60, 100, 180],   // sausis — winter cold
+  [80, 100, 180],   // vasaris
+  [60, 140, 160],   // kovas — early spring
+  [80, 160, 120],   // balandis
+  [110, 170, 90],   // gegužė — fresh
+  [170, 170, 80],   // birželis — warm
+  [200, 150, 60],   // liepa — peak summer
+  [200, 110, 70],   // rugpjūtis — late summer
+  [180, 100, 110],  // rugsėjis — autumn
+  [160, 90, 130],   // spalis
+  [100, 90, 130],   // lapkritis — late autumn
+  [60, 80, 130],    // gruodis — winter
+]
 
 type Pick = {
   id: string | number
@@ -45,7 +44,7 @@ type Pick = {
 
 export function DailyPicksCards({ picks }: { picks: Pick[] }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
       {picks.map((p) => <DailyPickCard key={p.id} pick={p} />)}
     </div>
   )
@@ -60,99 +59,124 @@ function DailyPickCard({ pick }: { pick: Pick }) {
   const date = new Date(pick.picked_on)
   const day = date.getDate()
   const monthIdx = date.getMonth()
-  const month = MONTH_LT[monthIdx]
+  const monthFull = MONTH_LT[monthIdx]
+  const monthShort = monthFull.slice(0, 3)
   const year = date.getFullYear()
-  const [c1, c2] = MONTH_COLORS[monthIdx]
+  const [tr, tg, tb] = MONTH_TINT[monthIdx]
+  const tintColor = `rgba(${tr}, ${tg}, ${tb}, 0.45)`
 
-  const body = (
-    <div className="group relative aspect-[4/5] rounded-2xl overflow-hidden border transition-all hover:-translate-y-1"
-         style={{
-           background: 'var(--card-surface, var(--bg-elevated))',
-           borderColor: 'var(--border-subtle)',
-           boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-         }}>
-      {/* Background — cover image arba month gradient */}
-      {cover ? (
+  if (known && cover) {
+    // RESOLVED — cover image hero
+    return (
+      <Link
+        href={`/atlikejai/${artist.slug}`}
+        className="group relative aspect-square rounded-xl overflow-hidden block transition hover:-translate-y-0.5"
+        style={{ background: 'var(--card-surface, var(--bg-elevated))', border: '1px solid var(--border-subtle)' }}
+      >
         <img
           src={cover}
           alt=""
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
-      ) : (
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{ background: `linear-gradient(135deg, ${c1}, ${c2})` }}
-        >
-          <div
-            className="absolute inset-0 opacity-30"
-            style={{
-              backgroundImage: 'radial-gradient(circle at 20% 30%, rgba(255,255,255,0.15), transparent 40%), radial-gradient(circle at 80% 70%, rgba(0,0,0,0.2), transparent 50%)',
-            }}
-          />
-        </div>
-      )}
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10" />
 
-      {/* Bottom gradient — užtikrina text legibility */}
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
-
-      {/* Day badge — top-left */}
-      <div className="absolute top-3 left-3 flex flex-col items-start">
-        <div className="px-2 py-1 rounded-md backdrop-blur-md bg-black/50 border border-white/15">
-          <div className="font-black leading-none text-white text-2xl sm:text-3xl tracking-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            {day}
-          </div>
-          <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white/70 mt-0.5">
-            {month} {year}
+        {/* Date — top-right minimal */}
+        <div className="absolute top-2 right-2 text-right">
+          <div className="text-xl font-black leading-none text-white drop-shadow"
+               style={{ fontFamily: "'Outfit', sans-serif" }}>{day}</div>
+          <div className="text-[9px] uppercase tracking-wider text-white/70 font-bold mt-0.5">
+            {monthShort} {String(year).slice(2)}
           </div>
         </div>
-      </div>
 
-      {/* Like badge — top-right */}
-      {pick.like_count != null && pick.like_count > 0 && (
-        <div className="absolute top-3 right-3 px-2 py-1 rounded-full backdrop-blur-md bg-black/50 border border-white/15">
-          <div className="text-[10px] font-extrabold text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        {/* Like — top-left small */}
+        {(pick.like_count || 0) > 0 && (
+          <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full backdrop-blur-sm text-[10px] font-extrabold text-white"
+               style={{ background: 'rgba(0,0,0,0.5)' }}>
             ♥ {pick.like_count}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Track info — bottom */}
-      <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
-        {known ? (
+        {/* Track info — bottom */}
+        <div className="absolute bottom-0 left-0 right-0 p-2.5">
+          <p className="text-[9px] font-extrabold uppercase tracking-widest text-orange-300 mb-0.5 truncate"
+             style={{ fontFamily: "'Outfit', sans-serif" }}>
+            {artist?.name}
+          </p>
+          <h3 className="text-xs sm:text-sm font-extrabold text-white leading-tight line-clamp-2 group-hover:text-orange-200 transition"
+              style={{ fontFamily: "'Outfit', sans-serif" }}>
+            {track!.title}
+          </h3>
+        </div>
+      </Link>
+    )
+  }
+
+  // PENDING — subtle theme card, date is the hero
+  return (
+    <div
+      className="group relative aspect-square rounded-xl overflow-hidden flex flex-col p-3 sm:p-4"
+      style={{
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border-subtle)',
+        boxShadow: `inset 0 0 60px ${tintColor}`,
+      }}
+      title={track ? track.title : pick.comment || ''}
+    >
+      {/* Day — typography-driven hero */}
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-3xl sm:text-4xl font-black leading-none tracking-tight"
+               style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+            {day}
+          </div>
+          <div className="text-[10px] uppercase tracking-wider font-bold mt-1"
+               style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+            {monthFull} {year}
+          </div>
+        </div>
+        {(pick.like_count || 0) > 0 && (
+          <div className="text-[10px] font-bold flex-shrink-0"
+               style={{ color: 'var(--text-muted)' }}>
+            ♥ {pick.like_count}
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1" />
+
+      {/* Bottom — track title (if known but no cover) arba pending placeholder */}
+      <div className="min-w-0">
+        {track ? (
           <>
-            <p className="text-[10px] font-extrabold uppercase tracking-widest text-orange-300 mb-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
-              {artist?.name}
+            <p className="text-[9px] font-extrabold uppercase tracking-widest mb-0.5 truncate"
+               style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
+              {artist?.name || 'Daina'}
             </p>
-            <h3 className="text-sm sm:text-base font-extrabold text-white leading-tight line-clamp-2 group-hover:text-orange-200 transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
-              {track!.title}
+            <h3 className="text-xs font-bold leading-tight line-clamp-2"
+                style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-secondary)' }}>
+              {track.title}
             </h3>
           </>
         ) : (
           <>
-            <p className="text-[10px] font-extrabold uppercase tracking-widest text-white/60 mb-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
-              Daina laukia importavimo
+            <p className="text-[9px] font-extrabold uppercase tracking-widest mb-0.5"
+               style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-faint)' }}>
+              Laukia importavimo
             </p>
-            <h3 className="text-sm font-bold text-white/90 leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <p className="text-xs font-mono"
+               style={{ color: 'var(--text-muted)' }}>
               music.lt #{pick.legacy_track_id}
-            </h3>
+            </p>
           </>
         )}
         {pick.comment && (
-          <p className="mt-1.5 text-[11px] italic text-white/70 line-clamp-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="mt-1.5 text-[10px] italic line-clamp-2"
+             style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
             „{pick.comment}"
           </p>
         )}
       </div>
     </div>
   )
-
-  if (known && artist) {
-    return (
-      <Link href={`/atlikejai/${artist.slug}`} className="block">
-        {body}
-      </Link>
-    )
-  }
-  return body
 }
