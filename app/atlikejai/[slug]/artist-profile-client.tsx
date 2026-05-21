@@ -2350,13 +2350,13 @@ function Hero({
                     onClick={() => onOpenTopArtists?.({ country: artist.country })}
                     title={`${artist.country} top atlikėjai ir grupės`}
                     aria-label={`Šalis: ${artist.country}. Atidaryti top sąrašą.`}
-                    // 2026-05-21 v2: pakeičiame į `rounded-2xl` + fixed `h-10`
-                    // — anksciau `rounded-full` + flag emoji 20px sukeldavo
-                    // sub-pixel border rendering bug'ą: top/bottom border
-                    // atrodė „dingęs" hover'e (oval shape su thin border
-                    // 1px). Solid border-2 + explicit dimensions = stable
-                    // visual rezultatas visuose viewport'uose.
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border-2 border-[var(--border-default)] bg-[var(--card-bg)] text-[18px] leading-none transition-all hover:scale-110 hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.12)] lg:border-white/25 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-[var(--accent-orange)] lg:hover:bg-[rgba(249,115,22,0.18)]"
+                    // 2026-05-21 v3: pašalinau `hover:scale-110` — parent
+                    // container'is su `overflow-x-auto` automatiškai
+                    // konvertuoja `overflow-y` į `auto` (CSS spec), todėl
+                    // scale'inant chip'ą virš/po juo atsirasdavo nukirpimas.
+                    // Dabar hover feedback'as tik per border + bg color
+                    // change'ą (kas vis tiek aiškiai matosi).
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border-2 border-[var(--border-default)] bg-[var(--card-bg)] text-[18px] leading-none transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.12)] lg:border-white/25 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-[var(--accent-orange)] lg:hover:bg-[rgba(249,115,22,0.18)]"
                   >
                     <span aria-hidden>{flag}</span>
                   </button>
