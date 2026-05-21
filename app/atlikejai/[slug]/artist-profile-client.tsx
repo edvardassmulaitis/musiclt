@@ -1350,7 +1350,13 @@ function Equalizer() {
  *    'sm' (default) — h-[3px] w-[14px] dashes — track/album cards
  *    'lg'           — h-[6px] w-[32px] dashes — artist hero (po pavadinimu)
  *                     prominence, kad vartotojas iš karto matytų signal'ą. */
-function PopBar({ level, size = 'sm', color = 'orange', animate = false, delayMs = 450 }: { level: number; size?: 'sm' | 'md' | 'lg'; color?: 'orange' | 'blue'; animate?: boolean; delayMs?: number }) {
+function PopBar({ level, size = 'sm', color = 'orange', animate = false, delayMs = 250 }: { level: number; size?: 'sm' | 'md' | 'lg'; color?: 'orange' | 'blue'; animate?: boolean; delayMs?: number }) {
+  // 2026-05-21 v6: rodom TIK užpildytus dot'us (nebepalieka tuščių pilkų
+  // placeholderių). Bar'o ilgis dabar proporcingas pop level'iui —
+  // 2/5 atlikėjas turės trumpą bar'ą, 5/5 — pilną. Anksčiau visada
+  // rodėm 5 dot'us su pilkais empty placeholderiais, kas vizualiai
+  // atrodė kaip „pusiau tuščias" loading element'as (ypač trending
+  // sekcijoj kur dažni 2-3/5 lygiai).
   const total = 5
   // 2026-05-21 v4: ir score bar'as, ir recent bar'as dabar oranžiniai —
   // useris paprašė vienodos spalvos (orange) abiem; recent atskiriamas
@@ -1366,40 +1372,41 @@ function PopBar({ level, size = 'sm', color = 'orange', animate = false, delayMs
     size === 'md' ? 'h-[4px] w-[20px] rounded-[2px] sm:w-[24px]' :
     'h-[3px] w-[14px] rounded-[2px]'
   const gapCls = size === 'sm' ? 'mt-1 gap-[3px]' : 'gap-[3px]'
+  // Edge case: jei level <= 0, neretur'inam nieko (anksčiau būtų 5 pilkų).
+  if (level <= 0) return null
   return (
     <div className={`flex ${gapCls}`} aria-hidden>
-      {Array.from({ length: total }).map((_, i) => {
-        const filled = i < level
-        // 2026-05-21 v5: sequential cascade — score bar'as užsipildo pirma,
-        // tada recent bar'as „on top" boost'as. `delayMs` prop'as nustato
-        // initial delay'jų: score bar = 450ms (default), recent bar = 2900ms
-        // (po visų 5 score dot'ų užbaigimo).
+      {Array.from({ length: level }).map((_, i) => {
+        // 2026-05-21 v6: pagreitintos cascade timing'ai (user feedback:
+        // v5 per lėtai per du bar'us). Visi dot'ai dabar yra filled —
+        // empty placeholder logic'a pašalinta.
         //
-        // Per-dot trukmės nesikeitė vs v4:
-        //   - Per-dot stagger 350ms
-        //   - Per-dot duration 900ms
-        //   - Translate-in iš kairės + flash glow
+        // Per-dot trukmės:
+        //   - Per-dot stagger 220ms (v5: 350ms)
+        //   - Per-dot duration 600ms (v5: 900ms)
+        //   - Translate-in iš kairės + flash glow (nepasikeitė)
         //
-        // Bendra trukmė vienam bar'ui: delayMs + 5*350 + 900 = delayMs + 2650ms
-        // Score bar (450 + 2650 = ~3100ms total), recent bar (2900 + 2650 =
-        // ~5550ms total — boost'as ateina visiškai po regular).
+        // Bendra trukmė vienam bar'ui: delayMs + (level-1)*220 + 600
+        //   5-dot score bar (delay 250): 250 + 880 + 600 = ~1730ms
+        //   5-dot recent bar (delay 1700): 1700 + 880 + 600 = ~3180ms
+        // Total cascade per du bar'us ~3.2s (v5 buvo ~5.5s).
         const accentColor = color === 'blue' ? '#3b82f6' : 'var(--accent-orange)'
-        const animStyle: React.CSSProperties = animate && filled
+        const animStyle: React.CSSProperties = animate
           ? {
               opacity: 0,
               transform: 'translateX(-10px) scale(0.3)',
               transformOrigin: 'left center',
-              animation: `popBarFill 900ms cubic-bezier(0.22, 1, 0.36, 1) ${delayMs + 350 * i}ms forwards`,
+              animation: `popBarFill 600ms cubic-bezier(0.22, 1, 0.36, 1) ${delayMs + 220 * i}ms forwards`,
               ['--popbar-flash' as any]: accentColor,
             }
-          : { opacity: filled ? 0.55 + (0.45 * (i + 1) / total) : 1 }
+          : { opacity: 0.55 + (0.45 * (i + 1) / total) }
         return (
           <span
             key={i}
             className={[
               dashCls,
               'transition-colors',
-              filled ? filledBg : 'bg-[var(--border-default)]',
+              filledBg,
             ].join(' ')}
             style={animStyle}
           />
@@ -2278,7 +2285,7 @@ function Hero({
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
                       <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
                     </svg>
-                    <PopBar level={recentPopBarLevel} size="md" animate delayMs={2900} />
+                    <PopBar level={recentPopBarLevel} size="md" animate delayMs={1700} />
                   </button>
                 )}
               </div>
