@@ -1350,7 +1350,7 @@ function Equalizer() {
  *    'sm' (default) — h-[3px] w-[14px] dashes — track/album cards
  *    'lg'           — h-[6px] w-[32px] dashes — artist hero (po pavadinimu)
  *                     prominence, kad vartotojas iš karto matytų signal'ą. */
-function PopBar({ level, size = 'sm', color = 'orange', animate = false }: { level: number; size?: 'sm' | 'md' | 'lg'; color?: 'orange' | 'blue'; animate?: boolean }) {
+function PopBar({ level, size = 'sm', color = 'orange', animate = false, delayMs = 450 }: { level: number; size?: 'sm' | 'md' | 'lg'; color?: 'orange' | 'blue'; animate?: boolean; delayMs?: number }) {
   const total = 5
   // 2026-05-21 v4: ir score bar'as, ir recent bar'as dabar oranžiniai —
   // useris paprašė vienodos spalvos (orange) abiem; recent atskiriamas
@@ -1370,27 +1370,26 @@ function PopBar({ level, size = 'sm', color = 'orange', animate = false }: { lev
     <div className={`flex ${gapCls}`} aria-hidden>
       {Array.from({ length: total }).map((_, i) => {
         const filled = i < level
-        // 2026-05-21 v4: dar lėtesnė cascading fill animacija — useris
-        // sakė, kad v3 (1.95s total) vis dar per greitai. Pakeitimai vs v3:
-        //   - Initial delay 450ms (was 300ms) — daugiau page settle laiko
-        //   - Per-dot stagger 350ms (was 200ms) — kiekvienas dot'as gerai
-        //     matomas kaip atskiras event'as
-        //   - Per-dot duration 900ms (was 650ms) — flash + crash'as turi
-        //     laiko reigistruotis akyse
-        //   - Pradinis transform translateX(-10px) + scale(0.3) — dot'as
-        //     atplaukia iš kairės, „crash'inasi" į vietą
-        //   - Pulse glow flash kiekvienam dot'ui ant landing'o (box-shadow
-        //     accent flare)
+        // 2026-05-21 v5: sequential cascade — score bar'as užsipildo pirma,
+        // tada recent bar'as „on top" boost'as. `delayMs` prop'as nustato
+        // initial delay'jų: score bar = 450ms (default), recent bar = 2900ms
+        // (po visų 5 score dot'ų užbaigimo).
         //
-        // Bendras animacijos trukmė: 450 + 5*350 + 900 = ~3100ms (vs v3 —
-        // 1950ms, v2 — 780ms). Lėtas, dramatiškas, gerai matomas.
+        // Per-dot trukmės nesikeitė vs v4:
+        //   - Per-dot stagger 350ms
+        //   - Per-dot duration 900ms
+        //   - Translate-in iš kairės + flash glow
+        //
+        // Bendra trukmė vienam bar'ui: delayMs + 5*350 + 900 = delayMs + 2650ms
+        // Score bar (450 + 2650 = ~3100ms total), recent bar (2900 + 2650 =
+        // ~5550ms total — boost'as ateina visiškai po regular).
         const accentColor = color === 'blue' ? '#3b82f6' : 'var(--accent-orange)'
         const animStyle: React.CSSProperties = animate && filled
           ? {
               opacity: 0,
               transform: 'translateX(-10px) scale(0.3)',
               transformOrigin: 'left center',
-              animation: `popBarFill 900ms cubic-bezier(0.22, 1, 0.36, 1) ${450 + 350 * i}ms forwards`,
+              animation: `popBarFill 900ms cubic-bezier(0.22, 1, 0.36, 1) ${delayMs + 350 * i}ms forwards`,
               ['--popbar-flash' as any]: accentColor,
             }
           : { opacity: filled ? 0.55 + (0.45 * (i + 1) / total) : 1 }
@@ -2279,7 +2278,7 @@ function Hero({
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
                       <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
                     </svg>
-                    <PopBar level={recentPopBarLevel} size="md" animate />
+                    <PopBar level={recentPopBarLevel} size="md" animate delayMs={2900} />
                   </button>
                 )}
               </div>
