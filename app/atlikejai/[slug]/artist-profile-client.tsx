@@ -4340,7 +4340,7 @@ function AlbumGroupBox({ title, subtitle, description, rangeLabel, count, childr
  */
 type AlbumWeight = 'full' | 'mid' | 'dim'
 
-function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weight = 'full', onTrackClick, aggregateViews, composite, popBarLevel }: {
+function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weight = 'full', onTrackClick, aggregateViews, composite, popBarLevel, isGoldenEra = false }: {
   a: Album; popularity?: number; artistSlug?: string; maxPop?: number
   onOpen?: (a: Album) => void
   /** Top 2–3 tracks for this album (by video_views desc) — shown below title
@@ -4359,6 +4359,10 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
    *  instead of recomputing from value/max ratio. Matches admin debug
    *  percentile-based ranking. */
   popBarLevel?: number
+  /** True jei albumas patenka į atlikėjo „Auksinį amžių" — 5-metų periodą
+   *  su didžiausia composite score'ų suma. Tik ≥5 albumų atlikėjams ir
+   *  jei window'e ≥2 albumai. Rodom golden ⭐ chip cover'io viršuje. */
+  isGoldenEra?: boolean
 }) {
   const type = aType(a)
   const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
@@ -4413,6 +4417,22 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
         {type !== 'Studijinis' && (
           <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8px] font-extrabold uppercase tracking-wider text-white backdrop-blur-sm">
             {type}
+          </span>
+        )}
+        {/* 2026-05-21: „Auksinis amžius" badge — žymime albumus iš
+            atlikėjo peak 5-metų periodo (pvz Queen 1975-1979). Sėdim
+            top-right viršuje, kad nesimaišytų su type badge (top-left)
+            ir year (bottom-right). Auksinis gradient + soft glow, kad
+            pasimatytų prieš dark cover'ius. */}
+        {isGoldenEra && (
+          <span
+            className="absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 rounded bg-gradient-to-br from-amber-400 to-amber-600 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8px] font-extrabold uppercase tracking-wider text-white shadow-[0_2px_8px_rgba(245,158,11,0.5)]"
+            title="Šis albumas yra iš atlikėjo auksinio amžiaus — geriausio 5 metų periodo pagal albumų populiarumą"
+          >
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M12 2l2.39 7.36H22l-6.18 4.48L18.21 22 12 17.27 5.79 22l2.39-8.16L2 9.36h7.61z" />
+            </svg>
+            Auksinis
           </span>
         )}
         {a.year && (
@@ -5254,6 +5274,68 @@ export default function ArtistProfileClient({
       if (c > max) max = c
     }
     return max
+  }, [albums, compositeByAlbum])
+
+  // 2026-05-21: „Auksinis amžius" — 5-metų sliding window'as su
+  // didžiausia composite score'ų suma. Skaičiuojam tik ≥5 albumams,
+  // ir mark'inam tik jei window'e ≥2 albumai (kad vieno albumo „era"
+  // nebūtų pažymėta).
+  //
+  // Algoritm'as:
+  //   1) Sum composite score per metus (kelis albumus tais pačiais
+  //      metais — agreguojam).
+  //   2) Iteruojam per visus 5-y window'us nuo min iki max metų.
+  //   3) Pasirenkam tą, kurio suma didžiausia.
+  //
+  // Pavyzdžiai (verify):
+  //   Queen (~1973-1995) → 1975-1979 (A Night at the Opera + News of the
+  //                                   World + ...)
+  //   Coldplay (~2000-) → 2002-2006 (Parachutes/Rush of Blood/X&Y era)
+  //   RHCP (~1984-) → 1999-2003 (Californication/By the Way era)
+  const goldenEraAlbumIds = useMemo(() => {
+    const empty = new Set<number>()
+    // Tik ≥5 albumams — mažesnėms diskografijoms „peak" semantika
+    // neturi prasmės (visi būtų peak).
+    if (albums.length < 5) return empty
+    // Sum composite score per metus (albumai be year praleidžiami).
+    const yearScores = new Map<number, number>()
+    for (const a of albums) {
+      const y = (a as any).year
+      if (typeof y !== 'number' || y <= 0) continue
+      const c = compositeByAlbum.get(a.id) || 0
+      yearScores.set(y, (yearScores.get(y) || 0) + c)
+    }
+    if (yearScores.size < 3) return empty
+    const years = Array.from(yearScores.keys()).sort((a, b) => a - b)
+    const minY = years[0]
+    const maxY = years[years.length - 1]
+    // Jei visa diskografija telpa <5 metuose, neturi prasmės „era" žymėti.
+    if (maxY - minY < 4) return empty
+    // 5-y sliding window — pasirenkam max sumą.
+    let bestStart = minY
+    let bestSum = -Infinity
+    for (let start = minY; start <= maxY - 4; start++) {
+      let sum = 0
+      for (let y = start; y < start + 5; y++) {
+        sum += yearScores.get(y) || 0
+      }
+      if (sum > bestSum) {
+        bestSum = sum
+        bestStart = start
+      }
+    }
+    const winStart = bestStart
+    const winEnd = bestStart + 4
+    // Surenkam albumus tame window'e.
+    const inEra: number[] = []
+    for (const a of albums) {
+      const y = (a as any).year
+      if (typeof y !== 'number') continue
+      if (y >= winStart && y <= winEnd) inEra.push(a.id)
+    }
+    // Jei tik 1 albumas window'e — nemark'inam (būtų wonky).
+    if (inEra.length < 2) return empty
+    return new Set(inEra)
   }, [albums, compositeByAlbum])
 
   // Top 2–3 dainos kiekvienam albumui — pagal video_views desc (fallback į
@@ -6098,6 +6180,7 @@ export default function ArtistProfileClient({
                               aggregateViews={aggregateViewsByAlbum.get(a.id)}
                               composite={compositeByAlbum.get(a.id)}
                               popBarLevel={popLevelByAlbum.get(a.id)}
+                              isGoldenEra={goldenEraAlbumIds.has(a.id)}
                             />
                           </div>
                         ))}
@@ -6137,6 +6220,7 @@ export default function ArtistProfileClient({
                             aggregateViews={aggregateViewsByAlbum.get(a.id)}
                             composite={compositeByAlbum.get(a.id)}
                             popBarLevel={popLevelByAlbum.get(a.id)}
+                            isGoldenEra={goldenEraAlbumIds.has(a.id)}
                           />
                         </div>
                       ))}
@@ -6156,6 +6240,7 @@ export default function ArtistProfileClient({
                           aggregateViews={aggregateViewsByAlbum.get(a.id)}
                           composite={compositeByAlbum.get(a.id)}
                           popBarLevel={popLevelByAlbum.get(a.id)}
+                          isGoldenEra={goldenEraAlbumIds.has(a.id)}
                         />
                       ))}
                     </div>
