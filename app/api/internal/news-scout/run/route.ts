@@ -27,10 +27,13 @@ import { ALLOWED_CATEGORIES } from '@/lib/news-categories'
 // blogai), užtenka preview candidate'o su EN title. LT rewrite'as gimsta
 // admin'o spustelėjimu /admin/inbox (žr. /api/admin/news-candidates/[id]/rewrite).
 //
-// Score gate: scout praleidžia tik kandidatus, kurių pirminis match'intas
-// atlikėjas turi `artists.score >= SCOUT_SCORE_THRESHOLD`. NULL = atmetam
-// (atlikėjas dar nepilnai įvestas → enrich pirma per /admin/artists/[id]).
-const SCORE_THRESHOLD = parseFloat(process.env.SCOUT_SCORE_THRESHOLD || '10')
+// 2026-05-21: artist gate atlaisvintas — tik reikalauja, kad atlikėjas BŪTŲ
+// DB'e (match found). Anksčiau reikalavom score >= threshold, bet daugumai
+// atlikėjų score=NULL (Wiki enrichment dar neaplikuotas), tai praktiškai
+// atmesdavo viską. Dabar: match yra → praeina, no_match → atmetam.
+// SCOUT_SCORE_THRESHOLD vis dar palikta env knob'ui, kad ateityje galima
+// būtų pridėt minimum score filtruoti (default 0 = visiems leidžiame).
+const SCORE_THRESHOLD = parseFloat(process.env.SCOUT_SCORE_THRESHOLD || '0')
 
 export const runtime = 'nodejs'
 export const maxDuration = 300  // Vercel max for Pro plan; smoke test ant Hobby gali timeout'inti
@@ -215,13 +218,15 @@ export async function POST(req: NextRequest) {
           const artistMatches = await matchArtists(mentions)
           const primaryArtist = artistMatches[0]
 
-          // SCORE GATE — score required, NULL = atmetam
+          // ARTIST GATE — pakanka, kad atlikėjas BŪTŲ DB'e (su bet kokiu score,
+          // įskaitant NULL). Score'as naudojamas tik jei SCORE_THRESHOLD > 0
+          // (env knob ateičiai, default 0 = visi DB-existing praeina).
           const score = primaryArtist?.artist_score
           const failReason = !primaryArtist
             ? 'no_artist_match'
-            : (score === null || score === undefined)
+            : (SCORE_THRESHOLD > 0 && (score === null || score === undefined))
               ? 'null_artist_score'
-              : score < SCORE_THRESHOLD
+              : (SCORE_THRESHOLD > 0 && typeof score === 'number' && score < SCORE_THRESHOLD)
                 ? 'low_artist_score'
                 : null
           if (failReason) {

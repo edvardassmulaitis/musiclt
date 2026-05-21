@@ -743,16 +743,24 @@ export default function AdminInboxPage() {
                       )}
 
                       {/* Title — tap to expand'ina peržiūrą. Preview mode'e rodom
-                          EN original_title (vs pending — Sonnet sugeneruotą ai_title). */}
+                          EN original_title (Sonnet ai_title atsiranda tik po
+                          „Perrašyti į LT" click'o). Preview cards NĖRA clickable —
+                          neturi body'o ką expand'inti. */}
                       <h2
-                        onClick={() => toggleExpand(cand.id)}
-                        className={`font-bold text-base sm:text-base leading-snug mb-2 cursor-pointer ${
-                          cand.status === 'preview' ? 'text-[var(--text-muted)] italic' : 'text-[var(--text-primary)]'
+                        onClick={cand.status === 'preview' ? undefined : () => toggleExpand(cand.id)}
+                        className={`font-bold text-base sm:text-base leading-snug mb-2 ${
+                          cand.status === 'preview'
+                            ? 'text-[var(--text-muted)] italic'
+                            : 'text-[var(--text-primary)] cursor-pointer'
                         }`}>
-                        {cand.ai_title || cand.original_title || '(be antraštės)'}
+                        {cand.status === 'preview'
+                          ? (cand.original_title || cand.ai_title || '(be antraštės)')
+                          : (cand.ai_title || cand.original_title || '(be antraštės)')}
                       </h2>
 
-                      {cand.ai_summary && (
+                      {/* Summary — tik pending kortelėms (preview neturi LT
+                          summary'o, ji sugeneruojama per rewrite). */}
+                      {cand.status !== 'preview' && cand.ai_summary && (
                         <p
                           onClick={() => toggleExpand(cand.id)}
                           className="text-sm text-[var(--text-muted)] line-clamp-3 sm:line-clamp-2 mb-3 cursor-pointer">
@@ -875,8 +883,10 @@ export default function AdminInboxPage() {
                     </div>
                   </div>
 
-                  {/* Expanded body */}
-                  {isExpanded && (
+                  {/* Expanded body — TIK pending kortelėms. Preview state'as
+                      neturi LT body'o (jis sugeneruojamas tik paspaudus
+                      „Perrašyti į LT"). */}
+                  {isExpanded && cand.status !== 'preview' && (
                     <div className="border-t border-[var(--border-subtle)] p-4 bg-[var(--bg-elevated)]/40">
                       {bodies[cand.id] ? (
                         <div
