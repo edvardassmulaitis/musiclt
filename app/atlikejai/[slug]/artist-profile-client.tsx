@@ -769,12 +769,6 @@ function PlayerCard({
           iframe negali iseiti is shio box dydziu. min-w/min-h: 0
           prevent intrinsic-size grow. */}
       <div
-        // 2026-05-21 Sticky mini player: data attribute ant pačio
-        // video frame'o (~260px), ne visos PlayerCard kortelės.
-        // Kitaip wrapper'is su tracks list'u būtų ~1000px aukščio
-        // ir IntersectionObserver niekada netrigger'intų, kol useris
-        // ne-scroll'intų visos kortelės — daugumai puslapio iš tikrųjų.
-        data-hero-player="true"
         className="relative aspect-video lg:aspect-auto lg:h-[260px] w-full max-w-full overflow-hidden bg-black"
         style={{ contain: 'strict', minWidth: 0, minHeight: 0, boxSizing: 'border-box' }}
       >
@@ -5002,111 +4996,6 @@ function AvatarBubble({ name, size = 28 }: { name: string; size?: number }) {
   )
 }
 
-// ── MiniPlayer ──────────────────────────────────────────────────────
-//
-// 2026-05-21: Sticky mini player'is, atsiranda viršuje kai user'is
-// scroll'ina žemyn nuo Hero player'io ir track play'inasi. Rodom
-// thumbnail + title + artist + play/pause mygtuką. Klikinant ant
-// thumbnail/title → scroll back į hero player'į. Pause sync'inasi
-// su global `playing` state'u — pauzės metu mini fade'inasi out
-// (parent skaičiuoja `playing && pid && !heroPlayerVisible`).
-
-function MiniPlayer({ track, artistName, playing, onTogglePlay, onScrollToHero }: {
-  track: Track
-  artistName: string
-  playing: boolean
-  onTogglePlay: () => void
-  onScrollToHero: () => void
-}) {
-  const vid = yt(track.video_url)
-  const thumb = vid ? `https://i.ytimg.com/vi/${vid}/mqdefault.jpg` : null
-  return (
-    <>
-      <div
-        className="fixed left-1/2 top-3 z-[60] -translate-x-1/2 flex w-[min(94vw,560px)] items-center gap-3 rounded-full border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.4)] backdrop-blur-md"
-        style={{
-          animation: 'miniPlayerSlideDown 320ms cubic-bezier(0.22, 1, 0.36, 1)',
-          backgroundColor: 'color-mix(in srgb, var(--bg-elevated) 92%, transparent)',
-        }}
-        role="region"
-        aria-label="Mini grotuvas"
-      >
-        {/* Thumbnail — click'as scroll'ina back į hero player'į */}
-        <button
-          type="button"
-          onClick={onScrollToHero}
-          title="Sugrįžti į pagrindinį grotuvą"
-          className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-black transition-transform hover:scale-[1.06]"
-        >
-          {thumb ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={thumb}
-              alt=""
-              referrerPolicy="no-referrer"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-[var(--text-faint)]" aria-hidden>🎵</div>
-          )}
-          {/* Mini playing indicator — pulse'inanti taškas viršuj kai grojama */}
-          {playing && (
-            <span
-              className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-[var(--accent-orange)]"
-              style={{ animation: 'miniPlayerPulse 1.4s ease-in-out infinite' }}
-              aria-hidden
-            />
-          )}
-        </button>
-        {/* Title + artist — click'as scroll'ina į hero. truncate, kad
-            ilgi pavadinimai nesilaužtų į kelias eilutes. */}
-        <button
-          type="button"
-          onClick={onScrollToHero}
-          className="min-w-0 flex-1 text-left"
-          title={`${track.title} · ${artistName}`}
-        >
-          <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold leading-tight text-[var(--text-primary)]">
-            {track.title}
-          </div>
-          <div className="truncate font-['DM_Sans',sans-serif] text-[11px] leading-tight text-[var(--text-secondary)]">
-            {artistName}
-          </div>
-        </button>
-        {/* Play/Pause toggle — kviečia setPlaying parent'e. Useffect'as
-            Hero'je auto-call'ina YT.Player.pauseVideo/playVideo. */}
-        <button
-          type="button"
-          onClick={onTogglePlay}
-          aria-label={playing ? 'Pauzė' : 'Leisti'}
-          title={playing ? 'Pauzė' : 'Leisti'}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.4)] transition-transform hover:scale-105 active:scale-95"
-        >
-          {playing ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-              <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
-            </svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          )}
-        </button>
-      </div>
-      <style>{`
-        @keyframes miniPlayerSlideDown {
-          0%   { opacity: 0; transform: translate(-50%, -16px) scale(0.96); }
-          100% { opacity: 1; transform: translate(-50%, 0)     scale(1); }
-        }
-        @keyframes miniPlayerPulse {
-          0%, 100% { opacity: 1;   transform: scale(1); }
-          50%      { opacity: 0.5; transform: scale(0.7); }
-        }
-      `}</style>
-    </>
-  )
-}
-
 // ── Main ────────────────────────────────────────────────────────────
 
 export default function ArtistProfileClient({
@@ -5143,42 +5032,6 @@ export default function ArtistProfileClient({
   // Desktop'e modal'as gali turėti dock'uotą player'į (≥1280px viewport) —
   // tuomet hero player'is taip pat suppress'inamas.
   const [modalUsesDocked, setModalUsesDocked] = useState(false)
-  // 2026-05-21 Sticky mini player'is: matomas kai (a) Hero player'is
-  // išėjo iš viewport ir (b) yra active track + playing. Naudojam
-  // scroll listener + getBoundingClientRect (vietoj IntersectionObserver,
-  // kuris production'e nepatikimai nepfire'indavo ant Hero element'o).
-  // rAF throttling — vieną update per frame.
-  const [heroPlayerVisible, setHeroPlayerVisible] = useState(true)
-  useEffect(() => {
-    let ticking = false
-    const update = () => {
-      const el = document.querySelector('[data-hero-player]')
-      if (el) {
-        const rect = (el as HTMLElement).getBoundingClientRect()
-        // Element'as „matomas" jei jo apačia yra žemiau viewport
-        // viršaus (>0). Kitaip — visiškai išskrolintas aukštyn.
-        // 80px buffer'is, kad mini parodytų šiek tiek anksčiau,
-        // kol player'is dar baigia išeit iš viewport (psichologiškai
-        // jaučiasi sklandžiau).
-        setHeroPlayerVisible(rect.bottom > 80)
-      }
-      ticking = false
-    }
-    const onScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(update)
-        ticking = true
-      }
-    }
-    // Initial check + scroll/resize listener'iai.
-    update()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
-    }
-  }, [])
 
   const galerijaRef = useRef<HTMLDivElement>(null)
 
@@ -5768,30 +5621,6 @@ export default function ArtistProfileClient({
         onOpenHeroLightbox={() => { if (galleryPhotos.length > 0) setLightboxIndex(0) }}
         onOpenEvent={setActiveEvent}
       />
-
-      {/* Sticky mini player'is — atsiranda viršuje kai Hero player'is
-          išėjo iš viewport ir grojama daina. Suppress'inamas, kai
-          modal'as turi savo dock'uotą/inline player'į (tas pats taisyklių
-          rinkinys, kaip Hero player'iui). */}
-      {(() => {
-        const activeTrack = pid != null ? tracks.find(t => t.id === pid) : null
-        if (!activeTrack) return null
-        if (!playing) return null
-        if (heroPlayerVisible) return null
-        if (modalUsesInline || modalUsesDocked) return null
-        return (
-          <MiniPlayer
-            track={activeTrack}
-            artistName={artist.name}
-            playing={playing}
-            onTogglePlay={() => setPlaying(p => !p)}
-            onScrollToHero={() => {
-              const el = document.querySelector('[data-hero-player]')
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }}
-          />
-        )
-      })()}
 
       <EventsModal
         open={eventsModalOpen}
