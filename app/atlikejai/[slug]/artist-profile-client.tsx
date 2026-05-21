@@ -761,11 +761,6 @@ function PlayerCard({
     // izoliuoja inner content layout from parent (iframe injectai
     // negali push'inti parent dydziui).
     <div
-      // 2026-05-21 Sticky mini player: data attribute leidžia top-level
-      // IntersectionObserver'iui sekti hero player'io matomumą. Kai
-      // šis išeina iš viewport ir track play'inasi → rodom mini player
-      // viršuje (fixed). Klikinant ant mini → scroll back į šį element'ą.
-      data-hero-player="true"
       className="w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]"
       style={{ contain: 'layout', boxSizing: 'border-box' }}
     >
@@ -774,6 +769,12 @@ function PlayerCard({
           iframe negali iseiti is shio box dydziu. min-w/min-h: 0
           prevent intrinsic-size grow. */}
       <div
+        // 2026-05-21 Sticky mini player: data attribute ant pačio
+        // video frame'o (~260px), ne visos PlayerCard kortelės.
+        // Kitaip wrapper'is su tracks list'u būtų ~1000px aukščio
+        // ir IntersectionObserver niekada netrigger'intų, kol useris
+        // ne-scroll'intų visos kortelės — daugumai puslapio iš tikrųjų.
+        data-hero-player="true"
         className="relative aspect-video lg:aspect-auto lg:h-[260px] w-full max-w-full overflow-hidden bg-black"
         style={{ contain: 'strict', minWidth: 0, minHeight: 0, boxSizing: 'border-box' }}
       >
@@ -5144,19 +5145,36 @@ export default function ArtistProfileClient({
   const [modalUsesDocked, setModalUsesDocked] = useState(false)
   // 2026-05-21 Sticky mini player'is: matomas kai (a) Hero player'is
   // išėjo iš viewport ir (b) yra active track + playing. Sekam Hero
-  // matomumą per IntersectionObserver ant `[data-hero-player]` element'o.
+  // matomumą per IntersectionObserver ant `[data-hero-player]` element'o
+  // (pati video frame'as, ne visa PlayerCard, kad observer trigger'intų
+  // anksčiau).
   const [heroPlayerVisible, setHeroPlayerVisible] = useState(true)
   useEffect(() => {
-    const el = document.querySelector('[data-hero-player]')
-    if (!el || typeof IntersectionObserver === 'undefined') return
-    const obs = new IntersectionObserver(
-      ([entry]) => setHeroPlayerVisible(entry.isIntersecting),
-      // 0.05 threshold — slight buffer, kad mini neflickering'tų prie
-      // krašto kai user'is scroll'ina lėtai (mažas overlap = matomas).
-      { threshold: 0.05, rootMargin: '0px 0px -40px 0px' }
-    )
-    obs.observe(el)
-    return () => obs.disconnect()
+    if (typeof IntersectionObserver === 'undefined') return
+    let obs: IntersectionObserver | null = null
+    let cancelled = false
+    let pollTimeout: ReturnType<typeof setTimeout> | null = null
+    const tryAttach = () => {
+      if (cancelled) return
+      const el = document.querySelector('[data-hero-player]')
+      if (!el) {
+        // Element'as dar ne DOM'e (pvz., async data load arba Strict
+        // Mode flush). Retry po 200ms iki 10 kartų (~2s).
+        pollTimeout = setTimeout(tryAttach, 200)
+        return
+      }
+      obs = new IntersectionObserver(
+        ([entry]) => setHeroPlayerVisible(entry.isIntersecting),
+        { threshold: 0 }
+      )
+      obs.observe(el)
+    }
+    tryAttach()
+    return () => {
+      cancelled = true
+      if (pollTimeout) clearTimeout(pollTimeout)
+      obs?.disconnect()
+    }
   }, [])
 
   const galerijaRef = useRef<HTMLDivElement>(null)
