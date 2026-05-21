@@ -1350,7 +1350,7 @@ function Equalizer() {
  *    'sm' (default) — h-[3px] w-[14px] dashes — track/album cards
  *    'lg'           — h-[6px] w-[32px] dashes — artist hero (po pavadinimu)
  *                     prominence, kad vartotojas iš karto matytų signal'ą. */
-function PopBar({ level, size = 'sm', color = 'orange' }: { level: number; size?: 'sm' | 'md' | 'lg'; color?: 'orange' | 'blue' }) {
+function PopBar({ level, size = 'sm', color = 'orange', animate = false }: { level: number; size?: 'sm' | 'md' | 'lg'; color?: 'orange' | 'blue'; animate?: boolean }) {
   const total = 5
   // Recent activity bar — mėlyna spalva (#3b82f6, ta pati kaip verified
   // badge), kad atskirtų nuo cumulative score (orange). Ant dark + light
@@ -1369,6 +1369,18 @@ function PopBar({ level, size = 'sm', color = 'orange' }: { level: number; size?
     <div className={`flex ${gapCls}`} aria-hidden>
       {Array.from({ length: total }).map((_, i) => {
         const filled = i < level
+        // 2026-05-21 v2: animate=true paleidžia cascading fill (po 80ms per
+        // dot, 380ms ease-out fill su scale 0.4→1 + opacity 0→1). Naudojama
+        // TIK Hero zonoje, kur PopBar yra prominent. Default — be animacijos
+        // (track/album cards rodom statically, kad nesimaišytų UI).
+        const animStyle: React.CSSProperties = animate && filled
+          ? {
+              opacity: 0,
+              transform: 'scale(0.4)',
+              transformOrigin: 'left center',
+              animation: `popBarFill 380ms cubic-bezier(0.22, 1, 0.36, 1) ${80 * i}ms forwards`,
+            }
+          : { opacity: filled ? 0.55 + (0.45 * (i + 1) / total) : 1 }
         return (
           <span
             key={i}
@@ -1377,7 +1389,7 @@ function PopBar({ level, size = 'sm', color = 'orange' }: { level: number; size?
               'transition-colors',
               filled ? filledBg : 'bg-[var(--border-default)]',
             ].join(' ')}
-            style={{ opacity: filled ? 0.55 + (0.45 * (i + 1) / total) : 1 }}
+            style={animStyle}
           />
         )
       })}
@@ -2153,7 +2165,13 @@ function Hero({
         <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[120px] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
       </div>
 
-      <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>
+      <style>{`
+        @keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}
+        @keyframes popBarFill {
+          0% { opacity: 0; transform: scale(0.4); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
 
       <div
         className={[
@@ -2230,7 +2248,7 @@ function Hero({
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
                       <path d="M12 2l2.39 7.36H22l-6.18 4.48L18.21 22 12 17.27 5.79 22l2.39-8.16L2 9.36h7.61z" />
                     </svg>
-                    <PopBar level={popBarLevel} size="md" />
+                    <PopBar level={popBarLevel} size="md" animate />
                   </button>
                 )}
                 {recentPopBarLevel > 0 && (
@@ -2245,7 +2263,7 @@ function Hero({
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[#3b82f6]" aria-hidden>
                       <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
                     </svg>
-                    <PopBar level={recentPopBarLevel} size="md" color="blue" />
+                    <PopBar level={recentPopBarLevel} size="md" color="blue" animate />
                   </button>
                 )}
               </div>
