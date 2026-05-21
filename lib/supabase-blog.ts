@@ -173,6 +173,8 @@ export async function isUsernameTaken(username: string, excludeUserId?: string) 
 }
 
 // ── FAVORITE ARTISTS ────────────────────────────────────────
+// Praplėsta su main genre info — leidžia filtruoti pagal broad stylių
+// equalizer'io click'us (Rokas → favorite rock artists etc).
 export async function getProfileFavoriteArtists(userId: string) {
   const sb = createAdminClient()
   const { data } = await sb
@@ -180,7 +182,24 @@ export async function getProfileFavoriteArtists(userId: string) {
     .select('artist_id, sort_order, artists:artist_id(id, slug, name, cover_image_url)')
     .eq('user_id', userId)
     .order('sort_order')
-  return (data || []).map((r: any) => r.artists).filter(Boolean)
+  const artists = (data || []).map((r: any) => r.artists).filter(Boolean) as any[]
+  if (!artists.length) return artists
+
+  // Atskira užklausa main genres'ams (be parent_id) per artist_genres N:M.
+  const artistIds = artists.map((a) => a.id)
+  const { data: artistGenres } = await sb
+    .from('artist_genres')
+    .select('artist_id, genres:genre_id(id, name, parent_id)')
+    .in('artist_id', artistIds)
+  const genreMap = new Map<number, { id: number; name: string }[]>()
+  for (const row of (artistGenres || []) as any[]) {
+    const g = row.genres
+    if (!g || g.parent_id !== null) continue   // tik main genres (be parent)
+    const arr = genreMap.get(row.artist_id) || []
+    arr.push({ id: g.id, name: g.name })
+    genreMap.set(row.artist_id, arr)
+  }
+  return artists.map((a) => ({ ...a, mainGenres: genreMap.get(a.id) || [] }))
 }
 
 // ── BLOGS ───────────────────────────────────────────────────
