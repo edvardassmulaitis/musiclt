@@ -19,9 +19,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { fetchFeed } from '@/lib/scout-feeds'
 import { extractFromUrl, canonicalUrlHash, titleFingerprint } from '@/lib/url-extract'
-import { classifyMusicRelevance, normalizeArticle } from '@/lib/ai-normalize'
-import { matchArtists, matchTracks, getTopArtistsForHint } from '@/lib/entity-matcher'
+import { classifyMusicRelevance } from '@/lib/ai-normalize'
+import { matchArtists } from '@/lib/entity-matcher'
 import { ALLOWED_CATEGORIES } from '@/lib/news-categories'
+
+// 2026-05-20: scout pipeline'as nebedaro pilno LT rewrite'o (per brangu/per
+// blogai), užtenka preview candidate'o su EN title. LT rewrite'as gimsta
+// admin'o spustelėjimu /admin/inbox (žr. /api/admin/news-candidates/[id]/rewrite).
+//
+// Score gate: scout praleidžia tik kandidatus, kurių pirminis match'intas
+// atlikėjas turi `artists.score >= SCOUT_SCORE_THRESHOLD`. NULL = atmetam
+// (atlikėjas dar nepilnai įvestas → enrich pirma per /admin/artists/[id]).
+const SCORE_THRESHOLD = parseFloat(process.env.SCOUT_SCORE_THRESHOLD || '10')
 
 export const runtime = 'nodejs'
 export const maxDuration = 300  // Vercel max for Pro plan; smoke test ant Hobby gali timeout'inti
@@ -93,9 +102,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No active sources matched' }, { status: 404 })
   }
 
-  // Cache top artists once per run (whitelist hint visiem call'am'eams)
-  const artistHint = await getTopArtistsForHint(500)
-
+  // artistHint nebeperduodam normalize'ui — scout'as nedaro rewrite'o, tik
+  // preview candidate insertina. Hint dabar naudojamas TIK rewrite endpoint'e.
   const allCounters: RunCounters[] = []
 
   for (const source of sources) {
@@ -146,7 +154,11 @@ export async function POST(req: NextRequest) {
       }
 
       // 3) Haiku batch classify (kelis batch'us po HAIKU_BATCH_SIZE)
-      const relevantItems: Array<typeof fresh[0] & { ai_category: string; ai_confidence: number }> = []
+      const relevantItems: Array<typeof fresh[0] & {
+        ai_category: string
+        ai_confidence: number
+        artists_mentioned: string[]
+      }> = []
       for (let i = 0; i < fresh.length; i += HAIKU_BATCH_SIZE) {
         const batch = fresh.slice(i, i + HAIKU_BATCH_SIZE)
         const classifyInput = batch.map((b, idx) => ({
@@ -166,6 +178,7 @@ export async function POST(req: NextRequest) {
                 ...it,
                 ai_category: v.category,
                 ai_confidence: v.confidence,
+                artists_mentioned: v.artists_mentioned || [],
               })
               counter.classified_relevant++
             } else {
@@ -188,110 +201,82 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 4) Per relevant: fetch full article + Sonnet normalize + match
+      // 4) Per relevant: fetch metadata (no AI rewrite) + score gate + preview insert
       for (const rel of relevantItems) {
         try {
+          // Fetch tik metadata — title, lead image, embed URLs (be AI)
           const article = await extractFromUrl(rel.url)
-          // Pridedam embed'us į užklausos tekstą — Sonnet galės juos atskirti
-          const embedHint = article.embed_urls.length > 0
-            ? `\n\nSOURCE'E RASTI EMBED'AI (YT/Spotify/SoundCloud/Bandcamp) — ĮDĖK į embed_urls output'ą:\n${article.embed_urls.join('\n')}`
-            : ''
-          const ai = await normalizeArticle({
-            full_text: article.text + embedHint,
-            source_lang: article.source_lang || (source.category === 'news_lt' ? 'lt' : 'en'),
-            source_name: source.name,
-            source_url: rel.url,
-            artist_whitelist: artistHint,
-          })
-          // Jeigu Sonnet'as nepasiūlė embed'ų, naudojam source'e rastus tiesiogiai
-          if ((!ai.embed_urls || ai.embed_urls.length === 0) && article.embed_urls.length > 0) {
-            ai.embed_urls = article.embed_urls
-          }
 
-          // AI gali persigalvoti kategorijos — re-check ALLOWED
-          if (!ALLOWED_CATEGORIES.has(ai.category as any)) {
+          // Match artists iš Haiku classify atsakymo. Fallback: jei Haiku negrąžino
+          // (legacy verdicts arba parse_error), naudoti title kaip single mention'ą.
+          const mentions = rel.artists_mentioned?.length
+            ? rel.artists_mentioned.map((n: string) => ({ name: n }))
+            : [{ name: rel.title }]
+          const artistMatches = await matchArtists(mentions)
+          const primaryArtist = artistMatches[0]
+
+          // SCORE GATE — score required, NULL = atmetam
+          const score = primaryArtist?.artist_score
+          const failReason = !primaryArtist
+            ? 'no_artist_match'
+            : (score === null || score === undefined)
+              ? 'null_artist_score'
+              : score < SCORE_THRESHOLD
+                ? 'low_artist_score'
+                : null
+          if (failReason) {
             const urlHash = canonicalUrlHash(rel.url)
-            const debugMsg = `Sonnet rejected ${rel.url}: category="${ai.category}" conf=${ai.confidence} title="${(ai.title || '').slice(0, 60)}" raw="${(ai.raw_response || '').slice(0, 200)}"`
-            counter.error_details.push(debugMsg)
             if (!dryRun) {
               await supabase.from('scout_seen_urls').insert({
                 url_hash: urlHash,
                 source_id: source.id,
                 candidate_id: null,
-                filter_reason: `sonnet_rejected:${ai.category || 'unknown'}`,
+                filter_reason: failReason,
+              })
+            }
+            counter.classified_irrelevant++
+            counter.error_details.push(
+              `Filtered (${failReason}): "${rel.title.slice(0, 60)}" primary=${primaryArtist?.name || '–'} score=${score ?? 'null'}`
+            )
+            continue
+          }
+
+          // Cross-source dedupe per title_fingerprint (EN title)
+          const tFp = titleFingerprint(rel.title)
+          const { data: existingFp } = await supabase
+            .from('news_candidates')
+            .select('id, source_portal, status')
+            .eq('title_fingerprint', tFp)
+            .in('status', ['preview', 'pending'])
+            .limit(1)
+            .maybeSingle()
+          if (existingFp) {
+            counter.error_details.push(
+              `Skipping dup (title_fingerprint match with #${existingFp.id} from ${existingFp.source_portal})`
+            )
+            if (!dryRun) {
+              await supabase.from('scout_seen_urls').insert({
+                url_hash: canonicalUrlHash(rel.url),
+                source_id: source.id,
+                candidate_id: null,
+                filter_reason: 'dup_title_fingerprint',
               })
             }
             counter.classified_irrelevant++
             continue
           }
 
-          // Entity matching
-          const artistMatches = await matchArtists(ai.artists_mentioned)
-          const primaryArtist = artistMatches[0]
-          const trackMatches = primaryArtist
-            ? await matchTracks(ai.tracks_mentioned, [primaryArtist.artist_id])
-            : []
-
-          // ai_tracks_mentioned — pilna AI extract'ija su match status'u, kad
-          // wizard'as galėtų rodyti tiek matched (✓), tiek unmatched (⚠ "Sukurti")
-          // tracks. Susiejam track'ą su pirma "panašia" YT URL'a iš embed_urls
-          // (heuristika: title appears in URL slug arba pasitenkina paskutiniu fallback'u).
-          const matchedByTitle = new Map<string, number>()
-          for (const m of trackMatches) {
-            matchedByTitle.set(m.title.toLowerCase().trim(), m.track_id)
+          // Safe ISO date parsing iš RSS pubDate
+          let sourcePubAt: string | null = null
+          if (rel.published_at) {
+            const d = new Date(rel.published_at)
+            if (!isNaN(d.getTime())) sourcePubAt = d.toISOString()
           }
-          const aiTracksMentioned = (ai.tracks_mentioned || []).map(t => {
-            const key = (t.title || '').toLowerCase().trim()
-            const matched = matchedByTitle.get(key) || null
-            // Pasiūlome YT URL: pirmas iš embed_urls (jeigu turime) — wizard'e
-            // galima keisti
-            const youtubeUrl = (ai.embed_urls || []).find(u => /youtube\.com|youtu\.be/.test(u)) || null
-            return {
-              title: t.title,
-              artist: t.artist,
-              matched_track_id: matched,
-              youtube_url: youtubeUrl,
-            }
-          })
 
-          // Insert
           if (!dryRun) {
             const urlHash = canonicalUrlHash(rel.url)
-            const tFp = titleFingerprint(ai.title || article.title)
-
-            // ─── Cross-source dedupe: skip jei toks pat title fingerprint
-            // jau yra pending news_candidates (kita šaltinio versija to paties
-            // straipsnio). Sutaupom adminui review'inti dublikatus iš pvz.
-            // Pitchfork + Stereogum to paties albumo. */
-            const { data: existingFp } = await supabase
-              .from('news_candidates')
-              .select('id, source_portal')
-              .eq('title_fingerprint', tFp)
-              .eq('status', 'pending')
-              .limit(1)
-              .maybeSingle()
-            if (existingFp) {
-              counter.error_details.push(
-                `Skipping dup (title_fingerprint match with candidate #${existingFp.id} from ${existingFp.source_portal})`
-              )
-              // Vis tiek mark'inam seen_urls kad nereikėtų kitą kartą fetch'inti
-              await supabase.from('scout_seen_urls').insert({
-                url_hash: urlHash,
-                source_id: source.id,
-                candidate_id: null,
-                filter_reason: 'dup_title_fingerprint',
-              })
-              counter.classified_irrelevant++
-              continue
-            }
-
-            // Safe ISO date parsing iš RSS pubDate (Fri, 15 May 2026 09:37:49 +0000)
-            let sourcePubAt: string | null = null
-            if (rel.published_at) {
-              const d = new Date(rel.published_at)
-              if (!isNaN(d.getTime())) sourcePubAt = d.toISOString()
-            }
-
+            // INSERT PREVIEW candidate — be LT turinio. ai_title/ai_body/ai_summary
+            // NULL; admin'as rewrite'ina kai paspaudžia mygtuką.
             const { data: inserted, error: insErr } = await supabase
               .from('news_candidates')
               .insert({
@@ -301,23 +286,24 @@ export async function POST(req: NextRequest) {
                 source_portal: source.parser_key,
                 source_published_at: sourcePubAt,
                 raw_text: article.text.slice(0, 20_000),
-                raw_html: null, // skip raw_html to save space; can re-fetch if needed
+                raw_html: null,
                 raw_lang: article.source_lang,
-                ai_category: ai.category,
-                ai_title: ai.title,
-                ai_body: ai.body_html,
-                ai_summary: ai.summary,
-                ai_confidence: ai.confidence,
-                ai_model: ai.model,
+                original_title: rel.title,
+                ai_category: rel.ai_category,
+                ai_title: null,
+                ai_body: null,
+                ai_summary: null,
+                ai_confidence: rel.ai_confidence,
+                ai_model: null,
                 suggested_artist_ids: artistMatches.map(a => a.artist_id),
-                suggested_track_ids: trackMatches.map(t => t.track_id),
-                primary_artist_id: primaryArtist?.artist_id || artistMatches[0]?.artist_id || null,
+                suggested_track_ids: [],
+                primary_artist_id: primaryArtist.artist_id,
                 suggested_image_url: article.lead_image_url || null,
-                embed_urls: ai.embed_urls || [],
-                ai_tracks_mentioned: aiTracksMentioned,
+                embed_urls: article.embed_urls || [],
+                ai_tracks_mentioned: [],
                 url_canonical_hash: urlHash,
                 title_fingerprint: tFp,
-                status: 'pending',
+                status: 'preview',
               })
               .select('id')
               .single()
@@ -333,7 +319,6 @@ export async function POST(req: NextRequest) {
               source_id: source.id,
               candidate_id: inserted.id,
             })
-
             counter.candidates_inserted++
           } else {
             counter.candidates_inserted++ // dry-run counter

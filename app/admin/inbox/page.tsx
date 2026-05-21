@@ -47,10 +47,13 @@ type Candidate = {
   source_url: string | null
   source_email_from: string | null
   ai_category: string
-  ai_title: string
-  ai_summary: string
+  // 2026-05-20: ai_title/ai_body/ai_summary gali būti null jei status='preview'
+  // (Tier 1 candidate prieš admin'o on-demand rewrite click'ą)
+  ai_title: string | null
+  ai_summary: string | null
   ai_confidence: number
-  ai_model: string
+  ai_model: string | null
+  original_title?: string | null  // EN title preview cards rodymui
   suggested_artist_ids: number[]
   suggested_artists?: SuggestedArtist[]
   suggested_track_ids: number[]
@@ -159,6 +162,9 @@ export default function AdminInboxPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
   const [busy, setBusy] = useState<number | null>(null)
+  // 2026-05-20: rewriting state — kuriam candidate'ui dabar paleistas Sonnet
+  // rewrite'as. UI rodo „⏳ Perrašoma..." mygtuke.
+  const [rewritingIds, setRewritingIds] = useState<Set<number>>(new Set())
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   const [bodies, setBodies] = useState<Record<number, string>>({})
   const [editing, setEditing] = useState<Candidate | null>(null)
@@ -218,7 +224,7 @@ export default function AdminInboxPage() {
       // Parallel fetch news + events. Events ne'turi category filter'io, todėl
       // kviečiam visada visus, o vizualiai filtruoti UI'aj jei reikės.
       const [newsRes, eventsRes] = await Promise.all([
-        fetch(`/api/admin/news-candidates?status=pending&limit=50${q}`),
+        fetch(`/api/admin/news-candidates?status=preview,pending&limit=50${q}`),
         fetch(`/api/admin/event-candidates?status=pending&limit=50`),
       ])
       const data = await newsRes.json()
@@ -317,7 +323,7 @@ export default function AdminInboxPage() {
 
   const openEdit = async (cand: Candidate) => {
     setEditing(cand)
-    setEditTitle(cand.ai_title)
+    setEditTitle(cand.ai_title || '')
     setEditBody(await fetchBody(cand.id))
     setEditImages([])
     // ─── Artist'ų wizard state'as ───
@@ -497,6 +503,38 @@ export default function AdminInboxPage() {
       closeEdit()
     } finally {
       setBusy(null)
+    }
+  }
+
+  // 2026-05-20: Tier 2 rewrite — admin'as paspaudžia „Perrašyti į LT" preview
+  // kortelėje, ir Sonnet 4.6 sugeneruoja LT title/body/summary. Po to candidate
+  // pereina iš status='preview' į status='pending' (toks pat flow kaip dabar
+  // su scout pending'ais).
+  const handleRewrite = async (id: number) => {
+    setRewritingIds(prev => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+    try {
+      const res = await fetch(`/api/admin/news-candidates/${id}/rewrite`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        alert(`Perrašymas nepavyko: ${data.error || res.status}${data.detail ? `\n${data.detail}` : ''}`)
+        return
+      }
+      // Replace candidate state'e — dabar turi LT content + status='pending'
+      setCandidates(prev => prev.map(c => c.id === id ? { ...c, ...data.candidate } : c))
+    } catch (e: any) {
+      alert(`Rewrite klaida: ${e?.message || e}`)
+    } finally {
+      setRewritingIds(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     }
   }
 
@@ -690,11 +728,28 @@ export default function AdminInboxPage() {
                         </span>
                       </div>
 
-                      {/* Title — tap to expand'ina peržiūrą */}
+                      {/* PREVIEW badge — Tier 1 candidate, dar nesugeneruotas LT
+                          content. Admin'as turi paspausti „Perrašyti į LT" mygtuką
+                          žemiau, kad būtų paleistas Sonnet rewrite'as. */}
+                      {cand.status === 'preview' && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-[10px] uppercase font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
+                            EN preview
+                          </span>
+                          <span className="text-[11px] text-[var(--text-muted)]">
+                            LT versija sugeneruojama paspaudus „Perrašyti į LT"
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Title — tap to expand'ina peržiūrą. Preview mode'e rodom
+                          EN original_title (vs pending — Sonnet sugeneruotą ai_title). */}
                       <h2
                         onClick={() => toggleExpand(cand.id)}
-                        className="font-bold text-[var(--text-primary)] text-base sm:text-base leading-snug mb-2 cursor-pointer">
-                        {cand.ai_title}
+                        className={`font-bold text-base sm:text-base leading-snug mb-2 cursor-pointer ${
+                          cand.status === 'preview' ? 'text-[var(--text-muted)] italic' : 'text-[var(--text-primary)]'
+                        }`}>
+                        {cand.ai_title || cand.original_title || '(be antraštės)'}
                       </h2>
 
                       {cand.ai_summary && (
@@ -777,7 +832,8 @@ export default function AdminInboxPage() {
                         <div className="mb-3">
                           <button
                             onClick={() => {
-                              const url = `/admin/artists/new?name=${encodeURIComponent(cand.ai_title.split(' ')[0])}`
+                              const titleForGuess = cand.ai_title || cand.original_title || ''
+                              const url = `/admin/artists/new?name=${encodeURIComponent(titleForGuess.split(' ')[0])}`
                               window.open(url, '_blank')
                             }}
                             className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 hover:bg-amber-100 rounded-full text-xs font-medium text-amber-700 border border-amber-200 transition-colors">
@@ -789,17 +845,28 @@ export default function AdminInboxPage() {
 
                       {/* Actions — direct approve panaikintas; viskas eina per wizard'ą
                          (modalas atidaromas „Peržiūrėti", kuriame nustatomi atlikėjai, nuotrauka, tekstas).
-                         Tik atmesti likęs 1-click, nes nereikalauja setup'o. */}
+                         Tik atmesti likęs 1-click, nes nereikalauja setup'o.
+                         2026-05-20: Preview cards (Tier 1) rodo „Perrašyti į LT" vietoj
+                         „Peržiūrėti" — Sonnet'as paleidžiamas tik admin'o spaudimu. */}
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openEdit(cand)}
-                          disabled={busy === cand.id}
-                          className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
-                          📝 Peržiūrėti & paskelbti
-                        </button>
+                        {cand.status === 'preview' ? (
+                          <button
+                            onClick={() => handleRewrite(cand.id)}
+                            disabled={rewritingIds.has(cand.id) || busy === cand.id}
+                            className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
+                            {rewritingIds.has(cand.id) ? '⏳ Perrašoma…' : '✍ Perrašyti į LT'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => openEdit(cand)}
+                            disabled={busy === cand.id}
+                            className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
+                            📝 Peržiūrėti & paskelbti
+                          </button>
+                        )}
                         <button
                           onClick={(e) => handleReject(cand.id, e)}
-                          disabled={busy === cand.id}
+                          disabled={busy === cand.id || rewritingIds.has(cand.id)}
                           title="Atmesti (alt+click → su priežastimi)"
                           className="flex-1 sm:flex-none px-4 py-2 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 rounded-lg text-sm font-bold disabled:opacity-50">
                           ✗ Atmesti

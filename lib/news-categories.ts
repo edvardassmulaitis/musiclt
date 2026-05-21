@@ -107,7 +107,17 @@ Straipsniai:
 ${items.map(it => `[${it.idx}] ${it.title}\n${it.summary ? `    ${it.summary.slice(0, 250)}` : ''}`).join('\n\n')}
 
 Grąžink TIK JSON array, jokio kito teksto. Schema:
-[{"idx": <number>, "category": "release"|"performance"|"tour"|"career_step"|"other"|"none", "confidence": <0..1>, "brief_why": "<10 žodžių LT>"}]`
+[{
+  "idx": <number>,
+  "category": "release"|"performance"|"tour"|"career_step"|"other"|"none",
+  "confidence": <0..1>,
+  "brief_why": "<10 žodžių LT>",
+  "artists_mentioned": ["<atlikėjo vardas iš title arba summary>", ...]
+}]
+
+artists_mentioned: išrink atlikėjų vardus, paminėtus title/summary. Ne daugiau 3.
+Vardus palik ORIGINALU (English/native), be vertimo (Coldplay, ne Šaltakraujis).
+Jei nė vieno aiškaus atlikėjo nematyti, grąžink tuščią array'ą [].`
 }
 
 /**
@@ -135,8 +145,27 @@ KRITINIS REIKALAVIMAS — LIETUVIŲ KALBOS LINKSNIAI:
   - albumas → „albumų"
   - koncertas → „koncertų"
 - Skaitvardžių linksniavimas: 100 KASEČIŲ, ne „100 kasetės"
+- Skaitvardis prie albumo: „dviejų albumų" (NE „dvejų" — dvejus naudojam tik su pluralia tantum: vartai, žirklės)
 - Veiksmažodžių laikai: praeities pasakojant — „išleido", „pristatė", „pasirodė"
 - Jei abejoji dėl linksnio — formuluok kitaip, kad išvengtum klaidos
+
+KRITINIS REIKALAVIMAS — FAKTŲ TIKSLUMAS (no hallucination):
+1. CITATOS:
+   ✗ NEKURTI citatų. Jei originale citatos nėra — perpasakok savais žodžiais BE kabučių.
+   ✓ Jei originale yra cituojama — versti tiksliai, kabutėse, paminint kalbantįjį.
+2. FAKTAI:
+   ✗ Nekeisk prasmės. Pvz., „X followed her two earlier albums" = X pasirodė PO ankstesnių albumų, NE „X turi dainų iš ankstesnių albumų".
+   ✓ Jei abejoji dėl fakto interpretacijos — palik konservatyviausią versiją arba praleisk.
+3. VIETOVARDŽIAI — kritinis case:
+   ✓ Žinomi LT atitikmenys: Niujorkas, Londonas, Paryžius, Berlynas, Roma, Stokholmas, Viena, Praha
+   ✓ MAŽIAU žinomi miestai/vietos — PALIK ORIGINAL: Riverside, Fort Mifflin, Wiener Stadthalle, Madison Square Garden
+   ✗ NIEKADA nekurti naujo LT skambesio: „Viveraside" ❌, „Vyneris Stadthalle" ❌
+   ✓ Toronto, Chicago — nelinksniuojami: „iš Toronto", „Čikagoje" (Chicago turi LT atitikmenį, Toronto neturi)
+4. ASMENŲ VARDAI IR LYTIS:
+   ✓ Asmens vardai paliekami originalu: Slayyyter, Olivia Rodrigo, Sam Battle
+   ✓ Linksniavimas — pridėti LT galūnę: Slayyyter → Slayyyter'iui (jei vyras), Slayyyter → Slayyyter (jei moteris)
+   ✗ Vyriškas vardas (Sam, Tom, Battle, Joe) → reikia vyriškos giminės: „jis tapo trečias", NE „ji tapo trečia"
+   ✓ Jei nesi tikras dėl asmens lyties — geriausiai naudoti neutralią formuluotę („atlikėjas/atlikėja" → restruct: „jis/ji" ar visai praleisti)
 
 ADAPTIVE LENGTH — TAIKLUS TURINYS:
 - TRUMPAS šaltinio straipsnis (<300 žodžių originalas) → 150-250 žodžių LT

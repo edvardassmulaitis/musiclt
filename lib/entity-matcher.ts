@@ -15,6 +15,10 @@ export type ArtistMatch = {
   score: number               // 0..1 (pg_trgm similarity)
   matched_string: string      // ką AI mention'ino
   cover_image_url?: string
+  // 2026-05-20: pridėta popularity gate'ui scout pipeline'e. NULL = score
+  // dar neapskaičiuotas tam atlikėjui (reikia Wiki enrichment'o).
+  artist_score?: number | null
+  country?: string | null
 }
 
 export type TrackMatch = {
@@ -53,7 +57,7 @@ export async function matchArtists(
     // Pirma — exact match (case-insensitive). Greičiau ir tiksliau nei trigram.
     const { data: exactMatch } = await supabase
       .from('artists')
-      .select('id, name, slug, cover_image_url')
+      .select('id, name, slug, cover_image_url, score, country')
       .ilike('name', name)
       .limit(1)
       .maybeSingle()
@@ -66,6 +70,8 @@ export async function matchArtists(
         score: 1.0,
         matched_string: name,
         cover_image_url: exactMatch.cover_image_url || undefined,
+        artist_score: (exactMatch as any).score ?? null,
+        country: (exactMatch as any).country ?? null,
       })
       seenIds.add(exactMatch.id)
       continue
@@ -84,6 +90,28 @@ export async function matchArtists(
 
   // Sort by score DESC
   results.sort((a, b) => b.score - a.score)
+
+  // Backfill artist_score + country pas tuos, kurie atėjo iš RPC kelio (ten
+  // schema dažnai be šių laukų). Pigus 1-call'as su .in() ant ~3-10 ID'ų.
+  const needLookup = results.filter(r => r.artist_score === undefined || r.country === undefined)
+  if (needLookup.length > 0) {
+    const { data: meta } = await supabase
+      .from('artists')
+      .select('id, score, country')
+      .in('id', needLookup.map(r => r.artist_id))
+    const metaById = new Map<number, { score: number | null; country: string | null }>()
+    for (const m of (meta || []) as any[]) {
+      metaById.set(m.id, { score: m.score ?? null, country: m.country ?? null })
+    }
+    for (const r of results) {
+      if (r.artist_score === undefined || r.country === undefined) {
+        const m = metaById.get(r.artist_id)
+        r.artist_score = m?.score ?? null
+        r.country = m?.country ?? null
+      }
+    }
+  }
+
   return results
 }
 

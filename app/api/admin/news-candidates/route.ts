@@ -25,7 +25,10 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
-  const status = searchParams.get('status') || 'pending'
+  const statusRaw = searchParams.get('status') || 'pending'
+  // 2026-05-20: status accepta comma-separated ('preview,pending') Tier 1 / Tier 2
+  // candidate'ams paimti vienu užklausimu.
+  const statusList = statusRaw.split(',').map(s => s.trim()).filter(Boolean)
   const limit = parseInt(searchParams.get('limit') || '50', 10)
   const category = searchParams.get('category')
 
@@ -38,12 +41,13 @@ export async function GET(req: NextRequest) {
     .select(`
       id, source_type, source_portal, source_url, source_email_from,
       ai_category, ai_title, ai_summary, ai_confidence, ai_model,
+      original_title,
       suggested_artist_ids, suggested_track_ids, primary_artist_id,
       suggested_image_url, status, filter_reason, reject_reason,
       created_at, source_published_at, ai_tracks_mentioned, embed_urls,
-      primary_artist:artists!news_candidates_primary_artist_id_fkey(id, name, slug, cover_image_url, legacy_likes)
+      primary_artist:artists!news_candidates_primary_artist_id_fkey(id, name, slug, cover_image_url, legacy_likes, score)
     `, { count: 'exact' })
-    .eq('status', status)
+    .in('status', statusList)
     .order('created_at', { ascending: false })
     .order('ai_confidence', { ascending: false })
     .limit(limit)

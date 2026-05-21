@@ -98,8 +98,32 @@ Vaizdo ir audio:
 Eurovizija (specifinis kontekstas):
   • Eurovision → "Eurovizija" (su lietuviška kabute)
   • semi-final / final → pusfinalis / finalas (NE "puslaikis")
-  • points / score → balai / rezultatas
+  • points / score → balai / rezultatas (NE "taškai" — tai matematika, ne muzika)
   • jury / televoting → komisija / žiūrovų balsavimas
+  • Eurovision entry → Eurovizijos atstovas
+  • edition (70th edition) → leidimas (NE "edicija" — calque iš anglų/italų)
+  • last place → paskutinė vieta
+  • semi-final qualification → patekimas į pusfinalį
+
+Vakarinės/TV laidos (papildymai):
+  • late-night show → vakarinė laida
+  • talk show → pokalbių laida
+  • late-night TV debut → debiutas vakarinėje TV laidoje (NE "laidos žygioje" ❌)
+  • appearance on the show → pasirodymas laidoje (NE "žygyje")
+  • show host → laidos vedėjas
+  • aired on → buvo transliuojama per
+
+Vietovardžiai (papildymai):
+  • Žinomi LT atitikmenys, vartoti: Niujorkas, Londonas, Paryžius, Berlynas, Roma, Stokholmas, Viena, Praha, Čikaga
+  • NEŽINOMI miestai/venue'ai — PALIK ORIGINAL: Riverside, Fort Mifflin, Wiener Stadthalle, Madison Square Garden
+  • Toronto, Hamilton, Houston, Phoenix, Las Vegas — nelinksniuojami, palik anglišką formą + linksnis-prielinksnis
+  • Venue pavadinimai — kabutėse: „Wiener Stadthalle", „Madison Square Garden", „O2 Arena"
+
+Merchandise / commerce:
+  • merch / merchandise → prekės arba marškinėliai (kontekstinis), NE "merchandisas"
+  • drop / launch → pristatė / pradėjo pardavinėti
+  • sell out → išparduoti (NE "iš viso išparduoti")
+  • limited edition → ribotas leidimas
 `
 
 // ─────────────────────────────────────────────────────────────────

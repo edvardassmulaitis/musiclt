@@ -14,13 +14,15 @@ import { applyMusicLtFixes } from './music-lt-style-guide'
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
 const SONNET_MODEL = 'claude-sonnet-4-6'
-// 2026-05-16: cost optimization — normalize'ui naudojam Haiku vietoj Sonnet'o
-// (-67% cost). Sonnet'as paliktas kaip backup model, jei kada reiks pereit
-// atgal grąžinant kokybę. Haiku 4.5 yra solid'us Tool Use JSON output'ams.
-const NORMALIZE_MODEL = HAIKU_MODEL
-// Truncate full_text iš ~8000 -> 3000 chars (-30% Sonnet input). News
-// essence paprastai yra lead'e (pirmi 2-3 paragrafai), o ne pabaigoje.
-const NORMALIZE_TEXT_LIMIT = 3000
+// 2026-05-20: grįžom į Sonnet'ą — bet TIK on-demand rewrite'e (admin spaudžia
+// „Perrašyti į LT" inbox'e). Scout cron'as nebedaro pilno rewrite'o, todėl
+// per-call cost padidėjimas kompensuojamas drastiškai sumažėjusiu call'ų
+// skaičiumi (~5-7/d vietoj ~30/d). Žr. LT_TRANSLATION_IMPROVEMENT_PLAN.md.
+const NORMALIZE_MODEL = SONNET_MODEL
+// 3000 → 6000 chars: news essence dažnai trečiame-penktame paragrafe (citatos,
+// tour datos, full track list). Su prompt caching system block'as nesudaro
+// daugiau cost'o, o input limit'as mažiau halucinacijų triggerina.
+const NORMALIZE_TEXT_LIMIT = 6000
 
 function getApiKey(): string {
   const key = process.env.ANTHROPIC_API_KEY
@@ -37,6 +39,9 @@ export type RelevanceResult = {
   category: AIRelevanceCategory
   confidence: number
   brief_why: string
+  // 2026-05-20: Haiku classify dabar grąžina ir atlikėjus, kad galėtume jais
+  // pasinaudoti score-gate'ui scout pipeline'e BE atskiro AI call'o.
+  artists_mentioned: string[]
 }
 
 export async function classifyMusicRelevance(
@@ -72,7 +77,7 @@ export async function classifyMusicRelevance(
   const match = text.match(/\[[\s\S]*\]/)
   if (!match) {
     console.warn('[ai-normalize] Haiku response no JSON array found:', text.slice(0, 200))
-    return items.map(it => ({ idx: it.idx, category: 'none' as const, confidence: 0, brief_why: 'parse_error' }))
+    return items.map(it => ({ idx: it.idx, category: 'none' as const, confidence: 0, brief_why: 'parse_error', artists_mentioned: [] }))
   }
 
   try {
@@ -83,10 +88,13 @@ export async function classifyMusicRelevance(
       category: isValidCategory(p.category) ? p.category : 'none',
       confidence: typeof p.confidence === 'number' ? Math.max(0, Math.min(1, p.confidence)) : 0,
       brief_why: typeof p.brief_why === 'string' ? p.brief_why : '',
+      artists_mentioned: Array.isArray((p as any).artists_mentioned)
+        ? (p as any).artists_mentioned.map(String).filter(Boolean).slice(0, 3)
+        : [],
     }))
   } catch (e: any) {
     console.warn('[ai-normalize] Haiku JSON parse failed:', e.message, text.slice(0, 200))
-    return items.map(it => ({ idx: it.idx, category: 'none' as const, confidence: 0, brief_why: 'parse_error' }))
+    return items.map(it => ({ idx: it.idx, category: 'none' as const, confidence: 0, brief_why: 'parse_error', artists_mentioned: [] }))
   }
 }
 
