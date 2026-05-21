@@ -14,7 +14,7 @@ import LyricsWithReactions from '@/components/LyricsWithReactions'
 import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
 import { normalizeBio } from '@/lib/normalize-bio'
 import { formatArtistList } from '@/lib/format-artists'
-import { accusativeArtistName } from '@/lib/text-utils'
+import { accusativeArtistName, genitiveArtistName } from '@/lib/text-utils'
 import DropBar from '@/components/DropBar'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
 import EventInfoModal, { type EventPreview } from '@/components/EventInfoModal'
@@ -2350,11 +2350,13 @@ function Hero({
                     onClick={() => onOpenTopArtists?.({ country: artist.country })}
                     title={`${artist.country} top atlikėjai ir grupės`}
                     aria-label={`Šalis: ${artist.country}. Atidaryti top sąrašą.`}
-                    // 2026-05-21: hover state'ą sustipriname — anksčiau
-                    // `lg:hover:border-white/40` buvo per faded, atrodė
-                    // tarsi border dingtų. Dabar pereinam į orange accent
-                    // (kaip žanro chip'as), kad hover'is būtų matomas.
-                    className="inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1.5 text-[20px] leading-none transition-all hover:scale-110 hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.12)] lg:border-white/20 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-[var(--accent-orange)] lg:hover:bg-[rgba(249,115,22,0.18)]"
+                    // 2026-05-21 v2: pakeičiame į `rounded-2xl` + fixed `h-10`
+                    // — anksciau `rounded-full` + flag emoji 20px sukeldavo
+                    // sub-pixel border rendering bug'ą: top/bottom border
+                    // atrodė „dingęs" hover'e (oval shape su thin border
+                    // 1px). Solid border-2 + explicit dimensions = stable
+                    // visual rezultatas visuose viewport'uose.
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border-2 border-[var(--border-default)] bg-[var(--card-bg)] text-[18px] leading-none transition-all hover:scale-110 hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.12)] lg:border-white/25 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-[var(--accent-orange)] lg:hover:bg-[rgba(249,115,22,0.18)]"
                   >
                     <span aria-hidden>{flag}</span>
                   </button>
@@ -2567,11 +2569,16 @@ function TopArtistsModal({
     return () => { abort = true }
   }, [filter.country, filter.genre, filter.global, filter.recent, filter.zodiac, currentArtistId])
 
-  // Esc + outside-click uždaro
+  // Esc + outside-click uždaro + body scroll lock
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
   }, [onClose])
 
   return createPortal(
@@ -3103,26 +3110,29 @@ function SideInfo({
 
   if (!followControls && !hasSocials) return null
 
-  // 2026-05-21 v3 redesign: adaptive socials layout.
-  //   • ≤2 socials (+optional website): rodom su label tekstu (logo + Spotify)
-  //   • 3-5 socials: ikonos only (kompakt)
-  //   • >5: pirmi 5 ikonomis + „+N daugiau" mygtukas → SocialLinksModal
-  // Sekti + Dalintis perdaryti full-width (vienas po kito), kad CTA užimtų
-  // visą card pločio.
+  // 2026-05-21 v4 redesign: always 2 rows max.
+  //   Row 1: socials kompakt icons (+website globe + optional „+N" jei
+  //          overflow per onOpenSocialModal). Niekada nevyniojam į kelias
+  //          eilutes — flex-nowrap + overflow → +N modal.
+  //   Row 2: Sekti + Dalintis side by side (ne stacked).
+  // User feedback 2026-05-21: „realiai turi buti dvi eilutes visada".
   const socialList = links.filter(l => SOC[l.platform])
   const hasWebsite = !!website
-  const totalSocialItems = socialList.length + (hasWebsite ? 1 : 0)
-  const useLabels = totalSocialItems > 0 && totalSocialItems <= 2
-  const ICON_LIMIT = 5
-  const overflowCount = !useLabels && socialList.length > ICON_LIMIT ? socialList.length - ICON_LIMIT : 0
-  const visibleIconSocials = !useLabels && overflowCount > 0 ? socialList.slice(0, ICON_LIMIT) : socialList
+  // Kiek ikonų telpa į 320px (desktop sidebar) per row'ą — kiekviena
+  // ikona ~36px (h-9 w-9 + gap-1.5). Plotis ~ N*36 + (N-1)*6.
+  // 320 - 32 (card padding p-4) - 36 (website globe) ≈ 252. N*36+(N-1)*6 ≤ 252 → N ≤ 6
+  // Su website globe rezervuotu — max 5 social icons + globe = 6. Su +N
+  // mygtuku (~48px) — max 5 icons + +N.
+  const ICON_LIMIT = hasWebsite ? 4 : 5
+  const overflowCount = socialList.length > ICON_LIMIT ? socialList.length - ICON_LIMIT : 0
+  const visibleIconSocials = overflowCount > 0 ? socialList.slice(0, ICON_LIMIT) : socialList
 
   return (
     <aside className="flex h-fit flex-col items-stretch gap-3 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-      {hasSocials && useLabels && (
-        // Labeled mode — vertical stack, kiekvienas item full row su logo + name
-        <div className="flex w-full flex-col gap-1.5">
-          {socialList.map(l => {
+      {/* Row 1: socials kompakt — flex-nowrap (visada vienoje eilutėje) */}
+      {hasSocials && (
+        <div className="flex w-full flex-nowrap items-center gap-1.5">
+          {visibleIconSocials.map(l => {
             const p = SOC[l.platform]
             return (
               <a
@@ -3130,12 +3140,10 @@ function SideInfo({
                 href={l.url}
                 target="_blank"
                 rel="noopener"
-                className="flex w-full items-center gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-2 text-left no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
+                title={p.l}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
               >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="15" height="15" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
-                </span>
-                <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{p.l}</span>
+                <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
               </a>
             )
           })}
@@ -3147,46 +3155,8 @@ function SideInfo({
                 href={website}
                 target="_blank"
                 rel="noopener"
-                title={domain}
-                className="flex w-full items-center gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-2 text-left no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--text-muted)]">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-                </span>
-                <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">Oficiali svetainė</span>
-              </a>
-            )
-          })()}
-        </div>
-      )}
-      {hasSocials && !useLabels && (
-        // Compact mode — ikonos with optional overflow modal
-        <div className="flex w-full flex-wrap items-center gap-1.5">
-          {visibleIconSocials.map(l => {
-            const p = SOC[l.platform]
-            return (
-              <a
-                key={l.platform}
-                href={l.url}
-                target="_blank"
-                rel="noopener"
-                title={p.l}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
-              >
-                <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
-              </a>
-            )
-          })}
-          {website && overflowCount === 0 && (() => {
-            let domain = ''
-            try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
-            return (
-              <a
-                href={website}
-                target="_blank"
-                rel="noopener"
                 title={`Oficiali svetainė — ${domain}`}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
               </a>
@@ -3197,22 +3167,23 @@ function SideInfo({
               type="button"
               onClick={onOpenSocialModal}
               title="Visi linkai"
-              className="flex h-9 items-center gap-1 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-3 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
+              className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
             >
-              +{overflowCount + (website ? 1 : 0)}
+              +{overflowCount}
             </button>
           )}
         </div>
       )}
 
-      {/* Sekti + Dalintis — full-width buttons stacked. „Isplesti per visa
-          boxo ploti" per user feedback 2026-05-21. */}
+      {/* Row 2: Sekti + Dalintis side by side (ne stacked).
+          User feedback 2026-05-21 v2: nereikia full-width stacking'o,
+          tilps į vieną eilutę normaliame width'e. */}
       {followControls && (
         <>
           {hasSocials && <div className="w-full border-t border-[var(--border-subtle)]" />}
-          <div className="flex w-full flex-col gap-2">
-            <FollowPill {...followControls} fullWidth />
-            <ShareButton url={typeof window !== 'undefined' ? window.location.href : ''} title={artist.name} fullWidth />
+          <div className="flex w-full flex-wrap items-center gap-2">
+            <FollowPill {...followControls} />
+            <ShareButton url={typeof window !== 'undefined' ? window.location.href : ''} title={artist.name} />
           </div>
         </>
       )}
@@ -3540,9 +3511,12 @@ function MemberModalCard({ m }: { m: Member }) {
 // Atsidaro naujam tab'e (target="_blank" + rel="noopener").
 
 function SocialLinksModal({
-  artistName, links, website, followControls, onClose,
+  artistName, artistCountry, links, website, followControls, onClose,
 }: {
   artistName: string
+  /** LT atlikėjui country='Lietuva' — title konvertuojamas į galininką
+   *  („Daugiau apie Andrių Mamontovą"). */
+  artistCountry?: string | null
   links: { platform: string; url: string }[]
   website?: string | null
   followControls?: {
@@ -3557,7 +3531,12 @@ function SocialLinksModal({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
   }, [onClose])
   const socialList = links.filter(l => SOC[l.platform])
   let websiteDomain = ''
@@ -3576,7 +3555,7 @@ function SocialLinksModal({
       <div className="flex max-h-[85vh] w-full flex-col rounded-t-3xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl sm:max-w-[460px] sm:rounded-3xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
           <h2 id="social-links-modal-title" className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-tight text-[var(--text-primary)]">
-            Daugiau — {artistName}
+            Daugiau apie {accusativeArtistName(artistName, artistCountry)}
           </h2>
           <button
             type="button"
@@ -5205,19 +5184,28 @@ function AvatarBubble({ name, size = 28 }: { name: string; size?: number }) {
 // kelios dešimtys) nesudarytų ilgo scroll'o profile page'e.
 
 function OrphanTracksModal({
-  tracks, artistName, artistSlug, onClose, onSelectTrack,
+  tracks, artistName, artistSlug, artistCountry, onClose, onSelectTrack,
 }: {
   tracks: Track[]
   artistName: string
+  /** LT atlikėjui country='Lietuva' → vardas konvertuojamas į kilmininką
+   *  („Andriaus Mamontovo dainos"). Foreign country → vardas as-is. */
+  artistCountry?: string | null
   artistSlug: string
   onClose: () => void
   onSelectTrack: (t: Track) => void
 }) {
-  // Esc handler
+  // Esc handler + body scroll lock (ant mobile background scroll'inasi
+  // be lock'o, user feedback 2026-05-21).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
   }, [onClose])
   return createPortal(
     <div
@@ -5230,7 +5218,7 @@ function OrphanTracksModal({
       <div className="flex max-h-[85vh] w-full flex-col rounded-t-3xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl sm:max-w-[560px] sm:rounded-3xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
           <h2 id="orphan-tracks-modal-title" className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-tight text-[var(--text-primary)]">
-            Kitos {artistName} dainos · {tracks.length}
+            Kitos {genitiveArtistName(artistName, artistCountry)} dainos · {tracks.length}
           </h2>
           <button
             type="button"
@@ -5999,6 +5987,7 @@ export default function ArtistProfileClient({
         <OrphanTracksModal
           tracks={orphanTracks}
           artistName={artist.name}
+          artistCountry={artist.country}
           artistSlug={artist.slug}
           onClose={() => setOrphanModalOpen(false)}
           onSelectTrack={(t) => setTrackInfoOpen(t)}
@@ -6008,6 +5997,7 @@ export default function ArtistProfileClient({
       {socialModalOpen && (
         <SocialLinksModal
           artistName={artist.name}
+          artistCountry={artist.country}
           links={links}
           website={artist.website}
           followControls={{
@@ -6235,37 +6225,70 @@ export default function ArtistProfileClient({
                       „Narys grupėse: Jack Irons" prie RHCP profilio. Po DB
                       fix'o defensive guard'as gardiečia ateityje. */}
                   {solo && memberOf && memberOf.length > 0 && <MemberOfInline groups={memberOf} />}
-                  {/* Mobile-only: vietoj SideInfo card'o rodom paprastą
-                      „Daugiau" punktą (po Nariais/grupėmis) — atveria
-                      SocialLinksModal su sekti, dalintis ir social linkais.
-                      Per 2026-05-21 user feedback: box ant mobile atrodė per
-                      bulky, švaresnis menu pattern'as. lg+ — vis tiek
-                      float-right SideInfo card'as su flow-root. */}
-                  {sideInfoAvailable && (
-                    <div className="mt-8 lg:hidden">
-                      <button
-                        type="button"
-                        onClick={() => setSocialModalOpen(true)}
-                        className="flex w-full items-center justify-between rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3.5 text-left transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          {/* ❤ icon — kvietimas sekti, primary action */}
-                          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
-                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                          </svg>
-                          <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
-                            Daugiau
-                          </span>
-                          <span className="font-['DM_Sans',sans-serif] text-[12px] text-[var(--text-muted)]">
-                            Sekti · Dalintis · Linkai
-                          </span>
+                  {/* Mobile-only: flat layout — „DAUGIAU" headeris kaip
+                      „Veikla"/„Gimė" style, tada social ikonos + Sekti/
+                      Dalintis tiesiogiai apačioje. Be box border'io ar
+                      modal pattern'o — vizualiai integralu su likusiu bio
+                      content'u. lg+ versija lieka float-right card'as. */}
+                  {sideInfoAvailable && (() => {
+                    const mobileSocialList = links.filter(l => SOC[l.platform])
+                    const mobileWebsite = artist.website
+                    const hasMobileSocials = mobileSocialList.length > 0 || !!mobileWebsite
+                    if (!hasMobileSocials) return null
+                    return (
+                      <div className="mt-5 lg:hidden">
+                        <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                          Daugiau
                         </div>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-[var(--text-faint)]" aria-hidden>
-                          <path d="M9 6l6 6-6 6" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
+                        <div className="flex flex-col gap-2.5">
+                          {/* Social icons + globe */}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {mobileSocialList.map(l => {
+                              const p = SOC[l.platform]
+                              return (
+                                <a
+                                  key={l.platform}
+                                  href={l.url}
+                                  target="_blank"
+                                  rel="noopener"
+                                  title={p.l}
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
+                                >
+                                  <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+                                </a>
+                              )
+                            })}
+                            {mobileWebsite && (() => {
+                              let domain = ''
+                              try { domain = new URL(mobileWebsite).host.replace(/^www\./, '') } catch { domain = mobileWebsite }
+                              return (
+                                <a
+                                  href={mobileWebsite}
+                                  target="_blank"
+                                  rel="noopener"
+                                  title={`Oficiali svetainė — ${domain}`}
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                                </a>
+                              )
+                            })()}
+                          </div>
+                          {/* Sekti + Dalintis side by side */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <FollowPill
+                              likes={likes}
+                              selfLiked={!!selfLiked}
+                              onToggle={toggleSelfLike}
+                              onOpenModal={() => setLikesModalOpen(true)}
+                              pending={selfLikePending}
+                            />
+                            <ShareButton url={typeof window !== 'undefined' ? window.location.href : ''} title={artist.name} />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
                   {/* Mobile: score card po SideInfo strip. */}
                   {artist.score !== null && artist.score !== undefined && (
                     <div className="mt-4 lg:hidden">
@@ -6305,7 +6328,7 @@ export default function ArtistProfileClient({
           }
           return (
             <section>
-              <SectionTitle label={`${artist.name} albumai`} />
+              <SectionTitle label={`${genitiveArtistName(artist.name, artist.country)} albumai`} />
 
               {/* Desktop: all filter chips wrap on one row */}
               <div className="mb-5 hidden flex-wrap gap-1.5 sm:flex sm:gap-2">
@@ -6466,11 +6489,19 @@ export default function ArtistProfileClient({
               )}
 
               {/* Orphan tracks — compact list below albums when included.
-                  2026-05-21: rodom tik first 4, „+N daugiau" → modal'as. */}
+                  2026-05-21 v2: jei daugiau nei tilpsta į grid'ą, paskutinis
+                  slot'as virsta „+N daugiau" kortele (ne nauja eilutė
+                  apačioj). Mobile: 1 col → max 4 items (3 track + 1 +N);
+                  tablet 2 col → max 4 items; desktop 4 col → max 4 items.
+                  Visada full 4-slot grid'as, nesilauzo į kelias eilutes. */}
               {showOrphans && orphanTracks.length > 0 && (() => {
-                const ORPHAN_VISIBLE = 4
-                const visibleOrphans = orphanTracks.slice(0, ORPHAN_VISIBLE)
-                const extraOrphans = orphanTracks.length - ORPHAN_VISIBLE
+                const GRID_SLOTS = 4
+                const hasOverflow = orphanTracks.length > GRID_SLOTS
+                // Jei yra overflow — rodom 3 + +N kortelę kaip 4-ą slot'ą.
+                // Jei lygiai 4 ar mažiau — visus tracks be +N.
+                const trackSlots = hasOverflow ? GRID_SLOTS - 1 : orphanTracks.length
+                const extraOrphans = orphanTracks.length - trackSlots
+                const visibleOrphans = orphanTracks.slice(0, trackSlots)
                 return (
                   <div className={visibleAlbums.length > 0 ? 'mt-6' : ''}>
                     {visibleAlbums.length > 0 && (
@@ -6488,16 +6519,20 @@ export default function ArtistProfileClient({
                           onOpen={setTrackInfoOpen}
                         />
                       ))}
+                      {hasOverflow && (
+                        <button
+                          type="button"
+                          onClick={() => setOrphanModalOpen(true)}
+                          className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border-default)] bg-transparent p-2 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
+                          aria-label={`Atidaryti visas dainas (${orphanTracks.length})`}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
+                            <path d="M5 12h14M12 5l7 7-7 7" />
+                          </svg>
+                          <span>+{extraOrphans} daugiau</span>
+                        </button>
+                      )}
                     </div>
-                    {extraOrphans > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setOrphanModalOpen(true)}
-                        className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-3.5 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
-                      >
-                        +{extraOrphans} daugiau
-                      </button>
-                    )}
                   </div>
                 )
               })()}
@@ -6511,7 +6546,7 @@ export default function ArtistProfileClient({
         {/* Galerija (masonry) */}
         {galleryPhotos.length > 0 && (
           <section ref={galerijaRef} id="galerija">
-            <SectionTitle label={`${artist.name} nuotraukos`} count={galleryPhotos.length} />
+            <SectionTitle label={`${genitiveArtistName(artist.name, artist.country)} nuotraukos`} count={galleryPhotos.length} />
             <MasonryGallery
               photos={galleryPhotos}
               onOpen={(i) => setLightboxIndex(i)}

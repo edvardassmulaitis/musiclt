@@ -143,6 +143,66 @@ export function accusativeArtistName(name: string, countryHint?: string | null):
   }).join('')
 }
 
+// ── Kilmininkas (genitive) — „Andrius Mamontovas albumai" → „Andriaus
+// Mamontovo albumai", „Mikutavičiaus nuotraukos" ir t.t. Naudojam title'iuose
+// tipo „{vardas} {kažko-genitive-objektas}": nuotraukos, albumai, dainos.
+//
+// LT 1-2 deklinacijos kilmininko galūnės (asmenvardžiams ir pavardėms):
+//   masc.: -as → -o (Marijonas → Marijono), -is → -io (Karolis → Karolio),
+//          -ius → -iaus (Andrius → Andriaus), -us → -aus (Adamkus → Adamkaus),
+//          -ėnas → -ėno (padengia 'as'), -ičius → -ičiaus (padengia 'ius')
+//   fem.:  -a → -os (Justina → Justinos), -ė → -ės (Aistė → Aistės),
+//          -ienė → -ienės, -aitė/-utė/-ytė/-iūtė → -aitės/-utės/-ytės/-iūtės
+
+const GENITIVE_ENDINGS: [string, string][] = [
+  ['ičius',  'ičiaus'], // Mikutavičius → Mikutavičiaus (covered by 'ius')
+  ['ienė',   'ienės'],
+  ['iūtė',   'iūtės'],
+  ['aitė',   'aitės'],
+  ['utė',    'utės'],
+  ['ytė',    'ytės'],
+  ['ėnas',   'ėno'],    // padengia 'as'
+  ['ius',    'iaus'],   // Andrius → Andriaus
+  ['as',     'o'],      // Marijonas → Marijono, Mamontovas → Mamontovo
+  ['is',     'io'],     // Karolis → Karolio
+  ['ys',     'io'],
+  ['us',     'aus'],    // Adamkus → Adamkaus
+  ['ė',      'ės'],     // Aistė → Aistės
+  ['a',      'os'],     // Justina → Justinos
+]
+
+function toGenitiveWord(word: string): string {
+  if (word.length < 2) return word
+  if (/[qwx]/i.test(word)) return word
+  // Jau gali būti kilmininke (-o/-ės/-iaus/-aus/-os) — paliekam
+  if (/(?:os|ės|aus|iaus|io)$/.test(word) || /[oų]$/.test(word.toLowerCase())) {
+    // Detail: 'o' alone may be ambiguous; vis tiek nedarom double-transform
+    return word
+  }
+  for (const [from, to] of GENITIVE_ENDINGS) {
+    if (word.length > from.length && word.toLowerCase().endsWith(from)) {
+      return word.slice(0, word.length - from.length) + to
+    }
+  }
+  return word
+}
+
+/**
+ * Atlikėjo vardas → kilmininkas (genitive). Tas pats principas kaip
+ * accusativeArtistName(): per-word, country-gated.
+ *
+ * @param name        Vardininko forma („Andrius Mamontovas")
+ * @param countryHint Jei != 'Lietuva' — return as-is
+ */
+export function genitiveArtistName(name: string, countryHint?: string | null): string {
+  if (!name) return name
+  if (countryHint && countryHint !== 'Lietuva') return name
+  return name.split(/(\s+|-)/).map(part => {
+    if (/^\s+$/.test(part) || part === '-') return part
+    return toGenitiveWord(part)
+  }).join('')
+}
+
 /**
  * Wiki-style title case (anglų MOS): articles/prepositions/short conjunctions
  * paliekamos mažom JEI nėra pirmas/paskutinis žodis savo segmente.
