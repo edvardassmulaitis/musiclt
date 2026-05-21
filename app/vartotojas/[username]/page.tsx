@@ -51,7 +51,7 @@ export default async function UserProfilePage({ params }: Props) {
     getBlogByUserId(profile.id),
     getUserContentStats(profile.id),
     getMoodSongTrack(profile.mood_song_track_id ?? null),
-    getDailySongPicks(profile.id, 12),
+    getDailySongPicks(profile.id, 18),
     getUserTranslations(profile.id, 4),
   ])
 

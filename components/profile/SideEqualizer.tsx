@@ -2,20 +2,20 @@
 
 // components/profile/SideEqualizer.tsx
 //
-// Kompaktiškas equalizer — kaip artist hero player slot. Bar order'is —
-// GENRE_COLORS array sequence (= top menu Muzika alphabetic order), NE pagal
-// populiarumą. Spalvos iš genre-colors lib.
+// Equalizer — dual size variant: 'side' (compact, 360px wide) ir 'hero'
+// (didelis, užima ~puse hero ploto). Hero variant turi:
+//   - 220px BAR_BASE (~stipriai didesni stulpeliai)
+//   - Stipriai didesni labels
+//   - Aiškesnis emphasis ant pasirinkimo
 //
-// Bars clickable — onSelect callback iškviečiamas su main genre name'u,
-// parent komponentas (profile page) atvaizduoja favorite artists, kurie
-// priklauso tam stiliui.
+// Bars klauso click'o ir invokes onSelect(fullGenreName | null) callback'ą
+// — parent renders filtruotą artist/track sąrašą. Spalvos imamos iš
+// GENRE_COLORS lib (top menu Muzika tvarka, NE pagal populiarumą).
 
 import { GENRE_COLORS } from '@/lib/genre-colors'
 
 type MeterEntry = { slug: string; name: string; legacy_id: number; percent?: number; width_px?: number }
 
-// Mapping iš music.lt short names į mūsų GENRE_COLORS full names.
-// music_meter JSONB iš scraper'io naudoja music.lt UI short names.
 const SHORT_TO_FULL: Record<string, string> = {
   'Alternatyva': 'Alternatyvioji muzika',
   'Elektronika': 'Elektroninė, šokių muzika',
@@ -41,12 +41,21 @@ const FULL_TO_SHORT: Record<string, string> = {
 
 type Props = {
   meter: MeterEntry[] | null
-  selectedGenre?: string | null     // full genre name (kuria filtras aktyvus)
-  onSelect?: (fullGenreName: string | null) => void   // null = unselect
+  selectedGenre?: string | null
+  onSelect?: (fullGenreName: string | null) => void
+  variant?: 'side' | 'hero'
 }
 
-export function SideEqualizer({ meter, selectedGenre, onSelect }: Props) {
+export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side' }: Props) {
   if (!meter || !Array.isArray(meter) || meter.length === 0) return null
+
+  const isHero = variant === 'hero'
+  const BAR_BASE = isHero ? 220 : 140
+  const titleFs   = isHero ? '12px' : '10px'
+  const titleTr   = isHero ? '0.22em' : '0.18em'
+  const labelFs   = isHero ? '11px' : '9px'
+  const pctFs     = isHero ? '11px' : '9px'
+  const padding   = isHero ? 'p-5 sm:p-6' : 'p-4 sm:p-5'
 
   // Map data į canonical GENRE_COLORS order
   const byShort = new Map<string, MeterEntry>()
@@ -57,7 +66,7 @@ export function SideEqualizer({ meter, selectedGenre, onSelect }: Props) {
     const entry = byShort.get(short) || (short === 'Pop, R&B' ? byShort.get('Pop-RB') : null)
     return {
       fullName: g.name,
-      short: g.short,                  // 'Pop, R&B', 'Rokas' etc
+      short: g.short,
       percent: entry?.percent ?? 0,
       hex: g.hex,
       rgb: g.rgb,
@@ -65,19 +74,32 @@ export function SideEqualizer({ meter, selectedGenre, onSelect }: Props) {
   })
 
   const maxPct = Math.max(...bars.map((b) => b.percent), 1)
-  const BAR_BASE = 140
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-white/[.04] to-white/[.01] border border-white/[.06] p-4 sm:p-5">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#f97316]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+    <div
+      className={`relative rounded-2xl border ${padding}`}
+      style={{
+        background: 'linear-gradient(135deg, var(--card-bg), transparent 80%)',
+        borderColor: 'var(--border-subtle)',
+      }}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div
+          className="font-extrabold uppercase"
+          style={{
+            fontFamily: "'Outfit', sans-serif",
+            fontSize: titleFs,
+            letterSpacing: titleTr,
+            color: 'var(--accent-orange)',
+          }}
+        >
           Muzikinis skonis
         </div>
         {selectedGenre && onSelect && (
           <button
             onClick={() => onSelect(null)}
-            className="text-[9px] font-bold text-[#8aa0c0] hover:text-white uppercase tracking-wider"
-            style={{ fontFamily: "'Outfit', sans-serif" }}
+            className="text-[10px] font-bold uppercase tracking-wider transition hover:opacity-80"
+            style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}
           >
             ✕ Atstatyti
           </button>
@@ -85,7 +107,7 @@ export function SideEqualizer({ meter, selectedGenre, onSelect }: Props) {
       </div>
 
       {/* Bars — fixed canonical order */}
-      <div className="flex items-end gap-1.5" style={{ height: `${BAR_BASE}px` }}>
+      <div className="flex items-end gap-1.5 sm:gap-2" style={{ height: `${BAR_BASE}px` }}>
         {bars.map((b, i) => {
           const heightPx = Math.max((b.percent / maxPct) * BAR_BASE, 4)
           const isSelected = selectedGenre === b.fullName
@@ -97,28 +119,28 @@ export function SideEqualizer({ meter, selectedGenre, onSelect }: Props) {
               key={b.fullName}
               onClick={clickable ? () => onSelect(isSelected ? null : b.fullName) : undefined}
               disabled={!clickable}
-              className={`flex-1 min-w-0 flex flex-col items-stretch transition-opacity ${
-                clickable ? 'cursor-pointer hover:opacity-100' : 'cursor-default'
+              className={`flex-1 min-w-0 flex flex-col items-stretch transition-all ${
+                clickable ? 'cursor-pointer hover:opacity-100 hover:-translate-y-0.5' : 'cursor-default'
               } ${isDimmed ? 'opacity-30' : 'opacity-100'}`}
               style={{ alignSelf: 'flex-end' }}
               title={b.percent > 0 ? `${b.short} — ${b.percent.toFixed(0)}%` : `${b.short} — 0%`}
             >
               <div
-                className="rounded-t relative overflow-hidden animate-[barRiseV5_700ms_cubic-bezier(0.34,1.56,0.64,1)_both]"
+                className="rounded-t relative overflow-hidden animate-[barRiseV6_700ms_cubic-bezier(0.34,1.56,0.64,1)_both]"
                 style={{
                   height: `${heightPx}px`,
                   background: `linear-gradient(to top, rgba(${b.rgb}, 0.55), ${b.hex})`,
                   boxShadow: isSelected
-                    ? `0 0 24px rgba(${b.rgb}, 0.7), inset 0 1px 0 rgba(255,255,255,0.5)`
-                    : `0 0 14px rgba(${b.rgb}, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)`,
+                    ? `0 0 32px rgba(${b.rgb}, 0.7), inset 0 1px 0 rgba(255,255,255,0.5)`
+                    : `0 0 18px rgba(${b.rgb}, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)`,
                   animationDelay: `${i * 50}ms`,
                   outline: isSelected ? `2px solid ${b.hex}` : 'none',
-                  outlineOffset: '2px',
+                  outlineOffset: '3px',
                 }}
               >
                 <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/30" />
                 <div className="absolute inset-0 flex flex-col-reverse pointer-events-none">
-                  {Array.from({ length: Math.min(Math.floor(heightPx / 8), 18) }).map((_, j) => (
+                  {Array.from({ length: Math.min(Math.floor(heightPx / 8), 32) }).map((_, j) => (
                     <div key={j} className="h-[8px] border-b border-black/30" />
                   ))}
                 </div>
@@ -129,30 +151,49 @@ export function SideEqualizer({ meter, selectedGenre, onSelect }: Props) {
       </div>
 
       {/* Labels */}
-      <div className="flex gap-1.5 mt-2">
+      <div className="flex gap-1.5 sm:gap-2 mt-2.5">
         {bars.map((b) => {
           const isSelected = selectedGenre === b.fullName
+          const dimmed = selectedGenre && !isSelected
           return (
-            <div key={b.fullName} className={`flex-1 min-w-0 text-center ${selectedGenre && !isSelected ? 'opacity-30' : ''}`}>
+            <div key={b.fullName} className={`flex-1 min-w-0 text-center ${dimmed ? 'opacity-30' : ''}`}>
               <div
-                className={`text-[9px] font-bold truncate leading-tight ${isSelected ? 'text-white' : 'text-[#dde8f8]'}`}
-                style={{ fontFamily: "'Outfit', sans-serif" }}
+                className="font-bold truncate leading-tight"
+                style={{
+                  fontFamily: "'Outfit', sans-serif",
+                  fontSize: labelFs,
+                  color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                }}
               >
                 {b.short.replace(', ', '/')}
               </div>
-              <div className="text-[9px] text-[#5e7290] font-mono">{b.percent.toFixed(0)}%</div>
+              <div
+                className="font-mono"
+                style={{ fontSize: pctFs, color: isSelected ? b.hex : 'var(--text-faint)' }}
+              >
+                {b.percent.toFixed(0)}%
+              </div>
             </div>
           )
         })}
       </div>
 
-      {onSelect && (
-        <p className="text-[10px] text-[#5e7290] text-center mt-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
-          Spauskite stulpelį — pamatysite mėgstamus to stiliaus atlikėjus
+      {isHero && onSelect && (
+        <p
+          className="text-center mt-4"
+          style={{
+            fontFamily: "'Outfit', sans-serif",
+            fontSize: '11px',
+            color: 'var(--text-muted)',
+          }}
+        >
+          {selectedGenre
+            ? `Pasirinkta — žemiau rodomi „${FULL_TO_SHORT[selectedGenre]}" atlikėjai ir dienos dainos`
+            : 'Spauskite stulpelį — pamatysite to stiliaus atlikėjus ir dienos dainas'}
         </p>
       )}
 
-      <style>{`@keyframes barRiseV5 { from { transform: scaleY(0.05); transform-origin: bottom; opacity: 0.5; } to { transform: scaleY(1); transform-origin: bottom; opacity: 1; } }`}</style>
+      <style>{`@keyframes barRiseV6 { from { transform: scaleY(0.05); transform-origin: bottom; opacity: 0.5; } to { transform: scaleY(1); transform-origin: bottom; opacity: 1; } }`}</style>
     </div>
   )
 }

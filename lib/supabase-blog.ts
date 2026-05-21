@@ -76,7 +76,31 @@ export async function getDailySongPicks(userId: string, limit = 20) {
     .from('tracks')
     .select('id, slug, title, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
     .in('id', trackIds)
-  const trackMap = new Map((tracks || []).map((t: any) => [t.id, t]))
+  const trackRows = (tracks || []) as any[]
+
+  // Atskira užklausa main genres'ams pagal artist_id — leidžia filter'ą
+  // ant equalizer click'o (daily pick rodomas tik jei jo atlikėjo main genre
+  // sutampa su pasirinkta kategorija).
+  const artistIds = Array.from(new Set(trackRows.map((t: any) => t.artist_id).filter(Boolean)))
+  const genreByArtist = new Map<number, { id: number; name: string }[]>()
+  if (artistIds.length) {
+    const { data: artistGenres } = await sb
+      .from('artist_genres')
+      .select('artist_id, genres:genre_id(id, name, parent_id)')
+      .in('artist_id', artistIds)
+    for (const row of (artistGenres || []) as any[]) {
+      const g = row.genres
+      if (!g || g.parent_id !== null) continue   // tik main genres
+      const arr = genreByArtist.get(row.artist_id) || []
+      arr.push({ id: g.id, name: g.name })
+      genreByArtist.set(row.artist_id, arr)
+    }
+  }
+  const enrichedTracks = trackRows.map((t: any) => ({
+    ...t,
+    artistMainGenres: genreByArtist.get(t.artist_id) || [],
+  }))
+  const trackMap = new Map(enrichedTracks.map((t: any) => [t.id, t]))
   return rows.map((r) => ({ ...r, tracks: r.track_id ? trackMap.get(r.track_id) || null : null }))
 }
 
