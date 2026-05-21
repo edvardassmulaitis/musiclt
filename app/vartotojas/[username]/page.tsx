@@ -1,20 +1,21 @@
 // app/vartotojas/[username]/page.tsx
 //
-// Shareable music identity profile — ne stats dashboard'as, o muzikos overview.
-// Žmogus turi norėti šito profilio link'ą įmesti į savo IG bio. Tuo tikslu:
+// Profilis kaip muzikos overview, ne stats dashboard.
+// Pagrindinis fokusas: MĖGSTAMA (ne klausoma) muzika — equalizer + stiliai
+// + atlikėjai + dienos dainos. Tinklaraštis su tipais ir tagais kaip
+// papildomas content layer'is.
 //
-//   1. Vizualinis fokusas — covers art, gradient'ai, big type
-//   2. Mažiau teksto, daugiau jausmo
-//   3. Stats — tik subtle apačios eilutė, ne kortelių grid
-//   4. „Listening Identity" — poster-style hero su top 3 stiliais didelėmis
-//      raidėmis ir equalizer'iu atgalyje
-//   5. Mood song — full-width vinyl-style block
-//   6. Recent picks — horizontal scroll su album covers
-//   7. Latest diary excerpt — 1 featured kortelė su cover
-//   8. Friends — tik avatarai, hover'is parodo vardą
-//
-// Personality reveal'as = MUSIC IDENTITY (stiliai + cover'ai), o ne
-// activity metrics (login count etc).
+// V3 dizaino principai:
+//   - HERO compact: mažas avatar + name + 1 eilutė meta (ne pilno screen)
+//   - MUZIKINIS SKONIS — big working equalizer + expandable stylių chip'ai
+//   - NUOTAIKOS DAINA — full-bleed vinyl visual (atskira sekcija)
+//   - DIENOS DAINOS — horizontal album cover carousel
+//   - MĖGSTAMI ATLIKĖJAI — visual cover grid
+//   - ĮRAŠAI (renamed from „Tinklaraštis") — su post type badge + tagais
+//   - TOPAI — sava sekcija jei yra
+//   - VERTIMAI — atskira sekcija
+//   - DRAUGAI — avatarai only
+//   - Footer: 1 eilutė meta + claim CTA
 
 import { notFound } from 'next/navigation'
 import {
@@ -31,7 +32,7 @@ import {
 import { createAdminClient } from '@/lib/supabase'
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { ListeningIdentity } from '@/components/profile/ListeningIdentity'
+import { MusicTasteShowcase } from '@/components/profile/MusicTasteShowcase'
 import { MoodSongShowcase } from '@/components/profile/MoodSongShowcase'
 
 type Props = { params: Promise<{ username: string }> }
@@ -62,19 +63,22 @@ export default async function UserProfilePage({ params }: Props) {
     getUserTranslations(profile.id, 3),
   ])
 
-  // Latest 3 blog posts (featured) + few more for grid (later)
-  let blogPosts: any[] = []
+  // Posts — distinguish topai (kept separate) vs „regular" (article/review/event)
+  let regularPosts: any[] = []
+  let topasPosts: any[] = []
   if (blog) {
     const sb = createAdminClient()
     const { data } = await sb
       .from('blog_posts')
-      .select('id, slug, title, summary, cover_image_url, published_at, reading_time_min, like_count, comment_count, post_type')
+      .select('id, slug, title, summary, cover_image_url, published_at, reading_time_min, like_count, comment_count, post_type, tags, list_items')
       .eq('blog_id', blog.id)
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false })
-      .limit(4)
-    blogPosts = data || []
+      .limit(20)
+    const all = data || []
+    regularPosts = all.filter((p: any) => p.post_type !== 'topas' && p.post_type !== 'translation').slice(0, 6)
+    topasPosts = all.filter((p: any) => p.post_type === 'topas').slice(0, 4)
   }
 
   const memberSinceDate = profile.joined_legacy_at
@@ -89,7 +93,8 @@ export default async function UserProfilePage({ params }: Props) {
       favoriteStyles={favoriteStyles}
       friends={friends}
       blog={blog}
-      blogPosts={blogPosts}
+      regularPosts={regularPosts}
+      topasPosts={topasPosts}
       memberSinceYear={memberSinceYear}
       stats={stats}
       moodTrack={moodTrack}
@@ -104,42 +109,35 @@ export default async function UserProfilePage({ params }: Props) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ProfileView({
-  profile, favoriteArtists, favoriteStyles, friends, blog, blogPosts,
+  profile, favoriteArtists, favoriteStyles, friends, blog,
+  regularPosts, topasPosts,
   memberSinceYear, stats, moodTrack, dailyPicks, translations,
 }: any) {
   const isLegacy = profile.provider === 'legacy_forum' || !!profile.legacy_user_id
   const isUnclaimed = !profile.is_claimed
-  const heroImage = profile.cover_image_url || profile.avatar_url || null
   const totalContent = stats.diary + stats.translate + stats.creation + stats.daily_picks
-
-  // Pull-quote — pirmoji bio sakinis arba signature, jei trumpas
-  const pullQuote = profile.legacy_signature && profile.legacy_signature.length < 180
-    ? profile.legacy_signature
-    : null
 
   return (
     <div className="min-h-screen bg-[var(--bg-surface,#080c12)] text-[var(--text-primary,#f0f2f5)]">
 
-      {/* ── 1. HERO — cinematic, identity card ──────────────────────── */}
-      <Hero
+      {/* ── 1. COMPACT HERO ────────────────────────────────────────── */}
+      <CompactHero
         profile={profile}
-        heroImage={heroImage}
-        memberSinceYear={memberSinceYear}
         favoriteStyles={favoriteStyles}
+        memberSinceYear={memberSinceYear}
         isLegacy={isLegacy}
         isUnclaimed={isUnclaimed}
       />
 
-      {/* ── 2. LISTENING IDENTITY — poster-style top styles ─────────── */}
-      {(favoriteStyles && favoriteStyles.length > 0) || (profile.legacy_music_meter && profile.legacy_music_meter.length > 0) ? (
-        <ListeningIdentity
+      {/* ── 2. MUZIKINIS SKONIS — equalizer + expandable stiliai ───── */}
+      <div className="mt-6 sm:mt-10">
+        <MusicTasteShowcase
           favoriteStyles={favoriteStyles}
           musicMeter={profile.legacy_music_meter}
-          username={profile.username}
         />
-      ) : null}
+      </div>
 
-      {/* ── 3. MOOD SONG — full-width vinyl showcase ────────────────── */}
+      {/* ── 3. NUOTAIKOS DAINA — full-width vinyl ─────────────────── */}
       {moodTrack && (
         <MoodSongShowcase
           track={moodTrack}
@@ -149,26 +147,12 @@ function ProfileView({
 
       <div className="max-w-[1200px] mx-auto px-5 sm:px-8 pb-24">
 
-        {/* ── 4. PULL QUOTE — vienas sakinys, didelis ──────────────── */}
-        {pullQuote && (
-          <section className="my-16 sm:my-24 text-center">
-            <p
-              className="font-black tracking-[-0.02em] text-white/90 leading-[1.15] max-w-3xl mx-auto"
-              style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.5rem, 4vw, 2.75rem)' }}
-            >
-              <span className="text-[#f97316]/40 text-4xl align-top mr-2">"</span>
-              {pullQuote.replace(/^["„]|["""]$/g, '')}
-              <span className="text-[#f97316]/40 text-4xl align-top ml-2">"</span>
-            </p>
-          </section>
-        )}
-
-        {/* ── 5. DAILY PICKS — horizontal album cover scroll ──────── */}
+        {/* ── 4. DIENOS DAINOS — horizontal scroll ────────────────── */}
         {dailyPicks.length > 0 && (
-          <section className="mt-20">
+          <section className="mt-16 sm:mt-20">
             <SectionHeader
               eyebrow="Dienos dainos"
-              title="Ką klausė šis žmogus"
+              title="Kasdienis pasirinkimas"
               meta={stats.daily_picks > dailyPicks.length ? `${stats.daily_picks.toLocaleString('lt-LT')} pasirinkimų istorijoje` : null}
               link={stats.daily_picks > dailyPicks.length ? { href: `/vartotojas/${profile.username}/dienos-dainos`, label: 'Visa istorija →' } : undefined}
             />
@@ -176,9 +160,9 @@ function ProfileView({
           </section>
         )}
 
-        {/* ── 6. FAVORITE ARTISTS — visual grid su cover'ais ──────── */}
+        {/* ── 5. MĖGSTAMI ATLIKĖJAI — visual grid ─────────────────── */}
         {favoriteArtists.length > 0 && (
-          <section className="mt-20">
+          <section className="mt-16 sm:mt-20">
             <SectionHeader
               eyebrow="Mėgstami atlikėjai"
               title="Garsai, kurie kuria nuotaiką"
@@ -187,22 +171,34 @@ function ProfileView({
           </section>
         )}
 
-        {/* ── 7. FEATURED WRITING — 1 didelė kortelė + 2 mažos ─── */}
-        {blog && blogPosts.length > 0 && (
-          <section className="mt-20">
+        {/* ── 6. ĮRAŠAI — su post type badges + tagais ─────────────── */}
+        {blog && regularPosts.length > 0 && (
+          <section className="mt-16 sm:mt-20">
             <SectionHeader
               eyebrow="Tinklaraštis"
-              title="Apie muziką, jo žodžiais"
-              meta={stats.diary > blogPosts.length ? `${stats.diary.toLocaleString('lt-LT')} įrašų` : null}
+              title="Įrašai"
+              meta={stats.diary > regularPosts.length ? `${stats.diary.toLocaleString('lt-LT')} įrašų` : null}
               link={{ href: `/blogas/${blog.slug}`, label: 'Visi įrašai →' }}
             />
-            <FeaturedWritingLayout blogSlug={blog.slug} posts={blogPosts} />
+            <PostsLayout blogSlug={blog.slug} posts={regularPosts} />
           </section>
         )}
 
-        {/* ── 8. TRANSLATIONS — minimal showcase ────────────────── */}
+        {/* ── 7. TOPAI — atskira sekcija ───────────────────────────── */}
+        {blog && topasPosts.length > 0 && (
+          <section className="mt-16 sm:mt-20">
+            <SectionHeader
+              eyebrow="Topai"
+              title="Mėgstamiausių sąrašai"
+              link={{ href: `/blogas/${blog.slug}?type=topas`, label: 'Visi topai →' }}
+            />
+            <TopasGrid blogSlug={blog.slug} posts={topasPosts} />
+          </section>
+        )}
+
+        {/* ── 8. VERTIMAI ─────────────────────────────────────────── */}
         {translations.length > 0 && (
-          <section className="mt-20">
+          <section className="mt-16 sm:mt-20">
             <SectionHeader
               eyebrow="Vertimai"
               title="Lyrics į lietuvių kalbą"
@@ -212,18 +208,18 @@ function ProfileView({
           </section>
         )}
 
-        {/* ── 9. FRIENDS — only avatars, no metadata ─────────────── */}
+        {/* ── 9. DRAUGAI — tik avatarai ────────────────────────────── */}
         {friends && friends.length > 0 && (
-          <section className="mt-20">
+          <section className="mt-16 sm:mt-20">
             <SectionHeader
               eyebrow="Bendrabūviai"
-              title="Žmonės, su kuriais sutinka tonas"
+              title="Žmonės su panašiu skoniu"
             />
             <FriendsAvatarGrid friends={friends} />
           </section>
         )}
 
-        {/* ── 10. PROFILE FOOTER — subtle, ne stats dashboard ──── */}
+        {/* ── 10. FOOTER — subtle meta ────────────────────────────── */}
         <ProfileFooter
           profile={profile}
           memberSinceYear={memberSinceYear}
@@ -237,16 +233,16 @@ function ProfileView({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HERO — cinematic identity card
+// HERO — compact identity bar, ne pilno ekrano
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Hero({ profile, heroImage, memberSinceYear, favoriteStyles, isLegacy, isUnclaimed }: any) {
-  // Top 3 styles as subtitle
+function CompactHero({ profile, favoriteStyles, memberSinceYear, isLegacy, isUnclaimed }: any) {
+  const heroImage = profile.cover_image_url || profile.avatar_url
   const topStyles = (favoriteStyles || []).slice(0, 3).map((s: any) => s.style_name)
 
   return (
-    <section className="relative isolate w-full overflow-hidden">
-      {/* Cinematic blurred backdrop */}
+    <section className="relative isolate overflow-hidden">
+      {/* Subtle backdrop */}
       <div className="absolute inset-0 -z-10">
         {heroImage ? (
           <>
@@ -257,7 +253,7 @@ function Hero({ profile, heroImage, memberSinceYear, favoriteStyles, isLegacy, i
                 backgroundImage: `url(${heroImage})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                filter: 'blur(100px) saturate(1.6) brightness(0.45)',
+                filter: 'blur(80px) saturate(1.6) brightness(0.45)',
                 transform: 'scale(1.4)',
               }}
             />
@@ -268,65 +264,58 @@ function Hero({ profile, heroImage, memberSinceYear, favoriteStyles, isLegacy, i
         )}
       </div>
 
-      <div className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-20 sm:pt-28 pb-12 sm:pb-16">
-        <div className="flex flex-col items-center text-center">
-
-          {/* Avatar */}
-          <div className="relative mb-6">
+      <div className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-10 sm:pt-14 pb-6 sm:pb-8">
+        <div className="flex items-center gap-5 sm:gap-7">
+          {/* Avatar — kompaktiškas */}
+          <div className="relative flex-shrink-0">
             {profile.avatar_url ? (
               <img
                 src={profile.avatar_url}
                 alt={profile.full_name || profile.username}
-                className="w-32 h-32 sm:w-40 sm:h-40 rounded-full object-cover border-4 border-white/10 shadow-[0_8px_40px_rgba(0,0,0,0.6)]"
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border-2 border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
               />
             ) : (
-              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-[#1a2436] to-[#0f1622] flex items-center justify-center text-6xl font-black text-white/30 border-4 border-white/10">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-[#1a2436] to-[#0f1622] flex items-center justify-center text-3xl sm:text-4xl font-black text-white/30 border-2 border-white/10">
                 {(profile.full_name || profile.username || '?')[0].toUpperCase()}
               </div>
             )}
             {profile.is_vip_legacy && (
-              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-to-r from-yellow-400 to-amber-600 text-black text-[10px] font-extrabold uppercase tracking-wider shadow-lg">
+              <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-amber-600 text-black text-[9px] font-extrabold uppercase tracking-wider shadow">
                 VIP
-              </div>
+              </span>
             )}
           </div>
 
-          {/* Name */}
-          <h1
-            className="font-black leading-[0.95] tracking-[-0.04em] text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.7)] mb-3"
-            style={{ fontSize: 'clamp(2.5rem, 7vw, 5rem)', fontFamily: "'Outfit', sans-serif" }}
-          >
-            {profile.full_name || profile.username}
-          </h1>
-
-          {/* Top styles subtitle — much more identity than @username */}
-          {topStyles.length > 0 ? (
-            <p className="text-base sm:text-lg text-[#dde8f8] max-w-2xl mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
-              klauso{' '}
-              {topStyles.map((s: string, i: number) => (
-                <span key={i}>
-                  <span className="font-bold text-white">{s.toLowerCase()}</span>
-                  {i < topStyles.length - 2 ? ', ' : i === topStyles.length - 2 ? ' ir ' : ''}
+          {/* Name + meta */}
+          <div className="min-w-0 flex-1">
+            <h1
+              className="font-black leading-[0.95] tracking-[-0.04em] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.6)]"
+              style={{ fontSize: 'clamp(1.75rem, 4vw, 3rem)', fontFamily: "'Outfit', sans-serif" }}
+            >
+              {profile.full_name || profile.username}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-sm text-[#b0bdd4]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <span className="font-semibold">@{profile.username}</span>
+              {profile.legacy_city && <><span className="text-[#5e7290]">·</span><span>{profile.legacy_city}</span></>}
+              {profile.legacy_age && <><span className="text-[#5e7290]">·</span><span>{profile.legacy_age} m.</span></>}
+              <span className="text-[#5e7290]">·</span>
+              <span>nuo {memberSinceYear}</span>
+              {isLegacy && isUnclaimed && (
+                <span className="text-[10px] font-bold text-[#5e7290] uppercase tracking-wider bg-white/[.04] border border-white/[.08] rounded-full px-2 py-0.5 ml-1">
+                  archyvinis
                 </span>
-              ))}
-            </p>
-          ) : profile.bio ? (
-            <p className="text-base text-[#b0bdd4] max-w-xl mb-4 line-clamp-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
-              {profile.bio.split('\n')[0]}
-            </p>
-          ) : null}
-
-          {/* Subtle meta line */}
-          <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1 text-xs text-[#8aa0c0]" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            <span>@{profile.username}</span>
-            {profile.legacy_city && <><span className="opacity-40">·</span><span>{profile.legacy_city}</span></>}
-            <span className="opacity-40">·</span>
-            <span>nuo {memberSinceYear}</span>
-            {isLegacy && isUnclaimed && (
-              <>
-                <span className="opacity-40">·</span>
-                <span className="text-[#5e7290]">archyvinis profilis</span>
-              </>
+              )}
+            </div>
+            {topStyles.length > 0 && (
+              <p className="mt-2.5 text-sm sm:text-base text-[#dde8f8]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                mėgsta{' '}
+                {topStyles.map((s: string, i: number) => (
+                  <span key={i}>
+                    <span className="font-bold text-white">{s.toLowerCase()}</span>
+                    {i < topStyles.length - 2 ? ', ' : i === topStyles.length - 2 ? ' ir ' : ''}
+                  </span>
+                ))}
+              </p>
             )}
           </div>
         </div>
@@ -336,7 +325,7 @@ function Hero({ profile, heroImage, memberSinceYear, favoriteStyles, isLegacy, i
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Section header — magazine style
+// Section header
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SectionHeader({ eyebrow, title, meta, link }: {
@@ -370,7 +359,7 @@ function SectionHeader({ eyebrow, title, meta, link }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Daily picks — horizontal scroll album cover carousel
+// Daily picks — horizontal scroll
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DailyPicksCarousel({ picks }: { picks: any[] }) {
@@ -397,14 +386,12 @@ function DailyPicksCarousel({ picks }: { picks: any[] }) {
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] to-[#080c12] flex items-center justify-center text-5xl text-white/10">♪</div>
                 )}
-                {/* Date overlay top-left */}
                 <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm">
                   <div className="text-xs font-extrabold text-white leading-none" style={{ fontFamily: "'Outfit', sans-serif" }}>
                     {day} {month}
                   </div>
                   <div className="text-[9px] text-white/60 mt-0.5">{year}</div>
                 </div>
-                {/* Like count bottom-right */}
                 {p.like_count > 0 && (
                   <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-rose-500/90 backdrop-blur-sm text-[10px] font-extrabold text-white">
                     ♥ {p.like_count}
@@ -429,7 +416,7 @@ function DailyPicksCarousel({ picks }: { picks: any[] }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Favorite artists — visual grid w/ cover art
+// Favorite artists — visual grid
 // ─────────────────────────────────────────────────────────────────────────────
 
 function FavoriteArtistsVisualGrid({ artists }: { artists: any[] }) {
@@ -457,10 +444,28 @@ function FavoriteArtistsVisualGrid({ artists }: { artists: any[] }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Featured writing — magazine layout 1 big + 3 small
+// Posts layout — magazine style su post_type badges + tagais
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FeaturedWritingLayout({ blogSlug, posts }: { blogSlug: string; posts: any[] }) {
+const POST_TYPE_LABEL: Record<string, string> = {
+  article: 'Straipsnis',
+  review: 'Recenzija',
+  event: 'Renginio apžvalga',
+  creation: 'Kūryba',
+  translation: 'Vertimas',
+  topas: 'Topas',
+}
+
+const POST_TYPE_COLOR: Record<string, string> = {
+  article: '#f97316',
+  review: '#fbbf24',
+  event: '#34d399',
+  creation: '#f472b6',
+  translation: '#a78bfa',
+  topas: '#60a5fa',
+}
+
+function PostsLayout({ blogSlug, posts }: { blogSlug: string; posts: any[] }) {
   if (!posts.length) return null
   const [hero, ...rest] = posts
   return (
@@ -475,14 +480,29 @@ function FeaturedWritingLayout({ blogSlug, posts }: { blogSlug: string; posts: a
           <div className="aspect-[16/9] bg-gradient-to-br from-orange-500/20 to-rose-600/20" />
         )}
         <div className="p-6 sm:p-7">
-          <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#f97316] mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            {hero.post_type === 'review' ? 'Recenzija' : hero.post_type === 'event' ? 'Renginio apžvalga' : 'Įrašas'}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <span
+              className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full"
+              style={{
+                fontFamily: "'Outfit', sans-serif",
+                background: `${POST_TYPE_COLOR[hero.post_type] || '#5e7290'}20`,
+                color: POST_TYPE_COLOR[hero.post_type] || '#b0bdd4',
+                border: `1px solid ${POST_TYPE_COLOR[hero.post_type] || '#5e7290'}40`,
+              }}
+            >
+              {POST_TYPE_LABEL[hero.post_type] || hero.post_type}
+            </span>
+            {Array.isArray(hero.tags) && hero.tags.slice(0, 3).map((t: string) => (
+              <span key={t} className="text-[10px] font-bold text-[#8aa0c0] bg-white/[.04] border border-white/[.06] rounded-full px-2 py-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                #{t}
+              </span>
+            ))}
           </div>
           <h3 className="text-2xl sm:text-3xl font-black text-white leading-tight group-hover:text-[#f97316] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {hero.title}
           </h3>
           {hero.summary && <p className="text-sm sm:text-base text-[#b0bdd4] mt-3 line-clamp-2 leading-relaxed">{hero.summary}</p>}
-          <div className="text-[10px] text-[#5e7290] mt-4 uppercase tracking-wider font-bold flex gap-3">
+          <div className="text-[10px] text-[#5e7290] mt-4 uppercase tracking-wider font-bold flex gap-3 flex-wrap">
             <span>{new Date(hero.published_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
             {hero.reading_time_min && <span>{hero.reading_time_min} min</span>}
             {hero.like_count > 0 && <span>♥ {hero.like_count}</span>}
@@ -498,9 +518,24 @@ function FeaturedWritingLayout({ blogSlug, posts }: { blogSlug: string; posts: a
             {p.cover_image_url ? (
               <img src={p.cover_image_url} alt="" className="w-20 h-20 rounded-lg object-cover flex-shrink-0" />
             ) : (
-              <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-orange-500/20 to-rose-600/20 flex-shrink-0" />
+              <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-orange-500/20 to-rose-600/20 flex-shrink-0 flex items-center justify-center text-2xl text-white/20">{POST_TYPE_LABEL[p.post_type]?.[0] || '?'}</div>
             )}
             <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                <span
+                  className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                  style={{
+                    fontFamily: "'Outfit', sans-serif",
+                    background: `${POST_TYPE_COLOR[p.post_type] || '#5e7290'}20`,
+                    color: POST_TYPE_COLOR[p.post_type] || '#b0bdd4',
+                  }}
+                >
+                  {POST_TYPE_LABEL[p.post_type] || p.post_type}
+                </span>
+                {Array.isArray(p.tags) && p.tags.slice(0, 1).map((t: string) => (
+                  <span key={t} className="text-[9px] font-bold text-[#5e7290]">#{t}</span>
+                ))}
+              </div>
               <h4 className="text-sm font-bold text-white leading-tight line-clamp-2 group-hover:text-[#f97316] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
                 {p.title}
               </h4>
@@ -516,7 +551,60 @@ function FeaturedWritingLayout({ blogSlug, posts }: { blogSlug: string; posts: a
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Translations — minimal
+// Topai grid — daugiau visualus negu PostsLayout
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TopasGrid({ blogSlug, posts }: { blogSlug: string; posts: any[] }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {posts.map((p: any) => {
+        const items = Array.isArray(p.list_items) ? p.list_items : []
+        return (
+          <Link key={p.id} href={`/blogas/${blogSlug}/${p.slug}`} className="group block rounded-2xl overflow-hidden bg-gradient-to-br from-[#1a2436] to-[#0f1622] border border-white/[.06] hover:border-[#60a5fa]/30 transition">
+            {/* Cover collage iš pirmų 4 list_items */}
+            <div className="relative aspect-[4/3] overflow-hidden">
+              {items.length >= 4 ? (
+                <div className="grid grid-cols-2 grid-rows-2 h-full">
+                  {items.slice(0, 4).map((it: any, i: number) => (
+                    <div key={i} className="bg-[#080c12] overflow-hidden">
+                      {it.image_url ? (
+                        <img src={it.image_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xl text-white/10">{i + 1}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : p.cover_image_url ? (
+                <img src={p.cover_image_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-4xl text-white/10">📋</div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+              <div className="absolute top-3 left-3">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full bg-blue-500/30 text-blue-200 backdrop-blur-sm">
+                  Topas · {items.length || '?'}
+                </span>
+              </div>
+            </div>
+            <div className="p-4">
+              <h3 className="text-base font-extrabold text-white leading-tight group-hover:text-[#60a5fa] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                {p.title}
+              </h3>
+              <div className="text-[10px] text-[#5e7290] mt-2 uppercase tracking-wider font-bold">
+                {new Date(p.published_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short' })}
+                {p.like_count > 0 && <> · ♥ {p.like_count}</>}
+              </div>
+            </div>
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Translations
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TranslationsMinimal({ translations, blogSlug }: { translations: any[]; blogSlug?: string }) {
@@ -549,7 +637,7 @@ function TranslationsMinimal({ translations, blogSlug }: { translations: any[]; 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Friends — avatar-only grid, hover reveals name
+// Friends — avatar grid
 // ─────────────────────────────────────────────────────────────────────────────
 
 function FriendsAvatarGrid({ friends }: { friends: any[] }) {
@@ -567,7 +655,6 @@ function FriendsAvatarGrid({ friends }: { friends: any[] }) {
           {f.is_vip_legacy && (
             <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 border-2 border-[#080c12]" title="VIP" />
           )}
-          {/* Tooltip on hover */}
           <span className="absolute left-1/2 -translate-x-1/2 -bottom-7 whitespace-nowrap text-[10px] font-bold text-white bg-black/90 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
             {f.full_name || f.username}
           </span>
@@ -578,20 +665,17 @@ function FriendsAvatarGrid({ friends }: { friends: any[] }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Profile footer — subtle, single line of meta
+// Footer
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ProfileFooter({ profile, memberSinceYear, totalContent, isLegacy, isUnclaimed }: any) {
   return (
     <footer className="mt-24 pt-8 border-t border-white/[.05]">
-      {/* One-liner subtle stats */}
       <p className="text-xs text-[#5e7290] text-center mb-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
         Music.lt narys nuo {memberSinceYear}
         {totalContent > 0 && <> · {totalContent.toLocaleString('lt-LT')} įrašų / dienos dainų</>}
         {profile.legacy_karma_points && <> · {profile.legacy_karma_points.toLocaleString('lt-LT')} reitingo taškų</>}
       </p>
-
-      {/* Claim CTA if applicable */}
       {isLegacy && isUnclaimed && (
         <div className="max-w-xl mx-auto text-center p-5 rounded-2xl border border-amber-500/15 bg-amber-500/[.04]">
           <p className="text-sm text-[#dde8f8] leading-relaxed mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
