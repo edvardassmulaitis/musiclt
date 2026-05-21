@@ -2569,17 +2569,13 @@ function TopArtistsModal({
     return () => { abort = true }
   }, [filter.country, filter.genre, filter.global, filter.recent, filter.zodiac, currentArtistId])
 
-  // Esc + outside-click uždaro + body scroll lock
+  // Esc + outside-click uždaro
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
-    }
+    return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+  useBodyScrollLock(true)
 
   return createPortal(
     <div
@@ -3110,27 +3106,68 @@ function SideInfo({
 
   if (!followControls && !hasSocials) return null
 
-  // 2026-05-21 v4 redesign: always 2 rows max.
-  //   Row 1: socials kompakt icons (+website globe + optional „+N" jei
-  //          overflow per onOpenSocialModal). Niekada nevyniojam į kelias
-  //          eilutes — flex-nowrap + overflow → +N modal.
+  // 2026-05-21 v5 redesign: always 2 rows max + adaptive labeled mode.
+  //   Row 1: jei ≤2 social items (socials + website) — rodom kaip pill
+  //          su logo + label tekstu (Spotify, YouTube). Jei daugiau —
+  //          kompakt icons (h-9 w-9) be teksto, su +N modal kai overflow.
   //   Row 2: Sekti + Dalintis side by side (ne stacked).
-  // User feedback 2026-05-21: „realiai turi buti dvi eilutes visada".
+  // User feedback 2026-05-21: kai mažai social → label'as turi parodyt
+  // platformos pavadinimą („tilptu parasyti ir Spotify title").
   const socialList = links.filter(l => SOC[l.platform])
   const hasWebsite = !!website
+  const totalSocialItems = socialList.length + (hasWebsite ? 1 : 0)
+  const useLabels = totalSocialItems > 0 && totalSocialItems <= 2
   // Kiek ikonų telpa į 320px (desktop sidebar) per row'ą — kiekviena
   // ikona ~36px (h-9 w-9 + gap-1.5). Plotis ~ N*36 + (N-1)*6.
   // 320 - 32 (card padding p-4) - 36 (website globe) ≈ 252. N*36+(N-1)*6 ≤ 252 → N ≤ 6
-  // Su website globe rezervuotu — max 5 social icons + globe = 6. Su +N
-  // mygtuku (~48px) — max 5 icons + +N.
   const ICON_LIMIT = hasWebsite ? 4 : 5
-  const overflowCount = socialList.length > ICON_LIMIT ? socialList.length - ICON_LIMIT : 0
-  const visibleIconSocials = overflowCount > 0 ? socialList.slice(0, ICON_LIMIT) : socialList
+  const overflowCount = !useLabels && socialList.length > ICON_LIMIT ? socialList.length - ICON_LIMIT : 0
+  const visibleIconSocials = !useLabels && overflowCount > 0 ? socialList.slice(0, ICON_LIMIT) : socialList
 
   return (
     <aside className="flex h-fit flex-col items-stretch gap-3 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-      {/* Row 1: socials kompakt — flex-nowrap (visada vienoje eilutėje) */}
-      {hasSocials && (
+      {/* Row 1a: labeled mode — kai ≤2 items, rodom pill su logo + tekstu */}
+      {hasSocials && useLabels && (
+        <div className="flex w-full flex-wrap items-center gap-1.5">
+          {socialList.map(l => {
+            const p = SOC[l.platform]
+            return (
+              <a
+                key={l.platform}
+                href={l.url}
+                target="_blank"
+                rel="noopener"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] py-1.5 pl-2 pr-3 text-[var(--text-primary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+                  <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+                </span>
+                <span className="font-['Outfit',sans-serif] text-[12.5px] font-bold tracking-tight">{p.l}</span>
+              </a>
+            )
+          })}
+          {website && (() => {
+            let domain = ''
+            try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
+            return (
+              <a
+                href={website}
+                target="_blank"
+                rel="noopener"
+                title={domain}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] py-1.5 pl-2 pr-3 text-[var(--text-primary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[var(--bg-hover)]"
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center text-[var(--text-muted)]">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                </span>
+                <span className="font-['Outfit',sans-serif] text-[12.5px] font-bold tracking-tight">Svetainė</span>
+              </a>
+            )
+          })()}
+        </div>
+      )}
+      {/* Row 1b: compact icons mode — kai >2 items */}
+      {hasSocials && !useLabels && (
         <div className="flex w-full flex-nowrap items-center gap-1.5">
           {visibleIconSocials.map(l => {
             const p = SOC[l.platform]
@@ -3147,7 +3184,7 @@ function SideInfo({
               </a>
             )
           })}
-          {website && (() => {
+          {website && overflowCount === 0 && (() => {
             let domain = ''
             try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
             return (
@@ -3169,7 +3206,7 @@ function SideInfo({
               title="Visi linkai"
               className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
             >
-              +{overflowCount}
+              +{overflowCount + (website ? 1 : 0)}
             </button>
           )}
         </div>
@@ -3531,13 +3568,9 @@ function SocialLinksModal({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
-    }
+    return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+  useBodyScrollLock(true)
   const socialList = links.filter(l => SOC[l.platform])
   let websiteDomain = ''
   if (website) {
@@ -5176,6 +5209,39 @@ function AvatarBubble({ name, size = 28 }: { name: string; size?: number }) {
   )
 }
 
+// ── useBodyScrollLock ───────────────────────────────────────────────
+//
+// iOS Safari'jus IGNORUOJA `body { overflow: hidden }` — touch scroll
+// vis tiek veikia ant background'o, kai modal'as atidarytas. Vienintelis
+// patikimas cross-browser fix'as: `body { position: fixed; top: -scrollY }`,
+// kuris „freezina" scroll poziciją. Po close'o atstatom scroll'ą per
+// window.scrollTo(0, savedY).
+//
+// Naudojam visiems modal'iams (TopArtists, Orphan, Social, Lightbox).
+
+function useBodyScrollLock(active: boolean) {
+  useEffect(() => {
+    if (!active) return
+    if (typeof document === 'undefined') return
+    const scrollY = window.scrollY
+    const prevPos = document.body.style.position
+    const prevTop = document.body.style.top
+    const prevWidth = document.body.style.width
+    const prevOverflow = document.body.style.overflow
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.width = '100%'
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.position = prevPos
+      document.body.style.top = prevTop
+      document.body.style.width = prevWidth
+      document.body.style.overflow = prevOverflow
+      window.scrollTo(0, scrollY)
+    }
+  }, [active])
+}
+
 // ── OrphanTracksModal ───────────────────────────────────────────────
 //
 // 2026-05-21: Modalas, kuris rodo „Kitos dainos" pilną sąrašą. Pradžioje
@@ -5195,18 +5261,14 @@ function OrphanTracksModal({
   onClose: () => void
   onSelectTrack: (t: Track) => void
 }) {
-  // Esc handler + body scroll lock (ant mobile background scroll'inasi
-  // be lock'o, user feedback 2026-05-21).
+  // Esc handler — body scroll lock per useBodyScrollLock (iOS-safe
+  // position:fixed approach; overflow:hidden mobile Safari'jui nepakanka).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
-    }
+    return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+  useBodyScrollLock(true)
   return createPortal(
     <div
       className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
