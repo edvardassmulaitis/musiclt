@@ -1350,13 +1350,19 @@ function Equalizer() {
  *    'sm' (default) — h-[3px] w-[14px] dashes — track/album cards
  *    'lg'           — h-[6px] w-[32px] dashes — artist hero (po pavadinimu)
  *                     prominence, kad vartotojas iš karto matytų signal'ą. */
-function PopBar({ level, size = 'sm', color = 'orange', animate = false, delayMs = 250 }: { level: number; size?: 'sm' | 'md' | 'lg'; color?: 'orange' | 'blue'; animate?: boolean; delayMs?: number }) {
+function PopBar({ level, size = 'sm', color = 'orange', animate = false, delayMs = 250, fullWidth = false }: { level: number; size?: 'sm' | 'md' | 'lg'; color?: 'orange' | 'blue'; animate?: boolean; delayMs?: number; fullWidth?: boolean }) {
   // 2026-05-21 v6: rodom TIK užpildytus dot'us (nebepalieka tuščių pilkų
   // placeholderių). Bar'o ilgis dabar proporcingas pop level'iui —
   // 2/5 atlikėjas turės trumpą bar'ą, 5/5 — pilną. Anksčiau visada
   // rodėm 5 dot'us su pilkais empty placeholderiais, kas vizualiai
   // atrodė kaip „pusiau tuščias" loading element'as (ypač trending
   // sekcijoj kur dažni 2-3/5 lygiai).
+  //
+  // v6.1: `fullWidth` — kai true, rodom pilnus 5 dot'us, bet empty
+  // slot'ai yra transparent (užima vietą, bet nematomi). Naudojam tik
+  // Hero recent 🔥 chip'e: kombinuojam su chip-level reveal animacija,
+  // kad useris negalėtų atspėti recent level'io iš chip pločio
+  // (kuris dabar atsiranda po score bar pabaigos).
   const total = 5
   // 2026-05-21 v4: ir score bar'as, ir recent bar'as dabar oranžiniai —
   // useris paprašė vienodos spalvos (orange) abiem; recent atskiriamas
@@ -1372,14 +1378,15 @@ function PopBar({ level, size = 'sm', color = 'orange', animate = false, delayMs
     size === 'md' ? 'h-[4px] w-[20px] rounded-[2px] sm:w-[24px]' :
     'h-[3px] w-[14px] rounded-[2px]'
   const gapCls = size === 'sm' ? 'mt-1 gap-[3px]' : 'gap-[3px]'
-  // Edge case: jei level <= 0, neretur'inam nieko (anksčiau būtų 5 pilkų).
-  if (level <= 0) return null
+  // Edge case: jei level <= 0 ir ne fullWidth, neretur'inam nieko.
+  // fullWidth atveju visada rodom 5 dot'us (gali būti visi empty).
+  if (level <= 0 && !fullWidth) return null
+  const renderCount = fullWidth ? total : level
   return (
     <div className={`flex ${gapCls}`} aria-hidden>
-      {Array.from({ length: level }).map((_, i) => {
+      {Array.from({ length: renderCount }).map((_, i) => {
         // 2026-05-21 v6: pagreitintos cascade timing'ai (user feedback:
-        // v5 per lėtai per du bar'us). Visi dot'ai dabar yra filled —
-        // empty placeholder logic'a pašalinta.
+        // v5 per lėtai per du bar'us).
         //
         // Per-dot trukmės:
         //   - Per-dot stagger 220ms (v5: 350ms)
@@ -1390,7 +1397,20 @@ function PopBar({ level, size = 'sm', color = 'orange', animate = false, delayMs
         //   5-dot score bar (delay 250): 250 + 880 + 600 = ~1730ms
         //   5-dot recent bar (delay 1700): 1700 + 880 + 600 = ~3180ms
         // Total cascade per du bar'us ~3.2s (v5 buvo ~5.5s).
+        const filled = i < level
         const accentColor = color === 'blue' ? '#3b82f6' : 'var(--accent-orange)'
+        // Empty slot'ai (tik fullWidth atveju) — transparent, be animation,
+        // užima vietą bet nematomi. Naudojam, kad recent chip'as turėtų
+        // pastovų plotį ir useris negalėtų atspėti level'io iš formos.
+        if (!filled) {
+          return (
+            <span
+              key={i}
+              className={[dashCls, 'bg-transparent'].join(' ')}
+              aria-hidden
+            />
+          )
+        }
         const animStyle: React.CSSProperties = animate
           ? {
               opacity: 0,
@@ -2191,6 +2211,14 @@ function Hero({
           55%  { opacity: 1; transform: translateX(0) scale(1.25); box-shadow: 0 0 18px 3px var(--popbar-flash, var(--accent-orange)); }
           100% { opacity: 1; transform: translateX(0) scale(1); box-shadow: 0 0 0 0 transparent; }
         }
+        /* v6.1: 🔥 recent chip'as appear'ina po score bar cascade'o
+           kaip „boost reveal" — fade + slight scale-up + slight Y-rise.
+           Suporuojam su PopBar fullWidth prop'u, kad chip'as turėtų
+           pastovų plotį ir useris negalėtų atspėti recent level'io. */
+        @keyframes popChipReveal {
+          0%   { opacity: 0; transform: translateY(4px) scale(0.92); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
       `}</style>
 
       <div
@@ -2278,6 +2306,20 @@ function Hero({
                     title="Naujausi top atlikėjai — pagal pastarųjų 2 metų dainų, albumų ir apdovanojimų rezultatus"
                     aria-label="Atidaryti naujausių top atlikėjų sąrašą"
                     className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 py-1 transition-all hover:scale-[1.03] hover:border-[var(--accent-orange)] lg:border-white/15 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/20"
+                    /* v6.1: chip-level reveal — visas 🔥 element'as
+                       (su ikona + tuščia 5-dot juosta) atsiranda po
+                       score bar cascade pabaigos (~1730ms). Fade'inasi
+                       per 380ms iš opacity 0 + scale 0.92. Cascade'is
+                       viduje paleidžiamas su delayMs={1900} (kai chip
+                       jau matomas), kad efektas atrodytų natural'iai —
+                       chip pop'inasi, ikona shimering'a, dot'ai pildosi.
+                       fullWidth=true užtikrina, kad chip'as turi pilną
+                       5-dot plotį, kad recent level'is būtų surprise. */
+                    style={{
+                      opacity: 0,
+                      transform: 'translateY(4px) scale(0.92)',
+                      animation: 'popChipReveal 380ms cubic-bezier(0.22, 1, 0.36, 1) 1730ms forwards',
+                    }}
                   >
                     {/* 🔥 Flame — recent/trending signal. Po 2026-05-21 v4
                         unifikacijos su score bar'u — orange path (užuot
@@ -2285,7 +2327,7 @@ function Hero({
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
                       <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
                     </svg>
-                    <PopBar level={recentPopBarLevel} size="md" animate delayMs={1700} />
+                    <PopBar level={recentPopBarLevel} size="md" animate delayMs={1900} fullWidth />
                   </button>
                 )}
               </div>
