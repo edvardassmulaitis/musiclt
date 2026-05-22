@@ -13,6 +13,26 @@
 
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000
 
+/** Trumpas absolute date (pvz "2026-01-10") fallback'ui kai relative time
+ *  netelpa į „prieš X" formatą (>= 1 metai arba neparsable). Caller'is gali
+ *  patikrinti `relativeTime` ir naudoti `absoluteDate` kaip backup'ą. */
+export function absoluteDate(iso?: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return null
+  return d.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
+/** Relative + absolute combination — ALWAYS returns a non-empty label
+ *  unless input is invalid/null. Naudokim šitą EntityCommentsBlock'e ir
+ *  panašiose UI vietose, kur taip pat empty timestamp atrodo lygu „nerodome
+ *  laiko". Relative time'as iki 1 metų, paskui absolute date. */
+export function timeLabel(iso?: string | null): string | null {
+  const rel = relativeTime(iso)
+  if (rel) return rel
+  return absoluteDate(iso)
+}
+
 export function relativeTime(iso?: string | null): string | null {
   if (!iso) return null
   const d = new Date(iso)

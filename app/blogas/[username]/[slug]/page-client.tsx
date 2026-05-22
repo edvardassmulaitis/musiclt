@@ -175,7 +175,7 @@ export default function BlogPostPageClient(props: Props) {
 
         /* ── PAGE LAYOUT ── */
         .bp-page { max-width:1400px; margin:0 auto; padding:0 32px; }
-        .bp-grid { display:grid; gap:48px; align-items:start; padding:18px 0 90px; }
+        .bp-grid { display:grid; gap:40px; align-items:start; padding:10px 0 90px; }
         .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 380px; }
         .bp-grid.no-sb  { grid-template-columns:1fr; max-width:820px; margin:0 auto; }
 
@@ -278,11 +278,13 @@ export default function BlogPostPageClient(props: Props) {
         .bp-prose strong { color:#f2f4f8; font-weight:700; }
         .bp-prose img { max-width:100%; border-radius:10px; }
 
-        .bp-summary { font-size:1.18rem; line-height:1.5; color:#b0bdd4; font-weight:500;
-                      margin:0 0 20px; padding-bottom:18px; border-bottom:1px solid rgba(255,255,255,0.06);
+        .bp-summary { font-size:1.12rem; line-height:1.5; color:#b0bdd4; font-weight:500;
+                      margin:0 0 16px; padding-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.05);
                       font-family:'Outfit',sans-serif; max-width:720px; }
 
-        /* ── TAGS + ACTIONS ── */
+        /* ── ACTIONS — TOP row (above body), TAGS row pakeliama čia ── */
+        .bp-top-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+                          margin:0 0 18px; max-width:720px; }
         .bp-footer-row { margin:38px 0 0; padding-top:24px; border-top:1px solid rgba(255,255,255,0.06);
                          display:flex; flex-wrap:wrap; gap:14px; align-items:center; max-width:720px; }
         .bp-tags { display:flex; flex-wrap:wrap; gap:6px; }
@@ -432,6 +434,37 @@ export default function BlogPostPageClient(props: Props) {
 
             {/* MAIN (left) */}
             <main style={{ minWidth: 0 }}>
+              {/* ── Top actions row (above body): Patinka + Komentarai jump + tags ── */}
+              <div className="bp-top-actions">
+                <BlogLikePill postId={post.id} initialCount={post.like_count} />
+                <button
+                  type="button"
+                  onClick={scrollToComments}
+                  className="bp-pill"
+                  style={{ cursor: 'pointer', background: 'none', padding: 0, font: 'inherit' }}
+                  title="Pereiti į komentarus"
+                >
+                  <span className="bp-pill-side" style={{ pointerEvents: 'none' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    Komentarai
+                  </span>
+                  <span className="bp-pill-count" style={{ pointerEvents: 'none' }}>
+                    {post.comment_count.toLocaleString('lt-LT')}
+                  </span>
+                </button>
+                {visibleTags.length > 0 && (
+                  <div className="bp-tags" style={{ marginLeft: 'auto' }}>
+                    {visibleTags.map((tag: string) => (
+                      <Link key={tag} href={`/blogas?tag=${encodeURIComponent(tag)}`} className="bp-tag">
+                        #{tag}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {post.summary && <p className="bp-summary">{post.summary}</p>}
 
               {post.content && (
@@ -443,39 +476,6 @@ export default function BlogPostPageClient(props: Props) {
               {postType === 'topas' && post.list_items.length > 0 && (
                 <TopasList items={post.list_items} />
               )}
-
-              {/* Footer row: tags + Patinka + comments */}
-              <div className="bp-footer-row">
-                {visibleTags.length > 0 && (
-                  <div className="bp-tags">
-                    {visibleTags.map((tag: string) => (
-                      <Link key={tag} href={`/blogas?tag=${encodeURIComponent(tag)}`} className="bp-tag">
-                        #{tag}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <BlogLikePill postId={post.id} initialCount={post.like_count} />
-                  <button
-                    type="button"
-                    onClick={scrollToComments}
-                    className="bp-pill"
-                    style={{ cursor: 'pointer', background: 'none', padding: 0, font: 'inherit' }}
-                    title="Pereiti į komentarus"
-                  >
-                    <span className="bp-pill-side" style={{ pointerEvents: 'none' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                      </svg>
-                      Komentarai
-                    </span>
-                    <span className="bp-pill-count" style={{ pointerEvents: 'none' }}>
-                      {post.comment_count.toLocaleString('lt-LT')}
-                    </span>
-                  </button>
-                </div>
-              </div>
 
               <AuthorFooter
                 username={authorUsername}

@@ -30,7 +30,7 @@ import { type AttachmentHit } from './MusicSearchPicker'
 import MusicSearchModal from './MusicSearchModal'
 import LikesModal, { type LikeUser } from './LikesModal'
 import CommentEditor, { type CommentEditorHandle } from './CommentEditor'
-import { relativeTime } from '@/lib/relative-time'
+import { relativeTime, absoluteDate } from '@/lib/relative-time'
 
 type ModernComment = {
   id: number
@@ -1057,7 +1057,10 @@ export default function EntityCommentsBlock({
               ? (c.author_name || 'Vartotojas')
               : (c.author_username || 'Anonimas')
             const avatarUrl = isModern ? c.author_avatar : c.author_avatar_url
-            const rel = relativeTime(c.created_at)
+            // Show relative time (Prieš X) iki 1 metų, paskui absolute date
+            // („2026-01-10"). Anksčiau timestamp visiškai dingdavo legacy
+            // komentarams >1 metų — UI atrodė kaip „komentaras be datos".
+            const rel = relativeTime(c.created_at) || absoluteDate(c.created_at)
             const id = isModern ? c.id : c.legacy_id
             const liked = isModern ? likedIds.has(c.id) : false
             // Reply parsing — TRYS šaltiniai (priority order):
