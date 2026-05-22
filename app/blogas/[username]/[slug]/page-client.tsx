@@ -75,10 +75,23 @@ function ytId(url?: string | null) {
   return m ? m[1] : null
 }
 
+// PopBar lygiai pagal user profile page'ą — karma → 5-dot indikatorius.
+function karmaToLevel(k: number | null): number {
+  const v = k || 0
+  if (v >= 20000) return 5
+  if (v >= 5000) return 4
+  if (v >= 1500) return 3
+  if (v >= 300) return 2
+  if (v >= 50) return 1
+  return 0
+}
+
 export default function BlogPostPageClient(props: Props) {
   const { post, postType, typeLabel, authorName, authorUsername, authorAvatar,
           authorKarma, authorJoinedYear, blogTitle, heroImage, attachments,
           embeddedMusic, targetInfo, hasSidebar } = props
+
+  const karmaLevel = karmaToLevel(authorKarma)
 
   // Build unified player track list — merge DB-resolved attachments + body-
   // extracted embeds. Eilė: DB tracks first (resolved → highest quality),
@@ -127,7 +140,7 @@ export default function BlogPostPageClient(props: Props) {
         .bp-hero-noimg::after { content:''; position:absolute; inset:0;
                                 background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.1) 0%, transparent 55%); }
         .bp-hero-content { position:relative; z-index:2; display:flex; flex-direction:column; justify-content:flex-end;
-                           width:100%; max-width:1400px; margin:0 auto; padding:0 32px 38px; }
+                           width:100%; max-width:1400px; margin:0 auto; padding:0 32px 24px; }
         .bp-hero-inner { max-width:740px; animation:bp-in .7s .05s both; }
         @keyframes bp-in { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
 
@@ -149,17 +162,20 @@ export default function BlogPostPageClient(props: Props) {
                       display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
                       font-size:15px; font-weight:900; color:#fff; }
         .bp-user-av img { width:100%; height:100%; object-fit:cover; }
-        .bp-user-text { display:flex; flex-direction:column; gap:1px; }
-        .bp-user-name { font-family:'Outfit',sans-serif; font-size:14px; font-weight:800; color:#fff; letter-spacing:-.01em; }
-        .bp-user-sub { font-size:11px; color:rgba(255,255,255,0.65); font-weight:500; }
-        .bp-user-meta-dot { display:inline-block; width:3px; height:3px; border-radius:50%; background:rgba(255,255,255,0.3); margin:0 6px; vertical-align:middle; }
+        .bp-user-text { display:flex; flex-direction:column; gap:3px; }
+        .bp-user-name { font-family:'Outfit',sans-serif; font-size:14px; font-weight:800; color:#fff; letter-spacing:-.01em; line-height:1; }
+        .bp-user-popbar { display:inline-flex; align-items:center; gap:6px; }
+        .bp-user-popbar-icon { font-size:11px; line-height:1; }
+        .bp-popbar { display:inline-flex; gap:3px; align-items:center; }
+        .bp-popbar-dot { display:inline-block; height:4px; width:22px; border-radius:2px; background:rgba(255,255,255,0.18); transition:background .2s; transform-origin:left center; }
+        .bp-popbar-dot.is-on { background:var(--accent-orange, #f97316); }
 
         .bp-meta-row { margin-top:14px; display:flex; align-items:center; gap:10px 16px; flex-wrap:wrap; font-size:13px;
                        color:rgba(255,255,255,0.65); font-weight:500; }
 
         /* ── PAGE LAYOUT ── */
         .bp-page { max-width:1400px; margin:0 auto; padding:0 32px; }
-        .bp-grid { display:grid; gap:48px; align-items:start; padding:36px 0 90px; }
+        .bp-grid { display:grid; gap:48px; align-items:start; padding:18px 0 90px; }
         .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 380px; }
         .bp-grid.no-sb  { grid-template-columns:1fr; max-width:820px; margin:0 auto; }
 
@@ -262,8 +278,8 @@ export default function BlogPostPageClient(props: Props) {
         .bp-prose strong { color:#f2f4f8; font-weight:700; }
         .bp-prose img { max-width:100%; border-radius:10px; }
 
-        .bp-summary { font-size:1.18rem; line-height:1.55; color:#b0bdd4; font-weight:500;
-                      margin-bottom:28px; padding-bottom:24px; border-bottom:1px solid rgba(255,255,255,0.06);
+        .bp-summary { font-size:1.18rem; line-height:1.5; color:#b0bdd4; font-weight:500;
+                      margin:0 0 20px; padding-bottom:18px; border-bottom:1px solid rgba(255,255,255,0.06);
                       font-family:'Outfit',sans-serif; max-width:720px; }
 
         /* ── TAGS + ACTIONS ── */
@@ -378,7 +394,7 @@ export default function BlogPostPageClient(props: Props) {
               )}
               <h1 className="bp-h1">{post.title}</h1>
 
-              {/* User card */}
+              {/* User card su PopBar (karma indikatorius) — pagal user profile page style */}
               <Link href={`/vartotojas/${authorUsername}`} className="bp-user">
                 <div className="bp-user-av" style={{ background: `hsl(${(authorName.charCodeAt(0) || 65) * 17 % 360},35%,30%)` }}>
                   {authorAvatar
@@ -389,15 +405,10 @@ export default function BlogPostPageClient(props: Props) {
                 </div>
                 <div className="bp-user-text">
                   <span className="bp-user-name">{authorName}</span>
-                  <span className="bp-user-sub">
-                    {authorJoinedYear ? <>Music.lt narys nuo {authorJoinedYear}</> : <>Music.lt narys</>}
-                    {authorKarma && authorKarma > 0 && (
-                      <>
-                        <span className="bp-user-meta-dot" />
-                        ★ {authorKarma.toLocaleString('lt-LT')}
-                      </>
-                    )}
-                  </span>
+                  <div className="bp-user-popbar" aria-label={`Karma: ${karmaLevel}/5`}>
+                    <span className="bp-user-popbar-icon">⭐</span>
+                    <PopBar level={karmaLevel} />
+                  </div>
                 </div>
               </Link>
 
@@ -539,6 +550,37 @@ export default function BlogPostPageClient(props: Props) {
         </div>
       </div>
     </>
+  )
+}
+
+/* ─── PopBar — perimta iš user profile page'o (animated 5-dot indikatorius) ─ */
+function PopBar({ level }: { level: number }) {
+  const total = 5
+  return (
+    <div className="bp-popbar" aria-hidden>
+      {Array.from({ length: total }).map((_, i) => {
+        const filled = i < level
+        return (
+          <span
+            key={i}
+            className={`bp-popbar-dot ${filled ? 'is-on' : ''}`}
+            style={{
+              animation: filled
+                ? `bpPopBarFill 900ms cubic-bezier(0.22, 1, 0.36, 1) ${450 + 220 * i}ms forwards`
+                : undefined,
+              opacity: filled ? 0 : 1,
+            }}
+          />
+        )
+      })}
+      <style>{`
+        @keyframes bpPopBarFill {
+          0%   { opacity: 0; transform: translateX(-10px) scale(0.3); box-shadow: 0 0 0 0 transparent; }
+          55%  { opacity: 1; transform: translateX(0) scale(1.25); box-shadow: 0 0 18px 3px var(--accent-orange, #f97316); }
+          100% { opacity: 1; transform: translateX(0) scale(1); box-shadow: 0 0 0 0 transparent; }
+        }
+      `}</style>
+    </div>
   )
 }
 

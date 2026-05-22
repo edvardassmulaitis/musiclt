@@ -51,6 +51,89 @@ const LEGACY_WIDGET_TABLE_RE = /<table[^>]*>(?:(?!<\/table>)[\s\S])*?favorite_(?
 const LEGACY_WIDGET_ROW_RE = /<tr[^>]*>(?:(?!<\/tr>)[\s\S])*?favorite_(\d+)_link(\d+)_(\w+)(?:(?!<\/tr>)[\s\S])*?<\/tr>/gi
 const TRACK_LINK_RE = /<a[^>]+href=["'][^"']*\/lt\/(daina|grupe|albumas)\/[^/"]+\/(\d+)\/["'][^>]*(?:title=["']([^"']*)["'])?[^>]*>([^<]+?)<\/a>/i
 
+/** Praturtina ExtractedTrack'us su Spotify/YouTube oEmbed metadata.
+ *  Tikslas: žinoti realų track title + artist iš embed URL'o.
+ *  Spotify oEmbed grąžina `title` formatu "Artist - Track" — split'inam.
+ *  YouTube oEmbed grąžina `title` + `author_name` atskirai.
+ *
+ *  Veikia paraleliai per Promise.all. Next.js fetch cache automatic'ai
+ *  cachina rezultatus, tad next request'as gauna metadata be HTTP.
+ *  Klaidos (timeout, 4xx) ignored — track lieka be metadata. */
+export async function enrichTracksWithOembed(tracks: ExtractedTrack[]): Promise<ExtractedTrack[]> {
+  const results = await Promise.allSettled(tracks.map(async (t) => {
+    if (t.title) return t  // jau turim (legacy widget rows)
+    try {
+      if (t.source === 'spotify') {
+        const id = t.key.split(':').pop() || ''
+        const kind = t.key.split(':')[1] || 'track'
+        // Paraleliai: oEmbed (mažas JSON su title + thumb) + track page'as
+        // (og:description turi `Artist · Album · Song · YYYY` pattern'ą).
+        const [oembedRes, pageRes] = await Promise.all([
+          fetch(`https://open.spotify.com/oembed?url=https://open.spotify.com/${kind}/${id}`, {
+            next: { revalidate: 60 * 60 * 24 * 7 },
+          }).catch(() => null),
+          fetch(`https://open.spotify.com/${kind}/${id}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            next: { revalidate: 60 * 60 * 24 * 7 },
+          }).catch(() => null),
+        ])
+        let title: string | undefined
+        let cover: string | undefined
+        let artist: string | undefined
+        if (oembedRes?.ok) {
+          const d = await oembedRes.json() as { title?: string; thumbnail_url?: string }
+          title = d.title
+          cover = d.thumbnail_url
+        }
+        if (pageRes?.ok) {
+          const html = await pageRes.text()
+          // og:description = "Artist · Album · Song · YYYY" (tracks);
+          //                  "Album · Artist · Year"        (albums);
+          //                  "Listeners · Followers"        (artists)
+          const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]*content=["']([^"']+)["']/i)
+          if (ogDescMatch) {
+            const desc = ogDescMatch[1]
+            const parts = desc.split(' · ').map(s => s.trim()).filter(Boolean)
+            if (kind === 'track' && parts.length >= 3) {
+              artist = parts[0]
+            } else if (kind === 'album' && parts.length >= 2) {
+              artist = parts[1]
+            }
+          }
+          // Fallback title iš og:title
+          if (!title) {
+            const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
+            if (ogTitleMatch) title = ogTitleMatch[1]
+          }
+        }
+        return {
+          ...t,
+          title: title || t.title,
+          artist_name: artist || t.artist_name,
+          cover_url: cover || t.cover_url,
+        }
+      }
+      if (t.source === 'youtube') {
+        const ytId = t.key.split(':').pop() || ''
+        const r = await fetch(`https://www.youtube.com/oembed?url=https://youtube.com/watch?v=${ytId}&format=json`, {
+          next: { revalidate: 60 * 60 * 24 * 7 },
+        })
+        if (!r.ok) return t
+        const d = await r.json() as { title?: string; author_name?: string; thumbnail_url?: string }
+        return {
+          ...t,
+          title: d.title || t.title,
+          artist_name: d.author_name || t.artist_name,
+          cover_url: d.thumbnail_url || t.cover_url,
+        }
+      }
+    } catch {/* silent */ }
+    return t
+  }))
+  return results.map((r, i) => r.status === 'fulfilled' ? r.value : tracks[i])
+}
+
+
 export function extractMusicFromBody(html: string): BlogContentExtracted {
   if (!html) return { cleanedHtml: '', music: [] }
 
