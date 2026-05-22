@@ -351,8 +351,14 @@ export async function getAllUserPosts(userId: string) {
 
 export async function getPost(blogSlug: string, postSlug: string) {
   const sb = createAdminClient()
-  // First get blog
-  const { data: blog } = await sb.from('blogs').select('id, slug, title, user_id, profiles:user_id(id, full_name, username, avatar_url)').eq('slug', blogSlug).single()
+  // First get blog + author profile su public-relevant meta laukais.
+  // legacy_karma_points + joined_legacy_at reikalingi blog post hero
+  // user pill'ui (rodom "Music.lt narys nuo YYYY · ★ karma").
+  const { data: blog } = await sb
+    .from('blogs')
+    .select('id, slug, title, user_id, profiles:user_id(id, full_name, username, avatar_url, legacy_karma_points, joined_legacy_at)')
+    .eq('slug', blogSlug)
+    .single()
   if (!blog) return null
 
   const { data: post } = await sb

@@ -1,15 +1,20 @@
 'use client'
 // app/blogas/[username]/[slug]/page-client.tsx
 //
-// Client-side render layer dėl: (a) EntityCommentsBlock requires session
-// context, (b) like button optimistic state'ui, (c) share clipboard.
-// Layout follows news-article pattern (.bp-* klasės adaptuotos iš .na-*):
-//   - Full-bleed hero su nuotrauka dešinėje, dark fade kairėje
-//   - Page max-w 1300px su 28px padding'ais
-//   - Grid: 320px sticky sidebar + 1fr main
-//   - Sidebar: prisegtos dainos/atlikėjai/albumai + target entity card
-//   - Main: body, topas list (jei topas), tags, footer su like/share/source,
-//     komentarai per EntityCommentsBlock (entity_type='blog_post')
+// Blog post puslapio dizainas (rev 2 — pagal user feedback):
+//   • NĖRA breadcrumb'o (perteklinis)
+//   • Type chip rodomas TIK custom post type'ams (review/translation/event/topas);
+//     paprastam 'article' tag'as praleidžiamas
+//   • User'is rodomas didžiu avatar'u + vardas + sub-info (member nuo / karma)
+//   • Peržiūrų skaitliukas pašalintas iš public hero (rodysim user'io dashboard'e)
+//   • Layout: title hero'je per visą plotį, žemiau 2-col grid'as —
+//     TEKSTAS KAIRĖJE (max 720px), MUZIKOS PLAYER + atlikėjai/albumai DEŠINĖJE
+//     sticky (rev 2 swap, anksčiau buvo atvirkščiai)
+//   • Tags filter'inami: auto-importuoti tag'ai 'legacy' ir 'dienoraštis'
+//     niekur nerodomi (jie pridėti scraper'io, ne user'io)
+//   • „Patinka" mygtukas styled per FollowPill pattern'ą iš artist page'o
+//     (heart + count, count'as atidaro likers modal'ą)
+//   • Komentarų skaitliukas — mygtukas, paspaudus scroll'inasi į komentarų bloką
 
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
@@ -34,7 +39,6 @@ type Props = {
     content: string | null
     published_at: string | null | undefined
     reading_time_min: number
-    view_count: number
     like_count: number
     comment_count: number
     rating: number | null
@@ -47,6 +51,8 @@ type Props = {
   authorName: string
   authorUsername: string
   authorAvatar: string | null
+  authorKarma: number | null
+  authorJoinedYear: number | null
   blogTitle: string | null
   heroImage: string | null
   attachments: Attachments
@@ -54,21 +60,39 @@ type Props = {
   hasSidebar: boolean
 }
 
+// Auto-importuoti tag'ai (scraper'io pridėti) — niekur nerodomi.
+// Tag'us paliekam tik user'io originalius (jei ką ant music.lt jis pats sudėjo;
+// dabartiniame scrape'e nematėm tokių case'ų, bet pasiliekam erdvę plėtrai).
+const AUTO_TAGS = new Set(['legacy', 'dienoraštis', 'dienorastis'])
+
+function ytId(url?: string | null) {
+  if (!url) return null
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
+  return m ? m[1] : null
+}
+
 export default function BlogPostPageClient(props: Props) {
-  const { post, postType, typeLabel, username, authorName, authorUsername, authorAvatar,
-          blogTitle, heroImage, attachments, targetInfo, hasSidebar } = props
+  const { post, postType, typeLabel, authorName, authorUsername, authorAvatar,
+          authorKarma, authorJoinedYear, blogTitle, heroImage, attachments,
+          targetInfo, hasSidebar } = props
+
+  const showChip = postType !== 'article'   // tik custom type'ams
+  const visibleTags = (post.tags || []).filter(t => !AUTO_TAGS.has((t || '').toLowerCase()))
 
   const formatDate = (d?: string | null) =>
     d ? new Date(d).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
 
+  const scrollToComments = () => {
+    document.getElementById('bp-comments')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <>
-      {/* CSS — inline, kad SSR-render'intas markup'as turėtų teisingas tokens */}
       <style jsx global>{`
         .bp-root { background:#080d14; color:#dde8f8; font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; }
 
         /* ── HERO ── */
-        .bp-hero { position:relative; height:52vh; min-height:340px; max-height:480px; overflow:hidden; background:#080d14;
+        .bp-hero { position:relative; height:46vh; min-height:300px; max-height:440px; overflow:hidden; background:#080d14;
                    display:flex; flex-direction:column; justify-content:flex-end; }
         .bp-hero-img { position:absolute; top:0; right:0; bottom:0; width:60%; object-fit:cover; object-position:center 20%;
                        -webkit-mask-image:linear-gradient(to left, black 40%, transparent 100%);
@@ -79,60 +103,120 @@ export default function BlogPostPageClient(props: Props) {
         .bp-hero-noimg::after { content:''; position:absolute; inset:0;
                                 background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.1) 0%, transparent 55%); }
         .bp-hero-content { position:relative; z-index:2; display:flex; flex-direction:column; justify-content:flex-end;
-                           width:100%; max-width:1300px; margin:0 auto; padding:0 28px 36px; }
-        .bp-hero-inner { max-width:680px; animation:bp-in .7s .05s both; }
+                           width:100%; max-width:1400px; margin:0 auto; padding:0 32px 38px; }
+        .bp-hero-inner { max-width:740px; animation:bp-in .7s .05s both; }
         @keyframes bp-in { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
 
-        .bp-breadcrumb { display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:12px; color:rgba(255,255,255,0.45); }
-        .bp-breadcrumb a { color:inherit; text-decoration:none; font-weight:600; }
-        .bp-breadcrumb a:hover { color:rgba(255,255,255,0.85); }
-        .bp-breadcrumb-sep { color:rgba(255,255,255,0.2); }
         .bp-chip { display:inline-block; font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.08em;
                    text-transform:uppercase; color:#fff; padding:4px 12px; border-radius:20px;
                    background:rgba(249,115,22,0.2); border:1px solid rgba(249,115,22,0.3); }
-        .bp-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.8rem); font-weight:900; line-height:1.06;
-                 letter-spacing:-.03em; color:#fff; margin:14px 0 16px; text-shadow:0 2px 14px rgba(0,0,0,0.4); }
-        .bp-meta { display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; font-size:12.5px; color:rgba(255,255,255,0.7); }
-        .bp-author-pill { display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.1); backdrop-filter:blur(8px);
-                          border:1px solid rgba(255,255,255,0.15); border-radius:100px; padding:4px 12px 4px 4px;
-                          text-decoration:none; transition:background .2s; color:inherit; }
-        .bp-author-pill:hover { background:rgba(255,255,255,0.18); }
-        .bp-author-pill .av { width:22px; height:22px; border-radius:50%; overflow:hidden; flex-shrink:0;
-                              display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#fff; }
-        .bp-author-pill .av img { width:100%; height:100%; object-fit:cover; }
-        .bp-author-pill span { font-size:12px; font-weight:700; color:rgba(255,255,255,0.92); }
-        .bp-dot { color:rgba(255,255,255,0.25); }
         .bp-rating { display:inline-flex; align-items:center; gap:4px; background:rgba(255,255,255,0.12); border-radius:6px;
-                     padding:3px 8px; font-family:'Outfit',sans-serif; font-size:11px; font-weight:900; color:#fff; }
+                     padding:3px 8px; font-family:'Outfit',sans-serif; font-size:11px; font-weight:900; color:#fff;
+                     margin-left:8px; }
+        .bp-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.8rem); font-weight:900; line-height:1.06;
+                 letter-spacing:-.03em; color:#fff; margin:14px 0 18px; text-shadow:0 2px 14px rgba(0,0,0,0.4); }
+
+        /* User card hero'je — avatar + name + sub */
+        .bp-user { display:inline-flex; align-items:center; gap:12px; background:rgba(255,255,255,0.07);
+                   backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.12); border-radius:100px;
+                   padding:6px 16px 6px 6px; text-decoration:none; color:inherit; transition:background .15s; }
+        .bp-user:hover { background:rgba(255,255,255,0.12); }
+        .bp-user-av { width:38px; height:38px; border-radius:50%; overflow:hidden; flex-shrink:0;
+                      display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
+                      font-size:15px; font-weight:900; color:#fff; }
+        .bp-user-av img { width:100%; height:100%; object-fit:cover; }
+        .bp-user-text { display:flex; flex-direction:column; gap:1px; }
+        .bp-user-name { font-family:'Outfit',sans-serif; font-size:14px; font-weight:800; color:#fff; letter-spacing:-.01em; }
+        .bp-user-sub { font-size:11px; color:rgba(255,255,255,0.65); font-weight:500; }
+        .bp-user-meta-dot { display:inline-block; width:3px; height:3px; border-radius:50%; background:rgba(255,255,255,0.3); margin:0 6px; vertical-align:middle; }
+
+        .bp-meta-row { margin-top:14px; display:flex; align-items:center; gap:10px 16px; flex-wrap:wrap; font-size:13px;
+                       color:rgba(255,255,255,0.65); font-weight:500; }
 
         /* ── PAGE LAYOUT ── */
-        .bp-page { max-width:1300px; margin:0 auto; padding:0 28px; }
-        .bp-grid { display:grid; gap:44px; align-items:start; padding:36px 0 90px; }
-        .bp-grid.has-sb { grid-template-columns:340px 1fr; }
+        .bp-page { max-width:1400px; margin:0 auto; padding:0 32px; }
+        .bp-grid { display:grid; gap:48px; align-items:start; padding:36px 0 90px; }
+        .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 380px; }
         .bp-grid.no-sb  { grid-template-columns:1fr; max-width:820px; margin:0 auto; }
 
-        /* ── SIDEBAR — sticky left ── */
-        .bp-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:14px; }
-        .bp-sb-section { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.05); border-radius:14px; padding:14px; }
+        /* ── SIDEBAR — sticky right ── */
+        .bp-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:14px; min-width:0; }
+        .bp-sb-card { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.05); border-radius:14px; overflow:hidden; }
+        .bp-sb-card-padded { padding:14px; }
         .bp-sb-heading { font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.14em;
                          text-transform:uppercase; color:#5e7290; margin:0 0 10px; }
 
-        .bp-att-item { display:flex; align-items:center; gap:10px; padding:6px; border-radius:10px;
+        /* Music player — sidebar variant of news .mu-* */
+        .bp-mu-hdr { display:flex; align-items:center; gap:9px; padding:10px 14px;
+                     border-bottom:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); }
+        .bp-mu-hdr-icon { width:26px; height:26px; border-radius:7px;
+                          background:linear-gradient(135deg,#f97316,#e05500);
+                          display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .bp-mu-hdr-eq { display:flex; align-items:flex-end; gap:2px; height:12px; }
+        .bp-mu-hdr-eq span { width:2.5px; border-radius:2px; background:#fff;
+                              transform-origin:bottom; animation:bp-eq .7s ease-in-out infinite alternate; }
+        @keyframes bp-eq { from { transform:scaleY(.3) } to { transform:scaleY(1) } }
+        .bp-mu-hdr-label { font-family:'Outfit',sans-serif; font-size:10px; font-weight:800; text-transform:uppercase;
+                           letter-spacing:.1em; color:#8aa8cc; flex:1; }
+        .bp-mu-video { background:#000; aspect-ratio:16/9; position:relative; }
+        .bp-mu-thumb { width:100%; height:100%; cursor:pointer; position:relative; }
+        .bp-mu-thumb img { width:100%; height:100%; object-fit:cover; }
+        .bp-mu-thumb-noplay { cursor:default; }
+        .bp-mu-no-thumb { width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+                          font-size:48px; color:#5e7290; background:#080d14; }
+        .bp-mu-play-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+                              background:linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4));
+                              transition:background .2s; pointer-events:none; }
+        .bp-mu-thumb:hover .bp-mu-play-overlay { background:rgba(0,0,0,0.3); }
+        .bp-mu-play-btn { width:54px; height:54px; border-radius:50%; background:#f97316;
+                          display:flex; align-items:center; justify-content:center;
+                          box-shadow:0 4px 20px rgba(249,115,22,0.4); transform:scale(0.95); transition:transform .2s; }
+        .bp-mu-thumb:hover .bp-mu-play-btn { transform:scale(1); }
+        .bp-mu-iframe { width:100%; height:100%; border:none; }
+        .bp-mu-now { display:flex; align-items:center; gap:10px; padding:10px 14px;
+                     background:rgba(249,115,22,.06); border-top:1px solid rgba(249,115,22,.1); }
+        .bp-mu-now-info { flex:1; min-width:0; }
+        .bp-mu-now-title { font-family:'Outfit',sans-serif; font-size:12px; font-weight:800; color:#f2f4f8; margin:0;
+                           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .bp-mu-now-artist { font-size:10px; color:#8aa8cc; margin:2px 0 0; }
+        .bp-mu-yt { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:50%;
+                    width:28px; height:28px; display:flex; align-items:center; justify-content:center;
+                    color:#dde8f8; text-decoration:none; flex-shrink:0; transition:background .15s; }
+        .bp-mu-yt:hover { background:rgba(255,255,255,0.1); }
+        .bp-mu-list { max-height:320px; overflow-y:auto; border-top:1px solid rgba(255,255,255,0.05); }
+        .bp-mu-track { width:100%; display:flex; align-items:center; gap:9px; padding:9px 14px;
+                       background:transparent; border:none; border-bottom:1px solid rgba(255,255,255,0.04);
+                       cursor:pointer; text-align:left; transition:background .15s; font-family:'DM Sans',sans-serif; color:inherit; }
+        .bp-mu-track:last-child { border-bottom:none; }
+        .bp-mu-track:hover { background:rgba(255,255,255,0.03); }
+        .bp-mu-track-on { background:rgba(249,115,22,.06); }
+        .bp-mu-track-num { font-family:'Outfit',sans-serif; font-size:10.5px; font-weight:800; color:#5e7290;
+                           min-width:14px; text-align:center; flex-shrink:0; }
+        .bp-mu-track-on .bp-mu-track-num { color:#f97316; }
+        .bp-mu-track-img { width:32px; height:32px; border-radius:5px; object-fit:cover; flex-shrink:0; }
+        .bp-mu-track-img-empty { background:rgba(255,255,255,0.04); display:flex; align-items:center; justify-content:center;
+                                  font-size:12px; color:#334058; }
+        .bp-mu-track-info { flex:1; min-width:0; }
+        .bp-mu-track-title { font-size:12px; font-weight:700; color:#dde8f8; margin:0;
+                             white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .bp-mu-track-artist { font-size:10px; color:#8aa8cc; margin:2px 0 0;
+                              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+        /* Generic attachment item (artists/albums lists) */
+        .bp-att-item { display:flex; align-items:center; gap:10px; padding:7px 6px; border-radius:8px;
                        text-decoration:none; color:inherit; transition:background .15s; }
         .bp-att-item:hover { background:rgba(255,255,255,0.04); }
-        .bp-att-thumb { width:42px; height:42px; border-radius:8px; object-fit:cover; flex-shrink:0;
+        .bp-att-thumb { width:40px; height:40px; border-radius:8px; object-fit:cover; flex-shrink:0;
                         background:rgba(255,255,255,0.04); }
-        .bp-att-thumb-fallback { width:42px; height:42px; border-radius:8px; flex-shrink:0; display:flex; align-items:center;
-                                 justify-content:center; font-family:'Outfit',sans-serif; font-size:14px; font-weight:900;
-                                 background:rgba(255,255,255,0.05); color:#5e7290; }
+        .bp-att-thumb-fallback { width:40px; height:40px; border-radius:8px; flex-shrink:0; display:flex;
+                                 align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
+                                 font-size:14px; font-weight:900; background:rgba(255,255,255,0.05); color:#5e7290; }
         .bp-att-text { flex:1; min-width:0; }
         .bp-att-title { font-size:13px; font-weight:700; color:#dde8f8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .bp-att-sub { font-size:11px; color:#8aa8cc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
-        .bp-att-kind { font-family:'Outfit',sans-serif; font-size:9px; font-weight:900; letter-spacing:.1em;
-                       text-transform:uppercase; color:#f97316; flex-shrink:0; padding-left:4px; }
 
         /* ── PROSE ── */
-        .bp-prose { color:#b0bdd4; font-size:1.06rem; line-height:1.88; }
+        .bp-prose { color:#b0bdd4; font-size:1.06rem; line-height:1.88; max-width:720px; }
         .bp-prose p { margin-bottom:22px; }
         .bp-prose a { color:#3b82f6; text-decoration:underline; }
         .bp-prose h2 { font-family:'Outfit',sans-serif; font-size:1.5rem; font-weight:900; color:#f2f4f8;
@@ -146,50 +230,63 @@ export default function BlogPostPageClient(props: Props) {
         .bp-prose strong { color:#f2f4f8; font-weight:700; }
         .bp-prose img { max-width:100%; border-radius:10px; }
 
-        /* ── SUMMARY lead-in ── */
         .bp-summary { font-size:1.18rem; line-height:1.55; color:#b0bdd4; font-weight:500;
                       margin-bottom:28px; padding-bottom:24px; border-bottom:1px solid rgba(255,255,255,0.06);
-                      font-family:'Outfit',sans-serif; }
+                      font-family:'Outfit',sans-serif; max-width:720px; }
 
-        /* ── ACTIONS BAR ── */
-        .bp-actions { display:flex; align-items:center; gap:10px; margin-top:36px; padding:14px 0 18px;
-                      border-top:1px solid rgba(255,255,255,0.06); border-bottom:1px solid rgba(255,255,255,0.06); flex-wrap:wrap; }
-        .bp-action-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:100px;
-                         background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#dde8f8;
-                         font-family:'Outfit',sans-serif; font-size:12px; font-weight:700; cursor:pointer; transition:background .15s; }
-        .bp-action-btn:hover { background:rgba(255,255,255,0.07); }
-        .bp-action-btn.active { background:rgba(249,115,22,0.15); border-color:rgba(249,115,22,0.35); color:#f97316; }
-        .bp-action-count { margin-left:4px; text-decoration:underline; text-decoration-style:dotted; cursor:pointer; }
+        /* ── TAGS + ACTIONS ── */
+        .bp-footer-row { margin:38px 0 0; padding-top:24px; border-top:1px solid rgba(255,255,255,0.06);
+                         display:flex; flex-wrap:wrap; gap:14px; align-items:center; max-width:720px; }
+        .bp-tags { display:flex; flex-wrap:wrap; gap:6px; }
+        .bp-tag { padding:5px 11px; border-radius:14px; background:rgba(255,255,255,0.04);
+                  border:1px solid rgba(255,255,255,0.06); color:#8aa8cc; font-size:11.5px; font-weight:700;
+                  text-decoration:none; transition:background .15s; font-family:'Outfit',sans-serif; }
+        .bp-tag:hover { background:rgba(255,255,255,0.07); color:#dde8f8; }
 
-        /* ── TOPAS list ── */
-        .bp-topas { list-style:none; padding:0; margin:36px 0; display:flex; flex-direction:column; gap:10px; }
+        /* FollowPill-style (perimta iš artist page'o) */
+        .bp-pill { display:inline-flex; align-items:stretch; overflow:hidden; border-radius:999px;
+                   border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04);
+                   transition:border-color .15s, background-color .15s; }
+        .bp-pill.is-on { border-color:#f97316; background:#f97316; box-shadow:0 6px 18px rgba(249,115,22,0.35); }
+        .bp-pill-side { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; cursor:pointer;
+                       background:none; border:none; color:#dde8f8; font-family:'Outfit',sans-serif;
+                       font-size:13px; font-weight:800; transition:background .15s; }
+        .bp-pill.is-on .bp-pill-side { color:#fff; }
+        .bp-pill-side:hover { background:rgba(255,255,255,0.06); }
+        .bp-pill.is-on .bp-pill-side:hover { background:rgba(0,0,0,0.08); }
+        .bp-pill-side[disabled] { cursor:not-allowed; opacity:0.7; }
+        .bp-pill-count { display:inline-flex; align-items:center; padding:8px 14px;
+                         border-left:1px solid rgba(255,255,255,0.1); font-family:'Outfit',sans-serif;
+                         font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; }
+        .bp-pill.is-on .bp-pill-count { border-color:rgba(255,255,255,0.3); color:#fff; }
+        .bp-pill-count.is-link { cursor:pointer; background:none; border:none; border-left:1px solid rgba(255,255,255,0.1);
+                                 color:#dde8f8; transition:background .15s; }
+        .bp-pill.is-on .bp-pill-count.is-link { color:#fff; border-color:rgba(255,255,255,0.3); }
+        .bp-pill-count.is-link:hover { background:rgba(255,255,255,0.06); }
+        .bp-pill.is-on .bp-pill-count.is-link:hover { background:rgba(0,0,0,0.08); }
+
+        /* Topas list */
+        .bp-topas { list-style:none; padding:0; margin:36px 0; display:flex; flex-direction:column; gap:10px; max-width:720px; }
         .bp-topas-item { display:flex; align-items:center; gap:18px; padding:14px 16px; border-radius:14px;
                          background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.05);
                          text-decoration:none; color:inherit; transition:transform .15s; }
         .bp-topas-item.is-link:hover { transform:translateY(-1px); background:rgba(255,255,255,0.035); }
         .bp-topas-rank { font-family:'Outfit',sans-serif; font-weight:900; letter-spacing:-.03em; line-height:1;
                          min-width:48px; text-align:center; }
-        .bp-topas-cover { width:62px; height:62px; border-radius:10px; object-fit:cover; flex-shrink:0; background:rgba(255,255,255,0.04); }
+        .bp-topas-cover { width:62px; height:62px; border-radius:10px; object-fit:cover; flex-shrink:0;
+                          background:rgba(255,255,255,0.04); }
         .bp-topas-title { font-family:'Outfit',sans-serif; font-size:1.04rem; font-weight:800; color:#f2f4f8; line-height:1.2;
                           letter-spacing:-.01em; margin:0; }
         .bp-topas-artist { font-size:.85rem; color:#8aa8cc; margin:3px 0 0; }
         .bp-topas-comment { font-size:.88rem; color:#a4b8d4; font-style:italic; margin:8px 0 0; line-height:1.5; }
 
-        /* ── TAGS ── */
-        .bp-tags { display:flex; flex-wrap:wrap; gap:6px; margin:36px 0 0; padding-top:24px;
-                   border-top:1px solid rgba(255,255,255,0.05); }
-        .bp-tag { padding:5px 11px; border-radius:14px; background:rgba(255,255,255,0.04);
-                  border:1px solid rgba(255,255,255,0.06); color:#8aa8cc; font-size:11.5px; font-weight:700;
-                  text-decoration:none; transition:background .15s; font-family:'Outfit',sans-serif; }
-        .bp-tag:hover { background:rgba(255,255,255,0.07); color:#dde8f8; }
-
-        /* ── AUTHOR FOOTER ── */
+        /* Author footer */
         .bp-author-footer { margin-top:48px; padding:18px; background:rgba(255,255,255,0.03);
                             border:1px solid rgba(255,255,255,0.06); border-radius:14px; display:flex;
-                            align-items:center; gap:14px; }
+                            align-items:center; gap:14px; max-width:720px; }
         .bp-author-footer .av-lg { width:54px; height:54px; border-radius:50%; flex-shrink:0; overflow:hidden;
                                    display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
-                                   font-size:18px; font-weight:900; color:#fff; ring:2px solid rgba(255,255,255,0.1); }
+                                   font-size:18px; font-weight:900; color:#fff; }
         .bp-author-footer .av-lg img { width:100%; height:100%; object-fit:cover; }
         .bp-author-footer-name { font-family:'Outfit',sans-serif; font-size:1.05rem; font-weight:800; color:#f2f4f8;
                                  text-decoration:none; }
@@ -200,19 +297,24 @@ export default function BlogPostPageClient(props: Props) {
                                  font-size:12px; font-weight:700; text-decoration:none; transition:background .15s; }
         .bp-author-footer-link:hover { background:rgba(255,255,255,0.08); }
 
-        /* ── COMMENTS WRAP ── */
-        .bp-comments { margin-top:56px; padding-top:32px; border-top:1px solid rgba(255,255,255,0.06); }
+        /* Comments section */
+        .bp-comments { margin-top:56px; padding-top:32px; border-top:1px solid rgba(255,255,255,0.06); max-width:720px; }
 
         /* ── RESPONSIVE ── */
+        @media (max-width: 1100px) {
+          .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 340px; }
+        }
         @media (max-width: 960px) {
           .bp-grid.has-sb { grid-template-columns:1fr; }
-          .bp-sidebar { position:static; top:auto; order:2; }
-          .bp-hero { height:auto; min-height:280px; }
-          .bp-hero-img { width:100%; height:240px; position:relative; -webkit-mask-image:none; mask-image:none; }
+          .bp-sidebar { position:static; top:auto; }
+          .bp-hero { height:auto; min-height:260px; }
+          .bp-hero-img { width:100%; height:220px; position:relative; -webkit-mask-image:none; mask-image:none; }
           .bp-hero-overlay { display:none; }
-          .bp-hero-content { padding:18px 18px 22px; }
+          .bp-hero-content { padding:18px 18px 22px; max-width:100%; }
+          .bp-hero-inner { max-width:100%; }
           .bp-page { padding:0 18px; }
           .bp-grid { padding:24px 0 60px; gap:30px; }
+          .bp-prose, .bp-topas, .bp-footer-row, .bp-author-footer, .bp-comments { max-width:none; }
         }
         @media (max-width: 540px) {
           .bp-hero-img { height:180px; }
@@ -232,34 +334,50 @@ export default function BlogPostPageClient(props: Props) {
             <div className="bp-hero-noimg" />
           )}
           <div className="bp-hero-content">
-            <div className="bp-hero-inner" style={{ maxWidth: hasSidebar ? 'calc(100% - 340px - 44px)' : undefined }}>
-              <div className="bp-breadcrumb">
-                <Link href="/blogas">Blogas</Link>
-                <span className="bp-breadcrumb-sep">/</span>
-                <Link href={`/blogas/${username}`}>{blogTitle || username}</Link>
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                {typeLabel && <span className="bp-chip">{typeLabel}</span>}
-                {postType === 'review' && post.rating !== null && post.rating !== undefined && (
-                  <span className="bp-rating">{post.rating}/10</span>
-                )}
-              </div>
+            <div className="bp-hero-inner">
+              {/* Type chip — TIK custom type'ams (review/translation/event/topas/news/article-other) */}
+              {showChip && typeLabel && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span className="bp-chip">{typeLabel}</span>
+                  {postType === 'review' && post.rating !== null && post.rating !== undefined && (
+                    <span className="bp-rating">{post.rating}/10</span>
+                  )}
+                </div>
+              )}
               <h1 className="bp-h1">{post.title}</h1>
-              <div className="bp-meta">
-                <Link href={`/vartotojas/${authorUsername}`} className="bp-author-pill">
-                  <div className="av" style={{ background: `hsl(${(authorName.charCodeAt(0) || 65) * 17 % 360},35%,30%)` }}>
-                    {authorAvatar
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={authorAvatar} alt="" />
-                      : (authorName[0] || '?').toUpperCase()
-                    }
-                  </div>
-                  <span>{authorName}</span>
-                </Link>
-                {post.published_at && <><span className="bp-dot">·</span><span>{formatDate(post.published_at)}</span></>}
-                {post.reading_time_min > 0 && <><span className="bp-dot">·</span><span>{post.reading_time_min} min. skaitymo</span></>}
-                <span className="bp-dot">·</span>
-                <span style={{ color: 'rgba(255,255,255,0.45)' }}>👁 {post.view_count}</span>
+
+              {/* User card */}
+              <Link href={`/vartotojas/${authorUsername}`} className="bp-user">
+                <div className="bp-user-av" style={{ background: `hsl(${(authorName.charCodeAt(0) || 65) * 17 % 360},35%,30%)` }}>
+                  {authorAvatar
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    ? <img src={authorAvatar} alt="" />
+                    : (authorName[0] || '?').toUpperCase()
+                  }
+                </div>
+                <div className="bp-user-text">
+                  <span className="bp-user-name">{authorName}</span>
+                  <span className="bp-user-sub">
+                    {authorJoinedYear ? <>Music.lt narys nuo {authorJoinedYear}</> : <>Music.lt narys</>}
+                    {authorKarma && authorKarma > 0 && (
+                      <>
+                        <span className="bp-user-meta-dot" />
+                        ★ {authorKarma.toLocaleString('lt-LT')}
+                      </>
+                    )}
+                  </span>
+                </div>
+              </Link>
+
+              {/* Date + reading time row */}
+              <div className="bp-meta-row">
+                {post.published_at && <span>{formatDate(post.published_at)}</span>}
+                {post.reading_time_min > 0 && (
+                  <>
+                    <span style={{ color: 'rgba(255,255,255,0.25)' }}>·</span>
+                    <span>{post.reading_time_min} min. skaitymo</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -269,53 +387,97 @@ export default function BlogPostPageClient(props: Props) {
         <div className="bp-page">
           <div className={`bp-grid ${hasSidebar ? 'has-sb' : 'no-sb'}`}>
 
-            {/* SIDEBAR (left, sticky) */}
+            {/* MAIN (left) */}
+            <main style={{ minWidth: 0 }}>
+              {post.summary && <p className="bp-summary">{post.summary}</p>}
+
+              {post.content && (
+                <div className="bp-prose">
+                  <PostContent html={post.content} />
+                </div>
+              )}
+
+              {postType === 'topas' && post.list_items.length > 0 && (
+                <TopasList items={post.list_items} />
+              )}
+
+              {/* Footer row: tags + Patinka + comments */}
+              <div className="bp-footer-row">
+                {visibleTags.length > 0 && (
+                  <div className="bp-tags">
+                    {visibleTags.map((tag: string) => (
+                      <Link key={tag} href={`/blogas?tag=${encodeURIComponent(tag)}`} className="bp-tag">
+                        #{tag}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <BlogLikePill postId={post.id} initialCount={post.like_count} />
+                  <button
+                    type="button"
+                    onClick={scrollToComments}
+                    className="bp-pill"
+                    style={{ cursor: 'pointer', background: 'none', padding: 0, font: 'inherit' }}
+                    title="Pereiti į komentarus"
+                  >
+                    <span className="bp-pill-side" style={{ pointerEvents: 'none' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      Komentarai
+                    </span>
+                    <span className="bp-pill-count" style={{ pointerEvents: 'none' }}>
+                      {post.comment_count.toLocaleString('lt-LT')}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <AuthorFooter
+                username={authorUsername}
+                name={authorName}
+                avatar={authorAvatar}
+                blogTitle={blogTitle}
+              />
+
+              <div id="bp-comments" className="bp-comments">
+                <EntityCommentsBlock
+                  entityType="blog_post"
+                  entityId={post.id}
+                  title={post.comment_count > 0 ? `${post.comment_count.toLocaleString()} komentarai` : 'Komentarai'}
+                  skipLegacy
+                />
+              </div>
+            </main>
+
+            {/* SIDEBAR (right, sticky) */}
             {hasSidebar && (
               <aside className="bp-sidebar">
+                {/* Music player — pirmoji vieta sidebar'e */}
+                {attachments.tracks.length > 0 && (
+                  <MusicPlayerCard tracks={attachments.tracks} />
+                )}
                 {/* Target entity (recenzija/vertimas/event) */}
                 {targetInfo && (targetInfo.artist || targetInfo.album || targetInfo.track || targetInfo.event) && (
                   <TargetEntityCard target={targetInfo} postType={postType} />
                 )}
-                {/* Tracks (most contextual; show first if any) */}
-                {attachments.tracks.length > 0 && (
-                  <div className="bp-sb-section">
-                    <p className="bp-sb-heading">Dainos · {attachments.tracks.length}</p>
-                    {attachments.tracks.map((t: any) => {
-                      const a = Array.isArray(t.artist) ? t.artist[0] : t.artist
-                      return (
-                        <Link key={t.id} href={`/dainos/${t.slug || t.id}`} className="bp-att-item">
-                          {t.cover_image_url
-                            // eslint-disable-next-line @next/next/no-img-element
-                            ? <img src={proxyImg(t.cover_image_url)} alt="" className="bp-att-thumb" />
-                            : <div className="bp-att-thumb-fallback">{(t.title || '?')[0]?.toUpperCase()}</div>
-                          }
-                          <div className="bp-att-text">
-                            <div className="bp-att-title">{t.title}</div>
-                            {a?.name && <div className="bp-att-sub">{a.name}</div>}
-                          </div>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                )}
                 {/* Albums */}
                 {attachments.albums.length > 0 && (
-                  <div className="bp-sb-section">
+                  <div className="bp-sb-card bp-sb-card-padded">
                     <p className="bp-sb-heading">Albumai · {attachments.albums.length}</p>
                     {attachments.albums.map((al: any) => {
                       const a = Array.isArray(al.artist) ? al.artist[0] : al.artist
                       return (
                         <Link key={al.id} href={`/albumai/${al.slug || al.id}`} className="bp-att-item">
                           {al.cover_image_url
-                            // eslint-disable-next-line @next/next/no-img-element
+                            /* eslint-disable-next-line @next/next/no-img-element */
                             ? <img src={proxyImg(al.cover_image_url)} alt="" className="bp-att-thumb" />
                             : <div className="bp-att-thumb-fallback">{(al.title || '?')[0]?.toUpperCase()}</div>
                           }
                           <div className="bp-att-text">
                             <div className="bp-att-title">{al.title}</div>
-                            <div className="bp-att-sub">
-                              {a?.name}{al.release_year ? ` · ${al.release_year}` : ''}
-                            </div>
+                            <div className="bp-att-sub">{a?.name}{al.release_year ? ` · ${al.release_year}` : ''}</div>
                           </div>
                         </Link>
                       )
@@ -324,12 +486,12 @@ export default function BlogPostPageClient(props: Props) {
                 )}
                 {/* Artists */}
                 {attachments.artists.length > 0 && (
-                  <div className="bp-sb-section">
+                  <div className="bp-sb-card bp-sb-card-padded">
                     <p className="bp-sb-heading">Atlikėjai · {attachments.artists.length}</p>
                     {attachments.artists.map((a: any) => (
                       <Link key={a.id} href={`/atlikejai/${a.slug || a.id}`} className="bp-att-item">
                         {a.cover_image_url
-                          // eslint-disable-next-line @next/next/no-img-element
+                          /* eslint-disable-next-line @next/next/no-img-element */
                           ? <img src={proxyImg(a.cover_image_url)} alt="" className="bp-att-thumb" />
                           : <div className="bp-att-thumb-fallback">{(a.name || '?')[0]?.toUpperCase()}</div>
                         }
@@ -343,56 +505,6 @@ export default function BlogPostPageClient(props: Props) {
                 )}
               </aside>
             )}
-
-            {/* MAIN (right) */}
-            <main>
-              {/* Summary lead-in */}
-              {post.summary && <p className="bp-summary">{post.summary}</p>}
-
-              {/* Article body */}
-              {post.content && (
-                <div className="bp-prose">
-                  <PostContent html={post.content} />
-                </div>
-              )}
-
-              {/* Topas list */}
-              {postType === 'topas' && post.list_items.length > 0 && (
-                <TopasList items={post.list_items} />
-              )}
-
-              {/* Tags */}
-              {post.tags.length > 0 && (
-                <div className="bp-tags">
-                  {post.tags.map((tag: string) => (
-                    <Link key={tag} href={`/blogas?tag=${encodeURIComponent(tag)}`} className="bp-tag">
-                      #{tag}
-                    </Link>
-                  ))}
-                </div>
-              )}
-
-              {/* Action bar — like + share */}
-              <BlogActionsBar postId={post.id} initialLikeCount={post.like_count} commentCount={post.comment_count} />
-
-              {/* Author footer */}
-              <AuthorFooter
-                username={authorUsername}
-                name={authorName}
-                avatar={authorAvatar}
-                blogTitle={blogTitle}
-              />
-
-              {/* Komentarai — unified component */}
-              <div className="bp-comments">
-                <EntityCommentsBlock
-                  entityType="blog_post"
-                  entityId={post.id}
-                  title={post.comment_count > 0 ? `${post.comment_count.toLocaleString()} komentarai` : 'Komentarai'}
-                  skipLegacy
-                />
-              </div>
-            </main>
           </div>
         </div>
       </div>
@@ -400,13 +512,109 @@ export default function BlogPostPageClient(props: Props) {
   )
 }
 
-/* ─── Action bar: like + share + Facebook ───────────────────────────────── */
-function BlogActionsBar({ postId, initialLikeCount, commentCount }: { postId: string; initialLikeCount: number; commentCount: number }) {
+/* ─── Music player sidebar card ─────────────────────────────────────────── */
+function MusicPlayerCard({ tracks }: { tracks: any[] }) {
+  const [active, setActive] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const cur = tracks[active]
+  const ytArtist = Array.isArray(cur?.artist) ? cur.artist[0] : cur?.artist
+  const vid = ytId(cur?.youtube_url)
+  const thumb = cur?.cover_image_url || (vid ? `https://img.youtube.com/vi/${vid}/mqdefault.jpg` : null)
+
+  return (
+    <div className="bp-sb-card">
+      <div className="bp-mu-hdr">
+        <div className="bp-mu-hdr-icon">
+          <div className="bp-mu-hdr-eq">
+            {[6,10,4,8].map((h,i) => (
+              <span key={i} style={{ height: h, animationDelay: `${i*0.13}s` }} />
+            ))}
+          </div>
+        </div>
+        <span className="bp-mu-hdr-label">Susijusi muzika · {tracks.length}</span>
+      </div>
+
+      <div className="bp-mu-video">
+        {playing && vid ? (
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0`}
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+            className="bp-mu-iframe"
+          />
+        ) : (
+          <div className={`bp-mu-thumb ${!vid ? 'bp-mu-thumb-noplay' : ''}`}
+               onClick={() => vid && setPlaying(true)}>
+            {thumb
+              /* eslint-disable-next-line @next/next/no-img-element */
+              ? <img src={thumb} alt="" />
+              : <div className="bp-mu-no-thumb">♪</div>
+            }
+            {vid && (
+              <div className="bp-mu-play-overlay">
+                <div className="bp-mu-play-btn">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {cur && (
+        <div className="bp-mu-now">
+          <div className="bp-mu-now-info">
+            <p className="bp-mu-now-title">{cur.title}</p>
+            <p className="bp-mu-now-artist">{ytArtist?.name || ''}</p>
+          </div>
+          {vid && (
+            <a href={`https://youtube.com/watch?v=${vid}`} target="_blank" rel="noopener" className="bp-mu-yt" title="Atidaryti YouTube">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.54 15.57V8.43L15.82 12l-6.28 3.57z" />
+              </svg>
+            </a>
+          )}
+        </div>
+      )}
+
+      {tracks.length > 1 && (
+        <div className="bp-mu-list">
+          {tracks.map((t, i) => {
+            const a = Array.isArray(t.artist) ? t.artist[0] : t.artist
+            const v = ytId(t.youtube_url)
+            const img = t.cover_image_url || (v ? `https://img.youtube.com/vi/${v}/default.jpg` : null)
+            return (
+              <button key={t.id} type="button"
+                      onClick={() => { setActive(i); setPlaying(false) }}
+                      className={`bp-mu-track ${active === i ? 'bp-mu-track-on' : ''}`}>
+                <span className="bp-mu-track-num">{active === i ? '▶' : i + 1}</span>
+                {img
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  ? <img src={proxyImg(img)} alt="" className="bp-mu-track-img" />
+                  : <div className="bp-mu-track-img bp-mu-track-img-empty">♪</div>
+                }
+                <div className="bp-mu-track-info">
+                  <p className="bp-mu-track-title">{t.title}</p>
+                  <p className="bp-mu-track-artist">{a?.name || ''}</p>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── FollowPill-style like button (per artist page'o pattern'ą) ────────── */
+function BlogLikePill({ postId, initialCount }: { postId: string; initialCount: number }) {
   const { data: session } = useSession()
   const [liked, setLiked] = useState(false)
-  const [count, setCount] = useState(initialLikeCount || 0)
+  const [count, setCount] = useState(initialCount || 0)
   const [likers, setLikers] = useState<LikeUser[]>([])
   const [modalOpen, setModalOpen] = useState(false)
+  const [pending, setPending] = useState(false)
+  const authed = !!session?.user
 
   async function loadLikers() {
     try {
@@ -423,60 +631,47 @@ function BlogActionsBar({ postId, initialLikeCount, commentCount }: { postId: st
     } catch {}
   }
 
-  async function toggleLike() {
-    if (!session?.user) return
-    setLiked(v => !v)
-    setCount(c => liked ? Math.max(0, c - 1) : c + 1)
+  async function toggle() {
+    if (!authed || pending) return
+    setPending(true)
+    const wasLiked = liked
+    setLiked(!wasLiked)
+    setCount(c => wasLiked ? Math.max(0, c - 1) : c + 1)
     try {
       await fetch(`/api/blog/posts/${postId}/like`, { method: 'POST' })
       loadLikers()
     } catch {}
-  }
-
-  function share() {
-    if (typeof window === 'undefined') return
-    if (navigator.share) {
-      navigator.share({ url: window.location.href }).catch(() => {})
-    } else {
-      navigator.clipboard.writeText(window.location.href)
-      alert('Nuoroda nukopijuota!')
-    }
+    setPending(false)
   }
 
   return (
     <>
-      <div className="bp-actions">
+      <div className={`bp-pill ${liked ? 'is-on' : ''}`}>
         <button
           type="button"
-          onClick={session?.user ? toggleLike : undefined}
-          className={`bp-action-btn ${liked ? 'active' : ''}`}
-          style={{ cursor: session?.user ? 'pointer' : 'not-allowed' }}
-          title={session?.user ? 'Patinka' : 'Prisijunk, kad patiktum'}
+          onClick={authed ? toggle : undefined}
+          disabled={pending || !authed}
+          className="bp-pill-side"
+          title={authed ? (liked ? 'Nustoti patikti' : 'Pažymėti, kad patinka') : 'Prisijunk, kad patiktum'}
+          aria-pressed={liked}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
           </svg>
-          Patinka
-          {count > 0 && (
-            <span
-              className="bp-action-count"
-              onClick={e => { e.stopPropagation(); loadLikers(); setModalOpen(true) }}
-              title="Pamatyti kas paspaudė"
-            >
-              {count}
-            </span>
-          )}
+          {liked ? 'Patiko' : 'Patinka'}
         </button>
-        <button type="button" onClick={share} className="bp-action-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-          </svg>
-          Dalintis
-        </button>
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#5e7290', fontFamily: "'Outfit',sans-serif" }}>
-          💬 {commentCount} komentarai
-        </span>
+        {count > 0 ? (
+          <button
+            type="button"
+            onClick={() => { loadLikers(); setModalOpen(true) }}
+            className="bp-pill-count is-link"
+            title="Pamatyti kas patiko"
+          >
+            {count.toLocaleString('lt-LT')}
+          </button>
+        ) : (
+          <span className="bp-pill-count" style={{ opacity: 0.6 }}>0</span>
+        )}
       </div>
       <LikesModal
         open={modalOpen}
@@ -529,7 +724,7 @@ function TopasList({ items }: { items: any[] }) {
   )
 }
 
-/* ─── Target entity card (recenzijai / vertimui / event'ui) ────────────── */
+/* ─── Target entity card ───────────────────────────────────────────────── */
 function TargetEntityCard({ target, postType }: { target: any; postType: BlogPostType }) {
   let entity: { kind: string; href: string; name: string; subname?: string; image?: string | null } | null = null
   if (target.event) {
@@ -555,7 +750,9 @@ function TargetEntityCard({ target, postType }: { target: any; postType: BlogPos
   }
   if (!entity) return null
   return (
-    <Link href={entity.href} className="bp-sb-section" style={{ display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none', color: 'inherit', padding: 12 }}>
+    <Link href={entity.href} className="bp-sb-card" style={{
+      display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none', color: 'inherit', padding: 14,
+    }}>
       {entity.image
         /* eslint-disable-next-line @next/next/no-img-element */
         ? <img src={proxyImg(entity.image)} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
@@ -576,7 +773,7 @@ function TargetEntityCard({ target, postType }: { target: any; postType: BlogPos
   )
 }
 
-/* ─── Author footer card ────────────────────────────────────────────────── */
+/* ─── Author footer card ───────────────────────────────────────────────── */
 function AuthorFooter({ username, name, avatar, blogTitle }: { username: string; name: string; avatar: string | null; blogTitle: string | null }) {
   return (
     <div className="bp-author-footer">

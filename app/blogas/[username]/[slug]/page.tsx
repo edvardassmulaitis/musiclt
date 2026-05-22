@@ -53,8 +53,10 @@ export default async function PostPage({ params }: { params: Promise<{ username:
       : Promise.resolve(null),
   ])
 
-  const blog = Array.isArray(post.blogs) ? post.blogs[0] : post.blogs
-  const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles
+  // getPost grąžina post + nested `blog` (singular), kuriame yra `profiles`
+  // su author meta. Supabase JOIN'as gali grąžinti arr or object — handle abu.
+  const blog = (post as any).blog
+  const profile = Array.isArray(blog?.profiles) ? blog.profiles[0] : blog?.profiles
   const authorName = (profile as any)?.full_name || (profile as any)?.username || username
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://musiclt.vercel.app'
 
@@ -112,7 +114,6 @@ export default async function PostPage({ params }: { params: Promise<{ username:
           content: post.content,
           published_at: post.published_at,
           reading_time_min: post.reading_time_min,
-          view_count: post.view_count || 0,
           like_count: post.like_count || 0,
           comment_count: post.comment_count || 0,
           rating: post.rating ?? null,
@@ -125,6 +126,13 @@ export default async function PostPage({ params }: { params: Promise<{ username:
         authorName={authorName}
         authorUsername={(profile as any)?.username || username}
         authorAvatar={(profile as any)?.avatar_url || null}
+        authorKarma={(profile as any)?.legacy_karma_points ?? null}
+        authorJoinedYear={(() => {
+          const joined = (profile as any)?.joined_legacy_at
+          if (!joined) return null
+          const y = parseInt(String(joined).slice(0, 4))
+          return Number.isFinite(y) ? y : null
+        })()}
         blogTitle={blog?.title || null}
         heroImage={heroImage}
         attachments={attachments}
