@@ -94,6 +94,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .from('tracks')
     .select('id, video_url, youtube_searched_at, video_views_checked_at')
     .eq('artist_id', artistId)
+    // 2026-05-22: legacy_id ASC NULLS LAST (studio versija music.lt'e turi
+    // žemiausią legacy_id, live/alt versijos pridėtos vėliau) → enrich pirma
+    // ima studio, claim'ina populiariausią YT video. Live track procesuojami
+    // paskutiniai, lib/yt-enrich.ts dedup logika (same videoId) palieka juos
+    // be URL — admin priskirs teisingą live YT manualiai. Wiki-only tracks
+    // (intl atlikėjai be music.lt match'o) gauna NULL legacy_id → eina į
+    // galą NULLS LAST → tie matched Wiki+legacy track'ai vis tiek pirmiau.
+    .order('legacy_id', { ascending: true, nullsFirst: false })
     .order('id', { ascending: true })
 
   if (limit > 0) {
