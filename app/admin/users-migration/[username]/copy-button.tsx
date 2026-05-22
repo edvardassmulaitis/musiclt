@@ -17,10 +17,11 @@ export function CopyButton({ text, label = 'Kopijuoti' }: { text: string; label?
   return (
     <button
       onClick={handle}
-      className="text-[10px] px-2 py-1 rounded font-semibold transition"
+      className="text-[10px] px-2.5 py-1 rounded font-semibold transition border"
       style={{
-        background: copied ? '#16a34a' : 'var(--text-primary)',
-        color: copied ? '#fff' : 'var(--bg-page)',
+        background: copied ? '#16a34a' : '#1f2937',
+        color: '#ffffff',
+        borderColor: copied ? '#16a34a' : '#1f2937',
         fontFamily: "'Outfit', sans-serif",
       }}
     >
