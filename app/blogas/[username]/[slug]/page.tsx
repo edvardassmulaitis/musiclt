@@ -8,14 +8,12 @@
 // dainos, news (modern + legacy mix, replies, likes, attachments).
 
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import {
   getPost,
   getPostMusicAttachments,
   getReviewTargetInfo,
 } from '@/lib/supabase-blog'
-import { proxyImg } from '@/lib/img-proxy'
-import { PostContent } from './post-content'
+import { extractMusicFromBody } from '@/lib/blog-content'
 import BlogPostPageClient from './page-client'
 import { POST_TYPE_OPTIONS, type BlogPostType } from '@/components/blog/post-types'
 
@@ -52,6 +50,10 @@ export default async function PostPage({ params }: { params: Promise<{ username:
         })
       : Promise.resolve(null),
   ])
+
+  // EXTRACT inline music embeds (YouTube/Spotify iframes + legacy favorite
+  // widget) iš body — perkelti į sidebar player'į. Body lieka švarus tekstas.
+  const { cleanedHtml, music: embeddedMusic } = extractMusicFromBody(post.content || '')
 
   // getPost grąžina post + nested `blog` (singular), kuriame yra `profiles`
   // su author meta. Supabase JOIN'as gali grąžinti arr or object — handle abu.
@@ -95,11 +97,12 @@ export default async function PostPage({ params }: { params: Promise<{ username:
     ...(post.cover_image_url ? { image: post.cover_image_url } : {}),
   }
 
-  // Has sidebar = any attachment OR target entity present
+  // Has sidebar = any attachment OR embedded body music OR target entity present
   const hasSidebar =
     attachments.artists.length > 0 ||
     attachments.albums.length > 0 ||
     attachments.tracks.length > 0 ||
+    embeddedMusic.length > 0 ||
     !!targetInfo
 
   return (
@@ -111,7 +114,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
           id: post.id,
           title: post.title,
           summary: post.summary,
-          content: post.content,
+          content: cleanedHtml,
           published_at: post.published_at,
           reading_time_min: post.reading_time_min,
           like_count: post.like_count || 0,
@@ -136,6 +139,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
         blogTitle={blog?.title || null}
         heroImage={heroImage}
         attachments={attachments}
+        embeddedMusic={embeddedMusic}
         targetInfo={targetInfo}
         hasSidebar={hasSidebar}
       />

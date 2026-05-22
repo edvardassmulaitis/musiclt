@@ -24,6 +24,7 @@ import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
 import { PostContent } from './post-content'
 import { type BlogPostType } from '@/components/blog/post-types'
+import { type ExtractedTrack } from '@/lib/blog-content'
 
 type Attachments = {
   artists: any[]
@@ -56,6 +57,9 @@ type Props = {
   blogTitle: string | null
   heroImage: string | null
   attachments: Attachments
+  /** Embedded music iš body (Spotify/YouTube iframes + legacy widget rows)
+   *  — ekstraktinta server-side per extractMusicFromBody. Body lieka tekstas. */
+  embeddedMusic: ExtractedTrack[]
   targetInfo: any | null
   hasSidebar: boolean
 }
@@ -74,7 +78,27 @@ function ytId(url?: string | null) {
 export default function BlogPostPageClient(props: Props) {
   const { post, postType, typeLabel, authorName, authorUsername, authorAvatar,
           authorKarma, authorJoinedYear, blogTitle, heroImage, attachments,
-          targetInfo, hasSidebar } = props
+          embeddedMusic, targetInfo, hasSidebar } = props
+
+  // Build unified player track list — merge DB-resolved attachments + body-
+  // extracted embeds. Eilė: DB tracks first (resolved → highest quality),
+  // tada body embeds (YT/Spotify) — kurie irgi groja iframe'e.
+  const playerTracks: ExtractedTrack[] = [
+    ...attachments.tracks.map((t: any): ExtractedTrack => {
+      const a = Array.isArray(t.artist) ? t.artist[0] : t.artist
+      const ytId = t.youtube_url && t.youtube_url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)?.[1]
+      return {
+        source: 'youtube' as const,
+        key: `db:track:${t.id}`,
+        title: t.title,
+        artist_name: a?.name,
+        cover_url: t.cover_image_url || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : undefined),
+        embed_url: ytId ? `https://www.youtube-nocookie.com/embed/${ytId}?rel=0` : '',
+        source_url: t.youtube_url || undefined,
+      }
+    }).filter((t: ExtractedTrack) => !!t.embed_url),
+    ...embeddedMusic.filter(m => !!m.embed_url),
+  ]
 
   const showChip = postType !== 'article'   // tik custom type'ams
   const visibleTags = (post.tags || []).filter(t => !AUTO_TAGS.has((t || '').toLowerCase()))
@@ -159,6 +183,14 @@ export default function BlogPostPageClient(props: Props) {
         .bp-mu-hdr-label { font-family:'Outfit',sans-serif; font-size:10px; font-weight:800; text-transform:uppercase;
                            letter-spacing:.1em; color:#8aa8cc; flex:1; }
         .bp-mu-video { background:#000; aspect-ratio:16/9; position:relative; }
+        .bp-mu-video.is-spotify { aspect-ratio:auto; height:120px; }
+        .bp-mu-video.is-spotify .bp-mu-iframe { height:120px; }
+        .bp-mu-src-badge { position:absolute; top:8px; right:8px; padding:3px 8px; border-radius:6px;
+                           font-family:'Outfit',sans-serif; font-size:9px; font-weight:900; letter-spacing:.1em;
+                           text-transform:uppercase; color:#fff; backdrop-filter:blur(8px); }
+        .bp-mu-src-youtube { background:rgba(255,0,0,0.85); }
+        .bp-mu-src-spotify { background:rgba(30,215,96,0.9); color:#000; }
+        .bp-mu-src-music_lt { background:rgba(249,115,22,0.85); }
         .bp-mu-thumb { width:100%; height:100%; cursor:pointer; position:relative; }
         .bp-mu-thumb img { width:100%; height:100%; object-fit:cover; }
         .bp-mu-thumb-noplay { cursor:default; }
@@ -454,15 +486,13 @@ export default function BlogPostPageClient(props: Props) {
             {/* SIDEBAR (right, sticky) */}
             {hasSidebar && (
               <aside className="bp-sidebar">
-                {/* Music player — pirmoji vieta sidebar'e */}
-                {attachments.tracks.length > 0 && (
-                  <MusicPlayerCard tracks={attachments.tracks} />
-                )}
+                {/* Unified player — DB tracks + body-extracted YT/Spotify embeds */}
+                {playerTracks.length > 0 && <UnifiedPlayer tracks={playerTracks} />}
                 {/* Target entity (recenzija/vertimas/event) */}
                 {targetInfo && (targetInfo.artist || targetInfo.album || targetInfo.track || targetInfo.event) && (
                   <TargetEntityCard target={targetInfo} postType={postType} />
                 )}
-                {/* Albums */}
+                {/* Albums (atskira kortelė — ne player listed) */}
                 {attachments.albums.length > 0 && (
                   <div className="bp-sb-card bp-sb-card-padded">
                     <p className="bp-sb-heading">Albumai · {attachments.albums.length}</p>
@@ -512,14 +542,20 @@ export default function BlogPostPageClient(props: Props) {
   )
 }
 
-/* ─── Music player sidebar card ─────────────────────────────────────────── */
-function MusicPlayerCard({ tracks }: { tracks: any[] }) {
+/* ─── UnifiedPlayer ─ embedded YT/Spotify iframes + track list ───────────── */
+//
+// Vienas player'is visam dėmesys'iui — paima ExtractedTrack[] (gali būti YT,
+// Spotify ir music_lt embed mix). Iframe rodomas viršuje, žemiau — track lista.
+// Klauso iframe atribut'us 16:9 (YT) arba flexible aspect (Spotify embed yra
+// 80px tall, ne video). UX inspiruotas artist page'o hero player + tracks
+// section: pirmoji daina iškart "nukreipta" (atrodo kaip parent klaviša),
+// thumbnail su orange play btn'u, click → iframe pakeičia src ir grojama.
+function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
   const [active, setActive] = useState(0)
   const [playing, setPlaying] = useState(false)
   const cur = tracks[active]
-  const ytArtist = Array.isArray(cur?.artist) ? cur.artist[0] : cur?.artist
-  const vid = ytId(cur?.youtube_url)
-  const thumb = cur?.cover_image_url || (vid ? `https://img.youtube.com/vi/${vid}/mqdefault.jpg` : null)
+  const isSpotify = cur?.source === 'spotify'
+  const thumb = cur?.cover_url || null
 
   return (
     <div className="bp-sb-card">
@@ -534,43 +570,50 @@ function MusicPlayerCard({ tracks }: { tracks: any[] }) {
         <span className="bp-mu-hdr-label">Susijusi muzika · {tracks.length}</span>
       </div>
 
-      <div className="bp-mu-video">
-        {playing && vid ? (
+      {/* Video / iframe — Spotify embed yra 80px tall, YT yra 16:9 */}
+      <div className={`bp-mu-video ${isSpotify ? 'is-spotify' : ''}`}>
+        {playing && cur?.embed_url ? (
           <iframe
-            src={`https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0`}
-            allow="autoplay; encrypted-media"
+            src={cur.embed_url + (cur.source === 'youtube' ? '&autoplay=1' : '')}
+            allow="autoplay; encrypted-media; clipboard-write"
             allowFullScreen
             className="bp-mu-iframe"
           />
         ) : (
-          <div className={`bp-mu-thumb ${!vid ? 'bp-mu-thumb-noplay' : ''}`}
-               onClick={() => vid && setPlaying(true)}>
+          <div className={`bp-mu-thumb ${!cur?.embed_url ? 'bp-mu-thumb-noplay' : ''}`}
+               onClick={() => cur?.embed_url && setPlaying(true)}>
             {thumb
               /* eslint-disable-next-line @next/next/no-img-element */
               ? <img src={thumb} alt="" />
-              : <div className="bp-mu-no-thumb">♪</div>
+              : <div className="bp-mu-no-thumb">{cur?.source === 'spotify' ? '♫' : '♪'}</div>
             }
-            {vid && (
+            {cur?.embed_url && (
               <div className="bp-mu-play-overlay">
                 <div className="bp-mu-play-btn">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
                 </div>
               </div>
             )}
+            {/* Source badge */}
+            <span className={`bp-mu-src-badge bp-mu-src-${cur?.source}`}>
+              {cur?.source === 'youtube' ? 'YouTube' : cur?.source === 'spotify' ? 'Spotify' : 'music.lt'}
+            </span>
           </div>
         )}
       </div>
 
-      {cur && (
+      {cur && (cur.title || cur.artist_name) && (
         <div className="bp-mu-now">
           <div className="bp-mu-now-info">
-            <p className="bp-mu-now-title">{cur.title}</p>
-            <p className="bp-mu-now-artist">{ytArtist?.name || ''}</p>
+            <p className="bp-mu-now-title">{cur.title || '(be pavadinimo)'}</p>
+            {cur.artist_name && <p className="bp-mu-now-artist">{cur.artist_name}</p>}
           </div>
-          {vid && (
-            <a href={`https://youtube.com/watch?v=${vid}`} target="_blank" rel="noopener" className="bp-mu-yt" title="Atidaryti YouTube">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.54 15.57V8.43L15.82 12l-6.28 3.57z" />
+          {cur.source_url && (
+            <a href={cur.source_url} target="_blank" rel="noopener" className="bp-mu-yt"
+               title={`Atidaryti ${cur.source === 'youtube' ? 'YouTube' : 'Spotify'}`}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
               </svg>
             </a>
           )}
@@ -579,27 +622,27 @@ function MusicPlayerCard({ tracks }: { tracks: any[] }) {
 
       {tracks.length > 1 && (
         <div className="bp-mu-list">
-          {tracks.map((t, i) => {
-            const a = Array.isArray(t.artist) ? t.artist[0] : t.artist
-            const v = ytId(t.youtube_url)
-            const img = t.cover_image_url || (v ? `https://img.youtube.com/vi/${v}/default.jpg` : null)
-            return (
-              <button key={t.id} type="button"
-                      onClick={() => { setActive(i); setPlaying(false) }}
-                      className={`bp-mu-track ${active === i ? 'bp-mu-track-on' : ''}`}>
-                <span className="bp-mu-track-num">{active === i ? '▶' : i + 1}</span>
-                {img
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  ? <img src={proxyImg(img)} alt="" className="bp-mu-track-img" />
-                  : <div className="bp-mu-track-img bp-mu-track-img-empty">♪</div>
+          {tracks.map((t, i) => (
+            <button key={t.key + ':' + i} type="button"
+                    onClick={() => { setActive(i); setPlaying(false) }}
+                    className={`bp-mu-track ${active === i ? 'bp-mu-track-on' : ''}`}>
+              <span className="bp-mu-track-num">{active === i ? '▶' : i + 1}</span>
+              {t.cover_url
+                /* eslint-disable-next-line @next/next/no-img-element */
+                ? <img src={t.cover_url} alt="" className="bp-mu-track-img" />
+                : <div className="bp-mu-track-img bp-mu-track-img-empty">
+                    {t.source === 'spotify' ? '♫' : '♪'}
+                  </div>
+              }
+              <div className="bp-mu-track-info">
+                <p className="bp-mu-track-title">{t.title || (t.source === 'spotify' ? 'Spotify takelis' : t.source === 'youtube' ? 'YouTube vaizdo įrašas' : 'Music.lt įrašas')}</p>
+                {t.artist_name
+                  ? <p className="bp-mu-track-artist">{t.artist_name}</p>
+                  : <p className="bp-mu-track-artist" style={{ opacity: 0.5 }}>{t.source}</p>
                 }
-                <div className="bp-mu-track-info">
-                  <p className="bp-mu-track-title">{t.title}</p>
-                  <p className="bp-mu-track-artist">{a?.name || ''}</p>
-                </div>
-              </button>
-            )
-          })}
+              </div>
+            </button>
+          ))}
         </div>
       )}
     </div>
