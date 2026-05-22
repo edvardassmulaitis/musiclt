@@ -33,7 +33,8 @@ const POST_TYPE_COLOR: Record<string, string> = {
 
 export function ProfileClient(props: any) {
   const {
-    profile, favoriteArtists, favoriteStyles, friends, blog,
+    profile, favoriteArtists, favoriteStyles, favoriteAlbums, favoriteTracks, likesCounts,
+    friends, blog,
     regularPosts, topasPosts, memberSinceYear, stats, moodTrack, dailyPicks, translations,
   } = props
 
@@ -362,27 +363,47 @@ export function ProfileClient(props: any) {
           </section>
         )}
 
-        {/* Mėgstamiausi albumai — placeholder (laukia likes migracijos) */}
-        {!selectedGenre && (
+        {/* Mėgstamiausi albumai — iš likes (entity_type='album', entity_id IS NOT NULL) */}
+        {!selectedGenre && (favoriteAlbums?.length > 0 || (likesCounts?.album?.pending || 0) > 0) && (
           <section className="mt-10 sm:mt-12">
             <SectionHeader
               eyebrow="Mėgstamiausi albumai"
               title="Klasikiniai diskai"
-              meta="Sąrašas pasipildys po ♥ palaikinimų migracijos"
+              meta={(() => {
+                const resolved = likesCounts?.album?.resolved || favoriteAlbums.length
+                const pending = likesCounts?.album?.pending || 0
+                if (resolved === 0 && pending > 0) return `dar laukia ${pending.toLocaleString('lt-LT')} albumų — bus rodomi po atlikėjų importo`
+                if (pending > 0) return `${resolved.toLocaleString('lt-LT')} matomi · ${pending.toLocaleString('lt-LT')} laukia importo`
+                return `${resolved.toLocaleString('lt-LT')} albumų`
+              })()}
             />
-            <EmptyMigrationState what="albumus" />
+            {favoriteAlbums.length > 0 ? (
+              <FavoriteAlbumsGrid albums={favoriteAlbums} />
+            ) : (
+              <EmptyMigrationState what="albumus" />
+            )}
           </section>
         )}
 
-        {/* Mėgstamiausios dainos — placeholder */}
-        {!selectedGenre && (
+        {/* Mėgstamiausios dainos */}
+        {!selectedGenre && (favoriteTracks?.length > 0 || (likesCounts?.track?.pending || 0) > 0) && (
           <section className="mt-10 sm:mt-12">
             <SectionHeader
               eyebrow="Mėgstamiausios dainos"
               title="Privalomos klausytis"
-              meta="Sąrašas pasipildys po ♥ palaikinimų migracijos"
+              meta={(() => {
+                const resolved = likesCounts?.track?.resolved || favoriteTracks.length
+                const pending = likesCounts?.track?.pending || 0
+                if (resolved === 0 && pending > 0) return `dar laukia ${pending.toLocaleString('lt-LT')} dainų — bus rodomos po atlikėjų importo`
+                if (pending > 0) return `${resolved.toLocaleString('lt-LT')} matomos · ${pending.toLocaleString('lt-LT')} laukia importo`
+                return `${resolved.toLocaleString('lt-LT')} dainų`
+              })()}
             />
-            <EmptyMigrationState what="dainas" />
+            {favoriteTracks.length > 0 ? (
+              <FavoriteTracksList tracks={favoriteTracks} />
+            ) : (
+              <EmptyMigrationState what="dainas" />
+            )}
           </section>
         )}
 
@@ -560,8 +581,80 @@ function EmptyMigrationState({ what }: { what: string }) {
         Šis sąrašas atsiras, kai bus migruoti palaikinimai (♥). Tada matysite užsidžiaugtus {what}, surūšiuotus pagal įsimylėjimo seką.
       </p>
       <p className="mt-1.5 text-[11px]" style={{ color: 'var(--text-faint)' }}>
-        Likes scrape blokuojamas auth session cookie — laukia handoff'o.
+        Likes jau scrape'inami; sąrašas pasipildys po atlikėjų importo.
       </p>
+    </div>
+  )
+}
+
+function FavoriteAlbumsGrid({ albums }: { albums: any[] }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      {albums.map((a) => {
+        const artist = Array.isArray(a.artists) ? a.artists[0] : a.artists
+        const href = artist ? `/atlikejai/${artist.slug}/${a.slug || a.id}` : `/lt/albumas/${a.slug || ''}/${a.id}`
+        return (
+          <Link key={a.id} href={href}
+                className="group block rounded-xl overflow-hidden transition hover:scale-[1.03]"
+                style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+            <div className="aspect-square w-full overflow-hidden"
+                 style={{ background: 'linear-gradient(135deg, var(--border-subtle), var(--card-bg))' }}>
+              {a.cover_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={a.cover_url} alt={a.title} className="w-full h-full object-cover transition group-hover:opacity-90" loading="lazy" />
+              ) : null}
+            </div>
+            <div className="p-2.5">
+              <div className="text-[11px] uppercase tracking-wider mb-0.5 truncate"
+                   style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
+                {artist?.name || '—'}
+              </div>
+              <div className="text-sm font-semibold leading-tight line-clamp-2"
+                   style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+                {a.title}
+              </div>
+            </div>
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
+function FavoriteTracksList({ tracks }: { tracks: any[] }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {tracks.map((t, i) => {
+        const artist = Array.isArray(t.artists) ? t.artists[0] : t.artists
+        const href = artist ? `/atlikejai/${artist.slug}/${t.slug || t.id}` : `/lt/daina/${t.slug || ''}/${t.id}`
+        return (
+          <Link key={t.id} href={href}
+                className="group flex items-center gap-3 rounded-xl p-2 transition hover:bg-[var(--hover-bg)]"
+                style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+            <div className="w-6 text-center text-[11px] font-bold tabular-nums"
+                 style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+              {i + 1}
+            </div>
+            <div className="w-10 h-10 rounded-md overflow-hidden flex-shrink-0"
+                 style={{ background: 'var(--border-subtle)' }}>
+              {t.cover_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={t.cover_url} alt={t.title} className="w-full h-full object-cover" loading="lazy" />
+              ) : null}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold leading-tight truncate"
+                   style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+                {t.title}
+              </div>
+              <div className="text-[11px] truncate"
+                   style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
+                {artist?.name || '—'}
+              </div>
+            </div>
+          </Link>
+        )
+      })}
     </div>
   )
 }

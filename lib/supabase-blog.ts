@@ -226,6 +226,62 @@ export async function getProfileFavoriteArtists(userId: string) {
   return artists.map((a) => ({ ...a, mainGenres: genreMap.get(a.id) || [] }))
 }
 
+// ── FAVORITE ALBUMS / TRACKS (per `likes` lentelė, music.lt ♥) ────
+//
+// `likes` lentelė saugo VISUS music.lt palaikymus. Pending eilutės
+// (entity_id IS NULL) yra placeholder'iai — entity dar nemigruotas, todėl
+// UI ne'rodom. Po atlikėjo importo `resolve_pending_likes` RPC set'ina
+// entity_id, ir UI automatiškai pasirodo.
+//
+// Order'is — pagal `created_at DESC` (most recently liked first), BIGSERIAL
+// id tikriausiai preserves'ina insert order'į.
+export async function getProfileFavoriteAlbums(username: string, limit = 12) {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('likes')
+    .select('entity_id, created_at, albums:entity_id(id, slug, title, cover_url, artist_id, artists:artist_id(id, slug, name))')
+    .eq('entity_type', 'album')
+    .eq('user_username', username)
+    .not('entity_id', 'is', null)
+    .order('id', { ascending: false })
+    .limit(limit)
+  return (data || [])
+    .map((r: any) => r.albums)
+    .filter(Boolean) as any[]
+}
+
+export async function getProfileFavoriteTracks(username: string, limit = 12) {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('likes')
+    .select('entity_id, created_at, tracks:entity_id(id, slug, title, cover_url, artist_id, artists:artist_id(id, slug, name))')
+    .eq('entity_type', 'track')
+    .eq('user_username', username)
+    .not('entity_id', 'is', null)
+    .order('id', { ascending: false })
+    .limit(limit)
+  return (data || [])
+    .map((r: any) => r.tracks)
+    .filter(Boolean) as any[]
+}
+
+// Pending count'ai — kiek dar nemigravotų likes (UI gali rodyti „dar X laukia").
+export async function getProfileLikesCounts(username: string) {
+  const sb = createAdminClient()
+  const results = await Promise.all((['artist','album','track'] as const).map(async (kind) => {
+    const [resolved, pending] = await Promise.all([
+      sb.from('likes').select('*', { count: 'exact', head: true })
+        .eq('entity_type', kind).eq('user_username', username)
+        .not('entity_id', 'is', null),
+      sb.from('likes').select('*', { count: 'exact', head: true })
+        .eq('entity_type', kind).eq('user_username', username)
+        .is('entity_id', null),
+    ])
+    return { kind, resolved: resolved.count ?? 0, pending: pending.count ?? 0 }
+  }))
+  return Object.fromEntries(results.map((r) => [r.kind, { resolved: r.resolved, pending: r.pending }])) as Record<'artist'|'album'|'track', { resolved: number; pending: number }>
+}
+
 // ── BLOGS ───────────────────────────────────────────────────
 export async function getBlogBySlug(slug: string) {
   const sb = createAdminClient()

@@ -19,6 +19,8 @@ type Counts = {
   pending_albums: number   // legacy_scrape_pending
   pending_tracks: number
   active_jobs: number      // import_jobs running/pending
+  inbox_pending: number    // news candidates laukia review'o
+  users_migrated: number   // ghost user'iai su >=1 faze
 }
 
 type AdminCard = {
@@ -109,7 +111,11 @@ export default function AdminDashboardPage() {
       // su `Prefer: count=exact, head=true` jei reikia, bet dabar tiesiog
       // imam .total iš normalaus list endpoint'o.
       fetch('/api/admin/import/pending/counts').then(r => r.ok ? r.json() : { albums: 0, tracks: 0, jobs: 0 }).catch(() => ({ albums: 0, tracks: 0, jobs: 0 })),
-    ]).then(([ar, al, tr, nw, ev, sg, vn, mig]) => {
+      // Inbox pending news candidates (light query — head=true count)
+      fetch('/api/admin/news-candidates?status=pending&limit=1').then(r => r.ok ? r.json() : { total: 0 }).catch(() => ({ total: 0 })),
+      // Migrated users count (>=1 phase touched)
+      fetch('/api/admin/users-migration/counts').then(r => r.ok ? r.json() : { migrated: 0 }).catch(() => ({ migrated: 0 })),
+    ]).then(([ar, al, tr, nw, ev, sg, vn, mig, inbox, usersMig]) => {
       setCounts({
         artists: ar.total || 0,
         albums: al.total || 0,
@@ -121,6 +127,8 @@ export default function AdminDashboardPage() {
         pending_albums: mig.albums || 0,
         pending_tracks: mig.tracks || 0,
         active_jobs: mig.jobs || 0,
+        inbox_pending: inbox.total || inbox.candidates?.length || 0,
+        users_migrated: usersMig.migrated || 0,
       })
     })
   }, [isAdmin])
@@ -130,14 +138,24 @@ export default function AdminDashboardPage() {
   const totalPending = (counts?.pending_albums || 0) + (counts?.pending_tracks || 0)
 
   // ── Sekcijos ────────────────────────────────────────────────────────
-  const migration: AdminCard[] = [
+  // Kasdienio darbo srautai — review queue + nariai. Aukščiausioje vietoje.
+  const ops: AdminCard[] = [
     {
-      href: '/admin/import',
-      icon: '🚀',
-      label: 'Atlikėjų migracija',
-      hint: 'Wiki + scrape job queue, bulk run',
-      badge: counts?.active_jobs && counts.active_jobs > 0
-        ? { text: `${counts.active_jobs} aktyvūs`, color: 'orange' }
+      href: '/admin/inbox',
+      icon: '📥',
+      label: 'Naujienų inbox',
+      hint: 'News scout candidates → review / publish',
+      badge: counts?.inbox_pending && counts.inbox_pending > 0
+        ? { text: `${counts.inbox_pending} laukia`, color: 'orange' }
+        : undefined,
+    },
+    {
+      href: '/admin/users-migration',
+      icon: '👤',
+      label: 'Narių UGC migracija',
+      hint: 'Per-user content + likes (top karma sąrašas)',
+      badge: counts?.users_migrated && counts.users_migrated > 0
+        ? { text: `${counts.users_migrated} migruoti`, color: 'green' }
         : undefined,
     },
     {
@@ -147,6 +165,18 @@ export default function AdminDashboardPage() {
       hint: 'music.lt has, Wiki neturi — patvirtinti',
       badge: totalPending > 0
         ? { text: `${totalPending} laukia`, color: 'orange' }
+        : undefined,
+    },
+  ]
+
+  const migration: AdminCard[] = [
+    {
+      href: '/admin/import',
+      icon: '🚀',
+      label: 'Atlikėjų migracija',
+      hint: 'Wiki + scrape job queue, bulk run',
+      badge: counts?.active_jobs && counts.active_jobs > 0
+        ? { text: `${counts.active_jobs} aktyvūs`, color: 'orange' }
         : undefined,
     },
     {
@@ -208,9 +238,17 @@ export default function AdminDashboardPage() {
           <AdminMigrationProgress />
         </section>
 
-        {/* Migracija — top priority section, paskutiniai veiksmai */}
+        {/* Kasdienis darbas — inbox, narių UGC, pending review */}
         <section className="mb-8">
-          <SectionTitle icon="🚀" label="Migracija" hint="aktyvuoti scrape, patvirtinti pending entries" />
+          <SectionTitle icon="📋" label="Kasdienis darbas" hint="inbox review, narių migracija, pending entries" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {ops.map(card => <Card key={card.href} card={card} />)}
+          </div>
+        </section>
+
+        {/* Migracija — atlikėjų importas + forum */}
+        <section className="mb-8">
+          <SectionTitle icon="🚀" label="Migracija" hint="atlikėjų importas, forumas" />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {migration.map(card => <Card key={card.href} card={card} />)}
           </div>

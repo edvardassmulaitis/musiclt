@@ -16,6 +16,9 @@ import {
   getProfileByUsername,
   getProfileFavoriteArtists,
   getProfileFavoriteStyles,
+  getProfileFavoriteAlbums,
+  getProfileFavoriteTracks,
+  getProfileLikesCounts,
   getProfileFriends,
   getBlogByUserId,
   getUserContentStats,
@@ -44,9 +47,12 @@ export default async function UserProfilePage({ params }: Props) {
   const profile: any = await getProfileByUsername(username)
   if (!profile || !profile.is_public) notFound()
 
-  const [favoriteArtists, favoriteStyles, friends, blog, stats, moodTrack, dailyPicks, translations] = await Promise.all([
+  const [favoriteArtists, favoriteStyles, favoriteAlbums, favoriteTracks, likesCounts, friends, blog, stats, moodTrack, dailyPicks, translations] = await Promise.all([
     getProfileFavoriteArtists(profile.id),
     getProfileFavoriteStyles(profile.id),
+    getProfileFavoriteAlbums(profile.username, 12),
+    getProfileFavoriteTracks(profile.username, 12),
+    getProfileLikesCounts(profile.username),
     getProfileFriends(profile.id, 24),
     getBlogByUserId(profile.id),
     getUserContentStats(profile.id),
@@ -80,6 +86,9 @@ export default async function UserProfilePage({ params }: Props) {
       profile={profile}
       favoriteArtists={favoriteArtists}
       favoriteStyles={favoriteStyles}
+      favoriteAlbums={favoriteAlbums}
+      favoriteTracks={favoriteTracks}
+      likesCounts={likesCounts}
       friends={friends}
       blog={blog}
       regularPosts={regularPosts}
