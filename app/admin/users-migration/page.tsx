@@ -124,20 +124,23 @@ export default async function UsersMigrationPage({
 
       <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <table className="w-full text-xs whitespace-nowrap" style={{ fontFamily: "'Outfit', sans-serif" }}>
             <thead style={{ background: 'var(--card-bg)' }}>
               <tr className="text-left" style={{ color: 'var(--text-muted)' }}>
                 <th className="px-3 py-2 font-semibold w-10">#</th>
                 <th className="px-3 py-2 font-semibold">Narys</th>
                 <th className="px-3 py-2 font-semibold text-right">Karma</th>
-                <th className="px-3 py-2 font-semibold text-center" title="Nuotaikos daina">M</th>
-                <th className="px-3 py-2 font-semibold text-center" title="Mėgstamiausi stiliai">St</th>
-                <th className="px-3 py-2 font-semibold text-center" title="Mėgstamiausi atlikėjai (profile_favorite_artists)">A</th>
-                <th className="px-3 py-2 font-semibold text-right" title="Like'ai (resolved / pending per artist/album/track)">Likes</th>
-                <th className="px-3 py-2 font-semibold text-right" title="Draugai">Dr</th>
-                <th className="px-3 py-2 font-semibold text-right" title="Dienoraščiai + kūryba + vertimai + topai">Blog</th>
-                <th className="px-3 py-2 font-semibold text-right" title="Dienos dainos">DD</th>
-                <th className="px-3 py-2 font-semibold text-right" title="Komentarai (kaip autorius)">Kom</th>
+                <th className="px-3 py-2 font-semibold text-center">Nuotaikos daina</th>
+                <th className="px-3 py-2 font-semibold text-right">Stiliai</th>
+                <th className="px-3 py-2 font-semibold text-right">Atlikėjai</th>
+                <th className="px-3 py-2 font-semibold text-right" title="resolved / pending per artist/album/track">Mėgsta (♥)</th>
+                <th className="px-3 py-2 font-semibold text-right">Draugai</th>
+                <th className="px-3 py-2 font-semibold text-right">Dienoraščiai</th>
+                <th className="px-3 py-2 font-semibold text-right">Kūryba</th>
+                <th className="px-3 py-2 font-semibold text-right">Vertimai</th>
+                <th className="px-3 py-2 font-semibold text-right">Topai</th>
+                <th className="px-3 py-2 font-semibold text-right">Dienos dainos</th>
+                <th className="px-3 py-2 font-semibold text-right">Komentarai</th>
                 <th className="px-3 py-2 font-semibold text-center">Fazės</th>
               </tr>
             </thead>
@@ -147,7 +150,7 @@ export default async function UsersMigrationPage({
               ))}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                  <td colSpan={15} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
                     Nėra ghost user'ių. Paleisk: <code>python3 scraper/ugc_user_scrape.py &lt;username&gt;</code>
                   </td>
                 </tr>
@@ -194,7 +197,6 @@ function SortPill({ label, active, href }: { label: string; active: boolean; hre
 function UserRow({ row: r, idx }: { row: Row; idx: number }) {
   const likesResolved = r.likes_artist_resolved + r.likes_album_resolved + r.likes_track_resolved
   const likesPending = r.likes_artist_pending + r.likes_album_pending + r.likes_track_pending
-  const blogTotal = r.diary_count + r.creation_count + r.translate_count + r.topas_count
   const expectedLikesArtist = r.legacy_liked_artist_count || 0
   const totalLikesNow = likesResolved + likesPending
 
@@ -244,7 +246,10 @@ function UserRow({ row: r, idx }: { row: Row; idx: number }) {
         )}
       </td>
       <PhaseCell count={r.friends_count} />
-      <PhaseCell count={blogTotal} />
+      <PhaseCell count={r.diary_count} />
+      <PhaseCell count={r.creation_count} />
+      <PhaseCell count={r.translate_count} />
+      <PhaseCell count={r.topas_count} />
       <PhaseCell count={r.daily_picks_count} />
       <PhaseCell count={r.comments_count} />
       <td className="px-3 py-2 text-center">
