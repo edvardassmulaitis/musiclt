@@ -136,6 +136,7 @@ export async function POST(req: Request) {
       else if (full?.album_id) { entType = 'album';  entId = full.album_id;  url = `/albumai/${entId}` }
       else if (full?.news_id)  { entType = 'news';   entId = full.news_id;   url = `/news/${entId}` }
       else if (full?.event_id) { entType = 'event';  entId = full.event_id;  url = `/renginiai/${entId}` }
+      else if (full?.blog_post_id) { entType = 'blog_post'; entId = null;    url = `/blogas` }
 
       await notifyFromSession({
         recipientUserId: targetComment.author_id,

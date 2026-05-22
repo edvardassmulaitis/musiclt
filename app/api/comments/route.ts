@@ -19,8 +19,8 @@ import { logActivity } from '@/lib/activity-logger'
 
 const EDIT_WINDOW_MINUTES = 20
 
-type EntityType = 'track' | 'album' | 'news' | 'event' | 'discussion'
-type EntityCol = 'track_id' | 'album_id' | 'news_id' | 'event_id' | 'discussion_id'
+type EntityType = 'track' | 'album' | 'news' | 'event' | 'discussion' | 'blog_post'
+type EntityCol = 'track_id' | 'album_id' | 'news_id' | 'event_id' | 'discussion_id' | 'blog_post_id'
 
 const ENTITY_COL: Record<EntityType, EntityCol> = {
   track: 'track_id',
@@ -28,11 +28,24 @@ const ENTITY_COL: Record<EntityType, EntityCol> = {
   news: 'news_id',
   event: 'event_id',
   discussion: 'discussion_id',
+  blog_post: 'blog_post_id',
 }
 
 function entityCol(t: string | null): EntityCol | null {
   if (!t) return null
   return ENTITY_COL[t as EntityType] ?? null
+}
+
+/** blog_post_id yra UUID (string), kitos entity_id — bigint (number).
+ *  Apsaugom nuo parseInt('uuid-string') → NaN, kuris nulaužtų visą query'į. */
+function coerceEntityId(entityType: string, entityId: string): number | string | null {
+  if (entityType === 'blog_post') {
+    // UUID format check — non-empty hex string with dashes (relaxed)
+    const v = entityId.trim()
+    return v.length >= 32 ? v : null
+  }
+  const n = parseInt(entityId)
+  return Number.isFinite(n) && n > 0 ? n : null
 }
 
 
@@ -73,10 +86,12 @@ export async function GET(req: Request) {
     .select('id, parent_id, author_id, body, content_html, like_count, reported_count, is_deleted, created_at, updated_at, music_attachments, profiles:author_id(username, full_name, avatar_url, email)')
     .range(offset, offset + limit - 1)
 
+  const eid = coerceEntityId(entityType!, entityId)
+  if (eid === null) return NextResponse.json({ comments: [] })
   if (entityType === 'news') {
-    query = query.or(`news_id.eq.${parseInt(entityId)},discussion_id.eq.${parseInt(entityId)}`)
+    query = query.or(`news_id.eq.${eid},discussion_id.eq.${eid}`)
   } else {
-    query = query.eq(col, parseInt(entityId))
+    query = query.eq(col, eid)
   }
 
   if (sort === 'oldest') query = query.order('created_at', { ascending: true })
@@ -92,9 +107,9 @@ export async function GET(req: Request) {
       .range(offset, offset + limit - 1)
       .order('created_at', { ascending: sort === 'oldest' })
     if (entityType === 'news') {
-      fallback = fallback.or(`news_id.eq.${parseInt(entityId)},discussion_id.eq.${parseInt(entityId)}`)
+      fallback = fallback.or(`news_id.eq.${eid},discussion_id.eq.${eid}`)
     } else {
-      fallback = fallback.eq(col, parseInt(entityId))
+      fallback = fallback.eq(col, eid)
     }
     const fb = await fallback
     data = fb.data
@@ -160,6 +175,9 @@ export async function POST(req: Request) {
   const col = entityCol(entity_type)
   if (!col || !entity_id) return NextResponse.json({ error: 'Bloga entity reikšmė' }, { status: 400 })
 
+  const eid = coerceEntityId(entity_type, String(entity_id))
+  if (eid === null) return NextResponse.json({ error: 'Bloga entity_id reikšmė' }, { status: 400 })
+
   const sb = createAdminClient()
   const authorId = await resolveAuthorId(sb, session)
   if (!authorId) {
@@ -173,12 +191,12 @@ export async function POST(req: Request) {
       .select('id, ' + col)
       .eq('id', parent_id)
       .single()
-    if (!parent || (parent as any)[col] !== parseInt(entity_id))
+    if (!parent || (parent as any)[col] !== eid)
       return NextResponse.json({ error: 'Tėvinis komentaras nerastas' }, { status: 404 })
   }
 
   const insertRow: any = {
-    [col]: parseInt(entity_id),
+    [col]: eid,
     parent_id: parent_id || null,
     author_id: authorId,
     body: (text || '').trim(),
@@ -278,6 +296,7 @@ function buildEntityUrl(entityType: string, entityId: number, _sb: any): string 
     case 'news':        return `/news/${entityId}`
     case 'event':       return `/renginiai/${entityId}`
     case 'discussion':  return `/diskusijos/${entityId}` // ID, ne slug — deep link redirect'inasi
+    case 'blog_post':   return `/blogas` // FE redirect'as iš ID į /blogas/<u>/<slug>
     default:            return '/'
   }
 }

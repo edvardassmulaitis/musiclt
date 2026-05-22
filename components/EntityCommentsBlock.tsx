@@ -69,8 +69,11 @@ type LegacyComment = {
 type AnyComment = ModernComment | LegacyComment
 
 type Props = {
-  entityType: 'track' | 'album' | 'artist' | 'discussion' | 'news' | 'event'
-  entityId: number
+  entityType: 'track' | 'album' | 'artist' | 'discussion' | 'news' | 'event' | 'blog_post'
+  /** track/album/artist/discussion/news/event → numeric ID.
+   *  blog_post → UUID string. Component pass'ina `entityId` as-is į
+   *  /api/comments?entity_id=... (server-side coerce'inama). */
+  entityId: number | string
   /** Optional — only needed if the legacy endpoint differs (currently same shape). */
   legacyEndpoint?: string
   /** Skip legacy /api/{type}s/{id}/comments fetch entirely. Naudoti kai

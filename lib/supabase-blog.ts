@@ -450,6 +450,30 @@ export async function getPostRelatedArtists(postId: string) {
   return (data || []).map((r: any) => r.artists).filter(Boolean)
 }
 
+/** Visi post'o music attachments — artists + albums + tracks per junction
+ *  lenteles. Naudoja JOIN'inius su atitinkamų entity lentelių pagrindinėmis
+ *  display kolonomis. Grąžina unified ordered list iš trijų rūšių, kad UI
+ *  galėtų render'inti vientisą sidebar. Sąrašo eilė: artists, albums, tracks. */
+export async function getPostMusicAttachments(postId: string) {
+  const sb = createAdminClient()
+  const [artistsRes, albumsRes, tracksRes] = await Promise.all([
+    sb.from('blog_post_artists')
+      .select('artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+      .eq('post_id', postId),
+    sb.from('blog_post_albums')
+      .select('album_id, albums:album_id(id, slug, title, cover_image_url, release_year, artist:artist_id(id, slug, name))')
+      .eq('post_id', postId),
+    sb.from('blog_post_tracks')
+      .select('track_id, tracks:track_id(id, slug, title, cover_image_url, youtube_url, artist:artist_id(id, slug, name))')
+      .eq('post_id', postId),
+  ])
+  return {
+    artists: (artistsRes.data || []).map((r: any) => r.artists).filter(Boolean),
+    albums: (albumsRes.data || []).map((r: any) => r.albums).filter(Boolean),
+    tracks: (tracksRes.data || []).map((r: any) => r.tracks).filter(Boolean),
+  }
+}
+
 export async function setPostRelatedArtists(postId: string, artistIds: number[]) {
   const sb = createAdminClient()
   await sb.from('blog_post_artists').delete().eq('post_id', postId)
