@@ -268,11 +268,11 @@ function PhaseCell({ ok, count }: { ok?: boolean; count?: number }) {
   // Either boolean (mood) or numeric
   const present = ok !== undefined ? ok : (count || 0) > 0
   return (
-    <td className="px-3 py-2 text-center tabular-nums">
+    <td className="px-3 py-2 text-right tabular-nums">
       {present ? (
         count !== undefined ? (
           <span className="text-xs" style={{ color: 'var(--text-primary)' }}>
-            {count >= 1000 ? `${(count / 1000).toFixed(1)}k` : count}
+            {count.toLocaleString('lt-LT')}
           </span>
         ) : (
           <span style={{ color: '#16a34a' }}>✓</span>
