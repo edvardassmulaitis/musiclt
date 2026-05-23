@@ -665,6 +665,13 @@ function PlayerCard({
     containerRef.current.appendChild(inner)
 
     const player = new W.YT.Player(inner, {
+      // 2026-05-21: Privacy-Enhanced Mode (youtube-nocookie.com) —
+      // Safari'aus Intelligent Tracking Prevention (ITP) blokuoja
+      // youtube.com cookie/storage trečioms šalims, dėl ko YT player
+      // grąžina Klaidą 153 („Vaizdo įrašų leistuvės konfigūracijos
+      // klaida"). nocookie versija specialiai sukurta embedu — be
+      // tracking cookies, su pilnu funkcionalumu, ir veikia su ITP.
+      host: 'https://www.youtube-nocookie.com',
       videoId: displayVid,
       width: '100%',
       height: '100%',
@@ -718,8 +725,11 @@ function PlayerCard({
         },
         onError: (e: any) => {
           const code = e?.data
-          if (code === 101 || code === 150) {
-            // Embedding disabled — switch to fallback overlay
+          // 101/150 = embed disabled by owner. 153 = player config
+          // error (dažnai Safari ITP / cookie blocking issue). Visus
+          // tris handle'inam vienodai — fallback į „Žiūrėti YouTube'e"
+          // overlay'jų.
+          if (code === 101 || code === 150 || code === 153) {
             const vidNow = (player as any)._vid || displayVid
             setEmbedDisabled(s => {
               if (s.has(vidNow)) return s
@@ -2483,13 +2493,6 @@ function Hero({
         <div
           className={[
             'flex min-w-0 lg:items-center',
-            // 2026-05-21: Tik opacity transition (be transform) — Safari
-            // turi žinomą bug'ą, kai cross-origin iframe inside transformed
-            // ancestor praranda click events ant tam tikrų interactive
-            // element'ų (pvz. YT progress bar single-click seek). Net
-            // `translateY(0)` po animacijos pabaigos lieka aplikuotas
-            // kaip transform, kuris Safari trigger'ina šitą bug'ą. Drop'inam
-            // slide-up dalį, paliekam tik fade-in.
             'transition-opacity duration-700 delay-150 ease-out',
             loaded ? 'opacity-100' : 'opacity-0',
           ].join(' ')}
