@@ -792,7 +792,16 @@ function PlayerCard({
     // negali push'inti parent dydziui).
     <div
       className="w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]"
-      style={{ boxSizing: 'border-box' }}
+      style={{
+        boxSizing: 'border-box',
+        // 2026-05-21 Safari fix: '-webkit-mask-image' radial-gradient
+        // forsuoja Safari sukurti atskirą compositing layer'į šitam
+        // element'ui. Žinomas hack'as sutvarkant cross-origin iframe
+        // click events kai parent turi overflow:hidden + border-radius.
+        // Be šito Safari'jus „prarandavo" click event ant YT progress
+        // bar (drag veikė, single click ne).
+        WebkitMaskImage: '-webkit-radial-gradient(white, black)',
+      }}
     >
       {/* Player area — mobile: aspect-video, desktop: fixed 260px height
           + 100% width.
