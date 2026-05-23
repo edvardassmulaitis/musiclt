@@ -525,7 +525,12 @@ function PlayerCard({
   const containerRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<any>(null)
   const [apiReady, setApiReady] = useState(false)
-  const [isPaused, setIsPaused] = useState(false)
+  // 2026-05-21: isPaused state PAŠALINTAS — buvo set'inamas onStateChange
+  // callback'e per kiekvieną YT player state change (play/buffer/play
+  // sekos kiekviename click'e), bet niekur neskaitomas. Sukurdavo dead
+  // React re-render'ius kiekvieną kartą kai user'is interact'indavo
+  // su YT controls. Safari pasekmė: iframe pointer capture prarandamas
+  // vidury click sekos → progress bar single click nesveik'indavo.
   // Embed-disabled videos: kanalo savininkas (pvz SelMusic) išjungę embed'ą
   // trečioms šalims. YT.Player onError grąžina kodus 101 / 150 šitam case'ui.
   // Saugom Set'ą per session — jei vienas video disabled, mes display'inam
@@ -688,7 +693,9 @@ function PlayerCard({
         onStateChange: (e: any) => {
           // YT player states: -1=unstarted, 0=ended, 1=playing,
           // 2=paused, 3=buffering, 5=cued.
-          setIsPaused(!(e.data === 1 || e.data === 3))
+          // NB: nepateikiam React state'o iš čia — vidury YT click sekos
+          // (progress bar seek = buffering → playing) re-render'iai
+          // ant Safari sukeldavo iframe pointer capture loss.
           if (e.data === 0) {
             // Track ended — auto-skip į kitą track'ą sąraše su video,
             // su rollover į pradžią. Naudojam ref'us, kad gautume
@@ -781,7 +788,6 @@ function PlayerCard({
     if (id === activeTrackId && playing) return  // already playing this track
     onSelectTrack(id)
     onRequestPlay()
-    setIsPaused(false)
     pingPlay(id)
   }
 
@@ -792,16 +798,7 @@ function PlayerCard({
     // negali push'inti parent dydziui).
     <div
       className="w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]"
-      style={{
-        boxSizing: 'border-box',
-        // 2026-05-21 Safari fix: '-webkit-mask-image' radial-gradient
-        // forsuoja Safari sukurti atskirą compositing layer'į šitam
-        // element'ui. Žinomas hack'as sutvarkant cross-origin iframe
-        // click events kai parent turi overflow:hidden + border-radius.
-        // Be šito Safari'jus „prarandavo" click event ant YT progress
-        // bar (drag veikė, single click ne).
-        WebkitMaskImage: '-webkit-radial-gradient(white, black)',
-      }}
+      style={{ boxSizing: 'border-box' }}
     >
       {/* Player area — mobile: aspect-video, desktop: fixed 260px height
           + 100% width.
