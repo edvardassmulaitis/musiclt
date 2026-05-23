@@ -26,8 +26,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { resizeForUpload } from '@/lib/image-resize'
 
 const supabase = createAdminClient()
+const MAX_REHOST_BYTES = 25 * 1024 * 1024
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions)
@@ -81,17 +83,17 @@ async function fetchAndUpload(url: string): Promise<{ ok: true; newUrl: string }
   if (buffer.byteLength < 200) {
     return { ok: false, error: `Tiny response (${buffer.byteLength}B)` }
   }
+  if (buffer.byteLength > MAX_REHOST_BYTES) {
+    return { ok: false, error: `Too large (${(buffer.byteLength/1024/1024).toFixed(1)}MB > 25MB)` }
+  }
 
-  const ext = contentType.includes('png') ? 'png'
-    : contentType.includes('gif') ? 'gif'
-    : contentType.includes('webp') ? 'webp'
-    : contentType.includes('svg') ? 'svg'
-    : 'jpg'
-  const filename = `rehost/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  // Resize/compress: Wikipedia originalai būna 10-20MB — webp q80 1920px sumažina ~5-10x
+  const resized = await resizeForUpload(buffer, contentType)
+  const filename = `rehost/${Date.now()}-${Math.random().toString(36).slice(2)}.${resized.ext}`
 
   const { error: uploadError } = await supabase.storage
     .from('covers')
-    .upload(filename, buffer, { contentType, upsert: false })
+    .upload(filename, resized.buffer, { contentType: resized.contentType, upsert: false })
   if (uploadError) return { ok: false, error: `Upload: ${uploadError.message}` }
 
   const { data } = supabase.storage.from('covers').getPublicUrl(filename)

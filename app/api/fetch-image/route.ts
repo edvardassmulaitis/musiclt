@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { resizeForUpload } from '@/lib/image-resize'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+const MAX_FETCH_BYTES = 25 * 1024 * 1024
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,31 +50,31 @@ export async function POST(req: NextRequest) {
 
     const contentType = response.headers.get('content-type') || 'image/jpeg'
     const buffer = Buffer.from(await response.arrayBuffer())
+    if (buffer.length > MAX_FETCH_BYTES) {
+      return NextResponse.json({ error: `Failas per didelis (${(buffer.length/1024/1024).toFixed(1)}MB > 25MB)` }, { status: 400 })
+    }
 
-    // Grąžinti dataUrl jei prašoma (pvz. cropper preview)
+    // Grąžinti dataUrl jei prašoma (pvz. cropper preview) — be resize, kad cropper'iui būtų original
     if (returnDataUrl) {
       const base64 = buffer.toString('base64')
       const dataUrl = `data:${contentType.split(';')[0]};base64,${base64}`
       return NextResponse.json({ url: dataUrl, dataUrl })
     }
 
-    // Įkelti į Supabase storage — 'covers' bucket
-    const ext = contentType.includes('png') ? 'png'
-      : contentType.includes('gif') ? 'gif'
-      : contentType.includes('webp') ? 'webp'
-      : 'jpg'
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    // Resize/compress prieš upload — max 1920px webp q80, sutaupo ~5-10x storage
+    const resized = await resizeForUpload(buffer, contentType)
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${resized.ext}`
 
     const { error: uploadError } = await supabase.storage
       .from('covers')
-      .upload(filename, buffer, { contentType: contentType.split(';')[0], upsert: false })
+      .upload(filename, resized.buffer, { contentType: resized.contentType, upsert: false })
 
     if (uploadError) {
       return NextResponse.json({ error: `Upload nepavyko: ${uploadError.message}` }, { status: 500 })
     }
 
     const { data: { publicUrl } } = supabase.storage.from('covers').getPublicUrl(filename)
-    return NextResponse.json({ url: publicUrl })
+    return NextResponse.json({ url: publicUrl, _bytes: { in: resized.inputBytes, out: resized.outputBytes } })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

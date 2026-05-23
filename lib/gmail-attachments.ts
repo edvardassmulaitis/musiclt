@@ -17,6 +17,7 @@
 import { getMessageAttachments, getAttachmentBuffer } from './gmail-client'
 import { extractExifFromBuffer } from './exif-extract'
 import { extractPhotographerFromFilename } from './extract-credits'
+import { resizeForUpload } from './image-resize'
 
 export const ATTACHMENTS_BUCKET = 'news-attachments'
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024  // Gmail max 25MB; press release foto dažnai 5-15MB hi-res
@@ -114,6 +115,7 @@ export async function processMessageAttachments(
         continue
       }
 
+      // EXIF extract'inam iš ORIGINAL buffer'io — sharp resize būtų pametęs metadata
       const exif = await extractExifFromBuffer(buf, m.mimeType)
 
       // Photographer fallback chain: EXIF → filename CREDIT_xxx → body text fallback
@@ -125,12 +127,16 @@ export async function processMessageAttachments(
         finalPhotographer = options.fallbackPhotographer
       }
 
-      const safeName = sanitizeFilename(m.filename)
+      // Resize/compress: press release foto dažnai 5-15MB hi-res. EXIF jau extract'intas,
+      // tad webp q80 1920px sutaupo ~5-10x storage.
+      const resized = await resizeForUpload(buf, m.mimeType)
+
+      const safeName = sanitizeFilename(m.filename).replace(/\.(jpe?g|png|gif|webp)$/i, '') + '.' + resized.ext
       const storagePath = `gmail/${candidateId}/${Date.now()}-${i}-${safeName}`
 
       const { error: uploadErr } = await supabase.storage
         .from(ATTACHMENTS_BUCKET)
-        .upload(storagePath, buf, { contentType: m.mimeType, upsert: false })
+        .upload(storagePath, resized.buffer, { contentType: resized.contentType, upsert: false })
       if (uploadErr) {
         result.failed++
         result.errors.push(`upload ${m.filename}: ${uploadErr.message}`)
@@ -149,8 +155,8 @@ export async function processMessageAttachments(
           storage_path: storagePath,
           public_url: publicUrl,
           filename: m.filename,
-          mime_type: m.mimeType,
-          file_size: buf.length,
+          mime_type: resized.contentType,
+          file_size: resized.buffer.length,
           photographer: finalPhotographer,
           copyright: exif.copyright,
           year_taken: exif.year_taken,

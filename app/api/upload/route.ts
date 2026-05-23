@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
+import { resizeForUpload } from '@/lib/image-resize'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,20 +37,21 @@ export async function POST(req: NextRequest) {
       }
 
       const buffer = Buffer.from(await response.arrayBuffer())
-      if (buffer.length > 5 * 1024 * 1024) {
-        return NextResponse.json({ error: 'Failas per didelis (max 5MB)' }, { status: 400 })
+      if (buffer.length > 25 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Failas per didelis (max 25MB prieš resize)' }, { status: 400 })
       }
 
-      const ext = imgContentType.split('/')[1]?.split(';')[0] || 'jpg'
-      const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      // Resize/compress: max 1920px webp q80 — sutaupo ~5-10x storage
+      const resized = await resizeForUpload(buffer, imgContentType)
+      const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${resized.ext}`
 
       const { error: uploadError } = await supabase.storage
         .from(BUCKET)
-        .upload(filename, buffer, { contentType: imgContentType, upsert: false })
+        .upload(filename, resized.buffer, { contentType: resized.contentType, upsert: false })
       if (uploadError) throw uploadError
 
       const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename)
-      return NextResponse.json({ url: urlData.publicUrl })
+      return NextResponse.json({ url: urlData.publicUrl, _bytes: { in: resized.inputBytes, out: resized.outputBytes } })
     }
 
     // ── File upload ─────────────────────────────────────────────────────────
@@ -60,21 +62,22 @@ export async function POST(req: NextRequest) {
     if (!file.type.startsWith('image/')) {
       return NextResponse.json({ error: 'Leidžiami tik nuotraukų failai' }, { status: 400 })
     }
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Failas per didelis (max 5MB)' }, { status: 400 })
+    if (file.size > 25 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Failas per didelis (max 25MB prieš resize)' }, { status: 400 })
     }
 
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
+    // Resize/compress: max 1920px webp q80 — sutaupo ~5-10x storage
+    const resized = await resizeForUpload(buffer, file.type)
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${resized.ext}`
 
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
-      .upload(filename, buffer, { contentType: file.type, upsert: false })
+      .upload(filename, resized.buffer, { contentType: resized.contentType, upsert: false })
     if (uploadError) throw uploadError
 
     const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename)
-    return NextResponse.json({ url: urlData.publicUrl })
+    return NextResponse.json({ url: urlData.publicUrl, _bytes: { in: resized.inputBytes, out: resized.outputBytes } })
 
   } catch (e: any) {
     console.error('Upload error:', e)
