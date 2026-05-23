@@ -145,6 +145,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
           rating: post.rating ?? null,
           tags: post.tags || [],
           list_items: Array.isArray(post.list_items) ? post.list_items : [],
+          creation_subtype: (post as any).creation_subtype ?? null,
         }}
         postType={postType}
         typeLabel={typeMeta?.label || ''}

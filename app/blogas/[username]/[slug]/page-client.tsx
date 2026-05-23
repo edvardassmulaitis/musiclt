@@ -45,6 +45,7 @@ type Props = {
     rating: number | null
     tags: string[]
     list_items: any[]
+    creation_subtype?: string | null
   }
   postType: BlogPostType
   typeLabel: string
@@ -67,7 +68,18 @@ type Props = {
 // Auto-importuoti tag'ai (scraper'io pridėti) — niekur nerodomi.
 // Tag'us paliekam tik user'io originalius (jei ką ant music.lt jis pats sudėjo;
 // dabartiniame scrape'e nematėm tokių case'ų, bet pasiliekam erdvę plėtrai).
-const AUTO_TAGS = new Set(['legacy', 'dienoraštis', 'dienorastis'])
+// Tag'ai, kurie buvo auto-įdedami legacy migration metu — dabar paslepiami nuo
+// chip listing'o. Type badge (KŪRYBA / VERTIMAS / ...) ir creation_subtype
+// (Eilėraštis, Novelė, ...) jau rodomi atskirai virš title'o, dubliuoti chip'e
+// būtų triukšmas.
+const AUTO_TAGS = new Set([
+  'legacy', 'dienoraštis', 'dienorastis',
+  'vertimas', 'kūryba', 'kuryba',
+  'eilėraštis', 'eilerastis',
+  'novelė', 'novele',
+  'miniatiūra', 'miniatiura',
+  'apsakymas', 'esė', 'ese', 'proza', 'daina',
+])
 
 function ytId(url?: string | null) {
   if (!url) return null
@@ -480,6 +492,13 @@ export default function BlogPostPageClient(props: Props) {
               {showChip && typeLabel && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <span className="bp-chip">{typeLabel}</span>
+                  {postType === 'creation' && post.creation_subtype && (
+                    <span className="bp-chip" style={{
+                      background: 'rgba(255,255,255,0.06)',
+                      borderColor: 'rgba(255,255,255,0.12)',
+                      color: 'rgba(220,232,248,0.85)',
+                    }}>{post.creation_subtype}</span>
+                  )}
                   {postType === 'review' && post.rating !== null && post.rating !== undefined && (
                     <span className="bp-rating">{post.rating}/10</span>
                   )}
