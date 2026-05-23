@@ -119,6 +119,20 @@ export default function BlogPostPageClient(props: Props) {
   const showChip = postType !== 'article'   // tik custom type'ams
   const visibleTags = (post.tags || []).filter(t => !AUTO_TAGS.has((t || '').toLowerCase()))
 
+  // Hide summary kai jis yra body excerpt'as — anksčiau scraper'is
+  // body_excerpt'ą įdėdavo kaip summary, bet kūnas prasideda su tais pačiais
+  // sakiniais → dublikacija. Tikrinam ar summary tekstas yra prefix'as
+  // strip'into body'o (be HTML tag'ų, sumažintas whitespace).
+  const showSummary = (() => {
+    if (!post.summary || !post.content) return !!post.summary
+    const norm = (s: string) => s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
+    const sum = norm(post.summary)
+    const body = norm(post.content)
+    if (!sum || !body) return !!post.summary
+    // Jei summary identiškas pradiniam body fragment'ui (~95% match) → hide.
+    return !body.startsWith(sum.slice(0, Math.min(sum.length, 100)))
+  })()
+
   const scrollToComments = () => {
     document.getElementById('bp-comments')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -399,7 +413,19 @@ export default function BlogPostPageClient(props: Props) {
         }
         @media (max-width: 960px) {
           .bp-grid.has-sb { grid-template-columns:1fr; }
-          .bp-sidebar { position:static; top:auto; }
+          /* Reorder mobile: InfoBox (sidebar) PIRMA (virš teksto), tada main.
+             Naudojam display:contents + flex order'ius, bet CSS Grid'e per
+             grid-auto-flow ir explicit order ant child'ų. */
+          .bp-grid.has-sb main { order:2; }
+          .bp-grid.has-sb .bp-sidebar { order:1; position:static; top:auto;
+                                         flex-direction:column; gap:14px; }
+          /* Mobile'e InfoBox kompaktiškas — tik avatar+meta+actions vienoje
+             eilėje, kad netruktų vietos. Player'is su iframe lieka sticky,
+             bet rendr'inasi POŽ infoboxu (jau order'įjuje). */
+          .bp-info-box { padding:12px 14px; gap:10px; }
+          .bp-info-author { gap:10px; }
+          .bp-info-av { width:38px; height:38px; }
+          /* Sumažinam mobile hero ir gridą */
           .bp-hero { min-height:auto; flex-direction:column; }
           .bp-hero-photo { position:relative; width:100%; height:160px; }
           .bp-hero-photo img { -webkit-mask-image:linear-gradient(to top, transparent 0%, black 50%);
@@ -407,8 +433,7 @@ export default function BlogPostPageClient(props: Props) {
           .bp-hero-content { padding:14px 18px 18px; max-width:100%; }
           .bp-hero-inner { max-width:100%; }
           .bp-page { padding:0 18px; }
-          .bp-grid { padding:18px 0 60px; gap:24px; }
-          .bp-prose, .bp-topas, .bp-comments { max-width:none; }
+          .bp-grid { padding:18px 0 60px; gap:20px; }
         }
         @media (max-width: 540px) {
           .bp-hero-photo { height:130px; }
@@ -447,7 +472,7 @@ export default function BlogPostPageClient(props: Props) {
 
             {/* MAIN (left) — tik tekstas + komentarai */}
             <main style={{ minWidth: 0 }}>
-              {post.summary && <p className="bp-summary">{post.summary}</p>}
+              {showSummary && <p className="bp-summary">{post.summary}</p>}
 
               {post.content && (
                 <div className="bp-prose">

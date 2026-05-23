@@ -1,12 +1,44 @@
 'use client'
 
+// proxyImg per weserv.nl — kad legacy music.lt nuotraukos
+// (https://www.music.lt/... arba relative paths) išvengtų hotlink/CORS
+// block'o. weserv.nl rewrite'ina + cache'ina visus URL'us.
+function proxyImg(url: string): string {
+  if (!url) return url
+  // Data URLs ir relative `./` paveiksliukai praleidžiami
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url
+  // Relatyvūs path'ai (kaip `/images/...`) — paverčiam į absolute music.lt
+  let absoluteUrl = url
+  if (url.startsWith('/')) {
+    absoluteUrl = `https://www.music.lt${url}`
+  } else if (!url.startsWith('http')) {
+    absoluteUrl = `https://www.music.lt/${url}`
+  }
+  // Jau proxy'intų netinkam pakartotinai
+  if (absoluteUrl.includes('wsrv.nl') || absoluteUrl.includes('weserv.nl')) return absoluteUrl
+  return `https://wsrv.nl/?url=${encodeURIComponent(absoluteUrl)}`
+}
+
+/** Rewrite'ina visus `<img src="...">` per proxyImg() prieš dangerouslySetInnerHTML.
+ *  Reikalinga, nes legacy editor'iaus nuotraukos siunčiamos su `src="https://
+ *  www.music.lt/images/..."` arba relative path'ais — naršyklėje jas blokuoja
+ *  hotlink/CSP. Proxy per weserv.nl pataiso, plius leidžia resize/format options. */
+function rewriteImageSrcs(html: string): string {
+  if (!html) return html
+  return html.replace(/(<img[^>]+src=)["']([^"']+)["']/gi, (m, prefix, src) => {
+    const proxied = proxyImg(src)
+    return `${prefix}"${proxied}"`
+  })
+}
+
 export function PostContent({ html }: { html: string }) {
+  const processedHtml = rewriteImageSrcs(html)
   return (
     <>
       <div
         className="prose-custom leading-relaxed mb-10"
         style={{ color: 'var(--text-primary, #dde8f8)', fontSize: '17px', lineHeight: 1.75 }}
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: processedHtml }}
       />
       <style jsx global>{`
         .prose-custom h2 { font-size: 1.625em; font-weight: 800; margin: 2em 0 0.6em; color: #f2f4f8; font-family: 'Outfit', sans-serif; letter-spacing: -.02em; }
@@ -20,9 +52,18 @@ export function PostContent({ html }: { html: string }) {
         .prose-custom li { margin: 6px 0; }
         .prose-custom strong { color: #f2f4f8; font-weight: 700; }
         .prose-custom em { color: #dde8f8; }
-        .prose-custom img { border-radius: 14px; margin: 28px auto; max-width: 100%; display: block; box-shadow: 0 1px 0 rgba(255,255,255,0.04); }
+        .prose-custom img { border-radius: 14px; margin: 28px auto; max-width: 100%; height: auto; display: block; box-shadow: 0 1px 0 rgba(255,255,255,0.04); }
+        /* IFrame embed'ai (Spotify/YouTube) — autoriaus įdėti tarp paragraph'ų;
+           lieka inline body'je natūralioje vietoje. Responsive wrapper'is per
+           aspect-ratio kad mobile'e neperviršytų plotis. */
+        .prose-custom iframe { display: block; margin: 28px auto; border-radius: 14px;
+                                max-width: 100%; border: 0; }
+        .prose-custom iframe[src*="youtube.com/embed"],
+        .prose-custom iframe[src*="youtube-nocookie.com/embed"] {
+          width: 100%; max-width: 720px; aspect-ratio: 16/9; height: auto; }
+        .prose-custom iframe[src*="spotify.com/embed"] {
+          width: 100%; max-width: 720px; height: 152px; }
         .prose-custom .embed-container, .prose-custom .embed-yt { margin: 28px auto; border-radius: 14px; overflow: hidden; }
-        .prose-custom iframe { border-radius: 14px; margin: 28px auto; display: block; }
         .prose-custom .ml-card { transition: background .15s ease; }
         .prose-custom .ml-card:hover { background: rgba(255,255,255,0.06) !important; }
         .prose-custom hr { border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 36px 0; }

@@ -264,19 +264,11 @@ export function extractMusicFromBody(html: string): BlogContentExtracted {
   hits.sort((a, b) => a.start - b.start)
   const music = hits.map(h => h.track)
 
-  // Strip — eilės tvarka iš galo, kad indeksai neperslysteltų. Apima:
-  //   • iframe'us — vienetiniai
-  //   • legacy widget TABLE'us — pilną table, ne tik rows (kitaip liks tuščias
-  //     wrapper su style="width:100%")
+  // Strip TIK legacy favorite widget table'us — iframe'ai LIEKA body'je,
+  // kad autoriaus pozicionavimas (kur jis YouTube/Spotify embed'us įdėjo
+  // tarp paragrafų) būtų išsaugotas. Sidebar'as gauna metadata kopijas,
+  // bet originaliai patalpa straipsnyje neperkraunama.
   const stripRanges: Array<{ start: number; end: number }> = []
-  YT_EMBED_RE.lastIndex = 0
-  for (let m: RegExpExecArray | null; (m = YT_EMBED_RE.exec(html)) !== null; ) {
-    stripRanges.push({ start: m.index, end: m.index + m[0].length })
-  }
-  SPOTIFY_EMBED_RE.lastIndex = 0
-  for (let m: RegExpExecArray | null; (m = SPOTIFY_EMBED_RE.exec(html)) !== null; ) {
-    stripRanges.push({ start: m.index, end: m.index + m[0].length })
-  }
   for (const t of tableMatches) stripRanges.push(t)
   stripRanges.sort((a, b) => b.start - a.start)
   let cleaned = html
