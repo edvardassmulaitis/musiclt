@@ -2482,8 +2482,15 @@ function Hero({
         <div
           className={[
             'flex min-w-0 lg:items-center',
-            'transition-[opacity,transform] duration-700 delay-150 ease-out',
-            loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+            // 2026-05-21: Tik opacity transition (be transform) — Safari
+            // turi žinomą bug'ą, kai cross-origin iframe inside transformed
+            // ancestor praranda click events ant tam tikrų interactive
+            // element'ų (pvz. YT progress bar single-click seek). Net
+            // `translateY(0)` po animacijos pabaigos lieka aplikuotas
+            // kaip transform, kuris Safari trigger'ina šitą bug'ą. Drop'inam
+            // slide-up dalį, paliekam tik fade-in.
+            'transition-opacity duration-700 delay-150 ease-out',
+            loaded ? 'opacity-100' : 'opacity-0',
           ].join(' ')}
         >
           {/* Player wrapper — fixed max-width nepriklausomai nuo playing
