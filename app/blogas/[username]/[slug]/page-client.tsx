@@ -128,13 +128,24 @@ export default function BlogPostPageClient(props: Props) {
       <style jsx global>{`
         .bp-root { background:#080d14; color:#dde8f8; font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; }
 
-        /* ── HERO — kompaktiškas, BE pilnaplotės nuotraukos. Tik title chip + gradient bg ── */
-        .bp-hero { position:relative; overflow:hidden; padding:32px 0 18px;
-                   background:linear-gradient(180deg, #0d1420 0%, #0a0f18 100%); }
+        /* ── HERO — split: title LEFT (60%), photo RIGHT (40%, fade-out) ── */
+        .bp-hero { position:relative; min-height:240px; overflow:hidden;
+                   background:linear-gradient(180deg, #0d1420 0%, #0a0f18 100%);
+                   display:flex; align-items:flex-end; }
         .bp-hero::after { content:''; position:absolute; inset:0; pointer-events:none;
                           background:radial-gradient(ellipse at 75% 30%, rgba(249,115,22,0.06) 0%, transparent 60%); }
-        .bp-hero-content { position:relative; z-index:2; width:100%; max-width:1400px; margin:0 auto; padding:0 32px; }
-        .bp-hero-inner { max-width:900px; animation:bp-in .6s ease-out both; }
+        /* Photo dešinėje — užima ~45% pločio, fade'inasi į kairę kad tekstas neuždengtų */
+        .bp-hero-photo { position:absolute; top:0; right:0; bottom:0; width:45%; overflow:hidden; z-index:1; }
+        .bp-hero-photo img { width:100%; height:100%; object-fit:cover; object-position:center 25%;
+                              animation:bp-hero-zoom 18s ease-out forwards;
+                              -webkit-mask-image:linear-gradient(to left, black 35%, transparent 100%);
+                              mask-image:linear-gradient(to left, black 35%, transparent 100%); }
+        .bp-hero-photo-fade { position:absolute; inset:0;
+                              background:linear-gradient(to top, rgba(8,13,20,0.45) 0%, transparent 60%); }
+        @keyframes bp-hero-zoom { from { transform:scale(1) } to { transform:scale(1.06) } }
+        .bp-hero-content { position:relative; z-index:2; width:100%; max-width:1400px; margin:0 auto;
+                           padding:36px 32px 28px; }
+        .bp-hero-inner { max-width:55%; animation:bp-in .6s ease-out both; }
         @keyframes bp-in { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
 
         .bp-chip { display:inline-block; font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.08em;
@@ -168,8 +179,8 @@ export default function BlogPostPageClient(props: Props) {
 
         /* ── PAGE LAYOUT ── */
         .bp-page { max-width:1400px; margin:0 auto; padding:0 32px; }
-        .bp-grid { display:grid; gap:40px; align-items:start; padding:14px 0 80px; }
-        .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 360px; }
+        .bp-grid { display:grid; gap:28px; align-items:start; padding:18px 0 80px; }
+        .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 340px; }
 
         /* ── SIDEBAR — sticky right ── */
         .bp-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:14px; min-width:0; }
@@ -195,7 +206,8 @@ export default function BlogPostPageClient(props: Props) {
         .bp-sb-heading { font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.14em;
                          text-transform:uppercase; color:#5e7290; margin:0 0 10px; }
 
-        /* Music player — sidebar variant of news .mu-* */
+        /* Player — perimta artist page tracks-table stilistika su rows
+           (# | title | popbar). Aspect-video viršuje su orange play overlay. */
         .bp-mu-hdr { display:flex; align-items:center; gap:9px; padding:10px 14px;
                      border-bottom:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); }
         .bp-mu-hdr-icon { width:26px; height:26px; border-radius:7px;
@@ -207,12 +219,13 @@ export default function BlogPostPageClient(props: Props) {
         @keyframes bp-eq { from { transform:scaleY(.3) } to { transform:scaleY(1) } }
         .bp-mu-hdr-label { font-family:'Outfit',sans-serif; font-size:10px; font-weight:800; text-transform:uppercase;
                            letter-spacing:.1em; color:#8aa8cc; flex:1; }
+        /* Video — atskirta aspect ratio dėl Spotify (152px height) vs YT (16:9) */
         .bp-mu-video { background:#000; aspect-ratio:16/9; position:relative; }
-        .bp-mu-video.is-spotify { aspect-ratio:auto; height:120px; }
-        .bp-mu-video.is-spotify .bp-mu-iframe { height:120px; }
+        .bp-mu-video.is-spotify { aspect-ratio:auto; height:152px; }
+        .bp-mu-video.is-spotify .bp-mu-iframe { height:152px; }
         .bp-mu-src-badge { position:absolute; top:8px; right:8px; padding:3px 8px; border-radius:6px;
                            font-family:'Outfit',sans-serif; font-size:9px; font-weight:900; letter-spacing:.1em;
-                           text-transform:uppercase; color:#fff; backdrop-filter:blur(8px); }
+                           text-transform:uppercase; color:#fff; backdrop-filter:blur(8px); z-index:2; }
         .bp-mu-src-youtube { background:rgba(255,0,0,0.85); }
         .bp-mu-src-spotify { background:rgba(30,215,96,0.9); color:#000; }
         .bp-mu-src-music_lt { background:rgba(249,115,22,0.85); }
@@ -221,15 +234,20 @@ export default function BlogPostPageClient(props: Props) {
         .bp-mu-thumb-noplay { cursor:default; }
         .bp-mu-no-thumb { width:100%; height:100%; display:flex; align-items:center; justify-content:center;
                           font-size:48px; color:#5e7290; background:#080d14; }
+        /* Orange play btn — same as artist page hero (52-58px diameter, soft shadow, scale hover) */
         .bp-mu-play-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-                              background:linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4));
-                              transition:background .2s; pointer-events:none; }
-        .bp-mu-thumb:hover .bp-mu-play-overlay { background:rgba(0,0,0,0.3); }
-        .bp-mu-play-btn { width:54px; height:54px; border-radius:50%; background:#f97316;
+                              background:rgba(0,0,0,0.25); transition:background .2s; pointer-events:none; }
+        .bp-mu-thumb:hover .bp-mu-play-overlay { background:rgba(0,0,0,0.4); }
+        .bp-mu-play-btn { width:52px; height:52px; border-radius:50%;
+                          background:var(--accent-orange, #f97316);
+                          box-shadow:0 8px 24px rgba(249,115,22,0.45);
                           display:flex; align-items:center; justify-content:center;
-                          box-shadow:0 4px 20px rgba(249,115,22,0.4); transform:scale(0.95); transition:transform .2s; }
-        .bp-mu-thumb:hover .bp-mu-play-btn { transform:scale(1); }
+                          ring:3px solid rgba(255,255,255,0.15);
+                          border:3px solid rgba(255,255,255,0.15);
+                          transform:scale(0.95); transition:transform .2s; }
+        .bp-mu-thumb:hover .bp-mu-play-btn { transform:scale(1.1); }
         .bp-mu-iframe { width:100%; height:100%; border:none; }
+        /* Now-playing strip — kompakt'as title + artist */
         .bp-mu-now { display:flex; align-items:center; gap:10px; padding:10px 14px;
                      background:rgba(249,115,22,.06); border-top:1px solid rgba(249,115,22,.1); }
         .bp-mu-now-info { flex:1; min-width:0; }
@@ -240,24 +258,31 @@ export default function BlogPostPageClient(props: Props) {
                     width:28px; height:28px; display:flex; align-items:center; justify-content:center;
                     color:#dde8f8; text-decoration:none; flex-shrink:0; transition:background .15s; }
         .bp-mu-yt:hover { background:rgba(255,255,255,0.1); }
-        .bp-mu-list { max-height:320px; overflow-y:auto; border-top:1px solid rgba(255,255,255,0.05); }
-        .bp-mu-track { width:100%; display:flex; align-items:center; gap:9px; padding:9px 14px;
-                       background:transparent; border:none; border-bottom:1px solid rgba(255,255,255,0.04);
-                       cursor:pointer; text-align:left; transition:background .15s; font-family:'DM Sans',sans-serif; color:inherit; }
-        .bp-mu-track:last-child { border-bottom:none; }
+
+        /* Track list — artist page TracksTable stiliumi: row (# | title | popbar) */
+        .bp-mu-list { max-height:360px; overflow-y:auto; padding:4px 0; }
+        .bp-mu-list::-webkit-scrollbar { width:6px; }
+        .bp-mu-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:3px; }
+        .bp-mu-track { width:100%; display:flex; align-items:center; gap:10px; padding:8px 14px;
+                       background:transparent; border:none; cursor:pointer; text-align:left;
+                       transition:background .15s; font-family:'DM Sans',sans-serif; color:inherit; }
         .bp-mu-track:hover { background:rgba(255,255,255,0.03); }
-        .bp-mu-track-on { background:rgba(249,115,22,.06); }
-        .bp-mu-track-num { font-family:'Outfit',sans-serif; font-size:10.5px; font-weight:800; color:#5e7290;
-                           min-width:14px; text-align:center; flex-shrink:0; }
+        .bp-mu-track-on { background:rgba(249,115,22,.08); }
+        .bp-mu-track-num { font-family:'Outfit',sans-serif; font-size:11.5px; font-weight:800; color:#5e7290;
+                           min-width:18px; text-align:center; flex-shrink:0; font-variant-numeric:tabular-nums; }
         .bp-mu-track-on .bp-mu-track-num { color:#f97316; }
-        .bp-mu-track-img { width:32px; height:32px; border-radius:5px; object-fit:cover; flex-shrink:0; }
-        .bp-mu-track-img-empty { background:rgba(255,255,255,0.04); display:flex; align-items:center; justify-content:center;
-                                  font-size:12px; color:#334058; }
-        .bp-mu-track-info { flex:1; min-width:0; }
-        .bp-mu-track-title { font-size:12px; font-weight:700; color:#dde8f8; margin:0;
+        .bp-mu-track-info { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+        .bp-mu-track-title { font-family:'Outfit',sans-serif; font-size:12.5px; font-weight:700; color:#dde8f8;
+                             margin:0; line-height:1.25;
                              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .bp-mu-track-artist { font-size:10px; color:#8aa8cc; margin:2px 0 0;
+        .bp-mu-track-on .bp-mu-track-title { color:#f97316; }
+        .bp-mu-track-artist { font-size:10.5px; color:#8aa8cc; margin:0; line-height:1.2;
                               white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        /* Mini PopBar — vienodas su artist page (3px dash, 14px width) */
+        .bp-mu-popbar { display:flex; gap:2px; align-items:center; flex-shrink:0; }
+        .bp-mu-popbar span { display:inline-block; height:3px; width:10px; border-radius:1.5px;
+                              background:rgba(255,255,255,0.18); }
+        .bp-mu-popbar span.is-on { background:var(--accent-orange, #f97316); }
 
         /* Generic attachment item (artists/albums lists) */
         .bp-att-item { display:flex; align-items:center; gap:10px; padding:7px 6px; border-radius:8px;
@@ -361,29 +386,37 @@ export default function BlogPostPageClient(props: Props) {
 
         /* ── RESPONSIVE ── */
         @media (max-width: 1100px) {
-          .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 340px; }
+          .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 320px; }
         }
         @media (max-width: 960px) {
           .bp-grid.has-sb { grid-template-columns:1fr; }
           .bp-sidebar { position:static; top:auto; }
-          .bp-hero { height:auto; min-height:260px; }
-          .bp-hero-img { width:100%; height:220px; position:relative; -webkit-mask-image:none; mask-image:none; }
-          .bp-hero-overlay { display:none; }
-          .bp-hero-content { padding:18px 18px 22px; max-width:100%; }
+          .bp-hero { min-height:auto; flex-direction:column; }
+          .bp-hero-photo { position:relative; width:100%; height:160px; }
+          .bp-hero-photo img { -webkit-mask-image:linear-gradient(to top, transparent 0%, black 50%);
+                                mask-image:linear-gradient(to top, transparent 0%, black 50%); }
+          .bp-hero-content { padding:14px 18px 18px; max-width:100%; }
           .bp-hero-inner { max-width:100%; }
           .bp-page { padding:0 18px; }
-          .bp-grid { padding:24px 0 60px; gap:30px; }
-          .bp-prose, .bp-topas, .bp-footer-row, .bp-author-footer, .bp-comments { max-width:none; }
+          .bp-grid { padding:18px 0 60px; gap:24px; }
+          .bp-prose, .bp-topas, .bp-comments { max-width:none; }
         }
         @media (max-width: 540px) {
-          .bp-hero-img { height:180px; }
-          .bp-h1 { font-size:1.55rem; }
+          .bp-hero-photo { height:130px; }
+          .bp-h1 { font-size:1.5rem; }
         }
       `}</style>
 
       <div className="bp-root">
-        {/* ══════════ HERO — kompaktiškas (tik title + chip), be pilnaplotės nuotraukos ══ */}
-        <div className="bp-hero">
+        {/* ══════════ HERO — title KAIRĖJE, nuotrauka DEŠINĖJE (mirror of artist page) ═══ */}
+        <section className="bp-hero">
+          {heroImage && (
+            <div className="bp-hero-photo">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={proxyImg(heroImage)} alt="" />
+              <div className="bp-hero-photo-fade" />
+            </div>
+          )}
           <div className="bp-hero-content">
             <div className="bp-hero-inner">
               {showChip && typeLabel && (
@@ -397,7 +430,7 @@ export default function BlogPostPageClient(props: Props) {
               <h1 className="bp-h1">{post.title}</h1>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* ══════════ MAIN + SIDEBAR ══════════ */}
         <div className="bp-page">
@@ -694,27 +727,30 @@ function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
 
       {tracks.length > 1 && (
         <div className="bp-mu-list">
-          {tracks.map((t, i) => (
-            <button key={t.key + ':' + i} type="button"
-                    onClick={() => { setActive(i); setPlaying(false) }}
-                    className={`bp-mu-track ${active === i ? 'bp-mu-track-on' : ''}`}>
-              <span className="bp-mu-track-num">{active === i ? '▶' : i + 1}</span>
-              {t.cover_url
-                /* eslint-disable-next-line @next/next/no-img-element */
-                ? <img src={t.cover_url} alt="" className="bp-mu-track-img" />
-                : <div className="bp-mu-track-img bp-mu-track-img-empty">
-                    {t.source === 'spotify' ? '♫' : '♪'}
-                  </div>
-              }
-              <div className="bp-mu-track-info">
-                <p className="bp-mu-track-title">{t.title || (t.source === 'spotify' ? 'Spotify takelis' : t.source === 'youtube' ? 'YouTube vaizdo įrašas' : 'Music.lt įrašas')}</p>
-                {t.artist_name
-                  ? <p className="bp-mu-track-artist">{t.artist_name}</p>
-                  : <p className="bp-mu-track-artist" style={{ opacity: 0.5 }}>{t.source}</p>
-                }
-              </div>
-            </button>
-          ))}
+          {tracks.map((t, i) => {
+            const isOn = active === i
+            // PopBar level — descending pagal order'į (pirmas = 5, last = 1).
+            // Atspindi „prominence" sąraše (artist page style — top track = pilnas bar).
+            const popLevel = Math.max(1, Math.ceil((tracks.length - i) / Math.max(1, Math.ceil(tracks.length / 5))))
+            return (
+              <button key={t.key + ':' + i} type="button"
+                      onClick={() => { setActive(i); setPlaying(false) }}
+                      className={`bp-mu-track ${isOn ? 'bp-mu-track-on' : ''}`}>
+                <span className="bp-mu-track-num">{isOn ? '▶' : i + 1}</span>
+                <div className="bp-mu-track-info">
+                  <p className="bp-mu-track-title">
+                    {t.title || (t.source === 'spotify' ? 'Spotify takelis' : t.source === 'youtube' ? 'YouTube vaizdo įrašas' : 'Music.lt įrašas')}
+                  </p>
+                  {t.artist_name && <p className="bp-mu-track-artist">{t.artist_name}</p>}
+                </div>
+                <div className="bp-mu-popbar" aria-hidden>
+                  {Array.from({ length: 5 }).map((_, j) => (
+                    <span key={j} className={j < popLevel ? 'is-on' : ''} />
+                  ))}
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

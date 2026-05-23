@@ -65,11 +65,19 @@ export default async function PostPage({ params }: { params: Promise<{ username:
   const authorName = (profile as any)?.full_name || (profile as any)?.username || username
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://musiclt.vercel.app'
 
-  // Hero image priority: cover_image → first attached entity image → target entity image → first list item (topas)
-  const firstAttachImage =
+  // Hero image priority — TOP TRACK YouTube thumbnail išteklių pirma
+  // (saugiau dėl copyright nei artist'o originalios fotografijos):
+  //   1. Explicit cover_image_url (admin nustatytas)
+  //   2. Pirmas embedded music cover (YT thumb arba Spotify album art)
+  //   3. DB junction tracks[0].cover_image_url
+  //   4. Target entity (review/translation/event)
+  //   5. Topas list_items[0]
+  //   6. Junction albums[0] / artists[0] kaip last resort
+  const firstEmbedCover = embeddedMusic.find(m => !!m.cover_url)?.cover_url || null
+  const firstJunctionCover =
     (attachments.tracks[0] as any)?.cover_image_url ||
-    (attachments.albums[0] as any)?.cover_image_url ||
-    (attachments.artists[0] as any)?.cover_image_url || null
+    (attachments.albums[0] as any)?.cover_image_url || null
+  const firstArtistCover = (attachments.artists[0] as any)?.cover_image_url || null
   const targetEntityImage =
     targetInfo?.event?.cover_image_url ||
     (targetInfo?.album as any)?.cover_image_url ||
@@ -79,7 +87,13 @@ export default async function PostPage({ params }: { params: Promise<{ username:
   const firstListItemImage = postType === 'topas' && Array.isArray(post.list_items) && post.list_items.length > 0
     ? post.list_items[0]?.image_url
     : null
-  const heroImage = post.cover_image_url || firstAttachImage || targetEntityImage || firstListItemImage
+  const heroImage =
+    post.cover_image_url ||
+    firstEmbedCover ||
+    firstJunctionCover ||
+    targetEntityImage ||
+    firstListItemImage ||
+    firstArtistCover
 
   const typeMeta = POST_TYPE_OPTIONS.find(o => o.type === postType)
 
