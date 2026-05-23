@@ -275,22 +275,38 @@ export default function BlogPostPageClient(props: Props) {
         .bp-mu-yt:hover { background:rgba(255,255,255,0.1); }
 
         /* Track list — artist page TracksTable stiliumi.
-           Row structure: position | (title TOP, popbar BOTTOM stacked).
-           Max-height 240px (~5-6 tracks visible) — kad InfoBox + Player
-           tilptų į viewport be scroll'o iki page apačios. */
+           Row structure: # | (title + popbar + artist STACKED) | link + play.
+           Max-height 240px (~5-6 tracks visible). */
         .bp-mu-list { max-height:240px; overflow-y:auto; padding:6px 0; }
         .bp-mu-list::-webkit-scrollbar { width:6px; }
         .bp-mu-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:3px; }
-        .bp-mu-track { width:100%; display:flex; align-items:center; gap:10px; padding:9px 14px;
-                       background:transparent; border:none; cursor:pointer; text-align:left;
-                       transition:background .15s; font-family:'DM Sans',sans-serif; color:inherit; }
+        /* Row container — flex: body button + actions */
+        .bp-mu-track { display:flex; align-items:center; gap:6px; padding:0 8px 0 0;
+                       transition:background .15s; }
         .bp-mu-track:hover { background:rgba(255,255,255,0.04); }
         .bp-mu-track-on { background:rgba(249,115,22,.10); }
+        /* Clickable row body — # + info, fills available width */
+        .bp-mu-track-body { flex:1; min-width:0; display:flex; align-items:center; gap:10px;
+                            padding:9px 0 9px 14px; background:transparent; border:none; cursor:pointer;
+                            text-align:left; font-family:'DM Sans',sans-serif; color:inherit; }
         /* Position number — w-5, 12px Outfit bold, faint text default, orange active */
         .bp-mu-track-num { font-family:'Outfit',sans-serif; font-size:12px; font-weight:800; color:#5e7290;
                            min-width:20px; text-align:center; flex-shrink:0; font-variant-numeric:tabular-nums;
                            line-height:1; }
         .bp-mu-track-on .bp-mu-track-num { color:#f97316; }
+        /* Actions on right: external link + play btn */
+        .bp-mu-track-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+        .bp-mu-track-link { display:flex; align-items:center; justify-content:center;
+                            width:28px; height:28px; border-radius:50%;
+                            color:#5e7290; text-decoration:none; transition:background .15s, color .15s; }
+        .bp-mu-track-link:hover { background:rgba(255,255,255,0.06); color:#dde8f8; }
+        .bp-mu-track-play { display:flex; align-items:center; justify-content:center;
+                            width:30px; height:30px; border-radius:50%;
+                            background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+                            color:#dde8f8; cursor:pointer; transition:all .15s; }
+        .bp-mu-track-play:hover { background:var(--accent-orange, #f97316); border-color:transparent; color:#fff; }
+        .bp-mu-track-on .bp-mu-track-play { background:var(--accent-orange, #f97316);
+                                            border-color:transparent; color:#fff; }
         /* Info col — flex column (title row above popbar row) */
         .bp-mu-track-info { flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
         .bp-mu-track-title { font-family:'Outfit',sans-serif; font-size:13px; font-weight:700; color:#dde8f8;
@@ -765,25 +781,68 @@ function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
             // Atspindi „prominence" sąraše (artist page style — top track = pilnas bar).
             const popLevel = Math.max(1, Math.ceil((tracks.length - i) / Math.max(1, Math.ceil(tracks.length / 5))))
             return (
-              <button key={t.key + ':' + i} type="button"
-                      onClick={() => { setActive(i); setPlaying(false) }}
-                      className={`bp-mu-track ${isOn ? 'bp-mu-track-on' : ''}`}>
-                <span className="bp-mu-track-num">{isOn ? '▶' : i + 1}</span>
-                <div className="bp-mu-track-info">
-                  {/* Title row */}
-                  <p className="bp-mu-track-title">
-                    {t.title || (t.source === 'spotify' ? 'Spotify takelis' : t.source === 'youtube' ? 'YouTube vaizdo įrašas' : 'Music.lt įrašas')}
-                  </p>
-                  {/* PopBar — POD title (artist page pattern) */}
-                  <div className="bp-mu-popbar" aria-hidden>
-                    {Array.from({ length: 5 }).map((_, j) => (
-                      <span key={j} className={j < popLevel ? 'is-on' : ''} />
-                    ))}
+              <div key={t.key + ':' + i} className={`bp-mu-track ${isOn ? 'bp-mu-track-on' : ''}`}>
+                {/* Row body clickable — switches active track in player */}
+                <button
+                  type="button"
+                  onClick={() => { setActive(i); setPlaying(true) }}
+                  className="bp-mu-track-body"
+                  aria-label={`Leisti ${t.title || 'takelį'}`}
+                >
+                  <span className="bp-mu-track-num">{i + 1}</span>
+                  <div className="bp-mu-track-info">
+                    <p className="bp-mu-track-title">
+                      {t.title || (t.source === 'spotify' ? 'Spotify takelis' : t.source === 'youtube' ? 'YouTube vaizdo įrašas' : 'Music.lt įrašas')}
+                    </p>
+                    <div className="bp-mu-popbar" aria-hidden>
+                      {Array.from({ length: 5 }).map((_, j) => (
+                        <span key={j} className={j < popLevel ? 'is-on' : ''} />
+                      ))}
+                    </div>
+                    {t.artist_name && <p className="bp-mu-track-artist">{t.artist_name}</p>}
                   </div>
-                  {/* Artist line — opcionalus */}
-                  {t.artist_name && <p className="bp-mu-track-artist">{t.artist_name}</p>}
+                </button>
+                {/* Actions on right side: external link + play btn */}
+                <div className="bp-mu-track-actions">
+                  {t.source_url && (
+                    <a
+                      href={t.source_url}
+                      target="_blank"
+                      rel="noopener"
+                      className="bp-mu-track-link"
+                      title={`Atidaryti ${t.source === 'youtube' ? 'YouTube' : t.source === 'spotify' ? 'Spotify' : 'šaltinį'} naujame skirtuke`}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setActive(i); setPlaying(true) }}
+                    className="bp-mu-track-play"
+                    title={isOn && playing ? 'Groja' : 'Leisti'}
+                    aria-label="Leisti takelį"
+                  >
+                    {isOn && playing ? (
+                      // EQ icon (animation)
+                      <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
+                        <rect x="1.5" y="3" width="1.6" height="6" fill="currentColor"><animate attributeName="height" values="6;2;6" dur="1s" repeatCount="indefinite" /></rect>
+                        <rect x="5.2" y="2" width="1.6" height="8" fill="currentColor"><animate attributeName="height" values="8;3;8" dur=".8s" repeatCount="indefinite" /></rect>
+                        <rect x="8.9" y="4" width="1.6" height="4" fill="currentColor"><animate attributeName="height" values="4;7;4" dur="1.2s" repeatCount="indefinite" /></rect>
+                      </svg>
+                    ) : (
+                      // Play triangle
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>
