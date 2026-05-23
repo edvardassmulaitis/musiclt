@@ -1155,7 +1155,7 @@ function PlayerCard({
                       onClick={(e) => { e.stopPropagation(); onOpenTrackInfo(t) }}
                       aria-label={`${t.title} — daugiau informacijos`}
                       title="Daugiau: žodžiai, komentarai, video"
-                      className="flex shrink-0 items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.1)] hover:text-[var(--accent-orange)]"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.1)] hover:text-[var(--accent-orange)]"
                     >
                       {/* Burger/text-lines icon — universal "open details" */}
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
@@ -1163,7 +1163,6 @@ function PlayerCard({
                         <line x1="4" y1="12" x2="20" y2="12" />
                         <line x1="4" y1="17" x2="14" y2="17" />
                       </svg>
-                      <span className="hidden sm:inline">Daugiau</span>
                     </button>
 
                     {/* Play / pause — explicit target (taip pat veikia row click).
