@@ -623,6 +623,30 @@ function PlayerCard({
   // autoplay block'inamas. Dabar create vyksta tame pačiame click event
   // tick'e (handlePlayClick → directly calls a ref function which creates
   // player synchronously).
+  // 2026-05-21 STALE CLOSURE FIX: YT.Player sukuriamas vienkartinai,
+  // ir jo onStateChange callback'as closure'ina React state'ą iš to
+  // momento. Be ref'o, kai track keičiasi (activeTrackId↑), useEffect
+  // re-run'ina bet early-returns dėl `playerRef.current` → player'is
+  // neperkuriamas → CALLBACK CLOSURE LIEKA SU SENU activeTrackId
+  // (pirmojo paleisto track'o ID).
+  //
+  // Result'as: track 2 baigiasi → callback mano kad active=1 → finds
+  // next=2 → setActiveTrack(2) → ne advance, nes state jau 2 → STOPS.
+  // Manual play track 7 → callback po jo end'ui mano active=1 → finds
+  // next=2 → grįžta į 2-ą track.
+  //
+  // Fix: laikom „latest" reikšmes ref'uose, kuriuos kiekvienas render
+  // atnaujina. onStateChange skaito iš ref.current, gauna up-to-date
+  // reikšmę kiekvieną kartą.
+  const activeTrackIdRef = useRef(activeTrackId)
+  const tracksAllTimeRef = useRef(tracksAllTime)
+  const tracksTrendingRef = useRef(tracksTrending)
+  const onSelectTrackRef = useRef(onSelectTrack)
+  useEffect(() => { activeTrackIdRef.current = activeTrackId }, [activeTrackId])
+  useEffect(() => { tracksAllTimeRef.current = tracksAllTime }, [tracksAllTime])
+  useEffect(() => { tracksTrendingRef.current = tracksTrending }, [tracksTrending])
+  useEffect(() => { onSelectTrackRef.current = onSelectTrack }, [onSelectTrack])
+
   useEffect(() => {
     if (!apiReady || !playing || !displayVid || !containerRef.current) return
     if (isEmbedDisabled) return
@@ -667,14 +691,16 @@ function PlayerCard({
           setIsPaused(!(e.data === 1 || e.data === 3))
           if (e.data === 0) {
             // Track ended — auto-skip į kitą track'ą sąraše su video,
-            // su rollover į pradžią.
-            const allTracks = [...tracksAllTime, ...tracksTrending]
-            const idx = allTracks.findIndex(t => t.id === activeTrackId)
+            // su rollover į pradžią. Naudojam ref'us, kad gautume
+            // CURRENT state (ne stale closure iš player creation moment).
+            const currentId = activeTrackIdRef.current
+            const allTracks = [...tracksAllTimeRef.current, ...tracksTrendingRef.current]
+            const idx = allTracks.findIndex(t => t.id === currentId)
             if (idx < 0) return
             for (let i = 1; i <= allTracks.length; i++) {
               const candidate = allTracks[(idx + i) % allTracks.length]
               if (candidate && yt(candidate.video_url)) {
-                onSelectTrack(candidate.id)
+                onSelectTrackRef.current(candidate.id)
                 try {
                   fetch(`/api/tracks/${candidate.id}/play`, { method: 'POST', keepalive: true }).catch(() => {})
                 } catch {}
@@ -701,7 +727,10 @@ function PlayerCard({
     })
     ;(player as any)._vid = displayVid
     playerRef.current = player
-  }, [apiReady, playing, displayVid, isEmbedDisabled, isMobileVP, activeTrackId, tracksAllTime, tracksTrending, onSelectTrack])
+    // Po stale closure fix'o deps mažesni — vidiniai callback'ai naudoja
+    // ref'us, todėl track sąrašas / activeTrackId nereikalingi triggerinti
+    // re-creation. Player'is sukuriamas tik vieną kartą per session.
+  }, [apiReady, playing, displayVid, isEmbedDisabled, isMobileVP])
 
   // VIDEO CHANGE — kai displayVid pasikeičia, naudojam loadVideoById vietoj
   // destroy+recreate. Iframe lieka tas pats, gesture context tarp track'ų
