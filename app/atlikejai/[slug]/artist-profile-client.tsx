@@ -792,15 +792,19 @@ function PlayerCard({
     // negali push'inti parent dydziui).
     <div
       className="w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]"
-      style={{ contain: 'layout', boxSizing: 'border-box' }}
+      style={{ boxSizing: 'border-box' }}
     >
       {/* Player area — mobile: aspect-video, desktop: fixed 260px height
-          + 100% width. `contain: strict` hard'iest CSS containment —
-          iframe negali iseiti is shio box dydziu. min-w/min-h: 0
-          prevent intrinsic-size grow. */}
+          + 100% width.
+          2026-05-21: pašalinau `contain: strict` ir `contain: layout` —
+          šios CSS containment direktyvos kai kuriose Chromium versijose
+          blokuodavo YT iframe progress-bar click events (user negalėjo
+          paspausti ant bar'o, kad seek'intų — tik drag'inant veikė).
+          Iframe dydis vis tiek užtikrintas per explicit width/height +
+          overflow-hidden. */}
       <div
         className="relative aspect-video lg:aspect-auto lg:h-[260px] w-full max-w-full overflow-hidden bg-black"
-        style={{ contain: 'strict', minWidth: 0, minHeight: 0, boxSizing: 'border-box' }}
+        style={{ minWidth: 0, minHeight: 0, boxSizing: 'border-box' }}
       >
         {displayVid ? (
           // YT IFrame API replaces an inner div with <iframe>. The OUTER
