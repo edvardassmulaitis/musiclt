@@ -796,15 +796,13 @@ function PlayerCard({
     >
       {/* Player area — mobile: aspect-video, desktop: fixed 260px height
           + 100% width.
-          2026-05-21: pašalinau `contain: strict` ir `contain: layout` —
-          šios CSS containment direktyvos kai kuriose Chromium versijose
-          blokuodavo YT iframe progress-bar click events (user negalėjo
-          paspausti ant bar'o, kad seek'intų — tik drag'inant veikė).
-          Iframe dydis vis tiek užtikrintas per explicit width/height +
-          overflow-hidden. */}
+          2026-05-21 v2: pašalinau `contain: strict/layout` + pridėjau
+          `isolation: isolate` — sukuria fresh stacking context'ą player
+          area'ai, kad nei vienas parent z-index'as nepertekdavo į vidų ir
+          neblokuotų YT iframe progress-bar click events. */}
       <div
         className="relative aspect-video lg:aspect-auto lg:h-[260px] w-full max-w-full overflow-hidden bg-black"
-        style={{ minWidth: 0, minHeight: 0, boxSizing: 'border-box' }}
+        style={{ minWidth: 0, minHeight: 0, boxSizing: 'border-box', isolation: 'isolate' }}
       >
         {displayVid ? (
           // YT IFrame API replaces an inner div with <iframe>. The OUTER
@@ -896,19 +894,30 @@ function PlayerCard({
                 </a>
               </div>
             )}
-            {!playing && (
-              <button
-                type="button"
-                onClick={() => {
-                  const target = activeTrackId ?? firstWithVideo?.id
-                  if (target != null && target !== activeTrackId) onSelectTrack(target)
-                  onRequestPlay()
-                  if (target != null) pingPlay(target)
-                }}
-                aria-label="Paleisti"
-                className="group absolute inset-0 z-10 block cursor-pointer overflow-hidden border-0 p-0"
-                style={{ background: 'var(--player-placeholder-bg, linear-gradient(135deg, #1a2436 0%, #0f1825 50%, #0a0f1a 100%))' }}
-              >
+            {/* 2026-05-21: vietoj `{!playing && (` mount/unmount, naudojam
+                CSS hide su `pointer-events: none` kai playing. Tai
+                eliminuoja race condition'ą, kai React iframe + overlay
+                button trumpai būna abu DOM'e — anksciau hover'is/click'ai
+                ant YT progress bar nepasiekdavo iframe. Dabar overlay
+                visada zero-cost'as DOM'e, bet visiškai pointer-inert
+                kai playing. */}
+            <button
+              type="button"
+              onClick={() => {
+                const target = activeTrackId ?? firstWithVideo?.id
+                if (target != null && target !== activeTrackId) onSelectTrack(target)
+                onRequestPlay()
+                if (target != null) pingPlay(target)
+              }}
+              aria-label="Paleisti"
+              aria-hidden={playing}
+              tabIndex={playing ? -1 : 0}
+              className={[
+                'group absolute inset-0 z-10 block cursor-pointer overflow-hidden border-0 p-0',
+                playing ? 'pointer-events-none opacity-0' : '',
+              ].join(' ')}
+              style={{ background: 'var(--player-placeholder-bg, linear-gradient(135deg, #1a2436 0%, #0f1825 50%, #0a0f1a 100%))' }}
+            >
                 {showThumb && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -938,8 +947,7 @@ function PlayerCard({
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 </span>
-              </button>
-            )}
+            </button>
           </>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center">
