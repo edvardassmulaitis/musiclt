@@ -296,10 +296,15 @@ export default function BlogPostPageClient(props: Props) {
         .bp-mu-track-on .bp-mu-track-num { color:#f97316; }
         /* Actions on right: external link + play btn */
         .bp-mu-track-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
-        .bp-mu-track-link { display:flex; align-items:center; justify-content:center;
-                            width:28px; height:28px; border-radius:50%;
-                            color:#5e7290; text-decoration:none; transition:background .15s, color .15s; }
-        .bp-mu-track-link:hover { background:rgba(255,255,255,0.06); color:#dde8f8; }
+        /* Daugiau pill — burger icon, atidaro /dainos/<slug> (kur lyrics + comments).
+           Stiliuje identiškas artist page TrackInfoModal trigger button'ui. */
+        .bp-mu-track-more { display:flex; align-items:center; justify-content:center;
+                            padding:5px 8px; border-radius:999px;
+                            background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+                            color:#5e7290; text-decoration:none;
+                            transition:background .15s, border-color .15s, color .15s; }
+        .bp-mu-track-more:hover { background:rgba(249,115,22,0.1); border-color:rgba(249,115,22,0.4);
+                                  color:var(--accent-orange, #f97316); }
         .bp-mu-track-play { display:flex; align-items:center; justify-content:center;
                             width:30px; height:30px; border-radius:50%;
                             background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
@@ -802,23 +807,25 @@ function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
                     {t.artist_name && <p className="bp-mu-track-artist">{t.artist_name}</p>}
                   </div>
                 </button>
-                {/* Actions on right side: external link + play btn */}
+                {/* Actions on right side: Daugiau pill (TIK kai resolved) + play btn.
+                    Daugiau atidaro /dainos/<slug> kur tas pats UI kaip artist
+                    page TrackInfoModal (player + lyrics + komentarai). External
+                    link į Spotify/YouTube pašalintas (klaidina UX). */}
                 <div className="bp-mu-track-actions">
-                  {t.source_url && (
-                    <a
-                      href={t.source_url}
-                      target="_blank"
-                      rel="noopener"
-                      className="bp-mu-track-link"
-                      title={`Atidaryti ${t.source === 'youtube' ? 'YouTube' : t.source === 'spotify' ? 'Spotify' : 'šaltinį'} naujame skirtuke`}
+                  {t.db_track && (
+                    <Link
+                      href={`/dainos/${t.db_track.artist_slug ? `${t.db_track.artist_slug}-${t.db_track.slug}-${t.db_track.id}` : t.db_track.slug || t.db_track.id}`}
+                      className="bp-mu-track-more"
+                      title="Daugiau: žodžiai, komentarai, video"
                       onClick={e => e.stopPropagation()}
                     >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                        <polyline points="15 3 21 3 21 9" />
-                        <line x1="10" y1="14" x2="21" y2="3" />
+                      {/* Burger/text-lines icon — same as artist page TrackInfoModal trigger */}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                        <line x1="3" y1="18" x2="14" y2="18" />
                       </svg>
-                    </a>
+                    </Link>
                   )}
                   <button
                     type="button"
@@ -828,14 +835,12 @@ function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
                     aria-label="Leisti takelį"
                   >
                     {isOn && playing ? (
-                      // EQ icon (animation)
                       <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
                         <rect x="1.5" y="3" width="1.6" height="6" fill="currentColor"><animate attributeName="height" values="6;2;6" dur="1s" repeatCount="indefinite" /></rect>
                         <rect x="5.2" y="2" width="1.6" height="8" fill="currentColor"><animate attributeName="height" values="8;3;8" dur=".8s" repeatCount="indefinite" /></rect>
                         <rect x="8.9" y="4" width="1.6" height="4" fill="currentColor"><animate attributeName="height" values="4;7;4" dur="1.2s" repeatCount="indefinite" /></rect>
                       </svg>
                     ) : (
-                      // Play triangle
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M8 5v14l11-7z" />
                       </svg>

@@ -13,7 +13,8 @@ import {
   getPostMusicAttachments,
   getReviewTargetInfo,
 } from '@/lib/supabase-blog'
-import { extractMusicFromBody, enrichTracksWithOembed } from '@/lib/blog-content'
+import { extractMusicFromBody, enrichTracksWithOembed, resolveEmbedsToDbTracks } from '@/lib/blog-content'
+import { createAdminClient } from '@/lib/supabase'
 import BlogPostPageClient from './page-client'
 import { POST_TYPE_OPTIONS, type BlogPostType } from '@/components/blog/post-types'
 
@@ -56,7 +57,12 @@ export default async function PostPage({ params }: { params: Promise<{ username:
   const { cleanedHtml, music: rawEmbeddedMusic } = extractMusicFromBody(post.content || '')
   // Enrich with Spotify/YouTube oEmbed metadata (title + artist + cover thumb)
   // — kitaip sidebar rodytų generic "Spotify takelis" be konteksto.
-  const embeddedMusic = await enrichTracksWithOembed(rawEmbeddedMusic)
+  const enrichedMusic = await enrichTracksWithOembed(rawEmbeddedMusic)
+  // Resolve į DB tracks per spotify_id arba video_url — kai track'as migruotas,
+  // pridedam db_track {id, slug, artist_slug}. UI sidebar pagal tai rodo
+  // „Daugiau" pill, nukreipiantį į /dainos/<slug> page'ą.
+  const sbAdmin = createAdminClient()
+  const embeddedMusic = await resolveEmbedsToDbTracks(enrichedMusic, sbAdmin)
 
   // getPost grąžina post + nested `blog` (singular), kuriame yra `profiles`
   // su author meta. Supabase JOIN'as gali grąžinti arr or object — handle abu.

@@ -23,11 +23,21 @@ export type ExtractedTrack = {
   cover_url?: string
   /** Direct embed URL kuris veikia iframe'e. */
   embed_url: string
-  /** Source URL — nuoroda atidaryti naujame tab'e (YT.com, Spotify.com, music.lt). */
+  /** Source URL — backup nuoroda. UI nepatariama rodyti per save —
+   *  vietoj to naudojam `db_track` jeigu užsimena. */
   source_url?: string
   /** music.lt legacy ID (kai turim) — naudosime DB resolution'ui ateityje. */
   legacy_id?: number
   legacy_kind?: 'track' | 'artist' | 'album'
+  /** Server-side resolved DB track (jei match'inasi spotify_id/video_url su
+   *  tracks lentele). Naudojama UI nuorodai į /dainos/<slug> page'ą, kuris
+   *  rodo identiškai tą patį turinį (player + lyrics + comments) kaip artist
+   *  page'o TrackInfoModal. */
+  db_track?: {
+    id: number
+    slug: string | null
+    artist_slug?: string | null
+  }
 }
 
 export type BlogContentExtracted = {
@@ -50,6 +60,78 @@ const LEGACY_WIDGET_TABLE_RE = /<table[^>]*>(?:(?!<\/table>)[\s\S])*?favorite_(?
  *  ID'us + display name'us — daugiau metadata UI'ui). */
 const LEGACY_WIDGET_ROW_RE = /<tr[^>]*>(?:(?!<\/tr>)[\s\S])*?favorite_(\d+)_link(\d+)_(\w+)(?:(?!<\/tr>)[\s\S])*?<\/tr>/gi
 const TRACK_LINK_RE = /<a[^>]+href=["'][^"']*\/lt\/(daina|grupe|albumas)\/[^/"]+\/(\d+)\/["'][^>]*(?:title=["']([^"']*)["'])?[^>]*>([^<]+?)<\/a>/i
+
+/** Resolve'ina extracted music į DB tracks pagal spotify_id arba YouTube video ID.
+ *  Match'inami pavieniai track'ai per tracks.spotify_id arba tracks.video_url ILIKE.
+ *  Grąžina enriched copy'ą su `db_track` užpildytais (kai match'inasi) — kitiems
+ *  paliekamas undefined. UI pagal tai sprendžia ar rodyti „Daugiau" pill (nuorodą
+ *  į pilną /dainos/<slug> page'ą su lyrics + komentarais). */
+export async function resolveEmbedsToDbTracks(
+  tracks: ExtractedTrack[],
+  sb: { from: (t: string) => any },
+): Promise<ExtractedTrack[]> {
+  const spotifyIds = tracks
+    .filter(t => t.source === 'spotify' && t.key.startsWith('sp:track:'))
+    .map(t => t.key.replace('sp:track:', ''))
+  const ytIds = tracks
+    .filter(t => t.source === 'youtube')
+    .map(t => t.key.replace('yt:', ''))
+
+  if (spotifyIds.length === 0 && ytIds.length === 0) return tracks
+
+  type TrackRow = { id: number; slug: string | null; spotify_id: string | null; video_url: string | null;
+                    artists: { slug: string | null } | { slug: string | null }[] | null }
+
+  const [spotifyRes, ytRes] = await Promise.all([
+    spotifyIds.length
+      ? sb.from('tracks')
+          .select('id, slug, spotify_id, video_url, artists:artist_id(slug)')
+          .in('spotify_id', spotifyIds)
+      : Promise.resolve({ data: [] as TrackRow[] }),
+    ytIds.length
+      ? // Match per video_url contains youtu.be/<id> or watch?v=<id> — using OR'd ilike
+        sb.from('tracks')
+          .select('id, slug, spotify_id, video_url, artists:artist_id(slug)')
+          .or(ytIds.map(id => `video_url.ilike.%${id}%`).join(','))
+      : Promise.resolve({ data: [] as TrackRow[] }),
+  ])
+
+  const bySpotify = new Map<string, TrackRow>()
+  for (const row of (spotifyRes.data || [])) {
+    if (row.spotify_id) bySpotify.set(row.spotify_id, row)
+  }
+  const byYt = new Map<string, TrackRow>()
+  for (const row of (ytRes.data || [])) {
+    const u = row.video_url || ''
+    for (const id of ytIds) {
+      if (u.includes(id)) {
+        byYt.set(id, row)
+        break
+      }
+    }
+  }
+
+  return tracks.map(t => {
+    if (t.source === 'spotify') {
+      const sid = t.key.replace('sp:track:', '')
+      const row = bySpotify.get(sid)
+      if (row) {
+        const artist = Array.isArray(row.artists) ? row.artists[0] : row.artists
+        return { ...t, db_track: { id: row.id, slug: row.slug, artist_slug: artist?.slug ?? null } }
+      }
+    }
+    if (t.source === 'youtube') {
+      const yid = t.key.replace('yt:', '')
+      const row = byYt.get(yid)
+      if (row) {
+        const artist = Array.isArray(row.artists) ? row.artists[0] : row.artists
+        return { ...t, db_track: { id: row.id, slug: row.slug, artist_slug: artist?.slug ?? null } }
+      }
+    }
+    return t
+  })
+}
+
 
 /** Praturtina ExtractedTrack'us su Spotify/YouTube oEmbed metadata.
  *  Tikslas: žinoti realų track title + artist iš embed URL'o.
