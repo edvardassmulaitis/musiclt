@@ -1161,7 +1161,12 @@ export default function EntityCommentsBlock({
                         {author}
                       </span>
                       {rel && (
-                        <span className="text-[10.5px] font-medium text-[var(--text-faint)]">{rel}</span>
+                        <span
+                          className="text-[11px] font-semibold text-[var(--text-muted)]"
+                          title={c.created_at || undefined}
+                        >
+                          {rel}
+                        </span>
                       )}
                     </div>
                     {/* Reply quote — orange left-border block, parent author
