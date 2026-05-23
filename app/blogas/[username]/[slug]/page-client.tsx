@@ -193,8 +193,8 @@ export default function BlogPostPageClient(props: Props) {
 
         /* ── PAGE LAYOUT ── */
         .bp-page { max-width:1400px; margin:0 auto; padding:0 32px; }
-        .bp-grid { display:grid; gap:28px; align-items:start; padding:18px 0 80px; }
-        .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 340px; }
+        .bp-grid { display:grid; gap:32px; align-items:start; padding:18px 0 80px; }
+        .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 400px; }
 
         /* ── SIDEBAR — sticky right ── */
         .bp-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:14px; min-width:0; }
@@ -248,17 +248,18 @@ export default function BlogPostPageClient(props: Props) {
         .bp-mu-thumb-noplay { cursor:default; }
         .bp-mu-no-thumb { width:100%; height:100%; display:flex; align-items:center; justify-content:center;
                           font-size:48px; color:#5e7290; background:#080d14; }
-        /* Orange play btn — same as artist page hero (52-58px diameter, soft shadow, scale hover) */
-        .bp-mu-play-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-                              background:rgba(0,0,0,0.25); transition:background .2s; pointer-events:none; }
-        .bp-mu-thumb:hover .bp-mu-play-overlay { background:rgba(0,0,0,0.4); }
-        .bp-mu-play-btn { width:52px; height:52px; border-radius:50%;
+        /* Orange play btn — bottom-right corner (artist page hero parity).
+           Anksčiau buvo centre — uždengdavo veido/scenos kompoziciją. */
+        .bp-mu-play-overlay { position:absolute; inset:0;
+                              background:linear-gradient(to top, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 30%, transparent 60%);
+                              pointer-events:none; }
+        .bp-mu-play-btn { position:absolute; bottom:12px; right:12px;
+                          width:48px; height:48px; border-radius:50%;
                           background:var(--accent-orange, #f97316);
-                          box-shadow:0 8px 24px rgba(249,115,22,0.45);
+                          box-shadow:0 8px 24px rgba(249,115,22,0.5);
                           display:flex; align-items:center; justify-content:center;
-                          ring:3px solid rgba(255,255,255,0.15);
                           border:3px solid rgba(255,255,255,0.15);
-                          transform:scale(0.95); transition:transform .2s; }
+                          transition:transform .2s; }
         .bp-mu-thumb:hover .bp-mu-play-btn { transform:scale(1.1); }
         .bp-mu-iframe { width:100%; height:100%; border:none; }
         /* Now-playing strip — kompakt'as title + artist */
@@ -274,8 +275,10 @@ export default function BlogPostPageClient(props: Props) {
         .bp-mu-yt:hover { background:rgba(255,255,255,0.1); }
 
         /* Track list — artist page TracksTable stiliumi.
-           Row structure: position | (title TOP, popbar BOTTOM stacked) */
-        .bp-mu-list { max-height:380px; overflow-y:auto; padding:6px 0; }
+           Row structure: position | (title TOP, popbar BOTTOM stacked).
+           Max-height 240px (~5-6 tracks visible) — kad InfoBox + Player
+           tilptų į viewport be scroll'o iki page apačios. */
+        .bp-mu-list { max-height:240px; overflow-y:auto; padding:6px 0; }
         .bp-mu-list::-webkit-scrollbar { width:6px; }
         .bp-mu-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:3px; }
         .bp-mu-track { width:100%; display:flex; align-items:center; gap:10px; padding:9px 14px;
@@ -698,18 +701,10 @@ function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
 
   return (
     <div className="bp-sb-card">
-      <div className="bp-mu-hdr">
-        <div className="bp-mu-hdr-icon">
-          <div className="bp-mu-hdr-eq">
-            {[6,10,4,8].map((h,i) => (
-              <span key={i} style={{ height: h, animationDelay: `${i*0.13}s` }} />
-            ))}
-          </div>
-        </div>
-        <span className="bp-mu-hdr-label">Susijusi muzika · {tracks.length}</span>
-      </div>
+      {/* Heading „Susijusi muzika" pašalintas — player atrodo identiškai
+          artist page hero player'iui (video → track list, be header'io). */}
 
-      {/* Video / iframe — Spotify embed yra 80px tall, YT yra 16:9 */}
+      {/* Video / iframe — Spotify embed yra 152px tall, YT yra 16:9 */}
       <div className={`bp-mu-video ${isSpotify ? 'is-spotify' : ''}`}>
         {playing && cur?.embed_url ? (
           <iframe
@@ -726,17 +721,20 @@ function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
               ? <img src={thumb} alt="" />
               : <div className="bp-mu-no-thumb">{cur?.source === 'spotify' ? '♫' : '♪'}</div>
             }
-            {cur?.embed_url && (
-              <div className="bp-mu-play-overlay">
-                <div className="bp-mu-play-btn">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
-                </div>
-              </div>
-            )}
-            {/* Source badge */}
+            {/* Overlay tints — gradient apačioje, kad play btn matytųsi */}
+            {cur?.embed_url && <div className="bp-mu-play-overlay" />}
+            {/* Source badge — viršuje dešinėje */}
             <span className={`bp-mu-src-badge bp-mu-src-${cur?.source}`}>
               {cur?.source === 'youtube' ? 'YouTube' : cur?.source === 'spotify' ? 'Spotify' : 'music.lt'}
             </span>
+            {/* Play btn — apačioje dešinėje (artist page hero pattern) */}
+            {cur?.embed_url && (
+              <span className="bp-mu-play-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}>
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+            )}
           </div>
         )}
       </div>
