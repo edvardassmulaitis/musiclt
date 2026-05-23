@@ -796,13 +796,13 @@ function PlayerCard({
     >
       {/* Player area — mobile: aspect-video, desktop: fixed 260px height
           + 100% width.
-          2026-05-21 v2: pašalinau `contain: strict/layout` + pridėjau
-          `isolation: isolate` — sukuria fresh stacking context'ą player
-          area'ai, kad nei vienas parent z-index'as nepertekdavo į vidų ir
-          neblokuotų YT iframe progress-bar click events. */}
+          2026-05-21 v3: pašalinau `isolation: isolate` (sukurdavo
+          stacking context'ą kuris ant Safari blokuodavo YT iframe click
+          events). Iframe dydis užtikrintas per explicit dimensions +
+          overflow-hidden. */}
       <div
         className="relative aspect-video lg:aspect-auto lg:h-[260px] w-full max-w-full overflow-hidden bg-black"
-        style={{ minWidth: 0, minHeight: 0, boxSizing: 'border-box', isolation: 'isolate' }}
+        style={{ minWidth: 0, minHeight: 0, boxSizing: 'border-box' }}
       >
         {displayVid ? (
           // YT IFrame API replaces an inner div with <iframe>. The OUTER
@@ -894,13 +894,12 @@ function PlayerCard({
                 </a>
               </div>
             )}
-            {/* 2026-05-21: vietoj `{!playing && (` mount/unmount, naudojam
-                CSS hide su `pointer-events: none` kai playing. Tai
-                eliminuoja race condition'ą, kai React iframe + overlay
-                button trumpai būna abu DOM'e — anksciau hover'is/click'ai
-                ant YT progress bar nepasiekdavo iframe. Dabar overlay
-                visada zero-cost'as DOM'e, bet visiškai pointer-inert
-                kai playing. */}
+            {/* Play overlay — rodomas tik kai !playing. Conditional render
+                (ne CSS toggle) — Safari'jui paprastesnis hit-testing'as,
+                kai DOM'e nėra `pointer-events: none` overlay'aus virš YT
+                iframe'o. Anksciau bandyta always-mount + opacity-0, bet
+                Safari iframe progress-bar click vis tiek prarasdavo. */}
+            {!playing && (
             <button
               type="button"
               onClick={() => {
@@ -910,12 +909,7 @@ function PlayerCard({
                 if (target != null) pingPlay(target)
               }}
               aria-label="Paleisti"
-              aria-hidden={playing}
-              tabIndex={playing ? -1 : 0}
-              className={[
-                'group absolute inset-0 z-10 block cursor-pointer overflow-hidden border-0 p-0',
-                playing ? 'pointer-events-none opacity-0' : '',
-              ].join(' ')}
+              className="group absolute inset-0 z-10 block cursor-pointer overflow-hidden border-0 p-0"
               style={{ background: 'var(--player-placeholder-bg, linear-gradient(135deg, #1a2436 0%, #0f1825 50%, #0a0f1a 100%))' }}
             >
                 {showThumb && (
@@ -948,6 +942,7 @@ function PlayerCard({
                   </svg>
                 </span>
             </button>
+            )}
           </>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center">
@@ -2145,7 +2140,7 @@ function Hero({
   const heroWidth = 600
 
   return (
-    <section className="relative isolate w-full bg-[var(--bg-surface)]">
+    <section className="relative w-full bg-[var(--bg-surface)]">
       {/* Photo backdrop:
           - Mobile: aspect-[3/2] — siauresnis nei aspect-video, mažiau
             upscale artifact'ų low-res nuotraukoms.
