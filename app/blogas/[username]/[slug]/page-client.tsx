@@ -89,7 +89,10 @@ function karmaToLevel(k: number | null): number {
 export default function BlogPostPageClient(props: Props) {
   const { post, postType, typeLabel, authorName, authorUsername, authorAvatar,
           authorKarma, authorJoinedYear, blogTitle, heroImage, attachments,
-          embeddedMusic, targetInfo, hasSidebar } = props
+          embeddedMusic, targetInfo } = props
+  // hasSidebar prop'as iš page.tsx — paliekam Props type'e backward compat,
+  // bet visada renderinam sidebar'ą su InfoBox (info dalis visada matosi).
+  void props.hasSidebar
 
   const karmaLevel = karmaToLevel(authorKarma)
 
@@ -116,9 +119,6 @@ export default function BlogPostPageClient(props: Props) {
   const showChip = postType !== 'article'   // tik custom type'ams
   const visibleTags = (post.tags || []).filter(t => !AUTO_TAGS.has((t || '').toLowerCase()))
 
-  const formatDate = (d?: string | null) =>
-    d ? new Date(d).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
-
   const scrollToComments = () => {
     document.getElementById('bp-comments')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -128,21 +128,14 @@ export default function BlogPostPageClient(props: Props) {
       <style jsx global>{`
         .bp-root { background:#080d14; color:#dde8f8; font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; }
 
-        /* ── HERO ── */
-        .bp-hero { position:relative; height:46vh; min-height:300px; max-height:440px; overflow:hidden; background:#080d14;
-                   display:flex; flex-direction:column; justify-content:flex-end; }
-        .bp-hero-img { position:absolute; top:0; right:0; bottom:0; width:60%; object-fit:cover; object-position:center 20%;
-                       -webkit-mask-image:linear-gradient(to left, black 40%, transparent 100%);
-                       mask-image:linear-gradient(to left, black 40%, transparent 100%); animation:bp-zoom 16s ease-out forwards; }
-        @keyframes bp-zoom { from { transform:scale(1) } to { transform:scale(1.07) } }
-        .bp-hero-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(8,13,20,0.65) 0%, transparent 60%); pointer-events:none; }
-        .bp-hero-noimg { position:absolute; inset:0; background:linear-gradient(135deg, #0d1420 0%, #111826 100%); }
-        .bp-hero-noimg::after { content:''; position:absolute; inset:0;
-                                background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.1) 0%, transparent 55%); }
-        .bp-hero-content { position:relative; z-index:2; display:flex; flex-direction:column; justify-content:flex-end;
-                           width:100%; max-width:1400px; margin:0 auto; padding:0 32px 24px; }
-        .bp-hero-inner { max-width:740px; animation:bp-in .7s .05s both; }
-        @keyframes bp-in { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+        /* ── HERO — kompaktiškas, BE pilnaplotės nuotraukos. Tik title chip + gradient bg ── */
+        .bp-hero { position:relative; overflow:hidden; padding:32px 0 18px;
+                   background:linear-gradient(180deg, #0d1420 0%, #0a0f18 100%); }
+        .bp-hero::after { content:''; position:absolute; inset:0; pointer-events:none;
+                          background:radial-gradient(ellipse at 75% 30%, rgba(249,115,22,0.06) 0%, transparent 60%); }
+        .bp-hero-content { position:relative; z-index:2; width:100%; max-width:1400px; margin:0 auto; padding:0 32px; }
+        .bp-hero-inner { max-width:900px; animation:bp-in .6s ease-out both; }
+        @keyframes bp-in { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
 
         .bp-chip { display:inline-block; font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.08em;
                    text-transform:uppercase; color:#fff; padding:4px 12px; border-radius:20px;
@@ -150,8 +143,8 @@ export default function BlogPostPageClient(props: Props) {
         .bp-rating { display:inline-flex; align-items:center; gap:4px; background:rgba(255,255,255,0.12); border-radius:6px;
                      padding:3px 8px; font-family:'Outfit',sans-serif; font-size:11px; font-weight:900; color:#fff;
                      margin-left:8px; }
-        .bp-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.8rem); font-weight:900; line-height:1.06;
-                 letter-spacing:-.03em; color:#fff; margin:14px 0 18px; text-shadow:0 2px 14px rgba(0,0,0,0.4); }
+        .bp-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,2.6vw,2.4rem); font-weight:900; line-height:1.08;
+                 letter-spacing:-.03em; color:#fff; margin:10px 0 0; }
 
         /* User card hero'je — avatar + name + sub */
         .bp-user { display:inline-flex; align-items:center; gap:12px; background:rgba(255,255,255,0.07);
@@ -175,12 +168,28 @@ export default function BlogPostPageClient(props: Props) {
 
         /* ── PAGE LAYOUT ── */
         .bp-page { max-width:1400px; margin:0 auto; padding:0 32px; }
-        .bp-grid { display:grid; gap:40px; align-items:start; padding:10px 0 90px; }
-        .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 380px; }
-        .bp-grid.no-sb  { grid-template-columns:1fr; max-width:820px; margin:0 auto; }
+        .bp-grid { display:grid; gap:40px; align-items:start; padding:14px 0 80px; }
+        .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 360px; }
 
         /* ── SIDEBAR — sticky right ── */
         .bp-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:14px; min-width:0; }
+
+        /* InfoBox — pilna info kortelė viršuje sidebar'e (author + meta + actions) */
+        .bp-info-box { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.05); border-radius:14px;
+                       padding:16px; display:flex; flex-direction:column; gap:14px; }
+        .bp-info-author { display:flex; align-items:center; gap:12px; text-decoration:none; color:inherit; }
+        .bp-info-av { width:44px; height:44px; border-radius:50%; overflow:hidden; flex-shrink:0;
+                      display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
+                      font-size:16px; font-weight:900; color:#fff; }
+        .bp-info-av img { width:100%; height:100%; object-fit:cover; }
+        .bp-info-author-text { display:flex; flex-direction:column; gap:5px; min-width:0; }
+        .bp-info-author-name { font-family:'Outfit',sans-serif; font-size:15px; font-weight:800; color:#f2f4f8;
+                               letter-spacing:-.01em; line-height:1; transition:color .15s; }
+        .bp-info-author:hover .bp-info-author-name { color:#f97316; }
+        .bp-info-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px;
+                        color:#8aa8cc; font-weight:500; }
+        .bp-info-dot { color:rgba(255,255,255,0.25); }
+        .bp-info-actions { display:flex; gap:8px; flex-wrap:wrap; }
         .bp-sb-card { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.05); border-radius:14px; overflow:hidden; }
         .bp-sb-card-padded { padding:14px; }
         .bp-sb-heading { font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.14em;
@@ -373,19 +382,10 @@ export default function BlogPostPageClient(props: Props) {
       `}</style>
 
       <div className="bp-root">
-        {/* ══════════ HERO ══════════ */}
+        {/* ══════════ HERO — kompaktiškas (tik title + chip), be pilnaplotės nuotraukos ══ */}
         <div className="bp-hero">
-          {heroImage ? (
-            <>
-              <img src={proxyImg(heroImage)} alt="" className="bp-hero-img" />
-              <div className="bp-hero-overlay" />
-            </>
-          ) : (
-            <div className="bp-hero-noimg" />
-          )}
           <div className="bp-hero-content">
             <div className="bp-hero-inner">
-              {/* Type chip — TIK custom type'ams (review/translation/event/topas/news/article-other) */}
               {showChip && typeLabel && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <span className="bp-chip">{typeLabel}</span>
@@ -395,76 +395,16 @@ export default function BlogPostPageClient(props: Props) {
                 </div>
               )}
               <h1 className="bp-h1">{post.title}</h1>
-
-              {/* User card su PopBar (karma indikatorius) — pagal user profile page style */}
-              <Link href={`/vartotojas/${authorUsername}`} className="bp-user">
-                <div className="bp-user-av" style={{ background: `hsl(${(authorName.charCodeAt(0) || 65) * 17 % 360},35%,30%)` }}>
-                  {authorAvatar
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    ? <img src={authorAvatar} alt="" />
-                    : (authorName[0] || '?').toUpperCase()
-                  }
-                </div>
-                <div className="bp-user-text">
-                  <span className="bp-user-name">{authorName}</span>
-                  <div className="bp-user-popbar" aria-label={`Karma: ${karmaLevel}/5`}>
-                    <span className="bp-user-popbar-icon">⭐</span>
-                    <PopBar level={karmaLevel} />
-                  </div>
-                </div>
-              </Link>
-
-              {/* Date + reading time row */}
-              <div className="bp-meta-row">
-                {post.published_at && <span>{formatDate(post.published_at)}</span>}
-                {post.reading_time_min > 0 && (
-                  <>
-                    <span style={{ color: 'rgba(255,255,255,0.25)' }}>·</span>
-                    <span>{post.reading_time_min} min. skaitymo</span>
-                  </>
-                )}
-              </div>
             </div>
           </div>
         </div>
 
         {/* ══════════ MAIN + SIDEBAR ══════════ */}
         <div className="bp-page">
-          <div className={`bp-grid ${hasSidebar ? 'has-sb' : 'no-sb'}`}>
+          <div className="bp-grid has-sb">
 
-            {/* MAIN (left) */}
+            {/* MAIN (left) — tik tekstas + komentarai */}
             <main style={{ minWidth: 0 }}>
-              {/* ── Top actions row (above body): Patinka + Komentarai jump + tags ── */}
-              <div className="bp-top-actions">
-                <BlogLikePill postId={post.id} initialCount={post.like_count} />
-                <button
-                  type="button"
-                  onClick={scrollToComments}
-                  className="bp-pill"
-                  style={{ cursor: 'pointer', background: 'none', padding: 0, font: 'inherit' }}
-                  title="Pereiti į komentarus"
-                >
-                  <span className="bp-pill-side" style={{ pointerEvents: 'none' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                    Komentarai
-                  </span>
-                  <span className="bp-pill-count" style={{ pointerEvents: 'none' }}>
-                    {post.comment_count.toLocaleString('lt-LT')}
-                  </span>
-                </button>
-                {visibleTags.length > 0 && (
-                  <div className="bp-tags" style={{ marginLeft: 'auto' }}>
-                    {visibleTags.map((tag: string) => (
-                      <Link key={tag} href={`/blogas?tag=${encodeURIComponent(tag)}`} className="bp-tag">
-                        #{tag}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               {post.summary && <p className="bp-summary">{post.summary}</p>}
 
               {post.content && (
@@ -477,12 +417,16 @@ export default function BlogPostPageClient(props: Props) {
                 <TopasList items={post.list_items} />
               )}
 
-              <AuthorFooter
-                username={authorUsername}
-                name={authorName}
-                avatar={authorAvatar}
-                blogTitle={blogTitle}
-              />
+              {/* Tags — palieku po body, kad neperkraut info box'o */}
+              {visibleTags.length > 0 && (
+                <div className="bp-tags" style={{ marginTop: 32 }}>
+                  {visibleTags.map((tag: string) => (
+                    <Link key={tag} href={`/blogas?tag=${encodeURIComponent(tag)}`} className="bp-tag">
+                      #{tag}
+                    </Link>
+                  ))}
+                </div>
+              )}
 
               <div id="bp-comments" className="bp-comments">
                 <EntityCommentsBlock
@@ -494,15 +438,27 @@ export default function BlogPostPageClient(props: Props) {
               </div>
             </main>
 
-            {/* SIDEBAR (right, sticky) */}
-            {hasSidebar && (
-              <aside className="bp-sidebar">
-                {/* Unified player — DB tracks + body-extracted YT/Spotify embeds */}
-                {playerTracks.length > 0 && <UnifiedPlayer tracks={playerTracks} />}
-                {/* Target entity (recenzija/vertimas/event) */}
-                {targetInfo && (targetInfo.artist || targetInfo.album || targetInfo.track || targetInfo.event) && (
-                  <TargetEntityCard target={targetInfo} postType={postType} />
-                )}
+            {/* SIDEBAR (right, sticky) — InfoBox viršuje + Player apačioje */}
+            <aside className="bp-sidebar">
+              {/* InfoBox: author + popbar + date + read time + Patinka + Komentarai.
+                  Visada matomas — net jei nėra player tracks (kai nėra musi, sidebar
+                  vis tiek turi info card). */}
+              <InfoBox
+                postId={post.id}
+                postLikeCount={post.like_count}
+                commentCount={post.comment_count}
+                publishedAt={post.published_at}
+                readingTime={post.reading_time_min}
+                authorName={authorName}
+                authorUsername={authorUsername}
+                authorAvatar={authorAvatar}
+                karmaLevel={karmaLevel}
+                onScrollToComments={scrollToComments}
+              />
+              {playerTracks.length > 0 && <UnifiedPlayer tracks={playerTracks} />}
+              {targetInfo && (targetInfo.artist || targetInfo.album || targetInfo.track || targetInfo.event) && (
+                <TargetEntityCard target={targetInfo} postType={postType} />
+              )}
                 {/* Albums (atskira kortelė — ne player listed) */}
                 {attachments.albums.length > 0 && (
                   <div className="bp-sb-card bp-sb-card-padded">
@@ -544,12 +500,86 @@ export default function BlogPostPageClient(props: Props) {
                     ))}
                   </div>
                 )}
-              </aside>
-            )}
+            </aside>
           </div>
         </div>
       </div>
     </>
+  )
+}
+
+/* ─── InfoBox — author info + post meta + action buttons (right sidebar TOP) ─ */
+function InfoBox(props: {
+  postId: string
+  postLikeCount: number
+  commentCount: number
+  publishedAt: string | null | undefined
+  readingTime: number
+  authorName: string
+  authorUsername: string
+  authorAvatar: string | null
+  karmaLevel: number
+  onScrollToComments: () => void
+}) {
+  const { postId, postLikeCount, commentCount, publishedAt, readingTime,
+          authorName, authorUsername, authorAvatar, karmaLevel,
+          onScrollToComments } = props
+  const formatDate = (d?: string | null) =>
+    d ? new Date(d).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+
+  return (
+    <div className="bp-info-box">
+      {/* Author row — avatar + name + popbar (be rounded pill'o, plain stack) */}
+      <Link href={`/vartotojas/${authorUsername}`} className="bp-info-author">
+        <div className="bp-info-av" style={{ background: `hsl(${(authorName.charCodeAt(0) || 65) * 17 % 360},35%,30%)` }}>
+          {authorAvatar
+            /* eslint-disable-next-line @next/next/no-img-element */
+            ? <img src={authorAvatar} alt="" />
+            : (authorName[0] || '?').toUpperCase()
+          }
+        </div>
+        <div className="bp-info-author-text">
+          <span className="bp-info-author-name">{authorName}</span>
+          <div className="bp-user-popbar" aria-label={`Karma: ${karmaLevel}/5`}>
+            <span className="bp-user-popbar-icon">⭐</span>
+            <PopBar level={karmaLevel} />
+          </div>
+        </div>
+      </Link>
+
+      {/* Meta — date + reading time */}
+      <div className="bp-info-meta">
+        {publishedAt && <span>{formatDate(publishedAt)}</span>}
+        {readingTime > 0 && (
+          <>
+            <span className="bp-info-dot">·</span>
+            <span>{readingTime} min. skaitymo</span>
+          </>
+        )}
+      </div>
+
+      {/* Actions: Patinka + Komentarai */}
+      <div className="bp-info-actions">
+        <BlogLikePill postId={postId} initialCount={postLikeCount} />
+        <button
+          type="button"
+          onClick={onScrollToComments}
+          className="bp-pill"
+          style={{ cursor: 'pointer', background: 'none', padding: 0, font: 'inherit' }}
+          title="Pereiti į komentarus"
+        >
+          <span className="bp-pill-side" style={{ pointerEvents: 'none' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            Komentarai
+          </span>
+          <span className="bp-pill-count" style={{ pointerEvents: 'none' }}>
+            {commentCount.toLocaleString('lt-LT')}
+          </span>
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -858,24 +888,4 @@ function TargetEntityCard({ target, postType }: { target: any; postType: BlogPos
   )
 }
 
-/* ─── Author footer card ───────────────────────────────────────────────── */
-function AuthorFooter({ username, name, avatar, blogTitle }: { username: string; name: string; avatar: string | null; blogTitle: string | null }) {
-  return (
-    <div className="bp-author-footer">
-      <Link href={`/vartotojas/${username}`}>
-        <div className="av-lg" style={{ background: `hsl(${(name.charCodeAt(0) || 65) * 17 % 360},35%,30%)` }}>
-          {avatar
-            /* eslint-disable-next-line @next/next/no-img-element */
-            ? <img src={avatar} alt="" />
-            : (name[0] || '?').toUpperCase()
-          }
-        </div>
-      </Link>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <Link href={`/vartotojas/${username}`} className="bp-author-footer-name">{name}</Link>
-        {blogTitle && <p className="bp-author-footer-sub">{blogTitle}</p>}
-      </div>
-      <Link href={`/blogas/${username}`} className="bp-author-footer-link">Visi įrašai</Link>
-    </div>
-  )
-}
+/* AuthorFooter pašalintas — author info dabar gyvena InfoBox sidebar'e. */

@@ -192,8 +192,10 @@ export function extractMusicFromBody(html: string): BlogContentExtracted {
     const closeIdx = html.indexOf('</table>', m.index)
     const endIdx = closeIdx >= 0 ? closeIdx + '</table>'.length : html.length
     const tableHtml = html.slice(openStart, endIdx)
-    // Tik widget'us (su `favorite_<mod>_link<id>_<kind>` ID pattern) strip'inam
-    if (!/favorite_(?:5|9|10)_link\d+_(?:dainos|atlikejai|albumai)/i.test(tableHtml)) continue
+    // Tik widget'us su `favorite_<mod>_link<id>_<anything>` ID pattern strip'inam.
+    // music.lt naudoja `_dainos` suffix'ą visiems mod'ams (5=artist, 9=track,
+    // 10=album), ne tik dainoms. Todėl kind sufiksas tikrinamas plačiai (\w+).
+    if (!/favorite_(?:5|9|10)_link\d+_\w+/i.test(tableHtml)) continue
     tableMatches.push({ start: openStart, end: endIdx })
     // Re-parse rows in this table
     LEGACY_WIDGET_ROW_RE.lastIndex = 0
@@ -283,10 +285,22 @@ export function extractMusicFromBody(html: string): BlogContentExtracted {
   }
   // Tidy: post-iframe `<p>...</p>` wrappers ofttimes empty after strip → drop them
   cleaned = cleaned.replace(/<p[^>]*>\s*<\/p>/gi, '')
+  // Empty paragraphs su tik &nbsp; ar whitespace
+  cleaned = cleaned.replace(/<p[^>]*>(?:&nbsp;|\s)*<\/p>/gi, '')
   // Drop'inam malformed dangling tags like </img></hr></hr></hr> (scraper artifact)
   cleaned = cleaned.replace(/<\/(img|hr|br|input)>/gi, '')
-  // Drop'inam pradinį hr separator'ių sąrašą prieš table (jie buvo widget'o pradžia)
-  cleaned = cleaned.replace(/(?:<hr[^>]*\/?>\s*){2,}\s*$/i, '')
+  // Drop'inam KIEKVIENĄ HR separator'ią — anksčiau buvo widget'o boundary'us,
+  // po strip'inimo lieka tušti (visi blog posts iš senos sistemos turi tris
+  // <hr> seką prieš favorite widget'ą, dabar atrodo kaip random separator'iai).
+  cleaned = cleaned.replace(/<hr[^>]*\/?>/gi, '')
+  // Empty span'ai
+  cleaned = cleaned.replace(/<span[^>]*>\s*<\/span>/gi, '')
+  // jRating widget / registration prompts (kartais leak'ina iš music.lt)
+  cleaned = cleaned.replace(/<div[^>]*id=["']jRating["'][^>]*>[\s\S]*?<\/div>/gi, '')
+  // Stray noscript
+  cleaned = cleaned.replace(/<noscript>[\s\S]*?<\/noscript>/gi, '')
+  // Trailing whitespace
+  cleaned = cleaned.replace(/\s+$/g, '')
 
   return { cleanedHtml: cleaned, music }
 }
