@@ -2,15 +2,22 @@
 
 // components/profile/SideEqualizer.tsx
 //
-// Equalizer — dual size variant: 'side' (compact, 360px wide) ir 'hero'
-// (didelis, užima ~puse hero ploto). Hero variant turi:
-//   - 220px BAR_BASE (~stipriai didesni stulpeliai)
-//   - Stipriai didesni labels
-//   - Aiškesnis emphasis ant pasirinkimo
+// V8 — kompaktiškas equalizer su animuotu nuokrypiu, žaibo tarpais ir grid
+// overlay'ais. Click ant stulpelio iškviečia onSelect(genre) callback'ą,
+// kurį parent (profile-client) konvertuoja į modal'ą — nebekeičia page
+// turinio žemiau. Trys variantai:
+//   - 'hero'    — didelis (220px), naudotas seniau (paliekam compat)
+//   - 'side'    — 140px (legacy compact)
+//   - 'compact' — 120px, kompaktiškas pločiui + tighter labels
 //
-// Bars klauso click'o ir invokes onSelect(fullGenreName | null) callback'ą
-// — parent renders filtruotą artist/track sąrašą. Spalvos imamos iš
-// GENRE_COLORS lib (top menu Muzika tvarka, NE pagal populiarumą).
+// Animation flow:
+//   1. Bars rise (700ms ease-out, staggered 60ms)
+//   2. Shimmer line sweeps every 6s
+//   3. Hover → translate-y -2px + glow expansion
+//   4. Click → onSelect(fullGenreName) ir parent atidaro GenreFilterModal'ą
+//
+// Labels — flex-1 min-w-0 truncate ant CSS clamp font; jei stulpelių 8,
+// 11px font'as visu plotyje fit'isi compact variante (12vw → 11px sm:).
 
 import { GENRE_COLORS } from '@/lib/genre-colors'
 
@@ -43,19 +50,20 @@ type Props = {
   meter: MeterEntry[] | null
   selectedGenre?: string | null
   onSelect?: (fullGenreName: string | null) => void
-  variant?: 'side' | 'hero'
+  variant?: 'side' | 'hero' | 'compact'
 }
 
 export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side' }: Props) {
   if (!meter || !Array.isArray(meter) || meter.length === 0) return null
 
   const isHero = variant === 'hero'
-  const BAR_BASE = isHero ? 220 : 140
+  const isCompact = variant === 'compact'
+  const BAR_BASE = isHero ? 220 : isCompact ? 120 : 140
   const titleFs   = isHero ? '12px' : '10px'
   const titleTr   = isHero ? '0.22em' : '0.18em'
-  const labelFs   = isHero ? '11px' : '9px'
-  const pctFs     = isHero ? '11px' : '9px'
-  const padding   = isHero ? 'p-5 sm:p-6' : 'p-4 sm:p-5'
+  const labelFs   = isHero ? '11px' : isCompact ? '10px' : '9px'
+  const pctFs     = isHero ? '11px' : isCompact ? '9px' : '9px'
+  const padding   = isHero ? 'p-5 sm:p-6' : isCompact ? 'p-3.5 sm:p-4' : 'p-4 sm:p-5'
 
   // Map data į canonical GENRE_COLORS order
   const byShort = new Map<string, MeterEntry>()
@@ -77,13 +85,24 @@ export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side'
 
   return (
     <div
-      className={`relative rounded-2xl border ${padding}`}
+      className={`relative rounded-2xl border overflow-hidden ${padding}`}
       style={{
         background: 'linear-gradient(135deg, var(--card-bg), transparent 80%)',
         borderColor: 'var(--border-subtle)',
       }}
     >
-      <div className="flex items-center justify-between mb-4">
+      {/* Ambient sweep — pridėtas grožiui */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-0 opacity-50">
+        <div
+          className="absolute inset-y-0 -left-1/3 w-2/3"
+          style={{
+            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%)',
+            animation: 'eqShimmerSweep 7s linear infinite',
+          }}
+        />
+      </div>
+
+      <div className="relative flex items-center justify-between mb-3">
         <div
           className="font-extrabold uppercase"
           style={{
@@ -107,9 +126,9 @@ export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side'
       </div>
 
       {/* Bars — fixed canonical order */}
-      <div className="flex items-end gap-1.5 sm:gap-2" style={{ height: `${BAR_BASE}px` }}>
+      <div className="relative flex items-end gap-[6px] sm:gap-2" style={{ height: `${BAR_BASE}px` }}>
         {bars.map((b, i) => {
-          const heightPx = Math.max((b.percent / maxPct) * BAR_BASE, 4)
+          const heightPx = Math.max((b.percent / maxPct) * BAR_BASE, 6)
           const isSelected = selectedGenre === b.fullName
           const isDimmed = selectedGenre && !isSelected
           const clickable = b.percent > 0 && onSelect
@@ -117,33 +136,46 @@ export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side'
           return (
             <button
               key={b.fullName}
-              onClick={clickable ? () => onSelect(isSelected ? null : b.fullName) : undefined}
+              onClick={clickable ? () => onSelect(b.fullName) : undefined}
               disabled={!clickable}
-              className={`flex-1 min-w-0 flex flex-col items-stretch transition-all ${
-                clickable ? 'cursor-pointer hover:opacity-100 hover:-translate-y-0.5' : 'cursor-default'
-              } ${isDimmed ? 'opacity-30' : 'opacity-100'}`}
+              className={`group flex-1 min-w-0 flex flex-col items-stretch transition-all duration-300 ${
+                clickable ? 'cursor-pointer hover:-translate-y-1' : 'cursor-default'
+              } ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
               style={{ alignSelf: 'flex-end' }}
               title={b.percent > 0 ? `${b.short} — ${b.percent.toFixed(0)}%` : `${b.short} — 0%`}
             >
               <div
-                className="rounded-t relative overflow-hidden animate-[barRiseV6_700ms_cubic-bezier(0.34,1.56,0.64,1)_both]"
+                className="relative overflow-hidden rounded-t-md"
                 style={{
                   height: `${heightPx}px`,
-                  background: `linear-gradient(to top, rgba(${b.rgb}, 0.55), ${b.hex})`,
+                  background: `linear-gradient(to top, rgba(${b.rgb}, 0.30), rgba(${b.rgb}, 0.95) 80%, ${b.hex})`,
                   boxShadow: isSelected
-                    ? `0 0 32px rgba(${b.rgb}, 0.7), inset 0 1px 0 rgba(255,255,255,0.5)`
-                    : `0 0 18px rgba(${b.rgb}, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)`,
-                  animationDelay: `${i * 50}ms`,
+                    ? `0 0 32px rgba(${b.rgb}, 0.75), inset 0 1px 0 rgba(255,255,255,0.5)`
+                    : `0 0 14px rgba(${b.rgb}, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)`,
                   outline: isSelected ? `2px solid ${b.hex}` : 'none',
                   outlineOffset: '3px',
+                  transform: 'scaleY(0.05)',
+                  transformOrigin: 'bottom',
+                  opacity: 0.6,
+                  animation: `barRiseV8 800ms cubic-bezier(0.22, 1, 0.36, 1) ${100 + i * 65}ms forwards`,
                 }}
               >
-                <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/30" />
-                <div className="absolute inset-0 flex flex-col-reverse pointer-events-none">
-                  {Array.from({ length: Math.min(Math.floor(heightPx / 8), 32) }).map((_, j) => (
-                    <div key={j} className="h-[8px] border-b border-black/30" />
+                {/* Top highlight */}
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/45" />
+                {/* Subtle scan-line grid */}
+                <div aria-hidden className="absolute inset-0 flex flex-col-reverse pointer-events-none">
+                  {Array.from({ length: Math.min(Math.floor(heightPx / 9), 32) }).map((_, j) => (
+                    <div key={j} className="h-[9px] border-b" style={{ borderColor: 'rgba(0,0,0,0.28)' }} />
                   ))}
                 </div>
+                {/* Hover gloss */}
+                <div
+                  aria-hidden
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                  style={{
+                    background: `linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 50%)`,
+                  }}
+                />
               </div>
             </button>
           )
@@ -151,10 +183,14 @@ export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side'
       </div>
 
       {/* Labels */}
-      <div className="flex gap-1.5 sm:gap-2 mt-2.5">
+      <div className="flex gap-[6px] sm:gap-2 mt-2.5">
         {bars.map((b) => {
           const isSelected = selectedGenre === b.fullName
           const dimmed = selectedGenre && !isSelected
+          // Show shortest possible name; only 1st 3-4 letters for compact
+          const shortText = isCompact
+            ? b.short.split(/[,\s/-]/)[0].slice(0, 7)
+            : b.short.replace(', ', '/')
           return (
             <div key={b.fullName} className={`flex-1 min-w-0 text-center ${dimmed ? 'opacity-30' : ''}`}>
               <div
@@ -164,8 +200,9 @@ export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side'
                   fontSize: labelFs,
                   color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
                 }}
+                title={b.short}
               >
-                {b.short.replace(', ', '/')}
+                {shortText}
               </div>
               <div
                 className="font-mono"
@@ -178,22 +215,17 @@ export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side'
         })}
       </div>
 
-      {isHero && onSelect && (
-        <p
-          className="text-center mt-4"
-          style={{
-            fontFamily: "'Outfit', sans-serif",
-            fontSize: '11px',
-            color: 'var(--text-muted)',
-          }}
-        >
-          {selectedGenre
-            ? `Pasirinkta — žemiau rodomi „${FULL_TO_SHORT[selectedGenre]}" atlikėjai ir dienos dainos`
-            : 'Spauskite stulpelį — pamatysite to stiliaus atlikėjus ir dienos dainas'}
-        </p>
-      )}
-
-      <style>{`@keyframes barRiseV6 { from { transform: scaleY(0.05); transform-origin: bottom; opacity: 0.5; } to { transform: scaleY(1); transform-origin: bottom; opacity: 1; } }`}</style>
+      <style>{`
+        @keyframes barRiseV8 {
+          0%   { transform: scaleY(0.05); opacity: 0.5; }
+          60%  { transform: scaleY(1.06); opacity: 1; }
+          100% { transform: scaleY(1); opacity: 1; }
+        }
+        @keyframes eqShimmerSweep {
+          0%   { transform: translateX(-30%); }
+          100% { transform: translateX(180%); }
+        }
+      `}</style>
     </div>
   )
 }

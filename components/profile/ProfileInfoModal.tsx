@@ -47,6 +47,15 @@ export function ProfileInfoModal({
     ? Math.floor((Date.now() - birth.getTime()) / (1000 * 60 * 60 * 24 * 365.25))
     : null
 
+  const photos: { url: string; thumb_url?: string; caption?: string | null }[] =
+    Array.isArray(profile.legacy_profile_photos) ? profile.legacy_profile_photos : []
+  const isLegacy = profile.provider === 'legacy_forum' || !!profile.legacy_user_id
+  const isUnclaimed = !profile.is_claimed
+  // Vartotojo "tikras vardas" / display name — jei toks pat kaip username,
+  // tada nepasitiek to atskirai (vengiame dvigubo „einaras13 / einaras13").
+  const displayDifferent =
+    profile.full_name && profile.username && profile.full_name.toLowerCase() !== profile.username.toLowerCase()
+
   const rows: { label: string; value: string }[] = []
   if (profile.legacy_message_count != null) rows.push({ label: 'Žinučių forume', value: profile.legacy_message_count.toLocaleString('lt-LT') })
   if (profile.legacy_login_count != null) rows.push({ label: 'Prisijungimų', value: profile.legacy_login_count.toLocaleString('lt-LT') })
@@ -106,16 +115,80 @@ export function ProfileInfoModal({
                 {(profile.full_name || profile.username || '?')[0].toUpperCase()}
               </div>
             )}
-            <div>
+            <div className="min-w-0 flex-1">
               <h2 className="text-xl sm:text-2xl font-black leading-tight"
                   style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
-                {profile.full_name || profile.username}
+                {profile.username}
               </h2>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
-                @{profile.username} · narys nuo {memberSinceYear}
+              {displayDifferent && (
+                <p className="text-sm font-semibold mt-0.5"
+                   style={{ color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }}>
+                  {profile.full_name}
+                </p>
+              )}
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
+                 style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+                <span>@{profile.username}</span>
+                <span style={{ color: 'var(--text-faint)' }}>·</span>
+                <span>narys nuo {memberSinceYear}</span>
+                {profile.legacy_city && (
+                  <>
+                    <span style={{ color: 'var(--text-faint)' }}>·</span>
+                    <span>{profile.legacy_city}</span>
+                  </>
+                )}
+                {isLegacy && isUnclaimed && (
+                  <>
+                    <span style={{ color: 'var(--text-faint)' }}>·</span>
+                    <span
+                      className="text-[9px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5"
+                      style={{
+                        color: 'var(--text-muted)',
+                        background: 'var(--card-bg)',
+                        border: '1px solid var(--border-subtle)',
+                      }}
+                    >
+                      archyvinis
+                    </span>
+                  </>
+                )}
               </p>
             </div>
           </div>
+
+          {/* Member photos — legacy_profile_photos */}
+          {photos.length > 0 && (
+            <section className="mb-5">
+              <SectionLabel>Nario nuotraukos</SectionLabel>
+              <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {photos.slice(0, 8).map((p, i) => (
+                  <a
+                    key={i}
+                    href={p.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="relative aspect-square rounded-lg overflow-hidden transition hover:scale-[1.02]"
+                    style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}
+                    title={p.caption || ''}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.thumb_url || p.url}
+                      alt={p.caption || ''}
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                    />
+                    {p.caption && (
+                      <div className="absolute inset-x-0 bottom-0 px-2 py-1 text-[10px] text-white truncate"
+                           style={{ background: 'linear-gradient(0deg, rgba(0,0,0,0.85), transparent)' }}>
+                        {p.caption}
+                      </div>
+                    )}
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Personal info */}
           {(profile.legacy_city || age != null || profile.legacy_occupation) && (

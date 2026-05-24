@@ -74,6 +74,34 @@ export default async function UserProfilePage({ params }: Props) {
       .order('published_at', { ascending: false })
       .limit(30)
     const all = data || []
+
+    // Fallback thumbnails — postam'iams be cover_image_url ieškom YT thumb
+    // iš prijungtų track'ų video_url (mqdefault). Užtikrina, kad post grid
+    // turi vizualų net jei autorius cover'io neikėlė.
+    const postIds = all.map((p: any) => p.id)
+    if (postIds.length > 0) {
+      const { data: trackAttach } = await sb
+        .from('blog_post_tracks')
+        .select('post_id, tracks:track_id(video_url, cover_url, artist:artist_id(cover_image_url))')
+        .in('post_id', postIds)
+      const thumbByPost = new Map<string, string>()
+      for (const row of (trackAttach || []) as any[]) {
+        if (thumbByPost.has(row.post_id)) continue
+        const t = Array.isArray(row.tracks) ? row.tracks[0] : row.tracks
+        if (!t) continue
+        const yt = t.video_url?.match?.(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)?.[1]
+        const url = yt
+          ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg`
+          : t.cover_url || (Array.isArray(t.artist) ? t.artist[0]?.cover_image_url : t.artist?.cover_image_url) || null
+        if (url) thumbByPost.set(row.post_id, url)
+      }
+      for (const p of all) {
+        if (!p.cover_image_url && thumbByPost.has(p.id)) {
+          ;(p as any).fallback_thumb_url = thumbByPost.get(p.id)
+        }
+      }
+    }
+
     regularPosts = all.filter((p: any) => p.post_type !== 'topas' && p.post_type !== 'translation').slice(0, 6)
     topasPosts = all.filter((p: any) => p.post_type === 'topas').slice(0, 6)
   }

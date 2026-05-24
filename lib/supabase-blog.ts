@@ -17,7 +17,8 @@ export async function getProfileByUsername(username: string) {
       legacy_message_count, legacy_avg_message_len, legacy_vote_avg_track,
       legacy_vote_avg_album, legacy_vote_avg_artist,
       legacy_liked_artist_count, legacy_liked_album_count,
-      legacy_liked_track_count, legacy_music_meter
+      legacy_liked_track_count, legacy_music_meter,
+      legacy_profile_photos
     `)
     .ilike('username', username)
     .single()
@@ -151,7 +152,7 @@ export async function getMoodSongTrack(trackId: number | null) {
   const sb = createAdminClient()
   const { data } = await sb
     .from('tracks')
-    .select('id, slug, title, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .select('id, slug, title, video_url, cover_url, release_year, like_count, lyrics, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
     .eq('id', trackId)
     .single()
   return data as any
