@@ -476,20 +476,24 @@ function PlayerCard({
   // PopBar relatyvumas per current filter — kai useris filter'is naujausiems,
   // top trending track'as gauna 5 dashes neprikl. nuo all-time top'o.
   const popInfo = useMemo(() => detectPopSignal(list), [list])
-  // Singles filter sort'inamas pagal year DESC, todėl idx jame ne
-  // popularity rank'as — bar'ai tampa monotoniškai mažėjantys. Sprendimas:
-  // skaičiuojam popbar level'į pagal track'o rank'ą `tracksAllTime` list'e
-  // (kuris jau sortintas composite desc nuo parent'o), Map'inamas vieną
-  // kartą; bet kuris filter view'as paima rank'ą iš mapo.
+  // 2026-05-25: nebenaudojam percentile-based ranking'o (anksčiau top 20% =
+  // 5/5 ir t.t.). Dabar absoliutus level'is per `trackPopAbsoluteLevel`:
+  // 5/5 = realiai TOP hit'as (50k+ views/d arba 300+ likes), kitos —
+  // pagal absoliučius rodiklius (gali būti 1-4/5 arba 0 jei nėra duomenų).
+  // Tai išsprendžia case'ą, kai atlikėjas turi vieną super populiarią
+  // dainą, o likę 50 dainų neturi populiarumo — anksčiau visi top 20%
+  // gaudavo 5/5 (~10 dainų), dabar tik realiai hit'as gauna 5/5.
   const allTimePopLevelById = useMemo(() => {
     const map = new Map<number, number>()
-    const N = tracksAllTime.length
-    if (N === 0) return map
-    tracksAllTime.forEach((t, i) => {
-      const p = i / N
-      const lvl = p < 0.20 ? 5 : p < 0.40 ? 4 : p < 0.60 ? 3 : p < 0.80 ? 2 : 1
-      map.set(t.id, lvl)
-    })
+    const now = Date.now()
+    for (const t of tracksAllTime) {
+      const lvl = trackPopAbsoluteLevel(t, now)
+      // Tik teigiamus level'ius dedam į mapę — kitaip `??` operatorius
+      // grąžintų 0 (truthy nepriklauso) ir užblokuotų popLevelWithFallback
+      // fallback'ą tracks be duomenų sąraše, kuriame nėra jokios populiarumo
+      // info ('none' signal'as).
+      if (lvl > 0) map.set(t.id, lvl)
+    }
     return map
   }, [tracksAllTime])
   const activeTrack = [...tracksAllTime, ...tracksTrending].find(t => t.id === activeTrackId)
@@ -1334,41 +1338,106 @@ function trackPopValue(t: any, signal: PopSignal): number {
   return 0
 }
 
-/** PopBar level — PERCENTILE-based (rank tarp esamo list'o). Sąrašas
- *  jau atrūšiuotas pagal composite score desc (trackSortVal), todėl idx
- *  yra rank'as: idx=0 → top track, idx=N-1 → bottom track.
- *  Kvintiliais (20% kiekvienam level'iui):
- *    • Top 20%   → 5/5
- *    • 20–40%    → 4/5
- *    • 40–60%    → 3/5
- *    • 60–80%    → 2/5
- *    • Bottom 20%→ 1/5
- *  Tai garantuoja UNIFORM dashes distribuciją per visą list'ą — anksčiau
- *  value/max ratio versija sukurdavo skewed bias kai top track turėjo
- *  daug daugiau composite nei vidurys (everyone got 1-2/5).
+/** ABSOLUTE PopBar level (0..5) — replaces percentile-based ranking
+ *  2026-05-25.
  *
- *  popInfo paliktas signature'oj (legacy callers), bet jo signal'as
- *  naudojamas TIK tam, kad nutart, ar yra bent kokia data:
- *    • 'none' → grąžinam 0 (tuščias bar, "neturime info")
- *    • bet kas kita → percentile'as iš idx/total.
+ *  Anksčiau buvo percentile (top 20% = 5/5, etc.). Problema: kai atlikėjas
+ *  turi VIENĄ mega hit'ą, o likę 50 dainų yra neperžinomos, percentile
+ *  vis tiek duodavo top 20% (= 10 dainų) po 5 dashes — atrodė kaip visas
+ *  atlikėjas full of bangers, nors realybėje tik vienas track'as toks.
+ *
+ *  Dabar — absoliutūs threshold'ai pagal:
+ *    - YouTube views per day (ne total — kad senos dainos su didelėm
+ *      kumuliatyvinėm views nesusiklotų virš naujesnių hitų); age >= 30 d
+ *      kad brand-new release'ai neturėtų inflated metric'os.
+ *    - Likes count (likes lentelė, kurioje sujungti legacy + new likes
+ *      — atspindi music.lt community love).
+ *
+ *  Imame MAX iš dviejų signalų — kompensuojam:
+ *    • LT case'ą (YT enrichment nepravažiavęs, video_views=0, likes dominuoja)
+ *    • INTL case'ą (music.lt likes maži užsienio atlikėjams, YT views dominuoja)
+ *
+ *  Threshold'ai kalibruoti pagal realią music.lt duomenų bazę:
+ *    - „Geltona" (Mamontovas) 107 likes → 4/5
+ *    - Coldplay „Yellow" ~110k views/d → 5/5
+ *    - Tipiniai LT klubo hit'ai 20-50 likes → 2-3/5
+ *
+ *  Tikslas: vienodi semantiniai dashes — 5/5 reiškia realiai TOP hit'ą,
+ *  ne tiesiog „šio atlikėjo populiariausias". */
+export function trackPopAbsoluteLevel(t: any, nowMs: number = Date.now()): number {
+  const views = Number(t?.video_views || 0)
+  const likes = Number(t?.like_count || 0)
+
+  // Track age in days — min 30 d, kad ką tik išleisti track'ai neturėtų
+  // dirbtinai didelės views/day metric'os.
+  let ageDays = 365
+  const yr = Number(t?.release_year || 0)
+  if (yr > 1900 && yr <= new Date(nowMs).getFullYear() + 1) {
+    const mo = Math.max(1, Math.min(12, Number(t?.release_month || 6))) - 1
+    const dy = Math.max(1, Math.min(28, Number(t?.release_day || 15)))
+    const releaseMs = new Date(yr, mo, dy).getTime()
+    if (Number.isFinite(releaseMs) && releaseMs < nowMs) {
+      ageDays = Math.max(30, (nowMs - releaseMs) / 86400000)
+    }
+  } else if (t?.release_date) {
+    const releaseMs = new Date(t.release_date).getTime()
+    if (Number.isFinite(releaseMs) && releaseMs < nowMs) {
+      ageDays = Math.max(30, (nowMs - releaseMs) / 86400000)
+    }
+  }
+
+  const viewsPerDay = views > 0 ? views / ageDays : 0
+
+  // Views/day threshold'ai:
+  //   5/5 — 50k+ views/d (~18M/metus) — mega global hit
+  //   4/5 — 5k+ views/d  (~1.8M/metus) — solid hit
+  //   3/5 — 500+ views/d                — gera, žinoma daina
+  //   2/5 — 50+ views/d                 — turinti šiek tiek auditorijos
+  //   1/5 — 1+ views/d                  — vos pajudėjusi
+  let vLevel = 0
+  if (viewsPerDay >= 50000) vLevel = 5
+  else if (viewsPerDay >= 5000) vLevel = 4
+  else if (viewsPerDay >= 500) vLevel = 3
+  else if (viewsPerDay >= 50) vLevel = 2
+  else if (viewsPerDay >= 1) vLevel = 1
+
+  // Likes threshold'ai (music.lt community scale):
+  //   5/5 — 300+ likes — visų laikų LT top dainos
+  //   4/5 — 75+  likes — žinomos klasikos
+  //   3/5 — 20+  likes — geros dainos
+  //   2/5 — 5+   likes — turinčios šiek tiek fanų
+  //   1/5 — 1+   like  — bent kažkam patiko
+  let lLevel = 0
+  if (likes >= 300) lLevel = 5
+  else if (likes >= 75) lLevel = 4
+  else if (likes >= 20) lLevel = 3
+  else if (likes >= 5) lLevel = 2
+  else if (likes >= 1) lLevel = 1
+
+  return Math.max(vLevel, lLevel)
+}
+
+/** PopBar level su fallback'u — pagrinde absoliutus (trackPopAbsoluteLevel),
+ *  bet kai artist'as visiškai neturi duomenų (signal='none'), grįžtam į
+ *  pozicija-based proportional kad sąraše vis tiek matytųsi koks nors bar'as
+ *  (geriau nei plika eilė nulių). Kai artist TURI signal'o (bent vienas
+ *  track turi views/likes), tracks be duomenų gauna 0 — bar slepiamas
+ *  (informatyvu: "nėra duomenų" vietoj fake proportional rank'o).
  */
 function popLevelWithFallback(
-  _t: any,
+  t: any,
   idx: number,
   total: number,
   popInfo: { signal: PopSignal; max: number }
 ): number {
+  const abs = trackPopAbsoluteLevel(t)
+  if (abs > 0) return abs
   if (popInfo.signal === 'none' || total <= 0) {
     if (total <= 1) return 3
     const ratio = (total - idx) / total
     return Math.max(1, Math.min(5, Math.ceil(ratio * 5)))
   }
-  const p = idx / total
-  if (p < 0.20) return 5
-  if (p < 0.40) return 4
-  if (p < 0.60) return 3
-  if (p < 0.80) return 2
-  return 1
+  return 0
 }
 
 /** Active-track indicator — 3 bars that bounce independently. We use this in
@@ -2163,7 +2232,18 @@ function Hero({
             (portrait 380, square 480, landscape 720) — kraštai nukerpa
             mažiau svarbių dalių, kompozicija išlieka. */}
       <div
-        className="relative aspect-[3/2] w-full overflow-hidden bg-black lg:absolute lg:inset-y-0 lg:left-0 lg:right-auto lg:aspect-auto lg:w-[var(--hero-w,480px)]"
+        // 2026-05-25: mobile'e (be lg:) jei `heroImage` nėra — hide'inam
+        // visą foto container'į. Anksčiau rodydavom 3:2 aspect dark gradient
+        // placeholder'į, kuris ant mobile užimdavo ~80vh tuščios vietos
+        // ir spaude title žemyn. Dabar — be foto, title pakyla iškart po
+        // header'io. Desktop'e (lg:) container'is yra `absolute` ir vis tiek
+        // turi gradient backdrop'ą, kad title kolona ant photo'os kolonos
+        // krašto nebūtų plika.
+        className={[
+          'relative overflow-hidden bg-black',
+          heroImage ? 'aspect-[3/2] w-full' : 'hidden',
+          'lg:block lg:absolute lg:inset-y-0 lg:left-0 lg:right-auto lg:aspect-auto lg:w-[var(--hero-w,480px)]',
+        ].join(' ')}
         style={{ ['--hero-w' as any]: `${heroWidth}px` } as React.CSSProperties}
       >
         {heroImage ? (
