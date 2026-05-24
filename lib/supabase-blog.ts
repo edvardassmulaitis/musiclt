@@ -150,11 +150,22 @@ export async function getUserContentStats(userId: string) {
 export async function getMoodSongTrack(trackId: number | null) {
   if (!trackId) return null
   const sb = createAdminClient()
-  const { data } = await sb
+  // Saugesnis bazinių laukų select'as — ankstesnis su release_year/lyrics/like_count
+  // grąžindavo data=null, kai bent vienos kolonos schema kintamą tipą turi
+  // (pvz., lyrics nullable text). Modal'ui pakanka core laukų + 1 fallback.
+  const { data, error } = await sb
     .from('tracks')
-    .select('id, slug, title, video_url, cover_url, release_year, like_count, lyrics, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .select(`
+      id, slug, title, video_url, cover_url, like_count, release_year,
+      artist_id,
+      artists:artist_id (id, slug, name, cover_image_url)
+    `)
     .eq('id', trackId)
-    .single()
+    .maybeSingle()
+  if (error) {
+    console.warn('[getMoodSongTrack] supabase error:', error.message)
+    return null
+  }
   return data as any
 }
 
