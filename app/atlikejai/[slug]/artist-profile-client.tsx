@@ -1284,44 +1284,77 @@ function popLevelRelative(value: number, max: number): number {
  */
 type PopSignal = 'composite' | 'none'
 
-/** Composite popularity score — identiškas tracksAllTime sort formule.
- *  Vienas šaltinis truth tiek sortinimui, tiek PopBar level'iui →
- *  visada konsistentinga: kuo aukščiau sąraše, tuo daugiau dashes. */
-export function trackCompositeScore(t: any): number {
-  const viewsLog = Math.log10((t?.video_views || 0) + 1) * 50
-  const likesLog = Math.log10((t?.like_count || 0) + 1) * 10
-  const single = t?.is_single ? 10 : 0
-  const video = t?.video_url ? 5 : 0
-  return viewsLog + likesLog + single + video
+/** Composite popularity score — naudojamas TIK kaip continuous tiebreaker
+ *  per `trackArtistSortVal` lexicographic sort'ą. PopBar level'is gauna
+ *  primary rank'ą iš `trackPopAbsoluteLevel`, o čia gražinama smooth value
+ *  tarp 0-150, kad track'ai TAS PAČIAS level'is būtų tvarkingoje eilėje
+ *  pagal jų stiprumą (level=5 vidury vis tiek aukščiau už level=5 ribose).
+ *
+ *  Formulė: log10(views/day) + log10(likes) — abu signal'ai sveriami
+ *  log-skale (kompresija), tada pridėjam mažus bonus'us už is_single ir
+ *  video_url buvimą (tiebreaker'iai kai abi metrikos identiškos).
+ */
+export function trackCompositeScore(t: any, nowMs: number = Date.now()): number {
+  const views = Number(t?.video_views || 0)
+  const likes = Number(t?.like_count || 0)
+
+  // Track age — identiškai kaip trackPopAbsoluteLevel'yje (kad sort'as ir
+  // level'is naudotų tą pačią age semantiką → monotoniškas mapping'as).
+  let ageDays = 365
+  const yr = Number(t?.release_year || 0)
+  if (yr > 1900 && yr <= new Date(nowMs).getFullYear() + 1) {
+    const mo = Math.max(1, Math.min(12, Number(t?.release_month || 6))) - 1
+    const dy = Math.max(1, Math.min(28, Number(t?.release_day || 15)))
+    const releaseMs = new Date(yr, mo, dy).getTime()
+    if (Number.isFinite(releaseMs) && releaseMs < nowMs) {
+      ageDays = Math.max(30, (nowMs - releaseMs) / 86400000)
+    }
+  } else if (t?.release_date) {
+    const releaseMs = new Date(t.release_date).getTime()
+    if (Number.isFinite(releaseMs) && releaseMs < nowMs) {
+      ageDays = Math.max(30, (nowMs - releaseMs) / 86400000)
+    }
+  }
+
+  const viewsPerDay = views > 0 ? views / ageDays : 0
+
+  // Continuous score — abu signal'ai pridedami (ne max), kad track'as su
+  // gerom abiem metrikom rankuotų aukščiau už track'ą su viena puikia +
+  // viena nuline. Diapazonas ~0-150.
+  const viewsScore = Math.log10(viewsPerDay + 1) * 10  // max ~50 prie 1M views/d
+  const likesScore = Math.log10(likes + 1) * 20        // max ~80 prie 10000 likes
+  const single = t?.is_single ? 0.5 : 0
+  const video = t?.video_url ? 0.2 : 0
+
+  return viewsScore + likesScore + single + video
 }
 
-/** Adaptive variant — LT-like atlikėjams (Mamontovas, Mikutavičius) views
- *  dengia tik kelis track'us iš šimtų (YT enrichment dar nepravažiavo per
- *  legacy LT scrape), todėl views-dominant default'as nestabiliai eilėje
- *  iškelia 1-2 atsitiktinius YT-su-views track'us virš visų klasikinių
- *  community-love hit'ų.
+/** Lexicographic sort value:
+ *    primary: trackPopAbsoluteLevel (discrete 0-5) — garantuoja, kad sort
+ *             tvarka MATCHINA bar level'į (track 5/5 visada virš track 4/5)
+ *    secondary: continuous score — tiebreaker tame pačiame level'yje
  *
- *  Coverage threshold (≥30% tracks su >0 views) skiria INTL nuo LT case'o:
- *    - INTL (≥30% coverage) → standard views-dominant trackCompositeScore.
- *    - LT (<30%)           → likes-dominant: like_count×100 + viewsLog×5.
+ *  Pakuojam į vieną number'į: level * 10000 + continuous. Continuous
+ *  diapazonas ~0-150 << 10000, tad level visada dominuoja sort'e.
  *
- *  Sukurta vienos eilės factory'oje, kad ta pati formulė naudotų sort'ą,
- *  popbar percentile, ir player'io „top dainos" iškėlimą. */
-export function makeArtistTrackScorer(tracks: any[]): (t: any) => number {
-  const N = tracks.length
-  if (N === 0) return trackCompositeScore
-  let withViews = 0
-  for (const t of tracks) if ((t?.video_views || 0) > 0) withViews++
-  const coverage = withViews / N
-  if (coverage >= 0.30) return trackCompositeScore
-  // LT-like artist — like_count dominates, views only break ties.
-  return (t: any) => {
-    const likesLog = Math.log10((t?.like_count || 0) + 1) * 100
-    const viewsLog = Math.log10((t?.video_views || 0) + 1) * 5
-    const single = t?.is_single ? 10 : 0
-    const video = t?.video_url ? 5 : 0
-    return likesLog + viewsLog + single + video
-  }
+ *  Sprendžia 2026-05-25 vartotojo skundą: track'ų sąrašo bars'ai jumpinčia
+ *  (3,3,5,3,3 vietoj 5,5,4,4,3,3) — buvo dėl to, kad sort naudojo
+ *  log10(total_views) o bars naudojo views/day → du nekoreliuoti rodikliai.
+ */
+export function trackArtistSortVal(t: any, nowMs: number = Date.now()): number {
+  const level = trackPopAbsoluteLevel(t, nowMs)
+  const continuous = trackCompositeScore(t, nowMs)
+  return level * 10000 + continuous
+}
+
+/** Sukurta vienos eilės factory'oje, kad sortinimas vyktų per vieną
+ *  cache'intą (t)=>number callback'ą. Anksčiau buvo adaptive coverage
+ *  branch'as (INTL vs LT), bet dabar new lexicographic formulė
+ *  automatiškai handlina abu case'us per max(viewsScore, likesScore)
+ *  discrete level'yje, todėl branching'as nebereikalingas. */
+export function makeArtistTrackScorer(_tracks: any[]): (t: any) => number {
+  const now = Date.now()
+  return (t: any) => trackArtistSortVal(t, now)
 }
 
 function detectPopSignal(allTracks: any[]): { signal: PopSignal; max: number } {
