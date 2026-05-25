@@ -24,6 +24,47 @@ import { GENRE_COLORS } from '@/lib/genre-colors'
 
 type MeterEntry = { slug: string; name: string; legacy_id: number; percent?: number; width_px?: number }
 
+// V11.3: minimalistinės SVG ikonos per genre — naudojamos mini equalizer'e
+// vietoj truncated text label'ių. Visi paths fit'ina 24×24 viewbox.
+function GenreIcon({ genreName, size = 14 }: { genreName: string; size?: number }) {
+  const stroke = 1.8
+  const common = {
+    width: size, height: size, viewBox: '0 0 24 24',
+    fill: 'none', stroke: 'currentColor', strokeWidth: stroke,
+    strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
+    'aria-hidden': true as any,
+  }
+  switch (genreName) {
+    case 'Alternatyvioji muzika':
+      // hexagon (alternatyvi forma)
+      return <svg {...common}><polygon points="12 2 21 7 21 17 12 22 3 17 3 7" /></svg>
+    case 'Elektroninė, šokių muzika':
+      // square wave (synth)
+      return <svg {...common}><path d="M2 16 V10 H8 V16 H14 V8 H20 V14" /></svg>
+    case "Hip-hop'o muzika":
+      // microphone
+      return <svg {...common}><rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 11 a7 7 0 0 0 14 0" /><line x1="12" y1="18" x2="12" y2="22" /></svg>
+    case 'Kitų stilių muzika':
+      // 3 dots horizontal
+      return <svg {...common} fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+    case 'Pop, R&B muzika':
+      // heart filled
+      return <svg {...{ ...common, fill: 'currentColor', stroke: 'none' }}><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
+    case 'Rimtoji muzika':
+      // musical note (filled head + stem)
+      return <svg {...common}><circle cx="7" cy="18" r="3" fill="currentColor" stroke="none" /><line x1="10" y1="18" x2="10" y2="4" /><path d="M10 4 Q16 5 18 8" fill="none" /></svg>
+    case 'Roko muzika':
+      // lightning bolt
+      return <svg {...{ ...common, fill: 'currentColor', stroke: 'none' }}><path d="M13 2 L4 14 H11 L10 22 L20 9 H13 L14 2 Z" /></svg>
+    case 'Sunkioji muzika':
+      // filled diamond (mass/weight)
+      return <svg {...{ ...common, fill: 'currentColor', stroke: 'none' }}><path d="M12 2 L22 12 L12 22 L2 12 Z" /></svg>
+    default:
+      // dot
+      return <svg {...common} fill="currentColor" stroke="none"><circle cx="12" cy="12" r="3" /></svg>
+  }
+}
+
 const SHORT_TO_FULL: Record<string, string> = {
   'Alternatyva': 'Alternatyvioji muzika',
   'Elektronika': 'Elektroninė, šokių muzika',
@@ -122,7 +163,9 @@ function LedEqualizer({
   const SEGMENTS = isLarge ? 18 : 11
   const CELL_H = isLarge ? 11 : 9
   const CELL_GAP = 1
-  const BAR_W = isLarge ? 36 : 28
+  // V11.3: BAR_W už visą flex-1 plotį; gap mažesnis (3-4px) — atrodo
+  // kaip tikras LED equalizer'is be didžiulių tarpų.
+  const BAR_MAX_W = isLarge ? 52 : 44
   const LABEL_FS = isLarge ? '11px' : '9px'
   const PCT_FS = isLarge ? '10px' : '9px'
 
@@ -186,8 +229,8 @@ function LedEqualizer({
         )}
       </div>
 
-      {/* LED-style segmented equalizer */}
-      <div className="relative flex items-end justify-between gap-2 sm:gap-2.5 flex-1 py-1"
+      {/* LED-style segmented equalizer — V11.3: gap-1 (4px) ne gap-2; bars wider */}
+      <div className="relative flex items-end justify-between gap-1 sm:gap-1.5 flex-1 py-1"
            style={{ minHeight: `${SEGMENTS * (CELL_H + CELL_GAP)}px` }}>
         {bars.map((b, i) => {
           const litCount = Math.max(Math.round((b.percent / maxPct) * SEGMENTS), b.percent > 0 ? 1 : 0)
@@ -208,7 +251,7 @@ function LedEqualizer({
                   : undefined,
               }}
             >
-              <div className="flex flex-col-reverse gap-[1px] w-full" style={{ maxWidth: `${BAR_W}px` }}>
+              <div className="flex flex-col-reverse gap-[1px] w-full" style={{ maxWidth: `${BAR_MAX_W}px` }}>
                 {Array.from({ length: SEGMENTS }).map((_, segIdx) => {
                   const lit = segIdx < litCount
                   const ratio = segIdx / Math.max(SEGMENTS - 1, 1)
@@ -236,29 +279,48 @@ function LedEqualizer({
         })}
       </div>
 
-      <div className={`flex gap-2 sm:gap-2.5 ${isLarge ? 'mt-3' : 'mt-2'} justify-between`}>
+      {/* Labels — V11.3: mini'e icons + %, large'e icon + text + % */}
+      <div className={`flex gap-1 sm:gap-1.5 ${isLarge ? 'mt-3' : 'mt-2'} justify-between`}>
         {bars.map((b) => {
           const isSelected = selectedGenre === b.fullName
+          const isRest = b.fullName === '__rest__'
           return (
-            <div key={b.fullName} className="flex-1 min-w-0 text-center" style={{ maxWidth: `${BAR_W + 12}px` }}>
-              <div
-                className="font-bold truncate leading-tight"
-                style={{
-                  fontFamily: "'Outfit', sans-serif",
-                  fontSize: LABEL_FS,
-                  color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  letterSpacing: '0.02em',
-                }}
-                title={b.short}
-              >
-                {b.short.split(',')[0].split('/')[0].slice(0, isLarge ? 12 : 8)}
-              </div>
-              <div
-                className="font-mono mt-0.5"
+            <div key={b.fullName} className="flex-1 min-w-0 text-center flex flex-col items-center gap-0.5"
+                 style={{ maxWidth: `${BAR_MAX_W}px` }}>
+              <span style={{
+                color: isSelected ? b.hex : isRest ? 'var(--text-muted)' : `rgba(${b.rgb}, 0.85)`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                {isRest ? (
+                  <svg width={isLarge ? 16 : 14} height={isLarge ? 16 : 14} viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden>
+                    <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" />
+                  </svg>
+                ) : (
+                  <GenreIcon genreName={b.fullName} size={isLarge ? 16 : 14} />
+                )}
+              </span>
+              {isLarge && (
+                <span
+                  className="font-bold truncate leading-tight w-full"
+                  style={{
+                    fontFamily: "'Outfit', sans-serif",
+                    fontSize: LABEL_FS,
+                    color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    letterSpacing: '0.02em',
+                  }}
+                  title={b.short}
+                >
+                  {b.short.split(',')[0].split('/')[0].slice(0, 12)}
+                </span>
+              )}
+              <span
+                className="font-mono"
                 style={{ fontSize: PCT_FS, color: isSelected ? b.hex : 'var(--text-faint)' }}
               >
                 {b.percent.toFixed(0)}%
-              </div>
+              </span>
             </div>
           )
         })}

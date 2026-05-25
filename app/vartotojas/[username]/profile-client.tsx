@@ -105,7 +105,13 @@ export function ProfileClient(props: any) {
         _blogSlug: tslug,
       })
     }
-    return allPosts.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime())
+    // V11.3: NaN-safe — published_at gali būti null translation'ams iš senų
+    // import'ų; toks įrašas keliauja į galą sąrašo, ne sklendžia nepredictably.
+    return allPosts.sort((a, b) => {
+      const at = a.published_at ? new Date(a.published_at).getTime() : 0
+      const bt = b.published_at ? new Date(b.published_at).getTime() : 0
+      return bt - at
+    })
   }, [regularPosts, topasPosts, translations])
 
   const featuredPost = combinedPosts[0] || null
@@ -169,74 +175,80 @@ export function ProfileClient(props: any) {
         <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 pt-7 sm:pt-9 pb-6 sm:pb-7">
           <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_1.4fr_1fr] gap-4 sm:gap-5 items-stretch">
 
-            {/* L: Identity — V11.2: real photo iš legacy_profile_photos[0],
-                bio pirmas paragrafas (truncated), gražesnis explore element */}
-            <div className="flex flex-col sm:flex-row lg:flex-col items-center sm:items-start gap-4 sm:gap-5 lg:gap-3 text-center sm:text-left">
-              {realPhotoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={realPhotoUrl}
-                  alt=""
-                  className="w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-2xl object-cover shadow-[0_8px_32px_rgba(0,0,0,0.55)] flex-shrink-0"
-                  style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.12)' }}
-                />
-              ) : null}
+            {/* L: Identity — V11.3: photo + username + popbars vienoj horizontalioj
+                row'oje (kaip Substack header); bio + „Daugiau" link žemiau */}
+            <div className="flex flex-col items-center sm:items-start text-center sm:text-left gap-3">
+              <div className="flex flex-row items-start gap-3 sm:gap-3.5 w-full justify-center sm:justify-start">
+                {realPhotoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={realPhotoUrl}
+                    alt=""
+                    className="w-[68px] h-[68px] sm:w-[76px] sm:h-[76px] rounded-2xl object-cover shadow-[0_6px_24px_rgba(0,0,0,0.5)] flex-shrink-0"
+                    style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.12)' }}
+                  />
+                ) : null}
 
-              <div className="min-w-0 flex-1">
-                <h1
-                  className="font-black leading-[0.95] tracking-[-0.04em] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.6)]"
-                  style={{ fontSize: 'clamp(1.6rem, 3.4vw, 2.4rem)', fontFamily: "'Outfit', sans-serif" }}
-                >
-                  {profile.username}
-                </h1>
-
-                {/* PopBar'ai */}
-                {(karmaLevel > 0 || activityLevel > 0) && (
-                  <div className="mt-2.5 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                    {karmaLevel > 0 && (
-                      <PopBarChip
-                        level={karmaLevel}
-                        title="Karma — istoriniai music.lt taškai"
-                        delayMs={350}
-                        icon={
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
-                            <path d="M12 2l2.39 7.36H22l-6.18 4.48L18.21 22 12 17.27 5.79 22l2.39-8.16L2 9.36h7.61z" />
-                          </svg>
-                        }
-                      />
-                    )}
-                    {activityLevel > 0 && (
-                      <PopBarChip
-                        level={activityLevel}
-                        title="Aktyvumas — turinio kūrimo intensyvumas"
-                        delayMs={1730}
-                        revealDelayMs={1450}
-                        icon={
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
-                            <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
-                          </svg>
-                        }
-                      />
-                    )}
-                  </div>
-                )}
-
-                {bioSnippet && (
-                  <p
-                    className="mt-3 text-[12.5px] sm:text-[13px] leading-relaxed line-clamp-3"
-                    style={{
-                      fontFamily: "'Outfit', sans-serif",
-                      color: 'rgba(255,255,255,0.78)',
-                      maxWidth: '52ch',
-                    }}
+                <div className="min-w-0 flex-1">
+                  <h1
+                    className="font-black leading-[1.0] tracking-[-0.04em] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.6)]"
+                    style={{ fontSize: 'clamp(1.45rem, 3vw, 2.1rem)', fontFamily: "'Outfit', sans-serif" }}
                   >
-                    {bioSnippet}
-                  </p>
-                )}
+                    {profile.username}
+                  </h1>
 
-                {/* Explore button — V11.2: graceful inviter su strėle */}
-                <ExploreProfileButton onClick={() => setInfoOpen(true)} />
+                  {(karmaLevel > 0 || activityLevel > 0) && (
+                    <div className="mt-2 flex items-center justify-center sm:justify-start gap-2 flex-nowrap">
+                      {karmaLevel > 0 && (
+                        <PopBarChip
+                          level={karmaLevel}
+                          title="Karma — istoriniai music.lt taškai"
+                          delayMs={350}
+                          icon={
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
+                              <path d="M12 2l2.39 7.36H22l-6.18 4.48L18.21 22 12 17.27 5.79 22l2.39-8.16L2 9.36h7.61z" />
+                            </svg>
+                          }
+                        />
+                      )}
+                      {activityLevel > 0 && (
+                        <PopBarChip
+                          level={activityLevel}
+                          title="Aktyvumas — turinio kūrimo intensyvumas"
+                          delayMs={1730}
+                          revealDelayMs={1450}
+                          icon={
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
+                              <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
+                            </svg>
+                          }
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {bioSnippet && (
+                <p
+                  className="text-[12.5px] sm:text-[13px] leading-relaxed line-clamp-3 self-stretch"
+                  style={{
+                    fontFamily: "'Outfit', sans-serif",
+                    color: 'rgba(255,255,255,0.78)',
+                  }}
+                >
+                  {bioSnippet}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setInfoOpen(true)}
+                className="text-xs sm:text-sm font-bold transition hover:opacity-80 self-start"
+                style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
+              >
+                Daugiau →
+              </button>
             </div>
 
             {/* M: Equalizer mini */}
@@ -505,33 +517,6 @@ function MoodSongHeroCard({ track }: { track: any }) {
   )
 }
 
-function ExploreProfileButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="mt-3.5 group inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition hover:scale-[1.03]"
-      style={{
-        background: 'rgba(249, 115, 22, 0.10)',
-        border: '1px solid rgba(249, 115, 22, 0.30)',
-        backdropFilter: 'blur(8px)',
-      }}
-      aria-label="Plačiau apie narį"
-      title="Plačiau apie narį"
-    >
-      <span className="text-[10px] font-extrabold uppercase tracking-[0.15em]"
-            style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
-        Apie narį
-      </span>
-      <span aria-hidden className="inline-flex h-5 w-5 items-center justify-center rounded-full transition group-hover:translate-x-0.5"
-            style={{ background: 'var(--accent-orange)', color: '#000' }}>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-      </span>
-    </button>
-  )
-}
 
 function MoodSongPlaceholder() {
   return (
@@ -594,12 +579,13 @@ function PopBarChip({
   delayMs?: number
   revealDelayMs?: number
 }) {
+  // V11.3: span (ne button) — popbar'ai neturi click action'o; lieka kaip
+  // grynas vizualus ženkliukas; tooltip per title attr'ą.
   return (
-    <button
-      type="button"
+    <span
       title={title}
       aria-label={title}
-      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/15 bg-white/10 backdrop-blur-md px-2.5 py-1 transition-all hover:scale-[1.03] hover:border-white/40 hover:bg-white/20"
+      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/15 bg-white/10 backdrop-blur-md px-2 py-0.5"
       style={
         revealDelayMs > 0
           ? {
@@ -611,14 +597,14 @@ function PopBarChip({
       }
     >
       {icon}
-      <PopBar level={level} animate delayMs={delayMs} />
+      <PopBar level={level} size="sm" animate delayMs={delayMs} />
       <style>{`
         @keyframes popChipReveal {
           0%   { opacity: 0; transform: translateY(4px) scale(0.92); }
           100% { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
-    </button>
+    </span>
   )
 }
 
