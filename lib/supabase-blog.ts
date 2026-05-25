@@ -150,23 +150,80 @@ export async function getUserContentStats(userId: string) {
 export async function getMoodSongTrack(trackId: number | null) {
   if (!trackId) return null
   const sb = createAdminClient()
-  // Saugesnis bazinių laukų select'as — ankstesnis su release_year/lyrics/like_count
-  // grąžindavo data=null, kai bent vienos kolonos schema kintamą tipą turi
-  // (pvz., lyrics nullable text). Modal'ui pakanka core laukų + 1 fallback.
+  // 2026-05-25: minimalus saugus select'as (atitinka getProfileFavoriteTracks
+  // pattern'ą, kuris veikia produkcijoje). Ankstesnės versijos su
+  // release_year/lyrics/like_count atskirais ar foreign embed'ais kartais
+  // grąžindavo data=null + tylą — Vercel build'as bandydavo užkrauti track'ą,
+  // bet PostgREST 406-ino kaip dvigubai ambiguous'inį FK. maybeSingle + tik
+  // bazinės kolonos = idempotent.
   const { data, error } = await sb
     .from('tracks')
-    .select(`
-      id, slug, title, video_url, cover_url, like_count, release_year,
-      artist_id,
-      artists:artist_id (id, slug, name, cover_image_url)
-    `)
+    .select('id, slug, title, video_url, cover_url, like_count, release_year, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
     .eq('id', trackId)
     .maybeSingle()
   if (error) {
     console.warn('[getMoodSongTrack] supabase error:', error.message)
-    return null
+    // Fallback: bandom siaurą fetch'ą, gal kažkurioje aplinkoje pilno join'o RLS blokuoja
+    const { data: minimal } = await sb
+      .from('tracks')
+      .select('id, slug, title, video_url, cover_url, artist_id')
+      .eq('id', trackId)
+      .maybeSingle()
+    if (!minimal) return null
+    const { data: artist } = await sb
+      .from('artists')
+      .select('id, slug, name, cover_image_url')
+      .eq('id', (minimal as any).artist_id)
+      .maybeSingle()
+    return { ...minimal, artists: artist } as any
   }
   return data as any
+}
+
+// ── USER RECENT COMMENTS ─────────────────────────────────────
+// Paskutiniai užmesti komentarai per visus entity tipus — naudojam
+// /vartotojas/[username] "Diskusijos" activity log sekcijai.
+export async function getUserRecentComments(username: string, limit = 12) {
+  const sb = createAdminClient()
+  const { data, error } = await sb
+    .from('entity_comments')
+    .select('id, entity_type, entity_id, entity_legacy_id, content_text, content_html, created_at, like_count')
+    .eq('author_username', username)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) {
+    console.warn('[getUserRecentComments]', error.message)
+    return []
+  }
+  const comments = (data || []) as any[]
+  if (comments.length === 0) return []
+
+  // Užtikrinim resolved entity'es: track/album/artist/blog_post → fetch'in
+  // pavadinimą ir slug'ą + susijusio atlikėjo info link'ams kurti.
+  const trackIds = comments.filter(c => c.entity_type === 'track' && c.entity_id).map(c => c.entity_id)
+  const albumIds = comments.filter(c => c.entity_type === 'album' && c.entity_id).map(c => c.entity_id)
+  const artistIds = comments.filter(c => c.entity_type === 'artist' && c.entity_id).map(c => c.entity_id)
+  const blogIds = comments.filter(c => c.entity_type === 'blog_post' && c.entity_id).map(c => c.entity_id)
+
+  const [tracksRes, albumsRes, artistsRes, blogsRes] = await Promise.all([
+    trackIds.length ? sb.from('tracks').select('id, slug, title, cover_url, artist_id, artists:artist_id(slug, name)').in('id', trackIds) : Promise.resolve({ data: [] as any[] }),
+    albumIds.length ? sb.from('albums').select('id, slug, title, cover_url, artist_id, artists:artist_id(slug, name)').in('id', albumIds) : Promise.resolve({ data: [] as any[] }),
+    artistIds.length ? sb.from('artists').select('id, slug, name, cover_image_url').in('id', artistIds) : Promise.resolve({ data: [] as any[] }),
+    blogIds.length ? sb.from('blog_posts').select('id, slug, title, cover_image_url, post_type, blog_id, blogs:blog_id(slug)').in('id', blogIds) : Promise.resolve({ data: [] as any[] }),
+  ])
+
+  const tMap = new Map((tracksRes.data || []).map((x: any) => [x.id, x]))
+  const aMap = new Map((albumsRes.data || []).map((x: any) => [x.id, x]))
+  const arMap = new Map((artistsRes.data || []).map((x: any) => [x.id, x]))
+  const bMap = new Map((blogsRes.data || []).map((x: any) => [x.id, x]))
+
+  return comments.map(c => ({
+    ...c,
+    track: c.entity_type === 'track' ? tMap.get(c.entity_id) || null : null,
+    album: c.entity_type === 'album' ? aMap.get(c.entity_id) || null : null,
+    artist: c.entity_type === 'artist' ? arMap.get(c.entity_id) || null : null,
+    blog_post: c.entity_type === 'blog_post' ? bMap.get(c.entity_id) || null : null,
+  }))
 }
 
 // ── TRANSLATIONS BY USER ─────────────────────────────────────
@@ -221,6 +278,10 @@ export async function getProfileFavoriteArtists(userId: string) {
   const artists = (data || []).map((r: any) => r.artists).filter(Boolean) as any[]
   if (!artists.length) return artists
 
+  // V10: pridedame artist_substyles (legacy_style_id list) — naudojama
+  // profile substyle chip click → filtravimui. Egzistuoja artist_substyles
+  // junction (artist_id + legacy_style_id).
+
   // Atskira užklausa main genres'ams (be parent_id) per artist_genres N:M.
   const artistIds = artists.map((a) => a.id)
   const { data: artistGenres } = await sb
@@ -235,7 +296,28 @@ export async function getProfileFavoriteArtists(userId: string) {
     arr.push({ id: g.id, name: g.name })
     genreMap.set(row.artist_id, arr)
   }
-  return artists.map((a) => ({ ...a, mainGenres: genreMap.get(a.id) || [] }))
+  // Substyles fetch — graceful fallback'as, jei artist_substyles lentelės nėra
+  // arba schema kitokia.
+  let substylesByArtist = new Map<number, number[]>()
+  try {
+    const { data: substyleRows } = await sb
+      .from('artist_substyles')
+      .select('artist_id, legacy_style_id')
+      .in('artist_id', artistIds)
+    for (const row of (substyleRows || []) as any[]) {
+      const arr = substylesByArtist.get(row.artist_id) || []
+      arr.push(row.legacy_style_id)
+      substylesByArtist.set(row.artist_id, arr)
+    }
+  } catch {
+    // ignore — substyles optional
+  }
+
+  return artists.map((a) => ({
+    ...a,
+    mainGenres: genreMap.get(a.id) || [],
+    substyleIds: substylesByArtist.get(a.id) || [],
+  }))
 }
 
 // ── FAVORITE ALBUMS / TRACKS (per `likes` lentelė, music.lt ♥) ────
