@@ -24,44 +24,109 @@ import { GENRE_COLORS } from '@/lib/genre-colors'
 
 type MeterEntry = { slug: string; name: string; legacy_id: number; percent?: number; width_px?: number }
 
-// V11.3: minimalistinės SVG ikonos per genre — naudojamos mini equalizer'e
-// vietoj truncated text label'ių. Visi paths fit'ina 24×24 viewbox.
+// V11.4: persvarstytos SVG ikonos. Pop/R&B = mic + širdis (vokalas + meilė),
+// hip-hop'ui pakeista į baseball cap, kad nekonkuruotų. Rokas = el. gitara,
+// sunkioji = metal horns hand (🤘), klasikinė = smuiko raktas, alternative =
+// rotated diamond, elektroninė = ausinės.
 function GenreIcon({ genreName, size = 14 }: { genreName: string; size?: number }) {
   const stroke = 1.8
-  const common = {
+  const baseStrokeProps = {
     width: size, height: size, viewBox: '0 0 24 24',
     fill: 'none', stroke: 'currentColor', strokeWidth: stroke,
     strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
     'aria-hidden': true as any,
   }
+  const baseFillProps = {
+    width: size, height: size, viewBox: '0 0 24 24',
+    fill: 'currentColor', stroke: 'none',
+    'aria-hidden': true as any,
+  }
+
   switch (genreName) {
     case 'Alternatyvioji muzika':
-      // hexagon (alternatyvi forma)
-      return <svg {...common}><polygon points="12 2 21 7 21 17 12 22 3 17 3 7" /></svg>
+      // Rotated diamond outline (alternative geometry)
+      return (
+        <svg {...baseStrokeProps}>
+          <rect x="4.5" y="4.5" width="15" height="15" transform="rotate(45 12 12)" />
+        </svg>
+      )
     case 'Elektroninė, šokių muzika':
-      // square wave (synth)
-      return <svg {...common}><path d="M2 16 V10 H8 V16 H14 V8 H20 V14" /></svg>
+      // Headphones (DJ/club)
+      return (
+        <svg {...baseStrokeProps}>
+          <path d="M 4 14 V 11 a 8 8 0 0 1 16 0 V 14" />
+          <rect x="3" y="14" width="4" height="6" rx="1" fill="currentColor" />
+          <rect x="17" y="14" width="4" height="6" rx="1" fill="currentColor" />
+        </svg>
+      )
     case "Hip-hop'o muzika":
-      // microphone
-      return <svg {...common}><rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 11 a7 7 0 0 0 14 0" /><line x1="12" y1="18" x2="12" y2="22" /></svg>
+      // Baseball cap (snapback) — universally hip-hop
+      return (
+        <svg {...baseFillProps}>
+          <path d="M 5 14 Q 5 6 12 6 Q 19 6 19 14 Z" />
+          <rect x="2" y="14" width="20" height="2.5" rx="1" />
+        </svg>
+      )
     case 'Kitų stilių muzika':
-      // 3 dots horizontal
-      return <svg {...common} fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+      // 3 dots horizontal (eclectic mix)
+      return (
+        <svg {...baseFillProps}>
+          <circle cx="5" cy="12" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="19" cy="12" r="2" />
+        </svg>
+      )
     case 'Pop, R&B muzika':
-      // heart filled
-      return <svg {...{ ...common, fill: 'currentColor', stroke: 'none' }}><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
+      // Mic with small heart accent (vocal + romance)
+      return (
+        <svg {...baseFillProps}>
+          <rect x="9" y="3" width="5" height="10" rx="2.5" />
+          <path d="M 5 11 a 6.5 6.5 0 0 0 12 0 H 15 a 4.5 4.5 0 0 1 -9 0 Z" />
+          <rect x="10.5" y="17" width="2" height="4" rx="0.5" />
+          {/* Heart accent — top-right corner */}
+          <path d="M 19.5 4.5 c -0.9 -0.9 -2.4 0.1 -1.2 1.4 L 19.5 7.4 L 20.7 5.9 c 1.2 -1.3 -0.3 -2.3 -1.2 -1.4 Z" />
+        </svg>
+      )
     case 'Rimtoji muzika':
-      // musical note (filled head + stem)
-      return <svg {...common}><circle cx="7" cy="18" r="3" fill="currentColor" stroke="none" /><line x1="10" y1="18" x2="10" y2="4" /><path d="M10 4 Q16 5 18 8" fill="none" /></svg>
+      // Treble clef (simplified curlicue) — iconic classical
+      return (
+        <svg {...baseStrokeProps} strokeWidth="1.6">
+          <path d="M 12 4 C 9 4.5 9 9 12 9 C 15 9 14.5 13 11 14 C 7.5 15 8 20 12 20 C 14.5 20 14.5 17 12 17 C 10 17 10 19 12 19" />
+          <line x1="12" y1="4" x2="12" y2="21" />
+          <circle cx="11" cy="21" r="1.2" fill="currentColor" stroke="none" />
+        </svg>
+      )
     case 'Roko muzika':
-      // lightning bolt
-      return <svg {...{ ...common, fill: 'currentColor', stroke: 'none' }}><path d="M13 2 L4 14 H11 L10 22 L20 9 H13 L14 2 Z" /></svg>
+      // Electric guitar — circular body + diagonal neck + headstock
+      return (
+        <svg {...baseFillProps}>
+          <ellipse cx="8" cy="16" rx="5.5" ry="4.5" />
+          {/* Neck */}
+          <rect x="11.5" y="3" width="2.5" height="13" rx="0.3" transform="rotate(35 12.75 9.5)" />
+          {/* Headstock */}
+          <path d="M 19.5 2 L 22 3 L 21 5.5 L 18.5 4.5 Z" />
+          {/* Sound hole */}
+          <circle cx="8" cy="16" r="1.4" fill="rgba(0,0,0,0.55)" />
+        </svg>
+      )
     case 'Sunkioji muzika':
-      // filled diamond (mass/weight)
-      return <svg {...{ ...common, fill: 'currentColor', stroke: 'none' }}><path d="M12 2 L22 12 L12 22 L2 12 Z" /></svg>
+      // Metal horns hand 🤘 — fist with index + pinky up
+      return (
+        <svg {...baseFillProps}>
+          {/* Fist body */}
+          <rect x="5" y="11" width="14" height="11" rx="3" />
+          {/* Index finger */}
+          <rect x="6.2" y="3" width="2.6" height="9" rx="0.6" />
+          {/* Pinky finger */}
+          <rect x="15.2" y="3" width="2.6" height="9" rx="0.6" />
+          {/* Thumb wrap */}
+          <rect x="3.5" y="14" width="2.5" height="4" rx="1" />
+        </svg>
+      )
     default:
-      // dot
-      return <svg {...common} fill="currentColor" stroke="none"><circle cx="12" cy="12" r="3" /></svg>
+      return (
+        <svg {...baseFillProps}><circle cx="12" cy="12" r="3" /></svg>
+      )
   }
 }
 
@@ -163,9 +228,8 @@ function LedEqualizer({
   const SEGMENTS = isLarge ? 18 : 11
   const CELL_H = isLarge ? 11 : 9
   const CELL_GAP = 1
-  // V11.3: BAR_W už visą flex-1 plotį; gap mažesnis (3-4px) — atrodo
-  // kaip tikras LED equalizer'is be didžiulių tarpų.
-  const BAR_MAX_W = isLarge ? 52 : 44
+  // V11.4: bars touch (no gap), 1px dark separator tarp jų — kaip tikras
+  // LED equalizer'is. Pločiai vienodi per flex-1.
   const LABEL_FS = isLarge ? '11px' : '9px'
   const PCT_FS = isLarge ? '10px' : '9px'
 
@@ -229,8 +293,9 @@ function LedEqualizer({
         )}
       </div>
 
-      {/* LED-style segmented equalizer — V11.3: gap-1 (4px) ne gap-2; bars wider */}
-      <div className="relative flex items-end justify-between gap-1 sm:gap-1.5 flex-1 py-1"
+      {/* LED-style segmented equalizer — V11.4: bars touching (gap=0),
+          1px dark separator tarp jų; vienodi pločiai. */}
+      <div className="relative flex items-end flex-1 py-1"
            style={{ minHeight: `${SEGMENTS * (CELL_H + CELL_GAP)}px` }}>
         {bars.map((b, i) => {
           const litCount = Math.max(Math.round((b.percent / maxPct) * SEGMENTS), b.percent > 0 ? 1 : 0)
@@ -238,6 +303,7 @@ function LedEqualizer({
           const isSelected = selectedGenre === b.fullName
           const isDimmed = selectedGenre && !isSelected && !isRest
           const bouncePhase = (i * 0.42) % 1
+          const isLast = i === bars.length - 1
           return (
             <button
               key={b.fullName}
@@ -249,9 +315,10 @@ function LedEqualizer({
                 animation: b.percent > 0
                   ? `eqBarBounceV11 ${1.8 + bouncePhase * 1.2}s ease-in-out ${bouncePhase * 0.6}s infinite alternate`
                   : undefined,
+                borderRight: isLast ? 'none' : '1px solid rgba(0,0,0,0.35)',
               }}
             >
-              <div className="flex flex-col-reverse gap-[1px] w-full" style={{ maxWidth: `${BAR_MAX_W}px` }}>
+              <div className="flex flex-col-reverse gap-[1px] w-full px-[2px]">
                 {Array.from({ length: SEGMENTS }).map((_, segIdx) => {
                   const lit = segIdx < litCount
                   const ratio = segIdx / Math.max(SEGMENTS - 1, 1)
@@ -260,7 +327,6 @@ function LedEqualizer({
                   return (
                     <div
                       key={segIdx}
-                      className="rounded-[1px]"
                       style={{
                         height: `${CELL_H}px`,
                         background: lit
@@ -279,14 +345,14 @@ function LedEqualizer({
         })}
       </div>
 
-      {/* Labels — V11.3: mini'e icons + %, large'e icon + text + % */}
-      <div className={`flex gap-1 sm:gap-1.5 ${isLarge ? 'mt-3' : 'mt-2'} justify-between`}>
+      {/* Labels — vienoda struktūra kaip bars (be gap, vienodi pločiai),
+          kad icons + % tiksliai linijuoti virš stulpelių. */}
+      <div className={`flex ${isLarge ? 'mt-3' : 'mt-2'}`}>
         {bars.map((b) => {
           const isSelected = selectedGenre === b.fullName
           const isRest = b.fullName === '__rest__'
           return (
-            <div key={b.fullName} className="flex-1 min-w-0 text-center flex flex-col items-center gap-0.5"
-                 style={{ maxWidth: `${BAR_MAX_W}px` }}>
+            <div key={b.fullName} className="flex-1 min-w-0 text-center flex flex-col items-center gap-0.5">
               <span style={{
                 color: isSelected ? b.hex : isRest ? 'var(--text-muted)' : `rgba(${b.rgb}, 0.85)`,
                 display: 'inline-flex',
@@ -303,7 +369,7 @@ function LedEqualizer({
               </span>
               {isLarge && (
                 <span
-                  className="font-bold truncate leading-tight w-full"
+                  className="font-bold truncate leading-tight w-full px-1"
                   style={{
                     fontFamily: "'Outfit', sans-serif",
                     fontSize: LABEL_FS,

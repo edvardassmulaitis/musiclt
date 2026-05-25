@@ -257,7 +257,7 @@ export function ProfileClient(props: any) {
                 <SideEqualizer
                   meter={profile.legacy_music_meter}
                   variant="hero-mini"
-                  topN={3}
+                  topN={8}
                   onExpand={(g) => openTaste(g)}
                 />
               ) : (
