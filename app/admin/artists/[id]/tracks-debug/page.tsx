@@ -14,7 +14,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
-import { trackPopAbsoluteLevel } from '@/lib/track-popbar'
+import { trackPopAbsoluteLevel, trackArtistSortVal } from '@/lib/track-popbar'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -204,9 +204,10 @@ function trackScoreBreakdown(t: TrackRow): {
   }
 }
 
-function trackSortVal(t: TrackRow): number {
-  return trackScoreBreakdown(t).total
-}
+// trackSortVal pašalinta v4 — dabar sortinasi per trackArtistSortVal iš lib.
+// trackScoreBreakdown lieka kaip debug info (+VIEWS×50, +LIKES×10 kolonos),
+// bet jo total NEBĖRA naudojamas sort'ui — Σ Composite kolona dabar rodo
+// trackArtistSortVal (level*10000 + continuous), ne breakdown.total.
 
 function fmtReleaseDate(t: TrackRow): string {
   const yr = t.release_year
@@ -252,10 +253,15 @@ export default async function TracksDebugPage({ params }: Props) {
   if (!artist) notFound()
   const [tracks, stats] = await Promise.all([getTracks(id), getArtistStats(id)])
 
-  // Sort like public artist page (with-video first, then rest, each by trackSortVal desc)
+  // Sort identiškai kaip public artist page (with-video first, then rest,
+  // each by trackArtistSortVal desc — lexicographic: level*10000 + continuous).
+  // 2026-05-25 v4: anksčiau admin naudojo savo trackSortVal (= trackScoreBreakdown.total
+  // = log10(views)*50 + log10(likes)*10 + single + video), kuris BUVO skirtingas
+  // nuo public formulės — todėl admin track tvarka nesutapdavo su public puslapio
+  // tvarka, ir bars'ai admin'e jumpinčia (sort by composite, bars by absolute level).
   const yt = (url: string | null) => !!url && /youtu/.test(url)
-  const withVideo = tracks.filter(t => yt(t.video_url)).slice().sort((a, b) => trackSortVal(b) - trackSortVal(a))
-  const rest = tracks.filter(t => !yt(t.video_url)).slice().sort((a, b) => trackSortVal(b) - trackSortVal(a))
+  const withVideo = tracks.filter(t => yt(t.video_url)).slice().sort((a, b) => trackArtistSortVal(b) - trackArtistSortVal(a))
+  const rest = tracks.filter(t => !yt(t.video_url)).slice().sort((a, b) => trackArtistSortVal(b) - trackArtistSortVal(a))
   const sorted = [...withVideo, ...rest]
 
   const popInfo = detectPopSignal(sorted)
@@ -417,7 +423,7 @@ export default async function TracksDebugPage({ params }: Props) {
               <th className="px-3 py-2.5 text-center" title="Lyrics (žodžiai) ilgis. Iš music.lt body arba LRCLib backfill'o">Lyrics</th>
               <th className="px-3 py-2.5 text-center" title="music.lt legacy ID (matched per match_legacy_overlay)">LT id</th>
               <th className="px-3 py-2.5 text-center" title="Track source: wikipedia, legacy_scrape_v1, legacy+wikipedia, etc.">Source</th>
-              <th className="px-3 py-2.5 text-right font-extrabold text-[var(--accent-orange)]">Σ Composite</th>
+              <th className="px-3 py-2.5 text-right font-extrabold text-[var(--accent-orange)]" title="trackArtistSortVal = level*10000 + continuous (continuous ≈ 0–150). Pvz. 50042.3 = level 5, continuous 42.3. Sortinama būtent pagal šitą reikšmę — bar level'is visada dominuoja.">Σ SortVal</th>
               <th className="px-3 py-2.5 text-center">PopBar</th>
             </tr>
           </thead>
@@ -516,8 +522,8 @@ export default async function TracksDebugPage({ params }: Props) {
                       <span className="text-[var(--text-muted)]">{sourceLabel}</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums font-extrabold text-[var(--accent-orange)]">
-                    {bd.total.toFixed(1)}
+                  <td className="px-3 py-2 text-right tabular-nums font-extrabold text-[var(--accent-orange)]" title={`level ${level}/5 × 10000 + continuous = ${trackArtistSortVal(t).toFixed(1)}`}>
+                    {trackArtistSortVal(t).toFixed(1)}
                   </td>
                   <td className="px-3 py-2 text-center">
                     <div className="inline-flex gap-[2px]">
