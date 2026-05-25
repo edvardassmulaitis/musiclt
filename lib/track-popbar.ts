@@ -62,25 +62,37 @@ export function trackPopAbsoluteLevel(t: any, nowMs: number = Date.now()): numbe
   else if (viewsPerDay >= 200) vLevel = 2
   else if (viewsPerDay >= 1) vLevel = 1
 
-  // Likes threshold'ai (music.lt community scale) — v4 2026-05-25:
-  // 500 buvo per aukšta LT atlikėjui (net Mamontovo Geltona ŽR 322 likes
-  // negaudavo 5/5). Sumažinta į 250, kad kiekvienas top LT atlikėjas
-  // turėtų bent 1 „crown jewel" daina 5/5. INTL atlikėjams views/d
-  // signal'as dažniausiai dominuoja, tad likes mažėjimas jiems neturi
-  // įtakos. Spacing maždaug ×2.5 tarp lygių.
-  //   5/5 — 250+ likes — LT crown jewel (Geltona ŽR 322 → 5/5)
-  //   4/5 — 100+ likes — major LT hit (Tavo svajonė 177 → 4/5)
-  //   3/5 — 30+  likes — žinomos klasikos
-  //   2/5 — 8+   likes — turinčios fanų
-  //   1/5 — 1+   like  — bent kažkam patiko
-  let lLevel = 0
-  if (likes >= 250) lLevel = 5
-  else if (likes >= 100) lLevel = 4
-  else if (likes >= 30) lLevel = 3
-  else if (likes >= 8) lLevel = 2
-  else if (likes >= 1) lLevel = 1
+  // ── Likes — SECONDARY signal'as 2026-05-25 v5 ────────────────────────
+  // Anksčiau (v1-v4) buvo `max(vLevel, lLevel)` — likes galėjo dominuoti
+  // vienas (LT atlikėjas su 322 likes ir 0 YT views gaudavo 5/5). Problema:
+  // music.lt likes priklauso nuo site useriu aktivumo, ne nuo realaus
+  // dainos populiarumo globaliai. Coldplay „Yellow" (110k v/d) ir
+  // nepopuliari LT daina su pakeltais likes gaudavo tą patį 5/5 — semantika
+  // nesutapdavo.
+  //
+  // Dabar likes veikia tik kaip „LT community signal'as": jei artist'as
+  // gauna stiprų likes count'ą, level pakeliamas +1 (pvz. modest YT footprint
+  // + LT crown jewel = 1 → 2/5, ne 5/5). Pridėtinis +1 dar jei labai stiprus.
+  // Likes NIEKADA negali būti vienintelis kelias į 5/5 — tas reserved
+  // realiai viraliniams YT hit'ams (300k+ v/d).
+  //
+  // Floor: jei YT data trūksta (vLevel=0) bet likes egzistuoja → bent 1/5,
+  // kad music.lt-only track'ai nebūtų pilnai 0/5.
+  let level = vLevel
 
-  return Math.max(vLevel, lLevel)
+  // +1 nudge: stiprus LT community signal'as (≥ 100 likes — major LT hit)
+  if (likes >= 100 && level < 5) level = level + 1
+
+  // +2 nudge: labai stiprus crown jewel signal'as (≥ 500 likes — legendinė)
+  // Tai gali maks pakelti views-based 3/5 į 5/5, bet ne views-based 0/5 (toks
+  // case'as turi 1/5 floor only) — nelygu reservation 5/5 viraliniams hit'ams.
+  if (likes >= 500 && level >= 3 && level < 5) level = level + 1
+
+  // Floor: tracks be YT data (vLevel=0) bet su likes — bent 1/5 kad bar
+  // matytųsi. NB: šitas case'as paprastai LT atlikėjas be YT enrichment'o.
+  if (level === 0 && likes >= 8) level = 1
+
+  return Math.min(5, level)
 }
 
 // ───────────────────────────────────────────────────────────────────────
