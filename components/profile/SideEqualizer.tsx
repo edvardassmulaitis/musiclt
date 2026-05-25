@@ -56,14 +56,17 @@ type Props = {
   topN?: number
 }
 
-// Hero-mini variant — rodom tik top N bars, likę agreguojami į "Kita".
+// Hero-mini variant — V11.1: LED-style segmented equalizer su canonical
+// genre order (consistent su modal'u). Top N pasirenkami pagal percent,
+// bet display order = canonical GENRE_COLORS, "Kita" agreguoja likusius
+// non-zero genres. Bars sudaryti iš stacked LED segmentų (10), pakelti
+// segmentai = round(percent/maxPct*10). Subtle bounce animacija viršuje.
 function HeroMini({
-  meter, onExpand, topN = 3,
+  meter, onExpand, topN = 5,
 }: { meter: MeterEntry[]; onExpand?: (preSelectedGenre?: string | null) => void; topN?: number }) {
-  // Compose bars iš canonical GENRE_COLORS, kiekvienam suteikiam percent.
   const byShort = new Map<string, MeterEntry>()
   for (const m of meter) byShort.set(m.name, m)
-  const allBars = GENRE_COLORS.map((g) => {
+  const allBars = GENRE_COLORS.map((g, canonicalIdx) => {
     const short = FULL_TO_SHORT[g.name]
     const entry = byShort.get(short) || (short === 'Pop, R&B' ? byShort.get('Pop-RB') : null)
     return {
@@ -72,20 +75,40 @@ function HeroMini({
       percent: entry?.percent ?? 0,
       hex: g.hex,
       rgb: g.rgb,
+      canonicalIdx,
     }
   })
-  // Top N pagal percent, likę į "Kita".
-  const sorted = [...allBars].sort((a, b) => b.percent - a.percent)
-  const top = sorted.slice(0, topN).filter((b) => b.percent > 0)
-  const restPercent = sorted.slice(topN).reduce((acc, b) => acc + b.percent, 0)
+
+  // Select top N pagal percent (excluding zeros), then re-sort to canonical order
+  const nonZero = allBars.filter((b) => b.percent > 0)
+  const selectedSet = new Set(
+    [...nonZero].sort((a, b) => b.percent - a.percent).slice(0, topN).map((b) => b.fullName),
+  )
+  const selected = allBars.filter((b) => selectedSet.has(b.fullName))
+  // Sort selected by canonical order (so visual matches modal order)
+  selected.sort((a, b) => a.canonicalIdx - b.canonicalIdx)
+
+  const restPercent = nonZero
+    .filter((b) => !selectedSet.has(b.fullName))
+    .reduce((acc, b) => acc + b.percent, 0)
   const showRest = restPercent > 0.5
 
   const bars = [
-    ...top,
-    ...(showRest ? [{ fullName: '__rest__', short: 'Kita', percent: restPercent, hex: '#6b7280', rgb: '107, 114, 128' }] : []),
+    ...selected,
+    ...(showRest ? [{
+      fullName: '__rest__',
+      short: 'Kita',
+      percent: restPercent,
+      hex: '#8b95a5',
+      rgb: '139, 149, 165',
+      canonicalIdx: 999,
+    }] : []),
   ]
   const maxPct = Math.max(...bars.map((b) => b.percent), 1)
-  const BAR_BASE = 96
+  const SEGMENTS = 11
+  // Cell height ~9px, gap 1px → ~110px column height incl. gaps
+  const CELL_H = 9
+  const CELL_GAP = 1
 
   const handleBarClick = (b: { fullName: string }) => {
     if (!onExpand) return
@@ -131,63 +154,71 @@ function HeroMini({
         )}
       </div>
 
-      <div className="relative flex items-end gap-1.5 sm:gap-2 flex-1" style={{ minHeight: `${BAR_BASE}px` }}>
+      {/* LED-style segmented equalizer */}
+      <div className="relative flex items-end justify-between gap-2 sm:gap-2.5 flex-1 py-1"
+           style={{ minHeight: `${SEGMENTS * (CELL_H + CELL_GAP)}px` }}>
         {bars.map((b, i) => {
-          const heightPx = Math.max((b.percent / maxPct) * BAR_BASE, 6)
+          const litCount = Math.max(Math.round((b.percent / maxPct) * SEGMENTS), 1)
           const isRest = b.fullName === '__rest__'
+          // Bouncing offset for visual liveliness (varies per bar)
+          const bouncePhase = (i * 0.42) % 1
           return (
             <button
               key={b.fullName}
               type="button"
               onClick={() => handleBarClick(b)}
-              className="group flex-1 min-w-0 flex flex-col items-stretch transition-all duration-200 cursor-pointer hover:-translate-y-0.5"
-              style={{ alignSelf: 'flex-end' }}
+              className="group flex-1 min-w-0 flex flex-col items-center cursor-pointer transition hover:-translate-y-0.5"
               title={isRest ? 'Visi kiti stiliai — atidaryti modalą' : `${b.short} — ${b.percent.toFixed(0)}%`}
+              style={{
+                animation: `eqBarBounceV11 ${1.8 + bouncePhase * 1.2}s ease-in-out ${bouncePhase * 0.6}s infinite alternate`,
+              }}
             >
-              <div
-                className="relative overflow-hidden rounded-t-md"
-                style={{
-                  height: `${heightPx}px`,
-                  background: isRest
-                    ? 'linear-gradient(to top, rgba(120,120,130,0.15), rgba(180,180,200,0.55) 80%, rgba(220,220,240,0.85))'
-                    : `linear-gradient(to top, rgba(${b.rgb}, 0.30), rgba(${b.rgb}, 0.95) 80%, ${b.hex})`,
-                  boxShadow: isRest
-                    ? '0 0 10px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.2)'
-                    : `0 0 14px rgba(${b.rgb}, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)`,
-                  transform: 'scaleY(0.05)',
-                  transformOrigin: 'bottom',
-                  opacity: 0.6,
-                  animation: `barRiseV8 700ms cubic-bezier(0.22, 1, 0.36, 1) ${120 + i * 70}ms forwards`,
-                }}
-              >
-                <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/45" />
-                <div
-                  aria-hidden
-                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                  style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.20) 0%, transparent 50%)' }}
-                />
+              <div className="flex flex-col-reverse gap-[1px] w-full max-w-[28px]">
+                {Array.from({ length: SEGMENTS }).map((_, segIdx) => {
+                  const lit = segIdx < litCount
+                  // Top segments brighter; bottom segments deeper hue
+                  const ratio = segIdx / Math.max(SEGMENTS - 1, 1)
+                  const alpha = lit ? (0.55 + ratio * 0.45) : 0.08
+                  const glow = lit && segIdx >= litCount - 2
+                  return (
+                    <div
+                      key={segIdx}
+                      className="rounded-[1px]"
+                      style={{
+                        height: `${CELL_H}px`,
+                        background: lit
+                          ? `rgba(${b.rgb}, ${alpha})`
+                          : 'rgba(255,255,255,0.05)',
+                        boxShadow: glow ? `0 0 6px rgba(${b.rgb}, 0.7)` : 'none',
+                        opacity: 0,
+                        animation: `eqSegFadeV11 250ms ease-out ${120 + (i * 35) + (segIdx * 28)}ms forwards`,
+                      }}
+                    />
+                  )
+                })}
               </div>
             </button>
           )
         })}
       </div>
 
-      <div className="flex gap-1.5 sm:gap-2 mt-2">
+      <div className="flex gap-2 sm:gap-2.5 mt-2 justify-between">
         {bars.map((b) => (
-          <div key={b.fullName} className="flex-1 min-w-0 text-center">
+          <div key={b.fullName} className="flex-1 min-w-0 max-w-[40px] text-center">
             <div
               className="font-bold truncate leading-tight"
               style={{
                 fontFamily: "'Outfit', sans-serif",
-                fontSize: '10px',
+                fontSize: '9px',
                 color: 'var(--text-secondary)',
+                letterSpacing: '0.02em',
               }}
               title={b.short}
             >
-              {b.short.split(',')[0].split('/')[0].slice(0, 10)}
+              {b.short.split(',')[0].split('/')[0].slice(0, 8)}
             </div>
             <div
-              className="font-mono"
+              className="font-mono mt-0.5"
               style={{ fontSize: '9px', color: 'var(--text-faint)' }}
             >
               {b.percent.toFixed(0)}%
@@ -197,10 +228,13 @@ function HeroMini({
       </div>
 
       <style>{`
-        @keyframes barRiseV8 {
-          0%   { transform: scaleY(0.05); opacity: 0.5; }
-          60%  { transform: scaleY(1.06); opacity: 1; }
-          100% { transform: scaleY(1); opacity: 1; }
+        @keyframes eqSegFadeV11 {
+          0%   { opacity: 0; transform: translateY(2px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes eqBarBounceV11 {
+          0%   { transform: translateY(0); }
+          100% { transform: translateY(-1.5px); }
         }
       `}</style>
     </div>
