@@ -1421,30 +1421,37 @@ export function trackPopAbsoluteLevel(t: any, nowMs: number = Date.now()): numbe
 
   const viewsPerDay = views > 0 ? views / ageDays : 0
 
-  // Views/day threshold'ai:
-  //   5/5 — 50k+ views/d (~18M/metus) — mega global hit
-  //   4/5 — 5k+ views/d  (~1.8M/metus) — solid hit
-  //   3/5 — 500+ views/d                — gera, žinoma daina
-  //   2/5 — 50+ views/d                 — turinti šiek tiek auditorijos
-  //   1/5 — 1+ views/d                  — vos pajudėjusi
+  // Views/day threshold'ai — 2026-05-25 v2: pakelti 5/5 kartelę gerokai
+  // aukščiau (50k → 300k), kad tik realiai išskirtiniai mega hit'ai
+  // (Despacito, Shape of You, Hymn for the Weekend tipo) gautų 5/5.
+  // Anksčiau Coldplay turėdavo 5-10 dainų su 5/5 (Yellow 110k, Viva la
+  // Vida 161k, Fix You 100k — visi tilpdavo virš 50k threshold'o), dabar
+  // tik 1-2 absoliutūs viršūniniai. Spacing eksponentinis ×10 tarp lygių:
+  //   5/5 — 300k+ views/d (~110M/metus)   — top ~50 dainų istorijoje
+  //   4/5 — 30k+  views/d (~11M/metus)    — major global hit
+  //   3/5 — 3k+   views/d (~1M/metus)     — solid, žinoma daina
+  //   2/5 — 200+  views/d                 — turinti auditoriją
+  //   1/5 — 1+    views/d                 — bent kažkokia veikla
   let vLevel = 0
-  if (viewsPerDay >= 50000) vLevel = 5
-  else if (viewsPerDay >= 5000) vLevel = 4
-  else if (viewsPerDay >= 500) vLevel = 3
-  else if (viewsPerDay >= 50) vLevel = 2
+  if (viewsPerDay >= 300000) vLevel = 5
+  else if (viewsPerDay >= 30000) vLevel = 4
+  else if (viewsPerDay >= 3000) vLevel = 3
+  else if (viewsPerDay >= 200) vLevel = 2
   else if (viewsPerDay >= 1) vLevel = 1
 
-  // Likes threshold'ai (music.lt community scale):
-  //   5/5 — 300+ likes — visų laikų LT top dainos
-  //   4/5 — 75+  likes — žinomos klasikos
-  //   3/5 — 20+  likes — geros dainos
-  //   2/5 — 5+   likes — turinčios šiek tiek fanų
+  // Likes threshold'ai (music.lt community scale) — 2026-05-25 v2:
+  // 5/5 pakelta 300 → 500, 4/5 75 → 120 (Geltona 107 lieka 4/5, bet
+  // tik tikrai legendinės LT dainos pasiekia 5/5). Spacing ×3-4 tarp lygių.
+  //   5/5 — 500+ likes — legendinės LT dainos (Sniegas, Geltona-tier+)
+  //   4/5 — 120+ likes — major LT hit (Geltona 107 ribose)
+  //   3/5 — 35+  likes — žinomos klasikos
+  //   2/5 — 8+   likes — turinčios fanų
   //   1/5 — 1+   like  — bent kažkam patiko
   let lLevel = 0
-  if (likes >= 300) lLevel = 5
-  else if (likes >= 75) lLevel = 4
-  else if (likes >= 20) lLevel = 3
-  else if (likes >= 5) lLevel = 2
+  if (likes >= 500) lLevel = 5
+  else if (likes >= 120) lLevel = 4
+  else if (likes >= 35) lLevel = 3
+  else if (likes >= 8) lLevel = 2
   else if (likes >= 1) lLevel = 1
 
   return Math.max(vLevel, lLevel)
