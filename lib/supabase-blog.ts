@@ -432,17 +432,48 @@ export async function isBlogSlugTaken(slug: string, excludeId?: string) {
 }
 
 // ── BLOG POSTS ──────────────────────────────────────────────
-export async function getBlogPosts(blogId: string, limit = 20, offset = 0) {
+export async function getBlogPosts(blogId: string, limit = 20, offset = 0, postType?: string | null) {
   const sb = createAdminClient()
-  const { data, count } = await sb
+  let q = sb
     .from('blog_posts')
-    .select('id, slug, title, summary, cover_image_url, published_at, reading_time_min, view_count, like_count, comment_count', { count: 'exact' })
+    .select('id, slug, title, summary, cover_image_url, published_at, reading_time_min, view_count, like_count, comment_count, post_type', { count: 'exact' })
     .eq('blog_id', blogId)
     .eq('status', 'published')
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+  if (postType && postType !== 'all') {
+    q = q.eq('post_type', postType)
+  }
+  const { data, count } = await q.range(offset, offset + limit - 1)
   return { posts: data || [], total: count || 0 }
+}
+
+// V2 (2026-05-25): heavy UGC user'iams reikia per-type counts navigation tab'ams
+// (article 510 / creation 31 / translation 8 / topas 12). Vienas RPC vietoj 4+1 query'ų.
+export async function getBlogPostCountsByType(blogId: string) {
+  const sb = createAdminClient()
+  const types = ['article', 'creation', 'translation', 'topas', 'review', 'release', 'interview', 'event']
+  const counts: Record<string, number> = { all: 0 }
+  // Total
+  const { count: total } = await sb
+    .from('blog_posts')
+    .select('id', { count: 'exact', head: true })
+    .eq('blog_id', blogId)
+    .eq('status', 'published')
+    .lte('published_at', new Date().toISOString())
+  counts.all = total || 0
+  // Per-type
+  for (const t of types) {
+    const { count } = await sb
+      .from('blog_posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('blog_id', blogId)
+      .eq('status', 'published')
+      .lte('published_at', new Date().toISOString())
+      .eq('post_type', t)
+    if ((count || 0) > 0) counts[t] = count || 0
+  }
+  return counts
 }
 
 export async function getAllUserPosts(userId: string) {

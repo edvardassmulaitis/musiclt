@@ -1,10 +1,36 @@
 // app/blogas/[username]/page.tsx
+//
+// V2 (2026-05-25): pagination + post_type tabs. Anksčiau rodė tik 20 įrašų be
+// paging'o; einaras13 su 561 įrašu matėsi tik 20. Dabar 20 per puslapį, 26
+// puslapių max (kaip ir senas music.lt).
+//
+// URL pattern: /blogas/<username>?type=article&page=2
+//   type — all|article|creation|translation|topas|... (default: all)
+//   page — 1-based puslapis (default: 1, page size 20)
+
 import { notFound } from 'next/navigation'
-import { getBlogBySlug, getBlogPosts } from '@/lib/supabase-blog'
+import { getBlogBySlug, getBlogPosts, getBlogPostCountsByType } from '@/lib/supabase-blog'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
-type Props = { params: Promise<{ username: string }> }
+type Props = {
+  params: Promise<{ username: string }>
+  searchParams: Promise<{ page?: string; type?: string }>
+}
+
+const PAGE_SIZE = 20
+
+const TYPE_LABELS: Record<string, string> = {
+  all: 'VISI',
+  article: 'STRAIPSNIS',
+  creation: 'KŪRYBA',
+  translation: 'VERTIMAS',
+  topas: 'TOPAS',
+  review: 'APŽVALGA',
+  release: 'RELEASE',
+  interview: 'INTERVIU',
+  event: 'EVENTAS',
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params
@@ -17,13 +43,46 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function BlogPage({ params }: Props) {
+export default async function BlogPage({ params, searchParams }: Props) {
   const { username } = await params
+  const { page: pageStr, type: typeStr } = await searchParams
   const blog = await getBlogBySlug(username)
   if (!blog) notFound()
 
-  const { posts, total } = await getBlogPosts(blog.id, 20)
+  const currentType = typeStr && TYPE_LABELS[typeStr] ? typeStr : 'all'
+  const currentPage = Math.max(1, parseInt(pageStr || '1', 10) || 1)
+  const offset = (currentPage - 1) * PAGE_SIZE
+
+  const [{ posts, total }, counts] = await Promise.all([
+    getBlogPosts(blog.id, PAGE_SIZE, offset, currentType),
+    getBlogPostCountsByType(blog.id),
+  ])
+
   const author = (blog as any).profiles
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // Pagination window: 1, 2, 3, ..., N
+  const pages: (number | '...')[] = []
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (currentPage > 4) pages.push('...')
+    const start = Math.max(2, currentPage - 1)
+    const end = Math.min(totalPages - 1, currentPage + 1)
+    for (let i = start; i <= end; i++) pages.push(i)
+    if (currentPage < totalPages - 3) pages.push('...')
+    if (totalPages > 1) pages.push(totalPages)
+  }
+
+  const baseUrl = `/blogas/${blog.slug}`
+  const buildUrl = (p: number, t: string = currentType) => {
+    const params = new URLSearchParams()
+    if (t !== 'all') params.set('type', t)
+    if (p > 1) params.set('page', String(p))
+    const qs = params.toString()
+    return qs ? `${baseUrl}?${qs}` : baseUrl
+  }
 
   return (
     <div className="min-h-screen bg-[#080c12] text-[#f0f2f5]">
@@ -42,6 +101,26 @@ export default async function BlogPage({ params }: Props) {
           )}
         </div>
       </div>
+
+      {/* Type tabs */}
+      {Object.keys(counts).length > 1 && (
+        <div className="max-w-2xl mx-auto px-6 mb-6 flex flex-wrap gap-2">
+          {Object.entries(counts).map(([t, n]) => (
+            <Link
+              key={t}
+              href={buildUrl(1, t)}
+              className={`text-xs px-3 py-1.5 rounded-full transition border ${
+                currentType === t
+                  ? 'bg-[#f97316] text-white border-[#f97316]'
+                  : 'bg-white/[.02] text-[#b0bdd4] border-white/[.05] hover:border-white/[.15] hover:bg-white/[.05]'
+              }`}
+              style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, letterSpacing: '.05em' }}
+            >
+              {TYPE_LABELS[t] || t.toUpperCase()} <span className="opacity-60 ml-1">{n}</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Posts list */}
       <div className="max-w-2xl mx-auto px-6 pb-16">
@@ -71,10 +150,55 @@ export default async function BlogPage({ params }: Props) {
           </div>
         ) : (
           <div className="text-center py-16">
-            <p className="text-sm text-[#334058]">Dar nėra straipsnių</p>
+            <p className="text-sm text-[#334058]">Dar nėra įrašų</p>
           </div>
         )}
-        {total > 20 && <p className="text-center text-xs text-[#334058] mt-8">Rodoma {posts.length} iš {total} straipsnių</p>}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-10 flex items-center justify-center gap-1 flex-wrap" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            {currentPage > 1 && (
+              <Link
+                href={buildUrl(currentPage - 1)}
+                className="px-3 py-2 text-sm rounded-lg border border-white/[.05] hover:border-white/[.15] hover:bg-white/[.05] text-[#b0bdd4] transition"
+              >
+                ‹ Atgal
+              </Link>
+            )}
+            {pages.map((p, i) =>
+              p === '...' ? (
+                <span key={`gap-${i}`} className="px-2 text-[#334058] text-sm">…</span>
+              ) : (
+                <Link
+                  key={p}
+                  href={buildUrl(p)}
+                  className={`min-w-[36px] text-center px-3 py-2 text-sm rounded-lg transition ${
+                    p === currentPage
+                      ? 'bg-[#f97316] text-white font-bold'
+                      : 'border border-white/[.05] hover:border-white/[.15] hover:bg-white/[.05] text-[#b0bdd4]'
+                  }`}
+                >
+                  {p}
+                </Link>
+              )
+            )}
+            {currentPage < totalPages && (
+              <Link
+                href={buildUrl(currentPage + 1)}
+                className="px-3 py-2 text-sm rounded-lg border border-white/[.05] hover:border-white/[.15] hover:bg-white/[.05] text-[#b0bdd4] transition"
+              >
+                Pirmyn ›
+              </Link>
+            )}
+          </div>
+        )}
+
+        {total > 0 && (
+          <p className="text-center text-xs text-[#334058] mt-6">
+            {currentPage > 1 ? `Puslapis ${currentPage} iš ${totalPages} · ` : ''}
+            Iš viso {total} {currentType !== 'all' ? `${TYPE_LABELS[currentType]?.toLowerCase()}` : ''} įrašų
+          </p>
+        )}
       </div>
     </div>
   )
