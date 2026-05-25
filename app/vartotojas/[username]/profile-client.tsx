@@ -29,12 +29,12 @@ import { MoreItemsModal } from '@/components/profile/MoreItemsModal'
 import { FavoriteArtistsCollage } from '@/components/profile/FavoriteArtistsCollage'
 
 const POST_TYPE_LABEL: Record<string, string> = {
-  article: 'Straipsnis', review: 'Recenzija', event: 'Renginys', creation: 'Kūryba',
-  translation: 'Vertimas', topas: 'Topas',
+  article: 'Straipsnis', review: 'Recenzija', event: 'Renginys', creation: 'Kūriniai',
+  translation: 'Vertimas', topas: 'Topas', self: 'Apie mane',
 }
 const POST_TYPE_COLOR: Record<string, string> = {
   article: '#f97316', review: '#fbbf24', event: '#34d399', creation: '#f472b6',
-  translation: '#a78bfa', topas: '#60a5fa',
+  translation: '#a78bfa', topas: '#60a5fa', self: '#a3a3a3',
 }
 
 type SubstyleFilter = { kind: 'substyle'; legacyId: number; name: string }
@@ -115,11 +115,12 @@ export function ProfileClient(props: any) {
     })
   }, [regularPosts, topasPosts, translations])
 
-  // V11.5: post type counts + filter logic
+  // V11.6: post type counts + filter logic naudoja display_post_type
+  // (article → 'self' jei nėra music attachments — page.tsx pažymėjo).
   const postCounts = useMemo<Record<string, number>>(() => {
     const c: Record<string, number> = {}
     for (const p of combinedPosts) {
-      const t = p.post_type || 'other'
+      const t = p.display_post_type || p.post_type || 'other'
       c[t] = (c[t] || 0) + 1
     }
     return c
@@ -127,7 +128,7 @@ export function ProfileClient(props: any) {
 
   const filteredPosts = useMemo(() => {
     if (!feedFilter) return combinedPosts
-    return combinedPosts.filter((p: any) => (p.post_type || 'other') === feedFilter)
+    return combinedPosts.filter((p: any) => (p.display_post_type || p.post_type || 'other') === feedFilter)
   }, [combinedPosts, feedFilter])
 
   const featuredPost = filteredPosts[0] || null
@@ -259,10 +260,10 @@ export function ProfileClient(props: any) {
             </div>
           </div>
 
-          {/* ─── DESKTOP LAYOUT (lg+): 3-col grid — V11.5.1 equalizer column
-              praplėstas (1.4 → 1.65), mood sumažintas (1 → 0.8), kad „Alternatyva"
-              ir „Elektronika" labels tilpti ─── */}
-          <div className="hidden lg:grid lg:grid-cols-[1.05fr_1.65fr_0.8fr] gap-5 items-stretch">
+          {/* ─── DESKTOP LAYOUT (lg+): 3-col grid — V11.6: SWAPPED mood ↔ eq
+              (mood viduryje, equalizer dešinėj). Jei mood nėra, equalizer span'ina
+              ant abiejų stulpelių, kad nebūtų tuščios vietos. ─── */}
+          <div className={`hidden lg:grid gap-5 items-stretch ${moodTrack ? 'lg:grid-cols-[1.05fr_0.8fr_1.65fr]' : 'lg:grid-cols-[1.05fr_2.45fr]'}`}>
 
             <div className="flex flex-col gap-3">
               <div className="flex flex-row items-start gap-3.5">
@@ -338,6 +339,14 @@ export function ProfileClient(props: any) {
               </button>
             </div>
 
+            {/* Mood (viduryje, tik jei moodTrack yra) */}
+            {moodTrack && (
+              <div>
+                <MoodSongHeroCard track={moodTrack} />
+              </div>
+            )}
+
+            {/* Equalizer (dešinėj, span'ina 2 cols jei mood absent) */}
             <div>
               {hasMusicMeter ? (
                 <SideEqualizer
@@ -348,14 +357,6 @@ export function ProfileClient(props: any) {
                 />
               ) : (
                 <EqualizerPlaceholder onClick={() => openTaste()} />
-              )}
-            </div>
-
-            <div>
-              {moodTrack ? (
-                <MoodSongHeroCard track={moodTrack} />
-              ) : (
-                <MoodSongPlaceholder />
               )}
             </div>
           </div>
@@ -530,12 +531,14 @@ function trackMeta(resolved: number, pending: number): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // V11.5: mobile compact mood pill — circle cover + title/artist inline; clickable.
+// V11.6: YT thumb fallback + modern /dainos/ URL.
 function MobileMoodPill({ track }: { track: any }) {
   const artist = Array.isArray(track.artists) ? track.artists[0] : track.artists
-  const cover = artist?.cover_image_url || track.cover_url || null
+  const ytThumb = ytThumbProfile(track.video_url)
+  const cover = ytThumb || track.cover_url || artist?.cover_image_url || null
   const href = artist
-    ? `/atlikejai/${artist.slug}/${track.slug || track.id}`
-    : `/lt/daina/${track.slug || ''}/${track.id}`
+    ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}`
+    : `/dainos/${track.slug || ''}-${track.id}`
   return (
     <Link
       href={href}
@@ -578,14 +581,16 @@ function MobileMoodPill({ track }: { track: any }) {
 }
 
 function MoodSongHeroCard({ track }: { track: any }) {
-  // V11.2: be full-bg overlay'aus (vizualus triukšmas), match'ina equalizer
-  // kortelės stilių (Muzikinis skonis); click → navigate į track page'ą,
-  // kur user'is gauna pilną TrackInfoModal-style content'ą (lyrics, komentarai).
+  // V11.6: cover priority — track YT thumb pirma (jei video_url), tada
+  // track.cover_url, tada artist'o cover (fallback). Play ikonos kampe
+  // nebėra (user feedback'as: per daug vizualinio triukšmo). Click → modern
+  // /dainos/{slug-id} URL'as (ne /atlikejai/ kuris 404'ina).
   const artist = Array.isArray(track.artists) ? track.artists[0] : track.artists
-  const cover = artist?.cover_image_url || track.cover_url || null
+  const ytThumb = ytThumbProfile(track.video_url)
+  const cover = ytThumb || track.cover_url || artist?.cover_image_url || null
   const href = artist
-    ? `/atlikejai/${artist.slug}/${track.slug || track.id}`
-    : `/lt/daina/${track.slug || ''}/${track.id}`
+    ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}`
+    : `/dainos/${track.slug || ''}-${track.id}`
 
   return (
     <Link
@@ -598,7 +603,7 @@ function MoodSongHeroCard({ track }: { track: any }) {
       }}
       title={`${track.title}${artist ? ' — ' + artist.name : ''} · atidaryti dainos puslapį`}
     >
-      <div className="flex items-center justify-between p-3 sm:p-4 pb-1">
+      <div className="p-3 sm:p-4 pb-1">
         <div
           className="font-extrabold uppercase"
           style={{
@@ -610,10 +615,6 @@ function MoodSongHeroCard({ track }: { track: any }) {
         >
           Nuotaikos daina
         </div>
-        <span aria-hidden className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] transition group-hover:bg-orange-500/15"
-              style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.78)', border: '1px solid rgba(255,255,255,0.10)' }}>
-          ▸
-        </span>
       </div>
 
       <div className="flex-1 flex items-center gap-3.5 px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-1.5">
@@ -796,8 +797,32 @@ function PopBar({ level, size = 'md', animate = false, delayMs = 450 }: { level:
 // Section header
 // ─────────────────────────────────────────────────────────────────────────────
 
-// V11.5: post type filter chips (artist page studio/singles stiliuje).
-// „Visi" chip su bendru count'u + chip per kiekvieną post_type su counts.
+// V11.6: LT plural helper. Pagal paskutinį skaitmenį + paskutinius 2 sk:
+//   1, 21, 31, ... (bet ne 11) → singular
+//   2-9, 22-29, ... (bet ne 12-19) → paucal
+//   0, 10, 11..19, 20, 30, 40, ... → genitive plural
+function ltPlural(n: number, sg: string, paucal: string, gen: string): string {
+  const lastTwo = Math.abs(n) % 100
+  const last = Math.abs(n) % 10
+  if (last === 1 && lastTwo !== 11) return sg
+  if (last >= 2 && last <= 9 && (lastTwo < 10 || lastTwo > 19)) return paucal
+  return gen
+}
+
+// Plural forms per post type — [singular, paucal, genitive-plural].
+const POST_TYPE_PLURAL: Record<string, [string, string, string]> = {
+  article:     ['straipsnis', 'straipsniai', 'straipsnių'],
+  review:      ['recenzija',  'recenzijos',  'recenzijų'],
+  event:       ['renginys',   'renginiai',   'renginių'],
+  creation:    ['kūrinys',    'kūriniai',    'kūrinių'],
+  translation: ['vertimas',   'vertimai',    'vertimų'],
+  topas:       ['topas',      'topai',       'topų'],
+}
+
+// V11.5 → V11.6: tag chips refresh. Sentence case (be uppercase), LT plural
+// forms („60 straipsnių" / „2 vertimai" / „1 recenzija"), „Visi" → „Visi įrašai".
+// Pridėtas „self" tipas (post.post_type='article' BE music attachments) →
+// „Apie mane" tag.
 function PostTypeTagBar({
   counts, current, total, onChange, allInUrl,
 }: {
@@ -807,20 +832,30 @@ function PostTypeTagBar({
   onChange: (type: string | null) => void
   allInUrl?: { href: string; label: string }
 }) {
-  // Įrašom chip'us pagal POST_TYPE_LABEL eilę, tik tuos kurių counts>0.
-  const TYPE_ORDER = ['article', 'review', 'event', 'topas', 'creation', 'translation']
+  const TYPE_ORDER = ['article', 'review', 'event', 'topas', 'creation', 'translation', 'self']
   const items: { key: string | null; label: string; count: number }[] = [
-    { key: null, label: 'Visi', count: total },
+    { key: null, label: 'Visi įrašai', count: total },
   ]
   for (const t of TYPE_ORDER) {
-    if (counts[t] > 0) {
-      items.push({ key: t, label: POST_TYPE_LABEL[t] || t, count: counts[t] })
+    const n = counts[t]
+    if (!n || n === 0) continue
+    let label: string
+    if (t === 'self') {
+      label = `Apie mane · ${n}`
+    } else {
+      const forms = POST_TYPE_PLURAL[t]
+      if (forms) {
+        label = `${n} ${ltPlural(n, forms[0], forms[1], forms[2])}`
+      } else {
+        label = `${POST_TYPE_LABEL[t] || t} · ${n}`
+      }
     }
+    items.push({ key: t, label, count: n })
   }
-  // Bet kokie kiti tipai
+  // Kiti nežinomi tipai
   for (const t of Object.keys(counts)) {
     if (!TYPE_ORDER.includes(t) && counts[t] > 0) {
-      items.push({ key: t, label: POST_TYPE_LABEL[t] || t, count: counts[t] })
+      items.push({ key: t, label: `${POST_TYPE_LABEL[t] || t} · ${counts[t]}`, count: counts[t] })
     }
   }
 
@@ -835,24 +870,15 @@ function PostTypeTagBar({
               key={it.key ?? 'all'}
               type="button"
               onClick={() => onChange(it.key)}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-extrabold uppercase tracking-wider transition hover:scale-[1.03]"
+              className="inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold transition hover:opacity-90"
               style={{
                 fontFamily: "'Outfit', sans-serif",
-                background: isActive ? typeColor : 'var(--card-bg)',
-                color: isActive ? '#000' : 'var(--text-secondary)',
-                border: `1px solid ${isActive ? typeColor : 'var(--border-subtle)'}`,
+                background: isActive ? `${typeColor}26` : 'transparent',
+                color: isActive ? typeColor : 'var(--text-secondary)',
+                border: `1px solid ${isActive ? typeColor + '60' : 'var(--border-subtle)'}`,
               }}
             >
-              <span>{it.label}</span>
-              <span
-                className="font-bold tabular-nums"
-                style={{
-                  color: isActive ? 'rgba(0,0,0,0.65)' : 'var(--text-faint)',
-                  fontSize: '10px',
-                }}
-              >
-                {it.count}
-              </span>
+              {it.label}
             </button>
           )
         })}
@@ -1165,8 +1191,9 @@ function postUrl(post: any, blogSlug: string): string {
 
 function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
   const url = postUrl(post, blogSlug)
-  const typeColor = POST_TYPE_COLOR[post.post_type] || '#f97316'
-  const typeLabel = POST_TYPE_LABEL[post.post_type] || post.post_type
+  const typeKey = post.display_post_type || post.post_type
+  const typeColor = POST_TYPE_COLOR[typeKey] || '#f97316'
+  const typeLabel = POST_TYPE_LABEL[typeKey] || typeKey
   const items = Array.isArray(post.list_items) && post.list_items.length > 0 ? post.list_items : null
   const heroImg = post.cover_image_url || post.fallback_thumb_url
 
@@ -1234,8 +1261,9 @@ function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
 
 function SidePostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
   const url = postUrl(post, blogSlug)
-  const typeColor = POST_TYPE_COLOR[post.post_type] || '#5e7290'
-  const typeLabel = POST_TYPE_LABEL[post.post_type] || post.post_type
+  const typeKey = post.display_post_type || post.post_type
+  const typeColor = POST_TYPE_COLOR[typeKey] || '#5e7290'
+  const typeLabel = POST_TYPE_LABEL[typeKey] || typeKey
   const thumb = post.cover_image_url || post.fallback_thumb_url
 
   return (

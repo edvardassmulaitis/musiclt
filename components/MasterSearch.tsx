@@ -654,13 +654,23 @@ function ResultRow({
   const img = proxyImg(hit.image_url || '')
   const isCircle = hit.type === 'artists' || hit.type === 'profiles'
 
+  // V11.6: <button> → <a> kad middle/cmd-click atidarytų artist page'ą naujam
+  // tab'e (ne raw image URL). onClick handlerį uždedam ant standartinio click —
+  // ctrl/cmd/middle-click leidžiam browser'iui handle'inti default'iškai.
+  const handleAnchor = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return
+    e.preventDefault()
+    onClick()
+  }
+
   if (layoutGrid) {
     return (
-      <button
+      <a
+        href={hit.href}
         data-search-idx={dataIdx}
         className={`ms-grid-item ${selected ? 'sel' : ''}`}
         onMouseEnter={onMouseEnter}
-        onClick={onClick}
+        onClick={handleAnchor}
       >
         <div className="ms-grid-img-wrap">
           {img ? (
@@ -676,16 +686,17 @@ function ResultRow({
           <div className="ms-grid-title">{hit.title}</div>
           {hit.subtitle && <div className="ms-grid-sub">{hit.subtitle}</div>}
         </div>
-      </button>
+      </a>
     )
   }
 
   return (
-    <button
+    <a
+      href={hit.href}
       data-search-idx={dataIdx}
       className={`ms-row ${selected ? 'sel' : ''}`}
       onMouseEnter={onMouseEnter}
-      onClick={onClick}
+      onClick={handleAnchor}
     >
       <div className={`ms-row-img ${isCircle ? 'circle' : ''}`}>
         {img ? (
@@ -708,7 +719,7 @@ function ResultRow({
       <div className="ms-row-arrow" aria-hidden>
         <ArrowReturn />
       </div>
-    </button>
+    </a>
   )
 }
 
@@ -746,10 +757,15 @@ function EmptyState({
               const Ico = meta?.Icon || IconArtist
               const fallbackColor = meta?.color || '#a78bfa'
               return (
-                <button
+                <a
                   key={`${item.type}-${item.id}`}
+                  href={item.href}
                   className="ms-grid-item"
-                  onClick={() => onGo(item)}
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return
+                    e.preventDefault()
+                    onGo(item)
+                  }}
                 >
                   <div className="ms-grid-img-wrap" style={{
                     borderRadius: item.type === 'tracks' || item.type === 'albums' ? 8 : '50%',
@@ -767,7 +783,7 @@ function EmptyState({
                     <div className="ms-grid-title">{item.title}</div>
                     {item.subtitle && <div className="ms-grid-sub">{item.subtitle}</div>}
                   </div>
-                </button>
+                </a>
               )
             })}
           </div>

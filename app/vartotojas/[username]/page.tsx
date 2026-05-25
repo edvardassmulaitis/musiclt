@@ -173,11 +173,12 @@ export default async function UserProfilePage({ params }: Props) {
         }
       }
 
-      // 5. V11.2 fallback: extract first <img src="..."> arba YouTube embed
-      //    iš `content` (kolona blog_posts'e — ne content_html). Catch'ina
-      //    paprastus straipsnius su inline media, kurių junction tables tuščios.
+      // 5. V11.6 expanded fallback: <img src=...> | YT embed | bg-image:url(...)
+      //    iš `content`. Paradise lost paste straipsnis turi tiptap-music-card
+      //    su `background-image: url(...)` inline style (nenaudoja <img>).
       const IMG_RE = /<img[^>]+src=["']([^"']+)["']/i
       const YT_RE_HTML = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+      const BG_IMG_RE = /background-image\s*:\s*url\(['"]?([^'")\s]+)/i
       for (const p of all) {
         if (!p.cover_image_url && !thumbByPost.has(p.id) && p.content) {
           const html = String(p.content)
@@ -189,13 +190,35 @@ export default async function UserProfilePage({ params }: Props) {
           const img = html.match(IMG_RE)?.[1]
           if (img && img.startsWith('http')) {
             thumbByPost.set(p.id, img)
+            continue
+          }
+          const bg = html.match(BG_IMG_RE)?.[1]
+          if (bg && bg.startsWith('http')) {
+            thumbByPost.set(p.id, bg)
           }
         }
+      }
+
+      // V11.6: mark posts with music attachments. Naudojam display_post_type
+      // (per post.post_type='article' BE attachments → 'self' → „Apie mane").
+      const postsWithMusic = new Set<string>()
+      for (const r of [
+        ...(trackAttachRes.data || []),
+        ...(albumAttachRes.data || []),
+        ...(artistAttachRes.data || []),
+      ] as any[]) {
+        if (r.post_id) postsWithMusic.add(r.post_id)
       }
 
       for (const p of all) {
         if (!p.cover_image_url && thumbByPost.has(p.id)) {
           ;(p as any).fallback_thumb_url = thumbByPost.get(p.id)
+        }
+        // V11.6 display_post_type derivation
+        if (p.post_type === 'article' && !postsWithMusic.has(p.id)) {
+          ;(p as any).display_post_type = 'self'
+        } else {
+          ;(p as any).display_post_type = p.post_type
         }
         // V11.2: nepersiunčiam content'o į client'ą — sutaupom payload.
         delete (p as any).content
