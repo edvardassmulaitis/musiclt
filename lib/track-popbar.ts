@@ -183,13 +183,18 @@ export function makeArtistTrackScorer(_tracks: any[]): (t: any) => number {
 // į global popularity. Sort'as taip pat pagal `trackCompositeScore`,
 // tad bar'ai monotoniški.
 //
-// Quintile distribucija (rank'as su 0-based indexavimu):
-//   rank 0 (top)                        → 5/5  (always crown)
-//   rank < 20% total                    → 5/5  (top tier)
-//   rank < 40%                          → 4/5
-//   rank < 60%                          → 3/5
-//   rank < 80%                          → 2/5
-//   rest                                → 1/5
+// Tier distribucija v7 (2026-05-25): logaritminė, ne kvintile — kad 5/5
+// reiškia REALIAI „crown jewel" (1-5 dainų catalog'e, dažnai 1-3, kartais 1
+// jei one-hit-wonder). Quintile (v6) duodavo 20% catalog'o su 5/5 — per daug,
+// bar'ai prarado prasmę. Edvardo skundas 2026-05-25: „top dainu butu iki 5
+// max, daznai vos 2-3 ar net viena jei one hit wonder".
+//
+// Tier sizes (rank capped + percent based):
+//   5/5: cap 1-5, ~1% total              (220 dainų → 3, 50 → 1, 10 → 1)
+//   4/5: cap 2-15, ~6% total             (220 → 14, 50 → 3, 10 → 2)
+//   3/5: cap 5-40, ~18% total            (220 → 40, 50 → 9, 10 → 5)
+//   2/5: cap 10-100, ~40% total          (220 → 88, 50 → 20, 10 → 2)
+//   1/5: rest                            (220 → 75, 50 → 17, 10 → 0)
 //
 // Tracks su score ≤ 0 (jokio signal'o) → 0/5 (bar slepiamas).
 
@@ -219,7 +224,18 @@ export function makeArtistTrackLeveler(
     (a, b) => trackCompositeScore(b, now) - trackCompositeScore(a, now),
   )
 
-  // Map<track.id, level> — kiekvienam track ID priskiriam quintile level'į.
+  // Tier sizes — log-augantys cap'ai, kad mažiems catalog'ams būtų prasminga
+  // distribucija, dideliems — 5/5 nepadalintų į dešimtis dainų.
+  const t1 = Math.min(5,   Math.max(1,  Math.ceil(total * 0.01)))  // 5/5: 1-5
+  const t2 = Math.min(15,  Math.max(2,  Math.ceil(total * 0.06)))  // 4/5: 2-15
+  const t3 = Math.min(40,  Math.max(5,  Math.ceil(total * 0.18)))  // 3/5: 5-40
+  const t4 = Math.min(100, Math.max(10, Math.ceil(total * 0.40)))  // 2/5: 10-100
+  const c1 = t1
+  const c2 = c1 + t2
+  const c3 = c2 + t3
+  const c4 = c3 + t4
+
+  // Map<track.id, level> — kiekvienam track ID priskiriam tier'į pagal rank.
   const idToLevel = new Map<any, number>()
   sortedByScoreDesc.forEach((t, rank) => {
     const score = trackCompositeScore(t, now)
@@ -227,16 +243,12 @@ export function makeArtistTrackLeveler(
       idToLevel.set(t.id, 0)
       return
     }
-    if (total === 1 || rank === 0) {
-      idToLevel.set(t.id, 5)
-      return
-    }
-    const p = rank / total
-    let lvl = 1
-    if (p < 0.20) lvl = 5
-    else if (p < 0.40) lvl = 4
-    else if (p < 0.60) lvl = 3
-    else if (p < 0.80) lvl = 2
+    let lvl: number
+    if (rank < c1) lvl = 5
+    else if (rank < c2) lvl = 4
+    else if (rank < c3) lvl = 3
+    else if (rank < c4) lvl = 2
+    else lvl = 1
     idToLevel.set(t.id, lvl)
   })
 
