@@ -331,31 +331,43 @@ export async function getProfileFavoriteArtists(userId: string) {
 // id tikriausiai preserves'ina insert order'į.
 export async function getProfileFavoriteAlbums(username: string, limit = 12) {
   const sb = createAdminClient()
+  // V11: pridėtas `liked_at` mapping grąžinamoj eilutėj — naudojama UI
+  // sort'avimui pagal naujausi pamėgti.
   const { data } = await sb
     .from('likes')
-    .select('entity_id, created_at, albums:entity_id(id, slug, title, cover_url, artist_id, artists:artist_id(id, slug, name))')
+    .select('entity_id, created_at, albums:entity_id(id, slug, title, cover_url, artist_id, artists:artist_id(id, slug, name, cover_image_url))')
     .eq('entity_type', 'album')
     .eq('user_username', username)
     .not('entity_id', 'is', null)
     .order('id', { ascending: false })
     .limit(limit)
   return (data || [])
-    .map((r: any) => r.albums)
+    .map((r: any) => {
+      const a = r.albums
+      if (!a) return null
+      return { ...a, liked_at: r.created_at }
+    })
     .filter(Boolean) as any[]
 }
 
 export async function getProfileFavoriteTracks(username: string, limit = 12) {
   const sb = createAdminClient()
+  // V11: pridėtas `video_url` (YT thumbnail fallback) + `liked_at` mapping
+  // grąžinamoj eilutėj, kad UI galėtų sort'inti pagal naujausi pamėgti.
   const { data } = await sb
     .from('likes')
-    .select('entity_id, created_at, tracks:entity_id(id, slug, title, cover_url, artist_id, artists:artist_id(id, slug, name))')
+    .select('entity_id, created_at, tracks:entity_id(id, slug, title, cover_url, video_url, artist_id, artists:artist_id(id, slug, name, cover_image_url))')
     .eq('entity_type', 'track')
     .eq('user_username', username)
     .not('entity_id', 'is', null)
     .order('id', { ascending: false })
     .limit(limit)
   return (data || [])
-    .map((r: any) => r.tracks)
+    .map((r: any) => {
+      const t = r.tracks
+      if (!t) return null
+      return { ...t, liked_at: r.created_at }
+    })
     .filter(Boolean) as any[]
 }
 

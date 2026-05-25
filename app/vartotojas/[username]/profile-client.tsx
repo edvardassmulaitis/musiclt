@@ -2,30 +2,22 @@
 
 // app/vartotojas/[username]/profile-client.tsx
 //
-// V10 — refined creator-profile:
+// V11 — 3-col hero + vertikalūs full-width body sekcijos:
 //
-//   HERO — minimaliai identity
-//     • Avatar + vardas + popbar'ai + bio tagline (jei trumpas)
-//     • „Apie narį" subtle button
-//     • Jokio stat strip'o — stats į ProfileInfoModal
+//   HERO (3 stulpeliai desktop, vertikaliai stacked mobile)
+//     L: Avatar + vardas + popbar'ai + „Apie narį" button
+//     M: SideEqualizer 'hero-mini' (top 3 bars + 'Kita') + expand ikona
+//        → MusicTasteModal (pilnas equalizer + substyles + filtras)
+//     R: MoodSongHeroCard (jei profile.mood_song_track_id resolved)
 //
-//   NOW PLAYING — full-width pill, jei profile.mood_song_track_id resolved
-//
-//   MUSIC IDENTITY — equalizer + substyles bendrai
-//     • Equalizer top: 8 main genre bars (compact hero variant)
-//     • Substyles chips po apačia (dideli/mažesni pagal sort_order)
-//     • Click ant bar → GenreFilterModal (main genre filter)
-//     • Click ant substyle chip → GenreFilterModal (substyle filter)
-//
-//   NAUJAUSI ĮRAŠAI — featured + 4 side, richer hero fallback chain
-//
-//   DIENOS DAINOS PASIRINKIMAI — kompaktiškos kortelės su pavadinimu +
-//     komentaru (h-scroll)
-//
-//   MĖGSTAMI ATLIKĖJAI / ALBUMAI / DAINOS
-//     • Compact grid + paskutinis tile'as „+N daugiau" → MoreItemsModal
-//
-//   DISKUSIJOS — paskutiniai user'io komentarai per visas entity'es
+//   BODY (full-width vertikaliai)
+//     1. Naujausi įrašai — featured + 4 side
+//     2. Dienos dainos pasirinkimai — h-scroll
+//     3. Mėgstami atlikėjai — bento koliažas (FavoriteArtistsCollage),
+//        tile dydžiai pagal liked albums+tracks count
+//     4. Mėgstami albumai — grid + quick filter chips (per MoreItemsModal)
+//     5. Mėgstamos dainos — YT thumb grid + quick filters
+//     6. Naujausi komentarai — activity log
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
@@ -35,6 +27,7 @@ import { ProfileInfoModal } from '@/components/profile/ProfileInfoModal'
 import { GenreFilterModal } from '@/components/profile/GenreFilterModal'
 import { MoodSongModal } from '@/components/profile/MoodSongModal'
 import { MoreItemsModal } from '@/components/profile/MoreItemsModal'
+import { FavoriteArtistsCollage } from '@/components/profile/FavoriteArtistsCollage'
 
 const POST_TYPE_LABEL: Record<string, string> = {
   article: 'Straipsnis', review: 'Recenzija', event: 'Renginys', creation: 'Kūryba',
@@ -58,9 +51,15 @@ export function ProfileClient(props: any) {
   } = props
 
   const [infoOpen, setInfoOpen] = useState(false)
-  const [musicFilter, setMusicFilter] = useState<AnyFilter | null>(null)
+  const [tasteOpen, setTasteOpen] = useState(false)
+  const [tasteInitial, setTasteInitial] = useState<AnyFilter | null>(null)
   const [moodOpen, setMoodOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState<'artist' | 'album' | 'track' | null>(null)
+
+  const openTaste = (preGenre?: string | null) => {
+    setTasteInitial(preGenre ? { kind: 'genre', name: preGenre } : null)
+    setTasteOpen(true)
+  }
 
   const isLegacy = profile.provider === 'legacy_forum' || !!profile.legacy_user_id
   const isUnclaimed = !profile.is_claimed
@@ -114,30 +113,8 @@ export function ProfileClient(props: any) {
   const featuredPost = combinedPosts[0] || null
   const sidePosts = combinedPosts.slice(1, 5)
 
-  // Filtruoti per genre arba substyle
-  const filteredArtists = useMemo(() => {
-    if (!musicFilter) return []
-    if (musicFilter.kind === 'genre') {
-      return favoriteArtists.filter((a: any) =>
-        (a.mainGenres || []).some((g: any) => g.name === musicFilter.name),
-      )
-    }
-    return favoriteArtists.filter((a: any) =>
-      (a.substyleIds || []).includes(musicFilter.legacyId),
-    )
-  }, [favoriteArtists, musicFilter])
-
-  const filteredPicks = useMemo(() => {
-    if (!musicFilter) return []
-    return dailyPicks.filter((p: any) => {
-      if (!p.tracks) return false
-      const genres: { id: number; name: string }[] = p.tracks.artistMainGenres || []
-      if (musicFilter.kind === 'genre') {
-        return genres.some((g) => g.name === musicFilter.name)
-      }
-      return false // substyles per pick'ą nepasiekiamas dabar
-    })
-  }, [dailyPicks, musicFilter])
+  // V11: filtravimas dabar gyvena modal'e (GenreFilterModal), čia tik
+  // perduodam pilnus sąrašus (favoriteArtists + dailyPicks) + initialFilter.
 
   const bioTagline = useMemo(() => {
     if (!profile.bio) return null
@@ -179,129 +156,138 @@ export function ProfileClient(props: any) {
           )}
         </div>
 
-        <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 pt-9 sm:pt-12 pb-6 sm:pb-7">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6 text-center sm:text-left">
+        <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 pt-7 sm:pt-9 pb-6 sm:pb-7">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_1.4fr_1fr] gap-4 sm:gap-5 items-stretch">
 
-            <div className="relative flex-shrink-0">
-              {profile.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={profile.avatar_url}
-                  alt=""
-                  width={88}
-                  height={88}
-                  className="w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-2xl object-cover shadow-[0_8px_32px_rgba(0,0,0,0.55)]"
-                  style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.12)' }}
-                />
-              ) : (
-                <div className="w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-2xl bg-gradient-to-br from-[#1a2436] to-[#0f1622] flex items-center justify-center text-3xl font-black"
-                     style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.3)' }}>
-                  {(profile.full_name || profile.username || '?')[0].toUpperCase()}
-                </div>
-              )}
-              {profile.is_vip_legacy && (
-                <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-amber-600 text-black text-[9px] font-extrabold uppercase tracking-wider shadow">
-                  VIP
-                </span>
-              )}
-            </div>
+            {/* L: Identity */}
+            <div className="flex flex-col sm:flex-row lg:flex-col items-center sm:items-start gap-4 sm:gap-5 lg:gap-3 text-center sm:text-left">
+              <div className="relative flex-shrink-0">
+                {profile.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profile.avatar_url}
+                    alt=""
+                    width={88}
+                    height={88}
+                    className="w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-2xl object-cover shadow-[0_8px_32px_rgba(0,0,0,0.55)]"
+                    style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.12)' }}
+                  />
+                ) : (
+                  <div className="w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-2xl bg-gradient-to-br from-[#1a2436] to-[#0f1622] flex items-center justify-center text-3xl font-black"
+                       style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.3)' }}>
+                    {(profile.full_name || profile.username || '?')[0].toUpperCase()}
+                  </div>
+                )}
+                {profile.is_vip_legacy && (
+                  <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-amber-600 text-black text-[9px] font-extrabold uppercase tracking-wider shadow">
+                    VIP
+                  </span>
+                )}
+              </div>
 
-            <div className="min-w-0 flex-1">
-              <h1
-                className="font-black leading-[0.95] tracking-[-0.04em] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.6)]"
-                style={{ fontSize: 'clamp(1.85rem, 4vw, 2.85rem)', fontFamily: "'Outfit', sans-serif" }}
-              >
-                {profile.username}
-              </h1>
+              <div className="min-w-0 flex-1">
+                <h1
+                  className="font-black leading-[0.95] tracking-[-0.04em] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.6)]"
+                  style={{ fontSize: 'clamp(1.6rem, 3.4vw, 2.4rem)', fontFamily: "'Outfit', sans-serif" }}
+                >
+                  {profile.username}
+                </h1>
 
-              {bioTagline && (
-                <p
-                  className="mt-2 text-sm sm:text-[15px] leading-relaxed"
+                {bioTagline && (
+                  <p
+                    className="mt-1.5 text-xs sm:text-sm leading-snug line-clamp-2"
+                    style={{
+                      fontFamily: "'Outfit', sans-serif",
+                      color: 'rgba(255,255,255,0.72)',
+                      maxWidth: '46ch',
+                    }}
+                  >
+                    {bioTagline}
+                  </p>
+                )}
+
+                {/* PopBar'ai */}
+                {(karmaLevel > 0 || activityLevel > 0) && (
+                  <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    {karmaLevel > 0 && (
+                      <PopBarChip
+                        level={karmaLevel}
+                        title="Karma — istoriniai music.lt taškai"
+                        delayMs={350}
+                        icon={
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
+                            <path d="M12 2l2.39 7.36H22l-6.18 4.48L18.21 22 12 17.27 5.79 22l2.39-8.16L2 9.36h7.61z" />
+                          </svg>
+                        }
+                      />
+                    )}
+                    {activityLevel > 0 && (
+                      <PopBarChip
+                        level={activityLevel}
+                        title="Aktyvumas — turinio kūrimo intensyvumas"
+                        delayMs={1730}
+                        revealDelayMs={1450}
+                        icon={
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
+                            <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
+                          </svg>
+                        }
+                      />
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setInfoOpen(true)}
+                  className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold transition hover:opacity-80"
                   style={{
                     fontFamily: "'Outfit', sans-serif",
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.10)',
                     color: 'rgba(255,255,255,0.78)',
-                    maxWidth: '62ch',
                   }}
+                  aria-label="Apie narį"
                 >
-                  {bioTagline}
-                </p>
-              )}
-
-              {/* PopBar'ai */}
-              {(karmaLevel > 0 || activityLevel > 0) && (
-                <div className="mt-3.5 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                  {karmaLevel > 0 && (
-                    <PopBarChip
-                      level={karmaLevel}
-                      title="Karma — istoriniai music.lt taškai"
-                      delayMs={350}
-                      icon={
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
-                          <path d="M12 2l2.39 7.36H22l-6.18 4.48L18.21 22 12 17.27 5.79 22l2.39-8.16L2 9.36h7.61z" />
-                        </svg>
-                      }
-                    />
-                  )}
-                  {activityLevel > 0 && (
-                    <PopBarChip
-                      level={activityLevel}
-                      title="Aktyvumas — turinio kūrimo intensyvumas"
-                      delayMs={1730}
-                      revealDelayMs={1450}
-                      icon={
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
-                          <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
-                        </svg>
-                      }
-                    />
-                  )}
-                </div>
-              )}
-
-              <button
-                onClick={() => setInfoOpen(true)}
-                className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold transition hover:opacity-80"
-                style={{
-                  fontFamily: "'Outfit', sans-serif",
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.10)',
-                  color: 'rgba(255,255,255,0.78)',
-                }}
-                aria-label="Apie narį"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="16" x2="12" y2="12" />
-                  <line x1="12" y1="8" x2="12.01" y2="8" />
-                </svg>
-                Apie narį
-              </button>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  Apie narį
+                </button>
+              </div>
             </div>
+
+            {/* M: Equalizer mini */}
+            <div className="min-h-[180px] lg:min-h-0">
+              {hasMusicMeter ? (
+                <SideEqualizer
+                  meter={profile.legacy_music_meter}
+                  variant="hero-mini"
+                  topN={3}
+                  onExpand={(g) => openTaste(g)}
+                />
+              ) : (
+                <EqualizerPlaceholder onClick={() => openTaste()} />
+              )}
+            </div>
+
+            {/* R: Mood song */}
+            <div className="min-h-[180px] lg:min-h-0">
+              {moodTrack ? (
+                <MoodSongHeroCard track={moodTrack} onClick={() => setMoodOpen(true)} />
+              ) : (
+                <MoodSongPlaceholder />
+              )}
+            </div>
+
           </div>
         </div>
       </section>
 
       {/* ═════════════════ BODY ═════════════════ */}
       <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-
-        {/* NOW PLAYING — full-width thin strip */}
-        {moodTrack && (
-          <div className="mt-2 sm:mt-3">
-            <NowPlayingStrip track={moodTrack} onClick={() => setMoodOpen(true)} />
-          </div>
-        )}
-
-        {/* MUSIC IDENTITY — equalizer + substyles bendrai */}
-        {(hasMusicMeter || (favoriteStyles && favoriteStyles.length > 0)) && (
-          <section className="mt-5 sm:mt-6">
-            <MusicIdentityBlock
-              meter={profile.legacy_music_meter}
-              styles={favoriteStyles || []}
-              onSelectGenre={(g) => setMusicFilter(g ? { kind: 'genre', name: g } : null)}
-              onSelectSubstyle={(s) => setMusicFilter({ kind: 'substyle', legacyId: s.legacyId, name: s.name })}
-            />
-          </section>
-        )}
 
         {/* NAUJAUSI ĮRAŠAI */}
         {combinedPosts.length > 0 && blog && (
@@ -332,33 +318,33 @@ export function ProfileClient(props: any) {
           </section>
         )}
 
-        {/* MĖGSTAMI ATLIKĖJAI */}
+        {/* MĖGSTAMI ATLIKĖJAI — bento koliažas */}
         {favoriteArtists.length > 0 && (
           <section className="mt-8 sm:mt-10">
             <SectionHeader
               title="Mėgstami atlikėjai"
-              meta={`${favoriteArtists.length} atlikėjų`}
+              meta={`${favoriteArtists.length} atlikėjų${favoriteArtists.some((a: any) => (a.affinity_score || 0) > 0) ? ' · dydis pagal pamėgtų albumų + dainų' : ''}`}
             />
-            <ArtistsGridWithMore
+            <FavoriteArtistsCollage
               artists={favoriteArtists}
               maxShown={11}
-              onOpenMore={() => setMoreOpen('artist')}
               totalCount={favoriteArtists.length}
+              onOpenMore={() => setMoreOpen('artist')}
             />
           </section>
         )}
 
-        {/* MĖGSTAMIAUSI ALBUMAI */}
+        {/* MĖGSTAMI ALBUMAI */}
         {(favoriteAlbums.length > 0 || (likesCounts?.album?.pending || 0) > 0) && (
           <section className="mt-8 sm:mt-10">
             <SectionHeader
-              title="Mėgstamiausi albumai"
+              title="Mėgstami albumai"
               meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0)}
             />
             {favoriteAlbums.length > 0 ? (
-              <AlbumsGridWithMore
+              <AlbumsFullWidth
                 albums={favoriteAlbums}
-                maxShown={11}
+                maxShown={12}
                 onOpenMore={() => setMoreOpen('album')}
                 totalCount={albumResolvedTotal}
               />
@@ -368,17 +354,17 @@ export function ProfileClient(props: any) {
           </section>
         )}
 
-        {/* MĖGSTAMIAUSIOS DAINOS */}
+        {/* MĖGSTAMOS DAINOS */}
         {(favoriteTracks.length > 0 || (likesCounts?.track?.pending || 0) > 0) && (
           <section className="mt-8 sm:mt-10">
             <SectionHeader
-              title="Mėgstamiausios dainos"
+              title="Mėgstamos dainos"
               meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0)}
             />
             {favoriteTracks.length > 0 ? (
-              <TracksGridWithMore
+              <TracksFullWidth
                 tracks={favoriteTracks}
-                maxShown={11}
+                maxShown={12}
                 onOpenMore={() => setMoreOpen('track')}
                 totalCount={trackResolvedTotal}
               />
@@ -388,11 +374,11 @@ export function ProfileClient(props: any) {
           </section>
         )}
 
-        {/* DISKUSIJOS — activity log */}
+        {/* NAUJAUSI KOMENTARAI — activity log */}
         {recentComments && recentComments.length > 0 && (
           <section className="mt-8 sm:mt-10">
             <SectionHeader
-              title="Diskusijos"
+              title="Naujausi komentarai"
               meta="Paskutiniai nario komentarai"
             />
             <RecentCommentsList comments={recentComments} />
@@ -411,12 +397,14 @@ export function ProfileClient(props: any) {
         />
       )}
 
-      {musicFilter && (
+      {tasteOpen && (
         <GenreFilterModal
-          genre={musicFilter.name}
-          artists={filteredArtists}
-          picks={filteredPicks}
-          onClose={() => setMusicFilter(null)}
+          initialFilter={tasteInitial}
+          meter={profile.legacy_music_meter}
+          styles={favoriteStyles || []}
+          artists={favoriteArtists}
+          picks={dailyPicks}
+          onClose={() => { setTasteOpen(false); setTasteInitial(null) }}
         />
       )}
 
@@ -461,156 +449,122 @@ function trackMeta(resolved: number, pending: number): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Music Identity — equalizer + substyles bendrai
+// V11 Hero column placeholders + Mood Song hero card
 // ─────────────────────────────────────────────────────────────────────────────
 
-function MusicIdentityBlock({
-  meter, styles, onSelectGenre, onSelectSubstyle,
-}: {
-  meter: any
-  styles: { legacy_style_id: number; style_slug: string; style_name: string; sort_order: number }[]
-  onSelectGenre: (genre: string | null) => void
-  onSelectSubstyle: (s: { legacyId: number; name: string }) => void
-}) {
-  return (
-    <div
-      className="rounded-3xl overflow-hidden"
-      style={{
-        background: 'linear-gradient(135deg, rgba(249,115,22,0.10), rgba(96,165,250,0.06), rgba(167,139,250,0.08))',
-        boxShadow: '0 8px 40px rgba(0,0,0,0.35)',
-        padding: '1px',
-      }}
-    >
-      <div
-        className="rounded-[24px]"
-        style={{ background: 'var(--bg-body)' }}
-      >
-        {meter && Array.isArray(meter) && meter.length > 0 && (
-          <SideEqualizer
-            meter={meter}
-            selectedGenre={null}
-            onSelect={onSelectGenre}
-            variant="hero"
-          />
-        )}
-
-        {styles && styles.length > 0 && (
-          <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-1">
-            <div
-              className="text-[10px] font-extrabold uppercase tracking-[0.18em] mb-3"
-              style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}
-            >
-              Mėgstamiausi stiliai · spauskite, kad pamatytumėte tie stiliai atlikėjus
-            </div>
-            <SubstyleCloud styles={styles} onSelect={onSelectSubstyle} />
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function SubstyleCloud({
-  styles, onSelect,
-}: {
-  styles: { legacy_style_id: number; style_slug: string; style_name: string; sort_order: number }[]
-  onSelect: (s: { legacyId: number; name: string }) => void
-}) {
-  // Size tiers — naudoja sort_order'į svarbiausiems chip'ams išskirti.
-  const sizeFor = (i: number): React.CSSProperties => {
-    if (i < 3) return { fontSize: '15px', padding: '8px 14px', fontWeight: 800 }
-    if (i < 6) return { fontSize: '13px', padding: '6px 11px', fontWeight: 700 }
-    if (i < 10) return { fontSize: '12px', padding: '5px 10px', fontWeight: 600, opacity: 0.85 }
-    return { fontSize: '11px', padding: '4px 9px', fontWeight: 500, opacity: 0.68 }
-  }
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-      {styles.map((s, i) => (
-        <button
-          key={s.legacy_style_id}
-          onClick={() => onSelect({ legacyId: s.legacy_style_id, name: s.style_name })}
-          className="rounded-full border transition hover:scale-[1.04] hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(249,115,22,0.32)]"
-          style={{
-            fontFamily: "'Outfit', sans-serif",
-            background: 'rgba(255,255,255,0.04)',
-            color: '#dde8f8',
-            borderColor: 'rgba(255,255,255,0.10)',
-            ...sizeFor(i),
-          }}
-          title={`Rodyti „${s.style_name}" atlikėjus`}
-        >
-          {s.style_name}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Now Playing
-// ─────────────────────────────────────────────────────────────────────────────
-
-function NowPlayingStrip({ track, onClick }: { track: any; onClick: () => void }) {
+function MoodSongHeroCard({ track, onClick }: { track: any; onClick: () => void }) {
   const artist = Array.isArray(track.artists) ? track.artists[0] : track.artists
-  const coverImage = artist?.cover_image_url || track.cover_url || null
+  const cover = artist?.cover_image_url || track.cover_url || null
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex w-full items-center gap-3 sm:gap-4 rounded-2xl px-3.5 sm:px-5 py-2.5 sm:py-3 overflow-hidden text-left transition-all hover:-translate-y-0.5"
+      className="group relative w-full h-full rounded-2xl overflow-hidden text-left transition hover:-translate-y-0.5 flex flex-col"
       style={{
-        background: 'linear-gradient(to right, rgba(249,115,22,0.10), rgba(244,114,182,0.05) 60%, transparent)',
-        border: '1px solid rgba(249,115,22,0.20)',
+        background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(244,114,182,0.07) 60%, rgba(0,0,0,0.55))',
+        border: '1px solid rgba(249,115,22,0.22)',
+        minHeight: '180px',
       }}
       title="Atidaryti nuotaikos dainą"
     >
-      {coverImage && (
+      {cover && (
         <>
-          <div aria-hidden className="absolute inset-0 -z-10 opacity-40"
-               style={{ backgroundImage: `url(${coverImage})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(50px) saturate(1.5) brightness(0.45)', transform: 'scale(1.4)' }} />
-          <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-black/40 via-black/25 to-black/40" />
+          <div aria-hidden className="absolute inset-0 opacity-50"
+               style={{ backgroundImage: `url(${cover})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(40px) saturate(1.5) brightness(0.42)', transform: 'scale(1.4)' }} />
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/30 to-transparent" />
         </>
       )}
-      <div className="relative flex-shrink-0">
-        <div className="absolute -inset-1 rounded-full opacity-35"
-             style={{ background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #60a5fa, #34d399, #fbbf24, #f97316)', animation: 'moodSpinV10 14s linear infinite', filter: 'blur(2px)' }} />
-        {coverImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={coverImage} alt="" className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover border border-white/15"
-               style={{ animation: 'moodSpinV10 36s linear infinite' }} />
-        ) : (
-          <div className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-base">♬</div>
-        )}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
-             style={{ background: 'var(--bg-body)' }} />
-      </div>
 
-      <div className="min-w-0 flex-1 flex items-baseline gap-2 flex-wrap">
-        <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-orange-300" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <div className="relative flex items-center gap-2.5 px-3.5 pt-3">
+        <span className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-orange-300"
+              style={{ fontFamily: "'Outfit', sans-serif" }}>
           Nuotaikos daina
         </span>
-        <span aria-hidden style={{ color: 'rgba(255,255,255,0.35)' }}>·</span>
-        <span className="font-extrabold text-white text-sm sm:text-base truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
-          {track.title}
+        <span aria-hidden className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px]"
+              style={{ background: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.85)' }}>
+          ▸
         </span>
+      </div>
+
+      <div className="relative flex-1 flex flex-col items-center justify-center px-3.5 py-2 text-center">
+        <div className="relative">
+          <div className="absolute -inset-1 rounded-full opacity-40"
+               style={{
+                 background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #60a5fa, #34d399, #fbbf24, #f97316)',
+                 animation: 'moodSpinV11 14s linear infinite',
+                 filter: 'blur(3px)',
+               }} />
+          {cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={cover} alt="" className="relative w-14 h-14 rounded-full object-cover border border-white/15"
+                 style={{ animation: 'moodSpinV11 36s linear infinite' }} />
+          ) : (
+            <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-lg">♬</div>
+          )}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
+               style={{ background: 'var(--bg-body)' }} />
+        </div>
+        <div className="mt-2 font-extrabold text-white text-sm leading-tight line-clamp-2 max-w-full"
+             style={{ fontFamily: "'Outfit', sans-serif" }}>
+          {track.title}
+        </div>
         {artist && (
-          <>
-            <span aria-hidden style={{ color: 'rgba(255,255,255,0.35)' }}>·</span>
-            <span className="font-semibold text-xs sm:text-sm truncate" style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.75)' }}>
-              {artist.name}
-            </span>
-          </>
+          <div className="mt-0.5 font-semibold text-[11px] truncate max-w-full"
+               style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.72)' }}>
+            {artist.name}
+          </div>
         )}
       </div>
 
-      <span
-        aria-hidden
-        className="ml-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs opacity-60 transition group-hover:opacity-100"
-        style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)' }}
-      >
-        ▸
+      <style>{`@keyframes moodSpinV11 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </button>
+  )
+}
+
+function MoodSongPlaceholder() {
+  return (
+    <div
+      className="w-full h-full rounded-2xl flex flex-col items-center justify-center text-center px-4 py-5"
+      style={{
+        background: 'var(--card-bg)',
+        border: '1px dashed var(--border-default)',
+        minHeight: '180px',
+      }}
+    >
+      <span className="text-2xl mb-1.5" style={{ opacity: 0.4 }}>♬</span>
+      <span className="text-[10px] font-extrabold uppercase tracking-wider"
+            style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+        Nuotaikos daina
       </span>
-      <style>{`@keyframes moodSpinV10 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <span className="mt-1 text-[11px] leading-snug"
+            style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+        Narys dar nepasirinko
+      </span>
+    </div>
+  )
+}
+
+function EqualizerPlaceholder({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full h-full rounded-2xl flex flex-col items-center justify-center text-center px-4 py-5 transition hover:opacity-90"
+      style={{
+        background: 'var(--card-bg)',
+        border: '1px dashed var(--border-default)',
+        minHeight: '180px',
+      }}
+    >
+      <span className="text-2xl mb-1.5" style={{ opacity: 0.4 }}>📊</span>
+      <span className="text-[10px] font-extrabold uppercase tracking-wider"
+            style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+        Muzikinis skonis
+      </span>
+      <span className="mt-1 text-[11px] leading-snug"
+            style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+        Skonio matas dar nesurinktas
+      </span>
     </button>
   )
 }
@@ -752,123 +706,60 @@ function EmptyMigrationState({ what }: { what: string }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Artists Grid (+Daugiau tile)
+// V11 Albums + Tracks full-width sections
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ArtistsGridWithMore({
-  artists, maxShown, onOpenMore, totalCount,
-}: {
-  artists: any[]; maxShown: number; onOpenMore: () => void; totalCount: number
-}) {
-  const shown = artists.slice(0, maxShown)
-  const remaining = totalCount - shown.length
-  return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3">
-      {shown.map((a: any) => (
-        <Link
-          key={a.id}
-          href={`/atlikejai/${a.slug}`}
-          className="group relative aspect-square rounded-xl overflow-hidden"
-          style={{ background: 'var(--card-surface, var(--bg-elevated))' }}
-        >
-          {a.cover_image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={a.cover_image_url} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-[#1a2436] to-[#080c12] flex items-center justify-center text-2xl font-black"
-                 style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.12)' }}>
-              {a.name[0].toUpperCase()}
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
-          <p className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 text-xs sm:text-sm font-extrabold text-white leading-tight truncate"
-             style={{ fontFamily: "'Outfit', sans-serif" }}>
-            {a.name}
-          </p>
-        </Link>
-      ))}
-      {remaining > 0 && <MoreTile remaining={remaining} onClick={onOpenMore} />}
-    </div>
-  )
+const YT_REGEX_PROFILE = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([\w-]{11})/
+function ytThumbProfile(videoUrl: string | null | undefined): string | null {
+  if (!videoUrl) return null
+  const m = videoUrl.match(YT_REGEX_PROFILE)
+  return m ? `https://img.youtube.com/vi/${m[1]}/mqdefault.jpg` : null
 }
 
-function AlbumsGridWithMore({
+function AlbumsFullWidth({
   albums, maxShown, onOpenMore, totalCount,
 }: {
   albums: any[]; maxShown: number; onOpenMore: () => void; totalCount: number
 }) {
-  const shown = albums.slice(0, maxShown)
-  const remaining = totalCount - shown.length
-  return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3">
-      {shown.map((al: any) => {
-        const artist = Array.isArray(al.artists) ? al.artists[0] : al.artists
-        const href = artist ? `/atlikejai/${artist.slug}/${al.slug || al.id}` : `/lt/albumas/${al.slug || ''}/${al.id}`
-        return (
-          <Link key={al.id} href={href}
-                className="group block rounded-xl overflow-hidden transition hover:scale-[1.03]"
-                style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-            <div className="aspect-square w-full overflow-hidden"
-                 style={{ background: 'linear-gradient(135deg, var(--border-subtle), var(--card-bg))' }}>
-              {al.cover_url ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={al.cover_url} alt={al.title} className="w-full h-full object-cover transition group-hover:opacity-90" loading="lazy" />
-              ) : null}
-            </div>
-            <div className="p-2">
-              <div className="text-[10px] uppercase tracking-wider truncate"
-                   style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
-                {artist?.name || '—'}
-              </div>
-              <div className="text-xs font-semibold leading-tight line-clamp-2 mt-0.5"
-                   style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
-                {al.title}
-              </div>
-            </div>
-          </Link>
-        )
-      })}
-      {remaining > 0 && <MoreTile remaining={remaining} onClick={onOpenMore} compact />}
-    </div>
-  )
-}
+  // Default sort'as: pagal liked_track_count desc, kad „turtingiausi" albumai būtų priekyje
+  const sorted = useMemo(() => {
+    return [...albums].sort((a: any, b: any) => (b.liked_track_count || 0) - (a.liked_track_count || 0))
+  }, [albums])
+  const shown = sorted.slice(0, maxShown)
+  const remaining = Math.max(totalCount - shown.length, 0)
 
-function TracksGridWithMore({
-  tracks, maxShown, onOpenMore, totalCount,
-}: {
-  tracks: any[]; maxShown: number; onOpenMore: () => void; totalCount: number
-}) {
-  const shown = tracks.slice(0, maxShown)
-  const remaining = totalCount - shown.length
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-        {shown.map((t: any, i: number) => {
-          const artist = Array.isArray(t.artists) ? t.artists[0] : t.artists
-          const href = artist ? `/atlikejai/${artist.slug}/${t.slug || t.id}` : `/lt/daina/${t.slug || ''}/${t.id}`
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {shown.map((al: any) => {
+          const artist = Array.isArray(al.artists) ? al.artists[0] : al.artists
+          const href = artist ? `/atlikejai/${artist.slug}/${al.slug || al.id}` : `/lt/albumas/${al.slug || ''}/${al.id}`
+          const lc = al.liked_track_count || 0
           return (
-            <Link key={t.id} href={href}
-                  className="group flex items-center gap-3 rounded-lg p-2 transition hover:bg-[var(--hover-bg)]"
+            <Link key={al.id} href={href}
+                  className="group block rounded-xl overflow-hidden transition hover:-translate-y-0.5"
                   style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-              <div className="w-5 text-center text-[11px] font-bold tabular-nums"
-                   style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
-                {i + 1}
-              </div>
-              <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0"
-                   style={{ background: 'var(--border-subtle)' }}>
-                {t.cover_url ? (
+              <div className="relative aspect-square w-full overflow-hidden"
+                   style={{ background: 'linear-gradient(135deg, var(--border-subtle), var(--card-bg))' }}>
+                {al.cover_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={t.cover_url} alt={t.title} className="w-full h-full object-cover" loading="lazy" />
+                  <img src={al.cover_url} alt={al.title} className="w-full h-full object-cover transition group-hover:scale-105" loading="lazy" />
                 ) : null}
+                {lc > 0 && (
+                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[10px] font-extrabold"
+                       style={{ background: 'rgba(0,0,0,0.55)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.35)' }}>
+                    ♥ {lc} dn.
+                  </div>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold leading-tight truncate"
-                     style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
-                  {t.title}
-                </div>
-                <div className="text-[11px] truncate"
+              <div className="p-2.5">
+                <div className="text-[10px] uppercase tracking-wider truncate"
                      style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
                   {artist?.name || '—'}
+                </div>
+                <div className="text-sm font-semibold leading-tight line-clamp-2 mt-0.5"
+                     style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+                  {al.title}
                 </div>
               </div>
             </Link>
@@ -877,8 +768,9 @@ function TracksGridWithMore({
       </div>
       {remaining > 0 && (
         <button
+          type="button"
           onClick={onOpenMore}
-          className="mt-2.5 w-full rounded-lg py-2.5 text-xs font-extrabold uppercase tracking-wider transition hover:scale-[1.01]"
+          className="mt-3 w-full rounded-lg py-2.5 text-xs font-extrabold uppercase tracking-wider transition hover:scale-[1.005]"
           style={{
             fontFamily: "'Outfit', sans-serif",
             background: 'var(--card-bg)',
@@ -886,35 +778,77 @@ function TracksGridWithMore({
             color: 'var(--accent-orange)',
           }}
         >
-          +{remaining.toLocaleString('lt-LT')} daugiau · filtruoti
+          +{remaining.toLocaleString('lt-LT')} daugiau · filtruoti, rikiuoti
         </button>
       )}
     </>
   )
 }
 
-function MoreTile({ remaining, onClick, compact }: { remaining: number; onClick: () => void; compact?: boolean }) {
+function TracksFullWidth({
+  tracks, maxShown, onOpenMore, totalCount,
+}: {
+  tracks: any[]; maxShown: number; onOpenMore: () => void; totalCount: number
+}) {
+  const shown = tracks.slice(0, maxShown)
+  const remaining = Math.max(totalCount - shown.length, 0)
   return (
-    <button
-      onClick={onClick}
-      className="aspect-square rounded-xl flex flex-col items-center justify-center transition hover:scale-[1.03] hover:border-[var(--accent-orange)]"
-      style={{
-        background: 'var(--card-bg)',
-        border: '1px dashed var(--border-default)',
-        color: 'var(--text-secondary)',
-      }}
-      title={`Atidaryti visus (${remaining})`}
-    >
-      <span
-        className={`${compact ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'} font-black`}
-        style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
-      >
-        +{remaining.toLocaleString('lt-LT')}
-      </span>
-      <span className="mt-1 text-[10px] font-bold uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif" }}>
-        daugiau
-      </span>
-    </button>
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {shown.map((t: any) => {
+          const artist = Array.isArray(t.artists) ? t.artists[0] : t.artists
+          const href = artist ? `/atlikejai/${artist.slug}/${t.slug || t.id}` : `/lt/daina/${t.slug || ''}/${t.id}`
+          const thumb = ytThumbProfile(t.video_url) || t.cover_url || artist?.cover_image_url || null
+          return (
+            <Link key={t.id} href={href}
+                  className="group block rounded-xl overflow-hidden transition hover:-translate-y-0.5"
+                  style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+              <div className="relative aspect-video w-full overflow-hidden"
+                   style={{ background: 'linear-gradient(135deg, var(--border-subtle), var(--card-bg))' }}>
+                {thumb ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={thumb} alt={t.title} className="w-full h-full object-cover transition group-hover:scale-105" loading="lazy" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--text-faint)' }}>♬</div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                {t.like_count > 0 && (
+                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[10px] font-extrabold"
+                       style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.92)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                    ♥ {t.like_count}
+                  </div>
+                )}
+              </div>
+              <div className="p-2.5">
+                <div className="text-[10px] uppercase tracking-wider truncate"
+                     style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
+                  {artist?.name || '—'}
+                </div>
+                <div className="text-sm font-semibold leading-tight line-clamp-2 mt-0.5"
+                     style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+                  {t.title}
+                </div>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+      {remaining > 0 && (
+        <button
+          type="button"
+          onClick={onOpenMore}
+          className="mt-3 w-full rounded-lg py-2.5 text-xs font-extrabold uppercase tracking-wider transition hover:scale-[1.005]"
+          style={{
+            fontFamily: "'Outfit', sans-serif",
+            background: 'var(--card-bg)',
+            border: '1px dashed var(--border-default)',
+            color: 'var(--accent-orange)',
+          }}
+        >
+          +{remaining.toLocaleString('lt-LT')} daugiau · filtruoti, rikiuoti
+        </button>
+      )}
+    </>
   )
 }
 

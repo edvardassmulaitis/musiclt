@@ -1,15 +1,11 @@
 // app/vartotojas/[username]/page.tsx
 //
-// V5 — dense dashboard layout:
-//   - Hero kompaktiškas, minimum stats (tik kelios chip'ai), bio paslėpta
-//     po expand button'u
-//   - Side equalizer su FIXED canonical order (GENRE_COLORS array =
-//     top menu Muzika tvarka), bars CLICKABLE — pasirinkus stilių, rodomi
-//     to stiliaus mėgstami atlikėjai dešinėje
-//   - Po hero — content sekcijos 2-col layout, nepilkam plotis
-//
-// Client component (vartotojas-profile-client.tsx) reikia state'ui equalizer
-// selectedGenre + filtered artists rendering.
+// V11 — 3-col hero (avatar+pop | equalizer-mini | mood-song) + 6 full-width
+// sekcijos. Mėgstamų atlikėjų KOLIAŽAS reikia counts'ų pagal pamėgtų
+// albumų/dainų kiekį atlikėjui. Mėgstamų albumų SORT pagal kiek to albumo
+// dainų pamėgtų. Žemiau enrichment'as: per album_tracks junction'ą
+// suskaičiuojam kiek user'io patiktų track'ų priklauso kiekvienam albumui,
+// ir grupuojam patiktų albumų/track'ų counts'us per artist_id.
 
 import { notFound } from 'next/navigation'
 import {
@@ -48,13 +44,14 @@ export default async function UserProfilePage({ params }: Props) {
   const profile: any = await getProfileByUsername(username)
   if (!profile || !profile.is_public) notFound()
 
-  const [favoriteArtists, favoriteStyles, favoriteAlbums, favoriteTracks, likesCounts, friends, blog, stats, moodTrack, dailyPicks, translations, recentComments] = await Promise.all([
-    // V10: rodome platesnius mėgstamų sąrašus, +Daugiau modal'as įgalina
-    // pilną filtravimą.
+  const [favoriteArtists, favoriteStyles, favoriteAlbumsRaw, favoriteTracksRaw, likesCounts, friends, blog, stats, moodTrack, dailyPicks, translations, recentComments] = await Promise.all([
+    // V11: bump favorites iki 100, kad sekcijos turėtų ką rodyti pilnam
+    // grid'e + sort'avimui. Power user'iams (>100) papildomas filtravimas
+    // per +Daugiau modal'ą.
     getProfileFavoriteArtists(profile.id),
     getProfileFavoriteStyles(profile.id),
-    getProfileFavoriteAlbums(profile.username, 36),
-    getProfileFavoriteTracks(profile.username, 36),
+    getProfileFavoriteAlbums(profile.username, 100),
+    getProfileFavoriteTracks(profile.username, 100),
     getProfileLikesCounts(profile.username),
     getProfileFriends(profile.id, 24),
     getBlogByUserId(profile.id),
@@ -64,6 +61,53 @@ export default async function UserProfilePage({ params }: Props) {
     getUserTranslations(profile.id, 4),
     getUserRecentComments(profile.username, 10),
   ])
+
+  // ── V11 ENRICHMENT: artist collage counts + album liked-track counts ──
+  // Per album_tracks junction'ą skaičiuojam kiek user'io pamėgtų track'ų
+  // priklauso kiekvienam albumui (album sort), tada grupuojam pamėgtų
+  // albumų ir track'ų counts'us per artist_id (collage tile sizing).
+  const albumLikedTrackCount = new Map<number, number>()
+  const artistTrackLikes = new Map<number, number>()
+  const artistAlbumLikes = new Map<number, number>()
+
+  // Album track-count: per loaded favoriteTracksRaw → album_tracks join
+  const trackIds = (favoriteTracksRaw as any[]).map((t) => t.id).filter(Boolean)
+  if (trackIds.length > 0) {
+    const sb = createAdminClient()
+    const { data: atRows } = await sb
+      .from('album_tracks')
+      .select('album_id, track_id')
+      .in('track_id', trackIds)
+    for (const row of (atRows || []) as any[]) {
+      albumLikedTrackCount.set(row.album_id, (albumLikedTrackCount.get(row.album_id) || 0) + 1)
+    }
+  }
+
+  // Per-artist counts (iš loaded favorites — approx, bet pakanka collage'o
+  // tile sizing'ui).
+  for (const a of (favoriteAlbumsRaw as any[])) {
+    const aid = a.artist_id
+    if (!aid) continue
+    artistAlbumLikes.set(aid, (artistAlbumLikes.get(aid) || 0) + 1)
+  }
+  for (const t of (favoriteTracksRaw as any[])) {
+    const aid = t.artist_id
+    if (!aid) continue
+    artistTrackLikes.set(aid, (artistTrackLikes.get(aid) || 0) + 1)
+  }
+
+  // Annotate kollektivus
+  const favoriteAlbums = (favoriteAlbumsRaw as any[]).map((al) => ({
+    ...al,
+    liked_track_count: albumLikedTrackCount.get(al.id) || 0,
+  }))
+  const favoriteTracks = favoriteTracksRaw as any[]
+  const enrichedArtists = (favoriteArtists as any[]).map((a) => ({
+    ...a,
+    liked_album_count: artistAlbumLikes.get(a.id) || 0,
+    liked_track_count: artistTrackLikes.get(a.id) || 0,
+    affinity_score: (artistAlbumLikes.get(a.id) || 0) + (artistTrackLikes.get(a.id) || 0),
+  }))
 
   let regularPosts: any[] = []
   let topasPosts: any[] = []
@@ -146,7 +190,7 @@ export default async function UserProfilePage({ params }: Props) {
   return (
     <ProfileClient
       profile={profile}
-      favoriteArtists={favoriteArtists}
+      favoriteArtists={enrichedArtists}
       favoriteStyles={favoriteStyles}
       favoriteAlbums={favoriteAlbums}
       favoriteTracks={favoriteTracks}
