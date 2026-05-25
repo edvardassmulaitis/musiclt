@@ -58,7 +58,7 @@ export default async function UserProfilePage({ params }: Props) {
     getUserContentStats(profile.id),
     getMoodSongTrack(profile.mood_song_track_id ?? null),
     getDailySongPicks(profile.id, 18),
-    getUserTranslations(profile.id, 4),
+    getUserTranslations(profile.id, 60),
     getUserRecentComments(profile.username, 10),
   ])
 
@@ -120,7 +120,7 @@ export default async function UserProfilePage({ params }: Props) {
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false })
-      .limit(30)
+      .limit(200)
     const all = data || []
 
     // V10: post hero image enrichment chain (mirror'ina blog post hero
@@ -202,8 +202,11 @@ export default async function UserProfilePage({ params }: Props) {
       }
     }
 
-    regularPosts = all.filter((p: any) => p.post_type !== 'topas' && p.post_type !== 'translation').slice(0, 6)
-    topasPosts = all.filter((p: any) => p.post_type === 'topas').slice(0, 6)
+    // V11.6 (2026-05-25): heavy UGC user'iams (einaras13: 510 article + 31 creation,
+    // Silentist: 900+ įrašų) reikia matyti pilnus sąrašus profile'e — anksčiau slice(0,6)
+    // ribodavo display į ~6 įrašų net jei DB turėjo šimtus.
+    regularPosts = all.filter((p: any) => p.post_type !== 'topas' && p.post_type !== 'translation').slice(0, 60)
+    topasPosts = all.filter((p: any) => p.post_type === 'topas').slice(0, 30)
   }
 
   const memberSinceDate = profile.joined_legacy_at ? new Date(profile.joined_legacy_at) : new Date(profile.created_at)

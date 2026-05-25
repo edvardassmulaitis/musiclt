@@ -259,8 +259,10 @@ export function ProfileClient(props: any) {
             </div>
           </div>
 
-          {/* ─── DESKTOP LAYOUT (lg+): 3-col grid ─── */}
-          <div className="hidden lg:grid lg:grid-cols-[1.15fr_1.4fr_1fr] gap-5 items-stretch">
+          {/* ─── DESKTOP LAYOUT (lg+): 3-col grid — V11.5.1 equalizer column
+              praplėstas (1.4 → 1.65), mood sumažintas (1 → 0.8), kad „Alternatyva"
+              ir „Elektronika" labels tilpti ─── */}
+          <div className="hidden lg:grid lg:grid-cols-[1.05fr_1.65fr_0.8fr] gap-5 items-stretch">
 
             <div className="flex flex-col gap-3">
               <div className="flex flex-row items-start gap-3.5">

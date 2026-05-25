@@ -58,13 +58,17 @@ const SHORT_TO_FULL: Record<string, string> = {
   'Sunkioji':    'Sunkioji muzika',
 }
 
+// V11.5.1 fix: FULL_TO_SHORT VEIKIA kaip data lookup (atitinka meter
+// entries `name` lauką iš senos music.lt). Display names atskirai per
+// SHORT_LABELS. Anksčiau Rimtoji muzika → 'Klasika' (display name) laužė
+// lookup'ą, nes meter.name = 'Rimtoji'.
 const FULL_TO_SHORT: Record<string, string> = {
   'Alternatyvioji muzika': 'Alternatyva',
   'Elektroninė, šokių muzika': 'Elektronika',
   "Hip-hop'o muzika": 'Hip-hop',
   'Kitų stilių muzika': 'Kita',
   'Pop, R&B muzika': 'Pop, R&B',
-  'Rimtoji muzika': 'Klasika',
+  'Rimtoji muzika': 'Rimtoji',
   'Roko muzika': 'Rokas',
   'Sunkioji muzika': 'Sunkioji',
 }
@@ -214,7 +218,7 @@ function LedVertical({
                   fontFamily: "'Outfit', sans-serif",
                   fontSize: LABEL_FS,
                   color: isSelected ? b.hex : 'var(--text-secondary)',
-                  letterSpacing: '0.01em',
+                  letterSpacing: '-0.015em',
                 }}
                 title={b.label}
               >
