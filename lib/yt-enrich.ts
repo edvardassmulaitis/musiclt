@@ -96,7 +96,23 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
       warnings.push('Trūksta artist name arba track title — search praleidžiamas')
     } else {
       try {
-        const results = await searchYouTube(`${artistName} ${t.title}`)
+        // 2026-05-25: append " official" į search query — preferuoja
+        // VEVO/Topic/Official channel uploads. Žinomas case'as: Jay-Z
+        // "Empire State of Mind" su Alicia Keys — YT search default'as
+        // grąžindavo lyric video / audio re-upload su ~50M views, manual
+        // fix grąžino 475M VEVO. "official" hint'as ranking'ą perkrauna
+        // į official-leaning rezultatus. Pirmas search'as su "official";
+        // jei rezultatų <3, fallback į query be "official" — kad smaller
+        // artists be official upload'ų nepraleistume.
+        let results = await searchYouTube(`${artistName} ${t.title} official`)
+        if (results.length < 3) {
+          const fallback = await searchYouTube(`${artistName} ${t.title}`)
+          // Sujungti unique by videoId, pirmenybė original (su "official")
+          const seen = new Set(results.map(r => r.videoId))
+          for (const f of fallback) {
+            if (!seen.has(f.videoId)) { results.push(f); seen.add(f.videoId) }
+          }
+        }
         const outcome = pickBestMatch(artistName, t.title, results)
         if (outcome.ok) {
           const pick = outcome.pick

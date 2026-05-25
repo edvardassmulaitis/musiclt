@@ -131,14 +131,26 @@ export function scoreCandidate(artist: string, track: string, c: YtSearchResult)
     }
   }
 
-  // Channel signals (+10 max)
+  // Channel signals (+20 max — pakelta 2026-05-25, kad VEVO/Topic užtikrintai
+  // laimėtų prieš random lyric/audio re-upload'us)
   const channelBoosts: { re: RegExp; pts: number; tag: string }[] = [
-    { re: /\bvevo\b/i,    pts: 10, tag: 'VEVO' },
-    { re: /\btopic\b/i,    pts: 8,  tag: 'Topic' },
-    { re: /official/i,     pts: 5,  tag: 'official channel' },
+    { re: /\bvevo\b/i,    pts: 20, tag: 'VEVO' },
+    { re: /\btopic\b/i,    pts: 15, tag: 'Topic' },
+    { re: /official/i,     pts: 10, tag: 'official channel' },
   ]
   for (const b of channelBoosts) {
     if (b.re.test(c.channel)) { score += b.pts; reasons.push(`+${b.pts} ${b.tag}`); break }
+  }
+
+  // 2026-05-25: Title quality flags — anti-spam patterns
+  // "(Live)", "(Lyrics)", "(Lyric Video)", "(Karaoke)", "(Cover)" originale
+  // dažnai būna ne canonical version; jei track title NETURI tokio markerio,
+  // o candidate TURI, mažinam score (kandidate yra alt-version arba derived).
+  const titleHasAltMarker = /\b(live|lyric|lyrics|karaoke|cover|instrumental|remix|sped\s*up|slowed)\b|\(audio\)|\(visualizer\)/i.test(c.title)
+  const trackHasAltMarker = /\b(live|lyric|lyrics|karaoke|cover|instrumental|remix|sped\s*up|slowed)\b|\(audio\)|\(visualizer\)/i.test(track)
+  if (titleHasAltMarker && !trackHasAltMarker) {
+    score -= 25
+    reasons.push('-25 alt-version markeris (live/lyric/karaoke/cover)')
   }
 
   // Duration sanity (-30..+5)
@@ -184,11 +196,29 @@ export function pickBestMatch(artist: string, track: string, candidates: YtSearc
   if (candidates.length === 0) {
     return { ok: false, reason: 'no candidates', ranked: [] }
   }
+  // 2026-05-25: tie-break by views — jei dviejų top kandidatų score'ai per
+  // 10 punktų atstumu, prefer tas, kuris turi DAUGIAU views. Tai padeda
+  // VEVO ~500M iš YT search 2-os pozicijos pakilti į 1-ą kai lyrics video
+  // ~10M random user'io kanale gauna +1 (kažkokie sortinimo subtleties)
+  // ir end'a su faktiškai tokiu pačiu score'u, bet 50x mažesnis legit'umas.
   const ranked = candidates.map(c => scoreCandidate(artist, track, c))
-                            .sort((a, b) => b.score - a.score)
+                            .sort((a, b) => {
+                              const sd = b.score - a.score
+                              if (Math.abs(sd) > 10) return sd
+                              return viewsToNumber(b.views) - viewsToNumber(a.views)
+                            })
 
   // Atrenkam kandidatus, praeiusius hard artist gate'ą.
-  const artistOk = ranked.filter(c => c.artistRatio >= MIN_ARTIST_RATIO)
+  // 2026-05-25: VEVO/Topic exception — featuring tracks (Jay-Z "Empire State"
+  // su Alicia Keys → AliciaKeysVevo) gali turėti artistRatio=0, nes primary
+  // artist'as ne title'e ir ne channel'yje. Bet VEVO/Topic kanalas + stiprus
+  // track match = priskiriam.
+  const artistOk = ranked.filter(c => {
+    if (c.artistRatio >= MIN_ARTIST_RATIO) return true
+    // VEVO/Topic + stiprus track match → priimam
+    if (c.trackRatio >= 0.85 && /\b(vevo|topic)\b/i.test(c.channel)) return true
+    return false
+  })
   if (artistOk.length === 0) {
     const top = ranked[0]
     return {
