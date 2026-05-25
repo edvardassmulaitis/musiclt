@@ -115,7 +115,7 @@ export default async function UserProfilePage({ params }: Props) {
     const sb = createAdminClient()
     const { data } = await sb
       .from('blog_posts')
-      .select('id, slug, title, summary, cover_image_url, published_at, reading_time_min, like_count, comment_count, post_type, tags, list_items')
+      .select('id, slug, title, summary, cover_image_url, content_html, published_at, reading_time_min, like_count, comment_count, post_type, tags, list_items')
       .eq('blog_id', blog.id)
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
@@ -173,10 +173,32 @@ export default async function UserProfilePage({ params }: Props) {
         }
       }
 
+      // 5. V11.2 fallback: extract first <img src="..."> arba YouTube embed
+      //    iš content_html. Catch'ina paprastus straipsnius su inline media,
+      //    kurių junction tables tuščios.
+      const IMG_RE = /<img[^>]+src=["']([^"']+)["']/i
+      const YT_RE_HTML = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+      for (const p of all) {
+        if (!p.cover_image_url && !thumbByPost.has(p.id) && p.content_html) {
+          const html = String(p.content_html)
+          const yt = html.match(YT_RE_HTML)?.[1]
+          if (yt) {
+            thumbByPost.set(p.id, `https://img.youtube.com/vi/${yt}/mqdefault.jpg`)
+            continue
+          }
+          const img = html.match(IMG_RE)?.[1]
+          if (img && img.startsWith('http')) {
+            thumbByPost.set(p.id, img)
+          }
+        }
+      }
+
       for (const p of all) {
         if (!p.cover_image_url && thumbByPost.has(p.id)) {
           ;(p as any).fallback_thumb_url = thumbByPost.get(p.id)
         }
+        // V11.2: nepersiunčiam content_html'o į client'ą — sutaupom payload.
+        delete (p as any).content_html
       }
     }
 

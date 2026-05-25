@@ -133,13 +133,14 @@ export function GenreFilterModal({
             )}
           </div>
 
-          {/* Full equalizer */}
+          {/* Full equalizer — LED style (same as hero, but larger) */}
           {meter && Array.isArray(meter) && meter.length > 0 && (
             <div className="mb-5">
               <SideEqualizer
                 meter={meter}
-                variant="hero"
-                selectedGenre={filter?.kind === 'genre' ? filter.name : null}
+                variant="led-large"
+                topN={8}
+                ledSelectedGenre={filter?.kind === 'genre' ? filter.name : null}
                 onSelect={(g) => {
                   if (!g) setFilter(null)
                   else setFilter({ kind: 'genre', name: g })
