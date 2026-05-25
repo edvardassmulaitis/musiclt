@@ -12,6 +12,7 @@ import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import MusicSearchPicker, { AttachmentChips, type AttachmentHit } from '@/components/MusicSearchPicker'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
 import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
+import { trackPopAbsoluteLevel } from '@/lib/track-popbar'
 import { normalizeBio } from '@/lib/normalize-bio'
 import { formatArtistList } from '@/lib/format-artists'
 import { accusativeArtistName, genitiveArtistName } from '@/lib/text-utils'
@@ -1371,91 +1372,9 @@ function trackPopValue(t: any, signal: PopSignal): number {
   return 0
 }
 
-/** ABSOLUTE PopBar level (0..5) — replaces percentile-based ranking
- *  2026-05-25.
- *
- *  Anksčiau buvo percentile (top 20% = 5/5, etc.). Problema: kai atlikėjas
- *  turi VIENĄ mega hit'ą, o likę 50 dainų yra neperžinomos, percentile
- *  vis tiek duodavo top 20% (= 10 dainų) po 5 dashes — atrodė kaip visas
- *  atlikėjas full of bangers, nors realybėje tik vienas track'as toks.
- *
- *  Dabar — absoliutūs threshold'ai pagal:
- *    - YouTube views per day (ne total — kad senos dainos su didelėm
- *      kumuliatyvinėm views nesusiklotų virš naujesnių hitų); age >= 30 d
- *      kad brand-new release'ai neturėtų inflated metric'os.
- *    - Likes count (likes lentelė, kurioje sujungti legacy + new likes
- *      — atspindi music.lt community love).
- *
- *  Imame MAX iš dviejų signalų — kompensuojam:
- *    • LT case'ą (YT enrichment nepravažiavęs, video_views=0, likes dominuoja)
- *    • INTL case'ą (music.lt likes maži užsienio atlikėjams, YT views dominuoja)
- *
- *  Threshold'ai kalibruoti pagal realią music.lt duomenų bazę:
- *    - „Geltona" (Mamontovas) 107 likes → 4/5
- *    - Coldplay „Yellow" ~110k views/d → 5/5
- *    - Tipiniai LT klubo hit'ai 20-50 likes → 2-3/5
- *
- *  Tikslas: vienodi semantiniai dashes — 5/5 reiškia realiai TOP hit'ą,
- *  ne tiesiog „šio atlikėjo populiariausias". */
-export function trackPopAbsoluteLevel(t: any, nowMs: number = Date.now()): number {
-  const views = Number(t?.video_views || 0)
-  const likes = Number(t?.like_count || 0)
-
-  // Track age in days — min 30 d, kad ką tik išleisti track'ai neturėtų
-  // dirbtinai didelės views/day metric'os.
-  let ageDays = 365
-  const yr = Number(t?.release_year || 0)
-  if (yr > 1900 && yr <= new Date(nowMs).getFullYear() + 1) {
-    const mo = Math.max(1, Math.min(12, Number(t?.release_month || 6))) - 1
-    const dy = Math.max(1, Math.min(28, Number(t?.release_day || 15)))
-    const releaseMs = new Date(yr, mo, dy).getTime()
-    if (Number.isFinite(releaseMs) && releaseMs < nowMs) {
-      ageDays = Math.max(30, (nowMs - releaseMs) / 86400000)
-    }
-  } else if (t?.release_date) {
-    const releaseMs = new Date(t.release_date).getTime()
-    if (Number.isFinite(releaseMs) && releaseMs < nowMs) {
-      ageDays = Math.max(30, (nowMs - releaseMs) / 86400000)
-    }
-  }
-
-  const viewsPerDay = views > 0 ? views / ageDays : 0
-
-  // Views/day threshold'ai — 2026-05-25 v2: pakelti 5/5 kartelę gerokai
-  // aukščiau (50k → 300k), kad tik realiai išskirtiniai mega hit'ai
-  // (Despacito, Shape of You, Hymn for the Weekend tipo) gautų 5/5.
-  // Anksčiau Coldplay turėdavo 5-10 dainų su 5/5 (Yellow 110k, Viva la
-  // Vida 161k, Fix You 100k — visi tilpdavo virš 50k threshold'o), dabar
-  // tik 1-2 absoliutūs viršūniniai. Spacing eksponentinis ×10 tarp lygių:
-  //   5/5 — 300k+ views/d (~110M/metus)   — top ~50 dainų istorijoje
-  //   4/5 — 30k+  views/d (~11M/metus)    — major global hit
-  //   3/5 — 3k+   views/d (~1M/metus)     — solid, žinoma daina
-  //   2/5 — 200+  views/d                 — turinti auditoriją
-  //   1/5 — 1+    views/d                 — bent kažkokia veikla
-  let vLevel = 0
-  if (viewsPerDay >= 300000) vLevel = 5
-  else if (viewsPerDay >= 30000) vLevel = 4
-  else if (viewsPerDay >= 3000) vLevel = 3
-  else if (viewsPerDay >= 200) vLevel = 2
-  else if (viewsPerDay >= 1) vLevel = 1
-
-  // Likes threshold'ai (music.lt community scale) — 2026-05-25 v2:
-  // 5/5 pakelta 300 → 500, 4/5 75 → 120 (Geltona 107 lieka 4/5, bet
-  // tik tikrai legendinės LT dainos pasiekia 5/5). Spacing ×3-4 tarp lygių.
-  //   5/5 — 500+ likes — legendinės LT dainos (Sniegas, Geltona-tier+)
-  //   4/5 — 120+ likes — major LT hit (Geltona 107 ribose)
-  //   3/5 — 35+  likes — žinomos klasikos
-  //   2/5 — 8+   likes — turinčios fanų
-  //   1/5 — 1+   like  — bent kažkam patiko
-  let lLevel = 0
-  if (likes >= 500) lLevel = 5
-  else if (likes >= 120) lLevel = 4
-  else if (likes >= 35) lLevel = 3
-  else if (likes >= 8) lLevel = 2
-  else if (likes >= 1) lLevel = 1
-
-  return Math.max(vLevel, lLevel)
-}
+// trackPopAbsoluteLevel — extracted to `lib/track-popbar.ts` 2026-05-25 v3
+// kad admin debug puslapis (server component) galėtų importuoti pure
+// utility neištraukdamas 'use client' bundle'io. Žr. lib/track-popbar.ts
 
 /** PopBar level su fallback'u — pagrinde absoliutus (trackPopAbsoluteLevel),
  *  bet kai artist'as visiškai neturi duomenų (signal='none'), grįžtam į

@@ -8,11 +8,13 @@
 // Composite formulė (atitinka public artist page'os tracksAllTime sort):
 //   sortVal = likes×100 + score + log10(views)×10 + (is_single ? 50 : 0)
 //
-// PopBar level — relatyvus prie maksimumo per detectPopSignal hierarchy:
-//   likes (jei bent vienas track turi >0) → score → log10(views) → none
+// PopBar level — absoliutus per trackPopAbsoluteLevel (lib/track-popbar.ts):
+//   max(viewsPerDay-threshold-level, likes-threshold-level). Sutampa su
+//   public /atlikejai/[slug] formule v3 (2026-05-25).
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
+import { trackPopAbsoluteLevel } from '@/lib/track-popbar'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -237,26 +239,10 @@ function detectPopSignal(tracks: TrackRow[]): { signal: PopSignal; max: number }
   return { signal: 'none', max: 0 }
 }
 
-function popLevel(idx: number, total: number, hasSignal: boolean): number {
-  // Percentile-based (rank): sąrašas atrūšiuotas pagal composite desc,
-  // idx yra rank'as. Top 20% → 5/5, kvintiliai po 20% kiekvienam level'iui.
-  // Garantuoja uniform distribuciją (anksčiau value/max → bias top'ui).
-  if (!hasSignal || total <= 0) return 0
-  if (total <= 1) return 3
-  const p = idx / total
-  if (p < 0.20) return 5
-  if (p < 0.40) return 4
-  if (p < 0.60) return 3
-  if (p < 0.80) return 2
-  return 1
-}
-
-function trackPopValue(t: TrackRow, signal: PopSignal): number {
-  if (signal === 'likes') return t.like_count || 0
-  if (signal === 'score') return t.score || 0
-  if (signal === 'views') return Math.log10((t.video_views || 0) + 1)
-  return 0
-}
+// PopBar level skaičiavimas dabar per `trackPopAbsoluteLevel` (lib/track-popbar.ts) —
+// absoliutūs threshold'ai vietoj position-based percentile. detectPopSignal
+// vis dar naudojamas header'iui rodyti "PopBar signal: likes/score/views"
+// info'ui (debug context'as kuris signal'as labiausiai veikia šiame artist'e).
 
 export default async function TracksDebugPage({ params }: Props) {
   const { id: idStr } = await params
@@ -438,8 +424,12 @@ export default async function TracksDebugPage({ params }: Props) {
           <tbody className="divide-y divide-[var(--border-subtle)]">
             {sorted.map((t, i) => {
               const bd = trackScoreBreakdown(t)
-              const popVal = trackPopValue(t, popInfo.signal) // displayed in table
-              const level = popLevel(i, sorted.length, popInfo.signal !== 'none')
+              // PopBar level — absoliutus pagal trackPopAbsoluteLevel
+              // (sutampa su public /atlikejai/[slug] formule v3 2026-05-25).
+              // Anksčiau buvo position-based popLevel(idx,total,hasSignal) —
+              // top 20% gaudavo 5/5, todėl ~10 dainų matydavosi 5/5 net jei
+              // realiai tik 1 mega hit'as turi tokias views/likes.
+              const level = trackPopAbsoluteLevel(t)
               const hasVideo = yt(t.video_url)
               const ytDate = t.video_uploaded_at ? new Date(t.video_uploaded_at).toISOString().slice(0, 10) : '—'
               const hasLyrics = !!(t.lyrics && t.lyrics.trim().length > 10)
