@@ -12,7 +12,7 @@ import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import MusicSearchPicker, { AttachmentChips, type AttachmentHit } from '@/components/MusicSearchPicker'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
 import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
-import { trackPopAbsoluteLevel, trackCompositeScore, trackArtistSortVal, makeArtistTrackScorer } from '@/lib/track-popbar'
+import { trackCompositeScore, trackArtistSortVal, makeArtistTrackScorer, makeArtistTrackLeveler } from '@/lib/track-popbar'
 import { normalizeBio } from '@/lib/normalize-bio'
 import { formatArtistList } from '@/lib/format-artists'
 import { accusativeArtistName, genitiveArtistName } from '@/lib/text-utils'
@@ -477,26 +477,24 @@ function PlayerCard({
   // PopBar relatyvumas per current filter — kai useris filter'is naujausiems,
   // top trending track'as gauna 5 dashes neprikl. nuo all-time top'o.
   const popInfo = useMemo(() => detectPopSignal(list), [list])
-  // 2026-05-25: nebenaudojam percentile-based ranking'o (anksčiau top 20% =
-  // 5/5 ir t.t.). Dabar absoliutus level'is per `trackPopAbsoluteLevel`:
-  // 5/5 = realiai TOP hit'as (50k+ views/d arba 300+ likes), kitos —
-  // pagal absoliučius rodiklius (gali būti 1-4/5 arba 0 jei nėra duomenų).
-  // Tai išsprendžia case'ą, kai atlikėjas turi vieną super populiarią
-  // dainą, o likę 50 dainų neturi populiarumo — anksčiau visi top 20%
-  // gaudavo 5/5 (~10 dainų), dabar tik realiai hit'as gauna 5/5.
+  // 2026-05-25 v6: per-artist percentile leveler. Bar'ai relatyvūs šio
+  // atlikėjo kontekstui — kiekvienas atlikėjas turi „top hit'us" (5/5) ir
+  // „prastesnes" dainas (1/5), neatsižvelgiant į global popularity.
+  // Sprendžia Edvardo skundą, kad LT atlikėjai mažesnės rinkos kontekste
+  // visada turėdavo žemus bar'us. Sort'as IR level'is abu išvedami iš
+  // `trackCompositeScore` → bar'ai monotoniški.
+  const popLeveler = useMemo(
+    () => makeArtistTrackLeveler(tracksAllTime),
+    [tracksAllTime],
+  )
   const allTimePopLevelById = useMemo(() => {
     const map = new Map<number, number>()
-    const now = Date.now()
     for (const t of tracksAllTime) {
-      const lvl = trackPopAbsoluteLevel(t, now)
-      // Tik teigiamus level'ius dedam į mapę — kitaip `??` operatorius
-      // grąžintų 0 (truthy nepriklauso) ir užblokuotų popLevelWithFallback
-      // fallback'ą tracks be duomenų sąraše, kuriame nėra jokios populiarumo
-      // info ('none' signal'as).
+      const lvl = popLeveler(t)
       if (lvl > 0) map.set(t.id, lvl)
     }
     return map
-  }, [tracksAllTime])
+  }, [tracksAllTime, popLeveler])
   const activeTrack = [...tracksAllTime, ...tracksTrending].find(t => t.id === activeTrackId)
   const activeVid = yt(activeTrack?.video_url)
   const firstWithVideo = list.find(t => yt(t.video_url)) || tracksAllTime.find(t => yt(t.video_url))
@@ -1063,7 +1061,7 @@ function PlayerCard({
               // pagal year DESC) bar'ai atspindi tikrą populiarumą, ne idx
               // chronologinį. Jei track'as nepasitaiko mapose (edge case),
               // fallback'as į senąją idx-percentile logiką.
-              const pop = allTimePopLevelById.get(t.id) ?? popLevelWithFallback(t, i, list.length, popInfo)
+              const pop = allTimePopLevelById.get(t.id) ?? popLevelWithFallback(t, i, list.length, popInfo, popLeveler)
               return (
                 <li key={t.id} className="group/row">
                   {/* Spotify-style split row (2026-05-10 UX):
@@ -1303,24 +1301,21 @@ function trackPopValue(t: any, signal: PopSignal): number {
   return 0
 }
 
-// trackPopAbsoluteLevel — extracted to `lib/track-popbar.ts` 2026-05-25 v3
-// kad admin debug puslapis (server component) galėtų importuoti pure
-// utility neištraukdamas 'use client' bundle'io. Žr. lib/track-popbar.ts
-
-/** PopBar level su fallback'u — pagrinde absoliutus (trackPopAbsoluteLevel),
- *  bet kai artist'as visiškai neturi duomenų (signal='none'), grįžtam į
- *  pozicija-based proportional kad sąraše vis tiek matytųsi koks nors bar'as
- *  (geriau nei plika eilė nulių). Kai artist TURI signal'o (bent vienas
- *  track turi views/likes), tracks be duomenų gauna 0 — bar slepiamas
- *  (informatyvu: "nėra duomenų" vietoj fake proportional rank'o).
+/** PopBar level su fallback'u — pagrinde per-artist leveler iš
+ *  `lib/track-popbar.ts`, bet kai artist'as visiškai neturi jokio signal'o
+ *  (signal='none'), grįžtam į position-based proportional kad sąraše vis
+ *  tiek matytųsi koks nors bar'as (geriau nei plika eilė nulių). Kai artist
+ *  TURI signal'o, tracks be duomenų gauna 0 — bar slepiamas (informatyvu:
+ *  „nėra duomenų" vietoj fake proportional rank'o).
  */
 function popLevelWithFallback(
   t: any,
   idx: number,
   total: number,
-  popInfo: { signal: PopSignal; max: number }
+  popInfo: { signal: PopSignal; max: number },
+  leveler: (t: any) => number,
 ): number {
-  const abs = trackPopAbsoluteLevel(t)
+  const abs = leveler(t)
   if (abs > 0) return abs
   if (popInfo.signal === 'none' || total <= 0) {
     if (total <= 1) return 3
@@ -5506,6 +5501,13 @@ export default function ArtistProfileClient({
     () => tracks.filter(t => !linkedSet.has(t.id)),
     [tracks, linkedSet],
   )
+  // Per-orphan-list leveler 2026-05-25 v6: orphan tracks turi savo
+  // percentile context'ą (atskirai nuo tracksAllTime), kad „Kitos dainos"
+  // grid'as turėtų savo top hit'ą su 5/5 ir žemiausias su 1/5.
+  const orphanPopLeveler = useMemo(
+    () => makeArtistTrackLeveler(orphanTracks),
+    [orphanTracks],
+  )
   const hasOrphanTracks = orphanTracks.length > 0
   // Default: Studijiniai + Kitos dainos (if any). Fallback to 'all' if no studio.
   const [activeFilters, setActiveFilters] = useState<Set<string>>(() => {
@@ -6617,7 +6619,7 @@ export default function ArtistProfileClient({
                           key={t.id}
                           t={t}
                           artistSlug={artist.slug}
-                          popularity={popLevelWithFallback(t, i, orphanTracks.length, popInfoTracks)}
+                          popularity={popLevelWithFallback(t, i, orphanTracks.length, popInfoTracks, orphanPopLeveler)}
                           onOpen={setTrackInfoOpen}
                         />
                       ))}

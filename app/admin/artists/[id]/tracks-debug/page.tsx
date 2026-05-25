@@ -8,13 +8,14 @@
 // Composite formulė (atitinka public artist page'os tracksAllTime sort):
 //   sortVal = likes×100 + score + log10(views)×10 + (is_single ? 50 : 0)
 //
-// PopBar level — absoliutus per trackPopAbsoluteLevel (lib/track-popbar.ts):
-//   max(viewsPerDay-threshold-level, likes-threshold-level). Sutampa su
-//   public /atlikejai/[slug] formule v3 (2026-05-25).
+// PopBar level — per-artist percentile per makeArtistTrackLeveler
+// (lib/track-popbar.ts v6 2026-05-25). Bar'ai relatyvūs šio atlikėjo
+// sąrašui (5/5 = top, 1/5 = žemiausias), kad LT atlikėjai turėtų pilną
+// gradaciją vietoj uniformų žemų bar'ų pagal global thresholds.
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
-import { trackPopAbsoluteLevel, trackArtistSortVal } from '@/lib/track-popbar'
+import { trackArtistSortVal, makeArtistTrackLeveler } from '@/lib/track-popbar'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -240,10 +241,10 @@ function detectPopSignal(tracks: TrackRow[]): { signal: PopSignal; max: number }
   return { signal: 'none', max: 0 }
 }
 
-// PopBar level skaičiavimas dabar per `trackPopAbsoluteLevel` (lib/track-popbar.ts) —
-// absoliutūs threshold'ai vietoj position-based percentile. detectPopSignal
-// vis dar naudojamas header'iui rodyti "PopBar signal: likes/score/views"
-// info'ui (debug context'as kuris signal'as labiausiai veikia šiame artist'e).
+// PopBar level skaičiavimas dabar per `makeArtistTrackLeveler` (lib/track-popbar.ts v6)
+// — per-artist quintile percentile. detectPopSignal vis dar naudojamas
+// header'iui rodyti "PopBar signal: likes/score/views" info'ui (debug
+// context'as kuris signal'as labiausiai veikia šiame artist'e).
 
 export default async function TracksDebugPage({ params }: Props) {
   const { id: idStr } = await params
@@ -264,6 +265,11 @@ export default async function TracksDebugPage({ params }: Props) {
   const rest = tracks.filter(t => !yt(t.video_url)).slice().sort((a, b) => trackArtistSortVal(b) - trackArtistSortVal(a))
   const sorted = [...withVideo, ...rest]
 
+  // 2026-05-25 v6: per-artist percentile leveler — bar'ai relatyvūs šio
+  // atlikėjo kontekste (top tracks gauna 5/5, žemiausi 1/5), kad LT
+  // atlikėjai turėtų pilną gradaciją vietoj uniformų žemų bar'ų pagal
+  // global thresholds. Sutampa su public puslapiu.
+  const popLeveler = makeArtistTrackLeveler(tracks)
   const popInfo = detectPopSignal(sorted)
   const totalSingles = tracks.filter(t => t.is_single).length
   const totalComments = tracks.reduce((s, t) => s + (t.comment_count || 0), 0)
@@ -430,12 +436,11 @@ export default async function TracksDebugPage({ params }: Props) {
           <tbody className="divide-y divide-[var(--border-subtle)]">
             {sorted.map((t, i) => {
               const bd = trackScoreBreakdown(t)
-              // PopBar level — absoliutus pagal trackPopAbsoluteLevel
-              // (sutampa su public /atlikejai/[slug] formule v3 2026-05-25).
-              // Anksčiau buvo position-based popLevel(idx,total,hasSignal) —
-              // top 20% gaudavo 5/5, todėl ~10 dainų matydavosi 5/5 net jei
-              // realiai tik 1 mega hit'as turi tokias views/likes.
-              const level = trackPopAbsoluteLevel(t)
+              // PopBar level — per-artist percentile (v6 2026-05-25).
+              // Bar'ai relatyvūs šio atlikėjo kontekstui: top tracks → 5/5,
+              // žemiausi → 1/5. Sort'as ir level abu kyla iš trackCompositeScore,
+              // tad bar'ai monotoniški.
+              const level = popLeveler(t)
               const hasVideo = yt(t.video_url)
               const ytDate = t.video_uploaded_at ? new Date(t.video_uploaded_at).toISOString().slice(0, 10) : '—'
               const hasLyrics = !!(t.lyrics && t.lyrics.trim().length > 10)

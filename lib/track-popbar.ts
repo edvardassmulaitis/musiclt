@@ -148,19 +148,16 @@ export function trackCompositeScore(t: any, nowMs: number = Date.now()): number 
   return viewsScore + likesScore + single + video
 }
 
-/** Lexicographic sort value:
- *    primary:   trackPopAbsoluteLevel (discrete 0-5) — garantuoja, kad
- *               sort tvarka MATCHINA bar level'į (track 5/5 visada virš
- *               track 4/5)
- *    secondary: continuous score — tiebreaker tame pačiame level'yje
+/** Sort value — 2026-05-25 v6 supaprastinta į `trackCompositeScore`.
  *
- *  Pakuojam į vieną number'į: level * 10000 + continuous. Continuous
- *  diapazonas ~0-150 << 10000, tad level visada dominuoja sort'e.
- */
+ *  Anksčiau (v2-v5): `level * 10000 + continuous` — lexicographic, kad
+ *  level garantuotų primary tvarką. Bet su v6 per-artist percentile,
+ *  level pats išvedamas iš `trackCompositeScore` rank'o, tad sortinant
+ *  pagal continuous score gauname identišką rezultatą (be reikalo dauginti).
+ *  Bar'ai garantuotai monotoniški: sort'as ir level abu kyla iš to paties
+ *  score'o. */
 export function trackArtistSortVal(t: any, nowMs: number = Date.now()): number {
-  const level = trackPopAbsoluteLevel(t, nowMs)
-  const continuous = trackCompositeScore(t, nowMs)
-  return level * 10000 + continuous
+  return trackCompositeScore(t, nowMs)
 }
 
 /** Sukurta vienos eilės factory'oje, kad sortinimas vyktų per vieną
@@ -168,4 +165,83 @@ export function trackArtistSortVal(t: any, nowMs: number = Date.now()): number {
 export function makeArtistTrackScorer(_tracks: any[]): (t: any) => number {
   const now = Date.now()
   return (t: any) => trackArtistSortVal(t, now)
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Per-artist PopBar level (v6 2026-05-25)
+// ───────────────────────────────────────────────────────────────────────
+// v1-v5 buvo absoliutus per-track level (3-5 dashes pagal global thresholds).
+// Problema: LT atlikėjai globaliai mažesni nei INTL, todėl jų bar'ai
+// visada būdavo žemi — neatspindėdavo intra-artist gradacijos (kuri daina
+// to atlikėjo top'as, kuri prastesnė). Edvardo skundas 2026-05-25:
+// „LT atlikėjai verda tam paciam katile, nes nevienoda konkurencija del
+// rinku dydzio. prie atlikejo reikia, kad issidestymas butu to atlikejo
+// lygyje, o ne bendrame kontekste."
+//
+// v6: PopBar level kvintilinis PER ATLIKĖJO sąrašą. Kiekvienas atlikėjas
+// turi savo „top hit'us" (5/5) ir „prastesnes" (1/5) — neatsižvelgiant
+// į global popularity. Sort'as taip pat pagal `trackCompositeScore`,
+// tad bar'ai monotoniški.
+//
+// Quintile distribucija (rank'as su 0-based indexavimu):
+//   rank 0 (top)                        → 5/5  (always crown)
+//   rank < 20% total                    → 5/5  (top tier)
+//   rank < 40%                          → 4/5
+//   rank < 60%                          → 3/5
+//   rank < 80%                          → 2/5
+//   rest                                → 1/5
+//
+// Tracks su score ≤ 0 (jokio signal'o) → 0/5 (bar slepiamas).
+
+/** Factory: priima atlikėjo tracks sąrašą, grąžina `(t) => level` callback'ą.
+ *  Levels pre-computed pagal `trackCompositeScore` rank'ą. Lookup per track.id,
+ *  tad kviečiantis kodas gali iterate'inti subsets (filter'ius) — kiekvienas
+ *  track gauna lygiai tokį pat level'į kaip ir pilname sąraše.
+ *
+ *  Edge cases:
+ *   - 0 tracks → leveler grąžina 0 visiems
+ *   - 1 track → 5/5 (vienintelis = crown)
+ *   - tracks su score=0 → 0/5 (no bar)
+ *   - artist su VISŲ tracks score=0 → visi 0/5 (informatyvu)
+ */
+export function makeArtistTrackLeveler(
+  tracks: any[],
+  nowMs?: number,
+): (t: any) => number {
+  const now = nowMs ?? Date.now()
+  const total = tracks.length
+  if (total === 0) {
+    return () => 0
+  }
+
+  // Sort'as descending pagal score; ties — stabili (pirma encountered).
+  const sortedByScoreDesc = [...tracks].sort(
+    (a, b) => trackCompositeScore(b, now) - trackCompositeScore(a, now),
+  )
+
+  // Map<track.id, level> — kiekvienam track ID priskiriam quintile level'į.
+  const idToLevel = new Map<any, number>()
+  sortedByScoreDesc.forEach((t, rank) => {
+    const score = trackCompositeScore(t, now)
+    if (score <= 0) {
+      idToLevel.set(t.id, 0)
+      return
+    }
+    if (total === 1 || rank === 0) {
+      idToLevel.set(t.id, 5)
+      return
+    }
+    const p = rank / total
+    let lvl = 1
+    if (p < 0.20) lvl = 5
+    else if (p < 0.40) lvl = 4
+    else if (p < 0.60) lvl = 3
+    else if (p < 0.80) lvl = 2
+    idToLevel.set(t.id, lvl)
+  })
+
+  return (t: any) => {
+    if (!t) return 0
+    return idToLevel.get(t.id) ?? 0
+  }
 }
