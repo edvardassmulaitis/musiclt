@@ -149,11 +149,16 @@ export function ProfileClient(props: any) {
 
   // V11.2: real photo iš legacy_profile_photos array'aus (rezervuota
   // ProfileInfoModal'ui kaip pilna galerija; čia tik pirma — kaip portretas).
+  // V11.7: pirmas photo gali būti generic placeholder (male/female/anonymous/none)
+  // iš music.lt lankytojai/ — filtruojam tuos, kad nerodom „lyties" foto.
   const realPhotoUrl = useMemo<string | null>(() => {
     const photos = profile.legacy_profile_photos
     if (!Array.isArray(photos) || photos.length === 0) return null
     const first = photos[0]
-    return first?.thumb_url || first?.url || null
+    const url = first?.thumb_url || first?.url || null
+    if (!url) return null
+    if (/\/(?:male|female|anonymous|none)\.(jpe?g|png|gif)(?:[?#]|$)/i.test(url)) return null
+    return url
   }, [profile.legacy_profile_photos])
 
   const hasMusicMeter = profile.legacy_music_meter
@@ -420,12 +425,14 @@ export function ProfileClient(props: any) {
           </section>
         )}
 
-        {/* MĖGSTAMI ALBUMAI */}
-        {(favoriteAlbums.length > 0 || (likesCounts?.album?.pending || 0) > 0) && (
+        {/* MĖGSTAMI ALBUMAI — V11.7: rodome ir kai legacy_liked_albums_count
+            yra, net jei pending=0 (galimas user_username case mismatch
+            likes lentelei) */}
+        {(favoriteAlbums.length > 0 || (likesCounts?.album?.pending || 0) > 0 || (profile.legacy_liked_albums_count || 0) > 0) && (
           <section className="mt-8 sm:mt-10">
             <SectionHeader
               title="Mėgstami albumai"
-              meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0)}
+              meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0, profile.legacy_liked_albums_count)}
             />
             {favoriteAlbums.length > 0 ? (
               <AlbumsFullWidth
@@ -441,11 +448,11 @@ export function ProfileClient(props: any) {
         )}
 
         {/* MĖGSTAMOS DAINOS */}
-        {(favoriteTracks.length > 0 || (likesCounts?.track?.pending || 0) > 0) && (
+        {(favoriteTracks.length > 0 || (likesCounts?.track?.pending || 0) > 0 || (profile.legacy_liked_tracks_count || 0) > 0) && (
           <section className="mt-8 sm:mt-10">
             <SectionHeader
               title="Mėgstamos dainos"
-              meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0)}
+              meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0, profile.legacy_liked_tracks_count)}
             />
             {favoriteTracks.length > 0 ? (
               <TracksFullWidth
@@ -514,13 +521,19 @@ export function ProfileClient(props: any) {
   )
 }
 
-function albumMeta(resolved: number, pending: number): string {
+function albumMeta(resolved: number, pending: number, legacyCount?: number | null): string {
+  if (resolved === 0 && pending === 0 && (legacyCount || 0) > 0) {
+    return `dar laukia migracijos · ${legacyCount!.toLocaleString('lt-LT')} senoj music.lt`
+  }
   if (resolved === 0 && pending > 0) return `dar laukia ${pending.toLocaleString('lt-LT')}`
   if (pending > 0) return `${resolved.toLocaleString('lt-LT')} matomi · ${pending.toLocaleString('lt-LT')} laukia`
   return `${resolved.toLocaleString('lt-LT')} albumų`
 }
 
-function trackMeta(resolved: number, pending: number): string {
+function trackMeta(resolved: number, pending: number, legacyCount?: number | null): string {
+  if (resolved === 0 && pending === 0 && (legacyCount || 0) > 0) {
+    return `dar laukia migracijos · ${legacyCount!.toLocaleString('lt-LT')} senoj music.lt`
+  }
   if (resolved === 0 && pending > 0) return `dar laukia ${pending.toLocaleString('lt-LT')}`
   if (pending > 0) return `${resolved.toLocaleString('lt-LT')} matomos · ${pending.toLocaleString('lt-LT')} laukia`
   return `${resolved.toLocaleString('lt-LT')} dainų`
@@ -1098,18 +1111,20 @@ function DailyPicksScrollRow({
 }: { picks: any[]; maxShown: number; totalCount: number; moreHref: string | null }) {
   const shown = picks.slice(0, maxShown)
   const remaining = Math.max(totalCount - shown.length, 0)
+  // V11.7: korteles platesnės (240/260px), kad naujasis 16:9 thumb + tekstai
+  // graziai išsidėliotų. Pakeitė anksčiau buvusį 1:1 ratio 170/195px.
   return (
     <div className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="flex gap-2.5 sm:gap-3 min-w-max">
+      <div className="flex gap-2.5 sm:gap-3 min-w-max items-stretch">
         {shown.map((p) => (
-          <div key={p.id} className="w-[170px] sm:w-[195px] flex-shrink-0">
+          <div key={p.id} className="w-[230px] sm:w-[250px] flex-shrink-0">
             <DailyPicksCards picks={[p]} />
           </div>
         ))}
         {moreHref && remaining > 0 && (
           <Link
             href={moreHref}
-            className="w-[170px] sm:w-[195px] flex-shrink-0 aspect-square rounded-xl flex flex-col items-center justify-center transition hover:scale-[1.03]"
+            className="w-[180px] flex-shrink-0 rounded-xl flex flex-col items-center justify-center transition hover:scale-[1.03] p-4"
             style={{
               background: 'var(--card-bg)',
               border: '1px dashed var(--border-default)',
@@ -1119,7 +1134,7 @@ function DailyPicksScrollRow({
             <span className="text-2xl sm:text-3xl font-black" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
               +{remaining.toLocaleString('lt-LT')}
             </span>
-            <span className="mt-1 text-[10px] font-bold uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-center" style={{ fontFamily: "'Outfit', sans-serif" }}>
               Visa istorija
             </span>
           </Link>

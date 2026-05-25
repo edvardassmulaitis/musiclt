@@ -73,9 +73,11 @@ export async function getDailySongPicks(userId: string, limit = 20) {
   if (!rows.length) return rows
   const trackIds = rows.map((r) => r.track_id).filter(Boolean) as number[]
   if (!trackIds.length) return rows.map((r) => ({ ...r, tracks: null }))
+  // V11.7: pridėti `video_url` + `cover_url` daily picks kortelėms
+  // (YT thumb fallback chain).
   const { data: tracks } = await sb
     .from('tracks')
-    .select('id, slug, title, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .select('id, slug, title, video_url, cover_url, like_count, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
     .in('id', trackIds)
   const trackRows = (tracks || []) as any[]
 
@@ -188,7 +190,7 @@ export async function getUserRecentComments(username: string, limit = 12) {
   const { data, error } = await sb
     .from('entity_comments')
     .select('id, entity_type, entity_id, entity_legacy_id, content_text, content_html, created_at, like_count')
-    .eq('author_username', username)
+    .ilike('author_username', username)
     .order('created_at', { ascending: false })
     .limit(limit)
   if (error) {
@@ -337,7 +339,7 @@ export async function getProfileFavoriteAlbums(username: string, limit = 12) {
     .from('likes')
     .select('entity_id, created_at, albums:entity_id(id, slug, title, cover_url, artist_id, artists:artist_id(id, slug, name, cover_image_url))')
     .eq('entity_type', 'album')
-    .eq('user_username', username)
+    .ilike('user_username', username)
     .not('entity_id', 'is', null)
     .order('id', { ascending: false })
     .limit(limit)
@@ -358,7 +360,7 @@ export async function getProfileFavoriteTracks(username: string, limit = 12) {
     .from('likes')
     .select('entity_id, created_at, tracks:entity_id(id, slug, title, cover_url, video_url, artist_id, artists:artist_id(id, slug, name, cover_image_url))')
     .eq('entity_type', 'track')
-    .eq('user_username', username)
+    .ilike('user_username', username)
     .not('entity_id', 'is', null)
     .order('id', { ascending: false })
     .limit(limit)
@@ -372,15 +374,18 @@ export async function getProfileFavoriteTracks(username: string, limit = 12) {
 }
 
 // Pending count'ai — kiek dar nemigravotų likes (UI gali rodyti „dar X laukia").
+// V11.7: ilike vietoj eq — likes.user_username gali būti saved'a CamelCase
+// (legacy „Einaras13"), profile.username — lowercase. Be ilike likes'ai
+// būna „dingęs".
 export async function getProfileLikesCounts(username: string) {
   const sb = createAdminClient()
   const results = await Promise.all((['artist','album','track'] as const).map(async (kind) => {
     const [resolved, pending] = await Promise.all([
       sb.from('likes').select('*', { count: 'exact', head: true })
-        .eq('entity_type', kind).eq('user_username', username)
+        .eq('entity_type', kind).ilike('user_username', username)
         .not('entity_id', 'is', null),
       sb.from('likes').select('*', { count: 'exact', head: true })
-        .eq('entity_type', kind).eq('user_username', username)
+        .eq('entity_type', kind).ilike('user_username', username)
         .is('entity_id', null),
     ])
     return { kind, resolved: resolved.count ?? 0, pending: pending.count ?? 0 }

@@ -20,16 +20,44 @@ type Props = {
 
 const PAGE_SIZE = 20
 
+// V11.7: matches /vartotojas/[username] PostTypeTagBar — LT plural forms,
+// sentence case (be uppercase), „Visi" → „Visi įrašai".
 const TYPE_LABELS: Record<string, string> = {
-  all: 'VISI',
-  article: 'STRAIPSNIS',
-  creation: 'KŪRYBA',
-  translation: 'VERTIMAS',
-  topas: 'TOPAS',
-  review: 'APŽVALGA',
-  release: 'RELEASE',
-  interview: 'INTERVIU',
-  event: 'EVENTAS',
+  all: 'Visi įrašai',
+  article: 'Straipsnis',
+  creation: 'Kūriniai',
+  translation: 'Vertimas',
+  topas: 'Topas',
+  review: 'Recenzija',
+  release: 'Release',
+  interview: 'Interviu',
+  event: 'Renginys',
+}
+
+const TYPE_PLURAL: Record<string, [string, string, string]> = {
+  article:     ['straipsnis', 'straipsniai', 'straipsnių'],
+  review:      ['recenzija',  'recenzijos',  'recenzijų'],
+  event:       ['renginys',   'renginiai',   'renginių'],
+  creation:    ['kūrinys',    'kūriniai',    'kūrinių'],
+  translation: ['vertimas',   'vertimai',    'vertimų'],
+  topas:       ['topas',      'topai',       'topų'],
+  release:     ['leidinys',   'leidiniai',   'leidinių'],
+  interview:   ['interviu',   'interviu',    'interviu'],
+}
+
+function ltPlural(n: number, sg: string, paucal: string, gen: string): string {
+  const lastTwo = Math.abs(n) % 100
+  const last = Math.abs(n) % 10
+  if (last === 1 && lastTwo !== 11) return sg
+  if (last >= 2 && last <= 9 && (lastTwo < 10 || lastTwo > 19)) return paucal
+  return gen
+}
+
+function tabLabel(t: string, n: number): string {
+  if (t === 'all') return 'Visi įrašai'
+  const forms = TYPE_PLURAL[t]
+  if (forms) return `${n} ${ltPlural(n, forms[0], forms[1], forms[2])}`
+  return `${TYPE_LABELS[t] || t} · ${n}`
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -102,21 +130,21 @@ export default async function BlogPage({ params, searchParams }: Props) {
         </div>
       </div>
 
-      {/* Type tabs */}
+      {/* Type tabs — V11.7: sentence case, LT plural forms */}
       {Object.keys(counts).length > 1 && (
         <div className="max-w-2xl mx-auto px-6 mb-6 flex flex-wrap gap-2">
           {Object.entries(counts).map(([t, n]) => (
             <Link
               key={t}
               href={buildUrl(1, t)}
-              className={`text-xs px-3 py-1.5 rounded-full transition border ${
+              className={`text-[12px] px-3 py-1 rounded-full transition border ${
                 currentType === t
-                  ? 'bg-[#f97316] text-white border-[#f97316]'
-                  : 'bg-white/[.02] text-[#b0bdd4] border-white/[.05] hover:border-white/[.15] hover:bg-white/[.05]'
+                  ? 'bg-[#f97316]/15 text-[#f97316] border-[#f97316]/60'
+                  : 'bg-transparent text-[#b0bdd4] border-white/[.08] hover:border-white/[.18] hover:bg-white/[.04]'
               }`}
-              style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, letterSpacing: '.05em' }}
+              style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600 }}
             >
-              {TYPE_LABELS[t] || t.toUpperCase()} <span className="opacity-60 ml-1">{n}</span>
+              {tabLabel(t, n)}
             </Link>
           ))}
         </div>
