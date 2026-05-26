@@ -449,8 +449,17 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
         if (depth === 3) {
           if (groupFilter && groupFilter !== '__solo__' && groupFilter !== '__all__')
             skipGroup = !hRaw.trim().toLowerCase().includes(groupFilter.toLowerCase())
-          else
-            skipGroup = soloOnly && !/solo|as lead|as artist/i.test(hRaw) && hRaw.trim().length > 0
+          else {
+            // 2026-05-26: pure solo artists (e.g. Benson Boone) have plain album-type
+            // subsections like ===Studio albums=== without any "solo" / "as lead"
+            // marker. Anksčiau skipGroup=true → return 0 → caller fall'inosi į
+            // parseDiscographyPage(main) kuris paimdavo Awards table wikitable'ą.
+            // Naujas check: skipGroup TIK kai sekcija yra "group-context" tipo
+            // (su [Band Name], "with X", "as part of Y") IR ne standartinis album-type.
+            const isAlbumTypeSection = /\b(studio|album|single|ep|extended\s*play|compilation|live|remix|cover|tribute|soundtrack|score|holiday|christmas|demo|mixtape|reissue|greatest|best\s*of|collection|video|dvd|box|chart|discograph)\b/i.test(hRaw)
+            const isSoloMarker = /\bsolo\b|as\s+lead|as\s+artist|as\s+performer/i.test(hRaw)
+            skipGroup = soloOnly && !isAlbumTypeSection && !isSoloMarker && hRaw.trim().length > 0
+          }
         }
         if (depth === 3 || depth === 4) {
           const typeH = h.replace(/\[\[.*?\]\]/g, '')
@@ -520,7 +529,12 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       // appearances" (Queen disco h2 sekcija su Various Artists albumais)
       // gaudavo skipSection=false ir Various Artists soundtracks (Sucker Punch,
       // Symphony of British Music, Beside Bowie, etc.) tapdavo "Queen studio".
-      const isAppearanceSection = /video|dvd|film|promo|tour|guest|appear|certif|box.?set|music.video/.test(h)
+      // 2026-05-26: pridėta `award|nomin|tour|personal|career|early|artistry|references|notes|external`
+      // kad parseDiscographyPage būtų saugi kviečiama ant MAIN page wikitext'o
+      // (line ~1291 fallback'as): Benson Boone main page'as turi
+      // ==Awards and nominations== wikitable su `! scope="row"|[[Grammy Awards]]`
+      // ir pan. — be šito regex'o jie tapdavo „studio" entry'iais.
+      const isAppearanceSection = /video|dvd|film|promo|tour|guest|appear|certif|box.?set|music.video|award|nomin|personal|career|early|artistry|references|notes|external|further reading|see also|bibliography|filmograph|tour|gigograph/.test(h)
       skipSection = isAppearanceSection
       // matched track flag — kad žinotume ar dabartinė sekcija yra
       // atpažintas album tipas. Jei NĖRA — currentType paveldima iš ankstesnės
@@ -565,6 +579,10 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       // root — neturim mapping'o, NESKAIČIUOJAM kaip ankstesnis tipas, nes
       // tai duotų klaidingą klasifikaciją.
       if (!matched && depth >= 3) { skipSection = true }
+      // 2026-05-26: ALSO skip unmatched depth=2 sections kai parseDiscographyPage
+      // kviečiama ant MAIN page wikitext'o. Be šito Awards/Tours/Career skyriai
+      // (kurie turi wikitable'us) leak'avo į studio sąrašą.
+      if (!matched && depth === 2) { skipSection = true }
       yearMode = false; currentYear = null; yearRowspan = 0; continue
     }
     if (skipSection || inSinglesSection) continue
