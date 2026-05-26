@@ -2001,12 +2001,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     }
 
     // Helper: surasti singlo viršelį ir datą iš Wikipedia puslapio
+    // 2026-05-26: suffix order — artist-specific PIRMA, kad cover'iai (pvz.
+    // Teddy Swims „What's Going On") nepataikytų į originalo (Marvin Gaye 1971)
+    // wiki puslapį. Anksčiau buvo `['', '_(song)', ...]` → no-suffix grįždavo
+    // Marvin Gaye'aus single page'ą su 1971-01-21 release date.
     const fetchSingleWikiInfo = async (songTitle: string): Promise<{ coverUrl: string; wikiDate: { year: number|null; month: number|null; day: number|null } | null }> => {
       let coverUrl = ''
       let wikiDate: { year: number|null; month: number|null; day: number|null } | null = null
       const wikiTitle = songTitle.replace(/ /g, '_')
       try {
-        const suffixes = ['', '_(song)', `_(${artistName.replace(/ /g, '_')}_song)`, '_(single)']
+        const suffixes = [`_(${artistName.replace(/ /g, '_')}_song)`, '_(single)', '_(song)', '']
         for (const suffix of suffixes) {
           const testTitle = wikiTitle + suffix
           const [testCover, testWt] = await Promise.all([
@@ -2039,9 +2043,15 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         const key = song.title.toLowerCase().replace(/['’‘"]/g, '').trim()
         const extra = !song.month ? extraDates.get(key) : null
         const { coverUrl, wikiDate } = await fetchSingleWikiInfo(song.title)
-        const finalYear = extra?.year ?? wikiDate?.year ?? song.year
-        const finalMonth = extra?.month ?? wikiDate?.month ?? song.month
-        const finalDay = extra?.day ?? wikiDate?.day ?? song.day
+        // 2026-05-26: artist's singles table data (`song.*`) is authoritative for
+        // THIS artist's release date. Cover song'ams (Teddy Swims „What's Going On")
+        // linked song page'as yra apie ORIGINALO atlikėjo release'ą (Marvin Gaye 1971-01-21)
+        // — niekada netrauk year override iš wikiDate. wikiDate.month/day naudoti TIK kai jos year
+        // sutampa su table year (signalizuoja, kad pataikėm į THIS artist'o page'ą).
+        const finalYear = extra?.year ?? song.year ?? wikiDate?.year
+        const wikiDateMatchesArtistYear = wikiDate?.year != null && finalYear != null && wikiDate.year === finalYear
+        const finalMonth = extra?.month ?? song.month ?? (wikiDateMatchesArtistYear ? wikiDate?.month ?? null : null)
+        const finalDay = extra?.day ?? song.day ?? (wikiDateMatchesArtistYear ? wikiDate?.day ?? null : null)
 
         if (song.duplicateId) {
           // PATCH: pažymėti kaip singlą, atnaujinti datą ir viršelį
