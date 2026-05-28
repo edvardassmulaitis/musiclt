@@ -43,32 +43,7 @@ type Hit = {
   score?: number
 }
 
-// safe() — pašalina ILIKE wildcards (`%`, `_`) ir PostgREST `.or()` filter
-// wildcard'us (`*`, `,`, `(`, `)`) iš user input'o. Ne išvengiama užklausos
-// injection'o — supabase-js parameterizuoja — bet apsaugo nuo netyčia
-// pattern'o keitimo.
-const safe = (s: string) => s.replace(/[%_*,()]/g, '')
-
-/**
- * Diacritic-insensitive normalization client-side. Veikia kartu su DB
- * generated columns `*_norm` (lower(immutable_unaccent(...))) — žr.
- * 20260528_search_norm_columns.sql.
- *
- * „Vėtrų" → „vetru", „Žvėris" → „zveris", „København" → „kobenhavn".
- * Atitinka PostgreSQL `unaccent` extension'o output'ą LT/CZ/SK/SE/etc.
- */
-function normalize(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')  // combining diacritical marks
-    // unaccent ekvivalent'as kelioms specialioms raidėms, kurių NFD nedekomponuoja.
-    .replace(/[øØ]/g, 'o')
-    .replace(/[łŁ]/g, 'l')
-    .replace(/ß/g, 'ss')
-    .replace(/[æÆ]/g, 'ae')
-    .replace(/[œŒ]/g, 'oe')
-}
+const safe = (s: string) => s.replace(/[%_]/g, '')
 
 const slugTrack = (artistSlug: string | null | undefined, trackSlug: string, id: number) =>
   artistSlug ? `/dainos/${artistSlug}-${trackSlug}-${id}` : `/dainos/${trackSlug}-${id}`
@@ -85,10 +60,6 @@ export async function GET(request: Request) {
   // 200 row su artist join'u ≈ 35KB JSON — priimtina.
   const limitPerCat = Math.min(Math.max(parseInt(searchParams.get('limit') || '10'), 1), 200)
   const categoriesFilter = (searchParams.get('categories') || '').split(',').filter(Boolean)
-  // phase=fast: tik artist-targeted queries (artists + compound tracks/albums + profiles)
-  // phase=rest: broad ILIKE (tracks, albums, news, events, venues, blog_posts, discussions)
-  // phase=all (default): viskas, backward-compat
-  const phase = (searchParams.get('phase') || 'all') as 'fast' | 'rest' | 'all'
 
   if (q.length < 1) {
     return NextResponse.json({ results: emptyResults(), total: 0, took_ms: 0 })
@@ -104,12 +75,7 @@ export async function GET(request: Request) {
       : meaningful.length > 0
         ? meaningful.sort((a, b) => b.length - a.length)[0]
         : q
-  // pat — normalize'intas (lowercase + unaccent), nes DB ilike'os taikomos
-  // _norm kolumnoms (žr. 20260528b_search_unaccent_columns.sql). „vetru"
-  // arba „vėtrų" abu produkuoja vienodą `pat` → match'inasi su title_norm =
-  // „1000 vetru" (saugomu kaip lower(unaccent('1000 Vėtrų'))).
-  const broadNorm = normalize(broadTerm)
-  const pat = `%${safe(broadNorm)}%`
+  const pat = `%${safe(broadTerm)}%`
   const useCat = (c: Category) =>
     categoriesFilter.length === 0 || categoriesFilter.includes(c)
 
@@ -120,29 +86,17 @@ export async function GET(request: Request) {
 
   // ── ROUND 1: artists query (VISADA — net jei artists kategorija
   // išfiltruota — reikia fan-out'ui per tracks/albums) ──
-  //
-  // Multi-token užklausa (`abba dancing`): OR per kiekvieną meaningful tokeną.
-  // Anksčiau buvo: ilike('name', '%dancing%') (broadTerm = longest token) →
-  // ABBA nebuvo rastas. Dabar: ilike *abba* OR ilike *dancing* → ABBA randama.
-  //
-  // SVARBU: PostgREST `.or()` filter NAUDOJA `*` kaip wildcard, ne `%`!
-  // `%` simboliai URL-decoded'inami kaip hex escape sequences
-  // (`%ab` → 0xAB) → broken pattern → false matches (Black Sabbath,
-  // Enrique Iglesias, etc. nepriklauso paieškoje "abba dancing queen").
-  // Direct `.ilike(col, pattern)` call'uose `%` veikia normaliai.
-  const artistsQuery = sb.from('artists')
+  // Anksčiau, kai user'is iš UI pasirinkdavo "Dainos" chip'ą, fetch'as
+  // ėjo su categories=tracks; tada useCat('artists') = false, artists
+  // query nebuvo paleidžiamas, fanoutArtistIds buvo tuščias, ir
+  // fan-out neveikdavo → matydavom tik direct title match'us.
+  // Dabar artists query VISADA paleidžiamas, bet rezultatai įtraukiami
+  // į response tik jei kategorija leista.
+  const artistsRes = await sb.from('artists')
     .select('id,slug,name,cover_image_url,score,legacy_id')
+    .ilike('name', pat)
     .order('score', { ascending: false, nullsFirst: false })
     .limit(Math.max(limitPerCat, 8))   // bent 8 fan-out paskaičiavimui
-  let artistsRes
-  if (meaningful.length >= 2) {
-    // PostgREST `.or()` — wildcard'as `*`, ne `%`. Tokenai normalize'inami
-    // (`Vėtrų` → `vetru`), kad atitiktų name_norm kolumnos turinį.
-    const ors = meaningful.map(t => `name_norm.ilike.*${safe(normalize(t))}*`).join(',')
-    artistsRes = await artistsQuery.or(ors)
-  } else {
-    artistsRes = await artistsQuery.ilike('name_norm', pat)
-  }
   const matchedArtists = (artistsRes.data || []) as any[]
 
   // Fan-out atlikėjai — viršutiniai 2 (kad nesusiturėtų per daug duomenų).
@@ -154,19 +108,9 @@ export async function GET(request: Request) {
   const fanoutLimit = limitPerCat
 
   // ── ROUND 2: visi kiti query'ai paraleliai ──
-  // Phase-based gating (2026-05-28):
-  //   - FAST: artist-targeted (fan-out + compound) + cheap (profiles). Returns
-  //     in ~80-150ms — user mato pirmus rezultatus iškart.
-  //   - REST: broad ILIKE ant didelių lentelių (tracks/albums/news/events/etc).
-  //     Be trigram indeksų — kraunasi ~1-2s. Su trigram — ~50-100ms.
-  //   - ALL: ankstesnis behavior'as, backward-compat.
-  //
-  // Klient (`MasterSearch.tsx`) kviečia phase=fast ir phase=rest paraleliai
-  // ir merge'ina rezultatus, kad user'is iškart matytų atlikėjus + compound
-  // track'us, paskui pop'inasi platus content'as.
-  const runFast = phase === 'fast' || phase === 'all'
-  const runRest = phase === 'rest' || phase === 'all'
-
+  // Tarp jų: bazinės title-match'inančios albumai/tracks + fan-out (atlikėjo
+  // top tracks/albums net jei title nematch'ina) + count-only užklausos
+  // pilnam totals'ui rodyti (kad user'is matytų "10 / 220 dainų").
   type R = { data: any[] | null; count?: number | null }
   const empty = { data: [] as any[] }
   const emptyCount = { count: 0 }
@@ -178,79 +122,76 @@ export async function GET(request: Request) {
     titleAlbumsCount, titleTracksCount,
     compoundResults,
   ] = await Promise.all([
-    // BROAD ILIKE'os — slow path. Tik phase=rest|all. Visi naudoja `_norm`
-    // kolumnas, kad LT raidės (Vėtrų ↔ Vetru) match'intųsi.
-    runRest && useCat('albums')
+    useCat('albums')
       ? sb.from('albums')
           .select('id,slug,title,cover_image_url,score,artist_id,artists:artist_id(id,name,slug)')
-          .ilike('title_norm', pat)
+          .ilike('title', pat)
           .order('score', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
 
-    runRest && useCat('tracks')
+    useCat('tracks')
       ? sb.from('tracks')
           .select('id,slug,title,score,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
-          .ilike('title_norm', pat)
+          .ilike('title', pat)
           .order('score', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
 
-    // Profiles — maža lentelė, eina į FAST. `.or()` filter — naudojam `*`
-    // wildcard'ą, ne `%` (žr. artists pastabą). _norm kolumnos diakritikams.
-    runFast && useCat('profiles')
+    useCat('profiles')
       ? sb.from('profiles')
           .select('id,username,full_name,avatar_url,bio,is_public')
-          .or(`username_norm.ilike.*${safe(broadNorm)}*,full_name_norm.ilike.*${safe(broadNorm)}*`)
+          .or(`username.ilike.${pat},full_name.ilike.${pat}`)
           .eq('is_public', true)
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
 
     // Events: TIK busimi. start_date >= now (su -3h buffer'iu).
-    runRest && useCat('events')
+    // Sortinam ascending: artimiausi viršuje.
+    useCat('events')
       ? sb.from('events')
           .select('id,slug,title,start_date,city,venue_name,cover_image_url,status')
-          .ilike('title_norm', pat)
+          .ilike('title', pat)
           .gte('start_date', upcomingThreshold)
           .order('start_date', { ascending: true })
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
 
-    runRest && useCat('venues')
+    useCat('venues')
       ? sb.from('venues')
           .select('id,slug,name,city,country,cover_image_url')
-          .ilike('name_norm', pat)
+          .ilike('name', pat)
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
 
-    runRest && useCat('news')
+    useCat('news')
       ? sb.from('news')
           .select('id,slug,title,image_small_url,image_title_url,published_at,type')
-          .ilike('title_norm', pat)
+          .ilike('title', pat)
           .order('published_at', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
 
-    runRest && useCat('blog_posts')
+    useCat('blog_posts')
       ? sb.from('blog_posts')
           .select('id,slug,title,summary,cover_image_url,published_at,view_count,like_count,blog_id,blogs:blog_id(slug,profiles:user_id(username,full_name,avatar_url))')
-          .ilike('title_norm', pat)
+          .ilike('title', pat)
           .eq('status', 'published')
           .order('published_at', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
 
-    runRest && useCat('discussions')
+    useCat('discussions')
       ? sb.from('discussions')
           .select('id,slug,title,body,author_name,author_avatar,comment_count,like_count,created_at,is_deleted')
-          .ilike('title_norm', pat)
+          .ilike('title', pat)
           .eq('is_deleted', false)
           .order('last_comment_at', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
 
-    // FAN-OUT — artist-targeted, eina į FAST (greitas, naudoja artist_id btree).
-    runFast && fanoutEnabled && useCat('tracks')
+    // Fan-out tracks: top atlikėjų visi populiariausi track'ai (be title filter'io).
+    fanoutEnabled && useCat('tracks')
       ? sb.from('tracks')
           .select('id,slug,title,score,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
           .in('artist_id', fanoutArtistIds)
@@ -258,7 +199,8 @@ export async function GET(request: Request) {
           .limit(fanoutLimit)
       : Promise.resolve(empty as R),
 
-    runFast && fanoutEnabled && useCat('albums')
+    // Fan-out albums: top atlikėjų albumai.
+    fanoutEnabled && useCat('albums')
       ? sb.from('albums')
           .select('id,slug,title,cover_image_url,score,artist_id,artists:artist_id(id,name,slug)')
           .in('artist_id', fanoutArtistIds)
@@ -266,24 +208,23 @@ export async function GET(request: Request) {
           .limit(fanoutLimit)
       : Promise.resolve(empty as R),
 
-    // Count-only užklausos — fan-out countai į FAST, title countai į REST.
-    runFast && fanoutEnabled && useCat('tracks')
+    // ── Count-only užklausos totals'ui (head: true neneša data) ──
+    // Naudotojui parodysim "rasta N daugiau" link'ą jei totals > rodomi.
+    fanoutEnabled && useCat('tracks')
       ? sb.from('tracks').select('id', { count: 'exact', head: true }).in('artist_id', fanoutArtistIds)
       : Promise.resolve(emptyCount as any),
-    runFast && fanoutEnabled && useCat('albums')
+    fanoutEnabled && useCat('albums')
       ? sb.from('albums').select('id', { count: 'exact', head: true }).in('artist_id', fanoutArtistIds)
       : Promise.resolve(emptyCount as any),
-    runRest && useCat('albums')
-      ? sb.from('albums').select('id', { count: 'exact', head: true }).ilike('title_norm', pat)
+    useCat('albums')
+      ? sb.from('albums').select('id', { count: 'exact', head: true }).ilike('title', pat)
       : Promise.resolve(emptyCount as any),
-    runRest && useCat('tracks')
-      ? sb.from('tracks').select('id', { count: 'exact', head: true }).ilike('title_norm', pat)
+    useCat('tracks')
+      ? sb.from('tracks').select('id', { count: 'exact', head: true }).ilike('title', pat)
       : Promise.resolve(emptyCount as any),
 
-    // COMPOUND — artist + title, FAST (artist-targeted via inner IN clause).
-    runFast && compound
-      ? runCompound(sb, tokens, limitPerCat, useCat)
-      : Promise.resolve({ tracks: [] as Hit[], albums: [] as Hit[] }),
+    // Compound queries (artist + title) — tik kai ≥2 meaningful tokenai.
+    compound ? runCompound(sb, tokens, limitPerCat, useCat) : Promise.resolve({ tracks: [] as Hit[], albums: [] as Hit[] }),
   ])
 
   // ── Surinkti pilnus rezultatus į kategorijas ──
@@ -323,12 +264,11 @@ export async function GET(request: Request) {
   }
 
   // Per-kategorija rerank: exact-match / starts-with title viršuje, tada score.
-  // Naudojam normalize() — kad „1000 Vėtrų" su user'io „1000 vetru" exact match'intųsi.
-  const qNorm = normalize(q)
+  const qLow = q.toLowerCase()
   const titleScore = (h: Hit) => {
-    const tl = normalize(h.title)
-    if (tl === qNorm) return 0
-    if (tl.startsWith(qNorm)) return 1
+    const tl = h.title.toLowerCase()
+    if (tl === qLow) return 0
+    if (tl.startsWith(qLow)) return 1
     return 2
   }
   for (const k of Object.keys(out) as Category[]) {
@@ -375,9 +315,8 @@ export async function GET(request: Request) {
     query: q,
   }, {
     headers: {
-      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-      'CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-      'Vercel-CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=60',
+      'CDN-Cache-Control': 'public, s-maxage=15, stale-while-revalidate=60',
     },
   })
 }
@@ -395,13 +334,12 @@ async function runCompound(
     { aTok: tokens[tokens.length - 1], tTok: tokens.slice(0, -1).join(' ') },
   ]
   const results = await Promise.all(variants.map(async ({ aTok, tTok }) => {
-    // _norm kolumnos — diacritic-insensitive match per LT/SE/CZ raidęmis.
-    const aPat = `%${safe(normalize(aTok))}%`
-    const tPat = `%${safe(normalize(tTok))}%`
+    const aPat = `%${safe(aTok)}%`
+    const tPat = `%${safe(tTok)}%`
     const { data: matchArtists } = await sb
       .from('artists')
       .select('id,name,slug,cover_image_url,score')
-      .ilike('name_norm', aPat)
+      .ilike('name', aPat)
       .order('score', { ascending: false, nullsFirst: false })
       .limit(20)
     if (!matchArtists || matchArtists.length === 0) return { tracks: [], albums: [] }
@@ -411,7 +349,7 @@ async function runCompound(
         ? sb.from('tracks')
             .select('id,slug,title,score,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
             .in('artist_id', aIds)
-            .ilike('title_norm', tPat)
+            .ilike('title', tPat)
             .order('score', { ascending: false, nullsFirst: false })
             .limit(limit)
         : Promise.resolve({ data: [] }),
@@ -419,7 +357,7 @@ async function runCompound(
         ? sb.from('albums')
             .select('id,slug,title,cover_image_url,score,artist_id,artists:artist_id(id,name,slug)')
             .in('artist_id', aIds)
-            .ilike('title_norm', tPat)
+            .ilike('title', tPat)
             .order('score', { ascending: false, nullsFirst: false })
             .limit(limit)
         : Promise.resolve({ data: [] }),
