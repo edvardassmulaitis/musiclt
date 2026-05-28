@@ -34,15 +34,20 @@ export async function GET() {
       tracks: {
         lt: tracks.lt.map(mapTrackForHome),
         world: tracks.world.map(mapTrackForHome),
+        totalLt: tracks.totalLt,
+        totalWorld: tracks.totalWorld,
       },
       albums: {
         lt: albums.lt.map(mapAlbumForHome),
         world: albums.world.map(mapAlbumForHome),
+        totalLt: albums.totalLt,
+        totalWorld: albums.totalWorld,
       },
       // „Greitai pasirodys" — bendras LT + INTL sąrašas, rikiuotas pagal
       // artimiausią release datą ASC. UI rodo kaip atskirą sekciją po
       // „Nauji albumai" (be lane split).
-      upcoming: upcoming.map(mapAlbumForHome),
+      upcoming: upcoming.items.map(mapAlbumForHome),
+      upcomingTotal: upcoming.total,
     }
 
     // 15 min CDN cache. Tag invalidation (revalidateHomeTag) instant'iškai

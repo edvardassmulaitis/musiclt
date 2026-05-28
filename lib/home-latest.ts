@@ -173,6 +173,10 @@ const cachedFetchLatestTracksRaw = unstable_cache(
 export async function getLatestTracksForHome(): Promise<{
   lt: LatestTrackRow[]
   world: LatestTrackRow[]
+  /** Total kandidatų skaičius po dedupe per artist, prieš slice. Naudojam
+   *  „+N" badge'uose, kad user'is matytų realų DB count'ą (ne tik 10 UI). */
+  totalLt: number
+  totalWorld: number
 }> {
   const rows = await cachedFetchLatestTracksRaw('v2-no-reissues')
 
@@ -223,9 +227,14 @@ export async function getLatestTracksForHome(): Promise<{
     })
   }
 
-  const lt = dedupe(valid.filter(r => isLT(r.artists?.country))).slice(0, HOME_LANE_LIMIT)
-  const world = dedupe(valid.filter(r => !isLT(r.artists?.country))).slice(0, HOME_LANE_LIMIT)
-  return { lt, world }
+  const ltFull = dedupe(valid.filter(r => isLT(r.artists?.country)))
+  const worldFull = dedupe(valid.filter(r => !isLT(r.artists?.country)))
+  return {
+    lt: ltFull.slice(0, HOME_LANE_LIMIT),
+    world: worldFull.slice(0, HOME_LANE_LIMIT),
+    totalLt: ltFull.length,
+    totalWorld: worldFull.length,
+  }
 }
 
 /* ────────────────────────────── Albums ────────────────────────────── */
@@ -261,18 +270,16 @@ const cachedFetchLatestAlbumsRaw = unstable_cache(
 export async function getLatestAlbumsForHome(): Promise<{
   lt: LatestAlbumRow[]
   world: LatestAlbumRow[]
+  totalLt: number
+  totalWorld: number
 }> {
   const rows = await cachedFetchLatestAlbumsRaw('v1')
-  // Praeities + dabartinio mėnesio jau išleisti albumai. Greitai pasirodys
-  // (is_upcoming=true arba data ateityje) eina į atskirą sąrašą — žr.
-  // getUpcomingAlbumsForHome.
   const today = new Date()
   const isReleased = (a: LatestAlbumRow) => {
     if (a.is_upcoming) return false
     if (!a.year) return false
     if (a.year < today.getFullYear()) return true
     if (a.year > today.getFullYear()) return false
-    // Tas pats metas — žiūrim į mėnesį/dieną
     const m = a.month ?? 12
     const d = a.day ?? 31
     const cm = today.getMonth() + 1
@@ -282,9 +289,14 @@ export async function getLatestAlbumsForHome(): Promise<{
     return d <= cd
   }
   const released = rows.filter(r => r.artists && isReleased(r))
-  const lt = released.filter(r => isLT(r.artists!.country)).slice(0, HOME_LANE_LIMIT)
-  const world = released.filter(r => !isLT(r.artists!.country)).slice(0, HOME_LANE_LIMIT)
-  return { lt, world }
+  const ltAll = released.filter(r => isLT(r.artists!.country))
+  const worldAll = released.filter(r => !isLT(r.artists!.country))
+  return {
+    lt: ltAll.slice(0, HOME_LANE_LIMIT),
+    world: worldAll.slice(0, HOME_LANE_LIMIT),
+    totalLt: ltAll.length,
+    totalWorld: worldAll.length,
+  }
 }
 
 /* ────────────────────────────── Upcoming Albums ──────────────────────────────
@@ -319,7 +331,10 @@ const cachedFetchUpcomingAlbumsRaw = unstable_cache(
   { tags: [HOME_TAGS.albums], revalidate: 300 }
 )
 
-export async function getUpcomingAlbumsForHome(): Promise<LatestAlbumRow[]> {
+export async function getUpcomingAlbumsForHome(): Promise<{
+  items: LatestAlbumRow[]
+  total: number
+}> {
   const rows = await cachedFetchUpcomingAlbumsRaw('v1')
   const today = new Date()
   const isFuture = (a: LatestAlbumRow) => {
@@ -335,7 +350,11 @@ export async function getUpcomingAlbumsForHome(): Promise<LatestAlbumRow[]> {
     if (m < cm) return false
     return d > cd
   }
-  return rows.filter(r => r.artists && isFuture(r)).slice(0, HOME_LANE_LIMIT * 2)
+  const filtered = rows.filter(r => r.artists && isFuture(r))
+  return {
+    items: filtered.slice(0, HOME_LANE_LIMIT * 2),
+    total: filtered.length,
+  }
 }
 
 /* ────────────────────────────── Map helpers ──────────────────────────────

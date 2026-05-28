@@ -9,7 +9,7 @@ import { LazySection } from '@/components/LazySection'
 import { proxyImg } from '@/lib/img-proxy'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
-import { HomeListModal, HomeListMoreCard } from '@/components/HomeListModal'
+import { HomeListModal, StickyMoreButton } from '@/components/HomeListModal'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
@@ -67,6 +67,36 @@ function extractYouTubeId(url: string | null | undefined): string | null {
 function formatDateLT(d: string) {
   const date = new Date(d)
   return `${date.getFullYear()} m. ${MONTHS_FULL_LT[date.getMonth()]} ${date.getDate()} d.`
+}
+
+/** „Prieš X d." style: jei data šių 30 dienų — rodom relative ("Prieš 5 d."),
+ *  jei senesnė — rodom „Spa. 28, 2026" formatą. „Šiandien" / „Vakar" / „Prieš
+ *  X d." dalyboje 0/1/2-30. */
+function formatRelativeDateLT(input: string | null | undefined): string | null {
+  if (!input) return null
+  const d = new Date(input)
+  if (isNaN(d.getTime())) return null
+  const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000)
+  if (diffDays < 0) return null // ateities data
+  if (diffDays === 0) return 'Šiandien'
+  if (diffDays === 1) return 'Vakar'
+  if (diffDays <= 30) return `Prieš ${diffDays} d.`
+  return `${MONTHS_LT[d.getMonth()]}. ${d.getDate()}, ${d.getFullYear()}`
+}
+
+/** Future date formatas „Greitai pasirodys" sekcijai. Iki 30 d. — „Po X d.",
+ *  vėliau — „Spa. 28, 2026" konkreti data (lengviau perskaityti dideliu
+ *  intervalu). */
+function formatFutureDateLT(input: string | null | undefined): { label: string | null; highlight: boolean } {
+  if (!input) return { label: null, highlight: false }
+  const d = new Date(input)
+  if (isNaN(d.getTime())) return { label: null, highlight: false }
+  const diffDays = Math.ceil((d.getTime() - Date.now()) / 86_400_000)
+  if (diffDays < 0) return { label: null, highlight: false }
+  if (diffDays === 0) return { label: 'Šiandien', highlight: true }
+  if (diffDays === 1) return { label: 'Rytoj', highlight: true }
+  if (diffDays <= 30) return { label: `Po ${diffDays} d.`, highlight: diffDays <= 14 }
+  return { label: `${MONTHS_LT[d.getMonth()]}. ${d.getDate()}, ${d.getFullYear()}`, highlight: false }
 }
 
 function timeAgo(d: string) {
@@ -1976,6 +2006,9 @@ export default function Home() {
   // (is_upcoming=true arba release_date ateityje). Vienas lane'as, sortinta
   // pagal artimiausią datą ASC.
   const [upcomingAlbums, setUpcomingAlbums] = useState<Album[]>([])
+  // Total counts iš DB (po dedupe, prieš slice). Rodom „+N" badge'uose, kad
+  // user'is matytų realų DB count'ą, ne tik 10 UI items.
+  const [totals, setTotals] = useState<{ tracksLt: number; tracksWorld: number; albumsLt: number; albumsWorld: number; upcoming: number }>({ tracksLt: 0, tracksWorld: 0, albumsLt: 0, albumsWorld: 0, upcoming: 0 })
   const [artists, setArtists] = useState<Artist[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [news, setNews] = useState<NewsItem[]>([])
@@ -2104,6 +2137,13 @@ export default function Home() {
         const aWorld = (d.albums?.world || []) as any[]
         setAlbums([...aLt, ...aWorld])
         setUpcomingAlbums((d.upcoming || []) as any[])
+        setTotals({
+          tracksLt: d.tracks?.totalLt || 0,
+          tracksWorld: d.tracks?.totalWorld || 0,
+          albumsLt: d.albums?.totalLt || 0,
+          albumsWorld: d.albums?.totalWorld || 0,
+          upcoming: d.upcomingTotal || 0,
+        })
       })
       .catch(() => { readyBits.current.tracks = true; tryReady.current() })
 
@@ -2507,7 +2547,9 @@ export default function Home() {
                   thumb + title + artist. Tylesnė vizualinė akcentuotė nei
                   albumai (jie turi didesnius cover'ius). */}
               <section>
-                <SectionHead label="Naujos dainos" href="/muzika" />
+                {/* SectionHead be CTA — „+N" button'as juostos dešinėje yra
+                    primaryinis būdas atidaryti pilną sąrašą. */}
+                <SectionHead label="Naujos dainos" />
                 {(() => {
                   const isLT = (x: any) => {
                     const c = x.artists?.country
@@ -2516,34 +2558,32 @@ export default function Home() {
                   const ltT = tracks.filter(t => sanitizeTitle(t.title) && isLT(t))
                   const wT = tracks.filter(t => sanitizeTitle(t.title) && !isLT(t))
                   return [
-                    { lane: 'lt' as const, items: ltT },
-                    { lane: 'world' as const, items: wT },
+                    { lane: 'lt' as const, items: ltT, total: totals.tracksLt },
+                    { lane: 'world' as const, items: wT, total: totals.tracksWorld },
                   ]
-                })().map(({ lane, items }, laneIdx) => (
+                })().map(({ lane, items, total }, laneIdx) => (
                   <div key={lane} className={laneIdx === 0 ? 'mb-2.5' : ''}>
-                    <div className="hp-scroll flex items-center gap-2 pb-0.5">
+                    {/* Wrapper: scroll container + sticky „+N" button šalia */}
+                    <div className="flex items-stretch gap-2">
                       <RowDivider icon={lane} />
-                      {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
-                        <div
-                          key={i}
-                          className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3"
-                          style={{ width: 220 }}
-                        >
-                          <Skel w={48} h={48} r={9} />
-                          <div className="flex-1">
-                            <Skel w="76%" h={11} />
-                            <div className="mt-1.5"><Skel w="54%" h={9} /></div>
+                      <div className="hp-scroll flex flex-1 min-w-0 items-center gap-2 pb-0.5">
+                        {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
+                          <div
+                            key={i}
+                            className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3"
+                            style={{ width: 220 }}
+                          >
+                            <Skel w={48} h={48} r={9} />
+                            <div className="flex-1">
+                              <Skel w="76%" h={11} />
+                              <div className="mt-1.5"><Skel w="54%" h={9} /></div>
+                            </div>
                           </div>
-                        </div>
-                      )) : items.length === 0 ? (
-                        <div className="flex shrink-0 items-center px-3 py-3 text-[12px] text-[var(--text-faint)]" style={{ width: 220 }}>
-                          {lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}
-                        </div>
-                      ) : items.slice(0, 14).map(t => {
-                        // Track card → atidaro HomeTrackModal (vietoj navigacijos
-                        // į pilną /dainos puslapį). Modal'as parodo YT embed +
-                        // info; jei user'is nori pilno track puslapio — CTA viduje.
-                        return (
+                        )) : items.length === 0 ? (
+                          <div className="flex shrink-0 items-center px-3 py-3 text-[12px] text-[var(--text-faint)]" style={{ width: 220 }}>
+                            {lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}
+                          </div>
+                        ) : items.slice(0, 14).map(t => (
                           <button
                             key={t.id}
                             type="button"
@@ -2568,12 +2608,13 @@ export default function Home() {
                               </p>
                             </div>
                           </button>
-                        )
-                      })}
-                      {items.length > 8 && (
-                        <HomeListMoreCard
-                          variant="row"
-                          count={items.length}
+                        ))}
+                      </div>
+                      {total > items.slice(0, 14).length && (
+                        <StickyMoreButton
+                          count={total}
+                          height={70}
+                          ariaLabel={`Žiūrėti visus (${total})`}
                           onClick={() => setListModal(`tracks-${lane}`)}
                         />
                       )}
@@ -2586,21 +2627,22 @@ export default function Home() {
                   (atitinka artist page'o AlbumCard pattern'ą). Cover'is
                   ~140px aiškiai didesnis nei track row'o 38px thumb'as. */}
               <section>
-                <SectionHead label="Nauji albumai" href="/muzika?tab=albums" />
+                <SectionHead label="Nauji albumai" />
                 {(() => {
                   const isLT = (x: any) => {
                     const c = x.artists?.country
                     return !c || c === 'Lietuva' || c === 'LT' || c === 'Lithuania'
                   }
                   return [
-                    { lane: 'lt' as const, items: albums.filter(isLT) },
-                    { lane: 'world' as const, items: albums.filter(a => !isLT(a)) },
+                    { lane: 'lt' as const, items: albums.filter(isLT), total: totals.albumsLt },
+                    { lane: 'world' as const, items: albums.filter(a => !isLT(a)), total: totals.albumsWorld },
                   ]
-                })().map(({ lane, items }, laneIdx) => (
+                })().map(({ lane, items, total }, laneIdx) => (
                   <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
-                    <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
+                    <div className="flex items-stretch gap-3">
                       <RowDivider icon={lane} />
-                      {albums.length === 0 ? Array(8).fill(null).map((_, i) => (
+                      <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
+                        {albums.length === 0 ? Array(8).fill(null).map((_, i) => (
                         <div key={i} className="shrink-0" style={{ width: 156 }}>
                           <Skel w={156} h={156} r={12} />
                           <div className="mt-2"><Skel w="80%" h={12} /></div>
@@ -2638,6 +2680,11 @@ export default function Home() {
                               {/* Hover orange tint nuo apačios */}
                               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                               {(() => {
+                                // Nauji albumai sekcijoje rodom „Prieš X d."
+                                // (jei <30 d.) arba „Mėn. D, YYYY" senesnėms
+                                // datoms. Upcoming albumai vis tiek matomi su
+                                // „Po X d./Greitai" — bet jie dažniausiai į
+                                // Greitai pasirodys sekciją iškeliami.
                                 const rd = (a as any).release_date as string | null
                                 const releaseD = rd ? new Date(rd) : null
                                 const validRD = releaseD && !isNaN(releaseD.getTime())
@@ -2646,14 +2693,14 @@ export default function Home() {
                                 const hasContent = !!(a.cover_image_url)
                                 let label: string | null = null
                                 let highlight = false
-                                if (isUpcoming && diff !== null && diff > 0 && diff <= 60) {
-                                  label = diff === 1 ? 'Rytoj' : `Po ${diff} d.`
-                                  highlight = diff <= 14
-                                } else if (isUpcoming && (diff === null || diff > 60) && hasContent) {
-                                  label = 'Greitai'
-                                  highlight = true
-                                } else if (validRD && diff !== null && diff <= 0) {
-                                  label = `${MONTHS_LT[releaseD!.getMonth()]}. ${releaseD!.getDate()}, ${releaseD!.getFullYear()}`
+                                if (isUpcoming) {
+                                  const f = formatFutureDateLT(rd)
+                                  if (f.label) { label = f.label; highlight = f.highlight }
+                                  else if (hasContent) { label = 'Greitai'; highlight = true }
+                                } else if (validRD) {
+                                  const rel = formatRelativeDateLT(rd)
+                                  label = rel || String(a.year || '')
+                                  if (diff !== null && diff <= -2 && diff >= -30) highlight = true
                                 } else if (a.year) {
                                   label = String(a.year)
                                 }
@@ -2677,10 +2724,12 @@ export default function Home() {
                           </button>
                         )
                       })}
-                      {items.length > 8 && (
-                        <HomeListMoreCard
-                          variant="square"
-                          count={items.length}
+                      </div>
+                      {total > items.slice(0, 14).length && (
+                        <StickyMoreButton
+                          count={total}
+                          height={200}
+                          ariaLabel={`Žiūrėti visus (${total})`}
                           onClick={() => setListModal(`albums-${lane}`)}
                         />
                       )}
@@ -2695,23 +2744,17 @@ export default function Home() {
                   cover'iai 156px, badge'as su data/„Greitai". ── */}
               {upcomingAlbums.length > 0 && (
                 <section>
-                  <SectionHead label="Greitai pasirodys" href="/albumai?filter=upcoming" />
-                  <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
+                  <SectionHead label="Greitai pasirodys" />
+                  <div className="flex items-stretch gap-3">
+                    <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
                     {upcomingAlbums.slice(0, 14).map(a => {
                       const rd = (a as any).release_date as string | null
-                      const releaseD = rd ? new Date(rd) : null
-                      const validRD = releaseD && !isNaN(releaseD.getTime())
-                      const diff = validRD ? Math.ceil((releaseD!.getTime() - Date.now()) / 86400000) : null
-                      let label: string | null = null
-                      let highlight = false
-                      if (diff !== null && diff > 0 && diff <= 60) {
-                        label = diff === 1 ? 'Rytoj' : `Po ${diff} d.`
-                        highlight = diff <= 14
-                      } else if (validRD) {
-                        label = `${MONTHS_LT[releaseD!.getMonth()]}. ${releaseD!.getDate()}, ${releaseD!.getFullYear()}`
-                      } else if (a.year) {
-                        label = String(a.year)
-                      }
+                      // formatFutureDateLT: ≤30 d. → „Po X d.", >30 d. →
+                      // konkreti data (lengviau perskaityti dideliu intervalu).
+                      const f = formatFutureDateLT(rd)
+                      let label: string | null = f.label
+                      let highlight: boolean = f.highlight
+                      if (!label && a.year) label = String(a.year)
                       return (
                         <button
                           key={a.id}
@@ -2753,10 +2796,12 @@ export default function Home() {
                         </button>
                       )
                     })}
-                    {upcomingAlbums.length > 8 && (
-                      <HomeListMoreCard
-                        variant="square"
-                        count={upcomingAlbums.length}
+                    </div>
+                    {totals.upcoming > upcomingAlbums.slice(0, 14).length && (
+                      <StickyMoreButton
+                        count={totals.upcoming}
+                        height={200}
+                        ariaLabel={`Žiūrėti visus (${totals.upcoming})`}
                         onClick={() => setListModal('upcoming')}
                       />
                     )}
@@ -2772,7 +2817,7 @@ export default function Home() {
             minHeight={280}
             placeholder={
               <section>
-                <SectionHead label="Renginiai" href="/renginiai" />
+                <SectionHead label="Renginiai" />
                 <div className="hp-scroll flex items-stretch gap-3 pb-1">
                   {Array(4).fill(null).map((_, i) => (
                     <div key={i} className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2" style={{ height: 110 }}>
@@ -2789,7 +2834,7 @@ export default function Home() {
             }
           >
           <section>
-            <SectionHead label="Renginiai" href="/renginiai" />
+            <SectionHead label="Renginiai" />
             {(() => {
               // LT/INTL filter logic — pirma žiūrim į artist'us, tada į miestą.
               // Artist'as turi country lauką — jei BENT VIENAS event artist'as
@@ -2822,8 +2867,9 @@ export default function Home() {
                     { lane: 'world' as const, items: world },
                   ].map(({ lane, items }, laneIdx) => (
                     <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
-                      <div className="hp-scroll flex items-stretch gap-3 pb-1">
+                      <div className="flex items-stretch gap-3">
                         <RowDivider icon={lane} />
+                        <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-1">
                         {filtEvt.length === 0 ? Array(4).fill(null).map((_, i) => (
                           <div
                             key={i}
@@ -2929,27 +2975,14 @@ export default function Home() {
                             </Link>
                           )
                         })}
-                        {items.length > 6 && (
-                          <button
-                            type="button"
+                        </div>
+                        {items.length > 0 && (
+                          <StickyMoreButton
+                            count={items.length}
+                            height={130}
+                            ariaLabel={`Žiūrėti visus (${items.length})`}
                             onClick={() => setListModal(`events-${lane}`)}
-                            className="hp-card group flex shrink-0 flex-col items-center justify-center gap-2 text-center transition-all hover:-translate-y-px hover:border-[rgba(249,115,22,0.5)]"
-                            style={{ height: 130, width: 200 }}
-                          >
-                            <div
-                              className="flex items-center justify-center rounded-full"
-                              style={{
-                                width: 54, height: 54,
-                                background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(249,115,22,0.05))',
-                                border: '1px solid rgba(249,115,22,0.3)',
-                                fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 18,
-                                color: 'var(--accent-orange)',
-                              }}
-                            >
-                              +{items.length}
-                            </div>
-                            <p className="m-0 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">Žiūrėti visus</p>
-                          </button>
+                          />
                         )}
                       </div>
                     </div>

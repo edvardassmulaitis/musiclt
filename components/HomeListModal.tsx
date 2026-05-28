@@ -3,13 +3,14 @@
 // components/HomeListModal.tsx
 //
 // Universalus „pilno sąrašo" modalas homepage'o sekcijoms. Atidaromas paspaudus
-// elegantišką „+ X" elementą horizontalios juostos pabaigoje. Modal'as parodo
-// VISĄ sekcijos sąrašą su patogiu vertical scroll'u — vietoj „Daugiau →"
-// nuorodos virš sekcijos (kuri nukreipdavo į kitą puslapį).
+// elegantišką siaurą „+N" elementą horizontalios juostos pabaigoje, kuris yra
+// VISADA matomas dešinėje (sticky outside scroll'inamo container'io).
 //
-// Generic — naudoja vaikų funkciją (render prop), kad konkreti sekcija pati
-// nuspręstų kaip rodyti kiekvieną item'ą. Šitas modal'as tik suteikia kontenerį
-// (header, scrollable body, close button).
+// `StickyMoreButton` — kompaktiškas siauras vertikalus button'as (50px pločio)
+// su tik skaičiumi. Stovi šalia scroll'inamo content'o, ne jame.
+//
+// Generic — `HomeListModal` priima vaikų funkciją (render prop), kad konkreti
+// sekcija pati nuspręstų kaip rodyti kiekvieną item'ą.
 
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -66,7 +67,6 @@ export function HomeListModal({
           boxShadow: 'var(--modal-shadow)',
         }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between gap-3 px-5 py-4 border-b"
           style={{ borderColor: 'var(--border-subtle)' }}
@@ -101,7 +101,6 @@ export function HomeListModal({
           </button>
         </div>
 
-        {/* Scrollable body */}
         <div
           className="flex-1 overflow-y-auto p-5"
           style={{ WebkitOverflowScrolling: 'touch' }}
@@ -114,102 +113,51 @@ export function HomeListModal({
   )
 }
 
-/** „+ X" elegantiškas card'as juostos pabaigoje — atidaro pilną sąrašą.
- *  Tas pats matmenys kaip albumo cover'ių (square ~156x156 default), bet
- *  galima pakeisti per `size` arba `className`. */
-export function HomeListMoreCard({
+/** Kompaktiškas siauras vertikalus „+N" button'as. Stovi šalia scroll'inamo
+ *  content'o, ne jame — todėl visada matomas dešinėje sekcijos pusėje, kai
+ *  user'is dar nepradėjo scroll'inti.
+ *
+ *  Naudojimas:
+ *  ```tsx
+ *  <div className="flex items-stretch gap-3">
+ *    <div className="flex-1 min-w-0 hp-scroll flex gap-3">...items</div>
+ *    <StickyMoreButton count={42} onClick={...} height={130} />
+ *  </div>
+ *  ```
+ */
+export function StickyMoreButton({
   count,
   onClick,
-  variant = 'square',
+  height,
+  ariaLabel,
 }: {
   count: number
   onClick: () => void
-  /** square — 156x156 + label apačioje; row — kompaktiškas 220px wide row. */
-  variant?: 'square' | 'row' | 'compact'
+  /** Container height (= scroll item aukštis), kad button'as tampa lygus
+   *  kortelei. Pvz. albumams 184px (cover+text), tracks 70px, events 130px. */
+  height: number
+  ariaLabel?: string
 }) {
-  if (variant === 'row') {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="hp-card flex shrink-0 items-center gap-3 px-3.5 py-3 text-left transition-all hover:-translate-y-px hover:border-[rgba(249,115,22,0.5)]"
-        style={{ width: 220 }}
-      >
-        <div
-          className="flex items-center justify-center rounded-[9px] flex-shrink-0"
-          style={{
-            width: 48, height: 48,
-            background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(249,115,22,0.05))',
-            border: '1px solid rgba(249,115,22,0.3)',
-            fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 14,
-            color: 'var(--accent-orange)',
-          }}
-        >
-          +{count}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="m-0 font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)]">Žiūrėti visus</p>
-          <p className="m-0 mt-1 text-[12px] text-[var(--text-muted)]">+{count} dar</p>
-        </div>
-      </button>
-    )
-  }
-  if (variant === 'compact') {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="hp-card flex shrink-0 flex-col items-center justify-center gap-2 px-4 text-center transition-all hover:-translate-y-px hover:border-[rgba(249,115,22,0.5)]"
-        style={{ width: 188, height: 290 }}
-      >
-        <div
-          className="flex items-center justify-center rounded-full"
-          style={{
-            width: 64, height: 64,
-            background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(249,115,22,0.05))',
-            border: '1px solid rgba(249,115,22,0.3)',
-            fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 20,
-            color: 'var(--accent-orange)',
-          }}
-        >
-          +{count}
-        </div>
-        <p className="m-0 font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)]">Žiūrėti visus</p>
-        <p className="m-0 text-[11px] text-[var(--text-muted)]">+{count} dar</p>
-      </button>
-    )
-  }
-  // Default — square (atitinka „Nauji albumai" cover'io stilistiką).
+  if (count <= 0) return null
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
-      style={{ width: 156 }}
+      aria-label={ariaLabel || `Žiūrėti visus (${count})`}
+      className="group flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl border transition-all hover:-translate-y-px"
+      style={{
+        width: 54,
+        height,
+        background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(249,115,22,0.04))',
+        borderColor: 'rgba(249,115,22,0.3)',
+        color: 'var(--accent-orange)',
+        fontFamily: 'Outfit,sans-serif',
+      }}
     >
-      <div
-        className="relative aspect-square overflow-hidden rounded-xl flex items-center justify-center transition-all duration-300 group-hover:-translate-y-0.5 group-hover:scale-[1.02]"
-        style={{
-          background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(249,115,22,0.04) 60%, rgba(249,115,22,0.08))',
-          border: '1px dashed rgba(249,115,22,0.35)',
-        }}
-      >
-        <div className="text-center">
-          <div
-            style={{
-              fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 32,
-              color: 'var(--accent-orange)', lineHeight: 1,
-            }}
-          >
-            +{count}
-          </div>
-          <p className="m-0 mt-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em]" style={{ color: 'var(--accent-orange)', fontFamily: 'Outfit,sans-serif' }}>Žiūrėti visus</p>
-        </div>
-      </div>
-      <div className="mt-2 px-0.5">
-        <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)]">Daugiau</p>
-        <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{count} įrašai</p>
-      </div>
+      <span style={{ fontSize: 18, fontWeight: 900, lineHeight: 1 }}>+{count}</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 6l6 6-6 6" />
+      </svg>
     </button>
   )
 }
