@@ -38,12 +38,11 @@ export const LATEST_NEWS_WINDOW_DAYS = 30
 
 // Per lane'ą rodom 10 įrašų. Fetch'inam daugiau kandidatų prieš dedupe.
 export const HOME_LANE_LIMIT = 10
-// DB šiuo metu over-capacity (žr. project_db_size_cleanup_2026_05_28).
-// 100 candidate'ai timeout'ina (Postgres statement timeout). Sumažinom į 50,
-// kad query bent kažkaip užbaigtų. Po dedupe per artist'ą 50→20 unikalių
-// artist'ų pakanka „Naujausioms dainoms" lane'ams.
-const TRACKS_CANDIDATE_FETCH_LIMIT = 50
-const ALBUMS_CANDIDATE_FETCH_LIMIT = 50
+// Po 2026-05-28 Pro plan upgrade + architectural slim-down + VACUUM FULL:
+// DB grįžo į healthy state, statement_timeout 60s, MICRO compute (1 GB RAM).
+// Atstatom limit'ą į 200 — gauname pilnesnį candidate pool dedupe'ui.
+const TRACKS_CANDIDATE_FETCH_LIMIT = 200
+const ALBUMS_CANDIDATE_FETCH_LIMIT = 200
 
 /* ────────────────────────────── Tags ────────────────────────────── */
 
@@ -106,6 +105,7 @@ type LatestTrackRow = {
   release_date: string | null
   artist_id: number
   artists: LatestTrackArtist | null
+  album_tracks?: Array<{ albums: { id: number; year: number | null } | null }> | null
 }
 
 type LatestAlbumRow = {
@@ -137,16 +137,16 @@ function isLT(country: string | null | undefined): boolean {
 async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
   const supabase = createAdminClient()
   const since = isoDaysAgo(LATEST_TRACK_WINDOW_DAYS)
-  // ⚠️ Anksčiau bandėm `album_tracks(albums(id, year))` JOIN'ą reissue
-  // filter'iui — bet su 200 candidates Supabase REST query stuck'indavo
-  // (>40s timeout). Reissue check'inam tik per `release_year`/`release_date`
-  // ant pačio track row'o (album metų prikalbinta album_tracks rolling job'e).
+  // Po Pro plan + slim-down: galim atstatyti `album_tracks(albums(year))`
+  // JOIN'ą reissue filter'iui. Su 200 candidates Pro tier (1 GB RAM,
+  // 2-core ARM) atsako per ~500ms.
   const { data, error } = await supabase
     .from('tracks')
     .select(
       'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
         'release_date, release_year, artist_id, ' +
-        'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country)'
+        'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country), ' +
+        'album_tracks(albums(id, year))'
     )
     .not('video_uploaded_at', 'is', null)
     .gte('video_uploaded_at', since)
@@ -178,7 +178,7 @@ export async function getLatestTracksForHome(): Promise<{
   totalLt: number
   totalWorld: number
 }> {
-  const rows = await cachedFetchLatestTracksRaw('v4-limit-50')
+  const rows = await cachedFetchLatestTracksRaw('v5-pro-200')
 
   // Filtruojam mojibake / placeholder titles, kur title == artist name.
   let valid = rows.filter(r => r.artists && r.title && r.title !== r.artists.name)
@@ -196,6 +196,14 @@ export async function getLatestTracksForHome(): Promise<{
     // Track'o paties release_year arba release_date metai
     const tYear = r.release_year ?? (r.release_date ? Number(r.release_date.slice(0, 4)) : null)
     if (tYear && tYear < FRESH_YEAR_THRESHOLD) return false
+    // Bet kuris linked album'as senesnis → reissue
+    const albumYears = (r.album_tracks || [])
+      .map(at => at.albums?.year ?? null)
+      .filter((y): y is number => typeof y === 'number')
+    if (albumYears.length > 0) {
+      const minYear = Math.min(...albumYears)
+      if (minYear < FRESH_YEAR_THRESHOLD) return false
+    }
     return true
   })
 

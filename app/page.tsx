@@ -2129,11 +2129,11 @@ export default function Home() {
     fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => setWorldTop(parseTop(d.entries || []))).catch(() => {})
 
     // tracks + albums vienu fetch'u — { tracks: { lt, world }, albums: { lt, world } }
-    // AbortController su 20s timeout — Vercel function cold-start gali užtrukti
-    // 8-10s, plius Supabase query +3-4s. Po 20s vis tiek abort'inam, kad
-    // pageReady fail-safe (7s) jau spėtų suveikti ir bent skeleton'ą rodyti.
+    // Po Pro plan upgrade DB queries grįžo ~200ms; 8s AbortController saugiklis
+    // cold-start'o atvejui. pageReady fail-safe per 7s vis tiek suveikia jei
+    // network'as visiškai užkimba.
     const tracksAbort = new AbortController()
-    const tracksTimer = setTimeout(() => tracksAbort.abort(), 20000)
+    const tracksTimer = setTimeout(() => tracksAbort.abort(), 8000)
     fetch('/api/home/latest', { signal: tracksAbort.signal })
       .then(r => r.json())
       .then(d => {
