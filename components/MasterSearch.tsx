@@ -151,6 +151,10 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
   const cacheRef = useRef<Map<string, { results: Results; totals: Totals; took_ms: number }>>(new Map())
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // restLoading — Phase B (visi kiti kategorijai, ne artists) dar kraunasi.
+  // Phase A (artists) jau baigėsi → nuimam pagrindinį loading flag'ą,
+  // bet pridėdam subtle indicator'ių apatiniam footer'iui.
+  const [restLoading, setRestLoading] = useState(false)
   const [recentQueries, setRecentQueries] = useState<string[]>([])
   // Trending = mix'as populiariausių atlikėjų + dainų pagal click'us per
   // /api/search-master/trending. Fallback'as — top by score, jei dar nėra
@@ -321,28 +325,106 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
     const ctrl = new AbortController()
     abortRef.current = ctrl
     setLoading(true)
-    try {
-      // Default limit=12 — šiek tiek daugiau negu API default (10), kad
-      // "Visi" view'e tilptų po nurodytą kiekį per kategoriją.
-      const r = await fetch(`/api/search-master?q=${encodeURIComponent(query)}&limit=12`, {
-        signal: ctrl.signal,
-      })
-      if (!r.ok) throw new Error('search failed')
-      const d = await r.json()
-      const safeResults: Results = { ...emptyResults(), ...(d.results || {}) }
-      const safeTotals: Totals = { ...emptyTotals(), ...(d.totals || {}) }
-      cacheRef.current.set(query, { results: safeResults, totals: safeTotals, took_ms: d.took_ms || 0 })
-      setResults(safeResults)
-      setTotals(safeTotals)
-      setTookMs(d.took_ms || 0)
-      setSelectedIdx(0)
-      setLastQuery(query)
-    } catch (e: any) {
-      if (e?.name === 'AbortError') return
-      console.error('Search error:', e)
-    } finally {
-      setLoading(false)
+    setRestLoading(true)
+
+    // ── 2026-05-28: Progresinis rendering ──
+    // Vietoj vieno fetch'o /api/search-master?q=... (~300-500ms iki visų
+    // 13 query'ų baigties), darome DU paraleliai:
+    //   - Phase A: ?categories=artists — vienas DB query, ~50-100ms.
+    //     Iškart parenda atlikėjus, kas yra dažniausias paieškos intent'as.
+    //   - Phase B: ?categories=albums,tracks,profiles,events,venues,news,blog_posts,discussions
+    //     — visa kita (fan-out, compound search). ~250-450ms.
+    // Cache'iname tik kai abi fazės baigėsi (kad cache hit'as duotų pilną
+    // rezultatą, ne pusbaigį). Loading flag'as nuimamas po Phase A
+    // — user'is iš karto matosi 1+ kategoriją, nors kitos dar krauiasi.
+    const start = Date.now()
+    let aDone = false
+    let bDone = false
+    let merged: Results = emptyResults()
+    let mergedTotals: Totals = emptyTotals()
+
+    const completedRef = { current: false }
+    const finishIfBothDone = () => {
+      if (aDone && bDone && !completedRef.current) {
+        completedRef.current = true
+        const took = Date.now() - start
+        cacheRef.current.set(query, { results: merged, totals: mergedTotals, took_ms: took })
+        setTookMs(took)
+        setLastQuery(query)
+        setLoading(false)
+        setRestLoading(false)
+      }
     }
+
+    const phaseA = fetch(
+      `/api/search-master?q=${encodeURIComponent(query)}&categories=artists&limit=12`,
+      { signal: ctrl.signal },
+    )
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!d || ctrl.signal.aborted) return
+        merged = { ...merged, artists: d.results?.artists || [] }
+        mergedTotals = { ...mergedTotals, artists: d.totals?.artists || 0 }
+        // Iš karto rodom — net jei Phase B dar neatėjo, user'is matosi
+        // atlikėjus. CSS'e likę kategorijos turi loading skeleton'ą.
+        setResults(merged)
+        setTotals(mergedTotals)
+        setSelectedIdx(0)
+        setLastQuery(query)
+        // Loading flag'as nuimamas po Phase A — user'is mato pirmus rezultatus.
+        // Phase B vis dar kraunasi, bet apatinės sekcijos turi savo skeleton'us.
+        setLoading(false)
+        aDone = true
+        finishIfBothDone()
+      })
+      .catch(e => {
+        if (e?.name !== 'AbortError') console.error('Search Phase A error:', e)
+      })
+
+    const phaseB = fetch(
+      `/api/search-master?q=${encodeURIComponent(query)}&categories=albums,tracks,profiles,events,venues,news,blog_posts,discussions&limit=12`,
+      { signal: ctrl.signal },
+    )
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!d || ctrl.signal.aborted) return
+        // Merge'inam visus kitus kategorijas. Artists palieam iš Phase A
+        // (Phase B kviečia su categories=...,bet artists vis tiek
+        // queriuojamas internal fan-out'ui; output'e jo nebus dėl filtro).
+        merged = {
+          ...merged,
+          albums: d.results?.albums || [],
+          tracks: d.results?.tracks || [],
+          profiles: d.results?.profiles || [],
+          events: d.results?.events || [],
+          venues: d.results?.venues || [],
+          news: d.results?.news || [],
+          blog_posts: d.results?.blog_posts || [],
+          discussions: d.results?.discussions || [],
+        }
+        mergedTotals = {
+          ...mergedTotals,
+          albums: d.totals?.albums || 0,
+          tracks: d.totals?.tracks || 0,
+          profiles: d.totals?.profiles || 0,
+          events: d.totals?.events || 0,
+          venues: d.totals?.venues || 0,
+          news: d.totals?.news || 0,
+          blog_posts: d.totals?.blog_posts || 0,
+          discussions: d.totals?.discussions || 0,
+        }
+        setResults(merged)
+        setTotals(mergedTotals)
+        bDone = true
+        finishIfBothDone()
+      })
+      .catch(e => {
+        if (e?.name !== 'AbortError') console.error('Search Phase B error:', e)
+      })
+
+    // Wait'inam tik kad būtų klaidų catch'us. Loading flag jau nuimamas
+    // po Phase A.
+    await Promise.all([phaseA, phaseB])
   }, [])
 
   // ── Effective results — kai activeCat = specifinė kategorija ir
@@ -561,8 +643,17 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
         {/* ── Footer: tik rezultatų stats (jei yra) ──
             Keyboard hints (↑/↓/Enter/Esc) pašalinti — apkraudavo modal'ą
             informacija, kuri akivaizdi mouse user'iams ir power user'iai
-            jau žino shortcut'us. */}
-        {tookMs > 0 && (
+            jau žino shortcut'us.
+            Phase B in-flight — subtle indicator'ius kad user'is žinotų,
+            jog dar daugiau rezultatų atskubės (track'ai, albumai, news...). */}
+        {restLoading && total > 0 && (
+          <div className="ms-footer" style={{ opacity: 0.7 }}>
+            <span className="ms-footer-stats">
+              <Equalizer /> Krauname dainas, albumus, naujienas...
+            </span>
+          </div>
+        )}
+        {!restLoading && tookMs > 0 && (
           <div className="ms-footer">
             <span className="ms-footer-stats">{total} rezultatai · {tookMs}ms</span>
           </div>

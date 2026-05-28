@@ -315,8 +315,9 @@ export async function GET(request: Request) {
     query: q,
   }, {
     headers: {
-      'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=60',
-      'CDN-Cache-Control': 'public, s-maxage=15, stale-while-revalidate=60',
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
     },
   })
 }
