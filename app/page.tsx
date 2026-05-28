@@ -1882,23 +1882,40 @@ export default function Home() {
   })
 
   useEffect(() => {
-    // 7 fetch'ai paraleliai. Kiekvienas baigęsis bumpina loadProgress (0..7)
-    // → naudotojas mato realų progresą dash bar'e (mažiau "ilgokai kraunasi"
-    // jausmas).
+    // Homepage fetch'ai paraleliai. Po 2026-05-28 optimizacijos:
+    //   - /api/home/latest grąžina tracks + albums vienu round-trip'u, su
+    //     server-side LT/World lane split, per-artist dedupe (tracks),
+    //     90d window. Cache'inamas su tag'u (home:tracks-latest, home:albums-latest).
+    //   - /api/news apriboja į 30 d. ir 12 įrašų (anksčiau 30 modern + 30 legacy).
+    //   - /api/artists fetch'as PAŠALINTAS — "Atrask atlikėjus" UI yra po
+    //     `{false &&` toggle'u (kol kas paslėpta). Brangus reverse'as DB nieko.
     fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); readyBits.current.tops = true; tryReady.current() }).catch(() => { readyBits.current.tops = true; tryReady.current() })
     fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => setWorldTop(parseTop(d.entries || []))).catch(() => {})
-    fetch('/api/tracks?limit=24').then(r => r.json()).then(d => { setTracks(d.tracks || []); readyBits.current.tracks = true; tryReady.current() }).catch(() => { readyBits.current.tracks = true; tryReady.current() })
-    fetch('/api/albums?limit=24').then(r => r.json()).then(d => setAlbums(d.albums || [])).catch(() => {})
-    // Sort artists by score (descending) — kai duomenų bazėje 200+ atlikėjų,
-    // Atrask sekcija turėtų rodyti aukščiausiai score'inamus, ne tik
-    // alfabetiškai pirmus. Limit'as 24 — pakanka 8 grid'ui + buffer'is jei
-    // kas filtruosis.
-    fetch('/api/artists?limit=24&sort=score').then(r => r.json()).then(d => setArtists(d.artists || [])).catch(() => {})
+
+    // tracks + albums vienu fetch'u — { tracks: { lt, world }, albums: { lt, world } }
+    fetch('/api/home/latest')
+      .then(r => r.json())
+      .then(d => {
+        const tLt = (d.tracks?.lt || []) as any[]
+        const tWorld = (d.tracks?.world || []) as any[]
+        // Concat'inam į flat array — existing render skiria lane'us per client-side
+        // `isLT()` filtrą pagal `artists.country`. Backend jau pre-filtravo per
+        // lane'ą, tad client-side filtr'as veiks idempotentiškai (LT eis į LT
+        // lane'ą, World į World lane'ą).
+        setTracks([...tLt, ...tWorld])
+        readyBits.current.tracks = true
+        tryReady.current()
+        const aLt = (d.albums?.lt || []) as any[]
+        const aWorld = (d.albums?.world || []) as any[]
+        setAlbums([...aLt, ...aWorld])
+      })
+      .catch(() => { readyBits.current.tracks = true; tryReady.current() })
+
     fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
-    // News + songs vienu request'u (anksčiau buvo /api/news + 30× /api/news/{id}/songs).
-    // ?include=songs grąžina { ..., songs: [...] } per news. Hero parsina
-    // pirmąją YT-bearing dainą iš to array'aus.
-    fetch('/api/news?limit=30&include=songs')
+    // News + songs vienu request'u. `since_days=30` apriboja į pastarąsias 30 d.
+    // tiek modern, tiek legacy news. Limit 12 vietoj 30 — hero reels rodo
+    // max ~10 slide'ų; daugiau payload tik teršia bandwidth'ą.
+    fetch('/api/news?limit=12&include=songs&since_days=30')
       .then(r => r.json())
       .then(d => {
         const newsList = d.news || []

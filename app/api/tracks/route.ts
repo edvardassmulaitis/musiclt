@@ -314,5 +314,12 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // Naujas track'as → išvalom homepage cache'ą, kad atsirastų iš karto „Naujos
+  // dainos" sekcijoje (kitaip CDN 5 min nelaiks naujausią versiją).
+  try {
+    const { revalidateHomeTag } = await import('@/lib/home-latest')
+    revalidateHomeTag('tracks')
+  } catch {}
+
   return NextResponse.json(track, { status: 201 })
 }

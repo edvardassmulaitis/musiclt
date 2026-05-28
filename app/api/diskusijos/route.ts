@@ -57,7 +57,16 @@ export async function GET(req: Request) {
 
   const { data, count, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ discussions: data || [], total: count || 0 })
+  // CDN edge cache — homepage'as kviečia /api/diskusijos kelis kartus per
+  // load'ą (CommunityDiscussionsCard + CommunityUserPostsCard naudoja tą
+  // patį response'ą). Be cache'o tai = 2 DB hit'ai per anonimą.
+  return NextResponse.json({ discussions: data || [], total: count || 0 }, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+    },
+  })
 }
 
 export async function POST(req: Request) {

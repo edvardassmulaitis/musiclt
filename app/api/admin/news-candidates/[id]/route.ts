@@ -375,6 +375,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       console.error('[approve] candidate status update failed:', candUpdErr.message)
     }
 
+    // Cache invalidation — naujiena ką tik atsirado homepage'o feed'e.
+    try {
+      const { revalidateHomeTag } = await import('@/lib/home-latest')
+      revalidateHomeTag('news')
+    } catch {}
+
     return NextResponse.json({
       ok: true,
       status: 'approved',

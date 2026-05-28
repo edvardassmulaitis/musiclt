@@ -81,6 +81,11 @@ export async function POST(req: NextRequest) {
   try {
     const data = await req.json()
     const id = await createAlbum(data)
+    // Naujas albumas → išvalom homepage cache'ą.
+    try {
+      const { revalidateHomeTag } = await import('@/lib/home-latest')
+      revalidateHomeTag('albums')
+    } catch {}
     return NextResponse.json({ id })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
