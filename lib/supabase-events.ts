@@ -24,7 +24,7 @@ export async function getEvents(opts: {
       status, is_featured, created_at,
       event_artists(
         artist_id, is_headliner, sort_order,
-        artists(id, name, slug, cover_image_url)
+        artists(id, name, slug, cover_image_url, country)
       )
     `, { count: 'exact' })
     .order('start_date', { ascending: true })

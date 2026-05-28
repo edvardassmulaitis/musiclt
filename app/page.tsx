@@ -5,13 +5,17 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useSite } from '@/components/SiteContext'
 import { HomeChatsWidget } from '@/components/HomeChatsWidget'
+import { LazySection } from '@/components/LazySection'
 import { proxyImg } from '@/lib/img-proxy'
+import { HomeTrackModal } from '@/components/HomeTrackModal'
+import AlbumInfoModal from '@/components/AlbumInfoModal'
+import { HomeListModal, HomeListMoreCard } from '@/components/HomeListModal'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
 type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
-type EventArtist = { artists?: { id: number; name: string; slug: string; cover_image_url?: string | null } | null; artist_id?: number; sort_order?: number; is_headliner?: boolean }
+type EventArtist = { artists?: { id: number; name: string; slug: string; cover_image_url?: string | null; country?: string | null } | null; artist_id?: number; sort_order?: number; is_headliner?: boolean }
 type Event = { id: number; slug: string; title: string; event_date?: string; start_date?: string; end_date?: string; venue_custom?: string | null; venue_name?: string | null; venue_id?: number | null; image_small_url?: string | null; cover_image_url?: string | null; image_url?: string | null; city?: string | null; address?: string | null; created_at?: string; venues?: { name: string; city: string } | null; event_artists?: EventArtist[] | null }
 type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
@@ -706,13 +710,9 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
                   display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                 }}>{s.title}</p>
 
-              {s.subtitle && (
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 14px', lineHeight: 1.5,
-                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                }}>
-                  {s.subtitle}
-                </p>
-              )}
+              {/* Subtitle/excerpt pašalintas — naudotojas paprašė rodyti tik
+                  main title naujienoms (mobile + desktop). Subtitle dažnai
+                  buvo nuvedamas (excerpt'as), todėl card'as atrodė užkrautas. */}
 
               {/* Video trigger */}
               {s.videoId && !videoOpen && i === idx && (
@@ -998,6 +998,125 @@ function CommunityUserPostsCard() {
   )
 }
 
+/* ────────────────────────────── Pulsas section ──────────────────────────────
+   Naujausių UGC įrašų aktyvumo feed'as — keičia anksčiau buvusią „Bendruomenė"
+   sekciją. Rodo blog įrašus, diskusijas ir komentarus mažomis kortelėmis
+   (panašiai kaip news cards). Vienas vientisas sąrašas, sortuotas pagal datą. */
+
+type PulsasItem = {
+  id: string
+  type: 'blog' | 'discussion' | 'comment'
+  subtype?: string | null
+  title: string
+  excerpt: string | null
+  href: string
+  cover: string | null
+  author_name: string | null
+  author_slug: string | null
+  author_avatar: string | null
+  created_at: string
+  meta?: string | null
+}
+
+function PulsasSection() {
+  const [items, setItems] = useState<PulsasItem[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/pulsas?limit=16')
+      .then(r => r.json())
+      .then(d => { if (alive) { setItems(d.items || []); setLoading(false) } })
+      .catch(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [])
+
+  const typeColor = (t: string, sub?: string | null) => {
+    if (t === 'blog') {
+      if (sub === 'review') return 'text-[var(--accent-yellow)]'
+      if (sub === 'creation') return 'text-[var(--accent-orange)]'
+      if (sub === 'translation') return 'text-[var(--accent-link)]'
+      return 'text-[var(--accent-orange)]'
+    }
+    if (t === 'discussion') return 'text-[var(--accent-link)]'
+    return 'text-[var(--accent-green)]'
+  }
+  const typeBg = (t: string, sub?: string | null) => {
+    if (t === 'blog') {
+      if (sub === 'review') return 'bg-[var(--accent-yellow)]/15'
+      if (sub === 'creation') return 'bg-[var(--accent-orange)]/15'
+      if (sub === 'translation') return 'bg-[var(--accent-link)]/15'
+      return 'bg-[var(--accent-orange)]/15'
+    }
+    if (t === 'discussion') return 'bg-[var(--accent-link)]/15'
+    return 'bg-[var(--accent-green)]/15'
+  }
+
+  return (
+    <section>
+      <SectionHead label="Pulsas" href="/bendruomene" cta="Daugiau →" />
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {loading ? Array(8).fill(null).map((_, i) => (
+          <div key={i} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3.5">
+            <div className="flex items-center gap-2 mb-2">
+              <Skel w={50} h={14} r={4} />
+              <Skel w={40} h={9} />
+            </div>
+            <Skel w="92%" h={12} />
+            <div className="mt-1.5"><Skel w="78%" h={11} /></div>
+            <div className="mt-3 flex items-center gap-2">
+              <Skel w={22} h={22} r={11} />
+              <Skel w="50%" h={9} />
+            </div>
+          </div>
+        )) : items.length === 0 ? (
+          <div className="col-span-full rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-8 text-center">
+            <p className="m-0 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Pulsas — netrukus</p>
+            <p className="m-0 mt-1 text-[11.5px] text-[var(--text-muted)]">
+              Čia atsiras naujausi vartotojų įrašai: diskusijos, blogai, vertimai, komentarai.
+            </p>
+          </div>
+        ) : items.map(it => (
+          <Link
+            key={it.id}
+            href={it.href}
+            className="hp-card group flex flex-col overflow-hidden p-3.5 no-underline"
+          >
+            <div className="mb-1.5 flex items-center gap-1.5">
+              {it.meta && (
+                <span className={`rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] ${typeBg(it.type, it.subtype)} ${typeColor(it.type, it.subtype)}`}>
+                  {it.meta}
+                </span>
+              )}
+              <span className="ml-auto text-[9px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
+            </div>
+            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+              {it.title}
+            </p>
+            {it.excerpt && (
+              <p className="m-0 mt-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+                {it.excerpt}
+              </p>
+            )}
+            {it.author_name && (
+              <div className="mt-3 flex items-center gap-2 pt-2 border-t border-[var(--border-subtle)]">
+                {it.author_avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={proxyImg(it.author_avatar)} alt="" className="h-[22px] w-[22px] flex-shrink-0 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[9px] font-extrabold" style={{ background: `hsl(${strHue(it.author_name)},32%,18%)`, color: `hsl(${strHue(it.author_name)},45%,55%)` }}>
+                    {it.author_name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="truncate text-[10.5px] text-[var(--text-secondary)]">{it.author_name}</span>
+              </div>
+            )}
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 /* ────────────────────────────── Pramogos cards ────────────────────────────── */
 
 function PramogosDienosDainaCard() {
@@ -1055,32 +1174,93 @@ function PramogosManagerPlaceholderCard() {
   )
 }
 
-/* ────────────────────────────── Istorija sekcija ────────────────────────────── */
+/* ────────────────────────────── Istorija sekcija ──────────────────────────────
+   Šiandien aktualu istorijos kontekste: gimtadieniai, mirties metinės, albumų
+   jubiliejai. Duomenys per /api/istorija/today (artists.birth_date,
+   artists.death_date, albums.month+day matching dabartinę dieną). */
+
+type IstApiItem = {
+  id: string
+  type: 'birthday' | 'death_anniversary' | 'album_anniversary'
+  title: string
+  subtitle: string
+  href: string
+  emoji: string
+  cover: string | null
+  year: number | null
+  age?: number | null
+}
 
 function IstorijaSection() {
-  // Placeholder data — kol nėra DB join'o, rodom tipinius items.
-  // TODO: /api/istorija endpoint'as su real anniversaries iš album.year + artist.born/died.
-  type IstItem = { id: string; type: 'jubiliejus'|'gimtadienis'|'mirtis'; title: string; subtitle: string; date: string; href: string; emoji: string }
-  const items: IstItem[] = [
-    { id: 'placeholder-1', type: 'jubiliejus', title: 'Albumų jubiliejai', subtitle: 'Kasdien primename albumų sukaktis', date: 'Kas dieną', href: '/istorija/jubiliejai', emoji: '💿' },
-    { id: 'placeholder-2', type: 'gimtadienis', title: 'Atlikėjų gimtadieniai', subtitle: 'Kas šiandien gimęs?', date: 'Šiandien', href: '/istorija/gimtadieniai', emoji: '🎂' },
-    { id: 'placeholder-3', type: 'mirtis', title: 'Sukaktys', subtitle: 'Atminčiai — netekties datos', date: 'Atminimas', href: '/istorija/mirtys', emoji: '🕯️' },
-  ]
+  const [items, setItems] = useState<IstApiItem[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/istorija/today')
+      .then(r => r.json())
+      .then(d => { if (alive) { setItems(d.items || []); setLoading(false) } })
+      .catch(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="hp-scroll flex items-stretch gap-3 pb-1">
+        {Array(4).fill(null).map((_, i) => (
+          <div key={i} className="hp-card flex shrink-0 flex-col overflow-hidden p-4" style={{ width: 280, minHeight: 130 }}>
+            <div className="mb-2 flex items-center gap-2"><Skel w={28} h={20} r={4} /><Skel w={60} h={9} /></div>
+            <Skel w="90%" h={13} />
+            <div className="mt-1.5"><Skel w="70%" h={11} /></div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="hp-card flex flex-col items-center justify-center p-6 text-center" style={{ minHeight: 130 }}>
+        <p className="m-0 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Šiandien istorijos kalendoriuje tylu</p>
+        <p className="m-0 mt-1 text-[11.5px] text-[var(--text-muted)]">Nepamiršk — kiekvieną dieną čia atsiras gimtadieniai, jubiliejai ir sukaktys.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="hp-scroll flex items-stretch gap-3 pb-1">
       {items.map(it => (
         <Link
           key={it.id}
           href={it.href}
-          className="hp-card group flex shrink-0 flex-col overflow-hidden p-4 no-underline"
-          style={{ width: 280, minHeight: 130 }}
+          className="hp-card group flex shrink-0 items-stretch gap-0 overflow-hidden p-0 no-underline"
+          style={{ width: 320, minHeight: 130 }}
         >
-          <div className="mb-2 flex items-center gap-2">
-            <span className="text-2xl">{it.emoji}</span>
-            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">{it.date}</span>
+          {it.cover && (
+            <div className="relative shrink-0 overflow-hidden bg-[var(--cover-placeholder)]" style={{ width: 110 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={proxyImg(it.cover)}
+                alt=""
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+              />
+              <div className="absolute top-1.5 left-1.5 bg-black/72 backdrop-blur-sm rounded-md w-7 h-7 flex items-center justify-center text-base">
+                {it.emoji}
+              </div>
+            </div>
+          )}
+          <div className="flex min-w-0 flex-1 flex-col justify-center px-4 py-3">
+            {!it.cover && (
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-2xl">{it.emoji}</span>
+              </div>
+            )}
+            <p className="m-0 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)] mb-1">
+              {it.type === 'birthday' ? 'Gimtadienis' : it.type === 'death_anniversary' ? 'Atminimas' : 'Jubiliejus'}
+            </p>
+            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
+            <p className="m-0 mt-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">{it.subtitle}</p>
           </div>
-          <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
-          <p className="m-0 mt-1.5 text-[11.5px] leading-relaxed text-[var(--text-muted)]">{it.subtitle}</p>
         </Link>
       ))}
     </div>
@@ -1134,11 +1314,8 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
         <h3 className="m-0 line-clamp-2 max-w-[420px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">
           {slide.title}
         </h3>
-        {slide.subtitle && (
-          <p className="m-0 mt-2 line-clamp-2 max-w-[420px] text-[13px] leading-relaxed text-white/85">
-            {slide.subtitle}
-          </p>
-        )}
+        {/* Subtitle/excerpt naujienoms pašalintas — UI'as paprastesnis,
+            tik main title (žr. naudotojo paaiškinimą 2026-05-28). */}
       </div>
     </Link>
   )
@@ -1776,11 +1953,29 @@ export default function Home() {
   /* ── Chart bottom sheet state (mobile + naudojama bet kur) ── */
   const [chartSheet, setChartSheet] = useState<{ topType: 'lt_top30' | 'top40'; title: string; accent: string } | null>(null)
 
+  /* ── Modal state ── */
+  // Track/Album modal'ai homepage'e — atidaromi spaudžiant track/album card.
+  // openTrack: track obj iš homepage'o payload'o (lengvas info — modal'as
+  // dofetchina papildomą per /api/tracks/[id]).
+  // openAlbumId: tik ID — AlbumInfoModal pats fetch'ina pilnus duomenis.
+  const [openTrack, setOpenTrack] = useState<Track | null>(null)
+  const [openAlbumId, setOpenAlbumId] = useState<number | null>(null)
+  const [openAlbumPreview, setOpenAlbumPreview] = useState<{ title: string; cover_image_url?: string | null; year?: number | null } | null>(null)
+
+  /* ── List modal state — pilnam sekcijos sąrašui per HomeListModal'ą ──
+   * key — sekcijos identifikatorius: 'tracks-lt', 'tracks-world', 'albums-lt',
+   * 'albums-world', 'upcoming', 'news', 'events-lt', 'events-world'. */
+  const [listModal, setListModal] = useState<string | null>(null)
+
   /* ── Hero state ── */
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
   const [worldTop, setWorldTop] = useState<TopEntry[]>([])
   const [tracks, setTracks] = useState<Track[]>([])
   const [albums, setAlbums] = useState<Album[]>([])
+  // „Greitai pasirodys" — bendras (LT + INTL) sąrašas, dar neišleistų albumų
+  // (is_upcoming=true arba release_date ateityje). Vienas lane'as, sortinta
+  // pagal artimiausią datą ASC.
+  const [upcomingAlbums, setUpcomingAlbums] = useState<Album[]>([])
   const [artists, setArtists] = useState<Artist[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [news, setNews] = useState<NewsItem[]>([])
@@ -1908,6 +2103,7 @@ export default function Home() {
         const aLt = (d.albums?.lt || []) as any[]
         const aWorld = (d.albums?.world || []) as any[]
         setAlbums([...aLt, ...aWorld])
+        setUpcomingAlbums((d.upcoming || []) as any[])
       })
       .catch(() => { readyBits.current.tracks = true; tryReady.current() })
 
@@ -2225,7 +2421,10 @@ export default function Home() {
                 // ── Default slide (news/event/promo) — opens reels ──
                 const isSeen = seenSlides.has(slide.href)
                 const artistName = slide.artist?.name || null
-                const showExcerpt = slide.type === 'news' && slide.subtitle && slide.subtitle.length > 5
+                // showExcerpt — naujienoms NEBE rodom subtitle (excerpt'as).
+                // Card'as paprastesnis: chip + title (+ artist'as jei yra).
+                // Eventams paliekam subtitle (data/vieta) — jis kontekstinis.
+                const showExcerpt = slide.type === 'event' && slide.subtitle && slide.subtitle.length > 5
                 return (
                   <button key={i} onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
                     style={{ flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
@@ -2341,18 +2540,15 @@ export default function Home() {
                           {lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}
                         </div>
                       ) : items.slice(0, 14).map(t => {
-                        // API'as grąžina ir `artists.slug` (nested) ir `artist_slug` (flat alias).
-                        // Track slug DB'e gali būti null — fallback'inam į client-side
-                        // slugify(title), nes route handler trailing-{id} ir taip
-                        // redirect'ins į canonical URL su DB slug'u.
-                        const artistSlug = t.artists?.slug || (t as any).artist_slug
-                        const tSlug = (t as any).slug || quickSlugify(sanitizeTitle(t.title))
-                        const href = artistSlug ? `/dainos/${artistSlug}-${tSlug}-${t.id}` : `/dainos/${tSlug}-${t.id}`
+                        // Track card → atidaro HomeTrackModal (vietoj navigacijos
+                        // į pilną /dainos puslapį). Modal'as parodo YT embed +
+                        // info; jei user'is nori pilno track puslapio — CTA viduje.
                         return (
-                          <Link
+                          <button
                             key={t.id}
-                            href={href}
-                            className="hp-card flex shrink-0 items-center gap-3 px-3.5 py-3"
+                            type="button"
+                            onClick={() => setOpenTrack(t)}
+                            className="hp-card flex shrink-0 items-center gap-3 px-3.5 py-3 text-left"
                             style={{ width: 220 }}
                           >
                             <Cover
@@ -2371,9 +2567,16 @@ export default function Home() {
                                 {t.artists?.name}
                               </p>
                             </div>
-                          </Link>
+                          </button>
                         )
                       })}
+                      {items.length > 8 && (
+                        <HomeListMoreCard
+                          variant="row"
+                          count={items.length}
+                          onClick={() => setListModal(`tracks-${lane}`)}
+                        />
+                      )}
                     </div>
                   </div>
                 ))}
@@ -2408,14 +2611,15 @@ export default function Home() {
                           {lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}
                         </div>
                       ) : items.slice(0, 14).map(a => {
-                        const artistSlug = a.artists?.slug || (a as any).artist_slug
-                        const aSlug = (a as any).slug || quickSlugify(sanitizeTitle(a.title))
-                        const href = artistSlug ? `/albumai/${artistSlug}-${aSlug}-${a.id}` : `/albumai/${aSlug}-${a.id}`
+                        // Album card → atidaro AlbumInfoModal (vietoj /albumai
+                        // navigacijos). Modal'as turi visą funkcionalumą:
+                        // tracklist, lyrics, prev/next ir t.t.
                         return (
-                          <Link
+                          <button
                             key={a.id}
-                            href={href}
-                            className="group block shrink-0 no-underline"
+                            type="button"
+                            onClick={() => { setOpenAlbumId(a.id); setOpenAlbumPreview({ title: sanitizeTitle(a.title), cover_image_url: a.cover_image_url || a.artists?.cover_image_url || null, year: a.year || null }) }}
+                            className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
                             style={{ width: 156 }}
                           >
                             <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
@@ -2470,22 +2674,144 @@ export default function Home() {
                                 {a.artists?.name}
                               </p>
                             </div>
-                          </Link>
+                          </button>
                         )
                       })}
+                      {items.length > 8 && (
+                        <HomeListMoreCard
+                          variant="square"
+                          count={items.length}
+                          onClick={() => setListModal(`albums-${lane}`)}
+                        />
+                      )}
                     </div>
                   </div>
                 ))}
               </section>
+
+              {/* ── Greitai pasirodys — albumai dar neišleisti (bendras
+                  LT + INTL sąrašas, sortuotas pagal artimiausią datą ASC).
+                  Tas pats kortelės stilius kaip „Nauji albumai" — kvadratiniai
+                  cover'iai 156px, badge'as su data/„Greitai". ── */}
+              {upcomingAlbums.length > 0 && (
+                <section>
+                  <SectionHead label="Greitai pasirodys" href="/albumai?filter=upcoming" />
+                  <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
+                    {upcomingAlbums.slice(0, 14).map(a => {
+                      const rd = (a as any).release_date as string | null
+                      const releaseD = rd ? new Date(rd) : null
+                      const validRD = releaseD && !isNaN(releaseD.getTime())
+                      const diff = validRD ? Math.ceil((releaseD!.getTime() - Date.now()) / 86400000) : null
+                      let label: string | null = null
+                      let highlight = false
+                      if (diff !== null && diff > 0 && diff <= 60) {
+                        label = diff === 1 ? 'Rytoj' : `Po ${diff} d.`
+                        highlight = diff <= 14
+                      } else if (validRD) {
+                        label = `${MONTHS_LT[releaseD!.getMonth()]}. ${releaseD!.getDate()}, ${releaseD!.getFullYear()}`
+                      } else if (a.year) {
+                        label = String(a.year)
+                      }
+                      return (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => { setOpenAlbumId(a.id); setOpenAlbumPreview({ title: sanitizeTitle(a.title), cover_image_url: a.cover_image_url || a.artists?.cover_image_url || null, year: a.year || null }) }}
+                          className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
+                          style={{ width: 156 }}
+                        >
+                          <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+                            {a.cover_image_url || a.artists?.cover_image_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')}
+                                alt={sanitizeTitle(a.title)}
+                                loading="lazy"
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                                style={{ filter: 'saturate(1.05) contrast(1.02)' }}
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">⏳</div>
+                            )}
+                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                            {label && (
+                              <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${
+                                highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
+                              }`}>
+                                {label}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-2 px-0.5">
+                            <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                              {sanitizeTitle(a.title)}
+                            </p>
+                            <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">
+                              {a.artists?.name}
+                            </p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                    {upcomingAlbums.length > 8 && (
+                      <HomeListMoreCard
+                        variant="square"
+                        count={upcomingAlbums.length}
+                        onClick={() => setListModal('upcoming')}
+                      />
+                    )}
+                  </div>
+                </section>
+              )}
           {/* ── Renginiai LT + Užsienio: 2 lanes su badge'ais 'NAUJIENA' / 'GREITAI' ── */}
+          {/* LazySection — sekcija render'inasi tik kai user'is scroll'iuoja
+              arti viewport'o. Be lazy aukščiau matomos Naujos dainos / Nauji
+              albumai sekcijos lieka eager. Žr. components/LazySection.tsx. */}
+          <LazySection
+            rootMargin="400px"
+            minHeight={280}
+            placeholder={
+              <section>
+                <SectionHead label="Renginiai" href="/renginiai" />
+                <div className="hp-scroll flex items-stretch gap-3 pb-1">
+                  {Array(4).fill(null).map((_, i) => (
+                    <div key={i} className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2" style={{ height: 110 }}>
+                      <Skel w={94} h={94} r={9} />
+                      <div className="flex-1" style={{ width: 200 }}>
+                        <Skel w="80%" h={11} />
+                        <div className="mt-1.5"><Skel w="55%" h={9} /></div>
+                        <div className="mt-2"><Skel w="35%" h={8} /></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            }
+          >
           <section>
             <SectionHead label="Renginiai" href="/renginiai" />
             {(() => {
-              // LT cities heuristic — visa kita laikoma "užsienis"
+              // LT/INTL filter logic — pirma žiūrim į artist'us, tada į miestą.
+              // Artist'as turi country lauką — jei BENT VIENAS event artist'as
+              // LT → renginys LT. Jei artist'ai aiškiai NE LT (visi užsienio) →
+              // renginys INTL, nepaisant city (LT artist'as gali koncertuoti Rygoje).
+              const LT_COUNTRIES = new Set(['Lietuva', 'LT', 'Lithuania'])
               const LT_CITIES = new Set(['Vilnius','Kaunas','Klaipėda','Klaipeda','Šiauliai','Siauliai','Panevėžys','Panevezys','Alytus','Marijampolė','Marijampole','Mažeikiai','Mazeikiai','Jonava','Utena','Kėdainiai','Kedainiai','Tauragė','Taurage','Telšiai','Telsiai','Visaginas','Plungė','Plunge','Druskininkai','Palanga','Anykščiai','Anyksciai','Trakai','Birštonas','Birstonas','Ukmergė','Ukmerge','Kretinga','Šilutė','Silute','Radviliškis','Radviliskis','Rokiškis','Rokiskis','Elektrėnai','Elektrenai','Šalčininkai','Salcininkai','Pakruojis','Lentvaris'])
               const isLT = (ev: any) => {
+                const ea = (ev.event_artists || []).map((a: any) => a.artists).filter(Boolean)
+                if (ea.length > 0) {
+                  // BENT VIENAS LT artist'as → LT renginys
+                  const anyLT = ea.some((a: any) => {
+                    const c = a?.country
+                    return !c || LT_COUNTRIES.has(c) // unknown country dažniausiai LT
+                  })
+                  if (anyLT) return true
+                  // Visi artist'ai aiškiai užsienio
+                  return false
+                }
+                // Be artist'ų — fallback į city heuristics
                 const c = ev.venues?.city || (ev as any).city || ''
-                return c ? LT_CITIES.has(c) : true // be city — laikom LT
+                return c ? LT_CITIES.has(c) : true
               }
               const lt = filtEvt.filter(isLT)
               const world = filtEvt.filter(ev => !isLT(ev))
@@ -2501,18 +2827,18 @@ export default function Home() {
                         {filtEvt.length === 0 ? Array(4).fill(null).map((_, i) => (
                           <div
                             key={i}
-                            className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2"
-                            style={{ height: 110 }}
+                            className="flex shrink-0 items-stretch gap-0 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden"
+                            style={{ height: 130, width: 360 }}
                           >
-                            <Skel w={94} h={94} r={9} />
-                            <div className="flex-1" style={{ width: 200 }}>
+                            <Skel w={130} h={130} r={0} />
+                            <div className="flex-1 p-3">
                               <Skel w="80%" h={11} />
                               <div className="mt-1.5"><Skel w="55%" h={9} /></div>
                               <div className="mt-2"><Skel w="35%" h={8} /></div>
                             </div>
                           </div>
                         )) : items.length === 0 ? (
-                          <div className="flex h-[110px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
+                          <div className="flex h-[130px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
                             {lane === 'lt' ? 'Lietuvoje renginių nėra' : 'Užsienio renginių nėra'}
                           </div>
                         ) : items.slice(0, 14).map(ev => {
@@ -2539,21 +2865,24 @@ export default function Home() {
                               key={ev.id}
                               href={`/renginiai/${ev.slug}`}
                               className="hp-card group flex shrink-0 items-stretch gap-0 overflow-hidden p-0 no-underline"
-                              style={{ height: 110 }}
+                              style={{ height: 130, width: 360 }}
                             >
-                              {/* Image — height-driven, natural aspect ratio */}
-                              <div className="relative h-full shrink-0 bg-[var(--cover-placeholder)]">
+                              {/* Image — fixed aspect (square 130x130) + object-cover.
+                                  Vienodas vizualas tiek vertikalioms, tiek landscape
+                                  nuotraukoms. Anksčiau h-full w-auto max-w-[200px]
+                                  paskirstydavo neproporcingai (portretas → ~60px,
+                                  landscape → 200px). */}
+                              <div className="relative shrink-0 overflow-hidden bg-[var(--cover-placeholder)]" style={{ width: 130, height: 130 }}>
                                 {imgSrc ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={proxyImg(imgSrc)}
                                     alt={artistText}
                                     loading="lazy"
-                                    className="h-full w-auto max-w-[200px] object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                                    style={{ display: 'block' }}
+                                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                                   />
                                 ) : (
-                                  <div className="flex h-full items-center justify-center px-6 text-2xl text-[var(--text-faint)]">🎵</div>
+                                  <div className="flex h-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
                                 )}
                                 {validDate && (
                                   <div className="absolute left-1.5 top-1.5 rounded-md bg-black/72 px-1.5 py-1 backdrop-blur-sm">
@@ -2562,8 +2891,8 @@ export default function Home() {
                                   </div>
                                 )}
                               </div>
-                              {/* Info */}
-                              <div className="flex min-w-0 flex-col justify-between px-3 py-2.5" style={{ width: 220 }}>
+                              {/* Info — flex-1 minus image (130px) = ~230px */}
+                              <div className="flex min-w-0 flex-1 flex-col justify-between px-3 py-2.5">
                                 <div className="min-w-0">
                                   <div className="mb-1 flex flex-wrap items-center gap-1">
                                     {isNew && (
@@ -2600,6 +2929,28 @@ export default function Home() {
                             </Link>
                           )
                         })}
+                        {items.length > 6 && (
+                          <button
+                            type="button"
+                            onClick={() => setListModal(`events-${lane}`)}
+                            className="hp-card group flex shrink-0 flex-col items-center justify-center gap-2 text-center transition-all hover:-translate-y-px hover:border-[rgba(249,115,22,0.5)]"
+                            style={{ height: 130, width: 200 }}
+                          >
+                            <div
+                              className="flex items-center justify-center rounded-full"
+                              style={{
+                                width: 54, height: 54,
+                                background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(249,115,22,0.05))',
+                                border: '1px solid rgba(249,115,22,0.3)',
+                                fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 18,
+                                color: 'var(--accent-orange)',
+                              }}
+                            >
+                              +{items.length}
+                            </div>
+                            <p className="m-0 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">Žiūrėti visus</p>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -2607,20 +2958,52 @@ export default function Home() {
               )
             })()}
           </section>
+          </LazySection>
 
-
-
-          {/* ── BENDRUOMENĖ — naujausios diskusijos + main chat + vartotojų įrašai ── */}
-          <section>
-            <SectionHead label="Bendruomenė" href="/bendruomene" cta="Daugiau →" />
-            <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
-              <CommunityDiscussionsCard />
-              <CommunityChatCard />
-              <CommunityUserPostsCard />
-            </div>
-          </section>
+          {/* ── PULSAS — naujausi vartotojų įrašai: blogai, diskusijos, vertimai,
+              kūryba, komentarai. Pakeitė buvusią „Bendruomenė" sekciją su 3
+              kolonomis (diskusijos / chat / posts). Naujas dizainas — vientisas
+              feed'as su mažomis korteles, sortuotas pagal datą. ── */}
+          <LazySection
+            rootMargin="400px"
+            minHeight={280}
+            placeholder={
+              <section>
+                <SectionHead label="Pulsas" href="/bendruomene" cta="Daugiau →" />
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {Array(4).fill(null).map((_, i) => (
+                    <div key={i} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3.5">
+                      <Skel w="40%" h={10} />
+                      <div className="mt-3"><Skel w="92%" h={12} /></div>
+                      <div className="mt-1.5"><Skel w="80%" h={11} /></div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            }
+          >
+            <PulsasSection />
+          </LazySection>
 
           {/* ── PRAMOGOS — Dienos daina + Boombox intro + Music Manager placeholder ── */}
+          <LazySection
+            rootMargin="400px"
+            minHeight={280}
+            placeholder={
+              <section>
+                <SectionHead label="Pramogos" href="/pramogos" cta="Daugiau →" />
+                <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
+                  {Array(3).fill(null).map((_, i) => (
+                    <div key={i} className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4" style={{ minHeight: 220 }}>
+                      <Skel w="40%" h={11} />
+                      <div className="mt-3"><Skel w="100%" h={48} /></div>
+                      <div className="mt-2"><Skel w="60%" h={11} /></div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            }
+          >
           <section>
             <SectionHead label="Pramogos" href="/pramogos" cta="Daugiau →" />
             <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
@@ -2629,12 +3012,15 @@ export default function Home() {
               <PramogosManagerPlaceholderCard />
             </div>
           </section>
+          </LazySection>
 
           {/* ── ISTORIJA — sukaktys, jubiliejai, gimtadieniai ── */}
+          <LazySection rootMargin="400px" minHeight={180}>
           <section>
             <SectionHead label="Istorija" href="/istorija" cta="Daugiau →" />
             <IstorijaSection />
           </section>
+          </LazySection>
 
           {/* ── Atlikėjai + CTA — paslėpta (kol kas) ── */}
           {false && (<>
@@ -2695,6 +3081,205 @@ export default function Home() {
 
         </div>{/* end hp-cnt */}
         </div>{/* end below-hero content */}
+
+        {/* ═══════════════════════ Modal'ai (Track + Album) ═══════════════════════ */}
+        <HomeTrackModal track={openTrack as any} onClose={() => setOpenTrack(null)} />
+        <AlbumInfoModal
+          albumId={openAlbumId}
+          preview={openAlbumPreview}
+          onClose={() => { setOpenAlbumId(null); setOpenAlbumPreview(null) }}
+        />
+
+        {/* ═══════════════════════ HomeListModal — pilnam sekcijos sąrašui ═══════════════════════
+            Atidaromas kai user'is spaudžia „+ X" elementą juostos pabaigoje.
+            Vienas modal'as — turinys keičiasi pagal `listModal` key. */}
+        {listModal && (() => {
+          const isLT = (x: any) => {
+            const c = x.artists?.country
+            return !c || c === 'Lietuva' || c === 'LT' || c === 'Lithuania'
+          }
+          // Renginių LT/INTL skirstom pagal artist country pirmiausia (event_artists),
+          // fallback į city (žr. renginių sekciją).
+          const eventIsLT = (ev: Event) => {
+            const ea = (ev.event_artists || []).map(a => a.artists).filter(Boolean)
+            if (ea.length > 0) {
+              // Jei BENT VIENAS artist LT — laikom LT renginiu.
+              return ea.some((a: any) => isLT({ artists: a }))
+            }
+            const LT_CITIES = new Set(['Vilnius','Kaunas','Klaipėda','Klaipeda','Šiauliai','Siauliai','Panevėžys','Panevezys','Alytus','Marijampolė','Marijampole','Mažeikiai','Mazeikiai','Jonava','Utena','Kėdainiai','Kedainiai','Tauragė','Taurage','Telšiai','Telsiai','Visaginas','Plungė','Plunge','Druskininkai','Palanga','Anykščiai','Anyksciai','Trakai','Birštonas','Birstonas','Ukmergė','Ukmerge','Kretinga','Šilutė','Silute','Radviliškis','Radviliskis','Rokiškis','Rokiskis','Elektrėnai','Elektrenai','Šalčininkai','Salcininkai','Pakruojis','Lentvaris'])
+            const c = ev.venues?.city || ev.city || ''
+            return c ? LT_CITIES.has(c) : true
+          }
+
+          let title = ''
+          let body: React.ReactNode = null
+
+          if (listModal === 'tracks-lt' || listModal === 'tracks-world') {
+            const lane = listModal === 'tracks-lt' ? 'lt' : 'world'
+            title = lane === 'lt' ? 'Lietuviškos naujienos' : 'Užsienio naujienos'
+            const items = tracks.filter(t => sanitizeTitle(t.title) && (lane === 'lt' ? isLT(t) : !isLT(t)))
+            body = (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {items.map(t => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => { setListModal(null); setTimeout(() => setOpenTrack(t), 50) }}
+                    className="hp-card flex items-center gap-3 px-3.5 py-3 text-left"
+                  >
+                    <Cover
+                      src={t.cover_url}
+                      artistSrc={t.artists?.cover_image_url}
+                      ytId={extractYouTubeId((t as any).video_url)}
+                      alt={sanitizeTitle(t.title)}
+                      size={48}
+                      radius={9}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)]">
+                        {sanitizeTitle(t.title)}
+                      </p>
+                      <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )
+          } else if (listModal === 'albums-lt' || listModal === 'albums-world' || listModal === 'upcoming') {
+            const items = listModal === 'upcoming'
+              ? upcomingAlbums
+              : (listModal === 'albums-lt' ? albums.filter(isLT) : albums.filter(a => !isLT(a)))
+            title = listModal === 'upcoming'
+              ? 'Greitai pasirodys'
+              : (listModal === 'albums-lt' ? 'Nauji lietuviški albumai' : 'Nauji užsienio albumai')
+            body = (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                {items.map(a => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => {
+                      setListModal(null)
+                      setTimeout(() => {
+                        setOpenAlbumId(a.id)
+                        setOpenAlbumPreview({ title: sanitizeTitle(a.title), cover_image_url: a.cover_image_url || a.artists?.cover_image_url || null, year: a.year || null })
+                      }, 50)
+                    }}
+                    className="group block text-left p-0 bg-transparent border-0 cursor-pointer w-full"
+                  >
+                    <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
+                      {a.cover_image_url || a.artists?.cover_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')}
+                          alt={sanitizeTitle(a.title)}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>
+                      )}
+                    </div>
+                    <div className="mt-2 px-0.5">
+                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                        {sanitizeTitle(a.title)}
+                      </p>
+                      <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{a.artists?.name}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )
+          } else if (listModal === 'events-lt' || listModal === 'events-world') {
+            const lane = listModal === 'events-lt' ? 'lt' : 'world'
+            const items = filtEvt.filter(ev => lane === 'lt' ? eventIsLT(ev) : !eventIsLT(ev))
+            title = lane === 'lt' ? 'Lietuvos renginiai' : 'Užsienio renginiai'
+            body = (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {items.map(ev => {
+                  const dateRaw = (ev as any).start_date || ev.event_date
+                  const d = dateRaw ? new Date(dateRaw) : null
+                  const validDate = d && !isNaN(d.getTime())
+                  const imgSrc = ev.image_small_url || ev.cover_image_url || null
+                  const city = ev.city || ev.venues?.city || ''
+                  const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
+                  const venueLabel = [city, venue].filter(Boolean).join(', ')
+                  const artistList = (ev.event_artists || []).filter(ea => ea.artists?.name).map(ea => ea.artists!.name)
+                  const artistText = artistList.length > 0
+                    ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '')
+                    : sanitizeTitle(ev.title)
+                  return (
+                    <Link
+                      key={ev.id}
+                      href={`/renginiai/${ev.slug}`}
+                      onClick={() => setListModal(null)}
+                      className="hp-card group flex items-stretch gap-0 overflow-hidden p-0 no-underline"
+                      style={{ height: 120 }}
+                    >
+                      <div className="relative h-full aspect-square shrink-0 overflow-hidden bg-[var(--cover-placeholder)]">
+                        {imgSrc ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={proxyImg(imgSrc)} alt={artistText} loading="lazy" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center px-6 text-2xl text-[var(--text-faint)]">🎵</div>
+                        )}
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col justify-between px-3 py-2.5">
+                        <div className="min-w-0">
+                          {validDate && (
+                            <p className="m-0 mb-1 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.04em] text-[var(--accent-orange)]">
+                              {d!.getDate()} {MONTHS_FULL_LT[d!.getMonth()]} {d!.getFullYear()} m.
+                            </p>
+                          )}
+                          <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)]">{artistText}</p>
+                          {venueLabel && <p className="m-0 mt-1 truncate text-[11px] text-[var(--text-muted)]">{venueLabel}</p>}
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )
+          } else if (listModal === 'news') {
+            title = 'Naujienos'
+            body = (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {news.map(n => (
+                  <Link
+                    key={n.id}
+                    href={`/news/${n.slug}`}
+                    onClick={() => setListModal(null)}
+                    className="hp-card group flex items-stretch gap-0 overflow-hidden p-0 no-underline"
+                    style={{ height: 120 }}
+                  >
+                    <div className="relative h-full aspect-square shrink-0 overflow-hidden bg-[var(--cover-placeholder)]">
+                      {(n.image_title_url || n.image_small_url) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={proxyImg(n.image_title_url || n.image_small_url || '')} alt={n.title} loading="lazy" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-2xl text-[var(--text-faint)]">📰</div>
+                      )}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-2.5">
+                      <p className="m-0 line-clamp-3 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)]">{sanitizeTitle(n.title)}</p>
+                      {n.artist?.name && <p className="m-0 mt-1 truncate text-[11px] text-[var(--text-muted)]">{n.artist.name}</p>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )
+          }
+
+          return (
+            <HomeListModal
+              open={listModal !== null}
+              onClose={() => setListModal(null)}
+              title={title}
+            >
+              {body}
+            </HomeListModal>
+          )
+        })()}
       </div>
     </>
   )

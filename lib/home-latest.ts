@@ -47,12 +47,34 @@ export const HOME_TAGS = {
   tracks: 'home:tracks-latest',
   albums: 'home:albums-latest',
   news: 'home:news-latest',
+  events: 'home:events-latest',
 } as const
 
-/** Iškviečiamas iš POST/PUT/DELETE endpoint'ų po naujo track/album/news. */
+/** Iškviečiamas iš POST/PUT/DELETE endpoint'ų po naujo track/album/news/event. */
 export function revalidateHomeTag(kind: keyof typeof HOME_TAGS) {
   try {
     revalidateTag(HOME_TAGS[kind])
+  } catch {
+    /* dev mode silently no-ops */
+  }
+}
+
+/* ────────────────────────────── Entity page tags ──────────────────────────────
+   Atskiri tag'ai entity page'ams (artist, album, track, user). Kviečiama iš
+   admin PATCH/PUT/DELETE endpoint'ų — ISR cache iškart išvalo, kitas user'is
+   gauna fresh duomenis. Skiriasi nuo HOME_TAGS tuo, kad šitie taikomi
+   detail puslapiams, ne homepage'o lane'ams.
+*/
+export const ENTITY_TAGS = {
+  artist: 'artist',
+  album: 'album',
+  track: 'track',
+  user: 'user',
+} as const
+
+export function revalidateEntityTag(kind: keyof typeof ENTITY_TAGS) {
+  try {
+    revalidateTag(ENTITY_TAGS[kind])
   } catch {
     /* dev mode silently no-ops */
   }
@@ -76,8 +98,13 @@ type LatestTrackRow = {
   video_url: string | null
   video_views: number | null
   video_uploaded_at: string | null
+  release_year: number | null
+  release_date: string | null
   artist_id: number
   artists: LatestTrackArtist | null
+  // album_tracks JOIN — atspindi ar track yra senesniame albume
+  // (anksčiau išleistame nei einamieji metai). Naudojam reissue filtre.
+  album_tracks?: Array<{ albums: { id: number; year: number | null } | null }> | null
 }
 
 type LatestAlbumRow = {
@@ -109,11 +136,17 @@ function isLT(country: string | null | undefined): boolean {
 async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
   const supabase = createAdminClient()
   const since = isoDaysAgo(LATEST_TRACK_WINDOW_DAYS)
+  // album_tracks(albums(year)) JOIN — naudojam reissue filter'e: jei track
+  // priklauso senam albumui (year < currentYear - 1) bet YT video upload'as
+  // šviežias, tai YT reissue, ne nauja muzika. Tokio nerodom homepage'o
+  // „Naujos dainos" lane'uose.
   const { data, error } = await supabase
     .from('tracks')
     .select(
-      'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, artist_id, ' +
-        'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country)'
+      'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
+        'release_date, release_year, artist_id, ' +
+        'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country), ' +
+        'album_tracks(albums(id, year))'
     )
     .not('video_uploaded_at', 'is', null)
     .gte('video_uploaded_at', since)
@@ -141,10 +174,34 @@ export async function getLatestTracksForHome(): Promise<{
   lt: LatestTrackRow[]
   world: LatestTrackRow[]
 }> {
-  const rows = await cachedFetchLatestTracksRaw('v1')
+  const rows = await cachedFetchLatestTracksRaw('v2-no-reissues')
 
   // Filtruojam mojibake / placeholder titles, kur title == artist name.
-  const valid = rows.filter(r => r.artists && r.title && r.title !== r.artists.name)
+  let valid = rows.filter(r => r.artists && r.title && r.title !== r.artists.name)
+
+  // ── Reissue filter ──
+  // YT video_uploaded_at recent (90d) gali būti tik perleidimas seno track'o.
+  // Atfiltruojam jei:
+  //   - track.release_year < currentYear - 1 (track aiškiai senesnis), arba
+  //   - track turi entry album_tracks lentelėje, kur albums.year < currentYear - 1
+  //     (track yra senesniame albume).
+  // Pora paskutinių metų laikom „nauju" — kompiliacijos, late releases gali turėti.
+  const currentYear = new Date().getFullYear()
+  const FRESH_YEAR_THRESHOLD = currentYear - 1
+  valid = valid.filter(r => {
+    // Track'o paties release_year
+    const tYear = r.release_year ?? (r.release_date ? Number(r.release_date.slice(0, 4)) : null)
+    if (tYear && tYear < FRESH_YEAR_THRESHOLD) return false
+    // Bet kuris linked album'as senesnis
+    const albumYears = (r.album_tracks || [])
+      .map(at => at.albums?.year ?? null)
+      .filter((y): y is number => typeof y === 'number')
+    if (albumYears.length > 0) {
+      const minYear = Math.min(...albumYears)
+      if (minYear < FRESH_YEAR_THRESHOLD) return false
+    }
+    return true
+  })
 
   const dedupe = (arr: LatestTrackRow[]) => {
     const byArtist = new Map<number, LatestTrackRow>()
@@ -206,9 +263,79 @@ export async function getLatestAlbumsForHome(): Promise<{
   world: LatestAlbumRow[]
 }> {
   const rows = await cachedFetchLatestAlbumsRaw('v1')
-  const lt = rows.filter(r => r.artists && isLT(r.artists.country)).slice(0, HOME_LANE_LIMIT)
-  const world = rows.filter(r => r.artists && !isLT(r.artists.country)).slice(0, HOME_LANE_LIMIT)
+  // Praeities + dabartinio mėnesio jau išleisti albumai. Greitai pasirodys
+  // (is_upcoming=true arba data ateityje) eina į atskirą sąrašą — žr.
+  // getUpcomingAlbumsForHome.
+  const today = new Date()
+  const isReleased = (a: LatestAlbumRow) => {
+    if (a.is_upcoming) return false
+    if (!a.year) return false
+    if (a.year < today.getFullYear()) return true
+    if (a.year > today.getFullYear()) return false
+    // Tas pats metas — žiūrim į mėnesį/dieną
+    const m = a.month ?? 12
+    const d = a.day ?? 31
+    const cm = today.getMonth() + 1
+    const cd = today.getDate()
+    if (m < cm) return true
+    if (m > cm) return false
+    return d <= cd
+  }
+  const released = rows.filter(r => r.artists && isReleased(r))
+  const lt = released.filter(r => isLT(r.artists!.country)).slice(0, HOME_LANE_LIMIT)
+  const world = released.filter(r => !isLT(r.artists!.country)).slice(0, HOME_LANE_LIMIT)
   return { lt, world }
+}
+
+/* ────────────────────────────── Upcoming Albums ──────────────────────────────
+   „Greitai pasirodys" — albumai, kurie dar neišleisti (is_upcoming=true arba
+   release data ateityje). Bendras sąrašas (be LT/World split), rikiuojam pagal
+   data ASC (artimiausi pirmiausia). */
+
+async function fetchUpcomingAlbumsRaw(): Promise<LatestAlbumRow[]> {
+  const supabase = createAdminClient()
+  const currentYear = new Date().getFullYear()
+  // Plati selection: is_upcoming=true ARBA year >= currentYear (po-filter'inam
+  // future dates inline). NULL year'us praleidžiam (be info — neaiški data).
+  const { data, error } = await supabase
+    .from('albums')
+    .select(
+      'id, title, slug, cover_image_url, year, month, day, is_upcoming, artist_id, ' +
+        'artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country)'
+    )
+    .not('year', 'is', null)
+    .gte('year', currentYear)
+    .order('year', { ascending: true })
+    .order('month', { ascending: true, nullsFirst: true })
+    .order('day', { ascending: true, nullsFirst: true })
+    .limit(ALBUMS_CANDIDATE_FETCH_LIMIT)
+  if (error) throw error
+  return (data || []) as unknown as LatestAlbumRow[]
+}
+
+const cachedFetchUpcomingAlbumsRaw = unstable_cache(
+  async (_version: string) => fetchUpcomingAlbumsRaw(),
+  ['home-upcoming-albums-raw'],
+  { tags: [HOME_TAGS.albums], revalidate: 300 }
+)
+
+export async function getUpcomingAlbumsForHome(): Promise<LatestAlbumRow[]> {
+  const rows = await cachedFetchUpcomingAlbumsRaw('v1')
+  const today = new Date()
+  const isFuture = (a: LatestAlbumRow) => {
+    if (a.is_upcoming) return true
+    if (!a.year) return false
+    if (a.year > today.getFullYear()) return true
+    if (a.year < today.getFullYear()) return false
+    const m = a.month ?? 12
+    const d = a.day ?? 31
+    const cm = today.getMonth() + 1
+    const cd = today.getDate()
+    if (m > cm) return true
+    if (m < cm) return false
+    return d > cd
+  }
+  return rows.filter(r => r.artists && isFuture(r)).slice(0, HOME_LANE_LIMIT * 2)
 }
 
 /* ────────────────────────────── Map helpers ──────────────────────────────
@@ -226,6 +353,8 @@ export function mapTrackForHome(t: LatestTrackRow) {
     video_url: t.video_url,
     video_views: t.video_views ?? null,
     video_uploaded_at: t.video_uploaded_at,
+    release_year: t.release_year ?? null,
+    release_date: t.release_date ?? null,
     artist_id: t.artist_id,
     artists: t.artists,
     artist_name: t.artists?.name || '',
