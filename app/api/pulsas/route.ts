@@ -11,8 +11,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 300 // 5 min
+// Cache 5 min — homepage'as gali kvietuoti dažnai, bet UGC feed'as 5 min
+// freshness pakanka. unstable_cache nereikia, nes nieko nepriklauso nuo
+// tag invalidation'o (priešingai nei home tracks/albums).
+export const revalidate = 300
 
 type PulsasItem = {
   id: string
