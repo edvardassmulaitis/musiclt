@@ -40,13 +40,13 @@ export async function POST(
     return NextResponse.json({ liked: false })
   }
 
+  // Po 2026-05-28c slim-down: user_avatar_url, source DROP'inti.
+  // Avatar fetch'inamas iš profiles JOIN'u per user_id.
   const { error } = await sb.from('likes').insert({
     entity_type: 'news',
     entity_id: newsId,
     user_id: userId,
     user_username: (session.user as any).name || session.user.email || 'user',
-    user_avatar_url: (session.user as any).image || null,
-    source: 'auth',  // CHECK constraint allows: 'auth', 'legacy_scrape', 'anon'
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ liked: true })

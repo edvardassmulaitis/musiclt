@@ -78,27 +78,29 @@ export default async function LegacyThreadPage({ params, searchParams }: Props) 
   if (usernames.length > 0) {
     const missing = usernames.filter((u: string) => !avatars[u])
     if (missing.length > 0) {
+      // Po 2026-05-28c slim-down: avatar_url dabar iš profiles, ne iš likes
       const { data: avatarRows } = await sb
-        .from('likes')
-        .select('user_username, user_avatar_url')
-        .in('user_username', missing)
-        .not('user_avatar_url', 'is', null)
+        .from('profiles')
+        .select('username, avatar_url')
+        .in('username', missing)
+        .not('avatar_url', 'is', null)
         .limit(missing.length * 2)
       for (const r of (avatarRows || []) as any[]) {
-        if (r.user_username && r.user_avatar_url && !avatars[r.user_username]) {
-          avatars[r.user_username] = r.user_avatar_url
+        if (r.username && r.avatar_url && !avatars[r.username]) {
+          avatars[r.username] = r.avatar_url
         }
       }
     }
   }
 
-  // Post likers — iš `likes` lentelės su entity_type='forum_post'
+  // Post likers — iš `likes` lentelės su entity_type='forum_post'.
+  // Po slim-down: profiles JOIN per user_id (avatar_url, rank).
   const postLikers: Record<number, LikeUser[]> = {}
   const postIdsWithLikes = posts.filter((p) => (p.like_count ?? 0) > 0).map((p) => p.legacy_id)
   if (postIdsWithLikes.length > 0) {
     const { data: likers } = await sb
       .from('likes')
-      .select('entity_legacy_id, user_username, user_rank, user_avatar_url')
+      .select('entity_legacy_id, user_username, profiles:user_id(avatar_url, rank)')
       .eq('entity_type', 'forum_post')
       .in('entity_legacy_id', postIdsWithLikes)
       .limit(5000)
@@ -107,8 +109,8 @@ export default async function LegacyThreadPage({ params, searchParams }: Props) 
       if (!postLikers[pid]) postLikers[pid] = []
       postLikers[pid].push({
         user_username: l.user_username || '',
-        user_rank: l.user_rank || null,
-        user_avatar_url: l.user_avatar_url || null,
+        user_rank: l.profiles?.rank || null,
+        user_avatar_url: l.profiles?.avatar_url || null,
       })
     }
   }

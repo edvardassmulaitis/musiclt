@@ -94,15 +94,22 @@ export async function getEventBySlug(slug: string) {
 
   if (error || !data) return null
 
-  // Attendees ("Eis"/"Patiks") — atskira lentelė event_attendees (UUID-based,
-  // entity_id BIGINT vs events.id UUID schema'os incompatibility'ui spręsti).
-  const { data: attendees } = await supabase
+  // Attendees ("Eis"/"Patiks") — atskira lentelė event_attendees.
+  // Po 2026-05-28c architectural slim-down: profile data (avatar, rank)
+  // dabar fetch'inami per JOIN į profiles (anksčiau buvo denormalized).
+  const { data: attendeesRaw } = await supabase
     .from('event_attendees')
-    .select('user_username, user_rank, user_avatar_url, source, created_at')
+    .select('user_username, user_id, created_at, profiles:user_id(avatar_url, rank)')
     .eq('event_id', (data as any).id)
     .order('created_at', { ascending: false })
+  const attendees = (attendeesRaw || []).map((a: any) => ({
+    user_username: a.user_username,
+    user_rank: a.profiles?.rank || null,
+    user_avatar_url: a.profiles?.avatar_url || null,
+    created_at: a.created_at,
+  }))
 
-  return { ...(data as any), attendees: attendees || [] }
+  return { ...(data as any), attendees }
 }
 
 // ── Get single event by id ───────────────────────────────────────

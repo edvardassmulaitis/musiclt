@@ -83,7 +83,7 @@ export async function GET(req: Request) {
   // tarpusavy (skirtingos sequence'os).
   let query = sb
     .from('comments')
-    .select('id, parent_id, author_id, body, content_html, like_count, reported_count, is_deleted, created_at, updated_at, music_attachments, profiles:author_id(username, full_name, avatar_url, email)')
+    .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, music_attachments, profiles:author_id(username, full_name, avatar_url, email)')
     .range(offset, offset + limit - 1)
 
   const eid = coerceEntityId(entityType!, entityId)
@@ -103,7 +103,7 @@ export async function GET(req: Request) {
   if (error && /music_attachments/.test(error.message)) {
     let fallback = sb
       .from('comments')
-      .select('id, parent_id, author_id, body, content_html, like_count, reported_count, is_deleted, created_at, updated_at, profiles:author_id(username, full_name, avatar_url, email)')
+      .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, profiles:author_id(username, full_name, avatar_url, email)')
       .range(offset, offset + limit - 1)
       .order('created_at', { ascending: sort === 'oldest' })
     if (entityType === 'news') {
@@ -137,10 +137,10 @@ export async function GET(req: Request) {
       author_name: c.profiles?.full_name || c.profiles?.username || 'Vartotojas',
       author_avatar: c.profiles?.avatar_url || null,
       body: c.body || '',
-      // Migrated legacy comments turi content_html su nested blockquote
-      // chain'u (parsinama scraper'io). Jei jis užpildytas — UI render'ina
-      // jį per dangerouslySetInnerHTML, kad parodytų visą reply hierarchiją.
-      content_html: c.content_html || null,
+      // Po 2026-05-28c content_html drop'o — visada NULL. UI fall'asi į
+      // body field'ą (BBCode render'inamas runtime). Nested blockquote
+      // chain'us legacy migracijoje jau buvo flatten'inti į body.
+      content_html: null,
       like_count: c.like_count || 0,
       reported_count: c.reported_count || 0,
       is_deleted: c.is_deleted,

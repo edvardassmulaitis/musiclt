@@ -27,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const [legacyRes, modernRes] = await Promise.all([
     legacyId
       ? sb.from('likes')
-          .select('user_id, user_username, user_rank, created_at, profiles:user_id(id, username, full_name, avatar_url)')
+          .select('user_id, user_username, created_at, profiles:user_id(id, username, full_name, avatar_url, rank)')
           .eq('entity_type', 'blog_post')
           .eq('entity_legacy_id', legacyId)
           .order('created_at', { ascending: false })

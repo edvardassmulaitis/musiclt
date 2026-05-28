@@ -48,13 +48,12 @@ export async function POST(req: Request) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ liked: false })
     }
+    // Po 2026-05-28c slim-down: user_avatar_url, source DROP'inti.
     const { error } = await sb.from('likes').insert({
       entity_type: 'comment',
       entity_id: legacyId,
       user_id: userIdVal,
       user_username: (session.user as any).name || (session.user as any).email || 'user',
-      user_avatar_url: (session.user as any).image || null,
-      source: 'auth',  // CHECK constraint allows: 'auth', 'legacy_scrape', 'anon'
     })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ liked: true })

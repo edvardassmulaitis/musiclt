@@ -128,7 +128,7 @@ async function getLegacyAlbumLikes(albumLegacyId: number | null) {
       .eq('entity_type', 'album')
       .eq('entity_legacy_id', albumLegacyId),
     sb.from('likes')
-      .select('user_username, user_rank, user_avatar_url')
+      .select('user_username, profiles:user_id(avatar_url, rank)')
       .eq('entity_type', 'album')
       .eq('entity_legacy_id', albumLegacyId)
       .order('id', { ascending: true })
@@ -136,7 +136,12 @@ async function getLegacyAlbumLikes(albumLegacyId: number | null) {
   ])
   return {
     count: cntRes.count || 0,
-    users: (usersRes.data as any[]) || [],
+    // Flatten profiles JOIN → user_avatar_url/user_rank (po 2026-05-28c slim-down)
+    users: ((usersRes.data as any[]) || []).map((u: any) => ({
+      user_username: u.user_username,
+      user_avatar_url: u.profiles?.avatar_url || null,
+      user_rank: u.profiles?.rank || null,
+    })),
   }
 }
 

@@ -30,10 +30,16 @@ export async function GET(
     return NextResponse.json({ error: 'Invalid entity_id' }, { status: 400 })
   }
 
+  // Po 2026-05-28 architectural slim-down migracijos:
+  //   • Drop'inta `user_avatar_url`, `user_rank`, `source` iš likes
+  //   • Avatar/rank dabar fetch'inami JOIN'u į profiles per user_id
+  //   • Ghost user'iai turi profile row'us (ensure_ghost_profile)
+  // Per username fallback dingo — visi user'iai (ghost + modern) turi profile.
+
   const sb = createAdminClient()
-  const { data, count, error } = await sb
+  const { data, error } = await sb
     .from('likes')
-    .select('user_username, user_rank, user_avatar_url, source, created_at', { count: 'exact' })
+    .select('user_username, user_id, created_at, profiles:user_id(avatar_url, rank)', { count: 'exact' })
     .eq('entity_type', entity_type)
     .eq('entity_id', eid)
     .order('created_at', { ascending: false })
@@ -43,23 +49,28 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  const mapLike = (l: any) => ({
+    user_username: l.user_username,
+    user_rank: l.profiles?.rank || null,
+    user_avatar_url: l.profiles?.avatar_url || null,
+    created_at: l.created_at,
+  })
+
+  let users: any[] = (data || []).map(mapLike)
+
   // Modern comment likes — atskira lentelė `comment_likes` (užregistruoti
-  // user'iai). Sumerge'inam su scraped legacy likes (kurie yra `likes` table'je
-  // su entity_type='comment'). Be šito merge'o, naujai paspausti likes
-  // (auth user'iai) modal'e nematysi — count'as kabo, bet sąrašas tuščias.
-  let users: any[] = data || []
+  // user'iai). Sumerge'inam su scraped legacy likes.
   if (entity_type === 'comment') {
     const { data: modernLikes } = await sb
       .from('comment_likes')
-      .select('user_id, created_at, profiles:user_id(username, full_name, avatar_url)')
+      .select('user_id, created_at, profiles:user_id(username, full_name, avatar_url, rank)')
       .eq('comment_id', eid)
       .order('created_at', { ascending: false })
       .limit(200)
     const modernAsLikes = (modernLikes || []).map((l: any) => ({
       user_username: l.profiles?.username || l.profiles?.full_name || 'Vartotojas',
-      user_rank: null,
+      user_rank: l.profiles?.rank || null,
       user_avatar_url: l.profiles?.avatar_url || null,
-      source: 'modern',
       created_at: l.created_at,
     }))
     // Dedupe pagal username — modern likes turi prioritetą (su realiu profile)
@@ -73,23 +84,28 @@ export async function GET(
     }
     users = merged
   }
+
+  // Avatar fallback per username profiles lookup — kai ghost user'is
+  // turi profile row'ą, bet like'ai sukurti BEFORE jo user_id buvo set.
   const missing = users.filter(u => !u.user_avatar_url).map(u => u.user_username)
   if (missing.length > 0) {
-    const { data: avatarRows } = await sb
-      .from('likes')
-      .select('user_username, user_avatar_url')
-      .in('user_username', missing)
-      .not('user_avatar_url', 'is', null)
-      .limit(2000)
-    const avMap = new Map<string, string>()
-    for (const r of avatarRows || []) {
-      if (r.user_username && r.user_avatar_url && !avMap.has(r.user_username)) {
-        avMap.set(r.user_username, r.user_avatar_url)
+    const { data: profileRows } = await sb
+      .from('profiles')
+      .select('username, avatar_url, rank')
+      .in('username', missing)
+      .not('avatar_url', 'is', null)
+      .limit(500)
+    const profMap = new Map<string, { avatar_url: string | null; rank: string | null }>()
+    for (const r of profileRows || []) {
+      if (r.username && !profMap.has(r.username)) {
+        profMap.set(r.username, { avatar_url: r.avatar_url || null, rank: r.rank || null })
       }
     }
     for (const u of users) {
-      if (!u.user_avatar_url && avMap.has(u.user_username)) {
-        u.user_avatar_url = avMap.get(u.user_username)!
+      if (!u.user_avatar_url && profMap.has(u.user_username)) {
+        const p = profMap.get(u.user_username)!
+        u.user_avatar_url = p.avatar_url
+        if (!u.user_rank) u.user_rank = p.rank
       }
     }
   }

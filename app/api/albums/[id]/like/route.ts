@@ -210,13 +210,12 @@ export async function POST(
     const { error } = await sb.from('likes').delete().eq('id', existing.id)
     if (error) return jsonErr(`Nepavyko pašalinti (anon): ${error.message}`, 500)
   } else {
+    // Po 2026-05-28c slim-down: user_agent, source DROP'inti.
     const { error } = await sb.from('likes').insert({
       entity_type: 'album',
       entity_id: albumId,
       anon_id: anonId,
       user_username: `anon_${String(anonId).slice(0, 8)}`,
-      user_agent: userAgent,
-      source: 'anon',
     })
     if (error && error.code !== '23505') {
       return jsonErr(`Nepavyko išsaugoti (anon): ${error.message}`, 500)

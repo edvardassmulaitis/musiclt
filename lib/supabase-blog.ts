@@ -749,7 +749,7 @@ export async function getPostComments(postId: string) {
       .eq('is_deleted', false)
       .order('created_at', { ascending: true }),
     sb.from('comments')
-      .select('id, body, content_html, created_at, like_count, music_attachments, profiles:author_id(id, full_name, username, avatar_url)')
+      .select('id, body, created_at, like_count, music_attachments, profiles:author_id(id, full_name, username, avatar_url)')
       .eq('blog_post_id', postId)
       .eq('is_deleted', false)
       .order('created_at', { ascending: true }),
@@ -766,7 +766,7 @@ export async function getPostComments(postId: string) {
   const legacy = (legacyRes.data || []).map((c: any) => ({
     id: `l_${c.id}`,
     content: c.body || '',
-    content_html: c.content_html || null,
+    content_html: null,  // Po 2026-05-28c drop'o — visada NULL
     created_at: c.created_at,
     profiles: c.profiles,
     source: 'legacy' as const,

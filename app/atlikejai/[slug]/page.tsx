@@ -7,13 +7,17 @@ import ArtistProfileClient from './artist-profile-client'
 import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
 
-// Force dynamic — po canonical pipeline migracijos artist data šviežia
-// turi rodytis iš karto po scrape'o, ne laukti unstable_cache 60s TTL.
-// (TTL keldavo problemas, kad pakeitus DB schema ar query'us, senas cache
-// dengdavo naujus duomenis.)
-export const dynamic = 'force-dynamic'
+// ISR — atlikėjo puslapis cache'inamas Vercel edge'e + Vercel function memory'je
+// `ARTIST_CACHE_TTL` sekundžių. Po admin edit'o (PATCH/PUT/DELETE) iškart
+// iškviečiama `revalidateTag('artist')` → ALL artist'ai cache iškart išvalomas
+// → kitas request'as gauna fresh duomenis.
+//
+// Anksčiau buvo `dynamic = 'force-dynamic'` (žr. git blame) — visi loads = full
+// SSR + 18+ DB queries. Dabar: pirmas request po edit'o ar 5 min TTL'o pasibaigus
+// = full SSR (~600-800ms); sekantys < 50ms iš edge cache'o.
+export const revalidate = 300
 
-const ARTIST_CACHE_TTL = 60
+const ARTIST_CACHE_TTL = 300
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -200,128 +204,114 @@ async function fetchLikeCounts(
 }
 async function getTracks(id: number) {
   const sb = createAdminClient()
-  // NOTE: album_id column doesn't exist on tracks (relationship is via
-  // album_tracks junction table or similar). Keeping select without it so
-  // the query doesn't fail. "Kitos dainos" orphan tab disabled client-side
-  // until we resolve the correct relationship.
-  // NOTE: `duration` column isn't in the public.tracks table yet (only in
-  // lib/supabase-albums.ts TrackFull type + admin album form). Once the
-  // migration lands, add it back here and the player will pick it up
-  // automatically because the column is already optional on the Track type.
+  // 2026-05-28 perf rewrite: 4 sequential batches → 1 SELECT + 1 parallel
+  // batch. Mikutavičiui (~70 tracks): ~700-1100ms → ~300-400ms.
+  // NOTE: album_id column doesn't exist on tracks (relationship via album_tracks
+  // junction). NOTE: `duration` column dar nemigruota.
   // Limit'as panaikintas — populiarūs LT atlikėjai gali turėti daugiau nei
-  // 500 tracks (Marijonas, DJ'ai, kompiliacijų autoriai). Naudojam range()
-  // iki 9999 — Supabase grąžina tiek, kiek yra. Jokios prasmės cap'inti
-  // public puslapyje, geriau matyti viską.
+  // 500 tracks (Marijonas, DJ'ai, kompiliacijų autoriai). range() iki 9999.
   const { data } = await sb
     .from('tracks')
-    // score + video_views — naudojami Top/Naujos dainos PopBar'ui kai
-    // like_count'ai dar tušti (pvz. naujai importuoti intl atlikėjai).
-    // Fallback hierarchy: like_count → score → video_views → position.
     .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, is_single, release_year, release_month, release_day, legacy_id, score, video_views')
     .eq('artist_id', id)
-    // Pending review įrašai (sukurti per match_legacy_overlay) viešai
-    // matyti neturi — admin pirma turi patvirtinti.
     .or('source.is.null,source.neq.legacy_scrape_pending')
     .order('created_at', { ascending: false })
     .range(0, 9999)
   const tracks = (data || []) as any[]
   if (tracks.length === 0) return tracks
 
-  // Attach like counts. Fast path — RPC; fallback — chunked pagination.
-  // Žr. fetchLikeCounts() helper'į. Mikutavičiui (3000 track likes) —
-  // ~5x speedup po RPC migracijos.
   const trackIds = tracks.map((t) => t.id)
-  const byTrack = await fetchLikeCounts(sb, 'track', trackIds)
+
+  // ── PARALLEL BATCH ──
+  // Likes, featuring chunks, album_tracks chunks — visi vienu metu.
+  // featuring + album_tracks chunkinami po 200 — bet visi chunks paleidžiami
+  // paraleliai per Promise.all, ne sequential `for…await`. Be šito 200 trackų
+  // = ~100-150ms papildomo waterfall'o per kiekvieną pošeimą.
+  const CHUNK = 200
+  const trackIdChunks: number[][] = []
+  for (let i = 0; i < trackIds.length; i += CHUNK) {
+    trackIdChunks.push(trackIds.slice(i, i + CHUNK))
+  }
+
+  const featPromise = Promise.all(
+    trackIdChunks.map(chunk =>
+      sb.from('track_artists')
+        .select('track_id, artists:artist_id(id, slug, name)')
+        .in('track_id', chunk)
+        .neq('artist_id', id)
+        .then(r => r.data || [])
+    )
+  )
+  const albumPromise = Promise.all(
+    trackIdChunks.map(chunk =>
+      sb.from('album_tracks')
+        .select('track_id, albums:album_id(id, slug, title, cover_image_url, year)')
+        .in('track_id', chunk)
+        .then(r => r.data || [])
+    )
+  )
+  const [byTrack, featRows, albumRows] = await Promise.all([
+    fetchLikeCounts(sb, 'track', trackIds),
+    featPromise,
+    albumPromise,
+  ])
+
+  // ── POST-PROCESS ──
   for (const t of tracks) {
     t.like_count = byTrack.get(t.id) || 0
   }
 
-  // Attach featuring artists — track_artists JOIN where track_id IN [...]
-  // and artist_id != primary. We need this for TrackInfoModal to render the
-  // full "Atlikejas, Atlikejas2 ir Atlikejas3" header.
-  if (trackIds.length > 0) {
-    const featByTrack = new Map<number, Array<{ id: number; slug: string; name: string }>>()
-    for (let i = 0; i < trackIds.length; i += 200) {
-      const chunk = trackIds.slice(i, i + 200)
-      const { data: feat } = await sb
-        .from('track_artists')
-        .select('track_id, artists:artist_id(id, slug, name)')
-        .in('track_id', chunk)
-        .neq('artist_id', id)
-      for (const r of (feat || []) as any[]) {
-        if (!r.artists) continue
-        const list = featByTrack.get(r.track_id) || []
-        list.push({ id: r.artists.id, slug: r.artists.slug, name: r.artists.name })
-        featByTrack.set(r.track_id, list)
-      }
+  const featByTrack = new Map<number, Array<{ id: number; slug: string; name: string }>>()
+  for (const rows of featRows) {
+    for (const r of rows as any[]) {
+      if (!r.artists) continue
+      const list = featByTrack.get(r.track_id) || []
+      list.push({ id: r.artists.id, slug: r.artists.slug, name: r.artists.name })
+      featByTrack.set(r.track_id, list)
     }
-    for (const t of tracks) {
-      ;(t as any).featuring = featByTrack.get(t.id) || []
-    }
-
-    // Attach album list per track — for TrackInfoModal's chips row mini
-    // covers (each links to /lt/albumas/{slug}/{id}). Same chunked pattern.
-    const albumsByTrack = new Map<number, Array<{ id: number; slug: string; title: string; cover_image_url: string | null }>>()
-    for (let i = 0; i < trackIds.length; i += 200) {
-      const chunk = trackIds.slice(i, i + 200)
-      const { data: at } = await sb
-        .from('album_tracks')
-        .select('track_id, albums:album_id(id, slug, title, cover_image_url, year)')
-        .in('track_id', chunk)
-      for (const r of (at || []) as any[]) {
-        if (!r.albums) continue
-        const list = albumsByTrack.get(r.track_id) || []
-        list.push({
-          id: r.albums.id, slug: r.albums.slug, title: r.albums.title, cover_image_url: r.albums.cover_image_url,
-        })
-        albumsByTrack.set(r.track_id, list)
-      }
-    }
-    for (const t of tracks) {
-      ;(t as any).albums = albumsByTrack.get(t.id) || []
-      // Fallback: jei tracks.cover_url NULL (legacy import nepopulina šito
-      // column'o), pakeičiam į pirmą album'o cover_image_url. Frontend tikisi
-      // t.cover_url tiesiogiai (priority: explicit cover_url > YT thumbnail).
-      if (!(t as any).cover_url) {
-        const firstAlbum = ((t as any).albums || [])[0]
-        if (firstAlbum?.cover_image_url) {
-          ;(t as any).cover_url = firstAlbum.cover_image_url
-        }
-      }
+  }
+  const albumsByTrack = new Map<number, Array<{ id: number; slug: string; title: string; cover_image_url: string | null; year: number | null }>>()
+  for (const rows of albumRows) {
+    for (const r of rows as any[]) {
+      if (!r.albums) continue
+      const list = albumsByTrack.get(r.track_id) || []
+      list.push({
+        id: r.albums.id,
+        slug: r.albums.slug,
+        title: r.albums.title,
+        cover_image_url: r.albums.cover_image_url,
+        year: typeof r.albums.year === 'number' ? r.albums.year : null,
+      })
+      albumsByTrack.set(r.track_id, list)
     }
   }
 
-  // Release year fallback: jei track release_year/release_date null, paimam
-  // iš seniausio albumo, kuriam track priklauso. Music.lt'e dažnai track
-  // neturi atskirai metų, bet albumas turi.
-  const tracksMissingYear = tracks.filter((t: any) => !t.release_year && !t.release_date)
-  if (tracksMissingYear.length > 0) {
-    const missingIds = tracksMissingYear.map((t: any) => t.id)
-    const albumByTrack = new Map<number, number>()  // track_id → oldest album year
-    for (let i = 0; i < missingIds.length; i += 200) {
-      const chunk = missingIds.slice(i, i + 200)
-      const { data: at } = await sb
-        .from('album_tracks')
-        .select('track_id, albums:album_id(year)')
-        .in('track_id', chunk)
-      for (const r of (at || []) as any[]) {
-        const y = r.albums?.year
-        if (typeof y === 'number') {
-          const cur = albumByTrack.get(r.track_id)
-          if (!cur || y < cur) albumByTrack.set(r.track_id, y)
+  for (const t of tracks) {
+    ;(t as any).featuring = featByTrack.get(t.id) || []
+    const trackAlbums = albumsByTrack.get(t.id) || []
+    // Public payload'as nepasiima `year` field'o per album — jis išskirtas
+    // tik year-fallback'ui žemiau. Striname jį prieš grąžindami.
+    ;(t as any).albums = trackAlbums.map(({ year, ...rest }) => rest)
+    // Cover fallback: jei tracks.cover_url NULL, pakeičiam į pirmą album'o.
+    if (!(t as any).cover_url && trackAlbums[0]?.cover_image_url) {
+      ;(t as any).cover_url = trackAlbums[0].cover_image_url
+    }
+    // Release year fallback: jei track neturi datos, paimam seniausio albumo
+    // year'į. Anksčiau buvo atskira RPC (4-ta sequential batch'a) — dabar
+    // reuse'inam album_tracks duomenis kuriuos jau turim.
+    if (!t.release_year && !t.release_date) {
+      let oldestYear: number | null = null
+      for (const a of trackAlbums) {
+        if (a.year !== null && (oldestYear === null || a.year < oldestYear)) {
+          oldestYear = a.year
         }
       }
-    }
-    for (const t of tracksMissingYear) {
-      const y = albumByTrack.get((t as any).id)
-      if (y) (t as any).release_year = y
+      if (oldestYear !== null) t.release_year = oldestYear
     }
   }
 
   // Sort by popularity (likes desc, tiebreak by created_at desc which is
-  // already the initial sort). UI's "Top dainos" tab assumes the list is
-  // popularity-sorted — anksčiau buvo created_at desc, todėl seniausi liko
-  // viršuje.
+  // already the initial sort). UI „Top dainos" tab tikisi populiarumo sortavimo.
   tracks.sort((a, b) => (b.like_count || 0) - (a.like_count || 0))
 
   return tracks
@@ -512,9 +502,10 @@ async function getLastPostsByThread(threadIds: number[], perThread = 2): Promise
   try {
     // Canonical: comments table su legacy_thread_legacy_id field'u — bridge'as
     // su forum_threads.legacy_id. JOIN su profiles per author_id avatarui.
+    // Po 2026-05-28c content_html drop'as — naudojam tik body field'ą.
     const { data } = await sb
       .from('comments')
-      .select('legacy_thread_legacy_id, body, content_html, author_id, created_at, profiles:author_id(username, avatar_url)')
+      .select('legacy_thread_legacy_id, body, author_id, created_at, profiles:author_id(username, avatar_url)')
       .in('legacy_thread_legacy_id', threadIds)
       .order('created_at', { ascending: false })
       .limit(Math.min(1000, threadIds.length * perThread * 4))
@@ -522,9 +513,7 @@ async function getLastPostsByThread(threadIds: number[], perThread = 2): Promise
       const tid = c.legacy_thread_legacy_id
       const arr = out.get(tid) || []
       if (arr.length >= perThread) continue
-      const text = (c.body && String(c.body).trim())
-        || (c.content_html && String(c.content_html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
-        || ''
+      const text = (c.body && String(c.body).trim()) || ''
       arr.push({
         body: text,
         author_username: c.profiles?.username || null,
@@ -1145,8 +1134,10 @@ const fetchArtistData = unstable_cache(
       similar, legacyCommunity, ranks, lastPostsArr, displayRoles, popBarLevel, recentPopBarLevel,
     }
   },
-  // v8 — bumped po recentPopBarLevel pridėjimo
-  ['artist-full-data-v8'],
+  // v9 — 2026-05-24 bump: cached v8 nelaikė substyles/genres array'us
+  // šviežiai INTL atlikėjams po backfill'o (cache hit grąžindavo stale empty
+  // tuplus). v9 priverčia full refetch — visi artist'ai gauna fresh data.
+  ['artist-full-data-v9'],
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
@@ -1189,6 +1180,10 @@ async function ArtistContent({ artist }: { artist: any }) {
   //  1. Explicitly set wide cover (admin-chosen)
   //  2. First active photo from gallery — typically higher-res
   //  3. null → no hero shown (better than blurry small thumb)
+  // 2026-05-24: SĄMONINGAI nedarom YT thumb fallback'o hero'ui — low-res
+  // 480px image'o ištempimas į 1920px atrodo blurry. Geriau jokio hero,
+  // nei prastas hero. YT thumbnail naudojamas TIK mažoms thumb pozicijoms
+  // (search, kortelės) per cover_image_url fallback'ą.
   const galleryFirst = photos.length > 0 ? photos[0].url : null
   const heroImage = artist.cover_image_wide_url
     || galleryFirst

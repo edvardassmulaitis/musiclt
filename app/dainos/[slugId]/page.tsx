@@ -91,7 +91,7 @@ const fetchTrackData = unstable_cache(
       supabase.from('album_tracks').select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio, type)').eq('track_id', id),
       supabase.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'track').eq('entity_id', id),
       trackLegacyId ? supabase.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'track').eq('entity_legacy_id', trackLegacyId) : Promise.resolve({ count: 0 } as any),
-      trackLegacyId ? supabase.from('likes').select('user_username, user_rank, user_avatar_url').eq('entity_type', 'track').eq('entity_legacy_id', trackLegacyId).order('id', { ascending: true }).limit(30) : Promise.resolve({ data: [] } as any),
+      trackLegacyId ? supabase.from('likes').select('user_username, profiles:user_id(avatar_url, rank)').eq('entity_type', 'track').eq('entity_legacy_id', trackLegacyId).order('id', { ascending: true }).limit(30) : Promise.resolve({ data: [] } as any),
       supabase.from('track_lyric_comments').select('id, selection_start, selection_end, selected_text, type, text, likes, created_at').eq('track_id', id).order('created_at', { ascending: true }),
       trackLegacyId ? supabase.from('entity_comments').select('legacy_id, author_username, author_avatar_url, created_at, content_html, content_text, like_count').eq('entity_type', 'track').eq('entity_legacy_id', trackLegacyId).order('created_at', { ascending: true }) : Promise.resolve({ data: [] as any[] } as any),
       supabase.from('tracks').select('id, slug, title, type, video_url').eq('artist_id', track.artist_id).ilike('title', `%${titleFragment}%`).neq('id', id).limit(10),
@@ -104,7 +104,13 @@ const fetchTrackData = unstable_cache(
       albumTrackRows: (albumTrackRes as any).data ?? [],
       likes: (likesRes as any).count ?? 0,
       legacyCnt: (legacyCntRes as any).count || 0,
-      legacyUsers: ((legacyUsersRes as any).data as any[]) || [],
+      // Flatten profiles JOIN → user_avatar_url/user_rank (backward-compat
+       // su child UI komponentais po 2026-05-28c slim-down).
+      legacyUsers: (((legacyUsersRes as any).data as any[]) || []).map((u: any) => ({
+        user_username: u.user_username,
+        user_avatar_url: u.profiles?.avatar_url || null,
+        user_rank: u.profiles?.rank || null,
+      })),
       lyricComments: (lyricCommentsRes as any).data ?? [],
       entityComments: (entityCommentsRes as any).data ?? [],
       versionRows: (versionsRes as any).data ?? [],
