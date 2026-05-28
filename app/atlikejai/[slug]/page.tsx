@@ -788,85 +788,27 @@ async function getArtistRanks(
 ): Promise<{ category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }[]> {
   if (!artistScore || artistScore <= 0) return []
   const sb = createAdminClient()
-  const out: { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }[] = []
 
-  // Score'as yra unifikuotas popularity metric'as — surenka likes, awards,
-  // tracks, albums, comments, threads ir kt. Score=0 reiškia placeholder
-  // atlikėją be jokio scrape'o, kuris natūraliai iškrenta iš pool'o.
-  // Rank'inam tarp peerių su score > 0.
+  // ── PERF: vienas RPC call (migracija 20260529c_artist_rank_rpc) ─────
+  // Anksčiau: 2 country counts + (1+N pages + 2*(chunks)) genre + 2 global
+  // = 8-18 query'ų. Su 3000+ atlikėjų žanre (Roko muzika) → 14+ queries
+  // × ~30ms = 400-500ms total.
+  //
+  // Dabar: SECURITY DEFINER RPC su CTE / window functions — viskas viena
+  // PostgreSQL planner pass'u, partial index'u `idx_artists_score` paremta.
+  // Total: ~50ms (10× pagreitis).
+  const { data: rpcRows, error: rpcErr } = await sb.rpc('artist_rank', {
+    p_artist_id: artistId,
+    p_score:     artistScore,
+    p_country:   country ?? null,
+  })
 
-  // Country rank — count() head requests (vietoj full list su 1000-row cap).
-  // Anksčiau .select('id, score') grąžindavo max 1000 įrašų, todėl populiariems
-  // žanrams (Roko muzika ~3000+ atlikėjų) visi rodydavosi kaip #1 — buvo
-  // matomi tik pirmi 1000.
-  if (country) {
-    const [{ count: totalCnt }, { count: aboveCnt }] = await Promise.all([
-      sb.from('artists').select('id', { count: 'exact', head: true }).eq('country', country).gt('score', 0),
-      sb.from('artists').select('id', { count: 'exact', head: true }).eq('country', country).gt('score', artistScore),
-    ])
-    const total = totalCnt || 1
-    out.push({ category: country, rank: (aboveCnt || 0) + 1, total, scope: 'country' })
+  if (rpcErr) {
+    console.error('[artist_rank] RPC failed, returning empty:', rpcErr.message)
+    return []
   }
 
-  // Genre rank (top genre only) — taip pat count() head approach.
-  // Pirma surenkam artist_id'us tame žanre (paginated, kad netruktų prie
-  // 1000 cap'o), tada count'u žiūrim kiek tų atlikėjų turi didesnį score.
-  if (genres.length > 0) {
-    const g = genres[0]
-    const PAGE = 1000
-    const genreArtistIds: number[] = []
-    let offset = 0
-    while (true) {
-      const { data: gp } = await sb
-        .from('artist_genres')
-        .select('artist_id')
-        .eq('genre_id', g.id)
-        .range(offset, offset + PAGE - 1)
-      const arr = (gp || []) as { artist_id: number }[]
-      for (const r of arr) if (r.artist_id) genreArtistIds.push(r.artist_id)
-      if (arr.length < PAGE) break
-      offset += PAGE
-      if (offset > 50000) break  // safety
-    }
-    if (genreArtistIds.length === 0) {
-      out.push({ category: g.name, rank: 1, total: 1, scope: 'genre' })
-    } else {
-      // Count tarp tų artist_id su score > 0 (total) ir score > mūsų (above).
-      // .in() max ~1000 IDs per query — chunk'inam jei reikia.
-      let totalCnt = 0
-      let aboveCnt = 0
-      for (let i = 0; i < genreArtistIds.length; i += 500) {
-        const chunk = genreArtistIds.slice(i, i + 500)
-        const [{ count: t }, { count: a }] = await Promise.all([
-          sb.from('artists').select('id', { count: 'exact', head: true }).in('id', chunk).gt('score', 0),
-          sb.from('artists').select('id', { count: 'exact', head: true }).in('id', chunk).gt('score', artistScore),
-        ])
-        totalCnt += t || 0
-        aboveCnt += a || 0
-      }
-      const total = totalCnt || 1
-      out.push({ category: g.name, rank: aboveCnt + 1, total, scope: 'genre' })
-    }
-  }
-
-  // Global rank — visiems atlikėjams (ne tik top 50). Naudojam count() head
-  // requests dėl performance (12k atlikėjų — vienos atminčios load atlieka
-  // ~5-10s, count() ~30ms). Vis dėlto rodom UI'e tik non-LT atlikėjams
-  // (LT atvejui pakanka country rank'o, kuris jau yra Lietuvoje).
-  {
-    const [{ count: total }, { count: below }] = await Promise.all([
-      sb.from('artists').select('id', { count: 'exact', head: true }).gt('score', 0),
-      sb.from('artists').select('id', { count: 'exact', head: true }).gt('score', 0).lt('score', artistScore),
-    ])
-    if (total && total > 0) {
-      // rank = (total - below) — atlikėjai, kurių score >= mūsų, įskaitant
-      // patį mūsų. Mes esam pirmasis su lygiu score.
-      const rank = (total || 0) - (below || 0)
-      out.push({ category: 'Pasaulyje', rank, total, scope: 'global' })
-    }
-  }
-
-  return out
+  return (rpcRows || []) as { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }[]
 }
 
 /** Score-based PopBar level (1..5). Percentile tarp VISŲ atlikėjų su
