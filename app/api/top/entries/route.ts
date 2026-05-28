@@ -133,20 +133,9 @@ export async function GET(req: Request) {
     tracks: trackMap.get(e.track_id) ?? null,
   }))
 
-  // Homepage'as kviečia šitą endpoint'ą be `week_id` ir be filter'ų — todėl
-  // tas pats response'as visiems anonimams ir bent 2 minutes stabilus
-  // (pozicijų neperskaičiuojam mid-week). CDN'inam tik šitą shape'ą; admin
-  // queries (su week_id) eis tiesiai į DB.
-  const isHomepageShape = !weekId
-  if (isHomepageShape) {
-    return NextResponse.json({ entries: merged, week }, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600',
-        'CDN-Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600',
-        'Vercel-CDN-Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600',
-      },
-    })
-  }
+  // BE cache header'ių — admin operacijos (populate, finalize, reset) turi
+  // matyti freshness'ą iš karto. Public /top40, /top30 puslapiai naudoja
+  // savo Supabase queries (server components), ne /api/top/entries.
   return NextResponse.json({ entries: merged, week })
 }
 

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-type CacheKind = 'tracks' | 'albums' | 'news' | 'events' | 'artists' | 'all'
+type CacheKind = 'tracks' | 'albums' | 'news' | 'all'
 
 export default function AdminSettings() {
   const [testResult, setTestResult] = useState<any>(null)
@@ -132,9 +132,7 @@ export default function AdminSettings() {
                 { kind: 'tracks' as const, label: 'Dainos', emoji: '🎵' },
                 { kind: 'albums' as const, label: 'Albumai', emoji: '💿' },
                 { kind: 'news' as const, label: 'Naujienos', emoji: '📰' },
-                { kind: 'events' as const, label: 'Renginiai', emoji: '🎤' },
-                { kind: 'artists' as const, label: 'Atlikėjai', emoji: '🎙️' },
-                { kind: 'all' as const, label: 'Visa', emoji: '🔄' },
+                { kind: 'all' as const, label: 'Visa homepage', emoji: '🔄' },
               ]).map(({ kind, label, emoji }) => (
                 <button
                   key={kind}
@@ -172,8 +170,6 @@ export default function AdminSettings() {
                 <li><strong>Dainos:</strong> po manualinio video_uploaded_at backfill'o ar batch scrape'o, kai nauji tracks neatsiranda LT/World lane'uose.</li>
                 <li><strong>Albumai:</strong> po wiki disco re-import'o ar release_date korekcijos.</li>
                 <li><strong>Naujienos:</strong> po news-scout cron'o ar manualinio /admin/inbox approve.</li>
-                <li><strong>Renginiai:</strong> po renginio detali pakeitimo, kuris turi rodytis homepage'e iškart.</li>
-                <li><strong>Atlikėjai:</strong> po atlikėjo metadatos / albumų / track'ų edit'o, kai /atlikejai/* puslapis vis dar rodo senus duomenis. ISR cache 5 min, šis mygtukas išvalo iškart.</li>
                 <li><strong>Visa:</strong> po didelio DB pakeitimo (wipe + reimport) — saugiausias variantas.</li>
               </ul>
             </details>

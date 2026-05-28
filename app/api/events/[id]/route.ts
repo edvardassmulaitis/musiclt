@@ -27,12 +27,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       await setEventArtists(id, artists)
     }
 
-    // Cache invalidation — renginio update/delete homepage'e
-    try {
-      const { revalidateHomeTag } = await import('@/lib/home-latest')
-      revalidateHomeTag('events')
-    } catch {}
-
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -48,12 +42,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   try {
     await deleteEvent(id)
-    // Cache invalidation — renginio update/delete homepage'e
-    try {
-      const { revalidateHomeTag } = await import('@/lib/home-latest')
-      revalidateHomeTag('events')
-    } catch {}
-
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

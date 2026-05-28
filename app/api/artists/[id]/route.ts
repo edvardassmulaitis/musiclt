@@ -387,13 +387,6 @@ export async function PATCH(
     } catch {}
   }
 
-  // Cache invalidation — atlikėjo puslapis ISR'inamas su `tags: ['artist']`.
-  // Po edit'o nori, kad public puslapis iškart parodytų naujus duomenis.
-  try {
-    const { revalidateEntityTag } = await import('@/lib/home-latest')
-    revalidateEntityTag('artist')
-  } catch {}
-
   return NextResponse.json({ ok: true })
 }
 
@@ -420,13 +413,6 @@ export async function DELETE(
 
   const { error } = await supabase.from('artists').delete().eq('id', artistId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // Cache invalidation po DELETE — visi artist'o page'ai cache turi būti
-  // išvalyti, kad notFound() suveiktų teisingai.
-  try {
-    const { revalidateEntityTag } = await import('@/lib/home-latest')
-    revalidateEntityTag('artist')
-  } catch {}
 
   return NextResponse.json({ ok: true })
 }

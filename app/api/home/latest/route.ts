@@ -39,15 +39,14 @@ export async function GET() {
       },
     }
 
-    // 15 min CDN cache. Tag invalidation (revalidateHomeTag) instant'iškai
-    // išvalo unstable_cache layer'į, o CDN edge'us pasipildys per `s-maxage`.
-    // Reali freshness — admin POST'ai ar /admin/settings mygtukai → iškart;
-    // antraip max 15 min lag'as (priimtina pagal user'io 2026-05-28 sprendimą).
+    // 5 min CDN cache, plus stale-while-revalidate 5 min — kai `revalidateTag`
+    // iškviečiamas, unstable_cache layer iškart išsivalo, bet CDN edge'ai gali
+    // turėti seną response'ą iki s-maxage. Trumpinam SWR į 300 (vietoj 600).
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
-        'CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
-        'Vercel-CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
+        'CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
+        'Vercel-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
       },
     })
   } catch (e: any) {
