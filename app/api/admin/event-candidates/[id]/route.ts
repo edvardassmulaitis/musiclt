@@ -130,6 +130,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         })
         .eq('id', candidateId)
 
+      // Cache invalidation — naujas renginys homepage'e
+      try {
+        const { revalidateHomeTag } = await import('@/lib/home-latest')
+        revalidateHomeTag('events')
+      } catch {}
+
       return NextResponse.json({ ok: true, status: 'approved', event_id: event?.id, slug: event?.slug })
     } catch (e: any) {
       return NextResponse.json({ error: `Publish failed: ${e.message}` }, { status: 500 })

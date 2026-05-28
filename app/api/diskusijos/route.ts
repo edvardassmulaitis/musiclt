@@ -62,9 +62,9 @@ export async function GET(req: Request) {
   // patį response'ą). Be cache'o tai = 2 DB hit'ai per anonimą.
   return NextResponse.json({ discussions: data || [], total: count || 0 }, {
     headers: {
-      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-      'CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-      'Vercel-CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
+      'CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
     },
   })
 }

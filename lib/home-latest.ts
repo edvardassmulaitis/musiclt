@@ -47,9 +47,10 @@ export const HOME_TAGS = {
   tracks: 'home:tracks-latest',
   albums: 'home:albums-latest',
   news: 'home:news-latest',
+  events: 'home:events-latest',
 } as const
 
-/** Iškviečiamas iš POST/PUT/DELETE endpoint'ų po naujo track/album/news. */
+/** Iškviečiamas iš POST/PUT/DELETE endpoint'ų po naujo track/album/news/event. */
 export function revalidateHomeTag(kind: keyof typeof HOME_TAGS) {
   try {
     revalidateTag(HOME_TAGS[kind])

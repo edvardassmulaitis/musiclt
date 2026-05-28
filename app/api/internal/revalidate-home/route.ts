@@ -18,7 +18,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { HOME_TAGS, revalidateHomeTag } from '@/lib/home-latest'
 
-const KINDS = ['tracks', 'albums', 'news', 'all'] as const
+const KINDS = ['tracks', 'albums', 'news', 'events', 'all'] as const
 
 export async function POST(req: NextRequest) {
   // Auth check — token VS admin session
@@ -41,13 +41,14 @@ export async function POST(req: NextRequest) {
 
   const revalidated: string[] = []
   if (kind === 'all') {
-    for (const k of ['tracks', 'albums', 'news'] as const) {
+    for (const k of ['tracks', 'albums', 'news', 'events'] as const) {
       revalidateHomeTag(k)
       revalidated.push(HOME_TAGS[k])
     }
   } else {
-    revalidateHomeTag(kind as 'tracks' | 'albums' | 'news')
-    revalidated.push(HOME_TAGS[kind as 'tracks' | 'albums' | 'news'])
+    const k = kind as 'tracks' | 'albums' | 'news' | 'events'
+    revalidateHomeTag(k)
+    revalidated.push(HOME_TAGS[k])
   }
 
   return NextResponse.json({ ok: true, revalidated })

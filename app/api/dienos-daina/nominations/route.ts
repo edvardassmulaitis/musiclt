@@ -65,7 +65,15 @@ export async function GET(req: Request) {
     votes: voteCounts[n.id]?.total || 0,
     weighted_votes: voteCounts[n.id]?.weighted || 0,
   })).sort((a, b) => b.weighted_votes - a.weighted_votes)
-  return NextResponse.json({ nominations: enriched, date })
+  // Vote count'ai kinta dažnai — 60s cache pakanka homepage'ui (nedidelis
+  // delay'us tarp balsavimo ir matomos pozicijos). SWR 300s — fone updates.
+  return NextResponse.json({ nominations: enriched, date }, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+    },
+  })
 }
 
 export async function POST(req: Request) {

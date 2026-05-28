@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-type CacheKind = 'tracks' | 'albums' | 'news' | 'all'
+type CacheKind = 'tracks' | 'albums' | 'news' | 'events' | 'all'
 
 export default function AdminSettings() {
   const [testResult, setTestResult] = useState<any>(null)
@@ -132,6 +132,7 @@ export default function AdminSettings() {
                 { kind: 'tracks' as const, label: 'Dainos', emoji: '🎵' },
                 { kind: 'albums' as const, label: 'Albumai', emoji: '💿' },
                 { kind: 'news' as const, label: 'Naujienos', emoji: '📰' },
+                { kind: 'events' as const, label: 'Renginiai', emoji: '🎤' },
                 { kind: 'all' as const, label: 'Visa homepage', emoji: '🔄' },
               ]).map(({ kind, label, emoji }) => (
                 <button

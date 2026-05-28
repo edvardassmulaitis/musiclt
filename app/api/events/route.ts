@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getEvents, createEvent, searchEvents } from '@/lib/supabase-events'
+import { unstable_cache } from 'next/cache'
+import { HOME_TAGS } from '@/lib/home-latest'
+
+// Cached homepage path — be filtr'ų, limit<=24, showPast=false. Naudoja
+// tag'ą `home:events-latest`, kuris invalidate'inamas iš admin POST/PUT/DELETE.
+const cachedHomeEvents = unstable_cache(
+  async (limit: number) =>
+    getEvents({
+      showPast: false,
+      limit,
+      offset: 0,
+    }),
+  ['home-events-latest'],
+  { tags: [HOME_TAGS.events], revalidate: 900 }
+)
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
@@ -12,21 +27,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(results)
   }
 
+  const city = sp.get('city') || undefined
+  const status = sp.get('status') || undefined
+  const period = (sp.get('period') as 'week' | 'month' | 'all') || undefined
+  const showPast = sp.get('showPast') === 'true'
+  const limit = parseInt(sp.get('limit') || '20')
+  const offset = parseInt(sp.get('offset') || '0')
+
+  // Homepage shape — be filtr'ų ir paginnacijos. Kviečiame cached path'ą
+  // su tag invalidation'u. /renginiai puslapis su city/period filter'iais
+  // tęsia eitį per tiesioginį `getEvents`.
+  const isHomepageShape =
+    !city && !status && !period && !showPast && offset === 0 && limit <= 24
+
   try {
-    const result = await getEvents({
-      city: sp.get('city') || undefined,
-      status: sp.get('status') || undefined,
-      period: (sp.get('period') as 'week' | 'month' | 'all') || undefined,
-      showPast: sp.get('showPast') === 'true',
-      limit: parseInt(sp.get('limit') || '20'),
-      offset: parseInt(sp.get('offset') || '0'),
-    })
-    // CDN edge cache — homepage renginių sekcija.
+    const result = isHomepageShape
+      ? await cachedHomeEvents(limit)
+      : await getEvents({ city, status, period, showPast, limit, offset })
     return NextResponse.json(result, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-        'CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-        'Vercel-CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=300',
+        'CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=300',
+        'Vercel-CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=300',
       },
     })
   } catch (e: any) {
@@ -50,6 +72,12 @@ export async function POST(req: NextRequest) {
       const { setEventArtists } = await import('@/lib/supabase-events')
       await setEventArtists(event.id, artists)
     }
+
+    // Cache invalidation — homepage'o renginių sekcija turi pasimatyti iškart.
+    try {
+      const { revalidateHomeTag } = await import('@/lib/home-latest')
+      revalidateHomeTag('events')
+    } catch {}
 
     return NextResponse.json(event, { status: 201 })
   } catch (e: any) {

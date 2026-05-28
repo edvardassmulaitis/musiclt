@@ -32,9 +32,9 @@ export async function GET(req: NextRequest) {
       const result = await getCachedHomeNews(sinceIso!, limit)
       return NextResponse.json(result, {
         headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
-          'CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
-          'Vercel-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
+          'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
+          'CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
+          'Vercel-CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
         },
       })
     } catch (e: any) {

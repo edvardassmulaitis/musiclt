@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useSite } from '@/components/SiteContext'
 import { HomeChatsWidget } from '@/components/HomeChatsWidget'
+import { LazySection } from '@/components/LazySection'
 import { proxyImg } from '@/lib/img-proxy'
 
 /* ────────────────────────────── Types ────────────────────────────── */
@@ -2478,6 +2479,30 @@ export default function Home() {
                 ))}
               </section>
           {/* ── Renginiai LT + Užsienio: 2 lanes su badge'ais 'NAUJIENA' / 'GREITAI' ── */}
+          {/* LazySection — sekcija render'inasi tik kai user'is scroll'iuoja
+              arti viewport'o. Be lazy aukščiau matomos Naujos dainos / Nauji
+              albumai sekcijos lieka eager. Žr. components/LazySection.tsx. */}
+          <LazySection
+            rootMargin="400px"
+            minHeight={280}
+            placeholder={
+              <section>
+                <SectionHead label="Renginiai" href="/renginiai" />
+                <div className="hp-scroll flex items-stretch gap-3 pb-1">
+                  {Array(4).fill(null).map((_, i) => (
+                    <div key={i} className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2" style={{ height: 110 }}>
+                      <Skel w={94} h={94} r={9} />
+                      <div className="flex-1" style={{ width: 200 }}>
+                        <Skel w="80%" h={11} />
+                        <div className="mt-1.5"><Skel w="55%" h={9} /></div>
+                        <div className="mt-2"><Skel w="35%" h={8} /></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            }
+          >
           <section>
             <SectionHead label="Renginiai" href="/renginiai" />
             {(() => {
@@ -2607,10 +2632,29 @@ export default function Home() {
               )
             })()}
           </section>
-
-
+          </LazySection>
 
           {/* ── BENDRUOMENĖ — naujausios diskusijos + main chat + vartotojų įrašai ── */}
+          {/* Lazy — visi 3 vidiniai card'ai turi savo useEffect'ą su fetch'ais;
+              wrap'inus, šie fetch'ai NEVYKDOMI iki user'is artėja prie sekcijos. */}
+          <LazySection
+            rootMargin="400px"
+            minHeight={280}
+            placeholder={
+              <section>
+                <SectionHead label="Bendruomenė" href="/bendruomene" cta="Daugiau →" />
+                <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
+                  {Array(3).fill(null).map((_, i) => (
+                    <div key={i} className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4" style={{ minHeight: 220 }}>
+                      <Skel w="40%" h={11} />
+                      <div className="mt-3"><Skel w="100%" h={48} /></div>
+                      <div className="mt-2"><Skel w="80%" h={11} /></div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            }
+          >
           <section>
             <SectionHead label="Bendruomenė" href="/bendruomene" cta="Daugiau →" />
             <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
@@ -2619,8 +2663,27 @@ export default function Home() {
               <CommunityUserPostsCard />
             </div>
           </section>
+          </LazySection>
 
           {/* ── PRAMOGOS — Dienos daina + Boombox intro + Music Manager placeholder ── */}
+          <LazySection
+            rootMargin="400px"
+            minHeight={280}
+            placeholder={
+              <section>
+                <SectionHead label="Pramogos" href="/pramogos" cta="Daugiau →" />
+                <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
+                  {Array(3).fill(null).map((_, i) => (
+                    <div key={i} className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4" style={{ minHeight: 220 }}>
+                      <Skel w="40%" h={11} />
+                      <div className="mt-3"><Skel w="100%" h={48} /></div>
+                      <div className="mt-2"><Skel w="60%" h={11} /></div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            }
+          >
           <section>
             <SectionHead label="Pramogos" href="/pramogos" cta="Daugiau →" />
             <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
@@ -2629,12 +2692,15 @@ export default function Home() {
               <PramogosManagerPlaceholderCard />
             </div>
           </section>
+          </LazySection>
 
           {/* ── ISTORIJA — sukaktys, jubiliejai, gimtadieniai ── */}
+          <LazySection rootMargin="400px" minHeight={180}>
           <section>
             <SectionHead label="Istorija" href="/istorija" cta="Daugiau →" />
             <IstorijaSection />
           </section>
+          </LazySection>
 
           {/* ── Atlikėjai + CTA — paslėpta (kol kas) ── */}
           {false && (<>
