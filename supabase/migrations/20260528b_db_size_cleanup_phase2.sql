@@ -34,7 +34,7 @@ DELETE FROM public.track_video_views_history
 WHERE id IN (
   SELECT id FROM (
     SELECT id,
-           ROW_NUMBER() OVER (PARTITION BY track_id ORDER BY checked_at DESC) AS rn
+           ROW_NUMBER() OVER (PARTITION BY track_id ORDER BY captured_at DESC) AS rn
     FROM public.track_video_views_history
   ) ranked
   WHERE rn > 3
