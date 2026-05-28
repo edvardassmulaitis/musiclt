@@ -356,23 +356,34 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
       }
     }
 
+    // Phase A: artist-targeted queries (artists OR per token + compound
+    // tracks/albums + fan-out + profiles). Greitas — ~80-150ms.
     const phaseA = fetch(
-      `/api/search-master?q=${encodeURIComponent(query)}&categories=artists&limit=12`,
+      `/api/search-master?q=${encodeURIComponent(query)}&phase=fast&limit=12`,
       { signal: ctrl.signal },
     )
       .then(r => (r.ok ? r.json() : null))
       .then(d => {
         if (!d || ctrl.signal.aborted) return
-        merged = { ...merged, artists: d.results?.artists || [] }
-        mergedTotals = { ...mergedTotals, artists: d.totals?.artists || 0 }
-        // Iš karto rodom — net jei Phase B dar neatėjo, user'is matosi
-        // atlikėjus. CSS'e likę kategorijos turi loading skeleton'ą.
+        merged = {
+          ...merged,
+          artists: d.results?.artists || [],
+          // Compound + fan-out tracks/albums (artist-targeted) iškart pop'inasi.
+          tracks: d.results?.tracks || [],
+          albums: d.results?.albums || [],
+          profiles: d.results?.profiles || [],
+        }
+        mergedTotals = {
+          ...mergedTotals,
+          artists: d.totals?.artists || 0,
+          tracks: d.totals?.tracks || 0,
+          albums: d.totals?.albums || 0,
+          profiles: d.totals?.profiles || 0,
+        }
         setResults(merged)
         setTotals(mergedTotals)
         setSelectedIdx(0)
         setLastQuery(query)
-        // Loading flag'as nuimamas po Phase A — user'is mato pirmus rezultatus.
-        // Phase B vis dar kraunasi, bet apatinės sekcijos turi savo skeleton'us.
         setLoading(false)
         aDone = true
         finishIfBothDone()
@@ -381,32 +392,37 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
         if (e?.name !== 'AbortError') console.error('Search Phase A error:', e)
       })
 
+    // Phase B: broad ILIKE — tracks/albums po title match, plus events,
+    // venues, news, blog_posts, discussions. Be trigram'o lėtas (~1-2s).
     const phaseB = fetch(
-      `/api/search-master?q=${encodeURIComponent(query)}&categories=albums,tracks,profiles,events,venues,news,blog_posts,discussions&limit=12`,
+      `/api/search-master?q=${encodeURIComponent(query)}&phase=rest&limit=12`,
       { signal: ctrl.signal },
     )
       .then(r => (r.ok ? r.json() : null))
       .then(d => {
         if (!d || ctrl.signal.aborted) return
-        // Merge'inam visus kitus kategorijas. Artists palieam iš Phase A
-        // (Phase B kviečia su categories=...,bet artists vis tiek
-        // queriuojamas internal fan-out'ui; output'e jo nebus dėl filtro).
+        // Merge tracks/albums: Phase B'os broad ILIKE rezultatai pridedami
+        // prie Phase A'os artist-targeted rezultatų. Dedupe pagal id.
+        const dedupeById = (existing: any[], incoming: any[]) => {
+          const seen = new Set(existing.map(h => h.id))
+          const adds = incoming.filter(h => !seen.has(h.id))
+          return [...existing, ...adds]
+        }
         merged = {
           ...merged,
-          albums: d.results?.albums || [],
-          tracks: d.results?.tracks || [],
-          profiles: d.results?.profiles || [],
+          tracks: dedupeById(merged.tracks || [], d.results?.tracks || []),
+          albums: dedupeById(merged.albums || [], d.results?.albums || []),
           events: d.results?.events || [],
           venues: d.results?.venues || [],
           news: d.results?.news || [],
           blog_posts: d.results?.blog_posts || [],
           discussions: d.results?.discussions || [],
         }
+        // Totals: imam MAX iš Phase A ir Phase B (Phase B grąžina pilną title-match count).
         mergedTotals = {
           ...mergedTotals,
-          albums: d.totals?.albums || 0,
-          tracks: d.totals?.tracks || 0,
-          profiles: d.totals?.profiles || 0,
+          tracks: Math.max(mergedTotals.tracks || 0, d.totals?.tracks || 0),
+          albums: Math.max(mergedTotals.albums || 0, d.totals?.albums || 0),
           events: d.totals?.events || 0,
           venues: d.totals?.venues || 0,
           news: d.totals?.news || 0,
@@ -514,7 +530,12 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
   // šiuo metu rodom loader, ne "nieko nerasta".
   const isStale = !showEmpty && lastQuery !== trimmedQ
   const showLoader = !showEmpty && (loading || isStale)
-  const showNoResults = !showEmpty && !showLoader && total === 0
+  // BUGAS pre-2026-05-28: jei Phase A grąžino 0 atlikėjų (pvz. „abba dancing"
+  // broadTerm = „dancing" nematch'ina ABBA name), bet Phase B dar krauiasi,
+  // UI parodydavo „Nieko nerasta" akimirką, paskui pop'inosi tracks/albums
+  // iš compound search'o. Dabar laukiam KOL ABI fazės baigsis prieš rodyti
+  // „Nieko nerasta". restLoading=true kol Phase B in-flight.
+  const showNoResults = !showEmpty && !showLoader && !restLoading && total === 0
 
   // Counts per category — naudojam totals iš serverio (pilna count DB), o
   // jei totals nepriėjo (legacy fallback), gradient'iškai imam returned items.
