@@ -102,9 +102,6 @@ type LatestTrackRow = {
   release_date: string | null
   artist_id: number
   artists: LatestTrackArtist | null
-  // album_tracks JOIN — atspindi ar track yra senesniame albume
-  // (anksčiau išleistame nei einamieji metai). Naudojam reissue filtre.
-  album_tracks?: Array<{ albums: { id: number; year: number | null } | null }> | null
 }
 
 type LatestAlbumRow = {
@@ -136,17 +133,16 @@ function isLT(country: string | null | undefined): boolean {
 async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
   const supabase = createAdminClient()
   const since = isoDaysAgo(LATEST_TRACK_WINDOW_DAYS)
-  // album_tracks(albums(year)) JOIN — naudojam reissue filter'e: jei track
-  // priklauso senam albumui (year < currentYear - 1) bet YT video upload'as
-  // šviežias, tai YT reissue, ne nauja muzika. Tokio nerodom homepage'o
-  // „Naujos dainos" lane'uose.
+  // ⚠️ Anksčiau bandėm `album_tracks(albums(id, year))` JOIN'ą reissue
+  // filter'iui — bet su 200 candidates Supabase REST query stuck'indavo
+  // (>40s timeout). Reissue check'inam tik per `release_year`/`release_date`
+  // ant pačio track row'o (album metų prikalbinta album_tracks rolling job'e).
   const { data, error } = await supabase
     .from('tracks')
     .select(
       'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
         'release_date, release_year, artist_id, ' +
-        'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country), ' +
-        'album_tracks(albums(id, year))'
+        'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country)'
     )
     .not('video_uploaded_at', 'is', null)
     .gte('video_uploaded_at', since)
@@ -178,7 +174,7 @@ export async function getLatestTracksForHome(): Promise<{
   totalLt: number
   totalWorld: number
 }> {
-  const rows = await cachedFetchLatestTracksRaw('v2-no-reissues')
+  const rows = await cachedFetchLatestTracksRaw('v3-no-album-join')
 
   // Filtruojam mojibake / placeholder titles, kur title == artist name.
   let valid = rows.filter(r => r.artists && r.title && r.title !== r.artists.name)
@@ -193,17 +189,9 @@ export async function getLatestTracksForHome(): Promise<{
   const currentYear = new Date().getFullYear()
   const FRESH_YEAR_THRESHOLD = currentYear - 1
   valid = valid.filter(r => {
-    // Track'o paties release_year
+    // Track'o paties release_year arba release_date metai
     const tYear = r.release_year ?? (r.release_date ? Number(r.release_date.slice(0, 4)) : null)
     if (tYear && tYear < FRESH_YEAR_THRESHOLD) return false
-    // Bet kuris linked album'as senesnis
-    const albumYears = (r.album_tracks || [])
-      .map(at => at.albums?.year ?? null)
-      .filter((y): y is number => typeof y === 'number')
-    if (albumYears.length > 0) {
-      const minYear = Math.min(...albumYears)
-      if (minYear < FRESH_YEAR_THRESHOLD) return false
-    }
     return true
   })
 

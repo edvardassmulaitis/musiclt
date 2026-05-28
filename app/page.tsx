@@ -2026,6 +2026,14 @@ export default function Home() {
     const t = setTimeout(() => setOverlayVisible(false), 350)
     return () => clearTimeout(t)
   }, [pageReady])
+  // Fail-safe: jei kuris nors fetch'as „kabo" (pvz. /api/home/latest cold-start
+  // > Vercel function timeout), po 7s vis tiek paslepiam loader'į, kad
+  // user'is matytų bent dalinę homepage'o (kitos sekcijos lazyloadina arba
+  // gauna duomenis vėliau). Anksčiau toks scenario'as palikdavo white screen.
+  useEffect(() => {
+    const t = setTimeout(() => setPageReady(true), 7000)
+    return () => clearTimeout(t)
+  }, [])
   const mountTime = useRef(Date.now())
   const readyBits = useRef({ hero: false, tops: false, tracks: false })
   const tryReady = useRef(() => {
@@ -2121,8 +2129,17 @@ export default function Home() {
     fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => setWorldTop(parseTop(d.entries || []))).catch(() => {})
 
     // tracks + albums vienu fetch'u — { tracks: { lt, world }, albums: { lt, world } }
-    fetch('/api/home/latest')
+    // AbortController su 6s timeout — kai Vercel function cold-start kabo,
+    // nelaukiam virš timeout'o, tiesiog markinam tracks=true ir leidžiam
+    // page'ui užsiloadinti su skeleton'ais (LazySection sekcijos pabandys vėl).
+    const tracksAbort = new AbortController()
+    const tracksTimer = setTimeout(() => tracksAbort.abort(), 6000)
+    fetch('/api/home/latest', { signal: tracksAbort.signal })
       .then(r => r.json())
+      .then(d => {
+        clearTimeout(tracksTimer)
+        return d
+      })
       .then(d => {
         const tLt = (d.tracks?.lt || []) as any[]
         const tWorld = (d.tracks?.world || []) as any[]
@@ -2145,7 +2162,7 @@ export default function Home() {
           upcoming: d.upcomingTotal || 0,
         })
       })
-      .catch(() => { readyBits.current.tracks = true; tryReady.current() })
+      .catch(() => { clearTimeout(tracksTimer); readyBits.current.tracks = true; tryReady.current() })
 
     fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
     // News + songs vienu request'u. `since_days=30` apriboja į pastarąsias 30 d.
@@ -2397,7 +2414,7 @@ export default function Home() {
             progress feedback'as buvo nereikalingas (matosi tik 1-2 frames).
             Overlay stays in DOM 350ms po pageReady=true; CSS
             .overlay-fade-out per 320ms fade'ina opacity iki 0. */}
-        {overlayVisible && (
+        {overlayVisible && typeof document !== 'undefined' && createPortal((
           <div
             className={pageReady ? 'overlay-fade-out' : ''}
             style={{
@@ -2420,7 +2437,7 @@ export default function Home() {
               <span /><span /><span /><span /><span />
             </span>
           </div>
-        )}
+        ), document.body)}
         {pageReady && heroSlides.length > 0 && (
           <section className="hp-hero-v2" ref={heroRef}>
             <div className="mx-auto max-w-[1360px] px-5 pt-5">
