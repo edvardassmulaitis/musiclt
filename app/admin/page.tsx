@@ -219,6 +219,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/search', icon: '🔍', label: 'Paieška' },
     { href: '/admin/users', icon: '👥', label: 'Vartotojai' },
     { href: '/admin/settings', icon: '⚙️', label: 'Nustatymai' },
+    { href: '/admin/db-stats', icon: '💾', label: 'DB stats', hint: 'Lentelių dydžiai, dead indexes, bloat' },
   ]
 
   return (
