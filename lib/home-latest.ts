@@ -38,12 +38,12 @@ export const LATEST_NEWS_WINDOW_DAYS = 30
 
 // Per lane'ą rodom 10 įrašų. Fetch'inam daugiau kandidatų prieš dedupe.
 export const HOME_LANE_LIMIT = 10
-// Sumažinom iš 200 → 100 candidates, kad Supabase REST query atsakytų
-// greičiau (Vercel function 10s cold-start limit'as Hobby tier'e). Po dedupe
-// per artist'ą paprastai gauname 30-40 unikalių artists, daugiau lane'ams
-// nebūtina.
-const TRACKS_CANDIDATE_FETCH_LIMIT = 100
-const ALBUMS_CANDIDATE_FETCH_LIMIT = 100
+// DB šiuo metu over-capacity (žr. project_db_size_cleanup_2026_05_28).
+// 100 candidate'ai timeout'ina (Postgres statement timeout). Sumažinom į 50,
+// kad query bent kažkaip užbaigtų. Po dedupe per artist'ą 50→20 unikalių
+// artist'ų pakanka „Naujausioms dainoms" lane'ams.
+const TRACKS_CANDIDATE_FETCH_LIMIT = 50
+const ALBUMS_CANDIDATE_FETCH_LIMIT = 50
 
 /* ────────────────────────────── Tags ────────────────────────────── */
 
@@ -178,7 +178,7 @@ export async function getLatestTracksForHome(): Promise<{
   totalLt: number
   totalWorld: number
 }> {
-  const rows = await cachedFetchLatestTracksRaw('v3-no-album-join')
+  const rows = await cachedFetchLatestTracksRaw('v4-limit-50')
 
   // Filtruojam mojibake / placeholder titles, kur title == artist name.
   let valid = rows.filter(r => r.artists && r.title && r.title !== r.artists.name)
