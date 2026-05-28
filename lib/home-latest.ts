@@ -38,8 +38,12 @@ export const LATEST_NEWS_WINDOW_DAYS = 30
 
 // Per lane'ą rodom 10 įrašų. Fetch'inam daugiau kandidatų prieš dedupe.
 export const HOME_LANE_LIMIT = 10
-const TRACKS_CANDIDATE_FETCH_LIMIT = 200
-const ALBUMS_CANDIDATE_FETCH_LIMIT = 200
+// Sumažinom iš 200 → 100 candidates, kad Supabase REST query atsakytų
+// greičiau (Vercel function 10s cold-start limit'as Hobby tier'e). Po dedupe
+// per artist'ą paprastai gauname 30-40 unikalių artists, daugiau lane'ams
+// nebūtina.
+const TRACKS_CANDIDATE_FETCH_LIMIT = 100
+const ALBUMS_CANDIDATE_FETCH_LIMIT = 100
 
 /* ────────────────────────────── Tags ────────────────────────────── */
 
