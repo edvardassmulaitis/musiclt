@@ -2,27 +2,54 @@
 import { createAdminClient } from './supabase'
 
 // ── PROFILES ────────────────────────────────────────────────
+const PROFILE_SELECT = `
+  id, email, full_name, username, avatar_url, bio, website,
+  social_twitter, social_spotify, social_youtube, social_tiktok,
+  is_public, is_claimed, provider, cover_image_url, created_at,
+  legacy_user_id, joined_legacy_at, legacy_karma_points, is_vip_legacy,
+  legacy_age, legacy_city, mood_song_track_id, mood_song_set_at,
+  last_seen_legacy_at, legacy_birth_date, legacy_occupation,
+  legacy_favorite_books, legacy_signature, legacy_login_count,
+  legacy_message_count, legacy_avg_message_len, legacy_vote_avg_track,
+  legacy_vote_avg_album, legacy_vote_avg_artist,
+  legacy_liked_artist_count, legacy_liked_album_count,
+  legacy_liked_track_count, legacy_music_meter,
+  legacy_profile_photos
+`
+
+/** Try EXACT match first (faster, uses index); fallback to ilike. Defensive
+ * dėl LT raidžių URL'uose — kai kuriose Next.js / Vercel kelyje
+ * `params.username` ateina percent-encoded (Ruton%C4%97 vietoj Rutonė) ir
+ * vienas ilike match'as neranda. Bandom abi formas. */
 export async function getProfileByUsername(username: string) {
   const sb = createAdminClient()
-  const { data } = await sb
-    .from('profiles')
-    .select(`
-      id, email, full_name, username, avatar_url, bio, website,
-      social_twitter, social_spotify, social_youtube, social_tiktok,
-      is_public, is_claimed, provider, cover_image_url, created_at,
-      legacy_user_id, joined_legacy_at, legacy_karma_points, is_vip_legacy,
-      legacy_age, legacy_city, mood_song_track_id, mood_song_set_at,
-      last_seen_legacy_at, legacy_birth_date, legacy_occupation,
-      legacy_favorite_books, legacy_signature, legacy_login_count,
-      legacy_message_count, legacy_avg_message_len, legacy_vote_avg_track,
-      legacy_vote_avg_album, legacy_vote_avg_artist,
-      legacy_liked_artist_count, legacy_liked_album_count,
-      legacy_liked_track_count, legacy_music_meter,
-      legacy_profile_photos
-    `)
-    .ilike('username', username)
-    .single()
-  return data
+
+  // 1) Bandymas: decode (jei URL-encoded → tampa Rutonė)
+  let decoded = username
+  try {
+    decoded = decodeURIComponent(username)
+  } catch {
+    // Neteisingai-formated %XX — palik original
+  }
+
+  const tries: string[] = []
+  if (decoded) tries.push(decoded)
+  if (username !== decoded) tries.push(username)
+
+  for (const candidate of tries) {
+    // .maybeSingle() vietoj .single() — kad neerror'intų jei 0 row
+    const { data, error } = await sb
+      .from('profiles')
+      .select(PROFILE_SELECT)
+      .ilike('username', candidate)
+      .maybeSingle()
+    if (error) {
+      console.error('[getProfileByUsername]', candidate, error.message)
+      continue
+    }
+    if (data) return data
+  }
+  return null
 }
 
 // ── FAVORITE STYLES (music.lt /lt/stilius/<slug>/<id>/) ──────
@@ -396,13 +423,39 @@ export async function getProfileLikesCounts(username: string) {
 // ── BLOGS ───────────────────────────────────────────────────
 export async function getBlogBySlug(slug: string) {
   const sb = createAdminClient()
-  const { data } = await sb
-    .from('blogs')
-    .select('*, profiles:user_id(id, full_name, username, avatar_url)')
-    .eq('slug', slug)
-    .eq('is_active', true)
-    .single()
-  return data
+  // Bandymas su URL-decoded forma (jei kelias percent-encoded LT raidėms)
+  let decoded = slug
+  try { decoded = decodeURIComponent(slug) } catch {}
+
+  // 1) exact slug match
+  for (const cand of decoded !== slug ? [decoded, slug] : [slug]) {
+    const { data } = await sb
+      .from('blogs')
+      .select('*, profiles:user_id(id, full_name, username, avatar_url)')
+      .eq('slug', cand)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (data) return data
+  }
+
+  // 2) Fallback: legacy sluggify nuvalo LT raides — Rutonė → ruton-.
+  //    Bandom rasti profile pagal username, tada blog by user_id.
+  for (const cand of decoded !== slug ? [decoded, slug] : [slug]) {
+    const { data: prof } = await sb
+      .from('profiles')
+      .select('id')
+      .ilike('username', cand)
+      .maybeSingle()
+    if (!prof) continue
+    const { data: blog } = await sb
+      .from('blogs')
+      .select('*, profiles:user_id(id, full_name, username, avatar_url)')
+      .eq('user_id', prof.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (blog) return blog
+  }
+  return null
 }
 
 export async function getBlogByUserId(userId: string) {
@@ -493,25 +546,55 @@ export async function getAllUserPosts(userId: string) {
 
 export async function getPost(blogSlug: string, postSlug: string) {
   const sb = createAdminClient()
-  // First get blog + author profile su public-relevant meta laukais.
-  // legacy_karma_points + joined_legacy_at reikalingi blog post hero
-  // user pill'ui (rodom "Music.lt narys nuo YYYY · ★ karma").
-  const { data: blog } = await sb
-    .from('blogs')
-    .select('id, slug, title, user_id, profiles:user_id(id, full_name, username, avatar_url, legacy_karma_points, joined_legacy_at)')
-    .eq('slug', blogSlug)
-    .single()
+
+  // URL-decode dėl LT raidžių (Ruton%C4%97 → Rutonė)
+  let decodedBlog = blogSlug
+  let decodedPost = postSlug
+  try { decodedBlog = decodeURIComponent(blogSlug) } catch {}
+  try { decodedPost = decodeURIComponent(postSlug) } catch {}
+
+  // 1) Try resolve blog: exact slug → fallback by author username
+  const blogCands = decodedBlog !== blogSlug ? [decodedBlog, blogSlug] : [blogSlug]
+  let blog: any = null
+  for (const cand of blogCands) {
+    const { data } = await sb
+      .from('blogs')
+      .select('id, slug, title, user_id, profiles:user_id(id, full_name, username, avatar_url, legacy_karma_points, joined_legacy_at)')
+      .eq('slug', cand)
+      .maybeSingle()
+    if (data) { blog = data; break }
+  }
+  if (!blog) {
+    // Legacy sluggify (Rutonė → ruton-) — lookup by username instead
+    for (const cand of blogCands) {
+      const { data: prof } = await sb
+        .from('profiles')
+        .select('id')
+        .ilike('username', cand)
+        .maybeSingle()
+      if (!prof) continue
+      const { data } = await sb
+        .from('blogs')
+        .select('id, slug, title, user_id, profiles:user_id(id, full_name, username, avatar_url, legacy_karma_points, joined_legacy_at)')
+        .eq('user_id', prof.id)
+        .maybeSingle()
+      if (data) { blog = data; break }
+    }
+  }
   if (!blog) return null
 
-  const { data: post } = await sb
-    .from('blog_posts')
-    .select('*')
-    .eq('blog_id', blog.id)
-    .eq('slug', postSlug)
-    .single()
-  if (!post) return null
-
-  return { ...post, blog }
+  // 2) Post lookup by slug (try decoded + raw)
+  const postCands = decodedPost !== postSlug ? [decodedPost, postSlug] : [postSlug]
+  for (const cand of postCands) {
+    const { data: post } = await sb
+      .from('blog_posts')
+      .select('*')
+      .eq('blog_id', blog.id)
+      .eq('slug', cand)
+      .maybeSingle()
+    if (post) return { ...post, blog }
+  }
+  return null
 }
 
 export async function getPostById(postId: string) {
