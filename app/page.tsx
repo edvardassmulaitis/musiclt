@@ -2129,11 +2129,11 @@ export default function Home() {
     fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => setWorldTop(parseTop(d.entries || []))).catch(() => {})
 
     // tracks + albums vienu fetch'u — { tracks: { lt, world }, albums: { lt, world } }
-    // AbortController su 6s timeout — kai Vercel function cold-start kabo,
-    // nelaukiam virš timeout'o, tiesiog markinam tracks=true ir leidžiam
-    // page'ui užsiloadinti su skeleton'ais (LazySection sekcijos pabandys vėl).
+    // AbortController su 20s timeout — Vercel function cold-start gali užtrukti
+    // 8-10s, plius Supabase query +3-4s. Po 20s vis tiek abort'inam, kad
+    // pageReady fail-safe (7s) jau spėtų suveikti ir bent skeleton'ą rodyti.
     const tracksAbort = new AbortController()
-    const tracksTimer = setTimeout(() => tracksAbort.abort(), 6000)
+    const tracksTimer = setTimeout(() => tracksAbort.abort(), 20000)
     fetch('/api/home/latest', { signal: tracksAbort.signal })
       .then(r => r.json())
       .then(d => {

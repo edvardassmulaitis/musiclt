@@ -24,11 +24,14 @@ import {
 
 export async function GET() {
   try {
-    const [tracks, albums, upcoming] = await Promise.all([
-      getLatestTracksForHome(),
-      getLatestAlbumsForHome(),
-      getUpcomingAlbumsForHome(),
-    ])
+    // Atskirai await'iname kiekvieną, kad galėtume parodyti, kuri grandis
+    // numirė. Anksčiau Promise.all'as suskaitydavo tik bendrą error message'ą.
+    let tracks
+    let albums
+    let upcoming
+    try { tracks = await getLatestTracksForHome() } catch (e: any) { console.error('home/latest tracks failed:', e?.message); throw new Error(`tracks: ${e?.message}`) }
+    try { albums = await getLatestAlbumsForHome() } catch (e: any) { console.error('home/latest albums failed:', e?.message); throw new Error(`albums: ${e?.message}`) }
+    try { upcoming = await getUpcomingAlbumsForHome() } catch (e: any) { console.error('home/latest upcoming failed:', e?.message); throw new Error(`upcoming: ${e?.message}`) }
 
     const payload = {
       tracks: {
