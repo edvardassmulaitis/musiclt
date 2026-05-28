@@ -1,10 +1,15 @@
 /**
- * POST /api/internal/revalidate-home?kind=tracks|albums|news|all
+ * POST /api/internal/revalidate-home?kind=tracks|albums|news|events|artists|all
  *
- * Manualinis homepage cache invalidation'as. Naudojamas:
+ * Manualinis cache invalidation'as visiems ISR/unstable_cache tag'ams.
+ * Apima homepage sekcijas (tracks/albums/news/events) ir entity puslapius
+ * (artists, vėliau — albums/tracks/users).
+ *
+ * Naudojamas:
  *   - Iš scrape job'ų (po batch INSERT'ų tracks/albums/news lentelėse)
  *   - Iš admin migration tool'ų (po wipe + import)
  *   - Iš GitHub Actions po news-scout cron'o
+ *   - Iš admin UI mygtukų /admin/settings
  *
  * Auth: bear token iš `INTERNAL_REVALIDATE_TOKEN` env var arba admin session.
  *
@@ -16,9 +21,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { HOME_TAGS, revalidateHomeTag } from '@/lib/home-latest'
+import {
+  HOME_TAGS,
+  ENTITY_TAGS,
+  revalidateHomeTag,
+  revalidateEntityTag,
+} from '@/lib/home-latest'
 
-const KINDS = ['tracks', 'albums', 'news', 'events', 'all'] as const
+// Home tags — homepage'o lane'ai
+type HomeKind = keyof typeof HOME_TAGS
+// Entity tags — detail page'ai (artist/album/track/user)
+type EntityKind = keyof typeof ENTITY_TAGS
+
+const HOME_KINDS: HomeKind[] = ['tracks', 'albums', 'news', 'events']
+const ENTITY_KINDS: EntityKind[] = ['artist', 'album', 'track', 'user']
+// `artists` (plural) — UI'ui patogu (mygtukas „Atlikėjai") — mapping į `artist`.
+const ALIASES: Record<string, EntityKind> = {
+  artists: 'artist',
+  albums_pages: 'album',
+  tracks_pages: 'track',
+  users: 'user',
+}
+const ALL_KINDS = [...HOME_KINDS, ...ENTITY_KINDS, ...Object.keys(ALIASES), 'all']
 
 export async function POST(req: NextRequest) {
   // Auth check — token VS admin session
@@ -34,21 +58,34 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const kind = req.nextUrl.searchParams.get('kind') || 'all'
-  if (!KINDS.includes(kind as any)) {
-    return NextResponse.json({ error: `kind must be one of: ${KINDS.join(', ')}` }, { status: 400 })
+  const rawKind = req.nextUrl.searchParams.get('kind') || 'all'
+  if (!ALL_KINDS.includes(rawKind)) {
+    return NextResponse.json(
+      { error: `kind must be one of: ${ALL_KINDS.join(', ')}` },
+      { status: 400 }
+    )
   }
+
+  // Resolve aliases (`artists` → `artist`). Tipas — paprastas string, kad TS
+  // narrowing'as nepraleistų 'all' branch'o.
+  const kind: string = ALIASES[rawKind] ?? rawKind
 
   const revalidated: string[] = []
   if (kind === 'all') {
-    for (const k of ['tracks', 'albums', 'news', 'events'] as const) {
+    for (const k of HOME_KINDS) {
       revalidateHomeTag(k)
       revalidated.push(HOME_TAGS[k])
     }
+    for (const k of ENTITY_KINDS) {
+      revalidateEntityTag(k)
+      revalidated.push(ENTITY_TAGS[k])
+    }
+  } else if ((HOME_KINDS as string[]).includes(kind)) {
+    revalidateHomeTag(kind as HomeKind)
+    revalidated.push(HOME_TAGS[kind as HomeKind])
   } else {
-    const k = kind as 'tracks' | 'albums' | 'news' | 'events'
-    revalidateHomeTag(k)
-    revalidated.push(HOME_TAGS[k])
+    revalidateEntityTag(kind as EntityKind)
+    revalidated.push(ENTITY_TAGS[kind as EntityKind])
   }
 
   return NextResponse.json({ ok: true, revalidated })

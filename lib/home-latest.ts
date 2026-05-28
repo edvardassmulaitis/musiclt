@@ -59,6 +59,27 @@ export function revalidateHomeTag(kind: keyof typeof HOME_TAGS) {
   }
 }
 
+/* ────────────────────────────── Entity page tags ──────────────────────────────
+   Atskiri tag'ai entity page'ams (artist, album, track, user). Kviečiama iš
+   admin PATCH/PUT/DELETE endpoint'ų — ISR cache iškart išvalo, kitas user'is
+   gauna fresh duomenis. Skiriasi nuo HOME_TAGS tuo, kad šitie taikomi
+   detail puslapiams, ne homepage'o lane'ams.
+*/
+export const ENTITY_TAGS = {
+  artist: 'artist',
+  album: 'album',
+  track: 'track',
+  user: 'user',
+} as const
+
+export function revalidateEntityTag(kind: keyof typeof ENTITY_TAGS) {
+  try {
+    revalidateTag(ENTITY_TAGS[kind])
+  } catch {
+    /* dev mode silently no-ops */
+  }
+}
+
 /* ────────────────────────────── Types ────────────────────────────── */
 
 type LatestTrackArtist = {
