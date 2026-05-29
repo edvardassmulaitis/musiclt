@@ -1256,7 +1256,7 @@ function PulsasSection() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'blog' | 'discussion' | 'comment'>('all')
   useEffect(() => {
     let alive = true
-    fetch('/api/pulsas?limit=120')
+    fetch('/api/pulsas?limit=200')
       .then(r => r.json())
       .then(d => { if (alive) { setItems(d.items || []); setLoading(false) } })
       .catch(() => { if (alive) setLoading(false) })
@@ -1362,10 +1362,10 @@ type IstCatKey = keyof typeof IST_CATS
 function IstThumb({ cover, name }: { cover: string | null; name: string }) {
   if (cover) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(cover)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+    return <img src={proxyImg(cover)} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
   }
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md font-['Outfit',sans-serif] text-[13px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg font-['Outfit',sans-serif] text-[16px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>
       {(name || '?').charAt(0).toUpperCase()}
     </div>
   )

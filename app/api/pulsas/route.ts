@@ -2,24 +2,20 @@
 //
 // GET /api/pulsas — naujausi UGC įrašai iš visų vartotojų aktyvumo šaltinių:
 //   - Blog įrašai (post_type: article, review, creation, translation, topas, event)
-//   - Naujausios diskusijos (forum)
-//   - Naujausi komentarai
+//   - Naujausios diskusijos (modern `discussions` lentelė)
+//   - Naujausi komentarai (entity_comments)
 //
 // Rikiuojama pagal created_at DESC, viskas suvienodinama į vieną Pulsas feed'ą.
-// Homepage'as rodo top N įrašų mažomis korteles (panašiai kaip news cards).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 
-// Cache 5 min — homepage'as gali kvietuoti dažnai, bet UGC feed'as 5 min
-// freshness pakanka. unstable_cache nereikia, nes nieko nepriklauso nuo
-// tag invalidation'o (priešingai nei home tracks/albums).
 export const revalidate = 300
 
 type PulsasItem = {
   id: string
   type: 'blog' | 'discussion' | 'comment'
-  subtype?: string | null // blog post_type ar comment entity type
+  subtype?: string | null
   title: string
   excerpt: string | null
   href: string
@@ -28,18 +24,16 @@ type PulsasItem = {
   author_slug: string | null
   author_avatar: string | null
   created_at: string
-  meta?: string | null // additional context (vieta, suma, etc.)
+  meta?: string | null
 }
 
 export async function GET(req: NextRequest) {
-  const limit = Math.min(parseInt(req.nextUrl.searchParams.get('limit') || '12'), 150)
+  const limit = Math.min(parseInt(req.nextUrl.searchParams.get('limit') || '12'), 250)
   const sb = createAdminClient()
 
   try {
-    // ── Blog feed: visus post types (jau publikuoti). Imam DIDELĮ pool'ą
-    // (250 naujausių) — turim 16k+ įrašų per 385 blog'us; vienas produktyvus
-    // useris turi 1000+ → be dedup'o jis užfloodintų. Žemiau dedup'inam per
-    // blog'ą paliekant tik naujausią įrašą iš kiekvieno autoriaus. ──
+    // ── Blog feed: 120 naujausių (be dedup'o — modale rodom daug turinio;
+    //    homepage juosta dedup'ina per autorių kliento pusėje). ──
     const blogQ = sb
       .from('blog_posts')
       .select('id, slug, title, summary, content, post_type, cover_image_url, blog_id, created_at, published_at, ' +
@@ -47,20 +41,23 @@ export async function GET(req: NextRequest) {
       .eq('status', 'published')
       .not('published_at', 'is', null)
       .order('published_at', { ascending: false })
-      .limit(250)
+      .limit(120)
 
-    // ── Diskusijos: naujausi threads ──
+    // ── Diskusijos: modern `discussions` lentelė (NE forum_threads — ta legacy,
+    //    be author_name/created_at). 15k+ įrašų. ──
     const discQ = sb
-      .from('forum_threads')
-      .select('id, slug, title, author_name, author_username, created_at, comment_count')
+      .from('discussions')
+      .select('id, slug, title, author_name, author_avatar, comment_count, created_at')
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false })
-      .limit(30)
+      .limit(60)
 
-    // ── Komentarai: paskutiniai entity komentarai (track/album/artist) ──
+    // ── Komentarai: entity_comments. PK = legacy_id (NE id), FK = entity_legacy_id. ──
     const commentsQ = sb
       .from('entity_comments')
-      .select('id, content_text, entity_type, entity_id, author_username, author_avatar_url, created_at')
+      .select('legacy_id, content_text, entity_type, entity_legacy_id, author_username, author_avatar_url, created_at')
       .not('content_text', 'is', null)
+      .neq('is_deleted', true)
       .order('created_at', { ascending: false })
       .limit(40)
 
@@ -68,16 +65,9 @@ export async function GET(req: NextRequest) {
 
     const items: PulsasItem[] = []
 
-    // Dedup per blog'ą (autorių) — paliekam tik NAUJAUSIĄ įrašą iš kiekvieno
-    // blog'o (pool surūšiuotas published_at desc → pirmas sutiktas = naujausias).
-    const seenBlog = new Set<string>()
-    const blogRows: any[] = []
-    for (const b of ((blogRes.data || []) as any[])) {
-      const bid = b.blog_id || `solo-${b.id}`
-      if (seenBlog.has(bid)) continue
-      seenBlog.add(bid)
-      blogRows.push(b)
-    }
+    // NEbedarom dedup'o per blog'ą — modale rodom DAUGIAU turinio (visus recent
+    // postus). Homepage juosta dedup'ina per autorių kliento pusėje. 2026-05-29.
+    const blogRows: any[] = (blogRes.data || []) as any[]
     // Vizualo fallback'as (kaip user profile page): cover → prikabintos dainos
     // YT thumb/cover → albumo cover → atlikėjo cover → first <img>/YT iš body.
     const postIds = blogRows.map(b => b.id)
@@ -142,11 +132,11 @@ export async function GET(req: NextRequest) {
         excerpt: null,
         href: `/diskusijos/${d.slug || d.id}`,
         cover: null,
-        author_name: d.author_name || d.author_username || null,
-        author_slug: d.author_username || null,
-        author_avatar: null,
+        author_name: d.author_name || null,
+        author_slug: null,
+        author_avatar: d.author_avatar || null,
         created_at: d.created_at,
-        meta: typeof d.comment_count === 'number' ? `${d.comment_count} atsak.` : null,
+        meta: typeof d.comment_count === 'number' ? `${d.comment_count} koment.` : null,
       })
     }
 
@@ -155,15 +145,13 @@ export async function GET(req: NextRequest) {
       const text = (c.content_text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
       if (!text) continue
       const excerpt = text.length > 140 ? text.slice(0, 140) + '…' : text
-      // Be tikslaus entity URL'o čia (entity_id → slug lookup brangu); rodom
-      // generic puslapį pagal entity_type.
       const href =
         c.entity_type === 'track' ? `/dainos`
         : c.entity_type === 'album' ? `/albumai`
         : c.entity_type === 'artist' ? `/atlikejai`
         : '/'
       items.push({
-        id: `comm-${c.id}`,
+        id: `comm-${c.legacy_id}`,
         type: 'comment',
         subtype: c.entity_type,
         title: excerpt,

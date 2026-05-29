@@ -6,8 +6,8 @@
 //   - Albumų sukaktys (albums.month/day == šiandien)
 //
 // 2026-05-29: birth_month/birth_day/death_month/death_day yra GENERATED STORED
-// stulpeliai (+ indeksai) — eq filtras greitas. Viskas SUSIETA TIK su einamąja
-// diena. Rikiuojama pagal atlikėjo populiarumą (score) desc.
+// stulpeliai (+ indeksai) — eq filtras greitas, be full-scan'o. Viskas SUSIETA
+// TIK su einamąja diena (ne platesniu periodu).
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
@@ -29,10 +29,12 @@ type IstItem = {
 
 async function fetchToday(): Promise<IstItem[]> {
   const sb = createAdminClient()
-  const now = new Date()
-  const M = now.getMonth() + 1
-  const D = now.getDate()
-  const currentYear = now.getFullYear()
+  // Lietuvos laiku (Europe/Vilnius) — kitaip ties UTC/LT vidurnakčiu „šiandiena"
+  // pasikeičia ne pagal Lietuvos dieną.
+  const ltParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Vilnius', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(new Date())
+  const M = Number(ltParts.find(p => p.type === 'month')?.value || 1)
+  const D = Number(ltParts.find(p => p.type === 'day')?.value || 1)
+  const currentYear = Number(ltParts.find(p => p.type === 'year')?.value || new Date().getFullYear())
   const items: any[] = []
 
   // ── Albumų sukaktys ŠIANDIEN (tikslus month+day) ──
@@ -55,7 +57,7 @@ async function fetchToday(): Promise<IstItem[]> {
         id: `alb-${a.id}`,
         type: 'album_anniversary',
         title: `${artistName ? artistName + ' – ' : ''}${a.title}`,
-        subtitle: `Prieš ${yrsAgo} m. išleistas albumas`,
+        subtitle: `Prieš ${yrsAgo} m.`,
         href: artistSlug ? `/albumai/${artistSlug}-${(a.slug || a.id)}-${a.id}` : `/albumai/${a.slug || a.id}-${a.id}`,
         emoji: '💿',
         cover: a.cover_image_url || null,
@@ -77,12 +79,11 @@ async function fetchToday(): Promise<IstItem[]> {
     for (const a of (arts || []) as any[]) {
       const by = a.birth_date ? new Date(a.birth_date).getFullYear() : null
       const age = by ? currentYear - by : null
-      const alive = !a.death_date
       items.push({
         id: `bday-${a.id}`,
         type: 'birthday',
         title: a.name,
-        subtitle: age ? (alive ? `Šiandien ${age} m. gimtadienis` : `Gimė prieš ${age} m. (${by})`) : 'Gimtadienis',
+        subtitle: age ? `Sukako ${age} m.` : 'Gimtadienis',
         href: `/atlikejai/${a.slug}`,
         emoji: '🎂',
         cover: a.cover_image_url || null,
@@ -108,7 +109,7 @@ async function fetchToday(): Promise<IstItem[]> {
         id: `death-${a.id}`,
         type: 'death_anniversary',
         title: a.name,
-        subtitle: age ? `${age} m. nuo mirties` : 'Mirties metinės',
+        subtitle: age ? `${age} mirties metinės` : 'Mirties metinės',
         href: `/atlikejai/${a.slug}`,
         emoji: '🕯️',
         cover: a.cover_image_url || null,
@@ -119,7 +120,8 @@ async function fetchToday(): Promise<IstItem[]> {
     }
   } catch {}
 
-  // Rikiavimas pagal atlikėjo populiarumą (score) desc; tiebreak metų skaičius.
+  // Rikiavimas pagal atlikėjo populiarumą (score) desc — populiariausi pirmi;
+  // tiebreak pagal metų skaičių. Komponentas grupuoja pagal tipą (eilė išliks).
   items.sort((a: any, b: any) => (b.score || 0) - (a.score || 0) || (b.age || 0) - (a.age || 0))
   return (items as IstItem[]).slice(0, 40)
 }
