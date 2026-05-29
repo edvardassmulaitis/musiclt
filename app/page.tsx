@@ -70,6 +70,15 @@ function formatDateLT(d: string) {
   return `${date.getFullYear()} m. ${MONTHS_FULL_LT[date.getMonth()]} ${date.getDate()} d.`
 }
 
+const WEEKDAYS_LT = ['sekmadienis', 'pirmadienis', 'antradienis', 'trečiadienis', 'ketvirtadienis', 'penktadienis', 'šeštadienis']
+/** Renginio data — lengvai skaitoma: „rugsėjo 11 d., penktadienis" (metai tik
+ *  jei ne einamieji). 2026-05-29: pakeitė ryškų orange uppercase formatą. */
+function formatEventDateLT(date: Date): string {
+  const cur = new Date().getFullYear()
+  const y = date.getFullYear()
+  return `${y !== cur ? y + ' m. ' : ''}${MONTHS_FULL_LT[date.getMonth()]} ${date.getDate()} d., ${WEEKDAYS_LT[date.getDay()]}`
+}
+
 /** „Prieš X d." style: jei data šių 30 dienų — rodom relative ("Prieš 5 d."),
  *  jei senesnė — rodom „Spa. 28, 2026" formatą. „Šiandien" / „Vakar" / „Prieš
  *  X d." dalyboje 0/1/2-30. */
@@ -1060,6 +1069,82 @@ type PulsasItem = {
   meta?: string | null
 }
 
+/* ────────────────────────────── Dienos daina sekcija ──────────────────────────────
+   Horizontalios dainų kortelės (desktop) / vertikalus sąrašas (mobile) su balsų
+   pop bar'u (kaip artist page) — matosi kurios dainos pirmauja. Click → track
+   modalas (HomeTrackModal per onOpenTrack). 2026-05-29. */
+function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) {
+  const [noms, setNoms] = useState<Nomination[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/dienos-daina/nominations')
+      .then(r => r.json())
+      .then(d => { if (alive) { setNoms(d.nominations || []); setLoading(false) } })
+      .catch(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [])
+
+  const sorted = [...noms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0))
+  const maxVotes = Math.max(1, ...sorted.map(n => n.weighted_votes || n.votes || 0))
+
+  if (loading) {
+    return (
+      <div className="hp-scroll flex flex-col gap-2 sm:flex-row sm:gap-3 sm:overflow-x-auto sm:pb-1">
+        {Array(4).fill(null).map((_, i) => (
+          <div key={i} className="flex w-full shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2.5 sm:w-[280px]">
+            <Skel w={52} h={52} r={8} />
+            <div className="flex-1"><Skel w="70%" h={12} /><div className="mt-1.5"><Skel w="45%" h={9} /></div><div className="mt-2"><Skel w="80%" h={6} /></div></div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  if (sorted.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-8 text-center text-[12px] text-[var(--text-muted)]">
+        Šiandien kandidatų dar nėra — <Link href="/dienos-daina" className="text-[var(--accent-link)] no-underline">pasiūlyk pirmas</Link>.
+      </div>
+    )
+  }
+  return (
+    <div className="hp-scroll flex flex-col gap-2 sm:flex-row sm:gap-3 sm:overflow-x-auto sm:pb-1">
+      {sorted.slice(0, 14).map((n, idx) => {
+        const t = n.tracks!
+        const votes = n.weighted_votes || n.votes || 0
+        const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
+        return (
+          <button
+            key={n.id}
+            type="button"
+            onClick={() => onOpenTrack({ id: t.id, title: t.title, cover_url: t.cover_url, artists: t.artists })}
+            className="hp-card group flex w-full shrink-0 items-center gap-3 p-2.5 text-left sm:w-[280px]"
+          >
+            <div className="relative shrink-0">
+              <Cover src={t.cover_url} alt={sanitizeTitle(t.title)} size={52} radius={8} />
+              {idx < 3 && (
+                <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[10px] font-black text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">{idx + 1}</span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+              <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="flex items-center gap-[3px]" aria-hidden>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <span key={i} className={`h-[3px] w-[14px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+                  ))}
+                </span>
+                <span className="shrink-0 text-[10px] font-bold text-[var(--text-faint)]">{votes} bal.</span>
+              </div>
+            </div>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 const PULSAS_FILTERS = [['all', 'Visi'], ['blog', 'Blogai'], ['discussion', 'Diskusijos'], ['comment', 'Komentarai']] as const
 
 function pulsasAccent(t: string, sub?: string | null): string {
@@ -1095,8 +1180,12 @@ function PulsasCard({ it, inModal, onNavigate }: { it: PulsasItem; inModal: bool
           // eslint-disable-next-line @next/next/no-img-element
           <img src={proxyImg(it.cover)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--bg-active)] to-[var(--bg-surface)]">
-            <span className="text-4xl opacity-90">{pulsasEmoji(it.type, it.subtype)}</span>
+          <div
+            className="flex h-full w-full flex-col items-center justify-center gap-1"
+            style={{ background: `linear-gradient(135deg, hsl(${strHue(it.author_name || it.title)},34%,22%), hsl(${(strHue(it.author_name || it.title) + 40) % 360},30%,12%))` }}
+          >
+            <span className="font-['Outfit',sans-serif] text-3xl font-black text-white/85">{(it.author_name || it.title || '?').charAt(0).toUpperCase()}</span>
+            {it.meta && <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.12em] text-white/55">{it.meta}</span>}
           </div>
         )}
         {it.meta && (
@@ -1167,9 +1256,8 @@ function PulsasSection() {
     return () => { alive = false }
   }, [])
 
-  // Pirmas „spot'as" — naujausias komentaras (pokalbių dėžutė).
-  const latestComment = items.find(i => i.type === 'comment') || null
-  // Likę (blog/diskusijos) — dedup per user (anti-flood: vienas naujausias/autorių).
+  // Blog/diskusijos — dedup per user (anti-flood: vienas naujausias/autorių).
+  // Komentarai rodomi tik modale (per tipo filtrą). Pirmas spot'as — Pokalbiai.
   const seenU = new Set<string>()
   const deduped: PulsasItem[] = []
   for (const it of items) {
@@ -1178,7 +1266,7 @@ function PulsasSection() {
     if (seenU.has(key)) continue
     seenU.add(key); deduped.push(it)
   }
-  const sectionItems = deduped.slice(0, latestComment ? 11 : 12)
+  const sectionItems = deduped.slice(0, 11)
   const modalItems = typeFilter === 'all' ? items : items.filter(i => i.type === typeFilter)
 
   return (
@@ -1186,23 +1274,17 @@ function PulsasSection() {
       <SectionHead label="Pulsas" href="/bendruomene" cta="Daugiau →" />
       <div className="flex items-stretch gap-3">
         <div className="hp-scroll flex min-w-0 flex-1 items-stretch gap-3 pb-1">
-          {loading ? Array(6).fill(null).map((_, i) => (
+          {/* Pirmas spot'as — Pokalbių dėžutė (chatas, populiarus senoje svetainėje). */}
+          <div className="shrink-0" style={{ width: 280 }}>
+            <HomeChatsWidget />
+          </div>
+          {loading ? Array(5).fill(null).map((_, i) => (
             <div key={i} className="shrink-0" style={{ width: 240 }}>
               <div className="hp-skel aspect-video rounded-xl" />
               <div className="hp-skel mt-2 h-3 w-4/5 rounded" />
               <div className="hp-skel mt-1 h-2.5 w-3/5 rounded" />
             </div>
-          )) : (sectionItems.length === 0 && !latestComment) ? (
-            <div className="shrink-0 rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-8 text-center" style={{ width: 360 }}>
-              <p className="m-0 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Pulsas — netrukus</p>
-              <p className="m-0 mt-1 text-[11.5px] text-[var(--text-muted)]">Čia atsiras naujausi vartotojų įrašai: diskusijos, blogai, vertimai, komentarai.</p>
-            </div>
-          ) : (
-            <>
-              {latestComment && <PulsasCommentSpot it={latestComment} />}
-              {sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
-            </>
-          )}
+          )) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
         </div>
         {!loading && items.length > sectionItems.length && (
           <StickyMoreButton count={items.length} height={200} ariaLabel="Atverti visą Pulsą" onClick={() => setModalOpen(true)} />
@@ -1259,11 +1341,24 @@ type IstApiItem = {
 
 // Istorijos kategorijų konfigūracija (3 box'ai).
 const IST_CATS = {
-  birthday: { label: 'Gimtadieniai', emoji: '🎂' },
-  album_anniversary: { label: 'Jubiliejai', emoji: '💿' },
-  death_anniversary: { label: 'Atminimas', emoji: '🕯️' },
+  album_anniversary: { label: 'Šiandien išleisti albumai' },
+  birthday: { label: 'Gimtadieniai' },
+  death_anniversary: { label: 'Atminimas' },
 } as const
 type IstCatKey = keyof typeof IST_CATS
+
+// Istorijos thumbnail'as — atlikėjo/albumo cover'is arba monograma (NE emoji).
+function IstThumb({ cover, name }: { cover: string | null; name: string }) {
+  if (cover) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={proxyImg(cover)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+  }
+  return (
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md font-['Outfit',sans-serif] text-[13px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>
+      {(name || '?').charAt(0).toUpperCase()}
+    </div>
+  )
+}
 
 function IstorijaSection() {
   const [items, setItems] = useState<IstApiItem[]>([])
@@ -1283,8 +1378,10 @@ function IstorijaSection() {
       <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
         {Array(3).fill(null).map((_, i) => (
           <div key={i} className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-            <div className="hp-skel aspect-video" />
-            <div className="flex items-center justify-between px-3.5 py-2.5"><Skel w="50%" h={11} /><Skel w={50} h={10} /></div>
+            <div className="border-b border-[var(--border-subtle)] px-3.5 py-2.5"><Skel w="55%" h={12} /></div>
+            {Array(3).fill(null).map((_, j) => (
+              <div key={j} className="flex items-center gap-2.5 px-3.5 py-2"><Skel w={36} h={36} r={6} /><div className="flex-1"><Skel w="70%" h={11} /><div className="mt-1"><Skel w="45%" h={9} /></div></div></div>
+            ))}
           </div>
         ))}
       </div>
@@ -1300,7 +1397,9 @@ function IstorijaSection() {
     )
   }
 
-  const order: IstCatKey[] = ['birthday', 'album_anniversary', 'death_anniversary']
+  // Eilė: šiandien išleisti albumai → gimtadieniai → mirties metinės.
+  // Items iš API jau surūšiuoti pagal atlikėjo populiarumą (score desc).
+  const order: IstCatKey[] = ['album_anniversary', 'birthday', 'death_anniversary']
   const cats = order
     .map(t => ({ t, cfg: IST_CATS[t], list: items.filter(i => i.type === t) }))
     .filter(c => c.list.length > 0)
@@ -1309,66 +1408,47 @@ function IstorijaSection() {
   return (
     <>
       <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cats.length, 3)}, 1fr)`, gap: 16 }}>
-        {cats.map(({ t, cfg, list }) => {
-          const feat = list[0]
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setOpenCat(t)}
-              className="group block w-full cursor-pointer overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-0 text-left transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_14px_32px_rgba(249,115,22,0.15)]"
-            >
-              <div className="relative aspect-video overflow-hidden bg-[var(--cover-placeholder)]">
-                {feat.cover ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(feat.cover)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-5xl" style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(59,130,246,0.12))' }}>{cfg.emoji}</div>
-                )}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-                <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">
-                  <span className="text-[13px]">{cfg.emoji}</span>
-                  <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.06em] text-white">{cfg.label}</span>
-                </div>
-                <span className="absolute right-3 top-3 rounded-full bg-[var(--accent-orange)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold text-white">{list.length}</span>
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-black leading-tight text-white">{feat.title}</p>
-                  {feat.subtitle && <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-white/75">{feat.subtitle}</p>}
-                </div>
-              </div>
-              <div className="flex items-center justify-between px-3.5 py-2.5">
-                <span className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)]">
-                  {list.length === 1 ? '1 įvykis šiandien' : `${list.length} įvykiai šiandien`}
-                </span>
-                <span className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] transition-transform group-hover:translate-x-0.5">Žiūrėti →</span>
-              </div>
-            </button>
-          )
-        })}
+        {cats.map(({ t, cfg, list }) => (
+          <div key={t} className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3.5 py-2.5">
+              <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">{cfg.label}</span>
+              <button type="button" onClick={() => setOpenCat(t)} className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--accent-link)] transition-colors hover:text-[var(--accent-orange)]">
+                Visi {list.length} →
+              </button>
+            </div>
+            <div>
+              {list.slice(0, 4).map((it, i) => (
+                <Link
+                  key={it.id}
+                  href={it.href}
+                  className={`flex items-center gap-2.5 px-3.5 py-2 no-underline transition-colors hover:bg-[var(--bg-hover)] ${i < Math.min(list.length, 4) - 1 ? 'border-b border-[var(--border-subtle)]' : ''}`}
+                >
+                  <IstThumb cover={it.cover} name={it.title} />
+                  <div className="min-w-0 flex-1">
+                    <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)]">{it.title}</p>
+                    <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{it.subtitle}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
       {openCat && (
         <HomeListModal open onClose={() => setOpenCat(null)} title={IST_CATS[openCat].label} subtitle="Šiandien istorijoje">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {openList.map(it => (
               <Link
                 key={it.id}
                 href={it.href}
                 onClick={() => setOpenCat(null)}
-                className="hp-card group flex items-stretch gap-0 overflow-hidden p-0 no-underline"
-                style={{ height: 92 }}
+                className="hp-card group flex items-center gap-3 p-2.5 no-underline"
               >
-                <div className="relative aspect-square h-full shrink-0 overflow-hidden bg-[var(--cover-placeholder)]">
-                  {it.cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(it.cover)} alt="" loading="lazy" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-2xl">{it.emoji}</div>
-                  )}
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col justify-center px-3.5 py-2">
+                <IstThumb cover={it.cover} name={it.title} />
+                <div className="min-w-0 flex-1">
                   <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
-                  <p className="m-0 mt-0.5 line-clamp-2 text-[11px] leading-snug text-[var(--text-muted)]">{it.subtitle}</p>
+                  <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-[var(--text-muted)]">{it.subtitle}</p>
                 </div>
               </Link>
             ))}
@@ -3021,11 +3101,11 @@ export default function Home() {
                           const dateRaw = (ev as any).start_date || ev.event_date
                           const d = dateRaw ? new Date(dateRaw) : null
                           const validDate = d && !isNaN(d.getTime())
-                          const diffDays = validDate ? Math.ceil((d!.getTime() - Date.now()) / 86400000) : null
                           const created = ev.created_at ? new Date(ev.created_at) : null
                           const ageDays = created ? (Date.now() - created.getTime()) / 86400000 : 999
-                          const isNew = ageDays <= 7
-                          const countdown = diffDays === null || diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays} d.`
+                          // „Naujas" = pridėtas per pask. 2 d. (created_at). 7 d. langas
+                          // floodino visus po bulk importo, todėl sumažintas. 2026-05-29.
+                          const isNew = ageDays <= 2
                           const imgSrc = ev.image_small_url || ev.cover_image_url || null
                           const city = ev.city || ev.venues?.city || ''
                           const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
@@ -3061,8 +3141,8 @@ export default function Home() {
                               </div>
                               <div className="mt-2 px-0.5">
                                 {validDate && (
-                                  <p className="m-0 mb-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.03em] text-[var(--accent-orange)]">
-                                    {d!.getDate()} {MONTHS_LT[d!.getMonth()]}. {d!.getFullYear()}{countdown ? ` · ${countdown}` : ''}
+                                  <p className="m-0 mb-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
+                                    {formatEventDateLT(d!)}
                                   </p>
                                 )}
                                 <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
@@ -3138,9 +3218,7 @@ export default function Home() {
           >
           <section>
             <SectionHead label="Dienos daina" href="/dienos-daina" cta="Visi kandidatai →" />
-            <div style={{ maxWidth: 560 }}>
-              <DienosDainaWidget />
-            </div>
+            <DienosDainaSection onOpenTrack={(t) => setOpenTrack(t)} />
           </section>
           </LazySection>
 

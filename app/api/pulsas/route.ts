@@ -114,14 +114,15 @@ export async function GET(req: NextRequest) {
     }
     for (const b of blogRows) {
       const author = b.blogs?.profiles
-      const blogSlug = b.blogs?.slug
+      // Blog'o route'as = /blogas/[blogSlug arba username]/[postSlug] (NE /blogai/).
+      const blogSlug = b.blogs?.slug || author?.username
       items.push({
         id: `blog-${b.id}`,
         type: 'blog',
         subtype: b.post_type || null,
         title: b.title || '',
         excerpt: b.summary || null,
-        href: blogSlug ? `/blogai/${blogSlug}/${b.slug || b.id}` : `/blogai/${b.id}`,
+        href: blogSlug ? `/blogas/${blogSlug}/${b.slug || b.id}` : '/blogas',
         cover: b.cover_image_url || thumbByPost.get(b.id) || firstContentThumb(b.content) || null,
         author_name: author?.full_name || author?.username || null,
         author_slug: author?.username || null,

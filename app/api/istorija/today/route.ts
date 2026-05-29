@@ -6,8 +6,8 @@
 //   - Albumų sukaktys (albums.month/day == šiandien)
 //
 // 2026-05-29: birth_month/birth_day/death_month/death_day yra GENERATED STORED
-// stulpeliai (+ indeksai) — eq filtras greitas, be full-scan'o. Viskas SUSIETA
-// TIK su einamąja diena (ne platesniu periodu).
+// stulpeliai (+ indeksai) — eq filtras greitas. Viskas SUSIETA TIK su einamąja
+// diena. Rikiuojama pagal atlikėjo populiarumą (score) desc.
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
@@ -39,7 +39,7 @@ async function fetchToday(): Promise<IstItem[]> {
   try {
     const { data: albums } = await sb
       .from('albums')
-      .select('id, slug, title, cover_image_url, year, artists!albums_artist_id_fkey(id, slug, name)')
+      .select('id, slug, title, cover_image_url, year, artists!albums_artist_id_fkey(id, slug, name, score)')
       .eq('month', M)
       .eq('day', D)
       .not('year', 'is', null)
@@ -61,6 +61,7 @@ async function fetchToday(): Promise<IstItem[]> {
         cover: a.cover_image_url || null,
         year: a.year,
         age: yrsAgo,
+        score: a.artists?.score || 0,
       })
     }
   } catch {}
@@ -69,7 +70,7 @@ async function fetchToday(): Promise<IstItem[]> {
   try {
     const { data: arts } = await sb
       .from('artists')
-      .select('id, slug, name, cover_image_url, birth_date, death_date')
+      .select('id, slug, name, cover_image_url, birth_date, death_date, score')
       .eq('birth_month', M)
       .eq('birth_day', D)
       .limit(40)
@@ -87,6 +88,7 @@ async function fetchToday(): Promise<IstItem[]> {
         cover: a.cover_image_url || null,
         year: by,
         age,
+        score: a.score || 0,
       })
     }
   } catch {}
@@ -95,7 +97,7 @@ async function fetchToday(): Promise<IstItem[]> {
   try {
     const { data: arts } = await sb
       .from('artists')
-      .select('id, slug, name, cover_image_url, death_date')
+      .select('id, slug, name, cover_image_url, death_date, score')
       .eq('death_month', M)
       .eq('death_day', D)
       .limit(40)
@@ -112,18 +114,14 @@ async function fetchToday(): Promise<IstItem[]> {
         cover: a.cover_image_url || null,
         year: dy,
         age,
+        score: a.score || 0,
       })
     }
   } catch {}
 
-  // Rikiavimas: apvalūs jubiliejai (÷5) priekin, tada pagal metų skaičių desc.
-  items.sort((a: any, b: any) => {
-    const ar = a.age && a.age % 5 === 0 ? 1 : 0
-    const br = b.age && b.age % 5 === 0 ? 1 : 0
-    if (ar !== br) return br - ar
-    return (b.age || 0) - (a.age || 0)
-  })
-  return (items as IstItem[]).slice(0, 30)
+  // Rikiavimas pagal atlikėjo populiarumą (score) desc; tiebreak metų skaičius.
+  items.sort((a: any, b: any) => (b.score || 0) - (a.score || 0) || (b.age || 0) - (a.age || 0))
+  return (items as IstItem[]).slice(0, 40)
 }
 
 const cachedFetchToday = unstable_cache(fetchToday, ['istorija-today'], { revalidate: 3600 })
