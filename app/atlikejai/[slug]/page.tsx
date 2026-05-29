@@ -366,6 +366,14 @@ async function getLegacyCommunity(
   // Albumų/tracks likes reikalingi tik aggregate distinctUsers stat'ui.
   // PostgREST max-rows 1000 — chunk'inam IN queries po 40 entities, kad
   // kiekvieno chunk'o response'as tilptų po cap'ą.
+  // 2026-05-29 fix: user_rank/user_avatar_url DROP'inti iš likes (Phase 2c).
+  // Imam iš profiles JOIN'u (rank — VIP/null; avatar_url). Be šito — query
+  // fail'indavo (column does not exist) → 0 likes ant atlikėjo page'o.
+  const mapLikeRow = (r: any): LikeRow => ({
+    user_username: r.user_username,
+    user_rank: r.profiles?.rank ?? null,
+    user_avatar_url: r.profiles?.avatar_url ?? null,
+  })
   async function fetchAllByIn(table: 'likes', entityType: string, ids: number[]): Promise<LikeRow[]> {
     if (ids.length === 0) return []
     const out: LikeRow[] = []
@@ -373,18 +381,18 @@ async function getLegacyCommunity(
     for (let i = 0; i < ids.length; i += CHUNK) {
       const chunk = ids.slice(i, i + CHUNK)
       const { data } = await sb.from(table)
-        .select('user_username, user_rank, user_avatar_url')
+        .select('user_username, user_id, profiles:user_id(rank, avatar_url)')
         .eq('entity_type', entityType)
         .in('entity_id', chunk)
         .range(0, 9999)
-      if (data) out.push(...(data as LikeRow[]))
+      if (data) out.push(...(data as any[]).map(mapLikeRow))
     }
     return out
   }
 
   const artistLikesP = sb
     .from('likes')
-    .select('user_username, user_rank, user_avatar_url')
+    .select('user_username, user_id, profiles:user_id(rank, avatar_url)')
     .eq('entity_type', 'artist')
     .eq('entity_id', artistId)
     .range(0, 9999)
@@ -394,7 +402,7 @@ async function getLegacyCommunity(
     fetchAllByIn('likes', 'album', albumIds),
     fetchAllByIn('likes', 'track', trackIds),
   ])
-  const artistRows = ((a as any).data || []) as LikeRow[]
+  const artistRows = (((a as any).data || []) as any[]).map(mapLikeRow)
   const all = [...artistRows, ...al, ...tr]
 
   // Artist fans — unique, sort by rank priority + alpha

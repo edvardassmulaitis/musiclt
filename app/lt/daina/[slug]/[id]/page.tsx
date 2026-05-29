@@ -129,7 +129,8 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
           .eq('entity_legacy_id', trackLegacyId),
         supabase
           .from('likes')
-          .select('user_username, user_rank, user_avatar_url')
+          // 2026-05-29: user_rank/avatar iš profiles (likes stulpeliai DROP'inti)
+          .select('user_username, user_id, profiles:user_id(rank, avatar_url)')
           .eq('entity_type', 'track')
           .eq('entity_legacy_id', trackLegacyId)
           .order('id', { ascending: true })
@@ -138,7 +139,11 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
     : [{ count: 0 } as any, { data: [] } as any]
   const legacyLikes = {
     count: legacyCntRes.count || 0,
-    users: (legacyUsersRes.data as any[]) || [],
+    users: ((legacyUsersRes.data as any[]) || []).map((r: any) => ({
+      user_username: r.user_username,
+      user_rank: r.profiles?.rank ?? null,
+      user_avatar_url: r.profiles?.avatar_url ?? null,
+    })),
   }
   const isLegacy = typeof (track as any).source === 'string' && (track as any).source.startsWith('legacy')
 

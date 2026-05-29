@@ -3872,10 +3872,59 @@ function MobileFilterRow({
 // Click ant cover'io ar pavadinimo → atidaro AlbumInfoModal. Play CTA →
 // startuoja pirmą top track'ą.
 
-function SpotlightAlbumRow({ album, artistSlug, topTracks, onOpen, onPlayTrack, onTrackClick }: {
+// ── YTFacade ───────────────────────────────────────────────────────
+// Performant YouTube embed: rodom TIK thumbnail + play button. iframe
+// (sunkus YT player) kraunamas TIK paspaudus → jokio load-time perf hit
+// nors ir 3 embed'ai puslapyje. Native YT player atsidaro po click'o.
+function YTFacade({ track }: { track: Track }) {
+  const vid = yt(track.video_url)
+  const [playing, setPlaying] = useState(false)
+  if (!vid) return null
+  return (
+    <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-black">
+      {playing ? (
+        <iframe
+          src={`https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0&modestbranding=1`}
+          title={track.title}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          className="absolute inset-0 h-full w-full"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setPlaying(true)}
+          className="group absolute inset-0 h-full w-full"
+          aria-label={`Groti „${track.title}" YouTube"`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://img.youtube.com/vi/${vid}/mqdefault.jpg`}
+            alt={track.title}
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+          <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors group-hover:bg-black/10">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-lg transition-transform group-hover:scale-110">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+            </span>
+          </span>
+          <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-3 text-left font-['Outfit',sans-serif] text-[11px] font-semibold text-white">
+            {track.title}
+          </span>
+        </button>
+      )}
+    </div>
+  )
+}
+
+function SpotlightAlbumRow({ album, artistSlug, topTracks, topVideoTracks = [], onOpen, onPlayTrack, onTrackClick }: {
   album: Album
   artistSlug?: string
   topTracks: Track[]
+  /** Artist'o top dainos su YT video — embed'ams dešinėje (desktop). */
+  topVideoTracks?: Track[]
   onOpen: () => void
   /** Klausyti CTA — direct play in hero player. */
   onPlayTrack: (t: Track) => void
@@ -3971,6 +4020,18 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, onOpen, onPlayTrack, 
             </button>
           </div>
         </div>
+        {/* Top singlų YT embed'ai — užpildo tuščią dešinę pusę desktop'e.
+            Facade pattern: tik thumbnail + play; iframe TIK po click'o (perf).
+            lg: 2 dainos, xl: 3. Mobile/tablet — paslėpta (stack'as per ankštas). */}
+        {topVideoTracks.length > 0 && (
+          <div className="hidden shrink-0 self-stretch lg:grid lg:max-w-[340px] lg:grid-cols-2 lg:content-center lg:gap-2 xl:max-w-[470px] xl:grid-cols-3">
+            {topVideoTracks.slice(0, 3).map((t, i) => (
+              <div key={t.id} className={i === 2 ? 'hidden xl:block' : ''}>
+                <YTFacade track={t} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -5920,6 +5981,7 @@ export default function ArtistProfileClient({
                   album={latestAlbum}
                   artistSlug={artist.slug}
                   topTracks={topTracksByAlbum.get(latestAlbum.id) || []}
+                  topVideoTracks={tracks.filter(t => yt(t.video_url)).slice(0, 3)}
                   onOpen={() => setAlbumModalOpen(latestAlbum)}
                   onPlayTrack={(t) => { setPid(t.id); setPlaying(true) }}
                   onTrackClick={(t) => setTrackInfoOpen(t)}

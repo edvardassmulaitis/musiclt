@@ -53,17 +53,17 @@ async function getGhostActivity(username: string) {
   // Query unified likes table for all likes by this ghost user (identified by username)
   const { data } = await sb
     .from('likes')
-    .select('entity_type, entity_legacy_id, user_rank')
+    .select('entity_type, entity_legacy_id')
     .eq('user_username', username)
     .range(0, 9999)
-  const rows = (data as { entity_type: string; entity_legacy_id: number; user_rank: string | null }[]) || []
+  const rows = (data as { entity_type: string; entity_legacy_id: number }[]) || []
 
   const artistIds = new Set<number>()
   const albumIds = new Set<number>()
   const trackIds = new Set<number>()
+  // 2026-05-29: user_rank DROP'inta iš likes (Phase 2c) — rank dabar profiles
   let user_rank: string | null = null
   for (const r of rows) {
-    if (!user_rank && r.user_rank) user_rank = r.user_rank
     if (r.entity_type === 'artist') artistIds.add(r.entity_legacy_id)
     else if (r.entity_type === 'album') albumIds.add(r.entity_legacy_id)
     else if (r.entity_type === 'track') trackIds.add(r.entity_legacy_id)
