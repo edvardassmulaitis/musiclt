@@ -410,14 +410,16 @@ export function TrackInfoModal({
             Video visada matomas (mažas), useris gali click'inti native play
             arba YouTube fullscreen'inti. Meta — popbar (reactions) +
             likes + data + albums vertikaliai dešinėj. */}
-        <div className="grid shrink-0 grid-cols-[minmax(0,3fr)_minmax(0,2fr)] border-b border-[var(--border-subtle)]">
+        {/* Mobile: video per visą plotį viršuje, meta juosta apačioje. Desktop
+            (sm+): 2-stulpelių split (video 60% / meta 40%). 2026-05-29. */}
+        <div className="grid shrink-0 grid-cols-1 border-b border-[var(--border-subtle)] sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           {/* Left: video.
               ARCHITEKTURA: iframe always-mounted (background) su enablejsapi=1.
               Overlay (thumbnail + orange play button) covers iframe kol
               user'is nepaspaudė. Click → postMessage('playVideo') → iframe
               start'uoja groti + overlay fade out. User gesture preserved.
               max-h apsaugo nuo per-tall video kai grid leidžia per-wide. */}
-          <div className="relative aspect-video max-h-[220px] w-full overflow-hidden bg-black sm:max-h-[340px]">
+          <div className="relative aspect-video max-h-[300px] w-full overflow-hidden bg-black sm:max-h-[340px]">
             {trackVid ? (
               <>
                 {/* Background iframe — always loaded so postMessage veiks be delay. */}
@@ -474,7 +476,7 @@ export function TrackInfoModal({
 
           {/* Right: meta stack — likes (fixed width), tarpas, data + albumai.
               items-start kad LikePill nesistretchintų per visą col plotį. */}
-          <div className="flex flex-col items-start gap-1 border-l border-[var(--border-subtle)] px-2.5 py-2 text-[11px]">
+          <div className="flex flex-row flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--border-subtle)] px-3 py-2.5 text-[11px] sm:flex-col sm:items-start sm:gap-1 sm:border-l sm:border-t-0 sm:px-2.5 sm:py-2">
             {/* DropBar (emoji reactions) paslėpta — re-enable kai user'iui jis taps relevant. */}
             <LikePill
               likes={likes}
@@ -484,7 +486,7 @@ export function TrackInfoModal({
               variant="surface"
             />
             {dateLabel && (
-              <span className="mt-2 font-['Outfit',sans-serif] text-[11px] font-extrabold leading-tight text-[var(--text-primary)]">
+              <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold leading-tight text-[var(--text-primary)] sm:mt-2">
                 {dateLabel}
               </span>
             )}

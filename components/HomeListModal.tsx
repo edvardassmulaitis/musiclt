@@ -115,16 +115,7 @@ export function HomeListModal({
 
 /** Kompaktiškas siauras vertikalus „+N" button'as. Stovi šalia scroll'inamo
  *  content'o, ne jame — todėl visada matomas dešinėje sekcijos pusėje, kai
- *  user'is dar nepradėjo scroll'inti.
- *
- *  Naudojimas:
- *  ```tsx
- *  <div className="flex items-stretch gap-3">
- *    <div className="flex-1 min-w-0 hp-scroll flex gap-3">...items</div>
- *    <StickyMoreButton count={42} onClick={...} height={130} />
- *  </div>
- *  ```
- */
+ *  user'is dar nepradėjo scroll'inti. */
 export function StickyMoreButton({
   count,
   onClick,
@@ -133,17 +124,14 @@ export function StickyMoreButton({
 }: {
   count: number
   onClick: () => void
-  /** Container height (= scroll item aukštis), kad button'as tampa lygus
-   *  kortelei. Pvz. albumams 184px (cover+text), tracks 70px, events 130px. */
+  /** Container height (= scroll item aukštis), kad button'as tampa lygus kortelei. */
   height: number
   ariaLabel?: string
 }) {
   if (count <= 0) return null
-  // 2026-05-29: minimalistinis „atverti pilną vaizdą" mygtukas. BE skaičiaus
-  // (Edvardo prašymu — skaičiai confusin'davo). Tiesiog švari expand ikona +
-  // tylus „Visi" label aukštesniems. Komunikuoja: atveria patogesnį pilną
-  // sąrašą (su filtrais) modale.
-  const showLabel = height >= 110
+  // 2026-05-29 v2: minimalistinis „expand" mygtukas — BE skaičiaus ir BE žodžio
+  // (Edvardas: ikona turi pati aiškiai reikšti „atverti pilną vaizdą"). Naudojam
+  // standartinę diagonal-arrows fullscreen/expand ikoną.
   return (
     <button
       type="button"
@@ -151,7 +139,7 @@ export function StickyMoreButton({
       data-sticky-more="1"
       aria-label={ariaLabel || 'Atverti visą sąrašą'}
       title="Atverti visą sąrašą su filtrais"
-      className="group flex shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border transition-all hover:-translate-y-px hover:border-[var(--accent-orange)]/45 hover:bg-[var(--accent-orange)]/12"
+      className="group flex shrink-0 items-center justify-center rounded-xl border transition-all hover:-translate-y-px hover:border-[var(--accent-orange)]/45 hover:bg-[var(--accent-orange)]/12"
       style={{
         width: 44,
         height,
@@ -161,15 +149,11 @@ export function StickyMoreButton({
         fontFamily: 'Outfit,sans-serif',
       }}
     >
-      {/* Expand ikona — „atverti didesnį / pilną vaizdą". */}
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-colors group-hover:stroke-[var(--accent-orange)]">
-        <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4" />
+      {/* Diagonal-arrows „expand" ikona — universaliai suprantama kaip
+          „išskleisti / atverti didesnį vaizdą". */}
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="transition-colors group-hover:stroke-[var(--accent-orange)]">
+        <path d="M15 3h6v6M21 3l-8 8M9 21H3v-6M3 21l8-8" />
       </svg>
-      {showLabel && (
-        <span className="transition-colors group-hover:text-[var(--accent-orange)]" style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          Visi
-        </span>
-      )}
     </button>
   )
 }

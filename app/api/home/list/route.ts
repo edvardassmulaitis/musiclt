@@ -95,6 +95,29 @@ export async function GET(req: NextRequest) {
     }
     for (const r of rows) r.like_count = likeMap.get(r.id) || 0
 
+    // 3b) „Hot" popularumas pagal YouTube peržiūras → pop lygis 1-5.
+    //     Tracks: track.video_views. Albums: didžiausios albumo dainos peržiūros
+    //     (album_tracks → tracks.video_views, max per album).
+    if (entityType === 'album') {
+      const albIds = rows.map(r => r.id)
+      const viewByAlbum = new Map<number, number>()
+      if (albIds.length) {
+        const { data: atRows } = await sb
+          .from('album_tracks')
+          .select('album_id, tracks(video_views)')
+          .in('album_id', albIds)
+        for (const r of (atRows || []) as any[]) {
+          const v = Number(r.tracks?.video_views || 0)
+          if (v > (viewByAlbum.get(r.album_id) || 0)) viewByAlbum.set(r.album_id, v)
+        }
+      }
+      for (const r of rows) r.views = viewByAlbum.get(r.id) || 0
+    } else {
+      for (const r of rows) r.views = Number(r.video_views || 0)
+    }
+    const popTier = (v: number) => (v >= 5e6 ? 5 : v >= 1e6 ? 4 : v >= 2e5 ? 3 : v >= 3e4 ? 2 : v > 0 ? 1 : 0)
+    for (const r of rows) r.pop = popTier(r.views)
+
     // 4) Žanro facet'ai (per visą rinkinį, prieš filtrą).
     const facet = new Map<string, number>()
     for (const r of rows) {

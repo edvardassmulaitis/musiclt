@@ -81,14 +81,14 @@ function formatRelativeDateLT(input: string | null | undefined): string | null {
   if (diffDays < 0) return null // ateities data
   if (diffDays === 0) return 'Šiandien'
   if (diffDays === 1) return 'Vakar'
-  if (diffDays <= 30) return `Prieš ${diffDays} d.`
-  // Virš mėnesio — rodom mėnesiais („Prieš 2 mėn."), o virš metų — metais.
-  // 2026-05-29: anksčiau rodydavo konkrečią datą („Spa. 28, 2025"), bet badge'ai
-  // turi būti vienodi ir kompaktiški per visas sekcijas (dainos, albumai).
+  // Kuo paprasčiau: pirmą savaitę — dienomis, toliau — savaitėmis („Prieš 3
+  // sav." vietoj „Prieš 23 d."), po mėnesio — mėnesiais, po metų — metais.
+  // 2026-05-29 v2.
+  if (diffDays < 7) return `Prieš ${diffDays} d.`
+  if (diffDays < 30) return `Prieš ${Math.round(diffDays / 7)} sav.`
   const months = Math.floor(diffDays / 30)
   if (months < 12) return `Prieš ${months} mėn.`
-  const years = Math.floor(diffDays / 365)
-  return `Prieš ${years} m.`
+  return `Prieš ${Math.floor(diffDays / 365)} m.`
 }
 
 /** Future date formatas „Greitai pasirodys" sekcijai. Iki 30 d. — „Po X d.",
@@ -1096,9 +1096,12 @@ function PulsasSection() {
   return (
     <section>
       <SectionHead label="Pulsas" href="/bendruomene" cta="Daugiau →" />
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {/* 2026-05-29: vertikalus feed'as → horizontali kortelių juosta (kaip
+          dainos/albumai/renginiai). Pulsas įrašai dažniausiai be vizualo, tad
+          rodom teksto korteles fiksuoto pločio. */}
+      <div className="hp-scroll flex items-stretch gap-3 pb-1">
         {loading ? Array(8).fill(null).map((_, i) => (
-          <div key={i} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3.5">
+          <div key={i} className="shrink-0 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3.5" style={{ width: 260 }}>
             <div className="flex items-center gap-2 mb-2">
               <Skel w={50} h={14} r={4} />
               <Skel w={40} h={9} />
@@ -1111,7 +1114,7 @@ function PulsasSection() {
             </div>
           </div>
         )) : items.length === 0 ? (
-          <div className="col-span-full rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-8 text-center">
+          <div className="shrink-0 rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-8 text-center" style={{ width: 360 }}>
             <p className="m-0 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Pulsas — netrukus</p>
             <p className="m-0 mt-1 text-[11.5px] text-[var(--text-muted)]">
               Čia atsiras naujausi vartotojų įrašai: diskusijos, blogai, vertimai, komentarai.
@@ -1121,7 +1124,8 @@ function PulsasSection() {
           <Link
             key={it.id}
             href={it.href}
-            className="hp-card group flex flex-col overflow-hidden p-3.5 no-underline"
+            className="hp-card group flex shrink-0 flex-col overflow-hidden p-3.5 no-underline"
+            style={{ width: 260 }}
           >
             <div className="mb-1.5 flex items-center gap-1.5">
               {it.meta && (
@@ -1159,62 +1163,9 @@ function PulsasSection() {
   )
 }
 
-/* ────────────────────────────── Pramogos cards ────────────────────────────── */
-
-function PramogosDienosDainaCard() {
-  return (
-    <div className="flex h-full flex-col">
-      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-faint)]">Dienos daina</div>
-      <div className="flex-1"><DienosDainaWidget /></div>
-    </div>
-  )
-}
-
-function PramogosBoomboxIntroCard() {
-  const [data, setData] = useState<{ image: any; loading: boolean }>({ image: null, loading: true })
-  useEffect(() => {
-    fetch('/api/boombox/today').then(r => r.json()).then(d => setData({ image: d.image || null, loading: false })).catch(() => setData({ image: null, loading: false }))
-  }, [])
-  return (
-    <div className="flex h-full flex-col">
-      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-faint)]">Boombox</div>
-      <Link href="/boombox" className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--accent-orange)]/25 bg-gradient-to-br from-[var(--accent-orange)]/10 to-[var(--accent-blue)]/[0.06] no-underline">
-        <div className="relative aspect-video overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--cover-placeholder)]">
-          {data.loading ? (
-            <div className="absolute inset-0 hp-skel" />
-          ) : data.image?.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(data.image.image_url)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-3xl">🎵</div>
-          )}
-          <div className="absolute left-3 top-3 rounded-md bg-black/72 px-2 py-1 backdrop-blur-sm">
-            <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.08em] text-white">Atspėk iš vaizdo</span>
-          </div>
-        </div>
-        <div className="flex flex-1 flex-col gap-2 p-4">
-          <p className="m-0 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">{data.image?.title || 'Kuri tai daina?'}</p>
-          <p className="m-0 text-[11.5px] text-[var(--text-muted)]">3 misijos · ~2 min · drop'ai. Pradėk nuo paveikslėlio užuominos.</p>
-          <span className="mt-auto inline-flex w-fit rounded-md bg-[var(--accent-orange)] px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-white">Pradėti →</span>
-        </div>
-      </Link>
-    </div>
-  )
-}
-
-function PramogosManagerPlaceholderCard() {
-  return (
-    <div className="flex h-full flex-col">
-      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-faint)]">Music Manager</div>
-      <div className="flex h-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] p-6 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent-blue)]/15 text-2xl">🎚️</div>
-        <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Music Manager</p>
-        <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">Žaidimas, kuriame valdai savo grupę, planuoji turus, pasirenki pasirodymus. Greitai.</p>
-        <span className="mt-1 rounded-md bg-[var(--accent-yellow)]/15 px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-yellow)]">Greitai</span>
-      </div>
-    </div>
-  )
-}
+/* Pramogos kortelės (Boombox intro + Music Manager placeholder) pašalintos
+   2026-05-29 — „Pramogos" sekcija pakeista į „Dienos daina". Boombox + Music
+   Manager pasiekiami tik per top menu. */
 
 /* ────────────────────────────── Istorija sekcija ──────────────────────────────
    Šiandien aktualu istorijos kontekste: gimtadieniai, mirties metinės, albumų
@@ -1233,9 +1184,18 @@ type IstApiItem = {
   age?: number | null
 }
 
+// Istorijos kategorijų konfigūracija (3 box'ai).
+const IST_CATS = {
+  birthday: { label: 'Gimtadieniai', emoji: '🎂' },
+  album_anniversary: { label: 'Jubiliejai', emoji: '💿' },
+  death_anniversary: { label: 'Atminimas', emoji: '🕯️' },
+} as const
+type IstCatKey = keyof typeof IST_CATS
+
 function IstorijaSection() {
   const [items, setItems] = useState<IstApiItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [openCat, setOpenCat] = useState<IstCatKey | null>(null)
   useEffect(() => {
     let alive = true
     fetch('/api/istorija/today')
@@ -1247,12 +1207,11 @@ function IstorijaSection() {
 
   if (loading) {
     return (
-      <div className="hp-scroll flex items-stretch gap-3 pb-1">
-        {Array(4).fill(null).map((_, i) => (
-          <div key={i} className="hp-card flex shrink-0 flex-col overflow-hidden p-4" style={{ width: 280, minHeight: 130 }}>
-            <div className="mb-2 flex items-center gap-2"><Skel w={28} h={20} r={4} /><Skel w={60} h={9} /></div>
-            <Skel w="90%" h={13} />
-            <div className="mt-1.5"><Skel w="70%" h={11} /></div>
+      <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+        {Array(3).fill(null).map((_, i) => (
+          <div key={i} className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+            <div className="hp-skel aspect-video" />
+            <div className="flex items-center justify-between px-3.5 py-2.5"><Skel w="50%" h={11} /><Skel w={50} h={10} /></div>
           </div>
         ))}
       </div>
@@ -1268,44 +1227,82 @@ function IstorijaSection() {
     )
   }
 
+  const order: IstCatKey[] = ['birthday', 'album_anniversary', 'death_anniversary']
+  const cats = order
+    .map(t => ({ t, cfg: IST_CATS[t], list: items.filter(i => i.type === t) }))
+    .filter(c => c.list.length > 0)
+  const openList = openCat ? items.filter(i => i.type === openCat) : []
+
   return (
-    <div className="hp-scroll flex items-stretch gap-3 pb-1">
-      {items.map(it => (
-        <Link
-          key={it.id}
-          href={it.href}
-          className="hp-card group flex shrink-0 items-stretch gap-0 overflow-hidden p-0 no-underline"
-          style={{ width: 320, minHeight: 130 }}
-        >
-          {it.cover && (
-            <div className="relative shrink-0 overflow-hidden bg-[var(--cover-placeholder)]" style={{ width: 110 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={proxyImg(it.cover)}
-                alt=""
-                loading="lazy"
-                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-              />
-              <div className="absolute top-1.5 left-1.5 bg-black/72 backdrop-blur-sm rounded-md w-7 h-7 flex items-center justify-center text-base">
-                {it.emoji}
+    <>
+      <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cats.length, 3)}, 1fr)`, gap: 16 }}>
+        {cats.map(({ t, cfg, list }) => {
+          const feat = list[0]
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setOpenCat(t)}
+              className="group block w-full cursor-pointer overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-0 text-left transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_14px_32px_rgba(249,115,22,0.15)]"
+            >
+              <div className="relative aspect-video overflow-hidden bg-[var(--cover-placeholder)]">
+                {feat.cover ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={proxyImg(feat.cover)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-5xl" style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(59,130,246,0.12))' }}>{cfg.emoji}</div>
+                )}
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">
+                  <span className="text-[13px]">{cfg.emoji}</span>
+                  <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.06em] text-white">{cfg.label}</span>
+                </div>
+                <span className="absolute right-3 top-3 rounded-full bg-[var(--accent-orange)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold text-white">{list.length}</span>
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-black leading-tight text-white">{feat.title}</p>
+                  {feat.subtitle && <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-white/75">{feat.subtitle}</p>}
+                </div>
               </div>
-            </div>
-          )}
-          <div className="flex min-w-0 flex-1 flex-col justify-center px-4 py-3">
-            {!it.cover && (
-              <div className="mb-2 flex items-center gap-2">
-                <span className="text-2xl">{it.emoji}</span>
+              <div className="flex items-center justify-between px-3.5 py-2.5">
+                <span className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)]">
+                  {list.length === 1 ? '1 įvykis šiandien' : `${list.length} įvykiai šiandien`}
+                </span>
+                <span className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] transition-transform group-hover:translate-x-0.5">Žiūrėti →</span>
               </div>
-            )}
-            <p className="m-0 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)] mb-1">
-              {it.type === 'birthday' ? 'Gimtadienis' : it.type === 'death_anniversary' ? 'Atminimas' : 'Jubiliejus'}
-            </p>
-            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
-            <p className="m-0 mt-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">{it.subtitle}</p>
+            </button>
+          )
+        })}
+      </div>
+
+      {openCat && (
+        <HomeListModal open onClose={() => setOpenCat(null)} title={IST_CATS[openCat].label} subtitle="Šiandien istorijoje">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {openList.map(it => (
+              <Link
+                key={it.id}
+                href={it.href}
+                onClick={() => setOpenCat(null)}
+                className="hp-card group flex items-stretch gap-0 overflow-hidden p-0 no-underline"
+                style={{ height: 92 }}
+              >
+                <div className="relative aspect-square h-full shrink-0 overflow-hidden bg-[var(--cover-placeholder)]">
+                  {it.cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(it.cover)} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-2xl">{it.emoji}</div>
+                  )}
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col justify-center px-3.5 py-2">
+                  <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
+                  <p className="m-0 mt-0.5 line-clamp-2 text-[11px] leading-snug text-[var(--text-muted)]">{it.subtitle}</p>
+                </div>
+              </Link>
+            ))}
           </div>
-        </Link>
-      ))}
-    </div>
+        </HomeListModal>
+      )}
+    </>
   )
 }
 
@@ -2610,13 +2607,13 @@ export default function Home() {
                       <RowDivider icon={lane} />
                       <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
                         {tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
-                          <div key={i} className="shrink-0" style={{ width: 156 }}>
-                            <Skel w={156} h={156} r={12} />
+                          <div key={i} className="shrink-0" style={{ width: 200 }}>
+                            <Skel w={200} h={112} r={12} />
                             <div className="mt-2"><Skel w="80%" h={12} /></div>
                             <div className="mt-1"><Skel w="60%" h={10} /></div>
                           </div>
                         )) : items.length === 0 ? (
-                          <div className="flex h-[156px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
+                          <div className="flex h-[112px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
                             {lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}
                           </div>
                         ) : items.slice(0, 14).map(t => {
@@ -2633,9 +2630,11 @@ export default function Home() {
                               type="button"
                               onClick={() => setOpenTrack(t)}
                               className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
-                              style={{ width: 156 }}
+                              style={{ width: 200 }}
                             >
-                              <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+                              {/* 16:9 (YouTube-style) — dainos vizualiai skiriasi nuo
+                                  kvadratinių albumų cover'ių. */}
+                              <div className="relative aspect-video overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
                                 {imgSrc ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -2678,7 +2677,7 @@ export default function Home() {
                       {total > items.slice(0, 14).length && (
                         <StickyMoreButton
                           count={total}
-                          height={200}
+                          height={156}
                           ariaLabel={`Žiūrėti visus (${total})`}
                           onClick={() => setListModal(`tracks-${lane}`)}
                         />
@@ -2950,12 +2949,10 @@ export default function Home() {
                           const d = dateRaw ? new Date(dateRaw) : null
                           const validDate = d && !isNaN(d.getTime())
                           const diffDays = validDate ? Math.ceil((d!.getTime() - Date.now()) / 86400000) : null
-                          const isClose = diffDays !== null && diffDays >= 0 && diffDays <= 3
-                          const isUpcoming = diffDays !== null && diffDays >= 0 && diffDays <= 7
                           const created = ev.created_at ? new Date(ev.created_at) : null
                           const ageDays = created ? (Date.now() - created.getTime()) / 86400000 : 999
                           const isNew = ageDays <= 7
-                          const countdown = diffDays === null || diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`
+                          const countdown = diffDays === null || diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays} d.`
                           const imgSrc = ev.image_small_url || ev.cover_image_url || null
                           const city = ev.city || ev.venues?.city || ''
                           const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
@@ -2971,42 +2968,30 @@ export default function Home() {
                               className="group block shrink-0 no-underline text-left"
                               style={{ width: 156 }}
                             >
-                              {/* Vertikali kortelė — vizualas viršuje (vienodas su
-                                  dainomis ir albumais). Data/badge'ai overlay'inami
-                                  ant cover'io, info apačioje. */}
-                              <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+                              {/* Švarus vizualas — data/vieta perkelti ŽEMYN (po cover),
+                                  nes ant margų plakatų badge'ai blogai matėsi. Naujai
+                                  pridėtas renginys (≤7 d.) — oranžinis rėmelis + taškas
+                                  (kaip neskaitytos naujienos). 2026-05-29. */}
+                              <div className={`relative aspect-square overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)] ${
+                                isNew ? 'border-[var(--accent-orange)]' : 'border-[var(--border-default)] group-hover:border-[rgba(249,115,22,0.5)]'
+                              }`}>
                                 {imgSrc ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img src={proxyImg(imgSrc)} alt={artistText} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                                 ) : (
                                   <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
                                 )}
-                                {/* Datos kampas (diena + mėnuo) */}
-                                {validDate && (
-                                  <div className="absolute left-1.5 top-1.5 rounded-md bg-black/72 px-1.5 py-1 text-center backdrop-blur-sm">
-                                    <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold leading-none text-white">{d!.getDate()}</div>
-                                    <div className="mt-0.5 text-[8px] font-bold uppercase leading-none tracking-[0.06em] text-white/85">{MONTHS_LT[d!.getMonth()]}</div>
-                                  </div>
-                                )}
-                                {/* NAUJIENA / GREITAI badge viršuje dešinėje */}
-                                {(isNew || isUpcoming) && (
-                                  <span className={`absolute right-1.5 top-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8px] font-extrabold uppercase tracking-[0.06em] backdrop-blur-sm ${
-                                    isUpcoming ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--accent-green)]/85 text-white'
-                                  }`}>
-                                    {isUpcoming ? 'Greitai' : 'Naujiena'}
-                                  </span>
-                                )}
-                                {/* Countdown apačioje dešinėje */}
-                                {countdown && (
-                                  <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${
-                                    isClose ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
-                                  }`}>
-                                    {countdown}
-                                  </span>
+                                {isNew && (
+                                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-orange)] shadow-[0_0_0_2px_rgba(0,0,0,0.45)]" />
                                 )}
                                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                               </div>
                               <div className="mt-2 px-0.5">
+                                {validDate && (
+                                  <p className="m-0 mb-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.03em] text-[var(--accent-orange)]">
+                                    {d!.getDate()} {MONTHS_LT[d!.getMonth()]}. {d!.getFullYear()}{countdown ? ` · ${countdown}` : ''}
+                                  </p>
+                                )}
                                 <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
                                   {artistText}
                                 </p>
@@ -3062,31 +3047,26 @@ export default function Home() {
             <PulsasSection />
           </LazySection>
 
-          {/* ── PRAMOGOS — Dienos daina + Boombox intro + Music Manager placeholder ── */}
+          {/* ── DIENOS DAINA — bendruomenės balsavimas (pakeitė „Pramogas". Boombox
+              + Music Manager kol kas pasiekiami tik per top menu). 2026-05-29. ── */}
           <LazySection
             rootMargin="400px"
-            minHeight={280}
+            minHeight={220}
             placeholder={
               <section>
-                <SectionHead label="Pramogos" href="/pramogos" cta="Daugiau →" />
-                <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
-                  {Array(3).fill(null).map((_, i) => (
-                    <div key={i} className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4" style={{ minHeight: 220 }}>
-                      <Skel w="40%" h={11} />
-                      <div className="mt-3"><Skel w="100%" h={48} /></div>
-                      <div className="mt-2"><Skel w="60%" h={11} /></div>
-                    </div>
-                  ))}
+                <SectionHead label="Dienos daina" href="/dienos-daina" cta="Visi kandidatai →" />
+                <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4" style={{ maxWidth: 560 }}>
+                  <Skel w="40%" h={11} />
+                  <div className="mt-3"><Skel w="100%" h={48} /></div>
+                  <div className="mt-2"><Skel w="60%" h={11} /></div>
                 </div>
               </section>
             }
           >
           <section>
-            <SectionHead label="Pramogos" href="/pramogos" cta="Daugiau →" />
-            <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
-              <PramogosDienosDainaCard />
-              <PramogosBoomboxIntroCard />
-              <PramogosManagerPlaceholderCard />
+            <SectionHead label="Dienos daina" href="/dienos-daina" cta="Visi kandidatai →" />
+            <div style={{ maxWidth: 560 }}>
+              <DienosDainaWidget />
             </div>
           </section>
           </LazySection>
@@ -3202,7 +3182,7 @@ export default function Home() {
             )
           } else if (listModal === 'events-lt' || listModal === 'events-world') {
             const lane = listModal === 'events-lt' ? 'lt' : 'world'
-            title = lane === 'lt' ? 'Lietuvos renginiai' : 'Užsienio renginiai'
+            title = lane === 'lt' ? 'Lietuvos atlikėjų renginiai' : 'Užsienio atlikėjų renginiai'
             body = (
               <HomeListContent
                 type="events"
