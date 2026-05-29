@@ -39,7 +39,9 @@ export async function GET(
   const sb = createAdminClient()
   const { data, error } = await sb
     .from('likes')
-    .select('user_username, user_id, created_at, profiles:user_id(avatar_url, rank)', { count: 'exact' })
+    // NB: jokio count:'exact' — modal'as rodo users.length (limit 200), o
+    // exact count nuskaitymas per 560k+ row likes lentelę kainavo brangiai.
+    .select('user_username, user_id, created_at, profiles:user_id(avatar_url, rank)')
     .eq('entity_type', entity_type)
     .eq('entity_id', eid)
     .order('created_at', { ascending: false })

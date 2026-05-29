@@ -1,6 +1,6 @@
 // app/atlikejai/[slug]/page.tsx
 import { notFound } from 'next/navigation'
-import { Suspense } from 'react'
+import { Suspense, cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import ArtistProfileClient from './artist-profile-client'
@@ -21,12 +21,15 @@ const ARTIST_CACHE_TTL = 300
 
 type Props = { params: Promise<{ slug: string }> }
 
-async function getArtist(slug: string) {
+// React cache() — request-scoped memoization. generateMetadata() ir pati
+// page() kviečia getArtist(slug) su tuo pačiu argumentu; be cache'o tai buvo
+// 2× select('*') per 57-stulpelių artists lentelę kiekvienam SSR render'iui.
+const getArtist = cache(async (slug: string) => {
   const sb = createAdminClient()
   let { data } = await sb.from('artists').select('*').eq('slug', slug).single()
   if (!data) { const id = parseInt(slug); if (!isNaN(id)) { const r = await sb.from('artists').select('*').eq('id', id).single(); data = r.data } }
   return data
-}
+})
 
 // (legacy_like_count cache buvo pašalintas — visus likes count'us imam tiesiai
 // iš `likes` lentelės. Šis helper'is liko tik komentaru, kad būtų aišku

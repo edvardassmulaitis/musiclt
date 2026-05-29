@@ -11,13 +11,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.3",
-    "@editorjs/delimiter": "^1.4.2",
-    "@editorjs/editorjs": "^2.30.7",
-    "@editorjs/header": "^2.8.8",
-    "@editorjs/image": "^2.10.3",
-    "@editorjs/link": "^2.6.2",
-    "@editorjs/list": "^2.0.2",
-    "@editorjs/quote": "^2.7.6",
     "@supabase/ssr": "^0.1.0",
     "@supabase/supabase-js": "^2.39.0",
     "@tiptap/extension-character-count": "^2.10.4",

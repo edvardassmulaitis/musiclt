@@ -175,7 +175,9 @@ export async function GET(req: NextRequest) {
     const artistIds = (artistMatches || []).map((a: any) => a.id)
     let query = supabase
       .from('tracks')
-      .select(SELECT_FIELDS, { count: 'exact' })
+      // jokio count:'exact' — search rezultatas grąžina data.length (žemiau),
+      // exact count per 61k tracks lentelę buvo bereikalingas skenavimas
+      .select(SELECT_FIELDS)
       .order('title', { ascending: true })
       .range(offset, offset + limit - 1)
     if (artistIds.length > 0) query = query.or(`title.ilike.%${search}%,artist_id.in.(${artistIds.join(',')})`)
