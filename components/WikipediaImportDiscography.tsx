@@ -273,6 +273,10 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
   let inSingles = false
   let inTable = false
   let skipSubSection = false
+  // Gylis, kuriame prasidėjo Singles sekcija (2 arba 3). Reikia, kad žinotume
+  // kada sekcija baigiasi: bet koks header'is depth <= singlesDepth (ne pats
+  // „Singles") = pabaiga; depth > singlesDepth = sub-sekcija.
+  let singlesDepth = 2
 
   // Metų sekimas su rowspan palaikymu
   let currentYear: number | null = null
@@ -301,13 +305,16 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       const h = hm[2].toLowerCase()
       const hRaw = hm[2]
 
-      if (depth === 2 && /^singles\s*$/i.test(h)) {
-        inSingles = true; skipSubSection = false; hasYearCol = false
+      // Singles sekcija gali būti depth 2 (==Singles==) ARBA depth 3
+      // (===Singles=== po ==Discography==, pvz. Gigi Perez). Anksčiau tik
+      // depth===2 → nested singles visiškai praleidžiami (0 singlų rasta).
+      if (/^singles\s*$/i.test(h) && (depth === 2 || depth === 3)) {
+        inSingles = true; singlesDepth = depth; skipSubSection = false; hasYearCol = false
         currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false
         continue
       }
-      if (depth === 2 && inSingles) { inSingles = false; inTable = false; continue }
-      if (inSingles && depth === 3) {
+      if (inSingles && depth <= singlesDepth) { inSingles = false; inTable = false; continue }
+      if (inSingles && depth > singlesDepth) {
         if (/^\d{4}s?\s*$/i.test(hRaw.trim())) {
           // Dešimtmetis — reset ir tęsiame
           skipSubSection = false; hasYearCol = false
