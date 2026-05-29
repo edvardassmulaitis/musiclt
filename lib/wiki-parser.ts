@@ -438,10 +438,12 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
   let inDiscSection = false
   let currentType: AlbumType = 'studio'
   let skipGroup = false
+  let inTable = false
 
   for (const line of lines) {
     const hM = line.match(/^(==+)\s*(.+?)\s*\1/)
     if (hM) {
+      inTable = false
       const depth = hM[1].length, h = hM[2].toLowerCase(), hRaw = hM[2]
       if (depth === 2 && inDiscSection && !h.includes('discograph')) break
       if (h.includes('discograph')) { inDiscSection = true; skipGroup = false; continue }
@@ -483,6 +485,19 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
       }
       continue
     }
+    // 2026-05-29: Modern artist pages render diskografiją wikitable formatu,
+    // kurio cell'ai naudoja `* Released:`, `* Label: [[X|Island]]`,
+    // `* [[Recording Industry Association of America|RIAA]]: Gold` bullet'us.
+    // Šie NĖRA diskografijos įrašai, bet parseMainPageDiscography ėmė kiekvieną
+    // `*` eilutę kaip albumą → Gigi Perez davė „RIAA", „BRMA", „RMNZ" (4-raidžių
+    // cert body, praeina pro `^[A-Z]{2,3}$` filtrą), „Island" (label), „Billboard"
+    // (ref link). Bullet-list disco formatas (kurį šis parser'is targetina)
+    // NIEKADA nėra `{|...|}` viduje, tad saugu skip'inti table-internal eilutes.
+    // Kai sekcija pilnai table-based → return 0 → caller fall'ina į
+    // parseDiscographyPage, kuris table'us parse'ina teisingai (! scope="row").
+    if (line.startsWith('{|')) { inTable = true; continue }
+    if (line.startsWith('|}')) { inTable = false; continue }
+    if (inTable) continue
     if (!inDiscSection || skipGroup || !line.startsWith('*')) continue
     if (line.toLowerCase().includes('main article') || line.toLowerCase().includes('see also')) continue
 
@@ -614,9 +629,23 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
     }
 
     if (/!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(line)) {
+      let wikiTitle = '', title = ''
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-      if (!wm) continue
-      const wikiTitle = wm[1].trim(), title = cleanWikiText(wm[2] || wm[1])
+      if (wm) {
+        wikiTitle = wm[1].trim(); title = cleanWikiText(wm[2] || wm[1])
+      } else {
+        // 2026-05-29: NĖRA wikilink'o — daug albumų/EP eilučių naudoja plain
+        // italic title be atskiro Wiki straipsnio, pvz.
+        //   ! scope="row"| ''How to Catch a Falling Knife''
+        // Anksčiau `if (!wm) continue` šiuos visiškai praleisdavo (Gigi Perez
+        // EP nebūdavo importuojamas). Fallback į ''...'' italic ekstrakciją.
+        const afterScope = line
+          .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+          .replace(/<ref[^/]*\/>/gi, '')
+          .replace(/^.*scope\s*=\s*['"]row['"]\s*\|?\s*/i, '')
+        const im = afterScope.match(/'{2,3}([^']+)'{2,3}/) || afterScope.match(/^"([^"]+)"/)
+        if (im) { title = cleanWikiText(im[1]); wikiTitle = title.replace(/ /g, '_') }
+      }
       if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle)) continue
       if (['discography','videography','certification','singles','chart'].some(b => title.toLowerCase().includes(b))) continue
 
