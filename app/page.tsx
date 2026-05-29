@@ -1117,11 +1117,18 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
           <button
             key={n.id}
             type="button"
-            onClick={() => onOpenTrack({ id: t.id, title: t.title, cover_url: t.cover_url, artists: t.artists })}
+            onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: (t as any).slug, cover_url: t.cover_url, video_url: (t as any).video_url, artists: t.artists })}
             className="hp-card group flex w-full shrink-0 items-center gap-3 p-2.5 text-left sm:w-[280px]"
           >
             <div className="relative shrink-0">
-              <Cover src={t.cover_url} alt={sanitizeTitle(t.title)} size={52} radius={8} />
+              <Cover
+                src={t.cover_url}
+                ytId={extractYouTubeId((t as any).video_url)}
+                artistSrc={(t as any).artists?.cover_image_url}
+                alt={sanitizeTitle(t.title)}
+                size={52}
+                radius={8}
+              />
               {idx < 3 && (
                 <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[10px] font-black text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">{idx + 1}</span>
               )}
@@ -1271,11 +1278,15 @@ function PulsasSection() {
 
   return (
     <section>
-      <SectionHead label="Pulsas" href="/bendruomene" cta="Daugiau →" />
+      {/* „Daugiau →" link'o nebėra — jį keičia šoninis grid mygtukas (atveria
+          modalą su pilnu sąrašu + tipų filtrais). 2026-05-29. */}
+      <SectionHead label="Pulsas" />
       <div className="flex items-stretch gap-3">
         <div className="hp-scroll flex min-w-0 flex-1 items-stretch gap-3 pb-1">
-          {/* Pirmas spot'as — Pokalbių dėžutė (chatas, populiarus senoje svetainėje). */}
-          <div className="shrink-0" style={{ width: 280 }}>
+          {/* Pirmas spot'as — Pokalbių dėžutė (chatas, populiarus senoje svetainėje).
+              Fiksuotas aukštis 300 → diktuoja sekcijos aukštį; HomeChatsWidget
+              h-full užpildo, body scroll'inasi (rodo tiek pokalbių kiek telpa). */}
+          <div className="shrink-0" style={{ width: 280, height: 300 }}>
             <HomeChatsWidget />
           </div>
           {loading ? Array(5).fill(null).map((_, i) => (
@@ -1286,7 +1297,7 @@ function PulsasSection() {
             </div>
           )) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
         </div>
-        {!loading && items.length > sectionItems.length && (
+        {!loading && items.length > 0 && (
           <StickyMoreButton count={items.length} height={200} ariaLabel="Atverti visą Pulsą" onClick={() => setModalOpen(true)} />
         )}
       </div>

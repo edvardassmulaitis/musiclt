@@ -24,7 +24,7 @@ import {
 import { formatSidebarTime } from '@/components/chat/ChatTime'
 import { proxyImg } from '@/lib/img-proxy'
 
-const MAX_ROWS = 4
+const MAX_ROWS = 12  // rodom tiek kiek telpa į box'ą (body scroll'inasi)
 const REFRESH_MS = 30_000  // fallback'as jei realtime atsijungtų
 
 // Error boundary — saugiklis, kad chat klaida nesugriautų visos homepage'os.
@@ -101,6 +101,7 @@ function HomeChatsWidgetInner() {
       background: 'var(--bg-surface)', border: '1px solid var(--border-default)',
       borderRadius: 16, overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
+      height: '100%',  // užima visą tėvinio konteinerio aukštį (Pulsas sekcijoj)
     }}>
       {/* Header */}
       <div style={{
@@ -121,8 +122,9 @@ function HomeChatsWidgetInner() {
         }}>Visi →</Link>
       </div>
 
-      {/* Body */}
-      <div style={{ flex: 1 }}>
+      {/* Body — flex:1 + scroll, kad užpildytų box'ą ir rodytų tiek pokalbių
+          kiek telpa (likę scroll'inasi). */}
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {!isAuth ? (
           <SignInCTA />
         ) : loading ? (
