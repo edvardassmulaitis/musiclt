@@ -1060,105 +1060,143 @@ type PulsasItem = {
   meta?: string | null
 }
 
+const PULSAS_FILTERS = [['all', 'Visi'], ['blog', 'Blogai'], ['discussion', 'Diskusijos'], ['comment', 'Komentarai']] as const
+
+function pulsasAccent(t: string, sub?: string | null): string {
+  if (t === 'discussion') return 'var(--accent-link)'
+  if (t === 'comment') return 'var(--accent-green)'
+  if (sub === 'review') return 'var(--accent-yellow)'
+  if (sub === 'translation') return 'var(--accent-link)'
+  return 'var(--accent-orange)'
+}
+function pulsasEmoji(t: string, sub?: string | null): string {
+  if (t === 'discussion') return '💬'
+  if (t === 'comment') return '💭'
+  if (sub === 'review') return '📝'
+  if (sub === 'creation') return '🎨'
+  if (sub === 'translation') return '🌐'
+  if (sub === 'topas') return '📊'
+  if (sub === 'event') return '📅'
+  return '✍️'
+}
+
+function PulsasCard({ it, inModal, onNavigate }: { it: PulsasItem; inModal: boolean; onNavigate?: () => void }) {
+  const ac = pulsasAccent(it.type, it.subtype)
+  return (
+    <Link
+      href={it.href}
+      onClick={onNavigate}
+      className={`hp-card group flex flex-col overflow-hidden p-0 no-underline ${inModal ? 'w-full' : 'shrink-0'}`}
+      style={inModal ? undefined : { width: 240 }}
+    >
+      {/* Vizualas viršuje — cover (jei istraukėm) arba tipinis gradient+emoji. */}
+      <div className="relative aspect-video overflow-hidden bg-[var(--cover-placeholder)]">
+        {it.cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={proxyImg(it.cover)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--bg-active)] to-[var(--bg-surface)]">
+            <span className="text-4xl opacity-90">{pulsasEmoji(it.type, it.subtype)}</span>
+          </div>
+        )}
+        {it.meta && (
+          <span className="absolute left-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] text-white backdrop-blur-sm" style={{ background: ac }}>
+            {it.meta}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col p-3">
+        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
+        {it.excerpt && <p className="m-0 mt-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">{it.excerpt}</p>}
+        <div className="mt-auto flex items-center gap-2 pt-2.5">
+          {it.author_name ? (
+            it.author_avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={proxyImg(it.author_avatar)} alt="" className="h-[20px] w-[20px] flex-shrink-0 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[9px] font-extrabold" style={{ background: `hsl(${strHue(it.author_name)},32%,18%)`, color: `hsl(${strHue(it.author_name)},45%,55%)` }}>{it.author_name.charAt(0).toUpperCase()}</div>
+            )
+          ) : null}
+          <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-secondary)]">{it.author_name || 'Anonimas'}</span>
+          <span className="shrink-0 text-[9px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
 function PulsasSection() {
   const [items, setItems] = useState<PulsasItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [typeFilter, setTypeFilter] = useState<'all' | 'blog' | 'discussion' | 'comment'>('all')
   useEffect(() => {
     let alive = true
-    fetch('/api/pulsas?limit=16')
+    fetch('/api/pulsas?limit=30')
       .then(r => r.json())
       .then(d => { if (alive) { setItems(d.items || []); setLoading(false) } })
       .catch(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [])
 
-  const typeColor = (t: string, sub?: string | null) => {
-    if (t === 'blog') {
-      if (sub === 'review') return 'text-[var(--accent-yellow)]'
-      if (sub === 'creation') return 'text-[var(--accent-orange)]'
-      if (sub === 'translation') return 'text-[var(--accent-link)]'
-      return 'text-[var(--accent-orange)]'
-    }
-    if (t === 'discussion') return 'text-[var(--accent-link)]'
-    return 'text-[var(--accent-green)]'
+  // Dedup per user homepage juostai — vienas (naujausias) įrašas per autorių,
+  // kad vienas useris neuzfloodintų sekcijos. Modale rodom viską.
+  const seenU = new Set<string>()
+  const deduped: PulsasItem[] = []
+  for (const it of items) {
+    const key = it.author_slug || it.author_name || it.id
+    if (seenU.has(key)) continue
+    seenU.add(key); deduped.push(it)
   }
-  const typeBg = (t: string, sub?: string | null) => {
-    if (t === 'blog') {
-      if (sub === 'review') return 'bg-[var(--accent-yellow)]/15'
-      if (sub === 'creation') return 'bg-[var(--accent-orange)]/15'
-      if (sub === 'translation') return 'bg-[var(--accent-link)]/15'
-      return 'bg-[var(--accent-orange)]/15'
-    }
-    if (t === 'discussion') return 'bg-[var(--accent-link)]/15'
-    return 'bg-[var(--accent-green)]/15'
-  }
+  const sectionItems = deduped.slice(0, 12)
+  const modalItems = typeFilter === 'all' ? items : items.filter(i => i.type === typeFilter)
 
   return (
     <section>
       <SectionHead label="Pulsas" href="/bendruomene" cta="Daugiau →" />
-      {/* 2026-05-29: vertikalus feed'as → horizontali kortelių juosta (kaip
-          dainos/albumai/renginiai). Pulsas įrašai dažniausiai be vizualo, tad
-          rodom teksto korteles fiksuoto pločio. */}
-      <div className="hp-scroll flex items-stretch gap-3 pb-1">
-        {loading ? Array(8).fill(null).map((_, i) => (
-          <div key={i} className="shrink-0 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3.5" style={{ width: 260 }}>
-            <div className="flex items-center gap-2 mb-2">
-              <Skel w={50} h={14} r={4} />
-              <Skel w={40} h={9} />
+      <div className="flex items-stretch gap-3">
+        <div className="hp-scroll flex min-w-0 flex-1 items-stretch gap-3 pb-1">
+          {loading ? Array(6).fill(null).map((_, i) => (
+            <div key={i} className="shrink-0" style={{ width: 240 }}>
+              <div className="hp-skel aspect-video rounded-xl" />
+              <div className="hp-skel mt-2 h-3 w-4/5 rounded" />
+              <div className="hp-skel mt-1 h-2.5 w-3/5 rounded" />
             </div>
-            <Skel w="92%" h={12} />
-            <div className="mt-1.5"><Skel w="78%" h={11} /></div>
-            <div className="mt-3 flex items-center gap-2">
-              <Skel w={22} h={22} r={11} />
-              <Skel w="50%" h={9} />
+          )) : sectionItems.length === 0 ? (
+            <div className="shrink-0 rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-8 text-center" style={{ width: 360 }}>
+              <p className="m-0 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Pulsas — netrukus</p>
+              <p className="m-0 mt-1 text-[11.5px] text-[var(--text-muted)]">Čia atsiras naujausi vartotojų įrašai: diskusijos, blogai, vertimai, komentarai.</p>
             </div>
-          </div>
-        )) : items.length === 0 ? (
-          <div className="shrink-0 rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-8 text-center" style={{ width: 360 }}>
-            <p className="m-0 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Pulsas — netrukus</p>
-            <p className="m-0 mt-1 text-[11.5px] text-[var(--text-muted)]">
-              Čia atsiras naujausi vartotojų įrašai: diskusijos, blogai, vertimai, komentarai.
-            </p>
-          </div>
-        ) : items.map(it => (
-          <Link
-            key={it.id}
-            href={it.href}
-            className="hp-card group flex shrink-0 flex-col overflow-hidden p-3.5 no-underline"
-            style={{ width: 260 }}
-          >
-            <div className="mb-1.5 flex items-center gap-1.5">
-              {it.meta && (
-                <span className={`rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] ${typeBg(it.type, it.subtype)} ${typeColor(it.type, it.subtype)}`}>
-                  {it.meta}
-                </span>
-              )}
-              <span className="ml-auto text-[9px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
-            </div>
-            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
-              {it.title}
-            </p>
-            {it.excerpt && (
-              <p className="m-0 mt-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
-                {it.excerpt}
-              </p>
-            )}
-            {it.author_name && (
-              <div className="mt-3 flex items-center gap-2 pt-2 border-t border-[var(--border-subtle)]">
-                {it.author_avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(it.author_avatar)} alt="" className="h-[22px] w-[22px] flex-shrink-0 rounded-full object-cover" />
-                ) : (
-                  <div className="flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[9px] font-extrabold" style={{ background: `hsl(${strHue(it.author_name)},32%,18%)`, color: `hsl(${strHue(it.author_name)},45%,55%)` }}>
-                    {it.author_name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <span className="truncate text-[10.5px] text-[var(--text-secondary)]">{it.author_name}</span>
-              </div>
-            )}
-          </Link>
-        ))}
+          ) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
+        </div>
+        {!loading && items.length > sectionItems.length && (
+          <StickyMoreButton count={items.length} height={200} ariaLabel="Atverti visą Pulsą" onClick={() => setModalOpen(true)} />
+        )}
       </div>
+
+      {modalOpen && (
+        <HomeListModal open onClose={() => setModalOpen(false)} title="Pulsas" subtitle="Naujausi bendruomenės įrašai">
+          <div className="mb-4 flex flex-wrap items-center gap-1.5">
+            {PULSAS_FILTERS.map(([k, label]) => {
+              const cnt = k === 'all' ? items.length : items.filter(i => i.type === k).length
+              if (k !== 'all' && cnt === 0) return null
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setTypeFilter(k)}
+                  className={`rounded-full px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors ${typeFilter === k ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--bg-active)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                >
+                  {label} {cnt > 0 && <span className="opacity-60">{cnt}</span>}
+                </button>
+              )
+            })}
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {modalItems.map(it => <PulsasCard key={it.id} it={it} inModal onNavigate={() => setModalOpen(false)} />)}
+          </div>
+        </HomeListModal>
+      )}
     </section>
   )
 }
@@ -3156,7 +3194,7 @@ export default function Home() {
 
           if (listModal === 'tracks-lt' || listModal === 'tracks-world') {
             const lane = listModal === 'tracks-lt' ? 'lt' : 'world'
-            title = lane === 'lt' ? 'Naujos lietuviškos dainos' : 'Naujos užsienio dainos'
+            title = lane === 'lt' ? 'Naujos lietuvių atlikėjų dainos' : 'Naujos užsienio atlikėjų dainos'
             body = (
               <HomeListContent
                 type="tracks"

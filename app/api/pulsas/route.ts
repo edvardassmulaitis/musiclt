@@ -65,8 +65,43 @@ export async function GET(req: NextRequest) {
 
     const items: PulsasItem[] = []
 
-    // Blog įrašai
-    for (const b of (blogRes.data || []) as any[]) {
+    // Blog įrašai — su vizualo fallback'u (kaip user profile page): cover →
+    // prikabintos dainos YT thumb/cover → albumo cover → atlikėjo cover. Taip
+    // Pulsas sekcija tampa vizualesnė net kai postas neturi savo cover'io.
+    const blogRows = (blogRes.data || []) as any[]
+    const postIds = blogRows.map(b => b.id)
+    const thumbByPost = new Map<number, string>()
+    if (postIds.length) {
+      const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+      try {
+        const [tj, aj, arj] = await Promise.all([
+          sb.from('blog_post_tracks').select('post_id, tracks:track_id(video_url, cover_url, artist:artist_id(cover_image_url))').in('post_id', postIds),
+          sb.from('blog_post_albums').select('post_id, albums:album_id(cover_image_url)').in('post_id', postIds),
+          sb.from('blog_post_artists').select('post_id, artists:artist_id(cover_image_url)').in('post_id', postIds),
+        ])
+        for (const row of (tj.data || []) as any[]) {
+          if (thumbByPost.has(row.post_id)) continue
+          const t = Array.isArray(row.tracks) ? row.tracks[0] : row.tracks
+          if (!t) continue
+          const yt = t.video_url?.match?.(YT_RE)?.[1]
+          const thumb = yt
+            ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg`
+            : (t.cover_url || (Array.isArray(t.artist) ? t.artist[0]?.cover_image_url : t.artist?.cover_image_url) || null)
+          if (thumb) thumbByPost.set(row.post_id, thumb)
+        }
+        for (const row of (aj.data || []) as any[]) {
+          if (thumbByPost.has(row.post_id)) continue
+          const a = Array.isArray(row.albums) ? row.albums[0] : row.albums
+          if (a?.cover_image_url) thumbByPost.set(row.post_id, a.cover_image_url)
+        }
+        for (const row of (arj.data || []) as any[]) {
+          if (thumbByPost.has(row.post_id)) continue
+          const a = Array.isArray(row.artists) ? row.artists[0] : row.artists
+          if (a?.cover_image_url) thumbByPost.set(row.post_id, a.cover_image_url)
+        }
+      } catch {}
+    }
+    for (const b of blogRows) {
       const author = b.blogs?.profiles
       const blogSlug = b.blogs?.slug
       items.push({
@@ -76,7 +111,7 @@ export async function GET(req: NextRequest) {
         title: b.title || '',
         excerpt: b.summary || null,
         href: blogSlug ? `/blogai/${blogSlug}/${b.slug || b.id}` : `/blogai/${b.id}`,
-        cover: b.cover_image_url || null,
+        cover: b.cover_image_url || thumbByPost.get(b.id) || null,
         author_name: author?.full_name || author?.username || null,
         author_slug: author?.username || null,
         author_avatar: author?.avatar_url || null,

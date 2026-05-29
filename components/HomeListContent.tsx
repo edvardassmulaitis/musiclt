@@ -5,11 +5,6 @@
 // Praturtintas pilno sąrašo turinys homepage'o „Visi" modalams (HomeListModal
 // viduje). Fetch'ina VISĄ filtruotą rinkinį per /api/home/list (tracks/albums/
 // upcoming) arba /api/events (events).
-//   • tracks/albums/upcoming: rūšiavimas (naujausi / populiariausi) + žanro chip'ai,
-//     „hot" popbar pagal YouTube peržiūras, like'ai, data, „Rodyti daugiau".
-//   • events: miesto chip'ų filtras (Edvardo prašymu), data + vieta.
-// Toolbar'as vienoje eilėje desktop'e; mobile'e chip'ai horizontaliai scroll'inami
-// (taupo vertikalią vietą).
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
@@ -65,23 +60,13 @@ function relDateLT(input: string | null | undefined): { label: string | null; ho
 }
 
 function PopBar({ level }: { level: number }) {
-  if (!level) return null
+  if (level <= 0) return null
+  // Horizontalūs brūkšneliai — toks pat stilius kaip artist page PopBar (size
+  // 'sm'): rodom TIK užpildytus (ilgis proporcingas lygiui), consistency.
   return (
-    <span
-      className="inline-flex items-end gap-[2px]"
-      title="Populiarumas pagal YouTube peržiūras"
-      aria-label={`Populiarumas ${level}/5`}
-    >
-      {[1, 2, 3, 4, 5].map(i => (
-        <span
-          key={i}
-          style={{
-            width: 3,
-            height: 4 + i * 2,
-            borderRadius: 1,
-            background: i <= level ? 'var(--accent-orange)' : 'var(--border-default)',
-          }}
-        />
+    <span className="flex items-center gap-[3px]" aria-hidden title="Populiarumas pagal YouTube peržiūras">
+      {Array.from({ length: level }).map((_, i) => (
+        <span key={i} className="h-[3px] w-[12px] rounded-[2px] bg-[var(--accent-orange)]" />
       ))}
     </span>
   )
@@ -101,6 +86,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
   const [sort, setSort] = useState<Sort>('new')
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [playingId, setPlayingId] = useState<number | null>(null) // inline YT play (tracks)
 
   const fetchPage = useCallback(async (offset: number): Promise<{ items: any[]; total: number; genres?: Facet[] }> => {
     if (isEvents) {
@@ -198,6 +184,11 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
             ))}
           </div>
         )}
+        {!loading && total > 0 && (
+          <span className="shrink-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-faint)] sm:ml-auto">
+            Iš viso: {total}
+          </span>
+        )}
       </div>
 
       {/* Grid */}
@@ -256,45 +247,89 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
               const rel = relDateLT(dateRaw)
               const likes = it.like_count || 0
               const pop = it.pop || 0
+              const metaRow = (
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="m-0 min-w-0 flex-1 truncate text-[11.5px] text-[var(--text-muted)]">{artistName}</p>
+                  <PopBar level={pop} />
+                  {likes > 0 && (
+                    <span className="flex shrink-0 items-center gap-0.5 text-[10.5px] font-bold text-[var(--text-muted)]">
+                      <span className="text-[var(--accent-orange)]">♥</span>{likes}
+                    </span>
+                  )}
+                </div>
+              )
+              const dateBadge = rel.label ? (
+                <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${rel.hot ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel.label}</span>
+              ) : null
+
+              if (isAlbumLike) {
+                return (
+                  <button
+                    key={it.id}
+                    type="button"
+                    onClick={() => { onClose(); setTimeout(() => onOpenAlbum?.(it), 40) }}
+                    className="group block w-full cursor-pointer border-0 bg-transparent p-0 text-left no-underline"
+                  >
+                    <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
+                      {img ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={proxyImg(img)} alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                      ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>}
+                      {dateBadge}
+                    </div>
+                    <div className="mt-2 px-0.5">
+                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{title}</p>
+                      {metaRow}
+                    </div>
+                  </button>
+                )
+              }
+
+              // tracks — YouTube play VYKSTA INLINE (be papildomo modalo ant viršaus).
+              const playing = playingId === it.id
               return (
-                <button
-                  key={it.id}
-                  type="button"
-                  onClick={() => {
-                    onClose()
-                    setTimeout(() => { if (isAlbumLike) onOpenAlbum?.(it); else onOpenTrack?.(it) }, 40)
-                  }}
-                  className="group block w-full cursor-pointer border-0 bg-transparent p-0 text-left no-underline"
-                >
-                  <div className={`relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] ${isTracks ? 'aspect-video' : 'aspect-square'}`}>
-                    {img ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={proxyImg(img)} alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
-                    ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">{isAlbumLike ? '💿' : '🎵'}</div>}
-                    {isTracks && (
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.5)]">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
-                        </span>
-                      </div>
-                    )}
-                    {rel.label && (
-                      <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${rel.hot ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel.label}</span>
+                <div key={it.id} className="group block w-full text-left">
+                  <div className="relative aspect-video overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all duration-300 group-hover:border-[rgba(249,115,22,0.5)]">
+                    {playing && v ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${v}?autoplay=1&rel=0&playsinline=1&modestbranding=1`}
+                        title={title}
+                        className="absolute inset-0 h-full w-full"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { if (v) setPlayingId(it.id); else { onClose(); setTimeout(() => onOpenTrack?.(it), 40) } }}
+                        aria-label={`Leisti ${title}`}
+                        className="absolute inset-0 block h-full w-full"
+                      >
+                        {img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={proxyImg(img)} alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                        ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/15 transition-colors group-hover:bg-black/30">
+                          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.5)] transition-transform group-hover:scale-110">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+                          </span>
+                        </div>
+                        {dateBadge}
+                      </button>
                     )}
                   </div>
                   <div className="mt-2 px-0.5">
-                    <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{title}</p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <p className="m-0 min-w-0 flex-1 truncate text-[11.5px] text-[var(--text-muted)]">{artistName}</p>
-                      <PopBar level={pop} />
-                      {likes > 0 && (
-                        <span className="flex shrink-0 items-center gap-0.5 text-[10.5px] font-bold text-[var(--text-muted)]">
-                          <span className="text-[var(--accent-orange)]">♥</span>{likes}
-                        </span>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { onClose(); setTimeout(() => onOpenTrack?.(it), 40) }}
+                      className="m-0 block max-w-full truncate border-0 bg-transparent p-0 text-left font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)]"
+                    >
+                      {title}
+                    </button>
+                    {metaRow}
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>

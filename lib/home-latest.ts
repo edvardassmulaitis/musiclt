@@ -177,9 +177,13 @@ export async function getLatestTracksForHome(): Promise<{
    *  „+N" badge'uose, kad user'is matytų realų DB count'ą (ne tik 10 UI). */
   totalLt: number
   totalWorld: number
-  /** Pilni (ne-sliced) lane'ai — naudojami /api/home/list modal'o pilnam sąrašui. */
+  /** Pilni (ne-sliced) lane'ai — DEDUPLICATED per artist (homepage juostai). */
   ltFull: LatestTrackRow[]
   worldFull: LatestTrackRow[]
+  /** Ne-dedup'inti (visi šviežūs track'ai, keli per atlikėją) — naudojami
+   *  /api/home/list modal'o pilnam sąrašui, kad rodytų DAUGIAU dainų. */
+  ltRaw: LatestTrackRow[]
+  worldRaw: LatestTrackRow[]
 }> {
   const rows = await cachedFetchLatestTracksRaw('v5-pro-200')
 
@@ -230,8 +234,10 @@ export async function getLatestTracksForHome(): Promise<{
     })
   }
 
-  const ltFull = dedupe(valid.filter(r => isLT(r.artists?.country)))
-  const worldFull = dedupe(valid.filter(r => !isLT(r.artists?.country)))
+  const ltRaw = valid.filter(r => isLT(r.artists?.country))
+  const worldRaw = valid.filter(r => !isLT(r.artists?.country))
+  const ltFull = dedupe(ltRaw)
+  const worldFull = dedupe(worldRaw)
   return {
     lt: ltFull.slice(0, HOME_LANE_LIMIT),
     world: worldFull.slice(0, HOME_LANE_LIMIT),
@@ -239,6 +245,8 @@ export async function getLatestTracksForHome(): Promise<{
     totalWorld: worldFull.length,
     ltFull,
     worldFull,
+    ltRaw,
+    worldRaw,
   }
 }
 

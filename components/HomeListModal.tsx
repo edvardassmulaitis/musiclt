@@ -3,14 +3,8 @@
 // components/HomeListModal.tsx
 //
 // Universalus „pilno sąrašo" modalas homepage'o sekcijoms. Atidaromas paspaudus
-// elegantišką siaurą „+N" elementą horizontalios juostos pabaigoje, kuris yra
-// VISADA matomas dešinėje (sticky outside scroll'inamo container'io).
-//
-// `StickyMoreButton` — kompaktiškas siauras vertikalus button'as (50px pločio)
-// su tik skaičiumi. Stovi šalia scroll'inamo content'o, ne jame.
-//
-// Generic — `HomeListModal` priima vaikų funkciją (render prop), kad konkreti
-// sekcija pati nuspręstų kaip rodyti kiekvieną item'ą.
+// „peržiūrėti visą" (grid) elementą horizontalios juostos pabaigoje.
+// `StickyMoreButton` — kompaktiškas vertikalus mygtukas su grid ikona.
 
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -113,9 +107,7 @@ export function HomeListModal({
   )
 }
 
-/** Kompaktiškas siauras vertikalus „+N" button'as. Stovi šalia scroll'inamo
- *  content'o, ne jame — todėl visada matomas dešinėje sekcijos pusėje, kai
- *  user'is dar nepradėjo scroll'inti. */
+/** Kompaktiškas vertikalus „peržiūrėti visą sąrašą" mygtukas (grid ikona). */
 export function StickyMoreButton({
   count,
   onClick,
@@ -124,14 +116,10 @@ export function StickyMoreButton({
 }: {
   count: number
   onClick: () => void
-  /** Container height (= scroll item aukštis), kad button'as tampa lygus kortelei. */
   height: number
   ariaLabel?: string
 }) {
   if (count <= 0) return null
-  // 2026-05-29 v2: minimalistinis „expand" mygtukas — BE skaičiaus ir BE žodžio
-  // (Edvardas: ikona turi pati aiškiai reikšti „atverti pilną vaizdą"). Naudojam
-  // standartinę diagonal-arrows fullscreen/expand ikoną.
   return (
     <button
       type="button"
@@ -149,10 +137,12 @@ export function StickyMoreButton({
         fontFamily: 'Outfit,sans-serif',
       }}
     >
-      {/* Diagonal-arrows „expand" ikona — universaliai suprantama kaip
-          „išskleisti / atverti didesnį vaizdą". */}
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="transition-colors group-hover:stroke-[var(--accent-orange)]">
-        <path d="M15 3h6v6M21 3l-8 8M9 21H3v-6M3 21l8-8" />
+      {/* 2x2 grid ikona — „peržiūrėti visą sąrašą" (view all). */}
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="transition-colors group-hover:fill-[var(--accent-orange)]">
+        <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" />
+        <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
+        <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" />
+        <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
       </svg>
     </button>
   )

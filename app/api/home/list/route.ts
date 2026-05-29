@@ -56,7 +56,9 @@ export async function GET(req: NextRequest) {
       entityType = 'album'
     } else {
       const t = await getLatestTracksForHome()
-      rows = (lane === 'world' ? t.worldFull : t.ltFull).map(mapTrackForHome)
+      // Modal'e rodom NE-dedup'intą sąrašą (kelias dainas per atlikėją) — kad
+      // matytųsi DAUGIAU naujų dainų nei homepage juostoje (kuri dedup'inta).
+      rows = (lane === 'world' ? t.worldRaw : t.ltRaw).map(mapTrackForHome)
       entityType = 'track'
     }
 
