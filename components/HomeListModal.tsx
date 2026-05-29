@@ -139,35 +139,34 @@ export function StickyMoreButton({
   ariaLabel?: string
 }) {
   if (count <= 0) return null
-  // 2026-05-29: rodyklė (chevron) pakeista į filtrų ikoną + „Visi" label'ą.
-  // Chevron skaitydavosi kaip „scroll į dešinę"; dabar button'as aiškiai
-  // komunikuoja, kad atveria pilną sąrašą modale su filtrais. Žemiems
-  // button'ams (height < 110, pvz. tracks 70px) label'as paslepiamas.
+  // 2026-05-29: minimalistinis „atverti pilną vaizdą" mygtukas. BE skaičiaus
+  // (Edvardo prašymu — skaičiai confusin'davo). Tiesiog švari expand ikona +
+  // tylus „Visi" label aukštesniems. Komunikuoja: atveria patogesnį pilną
+  // sąrašą (su filtrais) modale.
   const showLabel = height >= 110
   return (
     <button
       type="button"
       onClick={onClick}
       data-sticky-more="1"
-      aria-label={ariaLabel || `Atverti visą sąrašą su filtrais (${count})`}
-      title={`Atverti visą sąrašą su filtrais (${count})`}
-      className="group flex shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border transition-all hover:-translate-y-px hover:bg-[var(--accent-orange)]/20"
+      aria-label={ariaLabel || 'Atverti visą sąrašą'}
+      title="Atverti visą sąrašą su filtrais"
+      className="group flex shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border transition-all hover:-translate-y-px hover:border-[var(--accent-orange)]/45 hover:bg-[var(--accent-orange)]/12"
       style={{
-        width: 54,
+        width: 44,
         height,
-        background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(249,115,22,0.04))',
-        borderColor: 'rgba(249,115,22,0.3)',
-        color: 'var(--accent-orange)',
+        background: 'var(--bg-surface)',
+        borderColor: 'var(--border-default)',
+        color: 'var(--text-muted)',
         fontFamily: 'Outfit,sans-serif',
       }}
     >
-      {/* Filtrų ikona — signalizuoja, kad modale galima filtruoti sąrašą. */}
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 5h18M6 12h12M10 19h4" />
+      {/* Expand ikona — „atverti didesnį / pilną vaizdą". */}
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-colors group-hover:stroke-[var(--accent-orange)]">
+        <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4" />
       </svg>
-      <span style={{ fontSize: 17, fontWeight: 900, lineHeight: 1 }}>+{count}</span>
       {showLabel && (
-        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.85 }}>
+        <span className="transition-colors group-hover:text-[var(--accent-orange)]" style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
           Visi
         </span>
       )}

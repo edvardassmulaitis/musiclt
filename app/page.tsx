@@ -10,6 +10,7 @@ import { proxyImg } from '@/lib/img-proxy'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
 import { HomeListModal, StickyMoreButton } from '@/components/HomeListModal'
+import { HomeListContent } from '@/components/HomeListContent'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
@@ -81,7 +82,13 @@ function formatRelativeDateLT(input: string | null | undefined): string | null {
   if (diffDays === 0) return 'Šiandien'
   if (diffDays === 1) return 'Vakar'
   if (diffDays <= 30) return `Prieš ${diffDays} d.`
-  return `${MONTHS_LT[d.getMonth()]}. ${d.getDate()}, ${d.getFullYear()}`
+  // Virš mėnesio — rodom mėnesiais („Prieš 2 mėn."), o virš metų — metais.
+  // 2026-05-29: anksčiau rodydavo konkrečią datą („Spa. 28, 2025"), bet badge'ai
+  // turi būti vienodi ir kompaktiški per visas sekcijas (dainos, albumai).
+  const months = Math.floor(diffDays / 30)
+  if (months < 12) return `Prieš ${months} mėn.`
+  const years = Math.floor(diffDays / 365)
+  return `Prieš ${years} m.`
 }
 
 /** Future date formatas „Greitai pasirodys" sekcijai. Iki 30 d. — „Po X d.",
@@ -2324,7 +2331,10 @@ export default function Home() {
         @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 80px) / 2)}}
         @media(max-width:768px){.hp-hero-slot{width:calc(88vw)}}
         .hp-scroll::-webkit-scrollbar{display:none}
-        .hp-scroll-arrow{position:absolute;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:rgba(13,19,32,0.85);border:1px solid var(--border-default);color:var(--text-secondary);font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;transition:opacity .18s,background .15s,color .15s,transform .15s;backdrop-filter:blur(8px);box-shadow:0 2px 10px rgba(0,0,0,0.25);padding:0;line-height:1}
+        /* 2026-05-29: desktop side-scroll rodyklės pašalintos (Edvardo prašymu) —
+           native trackpad/shift-scroll + „Visi" modalas pakanka. display:none
+           paslepia injected ‹ › mygtukus visur (anksčiau tik coarse pointer'iuose). */
+        .hp-scroll-arrow{display:none !important}
         .hp-scroll-arrow:hover{background:var(--accent-orange);color:#fff;border-color:var(--accent-orange);transform:translateY(-50%) scale(1.08)}
         .hp-scroll-arrow-l{left:-8px}
         .hp-scroll-arrow-r{right:-8px}
@@ -2591,71 +2601,84 @@ export default function Home() {
                     { lane: 'world' as const, items: wT, total: totals.tracksWorld },
                   ]
                 })().map(({ lane, items, total }, laneIdx) => (
-                  <div key={lane} className={laneIdx === 0 ? 'mb-2.5' : ''}>
-                    {/* Wrapper: scroll container + sticky „+N" button šalia */}
-                    <div className="flex items-stretch gap-2">
+                  <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
+                    {/* Wrapper: scroll container + sticky „+N" button šalia.
+                        2026-05-29: dainos perdarytos į vertikalią kortelę (cover
+                        viršuje + info apačioje) — vienodas stilius su albumais
+                        ir renginiais. */}
+                    <div className="flex items-stretch gap-3">
                       <RowDivider icon={lane} />
-                      <div className="hp-scroll flex flex-1 min-w-0 items-center gap-2 pb-0.5">
-                        {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
-                          <div
-                            key={i}
-                            className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3"
-                            style={{ width: 220 }}
-                          >
-                            <Skel w={48} h={48} r={9} />
-                            <div className="flex-1">
-                              <Skel w="76%" h={11} />
-                              <div className="mt-1.5"><Skel w="54%" h={9} /></div>
-                            </div>
+                      <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
+                        {tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
+                          <div key={i} className="shrink-0" style={{ width: 156 }}>
+                            <Skel w={156} h={156} r={12} />
+                            <div className="mt-2"><Skel w="80%" h={12} /></div>
+                            <div className="mt-1"><Skel w="60%" h={10} /></div>
                           </div>
                         )) : items.length === 0 ? (
-                          <div className="flex shrink-0 items-center px-3 py-3 text-[12px] text-[var(--text-faint)]" style={{ width: 220 }}>
+                          <div className="flex h-[156px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
                             {lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}
                           </div>
-                        ) : items.slice(0, 14).map(t => (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => setOpenTrack(t)}
-                            className="hp-card flex shrink-0 items-center gap-3 px-3.5 py-3 text-left"
-                            style={{ width: 220 }}
-                          >
-                            <Cover
-                              src={t.cover_url || (t as any).albums_list?.[0]?.cover_image_url}
-                              artistSrc={t.artists?.cover_image_url}
-                              ytId={extractYouTubeId((t as any).video_url)}
-                              alt={sanitizeTitle(t.title)}
-                              size={48}
-                              radius={9}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)]">
-                                {sanitizeTitle(t.title)}
-                              </p>
-                              <div className="mt-1 flex items-center gap-1.5">
-                                <p className="m-0 min-w-0 flex-1 truncate text-[12px] text-[var(--text-muted)]">
+                        ) : items.slice(0, 14).map(t => {
+                          const v = extractYouTubeId((t as any).video_url)
+                          const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
+                          const imgSrc = t.cover_url || (t as any).albums_list?.[0]?.cover_image_url || ytThumb || t.artists?.cover_image_url || null
+                          const rd = (t as any).video_uploaded_at || (t as any).release_date
+                          const rel = formatRelativeDateLT(rd)
+                          const dDiff = rd ? Math.floor((Date.now() - new Date(rd).getTime()) / 86400000) : null
+                          const highlight = dDiff !== null && dDiff >= 0 && dDiff <= 14
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => setOpenTrack(t)}
+                              className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
+                              style={{ width: 156 }}
+                            >
+                              <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+                                {imgSrc ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={proxyImg(imgSrc)}
+                                    alt={sanitizeTitle(t.title)}
+                                    loading="lazy"
+                                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                                    style={{ filter: 'saturate(1.05) contrast(1.02)' }}
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
+                                )}
+                                {/* Play overlay (hover) — atskiria dainą nuo albumo. */}
+                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.5)]">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+                                  </span>
+                                </div>
+                                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                                {rel && (
+                                  <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${
+                                    highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
+                                  }`}>
+                                    {rel}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-2 px-0.5">
+                                <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                                  {sanitizeTitle(t.title)}
+                                </p>
+                                <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">
                                   {t.artists?.name}
                                 </p>
-                                {(() => {
-                                  // „Prieš X d." badge — naudoja YT upload datą
-                                  // (video_uploaded_at, tas pats sort key kaip
-                                  // „Naujos dainos" eilėje), fallback release_date.
-                                  const rel = formatRelativeDateLT((t as any).video_uploaded_at || (t as any).release_date)
-                                  return rel ? (
-                                    <span className="shrink-0 rounded bg-[var(--accent-orange)]/15 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-bold text-[var(--accent-orange)]">
-                                      {rel}
-                                    </span>
-                                  ) : null
-                                })()}
                               </div>
-                            </div>
-                          </button>
-                        ))}
+                            </button>
+                          )
+                        })}
                       </div>
                       {total > items.slice(0, 14).length && (
                         <StickyMoreButton
                           count={total}
-                          height={70}
+                          height={200}
                           ariaLabel={`Žiūrėti visus (${total})`}
                           onClick={() => setListModal(`tracks-${lane}`)}
                         />
@@ -2912,21 +2935,14 @@ export default function Home() {
                       <div className="flex items-stretch gap-3">
                         <RowDivider icon={lane} />
                         <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-1">
-                        {filtEvt.length === 0 ? Array(4).fill(null).map((_, i) => (
-                          <div
-                            key={i}
-                            className="flex shrink-0 items-stretch gap-0 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden"
-                            style={{ height: 130, width: 360 }}
-                          >
-                            <Skel w={130} h={130} r={0} />
-                            <div className="flex-1 p-3">
-                              <Skel w="80%" h={11} />
-                              <div className="mt-1.5"><Skel w="55%" h={9} /></div>
-                              <div className="mt-2"><Skel w="35%" h={8} /></div>
-                            </div>
+                        {filtEvt.length === 0 ? Array(8).fill(null).map((_, i) => (
+                          <div key={i} className="shrink-0" style={{ width: 156 }}>
+                            <Skel w={156} h={156} r={12} />
+                            <div className="mt-2"><Skel w="80%" h={12} /></div>
+                            <div className="mt-1"><Skel w="60%" h={10} /></div>
                           </div>
                         )) : items.length === 0 ? (
-                          <div className="flex h-[130px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
+                          <div className="flex h-[156px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
                             {lane === 'lt' ? 'Lietuvoje renginių nėra' : 'Užsienio renginių nėra'}
                           </div>
                         ) : items.slice(0, 14).map(ev => {
@@ -2952,66 +2968,52 @@ export default function Home() {
                             <Link
                               key={ev.id}
                               href={`/renginiai/${ev.slug}`}
-                              className="hp-card group flex shrink-0 items-stretch gap-0 overflow-hidden p-0 no-underline"
-                              style={{ height: 130, width: 360 }}
+                              className="group block shrink-0 no-underline text-left"
+                              style={{ width: 156 }}
                             >
-                              {/* Image — fixed aspect (square 130x130) + object-cover.
-                                  Vienodas vizualas tiek vertikalioms, tiek landscape
-                                  nuotraukoms. Anksčiau h-full w-auto max-w-[200px]
-                                  paskirstydavo neproporcingai (portretas → ~60px,
-                                  landscape → 200px). */}
-                              <div className="relative shrink-0 overflow-hidden bg-[var(--cover-placeholder)]" style={{ width: 130, height: 130 }}>
+                              {/* Vertikali kortelė — vizualas viršuje (vienodas su
+                                  dainomis ir albumais). Data/badge'ai overlay'inami
+                                  ant cover'io, info apačioje. */}
+                              <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
                                 {imgSrc ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={proxyImg(imgSrc)}
-                                    alt={artistText}
-                                    loading="lazy"
-                                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                                  />
+                                  <img src={proxyImg(imgSrc)} alt={artistText} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                                 ) : (
-                                  <div className="flex h-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
+                                  <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
                                 )}
+                                {/* Datos kampas (diena + mėnuo) */}
                                 {validDate && (
-                                  <div className="absolute left-1.5 top-1.5 rounded-md bg-black/72 px-1.5 py-1 backdrop-blur-sm">
+                                  <div className="absolute left-1.5 top-1.5 rounded-md bg-black/72 px-1.5 py-1 text-center backdrop-blur-sm">
                                     <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold leading-none text-white">{d!.getDate()}</div>
                                     <div className="mt-0.5 text-[8px] font-bold uppercase leading-none tracking-[0.06em] text-white/85">{MONTHS_LT[d!.getMonth()]}</div>
                                   </div>
                                 )}
-                              </div>
-                              {/* Info — flex-1 minus image (130px) = ~230px */}
-                              <div className="flex min-w-0 flex-1 flex-col justify-between px-3 py-2.5">
-                                <div className="min-w-0">
-                                  <div className="mb-1 flex flex-wrap items-center gap-1">
-                                    {isNew && (
-                                      <span className="rounded bg-[var(--accent-green)]/15 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-green)]">NAUJIENA</span>
-                                    )}
-                                    {isUpcoming && (
-                                      <span className="rounded bg-[var(--accent-orange)]/15 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-orange)]">GREITAI</span>
-                                    )}
-                                  </div>
-                                  {validDate && (
-                                    <p className="m-0 mb-1 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.04em] text-[var(--accent-orange)]">
-                                      {d!.getDate()} {MONTHS_FULL_LT[d!.getMonth()]} {d!.getFullYear()} m.
-                                    </p>
-                                  )}
-                                  <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
-                                    {artistText}
-                                  </p>
-                                  {venueLabel && (
-                                    <p className="m-0 mt-1 truncate text-[11px] text-[var(--text-muted)]">
-                                      {venueLabel}
-                                    </p>
-                                  )}
-                                </div>
+                                {/* NAUJIENA / GREITAI badge viršuje dešinėje */}
+                                {(isNew || isUpcoming) && (
+                                  <span className={`absolute right-1.5 top-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8px] font-extrabold uppercase tracking-[0.06em] backdrop-blur-sm ${
+                                    isUpcoming ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--accent-green)]/85 text-white'
+                                  }`}>
+                                    {isUpcoming ? 'Greitai' : 'Naujiena'}
+                                  </span>
+                                )}
+                                {/* Countdown apačioje dešinėje */}
                                 {countdown && (
-                                  <span className={`mt-1 inline-flex w-fit rounded-md px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold ${
-                                    isClose
-                                      ? 'bg-[var(--accent-orange)] text-white'
-                                      : 'bg-[var(--bg-active)] text-[var(--text-muted)]'
+                                  <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${
+                                    isClose ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
                                   }`}>
                                     {countdown}
                                   </span>
+                                )}
+                                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                              </div>
+                              <div className="mt-2 px-0.5">
+                                <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                                  {artistText}
+                                </p>
+                                {venueLabel && (
+                                  <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">
+                                    {venueLabel}
+                                  </p>
                                 )}
                               </div>
                             </Link>
@@ -3021,7 +3023,7 @@ export default function Home() {
                         {items.length > 0 && (
                           <StickyMoreButton
                             count={items.length}
-                            height={130}
+                            height={200}
                             ariaLabel={`Žiūrėti visus (${items.length})`}
                             onClick={() => setListModal(`events-${lane}`)}
                           />
@@ -3169,151 +3171,44 @@ export default function Home() {
             Atidaromas kai user'is spaudžia „+ X" elementą juostos pabaigoje.
             Vienas modal'as — turinys keičiasi pagal `listModal` key. */}
         {listModal && (() => {
-          const isLT = (x: any) => {
-            const c = x.artists?.country
-            return !c || c === 'Lietuva' || c === 'LT' || c === 'Lithuania'
-          }
-          // Renginių LT/INTL skirstom pagal artist country pirmiausia (event_artists),
-          // fallback į city (žr. renginių sekciją).
-          const eventIsLT = (ev: Event) => {
-            const ea = (ev.event_artists || []).map(a => a.artists).filter(Boolean)
-            if (ea.length > 0) {
-              // Jei BENT VIENAS artist LT — laikom LT renginiu.
-              return ea.some((a: any) => isLT({ artists: a }))
-            }
-            const LT_CITIES = new Set(['Vilnius','Kaunas','Klaipėda','Klaipeda','Šiauliai','Siauliai','Panevėžys','Panevezys','Alytus','Marijampolė','Marijampole','Mažeikiai','Mazeikiai','Jonava','Utena','Kėdainiai','Kedainiai','Tauragė','Taurage','Telšiai','Telsiai','Visaginas','Plungė','Plunge','Druskininkai','Palanga','Anykščiai','Anyksciai','Trakai','Birštonas','Birstonas','Ukmergė','Ukmerge','Kretinga','Šilutė','Silute','Radviliškis','Radviliskis','Rokiškis','Rokiskis','Elektrėnai','Elektrenai','Šalčininkai','Salcininkai','Pakruojis','Lentvaris'])
-            const c = ev.venues?.city || ev.city || ''
-            return c ? LT_CITIES.has(c) : true
-          }
-
           let title = ''
           let body: React.ReactNode = null
 
           if (listModal === 'tracks-lt' || listModal === 'tracks-world') {
             const lane = listModal === 'tracks-lt' ? 'lt' : 'world'
-            title = lane === 'lt' ? 'Lietuviškos naujienos' : 'Užsienio naujienos'
-            const items = tracks.filter(t => sanitizeTitle(t.title) && (lane === 'lt' ? isLT(t) : !isLT(t)))
+            title = lane === 'lt' ? 'Naujos lietuviškos dainos' : 'Naujos užsienio dainos'
             body = (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {items.map(t => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => { setListModal(null); setTimeout(() => setOpenTrack(t), 50) }}
-                    className="hp-card flex items-center gap-3 px-3.5 py-3 text-left"
-                  >
-                    <Cover
-                      src={t.cover_url}
-                      artistSrc={t.artists?.cover_image_url}
-                      ytId={extractYouTubeId((t as any).video_url)}
-                      alt={sanitizeTitle(t.title)}
-                      size={48}
-                      radius={9}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)]">
-                        {sanitizeTitle(t.title)}
-                      </p>
-                      <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <HomeListContent
+                type="tracks"
+                lane={lane}
+                onOpenTrack={(t) => setOpenTrack(t)}
+                onClose={() => setListModal(null)}
+              />
             )
           } else if (listModal === 'albums-lt' || listModal === 'albums-world' || listModal === 'upcoming') {
-            const items = listModal === 'upcoming'
-              ? upcomingAlbums
-              : (listModal === 'albums-lt' ? albums.filter(isLT) : albums.filter(a => !isLT(a)))
             title = listModal === 'upcoming'
               ? 'Greitai pasirodys'
               : (listModal === 'albums-lt' ? 'Nauji lietuviški albumai' : 'Nauji užsienio albumai')
             body = (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                {items.map(a => (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => {
-                      setListModal(null)
-                      setTimeout(() => {
-                        setOpenAlbumId(a.id)
-                        setOpenAlbumPreview({ title: sanitizeTitle(a.title), cover_image_url: a.cover_image_url || a.artists?.cover_image_url || null, year: a.year || null })
-                      }, 50)
-                    }}
-                    className="group block text-left p-0 bg-transparent border-0 cursor-pointer w-full"
-                  >
-                    <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
-                      {a.cover_image_url || a.artists?.cover_image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')}
-                          alt={sanitizeTitle(a.title)}
-                          loading="lazy"
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>
-                      )}
-                    </div>
-                    <div className="mt-2 px-0.5">
-                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
-                        {sanitizeTitle(a.title)}
-                      </p>
-                      <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{a.artists?.name}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <HomeListContent
+                type={listModal === 'upcoming' ? 'upcoming' : 'albums'}
+                lane={listModal === 'albums-world' ? 'world' : 'lt'}
+                onOpenAlbum={(a) => {
+                  setOpenAlbumId(a.id)
+                  setOpenAlbumPreview({ title: sanitizeTitle(a.title), cover_image_url: a.cover_image_url || a.cover_url || a.artists?.cover_image_url || null, year: a.year || null })
+                }}
+                onClose={() => setListModal(null)}
+              />
             )
           } else if (listModal === 'events-lt' || listModal === 'events-world') {
             const lane = listModal === 'events-lt' ? 'lt' : 'world'
-            const items = filtEvt.filter(ev => lane === 'lt' ? eventIsLT(ev) : !eventIsLT(ev))
             title = lane === 'lt' ? 'Lietuvos renginiai' : 'Užsienio renginiai'
             body = (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {items.map(ev => {
-                  const dateRaw = (ev as any).start_date || ev.event_date
-                  const d = dateRaw ? new Date(dateRaw) : null
-                  const validDate = d && !isNaN(d.getTime())
-                  const imgSrc = ev.image_small_url || ev.cover_image_url || null
-                  const city = ev.city || ev.venues?.city || ''
-                  const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
-                  const venueLabel = [city, venue].filter(Boolean).join(', ')
-                  const artistList = (ev.event_artists || []).filter(ea => ea.artists?.name).map(ea => ea.artists!.name)
-                  const artistText = artistList.length > 0
-                    ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '')
-                    : sanitizeTitle(ev.title)
-                  return (
-                    <Link
-                      key={ev.id}
-                      href={`/renginiai/${ev.slug}`}
-                      onClick={() => setListModal(null)}
-                      className="hp-card group flex items-stretch gap-0 overflow-hidden p-0 no-underline"
-                      style={{ height: 120 }}
-                    >
-                      <div className="relative h-full aspect-square shrink-0 overflow-hidden bg-[var(--cover-placeholder)]">
-                        {imgSrc ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={proxyImg(imgSrc)} alt={artistText} loading="lazy" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full items-center justify-center px-6 text-2xl text-[var(--text-faint)]">🎵</div>
-                        )}
-                      </div>
-                      <div className="flex min-w-0 flex-1 flex-col justify-between px-3 py-2.5">
-                        <div className="min-w-0">
-                          {validDate && (
-                            <p className="m-0 mb-1 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.04em] text-[var(--accent-orange)]">
-                              {d!.getDate()} {MONTHS_FULL_LT[d!.getMonth()]} {d!.getFullYear()} m.
-                            </p>
-                          )}
-                          <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)]">{artistText}</p>
-                          {venueLabel && <p className="m-0 mt-1 truncate text-[11px] text-[var(--text-muted)]">{venueLabel}</p>}
-                        </div>
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
+              <HomeListContent
+                type="events"
+                lane={lane}
+                onClose={() => setListModal(null)}
+              />
             )
           } else if (listModal === 'news') {
             title = 'Naujienos'

@@ -177,6 +177,9 @@ export async function getLatestTracksForHome(): Promise<{
    *  „+N" badge'uose, kad user'is matytų realų DB count'ą (ne tik 10 UI). */
   totalLt: number
   totalWorld: number
+  /** Pilni (ne-sliced) lane'ai — naudojami /api/home/list modal'o pilnam sąrašui. */
+  ltFull: LatestTrackRow[]
+  worldFull: LatestTrackRow[]
 }> {
   const rows = await cachedFetchLatestTracksRaw('v5-pro-200')
 
@@ -234,6 +237,8 @@ export async function getLatestTracksForHome(): Promise<{
     world: worldFull.slice(0, HOME_LANE_LIMIT),
     totalLt: ltFull.length,
     totalWorld: worldFull.length,
+    ltFull,
+    worldFull,
   }
 }
 
@@ -272,6 +277,8 @@ export async function getLatestAlbumsForHome(): Promise<{
   world: LatestAlbumRow[]
   totalLt: number
   totalWorld: number
+  ltFull: LatestAlbumRow[]
+  worldFull: LatestAlbumRow[]
 }> {
   const rows = await cachedFetchLatestAlbumsRaw('v1')
   const today = new Date()
@@ -296,6 +303,8 @@ export async function getLatestAlbumsForHome(): Promise<{
     world: worldAll.slice(0, HOME_LANE_LIMIT),
     totalLt: ltAll.length,
     totalWorld: worldAll.length,
+    ltFull: ltAll,
+    worldFull: worldAll,
   }
 }
 
@@ -334,6 +343,7 @@ const cachedFetchUpcomingAlbumsRaw = unstable_cache(
 export async function getUpcomingAlbumsForHome(): Promise<{
   items: LatestAlbumRow[]
   total: number
+  full: LatestAlbumRow[]
 }> {
   const rows = await cachedFetchUpcomingAlbumsRaw('v1')
   const today = new Date()
@@ -354,6 +364,7 @@ export async function getUpcomingAlbumsForHome(): Promise<{
   return {
     items: filtered.slice(0, HOME_LANE_LIMIT * 2),
     total: filtered.length,
+    full: filtered,
   }
 }
 
