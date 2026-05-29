@@ -139,12 +139,19 @@ export function StickyMoreButton({
   ariaLabel?: string
 }) {
   if (count <= 0) return null
+  // 2026-05-29: rodyklė (chevron) pakeista į filtrų ikoną + „Visi" label'ą.
+  // Chevron skaitydavosi kaip „scroll į dešinę"; dabar button'as aiškiai
+  // komunikuoja, kad atveria pilną sąrašą modale su filtrais. Žemiems
+  // button'ams (height < 110, pvz. tracks 70px) label'as paslepiamas.
+  const showLabel = height >= 110
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={ariaLabel || `Žiūrėti visus (${count})`}
-      className="group flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl border transition-all hover:-translate-y-px"
+      data-sticky-more="1"
+      aria-label={ariaLabel || `Atverti visą sąrašą su filtrais (${count})`}
+      title={`Atverti visą sąrašą su filtrais (${count})`}
+      className="group flex shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border transition-all hover:-translate-y-px hover:bg-[var(--accent-orange)]/20"
       style={{
         width: 54,
         height,
@@ -154,10 +161,16 @@ export function StickyMoreButton({
         fontFamily: 'Outfit,sans-serif',
       }}
     >
-      <span style={{ fontSize: 18, fontWeight: 900, lineHeight: 1 }}>+{count}</span>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 6l6 6-6 6" />
+      {/* Filtrų ikona — signalizuoja, kad modale galima filtruoti sąrašą. */}
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 5h18M6 12h12M10 19h4" />
       </svg>
+      <span style={{ fontSize: 17, fontWeight: 900, lineHeight: 1 }}>+{count}</span>
+      {showLabel && (
+        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.85 }}>
+          Visi
+        </span>
+      )}
     </button>
   )
 }

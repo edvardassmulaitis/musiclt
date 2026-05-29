@@ -118,7 +118,12 @@ function strHue(s: string) {
 
 function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: string | null; alt: string; size?: number; radius?: number; ytId?: string | null; artistSrc?: string | null }) {
   const h = strHue(alt)
-  const imgSrc = src || artistSrc || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null)
+  // Thumbnail prioritetas: dainos cover → YouTube thumbnail → atlikėjo nuotrauka.
+  // 2026-05-29: anksčiau artistSrc turėjo pirmenybę prieš ytId, todėl LT
+  // atlikėjams (turintiems profilio nuotrauką) rodydavo atlikėjo veidą, o
+  // užsienio (be nuotraukos) — YouTube thumb'ą. Dabar visur song-specific
+  // thumbnail (cover arba YT), atlikėjo nuotrauka tik kraštutinis fallback'as.
+  const imgSrc = src || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null) || artistSrc
   if (imgSrc) return <img src={proxyImg(imgSrc)} alt={alt} loading="lazy" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
   return (
     <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: `linear-gradient(135deg, hsl(${h},38%,16%), hsl(${(h + 40) % 360},28%,10%))`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: `hsl(${h},45%,45%)`, fontSize: size * 0.38, fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
@@ -1341,7 +1346,7 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
         >
           {slide.chip}
         </span>
-        <h3 className="m-0 line-clamp-2 max-w-[420px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">
+        <h3 className="m-0 max-w-[460px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">
           {slide.title}
         </h3>
         {/* Subtitle/excerpt naujienoms pašalintas — UI'as paprastesnis,
@@ -2061,6 +2066,10 @@ export default function Home() {
         if (el.dataset.scrollAttached === '1') return
         const parent = el.parentElement
         if (!parent) return
+        // Sekcijos su „+N" (StickyMoreButton) NEgauna injected scroll rodyklių —
+        // dešinioji rodyklė (right:-8px) persidengdavo su +N button'u. Tose
+        // sekcijose +N + native trackpad scroll'as pakanka. 2026-05-29.
+        if (parent.querySelector('[data-sticky-more]')) { el.dataset.scrollAttached = '1'; return }
         el.dataset.scrollAttached = '1'
         if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative'
         const btnL = document.createElement('button')
@@ -2426,24 +2435,27 @@ export default function Home() {
               pointerEvents: pageReady ? 'none' : 'auto',
             }}
           >
-            {/* music.lt brand mark */}
-            <div style={{ display: 'flex', alignItems: 'center', opacity: 0.7 }}>
-              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 22, color: dk ? '#fff' : '#0f1a2e', letterSpacing: '-0.01em' }}>music.</span>
-              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 22, color: '#f97316', letterSpacing: '-0.01em' }}>lt</span>
-            </div>
-
-            {/* BigEqualizer — vienodas su search'o loader'iu */}
+            {/* BigEqualizer + „Tavo muzikos pasaulis" tagline — IDENTIŠKAS
+                PageLoader'iui (components/PageLoader.tsx), kurį naudoja artist/
+                album/track puslapiai. Anksčiau homepage rodė brand mark be
+                tagline'o → loader'iai nesutapdavo. Dabar visur tas pats. */}
             <span className="eq-loader-big" aria-label="Loading">
               <span /><span /><span /><span /><span />
             </span>
+            <div style={{
+              fontFamily: 'Outfit,sans-serif', fontWeight: 600, fontSize: 14,
+              color: 'var(--text-muted)', letterSpacing: '0.03em', opacity: 0.85,
+            }}>
+              Tavo muzikos pasaulis
+            </div>
           </div>
         ), document.body)}
         {pageReady && heroSlides.length > 0 && (
           <section className="hp-hero-v2" ref={heroRef}>
             <div className="mx-auto max-w-[1360px] px-5 pt-5">
               <div className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory">
-                {heroSlides.map((slide, i) => (
-                  <div key={i} className="hp-hero-slot shrink-0 snap-start">
+                {heroSlides.map((slide) => (
+                  <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
                     <HeroV2Card slide={slide} dk={dk} />
                   </div>
                 ))}
@@ -2469,7 +2481,7 @@ export default function Home() {
                   // chartSheet'ą balsavimui. ──
                   return (
                     <MobileChartSlide
-                      key={i}
+                      key={`${slide.type}-${slide.href}`}
                       slide={slide}
                       onOpen={() => { setReelsIdx(i); setReelsOpen(true) }}
                     />
@@ -2483,7 +2495,7 @@ export default function Home() {
                 // Eventams paliekam subtitle (data/vieta) — jis kontekstinis.
                 const showExcerpt = slide.type === 'event' && slide.subtitle && slide.subtitle.length > 5
                 return (
-                  <button key={i} onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
+                  <button key={`${slide.type}-${slide.href}`} onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
                     style={{ flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
                       border: isSeen ? '2px solid rgba(255,255,255,0.10)' : '2px solid #f97316',
                       background: '#000', cursor: 'pointer', padding: 0, width: 188, height: 290,
@@ -2620,9 +2632,22 @@ export default function Home() {
                               <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)]">
                                 {sanitizeTitle(t.title)}
                               </p>
-                              <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">
-                                {t.artists?.name}
-                              </p>
+                              <div className="mt-1 flex items-center gap-1.5">
+                                <p className="m-0 min-w-0 flex-1 truncate text-[12px] text-[var(--text-muted)]">
+                                  {t.artists?.name}
+                                </p>
+                                {(() => {
+                                  // „Prieš X d." badge — naudoja YT upload datą
+                                  // (video_uploaded_at, tas pats sort key kaip
+                                  // „Naujos dainos" eilėje), fallback release_date.
+                                  const rel = formatRelativeDateLT((t as any).video_uploaded_at || (t as any).release_date)
+                                  return rel ? (
+                                    <span className="shrink-0 rounded bg-[var(--accent-orange)]/15 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-bold text-[var(--accent-orange)]">
+                                      {rel}
+                                    </span>
+                                  ) : null
+                                })()}
+                              </div>
                             </div>
                           </button>
                         ))}

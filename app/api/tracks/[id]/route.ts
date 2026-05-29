@@ -22,6 +22,15 @@ export async function GET(
       .single()
     if (error) throw error
 
+    // Tikras like_count iš unified `likes` lentelės (entity_type='track') — tas
+    // pats šaltinis, kurį naudoja artist page. tracks.like_count COLUMN dažnai
+    // stale/0, todėl homepage modalas rodydavo 0 like'ų. 2026-05-29.
+    const { count: likeCount } = await supabase
+      .from('likes')
+      .select('id', { count: 'exact', head: true })
+      .eq('entity_type', 'track')
+      .eq('entity_id', parseInt(id))
+
     const { data: featRows } = await supabase
       .from('track_artists')
       .select('artist_id, is_primary, artists(id, name, slug)')
@@ -36,14 +45,16 @@ export async function GET(
 
     const { data: albumRows } = await supabase
       .from('album_tracks')
-      .select('position, is_primary, albums(id, title, year)')
+      .select('position, is_primary, albums(id, slug, title, year, cover_image_url)')
       .eq('track_id', parseInt(id))
       .order('position')
 
     const albums = (albumRows || []).map((r: any) => ({
       album_id: r.albums?.id,
+      slug: r.albums?.slug || '',
       album_title: r.albums?.title || '',
       album_year: r.albums?.year || null,
+      cover_image_url: r.albums?.cover_image_url || null,
       position: r.position || 0,
     }))
 
@@ -63,6 +74,7 @@ export async function GET(
 
     return NextResponse.json({
       ...track,
+      like_count: typeof likeCount === 'number' ? likeCount : (track.like_count ?? 0),
       release_year,
       release_month,
       release_day,
