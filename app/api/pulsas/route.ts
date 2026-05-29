@@ -32,26 +32,29 @@ type PulsasItem = {
 }
 
 export async function GET(req: NextRequest) {
-  const limit = Math.min(parseInt(req.nextUrl.searchParams.get('limit') || '12'), 30)
+  const limit = Math.min(parseInt(req.nextUrl.searchParams.get('limit') || '12'), 150)
   const sb = createAdminClient()
 
   try {
-    // ── Blog feed: visus post types (jau publikuoti) ──
+    // ── Blog feed: visus post types (jau publikuoti). Imam DIDELĮ pool'ą
+    // (250 naujausių) — turim 16k+ įrašų per 385 blog'us; vienas produktyvus
+    // useris turi 1000+ → be dedup'o jis užfloodintų. Žemiau dedup'inam per
+    // blog'ą paliekant tik naujausią įrašą iš kiekvieno autoriaus. ──
     const blogQ = sb
       .from('blog_posts')
-      .select('id, slug, title, summary, post_type, cover_image_url, created_at, published_at, ' +
+      .select('id, slug, title, summary, content, post_type, cover_image_url, blog_id, created_at, published_at, ' +
         'blogs:blog_id(slug, title, profiles:user_id(username, full_name, avatar_url))')
       .eq('status', 'published')
       .not('published_at', 'is', null)
       .order('published_at', { ascending: false })
-      .limit(20)
+      .limit(250)
 
     // ── Diskusijos: naujausi threads ──
     const discQ = sb
       .from('forum_threads')
       .select('id, slug, title, author_name, author_username, created_at, comment_count')
       .order('created_at', { ascending: false })
-      .limit(15)
+      .limit(30)
 
     // ── Komentarai: paskutiniai entity komentarai (track/album/artist) ──
     const commentsQ = sb
@@ -59,16 +62,24 @@ export async function GET(req: NextRequest) {
       .select('id, content_text, entity_type, entity_id, author_username, author_avatar_url, created_at')
       .not('content_text', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(15)
+      .limit(40)
 
     const [blogRes, discRes, commentsRes] = await Promise.all([blogQ, discQ, commentsQ])
 
     const items: PulsasItem[] = []
 
-    // Blog įrašai — su vizualo fallback'u (kaip user profile page): cover →
-    // prikabintos dainos YT thumb/cover → albumo cover → atlikėjo cover. Taip
-    // Pulsas sekcija tampa vizualesnė net kai postas neturi savo cover'io.
-    const blogRows = (blogRes.data || []) as any[]
+    // Dedup per blog'ą (autorių) — paliekam tik NAUJAUSIĄ įrašą iš kiekvieno
+    // blog'o (pool surūšiuotas published_at desc → pirmas sutiktas = naujausias).
+    const seenBlog = new Set<string>()
+    const blogRows: any[] = []
+    for (const b of ((blogRes.data || []) as any[])) {
+      const bid = b.blog_id || `solo-${b.id}`
+      if (seenBlog.has(bid)) continue
+      seenBlog.add(bid)
+      blogRows.push(b)
+    }
+    // Vizualo fallback'as (kaip user profile page): cover → prikabintos dainos
+    // YT thumb/cover → albumo cover → atlikėjo cover → first <img>/YT iš body.
     const postIds = blogRows.map(b => b.id)
     const thumbByPost = new Map<number, string>()
     if (postIds.length) {
@@ -111,7 +122,7 @@ export async function GET(req: NextRequest) {
         title: b.title || '',
         excerpt: b.summary || null,
         href: blogSlug ? `/blogai/${blogSlug}/${b.slug || b.id}` : `/blogai/${b.id}`,
-        cover: b.cover_image_url || thumbByPost.get(b.id) || null,
+        cover: b.cover_image_url || thumbByPost.get(b.id) || firstContentThumb(b.content) || null,
         author_name: author?.full_name || author?.username || null,
         author_slug: author?.username || null,
         author_avatar: author?.avatar_url || null,
@@ -177,6 +188,18 @@ export async function GET(req: NextRequest) {
   } catch (e: any) {
     return NextResponse.json({ items: [], error: e.message }, { status: 200 })
   }
+}
+
+/** Ištraukia vizualą iš įrašo body HTML: pirma <img src>, antra — YouTube
+ *  nuoroda → thumbnail. Naudojama kai postas neturi cover'io nei prikabintos
+ *  muzikos. */
+function firstContentThumb(html: string | null | undefined): string | null {
+  if (!html) return null
+  const img = html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1]
+  if (img && /^https?:\/\//i.test(img)) return img
+  const yt = html.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)?.[1]
+  if (yt) return `https://img.youtube.com/vi/${yt}/mqdefault.jpg`
+  return null
 }
 
 function postTypeLabel(t: string | null | undefined): string | null {

@@ -1,13 +1,13 @@
 // app/api/istorija/today/route.ts
 //
-// GET /api/istorija/today — kas šiandien aktualu istorijos kontekste:
-//   - Atlikėjų gimtadieniai (artists.birth_date sutampa šios dienos MM-DD)
-//   - Atlikėjų mirties metinės (artists.death_date sutampa šios dienos MM-DD)
-//   - Albumų jubiliejai (albums.month/day sutampa šios dienos MM-DD,
-//     metai - apvalūs: 5, 10, 15, 20, 25...)
+// GET /api/istorija/today — kas ŠIANDIEN (tiksli MM-DD) aktualu istorijos kontekste:
+//   - Atlikėjų gimtadieniai (artists.birth_month/birth_day == šiandien)
+//   - Atlikėjų mirties metinės (artists.death_month/death_day == šiandien)
+//   - Albumų sukaktys (albums.month/day == šiandien)
 //
-// Naudojama homepage'o IstorijaSection — pakeitė placeholder'ius realiais
-// duomenimis.
+// 2026-05-29: birth_month/birth_day/death_month/death_day yra GENERATED STORED
+// stulpeliai (+ indeksai) — eq filtras greitas, be full-scan'o. Viskas SUSIETA
+// TIK su einamąja diena (ne platesniu periodu).
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
@@ -30,63 +30,100 @@ type IstItem = {
 async function fetchToday(): Promise<IstItem[]> {
   const sb = createAdminClient()
   const now = new Date()
+  const M = now.getMonth() + 1
+  const D = now.getDate()
   const currentYear = now.getFullYear()
-
   const items: any[] = []
 
-  // ⚠️ Atlikėjų gimtadieniai/mirties metinės kol kas išjungti — `.ilike` ant
-  // birth_date DATE kolonos pilnai scan'ina >12k artistų (Vercel timeout).
-  // Grįš su month/day indexed kolonomis ar RPC ateityje.
-
-  // ── Albumų sukaktys ŠĮ MĖNESĮ ──
-  // month indexed (greitas eq). Anksčiau buvo EXACT day + apvalūs 5 m. jubiliejai
-  // → beveik visada tuščia. Dabar imam visus šio mėnesio albumus (year < dabar);
-  // šiandienos sukaktys + apvalūs jubiliejai keliami į priekį. 2026-05-29.
-  const MON = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio', 'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio']
+  // ── Albumų sukaktys ŠIANDIEN (tikslus month+day) ──
   try {
     const { data: albums } = await sb
       .from('albums')
-      .select('id, slug, title, cover_image_url, year, month, day, ' +
-        'artists!albums_artist_id_fkey(id, slug, name)')
-      .eq('month', now.getMonth() + 1)
+      .select('id, slug, title, cover_image_url, year, artists!albums_artist_id_fkey(id, slug, name)')
+      .eq('month', M)
+      .eq('day', D)
       .not('year', 'is', null)
       .lt('year', currentYear)
       .order('year', { ascending: true })
-      .limit(120)
+      .limit(40)
     for (const a of (albums || []) as any[]) {
       const yrsAgo = currentYear - a.year
       if (yrsAgo < 1) continue
       const artistName = a.artists?.name || ''
       const artistSlug = a.artists?.slug || ''
-      const isToday = a.day === now.getDate()
-      const subtitle = isToday
-        ? `Lygiai prieš ${yrsAgo} m. išleistas albumas`
-        : `Prieš ${yrsAgo} m. · ${a.day || ''} ${MON[(a.month || 1) - 1]}`
       items.push({
         id: `alb-${a.id}`,
         type: 'album_anniversary',
         title: `${artistName ? artistName + ' – ' : ''}${a.title}`,
-        subtitle,
+        subtitle: `Prieš ${yrsAgo} m. išleistas albumas`,
         href: artistSlug ? `/albumai/${artistSlug}-${(a.slug || a.id)}-${a.id}` : `/albumai/${a.slug || a.id}-${a.id}`,
         emoji: '💿',
         cover: a.cover_image_url || null,
         year: a.year,
         age: yrsAgo,
-        _today: isToday,
       })
     }
   } catch {}
 
-  // Rikiavimas: šiandienos sukaktys pirma, tada apvalūs jubiliejai (÷5), tada
-  // pagal senumą (metų skaičių) desc.
+  // ── Gimtadieniai ŠIANDIEN ──
+  try {
+    const { data: arts } = await sb
+      .from('artists')
+      .select('id, slug, name, cover_image_url, birth_date, death_date')
+      .eq('birth_month', M)
+      .eq('birth_day', D)
+      .limit(40)
+    for (const a of (arts || []) as any[]) {
+      const by = a.birth_date ? new Date(a.birth_date).getFullYear() : null
+      const age = by ? currentYear - by : null
+      const alive = !a.death_date
+      items.push({
+        id: `bday-${a.id}`,
+        type: 'birthday',
+        title: a.name,
+        subtitle: age ? (alive ? `Šiandien ${age} m. gimtadienis` : `Gimė prieš ${age} m. (${by})`) : 'Gimtadienis',
+        href: `/atlikejai/${a.slug}`,
+        emoji: '🎂',
+        cover: a.cover_image_url || null,
+        year: by,
+        age,
+      })
+    }
+  } catch {}
+
+  // ── Mirties metinės ŠIANDIEN ──
+  try {
+    const { data: arts } = await sb
+      .from('artists')
+      .select('id, slug, name, cover_image_url, death_date')
+      .eq('death_month', M)
+      .eq('death_day', D)
+      .limit(40)
+    for (const a of (arts || []) as any[]) {
+      const dy = a.death_date ? new Date(a.death_date).getFullYear() : null
+      const age = dy ? currentYear - dy : null
+      items.push({
+        id: `death-${a.id}`,
+        type: 'death_anniversary',
+        title: a.name,
+        subtitle: age ? `${age} m. nuo mirties` : 'Mirties metinės',
+        href: `/atlikejai/${a.slug}`,
+        emoji: '🕯️',
+        cover: a.cover_image_url || null,
+        year: dy,
+        age,
+      })
+    }
+  } catch {}
+
+  // Rikiavimas: apvalūs jubiliejai (÷5) priekin, tada pagal metų skaičių desc.
   items.sort((a: any, b: any) => {
-    if (!!b._today !== !!a._today) return a._today ? -1 : 1
     const ar = a.age && a.age % 5 === 0 ? 1 : 0
     const br = b.age && b.age % 5 === 0 ? 1 : 0
     if (ar !== br) return br - ar
     return (b.age || 0) - (a.age || 0)
   })
-  return (items as IstItem[]).slice(0, 16)
+  return (items as IstItem[]).slice(0, 30)
 }
 
 const cachedFetchToday = unstable_cache(fetchToday, ['istorija-today'], { revalidate: 3600 })

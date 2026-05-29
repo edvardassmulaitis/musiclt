@@ -1125,6 +1125,34 @@ function PulsasCard({ it, inModal, onNavigate }: { it: PulsasItem; inModal: bool
   )
 }
 
+function PulsasCommentSpot({ it }: { it: PulsasItem }) {
+  return (
+    <Link
+      href={it.href}
+      className="hp-card group flex shrink-0 flex-col overflow-hidden no-underline"
+      style={{ width: 240, borderColor: 'rgba(249,115,22,0.35)' }}
+    >
+      <div className="flex items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--accent-orange)]/10 px-3 py-2">
+        <span className="text-[13px]">💬</span>
+        <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-orange)]">Naujausias komentaras</span>
+      </div>
+      <div className="flex flex-1 flex-col p-3">
+        <p className="m-0 line-clamp-4 text-[12.5px] leading-relaxed text-[var(--text-primary)]">{it.title}</p>
+        <div className="mt-auto flex items-center gap-2 pt-2.5">
+          {it.author_avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={proxyImg(it.author_avatar)} alt="" className="h-[20px] w-[20px] flex-shrink-0 rounded-full object-cover" />
+          ) : it.author_name ? (
+            <div className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[9px] font-extrabold" style={{ background: `hsl(${strHue(it.author_name)},32%,18%)`, color: `hsl(${strHue(it.author_name)},45%,55%)` }}>{it.author_name.charAt(0).toUpperCase()}</div>
+          ) : null}
+          <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-secondary)]">{it.author_name || 'Anonimas'}{it.meta ? ` · ${it.meta}` : ''}</span>
+          <span className="shrink-0 text-[9px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
 function PulsasSection() {
   const [items, setItems] = useState<PulsasItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -1132,23 +1160,25 @@ function PulsasSection() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'blog' | 'discussion' | 'comment'>('all')
   useEffect(() => {
     let alive = true
-    fetch('/api/pulsas?limit=30')
+    fetch('/api/pulsas?limit=120')
       .then(r => r.json())
       .then(d => { if (alive) { setItems(d.items || []); setLoading(false) } })
       .catch(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [])
 
-  // Dedup per user homepage juostai — vienas (naujausias) įrašas per autorių,
-  // kad vienas useris neuzfloodintų sekcijos. Modale rodom viską.
+  // Pirmas „spot'as" — naujausias komentaras (pokalbių dėžutė).
+  const latestComment = items.find(i => i.type === 'comment') || null
+  // Likę (blog/diskusijos) — dedup per user (anti-flood: vienas naujausias/autorių).
   const seenU = new Set<string>()
   const deduped: PulsasItem[] = []
   for (const it of items) {
+    if (it.type === 'comment') continue
     const key = it.author_slug || it.author_name || it.id
     if (seenU.has(key)) continue
     seenU.add(key); deduped.push(it)
   }
-  const sectionItems = deduped.slice(0, 12)
+  const sectionItems = deduped.slice(0, latestComment ? 11 : 12)
   const modalItems = typeFilter === 'all' ? items : items.filter(i => i.type === typeFilter)
 
   return (
@@ -1162,12 +1192,17 @@ function PulsasSection() {
               <div className="hp-skel mt-2 h-3 w-4/5 rounded" />
               <div className="hp-skel mt-1 h-2.5 w-3/5 rounded" />
             </div>
-          )) : sectionItems.length === 0 ? (
+          )) : (sectionItems.length === 0 && !latestComment) ? (
             <div className="shrink-0 rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-8 text-center" style={{ width: 360 }}>
               <p className="m-0 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Pulsas — netrukus</p>
               <p className="m-0 mt-1 text-[11.5px] text-[var(--text-muted)]">Čia atsiras naujausi vartotojų įrašai: diskusijos, blogai, vertimai, komentarai.</p>
             </div>
-          ) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
+          ) : (
+            <>
+              {latestComment && <PulsasCommentSpot it={latestComment} />}
+              {sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
+            </>
+          )}
         </div>
         {!loading && items.length > sectionItems.length && (
           <StickyMoreButton count={items.length} height={200} ariaLabel="Atverti visą Pulsą" onClick={() => setModalOpen(true)} />
