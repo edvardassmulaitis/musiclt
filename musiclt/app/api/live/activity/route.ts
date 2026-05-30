@@ -105,4 +105,4 @@ export async function GET(req: Request) {
 
   return NextResponse.json({ events: rows })
 }
-// build refresh 2026-05-30
+// build 20260530-172905
