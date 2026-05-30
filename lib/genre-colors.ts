@@ -23,7 +23,7 @@ export const GENRE_COLORS: GenreColor[] = [
   { name: "Hip-hop'o muzika",          short: 'Hip-hop',        href: '/zanrai', hex: '#eab308', rgb: '234, 179, 8',   vibe: 'gold (urban, swag)' },
   { name: 'Kitų stilių muzika',        short: 'Kiti stiliai',   href: '/zanrai', hex: '#14b8a6', rgb: '20, 184, 166',  vibe: 'teal (eclectic mix)' },
   { name: 'Pop, R&B muzika',           short: 'Pop, R&B',       href: '/zanrai', hex: '#ec4899', rgb: '236, 72, 153',  vibe: 'pink-red (pop / mainstream)' },
-  { name: 'Rimtoji muzika',            short: 'Rimtoji',        href: '/zanrai', hex: '#7c3aed', rgb: '124, 58, 237',  vibe: 'royal purple (classical)' },
+  { name: 'Rimtoji muzika',            short: 'Klasika',        href: '/zanrai', hex: '#7c3aed', rgb: '124, 58, 237',  vibe: 'royal purple (classical)' },
   { name: 'Roko muzika',               short: 'Rokas',          href: '/zanrai', hex: '#dc2626', rgb: '220, 38, 38',   vibe: 'red (rock fire)' },
   { name: 'Sunkioji muzika',           short: 'Sunkioji',       href: '/zanrai', hex: '#374151', rgb: '55, 65, 81',    vibe: 'near-black (metal / dark)' },
 ]

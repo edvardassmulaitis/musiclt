@@ -9,7 +9,18 @@ import { MessagesBell } from '@/components/MessagesBell'
 import { MasterSearch } from '@/components/MasterSearch'
 import { useSite } from '@/components/SiteContext'
 import { proxyImg } from '@/lib/img-proxy'
-import { GENRE_COLORS } from '@/lib/genre-colors'
+import { GENRE_COLORS, GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
+
+// Stilių išdėstymo tvarka nav dropdown'e (2 eilutės po 4 — Edvardo prašymu 2026-05-31).
+// 1 eilutė: Rokas, Sunkioji, Klasika, Alternatyva · 2 eilutė: Pop, Hip-hop, Elektronika, Kiti.
+// NETvarkom global GENRE_COLORS array'aus (getGenreColor naudoja indeksą), tik display order.
+const STYLE_NAV_ORDER = [
+  'Roko muzika', 'Sunkioji muzika', 'Rimtoji muzika', 'Alternatyvioji muzika',
+  'Pop, R&B muzika', "Hip-hop'o muzika", 'Elektroninė, šokių muzika', 'Kitų stilių muzika',
+]
+const STYLES_ORDERED = STYLE_NAV_ORDER
+  .map(n => GENRE_COLOR_BY_NAME[n])
+  .filter(Boolean) as typeof GENRE_COLORS
 
 /* ──────────────────────────────────────────────────────────────────
  * Top meniu — 5 sekcijos su DINAMINIAIS rich preview dropdown'ais.
@@ -238,18 +249,13 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   const artistsLt    = data?.artistsLt    || []
   const artistsWorld = data?.artistsWorld || []
 
-  // 8 main stiliai iš lib/genre-colors.ts (atitinka GENRES iš constants.ts).
-  // Spalvos centralizuotos — vėliau naudosim ir žanro page'uose, badge'uose.
-  const styles = GENRE_COLORS
+  // 8 main stiliai — fiksuota nav tvarka (žr. STYLE_NAV_ORDER viršuje).
+  const styles = STYLES_ORDERED
 
-  // Atlikėjų eilutė: "+N" tile gale strip'o (rodo likusių atlikėjų skaičių)
+  // Atlikėjų eilutė: scroll'inamų atlikėjų juosta + VISADA matomas „atverti
+  // pilną sąrašą" button'as dešinėje (už scroll container'io — homepage
+  // StickyMoreButton stiliumi, kad nereiktų scroll'inti jį pasiekti).
   const renderArtistRow = (list: typeof artistsLt, kind: 'lt' | 'world') => {
-    const total = kind === 'lt'
-      ? (data?.counts?.artistsLt    || 0)
-      : (data?.counts?.artistsWorld || 0)
-    const more = Math.max(0, total - Math.min(list.length, 12))
-    const displayCount = more > 0 ? more : total
-
     return (
       <div className="sh-strip-wrap">
         <RowStripe kind={kind} />
@@ -271,14 +277,20 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
               </span>
             </Link>
           ))}
-          <Link
-            href={kind === 'lt' ? '/atlikejai?country=lt' : '/atlikejai?country=world'}
-            className="sh-more-tile sh-more-tile-xl"
-          >
-            <span className="sh-more-tile-plus">+</span>
-            <span className="sh-more-tile-count">{displayCount.toLocaleString('lt-LT')}</span>
-          </Link>
         </div>
+        <Link
+          href={kind === 'lt' ? '/atlikejai?country=lt' : '/atlikejai?country=world'}
+          className="sh-expand-btn"
+          aria-label="Atverti visą sąrašą"
+          title="Atverti visą sąrašą su filtrais"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" />
+            <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
+            <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" />
+            <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
+          </svg>
+        </Link>
       </div>
     )
   }
@@ -380,14 +392,32 @@ function TopaiPanel({ accent }: { accent: string }) {
   return (
     <div className="sh-panel" style={{ minWidth: 480 }}>
       <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Reitingai</span>
+        <span className="sh-panel-section-title">Pagrindiniai topai</span>
+      </div>
+
+      {/* Core charts — iškelti kaip pagrindiniai */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+        <Link href="/top40" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
+          <span className="sh-feature-icon-sm">{I.trophy}</span>
+          <span className="sh-feature-title-sm">TOP 40</span>
+          <span className="sh-feature-desc-sm">Pasaulinis · savaitė</span>
+        </Link>
+        <Link href="/top30" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#22c55e') }}>
+          <span className="sh-feature-icon-sm">{I.trophy}</span>
+          <span className="sh-feature-title-sm">LT TOP 30</span>
+          <span className="sh-feature-desc-sm">Lietuva · savaitė</span>
+        </Link>
+      </div>
+
+      <div className="sh-panel-section">
+        <span className="sh-panel-section-title">Daugiau reitingų</span>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <Link href="/topai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
           <span className="sh-feature-icon-sm">{I.trophy}</span>
-          <span className="sh-feature-title-sm">Topai</span>
-          <span className="sh-feature-desc-sm">Savaitės, mėnesio, all-time</span>
+          <span className="sh-feature-title-sm">Visi topai</span>
+          <span className="sh-feature-desc-sm">AGATA, Billboard, Apple, UK</span>
         </Link>
         <Link href="/balsavimai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#ec4899') }}>
           <span className="sh-feature-icon-sm">{I.vote}</span>
@@ -716,7 +746,7 @@ function MobileExpansion({
             Stiliai
           </div>
           <div className="sh-style-grid sh-style-grid-mobile">
-            {GENRE_COLORS.map(s => {
+            {STYLES_ORDERED.map(s => {
               const img = data?.genres?.[s.name] || null
               const hasImage = !!img
               return (
@@ -747,9 +777,17 @@ function MobileExpansion({
     return (
       <div className="sh-mexp">
         <div className="sh-mexp-grid">
+          <Link href="/top40" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
+            <span className="sh-mexp-tile-icon">{I.trophy}</span>
+            <span className="sh-mexp-tile-label">TOP 40</span>
+          </Link>
+          <Link href="/top30" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#22c55e') }}>
+            <span className="sh-mexp-tile-icon">{I.trophy}</span>
+            <span className="sh-mexp-tile-label">LT TOP 30</span>
+          </Link>
           <Link href="/topai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
             <span className="sh-mexp-tile-icon">{I.trophy}</span>
-            <span className="sh-mexp-tile-label">Topai</span>
+            <span className="sh-mexp-tile-label">Visi topai</span>
           </Link>
           <Link href="/balsavimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ec4899') }}>
             <span className="sh-mexp-tile-icon">{I.vote}</span>
@@ -1125,9 +1163,34 @@ export function SiteHeader() {
         .sh-stripe-lt { display: flex; flex-direction: column; }
         .sh-stripe-world { background: #3b82f6; opacity: 0.65; }
 
-        /* Wrapper'is su flag + scroll strip + Daugiau link */
+        /* Wrapper'is su flag + scroll strip + „atverti pilną sąrašą" button'as */
         .sh-strip-wrap {
-          display: flex; align-items: flex-start; gap: 10px;
+          display: flex; align-items: stretch; gap: 10px;
+        }
+
+        /* Homepage StickyMoreButton stiliaus „atverti visą sąrašą" mygtukas.
+           Stovi UŽ scroll'inamos juostos (flex-shrink:0) — todėl visada matomas
+           dešinėje, nereikia scroll'inti. align-self:stretch → lygus juostos
+           aukščiui. 2×2 grid ikona = „peržiūrėti visą sąrašą". */
+        .sh-expand-btn {
+          flex-shrink: 0;
+          align-self: stretch;
+          width: 46px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-default);
+          color: var(--text-muted);
+          text-decoration: none;
+          transition: transform .15s ease, border-color .15s, background .15s, color .15s;
+        }
+        .sh-expand-btn:hover {
+          transform: translateY(-1px);
+          border-color: rgba(249, 115, 22, 0.45);
+          background: rgba(249, 115, 22, 0.12);
+          color: var(--accent-orange);
         }
         /* Atlikėjų eilutė — flag (top-aligned) + scroll juosta + Daugiau link */
         .sh-artist-row {
