@@ -1,18 +1,15 @@
 'use client'
 /**
- * AdminQuickAdd — vienas laukas „greitam pridėjimui".
+ * AdminQuickAdd — „greitas pridėjimas" su paprastu patvirtinimo žingsniu.
  *
- * Įmesk nuorodą + Enter (arba mygtukas) → procesas pasileidžia:
- *   - YouTube nuoroda  → sukuria dainą (atlikėjo auto-detect, YT įkėlimo data
- *                        kaip išleidimo diena, views/lyrics/spotify enrich)
- *   - Wikipedia nuoroda → sukuria albumą (atlikėjas + tracklist iš Wiki)
+ *   1) Įmeti nuorodą → „Peržiūrėti": parsina (YouTube → daina, Wikipedia → albumas),
+ *      NIEKO nesukuria, parodo aptiktus laukus.
+ *   2) Pataisai jei reikia (pavadinimas, atlikėjas, data…) → „Sukurti": commit'ina.
  *
- * Jokio papildomo konfigūravimo — vienas POST /api/admin/quick-add.
+ * Auto-detect dažnai klysta (metai pavadinime, kolaboracijos), todėl edit žingsnis.
  */
 import { useState } from 'react'
 import Link from 'next/link'
-
-type Result = any
 
 function detectKind(url: string): 'track' | 'album' | 'unknown' {
   const u = (url || '').trim().toLowerCase()
@@ -22,40 +19,72 @@ function detectKind(url: string): 'track' | 'album' | 'unknown' {
   return 'unknown'
 }
 
+type Phase = 'idle' | 'previewing' | 'editing' | 'committing' | 'done'
+
 export default function AdminQuickAdd() {
   const [url, setUrl] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<Result | null>(null)
+  const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [preview, setPreview] = useState<any>(null)
+  const [form, setForm] = useState<any>({})
+  const [result, setResult] = useState<any>(null)
 
   const kind = detectKind(url)
 
-  async function run() {
+  function reset() {
+    setUrl(''); setPhase('idle'); setError(null); setPreview(null); setForm({}); setResult(null)
+  }
+
+  async function doPreview() {
     const trimmed = url.trim()
-    if (!trimmed || loading) return
-    setLoading(true)
-    setResult(null)
-    setError(null)
+    if (!trimmed || phase === 'previewing') return
+    setPhase('previewing'); setError(null); setResult(null)
     try {
       const res = await fetch('/api/admin/quick-add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: trimmed }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: trimmed, mode: 'preview' }),
       })
       const json = await res.json().catch(() => null)
-      if (!json) {
-        setError('Serveris negrąžino atsakymo')
-      } else if (json.ok) {
-        setResult(json)
-        setUrl('')
+      if (!json) { setError('Serveris negrąžino atsakymo'); setPhase('idle'); return }
+      if (!json.ok) { setError(json.error || 'Nepavyko'); setPhase('idle'); return }
+      const p = json.preview
+      setPreview(p)
+      // Pradinės redaguojamos reikšmės
+      if (p.kind === 'track') {
+        setForm({
+          title: p.title, artist_name: p.artist_name,
+          featuring: (p.featuring || []).join(', '),
+          release_year: p.release_year ?? '', release_month: p.release_month ?? '', release_day: p.release_day ?? '',
+        })
       } else {
-        setError(json.error || 'Nepavyko')
+        setForm({ artist_name: p.artist_name, album_title: p.album_title, year: p.year ?? '' })
       }
-    } catch (e: any) {
-      setError(String(e?.message || e))
-    } finally {
-      setLoading(false)
-    }
+      setPhase('editing')
+    } catch (e: any) { setError(String(e?.message || e)); setPhase('idle') }
+  }
+
+  async function doCommit() {
+    if (phase === 'committing') return
+    setPhase('committing'); setError(null)
+    const num = (v: any) => (v === '' || v == null ? null : Number(v))
+    const overrides = preview.kind === 'track'
+      ? {
+          title: form.title?.trim(),
+          artist_name: form.artist_name?.trim(),
+          featuring: String(form.featuring || '').split(',').map((s: string) => s.trim()).filter(Boolean),
+          release_year: num(form.release_year), release_month: num(form.release_month), release_day: num(form.release_day),
+        }
+      : { artist_name: form.artist_name?.trim(), album_title: form.album_title?.trim(), year: num(form.year) }
+    try {
+      const res = await fetch('/api/admin/quick-add', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: preview.url, mode: 'commit', overrides }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!json) { setError('Serveris negrąžino atsakymo'); setPhase('editing'); return }
+      if (!json.ok) { setError(json.error || 'Nepavyko'); setPhase('editing'); return }
+      setResult(json); setPhase('done')
+    } catch (e: any) { setError(String(e?.message || e)); setPhase('editing') }
   }
 
   const hint =
@@ -74,41 +103,139 @@ export default function AdminQuickAdd() {
         <span className="text-[11px] text-[var(--text-faint)]">— {hint}</span>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          type="url"
-          inputMode="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') run() }}
-          placeholder="Įmesk YouTube arba Wikipedia albumo nuorodą…"
-          disabled={loading}
-          className="min-h-[44px] flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 text-[var(--text-primary)] placeholder:text-[var(--text-faint)] focus:border-[var(--border-strong)] focus:outline-none disabled:opacity-60"
-        />
-        <button
-          onClick={run}
-          disabled={loading || kind === 'unknown'}
-          className="min-h-[44px] shrink-0 rounded-lg bg-music-blue px-5 font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {loading ? 'Apdorojama…' : 'Pridėti'}
-        </button>
-      </div>
+      {/* URL įvestis (rodome kol nėra preview/result) */}
+      {(phase === 'idle' || phase === 'previewing') && (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="url" inputMode="url" value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') doPreview() }}
+            placeholder="Įmesk YouTube arba Wikipedia albumo nuorodą…"
+            disabled={phase === 'previewing'}
+            className="min-h-[44px] flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 text-[var(--text-primary)] placeholder:text-[var(--text-faint)] focus:border-[var(--border-strong)] focus:outline-none disabled:opacity-60"
+          />
+          <button
+            onClick={doPreview}
+            disabled={phase === 'previewing' || kind === 'unknown'}
+            className="min-h-[44px] shrink-0 rounded-lg bg-music-blue px-5 font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {phase === 'previewing' ? 'Tikrinama…' : 'Peržiūrėti'}
+          </button>
+        </div>
+      )}
 
-      {loading && (
+      {phase === 'previewing' && (
         <p className="mt-2 text-[12px] text-[var(--text-muted)]">
-          {kind === 'album'
-            ? 'Parsinu Wikipedia albumą — atlikėjas, tracklist, viršelis…'
-            : 'Tikrinu YouTube — atlikėjas, įkėlimo data, views, lyrics, Spotify…'}
+          {kind === 'album' ? 'Parsinu Wikipedia albumą…' : 'Tikrinu YouTube video…'}
         </p>
       )}
 
       {error && (
-        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
-          {error}
-        </div>
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>
       )}
 
-      {result?.ok && <ResultCard result={result} />}
+      {/* Redagavimo forma */}
+      {(phase === 'editing' || phase === 'committing') && preview && (
+        <EditForm
+          preview={preview} form={form} setForm={setForm}
+          committing={phase === 'committing'}
+          onCommit={doCommit} onCancel={reset}
+        />
+      )}
+
+      {/* Rezultatas */}
+      {phase === 'done' && result?.ok && (
+        <>
+          <ResultCard result={result} />
+          <button onClick={reset} className="mt-3 text-[13px] font-medium text-music-blue hover:underline">
+            + Pridėti dar
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+const inputCls = 'min-h-[40px] rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 text-[14px] text-[var(--text-primary)] focus:border-[var(--border-strong)] focus:outline-none'
+
+function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: any) {
+  const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }))
+  const isTrack = preview.kind === 'track'
+
+  return (
+    <div className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3">
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-[var(--text-muted)]">
+        <span>{isTrack ? '🎵 Daina' : '💿 Albumas'}</span>
+        {isTrack && preview.views != null && <span>· {Number(preview.views).toLocaleString('lt-LT')} views</span>}
+        {isTrack && preview.embeddable === false && <span className="text-orange-600">· embed blokuotas</span>}
+        {!isTrack && <span>· {(preview.track_titles || []).length} dainos</span>}
+        {!isTrack && <span>· {preview.cover_found ? 'viršelis ✓' : 'be viršelio'}</span>}
+        {!preview.artist_exists && <span className="text-orange-600">· naujas atlikėjas (bus sukurtas)</span>}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {isTrack ? (
+          <>
+            <Field label="Pavadinimas">
+              <input className={inputCls} value={form.title || ''} onChange={(e) => set('title', e.target.value)} />
+            </Field>
+            <Field label="Atlikėjas">
+              <input className={inputCls} value={form.artist_name || ''} onChange={(e) => set('artist_name', e.target.value)} />
+            </Field>
+            <Field label="Featuring (kableliais)">
+              <input className={inputCls} value={form.featuring || ''} onChange={(e) => set('featuring', e.target.value)} placeholder="pvz. MĖLYNA, kitas atlikėjas" />
+            </Field>
+            <Field label="Išleidimo data (M / mėn / d)">
+              <div className="flex gap-2">
+                <input className={`${inputCls} w-20`} type="number" placeholder="metai" value={form.release_year || ''} onChange={(e) => set('release_year', e.target.value)} />
+                <input className={`${inputCls} w-16`} type="number" placeholder="mėn" value={form.release_month || ''} onChange={(e) => set('release_month', e.target.value)} />
+                <input className={`${inputCls} w-16`} type="number" placeholder="d" value={form.release_day || ''} onChange={(e) => set('release_day', e.target.value)} />
+              </div>
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field label="Albumo pavadinimas">
+              <input className={inputCls} value={form.album_title || ''} onChange={(e) => set('album_title', e.target.value)} />
+            </Field>
+            <Field label="Atlikėjas">
+              <input className={inputCls} value={form.artist_name || ''} onChange={(e) => set('artist_name', e.target.value)} />
+            </Field>
+            <Field label="Metai">
+              <input className={`${inputCls} w-24`} type="number" value={form.year || ''} onChange={(e) => set('year', e.target.value)} />
+            </Field>
+          </>
+        )}
+      </div>
+
+      {!isTrack && (preview.track_titles || []).length > 0 && (
+        <details className="mt-2 text-[12px] text-[var(--text-muted)]">
+          <summary className="cursor-pointer">Tracklist ({preview.track_titles.length})</summary>
+          <ol className="mt-1 list-decimal pl-5">
+            {preview.track_titles.map((t: string, i: number) => <li key={i}>{t}</li>)}
+          </ol>
+        </details>
+      )}
+
+      <div className="mt-3 flex gap-2">
+        <button onClick={onCommit} disabled={committing}
+          className="min-h-[40px] rounded-lg bg-music-blue px-5 font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50">
+          {committing ? 'Kuriama…' : 'Sukurti'}
+        </button>
+        <button onClick={onCancel} disabled={committing}
+          className="min-h-[40px] rounded-lg border border-[var(--input-border)] px-4 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50">
+          Atšaukti
+        </button>
+      </div>
     </div>
   )
 }
@@ -121,11 +248,9 @@ function Chip({ children, tone = 'default' }: { children: React.ReactNode; tone?
   return <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${cls}`}>{children}</span>
 }
 
-function ResultCard({ result }: { result: Result }) {
+function ResultCard({ result }: { result: any }) {
   const isTrack = result.kind === 'track'
-  const entityHref = isTrack
-    ? `/admin/tracks/${result.track.id}`
-    : `/admin/albums/${result.album.id}`
+  const entityHref = isTrack ? `/admin/tracks/${result.track.id}` : `/admin/albums/${result.album.id}`
   const entityTitle = isTrack ? result.track.title : result.album.title
   const warnings: string[] = result.warnings || []
 
@@ -133,47 +258,27 @@ function ResultCard({ result }: { result: Result }) {
     <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-base">{isTrack ? '🎵' : '💿'}</span>
-        <Link href={entityHref} className="font-semibold text-music-blue hover:underline">
-          {entityTitle}
-        </Link>
+        <Link href={entityHref} className="font-semibold text-music-blue hover:underline">{entityTitle}</Link>
         <span className="text-[13px] text-[var(--text-muted)]">·</span>
-        <Link href={`/admin/artists/${result.artist.id}`} className="text-[13px] text-[var(--text-secondary)] hover:underline">
-          {result.artist.name}
-        </Link>
+        <Link href={`/admin/artists/${result.artist.id}`} className="text-[13px] text-[var(--text-secondary)] hover:underline">{result.artist.name}</Link>
         {result.artist.created && <Chip tone="warn">naujas atlikėjas</Chip>}
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1.5">
         {isTrack ? (
           <>
-            {result.detail.upload_date && (
-              <Chip>išleista {String(result.detail.upload_date).slice(0, 10)}</Chip>
-            )}
-            {result.detail.views != null && (
-              <Chip>{Number(result.detail.views).toLocaleString('lt-LT')} views</Chip>
-            )}
-            <Chip tone={result.detail.lyrics_found ? 'ok' : 'default'}>
-              {result.detail.lyrics_found ? 'lyrics ✓' : 'lyrics —'}
-            </Chip>
-            <Chip tone={result.detail.spotify_found ? 'ok' : 'default'}>
-              {result.detail.spotify_found ? 'Spotify ✓' : 'Spotify —'}
-            </Chip>
-            <Chip tone={result.detail.embeddable === false ? 'warn' : 'default'}>
-              {result.detail.embeddable === false ? 'embed blokuotas' : 'embed ✓'}
-            </Chip>
-            {(result.detail.featuring || []).length > 0 && (
-              <Chip tone="ok">feat. {result.detail.featuring.join(', ')}</Chip>
-            )}
+            {result.detail.upload_date && <Chip>išleista {String(result.detail.upload_date).slice(0, 10)}</Chip>}
+            {result.detail.views != null && <Chip>{Number(result.detail.views).toLocaleString('lt-LT')} views</Chip>}
+            <Chip tone={result.detail.lyrics_found ? 'ok' : 'default'}>{result.detail.lyrics_found ? 'lyrics ✓' : 'lyrics —'}</Chip>
+            <Chip tone={result.detail.spotify_found ? 'ok' : 'default'}>{result.detail.spotify_found ? 'Spotify ✓' : 'Spotify —'}</Chip>
+            <Chip tone={result.detail.embeddable === false ? 'warn' : 'default'}>{result.detail.embeddable === false ? 'embed blokuotas' : 'embed ✓'}</Chip>
+            {(result.detail.featuring || []).length > 0 && <Chip tone="ok">feat. {result.detail.featuring.join(', ')}</Chip>}
           </>
         ) : (
           <>
             {result.detail.year && <Chip>{result.detail.year}</Chip>}
-            <Chip tone={result.detail.track_count ? 'ok' : 'warn'}>
-              {result.detail.track_count} dainos
-            </Chip>
-            <Chip tone={result.detail.cover_found ? 'ok' : 'default'}>
-              {result.detail.cover_found ? 'viršelis ✓' : 'be viršelio'}
-            </Chip>
+            <Chip tone={result.detail.track_count ? 'ok' : 'warn'}>{result.detail.track_count} dainos</Chip>
+            <Chip tone={result.detail.cover_found ? 'ok' : 'default'}>{result.detail.cover_found ? 'viršelis ✓' : 'be viršelio'}</Chip>
             {(result.detail.genres || []).slice(0, 4).map((g: string) => <Chip key={g}>{g}</Chip>)}
           </>
         )}

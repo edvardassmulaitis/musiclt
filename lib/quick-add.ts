@@ -74,6 +74,58 @@ export type QuickAddResult =
     }
   | { ok: false; kind: 'track' | 'album' | 'unknown'; error: string }
 
+// Preview (žingsnis prieš commit) — admin gali pataisyti laukus.
+export type TrackPreview = {
+  kind: 'track'
+  url: string
+  video_id: string | null
+  channel: string
+  title: string
+  artist_name: string
+  artist_exists: boolean
+  featuring: string[]
+  release_year: number | null
+  release_month: number | null
+  release_day: number | null
+  embeddable: boolean | null
+  views: number | null
+}
+
+export type AlbumPreview = {
+  kind: 'album'
+  url: string
+  artist_name: string
+  artist_exists: boolean
+  album_title: string
+  year: number | null
+  month: number | null
+  day: number | null
+  genres: string[]
+  track_titles: string[]
+  cover_found: boolean
+}
+
+export type PreviewResult =
+  | { ok: true; preview: TrackPreview | AlbumPreview }
+  | { ok: false; kind: 'track' | 'album' | 'unknown'; error: string }
+
+export type TrackOverrides = {
+  title?: string
+  artist_name?: string
+  featuring?: string[]
+  release_year?: number | null
+  release_month?: number | null
+  release_day?: number | null
+}
+
+export type AlbumOverrides = {
+  artist_name?: string
+  album_title?: string
+  year?: number | null
+  month?: number | null
+  day?: number | null
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // URL tipo detekcija
 // ────────────────────────────────────────────────────────────────────────────
@@ -366,6 +418,35 @@ async function resolveTrackArtists(
   return primary ? { primary, featuringNames: [] } : null
 }
 
+/**
+ * Read-only variantas (preview'ui): grąžina kas BŪTŲ primary atlikėjas +
+ * featuring vardai, NIEKO nesukurdamas. primaryMatch != null jei jau egzistuoja.
+ */
+async function analyzeArtistSegment(
+  supabase: ReturnType<typeof createAdminClient>,
+  segment: string
+): Promise<{ primaryName: string; primaryMatch: QuickAddArtist | null; featuringNames: string[] }> {
+  const seg = (segment || '').trim()
+  const whole = await matchExistingArtist(supabase, seg)
+  if (whole) return { primaryName: whole.name, primaryMatch: whole, featuringNames: [] }
+
+  const { parts, strong } = splitArtistSegment(seg)
+  if (parts.length < 2) {
+    const m = await matchExistingArtist(supabase, seg)
+    return { primaryName: wiki.cleanArtistName(seg), primaryMatch: m, featuringNames: [] }
+  }
+  const matched = await Promise.all(parts.map((p) => matchExistingArtist(supabase, p)))
+  if (strong || matched.filter(Boolean).length >= 2) {
+    return {
+      primaryName: matched[0]?.name || wiki.cleanArtistName(parts[0]),
+      primaryMatch: matched[0] || null,
+      featuringNames: parts.slice(1).map((p) => wiki.cleanArtistName(p)).filter(Boolean),
+    }
+  }
+  const m = await matchExistingArtist(supabase, seg)
+  return { primaryName: wiki.cleanArtistName(seg), primaryMatch: m, featuringNames: [] }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Wikipedia helper'iai
 // ────────────────────────────────────────────────────────────────────────────
@@ -548,19 +629,26 @@ function albumTypeFlags(wikitext: string): Partial<AlbumFull> {
 // quickAddTrack
 // ────────────────────────────────────────────────────────────────────────────
 
-export async function quickAddTrack(url: string, origin: string): Promise<QuickAddResult> {
-  const supabase = createAdminClient()
-  const warnings: string[] = []
+type TrackContext = {
+  videoId: string
+  details: NonNullable<Awaited<ReturnType<typeof getVideoDetails>>>
+  channelName: string
+  embeddable: boolean | null
+  artistSegment: string
+  title: string
+  titleFeats: string[]
+  release: { year: number | null; month: number | null; day: number | null }
+  warnings: string[]
+}
 
+/** Bendras YT konteksto fetch (preview + commit). Be DB rašymo. */
+async function fetchTrackContext(url: string): Promise<TrackContext | { error: string }> {
   const videoId = extractVideoIdFromUrl(url)
-  if (!videoId) return { ok: false, kind: 'track', error: 'Neatpažinta YouTube nuoroda' }
-
+  if (!videoId) return { error: 'Neatpažinta YouTube nuoroda' }
   const details = await getVideoDetails(videoId)
-  if (!details) return { ok: false, kind: 'track', error: 'Nepavyko gauti YouTube video duomenų' }
+  if (!details) return { error: 'Nepavyko gauti YouTube video duomenų' }
 
-  // oEmbed: vienu šūviu gaunam author_name (kanalą) + embeddability.
-  // (getVideoDetails grąžina tik channelId, ne kanalo vardą — author_name
-  //  reikalingas kaip atlikėjo fallback'as title'ams be brūkšnio.)
+  const warnings: string[] = []
   let channelName = ''
   let embeddable: boolean | null = null
   try {
@@ -579,37 +667,96 @@ export async function quickAddTrack(url: string, origin: string): Promise<QuickA
     embeddable = null
   }
 
-  const { artist: artistName, title: rawTitle } = parseYtTitle(details.title || '', channelName)
-  if (!rawTitle) return { ok: false, kind: 'track', error: 'Nepavyko atskirti dainos pavadinimo iš video' }
-  if (!artistName) return { ok: false, kind: 'track', error: 'Nepavyko atskirti atlikėjo iš video' }
-
-  // Iš pavadinimo ištraukiam „(feat. X)" → švarus title + featuring vardai
   ensureWikiInit()
-  const { cleanTitle, featuring: titleFeats } = wiki.parseFeaturing(rawTitle)
-  const title = (cleanTitle || rawTitle).trim()
+  const { artist: artistSegment, title: rawTitle } = parseYtTitle(details.title || '', channelName)
+  const { cleanTitle, featuring: titleFeats } = wiki.parseFeaturing(rawTitle || '')
+  const title = (cleanTitle || rawTitle || '').trim()
 
-  // Atlikėjo segmentas → primary + kolaboracijos (NIEKADA nesukuriam „A x B")
-  const resolved = await resolveTrackArtists(supabase, artistName)
-  if (!resolved) return { ok: false, kind: 'track', error: `Nepavyko priskirti/sukurti atlikėjo: „${artistName}"` }
-  const artist = resolved.primary
-  if (artist.created) warnings.push(`Sukurtas naujas atlikėjas „${artist.name}" (papildyk info rankiniu būdu).`)
-
-  // Visi kolaboratoriai (iš atlikėjo segmento + iš title feat.) be primary
-  const featuringNames = Array.from(new Set(
-    [...resolved.featuringNames, ...(titleFeats || [])]
-      .map((n) => n.trim())
-      .filter((n) => n && slugify(n) !== artist.slug && wiki.cleanArtistName(n).toLowerCase() !== artist.name.toLowerCase())
-  ))
-
-  // Įkėlimo data → release date
-  let ry: number | null = null, rm: number | null = null, rd: number | null = null
+  let year: number | null = null, month: number | null = null, day: number | null = null
   if (details.uploadedAt) {
     const d = new Date(details.uploadedAt)
-    if (!isNaN(d.getTime())) {
-      ry = d.getUTCFullYear(); rm = d.getUTCMonth() + 1; rd = d.getUTCDate()
-    }
+    if (!isNaN(d.getTime())) { year = d.getUTCFullYear(); month = d.getUTCMonth() + 1; day = d.getUTCDate() }
   } else {
     warnings.push('YouTube neturėjo įkėlimo datos — išleidimo diena nenustatyta.')
+  }
+
+  return {
+    videoId, details, channelName, embeddable, artistSegment, title,
+    titleFeats: titleFeats || [], release: { year, month, day }, warnings,
+  }
+}
+
+/** Preview — parsina YT, NIEKO nesukuria. Admin gali pataisyti prieš commit. */
+export async function previewTrack(url: string): Promise<PreviewResult> {
+  const ctx = await fetchTrackContext(url)
+  if ('error' in ctx) return { ok: false, kind: 'track', error: ctx.error }
+  if (!ctx.title) return { ok: false, kind: 'track', error: 'Nepavyko atskirti dainos pavadinimo iš video' }
+  if (!ctx.artistSegment) return { ok: false, kind: 'track', error: 'Nepavyko atskirti atlikėjo iš video' }
+
+  const supabase = createAdminClient()
+  const a = await analyzeArtistSegment(supabase, ctx.artistSegment)
+  const featuring = Array.from(new Set([...a.featuringNames, ...ctx.titleFeats].map((n) => n.trim()).filter(Boolean)))
+
+  return {
+    ok: true,
+    preview: {
+      kind: 'track', url,
+      video_id: ctx.videoId,
+      channel: ctx.channelName,
+      title: ctx.title,
+      artist_name: a.primaryName,
+      artist_exists: !!a.primaryMatch,
+      featuring,
+      release_year: ctx.release.year,
+      release_month: ctx.release.month,
+      release_day: ctx.release.day,
+      embeddable: ctx.embeddable,
+      views: ctx.details.viewCount ?? null,
+    },
+  }
+}
+
+/** Commit — sukuria dainą su (galimai pataisytomis) reikšmėmis + enrich. */
+export async function commitTrack(url: string, origin: string, ov: TrackOverrides = {}): Promise<QuickAddResult> {
+  const supabase = createAdminClient()
+  const ctx = await fetchTrackContext(url)
+  if ('error' in ctx) return { ok: false, kind: 'track', error: ctx.error }
+  const warnings = [...ctx.warnings]
+
+  const title = (ov.title ?? ctx.title ?? '').trim()
+  if (!title) return { ok: false, kind: 'track', error: 'Trūksta dainos pavadinimo' }
+
+  // Atlikėjas: admin nurodytas vardas turi prioritetą; kitaip analizuojam segmentą
+  let primaryName = (ov.artist_name ?? '').trim()
+  let featuringNames: string[]
+  if (primaryName) {
+    featuringNames = (ov.featuring || []).map((n) => n.trim()).filter(Boolean)
+  } else {
+    const a = await analyzeArtistSegment(supabase, ctx.artistSegment)
+    primaryName = a.primaryName
+    featuringNames = Array.from(new Set([...a.featuringNames, ...ctx.titleFeats]))
+  }
+  if (!primaryName) return { ok: false, kind: 'track', error: 'Trūksta atlikėjo' }
+
+  const artist = await resolveArtist(supabase, primaryName)
+  if (!artist) return { ok: false, kind: 'track', error: `Nepavyko priskirti/sukurti atlikėjo: „${primaryName}"` }
+  if (artist.created) warnings.push(`Sukurtas naujas atlikėjas „${artist.name}" (papildyk info rankiniu būdu).`)
+
+  featuringNames = Array.from(new Set(
+    featuringNames.map((n) => n.trim()).filter((n) => n && slugify(n) !== artist.slug && wiki.cleanArtistName(n).toLowerCase() !== artist.name.toLowerCase())
+  ))
+
+  // Release date — override (jei perduotas) arba iš YT įkėlimo datos
+  const ry = ov.release_year !== undefined ? ov.release_year : ctx.release.year
+  const rm = ov.release_month !== undefined ? ov.release_month : ctx.release.month
+  const rd = ov.release_day !== undefined ? ov.release_day : ctx.release.day
+  const { videoId, embeddable, details } = ctx
+
+  const applyDate = (b: Record<string, any>) => {
+    if (ry) {
+      b.release_year = ry; b.release_month = rm; b.release_day = rd
+      b.release_date = `${ry}-${String(rm || 1).padStart(2, '0')}-${String(rd || 1).padStart(2, '0')}`
+    }
   }
 
   // Duplicate guard
@@ -623,14 +770,14 @@ export async function quickAddTrack(url: string, origin: string): Promise<QuickA
     trackSlug = (existingTrack as any).slug
     warnings.push('Tokia daina jau egzistavo — papildyta (ne dublikatas).')
     const upd: Record<string, any> = {
+      title,
       video_url: `https://www.youtube.com/watch?v=${videoId}`,
       video_embeddable: embeddable,
       video_uploaded_at: details.uploadedAt || null,
     }
-    if (ry) { upd.release_year = ry; upd.release_month = rm; upd.release_day = rd; upd.release_date = `${ry}-${String(rm || 1).padStart(2, '0')}-${String(rd || 1).padStart(2, '0')}` }
+    applyDate(upd)
     await supabase.from('tracks').update(upd).eq('id', trackId)
   } else {
-    // Unikalus slug
     const base = slugify(title) || `track-${Date.now()}`
     let finalSlug = base
     for (let i = 0; i < 50; i++) {
@@ -639,17 +786,12 @@ export async function quickAddTrack(url: string, origin: string): Promise<QuickA
       finalSlug = `${base}-${i + 1}`
     }
     const insertBody: Record<string, any> = {
-      title,
-      slug: finalSlug,
-      artist_id: artist.id,
+      title, slug: finalSlug, artist_id: artist.id,
       video_url: `https://www.youtube.com/watch?v=${videoId}`,
       video_embeddable: embeddable,
       video_uploaded_at: details.uploadedAt || null,
     }
-    if (ry) {
-      insertBody.release_year = ry; insertBody.release_month = rm; insertBody.release_day = rd
-      insertBody.release_date = `${ry}-${String(rm || 1).padStart(2, '0')}-${String(rd || 1).padStart(2, '0')}`
-    }
+    applyDate(insertBody)
     const { data: created, error: insErr } = await supabase
       .from('tracks').insert(insertBody).select('id, slug').single()
     if (insErr || !created) return { ok: false, kind: 'track', error: `Track create failed: ${insErr?.message}` }
@@ -657,8 +799,6 @@ export async function quickAddTrack(url: string, origin: string): Promise<QuickA
     trackSlug = (created as any).slug
   }
 
-  // Kolaboratoriai → track_artists (is_primary=false). NIEKADA nekuriam
-  // sujungto „A x B" atlikėjo; čia susiejam atskirus.
   if (featuringNames.length) {
     try {
       const added = await syncTrackFeaturing(supabase, trackId, featuringNames)
@@ -668,7 +808,6 @@ export async function quickAddTrack(url: string, origin: string): Promise<QuickA
     }
   }
 
-  // Enrich: video_views (+ uždeda video_uploaded_at jei dar nebuvo)
   let views: number | null = details.viewCount ?? null
   try {
     const er = await enrichTrack(trackId, true)
@@ -677,43 +816,33 @@ export async function quickAddTrack(url: string, origin: string): Promise<QuickA
     warnings.push(`YT stats enrich klaida: ${String(e?.message || e).slice(0, 100)}`)
   }
 
-  // Lyrics (LRCLib per esamą route)
   let lyricsFound = false
   try {
     const lr = await fetch(`${origin}/api/search/lyrics?artist=${encodeURIComponent(artist.name)}&title=${encodeURIComponent(title)}`, { signal: AbortSignal.timeout(12000) })
     if (lr.ok) {
       const lj = await lr.json()
-      if (lj?.lyrics) {
-        await supabase.from('tracks').update({ lyrics: lj.lyrics }).eq('id', trackId)
-        lyricsFound = true
-      }
+      if (lj?.lyrics) { await supabase.from('tracks').update({ lyrics: lj.lyrics }).eq('id', trackId); lyricsFound = true }
     }
   } catch { /* ignore */ }
 
-  // Spotify (per esamą route)
   let spotifyFound = false
   try {
     const sr = await fetch(`${origin}/api/search/spotify?q=${encodeURIComponent(`${artist.name} ${title}`)}`, { signal: AbortSignal.timeout(12000) })
     if (sr.ok) {
       const sj = await sr.json()
       const best = (sj?.results || [])[0]
-      if (best?.id) {
-        await supabase.from('tracks').update({ spotify_id: best.id }).eq('id', trackId)
-        spotifyFound = true
-      }
+      if (best?.id) { await supabase.from('tracks').update({ spotify_id: best.id }).eq('id', trackId); spotifyFound = true }
     }
   } catch { /* ignore */ }
 
   return {
-    ok: true,
-    kind: 'track',
+    ok: true, kind: 'track',
     track: { id: trackId, title, slug: trackSlug },
     artist,
     detail: {
       video_id: videoId,
       upload_date: details.uploadedAt || null,
-      views,
-      embeddable,
+      views, embeddable,
       lyrics_found: lyricsFound,
       spotify_found: spotifyFound,
       featuring: featuringNames,
@@ -726,60 +855,108 @@ export async function quickAddTrack(url: string, origin: string): Promise<QuickA
 // quickAddAlbum
 // ────────────────────────────────────────────────────────────────────────────
 
-export async function quickAddAlbum(url: string, origin: string): Promise<QuickAddResult> {
+type AlbumWiki = {
+  pageTitle: string
+  wikitext: string
+  artistName: string
+  artistWikiTitle: string | null
+  albumTitle: string
+  date: { year: number | null; month: number | null; day: number | null }
+  typeFlags: Partial<AlbumFull>
+  substyleNames: string[]
+  trackEntries: wiki.TrackEntry[]
+  warnings: string[]
+}
+
+/** Bendras Wiki albumo parse (preview + commit). Be DB rašymo. */
+async function fetchAlbumWiki(url: string): Promise<AlbumWiki | { error: string }> {
   ensureWikiInit()
-  const supabase = createAdminClient()
-  const warnings: string[] = []
-
   const pageTitle = wikiTitleFromUrl(url)
-  if (!pageTitle) return { ok: false, kind: 'album', error: 'Neatpažinta Wikipedia nuoroda' }
-
+  if (!pageTitle) return { error: 'Neatpažinta Wikipedia nuoroda' }
   const wikitext = await fetchWikitext(pageTitle)
-  if (!wikitext) return { ok: false, kind: 'album', error: 'Nepavyko gauti Wikipedia turinio' }
+  if (!wikitext) return { error: 'Nepavyko gauti Wikipedia turinio' }
 
-  // Atlikėjas iš infobox `| artist =`
   const artistRaw = wiki.extractFieldNested(wikitext, 'artist')
-  if (!artistRaw) return { ok: false, kind: 'album', error: 'Wikipedia puslapyje nerastas albumo atlikėjas (| artist =). Ar tai tikrai albumo puslapis?' }
-
-  // Atlikėjo Wiki page title (iš [[...]] wikilink'o) — light enrichment'ui
+  if (!artistRaw) return { error: 'Wikipedia puslapyje nerastas albumo atlikėjas (| artist =). Ar tai tikrai albumo puslapis?' }
   const linkM = artistRaw.match(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/)
   const artistWikiTitle = linkM ? linkM[1].trim() : null
   const artistName = wiki.cleanArtistName(artistRaw)
 
-  const artist = await resolveArtist(supabase, artistName, { enrichFromWikiTitle: artistWikiTitle })
-  if (!artist) return { ok: false, kind: 'album', error: `Nepavyko priskirti/sukurti atlikėjo: „${artistName}"` }
-  if (artist.created) warnings.push(`Sukurtas naujas atlikėjas „${artist.name}" (info iš Wikipedia, prireikus papildyk).`)
-
-  // Albumo pavadinimas — infobox `| name =` arba page title (be skliaustų)
   const nameRaw = wiki.extractFieldNested(wikitext, 'name')
   let albumTitle = (nameRaw ? wiki.cleanWikiText(nameRaw) : '').trim()
   if (!albumTitle) albumTitle = pageTitle.replace(/_/g, ' ').replace(/\s*\([^)]*\)\s*$/, '').trim()
-  if (!albumTitle) return { ok: false, kind: 'album', error: 'Nepavyko nustatyti albumo pavadinimo' }
+  if (!albumTitle) return { error: 'Nepavyko nustatyti albumo pavadinimo' }
 
-  // Release date
   const date = parseAlbumReleaseDate(wikitext)
-  // Tipo flag'ai
   const typeFlags = albumTypeFlags(wikitext)
-  // Cover (REST summary + infobox cover fallback + rehost)
-  const cover = await fetchAlbumCover(pageTitle, wikitext, origin)
+  const warnings: string[] = []
+
+  let substyleNames: string[] = []
+  try { substyleNames = wiki.parseAlbumGenres(wikitext) || [] } catch { /* ignore */ }
+
+  let trackEntries: wiki.TrackEntry[] = []
+  try { trackEntries = wiki.parseTracklist(wikitext) || [] }
+  catch (e: any) { warnings.push(`Tracklist parse klaida: ${String(e?.message || e).slice(0, 100)}`) }
+  if (!trackEntries.length) warnings.push('Wikipedia puslapyje nerastas tracklist\'as.')
+
+  return { pageTitle, wikitext, artistName, artistWikiTitle, albumTitle, date, typeFlags, substyleNames, trackEntries, warnings }
+}
+
+/** Preview — parsina Wiki albumą, NIEKO nesukuria. */
+export async function previewAlbum(url: string): Promise<PreviewResult> {
+  const w = await fetchAlbumWiki(url)
+  if ('error' in w) return { ok: false, kind: 'album', error: w.error }
+  const supabase = createAdminClient()
+  const match = await matchExistingArtist(supabase, w.artistName)
+
+  // Cover probe (be rehost'inimo — preview'ui užtenka žinoti ar yra)
+  let coverFound = false
+  try {
+    const s = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(w.pageTitle)}`, { signal: AbortSignal.timeout(10000) })
+    if (s.ok) { const sj = await s.json(); coverFound = !!(sj?.originalimage?.source || sj?.thumbnail?.source) }
+  } catch { /* ignore */ }
+  if (!coverFound) coverFound = !!(wiki.extractFieldNested(w.wikitext, 'cover') || wiki.extractFieldNested(w.wikitext, 'Cover'))
+
+  return {
+    ok: true,
+    preview: {
+      kind: 'album', url,
+      artist_name: w.artistName,
+      artist_exists: !!match,
+      album_title: w.albumTitle,
+      year: w.date.year, month: w.date.month, day: w.date.day,
+      genres: w.substyleNames,
+      track_titles: w.trackEntries.map((t) => t.title),
+      cover_found: coverFound,
+    },
+  }
+}
+
+/** Commit — sukuria albumą su (galimai pataisytomis) reikšmėmis. */
+export async function commitAlbum(url: string, origin: string, ov: AlbumOverrides = {}): Promise<QuickAddResult> {
+  const w = await fetchAlbumWiki(url)
+  if ('error' in w) return { ok: false, kind: 'album', error: w.error }
+  const supabase = createAdminClient()
+  const warnings = [...w.warnings]
+
+  const artistName = (ov.artist_name ?? w.artistName).trim()
+  // Wiki enrichment tik kai vardas nepakeistas (turim teisingą artist wiki title'ą)
+  const artist = await resolveArtist(supabase, artistName, {
+    enrichFromWikiTitle: artistName === w.artistName ? w.artistWikiTitle : null,
+  })
+  if (!artist) return { ok: false, kind: 'album', error: `Nepavyko priskirti/sukurti atlikėjo: „${artistName}"` }
+  if (artist.created) warnings.push(`Sukurtas naujas atlikėjas „${artist.name}" (info iš Wikipedia, prireikus papildyk).`)
+
+  const albumTitle = (ov.album_title ?? w.albumTitle).trim()
+  if (!albumTitle) return { ok: false, kind: 'album', error: 'Trūksta albumo pavadinimo' }
+  const year = ov.year !== undefined ? ov.year : w.date.year
+  const month = ov.month !== undefined ? ov.month : w.date.month
+  const day = ov.day !== undefined ? ov.day : w.date.day
+
+  const cover = await fetchAlbumCover(w.pageTitle, w.wikitext, origin)
   if (!cover) warnings.push('Nerastas albumo viršelis.')
 
-  // Žanrai
-  let substyleNames: string[] = []
-  try {
-    substyleNames = wiki.parseAlbumGenres(wikitext) || []
-  } catch { /* ignore */ }
-
-  // Tracklist
-  let trackEntries: wiki.TrackEntry[] = []
-  try {
-    trackEntries = wiki.parseTracklist(wikitext) || []
-  } catch (e: any) {
-    warnings.push(`Tracklist parse klaida: ${String(e?.message || e).slice(0, 100)}`)
-  }
-  if (!trackEntries.length) warnings.push('Wikipedia puslapyje nerastas tracklist\'as — albumas sukurtas be dainų.')
-
-  const tracks: TrackInAlbum[] = trackEntries.map((t, i) => ({
+  const tracks: TrackInAlbum[] = w.trackEntries.map((t, i) => ({
     title: t.title,
     sort_order: t.sort_order ?? i + 1,
     disc_number: t.disc_number ?? 1,
@@ -787,51 +964,38 @@ export async function quickAddAlbum(url: string, origin: string): Promise<QuickA
     type: (t.type === 'covers' ? 'normal' : (t.type as any)) || 'normal',
     is_single: t.is_single ?? false,
     featuring: t.featuring,
-    // Singles datos iš parser'io; non-singles fallback į albumo metus
-    release_year: t.release_year ?? date.year ?? null,
+    release_year: t.release_year ?? year ?? null,
     release_month: t.release_month ?? null,
     release_day: t.release_day ?? null,
   }))
 
+  const tf = w.typeFlags
   const albumData: AlbumFull = {
-    title: albumTitle,
-    artist_id: artist.id,
-    year: date.year,
-    month: date.month,
-    day: date.day,
-    type_studio: typeFlags.type_studio ?? true,
-    type_compilation: typeFlags.type_compilation ?? false,
-    type_ep: typeFlags.type_ep ?? false,
-    type_single: typeFlags.type_single ?? false,
-    type_live: typeFlags.type_live ?? false,
-    type_remix: typeFlags.type_remix ?? false,
-    type_covers: typeFlags.type_covers ?? false,
-    type_holiday: typeFlags.type_holiday ?? false,
-    type_soundtrack: typeFlags.type_soundtrack ?? false,
-    type_demo: typeFlags.type_demo ?? false,
+    title: albumTitle, artist_id: artist.id, year, month, day,
+    type_studio: tf.type_studio ?? true,
+    type_compilation: tf.type_compilation ?? false,
+    type_ep: tf.type_ep ?? false,
+    type_single: tf.type_single ?? false,
+    type_live: tf.type_live ?? false,
+    type_remix: tf.type_remix ?? false,
+    type_covers: tf.type_covers ?? false,
+    type_holiday: tf.type_holiday ?? false,
+    type_soundtrack: tf.type_soundtrack ?? false,
+    type_demo: tf.type_demo ?? false,
     cover_image_url: cover || undefined,
-    substyle_names: substyleNames,
+    substyle_names: w.substyleNames,
     tracks,
   }
 
   let albumId: number
-  try {
-    albumId = await createAlbum(albumData)
-  } catch (e: any) {
-    return { ok: false, kind: 'album', error: `Album create failed: ${String(e?.message || e).slice(0, 200)}` }
-  }
+  try { albumId = await createAlbum(albumData) }
+  catch (e: any) { return { ok: false, kind: 'album', error: `Album create failed: ${String(e?.message || e).slice(0, 200)}` } }
 
   return {
-    ok: true,
-    kind: 'album',
+    ok: true, kind: 'album',
     album: { id: albumId, title: albumTitle },
     artist,
-    detail: {
-      year: date.year,
-      track_count: tracks.length,
-      cover_found: !!cover,
-      genres: substyleNames,
-    },
+    detail: { year, track_count: tracks.length, cover_found: !!cover, genres: w.substyleNames },
     warnings,
   }
 }
