@@ -79,13 +79,19 @@ async function fetchToday(): Promise<IstItem[]> {
     for (const a of (arts || []) as any[]) {
       const by = a.birth_date ? new Date(a.birth_date).getFullYear() : null
       const age = by ? currentYear - by : null
+      // Jei atlikėjas miręs — NE „Sukako X m." (jis nebešvenčia), o „X-osios
+      // gimimo metinės". Edvardo prašymu 2026-05-31.
+      const isDeceased = !!a.death_date
+      const subtitle = isDeceased
+        ? (age ? `${age}-osios gimimo metinės` : 'Gimimo metinės')
+        : (age ? `Sukako ${age} m.` : 'Gimtadienis')
       items.push({
         id: `bday-${a.id}`,
         type: 'birthday',
         title: a.name,
-        subtitle: age ? `Sukako ${age} m.` : 'Gimtadienis',
+        subtitle,
         href: `/atlikejai/${a.slug}`,
-        emoji: '🎂',
+        emoji: isDeceased ? '🕯️' : '🎂',
         cover: a.cover_image_url || null,
         year: by,
         age,

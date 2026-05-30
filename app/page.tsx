@@ -1202,26 +1202,35 @@ function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; onDone: (
   )
 }
 
-/** Vakar laimėjusios dainos highlight kortelė. */
+/** Vakar laimėjusios dainos highlight kortelė. Vertikalus stilius — toks pat
+ *  kaip „Naujos dainos" kortelės (16:9 cover viršuje + info apačioje), su
+ *  oranžiniu rėmu ir „🏆 Vakar laimėjo" badge'u. 2026-05-31. */
 function DainaWinnerCard({ w, onOpenTrack }: { w: DainaWinner; onOpenTrack: (t: any) => void }) {
   const t = w.tracks
   if (!t) return null
+  const v = extractYouTubeId(t.video_url)
+  const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
+  const imgSrc = t.cover_url || ytThumb || t.artists?.cover_image_url || null
   return (
     <button
       type="button"
       onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
-      className="hp-card group flex w-full shrink-0 items-center gap-3 p-2.5 text-left sm:w-[280px]"
-      style={{ borderColor: 'rgba(249,115,22,0.4)', background: 'linear-gradient(135deg, rgba(249,115,22,0.08), transparent)' }}
+      className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
+      style={{ width: 200 }}
     >
-      <div className="relative shrink-0">
-        <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={52} radius={8} />
-        <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[11px] shadow-[0_2px_8px_rgba(249,115,22,0.5)]">🏆</span>
+      <div className="relative aspect-video overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]" style={{ borderColor: 'rgba(249,115,22,0.5)' }}>
+        {imgSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
+        )}
+        <span className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-[var(--accent-orange)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">🏆 Vakar laimėjo</span>
+        <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{w.weighted_votes || w.total_votes || 0} bal.</span>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="m-0 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</p>
-        <p className="m-0 mt-0.5 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-        <p className="m-0 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
-        <p className="m-0 mt-0.5 text-[10px] font-bold text-[var(--text-faint)]">{w.weighted_votes || w.total_votes || 0} bal.</p>
+      <div className="mt-2 px-0.5">
+        <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+        <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</p>
       </div>
     </button>
   )
@@ -1233,6 +1242,11 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [suggestOpen, setSuggestOpen] = useState(false)
+  // Balsavimo būsena (veikia ir neprisijungus — backend anon balsą riboja per IP).
+  const [hasVoted, setHasVoted] = useState(false)
+  const [votedNominationId, setVotedNominationId] = useState<number | null>(null)
+  const [voting, setVoting] = useState<number | null>(null)
+  const [voteErr, setVoteErr] = useState('')
 
   const load = useCallback(() => {
     Promise.all([
@@ -1246,87 +1260,152 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
   }, [])
   useEffect(() => { load() }, [load])
 
+  // Ar šiandien jau balsuota (per user_id arba IP).
+  useEffect(() => {
+    fetch('/api/dienos-daina/votes')
+      .then(r => r.json())
+      .then(d => { setHasVoted(!!d.has_voted); setVotedNominationId(d.voted_nomination_id ?? null) })
+      .catch(() => {})
+  }, [])
+
+  const handleVote = useCallback(async (id: number) => {
+    if (hasVoted || voting !== null) return
+    setVoting(id); setVoteErr('')
+    try {
+      const res = await fetch('/api/dienos-daina/votes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nomination_id: id }),
+      })
+      const d = await res.json()
+      if (res.ok) {
+        const wt = d.weight || 1
+        setHasVoted(true); setVotedNominationId(id)
+        setNoms(prev => prev.map(n => n.id === id ? { ...n, votes: (n.votes || 0) + 1, weighted_votes: (n.weighted_votes || 0) + wt } : n))
+      } else {
+        setVoteErr(d.error || 'Klaida'); setTimeout(() => setVoteErr(''), 3000)
+      }
+    } catch {
+      setVoteErr('Tinklo klaida'); setTimeout(() => setVoteErr(''), 3000)
+    } finally {
+      setVoting(null)
+    }
+  }, [hasVoted, voting])
+
   const sorted = [...noms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0))
   const maxVotes = Math.max(1, ...sorted.map(n => n.weighted_votes || n.votes || 0))
 
   if (loading) {
     return (
-      <div className="hp-scroll flex flex-col gap-2 sm:flex-row sm:gap-3 sm:overflow-x-auto sm:pb-1">
-        {Array(4).fill(null).map((_, i) => (
-          <div key={i} className="flex w-full shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2.5 sm:w-[280px]">
-            <Skel w={52} h={52} r={8} />
-            <div className="flex-1"><Skel w="70%" h={12} /><div className="mt-1.5"><Skel w="45%" h={9} /></div><div className="mt-2"><Skel w="80%" h={6} /></div></div>
+      <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
+        {Array(6).fill(null).map((_, i) => (
+          <div key={i} className="shrink-0" style={{ width: 200 }}>
+            <Skel w={200} h={112} r={12} />
+            <div className="mt-2"><Skel w="80%" h={12} /></div>
+            <div className="mt-1"><Skel w="55%" h={10} /></div>
+            <div className="mt-2"><Skel w="100%" h={28} r={8} /></div>
           </div>
         ))}
       </div>
     )
   }
 
+  // Vertikali kortelė — toks pat dizainas kaip „Naujos dainos" (16:9 cover +
+  // info apačioje), papildomai su rank badge'u, balsų skaičiumi ir „Balsuoti"
+  // mygtuku. 2026-05-31.
   const NomCard = ({ n, idx }: { n: Nomination; idx: number }) => {
     const t = n.tracks!
     const votes = n.weighted_votes || n.votes || 0
-    const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
+    const v = extractYouTubeId(t.video_url)
+    const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
+    const imgSrc = t.cover_url || ytThumb || t.artists?.cover_image_url || null
+    const isVotedThis = votedNominationId === n.id
     return (
-      <button
-        type="button"
-        onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
-        className="hp-card group flex w-full shrink-0 items-center gap-3 p-2.5 text-left sm:w-[280px]"
-      >
-        <div className="relative shrink-0">
-          <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={52} radius={8} />
-          {idx < 3 && (
-            <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[10px] font-black text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">{idx + 1}</span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-          <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
-          <div className="mt-1.5 flex items-center gap-2">
-            <span className="flex items-center gap-[3px]" aria-hidden>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <span key={i} className={`h-[3px] w-[14px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
-              ))}
-            </span>
-            <span className="shrink-0 text-[10px] font-bold text-[var(--text-faint)]">{votes} bal.</span>
+      <div className="group flex shrink-0 flex-col" style={{ width: 200 }}>
+        <button
+          type="button"
+          onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
+          className="block no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
+        >
+          <div className="relative aspect-video overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+            {imgSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
+            )}
+            {idx < 3 && (
+              <span className="absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] font-['Outfit',sans-serif] text-[10px] font-black text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">{idx + 1}</span>
+            )}
+            <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{votes} bal.</span>
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           </div>
-          {/* FIX 7: kas pasiūlė dainą. */}
-          <div className="mt-1"><ProposerLine p={n.proposer} /></div>
+          <div className="mt-2 px-0.5">
+            <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+            <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</p>
+          </div>
+        </button>
+        <div className="mt-2 px-0.5">
+          <button
+            type="button"
+            onClick={() => handleVote(n.id)}
+            disabled={hasVoted || voting !== null}
+            className={`w-full rounded-lg py-[7px] font-['Outfit',sans-serif] text-[11.5px] font-extrabold transition-all ${
+              isVotedThis ? 'cursor-default' : hasVoted ? 'cursor-not-allowed opacity-40' : 'hover:-translate-y-px'
+            }`}
+            style={{
+              background: isVotedThis ? 'rgba(249,115,22,0.15)' : hasVoted ? 'var(--bg-surface)' : 'var(--accent-orange)',
+              color: isVotedThis ? 'var(--accent-orange)' : hasVoted ? 'var(--text-muted)' : '#fff',
+              border: isVotedThis ? '1px solid rgba(249,115,22,0.4)' : '1px solid transparent',
+              boxShadow: !hasVoted ? '0 2px 10px rgba(249,115,22,0.28)' : 'none',
+            }}
+          >
+            {voting === n.id ? '…' : isVotedThis ? '✓ Balsavai' : 'Balsuoti'}
+          </button>
         </div>
-      </button>
+        {n.proposer && <div className="mt-1.5 px-0.5"><ProposerLine p={n.proposer} /></div>}
+      </div>
     )
   }
 
   return (
     <>
-      <div className="hp-scroll flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3 sm:overflow-x-auto sm:pb-1">
-        {/* Vakar laimėjusi daina — pirma (FIX 7). */}
-        {winner?.tracks && <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} />}
+      {/* Aiškus balsavimo paaiškinimas + „Pasiūlyti dainą" (visada matomi). */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="m-0 max-w-[520px] text-[12px] leading-snug text-[var(--text-muted)]">
+          Balsuok už šiandienos dainą — daugiausiai balsų surinkusi vakaro gale tampa dienos daina. Balsuoti gali ir neprisijungęs (1 balsas per dieną).
+        </p>
+        <button
+          type="button"
+          onClick={() => setSuggestOpen(true)}
+          className="shrink-0 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px"
+        >
+          + Pasiūlyti dainą
+        </button>
+      </div>
+      {voteErr && (
+        <p className="mb-2 text-[11.5px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</p>
+      )}
 
-        {sorted.length === 0 ? (
-          <div className="flex flex-1 items-center rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-6 text-[12px] text-[var(--text-muted)]">
-            Šiandien kandidatų dar nėra — pasiūlyk pirmas.
-          </div>
-        ) : sorted.slice(0, 12).map((n, idx) => <NomCard key={n.id} n={n} idx={idx} />)}
+      <div className="flex items-stretch gap-3">
+        <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
+          {/* Vakar laimėjusi daina — pirma. */}
+          {winner?.tracks && <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} />}
 
-        {/* „Pasiūlyti dainą" + „Visi kandidatai" mygtukai juostos pabaigoje. */}
-        <div className="flex shrink-0 flex-col gap-2 sm:w-[150px] sm:justify-center">
-          <button
-            type="button"
-            onClick={() => setSuggestOpen(true)}
-            className="rounded-xl bg-[var(--accent-orange)] px-4 py-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px"
-          >
-            + Pasiūlyti dainą
-          </button>
-          {sorted.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-2.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)]/45 hover:text-[var(--text-primary)]"
-            >
-              Visi {sorted.length} →
-            </button>
-          )}
+          {sorted.length === 0 ? (
+            <div className="flex h-[200px] flex-1 items-center rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 text-[12px] text-[var(--text-muted)]">
+              Šiandien kandidatų dar nėra — pasiūlyk pirmas.
+            </div>
+          ) : sorted.slice(0, 14).map((n, idx) => <NomCard key={n.id} n={n} idx={idx} />)}
         </div>
+        {/* Pilno sąrašo modalas — tas pats „+N" button'as kaip kitose sekcijose. */}
+        {sorted.length > 0 && (
+          <StickyMoreButton
+            count={sorted.length}
+            height={206}
+            ariaLabel={`Žiūrėti visus (${sorted.length})`}
+            onClick={() => setModalOpen(true)}
+          />
+        )}
       </div>
 
       {modalOpen && (
@@ -1342,32 +1421,49 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
               const t = n.tracks!
               const votes = n.weighted_votes || n.votes || 0
               const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
+              const isVotedThis = votedNominationId === n.id
               return (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => { setModalOpen(false); onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists }) }}
-                  className="hp-card group flex items-start gap-3 p-3 text-left"
-                >
-                  <div className="relative shrink-0">
-                    <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={56} radius={8} />
-                    {idx < 3 && <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[10px] font-black text-white">{idx + 1}</span>}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-                    <p className="m-0 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="flex items-center gap-[3px]" aria-hidden>
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <span key={i} className={`h-[3px] w-[14px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
-                        ))}
-                      </span>
-                      <span className="shrink-0 text-[10px] font-bold text-[var(--text-faint)]">{votes} bal.</span>
+                <div key={n.id} className="hp-card group flex items-start gap-3 p-3 text-left">
+                  <button
+                    type="button"
+                    onClick={() => { setModalOpen(false); onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists }) }}
+                    className="flex min-w-0 flex-1 items-start gap-3 border-0 bg-transparent p-0 text-left cursor-pointer"
+                  >
+                    <div className="relative shrink-0">
+                      <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={56} radius={8} />
+                      {idx < 3 && <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[10px] font-black text-white">{idx + 1}</span>}
                     </div>
-                    <div className="mt-1"><ProposerLine p={n.proposer} /></div>
-                    {n.comment && <p className="m-0 mt-1.5 line-clamp-2 text-[11px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
-                  </div>
-                </button>
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+                      <p className="m-0 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="flex items-center gap-[3px]" aria-hidden>
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <span key={i} className={`h-[3px] w-[14px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+                          ))}
+                        </span>
+                        <span className="shrink-0 text-[10px] font-bold text-[var(--text-faint)]">{votes} bal.</span>
+                      </div>
+                      <div className="mt-1"><ProposerLine p={n.proposer} /></div>
+                      {n.comment && <p className="m-0 mt-1.5 line-clamp-2 text-[11px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleVote(n.id)}
+                    disabled={hasVoted || voting !== null}
+                    className={`shrink-0 self-center rounded-lg px-3 py-2 font-['Outfit',sans-serif] text-[11.5px] font-extrabold transition-all ${
+                      isVotedThis ? 'cursor-default' : hasVoted ? 'cursor-not-allowed opacity-40' : 'hover:-translate-y-px'
+                    }`}
+                    style={{
+                      background: isVotedThis ? 'rgba(249,115,22,0.15)' : hasVoted ? 'var(--bg-active)' : 'var(--accent-orange)',
+                      color: isVotedThis ? 'var(--accent-orange)' : hasVoted ? 'var(--text-muted)' : '#fff',
+                      border: isVotedThis ? '1px solid rgba(249,115,22,0.4)' : '1px solid transparent',
+                    }}
+                  >
+                    {voting === n.id ? '…' : isVotedThis ? '✓' : 'Balsuoti'}
+                  </button>
+                </div>
               )
             })}
           </div>
@@ -1645,13 +1741,19 @@ function IstorijaSection() {
 
   if (loading) {
     return (
-      <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-        {Array(3).fill(null).map((_, i) => (
-          <div key={i} className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-            <div className="border-b border-[var(--border-subtle)] px-3.5 py-2.5"><Skel w="55%" h={12} /></div>
-            {Array(3).fill(null).map((_, j) => (
-              <div key={j} className="flex items-center gap-2.5 px-3.5 py-2"><Skel w={36} h={36} r={6} /><div className="flex-1"><Skel w="70%" h={11} /><div className="mt-1"><Skel w="45%" h={9} /></div></div></div>
-            ))}
+      <div className="flex flex-col gap-6">
+        {Array(2).fill(null).map((_, i) => (
+          <div key={i}>
+            <div className="mb-2.5"><Skel w={140} h={14} /></div>
+            <div className="hp-scroll flex items-stretch gap-3">
+              {Array(7).fill(null).map((_, j) => (
+                <div key={j} className="shrink-0" style={{ width: 156 }}>
+                  <Skel w={156} h={156} r={12} />
+                  <div className="mt-2"><Skel w="80%" h={12} /></div>
+                  <div className="mt-1"><Skel w="55%" h={10} /></div>
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>
@@ -1680,47 +1782,58 @@ function IstorijaSection() {
       {/* FIX 8: turtingesnis kortelių dizainas — featured kortelė su dideliu
           cover'iu viršuje + kompaktiški įrašai apačioje. Vizualiai stipresnis,
           atitinka Pulsas/albumų sekcijų kalbą (cover-forward). */}
-      <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cats.length, 3)}, 1fr)`, gap: 16 }}>
+      {/* Kategorijos — horizontalios cover-kortelių juostos, toks pat dizainas
+          kaip „Nauji albumai" / „Naujos dainos" sekcijos (kvadratiniai cover'iai
+          + „+N" modalo button'as). Edvardo prašymu 2026-05-31 — vizualiai
+          suvienodinta su aukščiau esančiomis sekcijomis. */}
+      <div className="flex flex-col gap-6">
         {cats.map(({ t, cfg, list }) => {
           const accent = IST_ACCENT[t] || 'var(--accent-orange)'
-          const featured = list[0]
-          const rest = list.slice(1, 4)
           return (
-            <div key={t} className="flex flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-              <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3.5 py-2.5">
-                <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">{cfg.label}</span>
-                <button type="button" onClick={() => setOpenCat(t)} className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--accent-link)] transition-colors hover:text-[var(--accent-orange)]">
-                  Visi {list.length} →
-                </button>
+            <div key={t}>
+              <div className="mb-2.5 flex items-center gap-2">
+                <span style={{ width: 3, height: 16, borderRadius: 2, background: accent }} />
+                <h3 className="m-0 font-['Outfit',sans-serif] text-[14.5px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">{cfg.label}</h3>
+                <span className="text-[11px] font-bold text-[var(--text-faint)]">{list.length}</span>
               </div>
-              {/* Featured — didelė kortelė su cover'iu kairėje + metų pill'u. */}
-              {featured && (
-                <Link href={featured.href} className="group flex items-center gap-3 border-b border-[var(--border-subtle)] p-3 no-underline transition-colors hover:bg-[var(--bg-hover)]">
-                  <IstThumb cover={featured.cover} name={featured.title} size={64} radius={12} />
-                  <div className="min-w-0 flex-1">
-                    <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{featured.title}</p>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <span className="rounded-full px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold text-white" style={{ background: accent }}>{featured.subtitle}</span>
-                      {featured.year && <span className="text-[10.5px] text-[var(--text-faint)]">{featured.year} m.</span>}
-                    </div>
-                  </div>
-                </Link>
-              )}
-              {/* Kompaktiški likę įrašai. */}
-              <div className="flex-1">
-                {rest.map((it, i) => (
-                  <Link
-                    key={it.id}
-                    href={it.href}
-                    className={`flex items-center gap-2.5 px-3.5 py-2 no-underline transition-colors hover:bg-[var(--bg-hover)] ${i < rest.length - 1 ? 'border-b border-[var(--border-subtle)]' : ''}`}
-                  >
-                    <IstThumb cover={it.cover} name={it.title} size={40} radius={8} />
-                    <div className="min-w-0 flex-1">
-                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)]">{it.title}</p>
-                      <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{it.subtitle}</p>
-                    </div>
-                  </Link>
-                ))}
+              <div className="flex items-stretch gap-3">
+                <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
+                  {list.slice(0, 14).map(it => (
+                    <Link
+                      key={it.id}
+                      href={it.href}
+                      className="group block shrink-0 no-underline text-left"
+                      style={{ width: 156 }}
+                    >
+                      <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+                        {it.cover ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center font-['Outfit',sans-serif] font-extrabold" style={{ fontSize: 46, background: `hsl(${strHue(it.title)},32%,20%)`, color: `hsl(${strHue(it.title)},48%,58%)` }}>
+                            {(it.title || '?').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        {it.year && (
+                          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{it.year} m.</span>
+                        )}
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                      </div>
+                      <div className="mt-2 px-0.5">
+                        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
+                        <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">{it.subtitle}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+                {list.length > 0 && (
+                  <StickyMoreButton
+                    count={list.length}
+                    height={200}
+                    ariaLabel={`Žiūrėti visus (${list.length})`}
+                    onClick={() => setOpenCat(t)}
+                  />
+                )}
               </div>
             </div>
           )
@@ -2771,7 +2884,9 @@ export default function Home() {
         .hp-skel{background:var(--homepage-skeleton-bg);animation:hp-pulse 1.8s ease-in-out infinite}
         .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
         .hp-hero-slot{width:580px;flex-shrink:0;min-width:0}
-        @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 80px) / 2)}}
+        /* >=1400px: siauresnės kortelės, kad 3-čia naujiena aiškiau matytųsi
+           (peek ~38% vietoj ankstesnio ~10%). Edvardo prašymu 2026-05-31. */
+        @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 64px) / 2.3)}}
         @media(max-width:768px){.hp-hero-slot{width:calc(88vw)}}
         .hp-scroll::-webkit-scrollbar{display:none}
         /* 2026-05-29: desktop side-scroll rodyklės pašalintos (Edvardo prašymu) —
@@ -3120,11 +3235,11 @@ export default function Home() {
                           )
                         })}
                       </div>
-                      {total > items.slice(0, 14).length && (
+                      {items.length > 0 && (
                         <StickyMoreButton
-                          count={total}
+                          count={total || items.length}
                           height={156}
-                          ariaLabel={`Žiūrėti visus (${total})`}
+                          ariaLabel={`Žiūrėti visus (${total || items.length})`}
                           onClick={() => setListModal(`tracks-${lane}`)}
                         />
                       )}
@@ -3235,11 +3350,11 @@ export default function Home() {
                         )
                       })}
                       </div>
-                      {total > items.slice(0, 14).length && (
+                      {items.length > 0 && (
                         <StickyMoreButton
-                          count={total}
+                          count={total || items.length}
                           height={200}
-                          ariaLabel={`Žiūrėti visus (${total})`}
+                          ariaLabel={`Žiūrėti visus (${total || items.length})`}
                           onClick={() => setListModal(`albums-${lane}`)}
                         />
                       )}
@@ -3307,11 +3422,11 @@ export default function Home() {
                       )
                     })}
                     </div>
-                    {totals.upcoming > upcomingAlbums.slice(0, 14).length && (
+                    {upcomingAlbums.length > 0 && (
                       <StickyMoreButton
-                        count={totals.upcoming}
+                        count={totals.upcoming || upcomingAlbums.length}
                         height={200}
-                        ariaLabel={`Žiūrėti visus (${totals.upcoming})`}
+                        ariaLabel={`Žiūrėti visus (${totals.upcoming || upcomingAlbums.length})`}
                         onClick={() => setListModal('upcoming')}
                       />
                     )}
@@ -3526,7 +3641,7 @@ export default function Home() {
             }
           >
           <section>
-            <SectionHead label="Dienos daina" href="/dienos-daina" cta="Visi kandidatai →" />
+            <SectionHead label="Dienos daina" href="/dienos-daina" cta="Daugiau →" />
             <DienosDainaSection onOpenTrack={(t) => setOpenTrack(t)} />
           </section>
           </LazySection>

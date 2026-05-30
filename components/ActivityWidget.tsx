@@ -14,7 +14,7 @@ import { proxyImg } from '@/lib/img-proxy'
 type Ev = {
   id: string; event_type: string; actor_name: string | null; actor_avatar: string | null
   entity_type: string | null; entity_title: string | null; entity_url: string | null
-  entity_image?: string | null; created_at: string
+  entity_image?: string | null; created_at: string; metadata?: any
 }
 
 function timeAgoShort(d: string): string {
@@ -35,7 +35,7 @@ const VERB: Record<string, string> = {
   daily_nomination: 'pasiūlė dienos dainą',
   vote: 'balsavo už',
   daily_vote: 'balsavo už dienos dainą',
-  top_vote: 'balsavo topų balsavime už',
+  top_vote: 'balsavo', // chart'as (LT TOP 30 / TOP 40) pridedamas atskirai Row'e
   voting_vote: 'balsavo už',
   like: 'pamėgo',
   track_like: 'pamėgo dainą',
@@ -54,6 +54,13 @@ function verbFor(t: string): string { return VERB[t] || 'atnaujino' }
 function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
   const name = e.actor_name || 'Vartotojas'
   const verb = verbFor(e.event_type)
+  // top_vote — rodom konkretų topą („LT TOP 30" / „TOP 40") su nuoroda į jį,
+  // o NE dainos pavadinimą. Anksčiau buvo „balsavo topų balsavime už <daina>"
+  // su nuoroda į /top40 — beprasmiška. 2026-05-31.
+  const isTopVote = e.event_type === 'top_vote'
+  const topIsLt = e.metadata?.top_type === 'lt_top30'
+  const topLabel = topIsLt ? 'LT TOP 30' : 'TOP 40'
+  const topUrl = topIsLt ? '/top30' : '/top40'
   // Modale daugiau vietos — didesnis avatar'as + didesnė entity mini nuotrauka.
   const av = inModal ? 'h-8 w-8' : 'h-7 w-7'
   const thumb = inModal ? 'h-11 w-11 rounded-lg' : 'h-8 w-8 rounded-md'
@@ -68,7 +75,9 @@ function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
       <div className="min-w-0 flex-1">
         <p className={`m-0 leading-snug text-[var(--text-secondary)] ${inModal ? 'text-[12.5px]' : 'text-[12px]'}`}>
           <span className="font-extrabold text-[var(--text-primary)]">{name}</span> {verb}
-          {e.entity_title ? (
+          {isTopVote ? (
+            <> <Link href={topUrl} className="font-bold text-[var(--accent-link)] no-underline hover:underline">{topLabel}</Link></>
+          ) : e.entity_title ? (
             e.entity_url
               ? <> <Link href={e.entity_url} className="font-bold text-[var(--accent-link)] no-underline hover:underline">{e.entity_title}</Link></>
               : <> <span className="font-bold text-[var(--text-primary)]">{e.entity_title}</span></>
@@ -76,7 +85,7 @@ function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
         </p>
         <p className="m-0 mt-0.5 text-[9.5px] text-[var(--text-faint)]">{timeAgoShort(e.created_at)}</p>
       </div>
-      {e.entity_image && (
+      {e.entity_image && !isTopVote && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={proxyImg(e.entity_image)} alt="" className={`${thumb} shrink-0 object-cover`} />
       )}

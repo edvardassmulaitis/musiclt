@@ -3,8 +3,14 @@
 // components/HomeListModal.tsx
 //
 // Universalus „pilno sąrašo" modalas homepage'o sekcijoms. Atidaromas paspaudus
-// „peržiūrėti visą" (grid) elementą horizontalios juostos pabaigoje.
-// `StickyMoreButton` — kompaktiškas vertikalus mygtukas su grid ikona.
+// elegantišką siaurą „+N" elementą horizontalios juostos pabaigoje, kuris yra
+// VISADA matomas dešinėje (sticky outside scroll'inamo container'io).
+//
+// `StickyMoreButton` — kompaktiškas siauras vertikalus button'as (50px pločio)
+// su tik skaičiumi. Stovi šalia scroll'inamo content'o, ne jame.
+//
+// Generic — `HomeListModal` priima vaikų funkciją (render prop), kad konkreti
+// sekcija pati nuspręstų kaip rodyti kiekvieną item'ą.
 
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -107,7 +113,18 @@ export function HomeListModal({
   )
 }
 
-/** Kompaktiškas vertikalus „peržiūrėti visą sąrašą" mygtukas (grid ikona). */
+/** Kompaktiškas siauras vertikalus „+N" button'as. Stovi šalia scroll'inamo
+ *  content'o, ne jame — todėl visada matomas dešinėje sekcijos pusėje, kai
+ *  user'is dar nepradėjo scroll'inti.
+ *
+ *  Naudojimas:
+ *  ```tsx
+ *  <div className="flex items-stretch gap-3">
+ *    <div className="flex-1 min-w-0 hp-scroll flex gap-3">...items</div>
+ *    <StickyMoreButton count={42} onClick={...} height={130} />
+ *  </div>
+ *  ```
+ */
 export function StickyMoreButton({
   count,
   onClick,
@@ -116,10 +133,15 @@ export function StickyMoreButton({
 }: {
   count: number
   onClick: () => void
+  /** Container height (= scroll item aukštis), kad button'as tampa lygus
+   *  kortelei. Pvz. albumams 184px (cover+text), tracks 70px, events 130px. */
   height: number
   ariaLabel?: string
 }) {
   if (count <= 0) return null
+  // 2026-05-29 v2: minimalistinis „expand" mygtukas — BE skaičiaus ir BE žodžio
+  // (Edvardas: ikona turi pati aiškiai reikšti „atverti pilną vaizdą"). Naudojam
+  // standartinę diagonal-arrows fullscreen/expand ikoną.
   return (
     <button
       type="button"
@@ -137,12 +159,22 @@ export function StickyMoreButton({
         fontFamily: 'Outfit,sans-serif',
       }}
     >
-      {/* 2x2 grid ikona — „peržiūrėti visą sąrašą" (view all). */}
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="transition-colors group-hover:fill-[var(--accent-orange)]">
+      {/* Desktop (≥640px): 2x2 grid ikona — „peržiūrėti visą sąrašą". Mobile:
+          „list" ikona (eilutės+taškai), kaip artist page player'io dainų sąraše.
+          Edvardo prašymu 2026-05-31 — mobile button'as turi atrodyti kitaip. */}
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="hidden sm:block transition-colors group-hover:fill-[var(--accent-orange)]">
         <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" />
         <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
         <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" />
         <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
+      </svg>
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="block sm:hidden transition-colors group-hover:stroke-[var(--accent-orange)]">
+        <line x1="8" y1="6" x2="20" y2="6" />
+        <line x1="8" y1="12" x2="20" y2="12" />
+        <line x1="8" y1="18" x2="20" y2="18" />
+        <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" />
+        <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" />
       </svg>
     </button>
   )
