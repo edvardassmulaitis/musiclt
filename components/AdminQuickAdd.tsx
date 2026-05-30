@@ -161,6 +161,9 @@ function ResultCard({ result }: { result: Result }) {
             <Chip tone={result.detail.embeddable === false ? 'warn' : 'default'}>
               {result.detail.embeddable === false ? 'embed blokuotas' : 'embed ✓'}
             </Chip>
+            {(result.detail.featuring || []).length > 0 && (
+              <Chip tone="ok">feat. {result.detail.featuring.join(', ')}</Chip>
+            )}
           </>
         ) : (
           <>

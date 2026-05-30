@@ -29,6 +29,7 @@ import { COUNTRIES, SUBSTYLES } from '@/lib/constants'
 import * as wiki from '@/lib/wiki-parser'
 import { createAlbum, type AlbumFull, type TrackInAlbum } from '@/lib/supabase-albums'
 import { slugify } from '@/lib/slugify'
+import { syncTrackFeaturing } from '@/lib/featuring-utils'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Tipai
@@ -54,6 +55,7 @@ export type QuickAddResult =
         embeddable: boolean | null
         lyrics_found: boolean
         spotify_found: boolean
+        featuring: string[]
       }
       warnings: string[]
     }
@@ -189,6 +191,29 @@ export function parseYtTitle(
 // Atlikėjo resolve / create
 // ────────────────────────────────────────────────────────────────────────────
 
+/** Tik paieška (be kūrimo) — pagal slug arba name ilike. */
+async function matchExistingArtist(
+  supabase: ReturnType<typeof createAdminClient>,
+  rawName: string
+): Promise<QuickAddArtist | null> {
+  const name = wiki.cleanArtistName(rawName || '')
+  if (!name || name.length < 2) return null
+  const slug = slugify(name)
+  const bySlug = await supabase
+    .from('artists').select('id, name, slug').eq('slug', slug).maybeSingle()
+  if (bySlug.data) {
+    const a: any = bySlug.data
+    return { id: a.id, name: a.name, slug: a.slug, created: false }
+  }
+  const byName = await supabase
+    .from('artists').select('id, name, slug').ilike('name', name).maybeSingle()
+  if (byName.data) {
+    const a: any = byName.data
+    return { id: a.id, name: a.name, slug: a.slug, created: false }
+  }
+  return null
+}
+
 /**
  * Suranda atlikėją pagal slug arba name (ilike). Jei neranda — sukuria minimalų.
  * `enrich` parametras (tik album flow): jei sukurtas naujas atlikėjas, papildo
@@ -204,20 +229,9 @@ async function resolveArtist(
 
   const slug = slugify(name)
 
-  // 1) slug match
-  const bySlug = await supabase
-    .from('artists').select('id, name, slug').eq('slug', slug).maybeSingle()
-  if (bySlug.data) {
-    const a: any = bySlug.data
-    return { id: a.id, name: a.name, slug: a.slug, created: false }
-  }
-  // 2) name ilike match
-  const byName = await supabase
-    .from('artists').select('id, name, slug').ilike('name', name).maybeSingle()
-  if (byName.data) {
-    const a: any = byName.data
-    return { id: a.id, name: a.name, slug: a.slug, created: false }
-  }
+  // 1+2) esamo atlikėjo paieška
+  const existing = await matchExistingArtist(supabase, name)
+  if (existing) return existing
 
   // 3) Sukuriam naują. Bandom light enrichment iš atlikėjo Wiki page'o.
   let country = 'Lietuva'
@@ -281,6 +295,75 @@ async function resolveArtist(
   }
 
   return { id: a.id, name: a.name, slug: a.slug, created: true }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Kolaboracijų atpažinimas (atlikėjų segmentas → primary + featuring)
+// ────────────────────────────────────────────────────────────────────────────
+
+// Stiprūs (vienareikšmiai) kolab. skirtukai — feat/ft/featuring/vs/x/×/✕.
+// „x" tik kaip atskiras žodis tarp tarpų (kad nesuskaldytų „Maxx").
+const STRONG_SEP = /\s+(?:feat\.?|ft\.?|featuring|vs\.?|x|×|✕)\s+/i
+// Silpni (dviprasmiški) skirtukai — &, „,", +, „with". Daug grupių vardų juos
+// turi (Simon & Garfunkel, Earth, Wind & Fire), todėl naudojami TIK kai bent
+// 2 dalys atitinka jau egzistuojančius atlikėjus.
+const WEAK_SEP = /\s*(?:&|,|\+|\swith\s)\s*/i
+
+function splitArtistSegment(segment: string): { parts: string[]; strong: boolean } {
+  if (STRONG_SEP.test(segment)) {
+    const parts = segment.split(STRONG_SEP).map((s) => s.trim()).filter(Boolean)
+    if (parts.length >= 2) return { parts, strong: true }
+  }
+  if (WEAK_SEP.test(segment)) {
+    const parts = segment.split(WEAK_SEP).map((s) => s.trim()).filter(Boolean)
+    if (parts.length >= 2) return { parts, strong: false }
+  }
+  return { parts: [segment.trim()], strong: true }
+}
+
+/**
+ * Atlikėjų segmentą (pvz „AKLI x MĖLYNA") paverčia į primary atlikėją +
+ * featuring vardų sąrašą. Logika:
+ *   1) jei VISAS segmentas atitinka egzistuojantį atlikėją → naudojam jį
+ *      (apsaugo „Simon & Garfunkel" tipo registruotus vardus).
+ *   2) skaidom pagal skirtukus. Stiprūs (x/feat/vs) → visada kolaboracija;
+ *      silpni (&/,/with) → kolaboracija TIK jei ≥2 dalys atitinka esamus.
+ *   3) primary = pirma dalis (match arba sukuriam), likusios → featuring.
+ *      NIEKADA nesukuriam sujungto „A x B" atlikėjo.
+ */
+async function resolveTrackArtists(
+  supabase: ReturnType<typeof createAdminClient>,
+  segment: string
+): Promise<{ primary: QuickAddArtist; featuringNames: string[] } | null> {
+  const seg = (segment || '').trim()
+  if (!seg) return null
+
+  // 1) visas segmentas kaip vienas (registruotas) atlikėjas
+  const whole = await matchExistingArtist(supabase, seg)
+  if (whole) return { primary: whole, featuringNames: [] }
+
+  // 2) skaidymas
+  const { parts, strong } = splitArtistSegment(seg)
+  if (parts.length < 2) {
+    const primary = await resolveArtist(supabase, seg)
+    return primary ? { primary, featuringNames: [] } : null
+  }
+
+  // Patikrinam kiek dalių atitinka esamus atlikėjus
+  const matched = await Promise.all(parts.map((p) => matchExistingArtist(supabase, p)))
+  const matchedCount = matched.filter(Boolean).length
+
+  if (strong || matchedCount >= 2) {
+    // Kolaboracija — primary = pirma dalis
+    const primary = matched[0] || (await resolveArtist(supabase, parts[0]))
+    if (!primary) return null
+    const featuringNames = parts.slice(1)
+    return { primary, featuringNames }
+  }
+
+  // Silpnas skirtukas, per mažai atitikmenų → traktuojam kaip vieną atlikėją
+  const primary = await resolveArtist(supabase, seg)
+  return primary ? { primary, featuringNames: [] } : null
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -496,13 +579,27 @@ export async function quickAddTrack(url: string, origin: string): Promise<QuickA
     embeddable = null
   }
 
-  const { artist: artistName, title } = parseYtTitle(details.title || '', channelName)
-  if (!title) return { ok: false, kind: 'track', error: 'Nepavyko atskirti dainos pavadinimo iš video' }
+  const { artist: artistName, title: rawTitle } = parseYtTitle(details.title || '', channelName)
+  if (!rawTitle) return { ok: false, kind: 'track', error: 'Nepavyko atskirti dainos pavadinimo iš video' }
   if (!artistName) return { ok: false, kind: 'track', error: 'Nepavyko atskirti atlikėjo iš video' }
 
-  const artist = await resolveArtist(supabase, artistName)
-  if (!artist) return { ok: false, kind: 'track', error: `Nepavyko priskirti/sukurti atlikėjo: „${artistName}"` }
+  // Iš pavadinimo ištraukiam „(feat. X)" → švarus title + featuring vardai
+  ensureWikiInit()
+  const { cleanTitle, featuring: titleFeats } = wiki.parseFeaturing(rawTitle)
+  const title = (cleanTitle || rawTitle).trim()
+
+  // Atlikėjo segmentas → primary + kolaboracijos (NIEKADA nesukuriam „A x B")
+  const resolved = await resolveTrackArtists(supabase, artistName)
+  if (!resolved) return { ok: false, kind: 'track', error: `Nepavyko priskirti/sukurti atlikėjo: „${artistName}"` }
+  const artist = resolved.primary
   if (artist.created) warnings.push(`Sukurtas naujas atlikėjas „${artist.name}" (papildyk info rankiniu būdu).`)
+
+  // Visi kolaboratoriai (iš atlikėjo segmento + iš title feat.) be primary
+  const featuringNames = Array.from(new Set(
+    [...resolved.featuringNames, ...(titleFeats || [])]
+      .map((n) => n.trim())
+      .filter((n) => n && slugify(n) !== artist.slug && wiki.cleanArtistName(n).toLowerCase() !== artist.name.toLowerCase())
+  ))
 
   // Įkėlimo data → release date
   let ry: number | null = null, rm: number | null = null, rd: number | null = null
@@ -560,6 +657,17 @@ export async function quickAddTrack(url: string, origin: string): Promise<QuickA
     trackSlug = (created as any).slug
   }
 
+  // Kolaboratoriai → track_artists (is_primary=false). NIEKADA nekuriam
+  // sujungto „A x B" atlikėjo; čia susiejam atskirus.
+  if (featuringNames.length) {
+    try {
+      const added = await syncTrackFeaturing(supabase, trackId, featuringNames)
+      if (added > 0) warnings.push(`Kolaboracija: prisegti ${added} atlikėjai (${featuringNames.join(', ')}).`)
+    } catch (e: any) {
+      warnings.push(`Featuring susiejimas nepavyko: ${String(e?.message || e).slice(0, 80)}`)
+    }
+  }
+
   // Enrich: video_views (+ uždeda video_uploaded_at jei dar nebuvo)
   let views: number | null = details.viewCount ?? null
   try {
@@ -608,6 +716,7 @@ export async function quickAddTrack(url: string, origin: string): Promise<QuickA
       embeddable,
       lyrics_found: lyricsFound,
       spotify_found: spotifyFound,
+      featuring: featuringNames,
     },
     warnings,
   }
