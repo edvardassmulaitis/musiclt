@@ -9,6 +9,13 @@
 //
 // Vienas sitemap failas talpina iki 50k URL — 12k atlikėjų telpa laisvai.
 // revalidate=86400 → perskaičiuojama kartą per parą.
+//
+// 2026-05-31 (deploy fix): VISAS DB fetch'as apgaubtas try/catch. Priežastis —
+// `createAdminClient()` per `next build` (build-time prerender) gali mesti
+// „supabaseKey is required", jei SUPABASE_SERVICE_ROLE_KEY nėra prieinamas
+// build environment'e. Tai nutrenkdavo VISĄ deploy'ą (/sitemap.xml prerender
+// error). Dabar — jei build'e DB nepasiekiamas, grąžinam bent statinius
+// puslapius; runtime revalidate (env JAU yra) vėliau papildo pilną sąrašą.
 
 import type { MetadataRoute } from 'next'
 import { createAdminClient } from '@/lib/supabase'
@@ -55,7 +62,6 @@ async function topCountries(): Promise<string[]> {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
-  const [artists, genres, countries] = await Promise.all([allArtists(), genreSlugs(), topCountries()])
 
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, lastModified: now, changeFrequency: 'daily', priority: 1.0 },
@@ -66,24 +72,34 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/zanrai`, lastModified: now, changeFrequency: 'weekly', priority: 0.5 },
   ]
 
-  // Atlikėjų facet landing'ai (šalis / žanras) — vertingi SEO puslapiai.
-  const facetPages: MetadataRoute.Sitemap = [
-    { url: `${SITE_URL}/atlikejai?country=lt`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
-    { url: `${SITE_URL}/atlikejai?country=world`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
-    ...countries.map((c) => ({
-      url: `${SITE_URL}/atlikejai?country=${c}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.5,
-    })),
-    ...genres.map((g) => ({
-      url: `${SITE_URL}/atlikejai?genre=${g}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.6,
-    })),
-  ]
+  try {
+    const [artists, genres, countries] = await Promise.all([allArtists(), genreSlugs(), topCountries()])
 
-  const artistPages: MetadataRoute.Sitemap = artists.map((a) => ({
-    url: `${SITE_URL}/atlikejai/${a.slug}`,
-    lastModified: a.updated_at ? new Date(a.updated_at) : a.created_at ? new Date(a.created_at) : now,
-    changeFrequency: 'weekly',
-    priority: 0.6,
-  }))
+    // Atlikėjų facet landing'ai (šalis / žanras) — vertingi SEO puslapiai.
+    const facetPages: MetadataRoute.Sitemap = [
+      { url: `${SITE_URL}/atlikejai?country=lt`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
+      { url: `${SITE_URL}/atlikejai?country=world`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
+      ...countries.map((c) => ({
+        url: `${SITE_URL}/atlikejai?country=${c}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.5,
+      })),
+      ...genres.map((g) => ({
+        url: `${SITE_URL}/atlikejai?genre=${g}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.6,
+      })),
+    ]
 
-  return [...staticPages, ...facetPages, ...artistPages]
+    const artistPages: MetadataRoute.Sitemap = artists.map((a) => ({
+      url: `${SITE_URL}/atlikejai/${a.slug}`,
+      lastModified: a.updated_at ? new Date(a.updated_at) : a.created_at ? new Date(a.created_at) : now,
+      changeFrequency: 'weekly' as const,
+      priority: 0.6,
+    }))
+
+    return [...staticPages, ...facetPages, ...artistPages]
+  } catch (e) {
+    // Build-time DB nepasiekiamas (pvz. nėra SUPABASE_SERVICE_ROLE_KEY build'e) —
+    // NEGRIAUNAM deploy'o. Grąžinam bent statinius puslapius; runtime revalidate
+    // (per 24h) papildys pilną atlikėjų sąrašą, kai env jau bus prieinamas.
+    console.error('[sitemap] DB fetch failed at build/runtime, returning static-only:', (e as any)?.message || e)
+    return staticPages
+  }
 }
