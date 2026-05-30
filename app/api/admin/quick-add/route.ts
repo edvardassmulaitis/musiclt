@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   try {
     const result = kind === 'track'
       ? await quickAddTrack(url, origin)
-      : await quickAddAlbum(url)
+      : await quickAddAlbum(url, origin)
     return NextResponse.json(result, { status: result.ok ? 200 : 422 })
   } catch (e: any) {
     return NextResponse.json({ ok: false, kind, error: String(e?.message || e).slice(0, 300) }, { status: 500 })

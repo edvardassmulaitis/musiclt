@@ -307,19 +307,64 @@ async function fetchWikitext(title: string): Promise<string> {
   return first?.revisions?.[0]?.slots?.main?.['*'] || ''
 }
 
-async function fetchCoverImage(title: string): Promise<string | null> {
+/** Resolvina File:Name → tikslus failo URL (album cover'iams, kuriuos
+ *  pageimages API praleidžia, nes jie non-free fair-use). */
+async function resolveWikiFileUrl(fileName: string): Promise<string | null> {
+  const clean = fileName.replace(/^\s*\[\[/, '').replace(/\]\]\s*$/, '').replace(/^File:/i, '').split('|')[0].trim()
+  if (!clean) return null
   try {
     const r = await fetch(
-      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&pithumbsize=600&piprop=thumbnail&format=json&origin=*`,
+      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent('File:' + clean)}&prop=imageinfo&iiprop=url&iiurlwidth=600&format=json&origin=*`,
       { signal: AbortSignal.timeout(10000) }
     )
     const j = await r.json()
-    const pages = j?.query?.pages || {}
-    const first: any = Object.values(pages)[0]
-    return first?.thumbnail?.source || null
+    const first: any = Object.values(j?.query?.pages || {})[0]
+    return first?.imageinfo?.[0]?.thumburl || first?.imageinfo?.[0]?.url || null
   } catch {
     return null
   }
+}
+
+/** Albumo viršelis: REST summary (grąžina ir non-free infobox cover) →
+ *  fallback į `| cover =` failą iš wikitext'o. Radus — rehost'ina į mūsų
+ *  storage'ą per /api/fetch-image (kaip Wiki Disco importas). */
+async function fetchAlbumCover(title: string, wikitext: string, origin: string): Promise<string | null> {
+  let src: string | null = null
+
+  // 1) REST summary — album cover'iai čia paprastai grąžinami
+  try {
+    const s = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
+      { signal: AbortSignal.timeout(10000) }
+    )
+    if (s.ok) {
+      const sj = await s.json()
+      src = sj?.originalimage?.source || sj?.thumbnail?.source || null
+    }
+  } catch { /* ignore */ }
+
+  // 2) Fallback — infobox `| cover =` failas
+  if (!src) {
+    const coverField = wiki.extractFieldNested(wikitext, 'cover') || wiki.extractFieldNested(wikitext, 'Cover')
+    if (coverField) src = await resolveWikiFileUrl(coverField)
+  }
+
+  if (!src) return null
+
+  // 3) Rehost į mūsų storage'ą (best-effort — nepavykus paliekam Wiki URL)
+  try {
+    const r = await fetch(`${origin}/api/fetch-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: src }),
+      signal: AbortSignal.timeout(20000),
+    })
+    if (r.ok) {
+      const d = await r.json()
+      if (d?.url && !String(d.url).startsWith('data:')) return d.url
+    }
+  } catch { /* ignore */ }
+  return src
 }
 
 type ArtistWikiMeta = {
@@ -572,7 +617,7 @@ export async function quickAddTrack(url: string, origin: string): Promise<QuickA
 // quickAddAlbum
 // ────────────────────────────────────────────────────────────────────────────
 
-export async function quickAddAlbum(url: string): Promise<QuickAddResult> {
+export async function quickAddAlbum(url: string, origin: string): Promise<QuickAddResult> {
   ensureWikiInit()
   const supabase = createAdminClient()
   const warnings: string[] = []
@@ -606,8 +651,8 @@ export async function quickAddAlbum(url: string): Promise<QuickAddResult> {
   const date = parseAlbumReleaseDate(wikitext)
   // Tipo flag'ai
   const typeFlags = albumTypeFlags(wikitext)
-  // Cover
-  const cover = await fetchCoverImage(pageTitle)
+  // Cover (REST summary + infobox cover fallback + rehost)
+  const cover = await fetchAlbumCover(pageTitle, wikitext, origin)
   if (!cover) warnings.push('Nerastas albumo viršelis.')
 
   // Žanrai
