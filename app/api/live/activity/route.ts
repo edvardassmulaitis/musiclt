@@ -64,7 +64,7 @@ export async function GET(req: Request) {
     const artistImg = new Map<number, string>()
     const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
     try {
-      const tasks: Promise<any>[] = []
+      const tasks: PromiseLike<any>[] = []
       if (byType.track?.size) {
         tasks.push(supabase.from('tracks')
           .select('id, cover_url, video_url, artist:artist_id(cover_image_url)')

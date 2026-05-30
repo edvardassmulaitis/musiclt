@@ -165,7 +165,7 @@ export async function GET(req: NextRequest) {
     }
     const CYT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
     try {
-      const tasks: Promise<any>[] = []
+      const tasks: PromiseLike<any>[] = []
       if (cIdsByType.track?.size) {
         tasks.push(sb.from('tracks')
           .select('legacy_id, title, slug, cover_url, video_url, artist:artist_id(slug, cover_image_url)')
