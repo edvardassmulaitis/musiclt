@@ -1086,7 +1086,7 @@ function ProposerLine({ p }: { p?: Proposer | null }) {
       ) : (
         <span className="flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full text-[7px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</span>
       )}
-      <span className="truncate text-[10px] text-[var(--text-faint)]">Pasiūlė {name}</span>
+      <span className="truncate text-[10.5px] text-[var(--text-muted)]">Pasiūlė <span className="font-semibold text-[var(--text-secondary)]">{name}</span></span>
     </span>
   )
 }
@@ -1216,7 +1216,7 @@ function DainaWinnerCard({ w, onOpenTrack }: { w: DainaWinner; onOpenTrack: (t: 
       type="button"
       onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
       className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
-      style={{ width: 200 }}
+      style={{ width: 188 }}
     >
       <div className="relative aspect-video overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]" style={{ borderColor: 'rgba(249,115,22,0.5)' }}>
         {imgSrc ? (
@@ -1310,17 +1310,19 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
   }
 
   // Vertikali kortelė — toks pat dizainas kaip „Naujos dainos" (16:9 cover +
-  // info apačioje), papildomai su rank badge'u, balsų skaičiumi ir „Balsuoti"
-  // mygtuku. 2026-05-31.
-  const NomCard = ({ n, idx }: { n: Nomination; idx: number }) => {
+  // info apačioje). Balsai rodomi pop-bar dash'ais (ne tiksliais skaičiais —
+  // „daugiau paslapties kas laimi"), rank skaičius pašalintas (painiojosi su
+  // balsais). Balsavimo mygtukas — subtilus pill, ne bulky juosta. 2026-05-31.
+  const NomCard = ({ n }: { n: Nomination; idx?: number }) => {
     const t = n.tracks!
     const votes = n.weighted_votes || n.votes || 0
+    const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
     const v = extractYouTubeId(t.video_url)
     const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
     const imgSrc = t.cover_url || ytThumb || t.artists?.cover_image_url || null
     const isVotedThis = votedNominationId === n.id
     return (
-      <div className="group flex shrink-0 flex-col" style={{ width: 200 }}>
+      <div className="group flex shrink-0 flex-col" style={{ width: 188 }}>
         <button
           type="button"
           onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
@@ -1333,33 +1335,34 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
             ) : (
               <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
             )}
-            {idx < 3 && (
-              <span className="absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] font-['Outfit',sans-serif] text-[10px] font-black text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">{idx + 1}</span>
-            )}
-            <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{votes} bal.</span>
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           </div>
           <div className="mt-2 px-0.5">
-            <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-            <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</p>
+            <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+            <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
           </div>
         </button>
-        <div className="mt-2 px-0.5">
+        {/* Balsai (dash'ai) + subtilus „Balsuoti" pill viename row'e. */}
+        <div className="mt-1.5 flex items-center justify-between gap-2 px-0.5">
+          <span className="flex items-center gap-[3px]" aria-label={`Balsų lygis ${level}/5`}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span key={i} className={`h-[3px] w-[11px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+            ))}
+          </span>
           <button
             type="button"
             onClick={() => handleVote(n.id)}
             disabled={hasVoted || voting !== null}
-            className={`w-full rounded-lg py-[7px] font-['Outfit',sans-serif] text-[11.5px] font-extrabold transition-all ${
-              isVotedThis ? 'cursor-default' : hasVoted ? 'cursor-not-allowed opacity-40' : 'hover:-translate-y-px'
+            className={`shrink-0 rounded-full px-2.5 py-[3px] font-['Outfit',sans-serif] text-[10.5px] font-extrabold transition-all ${
+              isVotedThis ? 'cursor-default' : hasVoted ? 'cursor-not-allowed opacity-40' : 'hover:bg-[rgba(249,115,22,0.12)]'
             }`}
             style={{
-              background: isVotedThis ? 'rgba(249,115,22,0.15)' : hasVoted ? 'var(--bg-surface)' : 'var(--accent-orange)',
-              color: isVotedThis ? 'var(--accent-orange)' : hasVoted ? 'var(--text-muted)' : '#fff',
-              border: isVotedThis ? '1px solid rgba(249,115,22,0.4)' : '1px solid transparent',
-              boxShadow: !hasVoted ? '0 2px 10px rgba(249,115,22,0.28)' : 'none',
+              background: isVotedThis ? 'rgba(249,115,22,0.14)' : 'transparent',
+              color: 'var(--accent-orange)',
+              border: '1px solid rgba(249,115,22,0.4)',
             }}
           >
-            {voting === n.id ? '…' : isVotedThis ? '✓ Balsavai' : 'Balsuoti'}
+            {voting === n.id ? '…' : isVotedThis ? '✓' : 'Balsuoti'}
           </button>
         </div>
         {n.proposer && <div className="mt-1.5 px-0.5"><ProposerLine p={n.proposer} /></div>}
@@ -1369,43 +1372,45 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
 
   return (
     <>
-      {/* Aiškus balsavimo paaiškinimas + „Pasiūlyti dainą" (visada matomi). */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="m-0 max-w-[520px] text-[12px] leading-snug text-[var(--text-muted)]">
-          Balsuok už šiandienos dainą — daugiausiai balsų surinkusi vakaro gale tampa dienos daina. Balsuoti gali ir neprisijungęs (1 balsas per dieną).
+      {/* Header: paaiškinimas + „Visi pasiūlymai" link (atveria modalą su balsais)
+          + „Pasiūlyti dainą". „Visi pasiūlymai" rodomas tik kai yra ≥2 (kitaip
+          atrodo keistai). 2026-05-31. */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <p className="m-0 max-w-[480px] text-[12px] leading-snug text-[var(--text-muted)]">
+          Balsuok už šiandienos dainą — daugiausiai balsų surinkusi vakaro gale tampa dienos daina. Galima ir neprisijungus (1 balsas/d.).
         </p>
-        <button
-          type="button"
-          onClick={() => setSuggestOpen(true)}
-          className="shrink-0 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px"
-        >
-          + Pasiūlyti dainą
-        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          {sorted.length >= 2 && (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-link)] transition-colors hover:text-[var(--accent-orange)]"
+            >
+              Visi pasiūlymai ({sorted.length}) →
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setSuggestOpen(true)}
+            className="rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px"
+          >
+            + Pasiūlyti dainą
+          </button>
+        </div>
       </div>
       {voteErr && (
         <p className="mb-2 text-[11.5px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</p>
       )}
 
-      <div className="flex items-stretch gap-3">
-        <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
-          {/* Vakar laimėjusi daina — pirma. */}
-          {winner?.tracks && <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} />}
+      <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
+        {/* Vakar laimėjusi daina — pirma. */}
+        {winner?.tracks && <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} />}
 
-          {sorted.length === 0 ? (
-            <div className="flex h-[200px] flex-1 items-center rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 text-[12px] text-[var(--text-muted)]">
-              Šiandien kandidatų dar nėra — pasiūlyk pirmas.
-            </div>
-          ) : sorted.slice(0, 14).map((n, idx) => <NomCard key={n.id} n={n} idx={idx} />)}
-        </div>
-        {/* Pilno sąrašo modalas — tas pats „+N" button'as kaip kitose sekcijose. */}
-        {sorted.length > 0 && (
-          <StickyMoreButton
-            count={sorted.length}
-            height={206}
-            ariaLabel={`Žiūrėti visus (${sorted.length})`}
-            onClick={() => setModalOpen(true)}
-          />
-        )}
+        {sorted.length === 0 ? (
+          <div className="flex h-[190px] flex-1 items-center rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 text-[12px] text-[var(--text-muted)]">
+            Šiandien kandidatų dar nėra — pasiūlyk pirmas.
+          </div>
+        ) : sorted.slice(0, 14).map((n) => <NomCard key={n.id} n={n} />)}
       </div>
 
       {modalOpen && (
@@ -3631,7 +3636,7 @@ export default function Home() {
             minHeight={220}
             placeholder={
               <section>
-                <SectionHead label="Dienos daina" href="/dienos-daina" cta="Daugiau →" />
+                <SectionHead label="Dienos daina" />
                 <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4" style={{ maxWidth: 560 }}>
                   <Skel w="40%" h={11} />
                   <div className="mt-3"><Skel w="100%" h={48} /></div>
@@ -3641,7 +3646,7 @@ export default function Home() {
             }
           >
           <section>
-            <SectionHead label="Dienos daina" href="/dienos-daina" cta="Daugiau →" />
+            <SectionHead label="Dienos daina" />
             <DienosDainaSection onOpenTrack={(t) => setOpenTrack(t)} />
           </section>
           </LazySection>
