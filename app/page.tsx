@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useSite } from '@/components/SiteContext'
 import { HomeChatsWidget } from '@/components/HomeChatsWidget'
+import { ShoutboxWidget } from '@/components/ShoutboxWidget'
+import { ActivityWidget } from '@/components/ActivityWidget'
 import { LazySection } from '@/components/LazySection'
 import { proxyImg } from '@/lib/img-proxy'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
@@ -1263,17 +1265,19 @@ function PulsasSection() {
     return () => { alive = false }
   }, [])
 
-  // Blog/diskusijos — dedup per user (anti-flood: vienas naujausias/autorių).
-  // Komentarai rodomi tik modale (per tipo filtrą). Pirmas spot'as — Pokalbiai.
+  // Homepage juosta = TIK realių narių BLOG įrašai SU VIZUALAIS (Edvardo prašymu).
+  // Diskusijos/komentarai gyvena modale + Pokalbių/Aktyvumo dėžutėse. Dedup per autorių.
   const seenU = new Set<string>()
   const deduped: PulsasItem[] = []
   for (const it of items) {
-    if (it.type === 'comment') continue
-    const key = it.author_slug || it.author_name || it.id
+    if (it.type !== 'blog') continue
+    if (!it.cover) continue            // su vizualais
+    if (!it.author_name) continue      // realūs nariai (ne Anonimas)
+    const key = it.author_slug || it.author_name
     if (seenU.has(key)) continue
     seenU.add(key); deduped.push(it)
   }
-  const sectionItems = deduped.slice(0, 11)
+  const sectionItems = deduped.slice(0, 12)
   const modalItems = typeFilter === 'all' ? items : items.filter(i => i.type === typeFilter)
 
   return (
@@ -1283,23 +1287,29 @@ function PulsasSection() {
       <SectionHead label="Pulsas" />
       <div className="flex items-stretch gap-3">
         <div className="hp-scroll flex min-w-0 flex-1 items-stretch gap-3 pb-1">
-          {/* Pirmas spot'as — Pokalbių dėžutė (chatas, populiarus senoje svetainėje).
-              Fiksuotas aukštis 300 → diktuoja sekcijos aukštį; HomeChatsWidget
-              h-full užpildo, body scroll'inasi (rodo tiek pokalbių kiek telpa). */}
-          <div className="shrink-0" style={{ width: 280, height: 300 }}>
-            <HomeChatsWidget />
-          </div>
+          {/* Desktop: Pokalbiai (bendras chatas) + Kas vyksta (aktyvumas) dėžutės
+              pirmiausia. Mobile — jos perkeltos ŽEMIAU (žr. sm:hidden bloką),
+              o juosta prasideda nuo narių blog įrašų. */}
+          <div className="hidden shrink-0 sm:block" style={{ width: 290, height: 320 }}><ShoutboxWidget /></div>
+          <div className="hidden shrink-0 sm:block" style={{ width: 290, height: 320 }}><ActivityWidget /></div>
           {loading ? Array(5).fill(null).map((_, i) => (
             <div key={i} className="shrink-0" style={{ width: 240 }}>
               <div className="hp-skel aspect-video rounded-xl" />
               <div className="hp-skel mt-2 h-3 w-4/5 rounded" />
               <div className="hp-skel mt-1 h-2.5 w-3/5 rounded" />
             </div>
-          )) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
+          )) : sectionItems.length === 0 ? (
+            <div className="hidden shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)] sm:flex" style={{ height: 320 }}>Narių įrašų su vizualais dar nėra</div>
+          ) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
         </div>
         {!loading && items.length > 0 && (
           <StickyMoreButton count={items.length} height={200} ariaLabel="Atverti visą Pulsą" onClick={() => setModalOpen(true)} />
         )}
+      </div>
+      {/* Mobile: Pokalbiai + Kas vyksta dėžutės po juosta (Edvardo prašymu). */}
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:hidden">
+        <div style={{ height: 340 }}><ShoutboxWidget /></div>
+        <div style={{ height: 340 }}><ActivityWidget /></div>
       </div>
 
       {modalOpen && (

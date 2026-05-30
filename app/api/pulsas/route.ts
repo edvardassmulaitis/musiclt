@@ -2,20 +2,24 @@
 //
 // GET /api/pulsas — naujausi UGC įrašai iš visų vartotojų aktyvumo šaltinių:
 //   - Blog įrašai (post_type: article, review, creation, translation, topas, event)
-//   - Naujausios diskusijos (modern `discussions` lentelė)
-//   - Naujausi komentarai (entity_comments)
+//   - Naujausios diskusijos (forum)
+//   - Naujausi komentarai
 //
 // Rikiuojama pagal created_at DESC, viskas suvienodinama į vieną Pulsas feed'ą.
+// Homepage'as rodo top N įrašų mažomis korteles (panašiai kaip news cards).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 
+// Cache 5 min — homepage'as gali kvietuoti dažnai, bet UGC feed'as 5 min
+// freshness pakanka. unstable_cache nereikia, nes nieko nepriklauso nuo
+// tag invalidation'o (priešingai nei home tracks/albums).
 export const revalidate = 300
 
 type PulsasItem = {
   id: string
   type: 'blog' | 'discussion' | 'comment'
-  subtype?: string | null
+  subtype?: string | null // blog post_type ar comment entity type
   title: string
   excerpt: string | null
   href: string
@@ -24,7 +28,7 @@ type PulsasItem = {
   author_slug: string | null
   author_avatar: string | null
   created_at: string
-  meta?: string | null
+  meta?: string | null // additional context (vieta, suma, etc.)
 }
 
 export async function GET(req: NextRequest) {
@@ -32,8 +36,10 @@ export async function GET(req: NextRequest) {
   const sb = createAdminClient()
 
   try {
-    // ── Blog feed: 120 naujausių (be dedup'o — modale rodom daug turinio;
-    //    homepage juosta dedup'ina per autorių kliento pusėje). ──
+    // ── Blog feed: visus post types (jau publikuoti). Imam DIDELĮ pool'ą
+    // (250 naujausių) — turim 16k+ įrašų per 385 blog'us; vienas produktyvus
+    // useris turi 1000+ → be dedup'o jis užfloodintų. Žemiau dedup'inam per
+    // blog'ą paliekant tik naujausią įrašą iš kiekvieno autoriaus. ──
     const blogQ = sb
       .from('blog_posts')
       .select('id, slug, title, summary, content, post_type, cover_image_url, blog_id, created_at, published_at, ' +
@@ -49,6 +55,7 @@ export async function GET(req: NextRequest) {
       .from('discussions')
       .select('id, slug, title, author_name, author_avatar, comment_count, created_at')
       .eq('is_deleted', false)
+      .not('author_name', 'is', null)  // tik realūs nariai (ne anoniminiai/legacy news importai)
       .order('created_at', { ascending: false })
       .limit(60)
 
@@ -145,6 +152,8 @@ export async function GET(req: NextRequest) {
       const text = (c.content_text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
       if (!text) continue
       const excerpt = text.length > 140 ? text.slice(0, 140) + '…' : text
+      // Be tikslaus entity URL'o čia (entity_id → slug lookup brangu); rodom
+      // generic puslapį pagal entity_type.
       const href =
         c.entity_type === 'track' ? `/dainos`
         : c.entity_type === 'album' ? `/albumai`
