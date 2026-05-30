@@ -11,6 +11,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AdminMigrationProgress from '@/components/AdminMigrationProgress'
+import AdminQuickAdd from '@/components/AdminQuickAdd'
 
 type Counts = {
   artists: number; albums: number; tracks: number
@@ -233,6 +234,11 @@ export default function AdminDashboardPage() {
             Migracijos workflow + content management. Optimizuotas mobile'ui.
           </p>
         </div>
+
+        {/* Greitas pridėjimas — viena nuoroda → daina (YT) arba albumas (Wiki) */}
+        <section className="mb-6">
+          <AdminQuickAdd />
+        </section>
 
         {/* Migracijos progresas — visų atlikėjų sutvarkymo % + priority list */}
         <section className="mb-6">
