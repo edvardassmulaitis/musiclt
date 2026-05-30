@@ -284,7 +284,10 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                 const dateRaw = it.start_date || it.event_date
                 const d = dateRaw ? new Date(dateRaw) : null
                 const validDate = d && !isNaN(d.getTime())
-                const img = it.image_small_url || it.cover_image_url || null
+                const evArtistCover = (it.event_artists || [])
+                  .map((ea: any) => (Array.isArray(ea.artists) ? ea.artists[0] : ea.artists))
+                  .find((a: any) => a?.cover_image_url)?.cover_image_url || null
+                const img = it.image_small_url || it.cover_image_url || evArtistCover
                 const artistList = (it.event_artists || []).filter((ea: any) => ea.artists?.name).map((ea: any) => ea.artists.name)
                 const label = artistList.length > 0 ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '') : title
                 const venue = [eventCity(it), it.venue_name || it.venues?.name || it.venue_custom || ''].filter(Boolean).join(', ')

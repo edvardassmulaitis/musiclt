@@ -74,15 +74,6 @@ function formatDateLT(d: string) {
   return `${date.getFullYear()} m. ${MONTHS_FULL_LT[date.getMonth()]} ${date.getDate()} d.`
 }
 
-const WEEKDAYS_LT = ['sekmadienis', 'pirmadienis', 'antradienis', 'trečiadienis', 'ketvirtadienis', 'penktadienis', 'šeštadienis']
-/** Renginio data — lengvai skaitoma: „rugsėjo 11 d., penktadienis" (metai tik
- *  jei ne einamieji). 2026-05-29: pakeitė ryškų orange uppercase formatą. */
-function formatEventDateLT(date: Date): string {
-  const cur = new Date().getFullYear()
-  const y = date.getFullYear()
-  return `${y !== cur ? y + ' m. ' : ''}${MONTHS_FULL_LT[date.getMonth()]} ${date.getDate()} d., ${WEEKDAYS_LT[date.getDay()]}`
-}
-
 /** „Prieš X d." style: jei data šių 30 dienų — rodom relative ("Prieš 5 d."),
  *  jei senesnė — rodom „Spa. 28, 2026" formatą. „Šiandien" / „Vakar" / „Prieš
  *  X d." dalyboje 0/1/2-30. */
@@ -3409,7 +3400,12 @@ export default function Home() {
                           // „Naujas" = pridėtas per pask. 2 d. (created_at). 7 d. langas
                           // floodino visus po bulk importo, todėl sumažintas. 2026-05-29.
                           const isNew = ageDays <= 2
-                          const imgSrc = ev.image_small_url || ev.cover_image_url || null
+                          // Foto fallback: jei renginys neturi cover'io — imam priskirto
+                          // atlikėjo nuotrauką. 2026-05-30.
+                          const evArtistCover = (ev.event_artists || [])
+                            .map(ea => (Array.isArray(ea.artists) ? ea.artists[0] : ea.artists))
+                            .find(a => a?.cover_image_url)?.cover_image_url || null
+                          const imgSrc = ev.image_small_url || ev.cover_image_url || evArtistCover
                           const city = ev.city || ev.venues?.city || ''
                           const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
                           const venueLabel = [city, venue].filter(Boolean).join(', ')
@@ -3445,14 +3441,19 @@ export default function Home() {
                                 {isNew && (
                                   <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-orange)] shadow-[0_0_0_2px_rgba(0,0,0,0.45)]" />
                                 )}
+                                {/* Data badge — kaip „Greitai pasirodys" albumams (vietoj
+                                    teksto po cover). „Šiandien"/„Rytoj"/„Po X d." (oranžinis
+                                    ≤14 d.) arba konkreti data toliau. 2026-05-30. */}
+                                {evDate.label && (
+                                  <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${
+                                    evDate.highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
+                                  }`}>
+                                    {evDate.label}
+                                  </span>
+                                )}
                                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                               </div>
                               <div className="mt-2 px-0.5">
-                                {validDate && (
-                                  <p className="m-0 mb-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
-                                    {formatEventDateLT(d!)}
-                                  </p>
-                                )}
                                 <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
                                   {artistText}
                                 </p>
