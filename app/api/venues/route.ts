@@ -7,7 +7,7 @@ export async function GET() {
   const sb = createAdminClient()
   const { data } = await sb
     .from('venues')
-    .select('id,legacy_id,slug,name,city,country,address,phone,cover_image_url')
+    .select('id,legacy_id,slug,name,city,city_id,country,address,phone,cover_image_url')
     .order('name', { ascending: true })
   return NextResponse.json({ venues: data || [] })
 }
@@ -26,6 +26,7 @@ export async function POST(req: Request) {
     .insert({
       name: body.name,
       city: body.city ?? null,
+      city_id: body.city_id ?? null,
       country: body.country ?? 'Lithuania',
       address: body.address ?? null,
       phone: body.phone ?? null,

@@ -28,6 +28,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     .update({
       ...(body.name !== undefined && { name: body.name }),
       ...(body.city !== undefined && { city: body.city }),
+      ...(body.city_id !== undefined && { city_id: body.city_id }),
       ...(body.country !== undefined && { country: body.country }),
       ...(body.address !== undefined && { address: body.address }),
       ...(body.phone !== undefined && { phone: body.phone }),

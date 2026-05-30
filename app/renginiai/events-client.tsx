@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSite } from '@/components/SiteContext'
@@ -63,13 +63,16 @@ const PERIODS = [
   { k: 'month', l: 'Šį mėnesį' },
 ]
 
-export default function EventsClient({ events, featured, cities, total, initialCity, initialPeriod, showPast }: {
+type VenueOpt = { id: number; name: string; city: string | null }
+
+export default function EventsClient({ events, featured, cities, total, initialCity, initialPeriod, initialVenueId, showPast }: {
   events: Event[]
   featured: Event[]
   cities: string[]
   total: number
   initialCity: string
   initialPeriod: string
+  initialVenueId?: string
   showPast: boolean
 }) {
   const { dk } = useSite()
@@ -77,14 +80,25 @@ export default function EventsClient({ events, featured, cities, total, initialC
   const [city, setCity] = useState(initialCity)
   const [period, setPeriod] = useState(initialPeriod)
   const [past, setPast] = useState(showPast)
+  const [venueId, setVenueId] = useState(initialVenueId || '')
+  const [venues, setVenues] = useState<VenueOpt[]>([])
 
   const allCities = ['Visi', ...cities]
 
-  function applyFilters(c: string, p: string, sp: boolean) {
+  useEffect(() => {
+    fetch('/api/venues').then(r => r.ok ? r.json() : { venues: [] }).then(d => setVenues(d.venues || [])).catch(() => setVenues([]))
+  }, [])
+
+  // Vietos dropdown'ui — tik pasirinkto miesto vietos (kitaip 120+ įrašų sąrašas).
+  const venuesForCity = (city === 'Visi' ? venues : venues.filter(v => (v.city || '') === city))
+    .slice().sort((a, b) => a.name.localeCompare(b.name, 'lt'))
+
+  function applyFilters(c: string, p: string, sp: boolean, vid: string) {
     const params = new URLSearchParams()
     if (c !== 'Visi') params.set('city', c)
     if (p !== 'all') params.set('period', p)
     if (sp) params.set('showPast', 'true')
+    if (vid) params.set('venueId', vid)
     router.push(`/renginiai?${params.toString()}`)
   }
 
@@ -142,19 +156,32 @@ export default function EventsClient({ events, featured, cities, total, initialC
         {/* Cities */}
         <div className="flex gap-1.5 flex-wrap">
           {allCities.map(c => (
-            <button key={c} onClick={() => { setCity(c); applyFilters(c, period, past) }}
+            <button key={c} onClick={() => { setCity(c); setVenueId(''); applyFilters(c, period, past, '') }}
               className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${city === c ? pillActive : pillInactive}`}>
               {c}
             </button>
           ))}
         </div>
 
+        {/* Venue */}
+        {venuesForCity.length > 0 && (
+          <select
+            value={venueId}
+            onChange={e => { setVenueId(e.target.value); applyFilters(city, period, past, e.target.value) }}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all max-w-[200px] truncate ${venueId ? pillActive : pillInactive}`}
+            style={{ background: venueId ? undefined : (dk ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.7)') }}
+          >
+            <option value="">Visos vietos</option>
+            {venuesForCity.map(v => <option key={v.id} value={String(v.id)}>{v.name}</option>)}
+          </select>
+        )}
+
         <div className="w-px h-6" style={{ background: 'rgba(255,255,255,0.08)' }} />
 
         {/* Period */}
         <div className="flex gap-1.5">
           {PERIODS.map(p => (
-            <button key={p.k} onClick={() => { setPeriod(p.k); applyFilters(city, p.k, past) }}
+            <button key={p.k} onClick={() => { setPeriod(p.k); applyFilters(city, p.k, past, venueId) }}
               className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${period === p.k ? pillActive : pillInactive}`}>
               {p.l}
             </button>
@@ -164,7 +191,7 @@ export default function EventsClient({ events, featured, cities, total, initialC
         <div className="w-px h-6" style={{ background: 'rgba(255,255,255,0.08)' }} />
 
         {/* Past toggle */}
-        <button onClick={() => { setPast(!past); applyFilters(city, period, !past) }}
+        <button onClick={() => { setPast(!past); applyFilters(city, period, !past, venueId) }}
           className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${past ? pillActive : pillInactive}`}>
           Archyvas
         </button>

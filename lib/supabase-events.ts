@@ -6,6 +6,8 @@ import { slugify } from './slugify'
 // ── Get events list (public) ─────────────────────────────────────
 export async function getEvents(opts: {
   city?: string
+  /** Filtravimas pagal konkrečią vietą (venues.id). */
+  venueId?: number
   status?: string
   period?: 'week' | 'month' | 'all'
   showPast?: boolean
@@ -16,15 +18,16 @@ export async function getEvents(opts: {
   order?: 'asc' | 'desc'
 } = {}) {
   const supabase = createAdminClient()
-  const { city, status, period, showPast = false, limit = 20, offset = 0, order = 'asc' } = opts
+  const { city, venueId, status, period, showPast = false, limit = 20, offset = 0, order = 'asc' } = opts
 
   let q = supabase
     .from('events')
     .select(`
       id, title, slug, description, start_date, end_date,
-      venue_name, venue_id, city, address, cover_image_url,
+      venue_name, venue_id, city, city_id, address, cover_image_url,
       ticket_url, price_from, price_to,
       status, is_featured, created_at,
+      venues:venue_id(id, name, slug, city, address),
       event_artists(
         artist_id, is_headliner, sort_order,
         artists(id, name, slug, cover_image_url, country)
@@ -38,6 +41,7 @@ export async function getEvents(opts: {
   }
   if (status) q = q.eq('status', status)
   if (city && city !== 'Visi') q = q.eq('city', city)
+  if (venueId) q = q.eq('venue_id', venueId)
 
   if (period === 'week') {
     const end = new Date()
@@ -183,6 +187,28 @@ export async function getEventsByArtist(artistId: number, limit = 5) {
   return (data || []).map(d => ({ ...((d as any).events || {}), is_headliner: d.is_headliner }))
 }
 
+// ── Venue → įvykio vietos laukų denormalizacija ──────────────────
+// Kai renginys susiejamas su `venues` įrašu, vietos laukai (venue_name,
+// city, city_id, address) imami IŠ vietos — kad nebūtų desync'o tarp laisvo
+// teksto ir kanoninės vietos. Grąžina patched updates objektą.
+async function applyVenueFields(updates: Record<string, any>): Promise<Record<string, any>> {
+  if (!updates.venue_id) return updates
+  const supabase = createAdminClient()
+  const { data: v } = await supabase
+    .from('venues')
+    .select('name, city, city_id, address')
+    .eq('id', updates.venue_id)
+    .maybeSingle()
+  if (!v) return updates
+  return {
+    ...updates,
+    venue_name: v.name ?? updates.venue_name ?? null,
+    city: v.city ?? updates.city ?? null,
+    city_id: v.city_id ?? updates.city_id ?? null,
+    address: v.address ?? updates.address ?? null,
+  }
+}
+
 // ── Create event (admin) ─────────────────────────────────────────
 export async function createEvent(eventData: {
   title: string
@@ -190,7 +216,9 @@ export async function createEvent(eventData: {
   start_date: string
   end_date?: string
   venue_name?: string
+  venue_id?: number | null
   city?: string
+  city_id?: number | null
   address?: string
   cover_image_url?: string
   ticket_url?: string
@@ -204,10 +232,12 @@ export async function createEvent(eventData: {
   const { data: existing } = await supabase.from('events').select('id').eq('slug', slug).maybeSingle()
   if (existing) slug = slug + '-' + Date.now().toString(36)
 
+  const insertData = await applyVenueFields({ ...eventData })
+
   const { data, error } = await supabase
     .from('events')
     .insert({
-      ...eventData,
+      ...insertData,
       slug,
       status: 'upcoming',
     })
@@ -221,7 +251,8 @@ export async function createEvent(eventData: {
 // ── Update event (admin) ─────────────────────────────────────────
 export async function updateEvent(id: string, updates: Record<string, any>) {
   const supabase = createAdminClient()
-  const { error } = await supabase.from('events').update(updates).eq('id', id)
+  const patched = await applyVenueFields({ ...updates })
+  const { error } = await supabase.from('events').update(patched).eq('id', id)
   if (error) throw error
 }
 
@@ -283,16 +314,19 @@ export async function searchEvents(query: string, limit = 20) {
   return data || []
 }
 
-// ── Get distinct cities ──────────────────────────────────────────
+// ── Get cities for filter ────────────────────────────────────────
+// Fiksuotas `cities` sąrašas, bet rodom TIK tuos miestus, kurie realiai turi
+// renginių (kad filtras nebūtų užterštas tuščiais). Kanoniniai pavadinimai,
+// rikiuoti pagal sort_order.
 export async function getEventCities() {
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('events')
-    .select('city')
-    .not('city', 'is', null)
-    .order('city')
-
-  if (error) return []
-  const cities = [...new Set((data || []).map(d => d.city).filter(Boolean))]
-  return cities as string[]
+  const [{ data: cityRows }, { data: evRows }] = await Promise.all([
+    supabase.from('cities').select('name, city_id:id, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
+    supabase.from('events').select('city_id').not('city_id', 'is', null),
+  ])
+  const present = new Set((evRows || []).map((e: any) => e.city_id))
+  const cities = (cityRows || [])
+    .filter((c: any) => present.has(c.city_id))
+    .map((c: any) => c.name as string)
+  return cities
 }

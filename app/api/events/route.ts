@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
   try {
     const result = await getEvents({
       city: sp.get('city') || undefined,
+      venueId: sp.get('venueId') ? parseInt(sp.get('venueId')!) : undefined,
       status: sp.get('status') || undefined,
       period: (sp.get('period') as 'week' | 'month' | 'all') || undefined,
       showPast: sp.get('showPast') === 'true',

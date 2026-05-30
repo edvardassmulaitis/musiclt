@@ -16,6 +16,7 @@ export default function AdminVenueEditPage() {
 
   const [name, setName] = useState('')
   const [city, setCity] = useState('')
+  const [cityOptions, setCityOptions] = useState<Array<{ id: number; name: string }>>([])
   const [country, setCountry] = useState('Lithuania')
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
@@ -26,6 +27,10 @@ export default function AdminVenueEditPage() {
   const [error, setError] = useState('')
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
+
+  useEffect(() => {
+    fetch('/api/cities').then(r => r.ok ? r.json() : { cities: [] }).then(d => setCityOptions(d.cities || [])).catch(() => setCityOptions([]))
+  }, [])
 
   useEffect(() => {
     if (!isNew && id && isAdmin) {
@@ -48,6 +53,7 @@ export default function AdminVenueEditPage() {
     const payload = {
       name: name.trim(),
       city: city.trim() || null,
+      city_id: cityOptions.find(c => c.name === city)?.id ?? null,
       country: country.trim() || null,
       address: address.trim() || null,
       phone: phone.trim() || null,
@@ -98,7 +104,11 @@ export default function AdminVenueEditPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Miestas</label>
-            <input value={city} onChange={e => setCity(e.target.value)} className={inputCls} placeholder="Vilnius" />
+            <select value={city} onChange={e => setCity(e.target.value)} className={inputCls}>
+              <option value="">— miestas —</option>
+              {city && !cityOptions.some(c => c.name === city) && <option value={city}>{city} (nestandartinis)</option>}
+              {cityOptions.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+            </select>
           </div>
           <div>
             <label className={labelCls}>Šalis</label>

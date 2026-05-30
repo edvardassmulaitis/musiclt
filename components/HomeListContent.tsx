@@ -38,6 +38,9 @@ function eventIsLT(ev: any): boolean {
 function eventCity(ev: any): string {
   return (ev.city || ev.venues?.city || '').trim()
 }
+function eventVenue(ev: any): string {
+  return (ev.venues?.name || ev.venue_name || '').trim()
+}
 
 function sanitizeTitle(raw: string): string {
   return (raw || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
@@ -88,6 +91,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
   const [total, setTotal] = useState(0)
   const [activeGenre, setActiveGenre] = useState('')
   const [activeCity, setActiveCity] = useState('')
+  const [activeVenue, setActiveVenue] = useState('')
   const [activeDate, setActiveDate] = useState<'all' | 'week' | 'month' | 'later'>('all')
   const [sort, setSort] = useState<Sort>('new')
   const [loading, setLoading] = useState(true)
@@ -159,10 +163,29 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
   const shown = isEvents
     ? items.filter(ev =>
         (!activeCity || eventCity(ev) === activeCity) &&
+        (!activeVenue || eventVenue(ev) === activeVenue) &&
         (!activeGenre || (ev.genres || []).includes(activeGenre)) &&
         eventInDate(ev))
     : items
   const hasMore = !isEvents && items.length < total
+
+  // Vietų sąrašas filtrui — tik tos vietos, kurios egzistuoja po miesto filtru
+  // (kad dropdown'as nebūtų užterštas svetimo miesto vietomis). Su renginių kiekiu.
+  const venueOptions = (() => {
+    if (!isEvents) return [] as Facet[]
+    const m = new Map<string, number>()
+    for (const ev of items) {
+      if (activeCity && eventCity(ev) !== activeCity) continue
+      const v = eventVenue(ev); if (v) m.set(v, (m.get(v) || 0) + 1)
+    }
+    return Array.from(m.entries()).map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'lt'))
+  })()
+  // Jei pasirinkta vieta nebepriklauso aktyviam miestui — atstatom.
+  useEffect(() => {
+    if (activeVenue && !venueOptions.some(v => v.name === activeVenue)) setActiveVenue('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCity])
 
   const chipCls = (active: boolean) =>
     `shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 font-['Outfit',sans-serif] text-[11.5px] font-bold transition-colors ${
@@ -207,11 +230,24 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
             {!loading && <span className="ml-auto hidden shrink-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-faint)] sm:inline">Rasta: {shown.length}</span>}
           </div>
           {cities.length > 0 && (
-            <div className="hp-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
-              <button type="button" onClick={() => setActiveCity('')} className={chipCls(activeCity === '')}>Visi miestai</button>
-              {cities.map(c => (
-                <button key={c.name} type="button" onClick={() => setActiveCity(c.name)} className={chipCls(activeCity === c.name)}>{c.name} <span className="opacity-60">{c.count}</span></button>
-              ))}
+            <div className="flex min-w-0 items-center gap-1.5">
+              <div className="hp-scroll flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
+                <button type="button" onClick={() => { setActiveCity(''); setActiveVenue('') }} className={chipCls(activeCity === '')}>Visi miestai</button>
+                {cities.map(c => (
+                  <button key={c.name} type="button" onClick={() => { setActiveCity(c.name); setActiveVenue('') }} className={chipCls(activeCity === c.name)}>{c.name} <span className="opacity-60">{c.count}</span></button>
+                ))}
+              </div>
+              {venueOptions.length > 0 && (
+                <select
+                  value={activeVenue}
+                  onChange={e => setActiveVenue(e.target.value)}
+                  title="Filtruoti pagal vietą"
+                  className={`shrink-0 max-w-[180px] truncate rounded-full border px-2.5 py-1 font-['Outfit',sans-serif] text-[11.5px] font-bold transition-colors ${activeVenue ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)]/12 text-[var(--accent-orange)]' : 'border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-muted)]'}`}
+                >
+                  <option value="">Visos vietos</option>
+                  {venueOptions.map(v => <option key={v.name} value={v.name}>{v.name} ({v.count})</option>)}
+                </select>
+              )}
             </div>
           )}
           {genres.length > 0 && (

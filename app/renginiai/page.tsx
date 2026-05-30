@@ -7,11 +7,12 @@ export const metadata: Metadata = {
   description: 'Artimiausi koncertai, festivaliai ir muzikos renginiai Lietuvoje',
 }
 
-export default async function EventsPage({ searchParams }: { searchParams: Promise<{ city?: string; period?: string; showPast?: string }> }) {
+export default async function EventsPage({ searchParams }: { searchParams: Promise<{ city?: string; period?: string; showPast?: string; venueId?: string }> }) {
   const sp = await searchParams
   const [{ events, total }, featured, cities] = await Promise.all([
     getEvents({
       city: sp.city,
+      venueId: sp.venueId ? parseInt(sp.venueId) : undefined,
       period: (sp.period as 'week' | 'month' | 'all') || undefined,
       showPast: sp.showPast === 'true',
       limit: 20,
@@ -28,6 +29,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
       total={total}
       initialCity={sp.city || 'Visi'}
       initialPeriod={sp.period || 'all'}
+      initialVenueId={sp.venueId || ''}
       showPast={sp.showPast === 'true'}
     />
   )

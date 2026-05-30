@@ -38,13 +38,18 @@ export default function AdminEventEditPage() {
   const [venueOptions, setVenueOptions] = useState<Array<{ id: number; legacy_id: number | null; name: string; city: string | null; address: string | null }>>([])
   const [showVenueDrop, setShowVenueDrop] = useState(false)
   const [venueId, setVenueId] = useState<number | null>(null)
+  const [cityOptions, setCityOptions] = useState<Array<{ id: number; name: string }>>([])
 
-  // Load venues on mount for suggestion dropdown
+  // Load venues + fiksuotas miestų sąrašas on mount
   useEffect(() => {
     fetch('/api/venues')
       .then(r => r.ok ? r.json() : { venues: [] })
       .then(d => setVenueOptions(d.venues || []))
       .catch(() => setVenueOptions([]))
+    fetch('/api/cities')
+      .then(r => r.ok ? r.json() : { cities: [] })
+      .then(d => setCityOptions(d.cities || []))
+      .catch(() => setCityOptions([]))
   }, [])
 
   const filteredVenues = (venueName.trim().length === 0
@@ -105,6 +110,9 @@ export default function AdminEventEditPage() {
   async function handleSave() {
     if (!title.trim()) { setError('Įvesk pavadinimą'); return }
     if (!startDate) { setError('Pasirink datą'); return }
+    // Vieta privaloma — nebepakanka tik miesto. Reikia susieti su venues įrašu
+    // (išrinkti iš sąrašo arba sukurti naują).
+    if (!venueId) { setError('Pasirink renginio vietą iš sąrašo arba sukurk naują (miesto neužtenka)'); return }
     setSaving(true); setError('')
 
     const body: any = {
@@ -205,7 +213,7 @@ export default function AdminEventEditPage() {
         <div className="grid grid-cols-3 gap-4">
           <div>
             <label className={labelCls}>
-              Vieta
+              Vieta *
               {venueId && (
                 <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                   🔗 Susieta
@@ -255,7 +263,7 @@ export default function AdminEventEditPage() {
                   ) : filteredVenues.length === 0 ? (
                     <>
                       <div className="px-3 py-2 text-[10px] text-gray-500 uppercase font-bold tracking-wide bg-gray-50 border-b border-gray-100">
-                        Nerasta pagal „{venueName}" — galima naudoti laisvu tekstu arba išrinkti iš sąrašo:
+                        Nerasta pagal „{venueName}" — sukurk naują vietą:
                       </div>
                       {venueOptions.slice(0, 20).map(v => (
                         <VenueRow key={v.id} v={v} onPick={() => {
@@ -290,8 +298,19 @@ export default function AdminEventEditPage() {
             )}
           </div>
           <div>
-            <label className={labelCls}>Miestas</label>
-            <input value={city} onChange={e => setCity(e.target.value)} className={inputCls} placeholder="Kaunas" />
+            <label className={labelCls}>Miestas{venueId ? '' : ' *'}</label>
+            <select
+              value={city}
+              onChange={e => setCity(e.target.value)}
+              disabled={!!venueId}
+              className={`${inputCls} ${venueId ? 'opacity-60 cursor-not-allowed' : ''}`}
+              title={venueId ? 'Miestas imamas iš susietos vietos' : 'Pasirink miestą'}
+            >
+              <option value="">— miestas —</option>
+              {/* Jei esamo renginio city nėra fiksuotame sąraše, vis tiek parodom */}
+              {city && !cityOptions.some(c => c.name === city) && <option value={city}>{city} (nestandartinis)</option>}
+              {cityOptions.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+            </select>
           </div>
           <div>
             <label className={labelCls}>Adresas</label>
