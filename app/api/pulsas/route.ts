@@ -118,7 +118,9 @@ export async function GET(req: NextRequest) {
         type: 'blog',
         subtype: b.post_type || null,
         title: b.title || '',
-        excerpt: b.summary || null,
+        // Ilgesnis excerpt'as (FIX 5): summary → kūno teksto pradžia (be HTML).
+        // Kortelės užpildo vertikalų plotą, nelieka tuščios apačios.
+        excerpt: b.summary || stripToExcerpt(b.content, 240),
         href: blogSlug ? `/blogas/${blogSlug}/${b.slug || b.id}` : '/blogas',
         cover: b.cover_image_url || thumbByPost.get(b.id) || firstContentThumb(b.content) || null,
         author_name: author?.full_name || author?.username || null,
@@ -147,18 +149,78 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Komentarai
-    for (const c of (commentsRes.data || []) as any[]) {
+    // ── Komentarų entity resolve (FIX 4 + FIX 3): batch'iniu būdu išsprendžiam
+    //    KOKIAM objektui komentaras — atvaizdas (cover/atlikėjo nuotrauka) +
+    //    objekto pavadinimas + tikslus slug URL'as. entity_legacy_id → legacy_id
+    //    lookup per tracks/albums/artists. ──
+    const commentRows = ((commentsRes.data || []) as any[]).filter(c => {
+      const t = (c.content_text || '').replace(/<[^>]+>/g, ' ').trim()
+      return !!t && c.entity_legacy_id != null
+    })
+    const cIdsByType: Record<string, Set<number>> = {}
+    for (const c of commentRows) (cIdsByType[c.entity_type] ||= new Set()).add(Number(c.entity_legacy_id))
+    // resolved[type][legacy_id] = { title, slug, artistSlug?, cover }
+    const cResolved: Record<string, Map<number, { title: string; slug: string | null; artistSlug?: string | null; cover: string | null }>> = {
+      track: new Map(), album: new Map(), artist: new Map(),
+    }
+    const CYT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+    try {
+      const tasks: Promise<any>[] = []
+      if (cIdsByType.track?.size) {
+        tasks.push(sb.from('tracks')
+          .select('legacy_id, title, slug, cover_url, video_url, artist:artist_id(slug, cover_image_url)')
+          .in('legacy_id', Array.from(cIdsByType.track))
+          .then(({ data }) => {
+            for (const t of (data || []) as any[]) {
+              const art = Array.isArray(t.artist) ? t.artist[0] : t.artist
+              const yt = t.video_url?.match?.(CYT_RE)?.[1]
+              cResolved.track.set(t.legacy_id, {
+                title: t.title, slug: t.slug, artistSlug: art?.slug || null,
+                cover: t.cover_url || (yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : null) || art?.cover_image_url || null,
+              })
+            }
+          }))
+      }
+      if (cIdsByType.album?.size) {
+        tasks.push(sb.from('albums')
+          .select('legacy_id, title, slug, cover_image_url, artist:artist_id(slug)')
+          .in('legacy_id', Array.from(cIdsByType.album))
+          .then(({ data }) => {
+            for (const a of (data || []) as any[]) {
+              const art = Array.isArray(a.artist) ? a.artist[0] : a.artist
+              cResolved.album.set(a.legacy_id, { title: a.title, slug: a.slug, artistSlug: art?.slug || null, cover: a.cover_image_url || null })
+            }
+          }))
+      }
+      if (cIdsByType.artist?.size) {
+        tasks.push(sb.from('artists')
+          .select('legacy_id, name, slug, cover_image_url')
+          .in('legacy_id', Array.from(cIdsByType.artist))
+          .then(({ data }) => {
+            for (const a of (data || []) as any[]) cResolved.artist.set(a.legacy_id, { title: a.name, slug: a.slug, cover: a.cover_image_url || null })
+          }))
+      }
+      await Promise.all(tasks)
+    } catch {}
+
+    for (const c of commentRows) {
       const text = (c.content_text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
       if (!text) continue
       const excerpt = text.length > 140 ? text.slice(0, 140) + '…' : text
-      // Be tikslaus entity URL'o čia (entity_id → slug lookup brangu); rodom
-      // generic puslapį pagal entity_type.
-      const href =
-        c.entity_type === 'track' ? `/dainos`
-        : c.entity_type === 'album' ? `/albumai`
-        : c.entity_type === 'artist' ? `/atlikejai`
-        : '/'
+      const lid = Number(c.entity_legacy_id)
+      const r = cResolved[c.entity_type]?.get(lid) || null
+      // Tikslus URL: track → /muzika/{artistSlug}-{slug}; album → /albumai/{...};
+      // artist → /atlikejai/{slug}. Fallback'as — generic listing.
+      let href = '/'
+      if (r) {
+        if (c.entity_type === 'track') href = r.artistSlug && r.slug ? `/muzika/${r.artistSlug}-${r.slug}` : '/dainos'
+        else if (c.entity_type === 'album') href = r.artistSlug && r.slug ? `/albumai/${r.artistSlug}-${r.slug}` : '/albumai'
+        else if (c.entity_type === 'artist') href = r.slug ? `/atlikejai/${r.slug}` : '/atlikejai'
+      } else {
+        href = c.entity_type === 'track' ? '/dainos' : c.entity_type === 'album' ? '/albumai' : c.entity_type === 'artist' ? '/atlikejai' : '/'
+      }
+      const targetTitle = r?.title || null
+      const label = entityTypeLabel(c.entity_type)
       items.push({
         id: `comm-${c.legacy_id}`,
         type: 'comment',
@@ -166,12 +228,13 @@ export async function GET(req: NextRequest) {
         title: excerpt,
         excerpt: null,
         href,
-        cover: null,
+        cover: r?.cover || null,
         author_name: c.author_username || null,
         author_slug: c.author_username || null,
         author_avatar: c.author_avatar_url || null,
         created_at: c.created_at,
-        meta: entityTypeLabel(c.entity_type),
+        // meta = „Daina · {pavadinimas}" — kortelėje rodom KAM komentaras.
+        meta: targetTitle ? `${label} · ${targetTitle}` : label,
       })
     }
 
@@ -198,6 +261,23 @@ function firstContentThumb(html: string | null | undefined): string | null {
   const yt = html.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)?.[1]
   if (yt) return `https://img.youtube.com/vi/${yt}/mqdefault.jpg`
   return null
+}
+
+/** HTML body → plain-text excerpt'as (drop tag'us, img/iframe, collapse whitespace).
+ *  Naudojam kai blog įrašas neturi `summary` — kad kortelė turėtų ką rodyti ir
+ *  užpildytų vertikalų plotą (FIX 5). */
+function stripToExcerpt(html: string | null | undefined, maxLen: number): string | null {
+  if (!html) return null
+  const text = html
+    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&[a-z#0-9]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return null
+  return text.length > maxLen ? text.slice(0, maxLen).replace(/\s+\S*$/, '') + '…' : text
 }
 
 function postTypeLabel(t: string | null | undefined): string | null {

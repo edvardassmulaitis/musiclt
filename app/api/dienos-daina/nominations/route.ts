@@ -40,7 +40,8 @@ export async function GET(req: Request) {
         id, slug, title, cover_url, spotify_id, video_url,
         artists!artist_id ( id, slug, name, cover_image_url )
       ),
-      user_id
+      user_id,
+      proposer:profiles!daily_song_nominations_user_id_fkey ( username, full_name, avatar_url )
     `)
     .eq('date', date)
     .is('removed_at', null)

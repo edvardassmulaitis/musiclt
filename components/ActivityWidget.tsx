@@ -27,32 +27,46 @@ function timeAgoShort(d: string): string {
 }
 function strHue(s: string) { let h = 0; for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h }
 
+// VISI viešų event'ų tipai turi turėti aiškų veiksmažodį — kitaip krenta į
+// „atnaujino" fallback'ą (būtent tai kliento pranešta klaida: „atnaujino dainą
+// X / atnaujino <atlikėjas>"). Tipai atitinka lib/activity-logger.ts.
 const VERB: Record<string, string> = {
   nomination: 'pasiūlė dienos dainą',
+  daily_nomination: 'pasiūlė dienos dainą',
   vote: 'balsavo už',
-  like: 'palaikino',
+  daily_vote: 'balsavo už dienos dainą',
+  top_vote: 'balsavo topų balsavime už',
+  voting_vote: 'balsavo už',
+  like: 'pamėgo',
+  track_like: 'pamėgo dainą',
+  album_like: 'pamėgo albumą',
+  artist_like: 'pamėgo atlikėją',
   comment: 'pakomentavo',
   blog: 'parašė įrašą',
   blog_post: 'parašė įrašą',
   discussion: 'pradėjo diskusiją',
+  thread_created: 'sukūrė temą',
   review: 'parašė recenziją',
   follow: 'pradėjo sekti',
 }
 function verbFor(t: string): string { return VERB[t] || 'atnaujino' }
 
-function Row({ e }: { e: Ev }) {
+function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
   const name = e.actor_name || 'Vartotojas'
   const verb = verbFor(e.event_type)
+  // Modale daugiau vietos — didesnis avatar'as + didesnė entity mini nuotrauka.
+  const av = inModal ? 'h-8 w-8' : 'h-7 w-7'
+  const thumb = inModal ? 'h-11 w-11 rounded-lg' : 'h-8 w-8 rounded-md'
   return (
-    <div className="flex items-start gap-2.5 px-3.5 py-2">
+    <div className={`flex items-start gap-2.5 px-3.5 ${inModal ? 'py-2.5' : 'py-2'}`}>
       {e.actor_avatar ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(e.actor_avatar)} alt="" className="mt-0.5 h-7 w-7 shrink-0 rounded-full object-cover" />
+        <img src={proxyImg(e.actor_avatar)} alt="" className={`mt-0.5 ${av} shrink-0 rounded-full object-cover`} />
       ) : (
-        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</div>
+        <div className={`mt-0.5 flex ${av} shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold`} style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="m-0 text-[12px] leading-snug text-[var(--text-secondary)]">
+        <p className={`m-0 leading-snug text-[var(--text-secondary)] ${inModal ? 'text-[12.5px]' : 'text-[12px]'}`}>
           <span className="font-extrabold text-[var(--text-primary)]">{name}</span> {verb}
           {e.entity_title ? (
             e.entity_url
@@ -64,7 +78,7 @@ function Row({ e }: { e: Ev }) {
       </div>
       {e.entity_image && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(e.entity_image)} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover" />
+        <img src={proxyImg(e.entity_image)} alt="" className={`${thumb} shrink-0 object-cover`} />
       )}
     </div>
   )
@@ -94,7 +108,7 @@ function ActivityModal({ events, onClose }: { events: Ev[]; onClose: () => void 
           <button onClick={onClose} aria-label="Uždaryti" className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--bg-active)] text-[var(--text-secondary)]">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto py-1">
-          {events.length === 0 ? <div className="px-3 py-8 text-center text-[12px] text-[var(--text-muted)]">Dar nėra aktyvumo.</div> : events.map(e => <Row key={e.id} e={e} />)}
+          {events.length === 0 ? <div className="px-3 py-8 text-center text-[12px] text-[var(--text-muted)]">Dar nėra aktyvumo.</div> : events.map(e => <Row key={e.id} e={e} inModal />)}
         </div>
       </div>
     </div>,

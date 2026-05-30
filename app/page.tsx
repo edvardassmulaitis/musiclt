@@ -22,7 +22,9 @@ type EventArtist = { artists?: { id: number; name: string; slug: string; cover_i
 type Event = { id: number; slug: string; title: string; event_date?: string; start_date?: string; end_date?: string; venue_custom?: string | null; venue_name?: string | null; venue_id?: number | null; image_small_url?: string | null; cover_image_url?: string | null; image_url?: string | null; city?: string | null; address?: string | null; created_at?: string; venues?: { name: string; city: string } | null; event_artists?: EventArtist[] | null }
 type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
-type Nomination = { id: number; votes: number; weighted_votes: number; tracks: { id: number; title: string; cover_url: string | null; artists: { name: string } | null } | null }
+type Proposer = { username: string | null; full_name: string | null; avatar_url: string | null }
+type Nomination = { id: number; votes: number; weighted_votes: number; comment?: string | null; tracks: { id: number; title: string; cover_url: string | null; slug?: string | null; video_url?: string | null; artists: { name: string; slug?: string | null; cover_image_url?: string | null } | null } | null; proposer?: Proposer | null }
+type DainaWinner = { id: number; date: string; total_votes: number; weighted_votes: number; tracks: { id: number; title: string; cover_url: string | null; slug?: string | null; video_url?: string | null; artists: { name: string; slug?: string | null; cover_image_url?: string | null } | null } | null }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
 type HeroSlide = {
   type: string; chip: string; chipBg: string; title: string; subtitle: string
@@ -1075,17 +1077,183 @@ type PulsasItem = {
    Horizontalios dainų kortelės (desktop) / vertikalus sąrašas (mobile) su balsų
    pop bar'u (kaip artist page) — matosi kurios dainos pirmauja. Click → track
    modalas (HomeTrackModal per onOpenTrack). 2026-05-29. */
+/** Proposer vardas iš profilio (full_name → username → fallback). */
+function proposerName(p?: Proposer | null): string | null {
+  if (!p) return null
+  return p.full_name || p.username || null
+}
+
+/** Mažas proposer avatar'as + „Pasiūlė X" eilutė. */
+function ProposerLine({ p }: { p?: Proposer | null }) {
+  const name = proposerName(p)
+  if (!name) return null
+  return (
+    <span className="flex min-w-0 items-center gap-1">
+      {p?.avatar_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={proxyImg(p.avatar_url)} alt="" className="h-[14px] w-[14px] shrink-0 rounded-full object-cover" />
+      ) : (
+        <span className="flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full text-[7px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</span>
+      )}
+      <span className="truncate text-[10px] text-[var(--text-faint)]">Pasiūlė {name}</span>
+    </span>
+  )
+}
+
+/** Dainos siūlymo modalas — TIK dainos (tracks). Reuse'ina /api/tracks paiešką
+ *  (kaip top-nav search, bet restricted į songs), POST'ina į
+ *  /api/dienos-daina/nominations. CSS variables stilius (ne legacy dark). */
+function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<any[]>([])
+  const [selected, setSelected] = useState<any | null>(null)
+  const [comment, setComment] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (query.trim().length < 2) { setResults([]); return }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/tracks?search=${encodeURIComponent(query.trim())}&limit=8`)
+        const d = await res.json()
+        setResults(d.tracks || [])
+      } catch { setResults([]) }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query])
+
+  const submit = async () => {
+    if (!selected || sending) return
+    setSending(true); setError('')
+    try {
+      const res = await fetch('/api/dienos-daina/nominations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: selected.id, comment: comment.trim() || null }),
+      })
+      const d = await res.json()
+      if (res.ok) { onDone(); onClose() }
+      else setError(d.error || 'Klaida')
+    } catch { setError('Tinklo klaida') }
+    finally { setSending(false) }
+  }
+
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <div onClick={e => { if (e.target === e.currentTarget) onClose() }} className="fixed inset-0 z-[1300] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
+      <div className="flex w-full max-w-[480px] flex-col overflow-hidden rounded-t-2xl bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)] sm:mx-4 sm:rounded-2xl" style={{ maxHeight: 'min(85vh, 640px)' }}>
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+          <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Pasiūlyti dieną dainą</span>
+          <button onClick={onClose} aria-label="Uždaryti" className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--bg-active)] text-[var(--text-secondary)]">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {!selected ? (
+            <>
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                autoFocus
+                placeholder="Ieškoti dainos…"
+                className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-hover)] px-3 py-2.5 text-[13px] text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
+              />
+              <div className="mt-2 flex flex-col gap-1.5">
+                {results.map((t: any) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelected(t)}
+                    className="flex items-center gap-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-hover)] p-2 text-left transition-colors hover:border-[var(--accent-orange)]"
+                  >
+                    <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url || t.artist_image} alt={sanitizeTitle(t.title || '')} size={36} radius={6} />
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 truncate text-[12.5px] font-bold text-[var(--text-primary)]">{sanitizeTitle(t.title || '')}</p>
+                      <p className="m-0 truncate text-[11px] text-[var(--text-muted)]">{t.artist_name || t.artists?.name || ''}</p>
+                    </div>
+                    <span className="shrink-0 text-[11px] font-bold text-[var(--accent-link)]">Rinktis →</span>
+                  </button>
+                ))}
+                {query.trim().length >= 2 && results.length === 0 && (
+                  <p className="px-1 py-2 text-[11.5px] text-[var(--text-faint)]">Nieko nerasta — pabandyk kitą užklausą.</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2.5 rounded-lg border border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/10 p-2.5">
+                <Cover src={selected.cover_url} ytId={extractYouTubeId(selected.video_url)} artistSrc={selected.artists?.cover_image_url || selected.artist_image} alt={sanitizeTitle(selected.title || '')} size={40} radius={8} />
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 truncate text-[13px] font-extrabold text-[var(--text-primary)]">{sanitizeTitle(selected.title || '')}</p>
+                  <p className="m-0 truncate text-[11.5px] text-[var(--text-muted)]">{selected.artist_name || selected.artists?.name || ''}</p>
+                </div>
+                <button onClick={() => setSelected(null)} className="shrink-0 text-[11px] text-[var(--text-faint)] hover:text-[var(--text-primary)]">Keisti</button>
+              </div>
+              <textarea
+                value={comment}
+                onChange={e => setComment(e.target.value)}
+                rows={3}
+                placeholder="Kodėl ši daina? (neprivaloma)"
+                className="mt-3 w-full resize-none rounded-lg border border-[var(--border-default)] bg-[var(--bg-hover)] px-3 py-2.5 text-[12.5px] text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
+              />
+              {error && <p className="m-0 mt-2 text-[11px] text-[var(--accent-red)]">{error}</p>}
+              <button
+                onClick={submit}
+                disabled={sending}
+                className="mt-3 w-full rounded-xl bg-[var(--accent-orange)] py-3 text-[13px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px disabled:opacity-50"
+              >
+                {sending ? 'Siunčiama…' : 'Pasiūlyti dainą'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+/** Vakar laimėjusios dainos highlight kortelė. */
+function DainaWinnerCard({ w, onOpenTrack }: { w: DainaWinner; onOpenTrack: (t: any) => void }) {
+  const t = w.tracks
+  if (!t) return null
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
+      className="hp-card group flex w-full shrink-0 items-center gap-3 p-2.5 text-left sm:w-[280px]"
+      style={{ borderColor: 'rgba(249,115,22,0.4)', background: 'linear-gradient(135deg, rgba(249,115,22,0.08), transparent)' }}
+    >
+      <div className="relative shrink-0">
+        <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={52} radius={8} />
+        <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[11px] shadow-[0_2px_8px_rgba(249,115,22,0.5)]">🏆</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="m-0 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</p>
+        <p className="m-0 mt-0.5 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+        <p className="m-0 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+        <p className="m-0 mt-0.5 text-[10px] font-bold text-[var(--text-faint)]">{w.weighted_votes || w.total_votes || 0} bal.</p>
+      </div>
+    </button>
+  )
+}
+
 function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) {
   const [noms, setNoms] = useState<Nomination[]>([])
+  const [winner, setWinner] = useState<DainaWinner | null>(null)
   const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    let alive = true
-    fetch('/api/dienos-daina/nominations')
-      .then(r => r.json())
-      .then(d => { if (alive) { setNoms(d.nominations || []); setLoading(false) } })
-      .catch(() => { if (alive) setLoading(false) })
-    return () => { alive = false }
+  const [modalOpen, setModalOpen] = useState(false)
+  const [suggestOpen, setSuggestOpen] = useState(false)
+
+  const load = useCallback(() => {
+    Promise.all([
+      fetch('/api/dienos-daina/nominations').then(r => r.json()).catch(() => ({})),
+      fetch('/api/dienos-daina/winners?limit=1').then(r => r.json()).catch(() => ({})),
+    ]).then(([n, w]) => {
+      setNoms(n.nominations || [])
+      setWinner((w.winners && w.winners[0]) || null)
+      setLoading(false)
+    }).catch(() => setLoading(false))
   }, [])
+  useEffect(() => { load() }, [load])
 
   const sorted = [...noms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0))
   const maxVotes = Math.max(1, ...sorted.map(n => n.weighted_votes || n.votes || 0))
@@ -1102,55 +1270,121 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
       </div>
     )
   }
-  if (sorted.length === 0) {
+
+  const NomCard = ({ n, idx }: { n: Nomination; idx: number }) => {
+    const t = n.tracks!
+    const votes = n.weighted_votes || n.votes || 0
+    const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
     return (
-      <div className="rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-8 text-center text-[12px] text-[var(--text-muted)]">
-        Šiandien kandidatų dar nėra — <Link href="/dienos-daina" className="text-[var(--accent-link)] no-underline">pasiūlyk pirmas</Link>.
-      </div>
+      <button
+        type="button"
+        onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
+        className="hp-card group flex w-full shrink-0 items-center gap-3 p-2.5 text-left sm:w-[280px]"
+      >
+        <div className="relative shrink-0">
+          <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={52} radius={8} />
+          {idx < 3 && (
+            <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[10px] font-black text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">{idx + 1}</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+          <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+          <div className="mt-1.5 flex items-center gap-2">
+            <span className="flex items-center gap-[3px]" aria-hidden>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span key={i} className={`h-[3px] w-[14px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+              ))}
+            </span>
+            <span className="shrink-0 text-[10px] font-bold text-[var(--text-faint)]">{votes} bal.</span>
+          </div>
+          {/* FIX 7: kas pasiūlė dainą. */}
+          <div className="mt-1"><ProposerLine p={n.proposer} /></div>
+        </div>
+      </button>
     )
   }
+
   return (
-    <div className="hp-scroll flex flex-col gap-2 sm:flex-row sm:gap-3 sm:overflow-x-auto sm:pb-1">
-      {sorted.slice(0, 14).map((n, idx) => {
-        const t = n.tracks!
-        const votes = n.weighted_votes || n.votes || 0
-        const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
-        return (
+    <>
+      <div className="hp-scroll flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3 sm:overflow-x-auto sm:pb-1">
+        {/* Vakar laimėjusi daina — pirma (FIX 7). */}
+        {winner?.tracks && <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} />}
+
+        {sorted.length === 0 ? (
+          <div className="flex flex-1 items-center rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-6 text-[12px] text-[var(--text-muted)]">
+            Šiandien kandidatų dar nėra — pasiūlyk pirmas.
+          </div>
+        ) : sorted.slice(0, 12).map((n, idx) => <NomCard key={n.id} n={n} idx={idx} />)}
+
+        {/* „Pasiūlyti dainą" + „Visi kandidatai" mygtukai juostos pabaigoje. */}
+        <div className="flex shrink-0 flex-col gap-2 sm:w-[150px] sm:justify-center">
           <button
-            key={n.id}
             type="button"
-            onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: (t as any).slug, cover_url: t.cover_url, video_url: (t as any).video_url, artists: t.artists })}
-            className="hp-card group flex w-full shrink-0 items-center gap-3 p-2.5 text-left sm:w-[280px]"
+            onClick={() => setSuggestOpen(true)}
+            className="rounded-xl bg-[var(--accent-orange)] px-4 py-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px"
           >
-            <div className="relative shrink-0">
-              <Cover
-                src={t.cover_url}
-                ytId={extractYouTubeId((t as any).video_url)}
-                artistSrc={(t as any).artists?.cover_image_url}
-                alt={sanitizeTitle(t.title)}
-                size={52}
-                radius={8}
-              />
-              {idx < 3 && (
-                <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[10px] font-black text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">{idx + 1}</span>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-              <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
-              <div className="mt-1.5 flex items-center gap-2">
-                <span className="flex items-center gap-[3px]" aria-hidden>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <span key={i} className={`h-[3px] w-[14px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
-                  ))}
-                </span>
-                <span className="shrink-0 text-[10px] font-bold text-[var(--text-faint)]">{votes} bal.</span>
-              </div>
-            </div>
+            + Pasiūlyti dainą
           </button>
-        )
-      })}
-    </div>
+          {sorted.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-2.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)]/45 hover:text-[var(--text-primary)]"
+            >
+              Visi {sorted.length} →
+            </button>
+          )}
+        </div>
+      </div>
+
+      {modalOpen && (
+        <HomeListModal open onClose={() => setModalOpen(false)} title="Dienos daina" subtitle="Šiandienos kandidatai pagal balsus">
+          {winner?.tracks && (
+            <div className="mb-4">
+              <p className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">Vakar laimėjo</p>
+              <DainaWinnerCard w={winner} onOpenTrack={(t) => { setModalOpen(false); onOpenTrack(t) }} />
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {sorted.map((n, idx) => {
+              const t = n.tracks!
+              const votes = n.weighted_votes || n.votes || 0
+              const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
+              return (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => { setModalOpen(false); onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists }) }}
+                  className="hp-card group flex items-start gap-3 p-3 text-left"
+                >
+                  <div className="relative shrink-0">
+                    <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={56} radius={8} />
+                    {idx < 3 && <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[10px] font-black text-white">{idx + 1}</span>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+                    <p className="m-0 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="flex items-center gap-[3px]" aria-hidden>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span key={i} className={`h-[3px] w-[14px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+                        ))}
+                      </span>
+                      <span className="shrink-0 text-[10px] font-bold text-[var(--text-faint)]">{votes} bal.</span>
+                    </div>
+                    <div className="mt-1"><ProposerLine p={n.proposer} /></div>
+                    {n.comment && <p className="m-0 mt-1.5 line-clamp-2 text-[11px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </HomeListModal>
+      )}
+
+      {suggestOpen && <DainaSuggestModal onClose={() => setSuggestOpen(false)} onDone={load} />}
+    </>
   )
 }
 
@@ -1176,6 +1410,44 @@ function pulsasEmoji(t: string, sub?: string | null): string {
 
 function PulsasCard({ it, inModal, onNavigate }: { it: PulsasItem; inModal: boolean; onNavigate?: () => void }) {
   const ac = pulsasAccent(it.type, it.subtype)
+  // Komentarams — kitokia kortelė (FIX 4): komentaro tekstas NEbold (tai citata,
+  // ne pavadinimas), entity mini nuotrauka + „kam" eilutė apačioje. Aiškiau
+  // skiriasi nuo blog/diskusijos kortelės.
+  if (it.type === 'comment') {
+    return (
+      <Link
+        href={it.href}
+        onClick={onNavigate}
+        className={`hp-card group flex flex-col overflow-hidden no-underline ${inModal ? 'w-full' : 'shrink-0'}`}
+        style={inModal ? { borderColor: 'rgba(34,197,94,0.3)' } : { width: 240, borderColor: 'rgba(34,197,94,0.3)' }}
+      >
+        <div className="flex items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--accent-green)]/10 px-3 py-2">
+          <span className="text-[12px]">💬</span>
+          <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-green)]">Komentaras</span>
+        </div>
+        <div className="flex flex-1 gap-2.5 p-3">
+          {it.cover && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={proxyImg(it.cover)} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className={`m-0 ${inModal ? 'line-clamp-5' : 'line-clamp-3'} text-[12.5px] leading-relaxed text-[var(--text-primary)]`}>{it.title}</p>
+            {it.meta && <p className="m-0 mt-1.5 line-clamp-1 text-[10.5px] font-bold text-[var(--text-muted)]">{it.meta}</p>}
+          </div>
+        </div>
+        <div className="mt-auto flex items-center gap-2 px-3 pb-3">
+          {it.author_avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={proxyImg(it.author_avatar)} alt="" className="h-[20px] w-[20px] flex-shrink-0 rounded-full object-cover" />
+          ) : it.author_name ? (
+            <div className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[9px] font-extrabold" style={{ background: `hsl(${strHue(it.author_name)},32%,18%)`, color: `hsl(${strHue(it.author_name)},45%,55%)` }}>{it.author_name.charAt(0).toUpperCase()}</div>
+          ) : null}
+          <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-secondary)]">{it.author_name || 'Anonimas'}</span>
+          <span className="shrink-0 text-[9px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
+        </div>
+      </Link>
+    )
+  }
   return (
     <Link
       href={it.href}
@@ -1205,7 +1477,10 @@ function PulsasCard({ it, inModal, onNavigate }: { it: PulsasItem; inModal: bool
       </div>
       <div className="flex flex-1 flex-col p-3">
         <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
-        {it.excerpt && <p className="m-0 mt-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">{it.excerpt}</p>}
+        {/* FIX 5: ilgesnis excerpt'as (section 4 eil., modale 6) užpildo kortelės
+            vertikalų plotą — nelieka tuščios baltos apačios prie aukštų gretimų
+            kortelių. */}
+        {it.excerpt && <p className={`m-0 mt-1.5 ${inModal ? 'line-clamp-6' : 'line-clamp-4'} text-[11.5px] leading-relaxed text-[var(--text-muted)]`}>{it.excerpt}</p>}
         <div className="mt-auto flex items-center gap-2 pt-2.5">
           {it.author_name ? (
             it.author_avatar ? (
@@ -1216,34 +1491,6 @@ function PulsasCard({ it, inModal, onNavigate }: { it: PulsasItem; inModal: bool
             )
           ) : null}
           <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-secondary)]">{it.author_name || 'Anonimas'}</span>
-          <span className="shrink-0 text-[9px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
-        </div>
-      </div>
-    </Link>
-  )
-}
-
-function PulsasCommentSpot({ it }: { it: PulsasItem }) {
-  return (
-    <Link
-      href={it.href}
-      className="hp-card group flex shrink-0 flex-col overflow-hidden no-underline"
-      style={{ width: 240, borderColor: 'rgba(249,115,22,0.35)' }}
-    >
-      <div className="flex items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--accent-orange)]/10 px-3 py-2">
-        <span className="text-[13px]">💬</span>
-        <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-orange)]">Naujausias komentaras</span>
-      </div>
-      <div className="flex flex-1 flex-col p-3">
-        <p className="m-0 line-clamp-4 text-[12.5px] leading-relaxed text-[var(--text-primary)]">{it.title}</p>
-        <div className="mt-auto flex items-center gap-2 pt-2.5">
-          {it.author_avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(it.author_avatar)} alt="" className="h-[20px] w-[20px] flex-shrink-0 rounded-full object-cover" />
-          ) : it.author_name ? (
-            <div className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[9px] font-extrabold" style={{ background: `hsl(${strHue(it.author_name)},32%,18%)`, color: `hsl(${strHue(it.author_name)},45%,55%)` }}>{it.author_name.charAt(0).toUpperCase()}</div>
-          ) : null}
-          <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-secondary)]">{it.author_name || 'Anonimas'}{it.meta ? ` · ${it.meta}` : ''}</span>
           <span className="shrink-0 text-[9px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
         </div>
       </div>
@@ -1303,7 +1550,10 @@ function PulsasSection() {
           ) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
         </div>
         {!loading && items.length > 0 && (
-          <StickyMoreButton count={items.length} height={200} ariaLabel="Atverti visą Pulsą" onClick={() => setModalOpen(true)} />
+          // height=320 — kortelių (Pokalbiai/Kas vyksta dėžučių) aukštis, kad
+          // šoninis „expand" mygtukas būtų lygus joms (FIX 6: anksčiau buvo 200px
+          // → vizualiai trumpesnis nei kaimyninės kortelės).
+          <StickyMoreButton count={items.length} height={320} ariaLabel="Atverti visą Pulsą" onClick={() => setModalOpen(true)} />
         )}
       </div>
       {/* Mobile: Pokalbiai + Kas vyksta dėžutės po juosta (Edvardo prašymu). */}
@@ -1364,21 +1614,29 @@ type IstApiItem = {
 const IST_CATS = {
   album_anniversary: { label: 'Šiandien išleisti albumai' },
   birthday: { label: 'Gimtadieniai' },
-  death_anniversary: { label: 'Atminimas' },
+  death_anniversary: { label: 'Mirties metinės' },
 } as const
 type IstCatKey = keyof typeof IST_CATS
 
 // Istorijos thumbnail'as — atlikėjo/albumo cover'is arba monograma (NE emoji).
-function IstThumb({ cover, name }: { cover: string | null; name: string }) {
+// `size` px — sekcijos kortelės naudoja didesnį (56), modalas standartinį (48).
+function IstThumb({ cover, name, size = 48, radius = 10 }: { cover: string | null; name: string; size?: number; radius?: number }) {
   if (cover) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(cover)} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+    return <img src={proxyImg(cover)} alt="" loading="lazy" className="shrink-0 object-cover" style={{ width: size, height: size, borderRadius: radius }} />
   }
   return (
-    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg font-['Outfit',sans-serif] text-[16px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>
+    <div className="flex shrink-0 items-center justify-center font-['Outfit',sans-serif] font-extrabold" style={{ width: size, height: size, borderRadius: radius, fontSize: size * 0.34, background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>
       {(name || '?').charAt(0).toUpperCase()}
     </div>
   )
+}
+
+// Kategorijos akcentas — gimtadieniai oranžiniai, albumai mėlyni, atminimas pilkas.
+const IST_ACCENT: Record<string, string> = {
+  album_anniversary: 'var(--accent-link)',
+  birthday: 'var(--accent-orange)',
+  death_anniversary: 'var(--text-muted)',
 }
 
 function IstorijaSection() {
@@ -1428,32 +1686,54 @@ function IstorijaSection() {
 
   return (
     <>
+      {/* FIX 8: turtingesnis kortelių dizainas — featured kortelė su dideliu
+          cover'iu viršuje + kompaktiški įrašai apačioje. Vizualiai stipresnis,
+          atitinka Pulsas/albumų sekcijų kalbą (cover-forward). */}
       <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cats.length, 3)}, 1fr)`, gap: 16 }}>
-        {cats.map(({ t, cfg, list }) => (
-          <div key={t} className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3.5 py-2.5">
-              <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">{cfg.label}</span>
-              <button type="button" onClick={() => setOpenCat(t)} className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--accent-link)] transition-colors hover:text-[var(--accent-orange)]">
-                Visi {list.length} →
-              </button>
-            </div>
-            <div>
-              {list.slice(0, 4).map((it, i) => (
-                <Link
-                  key={it.id}
-                  href={it.href}
-                  className={`flex items-center gap-2.5 px-3.5 py-2 no-underline transition-colors hover:bg-[var(--bg-hover)] ${i < Math.min(list.length, 4) - 1 ? 'border-b border-[var(--border-subtle)]' : ''}`}
-                >
-                  <IstThumb cover={it.cover} name={it.title} />
+        {cats.map(({ t, cfg, list }) => {
+          const accent = IST_ACCENT[t] || 'var(--accent-orange)'
+          const featured = list[0]
+          const rest = list.slice(1, 4)
+          return (
+            <div key={t} className="flex flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+              <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3.5 py-2.5">
+                <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">{cfg.label}</span>
+                <button type="button" onClick={() => setOpenCat(t)} className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--accent-link)] transition-colors hover:text-[var(--accent-orange)]">
+                  Visi {list.length} →
+                </button>
+              </div>
+              {/* Featured — didelė kortelė su cover'iu kairėje + metų pill'u. */}
+              {featured && (
+                <Link href={featured.href} className="group flex items-center gap-3 border-b border-[var(--border-subtle)] p-3 no-underline transition-colors hover:bg-[var(--bg-hover)]">
+                  <IstThumb cover={featured.cover} name={featured.title} size={64} radius={12} />
                   <div className="min-w-0 flex-1">
-                    <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)]">{it.title}</p>
-                    <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{it.subtitle}</p>
+                    <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{featured.title}</p>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <span className="rounded-full px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold text-white" style={{ background: accent }}>{featured.subtitle}</span>
+                      {featured.year && <span className="text-[10.5px] text-[var(--text-faint)]">{featured.year} m.</span>}
+                    </div>
                   </div>
                 </Link>
-              ))}
+              )}
+              {/* Kompaktiški likę įrašai. */}
+              <div className="flex-1">
+                {rest.map((it, i) => (
+                  <Link
+                    key={it.id}
+                    href={it.href}
+                    className={`flex items-center gap-2.5 px-3.5 py-2 no-underline transition-colors hover:bg-[var(--bg-hover)] ${i < rest.length - 1 ? 'border-b border-[var(--border-subtle)]' : ''}`}
+                  >
+                    <IstThumb cover={it.cover} name={it.title} size={40} radius={8} />
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)]">{it.title}</p>
+                      <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{it.subtitle}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {openCat && (
@@ -1466,10 +1746,11 @@ function IstorijaSection() {
                 onClick={() => setOpenCat(null)}
                 className="hp-card group flex items-center gap-3 p-2.5 no-underline"
               >
-                <IstThumb cover={it.cover} name={it.title} />
+                <IstThumb cover={it.cover} name={it.title} size={52} radius={10} />
                 <div className="min-w-0 flex-1">
                   <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
                   <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-[var(--text-muted)]">{it.subtitle}</p>
+                  {it.year && <span className="mt-1 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-faint)]">{it.year} m.</span>}
                 </div>
               </Link>
             ))}
@@ -3120,8 +3401,9 @@ export default function Home() {
                           </div>
                         ) : items.slice(0, 14).map(ev => {
                           const dateRaw = (ev as any).start_date || ev.event_date
-                          const d = dateRaw ? new Date(dateRaw) : null
-                          const validDate = d && !isNaN(d.getTime())
+                          // Data badge ant cover'io — ta pati logika kaip „Greitai pasirodys"
+                          // albumams: „Šiandien"/„Rytoj"/„Po X d." (highlight ≤14 d.) / konkreti data.
+                          const evDate = formatFutureDateLT(dateRaw)
                           const created = ev.created_at ? new Date(ev.created_at) : null
                           const ageDays = created ? (Date.now() - created.getTime()) / 86400000 : 999
                           // „Naujas" = pridėtas per pask. 2 d. (created_at). 7 d. langas
@@ -3233,7 +3515,7 @@ export default function Home() {
             minHeight={220}
             placeholder={
               <section>
-                <SectionHead label="Dienos daina" href="/dienos-daina" cta="Visi kandidatai →" />
+                <SectionHead label="Dienos daina" href="/dienos-daina" cta="Daugiau →" />
                 <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4" style={{ maxWidth: 560 }}>
                   <Skel w="40%" h={11} />
                   <div className="mt-3"><Skel w="100%" h={48} /></div>
