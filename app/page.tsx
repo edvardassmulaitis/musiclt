@@ -3140,8 +3140,13 @@ export default function Home() {
                                 isNew ? 'border-[var(--accent-orange)]' : 'border-[var(--border-default)] group-hover:border-[rgba(249,115,22,0.5)]'
                               }`}>
                                 {imgSrc ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={proxyImg(imgSrc)} alt={artistText} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                                  <>
+                                    {/* Blur backdrop užpildo tuščius plotus; pilnas plakatas — object-contain (mažinam pagal ilgiausią kraštinę). */}
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={proxyImg(imgSrc)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-xl" />
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={proxyImg(imgSrc)} alt={artistText} loading="lazy" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.04]" />
+                                  </>
                                 ) : (
                                   <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
                                 )}

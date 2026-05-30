@@ -11,9 +11,12 @@ export async function getEvents(opts: {
   showPast?: boolean
   limit?: number
   offset?: number
+  /** start_date rikiavimas. 'asc' (default) — soonest first (homepage).
+   *  'desc' — newest first (admin'ui, kad scrape'inti 2026 renginiai būtų viršuje). */
+  order?: 'asc' | 'desc'
 } = {}) {
   const supabase = createAdminClient()
-  const { city, status, period, showPast = false, limit = 20, offset = 0 } = opts
+  const { city, status, period, showPast = false, limit = 20, offset = 0, order = 'asc' } = opts
 
   let q = supabase
     .from('events')
@@ -27,7 +30,7 @@ export async function getEvents(opts: {
         artists(id, name, slug, cover_image_url, country)
       )
     `, { count: 'exact' })
-    .order('start_date', { ascending: true })
+    .order('start_date', { ascending: order !== 'desc' })
     .range(offset, offset + limit - 1)
 
   if (!showPast) {
@@ -48,7 +51,36 @@ export async function getEvents(opts: {
 
   const { data, error, count } = await q
   if (error) throw error
-  return { events: data || [], total: count || 0 }
+
+  // Žanrų praturtinimas (atskira užklausa — saugiau nei nested embed). Kiekvienam
+  // renginiui prisegam jo atlikėjų žanrų sąjungą → leidžia stiliaus filtrą modale.
+  const events = (data || []) as any[]
+  try {
+    const artistIds = Array.from(new Set(
+      events.flatMap(e => (e.event_artists || []).map((ea: any) => ea.artist_id).filter(Boolean)),
+    ))
+    if (artistIds.length) {
+      const genreByArtist = new Map<number, string[]>()
+      const { data: ag } = await supabase
+        .from('artist_genres')
+        .select('artist_id, genres(name)')
+        .in('artist_id', artistIds)
+      for (const r of (ag || []) as any[]) {
+        const name = r.genres?.name
+        if (!name) continue
+        const list = genreByArtist.get(r.artist_id) || []
+        if (!list.includes(name)) list.push(name)
+        genreByArtist.set(r.artist_id, list)
+      }
+      for (const e of events) {
+        const gset = new Set<string>()
+        for (const ea of e.event_artists || []) for (const g of (genreByArtist.get(ea.artist_id) || [])) gset.add(g)
+        e.genres = Array.from(gset)
+      }
+    }
+  } catch { /* žanrai nebūtini — nelaužiam renginių */ }
+
+  return { events, total: count || 0 }
 }
 
 // ── Get featured events ──────────────────────────────────────────

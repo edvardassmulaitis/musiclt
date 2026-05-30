@@ -24,7 +24,8 @@ export default function AdminEventsPage() {
 
   async function load() {
     setLoading(true)
-    const res = await fetch('/api/events?limit=100&showPast=true')
+    // order=desc → naujausi/būsimi renginiai (scrape'inti 2026) viršuje, ne 1997-ųjų.
+    const res = await fetch('/api/events?limit=300&showPast=true&order=desc')
     const data = await res.json()
     setEvents(data.events || [])
     setLoading(false)

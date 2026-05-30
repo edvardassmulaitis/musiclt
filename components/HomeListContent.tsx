@@ -5,6 +5,11 @@
 // Praturtintas pilno sąrašo turinys homepage'o „Visi" modalams (HomeListModal
 // viduje). Fetch'ina VISĄ filtruotą rinkinį per /api/home/list (tracks/albums/
 // upcoming) arba /api/events (events).
+//   • tracks/albums/upcoming: rūšiavimas (naujausi / populiariausi) + žanro chip'ai,
+//     „hot" popbar pagal YouTube peržiūras, like'ai, data, „Rodyti daugiau".
+//   • events: miesto chip'ų filtras (Edvardo prašymu), data + vieta.
+// Toolbar'as vienoje eilėje desktop'e; mobile'e chip'ai horizontaliai scroll'inami
+// (taupo vertikalią vietą).
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
@@ -83,6 +88,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
   const [total, setTotal] = useState(0)
   const [activeGenre, setActiveGenre] = useState('')
   const [activeCity, setActiveCity] = useState('')
+  const [activeDate, setActiveDate] = useState<'all' | 'week' | 'month' | 'later'>('all')
   const [sort, setSort] = useState<Sort>('new')
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -116,9 +122,16 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
       setTotal(res.total)
       if (res.genres) setGenres(res.genres)
       if (isEvents) {
+        // Miestų + žanrų facet'ai iš pilno rinkinio.
         const m = new Map<string, number>()
-        for (const ev of res.items) { const c = eventCity(ev); if (c) m.set(c, (m.get(c) || 0) + 1) }
-        setCities(Array.from(m.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'lt')))
+        const g = new Map<string, number>()
+        for (const ev of res.items) {
+          const c = eventCity(ev); if (c) m.set(c, (m.get(c) || 0) + 1)
+          for (const gn of (ev.genres || [])) g.set(gn, (g.get(gn) || 0) + 1)
+        }
+        const byCount = (a: Facet, b: Facet) => b.count - a.count || a.name.localeCompare(b.name, 'lt')
+        setCities(Array.from(m.entries()).map(([name, count]) => ({ name, count })).sort(byCount))
+        setGenres(Array.from(g.entries()).map(([name, count]) => ({ name, count })).sort(byCount))
       }
       setLoading(false)
     })
@@ -134,7 +147,21 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
     setLoadingMore(false)
   }
 
-  const shown = isEvents && activeCity ? items.filter(ev => eventCity(ev) === activeCity) : items
+  // Events filtruojam kliento pusėje (jau turim pilną rinkinį): miestas + data + žanras.
+  const eventInDate = (ev: any) => {
+    if (activeDate === 'all') return true
+    const t = new Date(ev.start_date || ev.event_date || 0).getTime()
+    const now = Date.now()
+    if (activeDate === 'week') return t <= now + 7 * 86400000
+    if (activeDate === 'month') return t <= now + 30 * 86400000
+    return t > now + 30 * 86400000 // 'later'
+  }
+  const shown = isEvents
+    ? items.filter(ev =>
+        (!activeCity || eventCity(ev) === activeCity) &&
+        (!activeGenre || (ev.genres || []).includes(activeGenre)) &&
+        eventInDate(ev))
+    : items
   const hasMore = !isEvents && items.length < total
 
   const chipCls = (active: boolean) =>
@@ -145,51 +172,58 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
     }`
 
   return (
-    <div>
-      {/* Toolbar — viena eilė desktop'e; mobile'e chip'ai horizontaliai scroll'inami. */}
-      <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
-        {!isEvents && (
+    <div style={{ minHeight: '58vh' }}>
+      {/* Toolbar. Non-events: sort + žanrai. Events: data + miestai + žanrai
+          atskiromis eilutėmis (mobile horizontal scroll). minHeight ant root —
+          kad filtruojant rezultatų kiekis keistųsi, modalas nešokinėtų. */}
+      {!isEvents ? (
+        <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
           <div className="flex shrink-0 items-center gap-1.5">
             {([['new', type === 'upcoming' ? 'Artimiausi' : 'Naujausi'], ['liked', 'Populiariausi']] as const).map(([k, label]) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setSort(k)}
-                className={`rounded-full px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors ${
-                  sort === k ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--bg-active)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                }`}
-              >
+              <button key={k} type="button" onClick={() => setSort(k)}
+                className={`rounded-full px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors ${sort === k ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--bg-active)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>
                 {label}
               </button>
             ))}
           </div>
-        )}
-        {!isEvents && genres.length > 0 && (
+          {genres.length > 0 && (
+            <div className="hp-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
+              <button type="button" onClick={() => setActiveGenre('')} className={chipCls(activeGenre === '')}>Visi žanrai</button>
+              {genres.map(g => (
+                <button key={g.name} type="button" onClick={() => setActiveGenre(g.name)} className={chipCls(activeGenre === g.name)}>{g.name} <span className="opacity-60">{g.count}</span></button>
+              ))}
+            </div>
+          )}
+          {!loading && total > 0 && (
+            <span className="shrink-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-faint)] sm:ml-auto">Iš viso: {total}</span>
+          )}
+        </div>
+      ) : (
+        <div className="mb-4 flex flex-col gap-2">
           <div className="hp-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
-            <button type="button" onClick={() => setActiveGenre('')} className={chipCls(activeGenre === '')}>Visi žanrai</button>
-            {genres.map(g => (
-              <button key={g.name} type="button" onClick={() => setActiveGenre(g.name)} className={chipCls(activeGenre === g.name)}>
-                {g.name} <span className="opacity-60">{g.count}</span>
-              </button>
+            {([['all', 'Visi laikai'], ['week', 'Šią savaitę'], ['month', 'Šį mėnesį'], ['later', 'Vėliau']] as const).map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setActiveDate(k)} className={chipCls(activeDate === k)}>{l}</button>
             ))}
+            {!loading && <span className="ml-auto hidden shrink-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-faint)] sm:inline">Rasta: {shown.length}</span>}
           </div>
-        )}
-        {isEvents && cities.length > 0 && (
-          <div className="hp-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
-            <button type="button" onClick={() => setActiveCity('')} className={chipCls(activeCity === '')}>Visi miestai</button>
-            {cities.map(c => (
-              <button key={c.name} type="button" onClick={() => setActiveCity(c.name)} className={chipCls(activeCity === c.name)}>
-                {c.name} <span className="opacity-60">{c.count}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        {!loading && total > 0 && (
-          <span className="shrink-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-faint)] sm:ml-auto">
-            Iš viso: {total}
-          </span>
-        )}
-      </div>
+          {cities.length > 0 && (
+            <div className="hp-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
+              <button type="button" onClick={() => setActiveCity('')} className={chipCls(activeCity === '')}>Visi miestai</button>
+              {cities.map(c => (
+                <button key={c.name} type="button" onClick={() => setActiveCity(c.name)} className={chipCls(activeCity === c.name)}>{c.name} <span className="opacity-60">{c.count}</span></button>
+              ))}
+            </div>
+          )}
+          {genres.length > 0 && (
+            <div className="hp-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
+              <button type="button" onClick={() => setActiveGenre('')} className={chipCls(activeGenre === '')}>Visi žanrai</button>
+              {genres.map(g => (
+                <button key={g.name} type="button" onClick={() => setActiveGenre(g.name)} className={chipCls(activeGenre === g.name)}>{g.name} <span className="opacity-60">{g.count}</span></button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Grid */}
       {loading ? (
@@ -222,8 +256,13 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                   <Link key={it.id} href={`/renginiai/${it.slug}`} onClick={onClose} className="group block no-underline text-left">
                     <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
                       {img ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={proxyImg(img)} alt={label} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                        <>
+                          {/* Blur backdrop užpildo tuščius plotus; pilnas plakatas — object-contain. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={proxyImg(img)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-xl" />
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={proxyImg(img)} alt={label} loading="lazy" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.04]" />
+                        </>
                       ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>}
                     </div>
                     <div className="mt-2 px-0.5">
@@ -238,6 +277,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                   </Link>
                 )
               }
+              // tracks / albums / upcoming
               const v = ytId(it.video_url)
               const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
               const img = isAlbumLike
@@ -286,6 +326,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
               }
 
               // tracks — YouTube play VYKSTA INLINE (be papildomo modalo ant viršaus).
+              // Title spustelėjimas atidaro pilną dainos modalą (tekstai/komentarai).
               const playing = playingId === it.id
               return (
                 <div key={it.id} className="group block w-full text-left">
