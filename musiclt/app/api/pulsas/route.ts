@@ -305,3 +305,4 @@ function entityTypeLabel(t: string | null | undefined): string | null {
   }
   return map[t] || 'Komentaras'
 }
+// build refresh 2026-05-30
