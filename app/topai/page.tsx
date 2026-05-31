@@ -158,6 +158,8 @@ const PLANNED: Planned[] = [
   { source: 'billboard', chartKey: 'global200', title: 'Billboard Global 200', subtitle: 'Pasaulinis dainų reitingas', accent: '#f59e0b', scope: 'world', size: 200, sourceUrl: 'https://www.billboard.com/charts/billboard-global-200/', attribution: 'Billboard' },
 
   // ── Trendai / social ──
+  { source: 'youtube', chartKey: 'lt_music', title: 'YouTube Trending — Lietuva', subtitle: 'Populiariausi muzikos klipai YouTube LT', accent: '#ef4444', scope: 'social', size: 50, sourceUrl: 'https://www.youtube.com/feed/trending', attribution: 'YouTube Charts' },
+  { source: 'youtube', chartKey: 'us_music', title: 'YouTube Trending — Pasaulis', subtitle: 'Populiariausi muzikos klipai YouTube', accent: '#f43f5e', scope: 'social', size: 50, sourceUrl: 'https://www.youtube.com/feed/trending', attribution: 'YouTube Charts' },
   { source: 'billboard', chartKey: 'tiktok50', title: 'TikTok Billboard Top 50', subtitle: 'Trendinančios dainos TikTok platformoje', accent: '#ec4899', scope: 'social', size: 50, sourceUrl: 'https://www.billboard.com/charts/tiktok-billboard-top-50/', attribution: 'Billboard × TikTok' },
   { source: 'spotify', chartKey: 'viral50_global', title: 'Spotify Viral 50', subtitle: 'Greičiausiai populiarėjantys kūriniai pasaulyje', accent: '#22c55e', scope: 'social', size: 50, sourceUrl: 'https://charts.spotify.com/', attribution: 'Spotify Charts' },
   { source: 'shazam', chartKey: 'world', title: 'Shazam Global Top 200', subtitle: 'Daugiausiai atpažįstamos / atrandamos dainos', accent: '#0ea5e9', scope: 'social', size: 200, sourceUrl: 'https://www.shazam.com/charts/top-200/world', attribution: 'Shazam' },
