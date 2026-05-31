@@ -34,6 +34,8 @@ export default function AdminChartsPage() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [entriesLoading, setEntriesLoading] = useState(false)
   const [resolving, setResolving] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createProgress, setCreateProgress] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'unresolved'>('all')
   const [featuredEdit, setFeaturedEdit] = useState(false)
   const [coverEdit, setCoverEdit] = useState('')
@@ -79,6 +81,29 @@ export default function AdminChartsPage() {
     setResolving(false)
     if (r) { await loadEntries(selected.id); await loadCharts(); }
     if (r?.matched != null) alert(`Automatiškai susieta: ${r.matched} iš ${r.processed} neapdorotų.`)
+  }
+
+  // „Sukurti likusius" — visiems pending/ambiguous sukuria ghost atlikėją+dainą.
+  // Time-budget'as serveryje grąžina remaining>0; kartojam kol nuliuojam.
+  const createAll = async () => {
+    if (!selected) return
+    if (!confirm('Sukurti ghost atlikėją + dainą VISIEMS likusiems neapdorotiems įrašams? Vėliau supildysi per /admin/artists.')) return
+    setCreating(true); setCreateProgress('Kuriama…')
+    let totalCreated = 0
+    for (let guard = 0; guard < 40; guard++) {
+      const r = await fetch(`/api/admin/charts/${selected.id}/resolve`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'create' }),
+      }).then(r => r.json()).catch(() => null)
+      if (!r) break
+      totalCreated += r.created || 0
+      await loadEntries(selected.id)
+      if (!r.remaining || r.remaining <= 0) break
+      setCreateProgress(`Sukurta ${totalCreated}, liko ~${r.remaining}…`)
+    }
+    setCreating(false); setCreateProgress(null)
+    await loadCharts()
+    alert(`Sukurta ${totalCreated} naujų atlikėjų/dainų.`)
   }
 
   const onEntryChanged = async () => {
@@ -153,9 +178,14 @@ export default function AdminChartsPage() {
                 <button onClick={() => setFilter('all')} className={`rounded px-2 py-1 ${filter === 'all' ? 'bg-gray-100 font-semibold text-gray-800' : 'text-gray-500'}`}>Visi</button>
                 <button onClick={() => setFilter('unresolved')} className={`rounded px-2 py-1 ${filter === 'unresolved' ? 'bg-amber-100 font-semibold text-amber-700' : 'text-gray-500'}`}>Tik laukiantys</button>
               </div>
-              <button onClick={autoMatch} disabled={resolving}
+              <button onClick={autoMatch} disabled={resolving || creating}
                 className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
                 {resolving ? 'Tikrinama…' : 'Auto-match'}
+              </button>
+              <button onClick={createAll} disabled={creating || resolving}
+                title="Visiems likusiems sukurti ghost atlikėją + dainą"
+                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                {creating ? (createProgress || 'Kuriama…') : 'Sukurti likusius'}
               </button>
             </div>
           </div>
