@@ -22,8 +22,7 @@ import {
   type SortKey, type CountryResolution,
 } from '@/lib/artist-browse'
 
-export const revalidate = 600 // 10 min — naršymo puslapis nekinta dažnai
-
+// Puslapis dinamiškas (priklauso nuo searchParams), tad revalidate neeksportuojam.
 const PER_PAGE = 48
 
 // ── Filter option fetchers (cached, dalinami su generateMetadata) ──────
@@ -67,10 +66,11 @@ async function fetchArtists(p: Params): Promise<{ items: Artist[]; total: number
   // Tipo filtras
   if (p.type === 'solo' || p.type === 'group') q = q.eq('type', p.type)
 
-  // Rūšiavimas — secondary tiebreaker name ASC, kad pozicijos būtų stabilios
+  // Rūšiavimas — secondary tiebreaker name ASC, kad pozicijos būtų stabilios.
+  // nullsFirst:false — kad NULL score'ai nenukristų į viršų (DESC default = NULLS FIRST).
   if (p.sort === 'name') q = q.order('name', { ascending: true })
-  else if (p.sort === 'recent') q = q.order('recent_score', { ascending: false }).order('name', { ascending: true })
-  else q = q.order('score', { ascending: false }).order('name', { ascending: true })
+  else if (p.sort === 'recent') q = q.order('recent_score', { ascending: false, nullsFirst: false }).order('name', { ascending: true })
+  else q = q.order('score', { ascending: false, nullsFirst: false }).order('name', { ascending: true })
 
   const from = (p.page - 1) * PER_PAGE
   q = q.range(from, from + PER_PAGE - 1)
@@ -101,7 +101,9 @@ async function resolveFilters(sp: SP) {
   const genreSlug = sp.genre ? ltSlugify(sp.genre) : null
   const genre = genreSlug ? genres.find((g) => ltSlugify(g.name) === genreSlug) || null : null
   const type = sp.type === 'solo' || sp.type === 'group' ? sp.type : null
-  const sort = normSort(sp.sort)
+  // Default'as — „Tendencijos" (recent_score): /atlikejai be sort param rodo
+  // trending atlikėjus. ?sort=popular / ?sort=name perrašo.
+  const sort = sp.sort ? normSort(sp.sort) : 'recent'
   const page = Math.max(1, parseInt(sp.page || '1', 10) || 1)
   const q = (sp.q || '').trim()
   return { countries, genres, country, genre, type, sort, page, q }
@@ -151,14 +153,10 @@ function parseCoverPos(pos: string | null): { x: number; y: number; zoom: number
   if (!pos) return { x: 50, y: 20, zoom: 1 }
   const parts = pos.trim().split(/\s+/)
   const pcts = pos.match(/(\d+)%/g) || []
-  const isCenter = parts[0] === 'center'
-  const xPct = pcts[0]
-  const x = isCenter ? 50 : xPct ? parseInt(xPct) : 50
-  const yPct = pcts[isCenter ? 0 : 1]
-  const y = yPct ? parseInt(yPct) : 20
-  const lastStr = parts[parts.length - 1] ?? ''
-  const last = parseFloat(lastStr)
-  const zoom = !isNaN(last) && last >= 1 && !lastStr.includes('%') ? last : 1
+  const x = parts[0] === 'center' ? 50 : pcts[0] ? parseInt(pcts[0]) : 50
+  const y = pcts[parts[0] === 'center' ? 0 : 1] ? parseInt(pcts[parts[0] === 'center' ? 0 : 1]) : 20
+  const last = parseFloat(parts[parts.length - 1])
+  const zoom = !isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%') ? last : 1
   return { x, y, zoom }
 }
 
@@ -242,24 +240,16 @@ function Pagination({ sp, page, totalPages }: { sp: SP; page: number; totalPages
 // ── Page ─────────────────────────────────────────────────────────────────
 export default async function ArtistsPage({ searchParams }: PageProps) {
   const sp = normSP(await searchParams)
-  const { countries, genres, country, genre, type, sort, page, q } = await resolveFilters(sp)
+  const { countries, genres, country, genre, sort, page } = await resolveFilters(sp)
 
   const { items, total } = await fetchArtists({
-    country, genreId: genre?.genre_id, type: type || undefined, sort, page,
+    country, genreId: genre?.genre_id, sort, page,
   })
 
-  // Paieška (q) — client-side filtras virš jau gauto puslapio. Pilnai DB
-  // paieškai naudojam MasterSearch header'yje; čia tik greitas susiaurinimas.
-  const visible = q
-    ? items.filter((a) => a.name.toLowerCase().includes(q.toLowerCase()))
-    : items
-
+  const visible = items
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
-  const heading = buildHeading(country, genre, type)
+  const heading = buildHeading(country, genre, null)
   const showRecent = sort === 'recent'
-
-  // Crawlinami facet link'ai (žanrai + top šalys).
-  const topCountries = countries.filter((c) => c.country !== LT_COUNTRY).slice(0, 12)
 
   return (
     <div className="ab">
@@ -268,42 +258,17 @@ export default async function ArtistsPage({ searchParams }: PageProps) {
       {/* Hero */}
       <header className="ab-hero">
         <div className="ab-hero-inner">
-          <nav className="ab-crumbs" aria-label="Breadcrumb">
-            <Link href="/">Pradžia</Link><span>›</span><span>Atlikėjai</span>
-          </nav>
           <h1>{heading}</h1>
           <p>{total.toLocaleString('lt-LT')} atlikėjų · naršyk pagal šalį, žanrą ir populiarumą</p>
         </div>
       </header>
 
-      {/* Quick facet chips (crawlable links) */}
-      <div className="ab-facets">
-        <div className="ab-facet-row">
-          <span className="ab-facet-lbl">Šalis</span>
-          <Link href="/atlikejai" className={`ab-chip${country.mode === 'all' ? ' on' : ''}`} prefetch={false}>Visi</Link>
-          <Link href="/atlikejai?country=lt" className={`ab-chip${country.mode === 'lt' ? ' on' : ''}`} prefetch={false}>🇱🇹 Lietuva</Link>
-          <Link href="/atlikejai?country=world" className={`ab-chip${country.mode === 'world' ? ' on' : ''}`} prefetch={false}>🌍 Užsienis</Link>
-          {topCountries.map((c) => (
-            <Link key={c.country} href={`/atlikejai?country=${ltSlugify(c.country)}`} className={`ab-chip${country.mode === 'name' && country.name === c.country ? ' on' : ''}`} prefetch={false}>
-              {flagFor(c.country)} {c.country}
-            </Link>
-          ))}
-        </div>
-        <div className="ab-facet-row">
-          <span className="ab-facet-lbl">Žanras</span>
-          <Link href={pageHref({ ...sp, genre: undefined, page: undefined }, 1)} className={`ab-chip${!genre ? ' on' : ''}`} prefetch={false}>Visi</Link>
-          {genres.map((g) => (
-            <Link key={g.genre_id} href={`/atlikejai?genre=${ltSlugify(g.name)}${sp.country ? `&country=${sp.country}` : ''}`} className={`ab-chip${genre?.genre_id === g.genre_id ? ' on' : ''}`} prefetch={false}>
-              {g.name.replace(/\s*muzika$/i, '')}
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Interaktyvus filtrų bar'as (sort, type, paieška) */}
+      {/* Kompaktiškas filtrų bar'as: rūšiavimas (mygtukai) + šalis (dropdown)
+          + žanras (chip'ai desktop / dropdown mobile) */}
       <ArtistsFilterBar
         countries={countries}
-        current={{ country: sp.country || 'all', genre: sp.genre || '', type: type || 'all', sort, q }}
+        genres={genres}
+        current={{ country: sp.country || 'all', genre: sp.genre || '', sort }}
         resultCount={total}
       />
 
@@ -322,8 +287,8 @@ export default async function ArtistsPage({ searchParams }: PageProps) {
               <ArtistCard
                 key={a.id}
                 a={a}
-                big={page === 1 && !q && i % 11 === 0}
-                rank={sort === 'popular' && page === 1 ? i + 1 : undefined}
+                big={page === 1 && i % 11 === 0}
+                rank={sort !== 'name' && page === 1 ? i + 1 : undefined}
                 showRecent={showRecent}
               />
             ))}
