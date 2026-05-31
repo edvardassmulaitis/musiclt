@@ -40,6 +40,7 @@ export default function AdminChartsPage() {
   const [featuredEdit, setFeaturedEdit] = useState(false)
   const [coverEdit, setCoverEdit] = useState('')
   const [savingMeta, setSavingMeta] = useState(false)
+  const detailRef = useRef<HTMLDivElement>(null)
 
   const loadCharts = useCallback(async () => {
     setLoading(true)
@@ -60,6 +61,8 @@ export default function AdminChartsPage() {
   const openChart = (c: Chart) => {
     setSelected(c); setFilter('all'); loadEntries(c.id)
     setFeaturedEdit(!!c.featured); setCoverEdit(c.cover_image_url || '')
+    // Mobile: po pasirinkimo iškart nuscrollinam į įrašų sąrašą (ne ranka).
+    setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
   }
 
   const saveMeta = async () => {
@@ -167,7 +170,7 @@ export default function AdminChartsPage() {
 
       {/* Selected chart detail */}
       {selected && (
-        <div className="mt-7 rounded-xl border border-gray-200 bg-white">
+        <div ref={detailRef} className="mt-7 scroll-mt-4 rounded-xl border border-gray-200 bg-white">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
             <div>
               <h2 className="font-bold text-gray-900">{selected.title}</h2>
@@ -241,40 +244,39 @@ function EntryRow({ entry, onChanged }: { entry: Entry; country: string | null; 
   }
 
   return (
-    <div className="px-4 py-2.5">
-      <div className="flex items-center gap-3">
-        <span className="w-7 shrink-0 text-center text-sm font-black tabular-nums text-gray-400">{entry.position}</span>
+    <div className="px-3 py-2.5 sm:px-4">
+      {/* Eilutė: numeris + pavadinimas/atlikėjas (pilnai matomas) + būsena */}
+      <div className="flex items-start gap-2.5 sm:gap-3">
+        <span className="w-6 shrink-0 pt-0.5 text-center text-sm font-black tabular-nums text-gray-400 sm:w-7">{entry.position}</span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-gray-800">{entry.title}</p>
-          <p className="truncate text-xs text-gray-400">{entry.artistName}</p>
-        </div>
-        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${meta.cls}`}>{meta.label}</span>
-
-        {resolved && entry.track ? (
-          <div className="hidden min-w-0 max-w-[230px] shrink-0 items-center gap-1.5 sm:flex">
+          <p className="text-sm font-semibold leading-snug text-gray-800">{entry.title}</p>
+          <p className="text-xs text-gray-400">{entry.artistName}</p>
+          {resolved && entry.track ? (
             <a href={`/dainos/${entry.track.slug}`} target="_blank" rel="noreferrer"
-              className="truncate text-xs text-violet-600 hover:underline">
+              className="mt-0.5 block truncate text-xs text-violet-600 hover:underline">
               → {entry.track.artist} – {entry.track.title}
             </a>
-          </div>
-        ) : null}
-
-        <div className="flex shrink-0 items-center gap-1">
-          {resolved ? (
-            <button onClick={() => act('unlink')} disabled={busy}
-              className="rounded px-2 py-1 text-[11px] font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50">Atrišti</button>
-          ) : (
-            <>
-              <button onClick={() => setSearching(s => !s)} disabled={busy}
-                className="rounded bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">Susieti</button>
-              <button onClick={() => act('create')} disabled={busy}
-                className="rounded bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-100 disabled:opacity-50"
-                title="Sukurti naują atlikėją + dainą">Sukurti</button>
-              <button onClick={() => act('skip')} disabled={busy}
-                className="rounded px-2 py-1 text-[11px] font-medium text-gray-400 hover:bg-gray-100 disabled:opacity-50">Praleisti</button>
-            </>
-          )}
+          ) : null}
         </div>
+        <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${meta.cls}`}>{meta.label}</span>
+      </div>
+
+      {/* Veiksmai: po pavadinimu, kad mobile netruktų vietos ir nesimaitų titles */}
+      <div className="mt-1.5 flex flex-wrap items-center justify-end gap-1.5 pl-8 sm:pl-10">
+        {resolved ? (
+          <button onClick={() => act('unlink')} disabled={busy}
+            className="rounded px-2.5 py-1 text-[11px] font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50">Atrišti</button>
+        ) : (
+          <>
+            <button onClick={() => setSearching(s => !s)} disabled={busy}
+              className="rounded bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">Susieti</button>
+            <button onClick={() => act('create')} disabled={busy}
+              className="rounded bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-100 disabled:opacity-50"
+              title="Sukurti naują atlikėją + dainą">Sukurti</button>
+            <button onClick={() => act('skip')} disabled={busy}
+              className="rounded px-2.5 py-1 text-[11px] font-medium text-gray-400 hover:bg-gray-100 disabled:opacity-50">Praleisti</button>
+          </>
+        )}
       </div>
 
       {searching && !resolved && (

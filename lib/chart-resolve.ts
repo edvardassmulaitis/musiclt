@@ -32,9 +32,14 @@ export function primaryArtist(name: string): string {
   return (name || '').split(/,|&|\bfeat\.?\b|\bx\b|\bvs\.?\b|\bw\//i)[0].trim()
 }
 
-function longestToken(s: string): string {
-  const toks = normalizeForMatch(s).split(' ').filter(t => t.length >= 2)
-  return toks.sort((a, b) => b.length - a.length)[0] || normalizeForMatch(s)
+/** Ilgiausias RAW žodis (su diakritika) ilike prefiltrui.
+ *  SVARBU: ilike lyginamas prieš RAW DB reikšmes (su ž/ė/š/Cyrillic), tad token'as
+ *  TURI išlaikyti originalius simbolius — normalizuotas „zveris" niekada neranda
+ *  „Žvėris". Palyginimą daro normalizeForMatch atskirai. */
+function rawLongestToken(s: string): string {
+  const toks = (s || '').split(/[^\p{L}\p{N}]+/u).filter(t => t.length >= 2)
+  return (toks.sort((a, b) => b.length - a.length)[0] || (s || '').trim())
+    .replace(/[%_]/g, '')
 }
 
 export type ConfidentMatch = { trackId: number; artistId: number; trackTitle: string; artistName: string }
@@ -42,7 +47,9 @@ export type ConfidentMatch = { trackId: number; artistId: number; trackTitle: st
 /**
  * Griežtas match: randa atlikėją, kurio normalizuotas vardas == entry atlikėjo,
  * ir po juo dainą, kurios normalizuotas pavadinimas == entry pavadinimo.
- * Grąžina match TIK jei vienareikšmis (1 toks track'as). Kitaip null.
+ * Diakritikai atsparu: ilike prefiltras su RAW token'u, palyginimas normalizuotas.
+ * Track'us fetch'ina pagal atlikėją ir filtruoja JS'e (ne title ilike) — atsparu
+ * versijų priesagoms / diakritikai. Jei keli identiški → ima kanoninį (maž. id).
  */
 export async function findConfidentMatch(
   sb: Sb, rawArtist: string, rawTitle: string,
@@ -51,26 +58,31 @@ export async function findConfidentMatch(
   const tNorm = normalizeForMatch(rawTitle)
   if (!aNorm || !tNorm) return null
 
-  // Kandidatai atlikėjai pagal ilgiausią žodį (platus), tada tikslus filtras.
+  // Kandidatai atlikėjai pagal ilgiausią RAW žodį (platus), tada tikslus filtras.
+  const aTok = rawLongestToken(primaryArtist(rawArtist))
+  if (!aTok) return null
   const { data: artists } = await sb
     .from('artists')
     .select('id, name')
-    .ilike('name', `%${longestToken(rawArtist).replace(/[%_]/g, '')}%`)
-    .limit(40)
+    .ilike('name', `%${aTok}%`)
+    .limit(60)
   const exact = (artists || []).filter((a: any) => normalizeForMatch(a.name) === aNorm)
   if (exact.length === 0) return null
 
   const ids = exact.map((a: any) => a.id)
+  // Visi atlikėjo track'ai → filtras JS'e (be title ilike, kad diakritika/versijos netrukdytų).
   const { data: tracks } = await sb
     .from('tracks')
     .select('id, title, artist_id, artists:artist_id(name)')
     .in('artist_id', ids)
-    .ilike('title', `%${longestToken(rawTitle).replace(/[%_]/g, '')}%`)
-    .limit(60)
+    .limit(800)
   const hits = (tracks || []).filter((t: any) => normalizeForMatch(t.title) === tNorm)
-  if (hits.length !== 1) return null   // 0 = nėra, >1 = dviprasmiška → review
+  if (hits.length === 0) return null
 
-  const t: any = hits[0]
+  // Vienas → akivaizdu; keli (alt versijos) → kanoninis = mažiausias id, bet
+  // pirmenybė tiksliam raw pavadinimo sutapimui.
+  hits.sort((a: any, b: any) => a.id - b.id)
+  const t: any = hits.find((h: any) => (h.title || '').trim() === rawTitle.trim()) || hits[0]
   const ar = Array.isArray(t.artists) ? t.artists[0] : t.artists
   return { trackId: t.id, artistId: t.artist_id, trackTitle: t.title, artistName: ar?.name || rawArtist }
 }
@@ -92,9 +104,10 @@ export async function findOrCreateArtist(
 ): Promise<number> {
   const name = primaryArtist(rawArtist) || rawArtist
   const nNorm = normalizeForMatch(name)
+  const nTok = rawLongestToken(name)
   const { data: cands } = await sb
     .from('artists').select('id, name')
-    .ilike('name', `%${longestToken(name).replace(/[%_]/g, '')}%`).limit(40)
+    .ilike('name', `%${nTok || name}%`).limit(60)
   const hit = (cands || []).find((a: any) => normalizeForMatch(a.name) === nNorm)
   if (hit) return hit.id
 
