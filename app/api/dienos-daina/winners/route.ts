@@ -18,9 +18,9 @@ export async function GET(req: Request) {
     .from('daily_song_winners')
     .select(`
       id, date, total_votes, weighted_votes, winning_comment, winning_user_id,
-      tracks (
+      tracks!track_id (
         id, slug, title, cover_url, spotify_id, video_url,
-        artists ( id, slug, name, cover_image_url )
+        artists!artist_id ( id, slug, name, cover_image_url )
       )
     `)
     .order('date', { ascending: false })
