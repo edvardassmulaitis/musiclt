@@ -1,39 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 
-function todayLT(): string {
-  return new Date().toLocaleDateString('lt-LT', {
-    timeZone: 'Europe/Vilnius',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  }).split('.').reverse().join('-')
-}
-
-function yesterdayLT(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  return d.toLocaleDateString('lt-LT', {
-    timeZone: 'Europe/Vilnius',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  }).split('.').reverse().join('-')
-}
-
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const limit = parseInt(searchParams.get('limit') || '14')
   const date = searchParams.get('date')
   const supabase = createAdminClient()
 
-  // Automatiškai užfiksuoti vakarykštę jei dar nėra
-  const yesterday = yesterdayLT()
-  const { data: existingWinner } = await supabase
-    .from('daily_song_winners')
-    .select('id')
-    .eq('date', yesterday)
-    .maybeSingle()
-
-  if (!existingWinner) {
-    await supabase.rpc('finalize_daily_winner', { p_date: yesterday })
-  }
+  // Self-heal: užfiksuoti VISAS praėjusias dienas, kurios turi nominacijų bet
+  // dar neturi laimėtojo (ne tik vakar — kad daugiadienės spragos užsipildytų
+  // savaime, jei niekas nelankė puslapio). finalize_daily_winners_due() yra
+  // idempotentinis ir pigus (apdoroja tik neužfiksuotas dienas).
+  await supabase.rpc('finalize_daily_winners_due')
 
   // Gauti nugalėtojus
   let query = supabase
