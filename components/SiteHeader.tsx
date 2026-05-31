@@ -410,6 +410,20 @@ function TopaiPanel({ accent }: { accent: string }) {
       </div>
 
       <div className="sh-panel-section">
+        <span className="sh-panel-section-title">Topai pagal šaltinį</span>
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+        <Link href="/topai#lt-topai" className="sh-shortcut">AGATA TOP 100 →</Link>
+        <Link href="/topai#lt-topai" className="sh-shortcut">M.A.M.A TOP 40 →</Link>
+        <Link href="/topai#lt-topai" className="sh-shortcut">Spotify Lietuva →</Link>
+        <Link href="/topai#lt-topai" className="sh-shortcut">Apple Music LT →</Link>
+        <Link href="/topai#pasaulio-topai" className="sh-shortcut">Spotify Global →</Link>
+        <Link href="/topai#pasaulio-topai" className="sh-shortcut">Billboard →</Link>
+        <Link href="/topai#trendai" className="sh-shortcut">Trendai · TikTok →</Link>
+      </div>
+
+      <div className="sh-panel-section">
         <span className="sh-panel-section-title">Daugiau reitingų</span>
       </div>
 
@@ -801,6 +815,13 @@ function MobileExpansion({
             <span className="sh-mexp-tile-icon">{I.award}</span>
             <span className="sh-mexp-tile-label">Apdovanojimai</span>
           </Link>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+          <Link href="/topai#lt-topai" onClick={onLink} className="sh-shortcut">AGATA →</Link>
+          <Link href="/topai#lt-topai" onClick={onLink} className="sh-shortcut">M.A.M.A TOP 40 →</Link>
+          <Link href="/topai#lt-topai" onClick={onLink} className="sh-shortcut">Spotify Lietuva →</Link>
+          <Link href="/topai#pasaulio-topai" onClick={onLink} className="sh-shortcut">Spotify Global →</Link>
+          <Link href="/topai#trendai" onClick={onLink} className="sh-shortcut">Trendai →</Link>
         </div>
       </div>
     )

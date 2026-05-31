@@ -147,13 +147,15 @@ const PLANNED: Planned[] = [
   { source: 'agata', chartKey: 'singles', title: 'AGATA Singlų TOP 100', subtitle: 'Oficialus LT klausymo platformų topas', accent: '#16a34a', scope: 'lt', size: 100, sourceUrl: 'https://www.agata.lt/lt/naujienos/', attribution: 'Šaltinis: AGATA' },
   { source: 'agata', chartKey: 'albums', title: 'AGATA Albumų TOP 100', subtitle: 'Klausomiausi albumai Lietuvoje', accent: '#0ea5e9', scope: 'lt', size: 100, sourceUrl: 'https://www.agata.lt/lt/naujienos/', attribution: 'Šaltinis: AGATA' },
   { source: 'mama', chartKey: 'top40', title: 'M.A.M.A TOP 40', subtitle: 'Populiariausi LT kūriniai Spotify (atnauj. penktadieniais)', accent: '#f59e0b', scope: 'lt', size: 40, sourceUrl: 'https://muzikosapdovanojimai.lt/m-a-m-a-top-40/', attribution: 'Šaltinis: M.A.M.A / Spotify' },
+  { source: 'spotify', chartKey: 'lt', title: 'Spotify Lietuva', subtitle: 'Klausomiausios dainos Spotify Lietuvoje', accent: '#22c55e', scope: 'lt', size: 100, sourceUrl: 'https://kworb.net/spotify/country/lt_weekly.html', attribution: 'Spotify / kworb.net' },
   { source: 'apple', chartKey: 'lt_songs', title: 'Apple Music — Lietuva', subtitle: 'Klausomiausios dainos Apple Music LT', accent: '#ec4899', scope: 'lt', size: 100, sourceUrl: 'https://music.apple.com/lt/', attribution: 'Apple Music charts' },
   { source: 'radio', chartKey: 'm1', title: 'Radijo topai', subtitle: 'M-1, ZIP FM, Lietus — dažniausiai eteryje', accent: '#06b6d4', scope: 'lt', size: 40, attribution: 'Radijo stočių eterio duomenys' },
 
   // ── Pasaulis ──
   { source: 'official_uk', chartKey: 'singles', title: 'Official UK Singles', subtitle: 'Britanijos oficialus singlų topas', accent: '#ef4444', scope: 'world', size: 40, sourceUrl: 'https://www.officialcharts.com/', attribution: 'Official Charts Company' },
   { source: 'billboard', chartKey: 'hot100', title: 'Billboard Hot 100', subtitle: 'JAV pagrindinis dainų topas', accent: '#f59e0b', scope: 'world', size: 100, sourceUrl: 'https://www.billboard.com/charts/hot-100/', attribution: 'Billboard' },
-  { source: 'billboard', chartKey: 'global200', title: 'Billboard Global 200', subtitle: 'Pasaulinis dainų reitingas', accent: '#8b5cf6', scope: 'world', size: 200, sourceUrl: 'https://www.billboard.com/charts/billboard-global-200/', attribution: 'Billboard' },
+  { source: 'spotify', chartKey: 'global', title: 'Spotify Global', subtitle: 'Klausomiausios dainos pasaulyje', accent: '#8b5cf6', scope: 'world', size: 100, sourceUrl: 'https://kworb.net/spotify/country/global_weekly.html', attribution: 'Spotify / kworb.net' },
+  { source: 'billboard', chartKey: 'global200', title: 'Billboard Global 200', subtitle: 'Pasaulinis dainų reitingas', accent: '#f59e0b', scope: 'world', size: 200, sourceUrl: 'https://www.billboard.com/charts/billboard-global-200/', attribution: 'Billboard' },
 
   // ── Trendai / social ──
   { source: 'billboard', chartKey: 'tiktok50', title: 'TikTok Billboard Top 50', subtitle: 'Trendinančios dainos TikTok platformoje', accent: '#ec4899', scope: 'social', size: 50, sourceUrl: 'https://www.billboard.com/charts/tiktok-billboard-top-50/', attribution: 'Billboard × TikTok' },
@@ -222,7 +224,7 @@ export default async function TopaiHubPage() {
       </section>
 
       {/* ───────── LIETUVOS OFICIALŪS ───────── */}
-      <section className="tp-section">
+      <section className="tp-section" id="lt-topai">
         <SectionHead label="Lietuvos oficialūs topai" sub="Tikslūs klausymo ir eterio duomenys iš LT šaltinių" />
         <div className="tp-chart-grid">
           {ltCharts.map(c => <ExtCard key={`${c.source}-${c.chartKey}`} chart={c} />)}
@@ -230,7 +232,7 @@ export default async function TopaiHubPage() {
       </section>
 
       {/* ───────── PASAULIO ───────── */}
-      <section className="tp-section">
+      <section className="tp-section" id="pasaulio-topai">
         <SectionHead label="Pasaulio topai" sub="UK, JAV ir globalūs oficialūs reitingai" />
         <div className="tp-chart-grid">
           {worldCharts.map(c => <ExtCard key={`${c.source}-${c.chartKey}`} chart={c} />)}
@@ -238,7 +240,7 @@ export default async function TopaiHubPage() {
       </section>
 
       {/* ───────── SOCIAL / TRENDING ───────── */}
-      <section className="tp-section">
+      <section className="tp-section" id="trendai">
         <SectionHead label="Trendai ir socialiniai tinklai" sub="Kas sprogsta TikTok ir Spotify šiandien" />
         <div className="tp-chart-grid">
           {socialCharts.map(c => <ExtCard key={`${c.source}-${c.chartKey}`} chart={c} />)}
@@ -416,7 +418,7 @@ const styles = `
   .tp-hero-sub strong { color: var(--text-secondary); font-weight: 800; }
 
   /* Section */
-  .tp-section { margin-top: 44px; }
+  .tp-section { margin-top: 44px; scroll-margin-top: 84px; }
   .tp-sec-head { margin-bottom: 16px; }
   .tp-sec-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
   .tp-sec-sub { margin: 3px 0 0; color: var(--text-muted); font-size: 13px; }
