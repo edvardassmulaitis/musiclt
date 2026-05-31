@@ -208,6 +208,7 @@ export default function AdminDashboardPage() {
         ? { text: `${counts.top_pending} laukia`, color: 'orange' }
         : undefined,
     },
+    { href: '/admin/charts', icon: '🌍', label: 'Išoriniai topai', hint: 'AGATA, Spotify, Apple — susieti dainas' },
     { href: '/admin/dienos-daina', icon: '⭐', label: 'Dienos daina', hint: 'Daily song spotlight' },
     { href: '/admin/voting', icon: '🗳️', label: 'Balsavimai', hint: 'Apdovanojimai, votings' },
     { href: '/admin/boombox', icon: '🎛️', label: 'Boombox', hint: 'Live stream player config' },
