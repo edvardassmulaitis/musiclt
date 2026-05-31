@@ -55,7 +55,24 @@ type NavPreview = {
     artistsLt:    number
     artistsWorld: number
   }
+  /** Topai dropdown'ui — pagrindiniai voting topai inline pozicijos */
+  topChart?: {
+    top30: TopMini[]
+    top40: TopMini[]
+  }
+  /** „Kiti topai" plytelės (featured išoriniai, admin-managed vizualai) */
+  featuredCharts?: {
+    id: number; source: string; chartKey: string; title: string; subtitle: string | null
+    scope: string; accent: string; image: string | null; period: string; size: number
+  }[]
+  /** Apdovanojimai / rinkimai — voting editions */
+  votings?: {
+    id: number; slug: string; name: string; year: number | null; status: string
+    voteOpen: string | null; voteClose: string | null; image: string | null
+    channelSlug: string | null; channelName: string | null
+  }[]
 }
+type TopMini = { position: number; title: string; artist: string; artistSlug: string; trackSlug: string | null; image: string | null }
 
 const I = {
   music: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
@@ -388,67 +405,131 @@ function quickSlug(s: string): string {
     .trim().replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 100)
 }
 
-function TopaiPanel({ accent }: { accent: string }) {
+const SEC_HEAD: React.CSSProperties = {
+  fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 800,
+  textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)',
+}
+
+function TopMiniRow({ entry, fallbackHref, hex }: { entry: TopMini; fallbackHref: string; hex: string }) {
   return (
-    <div className="sh-panel" style={{ minWidth: 480 }}>
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Pagrindiniai topai</span>
+    <Link
+      href={entry.trackSlug ? `/dainos/${entry.trackSlug}` : fallbackHref}
+      style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 6px', borderRadius: 9, textDecoration: 'none' }}
+      className="sh-tr"
+    >
+      <span style={{ width: 18, textAlign: 'center', fontWeight: 900, fontSize: 14, color: entry.position === 1 ? hex : 'var(--text-muted)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{entry.position}</span>
+      <span style={{ width: 34, height: 34, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {entry.image ? <img src={proxyImg(entry.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 12, opacity: 0.45 }}>♪</span>}
+      </span>
+      <span style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</span>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.artist}</span>
+      </span>
+    </Link>
+  )
+}
+
+function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
+  const top30 = data?.topChart?.top30 || []
+  const top40 = data?.topChart?.top40 || []
+  const featured = data?.featuredCharts || []
+  const votings = data?.votings || []
+
+  const anchor = (s: string) => s === 'world' ? '/topai#pasaulio-topai' : s === 'social' ? '/topai#trendai' : '/topai#lt-topai'
+  const scopeGlyph = (s: string) => (s === 'social' ? I.trending : I.trophy)
+
+  const renderCol = (badge: string, title: string, href: string, hex: string, entries: TopMini[]) => (
+    <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: hex }}>{badge}</span>
+        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 17, fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{title}</span>
+        <Link href={href} className="sh-more-link" style={{ marginLeft: 'auto' }}>Žiūrėti →</Link>
+      </div>
+      {entries.length > 0 ? (
+        entries.map(e => <TopMiniRow key={e.position} entry={e} fallbackHref={href} hex={hex} />)
+      ) : (
+        <Link href={href} style={{ display: 'block', padding: '14px 10px', borderRadius: 10, border: '1px dashed var(--border-default)', textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none' }}>
+          Sąrašas formuojasi — balsuok →
+        </Link>
+      )}
+    </div>
+  )
+
+  return (
+    <div className="sh-panel sh-panel-muzika" style={{ width: 880 }}>
+      {/* ── Pagrindiniai topai: LT TOP 30 + TOP 40 inline ── */}
+      <div style={{ ...SEC_HEAD, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+        <span className="sh-trending-glyph" title="Trending">{I.trending}</span> Pagrindiniai topai
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+        {renderCol('Lietuva', 'LT TOP 30', '/top30', '#22c55e', top30)}
+        {renderCol('Pasaulis', 'TOP 40', '/top40', '#f97316', top40)}
       </div>
 
-      {/* Core charts — iškelti kaip pagrindiniai */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-        <Link href="/top40" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
-          <span className="sh-feature-icon-sm">{I.trophy}</span>
-          <span className="sh-feature-title-sm">TOP 40</span>
-          <span className="sh-feature-desc-sm">Pasaulinis · savaitė</span>
-        </Link>
-        <Link href="/top30" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#22c55e') }}>
-          <span className="sh-feature-icon-sm">{I.trophy}</span>
-          <span className="sh-feature-title-sm">LT TOP 30</span>
-          <span className="sh-feature-desc-sm">Lietuva · savaitė</span>
-        </Link>
+      {/* ── Kiti topai: featured išoriniai (admin-managed vizualai) ── */}
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+          <span style={{ ...SEC_HEAD, paddingTop: 2 }}>Kiti topai</span>
+          <Link href="/topai" className="sh-more-link">Daugiau →</Link>
+        </div>
+        <div className="sh-style-grid">
+          {featured.map(c => {
+            const hasImg = !!c.image
+            return (
+              <Link
+                key={c.id}
+                href={anchor(c.scope)}
+                className={`sh-style-card${hasImg ? ' sh-style-card-photo' : ''}`}
+                style={{
+                  ['--it-rgb' as any]: hexToRgb(c.accent),
+                  ...(hasImg ? { backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.30) 55%, rgba(0,0,0,0.10) 100%), url(${proxyImg(c.image)})` } : {}),
+                }}
+                title={c.title}
+              >
+                <span className="sh-style-card-name">{c.title}</span>
+                {!hasImg && <span className="sh-style-card-deco" aria-hidden>{scopeGlyph(c.scope)}</span>}
+              </Link>
+            )
+          })}
+          {featured.length === 0 && (
+            <Link href="/topai" className="sh-style-card" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
+              <span className="sh-style-card-name">Visi topai</span>
+              <span className="sh-style-card-deco" aria-hidden>{I.trophy}</span>
+            </Link>
+          )}
+        </div>
       </div>
 
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Topai pagal šaltinį</span>
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-        <Link href="/topai#lt-topai" className="sh-shortcut">AGATA TOP 100 →</Link>
-        <Link href="/topai#lt-topai" className="sh-shortcut">M.A.M.A TOP 40 →</Link>
-        <Link href="/topai#lt-topai" className="sh-shortcut">Spotify Lietuva →</Link>
-        <Link href="/topai#lt-topai" className="sh-shortcut">Apple Music LT →</Link>
-        <Link href="/topai#pasaulio-topai" className="sh-shortcut">Spotify Global →</Link>
-        <Link href="/topai#pasaulio-topai" className="sh-shortcut">Billboard →</Link>
-        <Link href="/topai#trendai" className="sh-shortcut">Trendai · TikTok →</Link>
-      </div>
-
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Daugiau reitingų</span>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Link href="/topai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
-          <span className="sh-feature-icon-sm">{I.trophy}</span>
-          <span className="sh-feature-title-sm">Visi topai</span>
-          <span className="sh-feature-desc-sm">AGATA, Billboard, Apple, UK</span>
-        </Link>
-        <Link href="/balsavimai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#ec4899') }}>
-          <span className="sh-feature-icon-sm">{I.vote}</span>
-          <span className="sh-feature-title-sm">Balsavimai</span>
-          <span className="sh-feature-desc-sm">Aktualūs reitingai</span>
-        </Link>
-        <Link href="/dienos-daina" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#10b981') }}>
-          <span className="sh-feature-icon-sm">{I.song}</span>
-          <span className="sh-feature-title-sm">Dienos daina</span>
-          <span className="sh-feature-desc-sm">Redakcijos pasirinkimas</span>
-        </Link>
-        <Link href="/apdovanojimai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#eab308') }}>
-          <span className="sh-feature-icon-sm">{I.award}</span>
-          <span className="sh-feature-title-sm">Apdovanojimai</span>
-          <span className="sh-feature-desc-sm">M.A.M.A., Bravo, kt.</span>
-          <span className="sh-soon-pill">Greitai</span>
-        </Link>
+      {/* ── Apdovanojimai / rinkimai ── */}
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+          <span style={{ ...SEC_HEAD, paddingTop: 2 }}>Apdovanojimai ir rinkimai</span>
+          <Link href="/balsavimai" className="sh-more-link">Daugiau →</Link>
+        </div>
+        {votings.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+            {votings.slice(0, 4).map(v => (
+              <Link key={v.id} href={v.channelSlug ? `/balsavimai/${v.channelSlug}/${v.slug}` : '/balsavimai'} className="sh-mini sh-mini-sm">
+                <ImageBox src={v.image} accent="#ec4899" glyph={I.award} className="sh-mini-img" />
+                <span className="sh-mini-title sh-mini-title-2">{v.name}{v.year ? ` ${v.year}` : ''}</span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <Link href="/balsavimai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#ec4899') }}>
+              <span className="sh-feature-icon-sm">{I.vote}</span>
+              <span className="sh-feature-title-sm">Balsavimai</span>
+              <span className="sh-feature-desc-sm">Aktyvūs rinkimai ir reitingai</span>
+            </Link>
+            <Link href="/apdovanojimai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#eab308') }}>
+              <span className="sh-feature-icon-sm">{I.award}</span>
+              <span className="sh-feature-title-sm">Apdovanojimai</span>
+              <span className="sh-feature-desc-sm">M.A.M.A., Bravo, kt.</span>
+              <span className="sh-soon-pill">Greitai</span>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -788,17 +869,28 @@ function MobileExpansion({
   }
 
   if (navKey === 'topai') {
+    const mTop30 = data?.topChart?.top30 || []
+    const mTop40 = data?.topChart?.top40 || []
+    const mFeatured = data?.featuredCharts || []
+    const mColumn = (badge: string, title: string, href: string, hex: string, entries: TopMini[]) => (
+      <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 4 }}>
+          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: hex }}>{badge}</span>
+          <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 900, color: 'var(--text-primary)' }}>{title}</span>
+          <Link href={href} onClick={onLink} className="sh-mexp-more" style={{ marginLeft: 'auto' }}>Žiūrėti</Link>
+        </div>
+        {entries.length > 0
+          ? entries.slice(0, 3).map(e => <TopMiniRow key={e.position} entry={e} fallbackHref={href} hex={hex} />)
+          : <Link href={href} onClick={onLink} style={{ display: 'block', padding: '10px', borderRadius: 9, border: '1px dashed var(--border-default)', textAlign: 'center', fontSize: 11.5, color: 'var(--text-muted)', textDecoration: 'none' }}>Formuojasi — balsuok →</Link>}
+      </div>
+    )
     return (
       <div className="sh-mexp">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 12 }}>
+          {mColumn('Lietuva', 'LT TOP 30', '/top30', '#22c55e', mTop30)}
+          {mColumn('Pasaulis', 'TOP 40', '/top40', '#f97316', mTop40)}
+        </div>
         <div className="sh-mexp-grid">
-          <Link href="/top40" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
-            <span className="sh-mexp-tile-icon">{I.trophy}</span>
-            <span className="sh-mexp-tile-label">TOP 40</span>
-          </Link>
-          <Link href="/top30" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#22c55e') }}>
-            <span className="sh-mexp-tile-icon">{I.trophy}</span>
-            <span className="sh-mexp-tile-label">LT TOP 30</span>
-          </Link>
           <Link href="/topai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
             <span className="sh-mexp-tile-icon">{I.trophy}</span>
             <span className="sh-mexp-tile-label">Visi topai</span>
@@ -816,12 +908,14 @@ function MobileExpansion({
             <span className="sh-mexp-tile-label">Apdovanojimai</span>
           </Link>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-          <Link href="/topai#lt-topai" onClick={onLink} className="sh-shortcut">AGATA →</Link>
-          <Link href="/topai#lt-topai" onClick={onLink} className="sh-shortcut">M.A.M.A TOP 40 →</Link>
-          <Link href="/topai#lt-topai" onClick={onLink} className="sh-shortcut">Spotify Lietuva →</Link>
-          <Link href="/topai#pasaulio-topai" onClick={onLink} className="sh-shortcut">Spotify Global →</Link>
-          <Link href="/topai#trendai" onClick={onLink} className="sh-shortcut">Trendai →</Link>
+        <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '12px 0 6px' }}>Kiti topai</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {(mFeatured.length > 0
+            ? mFeatured.map(c => ({ label: c.title, href: c.scope === 'world' ? '/topai#pasaulio-topai' : c.scope === 'social' ? '/topai#trendai' : '/topai#lt-topai' }))
+            : [{ label: 'Visi topai', href: '/topai' }]
+          ).map((s, i) => (
+            <Link key={i} href={s.href} onClick={onLink} className="sh-shortcut">{s.label} →</Link>
+          ))}
         </div>
       </div>
     )
@@ -1038,7 +1132,7 @@ export function SiteHeader() {
   const renderPanel = (key: NavItem['key'], accent: string) => {
     switch (key) {
       case 'muzika':       return <MuzikaPanel data={preview} accent={accent} />
-      case 'topai':        return <TopaiPanel accent={accent} />
+      case 'topai':        return <TopaiPanel data={preview} accent={accent} />
       case 'renginiai':    return <RenginiaiPanel data={preview} accent={accent} />
       case 'naujienos':    return <NaujienosPanel data={preview} accent={accent} />
       case 'pramogos':     return <PramogosPanel accent={accent} />

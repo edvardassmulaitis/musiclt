@@ -11,8 +11,35 @@
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { getCurrentWeekMonday } from '@/lib/top-week'
 
 export const dynamic = 'force-dynamic'
+
+/** Mini chart eilutės topai dropdown'ui (LT TOP 30 + TOP 40 inline). */
+async function getTopMini(sb: any, topType: string, limit: number) {
+  const monday = getCurrentWeekMonday()
+  const { data: week } = await sb
+    .from('top_weeks')
+    .select('id, is_finalized')
+    .eq('top_type', topType).eq('week_start', monday).maybeSingle()
+  if (!week) return []
+  const { data: rows } = await sb
+    .from('top_entries')
+    .select('position, total_votes, tracks:track_id ( slug, title, cover_url, artists:artist_id ( slug, name ) )')
+    .eq('week_id', week.id)
+    .order(week.is_finalized ? 'position' : 'total_votes', { ascending: !!week.is_finalized })
+    .limit(limit)
+  return (rows || []).map((r: any, i: number) => {
+    const tr = Array.isArray(r.tracks) ? r.tracks[0] : r.tracks
+    const ar = tr ? (Array.isArray(tr.artists) ? tr.artists[0] : tr.artists) : null
+    return {
+      position: r.position ?? i + 1,
+      title: tr?.title ?? '—', artist: ar?.name ?? '—',
+      artistSlug: ar?.slug ?? '', trackSlug: tr?.slug ?? null,
+      image: tr?.cover_url ?? null,
+    }
+  })
+}
 
 export async function GET() {
   const supabase = createAdminClient()
@@ -92,6 +119,24 @@ export async function GET() {
         .or('country.is.null,country.neq.Lietuva'),
     ])
 
+    // ── Topai dropdown'ui: LT TOP 30 + TOP 40 inline + featured išoriniai + votings ──
+    const [top30Mini, top40Mini, featuredRes, votingsRes] = await Promise.all([
+      getTopMini(supabase, 'lt_top30', 4),
+      getTopMini(supabase, 'top40', 4),
+      supabase
+        .from('external_charts')
+        .select('id, source, chart_key, title, subtitle, scope, accent, cover_image_url, period_label, size')
+        .eq('is_current', true).eq('featured', true)
+        .order('featured_order', { ascending: true })
+        .limit(8),
+      // Apdovanojimai / rinkimai — aktyvūs + artimiausi + neseni editions.
+      supabase
+        .from('voting_editions')
+        .select('id, slug, name, year, status, vote_open, vote_close, cover_image_url, voting_channels:channel_id ( slug, name )')
+        .order('vote_close', { ascending: false, nullsFirst: false })
+        .limit(6),
+    ])
+
     const payload = {
       artistsLt: (artistsLtRes.data || []).map((a: any) => ({
         id: a.id,
@@ -147,6 +192,21 @@ export async function GET() {
         artistsLt:    ltCountRes.count || 0,
         artistsWorld: worldCountRes.count || 0,
       },
+      // Topai dropdown'ui: pagrindiniai voting topai + featured išoriniai + votings
+      topChart: { top30: top30Mini, top40: top40Mini },
+      featuredCharts: (featuredRes.data || []).map((c: any) => ({
+        id: c.id, source: c.source, chartKey: c.chart_key, title: c.title,
+        subtitle: c.subtitle, scope: c.scope, accent: c.accent || '#6366f1',
+        image: c.cover_image_url || null, period: c.period_label, size: c.size,
+      })),
+      votings: (votingsRes.data || []).map((v: any) => {
+        const ch = Array.isArray(v.voting_channels) ? v.voting_channels[0] : v.voting_channels
+        return {
+          id: v.id, slug: v.slug, name: v.name, year: v.year, status: v.status,
+          voteOpen: v.vote_open, voteClose: v.vote_close, image: v.cover_image_url || null,
+          channelSlug: ch?.slug ?? null, channelName: ch?.name ?? null,
+        }
+      }),
     }
 
     return NextResponse.json(payload, {

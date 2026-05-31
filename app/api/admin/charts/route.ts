@@ -9,7 +9,7 @@ export async function GET() {
   const sb = createAdminClient()
   const { data: charts, error } = await sb
     .from('external_charts')
-    .select('id, source, chart_key, title, subtitle, scope, size, accent, period_label, attribution, source_url, fetched_at')
+    .select('id, source, chart_key, title, subtitle, scope, size, accent, period_label, attribution, source_url, fetched_at, featured, featured_order, cover_image_url')
     .eq('is_current', true)
     .order('scope', { ascending: true })
     .order('source', { ascending: true })
@@ -18,6 +18,7 @@ export async function GET() {
 
   const ids = charts.map(c => c.id)
 
+  // Visų entries (chart_id, resolve_state) — paginuojam (PostgREST 1000 cap).
   const states: Array<{ chart_id: number; resolve_state: string }> = []
   let from = 0
   for (;;) {

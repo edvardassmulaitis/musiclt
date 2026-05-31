@@ -8,6 +8,7 @@ type Chart = {
   id: number; source: string; chart_key: string; title: string; subtitle: string | null
   scope: string; size: number; accent: string; period_label: string; attribution: string | null
   source_url: string | null; counts: Counts
+  featured?: boolean; featured_order?: number | null; cover_image_url?: string | null
 }
 type Entry = {
   id: number; position: number; prevPosition: number | null; weeksOnChart: number | null; isNew: boolean
@@ -34,6 +35,9 @@ export default function AdminChartsPage() {
   const [entriesLoading, setEntriesLoading] = useState(false)
   const [resolving, setResolving] = useState(false)
   const [filter, setFilter] = useState<'all' | 'unresolved'>('all')
+  const [featuredEdit, setFeaturedEdit] = useState(false)
+  const [coverEdit, setCoverEdit] = useState('')
+  const [savingMeta, setSavingMeta] = useState(false)
 
   const loadCharts = useCallback(async () => {
     setLoading(true)
@@ -51,7 +55,22 @@ export default function AdminChartsPage() {
 
   useEffect(() => { loadCharts() }, [loadCharts])
 
-  const openChart = (c: Chart) => { setSelected(c); setFilter('all'); loadEntries(c.id) }
+  const openChart = (c: Chart) => {
+    setSelected(c); setFilter('all'); loadEntries(c.id)
+    setFeaturedEdit(!!c.featured); setCoverEdit(c.cover_image_url || '')
+  }
+
+  const saveMeta = async () => {
+    if (!selected) return
+    setSavingMeta(true)
+    await fetch(`/api/admin/charts/${selected.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ featured: featuredEdit, cover_image_url: coverEdit.trim() || null }),
+    }).catch(() => null)
+    setSavingMeta(false)
+    await loadCharts()
+    setSelected(s => s ? { ...s, featured: featuredEdit, cover_image_url: coverEdit.trim() || null } : s)
+  }
 
   const autoMatch = async () => {
     if (!selected) return
@@ -139,6 +158,24 @@ export default function AdminChartsPage() {
                 {resolving ? 'Tikrinama…' : 'Auto-match'}
               </button>
             </div>
+          </div>
+
+          {/* „Kiti topai" plytelės nustatymai (nav dropdown vizualas) */}
+          <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-4 py-2.5">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+              <input type="checkbox" checked={featuredEdit} onChange={e => setFeaturedEdit(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+              Rodyti „Kiti topai" plytelėse
+            </label>
+            <input
+              value={coverEdit} onChange={e => setCoverEdit(e.target.value)}
+              placeholder="Plytelės paveiksliuko URL (nebūtina)"
+              className="min-w-[180px] flex-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs outline-none focus:border-violet-400"
+            />
+            {coverEdit.trim() && <img src={coverEdit} alt="" className="h-7 w-10 rounded object-cover" />}
+            <button onClick={saveMeta} disabled={savingMeta}
+              className="rounded-md bg-gray-800 px-3 py-1 text-xs font-semibold text-white hover:bg-gray-700 disabled:opacity-50">
+              {savingMeta ? 'Saugoma…' : 'Išsaugoti'}
+            </button>
           </div>
 
           {entriesLoading ? (
