@@ -7,7 +7,10 @@
  *  - Neaiškūs lieka 'ambiguous'/'pending' → admin per /admin/charts patvirtina
  *    (link per search-entities picker) arba sukuria naują (find-or-create).
  */
-import type { SupabaseClient } from '@supabase/supabase-js'
+// Sb klientas tipuojamas `any` — createAdminClient() grąžina typed
+// SupabaseClient<Database>, kuris dėl generic contravariance gali nesutapti su
+// importuotu SupabaseClient tipu (Vercel build fail). `any` saugu helperiui.
+type Sb = any
 
 const LT_MAP: Record<string, string> = {
   ą: 'a', č: 'c', ę: 'e', ė: 'e', į: 'i', š: 's', ų: 'u', ū: 'u', ž: 'z',
@@ -42,7 +45,7 @@ export type ConfidentMatch = { trackId: number; artistId: number; trackTitle: st
  * Grąžina match TIK jei vienareikšmis (1 toks track'as). Kitaip null.
  */
 export async function findConfidentMatch(
-  sb: SupabaseClient, rawArtist: string, rawTitle: string,
+  sb: Sb, rawArtist: string, rawTitle: string,
 ): Promise<ConfidentMatch | null> {
   const aNorm = normalizeForMatch(primaryArtist(rawArtist))
   const tNorm = normalizeForMatch(rawTitle)
@@ -85,7 +88,7 @@ export function slugifyLt(s: string): string {
  * minimalus įrašas (name + slug + country + type). Grąžina artist_id.
  */
 export async function findOrCreateArtist(
-  sb: SupabaseClient, rawArtist: string, country: string | null,
+  sb: Sb, rawArtist: string, country: string | null,
 ): Promise<number> {
   const name = primaryArtist(rawArtist) || rawArtist
   const nNorm = normalizeForMatch(name)
@@ -108,7 +111,7 @@ export async function findOrCreateArtist(
 
 /** Create track po atlikėju (minimal, kaip quick-create). Grąžina track_id. */
 export async function createTrackForArtist(
-  sb: SupabaseClient, artistId: number, rawTitle: string,
+  sb: Sb, artistId: number, rawTitle: string,
 ): Promise<number> {
   const title = rawTitle.trim()
   // dedupe: ar jau yra toks track'as po šiuo atlikėju
