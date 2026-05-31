@@ -143,18 +143,23 @@ type Planned = {
   sourceUrl?: string; attribution?: string
 }
 const PLANNED: Planned[] = [
+  // ── Lietuva ──
   { source: 'agata', chartKey: 'singles', title: 'AGATA Singlų TOP 100', subtitle: 'Oficialus LT klausymo platformų topas', accent: '#16a34a', scope: 'lt', size: 100, sourceUrl: 'https://www.agata.lt/lt/naujienos/', attribution: 'Šaltinis: AGATA' },
   { source: 'agata', chartKey: 'albums', title: 'AGATA Albumų TOP 100', subtitle: 'Klausomiausi albumai Lietuvoje', accent: '#0ea5e9', scope: 'lt', size: 100, sourceUrl: 'https://www.agata.lt/lt/naujienos/', attribution: 'Šaltinis: AGATA' },
+  { source: 'mama', chartKey: 'top40', title: 'M.A.M.A TOP 40', subtitle: 'Populiariausi LT kūriniai Spotify (atnauj. penktadieniais)', accent: '#f59e0b', scope: 'lt', size: 40, sourceUrl: 'https://muzikosapdovanojimai.lt/m-a-m-a-top-40/', attribution: 'Šaltinis: M.A.M.A / Spotify' },
   { source: 'apple', chartKey: 'lt_songs', title: 'Apple Music — Lietuva', subtitle: 'Klausomiausios dainos Apple Music LT', accent: '#ec4899', scope: 'lt', size: 100, sourceUrl: 'https://music.apple.com/lt/', attribution: 'Apple Music charts' },
   { source: 'radio', chartKey: 'm1', title: 'Radijo topai', subtitle: 'M-1, ZIP FM, Lietus — dažniausiai eteryje', accent: '#06b6d4', scope: 'lt', size: 40, attribution: 'Radijo stočių eterio duomenys' },
 
+  // ── Pasaulis ──
   { source: 'official_uk', chartKey: 'singles', title: 'Official UK Singles', subtitle: 'Britanijos oficialus singlų topas', accent: '#ef4444', scope: 'world', size: 40, sourceUrl: 'https://www.officialcharts.com/', attribution: 'Official Charts Company' },
   { source: 'billboard', chartKey: 'hot100', title: 'Billboard Hot 100', subtitle: 'JAV pagrindinis dainų topas', accent: '#f59e0b', scope: 'world', size: 100, sourceUrl: 'https://www.billboard.com/charts/hot-100/', attribution: 'Billboard' },
   { source: 'billboard', chartKey: 'global200', title: 'Billboard Global 200', subtitle: 'Pasaulinis dainų reitingas', accent: '#8b5cf6', scope: 'world', size: 200, sourceUrl: 'https://www.billboard.com/charts/billboard-global-200/', attribution: 'Billboard' },
-  { source: 'apple', chartKey: 'us_songs', title: 'Apple Music — Pasaulis', subtitle: 'Top dainos JAV / UK / globaliai', accent: '#a855f7', scope: 'world', size: 100, sourceUrl: 'https://music.apple.com/', attribution: 'Apple Music charts' },
 
+  // ── Trendai / social ──
   { source: 'billboard', chartKey: 'tiktok50', title: 'TikTok Billboard Top 50', subtitle: 'Trendinančios dainos TikTok platformoje', accent: '#ec4899', scope: 'social', size: 50, sourceUrl: 'https://www.billboard.com/charts/tiktok-billboard-top-50/', attribution: 'Billboard × TikTok' },
-  { source: 'spotify', chartKey: 'viral50_global', title: 'Spotify Viral 50', subtitle: 'Greičiausiai populiarėjantys kūriniai', accent: '#22c55e', scope: 'social', size: 50, sourceUrl: 'https://charts.spotify.com/', attribution: 'Spotify Charts' },
+  { source: 'spotify', chartKey: 'viral50_global', title: 'Spotify Viral 50', subtitle: 'Greičiausiai populiarėjantys kūriniai pasaulyje', accent: '#22c55e', scope: 'social', size: 50, sourceUrl: 'https://charts.spotify.com/', attribution: 'Spotify Charts' },
+  { source: 'shazam', chartKey: 'world', title: 'Shazam Global Top 200', subtitle: 'Daugiausiai atpažįstamos / atrandamos dainos', accent: '#0ea5e9', scope: 'social', size: 200, sourceUrl: 'https://www.shazam.com/charts/top-200/world', attribution: 'Shazam' },
+  { source: 'shazam', chartKey: 'lt', title: 'Shazam Lietuva', subtitle: 'Kas atrandama Lietuvoje šiandien', accent: '#a855f7', scope: 'social', size: 100, sourceUrl: 'https://www.shazam.com/charts/top-200/lithuania', attribution: 'Shazam' },
 ]
 
 function mergePlanned(live: ExtChart[], scope: 'lt' | 'world' | 'social'): (ExtChart & { isLive: boolean })[] {
@@ -322,7 +327,7 @@ function ExtCard({ chart }: { chart: ExtChart & { isLive: boolean } }) {
           {chart.subtitle && <p className="tp-ext-sub">{chart.subtitle}</p>}
         </div>
         {live
-          ? <span className="tp-ext-size">{chart.periodLabel || `TOP ${chart.size}`}</span>
+          ? <span className="tp-ext-size">TOP {chart.size}</span>
           : <span className="tp-soon">Netrukus</span>}
       </div>
 
@@ -357,7 +362,9 @@ function ExtCard({ chart }: { chart: ExtChart & { isLive: boolean } }) {
       </div>
 
       <div className="tp-ext-foot">
-        {chart.attribution && <span className="tp-attr">{chart.attribution}</span>}
+        <span className="tp-attr">
+          {chart.attribution}{live && chart.periodLabel ? ` · ${chart.periodLabel}` : ''}
+        </span>
         {chart.sourceUrl
           ? <a href={chart.sourceUrl} target="_blank" rel="noopener noreferrer nofollow" className="tp-ext-link">Šaltinis →</a>
           : <span />}
