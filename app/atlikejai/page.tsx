@@ -151,10 +151,14 @@ function parseCoverPos(pos: string | null): { x: number; y: number; zoom: number
   if (!pos) return { x: 50, y: 20, zoom: 1 }
   const parts = pos.trim().split(/\s+/)
   const pcts = pos.match(/(\d+)%/g) || []
-  const x = parts[0] === 'center' ? 50 : pcts[0] ? parseInt(pcts[0]) : 50
-  const y = pcts[parts[0] === 'center' ? 0 : 1] ? parseInt(pcts[parts[0] === 'center' ? 0 : 1]) : 20
-  const last = parseFloat(parts[parts.length - 1])
-  const zoom = !isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%') ? last : 1
+  const isCenter = parts[0] === 'center'
+  const xPct = pcts[0]
+  const x = isCenter ? 50 : xPct ? parseInt(xPct) : 50
+  const yPct = pcts[isCenter ? 0 : 1]
+  const y = yPct ? parseInt(yPct) : 20
+  const lastStr = parts[parts.length - 1] ?? ''
+  const last = parseFloat(lastStr)
+  const zoom = !isNaN(last) && last >= 1 && !lastStr.includes('%') ? last : 1
   return { x, y, zoom }
 }
 
