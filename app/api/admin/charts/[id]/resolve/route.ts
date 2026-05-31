@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { findConfidentMatch, findOrCreateArtist, createTrackForArtist } from '@/lib/chart-resolve'
+import {
+  findConfidentMatch, findOrCreateArtist, createTrackForArtist,
+  findConfidentAlbumMatch, createAlbumForArtist,
+} from '@/lib/chart-resolve'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -21,6 +24,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const mode = body?.mode === 'create' ? 'create' : 'auto'
 
   const sb = createAdminClient()
+  // Chart tipas — albumų chart'ai (chart_key='albums') matchina į `albums`.
+  const { data: chart } = await sb.from('external_charts')
+    .select('chart_key, scope, country').eq('id', chartId).maybeSingle()
+  const isAlbum = chart?.chart_key === 'albums'
+  const country = chart?.country || (chart?.scope === 'lt' ? 'LT' : null)
+
   const { data: pend } = await sb
     .from('external_chart_entries')
     .select('id, artist_name, title')
@@ -33,12 +42,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       : NextResponse.json({ matched: 0, processed: 0 })
   }
 
-  /* ── mode=create: sukurti ghost atlikėją+dainą visiems likusiems ── */
+  /* ── mode=create: sukurti ghost atlikėją + dainą/albumą visiems likusiems ── */
   if (mode === 'create') {
-    const { data: chart } = await sb.from('external_charts')
-      .select('scope, country').eq('id', chartId).maybeSingle()
-    const country = chart?.country || (chart?.scope === 'lt' ? 'LT' : null)
-
     const start = Date.now()
     let created = 0
     let i = 0
@@ -49,10 +54,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       const e: any = entries[i]
       try {
         const artistId = await findOrCreateArtist(sb, e.artist_name, country)
-        const trackId = await createTrackForArtist(sb, artistId, e.title)
-        await sb.from('external_chart_entries').update({
-          track_id: trackId, artist_id: artistId, resolve_state: 'created',
-        }).eq('id', e.id)
+        if (isAlbum) {
+          const albumId = await createAlbumForArtist(sb, artistId, e.title)
+          await sb.from('external_chart_entries').update({
+            album_id: albumId, track_id: null, artist_id: artistId, resolve_state: 'created',
+          }).eq('id', e.id)
+        } else {
+          const trackId = await createTrackForArtist(sb, artistId, e.title)
+          await sb.from('external_chart_entries').update({
+            track_id: trackId, album_id: null, artist_id: artistId, resolve_state: 'created',
+          }).eq('id', e.id)
+        }
         created++
       } catch { /* praleidžiam — lieka pending, kitas run'as pakartos */ }
     }
@@ -66,12 +78,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const batch = entries.slice(i, i + 8)
     await Promise.all(batch.map(async (e: any) => {
       try {
-        const m = await findConfidentMatch(sb, e.artist_name, e.title)
-        if (m) {
-          await sb.from('external_chart_entries').update({
-            track_id: m.trackId, artist_id: m.artistId, resolve_state: 'matched',
-          }).eq('id', e.id)
-          matched++
+        if (isAlbum) {
+          const m = await findConfidentAlbumMatch(sb, e.artist_name, e.title)
+          if (m) {
+            await sb.from('external_chart_entries').update({
+              album_id: m.albumId, track_id: null, artist_id: m.artistId, resolve_state: 'matched',
+            }).eq('id', e.id)
+            matched++
+          }
+        } else {
+          const m = await findConfidentMatch(sb, e.artist_name, e.title)
+          if (m) {
+            await sb.from('external_chart_entries').update({
+              track_id: m.trackId, album_id: null, artist_id: m.artistId, resolve_state: 'matched',
+            }).eq('id', e.id)
+            matched++
+          }
         }
       } catch { /* praleidžiam — lieka review eilėje */ }
     }))

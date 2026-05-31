@@ -16,6 +16,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     .select('id, source, chart_key, title, scope, period_label, country')
     .eq('id', chartId).maybeSingle()
   if (!chart) return NextResponse.json({ error: 'not found' }, { status: 404 })
+  const isAlbum = chart.chart_key === 'albums'
 
   const entries: any[] = []
   let from = 0
@@ -24,8 +25,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       .from('external_chart_entries')
       .select(`
         id, position, prev_position, weeks_on_chart, is_new,
-        artist_name, title, cover_url, resolve_state, track_id, artist_id,
-        tracks:track_id ( id, slug, title, artists:artist_id ( id, slug, name ) )
+        artist_name, title, cover_url, resolve_state, track_id, album_id, artist_id,
+        tracks:track_id ( id, slug, title, artists:artist_id ( id, slug, name ) ),
+        albums:album_id ( id, slug, title, artists:artist_id ( id, slug, name ) )
       `)
       .eq('chart_id', chartId)
       .order('position', { ascending: true })
@@ -38,15 +40,26 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
   const norm = entries.map((e: any) => {
     const tr = Array.isArray(e.tracks) ? e.tracks[0] : e.tracks
-    const ar = tr ? (Array.isArray(tr.artists) ? tr.artists[0] : tr.artists) : null
+    const al = Array.isArray(e.albums) ? e.albums[0] : e.albums
+    const ent = isAlbum ? al : tr            // susieto įrašo entitetas pagal chart tipą
+    const ar = ent ? (Array.isArray(ent.artists) ? ent.artists[0] : ent.artists) : null
+    // Teisinga nuoroda: /dainos|albumai/{artistSlug}-{slug}-{id} (fallback be artistSlug).
+    let href: string | null = null
+    if (ent) {
+      const base = isAlbum ? 'albumai' : 'dainos'
+      href = ar?.slug
+        ? `/${base}/${ar.slug}-${ent.slug}-${ent.id}`
+        : `/${base}/${ent.slug}-${ent.id}`
+    }
     return {
       id: e.id, position: e.position, prevPosition: e.prev_position,
       weeksOnChart: e.weeks_on_chart, isNew: e.is_new,
       artistName: e.artist_name, title: e.title, coverUrl: e.cover_url,
       resolveState: e.resolve_state,
-      track: tr ? { id: tr.id, slug: tr.slug, title: tr.title, artist: ar?.name ?? null, artistSlug: ar?.slug ?? null } : null,
+      entityType: isAlbum ? 'album' : 'track',
+      track: ent ? { id: ent.id, slug: ent.slug, title: ent.title, artist: ar?.name ?? null, artistSlug: ar?.slug ?? null, href } : null,
     }
   })
 
-  return NextResponse.json({ chart, entries: norm })
+  return NextResponse.json({ chart, isAlbum, entries: norm })
 }

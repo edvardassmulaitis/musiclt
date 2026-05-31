@@ -13,7 +13,8 @@ type Chart = {
 type Entry = {
   id: number; position: number; prevPosition: number | null; weeksOnChart: number | null; isNew: boolean
   artistName: string; title: string; coverUrl: string | null; resolveState: string
-  track: { id: number; slug: string; title: string; artist: string | null; artistSlug: string | null } | null
+  entityType?: 'track' | 'album'
+  track: { id: number; slug: string; title: string; artist: string | null; artistSlug: string | null; href?: string | null } | null
 }
 type Hit = { type: string; id: number; slug: string; title: string; artist: string | null; image_url: string | null }
 
@@ -216,7 +217,7 @@ export default function AdminChartsPage() {
           ) : (
             <div className="divide-y divide-gray-50">
               {visibleEntries.map(e => (
-                <EntryRow key={e.id} entry={e} country={selected.scope === 'lt' ? 'LT' : null} onChanged={onEntryChanged} />
+                <EntryRow key={e.id} entry={e} isAlbum={selected.chart_key === 'albums'} onChanged={onEntryChanged} />
               ))}
               {visibleEntries.length === 0 && <div className="p-6 text-center text-sm text-gray-400">Nėra įrašų šiame filtre.</div>}
             </div>
@@ -228,7 +229,7 @@ export default function AdminChartsPage() {
 }
 
 /* ───────────────────────────── Entry row ───────────────────────────── */
-function EntryRow({ entry, onChanged }: { entry: Entry; country: string | null; onChanged: () => void }) {
+function EntryRow({ entry, isAlbum, onChanged }: { entry: Entry; isAlbum: boolean; onChanged: () => void }) {
   const [busy, setBusy] = useState(false)
   const [searching, setSearching] = useState(false)
   const meta = STATE_META[entry.resolveState] || STATE_META.pending
@@ -251,8 +252,8 @@ function EntryRow({ entry, onChanged }: { entry: Entry; country: string | null; 
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold leading-snug text-gray-800">{entry.title}</p>
           <p className="text-xs text-gray-400">{entry.artistName}</p>
-          {resolved && entry.track ? (
-            <a href={`/dainos/${entry.track.slug}`} target="_blank" rel="noreferrer"
+          {resolved && entry.track?.href ? (
+            <a href={entry.track.href} target="_blank" rel="noreferrer"
               className="mt-0.5 block truncate text-xs text-violet-600 hover:underline">
               → {entry.track.artist} – {entry.track.title}
             </a>
@@ -280,18 +281,20 @@ function EntryRow({ entry, onChanged }: { entry: Entry; country: string | null; 
       </div>
 
       {searching && !resolved && (
-        <LinkSearch defaultQuery={`${entry.artistName} ${entry.title}`} onPick={(h) => act('link', { trackId: h.id })} />
+        <LinkSearch isAlbum={isAlbum} defaultQuery={`${entry.artistName} ${entry.title}`}
+          onPick={(h) => act('link', isAlbum ? { albumId: h.id } : { trackId: h.id })} />
       )}
     </div>
   )
 }
 
 /* ───────────────────────────── Inline search picker ───────────────────────────── */
-function LinkSearch({ defaultQuery, onPick }: { defaultQuery: string; onPick: (h: Hit) => void }) {
+function LinkSearch({ defaultQuery, isAlbum, onPick }: { defaultQuery: string; isAlbum: boolean; onPick: (h: Hit) => void }) {
   const [q, setQ] = useState(defaultQuery)
   const [hits, setHits] = useState<Hit[]>([])
   const [loading, setLoading] = useState(false)
   const t = useRef<any>(null)
+  const wantType = isAlbum ? 'albumas' : 'daina'
 
   const run = useCallback((query: string) => {
     if (t.current) clearTimeout(t.current)
@@ -299,10 +302,10 @@ function LinkSearch({ defaultQuery, onPick }: { defaultQuery: string; onPick: (h
       if (query.trim().length < 2) { setHits([]); return }
       setLoading(true)
       const r = await fetch(`/api/search-entities?q=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => ({ results: [] }))
-      setHits((r.results || []).filter((h: Hit) => h.type === 'daina').slice(0, 8))
+      setHits((r.results || []).filter((h: Hit) => h.type === wantType).slice(0, 8))
       setLoading(false)
     }, 250)
-  }, [])
+  }, [wantType])
 
   useEffect(() => { run(defaultQuery) }, [defaultQuery, run])
 
@@ -311,7 +314,7 @@ function LinkSearch({ defaultQuery, onPick }: { defaultQuery: string; onPick: (h
       <input
         autoFocus value={q}
         onChange={e => { setQ(e.target.value); run(e.target.value) }}
-        placeholder="Ieškoti dainos kataloge…"
+        placeholder={isAlbum ? 'Ieškoti albumo kataloge…' : 'Ieškoti dainos kataloge…'}
         className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-violet-400"
       />
       <div className="mt-1.5 max-h-56 overflow-y-auto">

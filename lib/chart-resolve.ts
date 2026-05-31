@@ -87,6 +87,59 @@ export async function findConfidentMatch(
   return { trackId: t.id, artistId: t.artist_id, trackTitle: t.title, artistName: ar?.name || rawArtist }
 }
 
+export type ConfidentAlbumMatch = { albumId: number; artistId: number; albumTitle: string; artistName: string }
+
+/**
+ * Album atitikmuo (albumų chart'ams). Tas pats principas kaip findConfidentMatch,
+ * tik prieš `albums` lentelę. Diakritikai atsparu (raw token + JS filtras).
+ */
+export async function findConfidentAlbumMatch(
+  sb: Sb, rawArtist: string, rawTitle: string,
+): Promise<ConfidentAlbumMatch | null> {
+  const aNorm = normalizeForMatch(primaryArtist(rawArtist))
+  const tNorm = normalizeForMatch(rawTitle)
+  if (!aNorm || !tNorm) return null
+
+  const aTok = rawLongestToken(primaryArtist(rawArtist))
+  if (!aTok) return null
+  const { data: artists } = await sb
+    .from('artists').select('id, name').ilike('name', `%${aTok}%`).limit(60)
+  const exact = (artists || []).filter((a: any) => normalizeForMatch(a.name) === aNorm)
+  if (exact.length === 0) return null
+  const ids = exact.map((a: any) => a.id)
+
+  const { data: albums } = await sb
+    .from('albums')
+    .select('id, title, artist_id, artists:artist_id(name, slug)')
+    .in('artist_id', ids)
+    .limit(800)
+  const hits = (albums || []).filter((al: any) => normalizeForMatch(al.title) === tNorm)
+  if (hits.length === 0) return null
+  hits.sort((a: any, b: any) => a.id - b.id)
+  const al: any = hits.find((h: any) => (h.title || '').trim() === rawTitle.trim()) || hits[0]
+  const ar = Array.isArray(al.artists) ? al.artists[0] : al.artists
+  return { albumId: al.id, artistId: al.artist_id, albumTitle: al.title, artistName: ar?.name || rawArtist }
+}
+
+/** Create album po atlikėju (minimal ghost — title+slug+artist). Grąžina album_id. */
+export async function createAlbumForArtist(
+  sb: Sb, artistId: number, rawTitle: string,
+): Promise<number> {
+  const title = rawTitle.trim()
+  const { data: ex } = await sb.from('albums')
+    .select('id, title').eq('artist_id', artistId).ilike('title', title).limit(5)
+  const dup = (ex || []).find((a: any) => normalizeForMatch(a.title) === normalizeForMatch(title))
+  if (dup) return dup.id
+
+  let slug = slugifyLt(title) || `album-${Date.now()}`
+  const { data: exSlug } = await sb.from('albums').select('id').eq('slug', slug).maybeSingle()
+  if (exSlug) slug = `${slug}-${Date.now().toString(36)}`
+  const { data: row, error } = await sb.from('albums')
+    .insert({ title, slug, artist_id: artistId }).select('id').single()
+  if (error) throw error
+  return row.id
+}
+
 /** LT-aware slug (mirror lib/supabase-artists slugify). */
 export function slugifyLt(s: string): string {
   return (s || '').toLowerCase()

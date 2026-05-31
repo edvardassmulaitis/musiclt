@@ -369,9 +369,11 @@ function ExtCard({ chart }: { chart: ExtChart & { isLive: boolean } }) {
         <span className="tp-attr">
           {chart.attribution}{live && chart.periodLabel ? ` · ${chart.periodLabel}` : ''}
         </span>
-        {chart.sourceUrl
-          ? <a href={chart.sourceUrl} target="_blank" rel="noopener noreferrer nofollow" className="tp-ext-link">Šaltinis →</a>
-          : <span />}
+        {live
+          ? <Link href={`/topai/${chart.source}-${chart.chartKey}`} className="tp-ext-link tp-ext-full">Visas topas →</Link>
+          : chart.sourceUrl
+            ? <a href={chart.sourceUrl} target="_blank" rel="noopener noreferrer nofollow" className="tp-ext-link">Šaltinis →</a>
+            : <span />}
       </div>
     </div>
   )
