@@ -256,8 +256,8 @@ function EntryRow({ entry, isAlbum, onChanged }: { entry: Entry; isAlbum: boolea
           <p className="flex flex-wrap items-center gap-1.5 text-xs text-gray-400">
             {entry.artistName}
             {!resolved && (entry.artistExists
-              ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600" title="Atlikėjas jau yra kataloge — „Sukurti“ pridės tik dainą">atlikėjas yra</span>
-              : <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600" title="Atlikėjo nėra — „Sukurti“ sukurs naują (ghost) atlikėją">naujas atlikėjas</span>
+              ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600" title="Atlikėjas jau yra kataloge – Sukurti pridės tik dainą">atlikėjas yra</span>
+              : <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600" title="Atlikėjo nėra – Sukurti sukurs naują (ghost) atlikėją">naujas atlikėjas</span>
             )}
           </p>
           {resolved && entry.track?.href ? (
@@ -327,7 +327,7 @@ function LinkSearch({ defaultQuery, isAlbum, onPick }: { defaultQuery: string; i
       />
       <div className="mt-1.5 max-h-56 overflow-y-auto">
         {loading && <p className="px-2 py-1.5 text-xs text-gray-400">Ieškoma…</p>}
-        {!loading && hits.length === 0 && <p className="px-2 py-1.5 text-xs text-gray-400">Nieko nerasta. Naudok „Sukurti“.</p>}
+        {!loading && hits.length === 0 && <p className="px-2 py-1.5 text-xs text-gray-400">Nieko nerasta. Naudok „Sukurti".</p>}
         {hits.map(h => (
           <button key={h.id} onClick={() => onPick(h)}
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-white">
