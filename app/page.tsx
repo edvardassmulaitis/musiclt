@@ -1886,6 +1886,7 @@ type IstApiItem = {
   cover: string | null
   year: number | null
   age?: number | null
+  deceased?: boolean
 }
 
 // Istorijos kategorijų konfigūracija (3 box'ai).
@@ -1898,13 +1899,13 @@ type IstCatKey = keyof typeof IST_CATS
 
 // Istorijos thumbnail'as — atlikėjo/albumo cover'is arba monograma (NE emoji).
 // `size` px — sekcijos kortelės naudoja didesnį (56), modalas standartinį (48).
-function IstThumb({ cover, name, size = 48, radius = 10 }: { cover: string | null; name: string; size?: number; radius?: number }) {
+function IstThumb({ cover, name, size = 48, radius = 10, gray = false }: { cover: string | null; name: string; size?: number; radius?: number; gray?: boolean }) {
   if (cover) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(cover)} alt="" loading="lazy" className="shrink-0 object-cover" style={{ width: size, height: size, borderRadius: radius }} />
+    return <img src={proxyImg(cover)} alt="" loading="lazy" className="shrink-0 object-cover" style={{ width: size, height: size, borderRadius: radius, filter: gray ? 'grayscale(1)' : undefined }} />
   }
   return (
-    <div className="flex shrink-0 items-center justify-center font-['Outfit',sans-serif] font-extrabold" style={{ width: size, height: size, borderRadius: radius, fontSize: size * 0.34, background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>
+    <div className="flex shrink-0 items-center justify-center font-['Outfit',sans-serif] font-extrabold" style={{ width: size, height: size, borderRadius: radius, fontSize: size * 0.34, background: gray ? 'hsl(0,0%,18%)' : `hsl(${strHue(name)},32%,20%)`, color: gray ? 'hsl(0,0%,55%)' : `hsl(${strHue(name)},48%,58%)` }}>
       {(name || '?').charAt(0).toUpperCase()}
     </div>
   )
@@ -1996,6 +1997,9 @@ function IstorijaSection() {
                     const badge = it.type === 'birthday'
                       ? (it.age ? `${it.age} m.` : null)
                       : (it.year ? `${it.year} m.` : null)
+                    // Miręs atlikėjas (mirties metinės arba miręs gimtadienio
+                    // atlikėjas) — grayscale nuotrauka. Edvardo prašymu 2026-06-01.
+                    const gray = it.type === 'death_anniversary' || it.deceased
                     return (
                     <Link
                       key={it.id}
@@ -2006,9 +2010,9 @@ function IstorijaSection() {
                       <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
                         {it.cover ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
+                          <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: gray ? 'grayscale(1)' : 'saturate(1.05) contrast(1.02)' }} />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center font-['Outfit',sans-serif] font-extrabold" style={{ fontSize: 46, background: `hsl(${strHue(it.title)},32%,20%)`, color: `hsl(${strHue(it.title)},48%,58%)` }}>
+                          <div className="flex h-full w-full items-center justify-center font-['Outfit',sans-serif] font-extrabold" style={{ fontSize: 46, background: gray ? 'hsl(0,0%,18%)' : `hsl(${strHue(it.title)},32%,20%)`, color: gray ? 'hsl(0,0%,55%)' : `hsl(${strHue(it.title)},48%,58%)` }}>
                             {(it.title || '?').charAt(0).toUpperCase()}
                           </div>
                         )}
@@ -2051,7 +2055,7 @@ function IstorijaSection() {
                 onClick={() => setOpenCat(null)}
                 className="hp-card group flex items-center gap-3 p-2.5 no-underline"
               >
-                <IstThumb cover={it.cover} name={it.title} size={52} radius={10} />
+                <IstThumb cover={it.cover} name={it.title} size={52} radius={10} gray={it.type === 'death_anniversary' || it.deceased} />
                 <div className="min-w-0 flex-1">
                   <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
                   {it.subtitle && <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-[var(--text-muted)]">{it.subtitle}</p>}
