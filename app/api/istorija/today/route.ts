@@ -26,6 +26,7 @@ type IstItem = {
   year: number | null
   age?: number | null
   groups?: string[]   // gimtadieniams — grupės, kurioms atlikėjas priklauso/priklausė
+  deceased?: boolean  // miręs atlikėjas — UI rodo grayscale nuotrauką
 }
 
 async function fetchToday(): Promise<IstItem[]> {
@@ -94,6 +95,7 @@ async function fetchToday(): Promise<IstItem[]> {
         year: by,
         age,
         groups: [],
+        deceased: isDeceased,
         _artistId: a.id,
         score: a.score || 0,
       })
@@ -150,6 +152,7 @@ async function fetchToday(): Promise<IstItem[]> {
         cover: a.cover_image_url || null,
         year: dy,
         age,
+        deceased: true,
         score: a.score || 0,
       })
     }
