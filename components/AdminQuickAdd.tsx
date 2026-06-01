@@ -356,7 +356,7 @@ function FeaturingPicker({ value, onChange }: { value: ArtistRef[]; onChange: (v
             else if (text.trim()) add({ id: null, name: text.trim() })
           }
         }}
-        placeholder="pvz. MĖLYNA — ieškok kataloge…"
+        placeholder=""
       />
       {open && text.trim().length >= 2 && (
         <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-lg">

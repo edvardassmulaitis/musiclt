@@ -706,7 +706,13 @@ async function fetchTrackContext(url: string): Promise<TrackContext | { error: s
   const { artist: artistSegment, title: rawTitle } = parseYtTitle(details.title || '', channelName)
   const { cleanTitle, featuring: titleFeats } = wiki.parseFeaturing(rawTitle || '')
   // Title Case („NESIBAIGIANTI VASARA" → „Nesibaigianti Vasara"), kaip Wiki importe.
-  const title = wikiTitleCase((cleanTitle || rawTitle || '').trim())
+  // Jei VISAS pavadinimas DIDŽIOSIOMIS — pirma sumažinam, nes wikiTitleCase
+  // capWord laiko ALL-CAPS žodį acronym'u ir palieka („NESIBAIGIANTI" liktų).
+  let baseTitle = (cleanTitle || rawTitle || '').trim()
+  const noLowercase = baseTitle === baseTitle.toUpperCase()   // nėra mažųjų raidžių
+  const hasUppercase = baseTitle !== baseTitle.toLowerCase()  // yra bent viena didžioji
+  if (noLowercase && hasUppercase) baseTitle = baseTitle.toLowerCase()
+  const title = wikiTitleCase(baseTitle)
 
   let year: number | null = null, month: number | null = null, day: number | null = null
   if (details.uploadedAt) {
