@@ -23,7 +23,7 @@ type Event = { id: number; slug: string; title: string; event_date?: string; sta
 type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
 type Proposer = { username: string | null; full_name: string | null; avatar_url: string | null }
-type Nomination = { id: number; votes: number; weighted_votes: number; comment?: string | null; tracks: { id: number; title: string; cover_url: string | null; slug?: string | null; video_url?: string | null; artists: { name: string; slug?: string | null; cover_image_url?: string | null } | null } | null; proposer?: Proposer | null }
+type Nomination = { id: number; votes: number; weighted_votes: number; comment?: string | null; tracks: { id: number; title: string; cover_url: string | null; slug?: string | null; video_url?: string | null; artists: { name: string; slug?: string | null; cover_image_url?: string | null } | null } | null; proposer?: Proposer | null; voters?: Proposer[]; anon_votes?: number }
 type DainaWinner = { id: number; date: string; total_votes: number; weighted_votes: number; tracks: { id: number; title: string; cover_url: string | null; slug?: string | null; video_url?: string | null; artists: { name: string; slug?: string | null; cover_image_url?: string | null } | null } | null }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
 type HeroSlide = {
@@ -1205,12 +1205,14 @@ function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; onDone: (
 /** Vakar laimėjusios dainos highlight kortelė. Vertikalus stilius — toks pat
  *  kaip „Naujos dainos" kortelės (16:9 cover viršuje + info apačioje), su
  *  oranžiniu rėmu ir „🏆 Vakar laimėjo" badge'u. 2026-05-31. */
-function DainaWinnerCard({ w, onOpenTrack }: { w: DainaWinner; onOpenTrack: (t: any) => void }) {
+function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1 }: { w: DainaWinner; onOpenTrack: (t: any) => void; maxVotes?: number }) {
   const t = w.tracks
   if (!t) return null
   const v = extractYouTubeId(t.video_url)
   const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
   const imgSrc = t.cover_url || ytThumb || t.artists?.cover_image_url || null
+  const votes = w.weighted_votes || w.total_votes || 0
+  const level = votes > 0 ? Math.max(1, Math.round((votes / Math.max(1, maxVotes)) * 5)) : 0
   return (
     <button
       type="button"
@@ -1225,12 +1227,17 @@ function DainaWinnerCard({ w, onOpenTrack }: { w: DainaWinner; onOpenTrack: (t: 
         ) : (
           <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
         )}
-        <span className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-[var(--accent-orange)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">🏆 Vakar laimėjo</span>
-        <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{w.weighted_votes || w.total_votes || 0} bal.</span>
+        <span className="absolute left-1.5 top-1.5 rounded-full bg-[var(--accent-orange)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">Vakar laimėjo</span>
       </div>
       <div className="mt-2 px-0.5">
         <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-        <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</p>
+        <p className="m-0 mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</p>
+        {/* Balsai — pop bar dash'ai (be tikslaus skaičiaus). */}
+        <span className="mt-1.5 flex items-center gap-[3px]" aria-label={`Balsų lygis ${level}/5`}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <span key={i} className={`h-[3px] w-[11px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+          ))}
+        </span>
       </div>
     </button>
   )
@@ -1372,14 +1379,12 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
 
   return (
     <>
-      {/* Header: paaiškinimas + „Visi pasiūlymai" link (atveria modalą su balsais)
-          + „Pasiūlyti dainą". „Visi pasiūlymai" rodomas tik kai yra ≥2 (kitaip
-          atrodo keistai). 2026-05-31. */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <p className="m-0 max-w-[480px] text-[12px] leading-snug text-[var(--text-muted)]">
-          Balsuok už šiandienos dainą — daugiausiai balsų surinkusi vakaro gale tampa dienos daina. Galima ir neprisijungus (1 balsas/d.).
-        </p>
-        <div className="flex shrink-0 items-center gap-3">
+      {/* „Visi pasiūlymai" link rodomas tik kai ≥2; info tekstas pašalintas
+          (Edvardo prašymu 2026-06-01). „Pasiūlyti dainą" perkelta į juostos
+          galą kaip action kortelė. */}
+      {(sorted.length >= 2 || voteErr) && (
+        <div className="mb-2 flex items-center justify-end gap-3">
+          {voteErr && <span className="mr-auto text-[11.5px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
           {sorted.length >= 2 && (
             <button
               type="button"
@@ -1389,28 +1394,26 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
               Visi pasiūlymai ({sorted.length}) →
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setSuggestOpen(true)}
-            className="rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px"
-          >
-            + Pasiūlyti dainą
-          </button>
         </div>
-      </div>
-      {voteErr && (
-        <p className="mb-2 text-[11.5px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</p>
       )}
 
       <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
         {/* Vakar laimėjusi daina — pirma. */}
-        {winner?.tracks && <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} />}
+        {winner?.tracks && <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} maxVotes={maxVotes} />}
 
-        {sorted.length === 0 ? (
-          <div className="flex h-[190px] flex-1 items-center rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 text-[12px] text-[var(--text-muted)]">
-            Šiandien kandidatų dar nėra — pasiūlyk pirmas.
-          </div>
-        ) : sorted.slice(0, 14).map((n) => <NomCard key={n.id} n={n} />)}
+        {sorted.slice(0, 14).map((n) => <NomCard key={n.id} n={n} />)}
+
+        {/* Paskutinė kortelė — „Pasiūlyti dainą" (action). */}
+        <button
+          type="button"
+          onClick={() => setSuggestOpen(true)}
+          className="group flex shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] text-center transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:bg-[rgba(249,115,22,0.05)]"
+          style={{ width: 188, minHeight: 178 }}
+        >
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(249,115,22,0.12)] font-['Outfit',sans-serif] text-[24px] font-bold leading-none text-[var(--accent-orange)] transition-colors group-hover:bg-[var(--accent-orange)] group-hover:text-white">+</span>
+          <span className="px-3 font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">Pasiūlyti dainą</span>
+          <span className="px-3 text-[10.5px] text-[var(--text-muted)]">Pridėk savo kandidatą</span>
+        </button>
       </div>
 
       {modalOpen && (
@@ -1418,7 +1421,7 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
           {winner?.tracks && (
             <div className="mb-4">
               <p className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">Vakar laimėjo</p>
-              <DainaWinnerCard w={winner} onOpenTrack={(t) => { setModalOpen(false); onOpenTrack(t) }} />
+              <DainaWinnerCard w={winner} onOpenTrack={(t) => { setModalOpen(false); onOpenTrack(t) }} maxVotes={maxVotes} />
             </div>
           )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1450,6 +1453,27 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
                         <span className="shrink-0 text-[10px] font-bold text-[var(--text-faint)]">{votes} bal.</span>
                       </div>
                       <div className="mt-1"><ProposerLine p={n.proposer} /></div>
+                      {/* Kas balsavo už šią dainą (registruoti) + anonimų skaičius. */}
+                      {((n.voters && n.voters.length > 0) || (n.anon_votes || 0) > 0) && (
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-[var(--text-faint)]">Balsavo:</span>
+                          <span className="flex -space-x-1.5">
+                            {(n.voters || []).slice(0, 5).map((vp, i) => {
+                              const nm = vp.full_name || vp.username || '?'
+                              return vp.avatar_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img key={i} src={proxyImg(vp.avatar_url)} alt={nm} title={nm} className="h-[18px] w-[18px] rounded-full border border-[var(--bg-surface)] object-cover" />
+                              ) : (
+                                <span key={i} title={nm} className="flex h-[18px] w-[18px] items-center justify-center rounded-full border border-[var(--bg-surface)] text-[8px] font-extrabold" style={{ background: `hsl(${strHue(nm)},32%,20%)`, color: `hsl(${strHue(nm)},48%,58%)` }}>{nm.charAt(0).toUpperCase()}</span>
+                              )
+                            })}
+                          </span>
+                          {(() => {
+                            const extra = Math.max(0, (n.voters?.length || 0) - 5) + (n.anon_votes || 0)
+                            return extra > 0 ? <span className="text-[10px] text-[var(--text-faint)]">+{extra}</span> : null
+                          })()}
+                        </div>
+                      )}
                       {n.comment && <p className="m-0 mt-1.5 line-clamp-2 text-[11px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
                     </div>
                   </button>
@@ -1705,7 +1729,7 @@ type IstApiItem = {
 // Istorijos kategorijų konfigūracija (3 box'ai).
 const IST_CATS = {
   album_anniversary: { label: 'Šiandien išleisti albumai' },
-  birthday: { label: 'Gimtadieniai' },
+  birthday: { label: 'Gimė' },
   death_anniversary: { label: 'Mirties metinės' },
 } as const
 type IstCatKey = keyof typeof IST_CATS
@@ -1777,9 +1801,11 @@ function IstorijaSection() {
   // Eilė: šiandien išleisti albumai → gimtadieniai → mirties metinės.
   // Items iš API jau surūšiuoti pagal atlikėjo populiarumą (score desc).
   const order: IstCatKey[] = ['album_anniversary', 'birthday', 'death_anniversary']
+  // VISADA rodom visas 3 kategorijas (net tuščias) — kad „Mirties metinės"
+  // eilutė visada matytųsi (Edvardo prašymu 2026-06-01). Tuščia juosta gauna
+  // placeholder'į „Šiandien — nieko".
   const cats = order
     .map(t => ({ t, cfg: IST_CATS[t], list: items.filter(i => i.type === t) }))
-    .filter(c => c.list.length > 0)
   const openList = openCat ? items.filter(i => i.type === openCat) : []
 
   return (
@@ -1799,11 +1825,20 @@ function IstorijaSection() {
               <div className="mb-2.5 flex items-center gap-2">
                 <span style={{ width: 3, height: 16, borderRadius: 2, background: accent }} />
                 <h3 className="m-0 font-['Outfit',sans-serif] text-[14.5px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">{cfg.label}</h3>
-                <span className="text-[11px] font-bold text-[var(--text-faint)]">{list.length}</span>
+                {list.length > 0 && <span className="text-[11px] font-bold text-[var(--text-faint)]">{list.length}</span>}
               </div>
               <div className="flex items-stretch gap-3">
                 <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
-                  {list.slice(0, 14).map(it => (
+                  {list.length === 0 ? (
+                    <div className="flex h-[200px] flex-1 items-center rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5 text-[12px] text-[var(--text-faint)]">
+                      Šiandien — nieko
+                    </div>
+                  ) : list.slice(0, 14).map(it => {
+                    // Badge: gimtadieniams — kiek sukako (amžius), kitiems — metai.
+                    const badge = it.type === 'birthday'
+                      ? (it.age ? `${it.age} m.` : null)
+                      : (it.year ? `${it.year} m.` : null)
+                    return (
                     <Link
                       key={it.id}
                       href={it.href}
@@ -1819,17 +1854,18 @@ function IstorijaSection() {
                             {(it.title || '?').charAt(0).toUpperCase()}
                           </div>
                         )}
-                        {it.year && (
-                          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{it.year} m.</span>
+                        {badge && (
+                          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{badge}</span>
                         )}
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       </div>
                       <div className="mt-2 px-0.5">
                         <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
-                        <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">{it.subtitle}</p>
+                        {it.subtitle && <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">{it.subtitle}</p>}
                       </div>
                     </Link>
-                  ))}
+                    )
+                  })}
                 </div>
                 {list.length > 0 && (
                   <StickyMoreButton
@@ -1858,8 +1894,11 @@ function IstorijaSection() {
                 <IstThumb cover={it.cover} name={it.title} size={52} radius={10} />
                 <div className="min-w-0 flex-1">
                   <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
-                  <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-[var(--text-muted)]">{it.subtitle}</p>
-                  {it.year && <span className="mt-1 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-faint)]">{it.year} m.</span>}
+                  {it.subtitle && <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-[var(--text-muted)]">{it.subtitle}</p>}
+                  {(() => {
+                    const b = it.type === 'birthday' ? (it.age ? `${it.age} m.` : null) : (it.year ? `${it.year} m.` : null)
+                    return b ? <span className="mt-1 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-faint)]">{b}</span> : null
+                  })()}
                 </div>
               </Link>
             ))}
