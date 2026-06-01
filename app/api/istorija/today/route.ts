@@ -25,6 +25,7 @@ type IstItem = {
   cover: string | null
   year: number | null
   age?: number | null
+  groups?: string[]   // gimtadieniams — grupės, kurioms atlikėjas priklauso/priklausė
 }
 
 async function fetchToday(): Promise<IstItem[]> {
@@ -79,24 +80,52 @@ async function fetchToday(): Promise<IstItem[]> {
     for (const a of (arts || []) as any[]) {
       const by = a.birth_date ? new Date(a.birth_date).getFullYear() : null
       const age = by ? currentYear - by : null
-      // Jei atlikėjas miręs — NE „Sukako X m." (jis nebešvenčia), o „X-osios
-      // gimimo metinės". Edvardo prašymu 2026-05-31.
       const isDeceased = !!a.death_date
-      const subtitle = isDeceased
-        ? (age ? `${age}-osios gimimo metinės` : 'Gimimo metinės')
-        : (age ? `Sukako ${age} m.` : 'Gimtadienis')
       items.push({
         id: `bday-${a.id}`,
         type: 'birthday',
         title: a.name,
-        subtitle,
+        // subtitle užpildoma žemiau grupėmis (kurioms priklausė); amžius (sukako)
+        // dabar rodomas ant badge'o, ne tekste. Edvardo prašymu 2026-06-01.
+        subtitle: '',
         href: `/atlikejai/${a.slug}`,
         emoji: isDeceased ? '🕯️' : '🎂',
         cover: a.cover_image_url || null,
         year: by,
         age,
+        groups: [],
+        _artistId: a.id,
         score: a.score || 0,
       })
+    }
+  } catch {}
+
+  // ── Grupės, kurioms gimtadienio atlikėjas priklauso/priklausė ──
+  // artist_members.member_id = asmuo, group_id = grupė (FK į artists). Vienas
+  // batch query visiems gimtadienio žmonėms. is_current=true grupės pirmos.
+  try {
+    const bdayIds = items.filter((i: any) => i.type === 'birthday').map((i: any) => i._artistId).filter(Boolean)
+    if (bdayIds.length) {
+      const { data: mem } = await sb
+        .from('artist_members')
+        .select('member_id, is_current, grp:artists!group_id ( name )')
+        .in('member_id', bdayIds)
+        .order('is_current', { ascending: false })
+      const byMember: Record<number, string[]> = {}
+      for (const m of (mem || []) as any[]) {
+        const g = Array.isArray(m.grp) ? m.grp[0] : m.grp
+        const name = g?.name
+        if (name) {
+          if (!byMember[m.member_id]) byMember[m.member_id] = []
+          if (!byMember[m.member_id].includes(name)) byMember[m.member_id].push(name)
+        }
+      }
+      for (const it of items as any[]) {
+        if (it.type !== 'birthday') continue
+        const gs = byMember[it._artistId] || []
+        it.groups = gs
+        it.subtitle = gs.length ? gs.slice(0, 2).join(', ') + (gs.length > 2 ? ` +${gs.length - 2}` : '') : ''
+      }
     }
   } catch {}
 
@@ -132,11 +161,14 @@ async function fetchToday(): Promise<IstItem[]> {
   return (items as IstItem[]).slice(0, 40)
 }
 
-const cachedFetchToday = unstable_cache(fetchToday, ['istorija-today'], { revalidate: 3600 })
-
 export async function GET() {
   try {
-    const items = await cachedFetchToday()
+    // Cache key turi įtraukti LT datą — kitaip `unstable_cache` (statinis raktas)
+    // serB'ina vakarykštę dieną iki revalidate'o (iki 1 val. po vidurnakčio
+    // rodydavo ne tos dienos sukaktis). 2026-06-01.
+    const ltDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+    const cached = unstable_cache(fetchToday, ['istorija-today', ltDate], { revalidate: 3600 })
+    const items = await cached()
     return NextResponse.json({ items }, {
       headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
     })
