@@ -5,8 +5,8 @@ import { getCurrentWeekMonday } from '@/lib/top-week'
 import { proxyImg } from '@/lib/img-proxy'
 
 export const metadata: Metadata = {
-  title: 'Muzikos topai — TOP 40, LT TOP 30, AGATA ir pasaulio reitingai | music.lt',
-  description: 'Visi muzikos topai vienoje vietoje — music.lt TOP 40 ir LT TOP 30, oficialus AGATA topas, Apple Music, Billboard, Official UK bei socialinių tinklų trendai.',
+  title: 'Muzikos topai — konsensuso reitingai, AGATA, Billboard, Shazam | music.lt',
+  description: 'Visi muzikos topai vienoje vietoje. music.lt konsensuso reitingai apjungia Apple Music, Spotify, Billboard, AGATA ir Shazam į vieną tikslų vaizdą — Lietuvai, JAV, UK ir pasauliui.',
 }
 
 // Hub priklauso nuo live top40/top30 + išorinių chart'ų — turi būti dynamic.
@@ -42,6 +42,19 @@ type ExtChart = {
   attribution: string | null
   periodLabel: string
   entries: ExtEntry[]
+  sourceLabels: string[]   // konsensuso šaltinių žmoniški pavadinimai
+}
+
+/* Šaltinio raktas → žmoniškas pavadinimas (badge'ams). */
+const SOURCE_LABEL: Record<string, string> = {
+  agata: 'AGATA', apple: 'Apple Music', spotify: 'Spotify', billboard: 'Billboard',
+  official_uk: 'Official UK', mama: 'M.A.M.A', shazam: 'Shazam', youtube: 'YouTube',
+}
+function sourceLabelsFromAttribution(attr: string | null): string[] {
+  if (!attr) return []
+  const after = attr.includes('·') ? attr.split('·').slice(1).join('·') : ''
+  if (!after) return []
+  return after.split(',').map(s => SOURCE_LABEL[s.trim()] || s.trim()).filter(Boolean)
 }
 
 /** YouTube thumbnail iš video_url (fallback kai track neturi cover_url). */
@@ -88,10 +101,7 @@ async function getMiniChart(topType: string, limit = 5): Promise<Mini[]> {
   })
 }
 
-/* ───────────────────── External charts (defensive) ─────────────────────
- * Skaito external_charts (migracija 20260531). Kol migracija neaplikuota
- * arba lentelė tuščia — grąžina [], o UI parodo „Netrukus" būsenas. Tokiu
- * būdu puslapis veikia ir DABAR, ir automatiškai „atgyja" po ingestion. */
+/* ───────────────────── External charts (defensive) ───────────────────── */
 async function getExternalCharts(): Promise<ExtChart[]> {
   try {
     const supabase = createAdminClient()
@@ -108,7 +118,7 @@ async function getExternalCharts(): Promise<ExtChart[]> {
         tracks:track_id ( cover_url, video_url ),
         albums:album_id ( cover_image_url )`)
       .in('chart_id', ids)
-      .lte('position', 3)
+      .lte('position', 5)
       .order('position', { ascending: true })
 
     const byChart = new Map<number, ExtEntry[]>()
@@ -121,7 +131,6 @@ async function getExternalCharts(): Promise<ExtChart[]> {
         prevPosition: e.prev_position ?? null,
         artistName: e.artist_name,
         title: e.title,
-        // Susietam: track cover → albumo viršelis → YouTube thumbnail → išorinis.
         coverUrl: tr?.cover_url || al?.cover_image_url || ytThumb(tr?.video_url) || e.cover_url || null,
       })
       byChart.set(e.chart_id, arr)
@@ -139,61 +148,16 @@ async function getExternalCharts(): Promise<ExtChart[]> {
       attribution: c.attribution ?? null,
       periodLabel: c.period_label,
       entries: byChart.get(c.id) || [],
+      sourceLabels: c.source === 'consensus' ? sourceLabelsFromAttribution(c.attribution) : [],
     }))
   } catch {
     return []
   }
 }
 
-/* ───────────────── Planuojami šaltiniai (placeholder katalogas) ─────────────────
- * Naudojami kai live duomenų dar nėra — kad sekcijos atrodytų pilnos ir
- * komunikuotų roadmap'ą. Kai ingestion įrašo external_charts su tuo pačiu
- * source+chart_key, live versija perima vietą (žr. mergePlanned). */
-type Planned = {
-  source: string; chartKey: string; title: string; subtitle: string
-  accent: string; scope: 'lt' | 'world' | 'social'; size: number
-  sourceUrl?: string; attribution?: string
-}
-const PLANNED: Planned[] = [
-  // ── Lietuva ──
-  { source: 'agata', chartKey: 'singles', title: 'AGATA Singlų TOP 100', subtitle: 'Oficialus LT klausymo platformų topas', accent: '#16a34a', scope: 'lt', size: 100, sourceUrl: 'https://www.agata.lt/lt/naujienos/', attribution: 'Šaltinis: AGATA' },
-  { source: 'agata', chartKey: 'albums', title: 'AGATA Albumų TOP 100', subtitle: 'Klausomiausi albumai Lietuvoje', accent: '#0ea5e9', scope: 'lt', size: 100, sourceUrl: 'https://www.agata.lt/lt/naujienos/', attribution: 'Šaltinis: AGATA' },
-  { source: 'mama', chartKey: 'top40', title: 'M.A.M.A TOP 40', subtitle: 'Populiariausi LT kūriniai Spotify (atnauj. penktadieniais)', accent: '#f59e0b', scope: 'lt', size: 40, sourceUrl: 'https://muzikosapdovanojimai.lt/m-a-m-a-top-40/', attribution: 'Šaltinis: M.A.M.A / Spotify' },
-  { source: 'spotify', chartKey: 'lt', title: 'Spotify Lietuva', subtitle: 'Klausomiausios dainos Spotify Lietuvoje', accent: '#22c55e', scope: 'lt', size: 100, sourceUrl: 'https://kworb.net/spotify/country/lt_weekly.html', attribution: 'Spotify / kworb.net' },
-  { source: 'apple', chartKey: 'lt_songs', title: 'Apple Music — Lietuva', subtitle: 'Klausomiausios dainos Apple Music LT', accent: '#ec4899', scope: 'lt', size: 100, sourceUrl: 'https://music.apple.com/lt/', attribution: 'Apple Music charts' },
-  { source: 'radio', chartKey: 'm1', title: 'Radijo topai', subtitle: 'M-1, ZIP FM, Lietus — dažniausiai eteryje', accent: '#06b6d4', scope: 'lt', size: 40, attribution: 'Radijo stočių eterio duomenys' },
-
-  // ── Pasaulis ──
-  { source: 'apple', chartKey: 'us_songs', title: 'Apple Music — JAV', subtitle: 'Klausomiausios dainos Apple Music JAV', accent: '#ec4899', scope: 'world', size: 100, sourceUrl: 'https://music.apple.com/us/', attribution: 'Apple Music charts' },
-  { source: 'apple', chartKey: 'gb_songs', title: 'Apple Music — Jungtinė Karalystė', subtitle: 'Klausomiausios dainos Apple Music UK', accent: '#db2777', scope: 'world', size: 100, sourceUrl: 'https://music.apple.com/gb/', attribution: 'Apple Music charts' },
-  { source: 'spotify', chartKey: 'us', title: 'Spotify JAV', subtitle: 'Klausomiausios dainos Spotify JAV', accent: '#16a34a', scope: 'world', size: 100, sourceUrl: 'https://kworb.net/spotify/country/us_weekly.html', attribution: 'Spotify / kworb.net' },
-  { source: 'spotify', chartKey: 'uk', title: 'Spotify Jungtinė Karalystė', subtitle: 'Klausomiausios dainos Spotify UK', accent: '#15803d', scope: 'world', size: 100, sourceUrl: 'https://kworb.net/spotify/country/gb_weekly.html', attribution: 'Spotify / kworb.net' },
-  { source: 'official_uk', chartKey: 'singles', title: 'Official UK Singles', subtitle: 'Britanijos oficialus singlų topas', accent: '#ef4444', scope: 'world', size: 40, sourceUrl: 'https://www.officialcharts.com/', attribution: 'Official Charts Company' },
-  { source: 'billboard', chartKey: 'hot100', title: 'Billboard Hot 100', subtitle: 'JAV pagrindinis dainų topas', accent: '#f59e0b', scope: 'world', size: 100, sourceUrl: 'https://www.billboard.com/charts/hot-100/', attribution: 'Billboard' },
-  { source: 'spotify', chartKey: 'global', title: 'Spotify Global', subtitle: 'Klausomiausios dainos pasaulyje', accent: '#8b5cf6', scope: 'world', size: 100, sourceUrl: 'https://kworb.net/spotify/country/global_weekly.html', attribution: 'Spotify / kworb.net' },
-  { source: 'billboard', chartKey: 'global200', title: 'Billboard Global 200', subtitle: 'Pasaulinis dainų reitingas', accent: '#f59e0b', scope: 'world', size: 200, sourceUrl: 'https://www.billboard.com/charts/billboard-global-200/', attribution: 'Billboard' },
-
-  // ── Trendai / social ──
-  { source: 'youtube', chartKey: 'lt_music', title: 'YouTube Trending — Lietuva', subtitle: 'Populiariausi muzikos klipai YouTube LT', accent: '#ef4444', scope: 'social', size: 50, sourceUrl: 'https://www.youtube.com/feed/trending', attribution: 'YouTube Charts' },
-  { source: 'youtube', chartKey: 'us_music', title: 'YouTube Trending — Pasaulis', subtitle: 'Populiariausi muzikos klipai YouTube', accent: '#f43f5e', scope: 'social', size: 50, sourceUrl: 'https://www.youtube.com/feed/trending', attribution: 'YouTube Charts' },
-  { source: 'billboard', chartKey: 'tiktok50', title: 'TikTok Billboard Top 50', subtitle: 'Trendinančios dainos TikTok platformoje', accent: '#ec4899', scope: 'social', size: 50, sourceUrl: 'https://www.billboard.com/charts/tiktok-billboard-top-50/', attribution: 'Billboard × TikTok' },
-  { source: 'spotify', chartKey: 'viral50_global', title: 'Spotify Viral 50', subtitle: 'Greičiausiai populiarėjantys kūriniai pasaulyje', accent: '#22c55e', scope: 'social', size: 50, sourceUrl: 'https://charts.spotify.com/', attribution: 'Spotify Charts' },
-  { source: 'shazam', chartKey: 'world', title: 'Shazam Global Top 200', subtitle: 'Daugiausiai atpažįstamos / atrandamos dainos', accent: '#0ea5e9', scope: 'social', size: 200, sourceUrl: 'https://www.shazam.com/charts/top-200/world', attribution: 'Shazam' },
-  { source: 'shazam', chartKey: 'lt', title: 'Shazam Lietuva', subtitle: 'Kas atrandama Lietuvoje šiandien', accent: '#a855f7', scope: 'social', size: 100, sourceUrl: 'https://www.shazam.com/charts/top-200/lithuania', attribution: 'Shazam' },
-]
-
-function mergePlanned(live: ExtChart[], scope: 'lt' | 'world' | 'social'): (ExtChart & { isLive: boolean })[] {
-  const liveByKey = new Map(live.map(c => [`${c.source}:${c.chartKey}`, c]))
-  return PLANNED.filter(p => p.scope === scope).map(p => {
-    const l = liveByKey.get(`${p.source}:${p.chartKey}`)
-    if (l && l.entries.length > 0) return { ...l, isLive: true }
-    return {
-      source: p.source, chartKey: p.chartKey, title: p.title, subtitle: p.subtitle,
-      accent: p.accent, scope: p.scope, size: p.size, sourceUrl: p.sourceUrl ?? null,
-      attribution: p.attribution ?? null, periodLabel: '', entries: [], isLive: false,
-    }
-  })
-}
+/* Konsensuso rinkų tvarka. */
+const CONSENSUS_ORDER = ['lt', 'us', 'uk', 'world']
+const TRENDING_ORDER = ['trending_lt', 'trending_global']
 
 /* ───────────────────────────── Page ───────────────────────────── */
 export default async function TopaiHubPage() {
@@ -203,9 +167,15 @@ export default async function TopaiHubPage() {
     getExternalCharts(),
   ])
 
-  const ltCharts = mergePlanned(ext, 'lt')
-  const worldCharts = mergePlanned(ext, 'world')
-  const socialCharts = mergePlanned(ext, 'social')
+  const byKey = (s: string, k: string) => ext.find(c => c.source === s && c.chartKey === k)
+  const consensus = CONSENSUS_ORDER.map(k => byKey('consensus', k)).filter(Boolean) as ExtChart[]
+  const trending = TRENDING_ORDER.map(k => byKey('consensus', k)).filter(Boolean) as ExtChart[]
+  const albums = ext.filter(c => c.chartKey === 'albums' && c.source !== 'consensus')
+  // Žali šaltiniai (iš kurių sudaromas konsensusas) — be consensus ir be albumų.
+  const rawSingles = ext.filter(c => c.source !== 'consensus' && c.chartKey !== 'albums')
+  const rawLt = rawSingles.filter(c => c.scope === 'lt')
+  const rawWorld = rawSingles.filter(c => c.scope === 'world')
+  const rawSocial = rawSingles.filter(c => c.scope === 'social')
 
   return (
     <div className="tp">
@@ -214,17 +184,17 @@ export default async function TopaiHubPage() {
       {/* ───────── Hero ───────── */}
       <header className="tp-hero">
         <div className="tp-hero-badge">
-          <span className="tp-hero-dot" /> Reitingai atnaujinami kas savaitę
+          <span className="tp-hero-dot" /> Atnaujinama kas savaitę
         </div>
         <h1 className="tp-hero-title">Muzikos topai</h1>
         <p className="tp-hero-sub">
-          music.lt <strong>TOP 40</strong> ir <strong>LT TOP 30</strong> — klausytojų balsais formuojami
-          pagrindiniai topai. Šalia jų: oficialus AGATA reitingas, Apple Music, Billboard, Official UK ir
-          socialinių tinklų trendai vienoje vietoje.
+          music.lt <strong>konsensuso reitingai</strong> apjungia Apple Music, Spotify, Billboard, AGATA ir
+          Shazam į vieną tikslų vaizdą — kas iš tikrųjų populiariausia Lietuvoje, JAV, UK ir pasaulyje.
+          Šalia — nuosavi <strong>TOP 40</strong> ir <strong>LT TOP 30</strong> bei visi šaltiniai atskirai.
         </p>
       </header>
 
-      {/* ───────── PAGRINDINIAI (highlight) ───────── */}
+      {/* ───────── PAGRINDINIAI (voting highlight) ───────── */}
       <section className="tp-section">
         <SectionHead label="Pagrindiniai topai" sub="music.lt savaitiniai reitingai — balsuok ir formuok rezultatą" />
         <div className="tp-feature-grid">
@@ -241,29 +211,51 @@ export default async function TopaiHubPage() {
         </div>
       </section>
 
-      {/* ───────── LIETUVOS OFICIALŪS ───────── */}
-      <section className="tp-section" id="lt-topai">
-        <SectionHead label="Lietuvos oficialūs topai" sub="Tikslūs klausymo ir eterio duomenys iš LT šaltinių" />
-        <div className="tp-chart-grid">
-          {ltCharts.map(c => <ExtCard key={`${c.source}-${c.chartKey}`} chart={c} />)}
-        </div>
-      </section>
+      {/* ───────── KONSENSUSO TOPAI (headline) ───────── */}
+      {consensus.length > 0 && (
+        <section className="tp-section" id="konsensusas">
+          <SectionHead label="music.lt konsensusas" sub="Vienas reitingas iš visų rinkos šaltinių — tikra muzikos nuotrauka, ne kopija" />
+          <div className="tp-cons-grid">
+            {consensus.map(c => <ConsensusCard key={c.chartKey} chart={c} />)}
+          </div>
+        </section>
+      )}
 
-      {/* ───────── PASAULIO ───────── */}
-      <section className="tp-section" id="pasaulio-topai">
-        <SectionHead label="Pasaulio topai" sub="UK, JAV ir globalūs oficialūs reitingai" />
-        <div className="tp-chart-grid">
-          {worldCharts.map(c => <ExtCard key={`${c.source}-${c.chartKey}`} chart={c} />)}
-        </div>
-      </section>
+      {/* ───────── TRENDAI / ATRADIMAS ───────── */}
+      {(trending.length > 0 || rawSocial.length > 0) && (
+        <section className="tp-section" id="trendai">
+          <SectionHead label="Trendai ir atradimas" sub="Kas sprogsta Shazam ir YouTube — greičiausiai populiarėjantys kūriniai" />
+          {trending.length > 0 && (
+            <div className="tp-cons-grid tp-cons-grid-sm">
+              {trending.map(c => <ConsensusCard key={c.chartKey} chart={c} compact />)}
+            </div>
+          )}
+          {rawSocial.length > 0 && (
+            <div className="tp-src-grid" style={{ marginTop: trending.length ? 14 : 0 }}>
+              {rawSocial.map(c => <SourceCard key={`${c.source}-${c.chartKey}`} chart={c} />)}
+            </div>
+          )}
+        </section>
+      )}
 
-      {/* ───────── SOCIAL / TRENDING ───────── */}
-      <section className="tp-section" id="trendai">
-        <SectionHead label="Trendai ir socialiniai tinklai" sub="Kas sprogsta TikTok ir Spotify šiandien" />
-        <div className="tp-chart-grid">
-          {socialCharts.map(c => <ExtCard key={`${c.source}-${c.chartKey}`} chart={c} />)}
-        </div>
-      </section>
+      {/* ───────── ALBUMAI ───────── */}
+      {albums.length > 0 && (
+        <section className="tp-section" id="albumai">
+          <SectionHead label="Albumai" sub="Klausomiausi albumai — Lietuva, JAV ir UK" />
+          <div className="tp-chart-grid">
+            {albums.map(c => <ExtCard key={`${c.source}-${c.chartKey}`} chart={c} />)}
+          </div>
+        </section>
+      )}
+
+      {/* ───────── VISI ŠALTINIAI (antraeiliai) ───────── */}
+      {rawSingles.length > 0 && (
+        <section className="tp-section" id="saltiniai">
+          <SectionHead label="Visi šaltiniai" sub="Žali reitingai, iš kurių sudaromas konsensusas — kiekvienas atskirai" />
+          {rawLt.length > 0 && <SrcGroup title="Lietuva" charts={rawLt} />}
+          {rawWorld.length > 0 && <SrcGroup title="Pasaulis" charts={rawWorld} />}
+        </section>
+      )}
 
       {/* ───────── DAUGIAU ───────── */}
       <section className="tp-section">
@@ -337,22 +329,80 @@ function FeatureCard({ href, badge, name, tagline, accent, entries, footerLeft, 
   )
 }
 
-function ExtCard({ chart }: { chart: ExtChart & { isLive: boolean } }) {
-  const live = chart.isLive
+/* Konsensuso kortelė — headline. Top 5 + šaltinių badge'ai + nuoroda į pilną. */
+function ConsensusCard({ chart, compact }: { chart: ExtChart; compact?: boolean }) {
+  const slug = `${chart.source}-${chart.chartKey}`
+  const top = chart.entries.slice(0, compact ? 5 : 5)
   return (
-    <div className={`tp-ext${live ? ' is-live' : ''}`} style={{ ['--c' as any]: chart.accent }}>
+    <Link href={`/topai/${slug}`} className={`tp-cons${compact ? ' is-compact' : ''}`} style={{ ['--c' as any]: chart.accent }}>
+      <div className="tp-cons-head">
+        <div className="tp-cons-meta">
+          <span className="tp-cons-badge">Konsensusas</span>
+          <h3 className="tp-cons-name">{chart.title}</h3>
+          {chart.sourceLabels.length > 0 && (
+            <div className="tp-cons-srcs">
+              {chart.sourceLabels.map(s => <span key={s} className="tp-cons-src">{s}</span>)}
+            </div>
+          )}
+        </div>
+        <span className="tp-cons-cta">Pilnas →</span>
+      </div>
+      <div className="tp-cons-body">
+        {top.length === 0 ? <div className="tp-empty">Formuojasi</div> : top.map(e => (
+          <div key={e.position} className={`tp-row${e.position === 1 ? ' tp-row-1' : ''}`}>
+            <span className="tp-pos">{e.position}</span>
+            <span className="tp-cover">{e.coverUrl ? <img src={proxyImg(e.coverUrl, 80)} alt="" /> : '♪'}</span>
+            <span className="tp-info">
+              <span className="tp-title">{e.title}</span>
+              <span className="tp-artist">{e.artistName}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </Link>
+  )
+}
+
+/* Kompaktiška šaltinio kortelė (be entries) — „Visi šaltiniai" / social. */
+function SourceCard({ chart }: { chart: ExtChart }) {
+  const slug = `${chart.source}-${chart.chartKey}`
+  return (
+    <Link href={`/topai/${slug}`} className="tp-src" style={{ ['--c' as any]: chart.accent }}>
+      <div className="tp-src-top">
+        <span className="tp-src-dot" />
+        <span className="tp-src-name">{chart.title}</span>
+      </div>
+      <div className="tp-src-foot">
+        <span className="tp-src-size">TOP {chart.size}</span>
+        <span className="tp-src-go">Žiūrėti →</span>
+      </div>
+    </Link>
+  )
+}
+
+function SrcGroup({ title, charts }: { title: string; charts: ExtChart[] }) {
+  return (
+    <div className="tp-srcgrp">
+      <h3 className="tp-srcgrp-title">{title}</h3>
+      <div className="tp-src-grid">
+        {charts.map(c => <SourceCard key={`${c.source}-${c.chartKey}`} chart={c} />)}
+      </div>
+    </div>
+  )
+}
+
+function ExtCard({ chart }: { chart: ExtChart }) {
+  return (
+    <div className="tp-ext is-live" style={{ ['--c' as any]: chart.accent }}>
       <div className="tp-ext-head">
         <div className="tp-ext-meta">
           <h3 className="tp-ext-name">{chart.title}</h3>
           {chart.subtitle && <p className="tp-ext-sub">{chart.subtitle}</p>}
         </div>
-        {live
-          ? <span className="tp-ext-size">TOP {chart.size}</span>
-          : <span className="tp-soon">Netrukus</span>}
+        <span className="tp-ext-size">TOP {chart.size}</span>
       </div>
-
       <div className="tp-ext-body">
-        {live ? chart.entries.map(e => {
+        {chart.entries.slice(0, 3).map(e => {
           const t = trendGlyph(e.position, e.prevPosition)
           return (
             <div key={e.position} className={`tp-row${e.position === 1 ? ' tp-row-1' : ''}`}>
@@ -365,31 +415,11 @@ function ExtCard({ chart }: { chart: ExtChart & { isLive: boolean } }) {
               {t && <span className={`tp-trend ${t.cls}`}>{t.ch}</span>}
             </div>
           )
-        }) : (
-          <div className="tp-ext-placeholder">
-            {[1, 2, 3].map(n => (
-              <div key={n} className="tp-row tp-row-ghost">
-                <span className="tp-pos">{n}</span>
-                <span className="tp-cover tp-cover-ghost" />
-                <span className="tp-info">
-                  <span className="tp-bar tp-bar-w1" />
-                  <span className="tp-bar tp-bar-w2" />
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        })}
       </div>
-
       <div className="tp-ext-foot">
-        <span className="tp-attr">
-          {chart.attribution}{live && chart.periodLabel ? ` · ${chart.periodLabel}` : ''}
-        </span>
-        {live
-          ? <Link href={`/topai/${chart.source}-${chart.chartKey}`} className="tp-ext-link tp-ext-full">Visas topas →</Link>
-          : chart.sourceUrl
-            ? <a href={chart.sourceUrl} target="_blank" rel="noopener noreferrer nofollow" className="tp-ext-link">Šaltinis →</a>
-            : <span />}
+        <span className="tp-attr">{chart.attribution}{chart.periodLabel ? ` · ${chart.periodLabel}` : ''}</span>
+        <Link href={`/topai/${chart.source}-${chart.chartKey}`} className="tp-ext-link tp-ext-full">Visas topas →</Link>
       </div>
     </div>
   )
@@ -434,7 +464,7 @@ const styles = `
   }
   .tp-hero-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 0 3px rgba(34,197,94,0.18); }
   .tp-hero-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: clamp(30px, 5vw, 46px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.02; }
-  .tp-hero-sub { margin: 14px 0 0; max-width: 70ch; color: var(--text-muted); font-size: 14.5px; line-height: 1.6; }
+  .tp-hero-sub { margin: 14px 0 0; max-width: 74ch; color: var(--text-muted); font-size: 14.5px; line-height: 1.6; }
   .tp-hero-sub strong { color: var(--text-secondary); font-weight: 800; }
 
   /* Section */
@@ -481,10 +511,29 @@ const styles = `
   .tp-feature-foot { padding: 12px 16px; border-top: 1px solid var(--border-subtle); background: var(--bg-elevated); display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); }
   .tp-feature-foot strong { color: var(--text-secondary); font-weight: 700; }
 
+  /* Consensus cards (headline) */
+  .tp-cons-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+  .tp-cons-grid-sm { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .tp-cons {
+    --c: #6366f1; position: relative; display: flex; flex-direction: column;
+    background: var(--bg-surface); border: 1.5px solid var(--border-subtle); border-radius: 15px;
+    overflow: hidden; text-decoration: none; color: inherit; transition: transform .18s, box-shadow .18s, border-color .18s;
+  }
+  .tp-cons::before { content: ''; position: absolute; inset: 0 0 auto; height: 3px; background: var(--c); }
+  .tp-cons:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(0,0,0,0.10); border-color: var(--c); }
+  .tp-cons-head { padding: 16px 16px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; background: linear-gradient(135deg, color-mix(in srgb, var(--c) 8%, transparent) 0%, transparent 70%); }
+  .tp-cons-meta { min-width: 0; }
+  .tp-cons-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--c); font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+  .tp-cons-name { margin: 7px 0 0; font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); }
+  .tp-cons-srcs { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .tp-cons-src { font-size: 9px; font-weight: 700; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--border-subtle); padding: 2px 6px; border-radius: 999px; }
+  .tp-cons-cta { flex-shrink: 0; align-self: flex-start; padding: 5px 10px; border-radius: 8px; background: var(--c); color: #fff; font-size: 11px; font-weight: 700; }
+  .tp-cons-body { padding: 10px 12px; flex: 1; }
+
   /* External chart cards */
   .tp-chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
   .tp-ext {
-    --c: #6366f1; display: flex; flex-direction: column; min-height: 230px;
+    --c: #6366f1; display: flex; flex-direction: column; min-height: 200px;
     background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 14px; overflow: hidden;
     transition: border-color .18s, transform .18s, box-shadow .18s;
   }
@@ -494,19 +543,29 @@ const styles = `
   .tp-ext-name { margin: 0; font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--text-primary); }
   .tp-ext-sub { margin: 3px 0 0; font-size: 11.5px; color: var(--text-muted); line-height: 1.4; }
   .tp-ext-size { flex-shrink: 0; font-size: 10px; font-weight: 800; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
-  .tp-soon { flex-shrink: 0; font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--border-subtle); }
   .tp-ext-body { padding: 10px 12px; flex: 1; }
   .tp-ext-foot { padding: 10px 14px; border-top: 1px solid var(--border-subtle); background: var(--bg-elevated); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .tp-attr { font-size: 10.5px; color: var(--text-muted); }
   .tp-ext-link { font-size: 11px; font-weight: 700; color: var(--c); text-decoration: none; }
   .tp-ext-link:hover { text-decoration: underline; }
 
-  /* Placeholder ghosts */
-  .tp-row-ghost { opacity: 0.55; }
-  .tp-cover-ghost { background: var(--bg-elevated); }
-  .tp-bar { height: 9px; border-radius: 4px; background: var(--bg-elevated); }
-  .tp-bar-w1 { width: 70%; }
-  .tp-bar-w2 { width: 45%; margin-top: 5px; }
+  /* Source cards (compact, secondary) */
+  .tp-srcgrp { margin-top: 6px; }
+  .tp-srcgrp + .tp-srcgrp { margin-top: 18px; }
+  .tp-srcgrp-title { margin: 0 0 9px; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+  .tp-src-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .tp-src {
+    --c: #6366f1; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; min-height: 78px;
+    padding: 13px 14px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px;
+    text-decoration: none; color: inherit; transition: transform .15s, box-shadow .15s, border-color .15s;
+  }
+  .tp-src:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(0,0,0,0.07); border-color: var(--c); }
+  .tp-src-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .tp-src-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex-shrink: 0; }
+  .tp-src-name { font-size: 13.5px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tp-src-foot { display: flex; align-items: center; justify-content: space-between; }
+  .tp-src-size { font-size: 9.5px; font-weight: 800; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); padding: 2px 7px; border-radius: 999px; }
+  .tp-src-go { font-size: 11px; font-weight: 700; color: var(--text-muted); }
 
   /* Tiles */
   .tp-tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 13px; }
