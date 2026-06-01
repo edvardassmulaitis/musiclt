@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { primaryArtist, slugifyLt } from '@/lib/chart-resolve'
+import { analyzeChartArtists } from '@/lib/chart-artist-status'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
-/** GET /api/admin/charts/[id]/entries — vieno topo įrašai su (jei susieta)
- *  track info. Naudoja /admin/charts review lentelė. */
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const chartId = parseInt(id, 10)
@@ -24,12 +24,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   for (;;) {
     const { data } = await sb
       .from('external_chart_entries')
-      .select(`
-        id, position, prev_position, weeks_on_chart, is_new,
-        artist_name, title, cover_url, resolve_state, track_id, album_id, artist_id,
-        tracks:track_id ( id, slug, title, artists:artist_id ( id, slug, name ) ),
-        albums:album_id ( id, slug, title, artists:artist_id ( id, slug, name ) )
-      `)
+      .select(`id, position, prev_position, weeks_on_chart, is_new, artist_name, title, cover_url, resolve_state, track_id, album_id, artist_id, tracks:track_id ( id, slug, title, artists:artist_id ( id, slug, name ) ), albums:album_id ( id, slug, title, artists:artist_id ( id, slug, name ) )`)
       .eq('chart_id', chartId)
       .order('position', { ascending: true })
       .range(from, from + 999)
@@ -42,44 +37,40 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const norm = entries.map((e: any) => {
     const tr = Array.isArray(e.tracks) ? e.tracks[0] : e.tracks
     const al = Array.isArray(e.albums) ? e.albums[0] : e.albums
-    const ent = isAlbum ? al : tr            // susieto įrašo entitetas pagal chart tipą
+    const ent = isAlbum ? al : tr
     const ar = ent ? (Array.isArray(ent.artists) ? ent.artists[0] : ent.artists) : null
-    // Teisinga nuoroda: /dainos|albumai/{artistSlug}-{slug}-{id} (fallback be artistSlug).
     let href: string | null = null
     if (ent) {
       const base = isAlbum ? 'albumai' : 'dainos'
-      href = ar?.slug
-        ? `/${base}/${ar.slug}-${ent.slug}-${ent.id}`
-        : `/${base}/${ent.slug}-${ent.id}`
+      href = ar?.slug ? `/${base}/${ar.slug}-${ent.slug}-${ent.id}` : `/${base}/${ent.slug}-${ent.id}`
     }
+    const linkedArtistId = ar?.id ?? e.artist_id ?? null
     return {
       id: e.id, position: e.position, prevPosition: e.prev_position,
       weeksOnChart: e.weeks_on_chart, isNew: e.is_new,
       artistName: e.artist_name, title: e.title, coverUrl: e.cover_url,
       resolveState: e.resolve_state,
       entityType: isAlbum ? 'album' : 'track',
-      track: ent ? { id: ent.id, slug: ent.slug, title: ent.title, artist: ar?.name ?? null, artistSlug: ar?.slug ?? null, href } : null,
-      // užpildoma žemiau (artist-exists badge nesusietiems)
-      artistExists: false as boolean, artistKnownSlug: null as string | null,
+      track: ent ? { id: ent.id, slug: ent.slug, title: ent.title, artist: ar?.name ?? null, artistSlug: ar?.slug ?? null, artistId: linkedArtistId, href } : null,
+      primaryArtist: null as { name: string; exists: boolean; id: number | null; slug: string | null } | null,
+      featuringArtists: [] as { name: string; exists: boolean; id: number | null; slug: string | null }[],
     }
   })
 
-  // Artist-exists badge: ar primary atlikėjas jau kataloge (kad admin matytų,
-  // jog „Sukurti" nekurs naujo atlikėjo). Slug batch — performant (≤1 query/100).
   const unresolved = norm.filter(e => !e.track)
-  const slugOf = (name: string) => slugifyLt(primaryArtist(name || ''))
-  const wantSlugs = Array.from(new Set(unresolved.map(e => slugOf(e.artistName)).filter(Boolean)))
-  const existing = new Set<string>()
-  for (let i = 0; i < wantSlugs.length; i += 100) {
-    const chunk = wantSlugs.slice(i, i + 100)
-    const { data } = await sb.from('artists').select('slug').in('slug', chunk)
-    for (const a of (data || []) as any[]) existing.add(a.slug)
-  }
-  for (const e of norm) {
-    if (e.track) continue
-    const s = slugOf(e.artistName)
-    e.artistKnownSlug = existing.has(s) ? s : null
-    e.artistExists = existing.has(s)
+  const CONCURRENCY = 8
+  for (let i = 0; i < unresolved.length; i += CONCURRENCY) {
+    const chunk = unresolved.slice(i, i + CONCURRENCY)
+    await Promise.all(chunk.map(async (e) => {
+      try {
+        const a = await analyzeChartArtists(e.artistName, isAlbum ? '' : e.title)
+        e.primaryArtist = a.primary
+        e.featuringArtists = isAlbum ? [] : a.featuring
+      } catch {
+        e.primaryArtist = { name: e.artistName, exists: false, id: null, slug: null }
+        e.featuringArtists = []
+      }
+    }))
   }
 
   return NextResponse.json({ chart, isAlbum, entries: norm })

@@ -10,13 +10,14 @@ type Chart = {
   source_url: string | null; counts: Counts
   featured?: boolean; featured_order?: number | null; cover_image_url?: string | null
 }
+type ArtistStatus = { name: string; exists: boolean; id: number | null; slug: string | null }
 type Entry = {
   id: number; position: number; prevPosition: number | null; weeksOnChart: number | null; isNew: boolean
   artistName: string; title: string; coverUrl: string | null; resolveState: string
   entityType?: 'track' | 'album'
-  track: { id: number; slug: string; title: string; artist: string | null; artistSlug: string | null; href?: string | null } | null
-  artistExists?: boolean
-  artistKnownSlug?: string | null
+  track: { id: number; slug: string; title: string; artist: string | null; artistSlug: string | null; artistId?: number | null; href?: string | null } | null
+  primaryArtist?: ArtistStatus | null
+  featuringArtists?: ArtistStatus[]
 }
 type Hit = { type: string; id: number; slug: string; title: string; artist: string | null; image_url: string | null }
 
@@ -230,12 +231,40 @@ export default function AdminChartsPage() {
   )
 }
 
+/* ── Vieno atlikėjo „chip": yra → nuoroda į administraciją, nėra → „Sukurti" ── */
+function ArtistChip({ artist, prefix, onCreate, busy }: {
+  artist: ArtistStatus; prefix?: string; onCreate: () => void; busy: boolean
+}) {
+  if (artist.exists && artist.id) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        {prefix && <span className="text-gray-300">{prefix}</span>}
+        <a href={`/admin/artists/${artist.id}`} target="_blank" rel="noreferrer"
+          className="font-medium text-violet-600 hover:underline">{artist.name}</a>
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1">
+      {prefix && <span className="text-gray-300">{prefix}</span>}
+      <span className="text-gray-500">{artist.name}</span>
+      <button onClick={onCreate} disabled={busy}
+        title={`Sukurti atlikėją „${artist.name}" (be dainos)`}
+        className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50">
+        + Sukurti
+      </button>
+    </span>
+  )
+}
+
 /* ───────────────────────────── Entry row ───────────────────────────── */
 function EntryRow({ entry, isAlbum, onChanged }: { entry: Entry; isAlbum: boolean; onChanged: () => void }) {
   const [busy, setBusy] = useState(false)
   const [searching, setSearching] = useState(false)
   const meta = STATE_META[entry.resolveState] || STATE_META.pending
   const resolved = entry.resolveState === 'matched' || entry.resolveState === 'created'
+  const primary = entry.primaryArtist
+  const featuring = entry.featuringArtists || []
 
   const act = async (action: string, extra?: any) => {
     setBusy(true)
@@ -246,23 +275,47 @@ function EntryRow({ entry, isAlbum, onChanged }: { entry: Entry; isAlbum: boolea
     setBusy(false); setSearching(false); onChanged()
   }
 
+  // Susieto entiteto admin nuoroda (daina → /admin/tracks/[id], albumas → /admin/albums/[id]).
+  const adminEntityHref = entry.track ? `/admin/${isAlbum ? 'albums' : 'tracks'}/${entry.track.id}` : null
+
   return (
     <div className="px-3 py-2.5 sm:px-4">
-      {/* Eilutė: numeris + pavadinimas/atlikėjas (pilnai matomas) + būsena */}
       <div className="flex items-start gap-2.5 sm:gap-3">
         <span className="w-6 shrink-0 pt-0.5 text-center text-sm font-black tabular-nums text-gray-400 sm:w-7">{entry.position}</span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold leading-snug text-gray-800">{entry.title}</p>
-          <p className="flex flex-wrap items-center gap-1.5 text-xs text-gray-400">
-            {entry.artistName}
-            {!resolved && (entry.artistExists
-              ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600" title="Atlikėjas jau yra kataloge – Sukurti pridės tik dainą">atlikėjas yra</span>
-              : <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600" title="Atlikėjo nėra – Sukurti sukurs naują (ghost) atlikėją">naujas atlikėjas</span>
+          {/* Dainos/albumo pavadinimas (+ „Sukurti" prie nesusieto = daina+atlikėjas) */}
+          <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold leading-snug text-gray-800">
+            {resolved && adminEntityHref ? (
+              <a href={adminEntityHref} target="_blank" rel="noreferrer" className="text-violet-700 hover:underline">{entry.title}</a>
+            ) : (
+              <span>{entry.title}</span>
+            )}
+            {!resolved && (
+              <button onClick={() => act('create')} disabled={busy}
+                title="Sukurti dainą IR atlikėją (pilnas praturtinimas: YouTube, žodžiai, Spotify)"
+                className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 hover:bg-blue-100 disabled:opacity-50">
+                + Sukurti {isAlbum ? 'albumą' : 'dainą'}
+              </button>
             )}
           </p>
+
+          {/* Atlikėjas(-ai): nuorodos jei yra, „Sukurti" jei ne */}
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-400">
+            {!resolved && primary ? (
+              <ArtistChip artist={primary} onCreate={() => act('create-artist', { artistName: primary.name, isPrimary: true })} busy={busy} />
+            ) : (
+              <span>{entry.artistName}</span>
+            )}
+            {!resolved && featuring.map((f, i) => (
+              <ArtistChip key={i} artist={f} prefix={i === 0 ? 'feat.' : '·'}
+                onCreate={() => act('create-artist', { artistName: f.name, isPrimary: false })} busy={busy} />
+            ))}
+          </p>
+
+          {/* Susietas — vieša nuoroda */}
           {resolved && entry.track?.href ? (
             <a href={entry.track.href} target="_blank" rel="noreferrer"
-              className="mt-0.5 block truncate text-xs text-violet-600 hover:underline">
+              className="mt-0.5 block truncate text-xs text-emerald-600 hover:underline">
               → {entry.track.artist} – {entry.track.title}
             </a>
           ) : null}
@@ -270,7 +323,7 @@ function EntryRow({ entry, isAlbum, onChanged }: { entry: Entry; isAlbum: boolea
         <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${meta.cls}`}>{meta.label}</span>
       </div>
 
-      {/* Veiksmai: po pavadinimu, kad mobile netruktų vietos ir nesimaitų titles */}
+      {/* Veiksmai: po pavadinimu, kad mobile netruktų vietos */}
       <div className="mt-1.5 flex flex-wrap items-center justify-end gap-1.5 pl-8 sm:pl-10">
         {resolved ? (
           <button onClick={() => act('unlink')} disabled={busy}
@@ -278,10 +331,7 @@ function EntryRow({ entry, isAlbum, onChanged }: { entry: Entry; isAlbum: boolea
         ) : (
           <>
             <button onClick={() => setSearching(s => !s)} disabled={busy}
-              className="rounded bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">Susieti</button>
-            <button onClick={() => act('create')} disabled={busy}
-              className="rounded bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-100 disabled:opacity-50"
-              title="Sukurti naują atlikėją + dainą">Sukurti</button>
+              className="rounded bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">Susieti su esama</button>
             <button onClick={() => act('skip')} disabled={busy}
               className="rounded px-2.5 py-1 text-[11px] font-medium text-gray-400 hover:bg-gray-100 disabled:opacity-50">Praleisti</button>
           </>

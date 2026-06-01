@@ -10,6 +10,7 @@ export const maxDuration = 60
 /** POST /api/admin/charts/entry — vieno įrašo veiksmas:
  *   { entryId, action: 'link', trackId|albumId }    — susieti su esama daina/albumu
  *   { entryId, action: 'create' }                   — sukurti atlikėją+dainą/albumą (find-or-create)
+ *   { entryId, action: 'create-artist', artistName?, isPrimary? } — sukurti TIK atlikėją
  *   { entryId, action: 'skip' }                     — palikti text_only
  *   { entryId, action: 'unlink' }                   — atrišti (atgal į pending)
  *  Albumų chart'ams (chart_key='albums') link/create operuoja albumais.
@@ -40,6 +41,28 @@ export async function POST(req: NextRequest) {
     await sb.from('external_chart_entries')
       .update({ resolve_state: 'pending', track_id: null, album_id: null, artist_id: null }).eq('id', entryId)
     return NextResponse.json({ ok: true, resolveState: 'pending' })
+  }
+
+  // Sukuria TIK atlikėją (ghost) — be dainos. Naudoja resolver UI „Sukurti" prie
+  // atlikėjo vardo. body.artistName — konkretus vardas (primary arba featuring);
+  // nenurodžius imamas entry primary segmentas. Primary atveju (body.isPrimary !==
+  // false ir vardas atitinka segmentą) prikabinam artist_id prie įrašo, bet
+  // resolve_state lieka 'pending' (daina dar nesukurta).
+  if (action === 'create-artist') {
+    const country = chart?.country || (chart?.scope === 'lt' ? 'LT' : null)
+    const rawName = (typeof body.artistName === 'string' && body.artistName.trim())
+      ? body.artistName.trim() : entry.artist_name
+    const isPrimary = body.isPrimary !== false
+    try {
+      const artistId = await findOrCreateArtist(sb, rawName, country)
+      const { data: art } = await sb.from('artists').select('id, name, slug').eq('id', artistId).maybeSingle()
+      if (isPrimary) {
+        await sb.from('external_chart_entries').update({ artist_id: artistId }).eq('id', entryId)
+      }
+      return NextResponse.json({ ok: true, artistId, artist: art || null, isPrimary })
+    } catch (e: any) {
+      return NextResponse.json({ error: e?.message || 'create-artist failed' }, { status: 500 })
+    }
   }
 
   if (action === 'link') {
