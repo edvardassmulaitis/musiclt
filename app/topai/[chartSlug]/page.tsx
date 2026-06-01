@@ -6,6 +6,13 @@ import { proxyImg } from '@/lib/img-proxy'
 
 export const dynamic = 'force-dynamic'
 
+/** YouTube thumbnail iš video_url (fallback kai track neturi cover_url). */
+function ytThumb(url: string | null | undefined): string | null {
+  if (!url) return null
+  const m = String(url).match(/(?:v=|youtu\.be\/|embed\/|shorts\/|\/vi\/)([\w-]{11})/)
+  return m ? `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg` : null
+}
+
 /* slug = `${source}-${chart_key}` (pvz. „agata-singles", „spotify-lt_weekly"). */
 async function loadChart(slug: string) {
   const sb = createAdminClient()
@@ -25,7 +32,7 @@ async function loadChart(slug: string) {
       .select(`
         id, position, prev_position, weeks_on_chart, is_new,
         artist_name, title, cover_url, resolve_state, track_id, album_id,
-        tracks:track_id ( id, slug, title, cover_url, artists:artist_id ( slug, name ) ),
+        tracks:track_id ( id, slug, title, cover_url, video_url, artists:artist_id ( slug, name ) ),
         albums:album_id ( id, slug, title, cover_image_url, artists:artist_id ( slug, name ) )
       `)
       .eq('chart_id', chart.id)
@@ -50,7 +57,8 @@ async function loadChart(slug: string) {
     return {
       position: e.position, prevPosition: e.prev_position ?? null,
       artistName: e.artist_name, title: e.title,
-      coverUrl: ent?.cover_url || ent?.cover_image_url || e.cover_url || null,
+      // Susietam: track cover → albumo viršelis → YouTube thumbnail → išorinio topo cover.
+      coverUrl: ent?.cover_url || ent?.cover_image_url || ytThumb(ent?.video_url) || e.cover_url || null,
       href,
       // susietas atlikėjas (jei yra) — kad ir atlikėjo vardas vestų į profilį
       artistHref: ar?.slug ? `/atlikejai/${ar.slug}` : null,

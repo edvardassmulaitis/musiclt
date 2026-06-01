@@ -44,6 +44,13 @@ type ExtChart = {
   entries: ExtEntry[]
 }
 
+/** YouTube thumbnail iš video_url (fallback kai track neturi cover_url). */
+function ytThumb(url: string | null | undefined): string | null {
+  if (!url) return null
+  const m = String(url).match(/(?:v=|youtu\.be\/|embed\/|shorts\/|\/vi\/)([\w-]{11})/)
+  return m ? `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg` : null
+}
+
 /* ───────────────────────── Core voting charts ───────────────────────── */
 async function getMiniChart(topType: string, limit = 5): Promise<Mini[]> {
   const supabase = createAdminClient()
@@ -97,20 +104,25 @@ async function getExternalCharts(): Promise<ExtChart[]> {
     const ids = charts.map((c: any) => c.id)
     const { data: entries } = await supabase
       .from('external_chart_entries')
-      .select('chart_id, position, prev_position, artist_name, title, cover_url')
+      .select(`chart_id, position, prev_position, artist_name, title, cover_url,
+        tracks:track_id ( cover_url, video_url ),
+        albums:album_id ( cover_image_url )`)
       .in('chart_id', ids)
       .lte('position', 3)
       .order('position', { ascending: true })
 
     const byChart = new Map<number, ExtEntry[]>()
     for (const e of (entries || []) as any[]) {
+      const tr = Array.isArray(e.tracks) ? e.tracks[0] : e.tracks
+      const al = Array.isArray(e.albums) ? e.albums[0] : e.albums
       const arr = byChart.get(e.chart_id) || []
       arr.push({
         position: e.position,
         prevPosition: e.prev_position ?? null,
         artistName: e.artist_name,
         title: e.title,
-        coverUrl: e.cover_url ?? null,
+        // Susietam: track cover → albumo viršelis → YouTube thumbnail → išorinis.
+        coverUrl: tr?.cover_url || al?.cover_image_url || ytThumb(tr?.video_url) || e.cover_url || null,
       })
       byChart.set(e.chart_id, arr)
     }
