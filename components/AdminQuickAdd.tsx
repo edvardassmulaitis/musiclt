@@ -1,14 +1,15 @@
 'use client'
 /**
- * AdminQuickAdd — „greitas pridėjimas" su paprastu patvirtinimo žingsniu.
+ * AdminQuickAdd — „greitas pridėjimas" su patvirtinimo žingsniu.
  *
  *   1) Įmeti nuorodą → „Peržiūrėti": parsina (YouTube → daina, Wikipedia → albumas),
  *      NIEKO nesukuria, parodo aptiktus laukus.
- *   2) Pataisai jei reikia (pavadinimas, atlikėjas, data…) → „Sukurti": commit'ina.
+ *   2) Pataisai jei reikia → „Sukurti": commit'ina.
  *
- * Auto-detect dažnai klysta (metai pavadinime, kolaboracijos), todėl edit žingsnis.
+ * Atlikėjas ir featuring laukai — DB pickeriai: rodo konkretų katalogo atlikėją
+ * (su badge'u) arba leidžia įvesti naują vardą, jei kataloge nėra.
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 function detectKind(url: string): 'track' | 'album' | 'unknown' {
@@ -20,6 +21,10 @@ function detectKind(url: string): 'track' | 'album' | 'unknown' {
 }
 
 type Phase = 'idle' | 'previewing' | 'editing' | 'committing' | 'done'
+
+/** Atlikėjas formoje — id != null reiškia konkretų katalogo įrašą. */
+type ArtistRef = { id: number | null; name: string }
+type ArtistHit = { id: number; name: string; slug: string | null; country?: string | null; cover_image_url?: string | null }
 
 export default function AdminQuickAdd() {
   const [url, setUrl] = useState('')
@@ -52,12 +57,19 @@ export default function AdminQuickAdd() {
       // Pradinės redaguojamos reikšmės
       if (p.kind === 'track') {
         setForm({
-          title: p.title, artist_name: p.artist_name,
-          featuring: (p.featuring || []).join(', '),
+          title: p.title,
+          artist: { id: p.artist_id ?? null, name: p.artist_name } as ArtistRef,
+          featuring: (p.featuring_resolved && p.featuring_resolved.length
+            ? p.featuring_resolved
+            : (p.featuring || []).map((n: string) => ({ name: n, id: null }))
+          ).map((f: any) => ({ id: f.id ?? null, name: f.name })) as ArtistRef[],
           release_year: p.release_year ?? '', release_month: p.release_month ?? '', release_day: p.release_day ?? '',
         })
       } else {
-        setForm({ artist_name: p.artist_name, album_title: p.album_title, year: p.year ?? '' })
+        setForm({
+          artist: { id: p.artist_id ?? null, name: p.artist_name } as ArtistRef,
+          album_title: p.album_title, year: p.year ?? '',
+        })
       }
       setPhase('editing')
     } catch (e: any) { setError(String(e?.message || e)); setPhase('idle') }
@@ -67,14 +79,21 @@ export default function AdminQuickAdd() {
     if (phase === 'committing') return
     setPhase('committing'); setError(null)
     const num = (v: any) => (v === '' || v == null ? null : Number(v))
+    const artist: ArtistRef = form.artist || { id: null, name: '' }
     const overrides = preview.kind === 'track'
       ? {
           title: form.title?.trim(),
-          artist_name: form.artist_name?.trim(),
-          featuring: String(form.featuring || '').split(',').map((s: string) => s.trim()).filter(Boolean),
+          artist_name: artist.name?.trim(),
+          artist_id: artist.id ?? null,
+          featuring: (form.featuring || []).map((f: ArtistRef) => f.name.trim()).filter(Boolean),
           release_year: num(form.release_year), release_month: num(form.release_month), release_day: num(form.release_day),
         }
-      : { artist_name: form.artist_name?.trim(), album_title: form.album_title?.trim(), year: num(form.year) }
+      : {
+          artist_name: artist.name?.trim(),
+          artist_id: artist.id ?? null,
+          album_title: form.album_title?.trim(),
+          year: num(form.year),
+        }
     try {
       const res = await fetch('/api/admin/quick-add', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -167,9 +186,189 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const inputCls = 'min-h-[40px] rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 text-[14px] text-[var(--text-primary)] focus:border-[var(--border-strong)] focus:outline-none'
 
+// ────────────────────────────────────────────────────────────────────────────
+// Atlikėjų paieška (debounced) — bendras hook pickeriams
+// ────────────────────────────────────────────────────────────────────────────
+
+function useArtistSearch(query: string) {
+  const [hits, setHits] = useState<ArtistHit[]>([])
+  const [loading, setLoading] = useState(false)
+  const seq = useRef(0)
+
+  useEffect(() => {
+    const q = query.trim()
+    if (q.length < 2) { setHits([]); setLoading(false); return }
+    const mine = ++seq.current
+    setLoading(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/artists/search?q=${encodeURIComponent(q)}`)
+        const json = await res.json().catch(() => null)
+        if (mine !== seq.current) return // pasenęs atsakymas
+        setHits(json?.results || [])
+      } catch {
+        if (mine === seq.current) setHits([])
+      } finally {
+        if (mine === seq.current) setLoading(false)
+      }
+    }, 220)
+    return () => clearTimeout(t)
+  }, [query])
+
+  return { hits, loading }
+}
+
+/** Vieno atlikėjo pickeris — rodo konkretų katalogo įrašą arba „naujas". */
+function ArtistPicker({ value, onChange }: { value: ArtistRef; onChange: (v: ArtistRef) => void }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState(value.name || '')
+  const { hits, loading } = useArtistSearch(open ? text : '')
+  const boxRef = useRef<HTMLDivElement>(null)
+
+  // Sinchronizuojam jei value pakeistas iš išorės (pvz. preview reset)
+  useEffect(() => { setText(value.name || '') }, [value.name])
+
+  // Klikas už dropdown'o — uždarom
+  useEffect(() => {
+    if (!open) return
+    const h = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open])
+
+  function pick(h: ArtistHit) {
+    onChange({ id: h.id, name: h.name })
+    setText(h.name); setOpen(false)
+  }
+
+  return (
+    <div ref={boxRef} className="relative">
+      <input
+        className={`${inputCls} w-full`}
+        value={text}
+        onChange={(e) => { setText(e.target.value); onChange({ id: null, name: e.target.value }); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        placeholder="Ieškok kataloge arba įvesk naują…"
+      />
+      <div className="mt-1">
+        {value.id != null ? (
+          <Chip tone="ok">✓ kataloge (#{value.id})</Chip>
+        ) : value.name.trim() ? (
+          <Chip tone="warn">naujas — bus sukurtas</Chip>
+        ) : (
+          <Chip tone="warn">nurodyk atlikėją</Chip>
+        )}
+      </div>
+      {open && text.trim().length >= 2 && (
+        <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-lg">
+          {loading && <div className="px-3 py-2 text-[12px] text-[var(--text-muted)]">Ieškoma…</div>}
+          {!loading && hits.length === 0 && (
+            <div className="px-3 py-2 text-[12px] text-[var(--text-muted)]">Kataloge nerasta — bus sukurtas naujas „{text.trim()}".</div>
+          )}
+          {hits.map((h) => (
+            <button
+              key={h.id} type="button" onClick={() => pick(h)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+            >
+              <span className="font-medium">{h.name}</span>
+              {h.country && <span className="text-[11px] text-[var(--text-faint)]">{h.country}</span>}
+              <span className="ml-auto text-[11px] text-[var(--text-faint)]">#{h.id}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Featuring pickeris — chip'ai + DB paieška, leidžia naują tik aiškiai pridėjus. */
+function FeaturingPicker({ value, onChange }: { value: ArtistRef[]; onChange: (v: ArtistRef[]) => void }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const { hits, loading } = useArtistSearch(text)
+  const boxRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const h = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open])
+
+  const hasName = (n: string) => value.some((v) => v.name.trim().toLowerCase() === n.trim().toLowerCase())
+
+  function add(ref: ArtistRef) {
+    if (!ref.name.trim() || hasName(ref.name)) { setText(''); return }
+    onChange([...value, ref]); setText(''); setOpen(false)
+  }
+  function remove(i: number) { onChange(value.filter((_, idx) => idx !== i)) }
+
+  const exactHit = hits.find((h) => h.name.trim().toLowerCase() === text.trim().toLowerCase())
+
+  return (
+    <div ref={boxRef} className="relative">
+      {value.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap gap-1.5">
+          {value.map((f, i) => (
+            <span
+              key={`${f.name}-${i}`}
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[12px] ${
+                f.id != null
+                  ? 'border-green-200 bg-green-100 text-green-700'
+                  : 'border-orange-200 bg-orange-100 text-orange-700'
+              }`}
+            >
+              {f.name}{f.id == null && ' (naujas)'}
+              <button type="button" onClick={() => remove(i)} className="ml-0.5 text-current/70 hover:text-current" aria-label="Pašalinti">×</button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input
+        className={`${inputCls} w-full`}
+        value={text}
+        onChange={(e) => { setText(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            if (exactHit) add({ id: exactHit.id, name: exactHit.name })
+            else if (text.trim()) add({ id: null, name: text.trim() })
+          }
+        }}
+        placeholder="pvz. MĖLYNA — ieškok kataloge…"
+      />
+      {open && text.trim().length >= 2 && (
+        <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-lg">
+          {loading && <div className="px-3 py-2 text-[12px] text-[var(--text-muted)]">Ieškoma…</div>}
+          {hits.map((h) => (
+            <button
+              key={h.id} type="button" onClick={() => add({ id: h.id, name: h.name })}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+            >
+              <span className="font-medium">{h.name}</span>
+              {h.country && <span className="text-[11px] text-[var(--text-faint)]">{h.country}</span>}
+              <span className="ml-auto text-[11px] text-[var(--text-faint)]">#{h.id}</span>
+            </button>
+          ))}
+          {!loading && !exactHit && text.trim() && (
+            <button
+              type="button" onClick={() => add({ id: null, name: text.trim() })}
+              className="flex w-full items-center gap-2 border-t border-[var(--border-subtle)] px-3 py-2 text-left text-[13px] text-orange-700 hover:bg-[var(--bg-hover)]"
+            >
+              + Pridėti naują „{text.trim()}"
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: any) {
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }))
   const isTrack = preview.kind === 'track'
+  const artist: ArtistRef = form.artist || { id: null, name: '' }
 
   return (
     <div className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3">
@@ -179,7 +378,6 @@ function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: an
         {isTrack && preview.embeddable === false && <span className="text-orange-600">· embed blokuotas</span>}
         {!isTrack && <span>· {(preview.track_titles || []).length} dainos</span>}
         {!isTrack && <span>· {preview.cover_found ? 'viršelis ✓' : 'be viršelio'}</span>}
-        {!preview.artist_exists && <span className="text-orange-600">· naujas atlikėjas (bus sukurtas)</span>}
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -189,10 +387,10 @@ function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: an
               <input className={inputCls} value={form.title || ''} onChange={(e) => set('title', e.target.value)} />
             </Field>
             <Field label="Atlikėjas">
-              <input className={inputCls} value={form.artist_name || ''} onChange={(e) => set('artist_name', e.target.value)} />
+              <ArtistPicker value={artist} onChange={(v) => set('artist', v)} />
             </Field>
-            <Field label="Featuring (kableliais)">
-              <input className={inputCls} value={form.featuring || ''} onChange={(e) => set('featuring', e.target.value)} placeholder="pvz. MĖLYNA, kitas atlikėjas" />
+            <Field label="Featuring">
+              <FeaturingPicker value={form.featuring || []} onChange={(v) => set('featuring', v)} />
             </Field>
             <Field label="Išleidimo data (M / mėn / d)">
               <div className="flex gap-2">
@@ -208,7 +406,7 @@ function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: an
               <input className={inputCls} value={form.album_title || ''} onChange={(e) => set('album_title', e.target.value)} />
             </Field>
             <Field label="Atlikėjas">
-              <input className={inputCls} value={form.artist_name || ''} onChange={(e) => set('artist_name', e.target.value)} />
+              <ArtistPicker value={artist} onChange={(v) => set('artist', v)} />
             </Field>
             <Field label="Metai">
               <input className={`${inputCls} w-24`} type="number" value={form.year || ''} onChange={(e) => set('year', e.target.value)} />
@@ -227,7 +425,7 @@ function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: an
       )}
 
       <div className="mt-3 flex gap-2">
-        <button onClick={onCommit} disabled={committing}
+        <button onClick={onCommit} disabled={committing || !artist.name.trim()}
           className="min-h-[40px] rounded-lg bg-music-blue px-5 font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50">
           {committing ? 'Kuriama…' : 'Sukurti'}
         </button>

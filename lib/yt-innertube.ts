@@ -209,12 +209,18 @@ async function tryPlayerApi(videoId: string): Promise<YtVideoDetails | null> {
   if (!Number.isFinite(viewCount) || viewCount <= 0) return null
   const playability = data?.playabilityStatus?.status
   const isPrivate = playability === 'LOGIN_REQUIRED' || playability === 'ERROR'
+  // uploadDate iš InnerTube microformat'o. Watch page / Data API ne visada
+  // suveikia iš Vercel'io (bot block / quota); be šio fallback'as grąžindavo
+  // views BE datos, todėl release_year/month/day likdavo tušti (quick-add bug).
+  const mf = data?.microformat?.playerMicroformatRenderer
+  const uploadedAt: string | null = mf?.uploadDate || mf?.publishDate || null
   return {
     videoId: details.videoId,
     title: details.title || '',
     viewCount,
     channelId: details.channelId || null,
     isPrivate,
+    uploadedAt,
     source: 'player_api',
   }
 }

@@ -75,6 +75,8 @@ export type QuickAddResult =
   | { ok: false; kind: 'track' | 'album' | 'unknown'; error: string }
 
 // Preview (žingsnis prieš commit) — admin gali pataisyti laukus.
+export type FeaturingPreview = { name: string; id: number | null; slug: string | null }
+
 export type TrackPreview = {
   kind: 'track'
   url: string
@@ -83,7 +85,10 @@ export type TrackPreview = {
   title: string
   artist_name: string
   artist_exists: boolean
+  artist_id: number | null
+  artist_slug: string | null
   featuring: string[]
+  featuring_resolved: FeaturingPreview[]
   release_year: number | null
   release_month: number | null
   release_day: number | null
@@ -96,6 +101,8 @@ export type AlbumPreview = {
   url: string
   artist_name: string
   artist_exists: boolean
+  artist_id: number | null
+  artist_slug: string | null
   album_title: string
   year: number | null
   month: number | null
@@ -112,6 +119,7 @@ export type PreviewResult =
 export type TrackOverrides = {
   title?: string
   artist_name?: string
+  artist_id?: number | null
   featuring?: string[]
   release_year?: number | null
   release_month?: number | null
@@ -120,6 +128,7 @@ export type TrackOverrides = {
 
 export type AlbumOverrides = {
   artist_name?: string
+  artist_id?: number | null
   album_title?: string
   year?: number | null
   month?: number | null
@@ -264,6 +273,20 @@ async function matchExistingArtist(
     return { id: a.id, name: a.name, slug: a.slug, created: false }
   }
   return null
+}
+
+/** Tikslus atlikėjas pagal ID (kai admin pickeriu pasirinko konkretų katalogo
+ *  įrašą — nereikia spėlioti per name match). */
+async function getArtistById(
+  supabase: ReturnType<typeof createAdminClient>,
+  id: number
+): Promise<QuickAddArtist | null> {
+  if (!id || !Number.isFinite(id)) return null
+  const { data } = await supabase
+    .from('artists').select('id, name, slug').eq('id', id).maybeSingle()
+  if (!data) return null
+  const a: any = data
+  return { id: a.id, name: a.name, slug: a.slug, created: false }
 }
 
 /**
@@ -697,6 +720,14 @@ export async function previewTrack(url: string): Promise<PreviewResult> {
   const a = await analyzeArtistSegment(supabase, ctx.artistSegment)
   const featuring = Array.from(new Set([...a.featuringNames, ...ctx.titleFeats].map((n) => n.trim()).filter(Boolean)))
 
+  // Featuring DB rezoliucija (preview badge'ams) — be kūrimo.
+  const featuring_resolved: FeaturingPreview[] = await Promise.all(
+    featuring.map(async (name): Promise<FeaturingPreview> => {
+      const m = await matchExistingArtist(supabase, name)
+      return { name: m?.name || name, id: m?.id ?? null, slug: m?.slug ?? null }
+    })
+  )
+
   return {
     ok: true,
     preview: {
@@ -706,7 +737,10 @@ export async function previewTrack(url: string): Promise<PreviewResult> {
       title: ctx.title,
       artist_name: a.primaryName,
       artist_exists: !!a.primaryMatch,
+      artist_id: a.primaryMatch?.id ?? null,
+      artist_slug: a.primaryMatch?.slug ?? null,
       featuring,
+      featuring_resolved,
       release_year: ctx.release.year,
       release_month: ctx.release.month,
       release_day: ctx.release.day,
@@ -726,10 +760,16 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
   const title = (ov.title ?? ctx.title ?? '').trim()
   if (!title) return { ok: false, kind: 'track', error: 'Trūksta dainos pavadinimo' }
 
-  // Atlikėjas: admin nurodytas vardas turi prioritetą; kitaip analizuojam segmentą
+  // Atlikėjas: jei admin pickeriu pasirinko konkretų katalogo įrašą (artist_id),
+  // naudojam jį tiesiai. Kitaip — admin nurodytas vardas, kitaip — segmentas.
   let primaryName = (ov.artist_name ?? '').trim()
   let featuringNames: string[]
-  if (primaryName) {
+  let artistMut: QuickAddArtist | null = null
+  if (ov.artist_id) {
+    artistMut = await getArtistById(supabase, Number(ov.artist_id))
+    featuringNames = (ov.featuring || []).map((n) => n.trim()).filter(Boolean)
+    if (artistMut) primaryName = artistMut.name
+  } else if (primaryName) {
     featuringNames = (ov.featuring || []).map((n) => n.trim()).filter(Boolean)
   } else {
     const a = await analyzeArtistSegment(supabase, ctx.artistSegment)
@@ -738,8 +778,10 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
   }
   if (!primaryName) return { ok: false, kind: 'track', error: 'Trūksta atlikėjo' }
 
-  const artist = await resolveArtist(supabase, primaryName)
-  if (!artist) return { ok: false, kind: 'track', error: `Nepavyko priskirti/sukurti atlikėjo: „${primaryName}"` }
+  if (!artistMut) artistMut = await resolveArtist(supabase, primaryName)
+  if (!artistMut) return { ok: false, kind: 'track', error: `Nepavyko priskirti/sukurti atlikėjo: „${primaryName}"` }
+  // const → narrowing'as galioja ir uždarymuose (filter žemiau naudoja artist.slug)
+  const artist = artistMut
   if (artist.created) warnings.push(`Sukurtas naujas atlikėjas „${artist.name}" (papildyk info rankiniu būdu).`)
 
   featuringNames = Array.from(new Set(
@@ -1035,6 +1077,8 @@ export async function previewAlbum(url: string): Promise<PreviewResult> {
       kind: 'album', url,
       artist_name: w.artistName,
       artist_exists: !!match,
+      artist_id: match?.id ?? null,
+      artist_slug: match?.slug ?? null,
       album_title: w.albumTitle,
       year: w.date.year, month: w.date.month, day: w.date.day,
       genres: w.substyleNames,
@@ -1052,10 +1096,15 @@ export async function commitAlbum(url: string, origin: string, ov: AlbumOverride
   const warnings = [...w.warnings]
 
   const artistName = (ov.artist_name ?? w.artistName).trim()
-  // Wiki enrichment tik kai vardas nepakeistas (turim teisingą artist wiki title'ą)
-  const artist = await resolveArtist(supabase, artistName, {
-    enrichFromWikiTitle: artistName === w.artistName ? w.artistWikiTitle : null,
-  })
+  // Jei admin pickeriu pasirinko konkretų katalogo atlikėją — naudojam tiesiai.
+  // Kitaip resolve pagal vardą (Wiki enrichment tik kai vardas nepakeistas).
+  let artist: QuickAddArtist | null = null
+  if (ov.artist_id) artist = await getArtistById(supabase, Number(ov.artist_id))
+  if (!artist) {
+    artist = await resolveArtist(supabase, artistName, {
+      enrichFromWikiTitle: artistName === w.artistName ? w.artistWikiTitle : null,
+    })
+  }
   if (!artist) return { ok: false, kind: 'album', error: `Nepavyko priskirti/sukurti atlikėjo: „${artistName}"` }
   if (artist.created) warnings.push(`Sukurtas naujas atlikėjas „${artist.name}" (info iš Wikipedia, prireikus papildyk).`)
 
