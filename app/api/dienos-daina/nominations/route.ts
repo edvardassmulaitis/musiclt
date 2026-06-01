@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+// (dienos daina: voters + already_nominated)
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
@@ -32,6 +33,10 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const date = searchParams.get('date') || todayLT()
   const supabase = createAdminClient()
+  // Ar PRISIJUNGĘS vartotojas jau pasiūlė šią dieną — kad UI paslėptų
+  // „Pasiūlyti" kortelę (vienas pasiūlymas per dieną). 2026-06-01.
+  const session = await getServerSession(authOptions)
+  const sessionUserId = (session?.user as any)?.id ?? null
   const { data, error } = await supabase
     .from('daily_song_nominations')
     .select(`
@@ -49,24 +54,42 @@ export async function GET(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const nominationIds = (data || []).map(n => n.id)
   let voteCounts: Record<number, { total: number; weighted: number }> = {}
+  // Kas balsavo (registruoti vartotojai) + anonimų skaičius — rodom modale.
+  const voterIdsByNom: Record<number, string[]> = {}
+  const anonByNom: Record<number, number> = {}
   if (nominationIds.length > 0) {
     const { data: votes } = await supabase
       .from('daily_song_votes')
-      .select('nomination_id, weight')
+      .select('nomination_id, weight, user_id')
       .eq('date', date)
       .in('nomination_id', nominationIds)
     for (const v of votes || []) {
       if (!voteCounts[v.nomination_id]) voteCounts[v.nomination_id] = { total: 0, weighted: 0 }
       voteCounts[v.nomination_id].total += 1
       voteCounts[v.nomination_id].weighted += v.weight
+      if (v.user_id) (voterIdsByNom[v.nomination_id] ||= []).push(v.user_id)
+      else anonByNom[v.nomination_id] = (anonByNom[v.nomination_id] || 0) + 1
     }
+  }
+  // Balsuotojų profiliai (vienas batch query).
+  const allVoterIds = Array.from(new Set(Object.values(voterIdsByNom).flat()))
+  const profileById: Record<string, { username: string | null; full_name: string | null; avatar_url: string | null }> = {}
+  if (allVoterIds.length > 0) {
+    const { data: profs } = await supabase
+      .from('profiles')
+      .select('id, username, full_name, avatar_url')
+      .in('id', allVoterIds)
+    for (const p of (profs || []) as any[]) profileById[p.id] = { username: p.username, full_name: p.full_name, avatar_url: p.avatar_url }
   }
   const enriched = (data || []).map(n => ({
     ...n,
     votes: voteCounts[n.id]?.total || 0,
     weighted_votes: voteCounts[n.id]?.weighted || 0,
+    voters: (voterIdsByNom[n.id] || []).map(uid => profileById[uid]).filter(Boolean),
+    anon_votes: anonByNom[n.id] || 0,
   })).sort((a, b) => b.weighted_votes - a.weighted_votes)
-  return NextResponse.json({ nominations: enriched, date })
+  const alreadyNominated = !!sessionUserId && (data || []).some((n: any) => n.user_id === sessionUserId)
+  return NextResponse.json({ nominations: enriched, date, already_nominated: alreadyNominated, is_authenticated: !!sessionUserId })
 }
 
 export async function POST(req: Request) {
