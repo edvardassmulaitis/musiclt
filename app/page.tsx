@@ -1097,20 +1097,55 @@ function ProposerLine({ p }: { p?: Proposer | null }) {
 function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<any[]>([])
+  const [searching, setSearching] = useState(false)
   const [selected, setSelected] = useState<any | null>(null)
   const [comment, setComment] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
+  // Background scroll lock — kad po modalu nesiscroll'intų puslapis (Edvardo
+  // prašymu 2026-06-01). Tas pats pattern'as kaip HomeListModal.
   useEffect(() => {
-    if (query.trim().length < 2) { setResults([]); return }
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.width = '100%'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.width = ''
+      window.scrollTo(0, scrollY)
+    }
+  }, [onClose])
+
+  // Paieška — TA PATI logika kaip top-nav search (/api/search-master su
+  // categories=tracks). Palaiko compound „atlikėjas + daina" (pvz. „U2 with",
+  // „Kanye flashing") — anksčiau /api/tracks?search match'ino tik title ir
+  // nieko nerasdavo. 2026-06-01.
+  useEffect(() => {
+    const qq = query.trim()
+    if (qq.length < 2) { setResults([]); setSearching(false); return }
+    setSearching(true)
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/tracks?search=${encodeURIComponent(query.trim())}&limit=8`)
+        const res = await fetch(`/api/search-master?q=${encodeURIComponent(qq)}&categories=tracks&limit=12`)
         const d = await res.json()
-        setResults(d.tracks || [])
+        setResults((d.results?.tracks || []).map((h: any) => ({
+          id: h.id,
+          title: h.title,
+          artist_name: h.subtitle || '',
+          image_url: h.image_url || null,
+        })))
       } catch { setResults([]) }
-    }, 300)
+      finally { setSearching(false) }
+    }, 200)
     return () => clearTimeout(t)
   }, [query])
 
@@ -1155,15 +1190,18 @@ function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; onDone: (
                     onClick={() => setSelected(t)}
                     className="flex items-center gap-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-hover)] p-2 text-left transition-colors hover:border-[var(--accent-orange)]"
                   >
-                    <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url || t.artist_image} alt={sanitizeTitle(t.title || '')} size={36} radius={6} />
+                    <Cover src={t.image_url} artistSrc={t.image_url} alt={sanitizeTitle(t.title || '')} size={36} radius={6} />
                     <div className="min-w-0 flex-1">
                       <p className="m-0 truncate text-[12.5px] font-bold text-[var(--text-primary)]">{sanitizeTitle(t.title || '')}</p>
-                      <p className="m-0 truncate text-[11px] text-[var(--text-muted)]">{t.artist_name || t.artists?.name || ''}</p>
+                      <p className="m-0 truncate text-[11px] text-[var(--text-muted)]">{t.artist_name || ''}</p>
                     </div>
                     <span className="shrink-0 text-[11px] font-bold text-[var(--accent-link)]">Rinktis →</span>
                   </button>
                 ))}
-                {query.trim().length >= 2 && results.length === 0 && (
+                {searching && results.length === 0 && (
+                  <p className="px-1 py-2 text-[11.5px] text-[var(--text-faint)]">Ieškoma…</p>
+                )}
+                {!searching && query.trim().length >= 2 && results.length === 0 && (
                   <p className="px-1 py-2 text-[11.5px] text-[var(--text-faint)]">Nieko nerasta — pabandyk kitą užklausą.</p>
                 )}
               </div>
@@ -1171,10 +1209,10 @@ function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; onDone: (
           ) : (
             <>
               <div className="flex items-center gap-2.5 rounded-lg border border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/10 p-2.5">
-                <Cover src={selected.cover_url} ytId={extractYouTubeId(selected.video_url)} artistSrc={selected.artists?.cover_image_url || selected.artist_image} alt={sanitizeTitle(selected.title || '')} size={40} radius={8} />
+                <Cover src={selected.image_url} artistSrc={selected.image_url} alt={sanitizeTitle(selected.title || '')} size={40} radius={8} />
                 <div className="min-w-0 flex-1">
                   <p className="m-0 truncate text-[13px] font-extrabold text-[var(--text-primary)]">{sanitizeTitle(selected.title || '')}</p>
-                  <p className="m-0 truncate text-[11.5px] text-[var(--text-muted)]">{selected.artist_name || selected.artists?.name || ''}</p>
+                  <p className="m-0 truncate text-[11.5px] text-[var(--text-muted)]">{selected.artist_name || ''}</p>
                 </div>
                 <button onClick={() => setSelected(null)} className="shrink-0 text-[11px] text-[var(--text-faint)] hover:text-[var(--text-primary)]">Keisti</button>
               </div>
