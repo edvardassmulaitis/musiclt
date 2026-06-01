@@ -1086,7 +1086,7 @@ function ProposerLine({ p }: { p?: Proposer | null }) {
       ) : (
         <span className="flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full text-[7px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</span>
       )}
-      <span className="truncate text-[10.5px] text-[var(--text-muted)]">Pasiūlė <span className="font-semibold text-[var(--text-secondary)]">{name}</span></span>
+      <span className="truncate text-[10.5px] font-semibold text-[var(--text-secondary)]">{name}</span>
     </span>
   )
 }
@@ -1255,7 +1255,7 @@ function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; onDone: (
 /** Vakar laimėjusios dainos highlight kortelė. Vertikalus stilius — toks pat
  *  kaip „Naujos dainos" kortelės (16:9 cover viršuje + info apačioje), su
  *  oranžiniu rėmu ir „🏆 Vakar laimėjo" badge'u. 2026-05-31. */
-function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1 }: { w: DainaWinner; onOpenTrack: (t: any) => void; maxVotes?: number }) {
+function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1, onOpenAll }: { w: DainaWinner; onOpenTrack: (t: any) => void; maxVotes?: number; onOpenAll?: () => void }) {
   const t = w.tracks
   if (!t) return null
   const v = extractYouTubeId(t.video_url)
@@ -1264,34 +1264,45 @@ function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1 }: { w: DainaWinner; onO
   const votes = w.weighted_votes || w.total_votes || 0
   const level = votes > 0 ? Math.max(1, Math.round((votes / Math.max(1, maxVotes)) * 5)) : 0
   return (
-    <button
-      type="button"
-      onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
-      className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
-      style={{ width: 188 }}
-    >
-      <div className="relative aspect-video overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]" style={{ borderColor: 'rgba(249,115,22,0.5)' }}>
-        {imgSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
-        )}
-        <span className="absolute left-1.5 top-1.5 rounded-full bg-[var(--accent-orange)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">Vakar laimėjo</span>
-      </div>
-      <div className="mt-2 px-0.5">
-        <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-        <p className="m-0 mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</p>
-        {/* Balsai — pop bar dash'ai (be tikslaus skaičiaus). */}
-        <span className="mt-1.5 flex items-center gap-[3px]" aria-label={`Balsų lygis ${level}/5`}>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <span key={i} className={`h-[3px] w-[11px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
-          ))}
-        </span>
-        {w.proposer && <div className="mt-1.5"><ProposerLine p={w.proposer} /></div>}
-        {w.winning_comment && <p className="m-0 mt-1 line-clamp-2 text-[10.5px] italic text-[var(--text-muted)]">„{w.winning_comment}"</p>}
-      </div>
-    </button>
+    <div className="group flex shrink-0 flex-col" style={{ width: 188 }}>
+      <button
+        type="button"
+        onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
+        className="block no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
+      >
+        <div className="relative aspect-video overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]" style={{ borderColor: 'rgba(249,115,22,0.5)' }}>
+          {imgSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
+          )}
+          <span className="absolute left-1.5 top-1.5 rounded-full bg-[var(--accent-orange)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)]">Vakar laimėjo</span>
+        </div>
+        <div className="mt-2 px-0.5">
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+          <p className="m-0 mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</p>
+          {/* Balsai — pop bar dash'ai (be tikslaus skaičiaus). */}
+          <span className="mt-1.5 flex items-center gap-[3px]" aria-label={`Balsų lygis ${level}/5`}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span key={i} className={`h-[3px] w-[11px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+            ))}
+          </span>
+          {w.proposer && <div className="mt-1.5"><ProposerLine p={w.proposer} /></div>}
+          {w.winning_comment && <p className="m-0 mt-1 line-clamp-2 text-[10.5px] italic text-[var(--text-muted)]">„{w.winning_comment}"</p>}
+        </div>
+      </button>
+      {/* Po siūlytojo — nuoroda į VISUS vakar dienos pasiūlymus. */}
+      {onOpenAll && (
+        <button
+          type="button"
+          onClick={onOpenAll}
+          className="mt-1.5 self-start px-0.5 text-left font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--accent-link)] transition-colors hover:text-[var(--accent-orange)]"
+        >
+          Visi pasiūlymai →
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -1449,34 +1460,21 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
 
   return (
     <>
-      {/* Header: kairėje „Vakar · visi pasiūlymai" (atveria vakar dienos sąrašą),
-          dešinėje „Šiandienos pasiūlymai" (≥2). Info tekstas pašalintas;
-          „Pasiūlyti dainą" — juostos gale kaip action kortelė. 2026-06-01. */}
-      {(winner?.tracks || sorted.length >= 2 || voteErr) && (
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <div>
-            {winner?.tracks && (
-              <button
-                type="button"
-                onClick={openYesterday}
-                className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
-              >
-                Vakar · visi pasiūlymai →
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {voteErr && <span className="text-[11.5px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
-            {sorted.length >= 2 && (
-              <button
-                type="button"
-                onClick={() => setModalOpen(true)}
-                className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-link)] transition-colors hover:text-[var(--accent-orange)]"
-              >
-                Šiandienos pasiūlymai ({sorted.length}) →
-              </button>
-            )}
-          </div>
+      {/* Header: „Šiandienos pasiūlymai" link dešinėje (≥2). „Vakar visi
+          pasiūlymai" nuoroda perkelta po laimėtojo kortele (po siūlytoju).
+          Info tekstas pašalintas; „Pasiūlyti" — juostos gale. 2026-06-01. */}
+      {(sorted.length >= 2 || voteErr) && (
+        <div className="mb-2 flex items-center justify-end gap-3">
+          {voteErr && <span className="mr-auto text-[11.5px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
+          {sorted.length >= 2 && (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-link)] transition-colors hover:text-[var(--accent-orange)]"
+            >
+              Šiandienos pasiūlymai ({sorted.length}) →
+            </button>
+          )}
         </div>
       )}
 
@@ -1484,7 +1482,7 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
         {/* Vakar laimėjusi daina — pirma, su aiškiu skiriamuoju „ŠIANDIEN". */}
         {winner?.tracks && (
           <>
-            <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} maxVotes={maxVotes} />
+            <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} maxVotes={maxVotes} onOpenAll={openYesterday} />
             <div className="flex shrink-0 flex-col items-center self-stretch gap-1.5 px-1">
               <div className="w-px flex-1 bg-[var(--border-default)]" />
               <span className="whitespace-nowrap text-[9px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-faint)]" style={{ writingMode: 'vertical-rl' as any }}>Šiandien siūlo</span>
