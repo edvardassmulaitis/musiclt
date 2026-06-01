@@ -184,6 +184,17 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+/** Kaip Field, bet <div> (ne <label>) — pickeriams su mygtukais viduje
+ *  (label perimtų click'us į savo input'ą ir laužytų dropdown/chip mygtukus). */
+function FieldBox({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{label}</span>
+      {children}
+    </div>
+  )
+}
+
 const inputCls = 'min-h-[40px] rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 text-[14px] text-[var(--text-primary)] focus:border-[var(--border-strong)] focus:outline-none'
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -218,17 +229,17 @@ function useArtistSearch(query: string) {
   return { hits, loading }
 }
 
-/** Vieno atlikėjo pickeris — rodo konkretų katalogo įrašą arba „naujas". */
+/** Vieno atlikėjo pickeris. Pasirinkus katalogo atlikėją — rodo jį kaip
+ *  „selected" eilutę (kaip dainos edit page'e), ne text input + ID badge. */
 function ArtistPicker({ value, onChange }: { value: ArtistRef; onChange: (v: ArtistRef) => void }) {
   const [open, setOpen] = useState(false)
-  const [text, setText] = useState(value.name || '')
-  const { hits, loading } = useArtistSearch(open ? text : '')
+  const [text, setText] = useState('')
+  const { hits, loading } = useArtistSearch(text)
   const boxRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  // Sinchronizuojam jei value pakeistas iš išorės (pvz. preview reset)
-  useEffect(() => { setText(value.name || '') }, [value.name])
+  const selected = value.id != null
 
-  // Klikas už dropdown'o — uždarom
   useEffect(() => {
     if (!open) return
     const h = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
@@ -237,34 +248,41 @@ function ArtistPicker({ value, onChange }: { value: ArtistRef; onChange: (v: Art
   }, [open])
 
   function pick(h: ArtistHit) {
-    onChange({ id: h.id, name: h.name })
-    setText(h.name); setOpen(false)
+    onChange({ id: h.id, name: h.name }); setText(''); setOpen(false)
+  }
+  function clear() {
+    onChange({ id: null, name: '' }); setText(''); setOpen(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
   }
 
+  // Pasirinktas katalogo atlikėjas — kompaktiška „selected" eilutė
+  if (selected) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 py-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-[11px] text-green-700">✓</span>
+        <span className="truncate text-[14px] font-medium text-[var(--text-primary)]">{value.name}</span>
+        <button type="button" onClick={clear} className="ml-auto shrink-0 text-[12px] font-medium text-music-blue hover:underline">
+          keisti
+        </button>
+      </div>
+    )
+  }
+
+  // Naujas / dar nepasirinktas — paieškos input
   return (
     <div ref={boxRef} className="relative">
       <input
+        ref={inputRef}
         className={`${inputCls} w-full`}
-        value={text}
-        onChange={(e) => { setText(e.target.value); onChange({ id: null, name: e.target.value }); setOpen(true) }}
+        value={value.name}
+        onChange={(e) => { const v = e.target.value; setText(v); onChange({ id: null, name: v }); setOpen(true) }}
         onFocus={() => setOpen(true)}
         placeholder="Ieškok kataloge arba įvesk naują…"
       />
-      <div className="mt-1">
-        {value.id != null ? (
-          <Chip tone="ok">✓ kataloge (#{value.id})</Chip>
-        ) : value.name.trim() ? (
-          <Chip tone="warn">naujas — bus sukurtas</Chip>
-        ) : (
-          <Chip tone="warn">nurodyk atlikėją</Chip>
-        )}
-      </div>
-      {open && text.trim().length >= 2 && (
+      {value.name.trim() && <p className="mt-1 text-[11px] text-orange-600">Naujas atlikėjas — bus sukurtas</p>}
+      {open && value.name.trim().length >= 2 && (
         <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-lg">
           {loading && <div className="px-3 py-2 text-[12px] text-[var(--text-muted)]">Ieškoma…</div>}
-          {!loading && hits.length === 0 && (
-            <div className="px-3 py-2 text-[12px] text-[var(--text-muted)]">Kataloge nerasta — bus sukurtas naujas „{text.trim()}".</div>
-          )}
           {hits.map((h) => (
             <button
               key={h.id} type="button" onClick={() => pick(h)}
@@ -272,9 +290,11 @@ function ArtistPicker({ value, onChange }: { value: ArtistRef; onChange: (v: Art
             >
               <span className="font-medium">{h.name}</span>
               {h.country && <span className="text-[11px] text-[var(--text-faint)]">{h.country}</span>}
-              <span className="ml-auto text-[11px] text-[var(--text-faint)]">#{h.id}</span>
             </button>
           ))}
+          {!loading && hits.length === 0 && (
+            <div className="px-3 py-2 text-[12px] text-[var(--text-muted)]">Kataloge nerasta — bus sukurtas naujas.</div>
+          )}
         </div>
       )}
     </div>
@@ -348,7 +368,6 @@ function FeaturingPicker({ value, onChange }: { value: ArtistRef[]; onChange: (v
             >
               <span className="font-medium">{h.name}</span>
               {h.country && <span className="text-[11px] text-[var(--text-faint)]">{h.country}</span>}
-              <span className="ml-auto text-[11px] text-[var(--text-faint)]">#{h.id}</span>
             </button>
           ))}
           {!loading && !exactHit && text.trim() && (
@@ -386,12 +405,12 @@ function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: an
             <Field label="Pavadinimas">
               <input className={inputCls} value={form.title || ''} onChange={(e) => set('title', e.target.value)} />
             </Field>
-            <Field label="Atlikėjas">
+            <FieldBox label="Atlikėjas">
               <ArtistPicker value={artist} onChange={(v) => set('artist', v)} />
-            </Field>
-            <Field label="Featuring">
+            </FieldBox>
+            <FieldBox label="Featuring">
               <FeaturingPicker value={form.featuring || []} onChange={(v) => set('featuring', v)} />
-            </Field>
+            </FieldBox>
             <Field label="Išleidimo data (M / mėn / d)">
               <div className="flex gap-2">
                 <input className={`${inputCls} w-20`} type="number" placeholder="metai" value={form.release_year || ''} onChange={(e) => set('release_year', e.target.value)} />
@@ -405,9 +424,9 @@ function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: an
             <Field label="Albumo pavadinimas">
               <input className={inputCls} value={form.album_title || ''} onChange={(e) => set('album_title', e.target.value)} />
             </Field>
-            <Field label="Atlikėjas">
+            <FieldBox label="Atlikėjas">
               <ArtistPicker value={artist} onChange={(v) => set('artist', v)} />
-            </Field>
+            </FieldBox>
             <Field label="Metai">
               <input className={`${inputCls} w-24`} type="number" value={form.year || ''} onChange={(e) => set('year', e.target.value)} />
             </Field>

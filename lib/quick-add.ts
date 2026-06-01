@@ -30,6 +30,7 @@ import * as wiki from '@/lib/wiki-parser'
 import { createAlbum, type AlbumFull, type TrackInAlbum } from '@/lib/supabase-albums'
 import { slugify } from '@/lib/slugify'
 import { syncTrackFeaturing } from '@/lib/featuring-utils'
+import { wikiTitleCase } from '@/lib/text-utils'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Tipai
@@ -194,6 +195,16 @@ function stripTitleNoise(s: string): string {
   return out.replace(/\s{2,}/g, ' ').trim()
 }
 
+/** Nukerpa YouTube'e dažnus „papildomus užrašus" po skirtuko:
+ *  „Title // Label/Crew", „Title | Album", „Title • prod. X", „Title ~ ...".
+ *  Imam tik pirmą segmentą (tikrąjį dainos pavadinimą). */
+function cutTitleExtras(s: string): string {
+  let out = (s || '').trim()
+  out = out.split(/\s*\/\/\s*/)[0]          // „// GOLD LITUANICA"
+  out = out.split(/\s+[|•·~]\s+/)[0]        // „ | …", „ • …", „ ~ …"
+  return out.trim()
+}
+
 function cleanChannelToArtist(channel: string): string {
   return (channel || '')
     .replace(/\s*-\s*Topic\s*$/i, '')
@@ -231,7 +242,8 @@ export function parseYtTitle(
     title = normalized
   }
 
-  // Nuvalom triukšmą iš pavadinimo
+  // Nukerpam papildomus užrašus po // | • ~, tada nuvalom triukšmą
+  title = cutTitleExtras(title)
   title = stripTitleNoise(title)
   // Kabutės aplink pavadinimą
   title = title.replace(/^["'«»""'']+|["'«»""'']+$/g, '').trim()
@@ -693,7 +705,8 @@ async function fetchTrackContext(url: string): Promise<TrackContext | { error: s
   ensureWikiInit()
   const { artist: artistSegment, title: rawTitle } = parseYtTitle(details.title || '', channelName)
   const { cleanTitle, featuring: titleFeats } = wiki.parseFeaturing(rawTitle || '')
-  const title = (cleanTitle || rawTitle || '').trim()
+  // Title Case („NESIBAIGIANTI VASARA" → „Nesibaigianti Vasara"), kaip Wiki importe.
+  const title = wikiTitleCase((cleanTitle || rawTitle || '').trim())
 
   let year: number | null = null, month: number | null = null, day: number | null = null
   if (details.uploadedAt) {
