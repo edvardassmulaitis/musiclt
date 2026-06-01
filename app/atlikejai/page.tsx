@@ -38,6 +38,13 @@ const getGenreCounts = cache(async (): Promise<{ genre_id: number; name: string;
   return (data || []) as { genre_id: number; name: string; n: number }[]
 })
 
+// Sub-stilių (substyles) skaičiai — tik realiai naudojami (JOIN), su DB slug'ais.
+const getSubstyleCounts = cache(async (): Promise<{ substyle_id: number; name: string; slug: string; n: number }[]> => {
+  const sb = createAdminClient()
+  const { data } = await sb.rpc('artist_substyle_counts')
+  return (data || []) as { substyle_id: number; name: string; slug: string; n: number }[]
+})
+
 type Artist = {
   id: number; slug: string; name: string; country: string | null; type: string
   cover_image_url: string | null; cover_image_position: string | null
@@ -45,7 +52,7 @@ type Artist = {
 }
 
 type Params = {
-  country?: CountryResolution; genreId?: number; type?: string
+  country?: CountryResolution; genreId?: number; substyleId?: number; type?: string
   sort: SortKey; page: number
 }
 
@@ -53,10 +60,17 @@ async function fetchArtists(p: Params): Promise<{ items: Artist[]; total: number
   const sb = createAdminClient()
   const cols = 'id, slug, name, country, type, cover_image_url, cover_image_position, is_verified, score, recent_score'
 
+  // Stilius (genre) ARBA sub-stilius (substyle) — vienu metu tik vienas
+  // (substyle implikuoja savo pagrindinį stilių). Abu per !inner junction.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q: any = p.genreId
-    ? sb.from('artists').select(`${cols}, artist_genres!inner(genre_id)`, { count: 'exact' }).eq('artist_genres.genre_id', p.genreId)
-    : sb.from('artists').select(cols, { count: 'exact' })
+  let q: any
+  if (p.substyleId) {
+    q = sb.from('artists').select(`${cols}, artist_substyles!inner(substyle_id)`, { count: 'exact' }).eq('artist_substyles.substyle_id', p.substyleId)
+  } else if (p.genreId) {
+    q = sb.from('artists').select(`${cols}, artist_genres!inner(genre_id)`, { count: 'exact' }).eq('artist_genres.genre_id', p.genreId)
+  } else {
+    q = sb.from('artists').select(cols, { count: 'exact' })
+  }
 
   // Šalies filtras
   if (p.country?.mode === 'lt') q = q.eq('country', LT_COUNTRY)
@@ -95,27 +109,29 @@ function normSP(raw: RawSearchParams): SP {
 }
 
 async function resolveFilters(sp: SP) {
-  const [countries, genres] = await Promise.all([getCountryCounts(), getGenreCounts()])
+  const [countries, genres, substyles] = await Promise.all([getCountryCounts(), getGenreCounts(), getSubstyleCounts()])
   const countryNames = countries.map((c) => c.country)
   const country = resolveCountry(sp.country, countryNames)
-  const genreSlug = sp.genre ? ltSlugify(sp.genre) : null
+  // Sub-stilius turi pirmenybę prieš stilių (jei abu URL'e — naudojam substyle).
+  const substyle = sp.substyle ? substyles.find((s) => s.slug === sp.substyle) || null : null
+  const genreSlug = !substyle && sp.genre ? ltSlugify(sp.genre) : null
   const genre = genreSlug ? genres.find((g) => ltSlugify(g.name) === genreSlug) || null : null
   const type = sp.type === 'solo' || sp.type === 'group' ? sp.type : null
-  // Default'as — „Tendencijos" (recent_score): /atlikejai be sort param rodo
-  // trending atlikėjus. ?sort=popular / ?sort=name perrašo.
-  const sort = sp.sort ? normSort(sp.sort) : 'recent'
+  // Default'as — „Populiariausi" (score). ?sort=recent („Ant bangos") perrašo.
+  const sort = normSort(sp.sort)
   const page = Math.max(1, parseInt(sp.page || '1', 10) || 1)
   const q = (sp.q || '').trim()
-  return { countries, genres, country, genre, type, sort, page, q }
+  return { countries, genres, substyles, country, genre, substyle, type, sort, page, q }
 }
 
-function buildHeading(country: CountryResolution, genre: { name: string } | null, type: string | null): string {
+function buildHeading(country: CountryResolution, genre: { name: string } | null, type: string | null, substyleName?: string | null): string {
   const parts: string[] = []
-  if (genre) parts.push(genre.name.replace(/\s*muzika$/i, '').trim())
+  if (substyleName) parts.push(substyleName)
+  else if (genre) parts.push(genre.name.replace(/\s*muzika$/i, '').trim())
   if (type === 'solo') parts.push('solo')
   else if (type === 'group') parts.push('grupės')
   if (country.mode === 'lt') return parts.length ? `Lietuvos ${parts.join(' ')} atlikėjai` : 'Lietuvos atlikėjai'
-  if (country.mode === 'world') return parts.length ? `Užsienio ${parts.join(' ')} atlikėjai` : 'Užsienio atlikėjai'
+  if (country.mode === 'world') return parts.length ? `Pasaulio ${parts.join(' ')} atlikėjai` : 'Pasaulio atlikėjai'
   if (country.mode === 'name') return parts.length ? `${country.name} ${parts.join(' ')} atlikėjai` : `${country.name} atlikėjai`
   if (parts.length) return `${parts.join(' ')} atlikėjai`.replace(/^./, (c) => c.toUpperCase())
   return 'Visi atlikėjai'
@@ -123,18 +139,18 @@ function buildHeading(country: CountryResolution, genre: { name: string } | null
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const sp = normSP(await searchParams)
-  const { country, genre, type, sort: _sort, page, q } = await resolveFilters(sp)
-  const heading = buildHeading(country, genre, type)
+  const { country, genre, substyle, type, sort: _sort, page, q } = await resolveFilters(sp)
+  const heading = buildHeading(country, genre, type, substyle?.name)
   const title = `${heading}${page > 1 ? ` (${page} psl.)` : ''} | music.lt`
-  const description = `${heading} — naršyk pagal šalį ir žanrą, rūšiuok pagal populiarumą. Dainos, albumai, biografijos ir naujienos music.lt platformoje.`
+  const description = `${heading} — naršyk pagal šalį ir stilių, rūšiuok pagal populiarumą. Dainos, albumai, biografijos ir naujienos music.lt platformoje.`
 
-  // Canonical — tik content'ą apibrėžiantys params (country/genre/type/page).
+  // Canonical — tik content'ą apibrėžiantys params (country/genre/substyle/page).
   // sort ir paieška (q) į canonical neįeina (tai vartotojo vaizdai, ne atskiras
-  // turinys) — koncentruojam indeksavimą į šalies/žanro/puslapio variantus.
+  // turinys) — koncentruojam indeksavimą į šalies/stiliaus/puslapio variantus.
   const cp = new URLSearchParams()
   if (sp.country && country.mode !== 'all') cp.set('country', sp.country)
-  if (genre) cp.set('genre', ltSlugify(genre.name))
-  if (type) cp.set('type', type)
+  if (substyle) cp.set('substyle', substyle.slug)
+  else if (genre) cp.set('genre', ltSlugify(genre.name))
   if (page > 1) cp.set('page', String(page))
   const canonical = `${SITE_URL}/atlikejai${cp.toString() ? `?${cp.toString()}` : ''}`
 
@@ -164,9 +180,30 @@ function parseCoverPos(pos: string | null): { x: number; y: number; zoom: number
   return { x, y, zoom }
 }
 
-function ArtistCard({ a, big, rank, showRecent }: { a: Artist; big: boolean; rank?: number; showRecent: boolean }) {
+// PopBar lygis 0..5 pagal aktyvią rūšiavimo metriką: „Populiariausi" → score
+// (all-time), „Ant bangos" → recent_score. Absoliutūs threshold'ai (žr.
+// score distribuciją: max ~77; recent_score užpildytas tik ~10 atlikėjų).
+function popLevel(a: Artist, sort: SortKey): number {
+  const t = sort === 'recent' ? [1, 10, 50, 150, 400] : [1, 15, 32, 50, 65]
+  const v = (sort === 'recent' ? a.recent_score : a.score) || 0
+  let lvl = 0
+  for (const th of t) if (v >= th) lvl++
+  return lvl
+}
+
+function PopBar({ level }: { level: number }) {
+  if (level <= 0) return null
+  return (
+    <span className="ab-pop" title={`Populiarumas ${level}/5`} aria-label={`Populiarumas ${level} iš 5`}>
+      {[0, 1, 2, 3, 4].map((i) => <i key={i} className={i < level ? 'on' : ''} />)}
+    </span>
+  )
+}
+
+function ArtistCard({ a, big, rank, sort }: { a: Artist; big: boolean; rank?: number; sort: SortKey }) {
   const pos = parseCoverPos(a.cover_image_position)
   const flag = flagFor(a.country)
+  const level = popLevel(a, sort)
   return (
     <Link href={`/atlikejai/${a.slug}`} className={`ab-tile${big ? ' ab-tile-big' : ''}`} prefetch={false}>
       <div className="ab-tile-img">
@@ -190,10 +227,8 @@ function ArtistCard({ a, big, rank, showRecent }: { a: Artist; big: boolean; ran
         <div className="ab-tile-meta">
           <div className="ab-tile-name">{a.name}</div>
           <div className="ab-tile-sub">
-            <span>{a.type === 'solo' ? '🎤' : '🎸'}</span>
-            {flag && <span>{flag}</span>}
-            <span>{a.country || ''}</span>
-            {showRecent && (a.recent_score || 0) > 0 && <span className="ab-tile-hot">🔥</span>}
+            {flag && <span className="ab-tile-flag">{flag}</span>}
+            <PopBar level={level} />
           </div>
         </div>
       </div>
@@ -205,10 +240,9 @@ function ArtistCard({ a, big, rank, showRecent }: { a: Artist; big: boolean; ran
 function pageHref(sp: SP, page: number): string {
   const u = new URLSearchParams()
   if (sp.country) u.set('country', sp.country)
-  if (sp.genre) u.set('genre', sp.genre)
-  if (sp.type) u.set('type', sp.type)
+  if (sp.substyle) u.set('substyle', sp.substyle)
+  else if (sp.genre) u.set('genre', sp.genre)
   if (sp.sort) u.set('sort', sp.sort)
-  if (sp.q) u.set('q', sp.q)
   if (page > 1) u.set('page', String(page))
   const s = u.toString()
   return `/atlikejai${s ? `?${s}` : ''}`
@@ -244,16 +278,15 @@ function Pagination({ sp, page, totalPages }: { sp: SP; page: number; totalPages
 // ── Page ─────────────────────────────────────────────────────────────────
 export default async function ArtistsPage({ searchParams }: PageProps) {
   const sp = normSP(await searchParams)
-  const { countries, genres, country, genre, sort, page } = await resolveFilters(sp)
+  const { countries, genres, substyles, country, genre, substyle, sort, page } = await resolveFilters(sp)
 
   const { items, total } = await fetchArtists({
-    country, genreId: genre?.genre_id, sort, page,
+    country, genreId: genre?.genre_id, substyleId: substyle?.substyle_id, sort, page,
   })
 
   const visible = items
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
-  const heading = buildHeading(country, genre, null)
-  const showRecent = sort === 'recent'
+  const heading = buildHeading(country, genre, null, substyle?.name)
 
   return (
     <div className="ab">
@@ -263,16 +296,16 @@ export default async function ArtistsPage({ searchParams }: PageProps) {
       <header className="ab-hero">
         <div className="ab-hero-inner">
           <h1>{heading}</h1>
-          <p>{total.toLocaleString('lt-LT')} atlikėjų · naršyk pagal šalį, žanrą ir populiarumą</p>
         </div>
       </header>
 
-      {/* Kompaktiškas filtrų bar'as: rūšiavimas (mygtukai) + šalis (dropdown)
-          + žanras (chip'ai desktop / dropdown mobile) */}
+      {/* Kompaktiškas filtrų bar'as: rūšiavimas (mygtukai) + šalis + stilius
+          (dropdown'ai su paieška; stilius turi ir sub-stilius) */}
       <ArtistsFilterBar
         countries={countries}
         genres={genres}
-        current={{ country: sp.country || 'all', genre: sp.genre || '', sort }}
+        substyles={substyles}
+        current={{ country: sp.country || 'all', genre: sp.genre || '', substyle: sp.substyle || '', sort }}
         resultCount={total}
       />
 
@@ -281,7 +314,7 @@ export default async function ArtistsPage({ searchParams }: PageProps) {
         <div className="ab-empty">
           <div className="ab-empty-ic">🎤</div>
           <h3>Nieko nerasta</h3>
-          <p>Pabandyk pakeisti filtrus arba paiešką.</p>
+          <p>Pabandyk pakeisti filtrus.</p>
           <Link href="/atlikejai" className="ab-chip on" style={{ marginTop: 14 }} prefetch={false}>Rodyti visus atlikėjus</Link>
         </div>
       ) : (
@@ -291,9 +324,9 @@ export default async function ArtistsPage({ searchParams }: PageProps) {
               <ArtistCard
                 key={a.id}
                 a={a}
-                big={page === 1 && i % 11 === 0}
-                rank={sort !== 'name' && page === 1 ? i + 1 : undefined}
-                showRecent={showRecent}
+                big={page === 1 && i < 3}
+                rank={page === 1 ? i + 1 : undefined}
+                sort={sort}
               />
             ))}
           </div>
@@ -306,10 +339,18 @@ export default async function ArtistsPage({ searchParams }: PageProps) {
         <h2>Naršyk atlikėjus</h2>
         <div className="ab-seo-grid">
           <div>
-            <h3>Pagal žanrą</h3>
+            <h3>Pagal stilių</h3>
             <ul>
               {genres.map((g) => (
                 <li key={g.genre_id}><Link href={`/atlikejai?genre=${ltSlugify(g.name)}`} prefetch={false}>{g.name} <em>{g.n.toLocaleString('lt-LT')}</em></Link></li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3>Populiarūs sub-stiliai</h3>
+            <ul>
+              {substyles.slice(0, 12).map((s) => (
+                <li key={s.substyle_id}><Link href={`/atlikejai?substyle=${s.slug}`} prefetch={false}>{s.name} <em>{s.n.toLocaleString('lt-LT')}</em></Link></li>
               ))}
             </ul>
           </div>
@@ -360,8 +401,17 @@ const abStyles = `
 .ab-tile-meta { position:absolute; left:0; right:0; bottom:0; padding:11px 12px; }
 .ab-tile-name { font-family:'Outfit',sans-serif; font-weight:700; color:#fff; font-size:14px; line-height:1.15; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .ab-tile-big .ab-tile-name { font-size:20px; }
-.ab-tile-sub { display:flex; gap:5px; align-items:center; margin-top:4px; font-size:11px; color:rgba(255,255,255,0.72); white-space:nowrap; overflow:hidden; }
-.ab-tile-hot { margin-left:auto; }
+.ab-tile-sub { display:flex; gap:6px; align-items:center; margin-top:5px; font-size:11px; color:rgba(255,255,255,0.72); white-space:nowrap; overflow:hidden; }
+.ab-tile-flag { font-size:13px; line-height:1; }
+/* PopBar — 5 segmentų „equalizer" lygis (priklauso nuo rūšiavimo metrikos) */
+.ab-pop { display:inline-flex; align-items:flex-end; gap:2px; margin-left:auto; height:13px; }
+.ab-pop i { width:3px; height:5px; border-radius:1px; background:rgba(255,255,255,0.28); }
+.ab-pop i:nth-child(2){ height:7px; } .ab-pop i:nth-child(3){ height:9px; }
+.ab-pop i:nth-child(4){ height:11px; } .ab-pop i:nth-child(5){ height:13px; }
+.ab-pop i.on { background:var(--accent-orange); box-shadow:0 0 4px rgba(249,115,22,0.55); }
+.ab-tile-big .ab-pop { height:16px; } .ab-tile-big .ab-pop i { width:4px; }
+.ab-tile-big .ab-pop i:nth-child(1){height:6px;} .ab-tile-big .ab-pop i:nth-child(2){height:9px;}
+.ab-tile-big .ab-pop i:nth-child(3){height:11px;} .ab-tile-big .ab-pop i:nth-child(4){height:13px;} .ab-tile-big .ab-pop i:nth-child(5){height:16px;}
 .ab-tile-rank { position:absolute; top:8px; left:8px; font-family:'Outfit',sans-serif; font-weight:900; font-size:13px; color:#fff; background:var(--accent-orange); padding:2px 8px; border-radius:100px; box-shadow:0 2px 8px rgba(0,0,0,.3); }
 .ab-tile-big .ab-tile-rank { font-size:16px; padding:3px 11px; }
 .ab-tile-verified { position:absolute; top:8px; right:8px; width:20px; height:20px; border-radius:50%; background:#3b82f6; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.3); }
@@ -389,5 +439,8 @@ const abStyles = `
 @media(max-width:768px){
   .ab-grid { grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); grid-auto-rows:130px; gap:8px; }
   .ab-tile-big .ab-tile-name { font-size:16px; }
+  /* Mobile: paliekam didelį tik #1; #2/#3 tampa normalūs, kad neužgožtų ekrano */
+  .ab-tile-big ~ .ab-tile-big { grid-column:span 1; grid-row:span 1; }
+  .ab-tile-big ~ .ab-tile-big .ab-tile-name { font-size:14px; }
 }
 `
