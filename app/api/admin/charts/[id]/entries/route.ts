@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { primaryArtist, slugifyLt } from '@/lib/chart-resolve'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,8 +59,28 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       resolveState: e.resolve_state,
       entityType: isAlbum ? 'album' : 'track',
       track: ent ? { id: ent.id, slug: ent.slug, title: ent.title, artist: ar?.name ?? null, artistSlug: ar?.slug ?? null, href } : null,
+      // užpildoma žemiau (artist-exists badge nesusietiems)
+      artistExists: false as boolean, artistKnownSlug: null as string | null,
     }
   })
+
+  // Artist-exists badge: ar primary atlikėjas jau kataloge (kad admin matytų,
+  // jog „Sukurti" nekurs naujo atlikėjo). Slug batch — performant (≤1 query/100).
+  const unresolved = norm.filter(e => !e.track)
+  const slugOf = (name: string) => slugifyLt(primaryArtist(name || ''))
+  const wantSlugs = Array.from(new Set(unresolved.map(e => slugOf(e.artistName)).filter(Boolean)))
+  const existing = new Set<string>()
+  for (let i = 0; i < wantSlugs.length; i += 100) {
+    const chunk = wantSlugs.slice(i, i + 100)
+    const { data } = await sb.from('artists').select('slug').in('slug', chunk)
+    for (const a of (data || []) as any[]) existing.add(a.slug)
+  }
+  for (const e of norm) {
+    if (e.track) continue
+    const s = slugOf(e.artistName)
+    e.artistKnownSlug = existing.has(s) ? s : null
+    e.artistExists = existing.has(s)
+  }
 
   return NextResponse.json({ chart, isAlbum, entries: norm })
 }

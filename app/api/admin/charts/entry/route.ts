@@ -1,8 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { findOrCreateArtist, createTrackForArtist, createAlbumForArtist } from '@/lib/chart-resolve'
+import { createAlbumForArtist, findOrCreateArtist, linkSongAcrossCharts } from '@/lib/chart-resolve'
+import { commitChartTrack } from '@/lib/quick-add'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 /** POST /api/admin/charts/entry — vieno įrašo veiksmas:
  *   { entryId, action: 'link', trackId|albumId }    — susieti su esama daina/albumu
@@ -11,7 +14,7 @@ export const dynamic = 'force-dynamic'
  *   { entryId, action: 'unlink' }                   — atrišti (atgal į pending)
  *  Albumų chart'ams (chart_key='albums') link/create operuoja albumais.
  */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const entryId = typeof body.entryId === 'number' ? body.entryId : parseInt(body.entryId, 10)
   const action = String(body.action || '')
@@ -48,7 +51,8 @@ export async function POST(req: Request) {
       await sb.from('external_chart_entries').update({
         album_id: al.id, track_id: null, artist_id: al.artist_id, resolve_state: 'matched',
       }).eq('id', entryId)
-      return NextResponse.json({ ok: true, resolveState: 'matched', albumId: al.id })
+      const xc = await linkSongAcrossCharts(sb, { albumId: al.id, artistId: al.artist_id, rawArtist: entry.artist_name, rawTitle: entry.title, exceptEntryId: entryId }).catch(() => 0)
+      return NextResponse.json({ ok: true, resolveState: 'matched', albumId: al.id, crossLinked: xc })
     }
     const trackId = typeof body.trackId === 'number' ? body.trackId : parseInt(body.trackId, 10)
     if (!trackId) return NextResponse.json({ error: 'trackId required' }, { status: 400 })
@@ -57,25 +61,35 @@ export async function POST(req: Request) {
     await sb.from('external_chart_entries').update({
       track_id: tr.id, album_id: null, artist_id: tr.artist_id, resolve_state: 'matched',
     }).eq('id', entryId)
-    return NextResponse.json({ ok: true, resolveState: 'matched', trackId: tr.id })
+    const xc = await linkSongAcrossCharts(sb, { trackId: tr.id, artistId: tr.artist_id, rawArtist: entry.artist_name, rawTitle: entry.title, exceptEntryId: entryId }).catch(() => 0)
+    return NextResponse.json({ ok: true, resolveState: 'matched', trackId: tr.id, crossLinked: xc })
   }
 
   if (action === 'create') {
     const country = chart?.country || (chart?.scope === 'lt' ? 'LT' : null)
     try {
-      const artistId = await findOrCreateArtist(sb, entry.artist_name, country)
       if (isAlbum) {
+        // Albumai: ghost atlikėjas + albumas (be YT — albumams netaikoma).
+        const artistId = await findOrCreateArtist(sb, entry.artist_name, country)
         const albumId = await createAlbumForArtist(sb, artistId, entry.title)
         await sb.from('external_chart_entries').update({
           album_id: albumId, track_id: null, artist_id: artistId, resolve_state: 'created',
         }).eq('id', entryId)
-        return NextResponse.json({ ok: true, resolveState: 'created', albumId, artistId })
+        const xc = await linkSongAcrossCharts(sb, { albumId, artistId, rawArtist: entry.artist_name, rawTitle: entry.title, exceptEntryId: entryId }).catch(() => 0)
+        return NextResponse.json({ ok: true, resolveState: 'created', albumId, artistId, crossLinked: xc })
       }
-      const trackId = await createTrackForArtist(sb, artistId, entry.title)
+      // Dainos: pilnas srautas — primary+featuring atlikėjai, YT video+views,
+      // lyrics, spotify (kaip „Greitas pridėjimas"). enrich=true (per-row).
+      const r = await commitChartTrack(entry.artist_name, entry.title, req.nextUrl.origin, { enrich: true })
+      if (!r.ok) return NextResponse.json({ error: r.error }, { status: 500 })
       await sb.from('external_chart_entries').update({
-        track_id: trackId, album_id: null, artist_id: artistId, resolve_state: 'created',
+        track_id: r.trackId, album_id: null, artist_id: r.artistId, resolve_state: 'created',
       }).eq('id', entryId)
-      return NextResponse.json({ ok: true, resolveState: 'created', trackId, artistId })
+      const xc = await linkSongAcrossCharts(sb, { trackId: r.trackId, artistId: r.artistId, rawArtist: entry.artist_name, rawTitle: entry.title, exceptEntryId: entryId }).catch(() => 0)
+      return NextResponse.json({
+        ok: true, resolveState: 'created', trackId: r.trackId, artistId: r.artistId,
+        artistCreated: r.artistCreated, featuring: r.featuring, enriched: r.enriched, crossLinked: xc,
+      })
     } catch (e: any) {
       return NextResponse.json({ error: e?.message || 'create failed' }, { status: 500 })
     }

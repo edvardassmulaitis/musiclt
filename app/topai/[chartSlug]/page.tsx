@@ -26,7 +26,7 @@ async function loadChart(slug: string) {
         id, position, prev_position, weeks_on_chart, is_new,
         artist_name, title, cover_url, resolve_state, track_id, album_id,
         tracks:track_id ( id, slug, title, cover_url, artists:artist_id ( slug, name ) ),
-        albums:album_id ( id, slug, title, cover_url, artists:artist_id ( slug, name ) )
+        albums:album_id ( id, slug, title, cover_image_url, artists:artist_id ( slug, name ) )
       `)
       .eq('chart_id', chart.id)
       .order('position', { ascending: true })
@@ -50,7 +50,7 @@ async function loadChart(slug: string) {
     return {
       position: e.position, prevPosition: e.prev_position ?? null,
       artistName: e.artist_name, title: e.title,
-      coverUrl: ent?.cover_url || e.cover_url || null,
+      coverUrl: ent?.cover_url || ent?.cover_image_url || e.cover_url || null,
       href,
       // susietas atlikėjas (jei yra) — kad ir atlikėjo vardas vestų į profilį
       artistHref: ar?.slug ? `/atlikejai/${ar.slug}` : null,

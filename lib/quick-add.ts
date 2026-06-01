@@ -852,6 +852,118 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// commitChartTrack — sukuria praturtintą dainą iš atlikėjo segmento + pavadinimo
+// (BE YouTube nuorodos — naudoja chart resolver „Sukurti"). Skirtumas nuo
+// commitTrack: pradeda nuo teksto, o YT video randa per enrichTrack paiešką.
+// ────────────────────────────────────────────────────────────────────────────
+
+export type ChartTrackResult = {
+  ok: true
+  trackId: number
+  artistId: number
+  artistName: string
+  artistCreated: boolean
+  featuring: string[]
+  enriched: { videoFound: boolean; views: number | null; lyricsFound: boolean; spotifyFound: boolean }
+} | { ok: false; error: string }
+
+/**
+ * @param artistSegment „Xcho, By Индия, МОТ" — primary + featuring atskiriami.
+ * @param rawTitle daina (gali turėti „(feat. X)" — tai irgi taps featuring).
+ * @param origin    request origin (lyrics/spotify API kvietimams).
+ * @param opts.enrich  true → YT search + views + lyrics + spotify (per-row Sukurti).
+ *                     false → tik atlikėjas+featuring+track (bulk, greitas).
+ */
+export async function commitChartTrack(
+  artistSegment: string, rawTitle: string, origin: string,
+  opts: { enrich?: boolean } = {},
+): Promise<ChartTrackResult> {
+  const supabase = createAdminClient()
+  ensureWikiInit()
+
+  // 1) Pavadinimo featuring („Song (feat. X)") + švarus title.
+  const { cleanTitle, featuring: titleFeats } = wiki.parseFeaturing(rawTitle || '')
+  const title = (cleanTitle || rawTitle || '').trim()
+  if (!title) return { ok: false, error: 'Trūksta dainos pavadinimo' }
+
+  // 2) Primary atlikėjas + featuring iš segmento („A, B, C" / „A feat. B").
+  const ta = await resolveTrackArtists(supabase, artistSegment)
+  if (!ta) return { ok: false, error: `Nepavyko priskirti/sukurti atlikėjo: „${artistSegment}"` }
+  const artist = ta.primary
+  let featuringNames = Array.from(new Set(
+    [...ta.featuringNames, ...(titleFeats || [])]
+      .map((n) => n.trim())
+      .filter((n) => n && slugify(n) !== artist.slug && wiki.cleanArtistName(n).toLowerCase() !== artist.name.toLowerCase()),
+  ))
+
+  // 3) Track (dup guard pagal artist+title).
+  const { data: existing } = await supabase
+    .from('tracks').select('id, slug').eq('artist_id', artist.id).ilike('title', title).maybeSingle()
+  let trackId: number
+  if (existing) {
+    trackId = (existing as any).id
+  } else {
+    const base = slugify(title) || `track-${Date.now()}`
+    let finalSlug = base
+    for (let i = 0; i < 50; i++) {
+      const ex = await supabase.from('tracks').select('id').eq('slug', finalSlug).maybeSingle()
+      if (!ex.data) break
+      finalSlug = `${base}-${i + 1}`
+    }
+    const { data: created, error } = await supabase
+      .from('tracks').insert({ title, slug: finalSlug, artist_id: artist.id }).select('id').single()
+    if (error || !created) return { ok: false, error: `Track create failed: ${error?.message}` }
+    trackId = (created as any).id
+  }
+
+  // 4) Featuring atlikėjai.
+  if (featuringNames.length) {
+    try { await syncTrackFeaturing(supabase, trackId, featuringNames) }
+    catch { /* best-effort */ }
+  }
+
+  const enriched = { videoFound: false, views: null as number | null, lyricsFound: false, spotifyFound: false }
+
+  // 5) Enrich (tik per-row Sukurti — YT search brangus): video + views.
+  if (opts.enrich) {
+    try {
+      const er = await enrichTrack(trackId, true)
+      if (er.ok) { enriched.videoFound = !!er.wasFound; enriched.views = er.viewsAfter ?? null }
+    } catch { /* ignore */ }
+    // Lyrics
+    try {
+      const lr = await fetch(`${origin}/api/search/lyrics?artist=${encodeURIComponent(artist.name)}&title=${encodeURIComponent(title)}`, { signal: AbortSignal.timeout(12000) })
+      if (lr.ok) {
+        const lj = await lr.json()
+        if (lj?.lyrics) { await supabase.from('tracks').update({ lyrics: lj.lyrics }).eq('id', trackId); enriched.lyricsFound = true }
+      }
+    } catch { /* ignore */ }
+    // Spotify
+    try {
+      const sr = await fetch(`${origin}/api/search/spotify?q=${encodeURIComponent(`${artist.name} ${title}`)}`, { signal: AbortSignal.timeout(12000) })
+      if (sr.ok) {
+        const sj = await sr.json()
+        const best = (sj?.results || [])[0]
+        if (best?.id) { await supabase.from('tracks').update({ spotify_id: best.id }).eq('id', trackId); enriched.spotifyFound = true }
+      }
+    } catch { /* ignore */ }
+  }
+
+  return {
+    ok: true, trackId, artistId: artist.id, artistName: artist.name,
+    artistCreated: artist.created, featuring: featuringNames, enriched,
+  }
+}
+
+/** Read-only: ar primary atlikėjas jau egzistuoja kataloge (chart UI badge'ui).
+ *  Grąžina { exists, name, slug } NIEKO nesukurdamas. */
+export async function probeChartArtist(artistSegment: string): Promise<{ exists: boolean; name: string; slug: string | null }> {
+  const supabase = createAdminClient()
+  const a = await analyzeArtistSegment(supabase, artistSegment)
+  return { exists: !!a.primaryMatch, name: a.primaryMatch?.name || a.primaryName, slug: a.primaryMatch?.slug ?? null }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // quickAddAlbum
 // ────────────────────────────────────────────────────────────────────────────
 

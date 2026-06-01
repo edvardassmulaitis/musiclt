@@ -15,6 +15,8 @@ type Entry = {
   artistName: string; title: string; coverUrl: string | null; resolveState: string
   entityType?: 'track' | 'album'
   track: { id: number; slug: string; title: string; artist: string | null; artistSlug: string | null; href?: string | null } | null
+  artistExists?: boolean
+  artistKnownSlug?: string | null
 }
 type Hit = { type: string; id: number; slug: string; title: string; artist: string | null; image_url: string | null }
 
@@ -251,7 +253,13 @@ function EntryRow({ entry, isAlbum, onChanged }: { entry: Entry; isAlbum: boolea
         <span className="w-6 shrink-0 pt-0.5 text-center text-sm font-black tabular-nums text-gray-400 sm:w-7">{entry.position}</span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold leading-snug text-gray-800">{entry.title}</p>
-          <p className="text-xs text-gray-400">{entry.artistName}</p>
+          <p className="flex flex-wrap items-center gap-1.5 text-xs text-gray-400">
+            {entry.artistName}
+            {!resolved && (entry.artistExists
+              ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600" title="Atlikėjas jau yra kataloge — „Sukurti" pridės tik dainą">atlikėjas yra</span>
+              : <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600" title="Atlikėjo nėra — „Sukurti" sukurs naują (ghost) atlikėją">naujas atlikėjas</span>
+            )}
+          </p>
           {resolved && entry.track?.href ? (
             <a href={entry.track.href} target="_blank" rel="noreferrer"
               className="mt-0.5 block truncate text-xs text-violet-600 hover:underline">

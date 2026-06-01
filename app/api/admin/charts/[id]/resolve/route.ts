@@ -1,11 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import {
-  findConfidentMatch, findOrCreateArtist, createTrackForArtist,
+  findConfidentMatch, findOrCreateArtist,
   findConfidentAlbumMatch, createAlbumForArtist,
 } from '@/lib/chart-resolve'
+import { commitChartTrack } from '@/lib/quick-add'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 export const maxDuration = 60
 
 /** POST /api/admin/charts/[id]/resolve — bulk operacijos neapdorotiems
@@ -15,7 +17,7 @@ export const maxDuration = 60
  *     → 'created'. Ghost atlikėjas be metadata (vėliau supildomas /admin/artists).
  *  Time-budget loop'as (≈50s) — jei nesutelpa, grąžina remaining>0; frontend kartoja.
  *  Žr. lib/chart-resolve. */
-export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const chartId = parseInt(id, 10)
   if (!chartId) return NextResponse.json({ error: 'bad id' }, { status: 400 })
@@ -53,19 +55,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       if (Date.now() - start > 50_000) break
       const e: any = entries[i]
       try {
-        const artistId = await findOrCreateArtist(sb, e.artist_name, country)
         if (isAlbum) {
+          const artistId = await findOrCreateArtist(sb, e.artist_name, country)
           const albumId = await createAlbumForArtist(sb, artistId, e.title)
           await sb.from('external_chart_entries').update({
             album_id: albumId, track_id: null, artist_id: artistId, resolve_state: 'created',
           }).eq('id', e.id)
+          created++
         } else {
-          const trackId = await createTrackForArtist(sb, artistId, e.title)
+          // Bulk: primary+featuring atlikėjai + track (BE YT enrich — greitis/budget).
+          const r = await commitChartTrack(e.artist_name, e.title, req.nextUrl.origin, { enrich: false })
+          if (!r.ok) continue
           await sb.from('external_chart_entries').update({
-            track_id: trackId, album_id: null, artist_id: artistId, resolve_state: 'created',
+            track_id: r.trackId, album_id: null, artist_id: r.artistId, resolve_state: 'created',
           }).eq('id', e.id)
+          created++
         }
-        created++
       } catch { /* praleidžiam — lieka pending, kitas run'as pakartos */ }
     }
     return NextResponse.json({ created, remaining: entries.length - i, processed: entries.length })

@@ -87,6 +87,50 @@ export async function findConfidentMatch(
   return { trackId: t.id, artistId: t.artist_id, trackTitle: t.title, artistName: ar?.name || rawArtist }
 }
 
+/**
+ * Cross-chart link: susiejus/sukūrus dainą (ar albumą) viename tope, ta pati
+ * daina automatiškai susiejama VISUOSE kituose current chart'uose (pvz. Шадэ
+ * yra ir AGATA, ir Apple, ir Spotify). Match pagal normalizuotą artist+title.
+ * Grąžina kiek papildomų įrašų susieta.
+ */
+export async function linkSongAcrossCharts(
+  sb: Sb,
+  opts: { trackId?: number | null; albumId?: number | null; artistId: number; rawArtist: string; rawTitle: string; exceptEntryId?: number },
+): Promise<number> {
+  const aNorm = normalizeForMatch(primaryArtist(opts.rawArtist))
+  const tNorm = normalizeForMatch(opts.rawTitle)
+  if (!tNorm) return 0
+  const isAlbum = !!opts.albumId
+
+  const { data: charts } = await sb.from('external_charts').select('id, chart_key').eq('is_current', true)
+  const chartIds = (charts || [])
+    .filter((c: any) => (c.chart_key === 'albums') === isAlbum)
+    .map((c: any) => c.id)
+  if (chartIds.length === 0) return 0
+
+  const tok = rawLongestToken(opts.rawTitle)
+  if (!tok) return 0
+  const { data: cands } = await sb.from('external_chart_entries')
+    .select('id, artist_name, title')
+    .in('chart_id', chartIds)
+    .in('resolve_state', ['pending', 'ambiguous', 'text_only'])
+    .ilike('title', `%${tok}%`)
+    .limit(400)
+
+  let n = 0
+  for (const e of (cands || []) as any[]) {
+    if (opts.exceptEntryId && e.id === opts.exceptEntryId) continue
+    if (normalizeForMatch(e.title) !== tNorm) continue
+    if (aNorm && normalizeForMatch(primaryArtist(e.artist_name)) !== aNorm) continue
+    const upd = isAlbum
+      ? { album_id: opts.albumId, track_id: null, artist_id: opts.artistId, resolve_state: 'matched' }
+      : { track_id: opts.trackId, album_id: null, artist_id: opts.artistId, resolve_state: 'matched' }
+    await sb.from('external_chart_entries').update(upd).eq('id', e.id)
+    n++
+  }
+  return n
+}
+
 export type ConfidentAlbumMatch = { albumId: number; artistId: number; albumTitle: string; artistName: string }
 
 /**

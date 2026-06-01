@@ -152,6 +152,10 @@ const PLANNED: Planned[] = [
   { source: 'radio', chartKey: 'm1', title: 'Radijo topai', subtitle: 'M-1, ZIP FM, Lietus — dažniausiai eteryje', accent: '#06b6d4', scope: 'lt', size: 40, attribution: 'Radijo stočių eterio duomenys' },
 
   // ── Pasaulis ──
+  { source: 'apple', chartKey: 'us_songs', title: 'Apple Music — JAV', subtitle: 'Klausomiausios dainos Apple Music JAV', accent: '#ec4899', scope: 'world', size: 100, sourceUrl: 'https://music.apple.com/us/', attribution: 'Apple Music charts' },
+  { source: 'apple', chartKey: 'gb_songs', title: 'Apple Music — Jungtinė Karalystė', subtitle: 'Klausomiausios dainos Apple Music UK', accent: '#db2777', scope: 'world', size: 100, sourceUrl: 'https://music.apple.com/gb/', attribution: 'Apple Music charts' },
+  { source: 'spotify', chartKey: 'us', title: 'Spotify JAV', subtitle: 'Klausomiausios dainos Spotify JAV', accent: '#16a34a', scope: 'world', size: 100, sourceUrl: 'https://kworb.net/spotify/country/us_weekly.html', attribution: 'Spotify / kworb.net' },
+  { source: 'spotify', chartKey: 'uk', title: 'Spotify Jungtinė Karalystė', subtitle: 'Klausomiausios dainos Spotify UK', accent: '#15803d', scope: 'world', size: 100, sourceUrl: 'https://kworb.net/spotify/country/gb_weekly.html', attribution: 'Spotify / kworb.net' },
   { source: 'official_uk', chartKey: 'singles', title: 'Official UK Singles', subtitle: 'Britanijos oficialus singlų topas', accent: '#ef4444', scope: 'world', size: 40, sourceUrl: 'https://www.officialcharts.com/', attribution: 'Official Charts Company' },
   { source: 'billboard', chartKey: 'hot100', title: 'Billboard Hot 100', subtitle: 'JAV pagrindinis dainų topas', accent: '#f59e0b', scope: 'world', size: 100, sourceUrl: 'https://www.billboard.com/charts/hot-100/', attribution: 'Billboard' },
   { source: 'spotify', chartKey: 'global', title: 'Spotify Global', subtitle: 'Klausomiausios dainos pasaulyje', accent: '#8b5cf6', scope: 'world', size: 100, sourceUrl: 'https://kworb.net/spotify/country/global_weekly.html', attribution: 'Spotify / kworb.net' },
