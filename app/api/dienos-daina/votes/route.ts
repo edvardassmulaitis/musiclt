@@ -12,6 +12,9 @@ function todayLT(): string {
   }).split('.').reverse().join('-')
 }
 
+// Balsavimas PER NOMINACIJĄ — vartotojas/IP gali balsuoti už VISAS dienos dainas,
+// bet tik vieną kartą už kiekvieną. Narių balsas sveria 3x, anonimo 1x.
+// (Anksčiau: vienas balsas per dieną. 2026-06-01 Edvardo prašymu.)
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   const body = await req.json()
@@ -26,7 +29,6 @@ export async function POST(req: Request) {
   const supabase = createAdminClient()
   const userId = session?.user?.id ?? null
 
-  // Patikrinti ar nominacija egzistuoja ir yra šios dienos
   const { data: nomination } = await supabase
     .from('daily_song_nominations')
     .select('id, track_id, date')
@@ -38,29 +40,29 @@ export async function POST(req: Request) {
   if (!nomination)
     return NextResponse.json({ error: 'Nominacija nerasta' }, { status: 404 })
 
-  // Patikrinti ar jau balsavo šiandien
+  // Ar jau balsavo už ŠIĄ dainą (ne už dieną apskritai).
   if (userId) {
     const { data: existing } = await supabase
       .from('daily_song_votes')
       .select('id')
-      .eq('date', date)
+      .eq('nomination_id', nomination_id)
       .eq('user_id', userId)
       .maybeSingle()
     if (existing)
-      return NextResponse.json({ error: 'Jau balsavai šiandien' }, { status: 400 })
+      return NextResponse.json({ error: 'Jau balsavai už šią dainą' }, { status: 400 })
   } else {
-    // Anon: tikrinti IP
     const { data: existing } = await supabase
       .from('daily_song_votes')
       .select('id')
-      .eq('date', date)
+      .eq('nomination_id', nomination_id)
+      .is('user_id', null)
       .eq('voter_ip', ip)
       .maybeSingle()
     if (existing)
-      return NextResponse.json({ error: 'Jau balsavai šiandien' }, { status: 400 })
+      return NextResponse.json({ error: 'Jau balsavai už šią dainą' }, { status: 400 })
   }
 
-  const weight = userId ? 2 : 1
+  const weight = userId ? 3 : 1
 
   const { data, error } = await supabase
     .from('daily_song_votes')
@@ -78,7 +80,7 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // ── Activity feed ────────────────────────────────────────────────
+  // ── Activity feed (tik registruotiems) ──
   try {
     if (userId) {
       const { data: track } = await supabase
@@ -106,6 +108,7 @@ export async function POST(req: Request) {
   return NextResponse.json({ vote: data, weight })
 }
 
+// Grąžina VISŲ nominacijų id, už kurias vartotojas/IP jau balsavo šiandien.
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
   const headersList = await headers()
@@ -114,57 +117,10 @@ export async function GET(req: Request) {
   const supabase = createAdminClient()
   const userId = session?.user?.id ?? null
 
-  let hasVoted = false
-  let votedNominationId: number | null = null
+  let q = supabase.from('daily_song_votes').select('nomination_id').eq('date', date)
+  q = userId ? q.eq('user_id', userId) : q.is('user_id', null).eq('voter_ip', ip)
+  const { data } = await q
+  const votedNominationIds = Array.from(new Set((data || []).map((v: any) => v.nomination_id)))
 
-  if (userId) {
-    const { data } = await supabase
-      .from('daily_song_votes')
-      .select('id, nomination_id')
-      .eq('date', date)
-      .eq('user_id', userId)
-      .maybeSingle()
-    hasVoted = !!data
-    votedNominationId = data?.nomination_id ?? null
-  } else {
-    const { data } = await supabase
-      .from('daily_song_votes')
-      .select('id, nomination_id')
-      .eq('date', date)
-      .eq('voter_ip', ip)
-      .maybeSingle()
-    hasVoted = !!data
-    votedNominationId = data?.nomination_id ?? null
-  }
-
-  // Streak: kiek dienų iš eilės balsavo (tik registruotiems)
-  let streak = 0
-  if (userId) {
-    const { data: recentVotes } = await supabase
-      .from('daily_song_votes')
-      .select('date')
-      .eq('user_id', userId)
-      .order('date', { ascending: false })
-      .limit(30)
-
-    if (recentVotes?.length) {
-      const dates = recentVotes.map(v => v.date)
-      const today = new Date(date)
-      let checkDate = new Date(today)
-      // Jei šiandien jau balsavo - pradėti nuo šiandien, kitaip nuo vakar
-      if (!hasVoted) checkDate.setDate(checkDate.getDate() - 1)
-
-      for (let i = 0; i < 30; i++) {
-        const d = checkDate.toISOString().split('T')[0]
-        if (dates.includes(d)) {
-          streak++
-          checkDate.setDate(checkDate.getDate() - 1)
-        } else {
-          break
-        }
-      }
-    }
-  }
-
-  return NextResponse.json({ has_voted: hasVoted, voted_nomination_id: votedNominationId, streak, is_authenticated: !!userId })
+  return NextResponse.json({ voted_nomination_ids: votedNominationIds, is_authenticated: !!userId })
 }
