@@ -4,14 +4,17 @@ import { createAdminClient } from '@/lib/supabase'
 export const dynamic = 'force-dynamic'
 
 /** GET /api/admin/charts — visi šiuo metu aktyvūs (is_current) išoriniai topai
- *  su entry būsenų suvestine (matched/created/text_only/pending). */
-export async function GET() {
+ *  su entry būsenų suvestine (matched/created/text_only/pending).
+ *  ?all=1 — įtraukti ir konsensuso topus (header vizualų valdymui). */
+export async function GET(req: Request) {
+  const includeAll = new URL(req.url).searchParams.get('all') === '1'
   const sb = createAdminClient()
-  const { data: charts, error } = await sb
+  let query = sb
     .from('external_charts')
     .select('id, source, chart_key, title, subtitle, scope, size, accent, period_label, attribution, source_url, fetched_at, featured, featured_order, cover_image_url')
     .eq('is_current', true)
-    .neq('source', 'consensus')   // konsensusas auto-derived — ne rankiniam resolve
+  if (!includeAll) query = query.neq('source', 'consensus')   // konsensusas auto-derived — ne rankiniam resolve
+  const { data: charts, error } = await query
     .order('scope', { ascending: true })
     .order('source', { ascending: true })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

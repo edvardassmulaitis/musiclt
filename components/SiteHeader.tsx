@@ -469,7 +469,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
       {/* ── Kiti topai: featured išoriniai (admin-managed vizualai) ── */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{ ...SEC_HEAD, paddingTop: 2 }}>Konsensuso topai</span>
+          <span style={{ ...SEC_HEAD, paddingTop: 2 }}>Kiti topai</span>
           <Link href="/topai" className="sh-more-link">Daugiau →</Link>
         </div>
         <div className="sh-style-grid">
@@ -911,7 +911,7 @@ function MobileExpansion({
             <span className="sh-mexp-tile-label">Apdovanojimai</span>
           </Link>
         </div>
-        <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '12px 0 6px' }}>Konsensuso topai</div>
+        <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '12px 0 6px' }}>Kiti topai</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {(mFeatured.length > 0
             ? mFeatured.map(c => ({ label: c.title, href: c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : (c.scope === 'world' ? '/topai#pasaulio-topai' : c.scope === 'social' ? '/topai#trendai' : '/topai#lt-topai') }))
