@@ -775,11 +775,6 @@ function MobileExpansion({
   if (navKey === 'muzika') {
     const ltArtists = data?.artistsLt || []
     const wrldArtists = data?.artistsWorld || []
-    const ltTotal = data?.counts?.artistsLt || 0
-    const worldTotal = data?.counts?.artistsWorld || 0
-    // "+ N" — dar likusių atlikėjų skaičius (po jau parodytų strip'e)
-    const ltMore = Math.max(0, ltTotal - Math.min(ltArtists.length, 10))
-    const worldMore = Math.max(0, worldTotal - Math.min(wrldArtists.length, 10))
     return (
       <div className="sh-mexp">
         {/* ── ATLIKĖJAI sekcijos header'is (vienodas su Stiliai) ── */}
@@ -805,11 +800,15 @@ function MobileExpansion({
                 <span className="sh-mini-title sh-mini-title-2">{a?.name || 'Atlikėjas'}</span>
               </Link>
             ))}
-            <Link href="/atlikejai?country=lt" onClick={onLink} className="sh-more-tile">
-              <span className="sh-more-tile-plus">+</span>
-              <span className="sh-more-tile-count">{(ltMore > 0 ? ltMore : ltTotal).toLocaleString('lt-LT')}</span>
-            </Link>
           </div>
+          <Link href="/atlikejai?country=lt" onClick={onLink} className="sh-expand-btn" aria-label="Atverti visą sąrašą" title="Atverti visą sąrašą su filtrais">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" />
+              <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
+              <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" />
+              <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
+            </svg>
+          </Link>
         </div>
 
         {/* ── ATLIKĖJAI: užsienio eilutė ── */}
@@ -822,11 +821,15 @@ function MobileExpansion({
                 <span className="sh-mini-title sh-mini-title-2">{a?.name || 'Atlikėjas'}</span>
               </Link>
             ))}
-            <Link href="/atlikejai?country=world" onClick={onLink} className="sh-more-tile">
-              <span className="sh-more-tile-plus">+</span>
-              <span className="sh-more-tile-count">{(worldMore > 0 ? worldMore : worldTotal).toLocaleString('lt-LT')}</span>
-            </Link>
           </div>
+          <Link href="/atlikejai?country=world" onClick={onLink} className="sh-expand-btn" aria-label="Atverti visą sąrašą" title="Atverti visą sąrašą su filtrais">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" />
+              <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
+              <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" />
+              <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
+            </svg>
+          </Link>
         </div>
 
         {/* ── STILIAI — Daugiau kaip 9-as grid tile (po visų 8 žanrų) ── */}
