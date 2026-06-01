@@ -74,12 +74,16 @@ export default function ArtistsFilterBar({
   }, [countryOpen, styleOpen])
 
   // Filtrą keičiantis URL (preserve kitus facet'us + sort'ą; default'us praleidžiam)
+  // Šalies modelis — binaras Lietuva / Pasaulis (NĖRA „Visos šalys").
+  // Default'as = Lietuva (lt) → į URL neįtraukiam.
+  const isDefaultCountry = (c: string) => !c || c === 'lt' || c === 'all'
+
   function facetHref(next: { country?: string; genre?: string; substyle?: string }): string {
     const country = next.country !== undefined ? next.country : current.country
     const genre = next.genre !== undefined ? next.genre : current.genre
     const substyle = next.substyle !== undefined ? next.substyle : current.substyle
     const u = new URLSearchParams()
-    if (country && country !== 'all') u.set('country', country)
+    if (country && !isDefaultCountry(country)) u.set('country', country)
     if (substyle) u.set('substyle', substyle)
     else if (genre) u.set('genre', genre)
     if (current.sort && current.sort !== 'popular') u.set('sort', current.sort)
@@ -90,7 +94,7 @@ export default function ArtistsFilterBar({
   function setSort(sk: SortKey) {
     if (sk === current.sort) return
     const u = new URLSearchParams()
-    if (current.country && current.country !== 'all') u.set('country', current.country)
+    if (!isDefaultCountry(current.country)) u.set('country', current.country)
     if (current.substyle) u.set('substyle', current.substyle)
     else if (current.genre) u.set('genre', current.genre)
     if (sk !== 'popular') u.set('sort', sk)
@@ -98,21 +102,21 @@ export default function ArtistsFilterBar({
     startTransition(() => router.push(`/atlikejai${s ? `?${s}` : ''}`, { scroll: false }))
   }
 
-  const hasFilters = current.country !== 'all' || !!current.genre || !!current.substyle || current.sort !== 'popular'
+  const hasFilters = !isDefaultCountry(current.country) || !!current.genre || !!current.substyle || current.sort !== 'popular'
 
   // ── Šalis ──
   function countryDisplay(slug: string): { flag: string; text: string } {
-    if (!slug || slug === 'all') return { flag: '🌍', text: 'Visos šalys' }
-    if (slug === 'lt') return { flag: '🇱🇹', text: 'Lietuva' }
     if (slug === 'world') return { flag: '🌐', text: 'Pasaulis' }
+    if (isDefaultCountry(slug)) return { flag: '🇱🇹', text: 'Lietuva' }
     const c = countries.find((x) => ltSlugify(x.country) === slug)
-    return c ? { flag: flagFor(c.country) || '📍', text: c.country } : { flag: '🌍', text: 'Visos šalys' }
+    return c ? { flag: flagFor(c.country) || '📍', text: c.country } : { flag: '🇱🇹', text: 'Lietuva' }
   }
   const cd = countryDisplay(current.country)
   const sortedCountries = [...countries].sort((a, b) => b.n - a.n)
+  // Lietuva — atskiras top pasirinkimas, tad iš bendro sąrašo (kai be paieškos) išmetam.
   const filteredCountries = cq.trim()
     ? sortedCountries.filter((c) => c.country.toLowerCase().includes(cq.trim().toLowerCase()))
-    : sortedCountries
+    : sortedCountries.filter((c) => c.country !== 'Lietuva')
 
   // ── Stilius (+ sub-stiliai) ──
   const subsByGenre = useMemo(() => {
@@ -159,7 +163,7 @@ export default function ArtistsFilterBar({
 
         {/* ── Šalies dropdown ── */}
         <div className="afb-dd" ref={countryRef}>
-          <button type="button" className={`afb-trig${current.country !== 'all' ? ' active' : ''}`}
+          <button type="button" className={`afb-trig${!isDefaultCountry(current.country) ? ' active' : ''}`}
             onClick={() => { setCountryOpen((o) => !o); setStyleOpen(false) }}
             aria-expanded={countryOpen} aria-haspopup="listbox">
             <span className="afb-trig-flag">{cd.flag}</span>
@@ -175,8 +179,7 @@ export default function ArtistsFilterBar({
               <div className="afb-pop-list">
                 {!cq.trim() && (
                   <>
-                    <Link href={facetHref({ country: 'all' })} onClick={() => setCountryOpen(false)} className={`afb-opt${current.country === 'all' ? ' on' : ''}`} prefetch={false}><span>🌍</span> Visos šalys</Link>
-                    <Link href={facetHref({ country: 'lt' })} onClick={() => setCountryOpen(false)} className={`afb-opt${current.country === 'lt' ? ' on' : ''}`} prefetch={false}><span>🇱🇹</span> Lietuva</Link>
+                    <Link href={facetHref({ country: 'lt' })} onClick={() => setCountryOpen(false)} className={`afb-opt${isDefaultCountry(current.country) ? ' on' : ''}`} prefetch={false}><span>🇱🇹</span> Lietuva</Link>
                     <Link href={facetHref({ country: 'world' })} onClick={() => setCountryOpen(false)} className={`afb-opt${current.country === 'world' ? ' on' : ''}`} prefetch={false}><span>🌐</span> Pasaulis</Link>
                     <div className="afb-pop-div" />
                   </>

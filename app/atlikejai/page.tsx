@@ -111,7 +111,10 @@ function normSP(raw: RawSearchParams): SP {
 async function resolveFilters(sp: SP) {
   const [countries, genres, substyles] = await Promise.all([getCountryCounts(), getGenreCounts(), getSubstyleCounts()])
   const countryNames = countries.map((c) => c.country)
-  const country = resolveCountry(sp.country, countryNames)
+  // Šalies modelis — binaras Lietuva / Pasaulis (NĖRA „Visos šalys"). Default'as,
+  // kai nėra param'o → Lietuva (music.lt namų auditorija). ?country=world →
+  // Pasaulis (užsienis), ?country=<slug> → konkreti šalis.
+  const country = resolveCountry(sp.country ?? 'lt', countryNames)
   // Sub-stilius turi pirmenybę prieš stilių (jei abu URL'e — naudojam substyle).
   const substyle = sp.substyle ? substyles.find((s) => s.slug === sp.substyle) || null : null
   const genreSlug = !substyle && sp.genre ? ltSlugify(sp.genre) : null
@@ -148,7 +151,9 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   // sort ir paieška (q) į canonical neįeina (tai vartotojo vaizdai, ne atskiras
   // turinys) — koncentruojam indeksavimą į šalies/stiliaus/puslapio variantus.
   const cp = new URLSearchParams()
-  if (sp.country && country.mode !== 'all') cp.set('country', sp.country)
+  // Lietuva = default → į canonical neįtraukiam (─ /atlikejai ir ?country=lt
+  // dedupe į tą patį turinį). Tik world / konkreti šalis lieka param'e.
+  if (sp.country && country.mode !== 'all' && country.mode !== 'lt') cp.set('country', sp.country)
   if (substyle) cp.set('substyle', substyle.slug)
   else if (genre) cp.set('genre', ltSlugify(genre.name))
   if (page > 1) cp.set('page', String(page))
@@ -305,7 +310,7 @@ export default async function ArtistsPage({ searchParams }: PageProps) {
         countries={countries}
         genres={genres}
         substyles={substyles}
-        current={{ country: sp.country || 'all', genre: sp.genre || '', substyle: sp.substyle || '', sort }}
+        current={{ country: sp.country || 'lt', genre: sp.genre || '', substyle: sp.substyle || '', sort }}
         resultCount={total}
       />
 
@@ -315,7 +320,7 @@ export default async function ArtistsPage({ searchParams }: PageProps) {
           <div className="ab-empty-ic">🎤</div>
           <h3>Nieko nerasta</h3>
           <p>Pabandyk pakeisti filtrus.</p>
-          <Link href="/atlikejai" className="ab-chip on" style={{ marginTop: 14 }} prefetch={false}>Rodyti visus atlikėjus</Link>
+          <Link href="/atlikejai" className="ab-chip on" style={{ marginTop: 14 }} prefetch={false}>Rodyti Lietuvos atlikėjus</Link>
         </div>
       ) : (
         <>
