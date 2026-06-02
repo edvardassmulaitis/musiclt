@@ -70,7 +70,9 @@ export async function POST(req: NextRequest) {
   // false ir vardas atitinka segmentą) prikabinam artist_id prie įrašo, bet
   // resolve_state lieka 'pending' (daina dar nesukurta).
   if (action === 'create-artist') {
-    const country = chart?.country || (chart?.scope === 'lt' ? 'LT' : null)
+    // Šalis NEpriskiriama automatiškai — topo šalis ≠ atlikėjo šalis
+    // (LT tope pasitaiko užsienio atlikėjų ir atvirkščiai). Admin papildo rankiniu būdu.
+    const country = null
     const rawName = (typeof body.artistName === 'string' && body.artistName.trim())
       ? body.artistName.trim() : entry.artist_name
     const isPrimary = body.isPrimary !== false
@@ -112,7 +114,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === 'create') {
-    const country = chart?.country || (chart?.scope === 'lt' ? 'LT' : null)
+    // Šalis NEpriskiriama automatiškai (žr. create-artist komentarą).
+    const country = null
     try {
       if (isAlbum) {
         // Albumai: ghost atlikėjas + albumas (be YT — albumams netaikoma).

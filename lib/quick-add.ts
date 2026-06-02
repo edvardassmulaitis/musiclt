@@ -321,7 +321,10 @@ async function resolveArtist(
   if (existing) return existing
 
   // 3) Sukuriam naują. Bandom light enrichment iš atlikėjo Wiki page'o.
-  let country = 'Lietuva'
+  // Country/žanrai NEpriskiriami automatiškai — tik jei Wiki enrichment juos
+  // pateikia. Kitaip lieka null (admin papildo rankiniu būdu). Spėliojimas
+  // „Lietuva" buvo klaidingas užsienio atlikėjams iš topų.
+  let country: string | null = null
   let description: string | null = null
   let activeFrom: number | null = null
   let artistType: 'solo' | 'group' = 'solo'
@@ -989,7 +992,27 @@ export async function commitChartTrack(
   if (opts.enrich) {
     try {
       const er = await enrichTrack(trackId, true)
-      if (er.ok) { enriched.videoFound = !!er.wasFound; enriched.views = er.viewsAfter ?? null }
+      if (er.ok) {
+        enriched.videoFound = !!er.wasFound; enriched.views = er.viewsAfter ?? null
+        // Išleidimo data iš YT įkėlimo datos — enrichTrack užpildo
+        // video_uploaded_at, bet ne release_*; nustatom čia, jei daina dar
+        // neturi datos (dedupe atveju esamos datos nepertepam).
+        try {
+          const { data: trow } = await supabase
+            .from('tracks').select('video_uploaded_at, release_year').eq('id', trackId).maybeSingle()
+          const up = (trow as any)?.video_uploaded_at
+          if (up && !(trow as any)?.release_year) {
+            const d = new Date(up)
+            if (!isNaN(d.getTime())) {
+              const ry = d.getUTCFullYear(), rm = d.getUTCMonth() + 1, rd = d.getUTCDate()
+              await supabase.from('tracks').update({
+                release_year: ry, release_month: rm, release_day: rd,
+                release_date: `${ry}-${String(rm).padStart(2, '0')}-${String(rd).padStart(2, '0')}`,
+              }).eq('id', trackId)
+            }
+          }
+        } catch { /* ignore */ }
+      }
     } catch { /* ignore */ }
     // Lyrics
     try {

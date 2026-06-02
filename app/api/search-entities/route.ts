@@ -91,25 +91,32 @@ export async function GET(request: Request) {
   let compoundTrackHits: Array<any> = []
   let compoundAlbumHits: Array<any> = []
   if (compound) {
-    // BOTH orderings — first token as artist OR last token as artist. The
-    // earlier code computed the same destructure twice, so "vartai marijonas"
-    // worked for "marijonas vartai" but not the reverse. Now we explicitly
-    // try both interpretations.
-    const variants = [
-      // First token as artist, rest as title.
-      { artistTok: tokens[0], titleTok: tokens.slice(1).join(' ') },
-      // Last token as artist, rest as title.
-      { artistTok: tokens[tokens.length - 1], titleTok: tokens.slice(0, -1).join(' ') },
-    ]
-    // Run BOTH variants in parallel — saves a round-trip when both orderings
-    // need to be checked.
-    const variantResults = await Promise.all(variants.map(async ({ artistTok, titleTok }) => {
-      const aPat = `%${safe(artistTok)}%`
-      const tPat = `%${safe(titleTok)}%`
-      // Limit padidintas 5→30 + sort by score desc, kad populiarūs atlikėjai
-      // kaip Mikutavičius būtų pasirenkami pirma — anksčiau "vartai mik"
-      // nebūtų rasdavęs Mikutavičius nes alphabet'iškai jis ne top-5 tarp
-      // visų "mik" turinčių vardų.
+    // Bandom KIEKVIENĄ skaidymo tašką: pirmieji k žodžių = atlikėjas, likę =
+    // pavadinimas (ir atvirkščiai — paskutiniai k = atlikėjas). Tai sutvarko
+    // kelių žodžių atlikėjų vardus kaip „Olivia Dean", kur atlikėjas užima 2
+    // token'us — anksčiau buvo tikrinama tik vienas token'as kaip atlikėjas,
+    // todėl „Olivia Dean Man I Need" nerasdavo dainos.
+    //
+    // Pavadinimas matchinamas AND-sujungtais ilike per kiekvieną token'ą, ne
+    // viena jungtine string'a — kad praleisti stop-word'ai („Man I Need" vs
+    // token'ai [Man, Need]) ir žodžių tarpai nelaužytų match'o.
+    const splits: Array<{ artistToks: string[]; titleToks: string[] }> = []
+    for (let k = 1; k < tokens.length; k++) {
+      splits.push({ artistToks: tokens.slice(0, k), titleToks: tokens.slice(k) })
+      splits.push({ artistToks: tokens.slice(tokens.length - k), titleToks: tokens.slice(0, tokens.length - k) })
+    }
+    const seenSplit = new Set<string>()
+    const uniqSplits = splits.filter((s) => {
+      if (!s.artistToks.length || !s.titleToks.length) return false
+      const key = s.artistToks.join('|') + '::' + s.titleToks.join('|')
+      if (seenSplit.has(key)) return false
+      seenSplit.add(key)
+      return true
+    })
+    const variantResults = await Promise.all(uniqSplits.map(async ({ artistToks, titleToks }) => {
+      const aPat = `%${safe(artistToks.join(' '))}%`
+      // Limit 30 + sort by score desc, kad populiarūs atlikėjai (Mikutavičius)
+      // būtų pasirenkami pirma, net jei ne top-5 alfabetiškai tarp atitikmenų.
       const { data: matchArtists } = await sb
         .from('artists')
         .select('id,name,score')
@@ -118,19 +125,20 @@ export async function GET(request: Request) {
         .limit(30)
       if (!matchArtists || matchArtists.length === 0) return { tracks: [], albums: [] }
       const artistIds = matchArtists.map((x: any) => x.id)
+      let tq = sb.from('tracks')
+        .select('id,slug,title,legacy_id,artist_id,artists:artist_id(name,cover_image_url),score')
+        .in('artist_id', artistIds)
+      let alq = sb.from('albums')
+        .select('id,slug,title,cover_image_url,legacy_id,artist_id,artists:artist_id(name)')
+        .in('artist_id', artistIds)
+      for (const tok of titleToks) {
+        const tPat = `%${safe(tok)}%`
+        tq = tq.ilike('title', tPat)
+        alq = alq.ilike('title', tPat)
+      }
       const [tHit, alHit] = await Promise.all([
-        sb.from('tracks')
-          .select('id,slug,title,legacy_id,artist_id,artists:artist_id(name,cover_image_url),score')
-          .in('artist_id', artistIds)
-          .ilike('title', tPat)
-          .order('score', { ascending: false, nullsFirst: false })
-          .limit(12),
-        sb.from('albums')
-          .select('id,slug,title,cover_image_url,legacy_id,artist_id,artists:artist_id(name)')
-          .in('artist_id', artistIds)
-          .ilike('title', tPat)
-          .order('score', { ascending: false, nullsFirst: false })
-          .limit(8),
+        tq.order('score', { ascending: false, nullsFirst: false }).limit(12),
+        alq.order('score', { ascending: false, nullsFirst: false }).limit(8),
       ])
       return { tracks: tHit.data || [], albums: alHit.data || [] }
     }))
