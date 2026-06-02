@@ -31,19 +31,24 @@ export async function GET(req: Request) {
     const list = (discs || []) as any[]
 
     // Paskutinis komentaras kiekvienai temai (paraleliai, limit 1 desc).
+    // async/await + try/catch (NE `.catch` ant PostgREST builder'io — jo
+    // grąžinamas PromiseLike neturi .catch, tsc lūžta).
     const latest = await Promise.all(
-      list.map((d) =>
-        sb
-          .from('comments')
-          .select('body, created_at, profiles:author_id(username, full_name, avatar_url)')
-          .eq('discussion_id', d.id)
-          .eq('is_deleted', false)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-          .then((r: any) => ({ id: d.id, c: r.data }))
-          .catch(() => ({ id: d.id, c: null })),
-      ),
+      list.map(async (d) => {
+        try {
+          const r: any = await sb
+            .from('comments')
+            .select('body, created_at, profiles:author_id(username, full_name, avatar_url)')
+            .eq('discussion_id', d.id)
+            .eq('is_deleted', false)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          return { id: d.id, c: r.data }
+        } catch {
+          return { id: d.id, c: null }
+        }
+      }),
     )
     const latestById = new Map<number, any>()
     for (const r of latest) latestById.set(r.id, r.c)

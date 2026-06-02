@@ -1430,7 +1430,7 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
     return (
       <>
         <div className="mb-3.5 flex items-center justify-between gap-3">
-          <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">Šiandien siūloma</h2>
+          <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">Dienos daina</h2>
         </div>
         <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
           {Array(6).fill(null).map((_, i) => (
@@ -1527,7 +1527,7 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
           </div>
           <div className="shrink-0" style={{ width: 9 }} />
           <div className="flex flex-1 items-center justify-between gap-3">
-            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Šiandien siūlomos</span>
+            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Šiandien siūloma</span>
             {voteErr && <span className="text-[11px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
           </div>
         </div>
@@ -1549,18 +1549,10 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
 
           {sorted.slice(0, 14).map((n) => <NomCard key={n.id} n={n} />)}
 
-        {/* Paskutinė kortelė — „Pasiūlyti dainą" arba „jau pasiūlei" būsena (vienas
-            pasiūlymas per dieną tam pačiam vartotojui). */}
-        {alreadyNominated ? (
-          <div
-            className="flex shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-center"
-            style={{ width: 188, minHeight: 178, borderColor: 'rgba(249,115,22,0.35)', background: 'rgba(249,115,22,0.05)' }}
-          >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(249,115,22,0.15)] text-[20px] font-bold text-[var(--accent-orange)]">✓</span>
-            <span className="px-3 font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">Jau pasiūlei šiandien</span>
-            <span className="px-3 text-[10.5px] text-[var(--text-muted)]">Grįžk rytoj su nauja daina</span>
-          </div>
-        ) : (
+        {/* Paskutinė kortelė — „Pasiūlyti dainą". Jau pasiūliusiam vartotojui jos
+            NErodom (jo pasiūlymas jau matosi sąraše — atskira „jau pasiūlei"
+            būsena nereikalinga). Edvardo prašymu 2026-06-02. */}
+        {!alreadyNominated && (
           <button
             type="button"
             onClick={() => setSuggestOpen(true)}
@@ -1586,7 +1578,7 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
       </div>
 
       {modalOpen && (
-        <HomeListModal open onClose={() => setModalOpen(false)} title="Šiandien siūloma" subtitle="Šiandienos kandidatai pagal balsus">
+        <HomeListModal open onClose={() => setModalOpen(false)} title="Dienos daina" subtitle="Šiandienos kandidatai pagal balsus">
           {winner?.tracks && (
             <div className="mb-4">
               <p className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">Vakar laimėjo</p>
@@ -2001,7 +1993,7 @@ const IST_ACCENT: Record<string, string> = {
 // Grupės, kurioms priklauso gimtadienio atlikėjas — kiekviena ATSKIROJE
 // eilutėje su didesniu avataru (Edvardo prašymu 2026-06-02: inline čipai buvo
 // per smulkūs/suspausti). `avatar` px ir `max` skiriasi kortelei/modalui.
-function IstGroupChips({ groups, max = 2, avatar = 20 }: { groups?: { name: string; cover: string | null }[]; max?: number; avatar?: number }) {
+function IstGroupChips({ groups, max = 99, avatar = 20 }: { groups?: { name: string; cover: string | null }[]; max?: number; avatar?: number }) {
   if (!groups || groups.length === 0) return null
   const shown = groups.slice(0, max)
   const extra = groups.length - shown.length
@@ -2142,7 +2134,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                         {it.type === 'album_anniversary' && it.artist && (
                           <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{it.artist}</p>
                         )}
-                        {it.type === 'birthday' && <IstGroupChips groups={it.groups} max={2} avatar={20} />}
+                        {it.type === 'birthday' && <IstGroupChips groups={it.groups} avatar={20} />}
                         {it.type === 'death_anniversary' && it.subtitle && (
                           <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">{it.subtitle}</p>
                         )}
@@ -2239,7 +2231,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                   {it.type === 'death_anniversary' && it.subtitle && (
                     <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-[var(--text-muted)]">{it.subtitle}</p>
                   )}
-                  {it.type === 'birthday' && <IstGroupChips groups={it.groups} max={3} avatar={24} />}
+                  {it.type === 'birthday' && <IstGroupChips groups={it.groups} avatar={24} />}
                   {/* Amžiaus/„gimimo metinės" badge'as (ne tekstas) — Edvardo
                       prašymu 2026-06-02. */}
                   {it.type === 'birthday' && it.age && (
@@ -4024,7 +4016,7 @@ export default function Home() {
             minHeight={220}
             placeholder={
               <section>
-                <SectionHead label="Šiandien siūloma" />
+                <SectionHead label="Dienos daina" />
                 <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4" style={{ maxWidth: 560 }}>
                   <Skel w="40%" h={11} />
                   <div className="mt-3"><Skel w="100%" h={48} /></div>

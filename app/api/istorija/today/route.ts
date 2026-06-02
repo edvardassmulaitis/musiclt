@@ -47,16 +47,20 @@ async function fetchToday(): Promise<IstItem[]> {
   try {
     const { data: albums } = await sb
       .from('albums')
-      .select('id, slug, title, cover_image_url, year, artists!albums_artist_id_fkey(id, slug, name, score)')
+      .select('id, slug, title, cover_image_url, year, type_studio, type_compilation, type_live, type_ep, artists!albums_artist_id_fkey(id, slug, name, score)')
       .eq('month', M)
       .eq('day', D)
       .not('year', 'is', null)
       .lt('year', currentYear)
       .order('year', { ascending: true })
-      .limit(40)
+      .limit(80)
     for (const a of (albums || []) as any[]) {
       const yrsAgo = currentYear - a.year
       if (yrsAgo < 1) continue
+      // TIK studijiniai albumai — atmetam rinkinius/koncertinius/EP. Albumai be
+      // type flag'ų (dar nepriskirti) paliekami (type_studio !== false).
+      // Edvardo prašymu 2026-06-02.
+      if (a.type_compilation || a.type_live || a.type_ep || a.type_studio === false) continue
       const artistName = a.artists?.name || ''
       const artistSlug = a.artists?.slug || ''
       items.push({
@@ -118,10 +122,11 @@ async function fetchToday(): Promise<IstItem[]> {
     if (bdayIds.length) {
       const { data: mem } = await sb
         .from('artist_members')
-        .select('member_id, is_current, grp:artists!group_id ( name, cover_image_url )')
+        .select('member_id, is_current, grp:artists!group_id ( name, cover_image_url, score )')
         .in('member_id', bdayIds)
         .order('is_current', { ascending: false })
       const byMember: Record<number, { name: string; cover: string | null }[]> = {}
+      const grpScoreByMember: Record<number, number> = {}
       for (const m of (mem || []) as any[]) {
         const g = Array.isArray(m.grp) ? m.grp[0] : m.grp
         const name = g?.name
@@ -130,6 +135,8 @@ async function fetchToday(): Promise<IstItem[]> {
           if (!byMember[m.member_id].some(x => x.name === name)) {
             byMember[m.member_id].push({ name, cover: g?.cover_image_url || null })
           }
+          const gs = Number(g?.score || 0)
+          if (gs > (grpScoreByMember[m.member_id] || 0)) grpScoreByMember[m.member_id] = gs
         }
       }
       for (const it of items as any[]) {
@@ -137,6 +144,10 @@ async function fetchToday(): Promise<IstItem[]> {
         const gs = byMember[it._artistId] || []
         it.groups = gs
         it.subtitle = gs.length ? gs.slice(0, 2).map(x => x.name).join(', ') + (gs.length > 2 ? ` +${gs.length - 2}` : '') : ''
+        // Rikiavimo balas = max(savo score, populiariausios grupės score) — grupių
+        // nariai (pvz. būgnininkai) turi mažą asmeninį score, bet priklauso
+        // populiarioms grupėms. Edvardo prašymu 2026-06-02.
+        it.score = Math.max(Number(it.score || 0), grpScoreByMember[it._artistId] || 0)
       }
     }
   } catch {}
