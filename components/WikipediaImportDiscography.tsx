@@ -302,6 +302,12 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
   // Year-first formatas
   let hasYearCol = false
+  // 2026-06-02: Ar ŠI lentelė naudoja `! scope="row"` title'us (title-first).
+  // Jei taip — year-first `|`-cell title ekstrakcija NETURI veikti, nes
+  // chart-position cell'ai su {{efn}} footnote'ais (cituojančiais „[[Bubbling
+  // Under Hot 100]]" + ''Billboard'' + „Title") generuodavo fake singlus
+  // (Bella Kay: „Bubbling"). Reset'inam ant kiekvienos naujos lentelės.
+  let sawScopeRow = false
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -341,7 +347,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
     }
 
     if (!inSingles || skipSubSection) continue
-    if (line.startsWith('{|')) { inTable = true; hasYearCol = false; currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false; continue }
+    if (line.startsWith('{|')) { inTable = true; hasYearCol = false; sawScopeRow = false; currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false; continue }
     if (line.startsWith('|}')) { inTable = false; continue }
     if (!inTable) continue
 
@@ -404,6 +410,8 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
     // ── scope="row" eilutė — DAINA (Title-first, pvz. Queen 1970s-1990s) ─────
     if (/^!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(line)) {
+      // Title-first lentelė — year-first `|`-cell ekstrakcija šiai lentelei OFF.
+      sawScopeRow = true
       // Pašalinti <ref>...</ref> blokus prieš parsavimą (juose gali būti [[wiki links]])
       const cleanLine = line
         .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
@@ -489,7 +497,15 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
           if (/Non-album/i.test(nl)) { albumTitle = 'Non-album single'; break }
           if (/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/.test(nl)) continue
           if (/^\|\s*[-–—]\s*$/.test(nl) || /^\|\s*\|\|/.test(nl)) continue
-          const nlClean = nl.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+          // 2026-06-02: Strip'inti {{efn}}/{{refn}}/footnote šablonus PRIEŠ album
+          // lookahead. Chart-position cell'ai dažnai būna `| —{{efn|...„X" did not
+          // enter ''Billboard'' ... [[Bubbling Under Hot 100]] chart}}` — be šito
+          // album lookahead paimdavo chart-body wiki-link'ą („Bubbling Under Hot
+          // 100") arba ''Billboard'' kaip albumą (Bella Kay). Po strip'o lieka
+          // `| —` → praleidžiam ir ieškom toliau tikro album cell'o.
+          const nlNoNote = nl.replace(/\{\{(?:efn|refn|notetag|note|sfn)[^{}]*(?:\{\{[^{}]*\}\}[^{}]*)*\}\}/gi, '')
+          if (/^\|\s*[-–—]?\s*$/.test(nlNoNote)) continue
+          const nlClean = nlNoNote.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
           // Patikrinti rowspan albumui
           const rsM = nl.match(/rowspan\s*=\s*["']?(\d+)["']?/)
           const rsCount = rsM ? parseInt(rsM[1]) : 1
@@ -555,8 +571,11 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
       pendingYearLine = false
 
-      // Year-first formatas (Title stulpelis, hasYearCol=true)
-      if (hasYearCol && !pendingTitle) {
+      // Year-first formatas (Title stulpelis, hasYearCol=true).
+      // 2026-06-02: TIK kai lentelė NEnaudoja `! scope="row"` title'ų. Title-first
+      // lentelėse (Bella Kay) chart-position `|` cell'ai su {{efn}} footnote'ais
+      // generuodavo fake singlus („Bubbling" iš [[Bubbling Under Hot 100]]).
+      if (hasYearCol && !pendingTitle && !sawScopeRow) {
         // Strip'inam <small>...</small> ir {{efn|...}} note šablonus PRIEŠ split —
         // kitaip "(Bolivia-only release)" / [[James Bond]] iš efn'o tampa
         // title suffix'u arba atskiru title parts.
