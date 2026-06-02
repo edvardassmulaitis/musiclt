@@ -163,6 +163,8 @@ function Flag({ country, image }: { country: string | null; image: string | null
 function ChartCard({ card, cta }: { card: Card; cta: string }) {
   const accent = card.accent
   const entries = card.entries.slice(0, 5)
+  const top = entries[0]
+  const rest = entries.slice(1)
   return (
     <div className={`tc${accent ? ' tc-brand' : ''}`} style={accent ? { ['--c' as any]: accent } : undefined}>
       <Link href={card.href} className="tc-main">
@@ -174,18 +176,34 @@ function ChartCard({ card, cta }: { card: Card; cta: string }) {
         {entries.length === 0 ? (
           <div className="tc-empty">Sąrašas formuojasi</div>
         ) : (
-          <ol className="tc-list">
-            {entries.map(e => (
-              <li key={e.position} className={`tc-row${e.position === 1 ? ' tc-row-1' : ''}`}>
-                <span className="tc-pos">{e.position}</span>
-                <span className="tc-cv">{e.coverUrl ? <img src={proxyImg(e.coverUrl, 96)} alt="" /> : <span className="tc-ph">♪</span>}</span>
-                <span className="tc-meta">
-                  <span className="tc-song">{e.title}</span>
-                  <span className="tc-artist">{e.artistName}</span>
-                </span>
-              </li>
-            ))}
-          </ol>
+          <>
+            {/* #1 — featured */}
+            <div className="tc-feat">
+              <span className="tc-feat-cv">
+                {top.coverUrl ? <img src={proxyImg(top.coverUrl, 200)} alt="" /> : <span className="tc-ph">♪</span>}
+                <span className="tc-feat-badge">1</span>
+              </span>
+              <span className="tc-feat-meta">
+                <span className="tc-feat-song">{top.title}</span>
+                <span className="tc-feat-artist">{top.artistName}</span>
+              </span>
+            </div>
+            {/* #2–5 */}
+            {rest.length > 0 && (
+              <ol className="tc-rest">
+                {rest.map(e => (
+                  <li key={e.position} className="tc-r">
+                    <span className="tc-r-pos">{e.position}</span>
+                    <span className="tc-r-cv">{e.coverUrl ? <img src={proxyImg(e.coverUrl, 80)} alt="" /> : <span className="tc-ph">♪</span>}</span>
+                    <span className="tc-r-meta">
+                      <span className="tc-r-song">{e.title}</span>
+                      <span className="tc-r-artist">{e.artistName}</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </>
         )}
       </Link>
       {card.sources.length > 0 && (
@@ -226,19 +244,27 @@ const styles = `
   .tc-cta { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--text-muted); }
   .tc:hover .tc-cta { color: var(--text-secondary); }
 
-  .tc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-  .tc-row { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-radius: 10px; }
-  .tc-row + .tc-row { border-top: 1px solid var(--border-subtle); }
-  .tc-pos { width: 20px; flex-shrink: 0; text-align: center; font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 800; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-  .tc-row-1 .tc-pos { color: var(--text-secondary); font-size: 17px; }
-  .tc-row-1 .tc-cv { width: 58px; height: 58px; }
-  .tc-row-1 .tc-song { font-size: 15px; }
-  .tc-cv { width: 46px; height: 46px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: var(--bg-elevated); }
-  .tc-cv img { width: 100%; height: 100%; object-fit: cover; }
   .tc-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 16px; }
-  .tc-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
-  .tc-song { font-size: 14px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tc-artist { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* #1 — featured (didelis viršelis + ryškus pavadinimas) */
+  .tc-feat { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 14px; background: var(--bg-elevated); margin-bottom: 8px; }
+  .tc-feat-cv { position: relative; width: 92px; height: 92px; flex-shrink: 0; border-radius: 12px; overflow: hidden; background: var(--bg-surface); box-shadow: 0 6px 18px rgba(0,0,0,0.16); }
+  .tc-feat-cv img { width: 100%; height: 100%; object-fit: cover; }
+  .tc-feat-badge { position: absolute; top: 6px; left: 6px; min-width: 20px; height: 20px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--c, #6366f1); color: #fff; font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 900; }
+  .tc-feat-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .tc-feat-song { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; color: var(--text-primary); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tc-feat-artist { font-size: 13.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* #2–5 */
+  .tc-rest { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .tc-r { display: flex; align-items: center; gap: 12px; padding: 6px 4px; border-radius: 9px; }
+  .tc-r + .tc-r { border-top: 1px solid var(--border-subtle); }
+  .tc-r-pos { width: 18px; flex-shrink: 0; text-align: center; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 800; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .tc-r-cv { width: 38px; height: 38px; flex-shrink: 0; border-radius: 7px; overflow: hidden; background: var(--bg-elevated); }
+  .tc-r-cv img { width: 100%; height: 100%; object-fit: cover; }
+  .tc-r-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+  .tc-r-song { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tc-r-artist { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .tc-empty { padding: 30px 0; text-align: center; color: var(--text-muted); font-size: 13px; }
 
