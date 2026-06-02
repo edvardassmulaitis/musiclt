@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   let query = supabase
     .from('daily_song_winners')
     .select(`
-      id, date, total_votes, weighted_votes, winning_comment, winning_user_id,
+      id, date, track_id, total_votes, weighted_votes, winning_comment, winning_user_id,
       tracks!track_id (
         id, slug, title, cover_url, spotify_id, video_url,
         artists!artist_id ( id, slug, name, cover_image_url )
