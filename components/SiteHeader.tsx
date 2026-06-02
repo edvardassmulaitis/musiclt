@@ -442,33 +442,47 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
     return (c === 'lt' || c === 'us' || c === 'gb') ? `https://flagcdn.com/w320/${c}.png` : null
   }
 
-  const renderCol = (badge: string, title: string, href: string, hex: string, entries: TopMini[]) => (
+  // Dainų juosta su flag/spalvos stripe — toks pat layout kaip Muzika atlikėjų eilutės.
+  const renderSongRow = (kind: 'lt' | 'world', badge: string, title: string, href: string, hex: string, entries: TopMini[]) => (
     <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
         <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: hex }}>{badge}</span>
-        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 17, fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{title}</span>
+        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 16, fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{title}</span>
         <Link href={href} className="sh-more-link" style={{ marginLeft: 'auto' }}>Žiūrėti →</Link>
       </div>
-      {entries.length > 0 ? (
-        entries.map(e => <TopMiniRow key={e.position} entry={e} fallbackHref={href} hex={hex} />)
-      ) : (
-        <Link href={href} style={{ display: 'block', padding: '14px 10px', borderRadius: 10, border: '1px dashed var(--border-default)', textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none' }}>
-          Sąrašas formuojasi — balsuok →
+      <div className="sh-strip-wrap">
+        <RowStripe kind={kind} />
+        <div className="sh-strip">
+          {(entries.length > 0 ? entries : Array(6).fill(null)).map((e: TopMini | null, i: number) => (
+            <Link key={e?.trackSlug || `${kind}-${i}`} href={e?.trackSlug ? `/dainos/${e.trackSlug}` : href} className="sh-mini sh-mini-xl">
+              <span style={{ position: 'relative', display: 'block' }}>
+                <ImageBox src={e?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
+                {e && <span style={{ position: 'absolute', top: 5, left: 5, minWidth: 17, height: 17, padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 5, background: hex, color: '#fff', fontSize: 10, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{e.position}</span>}
+              </span>
+              <span className="sh-mini-title sh-mini-title-2">{e?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
+              {e?.artist && <span style={{ fontSize: 10.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{e.artist}</span>}
+            </Link>
+          ))}
+        </div>
+        <Link href={href} className="sh-expand-btn" aria-label="Atverti visą topą" title="Atverti visą topą">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
+            <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
+          </svg>
         </Link>
-      )}
+      </div>
     </div>
   )
 
   return (
     <div className="sh-panel sh-panel-muzika" style={{ width: 880 }}>
-      {/* ── Pagrindiniai topai: LT TOP 30 + TOP 40 inline ── */}
+      {/* ── Pagrindiniai topai: LT TOP 30 + TOP 40 juostos (kaip Muzika) ── */}
       <div style={{ ...SEC_HEAD, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
         <span className="sh-trending-glyph" title="Trending">{I.trending}</span> Pagrindiniai topai
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-        {renderCol('Lietuva', 'LT TOP 30', '/top30', '#22c55e', top30)}
-        {renderCol('Pasaulis', 'TOP 40', '/top40', '#f97316', top40)}
-      </div>
+      {renderSongRow('lt', 'Lietuva', 'LT TOP 30', '/top30', '#22c55e', top30)}
+      <div style={{ height: 10 }} />
+      {renderSongRow('world', 'Pasaulis', 'TOP 40', '/top40', '#f97316', top40)}
 
       {/* ── Kiti topai: featured išoriniai (admin-managed vizualai) ── */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>

@@ -11,17 +11,15 @@
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { getCurrentWeekMonday } from '@/lib/top-week'
+import { resolveDisplayWeek } from '@/lib/top-week'
 
 export const dynamic = 'force-dynamic'
 
 /** Mini chart eilutės topai dropdown'ui (LT TOP 30 + TOP 40 inline). */
 async function getTopMini(sb: any, topType: string, limit: number) {
-  const monday = getCurrentWeekMonday()
-  const { data: week } = await sb
-    .from('top_weeks')
-    .select('id, is_finalized')
-    .eq('top_type', topType).eq('week_start', monday).maybeSingle()
+  // resolveDisplayWeek: jei einamoji savaitė tuščia — fallback į naujausią
+  // finalizuotą su įrašais (kad nav rodytų tas pačias dainas kaip /topai).
+  const { week } = await resolveDisplayWeek(sb, topType)
   if (!week) return []
   const { data: rows } = await sb
     .from('top_entries')
@@ -121,8 +119,8 @@ export async function GET() {
 
     // ── Topai dropdown'ui: LT TOP 30 + TOP 40 inline + featured išoriniai + votings ──
     const [top30Mini, top40Mini, featuredRes, votingsRes] = await Promise.all([
-      getTopMini(supabase, 'lt_top30', 4),
-      getTopMini(supabase, 'top40', 4),
+      getTopMini(supabase, 'lt_top30', 10),
+      getTopMini(supabase, 'top40', 10),
       supabase
         .from('external_charts')
         .select('id, source, chart_key, title, subtitle, scope, country, accent, cover_image_url, period_label, size')
