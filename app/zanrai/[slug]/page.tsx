@@ -19,6 +19,12 @@ import {
 } from '@/components/muzika-ui'
 
 export const revalidate = 3600
+// Žanrų aibė baigtinė ir VISI pre-render'inami per generateStaticParams.
+// dynamicParams=false → nežinomas slug'as grąžina TIKRĄ 404 (ne soft-404 su
+// 200 statusu, kurį duotų on-demand notFound()). Svarbu SEO: Google neturi
+// indeksuoti tuščių/dublikuotų puslapių. Naujas žanras DB'oje pasirodys po
+// kito deploy'o (generateStaticParams persiskaičiuoja build metu).
+export const dynamicParams = false
 
 type Props = { params: Promise<{ slug: string }> }
 
