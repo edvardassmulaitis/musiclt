@@ -59,18 +59,27 @@ export async function GET(req: Request) {
   return NextResponse.json({ date, by_nomination: byNom })
 }
 
-// DELETE ?nomination_id=X[&scope=external|all] — išvalyti balsus (spam'as).
-// Default scope=external (tik anon/svečių balsai). scope=all — visi.
+// DELETE ?nomination_id=X & (user_id=UUID | ip=1.2.3.4 | scope=external|all)
+//   - user_id : ištrinti KONKRETAUS nario balsą
+//   - ip      : ištrinti konkretaus svečio (IP) balsą
+//   - scope=external (default jei nieko): visi anon/svečių balsai
+//   - scope=all : visi balsai už nominaciją
+// Spam'o valymui. 2026-06-02.
 export async function DELETE(req: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const nominationId = searchParams.get('nomination_id')
+  const userId = searchParams.get('user_id')
+  const ip = searchParams.get('ip')
   const scope = searchParams.get('scope') || 'external'
   if (!nominationId) return NextResponse.json({ error: 'nomination_id privalomas' }, { status: 400 })
   const supabase = createAdminClient()
 
   let q = supabase.from('daily_song_votes').delete().eq('nomination_id', Number(nominationId))
-  if (scope === 'external') q = q.is('user_id', null)
+  if (userId) q = q.eq('user_id', userId)
+  else if (ip) q = q.is('user_id', null).eq('voter_ip', ip)
+  else if (scope === 'external') q = q.is('user_id', null)
+  // scope=all — be papildomo filtro
   const { data: deleted, error } = await q.select('id')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, deleted: (deleted || []).length })
