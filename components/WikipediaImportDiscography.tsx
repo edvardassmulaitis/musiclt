@@ -95,6 +95,24 @@ function DiscModal({ children }: { children: React.ReactNode }) {
 
 // ─── Wikipedia utils ──────────────────────────────────────────────────────────
 
+// 2026-06-02: Kai kurie atlikėjai (Alexandra Capitanescu — ro) wrap'ina single
+// pavadinimus į `{{lang|XX|Tekstas|i=unset}}` template'us. parseSinglesSection
+// quoted-title kelias (`"{{lang|ro|Nu pot|i=unset}}"`) ėmė qm[1] raw → title
+// likdavo „{{lang|ro|Nu pot|i=unset}}". cleanWikiText tai išsprendžia, BET jis
+// strip'ina trailing apostrofą („Căpitanu'" → „Căpitanu"), kuris ro pavadinimuose
+// reikšmingas. Šis helper'is resolve'ina lang/transl/nihongo template'us
+// IŠLAIKYDAMAS apostrofą. Atitinka cleanWikiText lang regex'us.
+function resolveLangTemplates(s: string): string {
+  if (!s || !s.includes('{{')) return s
+  return s
+    .replace(/\{\{lang-[a-z]+\s*\|\s*([^}|]+?)\s*(?:\|[^}]*)?\}\}/gi, '$1')
+    .replace(/\{\{lang\s*\|\s*[^|}]+\s*\|\s*([^}|]+?)\s*(?:\|[^}]*)?\}\}/gi, '$1')
+    .replace(/\{\{rtl-lang\s*\|\s*[^|}]+\s*\|\s*([^}|]+?)\s*(?:\|[^}]*)?\}\}/gi, '$1')
+    .replace(/\{\{transl\s*\|\s*[^|}]+\s*\|\s*(?:[^|}]+\s*\|\s*)?([^}|]+?)\s*\}\}/gi, '$1')
+    .replace(/\{\{nihongo\s*\|\s*([^|}]+?)\s*(?:\|[^}]*)?\}\}/gi, '$1')
+    .trim()
+}
+
 function extractWikiTitle(input: string): string {
   const m = input.match(/wikipedia\.org\/wiki\/([^#?]+)/)
   if (m) return decodeURIComponent(m[1])
@@ -367,7 +385,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         const rawSuffix = suffixBeforeBr.replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/\[\d+\]/g, '').trim()
         const simpleSuffix = rawSuffix.match(/^(\([^)]{1,50}\))/)
         let title = simpleSuffix ? `${qm[1]} ${simpleSuffix[1]}` : qm[1]
-        title = title.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
+        title = resolveLangTemplates(title).replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
         const feat = parseFeaturedArtists(cleanH)
         if (title && title.length > 1) {
           // Albumą rasime iš vėlesnių eilučių
@@ -476,7 +494,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         }
       }
 
-      rawTitle = rawTitle.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
+      rawTitle = resolveLangTemplates(rawTitle).replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
       if (!rawTitle || rawTitle.length < 2 || rawTitle.toLowerCase() === 'row') continue
       // Skip jei tai EP/albumas pavadinimas, ne daina
       if (/\bE\.?P\.?\s*$/i.test(rawTitle)) continue
