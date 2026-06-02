@@ -33,7 +33,7 @@ function dbToForm(data: any): ArtistFormData {
     ...emptyArtistForm,
     name:        data.name || '',
     type:        data.type || 'group',
-    country:     data.country || 'Lietuva',
+    country:     data.country || '',  // NEpriskiriam Lietuva default'o — null lieka tuščias (rodo „Pasirinkite…")
     genre:       data.genres?.[0] ? (GENRE_BY_ID[data.genres[0]] || '') : '',
     substyles:   data.substyleNames || [],
     // description fallback į description_legacy: jei Wiki canonical (description)
@@ -97,7 +97,7 @@ function formToDb(form: ArtistFormData) {
     ? `${form.deathYear}-${String(form.deathMonth||1).padStart(2,'0')}-${String(form.deathDay||1).padStart(2,'0')}`
     : null
   return {
-    name: form.name, type: form.type, country: form.country,
+    name: form.name, type: form.type, country: form.country || null,
     type_music: true, type_film: false, type_dance: false, type_books: false,
     active_from: form.yearStart ? parseInt(form.yearStart) : null,
     active_until: form.yearEnd ? parseInt(form.yearEnd) : null,

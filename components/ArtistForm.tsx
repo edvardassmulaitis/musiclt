@@ -1805,7 +1805,8 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Šalis *</label>
-              <Sel value={form.country} onChange={(v:string)=>set('country',v)} required>
+              <Sel value={form.country} onChange={(v:string)=>set('country',v)}>
+                <option value="">Pasirinkite...</option>
                 {['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].map(c=><option key={c} value={c}>{c}</option>)}
                 <optgroup label="─────────────">
                   {(COUNTRIES || []).filter((c:string)=>!['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].includes(c)).map((c:string)=><option key={c} value={c}>{c}</option>)}
