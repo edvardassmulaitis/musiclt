@@ -29,6 +29,10 @@ type Hit = {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const q = (searchParams.get('q') || '').trim()
+  // ?recent=1 — sortinti title-match'us pagal naujausiai pridėtus (id desc),
+  // ne pagal score. Naudoja /admin/charts resolver (žmogus dažnai ieško ką tik
+  // sukurtos / importuotos dainos pagal pavadinimą).
+  const recent = searchParams.get('recent') === '1'
   if (q.length < 2) return NextResponse.json({ results: [] })
 
   const sb = createAdminClient()
@@ -58,23 +62,25 @@ export async function GET(request: Request) {
   // Always run the broad single-term search — ranks compound queries fairly
   // when the title itself contains everything ("Trys milijonai" doesn't,
   // but Mikutavičius does — handled by the compound branch below).
+  // recent → naujausiai pridėti (id desc); kitaip populiarumas (score desc).
+  const orderEntity = (qb: any) => recent
+    ? qb.order('id', { ascending: false })
+    : qb.order('score', { ascending: false, nullsFirst: false })
   const [artistsRes, albumsRes, tracksRes] = await Promise.all([
     sb.from('artists')
       .select('id,slug,name,cover_image_url,legacy_id,score')
       .ilike('name', fullPattern)
       .order('score', { ascending: false, nullsFirst: false })
       .limit(8),
-    sb.from('albums')
+    orderEntity(sb.from('albums')
       .select('id,slug,title,cover_image_url,legacy_id,artist_id,artists:artist_id(name),score')
-      .ilike('title', fullPattern)
-      .order('score', { ascending: false, nullsFirst: false })
+      .ilike('title', fullPattern))
       .limit(10),
     // Track query — JOIN su artists pulling cover_image_url, kad search
     // rezultatai galėtų rodyti mini foto.
-    sb.from('tracks')
+    orderEntity(sb.from('tracks')
       .select('id,slug,title,legacy_id,artist_id,artists:artist_id(name,cover_image_url),score')
-      .ilike('title', fullPattern)
-      .order('score', { ascending: false, nullsFirst: false })
+      .ilike('title', fullPattern))
       .limit(12),
   ])
 
@@ -238,6 +244,8 @@ export async function GET(request: Request) {
     const ra = (a as any).__rank
     const rb = (b as any).__rank
     if (ra !== rb) return ra - rb
+    // recent → tame pačiame tier'e naujausiai pridėti (didesnis id) pirma.
+    if (recent) return b.id - a.id
     return titleScore(a) - titleScore(b)
   })
   // Strip the temp rank field
