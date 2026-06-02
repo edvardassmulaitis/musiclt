@@ -23,7 +23,7 @@ type Event = { id: number; slug: string; title: string; event_date?: string; sta
 type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
 type Proposer = { username: string | null; full_name: string | null; avatar_url: string | null }
-type Nomination = { id: number; votes: number; weighted_votes: number; comment?: string | null; user_id?: string | null; tracks: { id: number; title: string; cover_url: string | null; slug?: string | null; video_url?: string | null; artists: { name: string; slug?: string | null; cover_image_url?: string | null } | null } | null; proposer?: Proposer | null; voters?: Proposer[]; anon_votes?: number }
+type Nomination = { id: number; votes: number; weighted_votes: number; comment?: string | null; user_id?: string | null; tracks: { id: number; title: string; cover_url: string | null; slug?: string | null; video_url?: string | null; artists: { name: string; slug?: string | null; cover_image_url?: string | null } | null } | null; proposer?: Proposer | null; voters?: Proposer[]; anon_votes?: number; own?: boolean }
 type DainaWinner = { id: number; date: string; total_votes: number; weighted_votes: number; winning_comment?: string | null; proposer?: Proposer | null; tracks: { id: number; title: string; cover_url: string | null; slug?: string | null; video_url?: string | null; artists: { name: string; slug?: string | null; cover_image_url?: string | null } | null } | null }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
 type HeroSlide = {
@@ -1091,6 +1091,18 @@ function ProposerLine({ p }: { p?: Proposer | null }) {
   )
 }
 
+/** Balsų pop-bar (5 dash'ai) — bendras laimėtojo ir siūlomų dainų kortelėms,
+ *  kad vienodai lygiuotųsi (iškart po thumbnail). 2026-06-02. */
+function DainaPopBar({ level }: { level: number }) {
+  return (
+    <span className="mt-2 flex items-center gap-[3px] px-0.5" aria-label={`Balsų lygis ${level}/5`}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <span key={i} className={`h-[3px] w-[11px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+      ))}
+    </span>
+  )
+}
+
 /** Dainos siūlymo modalas — TIK dainos (tracks). Reuse'ina /api/tracks paiešką
  *  (kaip top-nav search, bet restricted į songs), POST'ina į
  *  /api/dienos-daina/nominations. CSS variables stilius (ne legacy dark). */
@@ -1255,7 +1267,7 @@ function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; onDone: (
 /** Vakar laimėjusios dainos highlight kortelė. Vertikalus stilius — toks pat
  *  kaip „Naujos dainos" kortelės (16:9 cover viršuje + info apačioje), su
  *  oranžiniu rėmu ir „🏆 Vakar laimėjo" badge'u. 2026-05-31. */
-function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1, onOpenAll }: { w: DainaWinner; onOpenTrack: (t: any) => void; maxVotes?: number; onOpenAll?: () => void }) {
+function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1 }: { w: DainaWinner; onOpenTrack: (t: any) => void; maxVotes?: number }) {
   const t = w.tracks
   if (!t) return null
   const v = extractYouTubeId(t.video_url)
@@ -1278,29 +1290,15 @@ function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1, onOpenAll }: { w: Daina
             <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
           )}
         </div>
-        <div className="mt-2 px-0.5">
-          <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-          <p className="m-0 mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</p>
-          {/* Balsai — pop bar dash'ai (be tikslaus skaičiaus). */}
-          <span className="mt-1.5 flex items-center gap-[3px]" aria-label={`Balsų lygis ${level}/5`}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <span key={i} className={`h-[3px] w-[11px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
-            ))}
-          </span>
-          {w.proposer && <div className="mt-1.5"><ProposerLine p={w.proposer} /></div>}
-          {w.winning_comment && <p className="m-0 mt-1 line-clamp-2 text-[10.5px] italic text-[var(--text-muted)]">„{w.winning_comment}"</p>}
+        {/* Balsai — IŠKART po thumbnail, vienodai su siūlomomis dainomis. */}
+        <DainaPopBar level={level} />
+        <div className="mt-1 px-0.5">
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+          <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
         </div>
       </button>
-      {/* Po siūlytojo — nuoroda į VISUS vakar dienos pasiūlymus. */}
-      {onOpenAll && (
-        <button
-          type="button"
-          onClick={onOpenAll}
-          className="mt-1.5 self-start px-0.5 text-left font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--accent-link)] transition-colors hover:text-[var(--accent-orange)]"
-        >
-          Visi pasiūlymai →
-        </button>
-      )}
+      {w.proposer && <div className="mt-1.5 px-0.5"><ProposerLine p={w.proposer} /></div>}
+      {w.winning_comment && <p className="m-0 mt-1 px-0.5 line-clamp-2 text-[10.5px] italic text-[var(--text-muted)]">„{w.winning_comment}"</p>}
     </div>
   )
 }
@@ -1423,33 +1421,35 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
             )}
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           </div>
-          <div className="mt-2 px-0.5">
+          {/* Balsai (dash'ai) — IŠKART po thumbnail, kad vienodai lygiuotųsi su
+              laimėtojo kortele (Edvardo prašymu 2026-06-02). */}
+          <DainaPopBar level={level} />
+          <div className="mt-1 px-0.5">
             <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
             <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
           </div>
         </button>
-        {/* Balsai (dash'ai) + subtilus „Balsuoti" pill viename row'e. */}
-        <div className="mt-1.5 flex items-center justify-between gap-2 px-0.5">
-          <span className="flex items-center gap-[3px]" aria-label={`Balsų lygis ${level}/5`}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <span key={i} className={`h-[3px] w-[11px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
-            ))}
-          </span>
-          <button
-            type="button"
-            onClick={() => handleVote(n.id)}
-            disabled={isVotedThis || voting !== null}
-            className={`shrink-0 rounded-full px-2.5 py-[3px] font-['Outfit',sans-serif] text-[10.5px] font-extrabold transition-all ${
-              isVotedThis ? 'cursor-default' : voting !== null ? 'opacity-60' : 'hover:bg-[rgba(249,115,22,0.12)]'
-            }`}
-            style={{
-              background: isVotedThis ? 'rgba(249,115,22,0.14)' : 'transparent',
-              color: 'var(--accent-orange)',
-              border: '1px solid rgba(249,115,22,0.4)',
-            }}
-          >
-            {voting === n.id ? '…' : isVotedThis ? '✓ Balsuota' : 'Balsuoti'}
-          </button>
+        {/* Balsavimas — už savo pasiūlymą balsuoti negalima. */}
+        <div className="mt-1.5 px-0.5">
+          {n.own ? (
+            <span className="block rounded-full border border-dashed border-[var(--border-default)] py-[3px] text-center font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-faint)]">Tavo pasiūlymas</span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleVote(n.id)}
+              disabled={isVotedThis || voting !== null}
+              className={`block w-full rounded-full py-[3px] font-['Outfit',sans-serif] text-[10.5px] font-extrabold transition-all ${
+                isVotedThis ? 'cursor-default' : voting !== null ? 'opacity-60' : 'hover:bg-[rgba(249,115,22,0.12)]'
+              }`}
+              style={{
+                background: isVotedThis ? 'rgba(249,115,22,0.14)' : 'transparent',
+                color: 'var(--accent-orange)',
+                border: '1px solid rgba(249,115,22,0.4)',
+              }}
+            >
+              {voting === n.id ? '…' : isVotedThis ? '✓ Balsuota' : 'Balsuoti'}
+            </button>
+          )}
         </div>
         {n.proposer && <div className="mt-1.5 px-0.5"><ProposerLine p={n.proposer} /></div>}
         {n.comment && <p className="m-0 mt-1 px-0.5 line-clamp-2 text-[10.5px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
@@ -1464,7 +1464,12 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
           laimėtojo nėra — paprastas „Šiandienos pasiūlymai →" link'as. 2026-06-01. */}
       {winner?.tracks ? (
         <div className="mb-2 flex items-end gap-3">
-          <div style={{ width: 188 }} className="shrink-0 px-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</div>
+          <div style={{ width: 188 }} className="flex shrink-0 items-center gap-1.5 px-0.5">
+            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</span>
+            <button type="button" onClick={openYesterday} aria-label="Visi vakar dienos pasiūlymai" title="Visi vakar dienos pasiūlymai" className="flex h-4 w-4 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:text-[var(--accent-orange)]">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" /></svg>
+            </button>
+          </div>
           <div className="shrink-0" style={{ width: 9 }} />
           <div className="flex flex-1 items-center justify-between gap-3">
             <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Šiandien siūlomos</span>
@@ -1489,7 +1494,7 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
         {/* Vakar laimėjusi daina — pirma; vertikali linija atskiria nuo šiandienos. */}
         {winner?.tracks && (
           <>
-            <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} maxVotes={maxVotes} onOpenAll={openYesterday} />
+            <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} maxVotes={maxVotes} />
             <div className="flex shrink-0 items-stretch self-stretch px-1">
               <div className="w-px self-stretch bg-[var(--border-default)]" />
             </div>
@@ -1584,21 +1589,25 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
                       {n.comment && <p className="m-0 mt-1.5 line-clamp-2 text-[11px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
                     </div>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleVote(n.id)}
-                    disabled={isVotedThis || voting !== null}
-                    className={`shrink-0 self-center rounded-lg px-3 py-2 font-['Outfit',sans-serif] text-[11.5px] font-extrabold transition-all ${
-                      isVotedThis ? 'cursor-default' : voting !== null ? 'opacity-60' : 'hover:-translate-y-px'
-                    }`}
-                    style={{
-                      background: isVotedThis ? 'rgba(249,115,22,0.15)' : 'var(--accent-orange)',
-                      color: isVotedThis ? 'var(--accent-orange)' : '#fff',
-                      border: isVotedThis ? '1px solid rgba(249,115,22,0.4)' : '1px solid transparent',
-                    }}
-                  >
-                    {voting === n.id ? '…' : isVotedThis ? '✓' : 'Balsuoti'}
-                  </button>
+                  {n.own ? (
+                    <span className="shrink-0 self-center rounded-lg border border-dashed border-[var(--border-default)] px-3 py-2 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-faint)]">Tavo</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleVote(n.id)}
+                      disabled={isVotedThis || voting !== null}
+                      className={`shrink-0 self-center rounded-lg px-3 py-2 font-['Outfit',sans-serif] text-[11.5px] font-extrabold transition-all ${
+                        isVotedThis ? 'cursor-default' : voting !== null ? 'opacity-60' : 'hover:-translate-y-px'
+                      }`}
+                      style={{
+                        background: isVotedThis ? 'rgba(249,115,22,0.15)' : 'var(--accent-orange)',
+                        color: isVotedThis ? 'var(--accent-orange)' : '#fff',
+                        border: isVotedThis ? '1px solid rgba(249,115,22,0.4)' : '1px solid transparent',
+                      }}
+                    >
+                      {voting === n.id ? '…' : isVotedThis ? '✓' : 'Balsuoti'}
+                    </button>
+                  )}
                 </div>
               )
             })}
