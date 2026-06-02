@@ -560,6 +560,8 @@ export default function TopChartView({
   accent,
   siblingHref,
   siblingLabel,
+  archiveMode = false,
+  backHref,
 }: {
   data: TopData
   topType: 'top40' | 'lt_top30'
@@ -569,6 +571,8 @@ export default function TopChartView({
   accent: ThemeAccent
   siblingHref: string       // link to the other chart
   siblingLabel: string
+  archiveMode?: boolean     // archyvo (konkrečios savaitės) peržiūra — read-only, kitokia žyma
+  backHref?: string         // "← atgal" nuoroda (pvz. į /topai/archyvas)
 }) {
   const { data: session } = useSession()
   const weeklyLimit = 10  // visiems vienodai (anon vs signed-in skirtumas — balso svoris finalize'e)
@@ -590,7 +594,7 @@ export default function TopChartView({
   const TOP_SIZE = topType === 'top40' ? 40 : 30
   // Read-only kai rodom fallback (legacy archyvas) arba jau finalizuotą savaitę —
   // balsavimas tokioms savaitėms išjungtas (weekId=0 → VoteButton nerodomas).
-  const readOnly = !!data.isFallback || !!data.week?.is_finalized
+  const readOnly = archiveMode || !!data.isFallback || !!data.week?.is_finalized
   const voteWeekId = readOnly ? 0 : (data.week?.id ?? 0)
   // Read-only (archyvo/finalizuotos) savaitės rodom kaip paprastą ranked sąrašą
   // pagal position — JOKIO newcomer/below skirstymo. Legacy entries dažnai turi
@@ -762,6 +766,8 @@ export default function TopChartView({
         }
         .tcv-fallback-note svg { flex-shrink: 0; color: ${accent.hex}; }
         .tcv-fallback-note strong { color: var(--text-primary); font-weight: 700; }
+        .tcv-back-link { display: inline-block; margin-bottom: 12px; font-size: 13px; font-weight: 600; color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
+        .tcv-back-link:hover { color: var(--text-primary); }
 
         /* Body — mobile-first flex column. Mobile order: player → list → newcomers */
         .tcv-body {
@@ -1289,6 +1295,9 @@ export default function TopChartView({
       `}</style>
 
       <div className="tcv-wrap">
+        {backHref && (
+          <Link href={backHref} className="tcv-back-link">← Visas archyvas</Link>
+        )}
         {/* Hero — title + + + ⋮. Countdown perkeltas į info popover'į. */}
         <div className="tcv-hero">
           <h1 className="tcv-title">{title}</h1>
@@ -1340,9 +1349,17 @@ export default function TopChartView({
           </div>
         )}
 
+        {/* Archyvo žyma: konkrečios praėjusios savaitės peržiūra (read-only). */}
+        {archiveMode && weekLabel && (
+          <div className="tcv-fallback-note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <span>Archyvinis topas — <strong>{weekLabel}</strong> savaitės rezultatai.</span>
+          </div>
+        )}
+
         {/* Fallback žyma: rodom paskutinę užbaigtą (legacy) savaitę, nes einamoji
             dar neturi balsų. Balsavimas išjungtas. */}
-        {data.isFallback && data.entries.length > 0 && weekLabel && (
+        {!archiveMode && data.isFallback && data.entries.length > 0 && weekLabel && (
           <div className="tcv-fallback-note">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
             <span>Rodomas paskutinės užbaigtos savaitės topas (<strong>{weekLabel}</strong>). Naujos savaitės balsavimas dar prasidės.</span>
