@@ -8,6 +8,7 @@ import Link from 'next/link'
 type Nomination = {
   id: number; date: string; comment: string; created_at: string
   votes: number; weighted_votes: number; removed_at: string | null
+  proposer?: { username: string | null; full_name: string | null; avatar_url: string | null } | null
   tracks: { id: number; slug: string; title: string; cover_url: string | null; artists: any } | null
 }
 
@@ -98,12 +99,13 @@ export default function AdminDienesDaina() {
     }
   }
 
-  const clearExternal = async (id: number) => {
-    if (!confirm('Išvalyti VISUS svečių (neprisijungusių) balsus už šią dainą? Narių balsai liks.')) return
-    const res = await fetch(`/api/admin/dienos-daina/votes?nomination_id=${id}&scope=external`, { method: 'DELETE' })
+  // Universalus balsų trynimas: scope=external | user_id=… | ip=…
+  const deleteVotes = async (id: number, params: string, confirmMsg: string) => {
+    if (!confirm(confirmMsg)) return
+    const res = await fetch(`/api/admin/dienos-daina/votes?nomination_id=${id}&${params}`, { method: 'DELETE' })
     const d = await res.json()
     if (res.ok) {
-      setMsg(`Pašalinta svečių balsų: ${d.deleted} ✓`)
+      setMsg(`Pašalinta balsų: ${d.deleted} ✓`)
       setTimeout(() => setMsg(''), 3500)
       loadNominations()
     } else {
@@ -111,6 +113,8 @@ export default function AdminDienesDaina() {
       setTimeout(() => setMsg(''), 3500)
     }
   }
+  const clearExternal = (id: number) =>
+    deleteVotes(id, 'scope=external', 'Išvalyti VISUS svečių (neprisijungusių) balsus už šią dainą? Narių balsai liks.')
 
   if (status === 'loading') return (
     <div className="min-h-screen flex items-center justify-center">
@@ -198,6 +202,17 @@ export default function AdminDienesDaina() {
                             <div className="min-w-0">
                               <p className="text-sm font-bold text-gray-900">{n.tracks?.title}</p>
                               <p className="text-xs text-gray-500">{artistName(n.tracks)}</p>
+                              {n.proposer && (() => {
+                                const pn = n.proposer.full_name || n.proposer.username || 'Narys'
+                                return (
+                                  <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-blue-50 py-0.5 pl-0.5 pr-2">
+                                    {n.proposer.avatar_url
+                                      ? <img src={n.proposer.avatar_url} alt="" className="h-4 w-4 rounded-full object-cover" />
+                                      : <span className="flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-extrabold text-white" style={{ background: `hsl(${strHue(pn)},45%,55%)` }}>{pn.charAt(0).toUpperCase()}</span>}
+                                    <span className="text-[10px] font-medium text-blue-700">Pasiūlė {pn}</span>
+                                  </span>
+                                )
+                              })()}
                             </div>
                             {/* Pop-bar + svert. balsai */}
                             <div className="flex items-center gap-2">
@@ -224,11 +239,12 @@ export default function AdminDienesDaina() {
                               {internal.map((v, k) => {
                                 const nm = v.full_name || v.username || 'Narys'
                                 return (
-                                  <span key={k} className="inline-flex items-center gap-1 rounded-full bg-gray-100 py-0.5 pl-0.5 pr-2">
+                                  <span key={k} className="inline-flex items-center gap-1 rounded-full bg-gray-100 py-0.5 pl-0.5 pr-1.5">
                                     {v.avatar_url
                                       ? <img src={v.avatar_url} alt="" className="h-4 w-4 rounded-full object-cover" />
                                       : <span className="flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-extrabold text-white" style={{ background: `hsl(${strHue(nm)},45%,55%)` }}>{nm.charAt(0).toUpperCase()}</span>}
                                     <span className="text-[11px] font-medium text-gray-700">{nm}</span>
+                                    <button type="button" onClick={() => deleteVotes(n.id, `user_id=${v.user_id}`, `Ištrinti nario „${nm}" balsą už šią dainą?`)} title="Ištrinti šio nario balsą" className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-red-100 hover:text-red-500">×</button>
                                   </span>
                                 )
                               })}
@@ -240,7 +256,10 @@ export default function AdminDienesDaina() {
                             <div className="mt-2 flex flex-wrap items-center gap-1.5">
                               <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Svečiai ({external.length}):</span>
                               {external.slice(0, 12).map((v, k) => (
-                                <span key={k} className="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[10px] text-amber-700">{v.ip}</span>
+                                <span key={k} className="inline-flex items-center gap-0.5 rounded bg-amber-50 py-0.5 pl-1.5 pr-1 font-mono text-[10px] text-amber-700">
+                                  {v.ip}
+                                  <button type="button" onClick={() => deleteVotes(n.id, `ip=${encodeURIComponent(v.ip)}`, `Ištrinti šio IP (${v.ip}) balsą už šią dainą?`)} title="Ištrinti šio svečio balsą" className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-amber-500 transition-colors hover:bg-red-100 hover:text-red-500">×</button>
+                                </span>
                               ))}
                               {external.length > 12 && <span className="text-[10px] text-gray-400">+{external.length - 12}</span>}
                               <button onClick={() => clearExternal(n.id)}
