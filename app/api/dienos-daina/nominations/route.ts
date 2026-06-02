@@ -87,6 +87,7 @@ export async function GET(req: Request) {
     weighted_votes: voteCounts[n.id]?.weighted || 0,
     voters: (voterIdsByNom[n.id] || []).map(uid => profileById[uid]).filter(Boolean),
     anon_votes: anonByNom[n.id] || 0,
+    own: !!sessionUserId && (n as any).user_id === sessionUserId,
   })).sort((a, b) => b.weighted_votes - a.weighted_votes)
   const alreadyNominated = !!sessionUserId && (data || []).some((n: any) => n.user_id === sessionUserId)
   return NextResponse.json({ nominations: enriched, date, already_nominated: alreadyNominated, is_authenticated: !!sessionUserId })
