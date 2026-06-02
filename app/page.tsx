@@ -1455,11 +1455,12 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
             <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
           </div>
         </button>
-        {/* Balsavimas — už savo pasiūlymą balsuoti negalima. */}
-        <div className="mt-1.5 px-0.5">
-          {n.own ? (
-            <span className="block rounded-full border border-dashed border-[var(--border-default)] py-[3px] text-center font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-faint)]">Tavo pasiūlymas</span>
-          ) : (
+        {/* Pasiūlytojo username PIRMA, po juo — balsavimo mygtukas. Už savo
+            pasiūlymą balsuoti negalima: tokiu atveju mygtuko NĖRA (kad tai tavo,
+            matosi iš username — nereikia atskiro „Tavo pasiūlymas"). 2026-06-02. */}
+        {n.proposer && <div className="mt-1.5 px-0.5"><ProposerLine p={n.proposer} /></div>}
+        {!n.own && (
+          <div className="mt-1.5 px-0.5">
             <button
               type="button"
               onClick={() => handleVote(n.id)}
@@ -1475,9 +1476,8 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
             >
               {voting === n.id ? '…' : isVotedThis ? '✓ Balsuota' : 'Balsuoti'}
             </button>
-          )}
-        </div>
-        {n.proposer && <div className="mt-1.5 px-0.5"><ProposerLine p={n.proposer} /></div>}
+          </div>
+        )}
         {n.comment && <p className="m-0 mt-1 px-0.5 line-clamp-2 text-[10.5px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
       </div>
     )
@@ -1962,25 +1962,27 @@ const IST_ACCENT: Record<string, string> = {
   death_anniversary: 'var(--text-muted)',
 }
 
-// Mažas grupių „čipas" su mini nuotraukėle — gimtadienio atlikėjo grupėms.
-function IstGroupChips({ groups, max = 2 }: { groups?: { name: string; cover: string | null }[]; max?: number }) {
+// Grupės, kurioms priklauso gimtadienio atlikėjas — kiekviena ATSKIROJE
+// eilutėje su didesniu avataru (Edvardo prašymu 2026-06-02: inline čipai buvo
+// per smulkūs/suspausti). `avatar` px ir `max` skiriasi kortelei/modalui.
+function IstGroupChips({ groups, max = 2, avatar = 20 }: { groups?: { name: string; cover: string | null }[]; max?: number; avatar?: number }) {
   if (!groups || groups.length === 0) return null
   const shown = groups.slice(0, max)
   const extra = groups.length - shown.length
   return (
-    <span className="mt-1 flex min-w-0 items-center gap-1.5">
+    <span className="mt-1.5 flex flex-col gap-1">
       {shown.map((g, i) => (
-        <span key={i} className="flex min-w-0 items-center gap-1 rounded-full bg-[var(--bg-active)] py-0.5 pl-0.5 pr-1.5">
+        <span key={i} className="flex min-w-0 items-center gap-1.5">
           {g.cover ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(g.cover)} alt="" loading="lazy" className="h-[15px] w-[15px] shrink-0 rounded-full object-cover" />
+            <img src={proxyImg(g.cover)} alt="" loading="lazy" className="shrink-0 rounded-full object-cover" style={{ width: avatar, height: avatar }} />
           ) : (
-            <span className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[8px] font-extrabold" style={{ background: `hsl(${strHue(g.name)},32%,24%)`, color: `hsl(${strHue(g.name)},48%,62%)` }}>{(g.name || '?').charAt(0).toUpperCase()}</span>
+            <span className="flex shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] font-extrabold" style={{ width: avatar, height: avatar, fontSize: avatar * 0.42, background: `hsl(${strHue(g.name)},32%,24%)`, color: `hsl(${strHue(g.name)},48%,62%)` }}>{(g.name || '?').charAt(0).toUpperCase()}</span>
           )}
-          <span className="truncate text-[10.5px] font-bold text-[var(--text-muted)]" style={{ maxWidth: 80 }}>{g.name}</span>
+          <span className="min-w-0 truncate text-[11.5px] font-semibold text-[var(--text-secondary)]">{g.name}</span>
         </span>
       ))}
-      {extra > 0 && <span className="text-[10.5px] font-bold text-[var(--text-faint)]">+{extra}</span>}
+      {extra > 0 && <span className="text-[10.5px] font-bold text-[var(--text-faint)]" style={{ paddingLeft: avatar + 6 }}>+{extra} grupė(s)</span>}
     </span>
   )
 }
@@ -2076,7 +2078,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                     const badge = it.type === 'album_anniversary'
                       ? (it.age ? `${it.age} m.` : null)
                       : it.type === 'birthday'
-                        ? (it.deceased ? null : (it.age ? `${it.age} m.` : null))
+                        ? (it.age ? (it.deceased ? `${it.age} gimimo metinės` : `${it.age} m.`) : null)
                         : (it.year ? `${it.year} m.` : null)
                     // Miręs atlikėjas → grayscale nuotrauka. Edvardo prašymu 2026-06-01.
                     const gray = it.type === 'death_anniversary' || it.deceased
@@ -2104,10 +2106,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                         {it.type === 'album_anniversary' && it.artist && (
                           <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{it.artist}</p>
                         )}
-                        {it.type === 'birthday' && it.deceased && it.age && (
-                          <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">{it.age} gimimo metinės</p>
-                        )}
-                        {it.type === 'birthday' && <IstGroupChips groups={it.groups} />}
+                        {it.type === 'birthday' && <IstGroupChips groups={it.groups} max={2} avatar={20} />}
                         {it.type === 'death_anniversary' && it.subtitle && (
                           <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">{it.subtitle}</p>
                         )}
@@ -2201,19 +2200,17 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                 <IstThumb cover={it.cover} name={it.title} size={52} radius={10} gray={it.type === 'death_anniversary' || it.deceased} />
                 <div className="min-w-0 flex-1">
                   <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
-                  {it.type === 'birthday' && it.deceased && it.age && (
-                    <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-[var(--text-muted)]">{it.age} gimimo metinės</p>
-                  )}
                   {it.type === 'death_anniversary' && it.subtitle && (
                     <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-[var(--text-muted)]">{it.subtitle}</p>
                   )}
-                  {it.type === 'birthday' && <IstGroupChips groups={it.groups} max={3} />}
-                  {it.type !== 'birthday' && (() => {
-                    const b = it.year ? `${it.year} m.` : null
-                    return b ? <span className="mt-1 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-faint)]">{b}</span> : null
-                  })()}
-                  {it.type === 'birthday' && !it.deceased && it.age && (
-                    <span className="mt-1 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-faint)]">{it.age} m.</span>
+                  {it.type === 'birthday' && <IstGroupChips groups={it.groups} max={3} avatar={24} />}
+                  {/* Amžiaus/„gimimo metinės" badge'as (ne tekstas) — Edvardo
+                      prašymu 2026-06-02. */}
+                  {it.type === 'birthday' && it.age && (
+                    <span className="mt-1.5 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-faint)]">{it.deceased ? `${it.age} gimimo metinės` : `${it.age} m.`}</span>
+                  )}
+                  {it.type === 'death_anniversary' && it.year && (
+                    <span className="mt-1.5 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-faint)]">{it.year} m.</span>
                   )}
                 </div>
               </Link>

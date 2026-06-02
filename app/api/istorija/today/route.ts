@@ -190,14 +190,24 @@ async function fetchToday(): Promise<IstItem[]> {
           if (v > (viewByAlbum.get(r.album_id) || 0)) viewByAlbum.set(r.album_id, v)
         }
         const popTier = (v: number) => (v >= 5e6 ? 5 : v >= 1e6 ? 4 : v >= 2e5 ? 3 : v >= 3e4 ? 2 : v > 0 ? 1 : 0)
-        for (const it of items as any[]) if (it.type === 'album_anniversary') it.pop = popTier(viewByAlbum.get(it.albumId) || 0)
+        for (const it of items as any[]) if (it.type === 'album_anniversary') {
+          const v = viewByAlbum.get(it.albumId) || 0
+          it._views = v
+          it.pop = popTier(v)
+        }
       } catch {}
     }
   } catch {}
 
-  // Rikiavimas pagal atlikėjo populiarumą (score) desc — populiariausi pirmi;
-  // tiebreak pagal metų skaičių. Komponentas grupuoja pagal tipą (eilė išliks).
-  items.sort((a: any, b: any) => (b.score || 0) - (a.score || 0) || (b.age || 0) - (a.age || 0))
+  // Rikiavimas. Komponentas grupuoja pagal tipą, tad svarbi TIK eilė tipo viduje.
+  //  - album_anniversary: pagal populiarumą = YT peržiūros + music.lt patiktukai
+  //    (likes sveriami, kad ir mažiau žiūrėtas bet mėgstamas albumas kiltų).
+  //    Edvardo prašymu 2026-06-02.
+  //  - kiti tipai: pagal atlikėjo populiarumą (score) desc, tiebreak pagal amžių.
+  const rankOf = (x: any) => x.type === 'album_anniversary'
+    ? (x._views || 0) + (x.likeCount || 0) * 1000
+    : (x.score || 0)
+  items.sort((a: any, b: any) => (rankOf(b) - rankOf(a)) || (b.age || 0) - (a.age || 0))
   return (items as IstItem[]).slice(0, 40)
 }
 
