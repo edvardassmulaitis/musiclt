@@ -502,18 +502,15 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
       {byCountry.length > 0 && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
           <div style={{ ...SEC_HEAD, marginBottom: 10 }}>Pagal šalis</div>
-          <div className="sh-style-grid">{byCountry.map(featCard)}</div>
+          <div className="sh-style-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>{byCountry.map(featCard)}</div>
         </div>
       )}
 
       {/* ── Kiti topai: Pasaulio / Viral / Albumai ── */}
       {otherCharts.length > 0 && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{ ...SEC_HEAD, paddingTop: 2 }}>Kiti topai</span>
-            <Link href="/topai" className="sh-more-link">Daugiau →</Link>
-          </div>
-          <div className="sh-style-grid">{otherCharts.map(featCard)}</div>
+          <div style={{ ...SEC_HEAD, marginBottom: 10 }}>Kiti topai</div>
+          <div className="sh-style-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>{otherCharts.map(featCard)}</div>
         </div>
       )}
       {featured.length === 0 && (
@@ -527,10 +524,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
 
       {/* ── Apdovanojimai / rinkimai ── */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{ ...SEC_HEAD, paddingTop: 2 }}>Apdovanojimai ir rinkimai</span>
-          <Link href="/balsavimai" className="sh-more-link">Daugiau →</Link>
-        </div>
+        <div style={{ ...SEC_HEAD, marginBottom: 10 }}>Apdovanojimai ir rinkimai</div>
         {votings.length > 0 ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {votings.map(v => (
