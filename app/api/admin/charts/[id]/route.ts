@@ -16,6 +16,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (typeof body.featured === 'boolean') patch.featured = body.featured
   if ('featured_order' in body) patch.featured_order = body.featured_order === null ? null : parseInt(body.featured_order, 10)
   if ('cover_image_url' in body) patch.cover_image_url = body.cover_image_url || null
+  if (typeof body.title === 'string' && body.title.trim()) patch.title = body.title.trim()
+  if ('country' in body) patch.country = body.country ? String(body.country).trim().toUpperCase() : null
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: 'nothing to update' }, { status: 400 })
 
   const sb = createAdminClient()

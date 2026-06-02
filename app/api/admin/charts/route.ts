@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const sb = createAdminClient()
   let query = sb
     .from('external_charts')
-    .select('id, source, chart_key, title, subtitle, scope, size, accent, period_label, attribution, source_url, fetched_at, featured, featured_order, cover_image_url')
+    .select('id, source, chart_key, title, subtitle, scope, country, size, accent, period_label, attribution, source_url, fetched_at, featured, featured_order, cover_image_url')
     .eq('is_current', true)
   if (!includeAll) query = query.neq('source', 'consensus')   // konsensusas auto-derived — ne rankiniam resolve
   const { data: charts, error } = await query

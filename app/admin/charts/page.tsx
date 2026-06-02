@@ -7,7 +7,7 @@ type Counts = { total: number; matched: number; created: number; text_only: numb
 type Chart = {
   id: number; source: string; chart_key: string; title: string; subtitle: string | null
   scope: string; size: number; accent: string; period_label: string; attribution: string | null
-  source_url: string | null; counts: Counts
+  source_url: string | null; counts: Counts; country?: string | null
   featured?: boolean; featured_order?: number | null; cover_image_url?: string | null
 }
 type ArtistStatus = { name: string; exists: boolean; id: number | null; slug: string | null }
@@ -41,8 +41,8 @@ export default function AdminChartsPage() {
   const [creating, setCreating] = useState(false)
   const [createProgress, setCreateProgress] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'unresolved'>('all')
-  const [featuredEdit, setFeaturedEdit] = useState(false)
-  const [coverEdit, setCoverEdit] = useState('')
+  const [titleEdit, setTitleEdit] = useState('')
+  const [countryEdit, setCountryEdit] = useState('')
   const [savingMeta, setSavingMeta] = useState(false)
   const detailRef = useRef<HTMLDivElement>(null)
 
@@ -64,21 +64,22 @@ export default function AdminChartsPage() {
 
   const openChart = (c: Chart) => {
     setSelected(c); setFilter('all'); loadEntries(c.id)
-    setFeaturedEdit(!!c.featured); setCoverEdit(c.cover_image_url || '')
+    setTitleEdit(c.title || ''); setCountryEdit(c.country || '')
     // Mobile: po pasirinkimo iškart nuscrollinam į įrašų sąrašą (ne ranka).
     setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
   }
 
+  // Išsaugo topo pavadinimą + vėliavos šalį (vizualai — atskirai /admin/topai).
   const saveMeta = async () => {
     if (!selected) return
     setSavingMeta(true)
     await fetch(`/api/admin/charts/${selected.id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ featured: featuredEdit, cover_image_url: coverEdit.trim() || null }),
+      body: JSON.stringify({ title: titleEdit.trim() || selected.title, country: countryEdit.trim() || null }),
     }).catch(() => null)
     setSavingMeta(false)
     await loadCharts()
-    setSelected(s => s ? { ...s, featured: featuredEdit, cover_image_url: coverEdit.trim() || null } : s)
+    setSelected(s => s ? { ...s, title: titleEdit.trim() || s.title, country: countryEdit.trim() || null } : s)
   }
 
   const autoMatch = async () => {
@@ -131,9 +132,10 @@ export default function AdminChartsPage() {
             „Auto-match" automatiškai susieja vienareikšmius, likę lieka peržiūrai.
           </p>
         </div>
-        <a href="/admin/topai" className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100">
-          Topų vizualai →
-        </a>
+        <div className="flex shrink-0 items-center gap-2">
+          <a href="/admin/charts/missing" className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100">Trūkstamos dainos →</a>
+          <a href="/admin/topai" className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100">Topų vizualai →</a>
+        </div>
       </div>
 
       {/* Chart grid */}
@@ -144,33 +146,24 @@ export default function AdminChartsPage() {
           Topų dar nėra. Paleisk <code className="rounded bg-gray-100 px-1.5 py-0.5">scraper/charts/ingest.py</code> arba scheduled task'ą.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
           {charts.map(c => {
             const ct = c.counts || { total: 0, matched: 0, created: 0, text_only: 0, pending: 0 }
             const resolved = ct.matched + ct.created
             const pct = ct.total ? Math.round((resolved / ct.total) * 100) : 0
+            const isSel = selected?.id === c.id
             return (
               <button key={c.id} onClick={() => openChart(c)}
-                className={`group rounded-xl border bg-white p-4 text-left transition-all hover:shadow-md ${selected?.id === c.id ? 'border-violet-400 ring-1 ring-violet-200' : 'border-gray-200'}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.accent }} />
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{SCOPE_LT[c.scope] || c.scope}</span>
-                    </div>
-                    <h3 className="mt-1 truncate font-bold text-gray-900">{c.title}</h3>
-                    <p className="text-[11px] text-gray-400">{c.period_label} · {ct.total} įrašai</p>
-                  </div>
-                </div>
-                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-                  <div className="h-full rounded-full bg-emerald-400" style={{ width: `${pct}%` }} />
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold">
-                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">{ct.matched} susieta</span>
-                  {ct.created > 0 && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700">{ct.created} sukurta</span>}
-                  {(ct.pending > 0) && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-700">{ct.pending} laukia</span>}
-                  {ct.text_only > 0 && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-500">{ct.text_only} tekstas</span>}
-                </div>
+                className={`flex w-full items-center gap-3 border-b border-gray-100 px-3 py-2 text-left last:border-b-0 transition-colors ${isSel ? 'bg-violet-50' : 'hover:bg-gray-50'}`}>
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: c.accent }} />
+                <span className="w-14 shrink-0 text-[9px] font-bold uppercase tracking-wide text-gray-400">{SCOPE_LT[c.scope] || c.scope}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800">{c.title}</span>
+                {/* progresas */}
+                <span className="hidden h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-gray-100 sm:block">
+                  <span className="block h-full rounded-full bg-emerald-400" style={{ width: `${pct}%` }} />
+                </span>
+                <span className="shrink-0 text-[11px] tabular-nums text-gray-500">{resolved}/{ct.total}</span>
+                {ct.pending > 0 && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">{ct.pending}</span>}
               </button>
             )
           })}
@@ -202,18 +195,21 @@ export default function AdminChartsPage() {
             </div>
           </div>
 
-          {/* „Kiti topai" plytelės nustatymai (nav dropdown vizualas) */}
-          <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-4 py-2.5">
-            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
-              <input type="checkbox" checked={featuredEdit} onChange={e => setFeaturedEdit(e.target.checked)} className="h-3.5 w-3.5 rounded" />
-              Rodyti „Kiti topai" plytelėse
-            </label>
+          {/* Pavadinimas + vėliavos šalis (vizualus header — /admin/topai) */}
+          <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-gray-50/60 px-4 py-2.5">
+            <span className="text-[11px] font-semibold text-gray-500">Pavadinimas</span>
             <input
-              value={coverEdit} onChange={e => setCoverEdit(e.target.value)}
-              placeholder="Plytelės paveiksliuko URL (nebūtina)"
-              className="min-w-[180px] flex-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs outline-none focus:border-violet-400"
+              value={titleEdit} onChange={e => setTitleEdit(e.target.value)}
+              className="min-w-[200px] flex-1 rounded-md border border-gray-200 px-2.5 py-1 text-sm outline-none focus:border-violet-400"
             />
-            {coverEdit.trim() && <img src={coverEdit} alt="" className="h-7 w-10 rounded object-cover" />}
+            <span className="text-[11px] font-semibold text-gray-500">Vėliava</span>
+            <select value={countryEdit} onChange={e => setCountryEdit(e.target.value)}
+              className="rounded-md border border-gray-200 px-2 py-1 text-xs outline-none focus:border-violet-400">
+              <option value="">— nėra —</option>
+              <option value="LT">🇱🇹 Lietuva</option>
+              <option value="US">🇺🇸 JAV</option>
+              <option value="GB">🇬🇧 UK</option>
+            </select>
             <button onClick={saveMeta} disabled={savingMeta}
               className="rounded-md bg-gray-800 px-3 py-1 text-xs font-semibold text-white hover:bg-gray-700 disabled:opacity-50">
               {savingMeta ? 'Saugoma…' : 'Išsaugoti'}
