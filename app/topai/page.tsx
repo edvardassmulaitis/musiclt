@@ -44,14 +44,16 @@ async function getMiniChart(sb: any, topType: string, limit = 5): Promise<Entry[
   const { week } = await resolveDisplayWeek(sb, topType)
   if (!week) return []
   const { data: rows } = await sb.from('top_entries')
-    .select('position, total_votes, artist_name, title, tracks:track_id ( slug, title, cover_url, artists:artist_id ( slug, name ) )')
+    .select('position, total_votes, artist_name, title, tracks:track_id ( slug, title, cover_url, video_url, artists:artist_id ( slug, name, cover_image_url ) )')
     .eq('week_id', week.id)
     .order(week.is_finalized ? 'position' : 'total_votes', { ascending: !!week.is_finalized })
     .limit(limit)
   return (rows || []).map((r: any, i: number) => {
     const tr = Array.isArray(r.tracks) ? r.tracks[0] : r.tracks
     const ar = tr ? (Array.isArray(tr.artists) ? tr.artists[0] : tr.artists) : null
-    return { position: r.position ?? i + 1, title: tr?.title ?? r.title ?? '—', artistName: ar?.name ?? r.artist_name ?? '—', coverUrl: tr?.cover_url ?? null }
+    // Cover fallback: track cover → YT thumbnail (iš video_url) → atlikėjo nuotrauka
+    const cover = tr?.cover_url || ytThumb(tr?.video_url) || ar?.cover_image_url || null
+    return { position: r.position ?? i + 1, title: tr?.title ?? r.title ?? '—', artistName: ar?.name ?? r.artist_name ?? '—', coverUrl: cover }
   })
 }
 
@@ -123,7 +125,13 @@ export default async function TopaiHubPage() {
     <div className="tp">
       <style>{styles}</style>
 
-      <header className="tp-hero"><h1 className="tp-hero-title">Muzikos topai</h1></header>
+      <header className="tp-hero">
+        <h1 className="tp-hero-title">Muzikos topai</h1>
+        <Link href="/topai/archyvas" className="tp-archive-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          Praėjusių savaičių archyvas →
+        </Link>
+      </header>
 
       <div className="tp-grid">
         {mainCards.map(c => <ChartCard key={c.key} card={c} cta="Žiūrėti →" />)}
@@ -221,8 +229,11 @@ function ChartCard({ card, cta }: { card: Card; cta: string }) {
 /* ───────────────────────────── Styles ───────────────────────────── */
 const styles = `
   .tp { max-width: 1120px; margin: 0 auto; padding: 40px 20px 80px; color: var(--text-primary); font-family: 'DM Sans', sans-serif; }
-  .tp-hero { margin-bottom: 22px; }
+  .tp-hero { margin-bottom: 22px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .tp-hero-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: clamp(28px, 5vw, 44px); font-weight: 900; letter-spacing: -0.03em; }
+  .tp-archive-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
+  .tp-archive-link:hover { color: var(--text-primary); }
+  .tp-archive-link svg { flex-shrink: 0; }
 
   .tp-section { margin-top: 34px; }
   .tp-sec-title { margin: 0 0 14px; font-family: 'Outfit', sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }

@@ -55,22 +55,28 @@ export async function resolveDisplayWeek(
     .eq('top_type', topType)
     .eq('week_start', thisMonday)
     .maybeSingle()
-  if (cur) {
+  const hasEntries = async (weekId: number) => {
     const { count } = await supabase
       .from('top_entries')
       .select('id', { count: 'exact', head: true })
-      .eq('week_id', cur.id)
-    if ((count || 0) > 0) return { week: cur, isFallback: false }
+      .eq('week_id', weekId)
+    return (count || 0) > 0
   }
-  const { data: fin } = await supabase
+  if (cur && (await hasEntries(cur.id))) return { week: cur, isFallback: false }
+
+  // Fallback: naujausia finalizuota savaitė KURI TURI entries. Svarbu —
+  // gali egzistuoti tuščia finalizuota live savaitė (0 balsų), tokią praleidžiam,
+  // kitaip rodytume tuščią sąrašą vietoj migruoto legacy archyvo.
+  const { data: fins } = await supabase
     .from('top_weeks')
     .select('*')
     .eq('top_type', topType)
     .eq('is_finalized', true)
     .order('week_start', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (fin) return { week: fin, isFallback: true }
+    .limit(12)
+  for (const w of (fins || [])) {
+    if (await hasEntries(w.id)) return { week: w, isFallback: true }
+  }
   return { week: cur ?? null, isFallback: false }
 }
 

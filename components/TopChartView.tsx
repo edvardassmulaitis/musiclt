@@ -592,11 +592,14 @@ export default function TopChartView({
   // balsavimas tokioms savaitėms išjungtas (weekId=0 → VoteButton nerodomas).
   const readOnly = !!data.isFallback || !!data.week?.is_finalized
   const voteWeekId = readOnly ? 0 : (data.week?.id ?? 0)
-  const newcomers = data.entries.filter(e => (e.weeks_in_top || 0) === 0)
-  const mainTop = data.entries.filter(e =>
-    (e.weeks_in_top || 0) >= 1 && (e.position || 0) <= TOP_SIZE
-  )
-  const belowTop = data.entries.filter(e =>
+  // Read-only (archyvo/finalizuotos) savaitės rodom kaip paprastą ranked sąrašą
+  // pagal position — JOKIO newcomer/below skirstymo. Legacy entries dažnai turi
+  // weeks_in_top=null, tad senasis split visus paverstų "naujienomis".
+  const newcomers = readOnly ? [] : data.entries.filter(e => (e.weeks_in_top || 0) === 0)
+  const mainTop = readOnly
+    ? data.entries.filter(e => (e.position || 0) >= 1 && (e.position || 0) <= TOP_SIZE)
+    : data.entries.filter(e => (e.weeks_in_top || 0) >= 1 && (e.position || 0) <= TOP_SIZE)
+  const belowTop = readOnly ? [] : data.entries.filter(e =>
     (e.weeks_in_top || 0) >= 1 && (e.position || 0) > TOP_SIZE
   )
 
