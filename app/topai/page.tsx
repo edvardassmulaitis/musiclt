@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 type Entry = { position: number; title: string; artistName: string; coverUrl: string | null }
 type Card = {
   key: string; title: string; href: string; country: string | null
-  coverImageUrl: string | null; accent: string | null
+  coverImageUrl: string | null; accent: string | null; noFlag?: boolean
   entries: Entry[]; sources: { label: string; slug: string }[]
 }
 
@@ -103,8 +103,8 @@ export default async function TopaiHubPage() {
   ])
 
   const mainCards: Card[] = [
-    { key: 'top40', title: 'TOP 40', href: '/top40', country: null, coverImageUrl: null, accent: '#f97316', entries: top40, sources: [] },
-    { key: 'top30', title: 'LT TOP 30', href: '/top30', country: 'LT', coverImageUrl: null, accent: '#22c55e', entries: top30, sources: [] },
+    { key: 'top40', title: 'Music.lt TOP 40', href: '/top40', country: null, coverImageUrl: null, accent: null, noFlag: true, entries: top40, sources: [] },
+    { key: 'top30', title: 'Music.lt LT TOP 30', href: '/top30', country: 'LT', coverImageUrl: null, accent: null, noFlag: true, entries: top30, sources: [] },
   ]
 
   const songCards: Card[] = [
@@ -126,7 +126,6 @@ export default async function TopaiHubPage() {
       <style>{styles}</style>
 
       <header className="tp-hero">
-        <h1 className="tp-hero-title">Muzikos topai</h1>
         <Link href="/topai/archyvas" className="tp-archive-link">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
           Praėjusių savaičių archyvas →
@@ -177,7 +176,7 @@ function ChartCard({ card, cta }: { card: Card; cta: string }) {
     <div className={`tc${accent ? ' tc-brand' : ''}`} style={accent ? { ['--c' as any]: accent } : undefined}>
       <Link href={card.href} className="tc-main">
         <div className="tc-head">
-          <Flag country={card.country} image={card.coverImageUrl} />
+          {!card.noFlag && <Flag country={card.country} image={card.coverImageUrl} />}
           <span className="tc-title">{card.title}</span>
           <span className="tc-cta">{cta}</span>
         </div>

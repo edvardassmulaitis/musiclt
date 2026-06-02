@@ -63,7 +63,7 @@ type NavPreview = {
   /** „Kiti topai" plytelės (featured išoriniai, admin-managed vizualai) */
   featuredCharts?: {
     id: number; source: string; chartKey: string; title: string; subtitle: string | null
-    scope: string; accent: string; image: string | null; period: string; size: number
+    scope: string; country: string | null; accent: string; image: string | null; period: string; size: number
   }[]
   /** Apdovanojimai / rinkimai — voting editions */
   votings?: {
@@ -437,6 +437,10 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
 
   const anchor = (s: string) => s === 'world' ? '/topai#pasaulio-topai' : s === 'social' ? '/topai#trendai' : '/topai#lt-topai'
   const scopeGlyph = (s: string) => (s === 'social' ? I.trending : I.trophy)
+  const flagBg = (cc: string | null) => {
+    const c = (cc || '').toLowerCase()
+    return (c === 'lt' || c === 'us' || c === 'gb') ? `https://flagcdn.com/w320/${c}.png` : null
+  }
 
   const renderCol = (badge: string, title: string, href: string, hex: string, entries: TopMini[]) => (
     <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
@@ -474,7 +478,8 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
         </div>
         <div className="sh-style-grid">
           {featured.map(c => {
-            const hasImg = !!c.image
+            const bg = c.image ? proxyImg(c.image) : flagBg(c.country)
+            const hasImg = !!bg
             return (
               <Link
                 key={c.id}
@@ -482,7 +487,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
                 className={`sh-style-card${hasImg ? ' sh-style-card-photo' : ''}`}
                 style={{
                   ['--it-rgb' as any]: hexToRgb(c.accent),
-                  ...(hasImg ? { backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.30) 55%, rgba(0,0,0,0.10) 100%), url(${proxyImg(c.image)})` } : {}),
+                  ...(hasImg ? { backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.42) 55%, rgba(0,0,0,0.20) 100%), url(${bg})` } : {}),
                 }}
                 title={c.title}
               >

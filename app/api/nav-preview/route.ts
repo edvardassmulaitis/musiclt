@@ -125,7 +125,7 @@ export async function GET() {
       getTopMini(supabase, 'top40', 4),
       supabase
         .from('external_charts')
-        .select('id, source, chart_key, title, subtitle, scope, accent, cover_image_url, period_label, size')
+        .select('id, source, chart_key, title, subtitle, scope, country, accent, cover_image_url, period_label, size')
         .eq('is_current', true).eq('featured', true)
         .order('featured_order', { ascending: true })
         .limit(8),
@@ -196,7 +196,7 @@ export async function GET() {
       topChart: { top30: top30Mini, top40: top40Mini },
       featuredCharts: (featuredRes.data || []).map((c: any) => ({
         id: c.id, source: c.source, chartKey: c.chart_key, title: c.title,
-        subtitle: c.subtitle, scope: c.scope, accent: c.accent || '#6366f1',
+        subtitle: c.subtitle, scope: c.scope, country: c.country ?? null, accent: c.accent || '#6366f1',
         image: c.cover_image_url || null, period: c.period_label, size: c.size,
       })),
       votings: (votingsRes.data || []).map((v: any) => {
