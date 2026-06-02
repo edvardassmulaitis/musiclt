@@ -63,7 +63,7 @@ export function DailyPicksCards({ picks }: { picks: Pick[] }) {
   )
 }
 
-function DailyPickCard({ pick }: { pick: Pick }) {
+export function DailyPickCard({ pick }: { pick: Pick }) {
   const track = pick.tracks
   const artist = track && (Array.isArray((track as any).artists) ? (track as any).artists[0] : track.artists)
   const rawThumb = ytThumb(track?.video_url) || track?.cover_url || artist?.cover_image_url || null

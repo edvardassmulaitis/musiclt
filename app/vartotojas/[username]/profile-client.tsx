@@ -22,7 +22,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { SideEqualizer } from '@/components/profile/SideEqualizer'
-import { DailyPicksCards } from '@/components/profile/DailyPicksCards'
+import { DailyPickCard } from '@/components/profile/DailyPicksCards'
 import { ProfileInfoModal } from '@/components/profile/ProfileInfoModal'
 import { GenreFilterModal } from '@/components/profile/GenreFilterModal'
 import { MoreItemsModal } from '@/components/profile/MoreItemsModal'
@@ -45,7 +45,7 @@ export function ProfileClient(props: any) {
   const {
     profile, favoriteArtists, favoriteStyles, favoriteAlbums, favoriteTracks, likesCounts,
     blog,
-    regularPosts, topasPosts, memberSinceYear, stats, moodTrack, dailyPicks, translations,
+    postLanes, postTypeCounts, memberSinceYear, stats, moodTrack, dailyPicks, translations,
     recentComments,
   } = props
 
@@ -53,7 +53,6 @@ export function ProfileClient(props: any) {
   const [tasteOpen, setTasteOpen] = useState(false)
   const [tasteInitial, setTasteInitial] = useState<AnyFilter | null>(null)
   const [moreOpen, setMoreOpen] = useState<'artist' | 'album' | 'track' | null>(null)
-  const [feedFilter, setFeedFilter] = useState<string | null>(null)
 
   const openTaste = (preGenre?: string | null) => {
     setTasteInitial(preGenre ? { kind: 'genre', name: preGenre } : null)
@@ -84,55 +83,39 @@ export function ProfileClient(props: any) {
     return 0
   }, [totalContent])
 
-  const combinedPosts = useMemo(() => {
-    const allPosts: any[] = []
-    for (const p of regularPosts) allPosts.push({ ...p, _kind: 'post' })
-    for (const p of topasPosts) allPosts.push({ ...p, _kind: 'topas' })
-    for (const t of translations) {
-      const tslug = Array.isArray(t.blogs) ? t.blogs[0]?.slug : t.blogs?.slug
-      const targetArtist = Array.isArray(t.target_artist) ? t.target_artist[0] : t.target_artist
-      const targetTrack = Array.isArray(t.target_track) ? t.target_track[0] : t.target_track
-      allPosts.push({
-        id: t.id,
-        slug: t.slug,
-        title: t.title,
-        summary: targetArtist
-          ? `${targetArtist.name}${targetTrack ? ' — ' + targetTrack.title : ''}`
-          : null,
-        cover_image_url: null,
-        published_at: t.published_at || t.created_at,
-        post_type: 'translation',
-        _kind: 'translation',
-        _blogSlug: tslug,
+  // V12 (2026-06-02): turinio juostos pagal tipą. page.tsx atsiunčia per-type
+  // sample postus (postLanes) + TIKRUS count'us (postTypeCounts). Juosta rodoma
+  // tik jei tipas turi įrašų. translation juosta — iš `translations` prop'o.
+  const contentLanes = useMemo(() => {
+    if (!blog) return [] as { type: string; count: number; posts: any[] }[]
+    const byType = new Map<string, any[]>((postLanes || []).map((l: any) => [l.type, l.posts]))
+    const lanes: { type: string; count: number; posts: any[] }[] = []
+    for (const t of ['article', 'creation', 'topas']) {
+      const posts = byType.get(t) || []
+      const count = postTypeCounts?.[t] || 0
+      if (count > 0 && posts.length > 0) lanes.push({ type: t, count, posts })
+    }
+    // Vertimai — iš translations prop'o (normalizuojam į post-like shape)
+    const trCount = postTypeCounts?.translation || 0
+    if (trCount > 0 && (translations?.length || 0) > 0) {
+      const trPosts = (translations as any[]).map((t) => {
+        const tslug = Array.isArray(t.blogs) ? t.blogs[0]?.slug : t.blogs?.slug
+        const targetArtist = Array.isArray(t.target_artist) ? t.target_artist[0] : t.target_artist
+        const targetTrack = Array.isArray(t.target_track) ? t.target_track[0] : t.target_track
+        return {
+          id: t.id, slug: t.slug, title: t.title,
+          summary: targetArtist ? `${targetArtist.name}${targetTrack ? ' — ' + targetTrack.title : ''}` : null,
+          cover_image_url: null,
+          published_at: t.published_at || t.created_at,
+          post_type: 'translation', display_post_type: 'translation',
+          like_count: t.like_count || 0, comment_count: t.comment_count || 0,
+          _blogSlug: tslug,
+        }
       })
+      lanes.push({ type: 'translation', count: trCount, posts: trPosts })
     }
-    // V11.3: NaN-safe — published_at gali būti null translation'ams iš senų
-    // import'ų; toks įrašas keliauja į galą sąrašo, ne sklendžia nepredictably.
-    return allPosts.sort((a, b) => {
-      const at = a.published_at ? new Date(a.published_at).getTime() : 0
-      const bt = b.published_at ? new Date(b.published_at).getTime() : 0
-      return bt - at
-    })
-  }, [regularPosts, topasPosts, translations])
-
-  // V11.6: post type counts + filter logic naudoja display_post_type
-  // (article → 'self' jei nėra music attachments — page.tsx pažymėjo).
-  const postCounts = useMemo<Record<string, number>>(() => {
-    const c: Record<string, number> = {}
-    for (const p of combinedPosts) {
-      const t = p.display_post_type || p.post_type || 'other'
-      c[t] = (c[t] || 0) + 1
-    }
-    return c
-  }, [combinedPosts])
-
-  const filteredPosts = useMemo(() => {
-    if (!feedFilter) return combinedPosts
-    return combinedPosts.filter((p: any) => (p.display_post_type || p.post_type || 'other') === feedFilter)
-  }, [combinedPosts, feedFilter])
-
-  const featuredPost = filteredPosts[0] || null
-  const sidePosts = filteredPosts.slice(1, 5)
+    return lanes
+  }, [blog, postLanes, postTypeCounts, translations])
 
   // V11: filtravimas dabar gyvena modal'e (GenreFilterModal), čia tik
   // perduodam pilnus sąrašus (favoriteArtists + dailyPicks) + initialFilter.
@@ -235,14 +218,17 @@ export function ProfileClient(props: any) {
                     )}
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setInfoOpen(true)}
-                  className="mt-1 text-[11px] font-bold transition hover:opacity-80"
-                  style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
-                >
-                  Daugiau →
-                </button>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInfoOpen(true)}
+                    className="text-[11px] font-bold transition hover:opacity-80"
+                    style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
+                  >
+                    Daugiau →
+                  </button>
+                  <ShareButton username={profile.username} />
+                </div>
               </div>
 
               {moodTrack && (
@@ -334,14 +320,17 @@ export function ProfileClient(props: any) {
                 </p>
               )}
 
-              <button
-                type="button"
-                onClick={() => setInfoOpen(true)}
-                className="text-sm font-bold transition hover:opacity-80 self-start"
-                style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
-              >
-                Daugiau →
-              </button>
+              <div className="flex items-center gap-2.5 self-start">
+                <button
+                  type="button"
+                  onClick={() => setInfoOpen(true)}
+                  className="text-sm font-bold transition hover:opacity-80"
+                  style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
+                >
+                  Daugiau →
+                </button>
+                <ShareButton username={profile.username} />
+              </div>
             </div>
 
             {/* Mood (viduryje, tik jei moodTrack yra) */}
@@ -371,26 +360,11 @@ export function ProfileClient(props: any) {
       {/* ═════════════════ BODY ═════════════════ */}
       <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 pb-20">
 
-        {/* ĮRAŠAI — V11.5: tag chips filter (Visi / Straipsnis N / Recenzija N / ...) */}
-        {combinedPosts.length > 0 && blog && (
-          <section className="mt-8 sm:mt-10">
-            <PostTypeTagBar
-              counts={postCounts}
-              current={feedFilter}
-              total={combinedPosts.length}
-              onChange={setFeedFilter}
-              allInUrl={{ href: `/blogas/${blog.slug}`, label: 'Visi įrašai →' }}
-            />
-            {filteredPosts.length > 0 ? (
-              <CombinedFeed featured={featuredPost} sidePosts={sidePosts} blogSlug={blog.slug} />
-            ) : (
-              <p className="text-sm py-6 text-center"
-                 style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
-                Pagal šį tipą įrašų nėra.
-              </p>
-            )}
-          </section>
-        )}
+        {/* ĮRAŠAI — V12: turinio juostos pagal tipą (Dienoraštis / Kūryba /
+            Topai / Vertimai). Tikri count'ai, tuščio tipo juostos nerodom. */}
+        {blog && contentLanes.map((lane) => (
+          <PostLane key={lane.type} lane={lane} blogSlug={blog.slug} />
+        ))}
 
         {/* DIENOS DAINOS PASIRINKIMAI */}
         {dailyPicks.length > 0 && (
@@ -428,42 +402,36 @@ export function ProfileClient(props: any) {
         {/* MĖGSTAMI ALBUMAI — V11.7: rodome ir kai legacy_liked_albums_count
             yra, net jei pending=0 (galimas user_username case mismatch
             likes lentelei) */}
-        {(favoriteAlbums.length > 0 || (likesCounts?.album?.pending || 0) > 0 || (profile.legacy_liked_albums_count || 0) > 0) && (
+        {/* V12 (#6): rodom TIK kai yra realių įrašų — jokių pending-only
+            placeholder'ių, kad reti profiliai atrodytų užpildyti turima info. */}
+        {favoriteAlbums.length > 0 && (
           <section className="mt-8 sm:mt-10">
             <SectionHeader
               title="Mėgstami albumai"
               meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0, profile.legacy_liked_albums_count)}
             />
-            {favoriteAlbums.length > 0 ? (
-              <AlbumsFullWidth
-                albums={favoriteAlbums}
-                maxShown={12}
-                onOpenMore={() => setMoreOpen('album')}
-                totalCount={albumResolvedTotal}
-              />
-            ) : (
-              <EmptyMigrationState what="albumus" />
-            )}
+            <AlbumsFullWidth
+              albums={favoriteAlbums}
+              maxShown={12}
+              onOpenMore={() => setMoreOpen('album')}
+              totalCount={albumResolvedTotal}
+            />
           </section>
         )}
 
         {/* MĖGSTAMOS DAINOS */}
-        {(favoriteTracks.length > 0 || (likesCounts?.track?.pending || 0) > 0 || (profile.legacy_liked_tracks_count || 0) > 0) && (
+        {favoriteTracks.length > 0 && (
           <section className="mt-8 sm:mt-10">
             <SectionHeader
               title="Mėgstamos dainos"
               meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0, profile.legacy_liked_tracks_count)}
             />
-            {favoriteTracks.length > 0 ? (
-              <TracksFullWidth
-                tracks={favoriteTracks}
-                maxShown={12}
-                onOpenMore={() => setMoreOpen('track')}
-                totalCount={trackResolvedTotal}
-              />
-            ) : (
-              <EmptyMigrationState what="dainas" />
-            )}
+            <TracksFullWidth
+              tracks={favoriteTracks}
+              maxShown={12}
+              onOpenMore={() => setMoreOpen('track')}
+              totalCount={trackResolvedTotal}
+            />
           </section>
         )}
 
@@ -537,6 +505,42 @@ function trackMeta(resolved: number, pending: number, legacyCount?: number | nul
   if (resolved === 0 && pending > 0) return `dar laukia ${pending.toLocaleString('lt-LT')}`
   if (pending > 0) return `${resolved.toLocaleString('lt-LT')} matomos · ${pending.toLocaleString('lt-LT')} laukia`
   return `${resolved.toLocaleString('lt-LT')} dainų`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// V12: Dalintis mygtukas — native share (mobile) → clipboard fallback. /@username.
+// ─────────────────────────────────────────────────────────────────────────────
+function ShareButton({ username }: { username: string }) {
+  const [copied, setCopied] = useState(false)
+  const onClick = async () => {
+    const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/@${username}`
+    try {
+      if (typeof navigator !== 'undefined' && (navigator as any).share) {
+        await (navigator as any).share({ title: `${username} — music.lt`, url })
+        return
+      }
+    } catch { /* user cancelled — fall through to copy */ }
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch { /* ignore */ }
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Dalintis profiliu"
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition hover:opacity-90"
+      style={{ fontFamily: "'Outfit', sans-serif", background: 'rgba(255,255,255,0.13)', color: '#fff', border: '1px solid rgba(255,255,255,0.24)' }}
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+      </svg>
+      {copied ? 'Nukopijuota' : 'Dalintis'}
+    </button>
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1118,7 +1122,7 @@ function DailyPicksScrollRow({
       <div className="flex gap-2.5 sm:gap-3 min-w-max items-stretch">
         {shown.map((p) => (
           <div key={p.id} className="w-[230px] sm:w-[250px] flex-shrink-0">
-            <DailyPicksCards picks={[p]} />
+            <DailyPickCard pick={p} />
           </div>
         ))}
         {moreHref && remaining > 0 && (
@@ -1202,6 +1206,111 @@ function CombinedFeed({ featured, sidePosts, blogSlug }: {
 function postUrl(post: any, blogSlug: string): string {
   const slug = post._blogSlug || blogSlug
   return `/blogas/${slug}/${post.slug}`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// V12: Turinio juostos pagal tipą (Dienoraštis / Kūryba / Topai / Vertimai)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LANE_LABEL: Record<string, string> = {
+  article: 'Dienoraštis', creation: 'Kūryba', topas: 'Topai', translation: 'Vertimai',
+}
+const LANE_COUNT_PLURAL: Record<string, [string, string, string]> = {
+  article: ['įrašas', 'įrašai', 'įrašų'],
+  creation: ['kūrinys', 'kūriniai', 'kūrinių'],
+  topas: ['topas', 'topai', 'topų'],
+  translation: ['vertimas', 'vertimai', 'vertimų'],
+}
+
+function PostLane({ lane, blogSlug }: { lane: { type: string; count: number; posts: any[] }; blogSlug: string }) {
+  const label = LANE_LABEL[lane.type] || lane.type
+  const forms = LANE_COUNT_PLURAL[lane.type]
+  const meta = forms
+    ? `${lane.count.toLocaleString('lt-LT')} ${ltPlural(lane.count, forms[0], forms[1], forms[2])}`
+    : `${lane.count}`
+  const remaining = Math.max(lane.count - lane.posts.length, 0)
+  const allHref = `/blogas/${blogSlug}`
+  return (
+    <section className="mt-8 sm:mt-10">
+      <SectionHeader title={label} meta={meta} link={remaining > 0 ? { href: allHref, label: 'Visi →' } : undefined} />
+      <div className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex gap-3 sm:gap-3.5 min-w-max items-stretch">
+          {lane.posts.map((p) => (
+            <div key={`${lane.type}-${p.id}`} className="w-[230px] sm:w-[250px] flex-shrink-0">
+              <PostLaneCard post={p} blogSlug={blogSlug} laneType={lane.type} />
+            </div>
+          ))}
+          {remaining > 0 && (
+            <Link href={allHref}
+                  className="w-[150px] flex-shrink-0 rounded-xl flex flex-col items-center justify-center transition hover:scale-[1.03] p-4"
+                  style={{ background: 'var(--card-bg)', border: '1px dashed var(--border-default)', color: 'var(--text-secondary)' }}>
+              <span className="text-2xl font-black" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
+                +{remaining.toLocaleString('lt-LT')}
+              </span>
+              <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-center" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                Visi įrašai
+              </span>
+            </Link>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function PostLaneCard({ post, blogSlug, laneType }: { post: any; blogSlug: string; laneType: string }) {
+  const url = postUrl(post, blogSlug)
+  const thumb = post.cover_image_url || post.fallback_thumb_url || null
+  const items = Array.isArray(post.list_items) ? post.list_items : null
+  const isTranslation = laneType === 'translation'
+
+  let kicker: string
+  if (laneType === 'creation') kicker = post.creation_subtype || 'Kūryba'
+  else if (laneType === 'topas') kicker = items && items.length ? `Topas · ${items.length}` : 'Topas'
+  else if (isTranslation) kicker = 'Vertimas'
+  else kicker = post.display_post_type === 'self' ? 'Apie mane' : 'Straipsnis'
+  const initial = (LANE_LABEL[laneType] || '?')[0]
+
+  return (
+    <Link href={url} className="group flex flex-col no-underline h-full">
+      <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+        {thumb ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={thumb} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
+        ) : items && items.length >= 4 ? (
+          <div className="grid grid-cols-2 grid-rows-2 h-full w-full">
+            {items.slice(0, 4).map((it: any, i: number) => (
+              <div key={i} className="overflow-hidden" style={{ background: 'var(--bg-body)' }}>
+                {it.image_url
+                  ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={it.image_url} alt="" className="w-full h-full object-cover" />
+                  : <div className="w-full h-full" />}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-4xl font-black"
+               style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-faint)' }}>{initial}</div>
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.10)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md backdrop-blur-sm text-[9px] font-extrabold uppercase tracking-wider text-white truncate max-w-[88%]"
+             style={{ background: 'rgba(0,0,0,0.55)' }}>
+          {kicker}
+        </div>
+      </div>
+      <div className="mt-1.5 px-0.5">
+        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+          {post.title}
+        </p>
+        {isTranslation ? (
+          post.summary && (
+            <p className="m-0 mt-1 truncate text-[11px] text-[var(--text-muted)]">{post.summary}</p>
+          )
+        ) : (
+          <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
+        )}
+      </div>
+    </Link>
+  )
 }
 
 function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {

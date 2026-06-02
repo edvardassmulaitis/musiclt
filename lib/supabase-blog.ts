@@ -90,13 +90,28 @@ export async function getProfileFriends(profileId: string, limit = 30) {
 // einame saugiu keliu.
 export async function getDailySongPicks(userId: string, limit = 20) {
   const sb = createAdminClient()
-  const { data: picks } = await sb
-    .from('daily_song_picks')
-    .select('id, picked_on, comment, like_count, legacy_track_id, track_id')
-    .eq('author_id', userId)
-    .order('picked_on', { ascending: false })
-    .limit(limit)
-  const rows = (picks || []) as any[]
+  // V12 (2026-06-02): showcase row'ui pirmenybę teikiam RESOLVED pick'ams
+  // (track_id != null → kortelė turi viršelį/YT thumb), nes nauji pick'ai
+  // dažnai dar nemigruoti (track_id NULL) ir row atrodydavo tuščias/sugriuvęs.
+  // Resolved užpildom pirma, likusią vietą — naujausiais pending'ais.
+  const [{ data: resolved }, { data: anyPicks }] = await Promise.all([
+    sb.from('daily_song_picks')
+      .select('id, picked_on, comment, like_count, legacy_track_id, track_id')
+      .eq('author_id', userId).not('track_id', 'is', null)
+      .order('picked_on', { ascending: false }).limit(limit),
+    sb.from('daily_song_picks')
+      .select('id, picked_on, comment, like_count, legacy_track_id, track_id')
+      .eq('author_id', userId)
+      .order('picked_on', { ascending: false }).limit(limit),
+  ])
+  const seen = new Set<any>()
+  const rows: any[] = []
+  for (const r of [...((resolved || []) as any[]), ...((anyPicks || []) as any[])]) {
+    if (seen.has(r.id)) continue
+    seen.add(r.id)
+    rows.push(r)
+    if (rows.length >= limit) break
+  }
   if (!rows.length) return rows
   const trackIds = rows.map((r) => r.track_id).filter(Boolean) as number[]
   if (!trackIds.length) return rows.map((r) => ({ ...r, tracks: null }))

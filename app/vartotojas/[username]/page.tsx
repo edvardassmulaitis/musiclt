@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url: canonical,
       type: 'profile',
-      images: profile.avatar_url ? [{ url: profile.avatar_url }] : undefined,
+      // og:image teikia file-based opengraph-image.tsx (dinaminė kortelė)
     },
   }
 }
@@ -136,7 +136,7 @@ export default async function UserProfilePage({ params }: Props) {
     affinity_score: (artistAlbumLikes.get(a.id) || 0) + (artistTrackLikes.get(a.id) || 0),
   }))
 
-  const { regularPosts, topasPosts } = await blogPromise
+  const { lanes: postLanes, counts: postTypeCounts } = await blogPromise
 
   const memberSinceDate = profile.joined_legacy_at ? new Date(profile.joined_legacy_at) : new Date(profile.created_at)
   const memberSinceYear = memberSinceDate.getFullYear()
@@ -151,8 +151,8 @@ export default async function UserProfilePage({ params }: Props) {
       likesCounts={likesCounts}
       friends={friends}
       blog={blog}
-      regularPosts={regularPosts}
-      topasPosts={topasPosts}
+      postLanes={postLanes}
+      postTypeCounts={postTypeCounts}
       memberSinceYear={memberSinceYear}
       stats={stats}
       moodTrack={moodTrack}
@@ -163,130 +163,119 @@ export default async function UserProfilePage({ params }: Props) {
   )
 }
 
-// PERF (2026-06-02): iškelta į atskirą funkciją, kad blog posts fetch'as
-// (su hero-image enrichment chain'u) galėtų suktis lygiagrečiai su
-// album_tracks enrichment'u (žr. blogPromise viršuje).
-async function loadBlogPosts(blog: any): Promise<{ regularPosts: any[]; topasPosts: any[] }> {
-  if (!blog) return { regularPosts: [], topasPosts: [] }
-  {
-    const sb = createAdminClient()
+const POST_HEAVY_COLS =
+  'id, slug, title, summary, cover_image_url, content, published_at, reading_time_min, like_count, comment_count, post_type, creation_subtype, tags, list_items'
+
+// V12 (2026-06-02): hero-image enrichment chain (mirror'ina blog post hero
+// logiką iš app/blogas/[username]/[slug]/page.tsx) — paverčia pateiktą postų
+// masyvą „rich" (fallback_thumb_url + display_post_type) IN PLACE. Iškelta į
+// helper'į, kad galėtume taikyti per-type sample postams (turinio juostoms).
+async function enrichPostThumbs(sb: any, posts: any[]) {
+  const postIds = posts.map((p: any) => p.id)
+  if (postIds.length === 0) return
+  const [trackAttachRes, albumAttachRes, artistAttachRes] = await Promise.all([
+    sb.from('blog_post_tracks').select('post_id, tracks:track_id(video_url, cover_url, artist:artist_id(cover_image_url))').in('post_id', postIds),
+    sb.from('blog_post_albums').select('post_id, albums:album_id(cover_image_url)').in('post_id', postIds),
+    sb.from('blog_post_artists').select('post_id, artists:artist_id(cover_image_url)').in('post_id', postIds),
+  ])
+
+  const thumbByPost = new Map<string, string>()
+  for (const row of (trackAttachRes.data || []) as any[]) {
+    if (thumbByPost.has(row.post_id)) continue
+    const t = Array.isArray(row.tracks) ? row.tracks[0] : row.tracks
+    if (!t) continue
+    const yt = t.video_url?.match?.(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)?.[1]
+    const url = yt
+      ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg`
+      : t.cover_url || (Array.isArray(t.artist) ? t.artist[0]?.cover_image_url : t.artist?.cover_image_url) || null
+    if (url) thumbByPost.set(row.post_id, url)
+  }
+  for (const row of (albumAttachRes.data || []) as any[]) {
+    if (thumbByPost.has(row.post_id)) continue
+    const a = Array.isArray(row.albums) ? row.albums[0] : row.albums
+    if (a?.cover_image_url) thumbByPost.set(row.post_id, a.cover_image_url)
+  }
+  for (const row of (artistAttachRes.data || []) as any[]) {
+    if (thumbByPost.has(row.post_id)) continue
+    const a = Array.isArray(row.artists) ? row.artists[0] : row.artists
+    if (a?.cover_image_url) thumbByPost.set(row.post_id, a.cover_image_url)
+  }
+  for (const p of posts) {
+    if (!p.cover_image_url && !thumbByPost.has(p.id)
+        && p.post_type === 'topas' && Array.isArray(p.list_items)) {
+      const firstImg = p.list_items.find((it: any) => it?.image_url)?.image_url
+      if (firstImg) thumbByPost.set(p.id, firstImg)
+    }
+  }
+  const IMG_RE = /<img[^>]+src=["']([^"']+)["']/i
+  const YT_RE_HTML = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+  const BG_IMG_RE = /background-image\s*:\s*url\(['"]?([^'")\s]+)/i
+  for (const p of posts) {
+    if (!p.cover_image_url && !thumbByPost.has(p.id) && p.content) {
+      const html = String(p.content)
+      const yt = html.match(YT_RE_HTML)?.[1]
+      if (yt) { thumbByPost.set(p.id, `https://img.youtube.com/vi/${yt}/mqdefault.jpg`); continue }
+      const img = html.match(IMG_RE)?.[1]
+      if (img && img.startsWith('http')) { thumbByPost.set(p.id, img); continue }
+      const bg = html.match(BG_IMG_RE)?.[1]
+      if (bg && bg.startsWith('http')) thumbByPost.set(p.id, bg)
+    }
+  }
+  const postsWithMusic = new Set<string>()
+  for (const r of [
+    ...(trackAttachRes.data || []),
+    ...(albumAttachRes.data || []),
+    ...(artistAttachRes.data || []),
+  ] as any[]) {
+    if (r.post_id) postsWithMusic.add(r.post_id)
+  }
+  for (const p of posts) {
+    if (!p.cover_image_url && thumbByPost.has(p.id)) p.fallback_thumb_url = thumbByPost.get(p.id)
+    if (p.post_type === 'article' && !postsWithMusic.has(p.id)) p.display_post_type = 'self'
+    else p.display_post_type = p.post_type
+    delete p.content
+  }
+}
+
+// V12 (2026-06-02): turinio juostos pagal tipą + TIKRI count'ai.
+// Anksčiau feed'as load'indavo slice(0,60) ir tab count'ai rodydavo tik
+// įkeltą poaibį (25 vietoj 510). Dabar: 1) lengvas count query grupuojam
+// per post_type (tikri totalai), 2) kiekvienam tipui atskirai paimam 12
+// naujausių sample postų juostai. translation juosta tvarkoma per
+// `translations` prop'ą (jau fetch'inta). Tuščio tipo juostos nerodom.
+async function loadBlogPosts(blog: any): Promise<{ lanes: { type: string; posts: any[] }[]; counts: Record<string, number> }> {
+  if (!blog) return { lanes: [], counts: {} }
+  const sb = createAdminClient()
+  const nowIso = new Date().toISOString()
+
+  // 1. Tikri count'ai per post_type (lengvas — tik post_type kolona)
+  const { data: lite } = await sb
+    .from('blog_posts')
+    .select('post_type')
+    .eq('blog_id', blog.id)
+    .eq('status', 'published')
+    .lte('published_at', nowIso)
+  const counts: Record<string, number> = {}
+  for (const r of (lite || []) as any[]) counts[r.post_type] = (counts[r.post_type] || 0) + 1
+
+  // 2. Per-type sample postai juostoms (translation — atskirai per translations prop)
+  const LANE_TYPES = ['article', 'creation', 'topas']
+  const present = LANE_TYPES.filter((t) => (counts[t] || 0) > 0)
+  const laneResults = await Promise.all(present.map(async (t) => {
     const { data } = await sb
       .from('blog_posts')
-      .select('id, slug, title, summary, cover_image_url, content, published_at, reading_time_min, like_count, comment_count, post_type, tags, list_items')
+      .select(POST_HEAVY_COLS)
       .eq('blog_id', blog.id)
       .eq('status', 'published')
-      .lte('published_at', new Date().toISOString())
+      .lte('published_at', nowIso)
+      .eq('post_type', t)
       .order('published_at', { ascending: false })
-      .limit(200)
-    const all = data || []
+      .limit(12)
+    return { type: t, posts: (data || []) as any[] }
+  }))
 
-    // V10: post hero image enrichment chain (mirror'ina blog post hero
-    // logiką iš app/blogas/[username]/[slug]/page.tsx):
-    //   1. cover_image_url (explicit)
-    //   2. firstJunctionCover (blog_post_albums → albums.cover_image_url,
-    //      blog_post_tracks → tracks.cover_url/YT thumb, blog_post_artists)
-    //   3. firstListItemImage (topas list_items[0].image_url)
-    // Užtikrinam, kad PROFILE LISTING kortelės atrodytų taip pat „rich"
-    // kaip ir pats post page'as.
-    const postIds = all.map((p: any) => p.id)
-    if (postIds.length > 0) {
-      const [trackAttachRes, albumAttachRes, artistAttachRes] = await Promise.all([
-        sb.from('blog_post_tracks').select('post_id, tracks:track_id(video_url, cover_url, artist:artist_id(cover_image_url))').in('post_id', postIds),
-        sb.from('blog_post_albums').select('post_id, albums:album_id(cover_image_url)').in('post_id', postIds),
-        sb.from('blog_post_artists').select('post_id, artists:artist_id(cover_image_url)').in('post_id', postIds),
-      ])
+  // 3. Enrichinam visus sample postus vienu batch'u
+  await enrichPostThumbs(sb, laneResults.flatMap((l) => l.posts))
 
-      const thumbByPost = new Map<string, string>()
-
-      // 1. tracks (first wins)
-      for (const row of (trackAttachRes.data || []) as any[]) {
-        if (thumbByPost.has(row.post_id)) continue
-        const t = Array.isArray(row.tracks) ? row.tracks[0] : row.tracks
-        if (!t) continue
-        const yt = t.video_url?.match?.(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)?.[1]
-        const url = yt
-          ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg`
-          : t.cover_url || (Array.isArray(t.artist) ? t.artist[0]?.cover_image_url : t.artist?.cover_image_url) || null
-        if (url) thumbByPost.set(row.post_id, url)
-      }
-      // 2. albums
-      for (const row of (albumAttachRes.data || []) as any[]) {
-        if (thumbByPost.has(row.post_id)) continue
-        const a = Array.isArray(row.albums) ? row.albums[0] : row.albums
-        if (a?.cover_image_url) thumbByPost.set(row.post_id, a.cover_image_url)
-      }
-      // 3. artists
-      for (const row of (artistAttachRes.data || []) as any[]) {
-        if (thumbByPost.has(row.post_id)) continue
-        const a = Array.isArray(row.artists) ? row.artists[0] : row.artists
-        if (a?.cover_image_url) thumbByPost.set(row.post_id, a.cover_image_url)
-      }
-      // 4. topas list_items first image (jau yra post.list_items)
-      for (const p of all) {
-        if (!p.cover_image_url && !thumbByPost.has(p.id)
-            && p.post_type === 'topas' && Array.isArray(p.list_items)) {
-          const firstImg = p.list_items.find((it: any) => it?.image_url)?.image_url
-          if (firstImg) thumbByPost.set(p.id, firstImg)
-        }
-      }
-
-      // 5. V11.6 expanded fallback: <img src=...> | YT embed | bg-image:url(...)
-      //    iš `content`. Paradise lost paste straipsnis turi tiptap-music-card
-      //    su `background-image: url(...)` inline style (nenaudoja <img>).
-      const IMG_RE = /<img[^>]+src=["']([^"']+)["']/i
-      const YT_RE_HTML = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
-      const BG_IMG_RE = /background-image\s*:\s*url\(['"]?([^'")\s]+)/i
-      for (const p of all) {
-        if (!p.cover_image_url && !thumbByPost.has(p.id) && p.content) {
-          const html = String(p.content)
-          const yt = html.match(YT_RE_HTML)?.[1]
-          if (yt) {
-            thumbByPost.set(p.id, `https://img.youtube.com/vi/${yt}/mqdefault.jpg`)
-            continue
-          }
-          const img = html.match(IMG_RE)?.[1]
-          if (img && img.startsWith('http')) {
-            thumbByPost.set(p.id, img)
-            continue
-          }
-          const bg = html.match(BG_IMG_RE)?.[1]
-          if (bg && bg.startsWith('http')) {
-            thumbByPost.set(p.id, bg)
-          }
-        }
-      }
-
-      // V11.6: mark posts with music attachments. Naudojam display_post_type
-      // (per post.post_type='article' BE attachments → 'self' → „Apie mane").
-      const postsWithMusic = new Set<string>()
-      for (const r of [
-        ...(trackAttachRes.data || []),
-        ...(albumAttachRes.data || []),
-        ...(artistAttachRes.data || []),
-      ] as any[]) {
-        if (r.post_id) postsWithMusic.add(r.post_id)
-      }
-
-      for (const p of all) {
-        if (!p.cover_image_url && thumbByPost.has(p.id)) {
-          ;(p as any).fallback_thumb_url = thumbByPost.get(p.id)
-        }
-        // V11.6 display_post_type derivation
-        if (p.post_type === 'article' && !postsWithMusic.has(p.id)) {
-          ;(p as any).display_post_type = 'self'
-        } else {
-          ;(p as any).display_post_type = p.post_type
-        }
-        // V11.2: nepersiunčiam content'o į client'ą — sutaupom payload.
-        delete (p as any).content
-      }
-    }
-
-    // V11.6 (2026-05-25): heavy UGC user'iams (einaras13: 510 article + 31 creation,
-    // Silentist: 900+ įrašų) reikia matyti pilnus sąrašus profile'e — anksčiau slice(0,6)
-    // ribodavo display į ~6 įrašų net jei DB turėjo šimtus.
-    const regularPosts = all.filter((p: any) => p.post_type !== 'topas' && p.post_type !== 'translation').slice(0, 60)
-    const topasPosts = all.filter((p: any) => p.post_type === 'topas').slice(0, 30)
-    return { regularPosts, topasPosts }
-  }
+  return { lanes: laneResults, counts }
 }
