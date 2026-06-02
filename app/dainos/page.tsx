@@ -45,7 +45,8 @@ async function fetchTracks(f: Filters): Promise<{ items: HubTrack[]; total: numb
     const artistEmbed = f.genreId
       ? 'artists!tracks_artist_id_fkey!inner(name, slug, country, artist_genres!inner(genre_id))'
       : 'artists!tracks_artist_id_fkey!inner(name, slug, country)'
-    let q = sb.from('tracks').select(`${base}, ${artistEmbed}`, { count: 'exact' })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q: any = sb.from('tracks').select(`${base}, ${artistEmbed}`, { count: 'exact' })
       .not('video_url', 'is', null)
 
     if (f.genreId) q = q.eq('artists.artist_genres.genre_id', f.genreId)

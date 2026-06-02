@@ -57,7 +57,8 @@ async function fetchAlbums(f: Filters): Promise<{ items: HubAlbum[]; total: numb
     const artistEmbed = f.genreId
       ? 'artists!albums_artist_id_fkey!inner(name, slug, country, artist_genres!inner(genre_id))'
       : 'artists!albums_artist_id_fkey!inner(name, slug, country)'
-    let q = sb.from('albums').select(`${base}, ${artistEmbed}`, { count: 'exact' })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q: any = sb.from('albums').select(`${base}, ${artistEmbed}`, { count: 'exact' })
       .not('cover_image_url', 'is', null)
       .not('year', 'is', null)
       .eq('is_upcoming', false)
