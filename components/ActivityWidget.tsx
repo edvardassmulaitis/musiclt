@@ -93,13 +93,33 @@ function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
   )
 }
 
+// Sutraukia kartotinius balsavimo įrašus į vieną: TOP balsavimas (top_vote)
+// loginamas už KIEKVIENĄ dainą, dienos daina (daily_vote) — taip pat (multi-vote).
+// Feed'e turi būti tik VIENAS „balsavo TOP 40" / „balsavo už dienos dainą" įrašas
+// per žmogų (naujausias). Edvardo prašymu 2026-06-01.
+function dedupeVotes(events: Ev[]): Ev[] {
+  const seen = new Set<string>()
+  const out: Ev[] = []
+  for (const e of events) {
+    let key: string | null = null
+    if (e.event_type === 'top_vote') key = `top:${e.actor_name || ''}:${e.metadata?.top_type || ''}`
+    else if (e.event_type === 'daily_vote') key = `daily:${e.actor_name || ''}`
+    if (key) {
+      if (seen.has(key)) continue
+      seen.add(key)
+    }
+    out.push(e)
+  }
+  return out
+}
+
 function useActivity(pollMs = 20000) {
   const [events, setEvents] = useState<Ev[]>([])
   const [loading, setLoading] = useState(true)
   const load = useCallback(async () => {
     try {
       const r = await fetch('/api/live/activity?limit=60', { cache: 'no-store' }).then(res => res.json())
-      setEvents(r.events || [])
+      setEvents(dedupeVotes(r.events || []))
     } catch {}
     finally { setLoading(false) }
   }, [])
