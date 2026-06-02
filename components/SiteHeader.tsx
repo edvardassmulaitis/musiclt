@@ -32,7 +32,7 @@ const STYLES_ORDERED = STYLE_NAV_ORDER
  * ────────────────────────────────────────────────────────────────── */
 
 type NavItem = {
-  key: 'muzika' | 'topai' | 'renginiai' | 'naujienos' | 'pramogos' | 'bendruomene' | 'skelbimai'
+  key: 'muzika' | 'topai' | 'renginiai' | 'naujienos' | 'atradimai' | 'skelbimai'
   label: string
   href: string
   match: string[]
@@ -117,7 +117,7 @@ const NAV: NavItem[] = [
     key: 'topai',
     label: 'Topai',
     href: '/topai',
-    match: ['/topai', '/topas', '/top40', '/top30', '/balsavimai', '/dienos-daina', '/apdovanojimai'],
+    match: ['/topai', '/topas', '/top40', '/top30', '/balsavimai', '/apdovanojimai'],
     desc: 'Reitingai, balsavimai, apdovanojimai',
     accent: '#ef4444',
     icon: I.trophy,
@@ -141,22 +141,13 @@ const NAV: NavItem[] = [
     icon: I.news,
   },
   {
-    key: 'pramogos',
-    label: 'Pramogos',
-    href: '/pramogos',
-    match: ['/pramogos', '/boombox', '/zaidimai', '/kvizai'],
-    desc: 'Boombox, žaidimai, kvizai',
-    accent: '#f97316',
-    icon: I.fun,
-  },
-  {
-    key: 'bendruomene',
-    label: 'Bendruomenė',
-    href: '/bendruomene',
-    match: ['/bendruomene', '/diskusijos', '/blogas', '/pokalbiai', '/vartotojai'],
-    desc: 'Pokalbiai, diskusijos, blogai',
+    key: 'atradimai',
+    label: 'Atradimai',
+    href: '/atradimai',
+    match: ['/atradimai', '/pramogos', '/boombox', '/zaidimai', '/kvizai', '/bendruomene', '/diskusijos', '/blogas', '/pokalbiai', '/vartotojai', '/dienos-daina'],
+    desc: 'Dienos daina, žaidimai, nariai, diskusijos',
     accent: '#8b5cf6',
-    icon: I.community,
+    icon: I.fun,
   },
   {
     key: 'skelbimai',
@@ -592,49 +583,34 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
   )
 }
 
-function PramogosPanel({ accent }: { accent: string }) {
+// „Atradimai" dropdown — bendruomenės + pramogų hub'as. Hero (Boombox) +
+// 6 nuorodos: Dienos daina, Žaidimai, Narių įrašai, Narių topai, Diskusijos,
+// Pokalbių dėžutė. Edvardo prašymu 2026-06-02 (pakeitė Pramogas + Bendruomenę).
+function AtradimaiPanel({ accent }: { accent: string }) {
+  const items: { href: string; icon: React.ReactNode; title: string; desc: string; rgb: string }[] = [
+    { href: '/dienos-daina', icon: I.music, title: 'Dienos daina', desc: 'Siūlyk ir balsuok už dienos hitą', rgb: '#f97316' },
+    { href: '/zaidimai', icon: I.boombox, title: 'Žaidimai', desc: 'Boombox — muzikinis swipe', rgb: '#6366f1' },
+    { href: '/blogas', icon: I.blog, title: 'Narių įrašai', desc: 'Recenzijos, kūryba, straipsniai', rgb: '#a855f7' },
+    { href: '/atradimai#nariu-topai', icon: I.trophy, title: 'Narių topai', desc: 'Narių sudaryti top sąrašai', rgb: '#ef4444' },
+    { href: '/diskusijos', icon: I.forum, title: 'Diskusijos', desc: 'Forumo temos ir debatai', rgb: '#8b5cf6' },
+    { href: '/pokalbiai', icon: I.chat, title: 'Pokalbių dėžutė', desc: 'Bendras gyvas chatas', rgb: '#06b6d4' },
+  ]
   return (
-    <div className="sh-panel" style={{ minWidth: 640 }}>
+    <div className="sh-panel" style={{ minWidth: 560 }}>
       <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Pramogos</span>
+        <span className="sh-panel-section-title">Atradimai</span>
+        <Link href="/atradimai" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
       </div>
-
-      {/* Boombox hero — abstract gradient su decorative shapes */}
-      <Link href="/boombox" className="sh-hero-card" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
-        <span className="sh-hero-deco-circle sh-hero-deco-1" />
-        <span className="sh-hero-deco-circle sh-hero-deco-2" />
-        <span className="sh-hero-deco-circle sh-hero-deco-3" />
-        <span className="sh-hero-content">
-          <span className="sh-hero-eyebrow">Šiandien karšta</span>
-          <span className="sh-hero-icon">{I.boombox}</span>
-          <span className="sh-hero-title">Boombox</span>
-          <span className="sh-hero-desc">
-            Atrask atlikėjus swipe stiliumi — kaip muzikinis Tinder'is.
-            Įvertink, sutik, klausyk.
-          </span>
-          <span className="sh-hero-cta">Žaisk dabar <ArrowRight size={13}/></span>
-        </span>
-      </Link>
-
-      {/* Sub feature kortelės */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
-        <Link href="/zaidimai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
-          <span className="sh-feature-icon-sm">{I.game}</span>
-          <span className="sh-feature-title-sm">Žaidimai</span>
-          <span className="sh-feature-desc-sm">Atspėk dainą per 5s</span>
-          <span className="sh-soon-pill">Greitai</span>
-        </Link>
-        <Link href="/kvizai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#14b8a6') }}>
-          <span className="sh-feature-icon-sm">{I.quiz}</span>
-          <span className="sh-feature-title-sm">Kvizai</span>
-          <span className="sh-feature-desc-sm">LT muzikos žinovams</span>
-          <span className="sh-soon-pill">Greitai</span>
-        </Link>
-      </div>
-
-      <div className="sh-panel-shortcuts">
-        <Link href="/dienos-daina" className="sh-shortcut">Dienos daina →</Link>
-        <Link href="/topai" className="sh-shortcut">Topai →</Link>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {items.map(it => (
+          <Link key={it.href} href={it.href} className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb(it.rgb) }}>
+            <span className="sh-bigshortcut-icon">{it.icon}</span>
+            <span>
+              <span className="sh-bigshortcut-title">{it.title}</span>
+              <span className="sh-bigshortcut-desc">{it.desc}</span>
+            </span>
+          </Link>
+        ))}
       </div>
     </div>
   )
@@ -680,46 +656,6 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
         <Link href="/naujienos?type=interview" className="sh-shortcut">Interviu →</Link>
         <Link href="/naujienos?type=review" className="sh-shortcut">Recenzijos →</Link>
         <Link href="/naujienos?type=release" className="sh-shortcut">Releases →</Link>
-      </div>
-    </div>
-  )
-}
-
-function BendruomenePanel({ accent }: { data?: NavPreview | null; accent: string }) {
-  return (
-    <div className="sh-panel" style={{ minWidth: 480 }}>
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Bendruomenė</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <Link href="/pokalbiai" className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb('#06b6d4') }}>
-          <span className="sh-bigshortcut-icon">{I.chat}</span>
-          <span>
-            <span className="sh-bigshortcut-title">Pokalbiai</span>
-            <span className="sh-bigshortcut-desc">Privačios žinutės ir grupės</span>
-          </span>
-        </Link>
-        <Link href="/diskusijos" className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb('#8b5cf6') }}>
-          <span className="sh-bigshortcut-icon">{I.forum}</span>
-          <span>
-            <span className="sh-bigshortcut-title">Diskusijos</span>
-            <span className="sh-bigshortcut-desc">Forumo temos ir debatai</span>
-          </span>
-        </Link>
-        <Link href="/blogas" className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb('#a855f7') }}>
-          <span className="sh-bigshortcut-icon">{I.blog}</span>
-          <span>
-            <span className="sh-bigshortcut-title">Tinklaraščiai</span>
-            <span className="sh-bigshortcut-desc">Vartotojų straipsniai</span>
-          </span>
-        </Link>
-        <Link href="/vartotojai" className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
-          <span className="sh-bigshortcut-icon">{I.users}</span>
-          <span>
-            <span className="sh-bigshortcut-title">Vartotojai</span>
-            <span className="sh-bigshortcut-desc">Aktyviausi nariai</span>
-          </span>
-        </Link>
       </div>
     </div>
   )
@@ -970,21 +906,33 @@ function MobileExpansion({
     )
   }
 
-  if (navKey === 'pramogos') {
+  if (navKey === 'atradimai') {
     return (
       <div className="sh-mexp">
         <div className="sh-mexp-grid">
-          <Link href="/boombox" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
-            <span className="sh-mexp-tile-icon">{I.boombox}</span>
-            <span className="sh-mexp-tile-label">Boombox</span>
+          <Link href="/dienos-daina" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
+            <span className="sh-mexp-tile-icon">{I.music}</span>
+            <span className="sh-mexp-tile-label">Dienos daina</span>
           </Link>
           <Link href="/zaidimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
-            <span className="sh-mexp-tile-icon">{I.game}</span>
+            <span className="sh-mexp-tile-icon">{I.boombox}</span>
             <span className="sh-mexp-tile-label">Žaidimai</span>
           </Link>
-          <Link href="/kvizai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#14b8a6') }}>
-            <span className="sh-mexp-tile-icon">{I.quiz}</span>
-            <span className="sh-mexp-tile-label">Kvizai</span>
+          <Link href="/blogas" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#a855f7') }}>
+            <span className="sh-mexp-tile-icon">{I.blog}</span>
+            <span className="sh-mexp-tile-label">Narių įrašai</span>
+          </Link>
+          <Link href="/atradimai#nariu-topai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
+            <span className="sh-mexp-tile-icon">{I.trophy}</span>
+            <span className="sh-mexp-tile-label">Narių topai</span>
+          </Link>
+          <Link href="/diskusijos" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#8b5cf6') }}>
+            <span className="sh-mexp-tile-icon">{I.forum}</span>
+            <span className="sh-mexp-tile-label">Diskusijos</span>
+          </Link>
+          <Link href="/pokalbiai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#06b6d4') }}>
+            <span className="sh-mexp-tile-icon">{I.chat}</span>
+            <span className="sh-mexp-tile-label">Pokalbių dėžutė</span>
           </Link>
         </div>
       </div>
@@ -1029,30 +977,6 @@ function MobileExpansion({
     )
   }
 
-  if (navKey === 'bendruomene') {
-    return (
-      <div className="sh-mexp">
-        <div className="sh-mexp-grid">
-          <Link href="/pokalbiai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#06b6d4') }}>
-            <span className="sh-mexp-tile-icon">{I.chat}</span>
-            <span className="sh-mexp-tile-label">Pokalbiai</span>
-          </Link>
-          <Link href="/diskusijos" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#8b5cf6') }}>
-            <span className="sh-mexp-tile-icon">{I.forum}</span>
-            <span className="sh-mexp-tile-label">Diskusijos</span>
-          </Link>
-          <Link href="/blogas" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#a855f7') }}>
-            <span className="sh-mexp-tile-icon">{I.blog}</span>
-            <span className="sh-mexp-tile-label">Tinklaraščiai</span>
-          </Link>
-          <Link href="/vartotojai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
-            <span className="sh-mexp-tile-icon">{I.users}</span>
-            <span className="sh-mexp-tile-label">Vartotojai</span>
-          </Link>
-        </div>
-      </div>
-    )
-  }
 
   if (navKey === 'skelbimai') {
     return (
@@ -1154,8 +1078,7 @@ export function SiteHeader() {
       case 'topai':        return <TopaiPanel data={preview} accent={accent} />
       case 'renginiai':    return <RenginiaiPanel data={preview} accent={accent} />
       case 'naujienos':    return <NaujienosPanel data={preview} accent={accent} />
-      case 'pramogos':     return <PramogosPanel accent={accent} />
-      case 'bendruomene':  return <BendruomenePanel accent={accent} />
+      case 'atradimai':    return <AtradimaiPanel accent={accent} />
       case 'skelbimai':    return <SkelbimaiPanel accent={accent} />
     }
   }
