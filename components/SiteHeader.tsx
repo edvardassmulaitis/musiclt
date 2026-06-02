@@ -144,8 +144,8 @@ const NAV: NavItem[] = [
     key: 'atradimai',
     label: 'Atradimai',
     href: '/atradimai',
-    match: ['/atradimai', '/pramogos', '/boombox', '/zaidimai', '/kvizai', '/bendruomene', '/diskusijos', '/blogas', '/pokalbiai', '/vartotojai', '/dienos-daina'],
-    desc: 'Dienos daina, žaidimai, nariai, diskusijos',
+    match: ['/atradimai', '/pramogos', '/boombox', '/zaidimai', '/kvizai', '/bendruomene', '/diskusijos', '/blogas', '/pokalbiai', '/vartotojai', '/vartotojas', '/dienos-daina'],
+    desc: 'Bendruomenės srautas, nariai, diskusijos',
     accent: '#8b5cf6',
     icon: I.fun,
   },
@@ -583,17 +583,18 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
   )
 }
 
-// „Atradimai" dropdown — bendruomenės + pramogų hub'as. Hero (Boombox) +
-// 6 nuorodos: Dienos daina, Žaidimai, Narių įrašai, Narių topai, Diskusijos,
-// Pokalbių dėžutė. Edvardo prašymu 2026-06-02 (pakeitė Pramogas + Bendruomenę).
+// „Atradimai" dropdown — žmonių-first bendruomenės hub'as. Viršuje hero į gyvą
+// srautą (/atradimai), po juo 6 nuorodos: Pažink narius, Dienos daina, Diskusijos,
+// Narių įrašai, Pokalbių dėžutė, Boombox. Atitinka perdarytą /atradimai puslapį
+// (2026-06-03; žaidimai nebe atskira sekcija — viena Boombox kortelė).
 function AtradimaiPanel({ accent }: { accent: string }) {
   const items: { href: string; icon: React.ReactNode; title: string; desc: string; rgb: string }[] = [
+    { href: '/vartotojai', icon: I.users, title: 'Pažink narius', desc: 'Aktyviausi bendruomenės nariai', rgb: '#f59e0b' },
     { href: '/dienos-daina', icon: I.music, title: 'Dienos daina', desc: 'Siūlyk ir balsuok už dienos hitą', rgb: '#f97316' },
-    { href: '/zaidimai', icon: I.boombox, title: 'Žaidimai', desc: 'Boombox — muzikinis swipe', rgb: '#6366f1' },
-    { href: '/blogas', icon: I.blog, title: 'Narių įrašai', desc: 'Recenzijos, kūryba, straipsniai', rgb: '#a855f7' },
-    { href: '/atradimai#nariu-topai', icon: I.trophy, title: 'Narių topai', desc: 'Narių sudaryti top sąrašai', rgb: '#ef4444' },
     { href: '/diskusijos', icon: I.forum, title: 'Diskusijos', desc: 'Forumo temos ir debatai', rgb: '#8b5cf6' },
+    { href: '/blogas', icon: I.blog, title: 'Narių įrašai', desc: 'Recenzijos, kūryba, topai', rgb: '#a855f7' },
     { href: '/pokalbiai', icon: I.chat, title: 'Pokalbių dėžutė', desc: 'Bendras gyvas chatas', rgb: '#06b6d4' },
+    { href: '/boombox', icon: I.boombox, title: 'Boombox', desc: 'Muzikinis swipe žaidimas', rgb: '#6366f1' },
   ]
   return (
     <div className="sh-panel" style={{ minWidth: 560 }}>
@@ -601,6 +602,18 @@ function AtradimaiPanel({ accent }: { accent: string }) {
         <span className="sh-panel-section-title">Atradimai</span>
         <Link href="/atradimai" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
       </div>
+      {/* Hero — gyvas srautas */}
+      <Link
+        href="/atradimai"
+        className="sh-bigshortcut"
+        style={{ ['--it-rgb' as any]: hexToRgb('#8b5cf6'), gridColumn: '1 / -1', marginBottom: 8, background: 'linear-gradient(135deg, rgba(139,92,246,0.16), rgba(6,182,212,0.10))' }}
+      >
+        <span className="sh-bigshortcut-icon">{I.flame}</span>
+        <span>
+          <span className="sh-bigshortcut-title">Bendruomenės srautas</span>
+          <span className="sh-bigshortcut-desc">Kas naujo pas kitus narius — gyvai</span>
+        </span>
+      </Link>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {items.map(it => (
           <Link key={it.href} href={it.href} className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb(it.rgb) }}>
@@ -909,30 +922,35 @@ function MobileExpansion({
   if (navKey === 'atradimai') {
     return (
       <div className="sh-mexp">
+        {/* Hero — gyvas bendruomenės srautas */}
+        <Link href="/atradimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#8b5cf6'), gridColumn: '1 / -1', flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8, background: 'linear-gradient(135deg, rgba(139,92,246,0.16), rgba(6,182,212,0.10))' }}>
+          <span className="sh-mexp-tile-icon">{I.flame}</span>
+          <span className="sh-mexp-tile-label" style={{ textAlign: 'left' }}>Bendruomenės srautas — kas naujo</span>
+        </Link>
         <div className="sh-mexp-grid">
+          <Link href="/vartotojai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f59e0b') }}>
+            <span className="sh-mexp-tile-icon">{I.users}</span>
+            <span className="sh-mexp-tile-label">Pažink narius</span>
+          </Link>
           <Link href="/dienos-daina" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
             <span className="sh-mexp-tile-icon">{I.music}</span>
             <span className="sh-mexp-tile-label">Dienos daina</span>
-          </Link>
-          <Link href="/zaidimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
-            <span className="sh-mexp-tile-icon">{I.boombox}</span>
-            <span className="sh-mexp-tile-label">Žaidimai</span>
-          </Link>
-          <Link href="/blogas" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#a855f7') }}>
-            <span className="sh-mexp-tile-icon">{I.blog}</span>
-            <span className="sh-mexp-tile-label">Narių įrašai</span>
-          </Link>
-          <Link href="/atradimai#nariu-topai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
-            <span className="sh-mexp-tile-icon">{I.trophy}</span>
-            <span className="sh-mexp-tile-label">Narių topai</span>
           </Link>
           <Link href="/diskusijos" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#8b5cf6') }}>
             <span className="sh-mexp-tile-icon">{I.forum}</span>
             <span className="sh-mexp-tile-label">Diskusijos</span>
           </Link>
+          <Link href="/blogas" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#a855f7') }}>
+            <span className="sh-mexp-tile-icon">{I.blog}</span>
+            <span className="sh-mexp-tile-label">Narių įrašai</span>
+          </Link>
           <Link href="/pokalbiai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#06b6d4') }}>
             <span className="sh-mexp-tile-icon">{I.chat}</span>
             <span className="sh-mexp-tile-label">Pokalbių dėžutė</span>
+          </Link>
+          <Link href="/boombox" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
+            <span className="sh-mexp-tile-icon">{I.boombox}</span>
+            <span className="sh-mexp-tile-label">Boombox</span>
           </Link>
         </div>
       </div>
