@@ -925,37 +925,64 @@ function ChartVoteCTA({ className = '' }: { className?: string }) {
    Trys bokso pavyzdys: discussions, main chat preview, user posts. Stilistika
    atitinka kitas widget kortelės — rounded-2xl + bg-surface + border-default. */
 
+type DiscActivityItem = {
+  id: number
+  slug: string
+  title: string
+  author_name: string | null
+  comment_count: number
+  created_at: string
+  last_comment_at: string | null
+  latest_comment: { excerpt: string; author: string; avatar: string | null; created_at: string } | null
+}
+
+// „Diskusijos" stulpelis — naujausios aktyvios temos su PASKUTINIU komentaru
+// (Edvardo prašymu 2026-06-02). Duomenys per /api/diskusijos/recent.
 function CommunityDiscussionsCard() {
-  const [discs, setDiscs] = useState<Discussion[]>([])
+  const [discs, setDiscs] = useState<DiscActivityItem[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {
-    fetch('/api/diskusijos?sort=activity&limit=4').then(r => r.json()).then(d => { setDiscs(d.discussions || []); setLoading(false) }).catch(() => setLoading(false))
+    let alive = true
+    fetch('/api/diskusijos/recent?limit=6')
+      .then(r => r.json())
+      .then(d => { if (alive) { setDiscs(d.items || []); setLoading(false) } })
+      .catch(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
   }, [])
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
-        <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Naujausios diskusijos</span>
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-2.5">
+        <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Diskusijos</span>
         <Link href="/diskusijos" className="text-[11px] font-bold text-[var(--accent-link)] no-underline">Visos →</Link>
       </div>
-      <div className="flex-1">
-        {loading ? Array(3).fill(null).map((_, i) => (
-          <div key={i} className="flex items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2.5">
-            <Skel w={28} h={28} r={14} />
-            <div className="flex-1"><Skel w="80%" h={11} /><div className="mt-1.5"><Skel w="55%" h={9} /></div></div>
+      <div className="flex-1 overflow-y-auto">
+        {loading ? Array(4).fill(null).map((_, i) => (
+          <div key={i} className="border-b border-[var(--border-subtle)] px-4 py-2.5">
+            <Skel w="80%" h={11} /><div className="mt-2"><Skel w="95%" h={9} /></div>
           </div>
         )) : discs.length === 0 ? (
           <div className="px-4 py-6 text-center text-[12px] text-[var(--text-muted)]">Diskusijų dar nėra</div>
-        ) : discs.slice(0, 4).map((d, i) => {
-          const hue = strHue(d.author_name || '?')
+        ) : discs.map((d, i) => {
+          const lc = d.latest_comment
+          const hue = strHue(lc?.author || d.author_name || '?')
           return (
-            <Link key={d.id} href={`/diskusijos/${d.slug}`} className="flex items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)]" style={{ borderBottomWidth: i === 3 ? 0 : 1 }}>
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[11px] font-extrabold" style={{ background: `hsl(${hue},32%,18%)`, color: `hsl(${hue},45%,55%)` }}>
-                {(d.author_name || '?').charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)]">{d.title}</p>
-                <p className="m-0 mt-0.5 text-[10.5px] text-[var(--text-muted)]">{d.author_name} · {d.comment_count} ats. · {timeAgo(d.created_at)}</p>
-              </div>
+            <Link key={d.id} href={`/diskusijos/${d.slug}`} className="block border-b border-[var(--border-subtle)] px-4 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)]" style={{ borderBottomWidth: i === discs.length - 1 ? 0 : 1 }}>
+              <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{d.title}</p>
+              {lc ? (
+                <div className="mt-1 flex items-start gap-1.5">
+                  {lc.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(lc.avatar)} alt="" className="mt-px h-[15px] w-[15px] shrink-0 rounded-full object-cover" />
+                  ) : (
+                    <span className="mt-px flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full text-[8px] font-extrabold" style={{ background: `hsl(${hue},32%,20%)`, color: `hsl(${hue},48%,60%)` }}>{(lc.author || '?').charAt(0).toUpperCase()}</span>
+                  )}
+                  <p className="m-0 line-clamp-2 text-[11px] leading-snug text-[var(--text-muted)]">
+                    <span className="font-bold text-[var(--text-secondary)]">{lc.author}:</span> {lc.excerpt}
+                  </p>
+                </div>
+              ) : (
+                <p className="m-0 mt-0.5 text-[10.5px] text-[var(--text-muted)]">{d.author_name || 'Anonimas'} · {d.comment_count} ats. · {timeAgo(d.created_at)}</p>
+              )}
             </Link>
           )
         })}
@@ -1845,39 +1872,48 @@ function PulsasSection() {
   const modalItems = typeFilter === 'all' ? items : items.filter(i => i.type === typeFilter)
 
   return (
-    <section>
-      {/* „Daugiau →" link'o nebėra — jį keičia šoninis grid mygtukas (atveria
-          modalą su pilnu sąrašu + tipų filtrais). 2026-05-29. */}
-      <SectionHead label="Pulsas" />
-      <div className="flex items-stretch gap-3">
-        <div className="hp-scroll flex min-w-0 flex-1 items-stretch gap-3 pb-1">
-          {/* Desktop: Pokalbiai (bendras chatas) + Kas vyksta (aktyvumas) dėžutės
-              pirmiausia. Mobile — jos perkeltos ŽEMIAU (žr. sm:hidden bloką),
-              o juosta prasideda nuo narių blog įrašų. */}
-          <div className="hidden shrink-0 sm:block" style={{ width: 290, height: 320 }}><ShoutboxWidget /></div>
-          <div className="hidden shrink-0 sm:block" style={{ width: 290, height: 320 }}><ActivityWidget /></div>
-          {loading ? Array(5).fill(null).map((_, i) => (
-            <div key={i} className="shrink-0" style={{ width: 240 }}>
-              <div className="hp-skel aspect-video rounded-xl" />
-              <div className="hp-skel mt-2 h-3 w-4/5 rounded" />
-              <div className="hp-skel mt-1 h-2.5 w-3/5 rounded" />
-            </div>
-          )) : sectionItems.length === 0 ? (
-            <div className="hidden shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)] sm:flex" style={{ height: 320 }}>Narių įrašų su vizualais dar nėra</div>
-          ) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
+    <>
+      {/* ── Vartotojų įrašai — narių blog įrašai (vizualios kortelės). ATSKIRTA
+          nuo Pulso (Edvardo prašymu 2026-06-02). „+N" mygtukas atveria pilną
+          bendruomenės aktyvumo modalą (blog + diskusijos + komentarai). ── */}
+      <section>
+        <SectionHead label="Vartotojų įrašai" />
+        <div className="flex items-stretch gap-3">
+          <div className="hp-scroll flex min-w-0 flex-1 items-stretch gap-3 pb-1">
+            {loading ? Array(5).fill(null).map((_, i) => (
+              <div key={i} className="shrink-0" style={{ width: 240 }}>
+                <div className="hp-skel aspect-video rounded-xl" />
+                <div className="hp-skel mt-2 h-3 w-4/5 rounded" />
+                <div className="hp-skel mt-1 h-2.5 w-3/5 rounded" />
+              </div>
+            )) : sectionItems.length === 0 ? (
+              <div className="flex shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]" style={{ height: 250 }}>Narių įrašų su vizualais dar nėra</div>
+            ) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
+          </div>
+          {!loading && items.length > 0 && (
+            <StickyMoreButton count={items.length} height={258} ariaLabel="Atverti visą bendruomenės aktyvumą" onClick={() => setModalOpen(true)} />
+          )}
         </div>
-        {!loading && items.length > 0 && (
-          // height=320 — kortelių (Pokalbiai/Kas vyksta dėžučių) aukštis, kad
-          // šoninis „expand" mygtukas būtų lygus joms (FIX 6: anksčiau buvo 200px
-          // → vizualiai trumpesnis nei kaimyninės kortelės).
-          <StickyMoreButton count={items.length} height={320} ariaLabel="Atverti visą Pulsą" onClick={() => setModalOpen(true)} />
-        )}
-      </div>
-      {/* Mobile: Pokalbiai + Kas vyksta dėžutės po juosta (Edvardo prašymu). */}
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:hidden">
-        <div style={{ height: 340 }}><ShoutboxWidget /></div>
-        <div style={{ height: 340 }}><ActivityWidget /></div>
-      </div>
+      </section>
+
+      {/* ── Pulsas — trys stulpeliai per visą plotį: Diskusijos / Pokalbiai /
+          Kas vyksta. Desktop'e grid 3-col; mobile'e sukrauti vertikaliai.
+          Edvardo prašymu 2026-06-02. ── */}
+      <section className="mt-8">
+        <SectionHead label="Pulsas" />
+        {/* Desktop: 3 lygūs stulpeliai */}
+        <div className="hidden gap-3 sm:grid sm:grid-cols-3" style={{ height: 380 }}>
+          <CommunityDiscussionsCard />
+          <ShoutboxWidget />
+          <ActivityWidget />
+        </div>
+        {/* Mobile: sukrauti (Diskusijos box pridėtas Edvardo prašymu) */}
+        <div className="grid grid-cols-1 gap-3 sm:hidden">
+          <div style={{ height: 360 }}><CommunityDiscussionsCard /></div>
+          <div style={{ height: 340 }}><ShoutboxWidget /></div>
+          <div style={{ height: 340 }}><ActivityWidget /></div>
+        </div>
+      </section>
 
       {modalOpen && (
         <HomeListModal open onClose={() => setModalOpen(false)} title="Pulsas" subtitle="Naujausi bendruomenės įrašai">
@@ -1902,7 +1938,7 @@ function PulsasSection() {
           </div>
         </HomeListModal>
       )}
-    </section>
+    </>
   )
 }
 
