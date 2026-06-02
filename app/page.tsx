@@ -1378,18 +1378,44 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
   const sorted = [...noms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0))
   const maxVotes = Math.max(1, ...sorted.map(n => n.weighted_votes || n.votes || 0))
 
+  // Sekcijos antraštė renderinama VIDUJE komponento (ne per <SectionHead>), kad
+  // mobile'e galėtume pridėti „list" ikoną, atveriančią pilną sąrašą (desktop'e
+  // tą daro „+N" mygtukas juostos gale). Pavadinimas „Šiandien siūloma".
+  // Edvardo prašymu 2026-06-02.
+  const SectionHeader = (
+    <div className="mb-3.5 flex items-center justify-between gap-3">
+      <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">Šiandien siūloma</h2>
+      {sorted.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          aria-label="Visas siūlomų dainų sąrašas"
+          title="Visas sąrašas"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)] sm:hidden"
+        >
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" /></svg>
+        </button>
+      )}
+    </div>
+  )
+
   if (loading) {
     return (
-      <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
-        {Array(6).fill(null).map((_, i) => (
-          <div key={i} className="shrink-0" style={{ width: 200 }}>
-            <Skel w={200} h={112} r={12} />
-            <div className="mt-2"><Skel w="80%" h={12} /></div>
-            <div className="mt-1"><Skel w="55%" h={10} /></div>
-            <div className="mt-2"><Skel w="100%" h={28} r={8} /></div>
-          </div>
-        ))}
-      </div>
+      <>
+        <div className="mb-3.5 flex items-center justify-between gap-3">
+          <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">Šiandien siūloma</h2>
+        </div>
+        <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
+          {Array(6).fill(null).map((_, i) => (
+            <div key={i} className="shrink-0" style={{ width: 200 }}>
+              <Skel w={200} h={112} r={12} />
+              <div className="mt-2"><Skel w="80%" h={12} /></div>
+              <div className="mt-1"><Skel w="55%" h={10} /></div>
+              <div className="mt-2"><Skel w="100%" h={28} r={8} /></div>
+            </div>
+          ))}
+        </div>
+      </>
     )
   }
 
@@ -1459,6 +1485,7 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
 
   return (
     <>
+      {SectionHeader}
       {/* Header'iai virš juostos: „VAKAR LAIMĖJO" (virš laimėtojo, su list ikona →
           vakar pasiūlymai) ir „ŠIANDIEN SIŪLOMOS". „Visi (N)" link'as pašalintas —
           pilną sąrašą atveria standartinis „+N" button'as juostos gale (tik kai
@@ -1532,7 +1559,7 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
       </div>
 
       {modalOpen && (
-        <HomeListModal open onClose={() => setModalOpen(false)} title="Dienos daina" subtitle="Šiandienos kandidatai pagal balsus">
+        <HomeListModal open onClose={() => setModalOpen(false)} title="Šiandien siūloma" subtitle="Šiandienos kandidatai pagal balsus">
           {winner?.tracks && (
             <div className="mb-4">
               <p className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">Vakar laimėjo</p>
@@ -1899,6 +1926,11 @@ type IstApiItem = {
   year: number | null
   age?: number | null
   deceased?: boolean
+  groups?: { name: string; cover: string | null }[]
+  artist?: string | null
+  albumId?: number | null
+  pop?: number
+  likeCount?: number
 }
 
 // Istorijos kategorijų konfigūracija (3 box'ai).
@@ -1930,7 +1962,40 @@ const IST_ACCENT: Record<string, string> = {
   death_anniversary: 'var(--text-muted)',
 }
 
-function IstorijaSection() {
+// Mažas grupių „čipas" su mini nuotraukėle — gimtadienio atlikėjo grupėms.
+function IstGroupChips({ groups, max = 2 }: { groups?: { name: string; cover: string | null }[]; max?: number }) {
+  if (!groups || groups.length === 0) return null
+  const shown = groups.slice(0, max)
+  const extra = groups.length - shown.length
+  return (
+    <span className="mt-1 flex min-w-0 items-center gap-1.5">
+      {shown.map((g, i) => (
+        <span key={i} className="flex min-w-0 items-center gap-1 rounded-full bg-[var(--bg-active)] py-0.5 pl-0.5 pr-1.5">
+          {g.cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={proxyImg(g.cover)} alt="" loading="lazy" className="h-[15px] w-[15px] shrink-0 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[8px] font-extrabold" style={{ background: `hsl(${strHue(g.name)},32%,24%)`, color: `hsl(${strHue(g.name)},48%,62%)` }}>{(g.name || '?').charAt(0).toUpperCase()}</span>
+          )}
+          <span className="truncate text-[10.5px] font-bold text-[var(--text-muted)]" style={{ maxWidth: 80 }}>{g.name}</span>
+        </span>
+      ))}
+      {extra > 0 && <span className="text-[10.5px] font-bold text-[var(--text-faint)]">+{extra}</span>}
+    </span>
+  )
+}
+
+// Horizontalūs popbar brūkšneliai — toks pat stilius kaip HomeListContent.
+function IstPopBar({ level }: { level?: number }) {
+  if (!level || level <= 0) return null
+  return (
+    <span className="flex items-center gap-[3px]" aria-hidden title="Populiarumas pagal YouTube peržiūras">
+      {Array.from({ length: level }).map((_, i) => <span key={i} className="h-[3px] w-[12px] rounded-[2px] bg-[var(--accent-orange)]" />)}
+    </span>
+  )
+}
+
+function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: { title: string; cover_image_url?: string | null; year?: number | null }) => void }) {
   const [items, setItems] = useState<IstApiItem[]>([])
   const [loading, setLoading] = useState(true)
   const [openCat, setOpenCat] = useState<IstCatKey | null>(null)
@@ -2005,20 +2070,18 @@ function IstorijaSection() {
               <div className="flex items-stretch gap-3">
                 <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
                   {list.slice(0, 14).map(it => {
-                    // Badge: gimtadieniams — kiek sukako (amžius), kitiems — metai.
-                    const badge = it.type === 'birthday'
+                    // Badge: albumams — albumo amžius (sukaktis); gimtadieniams —
+                    // kiek sukako GYVAM (miręs → „gimimo metinės" rodom tekste, ne
+                    // ant badge'o); mirties metinėms — metai.
+                    const badge = it.type === 'album_anniversary'
                       ? (it.age ? `${it.age} m.` : null)
-                      : (it.year ? `${it.year} m.` : null)
-                    // Miręs atlikėjas (mirties metinės arba miręs gimtadienio
-                    // atlikėjas) — grayscale nuotrauka. Edvardo prašymu 2026-06-01.
+                      : it.type === 'birthday'
+                        ? (it.deceased ? null : (it.age ? `${it.age} m.` : null))
+                        : (it.year ? `${it.year} m.` : null)
+                    // Miręs atlikėjas → grayscale nuotrauka. Edvardo prašymu 2026-06-01.
                     const gray = it.type === 'death_anniversary' || it.deceased
-                    return (
-                    <Link
-                      key={it.id}
-                      href={it.href}
-                      className="group block shrink-0 no-underline text-left"
-                      style={{ width: 156 }}
-                    >
+                    // Cover + badge — bendra abiem (button album'ui / Link kitiems).
+                    const coverBlock = (
                       <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
                         {it.cover ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -2033,11 +2096,44 @@ function IstorijaSection() {
                         )}
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       </div>
+                    )
+                    // Tekstinė dalis po cover'iu (skiriasi pagal tipą).
+                    const textBlock = (
                       <div className="mt-2 px-0.5">
-                        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
-                        {it.subtitle && <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">{it.subtitle}</p>}
+                        <p className={`m-0 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)] ${it.type === 'album_anniversary' ? 'truncate' : 'line-clamp-2'}`}>{it.title}</p>
+                        {it.type === 'album_anniversary' && it.artist && (
+                          <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{it.artist}</p>
+                        )}
+                        {it.type === 'birthday' && it.deceased && it.age && (
+                          <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">{it.age} gimimo metinės</p>
+                        )}
+                        {it.type === 'birthday' && <IstGroupChips groups={it.groups} />}
+                        {it.type === 'death_anniversary' && it.subtitle && (
+                          <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">{it.subtitle}</p>
+                        )}
                       </div>
-                    </Link>
+                    )
+                    // Albumai → atidaro AlbumInfoModal (kaip „Nauji albumai"); kiti
+                    // tipai → navigacija į atlikėjo puslapį.
+                    if (it.type === 'album_anniversary' && it.albumId && onOpenAlbum) {
+                      return (
+                        <button
+                          key={it.id}
+                          type="button"
+                          onClick={() => onOpenAlbum(it.albumId!, { title: it.title, cover_image_url: it.cover, year: it.year })}
+                          className="group block shrink-0 cursor-pointer border-0 bg-transparent p-0 text-left no-underline"
+                          style={{ width: 156 }}
+                        >
+                          {coverBlock}
+                          {textBlock}
+                        </button>
+                      )
+                    }
+                    return (
+                      <Link key={it.id} href={it.href} className="group block shrink-0 no-underline text-left" style={{ width: 156 }}>
+                        {coverBlock}
+                        {textBlock}
+                      </Link>
                     )
                   })}
                 </div>
@@ -2057,7 +2153,42 @@ function IstorijaSection() {
         })}
       </div>
 
-      {openCat && (
+      {openCat && openCat === 'album_anniversary' && (
+        // Albumų modalas — kortelių grid'as kaip „Nauji albumai" (kvadratinis
+        // cover + amžiaus badge + popbar VIRŠ title + ♥). Atidaro AlbumInfoModal.
+        <HomeListModal open onClose={() => setOpenCat(null)} title={IST_CATS[openCat].label} subtitle="Šiandien istorijoje">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {openList.map(it => (
+              <button
+                key={it.id}
+                type="button"
+                onClick={() => { if (it.albumId && onOpenAlbum) { onOpenAlbum(it.albumId, { title: it.title, cover_image_url: it.cover, year: it.year }); setOpenCat(null) } }}
+                className="group block w-full cursor-pointer border-0 bg-transparent p-0 text-left no-underline"
+              >
+                <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
+                  {it.cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                  ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>}
+                  {it.age ? <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{it.age} m.</span> : null}
+                </div>
+                <div className="mt-2 px-0.5">
+                  {(it.pop ?? 0) > 0 && <span className="mb-1 flex"><IstPopBar level={it.pop} /></span>}
+                  <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <p className="m-0 min-w-0 flex-1 truncate text-[11.5px] text-[var(--text-muted)]">{it.artist}</p>
+                    {(it.likeCount ?? 0) > 0 && (
+                      <span className="flex shrink-0 items-center gap-0.5 text-[10.5px] font-bold text-[var(--text-muted)]"><span className="text-[var(--accent-orange)]">♥</span>{it.likeCount}</span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </HomeListModal>
+      )}
+
+      {openCat && openCat !== 'album_anniversary' && (
         <HomeListModal open onClose={() => setOpenCat(null)} title={IST_CATS[openCat].label} subtitle="Šiandien istorijoje">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {openList.map(it => (
@@ -2070,11 +2201,20 @@ function IstorijaSection() {
                 <IstThumb cover={it.cover} name={it.title} size={52} radius={10} gray={it.type === 'death_anniversary' || it.deceased} />
                 <div className="min-w-0 flex-1">
                   <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
-                  {it.subtitle && <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-[var(--text-muted)]">{it.subtitle}</p>}
-                  {(() => {
-                    const b = it.type === 'birthday' ? (it.age ? `${it.age} m.` : null) : (it.year ? `${it.year} m.` : null)
+                  {it.type === 'birthday' && it.deceased && it.age && (
+                    <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-[var(--text-muted)]">{it.age} gimimo metinės</p>
+                  )}
+                  {it.type === 'death_anniversary' && it.subtitle && (
+                    <p className="m-0 mt-0.5 line-clamp-1 text-[11px] text-[var(--text-muted)]">{it.subtitle}</p>
+                  )}
+                  {it.type === 'birthday' && <IstGroupChips groups={it.groups} max={3} />}
+                  {it.type !== 'birthday' && (() => {
+                    const b = it.year ? `${it.year} m.` : null
                     return b ? <span className="mt-1 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-faint)]">{b}</span> : null
                   })()}
+                  {it.type === 'birthday' && !it.deceased && it.age && (
+                    <span className="mt-1 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-faint)]">{it.age} m.</span>
+                  )}
                 </div>
               </Link>
             ))}
@@ -3851,7 +3991,7 @@ export default function Home() {
             minHeight={220}
             placeholder={
               <section>
-                <SectionHead label="Dienos daina" />
+                <SectionHead label="Šiandien siūloma" />
                 <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4" style={{ maxWidth: 560 }}>
                   <Skel w="40%" h={11} />
                   <div className="mt-3"><Skel w="100%" h={48} /></div>
@@ -3861,7 +4001,6 @@ export default function Home() {
             }
           >
           <section>
-            <SectionHead label="Dienos daina" />
             <DienosDainaSection onOpenTrack={(t) => setOpenTrack(t)} />
           </section>
           </LazySection>
@@ -3870,7 +4009,7 @@ export default function Home() {
           <LazySection rootMargin="400px" minHeight={180}>
           <section>
             <SectionHead label="Istorija" href="/istorija" cta="Daugiau →" />
-            <IstorijaSection />
+            <IstorijaSection onOpenAlbum={(id, preview) => { setOpenAlbumId(id); setOpenAlbumPreview(preview) }} />
           </section>
           </LazySection>
 

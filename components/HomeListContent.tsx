@@ -357,8 +357,19 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                       {dateBadge}
                     </div>
                     <div className="mt-2 px-0.5">
+                      {/* Albumams: popbar VIRŠ title, žemiau atlikėjas + ♥
+                          (Edvardo prašymu 2026-06-02 — vienoda su istorijos
+                          albumų modalu). */}
+                      {pop > 0 && <span className="mb-1 flex"><PopBar level={pop} /></span>}
                       <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{title}</p>
-                      {metaRow}
+                      <div className="mt-1 flex items-center gap-2">
+                        <p className="m-0 min-w-0 flex-1 truncate text-[11.5px] text-[var(--text-muted)]">{artistName}</p>
+                        {likes > 0 && (
+                          <span className="flex shrink-0 items-center gap-0.5 text-[10.5px] font-bold text-[var(--text-muted)]">
+                            <span className="text-[var(--accent-orange)]">♥</span>{likes}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 )

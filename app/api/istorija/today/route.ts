@@ -25,8 +25,12 @@ type IstItem = {
   cover: string | null
   year: number | null
   age?: number | null
-  groups?: string[]   // gimtadieniams — grupės, kurioms atlikėjas priklauso/priklausė
+  groups?: { name: string; cover: string | null }[]   // gimtadieniams — grupės, kurioms atlikėjas priklauso/priklausė (+ mini nuotrauka)
   deceased?: boolean  // miręs atlikėjas — UI rodo grayscale nuotrauką
+  artist?: string | null   // album_anniversary — atlikėjo vardas (atskirai nuo title)
+  albumId?: number | null  // album_anniversary — AlbumInfoModal'ui
+  pop?: number             // album_anniversary — populiarumo lygis 0-5 (YT peržiūros)
+  likeCount?: number       // album_anniversary — patiktukai
 }
 
 async function fetchToday(): Promise<IstItem[]> {
@@ -58,13 +62,17 @@ async function fetchToday(): Promise<IstItem[]> {
       items.push({
         id: `alb-${a.id}`,
         type: 'album_anniversary',
-        title: `${artistName ? artistName + ' – ' : ''}${a.title}`,
-        subtitle: `Prieš ${yrsAgo} m.`,
+        // Title = albumo pavadinimas; atlikėjas atskiroje eilutėje (kaip „Nauji
+        // albumai" sekcijoje). „Prieš X m." nebenaudojam — amžius ant badge'o.
+        title: a.title,
+        artist: artistName || null,
+        subtitle: '',
         href: artistSlug ? `/albumai/${artistSlug}-${(a.slug || a.id)}-${a.id}` : `/albumai/${a.slug || a.id}-${a.id}`,
         emoji: '💿',
         cover: a.cover_image_url || null,
         year: a.year,
         age: yrsAgo,
+        albumId: a.id,
         score: a.artists?.score || 0,
       })
     }
@@ -110,23 +118,25 @@ async function fetchToday(): Promise<IstItem[]> {
     if (bdayIds.length) {
       const { data: mem } = await sb
         .from('artist_members')
-        .select('member_id, is_current, grp:artists!group_id ( name )')
+        .select('member_id, is_current, grp:artists!group_id ( name, cover_image_url )')
         .in('member_id', bdayIds)
         .order('is_current', { ascending: false })
-      const byMember: Record<number, string[]> = {}
+      const byMember: Record<number, { name: string; cover: string | null }[]> = {}
       for (const m of (mem || []) as any[]) {
         const g = Array.isArray(m.grp) ? m.grp[0] : m.grp
         const name = g?.name
         if (name) {
           if (!byMember[m.member_id]) byMember[m.member_id] = []
-          if (!byMember[m.member_id].includes(name)) byMember[m.member_id].push(name)
+          if (!byMember[m.member_id].some(x => x.name === name)) {
+            byMember[m.member_id].push({ name, cover: g?.cover_image_url || null })
+          }
         }
       }
       for (const it of items as any[]) {
         if (it.type !== 'birthday') continue
         const gs = byMember[it._artistId] || []
         it.groups = gs
-        it.subtitle = gs.length ? gs.slice(0, 2).join(', ') + (gs.length > 2 ? ` +${gs.length - 2}` : '') : ''
+        it.subtitle = gs.length ? gs.slice(0, 2).map(x => x.name).join(', ') + (gs.length > 2 ? ` +${gs.length - 2}` : '') : ''
       }
     }
   } catch {}
@@ -155,6 +165,33 @@ async function fetchToday(): Promise<IstItem[]> {
         deceased: true,
         score: a.score || 0,
       })
+    }
+  } catch {}
+
+  // ── Albumų populiarumas (YT peržiūros → tier 0-5) + patiktukai ──
+  // Toks pat skaičiavimas kaip /api/home/list, kad „Nauji albumai" ir istorijos
+  // albumų modalas atrodytų vienodai (popbar + ♥). Bounded (≤40 albumų).
+  try {
+    const albIds = (items as any[]).filter(i => i.type === 'album_anniversary').map(i => i.albumId).filter(Boolean)
+    if (albIds.length) {
+      // Patiktukai per RPC.
+      try {
+        const { data: lc } = await sb.rpc('like_counts_by_entity', { p_entity_type: 'album', p_entity_ids: albIds })
+        const m = new Map<number, number>()
+        for (const r of (lc || []) as any[]) m.set(Number(r.entity_id), Number(r.like_count))
+        for (const it of items as any[]) if (it.type === 'album_anniversary') it.likeCount = m.get(it.albumId) || 0
+      } catch {}
+      // Pop tier per didžiausias albumo dainos peržiūras.
+      try {
+        const { data: atRows } = await sb.from('album_tracks').select('album_id, tracks(video_views)').in('album_id', albIds)
+        const viewByAlbum = new Map<number, number>()
+        for (const r of (atRows || []) as any[]) {
+          const v = Number(r.tracks?.video_views || 0)
+          if (v > (viewByAlbum.get(r.album_id) || 0)) viewByAlbum.set(r.album_id, v)
+        }
+        const popTier = (v: number) => (v >= 5e6 ? 5 : v >= 1e6 ? 4 : v >= 2e5 ? 3 : v >= 3e4 ? 2 : v > 0 ? 1 : 0)
+        for (const it of items as any[]) if (it.type === 'album_anniversary') it.pop = popTier(viewByAlbum.get(it.albumId) || 0)
+      } catch {}
     }
   } catch {}
 
