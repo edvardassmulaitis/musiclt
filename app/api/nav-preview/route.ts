@@ -30,7 +30,7 @@ async function getTopMini(sb: any, topType: string, limit: number) {
   if (!week) return []
   const { data: rows } = await sb
     .from('top_entries')
-    .select('position, total_votes, tracks:track_id ( slug, title, cover_url, video_url, artists:artist_id ( slug, name, cover_image_url ) )')
+    .select('position, total_votes, title, artist_name, tracks:track_id ( slug, title, cover_url, video_url, artists:artist_id ( slug, name, cover_image_url ) )')
     .eq('week_id', week.id)
     .order(week.is_finalized ? 'position' : 'total_votes', { ascending: !!week.is_finalized })
     .limit(limit)
@@ -39,7 +39,9 @@ async function getTopMini(sb: any, topType: string, limit: number) {
     const ar = tr ? (Array.isArray(tr.artists) ? tr.artists[0] : tr.artists) : null
     return {
       position: r.position ?? i + 1,
-      title: tr?.title ?? '—', artist: ar?.name ?? '—',
+      // Track title → denormalizuotas entry title (kai daina dar nesukurta kataloge)
+      title: tr?.title || r.title || '—',
+      artist: ar?.name || r.artist_name || '',
       artistSlug: ar?.slug ?? '', trackSlug: tr?.slug ?? null,
       // cover_url → YouTube thumbnail → atlikėjo nuotrauka (kad nebūtų placeholder)
       image: tr?.cover_url || ytThumb(tr?.video_url) || ar?.cover_image_url || null,

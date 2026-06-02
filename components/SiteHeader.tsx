@@ -470,6 +470,27 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
     </div>
   )
 
+  // Vėliavos / vizualo kortelė (Pagal šalis + Kiti topai grupėms).
+  const featCard = (c: NonNullable<NavPreview['featuredCharts']>[number]) => {
+    const isFlag = !c.image && !!flagBg(c.country)
+    const bg = c.image ? proxyImg(c.image) : flagBg(c.country)
+    const hasImg = !!bg
+    const grad = isFlag
+      ? 'linear-gradient(to top, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.10) 28%, rgba(0,0,0,0) 50%)'
+      : 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.42) 55%, rgba(0,0,0,0.20) 100%)'
+    return (
+      <Link key={c.id} href={c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : anchor(c.scope)}
+        className={`sh-style-card${hasImg ? ' sh-style-card-photo' : ''}`}
+        style={{ ['--it-rgb' as any]: hexToRgb(c.accent), ...(hasImg ? { backgroundImage: `${grad}, url(${bg})` } : {}) }}
+        title={c.title}>
+        <span className="sh-style-card-name">{c.title}</span>
+        {!hasImg && <span className="sh-style-card-deco" aria-hidden>{scopeGlyph(c.scope)}</span>}
+      </Link>
+    )
+  }
+  const byCountry = featured.filter(c => c.country)
+  const otherCharts = featured.filter(c => !c.country)
+
   return (
     <div className="sh-panel sh-panel-muzika" style={{ width: 880 }}>
       {/* ── Pagrindiniai topai: LT TOP 30 + TOP 40 juostos (kaip Muzika) ── */}
@@ -477,46 +498,32 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
       <div style={{ height: 12 }} />
       {renderSongRow('world', 'TOP 40', '/top40', '#f97316', top40)}
 
-      {/* ── Kiti topai: featured išoriniai (admin-managed vizualai) ── */}
-      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{ ...SEC_HEAD, paddingTop: 2 }}>Kiti topai</span>
-          <Link href="/topai" className="sh-more-link">Daugiau →</Link>
+      {/* ── Pagal šalis: LT / JAV / UK consensus su vėliavomis ── */}
+      {byCountry.length > 0 && (
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+          <div style={{ ...SEC_HEAD, marginBottom: 10 }}>Pagal šalis</div>
+          <div className="sh-style-grid">{byCountry.map(featCard)}</div>
         </div>
-        <div className="sh-style-grid">
-          {featured.map(c => {
-            const isFlag = !c.image && !!flagBg(c.country)
-            const bg = c.image ? proxyImg(c.image) : flagBg(c.country)
-            const hasImg = !!bg
-            // Vėliavoms — lengvas gradientas tik apačioje (kad vėliava liktų ryški);
-            // nuotraukoms — stipresnis (teksto įskaitomumui).
-            const grad = isFlag
-              ? 'linear-gradient(to top, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.10) 28%, rgba(0,0,0,0) 50%)'
-              : 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.42) 55%, rgba(0,0,0,0.20) 100%)'
-            return (
-              <Link
-                key={c.id}
-                href={c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : anchor(c.scope)}
-                className={`sh-style-card${hasImg ? ' sh-style-card-photo' : ''}`}
-                style={{
-                  ['--it-rgb' as any]: hexToRgb(c.accent),
-                  ...(hasImg ? { backgroundImage: `${grad}, url(${bg})` } : {}),
-                }}
-                title={c.title}
-              >
-                <span className="sh-style-card-name">{c.title}</span>
-                {!hasImg && <span className="sh-style-card-deco" aria-hidden>{scopeGlyph(c.scope)}</span>}
-              </Link>
-            )
-          })}
-          {featured.length === 0 && (
-            <Link href="/topai" className="sh-style-card" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
-              <span className="sh-style-card-name">Visi topai</span>
-              <span className="sh-style-card-deco" aria-hidden>{I.trophy}</span>
-            </Link>
-          )}
+      )}
+
+      {/* ── Kiti topai: Pasaulio / Viral / Albumai ── */}
+      {otherCharts.length > 0 && (
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span style={{ ...SEC_HEAD, paddingTop: 2 }}>Kiti topai</span>
+            <Link href="/topai" className="sh-more-link">Daugiau →</Link>
+          </div>
+          <div className="sh-style-grid">{otherCharts.map(featCard)}</div>
         </div>
-      </div>
+      )}
+      {featured.length === 0 && (
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+          <Link href="/topai" className="sh-style-card" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
+            <span className="sh-style-card-name">Visi topai</span>
+            <span className="sh-style-card-deco" aria-hidden>{I.trophy}</span>
+          </Link>
+        </div>
+      )}
 
       {/* ── Apdovanojimai / rinkimai ── */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
