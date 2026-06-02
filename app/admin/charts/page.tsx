@@ -123,12 +123,17 @@ export default function AdminChartsPage() {
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6">
-      <div className="mb-5">
-        <h1 className="text-2xl font-black text-gray-900">Topų valdymas</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Nuscrape'inti išoriniai topai. Susiek dainas su katalogu arba sukurk naujas.
-          „Auto-match" automatiškai susieja vienareikšmius, likę lieka peržiūrai.
-        </p>
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900">Topų valdymas</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Nuscrape'inti išoriniai topai. Susiek dainas su katalogu arba sukurk naujas.
+            „Auto-match" automatiškai susieja vienareikšmius, likę lieka peržiūrai.
+          </p>
+        </div>
+        <a href="/admin/topai" className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100">
+          Topų vizualai →
+        </a>
       </div>
 
       {/* Chart grid */}

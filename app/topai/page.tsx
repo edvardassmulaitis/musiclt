@@ -25,6 +25,11 @@ const SOURCE_LINKS: Record<string, { label: string; slug: string }[]> = {
   uk: [{ label: 'Apple Music', slug: 'apple-gb_songs' }, { label: 'Spotify', slug: 'spotify-uk' }, { label: 'Official UK', slug: 'official_uk-singles' }],
   world: [{ label: 'Spotify', slug: 'spotify-global' }, { label: 'Billboard', slug: 'billboard-global200' }],
   albums: [{ label: 'Billboard 200', slug: 'billboard-albums' }, { label: 'Official UK', slug: 'official_uk-albums' }],
+  shazam_world: [
+    { label: 'JAV', slug: 'shazam-us' }, { label: 'UK', slug: 'shazam-uk' }, { label: 'Vokietija', slug: 'shazam-de' },
+    { label: 'Prancūzija', slug: 'shazam-fr' }, { label: 'Brazilija', slug: 'shazam-br' },
+    { label: 'Ispanija', slug: 'shazam-es' }, { label: 'Meksika', slug: 'shazam-mx' },
+  ],
 }
 
 function ytThumb(url: string | null | undefined): string | null {
@@ -105,7 +110,7 @@ export default async function TopaiHubPage() {
     toCard(ext, 'consensus-lt', { sourcesKey: 'lt' }),
     toCard(ext, 'consensus-us', { sourcesKey: 'us' }),
     toCard(ext, 'consensus-uk', { sourcesKey: 'uk', title: 'UK TOP 100' }),
-    toCard(ext, 'shazam-world'),
+    toCard(ext, 'consensus-shazam_world', { sourcesKey: 'shazam_world' }),
     toCard(ext, 'shazam-lt'),
   ].filter(Boolean) as Card[]
 
@@ -225,7 +230,9 @@ const styles = `
   .tc-row { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-radius: 10px; }
   .tc-row + .tc-row { border-top: 1px solid var(--border-subtle); }
   .tc-pos { width: 20px; flex-shrink: 0; text-align: center; font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 800; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-  .tc-row-1 .tc-pos { color: var(--text-secondary); }
+  .tc-row-1 .tc-pos { color: var(--text-secondary); font-size: 17px; }
+  .tc-row-1 .tc-cv { width: 58px; height: 58px; }
+  .tc-row-1 .tc-song { font-size: 15px; }
   .tc-cv { width: 46px; height: 46px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: var(--bg-elevated); }
   .tc-cv img { width: 100%; height: 100%; object-fit: cover; }
   .tc-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 16px; }
