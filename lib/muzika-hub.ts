@@ -7,10 +7,14 @@
 //
 // SEO mindset: hub render'inamas serveryje su tikrais <a> link'ais į atlikėjus,
 // albumus, dainas, stilius ir šalis — tankus vidinių nuorodų tinklas paskirsto
-// crawl equity į ~12k entity puslapių. Patys sąrašai čia tik „pjūviai" (po
-// nedidelį kiekį iš kategorijos), o gilus naršymas lieka facet puslapiuose
-// (/atlikejai?country=, ?genre=) su savo canonical'ais — taip vengiam duplicate
-// content'o tarp /muzika ir /atlikejai.
+// crawl equity į entity puslapius. Gilus naršymas lieka /atlikejai, /albumai,
+// /dainos facet puslapiuose su savo canonical'ais.
+//
+// „Trending" filosofija (žr. Edvardo feedback 2026-06-02): NENAUDOJAM all-time
+// `score` (rodytų legendas kaip Mamontovas, ne dabar populiarius kaip Jessica
+// Shy). Vietoj to — dabartiniai topai (external_charts is_current + voting
+// top_entries) PLIUS naujausi pasirodymai (video_uploaded_at). Score lieka tik
+// kaip paskutinis fallback, kad sekcija niekada nebūtų tuščia.
 
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase'
@@ -53,36 +57,141 @@ export type HubTrack = {
 }
 
 export type GenreCount = { genre_id: number; name: string; n: number }
+export type SubstyleCount = { substyle_id: number; name: string; slug: string; n: number }
 export type CountryCount = { country: string; n: number }
 
 const ARTIST_COLS =
   'id, slug, name, country, type, cover_image_url, cover_image_position, is_verified, score'
 
-/* ────────────────────────── Trending atlikėjai ────────────────────────── */
+const LT_COUNTRIES = [LT_COUNTRY, 'LT', 'Lithuania']
+function isLT(country: string | null | undefined): boolean {
+  return !country || LT_COUNTRIES.includes(country)
+}
 
-/** Populiariausi atlikėjai pagal `score` (all-time). `scope`: lt / world. */
+/* ───────────────────────── Artist by-ids (order preserved) ───────────────────────── */
+
+/** Paima atlikėjus pagal id sąrašą ir grąžina TA PAČIA tvarka (signalų rank). */
+async function fetchArtistsByIds(ids: number[]): Promise<HubArtist[]> {
+  if (ids.length === 0) return []
+  try {
+    const sb = createAdminClient()
+    const { data } = await sb.from('artists').select(ARTIST_COLS).in('id', ids)
+    const byId = new Map<number, HubArtist>()
+    for (const a of (data || []) as HubArtist[]) byId.set(a.id, a)
+    return ids.map((id) => byId.get(id)).filter(Boolean) as HubArtist[]
+  } catch {
+    return []
+  }
+}
+
+/* ───────────────────────── Trending signalai ───────────────────────── */
+
+/** Atlikėjų id iš DABARTINIŲ external charts (is_current), pagal geriausią
+ *  poziciją. scope: 'lt' → LT topai, 'world' → pasaulio. */
+async function currentChartArtistIds(scope: 'lt' | 'world'): Promise<number[]> {
+  try {
+    const sb = createAdminClient()
+    const { data: charts } = await sb
+      .from('external_charts')
+      .select('id, scope')
+      .eq('is_current', true)
+      .eq('scope', scope)
+    const chartIds = ((charts || []) as any[]).map((c) => c.id)
+    if (chartIds.length === 0) return []
+    const { data: entries } = await sb
+      .from('external_chart_entries')
+      .select('artist_id, position')
+      .in('chart_id', chartIds)
+      .not('artist_id', 'is', null)
+      .order('position', { ascending: true })
+      .limit(400)
+    const best = new Map<number, number>()
+    for (const e of (entries || []) as any[]) {
+      const cur = best.get(e.artist_id)
+      if (cur === undefined || e.position < cur) best.set(e.artist_id, e.position)
+    }
+    return [...best.entries].sort((a, b) => a[1] - b[1]).map(([id]) => id)
+  } catch {
+    return []
+  }
+}
+
+/** Atlikėjų id iš naujausių pasirodymų (video_uploaded_at, paskutiniai ~180 d.),
+ *  dedup per atlikėją, filtruoti pagal scope (LT/pasaulis). */
+async function recentReleaseArtistIds(scope: 'lt' | 'world'): Promise<number[]> {
+  try {
+    const sb = createAdminClient()
+    const since = new Date(Date.now() - 180 * 86_400_000).toISOString()
+    const { data } = await sb
+      .from('tracks')
+      .select('artist_id, video_uploaded_at, artists!tracks_artist_id_fkey(country)')
+      .not('video_uploaded_at', 'is', null)
+      .gte('video_uploaded_at', since)
+      .order('video_uploaded_at', { ascending: false })
+      .limit(300)
+    const out: number[] = []
+    const seen = new Set<number>()
+    for (const t of (data || []) as any[]) {
+      if (!t.artist_id || seen.has(t.artist_id)) continue
+      const lt = isLT(t.artists?.country)
+      if ((scope === 'lt') !== lt) continue
+      seen.add(t.artist_id)
+      out.push(t.artist_id)
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
+/** Fallback — top atlikėjai pagal all-time score (kad sekcija nebūtų tuščia). */
+async function topScoreArtistIds(scope: 'lt' | 'world', limit: number): Promise<number[]> {
+  try {
+    const sb = createAdminClient()
+    let q = sb
+      .from('artists')
+      .select('id')
+      .order('score', { ascending: false, nullsFirst: false })
+      .order('name', { ascending: true })
+      .limit(limit)
+    q = scope === 'lt' ? q.eq('country', LT_COUNTRY) : q.neq('country', LT_COUNTRY)
+    const { data } = await q
+    return ((data || []) as any[]).map((a) => a.id)
+  } catch {
+    return []
+  }
+}
+
+/** „Šiuo metu populiaru" atlikėjai: charts → naujausi releases → score fallback.
+ *  Dedup, scope (country) garantuotas po fetch'o. */
 export const getTrendingArtists = cache(
   async (scope: 'lt' | 'world', limit = 12): Promise<HubArtist[]> => {
-    try {
-      const sb = createAdminClient()
-      let q = sb
-        .from('artists')
-        .select(ARTIST_COLS)
-        .order('score', { ascending: false, nullsFirst: false })
-        .order('name', { ascending: true })
-        .limit(limit)
-      q = scope === 'lt' ? q.eq('country', LT_COUNTRY) : q.neq('country', LT_COUNTRY)
-      const { data } = await q
-      return (data || []) as HubArtist[]
-    } catch {
-      return []
+    const [chartIds, recentIds] = await Promise.all([
+      currentChartArtistIds(scope),
+      recentReleaseArtistIds(scope),
+    ])
+    // Merge: charts pirma (autoritetas), tada naujausi releases.
+    const merged: number[] = []
+    const seen = new Set<number>()
+    for (const id of [...chartIds, ...recentIds]) {
+      if (!seen.has(id)) { seen.add(id); merged.push(id) }
     }
+    let artists = await fetchArtistsByIds(merged)
+    // Scope filtras (charts country gali nesutapti su artist country).
+    artists = artists.filter((a) => (scope === 'lt') === isLT(a.country))
+    // Fallback jei tuščia / per mažai.
+    if (artists.length < limit) {
+      const have = new Set(artists.map((a) => a.id))
+      const fillIds = (await topScoreArtistIds(scope, limit * 2)).filter((id) => !have.has(id))
+      const fill = await fetchArtistsByIds(fillIds)
+      artists = [...artists, ...fill]
+    }
+    return artists.slice(0, limit)
   }
 )
 
-/* ──────────────────────────── Žanrai / šalys ──────────────────────────── */
+/* ──────────────────────────── Žanrai / stiliai / šalys ──────────────────────────── */
 
-/** Top-level žanrai su atlikėjų skaičiumi (artist_genre_counts RPC). */
 export const getGenreCounts = cache(async (): Promise<GenreCount[]> => {
   try {
     const sb = createAdminClient()
@@ -93,8 +202,16 @@ export const getGenreCounts = cache(async (): Promise<GenreCount[]> => {
   }
 })
 
-/** Šalys su atlikėjų skaičiumi (artist_country_counts RPC), be Lietuvos
- *  (ji rodoma atskirai kaip pagrindinė auditorija). */
+export const getSubstyleCounts = cache(async (): Promise<SubstyleCount[]> => {
+  try {
+    const sb = createAdminClient()
+    const { data } = await sb.rpc('artist_substyle_counts')
+    return ((data || []) as SubstyleCount[]).filter((s) => s.name && s.slug && s.n > 0)
+  } catch {
+    return []
+  }
+})
+
 export const getCountryCounts = cache(async (): Promise<CountryCount[]> => {
   try {
     const sb = createAdminClient()
@@ -105,7 +222,6 @@ export const getCountryCounts = cache(async (): Promise<CountryCount[]> => {
   }
 })
 
-/** Žanro slug → GenreCount (reverse lookup /zanrai/[slug] puslapiui). */
 export const findGenreBySlug = cache(async (slug: string): Promise<GenreCount | null> => {
   const s = (slug || '').trim().toLowerCase()
   if (!s) return null
@@ -128,7 +244,7 @@ function mapAlbumRow(a: any): HubAlbum {
   }
 }
 
-/** Naujausi albumai (su viršeliu + metais), naujausi viršuje. */
+/** Naujausi albumai (su viršeliu + metais). */
 export const getLatestAlbums = cache(async (limit = 12): Promise<HubAlbum[]> => {
   try {
     const sb = createAdminClient()
@@ -162,21 +278,21 @@ function mapTrackRow(t: any): HubTrack {
   }
 }
 
-/** Populiariausios dainos pagal YouTube peržiūras (su video + viršeliu). */
-export const getPopularTracks = cache(async (limit = 12): Promise<HubTrack[]> => {
+/** Naujausi pasirodymai (video_uploaded_at DESC), dedup per atlikėją. Dinamiška
+ *  — atsinaujina su kiekvienu nauju release'u (priešingai nei statiškas
+ *  „daugiausiai klausomų" all-time sąrašas). */
+export const getNewestTracks = cache(async (limit = 12): Promise<HubTrack[]> => {
   try {
     const sb = createAdminClient()
+    const since = new Date(Date.now() - 180 * 86_400_000).toISOString()
     const { data } = await sb
       .from('tracks')
-      .select(
-        'id, slug, title, cover_url, video_views, artist_id, artists!tracks_artist_id_fkey(name, slug, country)'
-      )
-      .not('video_url', 'is', null)
-      .not('video_views', 'is', null)
-      .order('video_views', { ascending: false, nullsFirst: false })
-      .limit(limit * 3) // fetch extra → dedupe per artist
-    const rows = ((data || []) as any[]).filter((t) => t.artists && t.title)
-    // Dedupe per atlikėją (kad nerodytume 5 tos pačios grupės dainų).
+      .select('id, slug, title, cover_url, video_views, video_uploaded_at, artist_id, artists!tracks_artist_id_fkey(name, slug)')
+      .not('video_uploaded_at', 'is', null)
+      .gte('video_uploaded_at', since)
+      .order('video_uploaded_at', { ascending: false })
+      .limit(limit * 4)
+    const rows = ((data || []) as any[]).filter((t) => t.artists && t.title && t.title !== t.artists.name)
     const seen = new Set<number>()
     const out: HubTrack[] = []
     for (const r of rows) {
@@ -191,9 +307,7 @@ export const getPopularTracks = cache(async (limit = 12): Promise<HubTrack[]> =>
   }
 })
 
-/* ──────────────────────── Per-style agregacija ──────────────────────── */
-// /zanrai/[slug] landing'ams: top atlikėjai + naujausi albumai + populiarios
-// dainos KONKRETAUS stiliaus. Junction per artist_genres!inner.
+/* ──────────────────────── Per-style agregacija (/zanrai/[slug]) ──────────────────────── */
 
 export const getStyleArtists = cache(
   async (genreId: number, scope: 'lt' | 'world' | 'all', limit = 12): Promise<HubArtist[]> => {
@@ -221,9 +335,7 @@ export const getStyleAlbums = cache(async (genreId: number, limit = 8): Promise<
     const sb = createAdminClient()
     const { data } = await sb
       .from('albums')
-      .select(
-        'id, slug, title, year, cover_image_url, artist_id, artists!inner(name, slug, artist_genres!inner(genre_id))'
-      )
+      .select('id, slug, title, year, cover_image_url, artist_id, artists!inner(name, slug, artist_genres!inner(genre_id))')
       .eq('artists.artist_genres.genre_id', genreId)
       .not('cover_image_url', 'is', null)
       .not('year', 'is', null)
@@ -240,9 +352,7 @@ export const getStyleTracks = cache(async (genreId: number, limit = 10): Promise
     const sb = createAdminClient()
     const { data } = await sb
       .from('tracks')
-      .select(
-        'id, slug, title, cover_url, video_views, artist_id, artists!inner(name, slug, artist_genres!inner(genre_id))'
-      )
+      .select('id, slug, title, cover_url, video_views, artist_id, artists!inner(name, slug, artist_genres!inner(genre_id))')
       .eq('artists.artist_genres.genre_id', genreId)
       .not('video_url', 'is', null)
       .not('video_views', 'is', null)

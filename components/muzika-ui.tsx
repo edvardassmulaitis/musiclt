@@ -260,6 +260,27 @@ export const muzikaStyles = `
 .mz-prose a { color:var(--accent-link); }
 .mz-prose a:hover { color:var(--accent-orange); }
 
+/* Filter bar (browse puslapiams: /albumai, /dainos) — server-rendered <a> chips */
+.mz-fbar { display:flex; flex-direction:column; gap:9px; margin-bottom:18px; }
+.mz-frow { display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+.mz-flbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); min-width:58px; font-family:'Outfit',sans-serif; }
+.mz-fchip { padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08)); color:var(--text-secondary); transition:all .15s; white-space:nowrap; font-family:'Outfit',sans-serif; }
+.mz-fchip:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
+.mz-fchip.on { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
+.mz-count { font-size:13px; color:var(--text-muted); margin:2px 0 16px; }
+
+/* Pagination */
+.mz-pager { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center; margin:32px 0; }
+.mz-pg { min-width:38px; height:38px; padding:0 12px; display:inline-flex; align-items:center; justify-content:center; border-radius:9px; font-size:13px; font-weight:700; font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08)); color:var(--text-secondary); transition:all .15s; }
+.mz-pg:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
+.mz-pg-cur { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
+.mz-pg-dots { color:var(--text-faint); padding:0 2px; }
+
+.mz-empty { max-width:560px; margin:50px auto; text-align:center; }
+.mz-empty-ic { font-size:42px; opacity:.4; }
+.mz-empty h3 { font-family:'Outfit',sans-serif; font-weight:800; font-size:19px; margin:10px 0 4px; }
+.mz-empty p { color:var(--text-muted); font-size:13px; }
+
 @media(max-width:768px){
   .mz-tile-grid { grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:9px; }
   .mz-acard-grid { grid-template-columns:repeat(auto-fill,minmax(108px,1fr)); gap:12px; }

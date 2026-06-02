@@ -1,21 +1,23 @@
 // app/zanrai/page.tsx
 //
-// Stilių INDEKSAS — visi žanrai su atlikėjų skaičiumi, kiekvienas linkina į
-// dedikuotą /zanrai/[slug] landing'ą. SERVER-RENDERED (SEO): realūs <a> →
-// crawler'is atranda visus stilių puslapius; sitemap.ts juos taip pat išvardina.
+// Muzikos stilių INDEKSAS. 8 pagrindiniai stiliai linkina į dedikuotus
+// /zanrai/[slug] landing'us; smulkesni stiliai (substyles) → /atlikejai?substyle=.
+// SERVER-RENDERED (SEO): realūs <a>, sitemap.ts išvardina visus landing'us.
+// Route lieka /zanrai (istorinis), bet UI label'as „stiliai" (kaip senasis
+// music.lt) — per-puslapio title'ai naudoja „{X} muzika" long-tail.
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SITE_URL } from '@/lib/artist-browse'
-import { getGenreCounts, genreHref } from '@/lib/muzika-hub'
+import { getGenreCounts, getSubstyleCounts, genreHref } from '@/lib/muzika-hub'
 import { muzikaStyles, SectionHead, PillLink } from '@/components/muzika-ui'
 
 export const revalidate = 3600
 
-const TITLE = 'Žanrai ir stiliai — naršyk muziką pagal stilių | music.lt'
+const TITLE = 'Muzikos stiliai — naršyk muziką pagal stilių | music.lt'
 const DESCRIPTION =
-  'Visi muzikos žanrai ir stiliai vienoje vietoje: rokas, popsas, hip-hopas, ' +
-  'elektronika, folkas, džiazas ir kiti. Atrask atlikėjus, albumus ir dainas pagal stilių.'
+  'Visi muzikos stiliai vienoje vietoje: rokas, popsas, hip-hopas, elektronika, ' +
+  'klasika, sunkioji ir kiti. Atrask atlikėjus, albumus ir dainas pagal stilių.'
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -25,23 +27,21 @@ export const metadata: Metadata = {
 }
 
 export default async function GenresPage() {
-  const genres = await getGenreCounts()
-  const sorted = [...genres].sort((a, b) => b.n - a.n)
+  const [genres, substyles] = await Promise.all([getGenreCounts(), getSubstyleCounts()])
+  const main = [...genres].sort((a, b) => b.n - a.n)
+  const subs = [...substyles].sort((a, b) => b.n - a.n)
 
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: 'Žanrai ir stiliai — music.lt',
+    name: 'Muzikos stiliai — music.lt',
     description: DESCRIPTION,
     url: `${SITE_URL}/zanrai`,
     isPartOf: { '@type': 'WebSite', name: 'music.lt', url: SITE_URL },
     mainEntity: {
       '@type': 'ItemList',
-      itemListElement: sorted.slice(0, 30).map((g, i) => ({
-        '@type': 'ListItem',
-        position: i + 1,
-        url: `${SITE_URL}${genreHref(g)}`,
-        name: g.name,
+      itemListElement: main.slice(0, 30).map((g, i) => ({
+        '@type': 'ListItem', position: i + 1, url: `${SITE_URL}${genreHref(g)}`, name: g.name,
       })),
     },
   }
@@ -53,14 +53,10 @@ export default async function GenresPage() {
 
       <header className="mz-hero">
         <div className="mz-hero-inner">
-          <nav className="mz-crumbs" aria-label="Naršymo kelias">
-            <Link href="/">Pradžia</Link><span aria-hidden>›</span>
-            <Link href="/muzika">Muzika</Link><span aria-hidden>›</span><span>Žanrai</span>
-          </nav>
-          <h1>Žanrai ir stiliai</h1>
+          <h1>Muzikos stiliai</h1>
           <p className="mz-hero-lead">
             Atrask muziką pagal tai, ko šiandien nori klausytis — nuo roko ir popso iki
-            hip-hopo, elektronikos ir folko. Kiekvienas stilius turi savo atlikėjus,
+            hip-hopo, elektronikos ir klasikos. Kiekvienas stilius turi savo atlikėjus,
             albumus ir populiariausias dainas.
           </p>
         </div>
@@ -69,22 +65,39 @@ export default async function GenresPage() {
       <div className="mz-wrap">
         <section className="mz-sec">
           <SectionHead
-            title="Visi stiliai"
-            sub={sorted.length > 0 ? `${sorted.length} stilių kataloge` : undefined}
-            href="/atlikejai"
-            hrefLabel="Visi atlikėjai"
+            title="Pagrindiniai stiliai"
+            sub={main.length > 0 ? `${main.length} stiliai` : undefined}
           />
-          {sorted.length === 0 ? (
+          {main.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
               Stilių sąrašas šiuo metu nepasiekiamas. <Link href="/atlikejai" style={{ color: 'var(--accent-link)' }}>Naršyk atlikėjus →</Link>
             </p>
           ) : (
             <div className="mz-pills">
-              {sorted.map((g) => (
-                <PillLink key={g.genre_id} href={genreHref(g)} label={g.name} count={g.n} />
+              {main.map((g) => (
+                <PillLink key={g.genre_id} href={genreHref(g)} label={`${g.name.replace(/\s*muzika$/i, '')} muzika`} count={g.n} />
               ))}
             </div>
           )}
+        </section>
+
+        {subs.length > 0 && (
+          <section className="mz-sec">
+            <SectionHead title="Smulkesni stiliai" sub="Konkretesni žanrų pošakiai" />
+            <div className="mz-pills">
+              {subs.map((s) => (
+                <PillLink key={s.substyle_id} href={`/atlikejai?substyle=${s.slug}`} label={s.name} count={s.n} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="mz-seo">
+          <p className="mz-prose">
+            Ieškai daugiau? Grįžk į <Link href="/muzika">muzikos katalogą</Link>, naršyk{' '}
+            <Link href="/atlikejai">visus atlikėjus</Link>, <Link href="/albumai">albumus</Link> ar{' '}
+            <Link href="/dainos">dainas</Link>.
+          </p>
         </section>
       </div>
     </div>

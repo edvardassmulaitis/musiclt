@@ -100,11 +100,6 @@ export default async function GenreLandingPage({ params }: Props) {
 
       <header className="mz-hero">
         <div className="mz-hero-inner">
-          <nav className="mz-crumbs" aria-label="Naršymo kelias">
-            <Link href="/">Pradžia</Link><span aria-hidden>›</span>
-            <Link href="/muzika">Muzika</Link><span aria-hidden>›</span>
-            <Link href="/zanrai">Žanrai</Link><span aria-hidden>›</span><span>{name}</span>
-          </nav>
           <h1>{name} muzika</h1>
           <p className="mz-hero-lead">
             {g.n.toLocaleString('lt-LT')} {name.toLowerCase()} atlikėjų music.lt kataloge —
