@@ -475,9 +475,11 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
     const isFlag = !c.image && !!flagBg(c.country)
     const bg = c.image ? proxyImg(c.image) : flagBg(c.country)
     const hasImg = !!bg
+    // Tamsą koncentruojam į ploną apačios juostą (tik po pavadinimu) — likusi
+    // vėliava / nuotrauka lieka ryški.
     const grad = isFlag
-      ? 'linear-gradient(to top, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.10) 28%, rgba(0,0,0,0) 50%)'
-      : 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.42) 55%, rgba(0,0,0,0.20) 100%)'
+      ? 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 30%)'
+      : 'linear-gradient(to top, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.15) 38%, rgba(0,0,0,0) 62%)'
     return (
       <Link key={c.id} href={c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : anchor(c.scope)}
         className={`sh-style-card${hasImg ? ' sh-style-card-photo' : ''}`}
