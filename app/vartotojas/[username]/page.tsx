@@ -29,6 +29,12 @@ import { ProfileClient } from './profile-client'
 
 type Props = { params: Promise<{ username: string }> }
 
+// PERF (2026-06-02): ISR — profilis yra share-worthy puslapis (daug žiūrovų,
+// reti pakeitimai). 120s revalidate'as leidžia pakartotiniams vizitams būti
+// serve'inamiems iš full-route cache be re-render'io. Savininko pakeitimai
+// (mood daina, dienos pasirinkimai) atsispindi per ≤2 min.
+export const revalidate = 120
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params
   const profile = await getProfileByUsername(username)
