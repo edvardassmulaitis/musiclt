@@ -36,7 +36,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     .from('external_chart_entries')
     .select('id, artist_name, title')
     .eq('chart_id', chartId)
-    .in('resolve_state', ['pending', 'ambiguous'])
+    .in('resolve_state', ['pending', 'ambiguous', 'text_only'])
   const entries = pend || []
   if (entries.length === 0) {
     return mode === 'create'

@@ -10,6 +10,7 @@ type Chart = {
   scope: string; size: number; accent: string; period_label: string; attribution: string | null
   source_url: string | null; counts: Counts; country?: string | null
   featured?: boolean; featured_order?: number | null; cover_image_url?: string | null
+  fetched_at?: string | null
 }
 type ArtistStatus = { name: string; exists: boolean; id: number | null; slug: string | null }
 type Entry = {
@@ -33,6 +34,34 @@ const bucketOf = (state: string): Bucket =>
         : 'pending'
 
 const norm = (s: string) => (s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').trim()
+
+/* Nuima „(feat. X)" / „(w/ X)" / „(with X)" priesagą katalogo paieškai
+ * (kitaip „Seven (w/ Latto)" niekada neranda track'o „Seven"). */
+const stripFeat = (s: string) =>
+  (s || '').replace(/\s*[\(\[]\s*(?:feat|ft|featuring|with|w\/)\.?\s+[^)\]]*[\)\]]/gi, '').trim() || (s || '')
+
+/* Reliatyvi data lietuviškai („prieš 3 d.", „šiandien"). */
+function relDate(iso?: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000)
+  if (days <= 0) return 'šiandien'
+  if (days === 1) return 'vakar'
+  if (days < 7) return `prieš ${days} d.`
+  if (days < 14) return 'prieš savaitę'
+  return d.toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+/* Sekantis auto-tikrinimas — kasdienis scheduled task ~08:05. */
+function nextCheckLabel(): string {
+  const now = new Date()
+  const next = new Date(now)
+  next.setHours(8, 5, 0, 0)
+  if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1)
+  const isTomorrow = next.getDate() !== now.getDate()
+  return `${isTomorrow ? 'rytoj' : 'šiandien'} ${next.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' })}`
+}
 
 /* ───────────────────────────── Ikonos ───────────────────────────── */
 function IconCheck({ className = '' }: { className?: string }) {
@@ -183,8 +212,9 @@ export default function AdminChartsPage() {
     }
   }, [])
 
+  // „Tik laukiantys" = viskas, kas dar nesusieta (pending/ambiguous/text_only).
   const visibleEntries = filter === 'unresolved'
-    ? entries.filter(e => e.resolveState === 'pending' || e.resolveState === 'ambiguous')
+    ? entries.filter(e => e.resolveState !== 'matched' && e.resolveState !== 'created')
     : entries
 
   const consensusCharts = charts.filter(c => c.source === 'consensus')
@@ -235,6 +265,14 @@ export default function AdminChartsPage() {
                   <div className="min-w-0">
                     <h2 className="truncate font-bold text-gray-900">{selected.title}</h2>
                     <p className="text-[11px] text-gray-400">{selected.attribution} · {selected.period_label}</p>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-gray-400">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        Atnaujinta {relDate(selected.fetched_at)}
+                      </span>
+                      <span className="text-gray-300">·</span>
+                      <span>Kitas tikrinimas {nextCheckLabel()}</span>
+                    </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex rounded-lg border border-gray-200 p-0.5 text-xs">
@@ -360,7 +398,6 @@ function ArtistChip({ artist, prefix, onCreate, busy }: {
 function EntryRow({ entry, isAlbum, onUpdate }: { entry: Entry; isAlbum: boolean; onUpdate: (id: number, patch: Partial<Entry>) => void }) {
   const [busy, setBusy] = useState(false)
   const resolved = entry.resolveState === 'matched' || entry.resolveState === 'created'
-  const skipped = entry.resolveState === 'text_only'
   const primary = entry.primaryArtist
   const featuring = entry.featuringArtists || []
 
@@ -389,8 +426,6 @@ function EntryRow({ entry, isAlbum, onUpdate }: { entry: Entry; isAlbum: boolean
           featuringArtists: featuring.map(f => norm(f.name) === targetName ? { ...f, exists: true, id: a.id, slug: a.slug } : f),
         })
       }
-    } else if (action === 'skip') {
-      onUpdate(entry.id, { resolveState: 'text_only' })
     } else if (action === 'unlink') {
       onUpdate(entry.id, { resolveState: 'pending', track: null })
     }
@@ -432,23 +467,7 @@ function EntryRow({ entry, isAlbum, onUpdate }: { entry: Entry; isAlbum: boolean
     )
   }
 
-  /* ── Praleistas (text_only): muted + grąžinimas į eilę ── */
-  if (skipped) {
-    return (
-      <div className="flex items-center gap-2.5 px-3 py-2.5 sm:gap-3 sm:px-4">
-        <span className="w-6 shrink-0 text-center text-sm font-black tabular-nums text-gray-300 sm:w-7">{entry.position}</span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-gray-400">{entry.title}</p>
-          <p className="truncate text-xs text-gray-300">{entry.artistName}</p>
-        </div>
-        <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-400">Praleista</span>
-        <button onClick={() => act('unlink')} disabled={busy}
-          className="shrink-0 rounded px-2 py-1 text-[11px] font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50">Grąžinti</button>
-      </div>
-    )
-  }
-
-  /* ── Nesusietas (pending/ambiguous): paieška visada atvira ── */
+  /* ── Nesusietas (pending/ambiguous/text_only): paieška visada atvira ── */
   return (
     <div className="px-3 py-2.5 sm:px-4">
       <div className="flex items-start gap-2.5 sm:gap-3">
@@ -472,12 +491,10 @@ function EntryRow({ entry, isAlbum, onUpdate }: { entry: Entry; isAlbum: boolean
             ))}
           </p>
         </div>
-        <button onClick={() => act('skip')} disabled={busy}
-          className="mt-0.5 shrink-0 rounded px-2 py-1 text-[11px] font-medium text-gray-300 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50">Praleisti</button>
       </div>
 
-      {/* Paieška visada atvira — ieško TIK pavadinimo, naujausi pridėti pirma */}
-      <LinkSearch isAlbum={isAlbum} defaultQuery={entry.title} busy={busy}
+      {/* Paieška visada atvira — ieško TIK pavadinimo (be „(w/ X)" priesagos), naujausi pirma */}
+      <LinkSearch isAlbum={isAlbum} defaultQuery={stripFeat(entry.title)} busy={busy}
         onPick={(h) => act('link', isAlbum ? { albumId: h.id } : { trackId: h.id })} />
     </div>
   )

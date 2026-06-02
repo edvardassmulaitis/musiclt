@@ -21,8 +21,8 @@ type Match = { id: number; name: string; slug: string | null }
 // ≥2 dalys atitinka esamus atlikėjus (apsaugo „Simon & Garfunkel" tipo vardus).
 const STRONG_SEP = /\s+(?:feat\.?|ft\.?|featuring|vs\.?|x|×|✕)\s+/i
 const WEAK_SEP = /\s*(?:&|,|\+|\swith\s)\s*/i
-// Pavadinimo featuring: „(feat. X)" / „ft. X" gale.
-const TITLE_FEAT = /[\(\[]\s*(?:feat|ft|featuring|with)\.?\s+([^)\]]+)[\)\]]|\b(?:feat|ft|featuring)\.?\s+(.+)$/i
+// Pavadinimo featuring: „(feat. X)" / „ft. X" / „(w/ X)" gale.
+const TITLE_FEAT = /[\(\[]\s*(?:feat|ft|featuring|with|w\/)\.?\s+([^)\]]+)[\)\]]|\b(?:feat|ft|featuring)\.?\s+(.+)$/i
 
 function cleanName(s: string): string {
   return (s || '').replace(/^["'«»“”„‚‘’\s]+|["'«»“”„‚‘’\s]+$/g, '').replace(/\s{2,}/g, ' ').trim()

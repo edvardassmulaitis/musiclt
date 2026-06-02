@@ -274,7 +274,9 @@ export function extractFeaturing(raw: string): string[] {
   // `[[Mustapha (song)|Mustapha]]` — anksčiau `[^)]+` stop'indavo prie pirmojo
   // `)` ir Live Killers track "(with "[[Mustapha (song)|Mustapha]]" intro)"
   // tapdavo featuring=["Mustapha (song"], title=`Bohemian Rhapsody|Mustapha"` etc.
-  const m1 = raw.match(/\((?:feat(?:uring)?\.?|ft\.?|with)\s+((?:[^()]+|\([^()]*\))+)\)/i)
+  // `w/` (pvz „Seven (w/ Latto)") — dažna chart'uose; reikalauja `/` tad
+  // nesusimaišo su „without"/paprastu w.
+  const m1 = raw.match(/\((?:feat(?:uring)?\.?|ft\.?|with|w\/)\s+((?:[^()]+|\([^()]*\))+)\)/i)
   if (m1) {
     // Split TIK pagal , ir & — and-split atlieka cleanFeaturingTokens viduje.
     return cleanFeaturingTokens(m1[1].split(/[,&]/))
@@ -350,7 +352,7 @@ export function parseFeaturing(raw: string): { cleanTitle: string; featuring: st
   const cleanTitle = cleanWikiText(
     // Balanced paren — žr. extractFeaturing komentarą; tas pats su (song)/(album)
     // Wiki disambig'ais featuring paren'o viduje.
-    raw.replace(/\s*\((?:feat(?:uring)?\.?|ft\.?|with)\s+(?:[^()]+|\([^()]*\))+\)/gi, '')
+    raw.replace(/\s*\((?:feat(?:uring)?\.?|ft\.?|with|w\/)\s+(?:[^()]+|\([^()]*\))+\)/gi, '')
        .replace(/\s*\{\{(?:feat(?:uring)?\.?|ft\.?)[\s|][^}]+\}\}/gi, '').trim()
   )
   return { cleanTitle, featuring }
