@@ -1459,9 +1459,10 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
 
   return (
     <>
-      {/* Header'iai virš juostos: „VAKAR LAIMĖJO" (virš laimėtojo) ir „ŠIANDIEN
-          SIŪLOMOS" (virš dienos pasiūlymų), su „Visi (N) →" link'u. Kai vakar
-          laimėtojo nėra — paprastas „Šiandienos pasiūlymai →" link'as. 2026-06-01. */}
+      {/* Header'iai virš juostos: „VAKAR LAIMĖJO" (virš laimėtojo, su list ikona →
+          vakar pasiūlymai) ir „ŠIANDIEN SIŪLOMOS". „Visi (N)" link'as pašalintas —
+          pilną sąrašą atveria standartinis „+N" button'as juostos gale (tik kai
+          persipildo). 2026-06-02. */}
       {winner?.tracks ? (
         <div className="mb-2 flex items-end gap-3">
           <div style={{ width: 188 }} className="flex shrink-0 items-center gap-1.5 px-0.5">
@@ -1473,35 +1474,26 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
           <div className="shrink-0" style={{ width: 9 }} />
           <div className="flex flex-1 items-center justify-between gap-3">
             <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Šiandien siūlomos</span>
-            <div className="flex items-center gap-3">
-              {voteErr && <span className="text-[11px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
-              {sorted.length >= 2 && (
-                <button type="button" onClick={() => setModalOpen(true)} className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--accent-link)] transition-colors hover:text-[var(--accent-orange)]">Visi ({sorted.length}) →</button>
-              )}
-            </div>
+            {voteErr && <span className="text-[11px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
           </div>
         </div>
-      ) : (sorted.length >= 2 || voteErr) ? (
-        <div className="mb-2 flex items-center justify-end gap-3">
-          {voteErr && <span className="mr-auto text-[11.5px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
-          {sorted.length >= 2 && (
-            <button type="button" onClick={() => setModalOpen(true)} className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-link)] transition-colors hover:text-[var(--accent-orange)]">Šiandienos pasiūlymai ({sorted.length}) →</button>
-          )}
-        </div>
+      ) : voteErr ? (
+        <div className="mb-2 text-[11.5px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</div>
       ) : null}
 
-      <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
-        {/* Vakar laimėjusi daina — pirma; vertikali linija atskiria nuo šiandienos. */}
-        {winner?.tracks && (
-          <>
-            <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} maxVotes={maxVotes} />
-            <div className="flex shrink-0 items-stretch self-stretch px-1">
-              <div className="w-px self-stretch bg-[var(--border-default)]" />
-            </div>
-          </>
-        )}
+      <div className="flex items-stretch gap-3">
+        <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
+          {/* Vakar laimėjusi daina — pirma; vertikali linija atskiria nuo šiandienos. */}
+          {winner?.tracks && (
+            <>
+              <DainaWinnerCard w={winner} onOpenTrack={onOpenTrack} maxVotes={maxVotes} />
+              <div className="flex shrink-0 items-stretch self-stretch px-1">
+                <div className="w-px self-stretch bg-[var(--border-default)]" />
+              </div>
+            </>
+          )}
 
-        {sorted.slice(0, 14).map((n) => <NomCard key={n.id} n={n} />)}
+          {sorted.slice(0, 14).map((n) => <NomCard key={n.id} n={n} />)}
 
         {/* Paskutinė kortelė — „Pasiūlyti dainą" arba „jau pasiūlei" būsena (vienas
             pasiūlymas per dieną tam pačiam vartotojui). */}
@@ -1525,6 +1517,17 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
             <span className="px-3 font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">Pasiūlyti dainą</span>
             <span className="px-3 text-[10.5px] text-[var(--text-muted)]">Pridėk savo kandidatą</span>
           </button>
+        )}
+        </div>
+        {/* Pilno sąrašo „+N" button'as — tik kai pasiūlymų pakanka scroll'ui
+            (kaip kitose sekcijose). 2026-06-02. */}
+        {sorted.length > 6 && (
+          <StickyMoreButton
+            count={sorted.length}
+            height={190}
+            ariaLabel={`Žiūrėti visus (${sorted.length})`}
+            onClick={() => setModalOpen(true)}
+          />
         )}
       </div>
 
