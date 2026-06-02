@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
   const { data: nomination } = await supabase
     .from('daily_song_nominations')
-    .select('id, track_id, date')
+    .select('id, track_id, date, user_id')
     .eq('id', nomination_id)
     .eq('date', date)
     .is('removed_at', null)
@@ -39,6 +39,10 @@ export async function POST(req: Request) {
 
   if (!nomination)
     return NextResponse.json({ error: 'Nominacija nerasta' }, { status: 404 })
+
+  // Negalima balsuoti už SAVO pasiūlymą. Edvardo prašymu 2026-06-02.
+  if (userId && (nomination as any).user_id === userId)
+    return NextResponse.json({ error: 'Negali balsuoti už savo pasiūlytą dainą' }, { status: 400 })
 
   // Ar jau balsavo už ŠIĄ dainą (ne už dieną apskritai).
   if (userId) {
@@ -85,7 +89,7 @@ export async function POST(req: Request) {
     if (userId) {
       const { data: track } = await supabase
         .from('tracks')
-        .select('id, slug, title, cover_image_url, artist_id, artists:artist_id(slug, name, cover_image_url)')
+        .select('id, slug, title, cover_url, artist_id, artists:artist_id(slug, name, cover_image_url)')
         .eq('id', nomination.track_id)
         .maybeSingle() as { data: any }
       const fullTitle = track ? `${track.title}${track.artists?.name ? ' — ' + track.artists.name : ''}` : 'daina'
@@ -98,7 +102,7 @@ export async function POST(req: Request) {
         entity_id: nomination.track_id,
         entity_title: fullTitle,
         entity_url: '/dienos-daina',
-        entity_image: track?.cover_image_url || track?.artists?.cover_image_url || null,
+        entity_image: track?.cover_url || track?.artists?.cover_image_url || null,
       })
     }
   } catch (e: any) {
