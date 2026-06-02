@@ -1411,7 +1411,7 @@ function DienosDainaSection({ onOpenTrack }: { onOpenTrack: (t: any) => void }) 
   // Edvardo prašymu 2026-06-02.
   const SectionHeader = (
     <div className="mb-3.5 flex items-center justify-between gap-3">
-      <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">Šiandien siūloma</h2>
+      <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">Dienos daina</h2>
       {sorted.length > 0 && (
         <button
           type="button"
