@@ -147,6 +147,14 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
 
 // ─── Text parsing ─────────────────────────────────────────────────────────────
 
+// Album-type subsekcijos (Studio albums, EPs, Singles, Live album, Concert
+// films, Music videos, ...) NĖRA atskiri atlikėjai — tai tik diskografijos
+// kategorijos. Be šito filtro band'ai, kurių diskografija turi depth-3
+// album-type sekcijas (pvz The Warning), klaidingai rodydavo „grupių
+// pasirinkimą". Substring match (be \b) — "films"/"videos"/"singles" plural'ai
+// laužytų word-boundary; `\beps?\b` saugo nuo "deep"/"epic" false-positive.
+const ALBUM_TYPE_SECTION = /studio|album|single|extended\s*play|compilation|\blive\b|concert|remix|cover|tribute|soundtrack|\bscore|holiday|christmas|\bdemo|mixtape|reissue|greatest|best\s*of|collection|video|dvd|\bbox\b|chart|film|\beps?\b|discograph/i
+
 function hasMultipleArtistSections(wikitext: string): string[] {
   const groups: string[] = []
   let inDisc = false
@@ -156,7 +164,7 @@ function hasMultipleArtistSections(wikitext: string): string[] {
     const depth = h[1].length, title = h[2].toLowerCase()
     if (title.includes('discograph')) { inDisc = true; continue }
     if (depth === 2 && inDisc) break
-    if (inDisc && depth === 3) groups.push(h[2].trim())
+    if (inDisc && depth === 3 && !ALBUM_TYPE_SECTION.test(h[2])) groups.push(h[2].trim())
   }
   return groups
 }
@@ -1199,9 +1207,22 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     // Pending fetch'as paralel — nepriklausomas nuo Wiki
     fetchPending()
 
-    const wikiBase = wikiUrl.trim() ? extractWikiTitle(wikiUrl) : artistName.replace(/ /g, '_')
+    let wikiBase = wikiUrl.trim() ? extractWikiTitle(wikiUrl) : artistName.replace(/ /g, '_')
     addLog(`📖 ${wikiBase}`)
-    const mainWikitext = await fetchWikitext(wikiBase)
+    let mainWikitext = await fetchWikitext(wikiBase)
+
+    // 2026-06-02: Jei pataikėm į disambiguation puslapį (pvz „The Warning" →
+    // „may refer to:" su daug reikšmių), bandyk band/musician disambiguator
+    // suffix'us. Admin'as paduoda artistWikiTitle = artistName su `_`, todėl
+    // band'ai be užpildyto Wiki title gaudavo disambiguation puslapį → 0 albumų.
+    const isDisambig = (wt: string) => /\{\{\s*(?:disambiguation|disambig|hndis|dab|disamb)\b/i.test(wt) || /'''[^']+'''\s*(?:or\s*'''[^']+''')?\s*may refer to/i.test(wt)
+    if (mainWikitext && isDisambig(mainWikitext) && !/\((?:band|musician|singer|group|rapper)\)/i.test(wikiBase)) {
+      for (const suf of ['_(band)', '_(musician)', '_(singer)', '_(group)']) {
+        addLog(`  ↻ disambiguation → ${wikiBase}${suf}`)
+        const alt = await fetchWikitext(wikiBase + suf)
+        if (alt && !isDisambig(alt)) { mainWikitext = alt; wikiBase = wikiBase + suf; setWikiUrl(`https://en.wikipedia.org/wiki/${wikiBase}`); break }
+      }
+    }
 
     let foundAlbums: DiscographyItem[] = []
     let foundSongs: SingleSongItem[] = []
@@ -1211,6 +1232,30 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       if (groups.length > 1 && !groupFilter && !isSolo) { setArtistGroups(groups); setLoading(false); return }
       const filter = isSolo && !groupFilter ? '__solo__' : groupFilter
       let wikiAlbums = parseMainPageDiscography(mainWikitext, isSolo, filter)
+
+      // 2026-06-02: Mixed-format diskografija. Kai kurie atlikėjai (pvz The
+      // Warning) pagrindiniame puslapyje turi DALĮ album-type sekcijų kaip
+      // wikitable'us (Studio albums, Live album → `! scope="row"| ''Title''`)
+      // ir DALĮ kaip bullet list'us (Extended plays, Concert films → `* ''X''`).
+      // parseMainPageDiscography skaito TIK bullet'us, parseDiscographyPage TIK
+      // table'us. Anksčiau bullet parser'is grąžindavo ne-tuščią dalinį sąrašą
+      // (3 EP/film), kuris short-circuit'indavo table fallback'ą → 4 studio
+      // albumai (table'e) dingdavo. Fix: paleisti ABU ant main page'o ir
+      // sujungti pagal title. Table-parsed įrašas laimi tipą (per-section
+      // ! scope=row patikimesnis nei carried-over bullet currentType). Solo
+      // filter'iui (isSolo) table-merge praleidžiam — parseDiscographyPage
+      // neturi group-context skip'o, tad galėtų įtraukti svetimas sekcijas.
+      if (!filter || filter === '__all__') {
+        const tableAlbums = parseDiscographyPage(mainWikitext)
+        if (tableAlbums.length) {
+          const normKey = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, '')
+          const byTitle = new Map<string, DiscographyItem>()
+          for (const a of wikiAlbums) byTitle.set(normKey(a.title), a)
+          for (const a of tableAlbums) byTitle.set(normKey(a.title), a) // table wins
+          if (byTitle.size > wikiAlbums.length) addLog(`✓ Bullet+table sujungta: ${byTitle.size} albumų`)
+          wikiAlbums = [...byTitle.values()]
+        }
+      }
 
       const mainSingles = parseSinglesSection(mainWikitext)
       if (mainSingles.length) foundSongs = mainSingles
@@ -1492,13 +1537,22 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       // „Pinking" eilučių. `songs` state'as jau praparsina šitą lentelę per
       // parseSinglesSection. Mes pridedam is_single=true tracks'ams, kurių
       // title atitinka kažkurį iš tų singles, kuriame albumTitle = mūsų albumas.
+      // 2026-06-02: supplFromArtist TIK kai albumas SAVO Wiki page'e neturi
+      // {{Singles}} infobox'o / `==Singles==` sekcijos (parseTracklist grąžino 0
+      // is_single). Anksčiau supplement'as visada pridėdavo bet kurį band singlą,
+      // kurio artist-page singles lentelėje albumas = mūsų albumas → albumai su
+      // teisingu infobox'u over-count'indavo (The Warning „Error": infobox = 2
+      // singlai Choke+Money, bet band'o singles lentelė „Error" albumui
+      // priskiria ir promo singlus Disciple/Evolve/... → 5). Album infobox =
+      // autoritetingas „Singles from X" sąrašas; juo pasitikim kai jis yra.
+      const albumHasOwnSingles = tracks.some(t => t.is_single)
       const albumKey = item.title.toLowerCase().replace(/['’‘]/g, '').trim()
       const supplFromArtist = new Set(
         songs
           .filter(s => s.albumTitle && s.albumTitle.toLowerCase().replace(/['’‘]/g, '').trim() === albumKey)
           .map(s => s.title.toLowerCase().replace(/['’‘]/g, '').trim())
       )
-      if (supplFromArtist.size) {
+      if (supplFromArtist.size && !albumHasOwnSingles) {
         for (const t of tracks) {
           if (!t.is_single) {
             const tk = t.title.toLowerCase().replace(/['’‘]/g, '').trim()

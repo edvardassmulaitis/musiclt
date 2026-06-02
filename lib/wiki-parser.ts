@@ -468,8 +468,17 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
           // ORDER matters — specifūs tipai PIRMA, 'album' fallback'as paskutinis.
           // Anksčiau 'album' generic check buvo PIRMAS → "Cover albums",
           // "Live albums", "Soundtrack albums" → klaidingai tapdavo 'studio'.
-          if (typeH.includes('single')) { currentType = 'single'; skipGroup = true }
-          else if (typeH.includes(' ep') || typeH === 'eps') currentType = 'ep'
+          // 2026-06-02: Video/film sekcijos ("Concert films", "Music videos",
+          // "Video albums") NĖRA garso albumai — skip PIRMA. Be šito "Concert
+          // films" pataikydavo žemiau į `live`/`concert` check'ą, todėl jo
+          // bullet'ai (pvz The Warning live filmas) tapdavo 'live' albumais.
+          // Substring (be \b) — "films"/"videos" plural'ai laužo word-boundary.
+          if (/film|video|dvd|gigograph|filmograph/.test(typeH)) { skipGroup = true }
+          else if (typeH.includes('single')) { currentType = 'single'; skipGroup = true }
+          // 2026-06-02: "Extended plays" anksčiau nebuvo atpažintas (` ep` ar
+          // `eps` nesutampa su "extended plays") → currentType paveldėdavo
+          // ankstesnės sekcijos tipą (The Warning: EP bullet'ai gaudavo 'live').
+          else if (typeH.includes('extended play') || typeH.includes(' ep') || typeH === 'eps') currentType = 'ep'
           else if (typeH.includes('tribute')) currentType = 'covers'
           else if (typeH.includes('cover')) currentType = 'covers'
           else if (typeH.includes('soundtrack') || typeH.includes('score')) currentType = 'soundtrack'
