@@ -443,29 +443,27 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
     <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
         <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 15, fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{title}</span>
-        <Link href={href} className="sh-more-link" style={{ marginLeft: 'auto' }}>Žiūrėti →</Link>
       </div>
       <div className="sh-strip-wrap">
         <RowStripe kind={kind} />
         <div className="sh-strip">
           {(entries.length > 0 ? entries : Array(6).fill(null)).map((e: TopMini | null, i: number) => (
             <Link key={e?.trackSlug || `${kind}-${i}`} href={e?.trackSlug ? `/dainos/${e.trackSlug}` : href}
-              style={{ flex: '0 0 auto', width: 78, display: 'flex', flexDirection: 'column', gap: 4, textDecoration: 'none' }}>
-              <span style={{ position: 'relative', width: 78, height: 78, borderRadius: 9, overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              style={{ flex: '0 0 auto', width: 124, display: 'flex', flexDirection: 'column', gap: 4, textDecoration: 'none' }}>
+              <span style={{ width: 124, height: 70, borderRadius: 8, overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {e?.image
                   ? <img src={proxyImg(e.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>{I.music}</span>}
-                {e && <span style={{ position: 'absolute', top: 4, left: 4, minWidth: 16, height: 16, padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 5, background: hex, color: '#fff', fontSize: 9.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{e.position}</span>}
               </span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e?.title || '—'}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e?.title || '—'}</span>
               <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: -2 }}>{e?.artist || ''}</span>
             </Link>
           ))}
         </div>
         <Link href={href} className="sh-expand-btn" aria-label="Atverti visą topą" title="Atverti visą topą">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
-            <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <line x1="8" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="20" y2="12" /><line x1="8" y1="18" x2="20" y2="18" />
+            <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" />
           </svg>
         </Link>
       </div>
@@ -493,7 +491,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
             // Vėliavoms — lengvas gradientas tik apačioje (kad vėliava liktų ryški);
             // nuotraukoms — stipresnis (teksto įskaitomumui).
             const grad = isFlag
-              ? 'linear-gradient(to top, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.12) 42%, rgba(0,0,0,0) 68%)'
+              ? 'linear-gradient(to top, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.10) 28%, rgba(0,0,0,0) 50%)'
               : 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.42) 55%, rgba(0,0,0,0.20) 100%)'
             return (
               <Link
