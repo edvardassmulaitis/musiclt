@@ -110,7 +110,7 @@ async function currentChartArtistIds(scope: 'lt' | 'world'): Promise<number[]> {
       const cur = best.get(e.artist_id)
       if (cur === undefined || e.position < cur) best.set(e.artist_id, e.position)
     }
-    return [...best.entries].sort((a, b) => a[1] - b[1]).map(([id]) => id)
+    return [...best.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id)
   } catch {
     return []
   }
