@@ -87,14 +87,16 @@ BEGIN
   WHERE ta.track_id = p_loser_id
   ON CONFLICT (track_id, artist_id) DO NOTHING;
 
-  -- LIKES transfer (polymorphic — entity_type='track'), dedup per user_username
+  -- LIKES transfer (polymorphic — entity_type='track'), dedup per user_username.
+  -- 2026-06-02: likes lentelė db-size cleanup'e sumažinta — pašalinti stulpeliai
+  -- user_rank, user_avatar_url, rating, source, user_agent. INSERT'as naudoja
+  -- tik dabar egzistuojančius: entity_legacy_id, user_id, user_username, anon_id,
+  -- created_at.
   WITH inserted AS (
     INSERT INTO likes (
-      entity_type, entity_id, entity_legacy_id, user_id, user_username,
-      user_rank, user_avatar_url, rating, source, anon_id, user_agent, created_at
+      entity_type, entity_id, entity_legacy_id, user_id, user_username, anon_id, created_at
     )
-    SELECT 'track', p_winner_id, l.entity_legacy_id, l.user_id, l.user_username,
-           l.user_rank, l.user_avatar_url, l.rating, l.source, l.anon_id, l.user_agent, l.created_at
+    SELECT 'track', p_winner_id, l.entity_legacy_id, l.user_id, l.user_username, l.anon_id, l.created_at
     FROM likes l
     WHERE l.entity_type = 'track' AND l.entity_id = p_loser_id
     ON CONFLICT (entity_type, entity_id, user_username) DO NOTHING
