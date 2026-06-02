@@ -437,7 +437,7 @@ function toProfile(row: any): Hit {
     title: row.full_name || row.username,
     subtitle: row.username ? `@${row.username}` : null,
     image_url: row.avatar_url,
-    href: `/vartotojas/${row.username}`,
+    href: `/@${row.username}`,
     meta: { bio: row.bio },
     score: 0,
   }

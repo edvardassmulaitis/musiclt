@@ -119,7 +119,7 @@ export default async function UserMigrationDetailPage({ params }: Props) {
               style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)' }}>
           ← Visi nariai
         </Link>
-        <Link href={`/vartotojas/${s.username}`}
+        <Link href={`/@${s.username}`}
               className="text-xs px-3 py-1.5 rounded-full"
               style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)' }}>
           Žiūrėti viešą profilį →
@@ -331,7 +331,7 @@ export default async function UserMigrationDetailPage({ params }: Props) {
               const fr = Array.isArray(f.friends) ? f.friends[0] : f.friends
               if (!fr) return null
               return (
-                <Link key={i} href={`/vartotojas/${fr.username}`}
+                <Link key={i} href={`/@${fr.username}`}
                       className="text-[11px] px-2 py-0.5 rounded-full"
                       style={{ background: 'var(--bg-page)', border: '1px solid var(--border-subtle)' }}>
                   {fr.username}

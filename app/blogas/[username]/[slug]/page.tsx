@@ -113,7 +113,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
     author: {
       '@type': 'Person',
       name: authorName,
-      url: `${siteUrl}/vartotojas/${(profile as any)?.username || username}`,
+      url: `${siteUrl}/@${(profile as any)?.username || username}`,
     },
     publisher: { '@type': 'Organization', name: 'Music.lt', url: siteUrl },
     mainEntityOfPage: `${siteUrl}/blogas/${username}/${slug}`,

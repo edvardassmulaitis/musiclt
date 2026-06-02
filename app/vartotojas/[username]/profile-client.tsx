@@ -398,13 +398,13 @@ export function ProfileClient(props: any) {
             <SectionHeader
               title="Dienos dainos pasirinkimai"
               meta={`${stats.daily_picks.toLocaleString('lt-LT')} dienų ši kolekcija auga`}
-              link={stats.daily_picks > 12 ? { href: `/vartotojas/${profile.username}/dienos-dainos`, label: 'Visa istorija →' } : undefined}
+              link={stats.daily_picks > 12 ? { href: `/@${profile.username}/dienos-dainos`, label: 'Visa istorija →' } : undefined}
             />
             <DailyPicksScrollRow
               picks={dailyPicks}
               maxShown={12}
               totalCount={stats.daily_picks}
-              moreHref={stats.daily_picks > 12 ? `/vartotojas/${profile.username}/dienos-dainos` : null}
+              moreHref={stats.daily_picks > 12 ? `/@${profile.username}/dienos-dainos` : null}
             />
           </section>
         )}

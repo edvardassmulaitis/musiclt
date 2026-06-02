@@ -71,7 +71,7 @@ export default async function UserDailyPicksPage({ params, searchParams }: Props
       <div className="max-w-3xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="mb-8">
-          <Link href={`/vartotojas/${username}`} className="text-xs text-[#5e7290] hover:text-[#b0bdd4] transition">
+          <Link href={`/@${username}`} className="text-xs text-[#5e7290] hover:text-[#b0bdd4] transition">
             ← Atgal į profilį
           </Link>
           <h1 className="text-3xl font-extrabold mt-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -102,7 +102,7 @@ export default async function UserDailyPicksPage({ params, searchParams }: Props
           <div className="flex justify-center gap-2 mt-12 text-sm">
             {page > 1 && (
               <Link
-                href={`/vartotojas/${username}/dienos-dainos${page > 2 ? `?page=${page - 1}` : ''}`}
+                href={`/@${username}/dienos-dainos${page > 2 ? `?page=${page - 1}` : ''}`}
                 className="px-4 py-2 rounded-lg bg-white/[.03] border border-white/[.06] hover:bg-white/[.07] transition"
               >
                 ← Anksčiau
@@ -111,7 +111,7 @@ export default async function UserDailyPicksPage({ params, searchParams }: Props
             <span className="px-4 py-2 text-[#5e7290]">{page} / {totalPages}</span>
             {page < totalPages && (
               <Link
-                href={`/vartotojas/${username}/dienos-dainos?page=${page + 1}`}
+                href={`/@${username}/dienos-dainos?page=${page + 1}`}
                 className="px-4 py-2 rounded-lg bg-white/[.03] border border-white/[.06] hover:bg-white/[.07] transition"
               >
                 Vėliau →

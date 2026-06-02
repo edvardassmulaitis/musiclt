@@ -358,66 +358,82 @@ export async function getProfileFavoriteArtists(userId: string) {
 //
 // Order'is — pagal `created_at DESC` (most recently liked first), BIGSERIAL
 // id tikriausiai preserves'ina insert order'į.
-export async function getProfileFavoriteAlbums(username: string, limit = 12) {
+// PERF (2026-06-02): anksčiau .ilike('user_username', …) ant 735k-row / 221MB
+// likes lentelės darydavo seq-scan'ą (case-insensitive ILIKE nenaudoja btree
+// indekso) → ~41ms favorites + ~366ms × 6 counts per page load. Dabar per
+// `profile_favorite_like_ids` / `profile_likes_counts` RPC'us, kurie remiasi
+// funkciniu indeksu `idx_likes_uname_lower (lower(user_username), entity_type,
+// id DESC)`. Favorites ids → <1ms, counts → ~15ms. Case-insensitivity
+// išlaikoma per lower() RPC viduje (legacy CamelCase „Einaras13" vs lowercase).
+async function getProfileFavoriteEntities(
+  username: string,
+  type: 'album' | 'track',
+  limit: number,
+) {
   const sb = createAdminClient()
-  // V11: pridėtas `liked_at` mapping grąžinamoj eilutėj — naudojama UI
-  // sort'avimui pagal naujausi pamėgti.
+  const { data: idRows, error: idErr } = await sb.rpc('profile_favorite_like_ids', {
+    p_username: username,
+    p_type: type,
+    p_limit: limit,
+  })
+  if (idErr) {
+    console.warn(`[getProfileFavorite:${type}] rpc`, idErr.message)
+    return { ids: [] as number[], likedAt: new Map<number, string>() }
+  }
+  const rows = (idRows || []) as { entity_id: number; created_at: string }[]
+  const ids = rows.map((r) => Number(r.entity_id)).filter(Boolean)
+  const likedAt = new Map(rows.map((r) => [Number(r.entity_id), r.created_at]))
+  return { ids, likedAt }
+}
+
+export async function getProfileFavoriteAlbums(username: string, limit = 12) {
+  const { ids, likedAt } = await getProfileFavoriteEntities(username, 'album', limit)
+  if (!ids.length) return []
+  const sb = createAdminClient()
   const { data } = await sb
-    .from('likes')
-    .select('entity_id, created_at, albums:entity_id(id, slug, title, cover_url, artist_id, artists:artist_id(id, slug, name, cover_image_url))')
-    .eq('entity_type', 'album')
-    .ilike('user_username', username)
-    .not('entity_id', 'is', null)
-    .order('id', { ascending: false })
-    .limit(limit)
+    .from('albums')
+    .select('id, slug, title, cover_url, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .in('id', ids)
+  const order = new Map(ids.map((id, i) => [id, i]))
   return (data || [])
-    .map((r: any) => {
-      const a = r.albums
-      if (!a) return null
-      return { ...a, liked_at: r.created_at }
-    })
-    .filter(Boolean) as any[]
+    .map((a: any) => ({ ...a, liked_at: likedAt.get(a.id) ?? null }))
+    .sort((x: any, y: any) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0)) as any[]
 }
 
 export async function getProfileFavoriteTracks(username: string, limit = 12) {
+  const { ids, likedAt } = await getProfileFavoriteEntities(username, 'track', limit)
+  if (!ids.length) return []
   const sb = createAdminClient()
-  // V11: pridėtas `video_url` (YT thumbnail fallback) + `liked_at` mapping
-  // grąžinamoj eilutėj, kad UI galėtų sort'inti pagal naujausi pamėgti.
   const { data } = await sb
-    .from('likes')
-    .select('entity_id, created_at, tracks:entity_id(id, slug, title, cover_url, video_url, artist_id, artists:artist_id(id, slug, name, cover_image_url))')
-    .eq('entity_type', 'track')
-    .ilike('user_username', username)
-    .not('entity_id', 'is', null)
-    .order('id', { ascending: false })
-    .limit(limit)
+    .from('tracks')
+    .select('id, slug, title, cover_url, video_url, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .in('id', ids)
+  const order = new Map(ids.map((id, i) => [id, i]))
   return (data || [])
-    .map((r: any) => {
-      const t = r.tracks
-      if (!t) return null
-      return { ...t, liked_at: r.created_at }
-    })
-    .filter(Boolean) as any[]
+    .map((t: any) => ({ ...t, liked_at: likedAt.get(t.id) ?? null }))
+    .sort((x: any, y: any) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0)) as any[]
 }
 
 // Pending count'ai — kiek dar nemigravotų likes (UI gali rodyti „dar X laukia").
-// V11.7: ilike vietoj eq — likes.user_username gali būti saved'a CamelCase
-// (legacy „Einaras13"), profile.username — lowercase. Be ilike likes'ai
-// būna „dingęs".
+// Vienas grupuotas RPC vietoj 6 atskirų ILIKE COUNT seq-scan'ų. Case-insensitive
+// per lower() RPC viduje (legacy „Einaras13" vs lowercase profile.username).
 export async function getProfileLikesCounts(username: string) {
   const sb = createAdminClient()
-  const results = await Promise.all((['artist','album','track'] as const).map(async (kind) => {
-    const [resolved, pending] = await Promise.all([
-      sb.from('likes').select('*', { count: 'exact', head: true })
-        .eq('entity_type', kind).ilike('user_username', username)
-        .not('entity_id', 'is', null),
-      sb.from('likes').select('*', { count: 'exact', head: true })
-        .eq('entity_type', kind).ilike('user_username', username)
-        .is('entity_id', null),
-    ])
-    return { kind, resolved: resolved.count ?? 0, pending: pending.count ?? 0 }
-  }))
-  return Object.fromEntries(results.map((r) => [r.kind, { resolved: r.resolved, pending: r.pending }])) as Record<'artist'|'album'|'track', { resolved: number; pending: number }>
+  const base: Record<'artist' | 'album' | 'track', { resolved: number; pending: number }> = {
+    artist: { resolved: 0, pending: 0 },
+    album: { resolved: 0, pending: 0 },
+    track: { resolved: 0, pending: 0 },
+  }
+  const { data, error } = await sb.rpc('profile_likes_counts', { p_username: username })
+  if (error) {
+    console.warn('[getProfileLikesCounts] rpc', error.message)
+    return base
+  }
+  for (const r of (data || []) as any[]) {
+    const kind = r.entity_type as 'artist' | 'album' | 'track'
+    if (base[kind]) base[kind] = { resolved: Number(r.resolved) || 0, pending: Number(r.pending) || 0 }
+  }
+  return base
 }
 
 // ── BLOGS ───────────────────────────────────────────────────

@@ -640,7 +640,7 @@ function InfoBox(props: {
   return (
     <div className="bp-info-box">
       {/* Author row — avatar + name + popbar (be rounded pill'o, plain stack) */}
-      <Link href={`/vartotojas/${authorUsername}`} className="bp-info-author">
+      <Link href={`/@${authorUsername}`} className="bp-info-author">
         <div className="bp-info-av" style={{ background: `hsl(${(authorName.charCodeAt(0) || 65) * 17 % 360},35%,30%)` }}>
           {authorAvatar
             /* eslint-disable-next-line @next/next/no-img-element */

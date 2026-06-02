@@ -33,9 +33,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params
   const profile = await getProfileByUsername(username)
   if (!profile) return { title: 'Nerastas — music.lt' }
+  const canonical = `/@${profile.username}`
+  const title = `${profile.full_name || profile.username} — music.lt`
+  const description = profile.bio || `${profile.full_name || username} muzikos profilis`
   return {
-    title: `${profile.full_name || profile.username} — music.lt`,
-    description: profile.bio || `${profile.full_name || username} muzikos profilis`,
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      type: 'profile',
+      images: profile.avatar_url ? [{ url: profile.avatar_url }] : undefined,
+    },
   }
 }
 
@@ -72,7 +83,13 @@ export default async function UserProfilePage({ params }: Props) {
 
   // Album track-count: per loaded favoriteTracksRaw → album_tracks join
   const trackIds = (favoriteTracksRaw as any[]).map((t) => t.id).filter(Boolean)
-  if (trackIds.length > 0) {
+
+  // PERF (2026-06-02): album_tracks enrichment'as ir blog posts block'as
+  // nepriklauso vienas nuo kito — leidžiam juos lygiagrečiai (anksčiau buvo
+  // sekvenciniai po pirmo Promise.all). album_tracks užpildo
+  // albumLikedTrackCount; blog promise grąžina regular/topas postus.
+  const albumTracksPromise = (async () => {
+    if (trackIds.length === 0) return
     const sb = createAdminClient()
     const { data: atRows } = await sb
       .from('album_tracks')
@@ -81,7 +98,11 @@ export default async function UserProfilePage({ params }: Props) {
     for (const row of (atRows || []) as any[]) {
       albumLikedTrackCount.set(row.album_id, (albumLikedTrackCount.get(row.album_id) || 0) + 1)
     }
-  }
+  })()
+
+  const blogPromise = loadBlogPosts(blog)
+
+  await albumTracksPromise
 
   // Per-artist counts (iš loaded favorites — approx, bet pakanka collage'o
   // tile sizing'ui).
@@ -109,9 +130,39 @@ export default async function UserProfilePage({ params }: Props) {
     affinity_score: (artistAlbumLikes.get(a.id) || 0) + (artistTrackLikes.get(a.id) || 0),
   }))
 
-  let regularPosts: any[] = []
-  let topasPosts: any[] = []
-  if (blog) {
+  const { regularPosts, topasPosts } = await blogPromise
+
+  const memberSinceDate = profile.joined_legacy_at ? new Date(profile.joined_legacy_at) : new Date(profile.created_at)
+  const memberSinceYear = memberSinceDate.getFullYear()
+
+  return (
+    <ProfileClient
+      profile={profile}
+      favoriteArtists={enrichedArtists}
+      favoriteStyles={favoriteStyles}
+      favoriteAlbums={favoriteAlbums}
+      favoriteTracks={favoriteTracks}
+      likesCounts={likesCounts}
+      friends={friends}
+      blog={blog}
+      regularPosts={regularPosts}
+      topasPosts={topasPosts}
+      memberSinceYear={memberSinceYear}
+      stats={stats}
+      moodTrack={moodTrack}
+      dailyPicks={dailyPicks}
+      translations={translations}
+      recentComments={recentComments}
+    />
+  )
+}
+
+// PERF (2026-06-02): iškelta į atskirą funkciją, kad blog posts fetch'as
+// (su hero-image enrichment chain'u) galėtų suktis lygiagrečiai su
+// album_tracks enrichment'u (žr. blogPromise viršuje).
+async function loadBlogPosts(blog: any): Promise<{ regularPosts: any[]; topasPosts: any[] }> {
+  if (!blog) return { regularPosts: [], topasPosts: [] }
+  {
     const sb = createAdminClient()
     const { data } = await sb
       .from('blog_posts')
@@ -228,31 +279,8 @@ export default async function UserProfilePage({ params }: Props) {
     // V11.6 (2026-05-25): heavy UGC user'iams (einaras13: 510 article + 31 creation,
     // Silentist: 900+ įrašų) reikia matyti pilnus sąrašus profile'e — anksčiau slice(0,6)
     // ribodavo display į ~6 įrašų net jei DB turėjo šimtus.
-    regularPosts = all.filter((p: any) => p.post_type !== 'topas' && p.post_type !== 'translation').slice(0, 60)
-    topasPosts = all.filter((p: any) => p.post_type === 'topas').slice(0, 30)
+    const regularPosts = all.filter((p: any) => p.post_type !== 'topas' && p.post_type !== 'translation').slice(0, 60)
+    const topasPosts = all.filter((p: any) => p.post_type === 'topas').slice(0, 30)
+    return { regularPosts, topasPosts }
   }
-
-  const memberSinceDate = profile.joined_legacy_at ? new Date(profile.joined_legacy_at) : new Date(profile.created_at)
-  const memberSinceYear = memberSinceDate.getFullYear()
-
-  return (
-    <ProfileClient
-      profile={profile}
-      favoriteArtists={enrichedArtists}
-      favoriteStyles={favoriteStyles}
-      favoriteAlbums={favoriteAlbums}
-      favoriteTracks={favoriteTracks}
-      likesCounts={likesCounts}
-      friends={friends}
-      blog={blog}
-      regularPosts={regularPosts}
-      topasPosts={topasPosts}
-      memberSinceYear={memberSinceYear}
-      stats={stats}
-      moodTrack={moodTrack}
-      dailyPicks={dailyPicks}
-      translations={translations}
-      recentComments={recentComments}
-    />
-  )
 }

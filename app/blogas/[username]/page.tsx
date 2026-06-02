@@ -122,7 +122,7 @@ export default async function BlogPage({ params, searchParams }: Props) {
           <h1 className="text-3xl font-black mb-2" style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.03em' }}>{blog.title}</h1>
           {blog.description && <p className="text-sm text-[#b0bdd4] max-w-md mx-auto">{blog.description}</p>}
           {author && (
-            <Link href={`/vartotojas/${author.username}`} className="inline-flex items-center gap-2 mt-4 text-xs text-[#5e7290] hover:text-[#b0bdd4] transition">
+            <Link href={`/@${author.username}`} className="inline-flex items-center gap-2 mt-4 text-xs text-[#5e7290] hover:text-[#b0bdd4] transition">
               {author.avatar_url ? <img src={author.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full bg-[#111822]" />}
               <span className="font-semibold">{author.full_name || author.username}</span>
             </Link>
