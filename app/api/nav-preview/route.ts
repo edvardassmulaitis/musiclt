@@ -15,6 +15,13 @@ import { resolveDisplayWeek } from '@/lib/top-week'
 
 export const dynamic = 'force-dynamic'
 
+/** YouTube thumbnail iš video_url (cover fallback). */
+function ytThumb(url: string | null | undefined): string | null {
+  if (!url) return null
+  const m = String(url).match(/(?:v=|youtu\.be\/|embed\/|shorts\/|\/vi\/)([\w-]{11})/)
+  return m ? `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg` : null
+}
+
 /** Mini chart eilutės topai dropdown'ui (LT TOP 30 + TOP 40 inline). */
 async function getTopMini(sb: any, topType: string, limit: number) {
   // resolveDisplayWeek: jei einamoji savaitė tuščia — fallback į naujausią
@@ -23,7 +30,7 @@ async function getTopMini(sb: any, topType: string, limit: number) {
   if (!week) return []
   const { data: rows } = await sb
     .from('top_entries')
-    .select('position, total_votes, tracks:track_id ( slug, title, cover_url, artists:artist_id ( slug, name ) )')
+    .select('position, total_votes, tracks:track_id ( slug, title, cover_url, video_url, artists:artist_id ( slug, name, cover_image_url ) )')
     .eq('week_id', week.id)
     .order(week.is_finalized ? 'position' : 'total_votes', { ascending: !!week.is_finalized })
     .limit(limit)
@@ -34,7 +41,8 @@ async function getTopMini(sb: any, topType: string, limit: number) {
       position: r.position ?? i + 1,
       title: tr?.title ?? '—', artist: ar?.name ?? '—',
       artistSlug: ar?.slug ?? '', trackSlug: tr?.slug ?? null,
-      image: tr?.cover_url ?? null,
+      // cover_url → YouTube thumbnail → atlikėjo nuotrauka (kad nebūtų placeholder)
+      image: tr?.cover_url || ytThumb(tr?.video_url) || ar?.cover_image_url || null,
     }
   })
 }
@@ -127,12 +135,13 @@ export async function GET() {
         .eq('is_current', true).eq('featured', true)
         .order('featured_order', { ascending: true })
         .limit(8),
-      // Apdovanojimai / rinkimai — aktyvūs + artimiausi + neseni editions.
+      // Apdovanojimai / rinkimai — aktyvūs kanalai (MAMA, Grammy ir kt.).
       supabase
-        .from('voting_editions')
-        .select('id, slug, name, year, status, vote_open, vote_close, cover_image_url, voting_channels:channel_id ( slug, name )')
-        .order('vote_close', { ascending: false, nullsFirst: false })
-        .limit(6),
+        .from('voting_channels')
+        .select('id, slug, name, logo_url, cover_image_url, sort_order')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .limit(8),
     ])
 
     const payload = {
@@ -197,14 +206,9 @@ export async function GET() {
         subtitle: c.subtitle, scope: c.scope, country: c.country ?? null, accent: c.accent || '#6366f1',
         image: c.cover_image_url || null, period: c.period_label, size: c.size,
       })),
-      votings: (votingsRes.data || []).map((v: any) => {
-        const ch = Array.isArray(v.voting_channels) ? v.voting_channels[0] : v.voting_channels
-        return {
-          id: v.id, slug: v.slug, name: v.name, year: v.year, status: v.status,
-          voteOpen: v.vote_open, voteClose: v.vote_close, image: v.cover_image_url || null,
-          channelSlug: ch?.slug ?? null, channelName: ch?.name ?? null,
-        }
-      }),
+      votings: (votingsRes.data || []).map((c: any) => ({
+        id: c.id, slug: c.slug, name: c.name, image: c.logo_url || c.cover_image_url || null,
+      })),
     }
 
     return NextResponse.json(payload, {

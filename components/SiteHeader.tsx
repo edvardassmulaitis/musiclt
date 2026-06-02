@@ -65,12 +65,8 @@ type NavPreview = {
     id: number; source: string; chartKey: string; title: string; subtitle: string | null
     scope: string; country: string | null; accent: string; image: string | null; period: string; size: number
   }[]
-  /** Apdovanojimai / rinkimai — voting editions */
-  votings?: {
-    id: number; slug: string; name: string; year: number | null; status: string
-    voteOpen: string | null; voteClose: string | null; image: string | null
-    channelSlug: string | null; channelName: string | null
-  }[]
+  /** Apdovanojimai / rinkimai — voting kanalai (MAMA, Grammy ir kt.) */
+  votings?: { id: number; slug: string; name: string; image: string | null }[]
 }
 type TopMini = { position: number; title: string; artist: string; artistSlug: string; trackSlug: string | null; image: string | null }
 
@@ -442,25 +438,27 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
     return (c === 'lt' || c === 'us' || c === 'gb') ? `https://flagcdn.com/w320/${c}.png` : null
   }
 
-  // Dainų juosta su flag/spalvos stripe — toks pat layout kaip Muzika atlikėjų eilutės.
-  const renderSongRow = (kind: 'lt' | 'world', badge: string, title: string, href: string, hex: string, entries: TopMini[]) => (
+  // Dainų juosta su flag/spalvos stripe — kompaktiškos kortelės (cover+title+artist).
+  const renderSongRow = (kind: 'lt' | 'world', title: string, href: string, hex: string, entries: TopMini[]) => (
     <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: hex }}>{badge}</span>
-        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 16, fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{title}</span>
+        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 15, fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{title}</span>
         <Link href={href} className="sh-more-link" style={{ marginLeft: 'auto' }}>Žiūrėti →</Link>
       </div>
       <div className="sh-strip-wrap">
         <RowStripe kind={kind} />
         <div className="sh-strip">
           {(entries.length > 0 ? entries : Array(6).fill(null)).map((e: TopMini | null, i: number) => (
-            <Link key={e?.trackSlug || `${kind}-${i}`} href={e?.trackSlug ? `/dainos/${e.trackSlug}` : href} className="sh-mini sh-mini-xl">
-              <span style={{ position: 'relative', display: 'block' }}>
-                <ImageBox src={e?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
-                {e && <span style={{ position: 'absolute', top: 5, left: 5, minWidth: 17, height: 17, padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 5, background: hex, color: '#fff', fontSize: 10, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{e.position}</span>}
+            <Link key={e?.trackSlug || `${kind}-${i}`} href={e?.trackSlug ? `/dainos/${e.trackSlug}` : href}
+              style={{ flex: '0 0 auto', width: 78, display: 'flex', flexDirection: 'column', gap: 4, textDecoration: 'none' }}>
+              <span style={{ position: 'relative', width: 78, height: 78, borderRadius: 9, overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {e?.image
+                  ? <img src={proxyImg(e.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>{I.music}</span>}
+                {e && <span style={{ position: 'absolute', top: 4, left: 4, minWidth: 16, height: 16, padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 5, background: hex, color: '#fff', fontSize: 9.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{e.position}</span>}
               </span>
-              <span className="sh-mini-title sh-mini-title-2">{e?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
-              {e?.artist && <span style={{ fontSize: 10.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{e.artist}</span>}
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e?.title || '—'}</span>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: -2 }}>{e?.artist || ''}</span>
             </Link>
           ))}
         </div>
@@ -477,12 +475,9 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
   return (
     <div className="sh-panel sh-panel-muzika" style={{ width: 880 }}>
       {/* ── Pagrindiniai topai: LT TOP 30 + TOP 40 juostos (kaip Muzika) ── */}
-      <div style={{ ...SEC_HEAD, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-        <span className="sh-trending-glyph" title="Trending">{I.trending}</span> Pagrindiniai topai
-      </div>
-      {renderSongRow('lt', 'Lietuva', 'LT TOP 30', '/top30', '#22c55e', top30)}
-      <div style={{ height: 10 }} />
-      {renderSongRow('world', 'Pasaulis', 'TOP 40', '/top40', '#f97316', top40)}
+      {renderSongRow('lt', 'LT TOP 30', '/top30', '#22c55e', top30)}
+      <div style={{ height: 12 }} />
+      {renderSongRow('world', 'TOP 40', '/top40', '#f97316', top40)}
 
       {/* ── Kiti topai: featured išoriniai (admin-managed vizualai) ── */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
@@ -492,8 +487,14 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
         </div>
         <div className="sh-style-grid">
           {featured.map(c => {
+            const isFlag = !c.image && !!flagBg(c.country)
             const bg = c.image ? proxyImg(c.image) : flagBg(c.country)
             const hasImg = !!bg
+            // Vėliavoms — lengvas gradientas tik apačioje (kad vėliava liktų ryški);
+            // nuotraukoms — stipresnis (teksto įskaitomumui).
+            const grad = isFlag
+              ? 'linear-gradient(to top, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.12) 42%, rgba(0,0,0,0) 68%)'
+              : 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.42) 55%, rgba(0,0,0,0.20) 100%)'
             return (
               <Link
                 key={c.id}
@@ -501,7 +502,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
                 className={`sh-style-card${hasImg ? ' sh-style-card-photo' : ''}`}
                 style={{
                   ['--it-rgb' as any]: hexToRgb(c.accent),
-                  ...(hasImg ? { backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.42) 55%, rgba(0,0,0,0.20) 100%), url(${bg})` } : {}),
+                  ...(hasImg ? { backgroundImage: `${grad}, url(${bg})` } : {}),
                 }}
                 title={c.title}
               >
@@ -526,28 +527,23 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
           <Link href="/balsavimai" className="sh-more-link">Daugiau →</Link>
         </div>
         {votings.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-            {votings.slice(0, 4).map(v => (
-              <Link key={v.id} href={v.channelSlug ? `/balsavimai/${v.channelSlug}/${v.slug}` : '/balsavimai'} className="sh-mini sh-mini-sm">
-                <ImageBox src={v.image} accent="#ec4899" glyph={I.award} className="sh-mini-img" />
-                <span className="sh-mini-title sh-mini-title-2">{v.name}{v.year ? ` ${v.year}` : ''}</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {votings.map(v => (
+              <Link key={v.id} href={`/balsavimai/${v.slug}`}
+                style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 12px 7px 8px', borderRadius: 10, border: '1px solid var(--border-default)', textDecoration: 'none', background: 'var(--bg-elevated)' }}
+                className="sh-vote-chip">
+                <span style={{ width: 28, height: 28, borderRadius: 7, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, #eab308 16%, transparent)', color: '#eab308' }}>
+                  {v.image ? <img src={proxyImg(v.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : I.award}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{v.name}</span>
               </Link>
             ))}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <Link href="/balsavimai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#ec4899') }}>
-              <span className="sh-feature-icon-sm">{I.vote}</span>
-              <span className="sh-feature-title-sm">Balsavimai</span>
-              <span className="sh-feature-desc-sm">Aktyvūs rinkimai ir reitingai</span>
-            </Link>
-            <Link href="/apdovanojimai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#eab308') }}>
-              <span className="sh-feature-icon-sm">{I.award}</span>
-              <span className="sh-feature-title-sm">Apdovanojimai</span>
-              <span className="sh-feature-desc-sm">M.A.M.A., Bravo, kt.</span>
-              <span className="sh-soon-pill">Greitai</span>
-            </Link>
-          </div>
+          <Link href="/balsavimai" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-default)', textDecoration: 'none' }}>
+            <span style={{ color: '#eab308' }}>{I.award}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Balsavimai ir apdovanojimai</span>
+          </Link>
         )}
       </div>
     </div>
