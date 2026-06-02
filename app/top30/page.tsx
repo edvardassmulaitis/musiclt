@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import TopChartView, { type TopData } from '@/components/TopChartView'
-import { getCurrentWeekMonday, fetchLiveVoteSplit } from '@/lib/top-week'
+import { resolveDisplayWeek, fetchLiveVoteSplit } from '@/lib/top-week'
 
 export const metadata: Metadata = {
   title: 'LT TOP 30 — Lietuvos muzikos topas | music.lt',
@@ -14,19 +14,15 @@ export const dynamic = 'force-dynamic'
 
 async function getTopData(topType: string): Promise<TopData> {
   const supabase = createAdminClient()
-  // Anchor į dabartinę kalendorinę savaitę (week_start = einamasis pirmadienis)
-  const thisMonday = getCurrentWeekMonday()
-  const { data: week } = await supabase
-    .from('top_weeks')
-    .select('*')
-    .eq('top_type', topType)
-    .eq('week_start', thisMonday)
-    .maybeSingle()
-  if (!week) return { entries: [], week: null }
+  // Pereinamasis fallback: einamoji savaitė jei turi entries, kitaip naujausia
+  // finalizuota (legacy archyvas). Žr. lib/top-week.ts.
+  const { week, isFallback } = await resolveDisplayWeek(supabase, topType)
+  if (!week) return { entries: [], week: null, isFallback: false }
   const { data: entries } = await supabase
     .from('top_entries')
     .select(`
       id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id,
+      legacy_track_id, artist_name, title,
       tracks:track_id (
         id, slug, title, cover_url, spotify_id, video_url,
         artists:artist_id ( id, slug, name, cover_image_url )
@@ -57,7 +53,7 @@ async function getTopData(topType: string): Promise<TopData> {
   inTop.sort((a: any, b: any) => (a.position || 999) - (b.position || 999))
   newcomerEntries.sort((a: any, b: any) => (a.position || 999) - (b.position || 999))
 
-  return { entries: [...inTop, ...newcomerEntries] as any, week }
+  return { entries: [...inTop, ...newcomerEntries] as any, week, isFallback }
 }
 
 export default async function Top30Page() {

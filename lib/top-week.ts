@@ -31,6 +31,50 @@ export function getCurrentWeekMonday(now: Date = new Date()): string {
 }
 
 /**
+ * Pereinamojo laikotarpio fallback: kurią `top_weeks` savaitę rodyti public'e.
+ *
+ * Taisyklė:
+ *   1. Einamoji kalendorinė savaitė (getCurrentWeekMonday) — JEI ji turi entries.
+ *   2. Kitaip — naujausia finalizuota savaitė (legacy archyvas tinka).
+ *
+ * Kol nauja balsavimo sistema neturi balsų, einamoji savaitė tuščia →
+ * pagrindiniai /top40 /top30 puslapiai rodytų "Sąrašas tuščias". Šis fallback
+ * vietoj to parodo paskutinę užbaigtą (dažnai migruotą legacy) savaitę.
+ *
+ * Grąžina { week, isFallback }: isFallback=true reiškia, kad rodom NE einamąją
+ * savaitę (UI gali parodyti "praėjusios savaitės topas" žymą + išjungti balsavimą).
+ */
+export async function resolveDisplayWeek(
+  supabase: any,
+  topType: string,
+): Promise<{ week: any | null; isFallback: boolean }> {
+  const thisMonday = getCurrentWeekMonday()
+  const { data: cur } = await supabase
+    .from('top_weeks')
+    .select('*')
+    .eq('top_type', topType)
+    .eq('week_start', thisMonday)
+    .maybeSingle()
+  if (cur) {
+    const { count } = await supabase
+      .from('top_entries')
+      .select('id', { count: 'exact', head: true })
+      .eq('week_id', cur.id)
+    if ((count || 0) > 0) return { week: cur, isFallback: false }
+  }
+  const { data: fin } = await supabase
+    .from('top_weeks')
+    .select('*')
+    .eq('top_type', topType)
+    .eq('is_finalized', true)
+    .order('week_start', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (fin) return { week: fin, isFallback: true }
+  return { week: cur ?? null, isFallback: false }
+}
+
+/**
  * Sufetchinti VISUS LIVE balsų count'us savaitei (registered + anon kartu).
  * Naudoti tik display'ui — rank'inimui imk `fetchLiveVoteSplit` ir naudok
  * `registered` map'ą.

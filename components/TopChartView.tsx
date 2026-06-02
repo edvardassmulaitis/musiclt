@@ -24,6 +24,8 @@ type Entry = {
   id: number; position: number; prev_position: number | null;
   weeks_in_top: number; total_votes: number; is_new: boolean;
   peak_position: number | null; tracks: Track | null
+  // Legacy archyvo fallback (kai track dar neimportuotas į katalogą):
+  artist_name?: string | null; title?: string | null; legacy_track_id?: number | null
 }
 type Week = {
   id: number; top_type: string; week_start: string;
@@ -31,7 +33,9 @@ type Week = {
   vote_close?: string | null
 }
 
-export type TopData = { entries: Entry[]; week: Week | null }
+// isFallback=true → rodom NE einamąją savaitę, o naujausią finalizuotą (legacy)
+// archyvo savaitę. Balsavimas išjungtas, viršuje rodom žymą.
+export type TopData = { entries: Entry[]; week: Week | null; isFallback?: boolean }
 
 type ThemeAccent = {
   /** Solid hex color used for badges, hero accents */
@@ -338,8 +342,8 @@ function ChartRow({
         <TrackCover track={entry.tracks} size={40} />
       </div>
       <div className="tcv-info">
-        <span className="tcv-row-artist">{entry.tracks?.artists?.name ?? '—'}</span>
-        <p className="tcv-row-title">{entry.tracks?.title ?? '—'}</p>
+        <span className="tcv-row-artist">{entry.tracks?.artists?.name ?? entry.artist_name ?? '—'}</span>
+        <p className="tcv-row-title">{entry.tracks?.title ?? entry.title ?? '—'}</p>
         {entry.weeks_in_top >= 1 && (
           <WeeksProgress weeks={entry.weeks_in_top} accent={accent} />
         )}
@@ -402,8 +406,8 @@ function NewcomerRow({
         <TrackCover track={entry.tracks} size={36} />
       </div>
       <div className="tcv-newcomer-info">
-        <p className="tcv-newcomer-title">{entry.tracks?.title ?? '—'}</p>
-        <p className="tcv-newcomer-artist">{entry.tracks?.artists?.name ?? '—'}</p>
+        <p className="tcv-newcomer-title">{entry.tracks?.title ?? entry.title ?? '—'}</p>
+        <p className="tcv-newcomer-artist">{entry.tracks?.artists?.name ?? entry.artist_name ?? '—'}</p>
       </div>
       {weekId > 0 && (
         <VoteButton
@@ -584,6 +588,10 @@ export default function TopChartView({
   //   - Below (IŠKRITĘ IŠ TOPO): weeks_in_top >= 1 IR position > TOP_SIZE.
   //     Tik anksčiau buvusios tope dainos, šią savaitę nepatekusios.
   const TOP_SIZE = topType === 'top40' ? 40 : 30
+  // Read-only kai rodom fallback (legacy archyvas) arba jau finalizuotą savaitę —
+  // balsavimas tokioms savaitėms išjungtas (weekId=0 → VoteButton nerodomas).
+  const readOnly = !!data.isFallback || !!data.week?.is_finalized
+  const voteWeekId = readOnly ? 0 : (data.week?.id ?? 0)
   const newcomers = data.entries.filter(e => (e.weeks_in_top || 0) === 0)
   const mainTop = data.entries.filter(e =>
     (e.weeks_in_top || 0) >= 1 && (e.position || 0) <= TOP_SIZE
@@ -743,6 +751,14 @@ export default function TopChartView({
         }
         .tcv-anon-hint a { color: ${accent.hex}; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
         .tcv-anon-hint strong { color: ${accent.hex}; }
+        .tcv-fallback-note {
+          display: flex; align-items: center; gap: 8px;
+          margin-bottom: 14px; padding: 10px 14px; border-radius: 10px;
+          background: var(--bg-surface); border: 1px solid var(--border-subtle);
+          color: var(--text-secondary); font-size: 12px; line-height: 1.4;
+        }
+        .tcv-fallback-note svg { flex-shrink: 0; color: ${accent.hex}; }
+        .tcv-fallback-note strong { color: var(--text-primary); font-weight: 700; }
 
         /* Body — mobile-first flex column. Mobile order: player → list → newcomers */
         .tcv-body {
@@ -1321,6 +1337,15 @@ export default function TopChartView({
           </div>
         )}
 
+        {/* Fallback žyma: rodom paskutinę užbaigtą (legacy) savaitę, nes einamoji
+            dar neturi balsų. Balsavimas išjungtas. */}
+        {data.isFallback && data.entries.length > 0 && weekLabel && (
+          <div className="tcv-fallback-note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <span>Rodomas paskutinės užbaigtos savaitės topas (<strong>{weekLabel}</strong>). Naujos savaitės balsavimas dar prasidės.</span>
+          </div>
+        )}
+
         {data.entries.length === 0 ? (
           <div className="tcv-empty">
             <p className="tcv-empty-title">Sąrašas dar tuščias</p>
@@ -1342,7 +1367,7 @@ export default function TopChartView({
                     key={entry.id}
                     entry={entry}
                     isActive={activeEntry?.id === entry.id}
-                    weekId={data.week?.id ?? 0}
+                    weekId={voteWeekId}
                     accent={accent}
                     onClick={() => setActiveEntry(entry)}
                     onVoted={handleVoted}
@@ -1377,7 +1402,7 @@ export default function TopChartView({
                       <NewcomerRow
                         key={entry.id}
                         entry={entry}
-                        weekId={data.week?.id ?? 0}
+                        weekId={voteWeekId}
                         accent={accent}
                         onVoted={handleVoted}
                         onVoteFailed={handleVoteFailed}
@@ -1403,7 +1428,7 @@ export default function TopChartView({
                       <NewcomerRow
                         key={entry.id}
                         entry={entry}
-                        weekId={data.week?.id ?? 0}
+                        weekId={voteWeekId}
                         accent={accent}
                         onVoted={handleVoted}
                         onVoteFailed={handleVoteFailed}

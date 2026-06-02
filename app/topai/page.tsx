@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase'
-import { getCurrentWeekMonday } from '@/lib/top-week'
+import { resolveDisplayWeek } from '@/lib/top-week'
 import { proxyImg } from '@/lib/img-proxy'
 
 export const metadata: Metadata = {
@@ -39,19 +39,19 @@ function ytThumb(url: string | null | undefined): string | null {
 }
 
 async function getMiniChart(sb: any, topType: string, limit = 5): Promise<Entry[]> {
-  const monday = getCurrentWeekMonday()
-  const { data: week } = await sb.from('top_weeks').select('id, is_finalized')
-    .eq('top_type', topType).eq('week_start', monday).maybeSingle()
+  // Pereinamasis fallback: einamoji savaitė jei turi entries, kitaip naujausia
+  // finalizuota (legacy archyvas). Žr. lib/top-week.ts.
+  const { week } = await resolveDisplayWeek(sb, topType)
   if (!week) return []
   const { data: rows } = await sb.from('top_entries')
-    .select('position, total_votes, tracks:track_id ( slug, title, cover_url, artists:artist_id ( slug, name ) )')
+    .select('position, total_votes, artist_name, title, tracks:track_id ( slug, title, cover_url, artists:artist_id ( slug, name ) )')
     .eq('week_id', week.id)
     .order(week.is_finalized ? 'position' : 'total_votes', { ascending: !!week.is_finalized })
     .limit(limit)
   return (rows || []).map((r: any, i: number) => {
     const tr = Array.isArray(r.tracks) ? r.tracks[0] : r.tracks
     const ar = tr ? (Array.isArray(tr.artists) ? tr.artists[0] : tr.artists) : null
-    return { position: r.position ?? i + 1, title: tr?.title ?? '—', artistName: ar?.name ?? '—', coverUrl: tr?.cover_url ?? null }
+    return { position: r.position ?? i + 1, title: tr?.title ?? r.title ?? '—', artistName: ar?.name ?? r.artist_name ?? '—', coverUrl: tr?.cover_url ?? null }
   })
 }
 
