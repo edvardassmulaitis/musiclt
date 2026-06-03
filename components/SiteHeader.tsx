@@ -1712,9 +1712,9 @@ export function SiteHeader() {
           transition: border-color .15s, color .15s, background .15s;
         }
         .sh-news-style:hover {
-          border-color: var(--it-accent, var(--accent-orange));
-          color: var(--it-accent, var(--text-primary));
-          background: color-mix(in srgb, var(--it-accent, #888) 8%, transparent);
+          border-color: var(--it-accent);
+          color: var(--it-accent);
+          background: var(--bg-hover);
         }
         .sh-album-cover {
           position: relative;
