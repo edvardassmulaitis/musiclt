@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation'
 import { SiteProvider } from '@/components/SiteContext'
 import { SiteHeader } from '@/components/SiteHeader'
 import { SiteFooter } from '@/components/SiteFooter'
+import { MobileBottomNav } from '@/components/MobileBottomNav'
+import { QuickCreate } from '@/components/QuickCreate'
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -12,6 +14,9 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   // Pokalbiai turi tampti "atskiru app'u" — be footer'io, be body scroll'o.
   // Header'į paliekam (svarbu top-nav navigacijai), bet apačia uždara.
   const isChat = pathname?.startsWith('/pokalbiai')
+
+  // Apatinis mobile baras rodomas visur, išskyrus admin ir pilno ekrano chat'ą.
+  const showBottomNav = !isAdmin && !isChat
 
   useEffect(() => {
     if (!isChat) return
@@ -23,8 +28,10 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   return (
     <SiteProvider>
       {!isAdmin && <SiteHeader />}
-      <main>{children}</main>
+      <main className={showBottomNav ? 'has-bottom-nav' : undefined}>{children}</main>
       {!isAdmin && !isChat && <SiteFooter />}
+      {showBottomNav && <MobileBottomNav />}
+      {!isAdmin && <QuickCreate />}
     </SiteProvider>
   )
 }

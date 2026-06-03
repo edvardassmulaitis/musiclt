@@ -7,6 +7,7 @@ import { HeaderAuth } from '@/components/HeaderAuth'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { MessagesBell } from '@/components/MessagesBell'
 import { MasterSearch } from '@/components/MasterSearch'
+import { openQuickCreate } from '@/components/QuickCreate'
 import { useSite } from '@/components/SiteContext'
 import { proxyImg } from '@/lib/img-proxy'
 import { GENRE_COLORS, GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
@@ -2168,10 +2169,24 @@ export function SiteHeader() {
            inline search bar'as paslėptas. Above 1080px → bar matomas, ikona
            paslėpta. Below 1080px → bar paslėptas, ikona matoma. */
         .sh-search-icon { display: none; }
+        /* Desktop-only veiksmai (Srautas ♥, + Kurti) — mobile juos dengia
+           apatinis baras (MobileBottomNav). */
+        .sh-desktop-action { display: flex; }
+        .sh-create-btn {
+          align-items: center; gap: 6px; height: 34px; padding: 0 14px 0 11px;
+          border: none; cursor: pointer; border-radius: 18px;
+          background: var(--accent-orange); color: #fff;
+          font-family: inherit; font-size: 13px; font-weight: 700;
+          transition: filter .15s, transform .1s;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .sh-create-btn:hover { filter: brightness(1.08); }
+        .sh-create-btn:active { transform: scale(.96); }
         @media (max-width: 1080px) {
           .sh-desktop-search { display: none !important; }
           .sh-desktop-nav    { display: none !important; }
           .sh-search-icon    { display: flex !important; }
+          .sh-desktop-action { display: none !important; }
         }
         /* Suppress Safari/Mac fokuso "white ring" ir Firefox dotted outline'ą,
            paliekam tik :hover/active border'į. Be focus-visible custom style'o
@@ -2608,6 +2623,36 @@ export function SiteHeader() {
                 <path d="m21 21-4.35-4.35"/>
               </svg>
             </button>
+
+            {/* Srautas (♥) — asmeninis feed. Tik desktop (mobile = apatinis baras). */}
+            <Link
+              href="/srautas"
+              aria-label="Tavo srautas"
+              className="sh-desktop-action"
+              style={{
+                width: 34, height: 34, alignItems: 'center', justifyContent: 'center',
+                color: pathname.startsWith('/srautas') ? 'var(--accent-orange)' : 'var(--text-muted)',
+                borderRadius: 8, transition: 'color .15s, background .15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
+            >
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/>
+              </svg>
+            </Link>
+
+            {/* + Kurti — atidaro QuickCreate. Tik desktop (mobile = apatinis „+"). */}
+            <button
+              type="button"
+              onClick={() => openQuickCreate()}
+              aria-label="Kurti"
+              className="sh-desktop-action sh-create-btn"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Kurti</span>
+            </button>
+
             <MessagesBell />
             <NotificationsBell />
             <HeaderAuth />

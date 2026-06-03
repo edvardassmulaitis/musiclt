@@ -682,3 +682,10 @@ blockquote.legacy-quote .legacy-quote-avatar-fallback {
   color: white;
   background: var(--accent-orange);
 }
+
+/* Apatinis mobile baras (MobileBottomNav) — vietos turiniui, kad neuždengtų. */
+@media (max-width: 1080px) {
+  main.has-bottom-nav {
+    padding-bottom: calc(58px + env(safe-area-inset-bottom));
+  }
+}
