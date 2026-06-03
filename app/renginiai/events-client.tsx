@@ -38,19 +38,19 @@ function getArtist(ea: EventArtist): Artist | undefined {
 
 const MONTHS_SHORT = ['saus', 'vas', 'kov', 'bal', 'geg', 'birž', 'liep', 'rugp', 'rugs', 'spal', 'lapkr', 'gruod']
 const MONTHS_FULL = ['Sausis', 'Vasaris', 'Kovas', 'Balandis', 'Gegužė', 'Birželis', 'Liepa', 'Rugpjūtis', 'Rugsėjis', 'Spalis', 'Lapkritis', 'Gruodis']
+const MONTHS_GEN = ['Sausio', 'Vasario', 'Kovo', 'Balandžio', 'Gegužės', 'Birželio', 'Liepos', 'Rugpjūčio', 'Rugsėjo', 'Spalio', 'Lapkričio', 'Gruodžio']
 const WEEKDAYS = ['Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št', 'Sk']
 const DOT = ' · '
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 function ymKey(d: Date) { return `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}` }
-
-function fmtDay(d: string) { return new Date(d).getDate().toString().padStart(2, '0') }
-function fmtMonth(d: string) { return MONTHS_SHORT[new Date(d).getMonth()].toUpperCase() }
 function fmtShort(d: Date) { return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}` }
-function fmtTime(d: string) {
-  const dt = new Date(d)
-  if (dt.getHours() === 0 && dt.getMinutes() === 0) return null
-  return dt.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' })
+
+/* „Birželio 3 d., trečiadienis" — be valandų (laikas tik vidiniame puslapyje). */
+function fmtWhen(iso: string) {
+  const d = new Date(iso)
+  const wd = d.toLocaleDateString('lt-LT', { weekday: 'long' })
+  return `${MONTHS_GEN[d.getMonth()]} ${d.getDate()} d., ${wd}`
 }
 
 function hasLtArtist(ev: Event): boolean {
@@ -197,8 +197,7 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
 
   const today = startOfDay(new Date())
 
-  // Aktyvūs = būsena upcoming/ongoing IR data nuo šiandien (kad nerodytų ką tik
-  // praėjusių, dar nepervadintų į „past"). Archyvas = visa kita.
+  // Aktyvūs = būsena upcoming/ongoing IR data nuo šiandien. Archyvas = visa kita.
   const active = useMemo(() => events.filter(e =>
     (e.status === 'upcoming' || e.status === 'ongoing') &&
     startOfDay(new Date(e.end_date || e.start_date)).getTime() >= today.getTime()
@@ -251,6 +250,7 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
     setCity('Visi'); setFrom(null); setTo(null); setPeriodLabel('Visos datos')
     setLtOnly(false); setPrice(null); setStyles([]); setFestOnly(false)
   }
+  function exitArchive() { setArchive(false); resetAll() }
 
   const now = today
   const endOfMonth = startOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0))
@@ -303,7 +303,7 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
         ))}
         {selectedInMore && <button className="ev-chip on" onClick={() => setCity(city)}>{city}</button>}
         {moreCities.length > 0 && (
-          <Popover id="cities" openId={openId} setOpenId={setOpenId} label="Daugiau" on={false} width={230}>
+          <Popover id="cities" openId={openId} setOpenId={setOpenId} label="Kiti" on={false} width={230}>
             <input autoFocus value={citySearch} onChange={e => setCitySearch(e.target.value)} placeholder="Ieškoti miesto…" className="ev-search" />
             <div className="ev-pop-list">
               {moreCities.filter(c => c.toLowerCase().includes(citySearch.toLowerCase())).map(c => (
@@ -350,6 +350,14 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
         <span className="ev-count">{filtered.length}</span>
       </div>
 
+      {/* ── Archyvo juosta (viršuje — lengva išjungti) ── */}
+      {archive && (
+        <div className="ev-arch-banner">
+          <span>🗄 Žiūrite praėjusių renginių archyvą</span>
+          <button type="button" onClick={exitArchive}>← Grįžti į artimiausius</button>
+        </div>
+      )}
+
       {/* ── Tinklelis ── */}
       {filtered.length === 0 ? (
         <div className="ev-empty">
@@ -364,46 +372,44 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
             <div key={grp.label}>
               <div className="ev-month-head"><span>{grp.label}</span><i /></div>
               <div className="ev-grid">
-                {grp.items.map(ev => <EventCard key={ev.id} ev={ev} archive={archive} />)}
+                {grp.items.map(ev => <EventCard key={ev.id} ev={ev} />)}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* ── Archyvas (apačioje) ── */}
+      {/* ── Archyvo įėjimas (apačioje) ── */}
       {!archive && past.length > 0 && (
         <button className="ev-archive-toggle" onClick={() => { setArchive(true); resetAll(); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
           🗄 Praėję renginiai ({past.length}) →
-        </button>
-      )}
-      {archive && (
-        <button className="ev-archive-toggle" onClick={() => { setArchive(false); resetAll() }}>
-          ← Atgal į artimiausius renginius
         </button>
       )}
     </div>
   )
 }
 
-/* ── Renginio kortelė: švarus plakatas, visa info po juo ── */
-function EventCard({ ev, archive }: { ev: Event; archive: boolean }) {
-  const time = fmtTime(ev.start_date)
+/* ── Renginio kortelė: pilnas plakatas (blur fill), info po juo ── */
+function EventCard({ ev }: { ev: Event }) {
   const isCancelled = ev.status === 'cancelled'
   const headliners = (ev.event_artists?.filter(ea => ea.is_headliner).map(getArtist).filter(Boolean) as Artist[]) || []
+  const main = headliners[0]
   const artistLine = headliners.map(a => a.name).join(', ')
   const venueLine = [ev.venue_name, ev.city].filter(Boolean).join(DOT)
-
-  const d = new Date(ev.start_date)
-  const weekday = d.toLocaleDateString('lt-LT', { weekday: 'short' }).replace('.', '')
-  const whenLine = `${weekday}, ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}${time ? `${DOT}${time}` : ''}`
+  const whenLine = fmtWhen(ev.start_date)
+  const noimgText = artistLine || ev.title
 
   return (
-    <Link href={`/renginiai/${ev.slug}`} className={`ev-card${archive ? ' past' : ''}`}>
+    <Link href={`/renginiai/${ev.slug}`} className="ev-card">
       <div className="ev-card-img">
-        {ev.cover_image_url
-          ? <img src={ev.cover_image_url} alt={ev.title} loading="lazy" />
-          : <div className="ev-card-noimg"><span>{fmtDay(ev.start_date)}</span><span>{fmtMonth(ev.start_date)}</span></div>}
+        {ev.cover_image_url ? (
+          <>
+            <span className="ev-card-bg" style={{ backgroundImage: `url(${ev.cover_image_url})` }} />
+            <img className="ev-card-fg" src={ev.cover_image_url} alt={ev.title} loading="lazy" />
+          </>
+        ) : (
+          <div className="ev-card-noimg"><span className="ev-card-noimg-name">{noimgText}</span></div>
+        )}
         <div className="ev-card-tags">
           {isCancelled && <span className="ev-tag cancel">ATŠAUKTAS</span>}
           {ev.is_festival && <span className="ev-tag fest">FESTIVALIS</span>}
@@ -414,7 +420,14 @@ function EventCard({ ev, archive }: { ev: Event; archive: boolean }) {
         <span className="ev-card-when">{whenLine}</span>
         <h3 className="ev-card-title">{ev.title}</h3>
         {venueLine && <span className="ev-card-where">{venueLine}</span>}
-        {artistLine && <span className="ev-card-who">{artistLine}</span>}
+        {artistLine && (
+          <span className="ev-card-artist">
+            {main?.cover_image_url
+              ? <img className="ev-card-artist-img" src={main.cover_image_url} alt="" loading="lazy" />
+              : <span className="ev-card-artist-ph">{(noimgText[0] || '♪').toUpperCase()}</span>}
+            <span className="ev-card-artist-name">{artistLine}</span>
+          </span>
+        )}
       </div>
     </Link>
   )
@@ -431,7 +444,7 @@ const EV_CSS = `
 /* Slim head */
 .ev-head { margin-bottom:16px; }
 .ev-head h1 { font-family:'Outfit',sans-serif; font-weight:900; letter-spacing:-.025em; font-size:clamp(1.5rem,3vw,2rem); line-height:1.05; color:var(--text-primary); }
-.ev-head p { color:var(--text-muted); font-size:13px; margin-top:4px; }
+.ev-head p { color:var(--text-muted); font-size:13px; margin-top:4px; max-width:640px; }
 
 /* Filter bar — viena kompaktiška eilutė */
 .ev-fbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px;
@@ -476,31 +489,39 @@ const EV_CSS = `
 .ev-cal-nav:hover { background:var(--bg-hover); }
 .ev-cal-day { height:31px; border-radius:8px; font-size:12px; font-weight:700; font-family:'Outfit',sans-serif; cursor:pointer; transition:background .12s; }
 
+/* Archyvo juosta */
+.ev-arch-banner { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:11px 15px;
+  border-radius:12px; margin-bottom:20px; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08)); }
+.ev-arch-banner span { font-family:'Outfit',sans-serif; font-size:13px; font-weight:700; color:var(--text-secondary); }
+.ev-arch-banner button { padding:7px 15px; border-radius:100px; font-family:'Outfit',sans-serif; font-size:12.5px; font-weight:700;
+  cursor:pointer; background:var(--accent-orange); color:#fff; border:none; }
+
 /* Mėnesių grupės */
 .ev-months { display:flex; flex-direction:column; gap:30px; }
 .ev-month-head { display:flex; align-items:center; gap:12px; margin-bottom:13px; }
 .ev-month-head span { font-family:'Outfit',sans-serif; font-weight:800; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--accent-orange); }
 .ev-month-head i { flex:1; height:1px; background:var(--border-default,rgba(255,255,255,0.08)); }
 
-/* Kortelių tinklelis — vizualus plakatas, info po juo */
+/* Kortelių tinklelis — pilnas plakatas su blur užpildymu, info po juo */
 .ev-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:16px; }
 @media(max-width:640px){ .ev-grid { grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:11px; } }
 
 .ev-card { display:block; border-radius:15px; overflow:hidden; background:var(--bg-surface);
   border:1px solid var(--border-default,rgba(255,255,255,0.07)); transition:transform .18s, border-color .18s, box-shadow .18s; }
 .ev-card:hover { transform:translateY(-3px); border-color:rgba(249,115,22,0.4); box-shadow:0 12px 28px rgba(0,0,0,0.22); }
-.ev-card.past { opacity:.72; }
-.ev-card.past:hover { opacity:1; }
 
 .ev-card-img { position:relative; aspect-ratio:4/5; overflow:hidden; background:var(--bg-elevated); }
-.ev-card-img img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .45s ease; }
-.ev-card:hover .ev-card-img img { transform:scale(1.06); }
-.ev-card-noimg { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-  background:linear-gradient(150deg, var(--bg-elevated), rgba(249,115,22,0.10)); font-family:'Outfit',sans-serif; }
-.ev-card-noimg span:first-child { font-size:42px; font-weight:900; color:var(--text-primary); line-height:1; }
-.ev-card-noimg span:last-child { font-size:13px; font-weight:800; letter-spacing:.1em; color:var(--accent-orange); }
+/* Blur fill — plakatas matosi PILNAS (contain), tarpai užpildomi išplėstu blur'u */
+.ev-card-bg { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(22px) brightness(.62); transform:scale(1.25); }
+.ev-card-fg { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:1; transition:transform .45s ease; }
+.ev-card:hover .ev-card-fg { transform:scale(1.04); }
+.ev-card-noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center; padding:14px;
+  background:linear-gradient(145deg, rgba(249,115,22,0.32), rgba(17,24,39,0.94)); }
+.ev-card-noimg-name { font-family:'Outfit',sans-serif; font-weight:900; font-size:clamp(15px,2.3vw,21px); line-height:1.14; text-align:center;
+  color:#fff; letter-spacing:-.01em; text-shadow:0 2px 14px rgba(0,0,0,.35);
+  display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
 
-.ev-card-tags { position:absolute; top:9px; right:9px; display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
+.ev-card-tags { position:absolute; top:9px; right:9px; z-index:2; display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
 .ev-tag { font-family:'Outfit',sans-serif; font-weight:800; font-size:9px; letter-spacing:.04em; padding:3px 7px; border-radius:100px; color:#fff; box-shadow:0 2px 8px rgba(0,0,0,.25); }
 .ev-tag.fest { background:#06b6d4; }
 .ev-tag.star { background:var(--accent-orange); }
@@ -508,14 +529,17 @@ const EV_CSS = `
 
 /* Info po plakatu */
 .ev-card-body { padding:11px 13px 13px; display:flex; flex-direction:column; gap:3px; }
-.ev-card-when { font-family:'Outfit',sans-serif; font-weight:800; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--accent-orange); }
+.ev-card-when { font-family:'Outfit',sans-serif; font-weight:700; font-size:11.5px; color:var(--accent-orange); }
 .ev-card-title { font-family:'Outfit',sans-serif; font-weight:800; font-size:14.5px; line-height:1.2; color:var(--text-primary);
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-top:1px; }
 .ev-card:hover .ev-card-title { color:var(--accent-orange); }
 .ev-card-where { font-size:12px; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px; }
-.ev-card-who { font-size:11.5px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ev-card-artist { display:flex; align-items:center; gap:6px; margin-top:5px; }
+.ev-card-artist-img, .ev-card-artist-ph { width:20px; height:20px; border-radius:50%; object-fit:cover; flex-shrink:0; background:var(--bg-hover); }
+.ev-card-artist-ph { display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif; font-size:10px; font-weight:800; color:var(--text-muted); }
+.ev-card-artist-name { font-size:11.5px; font-weight:600; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-/* Archyvo toggle */
+/* Archyvo įėjimas */
 .ev-archive-toggle { display:block; margin:34px auto 0; padding:10px 20px; border-radius:100px; font-size:13px; font-weight:700;
   font-family:'Outfit',sans-serif; cursor:pointer; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08));
   color:var(--text-secondary); transition:all .15s; }
