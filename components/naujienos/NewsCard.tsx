@@ -89,8 +89,8 @@ export default function NewsCard({
           <h2 className="max-w-3xl text-2xl font-black leading-tight text-white sm:text-4xl">{item.title}</h2>
           <div className="flex flex-wrap items-center gap-2 text-[13px] text-white/80">
             {item.artistName && <span className="font-semibold text-white">{item.artistName}</span>}
-            {item.artistName && <span>·</span>}
-            <span>{fmtNewsDate(item.date)}</span>
+            {item.artistName && item.date && <span>·</span>}
+            {item.date && <span>{fmtNewsDate(item.date)}</span>}
           </div>
         </div>
       </Link>
@@ -112,8 +112,8 @@ export default function NewsCard({
           <h3 className="line-clamp-2 text-[13px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange,#f59e0b)]">{item.title}</h3>
           <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[var(--text-faint)]">
             {item.artistName && <span className="truncate font-medium text-[var(--text-secondary)]">{item.artistName}</span>}
-            {item.artistName && <span>·</span>}
-            <span className="shrink-0">{relNewsDate(item.date)}</span>
+            {item.artistName && item.date && <span>·</span>}
+            {item.date && <span className="shrink-0">{relNewsDate(item.date)}</span>}
           </div>
         </div>
       </Link>
@@ -143,8 +143,8 @@ export default function NewsCard({
         <div className="flex items-center justify-between gap-2 text-[11px] text-[var(--text-faint)]">
           <span className="flex min-w-0 items-center gap-1.5">
             {item.artistName && <span className="truncate font-semibold text-[var(--text-secondary)]">{item.artistName}</span>}
-            {item.artistName && <span className="shrink-0 opacity-50">·</span>}
-            <span className="shrink-0">{relNewsDate(item.date)}</span>
+            {item.artistName && item.date && <span className="shrink-0 opacity-50">·</span>}
+            {item.date && <span className="shrink-0">{relNewsDate(item.date)}</span>}
           </span>
           <Stats item={item} />
         </div>

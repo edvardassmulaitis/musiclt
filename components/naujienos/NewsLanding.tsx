@@ -1,12 +1,11 @@
 // components/naujienos/NewsLanding.tsx
 //
 // Bendras SEO landing'ų renderis (/naujienos/stilius/[slug], .../tipas/[slug],
-// /naujienos/lietuva, /naujienos/pasaulis). Server komponentas — SSR'ina
-// užrakintos ašies rezultatus (SEO), o NewsExplorer leidžia papildomai derinti
-// kitas ašis (pvz. Koncertai × Elektroninė) be perkrovimo.
+// /naujienos/lietuva, /naujienos/pasaulis). Server SSR'ina užrakintos ašies
+// rezultatus (SEO), o NewsExplorer leidžia derinti kitas ašis be perkrovimo.
 
 import Link from 'next/link'
-import { getNewsFeed, getNewsFacets } from '@/lib/news-feed'
+import { getNewsFeed } from '@/lib/news-feed'
 import { SITE_URL } from '@/lib/artist-browse'
 import { newsCollectionJsonLd, breadcrumbJsonLd, jsonLdScript } from '@/lib/news-jsonld'
 import NewsExplorer from './NewsExplorer'
@@ -24,22 +23,14 @@ export type LandingProps = {
 }
 
 export default async function NewsLanding(props: LandingProps) {
-  const {
-    h1, intro, path, crumb,
-    lockedStyle = null, lockedCategory = null, lockedScope = null,
-  } = props
+  const { h1, intro, path, crumb, lockedStyle = null, lockedCategory = null, lockedScope = null } = props
 
   const lockAxis: 'type' | 'style' | 'scope' | undefined =
     lockedCategory ? 'type' : lockedStyle != null ? 'style' : lockedScope ? 'scope' : undefined
 
-  const [facets, feed] = await Promise.all([
-    getNewsFacets(),
-    getNewsFeed({ style: lockedStyle, category: lockedCategory, scope: lockedScope, sort: 'newest', limit: 24 }),
-  ])
+  const feed = await getNewsFeed({ style: lockedStyle, category: lockedCategory, scope: lockedScope, sort: 'newest', limit: 24 })
 
-  const collectionLd = newsCollectionJsonLd({
-    name: h1, description: intro, url: `${SITE_URL}${path}`, items: feed.items.slice(0, 20),
-  })
+  const collectionLd = newsCollectionJsonLd({ name: h1, description: intro, url: `${SITE_URL}${path}`, items: feed.items.slice(0, 20) })
   const breadcrumbLd = breadcrumbJsonLd([
     { name: 'Pradžia', path: '/' },
     { name: 'Naujienos', path: '/naujienos' },
@@ -47,12 +38,11 @@ export default async function NewsLanding(props: LandingProps) {
   ])
 
   return (
-    <div style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg-body)', minHeight: '100vh' }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(collectionLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbLd) }} />
 
-      <div className="mx-auto flex flex-col gap-6 px-4 py-7 sm:px-6" style={{ maxWidth: 1320 }}>
-        {/* Breadcrumb */}
+      <div className="mx-auto flex flex-col gap-5 px-4 py-7 sm:px-6" style={{ maxWidth: 1320 }}>
         <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[12.5px] text-[var(--text-faint)]">
           <Link href="/" className="hover:text-[var(--text-secondary)]">Pradžia</Link>
           <span>›</span>
@@ -61,21 +51,15 @@ export default async function NewsLanding(props: LandingProps) {
           <span className="font-semibold text-[var(--text-secondary)]">{crumb}</span>
         </nav>
 
-        {/* Antraštė */}
         <header className="flex flex-col gap-1.5">
           <h1 className="text-3xl font-black text-[var(--text-primary)] sm:text-4xl">{h1}</h1>
           <p className="max-w-3xl text-[15px] leading-relaxed text-[var(--text-muted)]">{intro}</p>
         </header>
 
         <NewsExplorer
-          facets={facets}
           initialItems={feed.items}
           initialTotal={feed.total}
-          initialFilters={{
-            type: lockedCategory ?? '',
-            style: lockedStyle,
-            scope: (lockedScope ?? '') as any,
-          }}
+          initialFilters={{ type: lockedCategory ?? '', style: lockedStyle, scope: (lockedScope ?? '') as any }}
           basePath={path}
           lockAxis={lockAxis}
         />
