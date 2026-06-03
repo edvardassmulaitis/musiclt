@@ -111,9 +111,24 @@ export async function GET(req: NextRequest) {
       if (members.length >= limit) break
     }
 
+    // ── Nauji nariai — TIK realios registracijos (provider google/facebook/email).
+    // Ghost/legacy importai turi provider=null arba 'recreated' (created_at=import
+    // data) → juos praleidžiam, kitaip „nauji" užfloodintų 70k migruotų profilių. ──
+    let new_members: { username: string; name: string | null; avatar: string | null; created_at: string }[] = []
+    try {
+      const { data: np } = await sb
+        .from('profiles')
+        .select('username, full_name, avatar_url, created_at')
+        .in('provider', ['google', 'facebook', 'email'])
+        .not('username', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+      new_members = (np || []).map((p: any) => ({ username: p.username, name: p.full_name || p.username, avatar: p.avatar_url, created_at: p.created_at }))
+    } catch {}
+
     // total_active — kiek SKIRTINGŲ narių apskritai turėjo viešų veiksmų per langą
-    // (ne tik top N). Naudojama hero „N narių aktyvūs šią savaitę" eilutei.
-    return NextResponse.json({ members, total_active: byUser.size, days })
+    // (ne tik top N). Naudojama header „N narių aktyvūs šią savaitę" eilutei.
+    return NextResponse.json({ members, new_members, total_active: byUser.size, days })
   } catch (e: any) {
     return NextResponse.json({ members: [], error: e?.message || 'error' }, { status: 200 })
   }
