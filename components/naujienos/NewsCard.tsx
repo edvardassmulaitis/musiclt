@@ -7,9 +7,11 @@ import Link from 'next/link'
 import { Heart, MessageCircle, Eye } from 'lucide-react'
 import type { NewsFeedItem } from '@/lib/news-shared'
 import { fmtNewsDate, relNewsDate } from '@/lib/news-shared'
-import { NEWS_BROWSE_CATEGORIES } from '@/lib/news-taxonomy'
+import { NEWS_BROWSE_CATEGORIES, type NewsBrowseCategory } from '@/lib/news-taxonomy'
 
-const CAT_MAP = new Map(NEWS_BROWSE_CATEGORIES.map((c) => [c.key, c]))
+const CAT_MAP = new Map<string, NewsBrowseCategory>(
+  NEWS_BROWSE_CATEGORIES.map((c) => [c.key, c] as [string, NewsBrowseCategory])
+)
 
 function CategoryBadge({ category }: { category: string | null }) {
   const c = category ? CAT_MAP.get(category as any) : null

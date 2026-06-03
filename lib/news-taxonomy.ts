@@ -69,8 +69,12 @@ export const NEWS_BROWSE_CATEGORIES: NewsBrowseCategory[] = [
   },
 ]
 
-const CATEGORY_BY_SLUG = new Map(NEWS_BROWSE_CATEGORIES.map((c) => [c.slug, c]))
-const CATEGORY_BY_KEY = new Map(NEWS_BROWSE_CATEGORIES.map((c) => [c.key, c]))
+const CATEGORY_BY_SLUG = new Map<string, NewsBrowseCategory>(
+  NEWS_BROWSE_CATEGORIES.map((c) => [c.slug, c] as [string, NewsBrowseCategory])
+)
+const CATEGORY_BY_KEY = new Map<string, NewsBrowseCategory>(
+  NEWS_BROWSE_CATEGORIES.map((c) => [c.key, c] as [string, NewsBrowseCategory])
+)
 
 export function findCategoryBySlug(slug: string): NewsBrowseCategory | undefined {
   return CATEGORY_BY_SLUG.get((slug || '').toLowerCase())
@@ -109,8 +113,12 @@ export const NEWS_STYLES: NewsStyle[] = STYLE_SEED.map((s) => ({
   slug: ltSlugify(s.name),
 }))
 
-const STYLE_BY_SLUG = new Map(NEWS_STYLES.map((s) => [s.slug, s]))
-const STYLE_BY_ID = new Map(NEWS_STYLES.map((s) => [s.id, s]))
+const STYLE_BY_SLUG = new Map<string, NewsStyle>(
+  NEWS_STYLES.map((s) => [s.slug, s] as [string, NewsStyle])
+)
+const STYLE_BY_ID = new Map<number, NewsStyle>(
+  NEWS_STYLES.map((s) => [s.id, s] as [number, NewsStyle])
+)
 
 export function findStyleBySlug(slug: string): NewsStyle | undefined {
   return STYLE_BY_SLUG.get((slug || '').toLowerCase())
