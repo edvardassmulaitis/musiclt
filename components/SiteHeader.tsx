@@ -318,7 +318,7 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   }
 
   return (
-    <div className="sh-panel sh-panel-muzika" style={{ width: 920 }}>
+    <div className="sh-panel sh-panel-muzika">
 
       {/* ── ATLIKĖJAI sekcijos header'is — vienodas su Stiliai stiliumi ── */}
       <div style={{
@@ -491,7 +491,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
   const otherCharts = featured.filter(c => !c.country)
 
   return (
-    <div className="sh-panel sh-panel-muzika" style={{ width: 880 }}>
+    <div className="sh-panel sh-panel-muzika">
       {/* ── Pagrindiniai topai: LT TOP 30 + TOP 40 juostos (kaip Muzika) ── */}
       {renderSongRow('lt', 'LT TOP 30', '/top30', '#22c55e', top30)}
       <div style={{ height: 12 }} />
@@ -580,7 +580,7 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
   ]
 
   return (
-    <div className="sh-panel" style={{ width: 880 }}>
+    <div className="sh-panel">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>
           <span className="sh-trending-glyph">{I.calendar}</span>
@@ -624,7 +624,7 @@ function AtradimaiPanel({ accent }: { accent: string }) {
     { href: '/boombox', icon: I.boombox, title: 'Boombox', desc: 'Muzikinis swipe žaidimas', rgb: '#6366f1' },
   ]
   return (
-    <div className="sh-panel" style={{ minWidth: 560 }}>
+    <div className="sh-panel">
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Atradimai</span>
         <Link href="/atradimai" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
@@ -641,7 +641,7 @@ function AtradimaiPanel({ accent }: { accent: string }) {
           <span className="sh-bigshortcut-desc">Kas naujo pas kitus narius — gyvai</span>
         </span>
       </Link>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
         {items.map(it => (
           <Link key={it.href} href={it.href} className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb(it.rgb) }}>
             <span className="sh-bigshortcut-icon">{it.icon}</span>
@@ -670,7 +670,7 @@ const SECTION_HEAD: React.CSSProperties = {
 function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
   const news = data?.news?.slice(0, 10) || []
   return (
-    <div className="sh-panel sh-panel-muzika" style={{ width: 920 }}>
+    <div className="sh-panel sh-panel-muzika">
       {/* ── Naujausios naujienos (juosta) ── */}
       <div style={SECTION_HEAD}>
         <span className="sh-trending-glyph" title="Naujienos">{I.news}</span>
@@ -740,7 +740,7 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
 
 function SkelbimaiPanel({ accent }: { accent: string }) {
   return (
-    <div className="sh-panel" style={{ minWidth: 640 }}>
+    <div className="sh-panel">
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Marketplace</span>
         <span className="sh-soon-pill">Greitai</span>
@@ -1318,15 +1318,21 @@ export function SiteHeader() {
         .sh-group:nth-last-of-type(-n+2) > .sh-dropdown-wrap { left: auto; right: 0; }
 
         .sh-panel {
+          /* Vienodas plotis VISIEMS dropdown'ams — solidus vientisumas */
+          width: 880px;
           padding: 18px;
-          background: rgba(var(--bg-surface-rgb), 0.99);
+          background: rgba(var(--bg-surface-rgb), 1);
           backdrop-filter: blur(60px) saturate(180%);
           -webkit-backdrop-filter: blur(60px) saturate(180%);
-          border: 1px solid var(--border-default);
+          /* Stipresnis kraštas + crisp 1px žiedas, kad meniu aiškiai atsiskirtų
+             nuo už jo esančio turinio (anksčiau Muzika apačia susiliedavo) */
+          border: 1px solid var(--border-strong);
           border-radius: 20px;
           box-shadow:
-            0 30px 80px rgba(0,0,0,0.45),
-            0 12px 30px rgba(0,0,0,0.20);
+            0 0 0 1px rgba(0,0,0,0.28),
+            0 28px 70px rgba(0,0,0,0.55),
+            0 10px 26px rgba(0,0,0,0.32),
+            inset 0 1px 0 rgba(255,255,255,0.06);
           position: relative;
           overflow: hidden;
         }
