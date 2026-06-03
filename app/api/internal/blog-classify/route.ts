@@ -70,8 +70,9 @@ export async function POST(req: NextRequest) {
   const { data: rows, error: rpcErr } = await sb.rpc('blog_to_classify', { p_limit: batch, p_recent_days: recentDays })
   if (rpcErr) return NextResponse.json({ error: rpcErr.message }, { status: 500 })
 
+  // blog_posts.id = UUID (string), ne number.
   const cands = ((rows || []) as any[]).map((r) => ({
-    id: Number(r.id),
+    id: String(r.id),
     title: (r.title || '') as string,
     summary: (r.body || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 260) as string,
     has_album: !!r.has_album,
@@ -83,14 +84,14 @@ export async function POST(req: NextRequest) {
   }
 
   // 1) Heuristika — aiškūs atvejai be LLM.
-  const resolved = new Map<number, string>()
+  const resolved = new Map<string, string>()
   const needAI: typeof cands = []
   for (const c of cands) {
     const h = heuristicMemberType(c)
     if (h) resolved.set(c.id, h)
     else needAI.push(c)
   }
-  let heuristicCount = resolved.size
+  const heuristicCount = resolved.size
 
   // 2) Haiku — likusieji. Jei AI nukrenta (be kredito), default 'dienorastis',
   //    kad įrašas vis tiek būtų pažymėtas (neperdirbtume kiekvieną kartą).

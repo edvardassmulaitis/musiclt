@@ -25,9 +25,9 @@ create index if not exists idx_blog_posts_editorial_type
 -- ── RPC: neklasifikuoti article/diary įrašai, NAUJAUSI pirma, tik RECENT langas.
 --    Grąžina ir prisegtų entity flag'us (heuristikai endpoint'e). ──
 create or replace function blog_to_classify(p_limit int default 20, p_recent_days int default 540)
-returns table (id bigint, title text, body text, has_album boolean, has_track boolean)
+returns table (id uuid, title text, body text, has_album boolean, has_track boolean)
 language sql stable as $$
-  select b.id::bigint,
+  select b.id,
          coalesce(b.title, '') as title,
          left(coalesce(b.content, ''), 500) as body,
          (b.target_album_id is not null) as has_album,
