@@ -5,11 +5,26 @@ import { resolveDisplayWeek } from '@/lib/top-week'
 import { proxyImg } from '@/lib/img-proxy'
 
 export const metadata: Metadata = {
-  title: 'Muzikos topai — Lietuva ir pasaulis | music.lt',
-  description: 'Visi muzikos topai vienoje vietoje — music.lt TOP 40 ir LT TOP 30, Lietuvos ir pasaulio dainų bei albumų reitingai.',
+  title: 'Muzikos topai — Lietuva ir pasaulis | Music.lt',
+  description: 'Visi muzikos topai vienoje vietoje: Music.lt TOP 40 ir LT TOP 30, Lietuvos, JAV, JK bei pasaulio dainų ir albumų reitingai. Agreguoti AGATA, Spotify, Apple Music, Billboard, Official UK ir Shazam duomenys, atnaujinami kas savaitę.',
+  keywords: ['muzikos topai', 'top 40', 'lietuvos topai', 'dainų topai', 'albumų topai', 'AGATA', 'Spotify topai', 'Billboard', 'Shazam', 'music.lt'],
+  alternates: { canonical: '/topai' },
+  openGraph: {
+    title: 'Muzikos topai — Lietuva ir pasaulis',
+    description: 'Music.lt TOP 40, LT TOP 30 ir agreguoti Lietuvos bei pasaulio dainų ir albumų topai vienoje vietoje.',
+    url: '/topai',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Muzikos topai — Lietuva ir pasaulis | Music.lt',
+    description: 'Lietuvos ir pasaulio muzikos topai vienoje vietoje, atnaujinami kas savaitę.',
+  },
 }
 
-export const dynamic = 'force-dynamic'
+// ISR: topai atnaujinami daugiausia kas savaitę (voting) / kasdien (išoriniai),
+// tad 30 min cache stipriai pagerina TTFB ir SEO crawl'ą lyginant su force-dynamic.
+export const revalidate = 1800
 
 /* ───────────────────────────── Types ───────────────────────────── */
 type Entry = { position: number; title: string; artistName: string; coverUrl: string | null }
@@ -82,13 +97,15 @@ async function getExternalCharts(sb: any) {
   return map
 }
 
-function toCard(map: Map<string, any>, slug: string, opts: { sourcesKey?: string; title?: string; country?: string | null } = {}): Card | null {
+function toCard(map: Map<string, any>, slug: string, opts: { sourcesKey?: string; title?: string; country?: string | null; globe?: boolean } = {}): Card | null {
   const c = map.get(slug)
   if (!c || c.entries.length === 0) return null
   return {
     key: slug, title: opts.title || c.title, href: `/topai/${slug}`,
     country: opts.country !== undefined ? opts.country : c.country,
-    coverImageUrl: c.coverImageUrl || null, accent: null, entries: c.entries,
+    // globe=true (pasaulio/mišrūs topai) — nerodom DB cover'io, kad būtų švarus
+    // gaublio indikatorius vietoj atsitiktinio paveiksliuko.
+    coverImageUrl: opts.globe ? null : (c.coverImageUrl || null), accent: null, entries: c.entries,
     sources: opts.sourcesKey ? (SOURCE_LINKS[opts.sourcesKey] || []) : [],
   }
 }
@@ -104,28 +121,58 @@ export default async function TopaiHubPage() {
 
   const mainCards: Card[] = [
     { key: 'top40', title: 'Music.lt TOP 40', href: '/top40', country: null, coverImageUrl: null, accent: null, noFlag: true, entries: top40, sources: [] },
-    { key: 'top30', title: 'Music.lt LT TOP 30', href: '/top30', country: 'LT', coverImageUrl: null, accent: null, noFlag: true, entries: top30, sources: [] },
+    { key: 'top30', title: 'Music.lt LT TOP 30', href: '/top30', country: 'lt', coverImageUrl: null, accent: null, entries: top30, sources: [] },
   ]
 
   const songCards: Card[] = [
-    toCard(ext, 'consensus-world', { sourcesKey: 'world' }),
-    toCard(ext, 'consensus-lt', { sourcesKey: 'lt' }),
-    toCard(ext, 'consensus-us', { sourcesKey: 'us' }),
-    toCard(ext, 'consensus-uk', { sourcesKey: 'uk', title: 'UK TOP 100' }),
-    toCard(ext, 'consensus-shazam_world', { sourcesKey: 'shazam_world' }),
-    toCard(ext, 'shazam-lt'),
+    toCard(ext, 'consensus-world', { sourcesKey: 'world', globe: true }),
+    toCard(ext, 'consensus-lt', { sourcesKey: 'lt', country: 'lt' }),
+    toCard(ext, 'consensus-us', { sourcesKey: 'us', country: 'us' }),
+    toCard(ext, 'consensus-uk', { sourcesKey: 'uk', title: 'UK TOP 100', country: 'gb' }),
+    toCard(ext, 'consensus-shazam_world', { sourcesKey: 'shazam_world', globe: true }),
+    toCard(ext, 'shazam-lt', { country: 'lt' }),
   ].filter(Boolean) as Card[]
 
   const albumCards: Card[] = [
-    toCard(ext, 'consensus-albums', { sourcesKey: 'albums' }),
-    toCard(ext, 'agata-albums', { title: 'Lietuvos albumai' }),
+    toCard(ext, 'consensus-albums', { sourcesKey: 'albums', globe: true }),
+    toCard(ext, 'agata-albums', { title: 'Lietuvos albumai', country: 'lt' }),
   ].filter(Boolean) as Card[]
+
+  // ── JSON-LD: visi topai kaip ItemList (rich results / Google supratimui) ──
+  const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://music.lt'
+  const allCards = [...mainCards, ...songCards, ...albumCards]
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: 'Muzikos topai — Lietuva ir pasaulis',
+    description: 'Music.lt TOP 40, LT TOP 30 ir agreguoti Lietuvos bei pasaulio dainų ir albumų topai.',
+    url: `${SITE}/topai`,
+    inLanguage: 'lt',
+    mainEntity: {
+      '@type': 'ItemList',
+      itemListElement: allCards.map((c, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: c.title,
+        url: `${SITE}${c.href}`,
+      })),
+    },
+  }
 
   return (
     <div className="tp">
       <style>{styles}</style>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <header className="tp-hero">
+        <div className="tp-hero-text">
+          <h1 className="tp-hero-title">Muzikos topai</h1>
+          <p className="tp-hero-sub">
+            Lietuvos ir pasaulio dainų bei albumų reitingai vienoje vietoje. Music.lt TOP 40,
+            LT TOP 30 ir agreguoti AGATA, Spotify, Apple Music, Billboard, Official UK bei
+            Shazam topai — atnaujinami kas savaitę.
+          </p>
+        </div>
         <Link href="/topai/archyvas" className="tp-archive-link">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
           Praėjusių savaičių archyvas →
@@ -153,14 +200,19 @@ export default async function TopaiHubPage() {
   )
 }
 
-/* ───────────────────────────── Flag ───────────────────────────── */
+/* ───────────────────────────── Flag ─────────────────────────────
+   Tvarka: žinomas šalies kodas → flagcdn vėliava; antraip custom cover
+   paveiksliukas; antraip — pasaulio gaublio ikona. (Klasė buvo „tp-flag",
+   bet CSS apibrėžta „tc-flag" → vėliavos rodėsi 0×0px; sutvarkyta.) */
+const FLAG_ALIAS: Record<string, string> = { uk: 'gb', en: 'gb' }
 function Flag({ country, image }: { country: string | null; image: string | null }) {
-  if (image) return <span className="tp-flag" style={{ backgroundImage: `url(${proxyImg(image, 120)})` }} />
-  const cc = (country || '').toLowerCase()
-  if (cc === 'lt' || cc === 'us' || cc === 'gb')
-    return <span className="tp-flag" style={{ backgroundImage: `url(https://flagcdn.com/w80/${cc}.png)` }} />
+  let cc = (country || '').toLowerCase()
+  cc = FLAG_ALIAS[cc] || cc
+  if (/^[a-z]{2}$/.test(cc))
+    return <span className="tc-flag" style={{ backgroundImage: `url(https://flagcdn.com/w80/${cc}.png)` }} aria-hidden />
+  if (image) return <span className="tc-flag" style={{ backgroundImage: `url(${proxyImg(image, 120)})` }} aria-hidden />
   return (
-    <span className="tp-flag tp-flag-globe">
+    <span className="tc-flag tc-flag-globe" aria-hidden>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></svg>
     </span>
   )
@@ -228,11 +280,14 @@ function ChartCard({ card, cta }: { card: Card; cta: string }) {
 /* ───────────────────────────── Styles ───────────────────────────── */
 const styles = `
   .tp { max-width: 1120px; margin: 0 auto; padding: 40px 20px 80px; color: var(--text-primary); font-family: 'DM Sans', sans-serif; }
-  .tp-hero { margin-bottom: 22px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  .tp-hero-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: clamp(28px, 5vw, 44px); font-weight: 900; letter-spacing: -0.03em; }
-  .tp-archive-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
-  .tp-archive-link:hover { color: var(--text-primary); }
+  .tp-hero { margin-bottom: 26px; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .tp-hero-text { max-width: 640px; }
+  .tp-hero-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: clamp(30px, 5vw, 46px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.05; }
+  .tp-hero-sub { margin: 10px 0 0; font-size: 14.5px; line-height: 1.55; color: var(--text-muted); max-width: 600px; }
+  .tp-archive-link { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--text-secondary); text-decoration: none; background: var(--bg-surface); border: 1px solid var(--border-subtle); transition: color .15s, border-color .15s, background .15s; }
+  .tp-archive-link:hover { color: var(--text-primary); border-color: var(--border-default); background: var(--bg-elevated); }
   .tp-archive-link svg { flex-shrink: 0; }
+  @media (max-width: 760px) { .tp-archive-link { order: -1; } }
 
   .tp-section { margin-top: 34px; }
   .tp-sec-title { margin: 0 0 14px; font-family: 'Outfit', sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }

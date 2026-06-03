@@ -4,8 +4,12 @@ import { AuthProvider } from '@/components/AuthProvider'
 import { SiteShell } from '@/components/SiteShell'
 
 export const metadata: Metadata = {
+  // metadataBase — kad santykiniai OG/canonical URL'ai (pvz. „/topai") būtų
+  // teisingai paversti absoliučiais visuose puslapiuose.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://music.lt'),
   title: 'Music.lt - Lietuviškos muzikos bendruomenė',
   description: 'Lietuviškos muzikos atlikėjai, albumai, dainos ir renginiai',
+  openGraph: { type: 'website', locale: 'lt_LT', siteName: 'Music.lt' },
   // Explicit icon override — Vercel default „V" favicon nepriima icon.svg
   // konvencijos kai kuriuose browser'iuose. Forcing per metadata.icons.
   icons: {
