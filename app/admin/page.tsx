@@ -181,6 +181,12 @@ export default function AdminDashboardPage() {
         : undefined,
     },
     {
+      href: '/admin/artist-import',
+      icon: '📋',
+      label: 'JSON importas',
+      hint: 'GPT JSON → atlikėjo info (create/update)',
+    },
+    {
       href: '/admin/import/forum',
       icon: '🧵',
       label: 'Forum migracija',
