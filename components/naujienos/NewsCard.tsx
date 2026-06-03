@@ -136,11 +136,11 @@ export default function NewsCard({
           <CategoryBadge category={item.category} />
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-1.5 p-3.5">
-        <h2 className="line-clamp-3 text-[14.5px] font-bold leading-[1.32] text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange,#f59e0b)]">
+      <div className="flex flex-col gap-2 p-3">
+        <h2 className="line-clamp-2 min-h-[2.55em] text-[14px] font-bold leading-[1.28] text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange,#f59e0b)]">
           {item.title}
         </h2>
-        <div className="mt-auto flex items-center justify-between gap-2 pt-1.5 text-[11px] text-[var(--text-faint)]">
+        <div className="flex items-center justify-between gap-2 text-[11px] text-[var(--text-faint)]">
           <span className="flex min-w-0 items-center gap-1.5">
             {item.artistName && <span className="truncate font-semibold text-[var(--text-secondary)]">{item.artistName}</span>}
             {item.artistName && <span className="shrink-0 opacity-50">·</span>}

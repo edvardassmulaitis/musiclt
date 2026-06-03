@@ -42,7 +42,7 @@ export default async function NaujienosPage({ searchParams }: { searchParams: SP
   const [featured, facets, sections, initialFeed] = await Promise.all([
     hasFilter ? Promise.resolve([]) : getFeaturedNews(5),
     getNewsFacets(),
-    hasFilter ? Promise.resolve([]) : getNewsStyleSections(6),
+    hasFilter ? Promise.resolve([]) : getNewsStyleSections(4),
     getNewsFeed({
       sort: 'newest',
       limit: 24,

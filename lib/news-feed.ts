@@ -162,11 +162,11 @@ const styleSectionsRaw = unstable_cache(
       return []
     }
   },
-  ['naujienos-style-sections-v1'],
+  ['naujienos-style-sections-v2-distinct'],
   { tags: ['naujienos:sections'], revalidate: 900 }
 )
 
-export const getNewsStyleSections = cache((per = 6) => styleSectionsRaw(per))
+export const getNewsStyleSections = cache((per = 4) => styleSectionsRaw(per))
 
 /* ─────────────────────────── Featured / trending ────────────────────── */
 
