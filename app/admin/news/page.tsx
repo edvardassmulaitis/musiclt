@@ -38,6 +38,10 @@ export default function NewsAdmin() {
   const [typeFilter, setTypeFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
+  // Tipų AI klasifikacija (naršymo tipai: naujiena/interviu/recenzija/...)
+  const [classify, setClassify] = useState<{ running: boolean; done: number; remaining: number | null }>({
+    running: false, done: 0, remaining: null,
+  })
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -52,6 +56,29 @@ export default function NewsAdmin() {
       setLoading(false)
     }
   }, [])
+
+  // Klasifikuoja naujausias neklasifikuotas naujienas pagal tipą (Haiku).
+  // Iki ~25 batch'ų (≈1000) per paspaudimą; galima spausti dar kartą.
+  const runClassify = useCallback(async () => {
+    setClassify({ running: true, done: 0, remaining: null })
+    let done = 0
+    try {
+      for (let i = 0; i < 25; i++) {
+        const res = await fetch('/api/internal/news-classify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ batch: 40 }),
+        })
+        if (!res.ok) break
+        const j = await res.json()
+        if (j.error) break
+        done += j.processed || 0
+        setClassify({ running: true, done, remaining: j.remaining ?? null })
+        if (j.done || (j.processed || 0) === 0) break
+      }
+    } finally {
+      setClassify((c) => ({ ...c, running: false }))
+      load(search, typeFilter)
+    }
+  }, [load, search, typeFilter])
 
   useEffect(() => {
     if (status === 'unauthenticated') { router.push('/auth/signin'); return }
@@ -95,10 +122,21 @@ export default function NewsAdmin() {
             <h1 className="text-3xl font-black text-[var(--text-primary)]">📰 Naujienos</h1>
             <p className="text-[var(--text-muted)] mt-0.5 text-sm">Iš viso: {total}</p>
           </div>
-          <Link href="/admin/news/new"
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors">
-            + Nauja naujiena
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={runClassify}
+              disabled={classify.running}
+              title="AI priskiria naršymo tipą (Naujiena/Interviu/Recenzija/Foto/Topai/Koncertai/Klipas) naujausioms neklasifikuotoms naujienoms"
+              className="px-4 py-2.5 bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-[var(--border-strong)] text-[var(--text-primary)] rounded-xl font-bold text-sm transition-colors disabled:opacity-60">
+              {classify.running
+                ? `⏳ Klasifikuoju… +${classify.done}${classify.remaining != null ? ` · liko ${classify.remaining.toLocaleString('lt-LT')}` : ''}`
+                : '🏷️ Klasifikuoti tipus'}
+            </button>
+            <Link href="/admin/news/new"
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors">
+              + Nauja naujiena
+            </Link>
+          </div>
         </div>
 
         {/* Filters */}
