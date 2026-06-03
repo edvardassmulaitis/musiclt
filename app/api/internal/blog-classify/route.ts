@@ -1,8 +1,8 @@
 // app/api/internal/blog-classify/route.ts
 //
 // Batch redakcinio TIPO klasifikacija narių dienoraščio įrašams (post_type=
-// 'article') — priskiria blog_posts.editorial_type (recenzija/koncertai/nuomone/
-// dienorastis), NAUJAUSI pirma, tik RECENT langas (blog_to_classify RPC).
+// 'article') — priskiria blog_posts.editorial_type (recenzija/koncertai/kita),
+// NAUJAUSI pirma, tik RECENT langas (blog_to_classify RPC).
 // Hibridas: heuristika (nemokama) išsprendžia aiškius, Haiku (classifyMemberType)
 // — likusius. Analogiškai /api/internal/news-classify.
 //
@@ -93,18 +93,18 @@ export async function POST(req: NextRequest) {
   }
   const heuristicCount = resolved.size
 
-  // 2) Haiku — likusieji. Jei AI nukrenta (be kredito), default 'dienorastis',
+  // 2) Haiku — likusieji. Jei AI nukrenta (be kredito), default 'kita',
   //    kad įrašas vis tiek būtų pažymėtas (neperdirbtume kiekvieną kartą).
   let aiCount = 0
   if (needAI.length > 0) {
     try {
       const results = await classifyMemberType(needAI.map((c, idx) => ({ idx, title: c.title, summary: c.summary })))
       const byIdx = new Map<number, string>()
-      for (const r of results) byIdx.set(r.idx, r.type || 'dienorastis')
-      needAI.forEach((c, idx) => { resolved.set(c.id, byIdx.get(idx) || 'dienorastis'); aiCount++ })
+      for (const r of results) byIdx.set(r.idx, r.type || 'kita')
+      needAI.forEach((c, idx) => { resolved.set(c.id, byIdx.get(idx) || 'kita'); aiCount++ })
     } catch {
       // AI nepasiekiamas — pažymim default'u, kad nebūtų stuck loop.
-      for (const c of needAI) resolved.set(c.id, 'dienorastis')
+      for (const c of needAI) resolved.set(c.id, 'kita')
     }
   }
 
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
   const sample: Array<{ title: string; type: string }> = []
   let processed = 0
   for (const c of cands) {
-    const type = resolved.get(c.id) || 'dienorastis'
+    const type = resolved.get(c.id) || 'kita'
     const { error } = await sb.from('blog_posts').update({ editorial_type: type, editorial_classified_at: nowIso }).eq('id', c.id)
     if (!error) {
       processed++

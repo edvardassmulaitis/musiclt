@@ -101,19 +101,30 @@ function SlimHeader() {
   )
 }
 
-// ───────────────────────── Top band (2 widgets) ─────────────────────────
-function TopBand() {
+// ───────── Kompaktiška „gyvai" juosta (žemiau, mažiau prominentų) ─────────
+// Kas vyksta + Pokalbiai (kompaktiškai) + Boombox „atspėk iš nuotraukos".
+// Sąmoningai NE viršuje — šitos skiltys gali turėti triukšmo, tad mažiau garbės.
+function CompactBand() {
+  const H = 240
   return (
-    <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div className="flex flex-col">
-        <h3 className="m-0 mb-2 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-muted)]">Kas vyksta</h3>
-        <div style={{ height: 288 }}><ActivityWidget /></div>
+    <section className="mb-8">
+      <h3 className="m-0 mb-3 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-muted)]">Bendruomenė gyvai</h3>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div style={{ height: H }}><ActivityWidget /></div>
+        <div style={{ height: H }}><ShoutboxWidget /></div>
+        <Link href="/boombox" className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-[var(--border-default)] p-4 no-underline transition-all hover:-translate-y-0.5"
+          style={{ height: H, background: 'linear-gradient(135deg, rgba(99,102,241,0.18), rgba(168,85,247,0.10))' }}>
+          <div>
+            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">Boombox · žaidimas</span>
+            <p className="m-0 mt-1 font-['Outfit',sans-serif] text-[19px] font-black leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">Atspėk atlikėją iš nuotraukos</p>
+            <p className="m-0 mt-1.5 text-[12px] leading-snug text-[var(--text-muted)]">Pamatai nuotrauką — atspėji, kieno daina. Greita ir įtraukia.</p>
+          </div>
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-4 py-2 text-[12.5px] font-extrabold text-white transition-transform group-hover:translate-x-0.5">
+            <span className="text-[14px]">🎧</span> Žaisk dabar →
+          </span>
+        </Link>
       </div>
-      <div className="flex flex-col">
-        <h3 className="m-0 mb-2 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-muted)]">Pokalbių dėžutė</h3>
-        <div style={{ height: 288 }}><ShoutboxWidget /></div>
-      </div>
-    </div>
+    </section>
   )
 }
 
@@ -447,23 +458,6 @@ function NaujiNariaiRow({ list, loading }: { list: NewMember[]; loading: boolean
   )
 }
 
-function BoomboxRow() {
-  return (
-    <section className="mb-2">
-      <RowHead title="Žaidimas" accent="#6366f1" allHref="/boombox" />
-      <Link href="/boombox" className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-[var(--border-default)] p-4 no-underline transition-all hover:-translate-y-0.5 sm:p-5"
-        style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.16), rgba(168,85,247,0.10))' }}>
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[rgba(99,102,241,0.2)] text-2xl">🎧</span>
-        <div className="min-w-0 flex-1">
-          <p className="m-0 font-['Outfit',sans-serif] text-[18px] font-black text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">Boombox</p>
-          <p className="m-0 mt-0.5 text-[12.5px] leading-snug text-[var(--text-muted)]">Atrask atlikėjus swipe stiliumi — muzikinis Tinder'is. Įvertink ir klausyk naujų dainų.</p>
-        </div>
-        <span className="hidden shrink-0 rounded-full bg-[var(--accent-orange)] px-4 py-2 text-[12.5px] font-extrabold text-white transition-transform group-hover:translate-x-0.5 sm:inline-block">Žaisk →</span>
-      </Link>
-    </section>
-  )
-}
-
 // ───────────────────────── Page ─────────────────────────
 export default function AtradimaiPage() {
   const [members, setMembers] = useState<Member[] | null>(null)
@@ -480,18 +474,19 @@ export default function AtradimaiPage() {
   return (
     <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 sm:py-8">
       <SlimHeader />
-      <TopBand />
+      {/* Prominentų turinys viršuje */}
       <DienosDainaStrip />
-      <DiskusijosRow />
       <NaujausiRow />
+      <DiskusijosRow />
+      {/* Įrašai pagal kategorijas */}
       <BlogRow title="Narių topai" query="type=topas" allHref="/blogas?type=topas" writeType="topas" accent="#f59e0b" inviteLabel="Sudaryk topą" />
       <BlogRow title="Recenzijos" query="editorial=recenzija" allHref="/blogas" writeType="review" accent="#ef4444" inviteLabel="Parašyk recenziją" />
       <BlogRow title="Koncertų įspūdžiai" query="editorial=koncertai" allHref="/blogas" writeType="article" accent="#3b82f6" inviteLabel="Pasidalink koncerto įspūdžiu" />
-      <BlogRow title="Nuomonės" query="editorial=nuomone" allHref="/blogas" writeType="article" accent="#06b6d4" inviteLabel="Parašyk nuomonę" />
       <BlogRow title="Kūryba" query="type=creation" allHref="/blogas?type=creation" writeType="creation" accent="#ec4899" inviteLabel="Įkelk kūrybą" />
       <BlogRow title="Vertimai" query="type=translation" allHref="/blogas?type=translation" writeType="translation" accent="#10b981" inviteLabel="Pridėk vertimą" />
+      {/* Mažiau prominentų: gyvas chatas + aktyvumas + žaidimas */}
+      <CompactBand />
       <NaujiNariaiRow list={newMembers} loading={members === null} />
-      <BoomboxRow />
     </div>
   )
 }

@@ -179,25 +179,24 @@ export async function classifyNewsType(
 // recent diary įrašams (post_type='article'), kad /atradimai turėtų tipų
 // įvairovę. Žr. classifyNewsType analogiją.
 
-export const MEMBER_TYPE_VALUES = ['recenzija', 'koncertai', 'nuomone', 'dienorastis'] as const
+export const MEMBER_TYPE_VALUES = ['recenzija', 'koncertai', 'kita'] as const
 export type MemberTypeValue = typeof MEMBER_TYPE_VALUES[number]
 export type MemberTypeResult = { idx: number; type: MemberTypeValue }
 
 function buildMemberTypePrompt(items: Array<{ idx: number; title: string; summary?: string }>): string {
-  return `Tu klasifikuoji music.lt NARIŲ dienoraščio įrašus pagal TIPĄ. Tai vartotojų rašyti tekstai apie muziką. Kiekvienam priskirk VIENĄ:
+  return `Tu klasifikuoji music.lt NARIŲ dienoraščio įrašus pagal TIPĄ. Tai vartotojų rašyti tekstai. Kiekvienam priskirk VIENĄ:
 
 - "recenzija": konkretaus albumo, dainos ar atlikėjo apžvalga / vertinimas / įspūdis apie klausymą ("recenzija", "apžvalga", "naujas albumas", aptaria kūrinį ir vertina)
 - "koncertai": koncerto ar festivalio įspūdžiai, reportažas, "buvau koncerte", scenos pasirodymas
-- "nuomone": nuomonė, apmąstymas ar diskusija apie muziką, sceną, žanrą ("manau", "kodėl", "ar verta", aptarimas be konkretaus vertinimo)
-- "dienorastis": asmeninis dienoraščio įrašas, kasdienybė, mintys (NUMATYTASIS, kai nėra aiškaus muzikinio kampo)
+- "kita": visa kita — asmeninės mintys, kasdienybė, nuomonės, ne apie muziką (NUMATYTASIS)
 
-Jei neaišku arba grynai asmeniška — "dienorastis".
+Priskirk "recenzija" arba "koncertai" TIK kai tekstas aiškiai apie muziką. Visa kita — "kita".
 
 Įrašai:
 ${items.map(it => `[${it.idx}] ${it.title}${it.summary ? `\n    ${it.summary.slice(0, 220)}` : ''}`).join('\n\n')}
 
 Grąžink TIK JSON array, jokio kito teksto:
-[{"idx": <number>, "type": "recenzija"|"koncertai"|"nuomone"|"dienorastis"}]`
+[{"idx": <number>, "type": "recenzija"|"koncertai"|"kita"}]`
 }
 
 export async function classifyMemberType(
@@ -222,10 +221,10 @@ export async function classifyMemberType(
     const parsed = JSON.parse(match[0]) as Array<{ idx: number; type: string }>
     return parsed.map(p => ({
       idx: typeof p.idx === 'number' ? p.idx : -1,
-      type: (MEMBER_TYPE_VALUES as readonly string[]).includes(p.type) ? (p.type as MemberTypeValue) : 'dienorastis',
+      type: (MEMBER_TYPE_VALUES as readonly string[]).includes(p.type) ? (p.type as MemberTypeValue) : 'kita',
     }))
   } catch {
-    return items.map(it => ({ idx: it.idx, type: 'dienorastis' as const }))
+    return items.map(it => ({ idx: it.idx, type: 'kita' as const }))
   }
 }
 
