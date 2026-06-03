@@ -15,13 +15,15 @@ const TYPE_MAP = new Map<string, NewsType>(
 
 function CategoryBadge({ category }: { category: string | null }) {
   const c = category ? TYPE_MAP.get(category as any) : null
-  if (!c) return null
+  // „naujiena" — numatytasis tipas, ženkliuko nerodom (per daug triukšmo).
+  if (!c || c.key === 'naujiena') return null
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-      style={{ background: `${c.accent}1a`, color: c.accent }}
+      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide backdrop-blur-sm"
+      style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}
     >
-      <span aria-hidden>{c.icon}</span> {c.label}
+      <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: c.accent }} />
+      {c.label}
     </span>
   )
 }
