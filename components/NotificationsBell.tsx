@@ -8,6 +8,12 @@ import { createPortal } from 'react-dom'
 import { formatActivityEvent } from '@/lib/activity-logger'
 import { createPublicClient } from '@/lib/supabase'
 
+const NB_OPEN_EVENT = 'musiclt:notifications'
+/** Atidaro pranešimų dropdown'ą iš bet kur (pvz. mobile apatinio baro). */
+export function openNotifications() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(NB_OPEN_EVENT))
+}
+
 type Notification = {
   id: number
   type: string
@@ -236,6 +242,13 @@ export function NotificationsBell() {
   const [activityLoaded, setActivityLoaded] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+
+  // Atidarymas per global event (mobile apatinio baro „Pranešimai" tab'as).
+  useEffect(() => {
+    const onOpen = () => setOpen(true)
+    window.addEventListener(NB_OPEN_EVENT, onOpen)
+    return () => window.removeEventListener(NB_OPEN_EVENT, onOpen)
+  }, [])
 
   const isAuth = !!session?.user
 

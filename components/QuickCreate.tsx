@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useSession, signIn } from 'next-auth/react'
 
 const QC_EVENT = 'musiclt:quickcreate'
@@ -56,6 +56,7 @@ export function QuickCreate() {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
   const { data: session } = useSession()
 
   useEffect(() => { setMounted(true) }, [])
@@ -66,15 +67,17 @@ export function QuickCreate() {
     return () => window.removeEventListener(QC_EVENT, onOpen)
   }, [])
 
+  // Užsidaro pasikeitus maršrutui (kad nelikt' kabantis po navigacijos).
+  useEffect(() => { setOpen(false) }, [pathname])
+
+  // ESC uždaro. NB: NEblokuojam body/html overflow — overlay'us pats dengia
+  // foną, o overflow lock'as buvo paliekamas „stuck" po navigacijos ir laužė
+  // viso puslapio scroll'ą mobile'e.
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('keydown', onKey)
-    document.documentElement.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.documentElement.style.overflow = ''
-    }
+    return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
   if (!mounted || !open) return null

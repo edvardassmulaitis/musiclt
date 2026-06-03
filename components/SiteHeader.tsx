@@ -2182,11 +2182,16 @@ export function SiteHeader() {
         }
         .sh-create-btn:hover { filter: brightness(1.08); }
         .sh-create-btn:active { transform: scale(.96); }
+        /* display:contents — wrapper'is nesukuria box'o, bells lieka flex row'e.
+           Mobile'e juos paslepiam (apatinis baras juos perima), bet komponentai
+           lieka sumontuoti (NotificationsBell dropdown atidaromas per event'ą). */
+        .sh-desktop-bells { display: contents; }
         @media (max-width: 1080px) {
           .sh-desktop-search { display: none !important; }
           .sh-desktop-nav    { display: none !important; }
           .sh-search-icon    { display: flex !important; }
           .sh-desktop-action { display: none !important; }
+          .sh-desktop-bells  { display: none !important; }
         }
         /* Suppress Safari/Mac fokuso "white ring" ir Firefox dotted outline'ą,
            paliekam tik :hover/active border'į. Be focus-visible custom style'o
@@ -2653,8 +2658,14 @@ export function SiteHeader() {
               <span>Kurti</span>
             </button>
 
-            <MessagesBell />
-            <NotificationsBell />
+            {/* Žinutės + pranešimai — desktop top-right. Mobile'e juos dengia
+                apatinis baras, todėl paslepiam (bet NEišmontuojam — apatinio
+                baro „Pranešimai" tab'as atidaro šitą NotificationsBell dropdown'ą
+                per openNotifications() event'ą). */}
+            <span className="sh-desktop-bells">
+              <MessagesBell />
+              <NotificationsBell />
+            </span>
             <HeaderAuth />
           </div>
         </div>
