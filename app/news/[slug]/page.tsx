@@ -6,7 +6,7 @@ import type { Metadata } from 'next'
 import { SITE_URL } from '@/lib/artist-browse'
 import { proxyImg } from '@/lib/img-proxy'
 import { newsArticleJsonLd, breadcrumbJsonLd, jsonLdScript } from '@/lib/news-jsonld'
-import { categoryLabel } from '@/lib/news-taxonomy'
+import { typeLabel } from '@/lib/news-taxonomy'
 
 // Force-dynamic — kad legacy news fallback'as (discussions table) gauautume
 // fresh duomenis iškart po scrape'o, ne 404 dėl SSG cache'o.
@@ -245,7 +245,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       publishedTime: published,
       modifiedTime: modified,
       authors: news.source_name ? [news.source_name] : undefined,
-      section: categoryLabel((news as any).news_category) || undefined,
+      section: typeLabel((news as any).news_category) || undefined,
       images: heroImg ? [{ url: heroImg }] : [],
     },
     twitter: {
@@ -364,7 +364,7 @@ export default async function NewsPage({ params }: Props) {
     datePublished: (raw as any).published_at || null,
     dateModified: (raw as any).updated_at || (raw as any).published_at || null,
     authorName: news.source_name || null,
-    section: categoryLabel((raw as any).news_category) || null,
+    section: typeLabel((raw as any).news_category) || null,
     keywords: [artistObj?.name, artist2Obj?.name].filter(Boolean) as string[],
   })
   const breadcrumbLd = breadcrumbJsonLd([

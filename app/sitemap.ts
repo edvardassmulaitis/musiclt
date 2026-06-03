@@ -13,7 +13,7 @@
 import type { MetadataRoute } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import { SITE_URL, ltSlugify, LT_COUNTRY } from '@/lib/artist-browse'
-import { NEWS_STYLES, NEWS_BROWSE_CATEGORIES } from '@/lib/news-taxonomy'
+import { NEWS_STYLES, NEWS_TYPES } from '@/lib/news-taxonomy'
 import { getNewsFacets } from '@/lib/news-feed'
 
 export const revalidate = 86400
@@ -102,10 +102,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily' as const,
       priority: 0.6,
     })),
-    ...NEWS_BROWSE_CATEGORIES
-      .filter((c) => (newsFacets?.categories?.[c.key] || 0) > 0)
-      .map((c) => ({
-        url: `${SITE_URL}/naujienos/kategorija/${c.slug}`,
+    ...NEWS_TYPES
+      .filter((t) => (newsFacets?.categories?.[t.key] || 0) > 0)
+      .map((t) => ({
+        url: `${SITE_URL}/naujienos/tipas/${t.slug}`,
         lastModified: now,
         changeFrequency: 'daily' as const,
         priority: 0.6,

@@ -7,14 +7,14 @@ import Link from 'next/link'
 import { Heart, MessageCircle, Eye } from './icons'
 import type { NewsFeedItem } from '@/lib/news-shared'
 import { fmtNewsDate, relNewsDate } from '@/lib/news-shared'
-import { NEWS_BROWSE_CATEGORIES, type NewsBrowseCategory } from '@/lib/news-taxonomy'
+import { NEWS_TYPES, type NewsType } from '@/lib/news-taxonomy'
 
-const CAT_MAP = new Map<string, NewsBrowseCategory>(
-  NEWS_BROWSE_CATEGORIES.map((c) => [c.key, c] as [string, NewsBrowseCategory])
+const TYPE_MAP = new Map<string, NewsType>(
+  NEWS_TYPES.map((t) => [t.key, t] as [string, NewsType])
 )
 
 function CategoryBadge({ category }: { category: string | null }) {
-  const c = category ? CAT_MAP.get(category as any) : null
+  const c = category ? TYPE_MAP.get(category as any) : null
   if (!c) return null
   return (
     <span
@@ -62,7 +62,7 @@ export default function NewsCard({
   variant?: 'hero' | 'default' | 'compact'
   accent?: string
 }) {
-  const catAccent = item.category ? CAT_MAP.get(item.category as any)?.accent || accent : accent
+  const catAccent = item.category ? TYPE_MAP.get(item.category as any)?.accent || accent : accent
 
   /* ── HERO ───────────────────────────────────────────────── */
   if (variant === 'hero') {
@@ -122,25 +122,26 @@ export default function NewsCard({
   return (
     <Link
       href={item.href}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-lg"
+      className="group flex flex-col overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all duration-200 hover:-translate-y-1 hover:border-[var(--border-strong)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden">
+      <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden bg-[var(--bg-hover)]">
         {item.image ? (
-          <img src={item.image} alt={item.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <img src={item.image} alt={item.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
         ) : (
           <Placeholder accent={catAccent} />
         )}
-        <div className="absolute left-3 top-3 flex gap-1.5">
+        <div className="absolute left-2.5 top-2.5 flex gap-1.5">
           <CategoryBadge category={item.category} />
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <h2 className="line-clamp-3 text-[15px] font-bold leading-snug text-[var(--text-primary)]">{item.title}</h2>
-        {item.excerpt && <p className="line-clamp-2 text-[12.5px] leading-relaxed text-[var(--text-muted)]">{item.excerpt}</p>}
-        <div className="mt-auto flex items-center justify-between gap-2 pt-1 text-[11px] text-[var(--text-faint)]">
+      <div className="flex flex-1 flex-col gap-1.5 p-3.5">
+        <h2 className="line-clamp-3 text-[14.5px] font-bold leading-[1.32] text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange,#f59e0b)]">
+          {item.title}
+        </h2>
+        <div className="mt-auto flex items-center justify-between gap-2 pt-1.5 text-[11px] text-[var(--text-faint)]">
           <span className="flex min-w-0 items-center gap-1.5">
             {item.artistName && <span className="truncate font-semibold text-[var(--text-secondary)]">{item.artistName}</span>}
-            {item.artistName && <span>·</span>}
+            {item.artistName && <span className="shrink-0 opacity-50">·</span>}
             <span className="shrink-0">{relNewsDate(item.date)}</span>
           </span>
           <Stats item={item} />

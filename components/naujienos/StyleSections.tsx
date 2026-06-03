@@ -36,8 +36,8 @@ export default function StyleSections({ sections }: { sections: StyleSection[] }
               Visos <ArrowRight size={13} />
             </Link>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {s.items.slice(0, 6).map((item) => (
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            {s.items.slice(0, 4).map((item) => (
               <NewsCard key={item.uid} item={item} accent={s.accent} />
             ))}
           </div>

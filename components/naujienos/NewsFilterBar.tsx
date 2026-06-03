@@ -1,28 +1,22 @@
 // components/naujienos/NewsFilterBar.tsx
 //
 // Filtrų juosta — chip'ai yra TIKRI <a> link'ai į dedikuotus SEO landing'us
-// (/naujienos/stilius/{slug}, /naujienos/kategorija/{slug}, /naujienos/lietuva).
-// Tai duoda crawl'inamą nuorodų tinklą + shareable URL'us, ne tik client state.
+// (/naujienos/tipas/{slug}, /naujienos/stilius/{slug}, /naujienos/lietuva).
+// Crawl'inamas nuorodų tinklas + shareable URL'ai, ne tik client state.
+//
+// Trys eilutės: Naršyti (Visos + LT/Pasaulis), Tipas (redakciniai tipai —
+// rodoma tik kai bent vienas klasifikuotas), Stilius (8 žanrai).
 //
 // Server komponentas.
 
 import Link from 'next/link'
-import {
-  NEWS_STYLES,
-  NEWS_BROWSE_CATEGORIES,
-  NEWS_SCOPES,
-} from '@/lib/news-taxonomy'
+import { NEWS_STYLES, NEWS_TYPES, NEWS_SCOPES } from '@/lib/news-taxonomy'
 import type { NewsFacets } from '@/lib/news-feed'
 
-type Active = { style?: number; category?: string; scope?: string }
+type Active = { type?: string; style?: number; scope?: string }
 
 function Chip({
-  href,
-  active,
-  accent,
-  icon,
-  label,
-  count,
+  href, active, accent, icon, label, count,
 }: {
   href: string
   active: boolean
@@ -34,17 +28,17 @@ function Chip({
   return (
     <Link
       href={href}
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-all"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-all"
       style={
         active
           ? { background: accent || 'var(--accent-orange,#f59e0b)', borderColor: accent || 'var(--accent-orange,#f59e0b)', color: '#fff' }
-          : { background: 'var(--bg-surface)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }
+          : { background: 'var(--bg-elevated)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }
       }
     >
       {icon && <span aria-hidden>{icon}</span>}
       <span>{label}</span>
       {typeof count === 'number' && count > 0 && (
-        <span className="text-[11px] font-bold opacity-60">{count.toLocaleString('lt-LT')}</span>
+        <span className="text-[11px] font-bold opacity-55">{count.toLocaleString('lt-LT')}</span>
       )}
     </Link>
   )
@@ -53,10 +47,8 @@ function Chip({
 function Row({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="px-0.5 text-[11px] font-bold uppercase tracking-wider text-[var(--text-faint)]">{title}</span>
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {children}
-      </div>
+      <span className="px-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-[var(--text-faint)]">{title}</span>
+      <div className="-mx-1 flex flex-wrap gap-2 px-1">{children}</div>
     </div>
   )
 }
@@ -68,14 +60,15 @@ export default function NewsFilterBar({
   facets: NewsFacets
   active?: Active
 }) {
-  const anyActive = active.style != null || active.category != null || active.scope != null
-  // Kategorijų chip'ai rodomi tik kai bent viena kategorija jau klasifikuota.
-  const hasCategories = NEWS_BROWSE_CATEGORIES.some((c) => (facets.categories[c.key] || 0) > 0)
+  const anyActive = active.type != null || active.style != null || active.scope != null
+  // Tipų chip'ai rodomi tik kai bent vienas tipas jau klasifikuotas (kitaip
+  // eilutė būtų tuščia — tipai užsipildo po AI klasifikacijos).
+  const typesPresent = NEWS_TYPES.filter((t) => (facets.categories[t.key] || 0) > 0)
 
   return (
-    <div className="flex flex-col gap-4">
-      <Row title="Tema">
-        <Chip href="/naujienos" active={!anyActive} icon="📰" label="Visos" count={facets.total} />
+    <div className="flex flex-col gap-3.5">
+      <Row title="Naršyti">
+        <Chip href="/naujienos" active={!anyActive} icon="📰" label="Visos naujienos" count={facets.total} />
         {NEWS_SCOPES.map((s) => (
           <Chip
             key={s.key}
@@ -86,19 +79,23 @@ export default function NewsFilterBar({
             count={facets.scope[s.key]}
           />
         ))}
-        {hasCategories &&
-          NEWS_BROWSE_CATEGORIES.map((c) => (
+      </Row>
+
+      {typesPresent.length > 0 && (
+        <Row title="Tipas">
+          {typesPresent.map((t) => (
             <Chip
-              key={c.key}
-              href={`/naujienos/kategorija/${c.slug}`}
-              active={active.category === c.key}
-              accent={c.accent}
-              icon={c.icon}
-              label={c.label}
-              count={facets.categories[c.key]}
+              key={t.key}
+              href={`/naujienos/tipas/${t.slug}`}
+              active={active.type === t.key}
+              accent={t.accent}
+              icon={t.icon}
+              label={t.labelPlural}
+              count={facets.categories[t.key]}
             />
           ))}
-      </Row>
+        </Row>
+      )}
 
       <Row title="Stilius">
         {NEWS_STYLES.map((s) => (

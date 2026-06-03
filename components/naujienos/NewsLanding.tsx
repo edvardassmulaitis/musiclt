@@ -89,20 +89,20 @@ export default async function NewsLanding(props: LandingProps) {
           <p className="max-w-3xl text-[15px] leading-relaxed text-[var(--text-secondary)]">{intro}</p>
         </header>
 
-        {/* Hero */}
-        {heroItems.length > 0 && <NewsHero items={heroItems} />}
-
-        {/* Filtrai (aktyvus chip'as paryškintas) */}
+        {/* Filtrai (aktyvus chip'as paryškintas) — virš hero */}
         <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
           <NewsFilterBar
             facets={facets}
             active={{
               style: lockedStyle ?? undefined,
-              category: lockedCategory ?? undefined,
+              type: lockedCategory ?? undefined,
               scope: lockedScope ?? undefined,
             }}
           />
         </div>
+
+        {/* Hero */}
+        {heroItems.length > 0 && <NewsHero items={heroItems} />}
 
         {/* Grid su locked filtru */}
         <NewsGrid

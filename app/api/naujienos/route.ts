@@ -5,9 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getNewsFeed, type NewsFilters } from '@/lib/news-feed'
-import { NEWS_BROWSE_CATEGORIES } from '@/lib/news-taxonomy'
+import { NEWS_TYPE_KEYS } from '@/lib/news-taxonomy'
 
-const CATEGORY_KEYS = new Set(NEWS_BROWSE_CATEGORIES.map((c) => c.key))
+const TYPE_KEYS = new Set<string>(NEWS_TYPE_KEYS)
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   const filters: NewsFilters = {
     style: style && !Number.isNaN(style) ? style : null,
-    category: category && CATEGORY_KEYS.has(category as any) ? category : null,
+    category: category && TYPE_KEYS.has(category) ? category : null,
     scope,
     search,
     sort,

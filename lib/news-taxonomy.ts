@@ -1,88 +1,102 @@
 // lib/news-taxonomy.ts
 //
 // Naujienų naršymo taksonomija — single source of truth /naujienos filtrams,
-// SEO landing'ams (/naujienos/stilius/[slug], /naujienos/kategorija/[slug]) ir
+// SEO landing'ams (/naujienos/stilius/[slug], /naujienos/tipas/[slug]) ir
 // header mega-menu nuorodoms.
 //
 // Dvi ašys:
-//   • KATEGORIJA — AI-priskirta (release/tour/performance/career_step/other).
-//     Žr. lib/news-categories.ts (NEWS_CATEGORIES) ir /api/admin/news/classify.
+//   • TIPAS — redakcinis naujienos tipas (Naujiena/Interviu/Recenzija/Foto/Topai/
+//     Koncertai/Klipas/Kita). AI-priskirtas šviežioms naujienoms (news_category
+//     stulpelis); admin gali keisti. Žr. /api/internal/news-classify.
 //   • STILIUS — 8 top-level žanrai (genres.parent_id IS NULL). Slug'as sutampa
 //     su /zanrai/[slug] (ltSlugify(name)), kad nuorodų tinklas būtų vientisas.
+//
+// Pastaba: DB stulpelis vis dar vadinasi `news_category` (jis nekeičiamas), bet
+// reikšmės dabar = redakciniai tipai (žemiau esantys `key`).
 
 import { ltSlugify } from './artist-browse'
 
-/* ─────────────────────────── Kategorijos ─────────────────────────── */
+/* ─────────────────────────── Tipai ─────────────────────────── */
 
-export type NewsCategoryKey = 'release' | 'tour' | 'performance' | 'career_step' | 'other'
+export type NewsTypeKey =
+  | 'naujiena' | 'interviu' | 'recenzija' | 'foto'
+  | 'topai' | 'koncertai' | 'klipas' | 'kita'
 
-export type NewsBrowseCategory = {
-  key: NewsCategoryKey
+export type NewsType = {
+  key: NewsTypeKey
   slug: string
   label: string
+  /** Daugiskaita filtrų chip'ui / landing antraštei */
+  labelPlural: string
   /** Trumpas SEO/landing aprašymas */
   blurb: string
   icon: string
   accent: string
 }
 
-export const NEWS_BROWSE_CATEGORIES: NewsBrowseCategory[] = [
+export const NEWS_TYPES: NewsType[] = [
   {
-    key: 'release',
-    slug: 'isleidimai',
-    label: 'Nauji išleidimai',
-    blurb: 'Naujausi singlai, EP, albumai, klipai ir muzikos vaizdo įrašai.',
-    icon: '💿',
-    accent: '#0ea5e9',
+    key: 'naujiena', slug: 'naujienos', label: 'Naujiena', labelPlural: 'Naujienos',
+    blurb: 'Šviežiausios muzikos scenos žinios: nauji išleidimai, scenos įvykiai ir pranešimai.',
+    icon: '📰', accent: '#0ea5e9',
   },
   {
-    key: 'tour',
-    slug: 'turai',
-    label: 'Turai ir koncertai',
-    blurb: 'Koncertų anonsai, turų datos, bilietai ir papildomi pasirodymai.',
-    icon: '🎫',
-    accent: '#f59e0b',
+    key: 'interviu', slug: 'interviu', label: 'Interviu', labelPlural: 'Interviu',
+    blurb: 'Pokalbiai su atlikėjais, prodiuseriais ir muzikos scenos žmonėmis.',
+    icon: '🎙️', accent: '#8b5cf6',
   },
   {
-    key: 'performance',
-    slug: 'pasirodymai',
-    label: 'Specialūs pasirodymai',
-    blurb: 'Festivalių headlineriai, kolaboracijos, vienkartiniai šou ir duetai.',
-    icon: '🎤',
-    accent: '#ef4444',
+    key: 'recenzija', slug: 'recenzijos', label: 'Recenzija', labelPlural: 'Recenzijos',
+    blurb: 'Albumų, singlų ir koncertų recenzijos bei apžvalgos.',
+    icon: '⭐', accent: '#f59e0b',
   },
   {
-    key: 'career_step',
-    slug: 'karjera',
-    label: 'Karjera ir scena',
-    blurb: 'Sutartys, naujų grupių susikūrimas, projektai ir karjeros žingsniai.',
-    icon: '🚀',
-    accent: '#8b5cf6',
+    key: 'foto', slug: 'foto', label: 'Foto reportažas', labelPlural: 'Foto reportažai',
+    blurb: 'Koncertų ir renginių foto reportažai bei galerijos.',
+    icon: '📸', accent: '#ec4899',
   },
   {
-    key: 'other',
-    slug: 'kita',
-    label: 'Kita',
-    blurb: 'Interviu, jubiliejai, apdovanojimai, chartai ir scenos istorijos.',
-    icon: '🎶',
-    accent: '#10b981',
+    key: 'topai', slug: 'topai', label: 'Topai', labelPlural: 'Topai ir sąrašai',
+    blurb: 'Reitingai, geriausiųjų sąrašai ir muzikos topai.',
+    icon: '🏆', accent: '#ef4444',
+  },
+  {
+    key: 'koncertai', slug: 'koncertai', label: 'Koncertai', labelPlural: 'Koncertai ir anonsai',
+    blurb: 'Koncertų ir festivalių anonsai, turų datos bei bilietų pardavimai.',
+    icon: '🎫', accent: '#10b981',
+  },
+  {
+    key: 'klipas', slug: 'klipai', label: 'Vaizdo klipas', labelPlural: 'Vaizdo klipai',
+    blurb: 'Naujų vaizdo klipų ir premjerų pristatymai.',
+    icon: '🎬', accent: '#06b6d4',
+  },
+  {
+    key: 'kita', slug: 'kita', label: 'Kita', labelPlural: 'Kita',
+    blurb: 'Jubiliejai, apdovanojimai, prisiminimai ir kitos scenos istorijos.',
+    icon: '🎶', accent: '#64748b',
   },
 ]
 
-const CATEGORY_BY_SLUG = new Map<string, NewsBrowseCategory>(
-  NEWS_BROWSE_CATEGORIES.map((c) => [c.slug, c] as [string, NewsBrowseCategory])
+const TYPE_BY_SLUG = new Map<string, NewsType>(
+  NEWS_TYPES.map((t) => [t.slug, t] as [string, NewsType])
 )
-const CATEGORY_BY_KEY = new Map<string, NewsBrowseCategory>(
-  NEWS_BROWSE_CATEGORIES.map((c) => [c.key, c] as [string, NewsBrowseCategory])
+const TYPE_BY_KEY = new Map<string, NewsType>(
+  NEWS_TYPES.map((t) => [t.key, t] as [string, NewsType])
 )
 
-export function findCategoryBySlug(slug: string): NewsBrowseCategory | undefined {
-  return CATEGORY_BY_SLUG.get((slug || '').toLowerCase())
+export function findTypeBySlug(slug: string): NewsType | undefined {
+  return TYPE_BY_SLUG.get((slug || '').toLowerCase())
 }
-export function categoryLabel(key: string | null | undefined): string | null {
+export function findTypeByKey(key: string | null | undefined): NewsType | undefined {
+  if (!key) return undefined
+  return TYPE_BY_KEY.get(key)
+}
+export function typeLabel(key: string | null | undefined): string | null {
   if (!key) return null
-  return CATEGORY_BY_KEY.get(key as NewsCategoryKey)?.label || null
+  return TYPE_BY_KEY.get(key)?.label || null
 }
+
+export const NEWS_TYPE_KEYS: NewsTypeKey[] = NEWS_TYPES.map((t) => t.key)
 
 /* ───────────────────────────── Stiliai ───────────────────────────── */
 

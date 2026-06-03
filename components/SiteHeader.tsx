@@ -10,7 +10,7 @@ import { MasterSearch } from '@/components/MasterSearch'
 import { useSite } from '@/components/SiteContext'
 import { proxyImg } from '@/lib/img-proxy'
 import { GENRE_COLORS, GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
-import { NEWS_STYLES, NEWS_BROWSE_CATEGORIES, NEWS_SCOPES } from '@/lib/news-taxonomy'
+import { NEWS_STYLES, NEWS_TYPES, NEWS_SCOPES } from '@/lib/news-taxonomy'
 
 // Stilių išdėstymo tvarka nav dropdown'e (2 eilutės po 4 — Edvardo prašymu 2026-05-31).
 // 1 eilutė: Rokas, Sunkioji, Klasika, Alternatyva · 2 eilutė: Pop, Hip-hop, Elektronika, Kiti.
@@ -712,7 +712,7 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
 
         {/* ── Kolona 2: Pagal temą ── */}
         <div>
-          <div className="sh-panel-section"><span className="sh-panel-section-title">Pagal temą</span></div>
+          <div className="sh-panel-section"><span className="sh-panel-section-title">Pagal tipą</span></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {NEWS_SCOPES.map(s => (
               <Link key={s.key} href={`/naujienos/${s.slug}`} className="sh-news-link">
@@ -721,10 +721,10 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
               </Link>
             ))}
             <div style={{ height: 6 }} />
-            {NEWS_BROWSE_CATEGORIES.map(c => (
-              <Link key={c.key} href={`/naujienos/kategorija/${c.slug}`} className="sh-news-link">
-                <span className="sh-news-link-icon" aria-hidden>{c.icon}</span>
-                <span>{c.label}</span>
+            {NEWS_TYPES.filter(t => t.key !== 'kita').map(t => (
+              <Link key={t.key} href={`/naujienos/tipas/${t.slug}`} className="sh-news-link">
+                <span className="sh-news-link-icon" aria-hidden>{t.icon}</span>
+                <span>{t.labelPlural}</span>
               </Link>
             ))}
           </div>
@@ -923,6 +923,34 @@ function MobileExpansion({
     const mTop30 = data?.topChart?.top30 || []
     const mTop40 = data?.topChart?.top40 || []
     const mFeatured = data?.featuredCharts || []
+    const mVotings = data?.votings || []
+    // Flag bg — bet koks 2 raidžių ISO kodas (uk→gb alias), kaip /topai puslapy.
+    const mFlagBg = (cc: string | null) => {
+      let c = (cc || '').toLowerCase()
+      c = (c === 'uk' || c === 'en') ? 'gb' : c
+      return /^[a-z]{2}$/.test(c) ? `https://flagcdn.com/w320/${c}.png` : null
+    }
+    const mAnchor = (s: string) => s === 'world' ? '/topai#pasaulio-topai' : s === 'social' ? '/topai#trendai' : '/topai#lt-topai'
+    // Vėliavos / vizualo kortelė — identiška desktop TopaiPanel featCard logikai.
+    const mFeatCard = (c: NonNullable<NavPreview['featuredCharts']>[number]) => {
+      const isFlag = !c.image && !!mFlagBg(c.country)
+      const bg = c.image ? proxyImg(c.image) : mFlagBg(c.country)
+      const hasImg = !!bg
+      const grad = isFlag
+        ? 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 30%)'
+        : 'linear-gradient(to top, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.15) 38%, rgba(0,0,0,0) 62%)'
+      return (
+        <Link key={c.id} href={c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : mAnchor(c.scope)} onClick={onLink}
+          className={`sh-style-card sh-style-card-mobile${hasImg ? ' sh-style-card-photo' : ''}`}
+          style={{ ['--it-rgb' as any]: hexToRgb(c.accent), ...(hasImg ? { backgroundImage: `${grad}, url(${bg})` } : {}) }}
+          title={c.title}>
+          <span className="sh-style-card-name">{c.title}</span>
+          {!hasImg && <span className="sh-style-card-deco" aria-hidden>{c.scope === 'social' ? I.trending : I.trophy}</span>}
+        </Link>
+      )
+    }
+    const mByCountry = mFeatured.filter(c => c.country)
+    const mOther = mFeatured.filter(c => !c.country)
     const mColumn = (badge: string, title: string, href: string, hex: string, entries: TopMini[]) => (
       <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 4 }}>
@@ -937,36 +965,45 @@ function MobileExpansion({
     )
     return (
       <div className="sh-mexp">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 12 }}>
+        {/* Pagrindiniai topai — LT TOP 30 + TOP 40 (kaip desktop) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 4 }}>
           {mColumn('Lietuva', 'LT TOP 30', '/top30', '#22c55e', mTop30)}
           {mColumn('Pasaulis', 'TOP 40', '/top40', '#f97316', mTop40)}
         </div>
-        <div className="sh-mexp-grid">
-          <Link href="/topai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
-            <span className="sh-mexp-tile-icon">{I.trophy}</span>
-            <span className="sh-mexp-tile-label">Visi topai</span>
-          </Link>
-          <Link href="/balsavimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ec4899') }}>
-            <span className="sh-mexp-tile-icon">{I.vote}</span>
-            <span className="sh-mexp-tile-label">Balsavimai</span>
-          </Link>
-          <Link href="/dienos-daina" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#10b981') }}>
-            <span className="sh-mexp-tile-icon">{I.song}</span>
-            <span className="sh-mexp-tile-label">Dienos daina</span>
-          </Link>
-          <Link href="/apdovanojimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#eab308') }}>
-            <span className="sh-mexp-tile-icon">{I.award}</span>
-            <span className="sh-mexp-tile-label">Apdovanojimai</span>
-          </Link>
-        </div>
-        <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '12px 0 6px' }}>Kiti topai</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {(mFeatured.length > 0
-            ? mFeatured.map(c => ({ label: c.title, href: c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : (c.scope === 'world' ? '/topai#pasaulio-topai' : c.scope === 'social' ? '/topai#trendai' : '/topai#lt-topai') }))
-            : [{ label: 'Visi topai', href: '/topai' }]
-          ).map((s, i) => (
-            <Link key={i} href={s.href} onClick={onLink} className="sh-shortcut">{s.label} →</Link>
-          ))}
+
+        {/* Pagal šalis — consensus topai su vėliavomis (mirror desktop) */}
+        {mByCountry.length > 0 && (
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+            <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Pagal šalis</div>
+            <div className="sh-style-grid sh-style-grid-mobile">{mByCountry.map(mFeatCard)}</div>
+          </div>
+        )}
+
+        {/* Kiti topai — pasaulio / viral / albumai vizualinės kortelės */}
+        {mOther.length > 0 && (
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+            <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Kiti topai</div>
+            <div className="sh-style-grid sh-style-grid-mobile">{mOther.map(mFeatCard)}</div>
+          </div>
+        )}
+
+        {/* Apdovanojimai ir rinkimai */}
+        {mVotings.length > 0 && (
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+            <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Apdovanojimai ir rinkimai</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {mVotings.map(v => (
+                <Link key={v.id} href={`/balsavimai/${v.slug}`} onClick={onLink} className="sh-shortcut">{v.name} →</Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Greitos nuorodos — kad nepasimestų svarbūs įėjimo taškai */}
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <Link href="/topai" onClick={onLink} className="sh-shortcut">Visi topai →</Link>
+          <Link href="/dienos-daina" onClick={onLink} className="sh-shortcut">Dienos daina →</Link>
+          <Link href="/balsavimai" onClick={onLink} className="sh-shortcut">Balsavimai →</Link>
         </div>
       </div>
     )

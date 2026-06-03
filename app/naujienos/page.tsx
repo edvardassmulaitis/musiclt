@@ -73,13 +73,13 @@ export default async function NaujienosPage() {
           </p>
         </header>
 
-        {/* Featured hero */}
-        {featured.length > 0 && <NewsHero items={featured} />}
-
-        {/* Filtrai → dedikuoti landing'ai */}
+        {/* Filtrai → dedikuoti landing'ai (virš hero) */}
         <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
           <NewsFilterBar facets={facets} />
         </div>
+
+        {/* Featured hero */}
+        {featured.length > 0 && <NewsHero items={featured} />}
 
         {/* Naršymas pagal stilių */}
         {sections.length > 0 && (

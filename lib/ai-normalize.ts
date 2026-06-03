@@ -103,6 +103,76 @@ function isValidCategory(v: any): v is AIRelevanceCategory {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 1b) Redakcinio TIPO klasifikacija (Haiku batch)
+// ─────────────────────────────────────────────────────────────
+// Priskiria news_category reikšmę = redakcinis tipas (žr. lib/news-taxonomy.ts
+// NEWS_TYPES). Naudojama /api/internal/news-classify šviežioms naujienoms.
+
+const NEWS_TYPE_VALUES = ['naujiena', 'interviu', 'recenzija', 'foto', 'topai', 'koncertai', 'klipas', 'kita'] as const
+export type NewsTypeValue = typeof NEWS_TYPE_VALUES[number]
+
+export type NewsTypeResult = { idx: number; type: NewsTypeValue }
+
+function buildNewsTypePrompt(items: Array<{ idx: number; title: string; summary?: string }>): string {
+  return `Tu klasifikuoji music.lt muzikos naujienas pagal TIPĄ. Kiekvienai priskirk VIENĄ:
+
+- "naujiena": bendros žinios, nauji išleidimai, pranešimai, scenos įvykiai (NUMATYTASIS)
+- "interviu": pokalbis su atlikėju ar asmeniu (klausimai–atsakymai, „interviu su")
+- "recenzija": albumo/singlo/koncerto apžvalga ar vertinimas („recenzija", „apžvalga")
+- "foto": foto reportažas ar nuotraukų galerija iš renginio („foto reportažas", „nuotraukos")
+- "topai": reitingai, geriausiųjų sąrašai, „TOP 10", chartai, „daugiausiai…"
+- "koncertai": koncerto/festivalio anonsas, turo datos, bilietai („skelbia koncertą", „turas", „bilietai")
+- "klipas": naujo vaizdo klipo pristatymas ar premjera („pristatė klipą", „vaizdo klipas", „premjera")
+- "kita": jubiliejus, apdovanojimai, prisiminimai, mirtis ir kt.
+
+Remkis antraštės požymiais. Jei neaišku — "naujiena".
+
+Straipsniai:
+${items.map(it => `[${it.idx}] ${it.title}${it.summary ? `\n    ${it.summary.slice(0, 200)}` : ''}`).join('\n\n')}
+
+Grąžink TIK JSON array, jokio kito teksto:
+[{"idx": <number>, "type": "naujiena"|"interviu"|"recenzija"|"foto"|"topai"|"koncertai"|"klipas"|"kita"}]`
+}
+
+export async function classifyNewsType(
+  items: Array<{ idx: number; title: string; summary?: string }>
+): Promise<NewsTypeResult[]> {
+  if (items.length === 0) return []
+  const prompt = buildNewsTypePrompt(items)
+
+  const res = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': getApiKey(),
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: HAIKU_MODEL,
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+  if (!res.ok) {
+    const detail = (await res.text()).slice(0, 200)
+    throw new Error(`Haiku API HTTP ${res.status}: ${detail}`)
+  }
+  const data = await res.json()
+  const text: string = data.content?.[0]?.text || '[]'
+  const match = text.match(/\[[\s\S]*\]/)
+  if (!match) return items.map(it => ({ idx: it.idx, type: 'naujiena' as const }))
+  try {
+    const parsed = JSON.parse(match[0]) as Array<{ idx: number; type: string }>
+    return parsed.map(p => ({
+      idx: typeof p.idx === 'number' ? p.idx : -1,
+      type: (NEWS_TYPE_VALUES as readonly string[]).includes(p.type) ? (p.type as NewsTypeValue) : 'naujiena',
+    }))
+  } catch {
+    return items.map(it => ({ idx: it.idx, type: 'naujiena' as const }))
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // 2) Full article normalize → LT light rewrite (Sonnet)
 // ─────────────────────────────────────────────────────────────
 

@@ -1,39 +1,35 @@
 // app/api/internal/news-classify/route.ts
 //
-// Batch AI klasifikacija — priskiria news_category (release/tour/performance/
-// career_step/other) neklasifikuotoms naujienoms (modern + legacy). Naudoja
-// Haiku (lib/ai-normalize classifyMusicRelevance) → reikia ANTHROPIC_API_KEY.
+// Batch AI TIPO klasifikacija — priskiria news_category (redakcinis tipas:
+// naujiena/interviu/recenzija/foto/topai/koncertai/klipas/kita) dar
+// neklasifikuotoms naujienoms, NAUJAUSIOS pirma (news_to_classify RPC). Naudoja
+// Haiku (classifyNewsType) → reikia ANTHROPIC_API_KEY.
 //
-// Auth: Bearer INTERNAL_CRON_TOKEN (tas pats kaip news/events scout cron'ams),
-// kad būtų galima paleisti loop'ą iš klasifikuoti_naujienas.command be NextAuth
-// sesijos.
+// Auth (bet kuris):
+//   • Bearer INTERNAL_CRON_TOKEN  (klasifikuoti_naujienas.command loop'as)
+//   • admin / super_admin sesija   (admin mygtukas /admin)
 //
-//   GET  → { remaining_legacy, remaining_modern, total_uncategorized }
+//   GET  → { total_uncategorized, remaining_legacy, remaining_modern }
 //   POST { batch?: number } → { processed, remaining, done, sample[] }
-//
-// Resumable: kiekvienas POST apdoroja `batch` (default 20, max 40) įrašų ir
-// grąžina kiek liko. Loop kviečia kol done=true.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
-import { classifyMusicRelevance } from '@/lib/ai-normalize'
+import { classifyNewsType } from '@/lib/ai-normalize'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-function checkAuth(req: NextRequest): NextResponse | null {
+async function authorize(req: NextRequest): Promise<NextResponse | null> {
+  // 1) Bearer token (cron / .command)
   const expected = process.env.INTERNAL_CRON_TOKEN
-  if (!expected) return NextResponse.json({ error: 'INTERNAL_CRON_TOKEN not configured' }, { status: 503 })
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
-  if (!token || token !== expected) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  return null
-}
-
-type Cand = { id: number; source: 'legacy' | 'modern'; title: string; summary: string }
-
-function stripBody(body: string | null | undefined): string {
-  if (!body) return ''
-  return body.replace(/<[^>]*>/g, ' ').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 280)
+  if (expected && token && token === expected) return null
+  // 2) Admin sesija
+  const session = await getServerSession(authOptions)
+  if (session?.user && ['admin', 'super_admin'].includes(session.user.role || '')) return null
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 }
 
 async function countRemaining(sb: ReturnType<typeof createAdminClient>) {
@@ -50,7 +46,7 @@ async function countRemaining(sb: ReturnType<typeof createAdminClient>) {
 }
 
 export async function GET(req: NextRequest) {
-  const unauth = checkAuth(req)
+  const unauth = await authorize(req)
   if (unauth) return unauth
   const sb = createAdminClient()
   const r = await countRemaining(sb)
@@ -62,7 +58,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const unauth = checkAuth(req)
+  const unauth = await authorize(req)
   if (unauth) return unauth
 
   let batch = 20
@@ -71,29 +67,16 @@ export async function POST(req: NextRequest) {
 
   const sb = createAdminClient()
 
-  // Neklasifikuoti — legacy pirma (bulk ~20k), tada modern (6).
-  const cands: Cand[] = []
-  const { data: legacyRows } = await sb
-    .from('discussions')
-    .select('id, title, body')
-    .eq('legacy_kind', 'news').eq('is_legacy', true).eq('is_deleted', false)
-    .is('news_category', null)
-    .order('first_post_at', { ascending: false, nullsFirst: false })
-    .limit(batch)
-  for (const r of (legacyRows || []) as any[]) {
-    cands.push({ id: r.id, source: 'legacy', title: r.title || '', summary: stripBody(r.body) })
-  }
-  if (cands.length < batch) {
-    const { data: modernRows } = await sb
-      .from('news')
-      .select('id, title, body')
-      .is('news_category', null)
-      .order('published_at', { ascending: false, nullsFirst: false })
-      .limit(batch - cands.length)
-    for (const r of (modernRows || []) as any[]) {
-      cands.push({ id: r.id, source: 'modern', title: r.title || '', summary: stripBody(r.body) })
-    }
-  }
+  // Neklasifikuoti, NAUJAUSI pirma (display data coalesce(first_post_at,created_at)).
+  const { data: rows, error: rpcErr } = await sb.rpc('news_to_classify', { p_limit: batch })
+  if (rpcErr) return NextResponse.json({ error: rpcErr.message }, { status: 500 })
+
+  const cands = ((rows || []) as any[]).map((r) => ({
+    id: r.id as number,
+    source: r.source as 'legacy' | 'modern',
+    title: (r.title || '') as string,
+    summary: (r.body || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240) as string,
+  }))
 
   if (cands.length === 0) {
     return NextResponse.json({ processed: 0, remaining: 0, done: true, sample: [] })
@@ -101,34 +84,27 @@ export async function POST(req: NextRequest) {
 
   let results
   try {
-    results = await classifyMusicRelevance(
-      cands.map((c, idx) => ({ idx, title: c.title, summary: c.summary }))
-    )
+    results = await classifyNewsType(cands.map((c, idx) => ({ idx, title: c.title, summary: c.summary })))
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'AI classify failed' }, { status: 502 })
   }
 
-  const catByIdx = new Map<number, string>()
-  for (const r of results) {
-    // Šios naujienos JAU muzikinės — 'none' → 'other'.
-    const cat = r.category === 'none' || !r.category ? 'other' : r.category
-    catByIdx.set(r.idx, cat)
-  }
+  const typeByIdx = new Map<number, string>()
+  for (const r of results) typeByIdx.set(r.idx, r.type || 'naujiena')
 
-  const sample: Array<{ title: string; category: string }> = []
+  const sample: Array<{ title: string; type: string }> = []
   let processed = 0
   for (let i = 0; i < cands.length; i++) {
     const c = cands[i]
-    const cat = catByIdx.get(i) || 'other'
+    const type = typeByIdx.get(i) || 'naujiena'
     const table = c.source === 'legacy' ? 'discussions' : 'news'
-    const { error } = await sb.from(table).update({ news_category: cat }).eq('id', c.id)
+    const { error } = await sb.from(table).update({ news_category: type }).eq('id', c.id)
     if (!error) {
       processed++
-      if (sample.length < 5) sample.push({ title: c.title.slice(0, 60), category: cat })
+      if (sample.length < 6) sample.push({ title: c.title.slice(0, 55), type })
     }
   }
 
-  // Facet cache'ą reikia perskaičiuoti, kad chip skaičiai atsinaujintų.
   try {
     const { revalidateTag } = await import('next/cache')
     revalidateTag('naujienos:facets')
