@@ -20,7 +20,8 @@ export async function GET(req: Request) {
   try {
     const { data: discs } = await sb
       .from('discussions')
-      .select('id, slug, title, author_name, author_avatar, comment_count, created_at, last_comment_at')
+      .select('id, slug, title, author_name, author_avatar, comment_count, created_at, last_comment_at, ' +
+        'artist:artist_id(name, slug, cover_image_url)')
       .eq('is_deleted', false)
       .or('legacy_kind.is.null,legacy_kind.eq.discussion')
       .order('is_pinned', { ascending: false })
@@ -59,6 +60,8 @@ export async function GET(req: Request) {
       const body = c
         ? String(c.body || '').replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim()
         : ''
+      // Susijęs atlikėjas → vizualas diskusijos kortelei (jei tema apie grupę/atlikėją).
+      const art = Array.isArray(d.artist) ? d.artist[0] : d.artist
       return {
         id: d.id,
         slug: d.slug,
@@ -68,6 +71,8 @@ export async function GET(req: Request) {
         comment_count: d.comment_count ?? 0,
         created_at: d.created_at,
         last_comment_at: d.last_comment_at,
+        artist_name: art?.name || null,
+        artist_image: art?.cover_image_url || null,
         latest_comment: c
           ? {
               excerpt: body.length > 100 ? body.slice(0, 100).replace(/\s+\S*$/, '') + '…' : body,
