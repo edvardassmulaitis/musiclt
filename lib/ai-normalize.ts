@@ -216,7 +216,7 @@ export async function classifyMemberType(
   const data = await res.json()
   const text: string = data.content?.[0]?.text || '[]'
   const match = text.match(/\[[\s\S]*\]/)
-  if (!match) return items.map(it => ({ idx: it.idx, type: 'dienorastis' as const }))
+  if (!match) return items.map(it => ({ idx: it.idx, type: 'kita' as const }))
   try {
     const parsed = JSON.parse(match[0]) as Array<{ idx: number; type: string }>
     return parsed.map(p => ({
