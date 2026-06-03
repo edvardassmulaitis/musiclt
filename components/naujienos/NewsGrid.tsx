@@ -5,7 +5,7 @@
 // + paieška. Užklausa eina į /api/naujienos su tais pačiais filtrais kaip
 // serverio puslapis (style/category/scope perduodami per props).
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Loader2, Search, X } from 'lucide-react'
 import NewsCard from './NewsCard'
 import type { NewsFeedItem } from '@/lib/news-shared'

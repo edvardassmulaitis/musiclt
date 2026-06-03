@@ -15,8 +15,6 @@ import { proxyImg } from '@/lib/img-proxy'
 import { NEWS_STYLES, type NewsScope } from '@/lib/news-taxonomy'
 import type { NewsFeedItem } from '@/lib/news-shared'
 
-export type { NewsFeedItem } from '@/lib/news-shared'
-
 export type NewsFilters = {
   style?: number | null
   category?: string | null
