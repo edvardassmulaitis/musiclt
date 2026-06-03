@@ -125,10 +125,10 @@ const NAV: NavItem[] = [
   },
   {
     key: 'renginiai',
-    label: 'Renginiai',
-    href: '/renginiai',
-    match: ['/renginiai', '/festivaliai', '/galerija'],
-    desc: 'Koncertai, festivaliai',
+    label: 'Koncertai',
+    href: '/koncertai',
+    match: ['/koncertai', '/renginiai', '/festivaliai', '/galerija'],
+    desc: 'Koncertai, turai, festivaliai',
     accent: '#3b82f6',
     icon: I.calendar,
   },
@@ -567,14 +567,14 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
         {/* Kairė: artimiausi renginiai */}
         <div>
           <div className="sh-panel-section">
-            <span className="sh-panel-section-title">Artimiausi renginiai</span>
-            <Link href="/renginiai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
+            <span className="sh-panel-section-title">Artimiausi koncertai</span>
+            <Link href="/koncertai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {(events.length > 0 ? events : Array(4).fill(null)).map((e, i) => (
               <Link
                 key={e?.id || i}
-                href={e ? `/renginiai/${e.slug}` : '/renginiai'}
+                href={e ? `/renginiai/${e.slug}` : '/koncertai'}
                 className="sh-event-card"
               >
                 <ImageBox
@@ -1011,17 +1011,24 @@ function MobileExpansion({
 
   if (navKey === 'renginiai') {
     const events = data?.events || []
+    const placeholders = ['Koncertas', 'Pasirodymas', 'Festivalis', 'Renginys']
     return (
       <div className="sh-mexp">
         <div className="sh-mexp-section">
-          <span className="sh-mexp-title">Artimiausi</span>
-          <Link href="/renginiai" onClick={onLink} className="sh-mexp-more">Daugiau <ArrowRight size={10}/></Link>
+          <span className="sh-mexp-title">Artimiausi koncertai</span>
+          <Link href="/koncertai" onClick={onLink} className="sh-mexp-more">Visi <ArrowRight size={10}/></Link>
         </div>
-        <div className="sh-strip">
-          {(events.length > 0 ? events.slice(0, 6) : Array(4).fill(null)).map((e, i) => (
-            <Link key={e?.id || i} href={e ? `/renginiai/${e.slug}` : '/renginiai'} onClick={onLink} className="sh-mini sh-mini-xs">
-              <ImageBox src={e?.image} accent={accent} glyph={I.calendar} className="sh-mini-img" />
-              <span className="sh-mini-title sh-mini-title-2">{e?.title || 'Renginys'}</span>
+        {/* Turtingos kortelės su plakatu, data ir vieta (vietoj kuklaus strip'o) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {(events.length > 0 ? events.slice(0, 4) : Array(4).fill(null)).map((e, i) => (
+            <Link key={e?.id || i} href={e ? `/renginiai/${e.slug}` : '/koncertai'} onClick={onLink} className="sh-event-card">
+              <ImageBox src={e?.image} accent={accent} glyph={I.calendar} className="sh-event-img">
+                {e?.date && <span className="sh-event-date">{formatEventDate(e.date)}</span>}
+              </ImageBox>
+              <span className="sh-event-info">
+                <span className="sh-event-title">{e?.title || <span style={{ opacity: 0.5 }}>{placeholders[i] || 'Koncertas'}</span>}</span>
+                {e?.venue && <span className="sh-event-venue">{e.venue}</span>}
+              </span>
             </Link>
           ))}
         </div>
@@ -1032,7 +1039,7 @@ function MobileExpansion({
           </Link>
           <Link href="/galerija" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ec4899') }}>
             <span className="sh-mexp-tile-icon">{I.gallery}</span>
-            <span className="sh-mexp-tile-label">Galerija</span>
+            <span className="sh-mexp-tile-label">Foto galerija</span>
           </Link>
         </div>
       </div>
@@ -1154,9 +1161,11 @@ export function SiteHeader() {
   // arba konkretus key (muzika/topai/...) = sekcijos turinio full-screen view.
   const [drawerView, setDrawerView] = useState<'main' | NavItem['key']>('main')
   // Desktop dropdown'o "closing" state — paspaudus link'ą uždaro
-  // panel'ą iškart, kad nesimatytų po hover'iu kol page'as krautųsi.
+  // panel'ą iškart. SVARBU: suppress'as laikomas KOL pelė fiziškai
+  // nepalieka grupės (onMouseLeave). Jei resetintume per pathname ar
+  // timeout'ą, po navigacijos CSS :hover vėl atvertų dropdown'ą po vis
+  // dar užvestu cursor'iu (būtent tą bug'ą taisom).
   const [closingKey, setClosingKey] = useState<NavItem['key'] | null>(null)
-  useEffect(() => { setClosingKey(null) }, [pathname])
 
   // Body scroll lock kai drawer'is atidarytas (kad puslapio turinys
   // nesleslintų po modalu)
@@ -2507,27 +2516,26 @@ export function SiteHeader() {
               const active = isActive(n)
               const closing = closingKey === n.key
               return (
-                <div key={n.label} className={`sh-group${closing ? ' closing' : ''}`}>
+                <div
+                  key={n.label}
+                  className={`sh-group${closing ? ' closing' : ''}`}
+                  // Suppress'as nuimamas TIK kai pelė palieka grupę — taip
+                  // dropdown'as nebeatsiranda po click'o, kol cursor'is stovi vietoje.
+                  onMouseLeave={() => setClosingKey(k => (k === n.key ? null : k))}
+                >
                   <Link
                     href={n.href}
                     className={`sh-navlink${active ? ' active' : ''}`}
-                    onClick={() => {
-                      setClosingKey(n.key)
-                      setTimeout(() => setClosingKey(null), 600)
-                    }}
+                    onClick={() => setClosingKey(n.key)}
                   >
                     {n.label}
                   </Link>
                   <div
                     className="sh-dropdown-wrap"
                     style={{ ['--panel-accent' as any]: n.accent }}
-                    onClick={() => {
-                      // Bet koks click'as dropdown'o viduje (paprastai ant Link'o)
-                      // — uždaro panel'ą iškart, kad nesimatytų po hover'iu
-                      // kol page'as krautųsi.
-                      setClosingKey(n.key)
-                      setTimeout(() => setClosingKey(null), 600)
-                    }}
+                    // Bet koks click'as dropdown'o viduje (paprastai ant Link'o)
+                    // — uždaro panel'ą iškart, kad nesimatytų po hover'iu.
+                    onClick={() => setClosingKey(n.key)}
                   >
                     {renderPanel(n.key, n.accent)}
                   </div>

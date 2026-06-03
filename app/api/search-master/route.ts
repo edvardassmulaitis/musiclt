@@ -465,7 +465,7 @@ function toVenue(row: any): Hit {
     title: row.name,
     subtitle: [row.city, row.country].filter(Boolean).join(', ') || null,
     image_url: row.cover_image_url,
-    href: `/renginiai?venue=${encodeURIComponent(row.slug || row.name)}`,
+    href: `/koncertai?venue=${encodeURIComponent(row.slug || row.name)}`,
     meta: { city: row.city },
     score: 0,
   }

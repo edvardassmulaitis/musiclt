@@ -266,8 +266,8 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
 
       {/* ── Slim antraštė ── */}
       <div className="ev-head">
-        <h1>Renginiai</h1>
-        <p>Koncertai, festivaliai ir muzikos renginiai Lietuvoje</p>
+        <h1>Koncertai Lietuvoje</h1>
+        <p>Rask artimiausius koncertus, atlikėjų pasirodymus, turus, festivalius ir kitus muzikos renginius Lietuvoje.</p>
       </div>
 
       {/* ── Kompaktiška filtrų juosta (viena eilutė) ── */}

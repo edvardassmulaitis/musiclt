@@ -12,7 +12,7 @@ export function SiteFooter() {
             <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>Lietuvos muzikos ekosistemos platforma nuo 1999 m.</p>
           </div>
           {[
-            { t: 'Platforma', l: [['Topai', '/'], ['Nauja muzika', '/'], ['Renginiai', '/'], ['Atlikėjai', '/atlikejai'], ['Albumai', '/']] },
+            { t: 'Platforma', l: [['Topai', '/topai'], ['Nauja muzika', '/muzika'], ['Koncertai', '/koncertai'], ['Atlikėjai', '/atlikejai'], ['Albumai', '/albumai']] },
             { t: 'Bendruomenė', l: [['Diskusijos', '/diskusijos'], ['Pokalbiai', '/pokalbiai'], ['Blogai', '/blogas/mano'], ['Dienos daina', '/dienos-daina']] },
             { t: 'Informacija', l: [['Apie mus', '/'], ['Atlikėjams', '/'], ['Reklama', '/'], ['Kontaktai', '/'], ['Privatumas', '/privatumas']] },
           ].map(col => (

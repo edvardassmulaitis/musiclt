@@ -3827,7 +3827,7 @@ export default function Home() {
             minHeight={280}
             placeholder={
               <section>
-                <SectionHead label="Renginiai" />
+                <SectionHead label="Koncertai" />
                 <div className="hp-scroll flex items-stretch gap-3 pb-1">
                   {Array(4).fill(null).map((_, i) => (
                     <div key={i} className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2" style={{ height: 110 }}>

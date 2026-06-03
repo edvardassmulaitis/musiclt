@@ -1,24 +1,7 @@
-import { Metadata } from 'next'
-import { getEvents, getEventCities } from '@/lib/supabase-events'
-import EventsClient from './events-client'
+import { permanentRedirect } from 'next/navigation'
 
-export const metadata: Metadata = {
-  title: 'Renginiai — Music.lt',
-  description: 'Artimiausi koncertai, festivaliai ir muzikos renginiai Lietuvoje',
-}
-
-// Renginių katalogas yra nedidelis (~kelios dešimtys aktyvių), todėl visą
-// sąrašą paimame vienu kartu ir filtruojame kliento pusėje — tai leidžia
-// momentinį, sklandų filtravimą (datos, kainos, stiliaus, LT/užsienio) be
-// puslapio perkrovimų. ISR cache 5 min.
-export const revalidate = 300
-
-export default async function EventsPage() {
-  const [{ events }, cities] = await Promise.all([
-    // Naujausi pirma — apims visus aktyvius + neseną archyvą vienu fetch'u.
-    getEvents({ showPast: true, order: 'desc', limit: 400 }),
-    getEventCities(),
-  ])
-
-  return <EventsClient events={events as any} cities={cities} />
+// Hub'as pervadintas į „Koncertai". Pagrindinis 301/308 vyksta next.config.js
+// redirects() lygyje; čia paliekamas atsarginis serverio redirect'as.
+export default function RenginiaiRedirect() {
+  permanentRedirect('/koncertai')
 }

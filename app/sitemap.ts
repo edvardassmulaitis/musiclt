@@ -86,7 +86,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/albumai`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
     { url: `${SITE_URL}/dainos`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
     { url: `${SITE_URL}/topai`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
-    { url: `${SITE_URL}/renginiai`, lastModified: now, changeFrequency: 'daily', priority: 0.6 },
+    { url: `${SITE_URL}/koncertai`, lastModified: now, changeFrequency: 'daily', priority: 0.6 },
     { url: `${SITE_URL}/zanrai`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
     { url: `${SITE_URL}/naujienos`, lastModified: now, changeFrequency: 'hourly', priority: 0.9 },
     { url: `${SITE_URL}/naujienos/lietuva`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },

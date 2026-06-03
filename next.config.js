@@ -16,5 +16,12 @@ const nextConfig = {
       { protocol: 'https', hostname: 'img.youtube.com' },
     ],
   },
+  async redirects() {
+    return [
+      // Renginių hub'as pervadintas į „Koncertai" (SEO: tikslesnis terminas).
+      // Tik tikslus /renginiai → /koncertai; renginio detalės lieka /renginiai/[slug].
+      { source: '/renginiai', destination: '/koncertai', permanent: true },
+    ]
+  },
 }
 module.exports = nextConfig

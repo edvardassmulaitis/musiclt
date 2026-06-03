@@ -194,8 +194,8 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
 
         {/* Back */}
         <div className="pb-10">
-          <Link href="/renginiai" className="text-xs font-bold hover:text-blue-400 transition" style={{ color: '#334058' }}>
-            &larr; Visi renginiai
+          <Link href="/koncertai" className="text-xs font-bold hover:text-blue-400 transition" style={{ color: '#334058' }}>
+            &larr; Visi koncertai
           </Link>
         </div>
       </div>
