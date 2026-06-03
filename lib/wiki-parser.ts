@@ -542,6 +542,12 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
   let inTable = false, skipSection = false, inSinglesSection = false, yearMode = false
   let currentYear: number | null = null
   let yearRowspan = 0
+  // 2026-06-02: ar dabartinė table eilutė yra pirmas cell po `|-`. Senesnio
+  // formato lentelės (be plainrowheaders) albumo title'ą deda kaip pirmą PLAIN
+  // cell'ą `| ''[[Title]]''` (ne `! scope="row"`). Buckshot rapper disco — visi
+  // studio albumai šitame formate → 0 rasta. atRowStart leidžia atpažinti
+  // pirmą cell'ą kaip title.
+  let atRowStart = false
 
   for (let li = 0; li < lines.length; li++) {
     const line = lines[li]
@@ -612,15 +618,21 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       yearMode = false; currentYear = null; yearRowspan = 0; continue
     }
     if (skipSection || inSinglesSection) continue
-    if (line.startsWith('{|')) { inTable = true; yearMode = false; currentYear = null; yearRowspan = 0; continue }
-    if (line.startsWith('|}')) { inTable = false; yearMode = false; continue }
+    if (line.startsWith('{|')) { inTable = true; yearMode = false; currentYear = null; yearRowspan = 0; atRowStart = false; continue }
+    if (line.startsWith('|}')) { inTable = false; yearMode = false; atRowStart = false; continue }
     if (!inTable) continue
 
     if (line.trim() === '|-') {
       if (yearRowspan > 1) yearRowspan--
       else if (yearRowspan === 1) yearRowspan = 0
+      atRowStart = true
       continue
     }
+
+    // Pirmas content cell po `|-`? (po to clear'inam — title kandidatas tik
+    // pirmas cell'as eilutėje).
+    const wasRowStart = atRowStart
+    atRowStart = false
 
     // yearMode aktivuojama, kai pamatom `! Year` table header (su ar be
     // rowspan, su ar be cell attrs). 2026-05-18 fix: anksčiau praleisdavo
@@ -639,22 +651,33 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       continue
     }
 
-    if (/!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(line)) {
+    // Album title eilutė: arba `! scope="row"| Title` (plainrowheaders), arba
+    // pirmas PLAIN cell'as po `|-` su italic/wikilink title `| ''[[Title]]''`
+    // (senesnio formato lentelės — Buckshot rapper studio albumai). Plain cell
+    // kandidatu laikom TIK pirmą cell'ą (wasRowStart) ir TIK jei turi italic
+    // ('') arba [[wikilink]] — kad nepatektų chart-pozicijų/album-details cell'ai.
+    const isScopeRow = /!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(line)
+    const isPlainTitleCell = !isScopeRow && wasRowStart && !yearMode
+      && /^\|(?!\|)/.test(line)
+      && /'{2,3}|\[\[/.test(line.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, ''))
+    if (isScopeRow || isPlainTitleCell) {
       let wikiTitle = '', title = ''
-      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      // Normalizuotas title cell'as: nuimam <ref>, scope marker'į (scope rows),
+      // bei leading `|` + cell attrs (plain cells).
+      const cell = line
+        .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+        .replace(/<ref[^/]*\/>/gi, '')
+        .replace(/^.*scope\s*=\s*['"]row['"]\s*\|?\s*/i, '')
+        .replace(/^\|\s*(?:[a-z-]+\s*=\s*"[^"]*"\s*)*\|?\s*/i, '')
+      const wm = cell.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
       if (wm) {
         wikiTitle = wm[1].trim(); title = cleanWikiText(wm[2] || wm[1])
       } else {
         // 2026-05-29: NĖRA wikilink'o — daug albumų/EP eilučių naudoja plain
         // italic title be atskiro Wiki straipsnio, pvz.
         //   ! scope="row"| ''How to Catch a Falling Knife''
-        // Anksčiau `if (!wm) continue` šiuos visiškai praleisdavo (Gigi Perez
-        // EP nebūdavo importuojamas). Fallback į ''...'' italic ekstrakciją.
-        const afterScope = line
-          .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
-          .replace(/<ref[^/]*\/>/gi, '')
-          .replace(/^.*scope\s*=\s*['"]row['"]\s*\|?\s*/i, '')
-        const im = afterScope.match(/'{2,3}([^']+)'{2,3}/) || afterScope.match(/^"([^"]+)"/)
+        // Fallback į ''...'' italic ekstrakciją.
+        const im = cell.match(/'{2,3}([^']+)'{2,3}/) || cell.match(/^"([^"]+)"/)
         if (im) { title = cleanWikiText(im[1]); wikiTitle = title.replace(/ /g, '_') }
       }
       if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle)) continue
