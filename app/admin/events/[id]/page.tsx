@@ -28,6 +28,7 @@ export default function AdminEventEditPage() {
   const [priceFrom, setPriceFrom] = useState('')
   const [priceTo, setPriceTo] = useState('')
   const [isFeatured, setIsFeatured] = useState(false)
+  const [isFestival, setIsFestival] = useState(false)
   const [artists, setArtists] = useState<ArtistRow[]>([])
   const [artistSearch, setArtistSearch] = useState('')
   const [artistResults, setArtistResults] = useState<any[]>([])
@@ -79,6 +80,7 @@ export default function AdminEventEditPage() {
         setPriceFrom(ev.price_from?.toString() || '')
         setPriceTo(ev.price_to?.toString() || '')
         setIsFeatured(ev.is_featured || false)
+        setIsFestival(ev.is_festival || false)
         if (ev.event_artists) {
           setArtists(ev.event_artists.map((ea: any) => {
             const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists
@@ -129,6 +131,7 @@ export default function AdminEventEditPage() {
       price_from: priceFrom ? parseFloat(priceFrom) : null,
       price_to: priceTo ? parseFloat(priceTo) : null,
       is_featured: isFeatured,
+      is_festival: isFestival,
       artists: artists.map(a => ({ artist_id: a.artist_id, is_headliner: a.is_headliner })),
     }
 
@@ -263,7 +266,7 @@ export default function AdminEventEditPage() {
                   ) : filteredVenues.length === 0 ? (
                     <>
                       <div className="px-3 py-2 text-[10px] text-gray-500 uppercase font-bold tracking-wide bg-gray-50 border-b border-gray-100">
-                        Nerasta pagal „{venueName}" — sukurk naują vietą:
+                        Nerasta pagal „{venueName}" — galima naudoti laisvu tekstu arba išrinkti iš sąrašo:
                       </div>
                       {venueOptions.slice(0, 20).map(v => (
                         <VenueRow key={v.id} v={v} onPick={() => {
@@ -384,11 +387,17 @@ export default function AdminEventEditPage() {
           </div>
         </div>
 
-        {/* Featured */}
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} className="accent-blue-600 w-4 h-4" />
-          <span className="text-sm font-medium text-gray-700">Featured renginys</span>
-        </label>
+        {/* Featured + Festival */}
+        <div className="flex flex-wrap items-center gap-5">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} className="accent-blue-600 w-4 h-4" />
+            <span className="text-sm font-medium text-[var(--text-primary)]">Featured renginys</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={isFestival} onChange={e => setIsFestival(e.target.checked)} className="accent-cyan-600 w-4 h-4" />
+            <span className="text-sm font-medium text-[var(--text-primary)]">🎪 Festivalis</span>
+          </label>
+        </div>
 
         {/* Artists */}
         <div>

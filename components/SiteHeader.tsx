@@ -545,39 +545,69 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
 function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
   const events = data?.events.slice(0, 4) || []
   const placeholderTitles = ['Koncertas', 'Vakarėlis', 'Festivalis', 'Renginys']
+
+  // Du dideli „spotlight" kortelės — festivaliams ir foto galerijai. Edvardo
+  // prašymu 2026-06-03: nav meniu praplėstas, festivaliams ir foto galerijoms
+  // skirta atskira erdvė (ne tik mažos nuorodos apačioje).
+  const spotlights: { href: string; title: string; desc: string; rgb: string; icon: React.ReactNode }[] = [
+    {
+      href: '/festivaliai', title: 'Festivaliai', desc: 'Granatos, Karklė, Devilstone — line-up\'ai ir datos', rgb: '#06b6d4',
+      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 21 14 3M21 21 10.5 3M12 13.5 21 21M12 13.5 3 21M2 21h20"/></svg>,
+    },
+    {
+      href: '/galerija', title: 'Foto galerija', desc: 'Koncertų ir festivalių akimirkos, užkulisiai', rgb: '#ec4899',
+      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>,
+    },
+  ]
+
   return (
-    <div className="sh-panel" style={{ minWidth: 600 }}>
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Artimiausi renginiai</span>
-        <Link href="/renginiai" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        {(events.length > 0 ? events : Array(4).fill(null)).map((e, i) => (
-          <Link
-            key={e?.id || i}
-            href={e ? `/renginiai/${e.slug}` : '/renginiai'}
-            className="sh-event-card"
-          >
-            <ImageBox
-              src={e?.image}
-              accent={accent}
-              glyph={I.calendar}
-              className="sh-event-img"
-            >
-              {e?.date && <span className="sh-event-date">{formatEventDate(e.date)}</span>}
-            </ImageBox>
-            <span className="sh-event-info">
-              <span className="sh-event-title">
-                {e?.title || <span style={{ opacity: 0.5 }}>{placeholderTitles[i] || 'Renginys'}</span>}
+    <div className="sh-panel" style={{ width: 760 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 18 }}>
+        {/* Kairė: artimiausi renginiai */}
+        <div>
+          <div className="sh-panel-section">
+            <span className="sh-panel-section-title">Artimiausi renginiai</span>
+            <Link href="/renginiai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {(events.length > 0 ? events : Array(4).fill(null)).map((e, i) => (
+              <Link
+                key={e?.id || i}
+                href={e ? `/renginiai/${e.slug}` : '/renginiai'}
+                className="sh-event-card"
+              >
+                <ImageBox
+                  src={e?.image}
+                  accent={accent}
+                  glyph={I.calendar}
+                  className="sh-event-img"
+                >
+                  {e?.date && <span className="sh-event-date">{formatEventDate(e.date)}</span>}
+                </ImageBox>
+                <span className="sh-event-info">
+                  <span className="sh-event-title">
+                    {e?.title || <span style={{ opacity: 0.5 }}>{placeholderTitles[i] || 'Renginys'}</span>}
+                  </span>
+                  {e?.venue && <span className="sh-event-venue">{e.venue}</span>}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Dešinė: festivaliai + foto galerija (spotlight) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <span className="sh-panel-section-title" style={{ marginBottom: 2 }}>Atrask daugiau</span>
+          {spotlights.map(s => (
+            <Link key={s.href} href={s.href} className="sh-spotlight" style={{ ['--it-rgb' as any]: hexToRgb(s.rgb) }}>
+              <span className="sh-spotlight-icon">{s.icon}</span>
+              <span className="sh-spotlight-body">
+                <span className="sh-spotlight-title">{s.title} <ArrowRight size={12}/></span>
+                <span className="sh-spotlight-desc">{s.desc}</span>
               </span>
-              {e?.venue && <span className="sh-event-venue">{e.venue}</span>}
-            </span>
-          </Link>
-        ))}
-      </div>
-      <div className="sh-panel-shortcuts">
-        <Link href="/festivaliai" className="sh-shortcut">Festivaliai →</Link>
-        <Link href="/galerija" className="sh-shortcut">Foto galerija →</Link>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -1870,6 +1900,43 @@ export function SiteHeader() {
         .sh-hero-card:hover .sh-hero-cta {
           background: rgba(255,255,255,0.28);
           transform: translateX(2px);
+        }
+
+        /* Renginiai panel — spotlight kortelės (festivaliai / foto galerija) */
+        .sh-spotlight {
+          flex: 1;
+          display: flex; align-items: center; gap: 12px;
+          padding: 14px 15px;
+          border-radius: 14px;
+          text-decoration: none;
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.16) 0%, rgba(var(--it-rgb), 0.05) 100%);
+          border: 1px solid rgba(var(--it-rgb), 0.26);
+          transition: transform .15s, border-color .15s, box-shadow .15s;
+        }
+        .sh-spotlight:hover {
+          transform: translateY(-2px);
+          border-color: rgba(var(--it-rgb), 0.55);
+          box-shadow: 0 8px 22px rgba(var(--it-rgb), 0.18);
+        }
+        .sh-spotlight-icon {
+          flex-shrink: 0;
+          width: 42px; height: 42px;
+          border-radius: 12px;
+          display: flex; align-items: center; justify-content: center;
+          background: rgba(var(--it-rgb), 0.9);
+          color: #fff;
+        }
+        .sh-spotlight-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .sh-spotlight-title {
+          display: flex; align-items: center; gap: 5px;
+          font-size: 14px; font-weight: 800;
+          color: var(--text-primary);
+        }
+        .sh-spotlight-title svg { color: rgb(var(--it-rgb)); transition: transform .15s; }
+        .sh-spotlight:hover .sh-spotlight-title svg { transform: translateX(3px); }
+        .sh-spotlight-desc {
+          font-size: 11.5px; line-height: 1.35;
+          color: var(--text-muted);
         }
 
         /* Bendruomenė panel — big shortcut links */

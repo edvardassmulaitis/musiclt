@@ -3,6 +3,21 @@ import { createAdminClient } from '@/lib/supabase'
 // Vieninga slugify utility — palaiko Unicode (visos kalbos). Žr. lib/slugify.ts.
 import { slugify } from './slugify'
 
+// ── Festivalio euristika ─────────────────────────────────────────
+// Naudojama kaip atsarginis variantas, kol `events.is_festival` stulpelio dar
+// nėra (migracija 20260603) arba renginys dar nepažymėtas admin'e. Pavadinimo
+// raktažodžiai + kelių dienų trukmė.
+const FESTIVAL_RE = /festival|fest(?:as|is|ai|ą|o)?\b|fiesta|granatos|devilstone|karkl[ėe]|positivus|bliuzo nakt|tundra|sala festival|m[ėe]nuo juodaragis|roko naktys|žalgirio nakt/i
+export function festivalHeuristic(ev: { title?: string | null; start_date?: string | null; end_date?: string | null }): boolean {
+  const t = (ev.title || '')
+  if (FESTIVAL_RE.test(t)) return true
+  if (ev.start_date && ev.end_date) {
+    const days = (new Date(ev.end_date).getTime() - new Date(ev.start_date).getTime()) / 86_400_000
+    if (days >= 1) return true
+  }
+  return false
+}
+
 // ── Get events list (public) ─────────────────────────────────────
 export async function getEvents(opts: {
   city?: string
@@ -83,6 +98,24 @@ export async function getEvents(opts: {
       }
     }
   } catch { /* žanrai nebūtini — nelaužiam renginių */ }
+
+  // Festivalio žyma. Bandome iš `is_festival` stulpelio (migracija 20260603);
+  // jei jo dar nėra — krentam į euristiką, kad puslapis nelūžtų.
+  try {
+    const ids = events.map(e => e.id).filter(Boolean)
+    if (ids.length) {
+      const { data: fest, error: fe } = await supabase
+        .from('events')
+        .select('id')
+        .eq('is_festival', true)
+        .in('id', ids)
+      if (fe) throw fe
+      const fset = new Set((fest || []).map((r: any) => r.id))
+      for (const e of events) e.is_festival = fset.has(e.id)
+    }
+  } catch {
+    for (const e of events) e.is_festival = festivalHeuristic(e)
+  }
 
   return { events, total: count || 0 }
 }
@@ -167,6 +200,13 @@ export async function getEventById(id: string) {
     .single()
 
   if (error) return null
+
+  // Festivalio žyma (atskirai — resilient, jei stulpelio dar nėra).
+  try {
+    const { data: f, error: fe } = await supabase.from('events').select('is_festival').eq('id', id).maybeSingle()
+    if (!fe && f) (data as any).is_festival = (f as any).is_festival ?? false
+  } catch { /* stulpelio dar nėra */ }
+
   return data
 }
 
@@ -225,6 +265,7 @@ export async function createEvent(eventData: {
   price_from?: number
   price_to?: number
   is_featured?: boolean
+  is_festival?: boolean
 }, userId: string) {
   const supabase = createAdminClient()
 
@@ -234,26 +275,28 @@ export async function createEvent(eventData: {
 
   const insertData = await applyVenueFields({ ...eventData })
 
-  const { data, error } = await supabase
-    .from('events')
-    .insert({
-      ...insertData,
-      slug,
-      status: 'upcoming',
-    })
-    .select('id, slug')
-    .single()
-
-  if (error) throw error
-  return data
+  let payload: Record<string, any> = { ...insertData, slug, status: 'upcoming' }
+  let res = await supabase.from('events').insert(payload).select('id, slug').single()
+  // Resilient: jei `is_festival` stulpelio dar nėra (migracija neaplikuota) —
+  // pakartojam be jo, kad renginio kūrimas nelūžtų.
+  if (res.error && /is_festival/.test(res.error.message || '')) {
+    delete payload.is_festival
+    res = await supabase.from('events').insert(payload).select('id, slug').single()
+  }
+  if (res.error) throw res.error
+  return res.data
 }
 
 // ── Update event (admin) ─────────────────────────────────────────
 export async function updateEvent(id: string, updates: Record<string, any>) {
   const supabase = createAdminClient()
   const patched = await applyVenueFields({ ...updates })
-  const { error } = await supabase.from('events').update(patched).eq('id', id)
-  if (error) throw error
+  let res = await supabase.from('events').update(patched).eq('id', id)
+  if (res.error && /is_festival/.test(res.error.message || '')) {
+    delete (patched as any).is_festival
+    res = await supabase.from('events').update(patched).eq('id', id)
+  }
+  if (res.error) throw res.error
 }
 
 // ── Delete event (admin) ─────────────────────────────────────────

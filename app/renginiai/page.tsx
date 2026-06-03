@@ -7,30 +7,25 @@ export const metadata: Metadata = {
   description: 'Artimiausi koncertai, festivaliai ir muzikos renginiai Lietuvoje',
 }
 
-export default async function EventsPage({ searchParams }: { searchParams: Promise<{ city?: string; period?: string; showPast?: string; venueId?: string }> }) {
-  const sp = await searchParams
-  const [{ events, total }, featured, cities] = await Promise.all([
-    getEvents({
-      city: sp.city,
-      venueId: sp.venueId ? parseInt(sp.venueId) : undefined,
-      period: (sp.period as 'week' | 'month' | 'all') || undefined,
-      showPast: sp.showPast === 'true',
-      limit: 20,
-    }),
-    getFeaturedEvents(3),
+// Renginių katalogas yra nedidelis (~kelios dešimtys aktyvių), todėl visą
+// sąrašą paimame vienu kartu ir filtruojame kliento pusėje — tai leidžia
+// momentinį, sklandų filtravimą (datos, kainos, stiliaus, LT/užsienio) be
+// puslapio perkrovimų. ISR cache 5 min.
+export const revalidate = 300
+
+export default async function EventsPage() {
+  const [{ events }, featured, cities] = await Promise.all([
+    // Naujausi pirma — apims visus aktyvius + neseną archyvą vienu fetch'u.
+    getEvents({ showPast: true, order: 'desc', limit: 400 }),
+    getFeaturedEvents(4),
     getEventCities(),
   ])
 
   return (
     <EventsClient
-      events={events}
-      featured={featured}
+      events={events as any}
+      featured={featured as any}
       cities={cities}
-      total={total}
-      initialCity={sp.city || 'Visi'}
-      initialPeriod={sp.period || 'all'}
-      initialVenueId={sp.venueId || ''}
-      showPast={sp.showPast === 'true'}
     />
   )
 }
