@@ -463,6 +463,12 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         // featuring artistų parens po pagrindinio title — taip pat strip'inti
         // kad ne-title wiki-link'ai nebūtų agreguojami
         .replace(/\s*\((?:with|feat(?:uring)?\.?|ft\.?)\s+[^)]+\)/gi, '')
+        // 2026-06-02: INLINE (be parens) featuring PO closing quote, pvz Quevedo
+        // `"La Graciosa" with [[Elvis Crespo]]` — nukerpam ` with [[...]]` kad
+        // [[Elvis Crespo]] netaptų title'u (anksčiau allLinks paimdavo jį vietoj
+        // „La Graciosa"). TIK kai prieš ` with/feat/ft` yra closing quote — todėl
+        // title'as „Dancing with Myself" (be trailing featuring) NEpaliečiamas.
+        .replace(/("[^"]+")\s+(?:with|feat(?:uring)?\.?|ft\.?)\s+.*$/i, '$1')
       const allLinks: string[] = []
       const linkRe = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
       let lm: RegExpExecArray | null
@@ -500,7 +506,25 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       if (/\bE\.?P\.?\s*$/i.test(rawTitle)) continue
 
       // Featured artistai iš <br> dalies
-      const featuredArtists = parseFeaturedArtists(cleanLine)
+      let featuredArtists = parseFeaturedArtists(cleanLine)
+      // 2026-06-02: inline featuring po quoted title (be <br>), pvz
+      // `"La Graciosa" with [[Elvis Crespo]]` — parseFeaturedArtists ieško tik
+      // <br> dalies, tad inline atveju papildomai ištraukiam wikilink'uotus
+      // artistus iš afterScope po `with/feat/ft`.
+      if (!featuredArtists.length) {
+        const inlineM = afterScope.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+          .match(/"[^"]+"\s+(?:with|feat(?:uring)?\.?|ft\.?)\s+(.+)$/i)
+        if (inlineM) {
+          const names: string[] = []
+          const lr = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
+          let mm: RegExpExecArray | null
+          while ((mm = lr.exec(inlineM[1])) !== null) {
+            const n = cleanWikiText(mm[2] || mm[1]).replace(/\s*\((?:singer|rapper|musician|band|singer-songwriter)\)/gi, '').trim()
+            if (n && n.length > 1 && n.length < 50) names.push(n)
+          }
+          if (names.length) featuredArtists = names
+        }
+      }
 
       // Split dvigubų singlų per " / " — kiekvienas tampa atskira daina
       const titleParts = rawTitle.split(/\s*\/\s*/).map(t => t.replace(/^["'\s]+|["'\s]+$/g, '').trim()).filter(t => t.length > 1)
