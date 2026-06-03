@@ -6,7 +6,7 @@
 // serverio puslapis (style/category/scope perduodami per props).
 
 import { useState, useCallback, useRef } from 'react'
-import { Loader2, Search, X } from 'lucide-react'
+import { Loader2, Search, X } from './icons'
 import NewsCard from './NewsCard'
 import type { NewsFeedItem } from '@/lib/news-shared'
 

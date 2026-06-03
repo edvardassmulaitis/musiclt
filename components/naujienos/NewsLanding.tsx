@@ -6,7 +6,7 @@
 // (su aktyviu chip'u), grid'ą su „Rodyti daugiau" + JSON-LD.
 
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight } from './icons'
 import { getNewsFeed, getNewsFacets } from '@/lib/news-feed'
 import { SITE_URL } from '@/lib/artist-browse'
 import { newsCollectionJsonLd, breadcrumbJsonLd, jsonLdScript } from '@/lib/news-jsonld'

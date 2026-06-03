@@ -5,7 +5,7 @@
 // dedikuotą /naujienos/stilius/{slug} landing'ą.
 
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight } from './icons'
 import NewsCard from './NewsCard'
 import type { StyleSection } from '@/lib/news-feed'
 

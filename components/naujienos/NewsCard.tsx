@@ -4,7 +4,7 @@
 // ir client kontekste. Trys variantai: 'hero' (didelė), 'default', 'compact'.
 
 import Link from 'next/link'
-import { Heart, MessageCircle, Eye } from 'lucide-react'
+import { Heart, MessageCircle, Eye } from './icons'
 import type { NewsFeedItem } from '@/lib/news-shared'
 import { fmtNewsDate, relNewsDate } from '@/lib/news-shared'
 import { NEWS_BROWSE_CATEGORIES, type NewsBrowseCategory } from '@/lib/news-taxonomy'
