@@ -92,13 +92,13 @@ export async function GET() {
         .order('id', { ascending: false })
         .limit(12),
 
-      // 4 artimiausi renginiai
+      // Artimiausi renginiai (su atlikėjų šalimi — LT/užsienio skaidymui nav'e)
       supabase
         .from('events')
-        .select('id, slug, title, start_date, venue_name, cover_image_url')
+        .select('id, slug, title, start_date, venue_name, cover_image_url, event_artists(is_headliner, artists(country, cover_image_url))')
         .in('status', ['upcoming', 'ongoing'])
         .order('start_date', { ascending: true })
-        .limit(4),
+        .limit(24),
 
       // 4 naujausios naujienos
       supabase
@@ -146,6 +146,16 @@ export async function GET() {
         .limit(8),
     ])
 
+    // Renginių LT/užsienio skaidymas: LT jei BENT VIENAS atlikėjas iš Lietuvos
+    // arba apskritai nėra užsienio atlikėjo (be info → LT, kad juosta nebūtų tuščia).
+    const evMap = (e: any) => ({ id: e.id, slug: e.slug, title: e.title, date: e.start_date, venue: e.venue_name, image: e.cover_image_url })
+    const isLtEvent = (e: any) => {
+      const arts = (e.event_artists || []).map((ea: any) => Array.isArray(ea.artists) ? ea.artists[0] : ea.artists).filter(Boolean)
+      const hasLt = arts.some((a: any) => a?.country === 'Lietuva')
+      const hasForeign = arts.some((a: any) => a?.country && a.country !== 'Lietuva')
+      return hasLt || !hasForeign
+    }
+
     const payload = {
       artistsLt: (artistsLtRes.data || []).map((a: any) => ({
         id: a.id,
@@ -176,14 +186,9 @@ export async function GET() {
         artist: t.artists?.name || '',
         artistSlug: t.artists?.slug || '',
       })),
-      events: (eventsRes.data || []).map((e: any) => ({
-        id: e.id,
-        slug: e.slug,
-        title: e.title,
-        date: e.start_date,
-        venue: e.venue_name,
-        image: e.cover_image_url,
-      })),
+      events: (eventsRes.data || []).slice(0, 8).map(evMap),
+      eventsLt: (eventsRes.data || []).filter(isLtEvent).slice(0, 10).map(evMap),
+      eventsWorld: (eventsRes.data || []).filter((e: any) => !isLtEvent(e)).slice(0, 10).map(evMap),
       news: (newsRes.data || []).map((n: any) => ({
         id: n.id,
         slug: n.slug,

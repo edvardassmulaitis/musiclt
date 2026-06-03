@@ -36,6 +36,14 @@ function getArtist(ea: EventArtist): Artist | undefined {
   return Array.isArray(ea.artists) ? ea.artists[0] : ea.artists
 }
 
+/* Atlikėjai kortelei: pirma headlineriai; jei nepažymėtų — visi event artistai. */
+function eventArtists(ev: Event): Artist[] {
+  const eas = ev.event_artists || []
+  const heads = eas.filter(e => e.is_headliner)
+  const use = heads.length ? heads : eas
+  return use.map(getArtist).filter(Boolean) as Artist[]
+}
+
 const MONTHS_SHORT = ['saus', 'vas', 'kov', 'bal', 'geg', 'birž', 'liep', 'rugp', 'rugs', 'spal', 'lapkr', 'gruod']
 const MONTHS_FULL = ['Sausis', 'Vasaris', 'Kovas', 'Balandis', 'Gegužė', 'Birželis', 'Liepa', 'Rugpjūtis', 'Rugsėjis', 'Spalis', 'Lapkritis', 'Gruodis']
 const MONTHS_GEN = ['Sausio', 'Vasario', 'Kovo', 'Balandžio', 'Gegužės', 'Birželio', 'Liepos', 'Rugpjūčio', 'Rugsėjo', 'Spalio', 'Lapkričio', 'Gruodžio']
@@ -74,6 +82,7 @@ const Icon = {
   euro: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 7a6 6 0 1 0 0 10M4 11h8M4 14h7"/></svg>,
   note: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
   tent: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 21 14 3M21 21 10.5 3M12 13.5 21 21M12 13.5 3 21M2 21h20"/></svg>,
+  plane: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>,
   chevron: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>,
   arrowL: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>,
   arrowR: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>,
@@ -191,13 +200,13 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
   const [price, setPrice] = useState<string | null>(null)
   const [styles, setStyles] = useState<string[]>([])
   const [festOnly, setFestOnly] = useState(false)
+  const [worthTrip, setWorthTrip] = useState(false)
   const [archive, setArchive] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
   const [citySearch, setCitySearch] = useState('')
 
   const today = startOfDay(new Date())
 
-  // Aktyvūs = būsena upcoming/ongoing IR data nuo šiandien. Archyvas = visa kita.
   const active = useMemo(() => events.filter(e =>
     (e.status === 'upcoming' || e.status === 'ongoing') &&
     startOfDay(new Date(e.end_date || e.start_date)).getTime() >= today.getTime()
@@ -212,6 +221,8 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
   }, [base])
 
   const filtered = useMemo(() => {
+    // „Verta kelionės" — feature dar neturi duomenų (atrinkti turai užsienyje).
+    if (worthTrip) return []
     return base.filter(e => {
       if (city !== 'Visi' && e.city !== city) return false
       if (from) {
@@ -228,9 +239,9 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
     }).sort((a, b) => archive
       ? new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
       : new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
-  }, [base, city, from, to, ltOnly, price, styles, festOnly, archive])
+  }, [base, city, from, to, ltOnly, price, styles, festOnly, worthTrip, archive])
 
-  const anyFilter = city !== 'Visi' || !!from || ltOnly || !!price || styles.length > 0 || festOnly
+  const anyFilter = city !== 'Visi' || !!from || ltOnly || !!price || styles.length > 0 || festOnly || worthTrip
 
   const groups = useMemo(() => {
     const map = new Map<string, { label: string; items: Event[] }>()
@@ -248,7 +259,7 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
 
   function resetAll() {
     setCity('Visi'); setFrom(null); setTo(null); setPeriodLabel('Visos datos')
-    setLtOnly(false); setPrice(null); setStyles([]); setFestOnly(false)
+    setLtOnly(false); setPrice(null); setStyles([]); setFestOnly(false); setWorthTrip(false)
   }
   function exitArchive() { setArchive(false); resetAll() }
 
@@ -342,9 +353,10 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
 
         <span className="ev-divider" />
 
-        {/* LT atlikėjai + Festivaliai (toggle'ai, gale) */}
+        {/* LT atlikėjai + Festivaliai + Verta kelionės (toggle'ai, gale) */}
         <button className={`ev-chip${ltOnly ? ' on' : ''}`} onClick={() => setLtOnly(!ltOnly)}><span>🇱🇹</span><span>LT atlikėjai</span></button>
         <button className={`ev-chip${festOnly ? ' on' : ''}`} onClick={() => setFestOnly(!festOnly)}>{Icon.tent}<span>Festivaliai</span></button>
+        <button className={`ev-chip${worthTrip ? ' on' : ''}`} onClick={() => setWorthTrip(!worthTrip)}>{Icon.plane}<span>Verta kelionės</span></button>
 
         {anyFilter && <button className="ev-reset" onClick={resetAll}>Išvalyti ✕</button>}
         <span className="ev-count">{filtered.length}</span>
@@ -353,19 +365,28 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
       {/* ── Archyvo juosta (viršuje — lengva išjungti) ── */}
       {archive && (
         <div className="ev-arch-banner">
-          <span>🗄 Žiūrite praėjusių renginių archyvą</span>
+          <span>Žiūrite praėjusių renginių archyvą</span>
           <button type="button" onClick={exitArchive}>← Grįžti į artimiausius</button>
         </div>
       )}
 
-      {/* ── Tinklelis ── */}
+      {/* ── Tinklelis / tuščia būsena ── */}
       {filtered.length === 0 ? (
-        <div className="ev-empty">
-          <p className="ev-empty-ic">🎫</p>
-          <h3>Renginių nerasta</h3>
-          <p>Pabandyk pakeisti datą, miestą ar kitus filtrus.</p>
-          {anyFilter && <button className="ev-mini on" style={{ marginTop: 14 }} onClick={resetAll}>Išvalyti filtrus</button>}
-        </div>
+        worthTrip ? (
+          <div className="ev-empty">
+            <p className="ev-empty-ic">{Icon.plane}</p>
+            <h3>„Verta kelionės" — greitai</h3>
+            <p>Čia atrinksime top atlikėjų turų koncertus užsienyje, į kuriuos patogu nuskristi pigiai arba nuvažiuoti iš Lietuvos.</p>
+            <button className="ev-mini on" style={{ marginTop: 14 }} onClick={resetAll}>Rodyti visus koncertus</button>
+          </div>
+        ) : (
+          <div className="ev-empty">
+            <p className="ev-empty-ic">🎫</p>
+            <h3>Renginių nerasta</h3>
+            <p>Pabandyk pakeisti datą, miestą ar kitus filtrus.</p>
+            {anyFilter && <button className="ev-mini on" style={{ marginTop: 14 }} onClick={resetAll}>Išvalyti filtrus</button>}
+          </div>
+        )
       ) : (
         <div className="ev-months">
           {groups.map(grp => (
@@ -379,10 +400,10 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
         </div>
       )}
 
-      {/* ── Archyvo įėjimas (apačioje) ── */}
+      {/* ── Archyvo įėjimas (apačioje, be emoji/count) ── */}
       {!archive && past.length > 0 && (
         <button className="ev-archive-toggle" onClick={() => { setArchive(true); resetAll(); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
-          🗄 Praėję renginiai ({past.length}) →
+          Praėję renginiai →
         </button>
       )}
     </div>
@@ -392,12 +413,15 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
 /* ── Renginio kortelė: pilnas plakatas (blur fill), info po juo ── */
 function EventCard({ ev }: { ev: Event }) {
   const isCancelled = ev.status === 'cancelled'
-  const headliners = (ev.event_artists?.filter(ea => ea.is_headliner).map(getArtist).filter(Boolean) as Artist[]) || []
-  const main = headliners[0]
-  const artistLine = headliners.map(a => a.name).join(', ')
+  const artists = eventArtists(ev)
+  const main = artists[0]
+  const artistLine = artists.map(a => a.name).join(', ')
   const venueLine = [ev.venue_name, ev.city].filter(Boolean).join(DOT)
   const whenLine = fmtWhen(ev.start_date)
-  const noimgText = artistLine || ev.title
+  // Be nuotraukos: „Atlikėjas @ Miestas" (ne tikslus pavadinimas).
+  const noimgText = artistLine
+    ? `${artistLine}${ev.city ? ` @ ${ev.city}` : ''}`
+    : ev.title
 
   return (
     <Link href={`/renginiai/${ev.slug}`} className="ev-card">
@@ -511,7 +535,6 @@ const EV_CSS = `
 .ev-card:hover { transform:translateY(-3px); border-color:rgba(249,115,22,0.4); box-shadow:0 12px 28px rgba(0,0,0,0.22); }
 
 .ev-card-img { position:relative; aspect-ratio:4/5; overflow:hidden; background:var(--bg-elevated); }
-/* Blur fill — plakatas matosi PILNAS (contain), tarpai užpildomi išplėstu blur'u */
 .ev-card-bg { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(22px) brightness(.62); transform:scale(1.25); }
 .ev-card-fg { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:1; transition:transform .45s ease; }
 .ev-card:hover .ev-card-fg { transform:scale(1.04); }
@@ -547,7 +570,8 @@ const EV_CSS = `
 
 /* Empty */
 .ev-empty { max-width:520px; margin:60px auto; text-align:center; }
-.ev-empty-ic { font-size:46px; opacity:.5; }
+.ev-empty-ic { font-size:46px; opacity:.5; display:flex; justify-content:center; }
+.ev-empty-ic svg { width:46px; height:46px; }
 .ev-empty h3 { font-family:'Outfit',sans-serif; font-weight:800; font-size:19px; margin:8px 0 4px; color:var(--text-primary); }
 .ev-empty p { color:var(--text-muted); font-size:13px; }
 `

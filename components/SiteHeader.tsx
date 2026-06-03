@@ -49,6 +49,8 @@ type NavPreview = {
   albums:       { id: number; slug: string; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   tracks:       { id: number; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   events:       { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
+  eventsLt?:    { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
+  eventsWorld?: { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
   news:         { id: number; slug: string; title: string; image: string | null; date: string }[]
   /** name → cover_image_url map (admin'as nustato per /admin/genres) */
   genres?:      Record<string, string | null>
@@ -102,6 +104,8 @@ const I = {
   guitar: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18 6.5 20.5a2.12 2.12 0 0 1-3-3L6 15"/><path d="m9 9 5 5L15 9 9 9z"/><path d="m22 2-9 9"/><path d="M9 9c-.5-1.5-2-2.5-3.5-2-1.5.5-2.5 2-2 3.5L4 12"/></svg>,
   festival: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21V12h6v9"/><circle cx="12" cy="9" r="1.5"/></svg>,
   gallery: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>,
+  plane: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>,
+  video: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="m22 8-6 4 6 4V8z"/></svg>,
   users: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
 }
 
@@ -128,7 +132,7 @@ const NAV: NavItem[] = [
     key: 'renginiai',
     label: 'Koncertai',
     href: '/koncertai',
-    match: ['/koncertai', '/renginiai', '/festivaliai', '/galerija'],
+    match: ['/koncertai', '/renginiai', '/festivaliai', '/galerija', '/verta-keliones', '/koncertu-irasai'],
     desc: 'Koncertai, turai, festivaliai',
     accent: '#3b82f6',
     icon: I.calendar,
@@ -545,67 +549,58 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
 }
 
 function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
-  const events = data?.events.slice(0, 4) || []
-  const placeholderTitles = ['Koncertas', 'Vakarėlis', 'Festivalis', 'Renginys']
+  // Layout kaip Muzika/Topai: LT + užsienio eilutės (horizontalūs strip'ai),
+  // žemiau — kitos sekcijos (festivaliai, verta kelionės, foto reportažai,
+  // koncertų įrašai). Edvardo prašymu 2026-06-03.
+  const eventsLt = data?.eventsLt || []
+  const eventsWorld = data?.eventsWorld || []
 
-  // Du dideli „spotlight" kortelės — festivaliams ir foto galerijai. Edvardo
-  // prašymu 2026-06-03: nav meniu praplėstas, festivaliams ir foto galerijoms
-  // skirta atskira erdvė (ne tik mažos nuorodos apačioje).
-  const spotlights: { href: string; title: string; desc: string; rgb: string; icon: React.ReactNode }[] = [
-    {
-      href: '/festivaliai', title: 'Festivaliai', desc: 'Granatos, Karklė, Devilstone — line-up\'ai ir datos', rgb: '#06b6d4',
-      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 21 14 3M21 21 10.5 3M12 13.5 21 21M12 13.5 3 21M2 21h20"/></svg>,
-    },
-    {
-      href: '/galerija', title: 'Foto galerija', desc: 'Koncertų ir festivalių akimirkos, užkulisiai', rgb: '#ec4899',
-      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>,
-    },
+  const renderRow = (list: NonNullable<NavPreview['eventsLt']>, kind: 'lt' | 'world') => (
+    <div className="sh-strip-wrap">
+      <RowStripe kind={kind} />
+      <div className="sh-strip">
+        {(list.length > 0 ? list : Array(5).fill(null)).map((e, i) => (
+          <Link key={e?.id || `${kind}-${i}`} href={e ? `/renginiai/${e.slug}` : '/koncertai'} className="sh-mini sh-mini-xl">
+            <ImageBox src={e?.image} accent={accent} glyph={I.calendar} className="sh-mini-img" />
+            <span className="sh-mini-title sh-mini-title-2">{e?.title || <span style={{ opacity: 0.45 }}>Koncertas</span>}</span>
+          </Link>
+        ))}
+      </div>
+      <Link href="/koncertai" className="sh-expand-btn" aria-label="Visi koncertai" title="Visi koncertai">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></svg>
+      </Link>
+    </div>
+  )
+
+  const tiles: { href: string; title: string; desc: string; rgb: string; icon: React.ReactNode }[] = [
+    { href: '/festivaliai',    title: 'Festivaliai',     desc: 'Vasaros festivaliai ir line-up\'ai',      rgb: '#06b6d4', icon: I.festival },
+    { href: '/verta-keliones', title: 'Verta kelionės',  desc: 'Koncertai užsienyje, pasiekiami iš LT',   rgb: '#10b981', icon: I.plane },
+    { href: '/galerija',       title: 'Foto reportažai', desc: 'Koncertų ir festivalių nuotraukos',        rgb: '#ec4899', icon: I.gallery },
+    { href: '/koncertu-irasai',title: 'Koncertų įrašai', desc: 'Live pasirodymų vaizdo įrašai',           rgb: '#8b5cf6', icon: I.video },
   ]
 
   return (
-    <div className="sh-panel" style={{ width: 760 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 18 }}>
-        {/* Kairė: artimiausi renginiai */}
-        <div>
-          <div className="sh-panel-section">
-            <span className="sh-panel-section-title">Artimiausi koncertai</span>
-            <Link href="/koncertai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {(events.length > 0 ? events : Array(4).fill(null)).map((e, i) => (
-              <Link
-                key={e?.id || i}
-                href={e ? `/renginiai/${e.slug}` : '/koncertai'}
-                className="sh-event-card"
-              >
-                <ImageBox
-                  src={e?.image}
-                  accent={accent}
-                  glyph={I.calendar}
-                  className="sh-event-img"
-                >
-                  {e?.date && <span className="sh-event-date">{formatEventDate(e.date)}</span>}
-                </ImageBox>
-                <span className="sh-event-info">
-                  <span className="sh-event-title">
-                    {e?.title || <span style={{ opacity: 0.5 }}>{placeholderTitles[i] || 'Renginys'}</span>}
-                  </span>
-                  {e?.venue && <span className="sh-event-venue">{e.venue}</span>}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
+    <div className="sh-panel" style={{ width: 880 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>
+          <span className="sh-trending-glyph">{I.calendar}</span>
+          Artimiausi koncertai
+        </span>
+        <Link href="/koncertai" className="sh-more-link">Visi koncertai →</Link>
+      </div>
 
-        {/* Dešinė: festivaliai + foto galerija (spotlight) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <span className="sh-panel-section-title" style={{ marginBottom: 2 }}>Atrask daugiau</span>
-          {spotlights.map(s => (
-            <Link key={s.href} href={s.href} className="sh-spotlight" style={{ ['--it-rgb' as any]: hexToRgb(s.rgb) }}>
-              <span className="sh-spotlight-icon">{s.icon}</span>
+      {renderRow(eventsLt, 'lt')}
+      <div style={{ height: 10 }} />
+      {renderRow(eventsWorld, 'world')}
+
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {tiles.map(t => (
+            <Link key={t.href} href={t.href} className="sh-spotlight" style={{ ['--it-rgb' as any]: hexToRgb(t.rgb) }}>
+              <span className="sh-spotlight-icon">{t.icon}</span>
               <span className="sh-spotlight-body">
-                <span className="sh-spotlight-title">{s.title} <ArrowRight size={12}/></span>
-                <span className="sh-spotlight-desc">{s.desc}</span>
+                <span className="sh-spotlight-title">{t.title} <ArrowRight size={12}/></span>
+                <span className="sh-spotlight-desc">{t.desc}</span>
               </span>
             </Link>
           ))}
@@ -1019,39 +1014,46 @@ function MobileExpansion({
     )
   }
 
-
   if (navKey === 'renginiai') {
-    const events = data?.events || []
-    const placeholders = ['Koncertas', 'Pasirodymas', 'Festivalis', 'Renginys']
+    const eventsLt = data?.eventsLt || []
+    const eventsWorld = data?.eventsWorld || []
+    const renderStrip = (list: NonNullable<NavPreview['eventsLt']>, kind: 'lt' | 'world') => (
+      <div className="sh-strip-wrap" style={{ marginBottom: 10 }}>
+        <RowStripe kind={kind} />
+        <div className="sh-strip">
+          {(list.length > 0 ? list.slice(0, 10) : Array(5).fill(null)).map((e, i) => (
+            <Link key={e?.id || `${kind}-${i}`} href={e ? `/renginiai/${e.slug}` : '/koncertai'} onClick={onLink} className="sh-mini sh-mini-md">
+              <ImageBox src={e?.image} accent={accent} glyph={I.calendar} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{e?.title || 'Koncertas'}</span>
+            </Link>
+          ))}
+        </div>
+        <Link href="/koncertai" onClick={onLink} className="sh-expand-btn" aria-label="Visi koncertai" title="Visi koncertai">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></svg>
+        </Link>
+      </div>
+    )
+    const tiles: { href: string; label: string; rgb: string; icon: React.ReactNode }[] = [
+      { href: '/festivaliai',     label: 'Festivaliai',     rgb: '#06b6d4', icon: I.festival },
+      { href: '/verta-keliones',  label: 'Verta kelionės',  rgb: '#10b981', icon: I.plane },
+      { href: '/galerija',        label: 'Foto reportažai', rgb: '#ec4899', icon: I.gallery },
+      { href: '/koncertu-irasai', label: 'Koncertų įrašai', rgb: '#8b5cf6', icon: I.video },
+    ]
     return (
       <div className="sh-mexp">
         <div className="sh-mexp-section">
           <span className="sh-mexp-title">Artimiausi koncertai</span>
           <Link href="/koncertai" onClick={onLink} className="sh-mexp-more">Visi <ArrowRight size={10}/></Link>
         </div>
-        {/* Turtingos kortelės su plakatu, data ir vieta (vietoj kuklaus strip'o) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {(events.length > 0 ? events.slice(0, 4) : Array(4).fill(null)).map((e, i) => (
-            <Link key={e?.id || i} href={e ? `/renginiai/${e.slug}` : '/koncertai'} onClick={onLink} className="sh-event-card">
-              <ImageBox src={e?.image} accent={accent} glyph={I.calendar} className="sh-event-img">
-                {e?.date && <span className="sh-event-date">{formatEventDate(e.date)}</span>}
-              </ImageBox>
-              <span className="sh-event-info">
-                <span className="sh-event-title">{e?.title || <span style={{ opacity: 0.5 }}>{placeholders[i] || 'Koncertas'}</span>}</span>
-                {e?.venue && <span className="sh-event-venue">{e.venue}</span>}
-              </span>
+        {renderStrip(eventsLt, 'lt')}
+        {renderStrip(eventsWorld, 'world')}
+        <div className="sh-mexp-grid" style={{ marginTop: 10 }}>
+          {tiles.map(t => (
+            <Link key={t.href} href={t.href} onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb(t.rgb) }}>
+              <span className="sh-mexp-tile-icon">{t.icon}</span>
+              <span className="sh-mexp-tile-label">{t.label}</span>
             </Link>
           ))}
-        </div>
-        <div className="sh-mexp-grid" style={{ marginTop: 10 }}>
-          <Link href="/festivaliai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#06b6d4') }}>
-            <span className="sh-mexp-tile-icon">{I.festival}</span>
-            <span className="sh-mexp-tile-label">Festivaliai</span>
-          </Link>
-          <Link href="/galerija" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ec4899') }}>
-            <span className="sh-mexp-tile-icon">{I.gallery}</span>
-            <span className="sh-mexp-tile-label">Foto galerija</span>
-          </Link>
         </div>
       </div>
     )
@@ -2081,6 +2083,7 @@ export function SiteHeader() {
           background: rgba(var(--it-rgb), 0.9);
           color: #fff;
         }
+        .sh-spotlight-icon svg { width: 20px; height: 20px; }
         .sh-spotlight-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
         .sh-spotlight-title {
           display: flex; align-items: center; gap: 5px;
