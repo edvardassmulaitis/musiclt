@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { useSite } from '@/components/SiteContext'
 
 /* ────────────────────────────────────────────────────────────────
  * Tipai
@@ -46,7 +45,6 @@ function ymKey(d: Date) { return `${d.getFullYear()}-${String(d.getMonth()).padS
 
 function fmtDay(d: string) { return new Date(d).getDate().toString().padStart(2, '0') }
 function fmtMonth(d: string) { return MONTHS_SHORT[new Date(d).getMonth()].toUpperCase() }
-function fmtWeekday(d: string) { return new Date(d).toLocaleDateString('lt-LT', { weekday: 'short' }).replace('.', '') }
 function fmtShort(d: Date) { return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}` }
 function fmtTime(d: string) {
   const dt = new Date(d)
@@ -61,18 +59,10 @@ function formatPrice(from: number | null, to: number | null) {
   return `${from || to} €`
 }
 
-/* Renginio LT/užsienio klasifikacija pagal atlikėjų šalis. */
-function eventCountries(ev: Event): { hasLt: boolean; hasForeign: boolean } {
-  let hasLt = false, hasForeign = false
-  for (const ea of ev.event_artists || []) {
-    const c = getArtist(ea)?.country
-    if (c === 'Lietuva') hasLt = true
-    else if (c) hasForeign = true
-  }
-  return { hasLt, hasForeign }
+function hasLtArtist(ev: Event): boolean {
+  return (ev.event_artists || []).some(ea => getArtist(ea)?.country === 'Lietuva')
 }
 
-/* Kainos kibiras pagal pradinę kainą. */
 function priceBucket(ev: Event): 'free' | 'lt30' | 'mid' | 'gt60' | 'unknown' {
   const p = ev.price_from
   if (p === 0) return 'free'
@@ -83,33 +73,30 @@ function priceBucket(ev: Event): 'free' | 'lt30' | 'mid' | 'gt60' | 'unknown' {
 }
 
 /* ────────────────────────────────────────────────────────────────
- * Mažos ikonos
+ * Ikonos
  * ──────────────────────────────────────────────────────────────── */
 const Icon = {
-  calendar: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
-  pin: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
-  globe: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/></svg>,
-  euro: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 7a6 6 0 1 0 0 10M4 11h8M4 14h7"/></svg>,
-  note: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
-  tent: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 21 14 3M21 21 10.5 3M12 13.5 21 21M12 13.5 3 21M2 21h20"/></svg>,
-  chevron: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>,
-  dots: <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>,
-  x: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>,
+  calendar: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+  euro: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 7a6 6 0 1 0 0 10M4 11h8M4 14h7"/></svg>,
+  note: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
+  tent: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 21 14 3M21 21 10.5 3M12 13.5 21 21M12 13.5 3 21M2 21h20"/></svg>,
+  chevron: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>,
   arrowL: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>,
   arrowR: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>,
 }
 
 /* ────────────────────────────────────────────────────────────────
- * Popover — trigeris + absoliutus skydelis, užsidaro paspaudus už ribų
+ * Popover — kompaktiškas dropdown su outside-click
  * ──────────────────────────────────────────────────────────────── */
-function Popover({ id, openId, setOpenId, trigger, children, align = 'left', width }: {
+function Popover({ id, openId, setOpenId, label, icon, on, width, children }: {
   id: string
   openId: string | null
   setOpenId: (v: string | null) => void
-  trigger: (open: boolean) => React.ReactNode
-  children: React.ReactNode
-  align?: 'left' | 'right'
+  label: string
+  icon?: React.ReactNode
+  on: boolean
   width?: number
+  children: React.ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const open = openId === id
@@ -123,26 +110,11 @@ function Popover({ id, openId, setOpenId, trigger, children, align = 'left', wid
   }, [open, setOpenId])
 
   return (
-    <div ref={ref} className="relative" style={{ display: 'inline-flex' }}>
-      <button onClick={() => setOpenId(open ? null : id)} type="button">{trigger(open)}</button>
-      {open && (
-        <div
-          className="ev-pop"
-          style={{
-            position: 'absolute', top: 'calc(100% + 8px)', zIndex: 50,
-            left: align === 'left' ? 0 : undefined,
-            right: align === 'right' ? 0 : undefined,
-            width: width ?? 'auto',
-            background: 'var(--modal-bg, var(--bg-surface))',
-            border: '1px solid var(--modal-border, var(--input-border))',
-            borderRadius: 16,
-            boxShadow: '0 12px 40px rgba(0,0,0,0.28)',
-            padding: 14,
-          }}
-        >
-          {children}
-        </div>
-      )}
+    <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
+      <button type="button" onClick={() => setOpenId(open ? null : id)} className={`ev-chip${on ? ' on' : ''}`}>
+        {icon}<span>{label}</span><span style={{ opacity: 0.7 }}>{Icon.chevron}</span>
+      </button>
+      {open && <div className="ev-pop" style={{ width: width ?? 'auto' }}>{children}</div>}
     </div>
   )
 }
@@ -156,7 +128,6 @@ function RangeCalendar({ from, to, onPick }: { from: Date | null; to: Date | nul
   const lead = (new Date(y, m, 1).getDay() + 6) % 7
   const daysInMonth = new Date(y, m + 1, 0).getDate()
   const today = startOfDay(new Date())
-
   const cells: (number | null)[] = [...Array(lead).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
 
   function pick(day: number) {
@@ -165,7 +136,6 @@ function RangeCalendar({ from, to, onPick }: { from: Date | null; to: Date | nul
     else if (d < from) onPick(d, from)
     else onPick(from, d)
   }
-
   function inRange(day: number) {
     const d = startOfDay(new Date(y, m, day)).getTime()
     if (from && to) return d >= from.getTime() && d <= to.getTime()
@@ -178,33 +148,27 @@ function RangeCalendar({ from, to, onPick }: { from: Date | null; to: Date | nul
   }
 
   return (
-    <div style={{ width: 260 }}>
+    <div style={{ width: 250 }}>
       <div className="flex items-center justify-between mb-2">
-        <button type="button" onClick={() => setView(new Date(y, m - 1, 1))}
-          className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-secondary)' }}>{Icon.arrowL}</button>
-        <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{MONTHS_FULL[m]} {y}</span>
-        <button type="button" onClick={() => setView(new Date(y, m + 1, 1))}
-          className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-secondary)' }}>{Icon.arrowR}</button>
+        <button type="button" onClick={() => setView(new Date(y, m - 1, 1))} className="ev-cal-nav">{Icon.arrowL}</button>
+        <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{MONTHS_FULL[m]} {y}</span>
+        <button type="button" onClick={() => setView(new Date(y, m + 1, 1))} className="ev-cal-nav">{Icon.arrowR}</button>
       </div>
       <div className="grid grid-cols-7 gap-0.5 mb-1">
-        {WEEKDAYS.map(w => <div key={w} className="text-center text-[10px] font-bold py-1" style={{ color: 'var(--text-muted)' }}>{w}</div>)}
+        {WEEKDAYS.map(w => <div key={w} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, padding: '3px 0', color: 'var(--text-faint)' }}>{w}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-0.5">
         {cells.map((day, i) => {
           if (day === null) return <div key={i} />
-          const sel = inRange(day)
-          const end = isEnd(day)
+          const sel = inRange(day), end = isEnd(day)
           const isToday = startOfDay(new Date(y, m, day)).getTime() === today.getTime()
           return (
-            <button key={i} type="button" onClick={() => pick(day)}
-              className="text-xs font-semibold rounded-lg transition-colors"
+            <button key={i} type="button" onClick={() => pick(day)} className="ev-cal-day"
               style={{
-                height: 32,
-                background: end ? 'var(--accent-blue, #1d4ed8)' : sel ? 'rgba(29,78,216,0.16)' : 'transparent',
-                color: end ? '#fff' : sel ? 'var(--accent-blue, #2563eb)' : 'var(--text-secondary)',
-                border: isToday && !sel ? '1px solid var(--accent-blue, #1d4ed8)' : '1px solid transparent',
-              }}
-            >{day}</button>
+                background: end ? 'var(--accent-orange)' : sel ? 'rgba(249,115,22,0.15)' : 'transparent',
+                color: end ? '#fff' : sel ? 'var(--accent-orange)' : 'var(--text-secondary)',
+                border: isToday && !sel ? '1px solid var(--accent-orange)' : '1px solid transparent',
+              }}>{day}</button>
           )
         })}
       </div>
@@ -222,19 +186,14 @@ const PRICE_OPTS = [
   { k: 'gt60', l: '60 € ir daugiau' },
 ] as const
 
-export default function EventsClient({ events, featured, cities }: {
-  events: Event[]
-  featured: Event[]
-  cities: string[]
-}) {
-  const { dk } = useSite()
+const PRIMARY_CITIES = ['Vilnius', 'Kaunas']
 
-  // ── Filtrų būsena ──
+export default function EventsClient({ events, cities }: { events: Event[]; cities: string[] }) {
   const [city, setCity] = useState('Visi')
   const [from, setFrom] = useState<Date | null>(null)
   const [to, setTo] = useState<Date | null>(null)
   const [periodLabel, setPeriodLabel] = useState('Visos datos')
-  const [scope, setScope] = useState<'all' | 'lt' | 'world'>('all')
+  const [ltOnly, setLtOnly] = useState(false)
   const [price, setPrice] = useState<string | null>(null)
   const [styles, setStyles] = useState<string[]>([])
   const [festOnly, setFestOnly] = useState(false)
@@ -242,19 +201,23 @@ export default function EventsClient({ events, featured, cities }: {
   const [openId, setOpenId] = useState<string | null>(null)
   const [citySearch, setCitySearch] = useState('')
 
-  // ── Aktyvūs vs archyvas ──
-  const active = useMemo(() => events.filter(e => e.status === 'upcoming' || e.status === 'ongoing'), [events])
-  const past = useMemo(() => events.filter(e => e.status === 'past' || e.status === 'cancelled'), [events])
+  const today = startOfDay(new Date())
+
+  // Aktyvūs = būsena upcoming/ongoing IR data nuo šiandien (kad nerodytų ką tik
+  // praėjusių, dar nepervadintų į „past"). Archyvas = visa kita.
+  const active = useMemo(() => events.filter(e =>
+    (e.status === 'upcoming' || e.status === 'ongoing') &&
+    startOfDay(new Date(e.end_date || e.start_date)).getTime() >= today.getTime()
+  ), [events, today])
+  const past = useMemo(() => events.filter(e => !active.includes(e)), [events, active])
   const base = archive ? past : active
 
-  // ── Galimi stiliai (iš įkrautų renginių) ──
   const availStyles = useMemo(() => {
     const s = new Set<string>()
-    for (const e of events) for (const g of e.genres || []) s.add(g)
+    for (const e of base) for (const g of e.genres || []) s.add(g)
     return Array.from(s).sort((a, b) => a.localeCompare(b, 'lt'))
-  }, [events])
+  }, [base])
 
-  // ── Filtravimas ──
   const filtered = useMemo(() => {
     return base.filter(e => {
       if (city !== 'Visi' && e.city !== city) return false
@@ -264,11 +227,7 @@ export default function EventsClient({ events, featured, cities }: {
         const lo = from.getTime(), hi = (to || from).getTime()
         if (ed < lo || sd > hi) return false
       }
-      if (scope !== 'all') {
-        const { hasLt, hasForeign } = eventCountries(e)
-        if (scope === 'lt' && !hasLt) return false
-        if (scope === 'world' && !hasForeign) return false
-      }
+      if (ltOnly && !hasLtArtist(e)) return false
       if (price && priceBucket(e) !== price) return false
       if (styles.length && !(e.genres || []).some(g => styles.includes(g))) return false
       if (festOnly && !e.is_festival) return false
@@ -276,12 +235,10 @@ export default function EventsClient({ events, featured, cities }: {
     }).sort((a, b) => archive
       ? new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
       : new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
-  }, [base, city, from, to, scope, price, styles, festOnly, archive])
+  }, [base, city, from, to, ltOnly, price, styles, festOnly, archive])
 
-  const anyFilter = city !== 'Visi' || !!from || scope !== 'all' || !!price || styles.length > 0 || festOnly
-  const showFeatured = !archive && !anyFilter && featured.length > 0
+  const anyFilter = city !== 'Visi' || !!from || ltOnly || !!price || styles.length > 0 || festOnly
 
-  // ── Mėnesių grupavimas ──
   const groups = useMemo(() => {
     const map = new Map<string, { label: string; items: Event[] }>()
     for (const e of filtered) {
@@ -293,319 +250,304 @@ export default function EventsClient({ events, featured, cities }: {
     return Array.from(map.values())
   }, [filtered])
 
-  // ── Miestų pills ──
-  const TOP_N = 6
-  const topCities = cities.slice(0, TOP_N)
-  const showSelectedExtra = city !== 'Visi' && !topCities.includes(city)
+  const moreCities = cities.filter(c => !PRIMARY_CITIES.includes(c))
+  const selectedInMore = city !== 'Visi' && !PRIMARY_CITIES.includes(city)
 
   function resetAll() {
     setCity('Visi'); setFrom(null); setTo(null); setPeriodLabel('Visos datos')
-    setScope('all'); setPrice(null); setStyles([]); setFestOnly(false)
-  }
-  function applyPreset(label: string, f: Date | null, t: Date | null) {
-    setPeriodLabel(label); setFrom(f); setTo(t); setOpenId(null)
+    setLtOnly(false); setPrice(null); setStyles([]); setFestOnly(false)
   }
 
-  const now = startOfDay(new Date())
+  const now = today
   const endOfMonth = startOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0))
   const weekend = (() => {
-    const d = new Date(now); const day = (d.getDay() + 6) % 7 // Mon=0
+    const d = new Date(now); const day = (d.getDay() + 6) % 7
     const sat = startOfDay(new Date(d.getTime() + ((5 - day + 7) % 7) * 86400000))
-    const sun = startOfDay(new Date(sat.getTime() + 86400000))
-    return { sat, sun }
+    return { sat, sun: startOfDay(new Date(sat.getTime() + 86400000)) }
   })()
 
-  // ── Stiliai (theme) ──
-  const pillBase = 'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold transition-all whitespace-nowrap'
-  const triggerStyle = (on: boolean): React.CSSProperties => on
-    ? { background: 'var(--accent-blue, #1d4ed8)', color: '#fff', border: '1px solid transparent', boxShadow: '0 2px 10px rgba(29,78,216,0.35)' }
-    : { background: 'var(--bg-surface)', color: 'var(--text-secondary)', border: '1px solid var(--input-border, rgba(120,140,170,0.22))' }
-
-  const cardBg = dk
-    ? { background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }
-    : { background: 'var(--bg-surface)', border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }
-
   return (
-    <div className="max-w-[1360px] mx-auto px-4 sm:px-5 lg:px-8 py-7">
+    <div className="ev-wrap">
+      <style>{EV_CSS}</style>
 
-      {/* ── Hero antraštė ── */}
-      <div className="relative overflow-hidden rounded-3xl mb-7 px-6 sm:px-9 py-8 sm:py-10"
-        style={{ background: 'linear-gradient(120deg, rgba(29,78,216,0.20), rgba(249,115,22,0.12) 70%, rgba(29,78,216,0.06))', border: '1px solid rgba(29,78,216,0.18)' }}>
-        <div className="absolute -right-10 -top-10 opacity-[0.10]" style={{ color: 'var(--accent-blue, #1d4ed8)' }}>
-          <svg width="220" height="220" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      {/* ── Slim antraštė ── */}
+      <div className="ev-head">
+        <div>
+          <h1>Renginiai</h1>
+          <p>Koncertai, festivaliai ir muzikos renginiai Lietuvoje</p>
         </div>
-        <p className="text-[11px] font-black uppercase tracking-[0.18em] mb-2" style={{ color: 'var(--accent-orange, #ea6c0a)' }}>Muzikos kalendorius</p>
-        <h1 className="text-3xl sm:text-4xl font-black tracking-tight mb-2" style={{ color: 'var(--text-primary)' }}>Renginiai</h1>
-        <p className="text-sm sm:text-[15px] max-w-xl" style={{ color: 'var(--text-secondary)' }}>
-          Artimiausi koncertai, festivaliai ir muzikos renginiai Lietuvoje — rink pagal datą, miestą, stilių ar kainą.
-        </p>
-        <div className="flex flex-wrap gap-2.5 mt-5">
-          <Link href="/festivaliai" className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold transition-transform hover:scale-[1.03]"
-            style={{ background: 'rgba(6,182,212,0.14)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.3)' }}>{Icon.tent} Festivaliai</Link>
-          <Link href="/galerija" className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold transition-transform hover:scale-[1.03]"
-            style={{ background: 'rgba(236,72,153,0.13)', color: '#ec4899', border: '1px solid rgba(236,72,153,0.3)' }}>📸 Foto galerija</Link>
+        <div className="ev-head-links">
+          <Link href="/festivaliai" className="ev-chip"><span>{Icon.tent}</span><span>Festivaliai</span></Link>
+          <Link href="/galerija" className="ev-chip"><span>📸</span><span>Galerija</span></Link>
         </div>
       </div>
 
-      {/* ── Išskirtiniai ── */}
-      {showFeatured && (
-        <div className="mb-8">
-          <p className="text-[11px] font-black uppercase tracking-[0.12em] mb-3" style={{ color: 'var(--text-muted)' }}>Išskirtiniai renginiai</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {featured.map(ev => (
-              <Link key={ev.id} href={`/renginiai/${ev.slug}`}
-                className="group rounded-2xl overflow-hidden relative transition-transform hover:scale-[1.015]"
-                style={{ aspectRatio: '4/5', background: 'linear-gradient(160deg, rgba(29,78,216,0.18), rgba(249,115,22,0.08))', border: '1px solid rgba(29,78,216,0.18)' }}>
-                {ev.cover_image_url
-                  ? <img src={ev.cover_image_url} alt={ev.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  : <div className="absolute inset-0 flex items-center justify-center text-5xl" style={{ color: 'rgba(255,255,255,0.08)' }}>🎤</div>}
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(transparent 35%, rgba(0,0,0,0.86))' }} />
-                <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-500 text-white">★</span>
-                  {ev.is_festival && <span className="px-2 py-0.5 rounded-full text-[10px] font-black" style={{ background: 'rgba(6,182,212,0.9)', color: '#fff' }}>Festivalis</span>}
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <p className="text-[11px] font-bold mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>{fmtShort(new Date(ev.start_date))} · {ev.city}</p>
-                  <h3 className="text-[15px] font-black leading-tight line-clamp-2" style={{ color: '#fff' }}>{ev.title}</h3>
-                  <p className="text-xs mt-1 truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>{ev.venue_name}</p>
-                </div>
-              </Link>
+      {/* ── Kompaktiška filtrų juosta (viena eilutė) ── */}
+      <div className="ev-fbar">
+        {/* Laikotarpis */}
+        <Popover id="period" openId={openId} setOpenId={setOpenId} label={periodLabel} icon={Icon.calendar} on={!!from} width={278}>
+          <p className="ev-pop-lbl">Greiti pasirinkimai</p>
+          <div className="ev-pop-presets">
+            {[
+              { l: 'Visos datos', f: null, t: null },
+              { l: 'Šią savaitę', f: now, t: startOfDay(new Date(now.getTime() + 7 * 86400000)) },
+              { l: 'Savaitgalį', f: weekend.sat, t: weekend.sun },
+              { l: 'Šį mėnesį', f: now, t: endOfMonth },
+            ].map(p => (
+              <button key={p.l} type="button" className={`ev-mini${periodLabel === p.l ? ' on' : ''}`}
+                onClick={() => { setPeriodLabel(p.l); setFrom(p.f as any); setTo(p.t as any); setOpenId(null) }}>{p.l}</button>
             ))}
           </div>
-        </div>
-      )}
+          <p className="ev-pop-lbl">Tikslios datos</p>
+          <RangeCalendar from={from} to={to} onPick={(f, t) => {
+            setFrom(f); setTo(t)
+            setPeriodLabel(f ? (t && t.getTime() !== f.getTime() ? `${fmtShort(f)} – ${fmtShort(t)}` : fmtShort(f)) : 'Visos datos')
+          }} />
+          {from && <button type="button" className="ev-pop-clear" onClick={() => { setPeriodLabel('Visos datos'); setFrom(null); setTo(null); setOpenId(null) }}>Išvalyti datas</button>}
+        </Popover>
 
-      {/* ── Filtrų juosta ── */}
-      <div className="rounded-2xl p-3.5 sm:p-4 mb-6" style={cardBg}>
+        <span className="ev-divider" />
 
-        {/* Pagrindinė eilutė: laikotarpis + miestai */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Miestai */}
+        <button className={`ev-chip${city === 'Visi' ? ' on' : ''}`} onClick={() => setCity('Visi')}>Visi miestai</button>
+        {PRIMARY_CITIES.filter(c => cities.includes(c)).map(c => (
+          <button key={c} className={`ev-chip${city === c ? ' on' : ''}`} onClick={() => setCity(c)}>{c}</button>
+        ))}
+        {selectedInMore && <button className="ev-chip on" onClick={() => setCity(city)}>{city}</button>}
+        {moreCities.length > 0 && (
+          <Popover id="cities" openId={openId} setOpenId={setOpenId} label="Daugiau" on={false} width={230}>
+            <input autoFocus value={citySearch} onChange={e => setCitySearch(e.target.value)} placeholder="Ieškoti miesto…" className="ev-search" />
+            <div className="ev-pop-list">
+              {moreCities.filter(c => c.toLowerCase().includes(citySearch.toLowerCase())).map(c => (
+                <button key={c} type="button" className={`ev-opt${city === c ? ' on' : ''}`} onClick={() => { setCity(c); setOpenId(null); setCitySearch('') }}>{c}</button>
+              ))}
+            </div>
+          </Popover>
+        )}
 
-          {/* Laikotarpis (pirmas) */}
-          <Popover id="period" openId={openId} setOpenId={setOpenId} width={288}
-            trigger={(o) => (
-              <span className={pillBase} style={triggerStyle(!!from)}>
-                {Icon.calendar}<span>{periodLabel}</span>{Icon.chevron}
-              </span>
-            )}>
-            <p className="text-[10px] font-black uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>Greiti pasirinkimai</p>
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {[
-                { l: 'Visos datos', f: null, t: null },
-                { l: 'Šią savaitę', f: now, t: startOfDay(new Date(now.getTime() + 7 * 86400000)) },
-                { l: 'Šį savaitgalį', f: weekend.sat, t: weekend.sun },
-                { l: 'Šį mėnesį', f: now, t: endOfMonth },
-              ].map(p => {
-                const on = periodLabel === p.l
+        <span className="ev-divider" />
+
+        {/* LT atlikėjai (toggle) */}
+        <button className={`ev-chip${ltOnly ? ' on' : ''}`} onClick={() => setLtOnly(!ltOnly)}><span>🇱🇹</span><span>LT atlikėjai</span></button>
+
+        {/* Kaina */}
+        <Popover id="price" openId={openId} setOpenId={setOpenId} label={price ? PRICE_OPTS.find(p => p.k === price)!.l : 'Kaina'} icon={Icon.euro} on={!!price} width={180}>
+          <button type="button" className={`ev-opt${!price ? ' on' : ''}`} onClick={() => { setPrice(null); setOpenId(null) }}>Bet kokia</button>
+          {PRICE_OPTS.map(o => (
+            <button key={o.k} type="button" className={`ev-opt${price === o.k ? ' on' : ''}`} onClick={() => { setPrice(o.k); setOpenId(null) }}>{o.l}</button>
+          ))}
+        </Popover>
+
+        {/* Stilius */}
+        {availStyles.length > 0 && (
+          <Popover id="style" openId={openId} setOpenId={setOpenId} label={styles.length ? `Stilius · ${styles.length}` : 'Stilius'} icon={Icon.note} on={styles.length > 0} width={220}>
+            <div className="ev-pop-list">
+              {availStyles.map(g => {
+                const o = styles.includes(g)
                 return (
-                  <button key={p.l} type="button" onClick={() => applyPreset(p.l, p.f as any, p.t as any)}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                    style={on ? { background: 'var(--accent-blue, #1d4ed8)', color: '#fff' } : { background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>
-                    {p.l}
+                  <button key={g} type="button" className={`ev-opt${o ? ' on' : ''}`} onClick={() => setStyles(o ? styles.filter(x => x !== g) : [...styles, g])}>
+                    <span className="ev-check" style={{ background: o ? 'var(--accent-orange)' : 'transparent', borderColor: o ? 'var(--accent-orange)' : 'var(--border-default,rgba(255,255,255,0.2))' }}>{o ? '✓' : ''}</span>{g}
                   </button>
                 )
               })}
             </div>
-            <p className="text-[10px] font-black uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>Tikslios datos</p>
-            <RangeCalendar from={from} to={to} onPick={(f, t) => {
-              setFrom(f); setTo(t)
-              setPeriodLabel(f ? (t && t.getTime() !== f.getTime() ? `${fmtShort(f)} – ${fmtShort(t)}` : fmtShort(f)) : 'Visos datos')
-            }} />
-            {from && (
-              <button type="button" onClick={() => applyPreset('Visos datos', null, null)}
-                className="mt-2 w-full py-2 rounded-lg text-xs font-bold" style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>
-                Išvalyti datas
-              </button>
-            )}
+            {styles.length > 0 && <button type="button" className="ev-pop-clear" onClick={() => setStyles([])}>Išvalyti</button>}
           </Popover>
+        )}
 
-          <div className="w-px h-7 mx-0.5" style={{ background: 'var(--input-border, rgba(120,140,170,0.22))' }} />
+        {/* Festivaliai (toggle) */}
+        <button className={`ev-chip${festOnly ? ' on' : ''}`} onClick={() => setFestOnly(!festOnly)}>{Icon.tent}<span>Festivaliai</span></button>
 
-          {/* Miestai */}
-          <button onClick={() => setCity('Visi')} className={pillBase} style={triggerStyle(city === 'Visi')}>
-            {Icon.pin} Visi
-          </button>
-          {topCities.map(c => (
-            <button key={c} onClick={() => setCity(c)} className={pillBase} style={triggerStyle(city === c)}>{c}</button>
-          ))}
-          {showSelectedExtra && (
-            <button onClick={() => setCity(city)} className={pillBase} style={triggerStyle(true)}>{city}</button>
-          )}
-          {cities.length > TOP_N && (
-            <Popover id="cities" openId={openId} setOpenId={setOpenId} width={240}
-              trigger={() => <span className={pillBase} style={triggerStyle(false)}>{Icon.dots}<span>Daugiau</span></span>}>
-              <input autoFocus value={citySearch} onChange={e => setCitySearch(e.target.value)} placeholder="Ieškoti miesto…"
-                className="w-full h-9 rounded-lg px-3 text-sm mb-2 focus:outline-none"
-                style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--input-border)' }} />
-              <div className="max-h-64 overflow-y-auto flex flex-col gap-0.5">
-                {cities.filter(c => c.toLowerCase().includes(citySearch.toLowerCase())).map(c => (
-                  <button key={c} type="button" onClick={() => { setCity(c); setOpenId(null); setCitySearch('') }}
-                    className="text-left px-3 py-2 rounded-lg text-sm font-semibold transition-colors"
-                    style={{ background: city === c ? 'var(--accent-blue, #1d4ed8)' : 'transparent', color: city === c ? '#fff' : 'var(--text-secondary)' }}>
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </Popover>
-          )}
-        </div>
-
-        {/* Antrinė eilutė: papildomi filtrai + archyvas */}
-        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px dashed var(--input-border, rgba(120,140,170,0.18))' }}>
-
-          {/* LT / Užsienio */}
-          <Popover id="scope" openId={openId} setOpenId={setOpenId} width={190}
-            trigger={() => <span className={pillBase} style={triggerStyle(scope !== 'all')}>{Icon.globe}<span>{scope === 'lt' ? 'LT atlikėjai' : scope === 'world' ? 'Užsienio' : 'Atlikėjai'}</span>{Icon.chevron}</span>}>
-            {[{ k: 'all', l: 'Visi atlikėjai' }, { k: 'lt', l: '🇱🇹 Lietuvos' }, { k: 'world', l: '🌍 Užsienio' }].map(o => (
-              <button key={o.k} type="button" onClick={() => { setScope(o.k as any); setOpenId(null) }}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold mb-0.5 transition-colors"
-                style={{ background: scope === o.k ? 'var(--accent-blue, #1d4ed8)' : 'transparent', color: scope === o.k ? '#fff' : 'var(--text-secondary)' }}>
-                {o.l}
-              </button>
-            ))}
-          </Popover>
-
-          {/* Kaina */}
-          <Popover id="price" openId={openId} setOpenId={setOpenId} width={190}
-            trigger={() => <span className={pillBase} style={triggerStyle(!!price)}>{Icon.euro}<span>{price ? PRICE_OPTS.find(p => p.k === price)?.l : 'Kaina'}</span>{Icon.chevron}</span>}>
-            <button type="button" onClick={() => { setPrice(null); setOpenId(null) }}
-              className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold mb-0.5 transition-colors"
-              style={{ background: !price ? 'var(--accent-blue, #1d4ed8)' : 'transparent', color: !price ? '#fff' : 'var(--text-secondary)' }}>Bet kokia</button>
-            {PRICE_OPTS.map(o => (
-              <button key={o.k} type="button" onClick={() => { setPrice(o.k); setOpenId(null) }}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold mb-0.5 transition-colors"
-                style={{ background: price === o.k ? 'var(--accent-blue, #1d4ed8)' : 'transparent', color: price === o.k ? '#fff' : 'var(--text-secondary)' }}>
-                {o.l}
-              </button>
-            ))}
-          </Popover>
-
-          {/* Stilius */}
-          {availStyles.length > 0 && (
-            <Popover id="style" openId={openId} setOpenId={setOpenId} width={230}
-              trigger={() => <span className={pillBase} style={triggerStyle(styles.length > 0)}>{Icon.note}<span>{styles.length ? `Stilius · ${styles.length}` : 'Stilius'}</span>{Icon.chevron}</span>}>
-              <div className="max-h-64 overflow-y-auto flex flex-col gap-0.5">
-                {availStyles.map(g => {
-                  const on = styles.includes(g)
-                  return (
-                    <button key={g} type="button" onClick={() => setStyles(on ? styles.filter(x => x !== g) : [...styles, g])}
-                      className="flex items-center gap-2 text-left px-3 py-2 rounded-lg text-sm font-semibold transition-colors"
-                      style={{ background: on ? 'rgba(29,78,216,0.14)' : 'transparent', color: on ? 'var(--accent-blue, #2563eb)' : 'var(--text-secondary)' }}>
-                      <span className="w-4 h-4 rounded flex items-center justify-center text-[10px]"
-                        style={{ border: on ? 'none' : '1.5px solid var(--input-border)', background: on ? 'var(--accent-blue, #1d4ed8)' : 'transparent', color: '#fff' }}>{on ? '✓' : ''}</span>
-                      {g}
-                    </button>
-                  )
-                })}
-              </div>
-              {styles.length > 0 && (
-                <button type="button" onClick={() => setStyles([])} className="mt-2 w-full py-2 rounded-lg text-xs font-bold" style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>Išvalyti</button>
-              )}
-            </Popover>
-          )}
-
-          {/* Festivaliai */}
-          <button onClick={() => setFestOnly(!festOnly)} className={pillBase} style={triggerStyle(festOnly)}>{Icon.tent} Festivaliai</button>
-
-          {anyFilter && (
-            <button onClick={resetAll} className="inline-flex items-center gap-1 px-3 py-2 rounded-full text-[13px] font-bold transition-colors"
-              style={{ color: 'var(--accent-orange, #ea6c0a)' }}>{Icon.x} Išvalyti</button>
-          )}
-
-          {/* Archyvas — kuklus, dešinėje */}
-          <button onClick={() => setArchive(!archive)}
-            className="ml-auto inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold transition-colors"
-            style={archive
-              ? { background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--input-border)' }
-              : { color: 'var(--text-muted)' }}>
-            🗄 {archive ? 'Rodomas archyvas' : 'Archyvas'}
-          </button>
-        </div>
+        {anyFilter && <button className="ev-reset" onClick={resetAll}>Išvalyti ✕</button>}
+        <span className="ev-count">{filtered.length}</span>
       </div>
 
-      {/* ── Sąrašas ── */}
-      <div className="flex items-baseline justify-between mb-3 px-1">
-        <p className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>
-          {archive ? 'Praėję renginiai' : 'Renginiai'}
-        </p>
-        <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>{filtered.length} renginių</span>
-      </div>
-
+      {/* ── Tinklelis ── */}
       {filtered.length === 0 ? (
-        <div className="text-center py-20 rounded-2xl" style={cardBg}>
-          <p className="text-5xl mb-4">🎫</p>
-          <p className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Renginių pagal filtrą nerasta</p>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Pabandyk pakeisti datą, miestą ar kitus filtrus.</p>
-          {anyFilter && <button onClick={resetAll} className="mt-4 px-4 py-2 rounded-full text-sm font-bold" style={{ background: 'var(--accent-blue, #1d4ed8)', color: '#fff' }}>Išvalyti filtrus</button>}
+        <div className="ev-empty">
+          <p className="ev-empty-ic">🎫</p>
+          <h3>Renginių nerasta</h3>
+          <p>Pabandyk pakeisti datą, miestą ar kitus filtrus.</p>
+          {anyFilter && <button className="ev-mini on" style={{ marginTop: 14 }} onClick={resetAll}>Išvalyti filtrus</button>}
         </div>
       ) : (
-        <div className="space-y-7">
+        <div className="ev-months">
           {groups.map(grp => (
             <div key={grp.label}>
-              <div className="flex items-center gap-3 mb-2.5">
-                <p className="text-[11px] font-black uppercase tracking-[0.1em]" style={{ color: 'var(--accent-orange, #ea6c0a)' }}>{grp.label}</p>
-                <div className="flex-1 h-px" style={{ background: 'var(--input-border, rgba(120,140,170,0.18))' }} />
-              </div>
-              <div className="space-y-2">
-                {grp.items.map(ev => <EventRow key={ev.id} ev={ev} dk={dk} cardBg={cardBg} archive={archive} />)}
+              <div className="ev-month-head"><span>{grp.label}</span><i /></div>
+              <div className="ev-grid">
+                {grp.items.map(ev => <EventCard key={ev.id} ev={ev} archive={archive} />)}
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {/* ── Archyvas (apačioje) ── */}
+      {!archive && past.length > 0 && (
+        <button className="ev-archive-toggle" onClick={() => { setArchive(true); resetAll(); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
+          🗄 Praėję renginiai ({past.length}) →
+        </button>
+      )}
+      {archive && (
+        <button className="ev-archive-toggle" onClick={() => { setArchive(false); resetAll() }}>
+          ← Atgal į artimiausius renginius
+        </button>
       )}
     </div>
   )
 }
 
-/* ── Renginio eilutė ── */
-function EventRow({ ev, dk, cardBg, archive }: { ev: Event; dk: boolean; cardBg: React.CSSProperties; archive: boolean }) {
-  const headliners = ev.event_artists?.filter(ea => ea.is_headliner).map(getArtist).filter(Boolean) as Artist[]
-  const others = ev.event_artists?.filter(ea => !ea.is_headliner) || []
+/* ── Renginio kortelė (poster + info) ── */
+function EventCard({ ev, archive }: { ev: Event; archive: boolean }) {
   const price = formatPrice(ev.price_from, ev.price_to)
   const time = fmtTime(ev.start_date)
   const isCancelled = ev.status === 'cancelled'
+  const headliner = ev.event_artists?.find(ea => ea.is_headliner)
+  const headlinerName = headliner ? getArtist(headliner)?.name : null
 
   return (
-    <Link href={`/renginiai/${ev.slug}`}
-      className={`flex items-center gap-3.5 px-3.5 py-3 rounded-xl group transition-all hover:-translate-y-px ${archive ? 'opacity-70 hover:opacity-100' : ''}`}
-      style={cardBg}>
-
-      {/* Data */}
-      <div className="text-center w-12 flex-shrink-0">
-        <p className="text-xl font-black leading-none" style={{ color: isCancelled ? '#ef4444' : 'var(--text-primary)' }}>{fmtDay(ev.start_date)}</p>
-        <p className="text-[9px] font-black uppercase tracking-wide" style={{ color: 'var(--accent-orange, #ea6c0a)' }}>{fmtMonth(ev.start_date)}</p>
-        <p className="text-[9px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{fmtWeekday(ev.start_date)}</p>
-      </div>
-
-      {/* Cover */}
-      {ev.cover_image_url
-        ? <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0"><img src={ev.cover_image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div>
-        : <div className="w-16 h-16 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>🎤</div>}
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
-          {isCancelled && <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">ATŠAUKTAS</span>}
-          {ev.is_festival && <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: 'rgba(6,182,212,0.18)', color: '#06b6d4' }}>FESTIVALIS</span>}
-          {ev.is_featured && !isCancelled && <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400">★</span>}
+    <Link href={`/renginiai/${ev.slug}`} className={`ev-card${archive ? ' past' : ''}`}>
+      <div className="ev-card-img">
+        {ev.cover_image_url
+          ? <img src={ev.cover_image_url} alt={ev.title} loading="lazy" />
+          : <div className="ev-card-noimg"><span>{fmtDay(ev.start_date)}</span><span>{fmtMonth(ev.start_date)}</span></div>}
+        <div className="ev-card-shade" />
+        <div className="ev-card-date">
+          <span>{fmtDay(ev.start_date)}</span><span>{fmtMonth(ev.start_date)}</span>
         </div>
-        <p className={`text-sm font-bold truncate group-hover:text-blue-400 transition-colors ${isCancelled ? 'line-through' : ''}`} style={{ color: 'var(--text-primary)' }}>{ev.title}</p>
-        <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-          {[ev.venue_name, ev.city].filter(Boolean).join(' · ')}{time ? ` · ${time}` : ''}
-        </p>
-        {headliners.length > 0 && (
-          <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>
-            {headliners.map(a => a?.name).filter(Boolean).join(', ')}{others.length > 0 ? ` +${others.length}` : ''}
-          </p>
-        )}
+        <div className="ev-card-tags">
+          {isCancelled && <span className="ev-tag cancel">ATŠAUKTAS</span>}
+          {ev.is_festival && <span className="ev-tag fest">FEST</span>}
+          {ev.is_featured && !isCancelled && <span className="ev-tag star">★</span>}
+        </div>
+        <div className="ev-card-meta">
+          <h3>{ev.title}</h3>
+          <p>{[ev.venue_name, ev.city].filter(Boolean).join(' · ')}{time ? ` · ${time}` : ''}</p>
+        </div>
       </div>
-
-      {/* Kaina / bilietai */}
-      <div className="flex-shrink-0 text-right">
-        {price && <p className="text-xs font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{price}</p>}
-        {ev.ticket_url && !archive && !isCancelled && <span className="text-xs font-bold" style={{ color: 'var(--accent-orange, #ea6c0a)' }}>Bilietai →</span>}
-        {archive && <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Praėjęs</span>}
+      <div className="ev-card-foot">
+        <span className="ev-card-artist">{headlinerName || ' '}</span>
+        {price
+          ? <span className="ev-card-price">{price}</span>
+          : ev.ticket_url && !archive && !isCancelled ? <span className="ev-card-tix">Bilietai →</span> : null}
       </div>
     </Link>
   )
 }
+
+/* ────────────────────────────────────────────────────────────────
+ * Stiliai — atitinka /muzika ir /albumai sistemą (oranžinis akcentas,
+ * mz-fchip pill'ai, tile tinklelis). CSS kintamieji iš globals.css.
+ * ──────────────────────────────────────────────────────────────── */
+const EV_CSS = `
+.ev-wrap { max-width:1400px; margin:0 auto; padding:18px 24px 80px; font-family:'DM Sans',system-ui,sans-serif; }
+@media(max-width:640px){ .ev-wrap { padding:14px 14px 64px; } }
+
+/* Slim head */
+.ev-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
+.ev-head h1 { font-family:'Outfit',sans-serif; font-weight:900; letter-spacing:-.025em; font-size:clamp(1.5rem,3vw,2rem); line-height:1.05; color:var(--text-primary); }
+.ev-head p { color:var(--text-muted); font-size:13px; margin-top:4px; }
+.ev-head-links { display:flex; gap:7px; }
+
+/* Filter bar — viena kompaktiška eilutė */
+.ev-fbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px;
+  background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.08)); margin-bottom:22px; }
+.ev-divider { width:1px; height:22px; background:var(--border-default,rgba(255,255,255,0.1)); margin:0 2px; }
+
+/* Chip (= mz-fchip) */
+.ev-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600;
+  font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08));
+  color:var(--text-secondary); transition:all .15s; white-space:nowrap; cursor:pointer; line-height:1.3; }
+.ev-chip:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
+.ev-chip.on { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
+.ev-chip svg { display:block; }
+
+.ev-reset { padding:6px 11px; border-radius:100px; font-size:12px; font-weight:700; font-family:'Outfit',sans-serif;
+  color:var(--accent-orange); background:transparent; border:none; cursor:pointer; white-space:nowrap; }
+.ev-count { margin-left:auto; font-size:12px; font-weight:700; color:var(--text-faint); font-family:'Outfit',sans-serif;
+  background:var(--bg-hover); border-radius:100px; padding:4px 11px; }
+
+/* Popover */
+.ev-pop { position:absolute; top:calc(100% + 8px); left:0; z-index:50; padding:13px;
+  background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.1)); border-radius:14px;
+  box-shadow:0 14px 40px rgba(0,0,0,0.32); }
+.ev-pop-lbl { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin:0 0 8px; font-family:'Outfit',sans-serif; }
+.ev-pop-lbl:not(:first-child){ margin-top:13px; }
+.ev-pop-presets { display:flex; flex-wrap:wrap; gap:6px; }
+.ev-pop-list { display:flex; flex-direction:column; gap:2px; max-height:260px; overflow-y:auto; }
+.ev-mini { padding:6px 11px; border-radius:9px; font-size:12px; font-weight:700; font-family:'Outfit',sans-serif; cursor:pointer;
+  background:var(--bg-hover); border:1px solid transparent; color:var(--text-secondary); transition:all .15s; }
+.ev-mini:hover { color:var(--text-primary); }
+.ev-mini.on { background:var(--accent-orange); color:#fff; }
+.ev-opt { display:flex; align-items:center; gap:8px; text-align:left; width:100%; padding:8px 10px; border-radius:9px; font-size:13px;
+  font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; background:transparent; border:none; color:var(--text-secondary); transition:all .12s; }
+.ev-opt:hover { background:var(--bg-hover); color:var(--text-primary); }
+.ev-opt.on { color:var(--accent-orange); }
+.ev-check { width:16px; height:16px; border-radius:5px; border:1.5px solid; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; flex-shrink:0; }
+.ev-search { width:100%; height:34px; border-radius:9px; padding:0 11px; font-size:13px; margin-bottom:8px;
+  background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.1)); color:var(--text-primary); outline:none; }
+.ev-pop-clear { margin-top:9px; width:100%; padding:7px; border-radius:9px; font-size:12px; font-weight:700; font-family:'Outfit',sans-serif;
+  cursor:pointer; background:var(--bg-hover); border:none; color:var(--text-secondary); }
+.ev-cal-nav { padding:5px; border-radius:8px; background:transparent; border:none; cursor:pointer; color:var(--text-secondary); display:flex; }
+.ev-cal-nav:hover { background:var(--bg-hover); }
+.ev-cal-day { height:31px; border-radius:8px; font-size:12px; font-weight:700; font-family:'Outfit',sans-serif; cursor:pointer; transition:background .12s; }
+
+/* Mėnesių grupės */
+.ev-months { display:flex; flex-direction:column; gap:30px; }
+.ev-month-head { display:flex; align-items:center; gap:12px; margin-bottom:13px; }
+.ev-month-head span { font-family:'Outfit',sans-serif; font-weight:800; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--accent-orange); }
+.ev-month-head i { flex:1; height:1px; background:var(--border-default,rgba(255,255,255,0.08)); }
+
+/* Kortelių tinklelis — vizualus, poster-forward */
+.ev-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:16px; }
+@media(max-width:640px){ .ev-grid { grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:11px; } }
+
+.ev-card { display:block; border-radius:15px; overflow:hidden; background:var(--bg-surface);
+  border:1px solid var(--border-default,rgba(255,255,255,0.07)); transition:transform .18s, border-color .18s, box-shadow .18s; }
+.ev-card:hover { transform:translateY(-3px); border-color:rgba(249,115,22,0.4); box-shadow:0 12px 28px rgba(0,0,0,0.22); }
+.ev-card.past { opacity:.72; }
+.ev-card.past:hover { opacity:1; }
+
+.ev-card-img { position:relative; aspect-ratio:4/5; overflow:hidden; background:var(--bg-elevated); }
+.ev-card-img img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .45s ease; }
+.ev-card:hover .ev-card-img img { transform:scale(1.06); }
+.ev-card-noimg { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  background:linear-gradient(150deg, var(--bg-elevated), rgba(249,115,22,0.10)); font-family:'Outfit',sans-serif; }
+.ev-card-noimg span:first-child { font-size:42px; font-weight:900; color:var(--text-primary); line-height:1; }
+.ev-card-noimg span:last-child { font-size:13px; font-weight:800; letter-spacing:.1em; color:var(--accent-orange); }
+.ev-card-shade { position:absolute; inset:0; background:linear-gradient(to top, rgba(5,8,13,0.93) 2%, rgba(5,8,13,0.45) 30%, transparent 58%); }
+
+.ev-card-date { position:absolute; top:9px; left:9px; display:flex; flex-direction:column; align-items:center; line-height:1;
+  background:rgba(0,0,0,0.62); backdrop-filter:blur(8px); border-radius:9px; padding:5px 9px; font-family:'Outfit',sans-serif; }
+.ev-card-date span:first-child { font-size:16px; font-weight:900; color:#fff; }
+.ev-card-date span:last-child { font-size:9px; font-weight:800; letter-spacing:.06em; color:var(--accent-orange); margin-top:1px; }
+
+.ev-card-tags { position:absolute; top:9px; right:9px; display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
+.ev-tag { font-family:'Outfit',sans-serif; font-weight:800; font-size:9px; letter-spacing:.04em; padding:3px 7px; border-radius:100px; color:#fff; }
+.ev-tag.fest { background:#06b6d4; }
+.ev-tag.star { background:var(--accent-orange); }
+.ev-tag.cancel { background:#ef4444; }
+
+.ev-card-meta { position:absolute; left:0; right:0; bottom:0; padding:11px 12px; }
+.ev-card-meta h3 { font-family:'Outfit',sans-serif; font-weight:800; font-size:14.5px; line-height:1.18; color:#fff;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.ev-card-meta p { font-size:11.5px; color:rgba(255,255,255,0.66); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.ev-card-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px 11px; }
+.ev-card-artist { font-size:12px; font-weight:600; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ev-card-price { font-family:'Outfit',sans-serif; font-size:12.5px; font-weight:800; color:var(--text-primary); flex-shrink:0; }
+.ev-card-tix { font-family:'Outfit',sans-serif; font-size:12px; font-weight:800; color:var(--accent-orange); flex-shrink:0; }
+
+/* Archyvo toggle */
+.ev-archive-toggle { display:block; margin:34px auto 0; padding:10px 20px; border-radius:100px; font-size:13px; font-weight:700;
+  font-family:'Outfit',sans-serif; cursor:pointer; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08));
+  color:var(--text-secondary); transition:all .15s; }
+.ev-archive-toggle:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
+
+/* Empty */
+.ev-empty { max-width:520px; margin:60px auto; text-align:center; }
+.ev-empty-ic { font-size:46px; opacity:.5; }
+.ev-empty h3 { font-family:'Outfit',sans-serif; font-weight:800; font-size:19px; margin:8px 0 4px; color:var(--text-primary); }
+.ev-empty p { color:var(--text-muted); font-size:13px; }
+`

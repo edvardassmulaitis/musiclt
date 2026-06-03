@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import { getEvents, getFeaturedEvents, getEventCities } from '@/lib/supabase-events'
+import { getEvents, getEventCities } from '@/lib/supabase-events'
 import EventsClient from './events-client'
 
 export const metadata: Metadata = {
@@ -14,18 +14,11 @@ export const metadata: Metadata = {
 export const revalidate = 300
 
 export default async function EventsPage() {
-  const [{ events }, featured, cities] = await Promise.all([
+  const [{ events }, cities] = await Promise.all([
     // Naujausi pirma — apims visus aktyvius + neseną archyvą vienu fetch'u.
     getEvents({ showPast: true, order: 'desc', limit: 400 }),
-    getFeaturedEvents(4),
     getEventCities(),
   ])
 
-  return (
-    <EventsClient
-      events={events as any}
-      featured={featured as any}
-      cities={cities}
-    />
-  )
+  return <EventsClient events={events as any} cities={cities} />
 }
