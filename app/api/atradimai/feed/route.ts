@@ -29,6 +29,10 @@ type OutPost = {
 export async function GET(req: NextRequest) {
   const sb = createAdminClient()
   const type = req.nextUrl.searchParams.get('type')
+  // editorial = redakcinis tipas (recenzija/koncertai/nuomone/dienorastis) iš
+  // blog_posts.editorial_type — narių dienoraščių AI klasifikacija. Resilient:
+  // jei kolonos dar nėra (migracija neaplikuota), query klysta → catch → [].
+  const editorial = req.nextUrl.searchParams.get('editorial')
   const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '14'), 1), 30)
 
   try {
@@ -42,6 +46,7 @@ export async function GET(req: NextRequest) {
       .order('published_at', { ascending: false })
       .limit(200)
     if (type) q = q.eq('post_type', type)
+    if (editorial) q = q.eq('editorial_type', editorial)
 
     const { data, error } = await q
     if (error) return NextResponse.json({ posts: [], error: error.message }, { status: 200 })

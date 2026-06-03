@@ -42,6 +42,10 @@ export default function NewsAdmin() {
   const [classify, setClassify] = useState<{ running: boolean; done: number; remaining: number | null }>({
     running: false, done: 0, remaining: null,
   })
+  // Narių dienoraščio įrašų redakcinio tipo klasifikacija (recenzija/koncertai/...)
+  const [classifyBlog, setClassifyBlog] = useState<{ running: boolean; done: number; remaining: number | null }>({
+    running: false, done: 0, remaining: null,
+  })
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -79,6 +83,28 @@ export default function NewsAdmin() {
       load(search, typeFilter)
     }
   }, [load, search, typeFilter])
+
+  // Klasifikuoja naujausius neklasifikuotus narių dienoraščio įrašus į redakcinį
+  // tipą (recenzija/koncertai/nuomone/dienorastis). Hibridas heuristika+Haiku.
+  const runClassifyBlog = useCallback(async () => {
+    setClassifyBlog({ running: true, done: 0, remaining: null })
+    let done = 0
+    try {
+      for (let i = 0; i < 25; i++) {
+        const res = await fetch('/api/internal/blog-classify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ batch: 40 }),
+        })
+        if (!res.ok) break
+        const j = await res.json()
+        if (j.error) break
+        done += j.processed || 0
+        setClassifyBlog({ running: true, done, remaining: j.remaining ?? null })
+        if (j.done || (j.processed || 0) === 0) break
+      }
+    } finally {
+      setClassifyBlog((c) => ({ ...c, running: false }))
+    }
+  }, [])
 
   useEffect(() => {
     if (status === 'unauthenticated') { router.push('/auth/signin'); return }
@@ -131,6 +157,15 @@ export default function NewsAdmin() {
               {classify.running
                 ? `⏳ Klasifikuoju… +${classify.done}${classify.remaining != null ? ` · liko ${classify.remaining.toLocaleString('lt-LT')}` : ''}`
                 : '🏷️ Klasifikuoti tipus'}
+            </button>
+            <button
+              onClick={runClassifyBlog}
+              disabled={classifyBlog.running}
+              title="AI priskiria narių dienoraščio įrašams redakcinį tipą (Recenzija/Koncertai/Nuomonė/Dienoraštis) — /atradimai tipų įvairovei. Naujausi pirma."
+              className="px-4 py-2.5 bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-[var(--border-strong)] text-[var(--text-primary)] rounded-xl font-bold text-sm transition-colors disabled:opacity-60">
+              {classifyBlog.running
+                ? `⏳ Narių įrašai… +${classifyBlog.done}${classifyBlog.remaining != null ? ` · liko ${classifyBlog.remaining.toLocaleString('lt-LT')}` : ''}`
+                : '🏷️ Klasifikuoti narių įrašus'}
             </button>
             <Link href="/admin/news/new"
               className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors">

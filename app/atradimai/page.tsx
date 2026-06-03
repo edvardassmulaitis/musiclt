@@ -323,23 +323,25 @@ function SkelRow() {
   )
 }
 
-function BlogRow({ title, type, accent, inviteLabel }: { title: string; type: string; accent: string; inviteLabel: string }) {
+// query = „type=topas" arba „editorial=recenzija"; writeType = realus post_type
+// kurį atveria „+ Rašyti" / invite kortelė (editorial tipams – artimiausias).
+function BlogRow({ title, query, accent, allHref, writeType, inviteLabel }: { title: string; query: string; accent: string; allHref: string; writeType: string; inviteLabel: string }) {
   const [posts, setPosts] = useState<FeedPost[] | null>(null)
   useEffect(() => {
     let a = true
-    fetch(`/api/atradimai/feed?type=${type}&limit=16`).then(r => r.json()).then(d => { if (a) setPosts(d.posts || []) }).catch(() => { if (a) setPosts([]) })
+    fetch(`/api/atradimai/feed?${query}&limit=16`).then(r => r.json()).then(d => { if (a) setPosts(d.posts || []) }).catch(() => { if (a) setPosts([]) })
     return () => { a = false }
-  }, [type])
+  }, [query])
   return (
     <section className="mb-8">
-      <RowHead title={title} accent={accent} allHref={`/blogas?type=${type}`} addType={type} />
+      <RowHead title={title} accent={accent} allHref={allHref} addType={writeType} />
       {posts === null ? <SkelRow /> : posts.length === 0 ? (
         <div className={SCROLL}>
-          <InviteCard label={inviteLabel} type={type} />
+          <InviteCard label={inviteLabel} type={writeType} />
           <div className="flex max-w-[280px] items-center text-[12.5px] leading-snug text-[var(--text-muted)]">Šios skilties dar niekas neužpildė — tavo įrašas čia būtų pirmas.</div>
         </div>
       ) : (
-        <div className={SCROLL}>{posts.map(p => <PostCard key={p.id} p={p} />)}<InviteCard label={inviteLabel} type={type} /></div>
+        <div className={SCROLL}>{posts.map(p => <PostCard key={p.id} p={p} />)}<InviteCard label={inviteLabel} type={writeType} /></div>
       )}
     </section>
   )
@@ -482,11 +484,12 @@ export default function AtradimaiPage() {
       <DienosDainaStrip />
       <DiskusijosRow />
       <NaujausiRow />
-      <BlogRow title="Narių topai" type="topas" accent="#f59e0b" inviteLabel="Sudaryk topą" />
-      <BlogRow title="Recenzijos" type="review" accent="#ef4444" inviteLabel="Parašyk recenziją" />
-      <BlogRow title="Kūryba" type="creation" accent="#ec4899" inviteLabel="Įkelk kūrybą" />
-      <BlogRow title="Vertimai" type="translation" accent="#10b981" inviteLabel="Pridėk vertimą" />
-      <BlogRow title="Straipsniai" type="article" accent="#a855f7" inviteLabel="Parašyk straipsnį" />
+      <BlogRow title="Narių topai" query="type=topas" allHref="/blogas?type=topas" writeType="topas" accent="#f59e0b" inviteLabel="Sudaryk topą" />
+      <BlogRow title="Recenzijos" query="editorial=recenzija" allHref="/blogas" writeType="review" accent="#ef4444" inviteLabel="Parašyk recenziją" />
+      <BlogRow title="Koncertų įspūdžiai" query="editorial=koncertai" allHref="/blogas" writeType="article" accent="#3b82f6" inviteLabel="Pasidalink koncerto įspūdžiu" />
+      <BlogRow title="Nuomonės" query="editorial=nuomone" allHref="/blogas" writeType="article" accent="#06b6d4" inviteLabel="Parašyk nuomonę" />
+      <BlogRow title="Kūryba" query="type=creation" allHref="/blogas?type=creation" writeType="creation" accent="#ec4899" inviteLabel="Įkelk kūrybą" />
+      <BlogRow title="Vertimai" query="type=translation" allHref="/blogas?type=translation" writeType="translation" accent="#10b981" inviteLabel="Pridėk vertimą" />
       <NaujiNariaiRow list={newMembers} loading={members === null} />
       <BoomboxRow />
     </div>
