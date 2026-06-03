@@ -1289,11 +1289,17 @@ export function SiteHeader() {
         .sh-navlink.active { color: ${navHover}; }
         .sh-navlink.active::after { transform: scaleX(1); }
 
-        /* ── Glass dropdown panel ── */
-        .sh-group { position: relative; }
+        /* ── Glass dropdown panel ──
+           Visi dropdown'ai anchor'inami prie HEADER konteinerio (ne prie
+           individualaus nav item'o) — todėl VISI atsidaro toje pačioje vietoje
+           ir vienodu pločiu (solidus vientisumas), ir niekada nenuvažiuoja už
+           ekrano krašto. .sh-group palieka static, kad offset parent'as būtų
+           header konteineris (position: relative). */
+        .sh-group { position: static; }
         .sh-dropdown-wrap {
           position: absolute;
-          top: 100%; left: 0;
+          top: 46px;
+          left: 20px;
           padding-top: 10px;
           opacity: 0; pointer-events: none;
           transform: translateY(-6px);
@@ -1315,11 +1321,10 @@ export function SiteHeader() {
           transform: translateY(-12px) scale(0.96) !important;
           transition: opacity .15s ease, transform .15s ease !important;
         }
-        .sh-group:nth-last-of-type(-n+2) > .sh-dropdown-wrap { left: auto; right: 0; }
-
         .sh-panel {
-          /* Vienodas plotis VISIEMS dropdown'ams — solidus vientisumas */
-          width: 880px;
+          /* Vienodas plotis VISIEMS dropdown'ams — solidus vientisumas.
+             Clamp'inam prie viewport'o, kad siauresniame desktop'e netilptų. */
+          width: min(880px, calc(100vw - 40px));
           padding: 18px;
           background: rgba(var(--bg-surface-rgb), 1);
           backdrop-filter: blur(60px) saturate(180%);
@@ -2569,7 +2574,7 @@ export function SiteHeader() {
 
       {/* ─── HEADER BAR ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-50" style={{ background: bg, backdropFilter: 'blur(22px)', borderBottom: bdr }}>
-        <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', gap: 14, position: 'relative' }}>
 
           <button onClick={() => setMenuOpen(true)} aria-label="Meniu"
             style={{ flexShrink: 0, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', color: hamColor, borderRadius: 8, transition: 'color .15s, background .15s' }}
