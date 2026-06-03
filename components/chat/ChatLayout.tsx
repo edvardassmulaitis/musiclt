@@ -34,7 +34,7 @@ export function ChatLayout({ viewerId, initialConversations, activeConversation,
   useEffect(() => {
     try {
       const saved = localStorage.getItem('chat:sidebarTab')
-      if (saved === 'private' || saved === 'discussions') setSidebarTab(saved)
+      if (saved === 'private' || saved === 'discussions' || saved === 'shoutbox') setSidebarTab(saved)
     } catch {}
   }, [])
   useEffect(() => {
@@ -118,9 +118,10 @@ export function ChatLayout({ viewerId, initialConversations, activeConversation,
   return (
     <div style={{
       display: 'flex',
-      // List view'e (be aktyvaus pokalbio) paliekam vietos apatiniam barui
-      // (mobile/tablet ≤1080px → var=58px); detail view'e baras paslėptas, todėl pilnas aukštis.
-      height: conv ? 'calc(100vh - 56px)' : 'calc(100vh - 56px - var(--bottom-nav-h))',
+      // Visada paliekam vietos apatiniam barui (jis rodomas ir aktyviame pokalbyje).
+      // dvh — kad iOS naršyklės UI nesukeltų overflow/„header dingsta" problemų.
+      // ≤1080px → var=58px + safe-area; desktop → 0.
+      height: 'calc(100dvh - 56px - var(--bottom-nav-h) - env(safe-area-inset-bottom))',
       background: 'var(--bg-body)',
       overflow: 'hidden',
       position: 'relative',
@@ -180,7 +181,8 @@ function ThreadPanelWrapper({ children, isMobile }: { children: React.ReactNode;
   if (isMobile) {
     return (
       <div style={{
-        position: 'fixed', top: 56, left: 0, right: 0, bottom: 0,
+        position: 'fixed', top: 56, left: 0, right: 0,
+        bottom: 'calc(var(--bottom-nav-h) + env(safe-area-inset-bottom))',
         zIndex: 100, background: 'var(--bg-body)',
         display: 'flex', flexDirection: 'column',
       }}>

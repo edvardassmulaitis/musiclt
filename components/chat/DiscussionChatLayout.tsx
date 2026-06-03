@@ -104,7 +104,7 @@ export function DiscussionChatLayout({ viewerId, initialConversations, discussio
   return (
     <div style={{
       display: 'flex',
-      height: 'calc(100vh - 56px)',
+      height: 'calc(100dvh - 56px - var(--bottom-nav-h) - env(safe-area-inset-bottom))',
       background: 'var(--bg-body)',
       overflow: 'hidden',
     }}>

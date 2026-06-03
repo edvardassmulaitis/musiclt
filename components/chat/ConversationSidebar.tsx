@@ -7,8 +7,9 @@ import { conversationDisplayName, conversationDisplayAvatar } from '@/lib/chat-t
 import { ChatAvatar, ChatGroupAvatar } from './ChatAvatar'
 import { formatSidebarTime } from './ChatTime'
 import { proxyImg } from '@/lib/img-proxy'
+import { ShoutboxPanel } from './ShoutboxPanel'
 
-export type SidebarTab = 'private' | 'discussions'
+export type SidebarTab = 'private' | 'discussions' | 'shoutbox'
 
 export type DiscussionItem = {
   id: number
@@ -125,51 +126,66 @@ export function ConversationSidebar({
         >
           Diskusijos
         </TabButton>
+        <TabButton
+          active={tab === 'shoutbox'}
+          onClick={() => onTabChange('shoutbox')}
+          badge={0}
+        >
+          Bendra
+        </TabButton>
       </div>
 
-      {/* Search */}
-      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
-        <input
-          type="search"
-          name="chat-conv-filter"
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          data-1p-ignore="true"
-          data-lpignore="true"
-          data-form-type="other"
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-          placeholder="Ieškoti…"
-          style={{
-            width: '100%', height: 36, padding: '0 12px',
-            // iOS Safari neskautimas — 16px+ neleidžia auto-zoom'inti.
-            fontSize: 16, color: 'var(--text-primary)',
-            background: 'var(--input-bg, var(--bg-elevated))',
-            border: '1px solid var(--input-border, var(--border-default))',
-            borderRadius: 8, outline: 'none',
-          }}
-        />
-      </div>
+      {/* Search — tik pokalbiams/diskusijoms (shoutbox'e neaktualu) */}
+      {tab !== 'shoutbox' && (
+        <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+          <input
+            type="search"
+            name="chat-conv-filter"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-1p-ignore="true"
+            data-lpignore="true"
+            data-form-type="other"
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Ieškoti…"
+            style={{
+              width: '100%', height: 36, padding: '0 12px',
+              // iOS Safari neskautimas — 16px+ neleidžia auto-zoom'inti.
+              fontSize: 16, color: 'var(--text-primary)',
+              background: 'var(--input-bg, var(--bg-elevated))',
+              border: '1px solid var(--input-border, var(--border-default))',
+              borderRadius: 8, outline: 'none',
+            }}
+          />
+        </div>
+      )}
 
-      {/* List */}
-      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
-        {tab === 'private' ? (
-          <PrivateList
-            loading={loading}
-            dms={dms} groups={groups}
-            viewerId={viewerId}
-            activeId={activeId}
-            onNew={onNewConversation}
-          />
-        ) : (
-          <DiscussionsList
-            loading={loading}
-            discussions={filteredDiscussions}
-          />
-        )}
-      </div>
+      {/* List / Shoutbox */}
+      {tab === 'shoutbox' ? (
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <ShoutboxPanel viewerId={viewerId} />
+        </div>
+      ) : (
+        <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
+          {tab === 'private' ? (
+            <PrivateList
+              loading={loading}
+              dms={dms} groups={groups}
+              viewerId={viewerId}
+              activeId={activeId}
+              onNew={onNewConversation}
+            />
+          ) : (
+            <DiscussionsList
+              loading={loading}
+              discussions={filteredDiscussions}
+            />
+          )}
+        </div>
+      )}
     </aside>
   )
 }

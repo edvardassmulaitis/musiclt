@@ -31,7 +31,9 @@ export function MessagePane({ conversation, viewerId, initialMessages, onOpenThr
     setMessages(initialMessages)
     setHasMore(initialMessages.length >= 50)
     setTypingUsers(new Map())
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'auto' }), 0)
+    // NB: scroll'inam TIK vidinį scroller'į (ne scrollIntoView, kuris scroll'ina
+    // ir dokumentą → mobile'e nustumdavo conversation header'į po sticky top-nav).
+    setTimeout(() => { const el = scrollerRef.current; if (el) el.scrollTop = el.scrollHeight }, 0)
   }, [conversation.id, initialMessages])
 
   // Stebim ar user'is yra apačioje (auto-scroll only when at bottom).
@@ -75,7 +77,7 @@ export function MessagePane({ conversation, viewerId, initialMessages, onOpenThr
         return [...prev, msg]
       })
       if (isAtBottomRef.current) {
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+        setTimeout(() => { const el = scrollerRef.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }) }, 50)
       }
       // Mark as read (ne sender'iui).
       if (row.user_id !== viewerId) {
@@ -233,7 +235,7 @@ export function MessagePane({ conversation, viewerId, initialMessages, onOpenThr
       pending: true,
     }
     setMessages(prev => [...prev, optimistic])
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 30)
+    setTimeout(() => { const el = scrollerRef.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }) }, 30)
 
     try {
       const res = await fetch(`/api/chat/conversations/${conversation.id}/messages`, {

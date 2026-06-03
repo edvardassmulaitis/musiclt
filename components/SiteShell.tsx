@@ -15,12 +15,12 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   // Header'į paliekam (svarbu top-nav navigacijai), bet apačia uždara.
   const isChat = pathname?.startsWith('/pokalbiai')
 
-  // Apatinis mobile baras: rodom visur (įskaitant /pokalbiai pokalbių SĄRAŠĄ,
-  // kad jaustųsi kaip in-app tab'as), išskyrus admin ir AKTYVŲ pokalbį
-  // (/pokalbiai/...), kuris yra pilno ekrano. ChatLayout list view'e rezervuoja
-  // vietą barui per --bottom-nav-h.
-  const isChatDeep = pathname?.startsWith('/pokalbiai/')
-  const showBottomNav = !isAdmin && !isChatDeep
+  // Apatinis mobile baras rodomas VISUR (įskaitant aktyvų pokalbį), išskyrus
+  // admin'ą — kad niekur „nedingtų". Chat'as pats rezervuoja barui vietą per
+  // --bottom-nav-h (height calc), todėl jam NEpridedam has-bottom-nav padding'o
+  // (kitaip dubliuotųsi tarpas). Normalūs puslapiai gauna padding'ą.
+  const showBottomNav = !isAdmin
+  const mainHasPadding = showBottomNav && !isChat
 
   useEffect(() => {
     if (!isChat) return
@@ -32,7 +32,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   return (
     <SiteProvider>
       {!isAdmin && <SiteHeader />}
-      <main className={showBottomNav ? 'has-bottom-nav' : undefined}>{children}</main>
+      <main className={mainHasPadding ? 'has-bottom-nav' : undefined}>{children}</main>
       {!isAdmin && !isChat && <SiteFooter />}
       {showBottomNav && <MobileBottomNav />}
       {!isAdmin && <QuickCreate />}
