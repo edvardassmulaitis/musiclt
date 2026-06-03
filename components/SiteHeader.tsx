@@ -956,18 +956,20 @@ function MobileExpansion({
     // Horizontaliai scroll'inama dainų juosta (kaip desktop) — be Lietuva/Pasaulis badge'o.
     const mSongStrip = (title: string, href: string, hex: string, kind: 'lt' | 'world', entries: TopMini[]) => (
       <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 5 }}>
-          <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{title}</span>
-          <Link href={href} onClick={onLink} className="sh-mexp-more" style={{ marginLeft: 'auto' }}>Žiūrėti</Link>
-        </div>
+        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 14, fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)', marginBottom: 4 }}>{title}</div>
         <div className="sh-strip-wrap">
           <RowStripe kind={kind} />
           <div className="sh-strip">
             {(entries.length > 0 ? entries : Array(6).fill(null)).map((e: TopMini | null, i: number) => (
-              <Link key={e?.trackSlug || `${kind}-${i}`} href={e?.trackSlug ? `/dainos/${e.trackSlug}` : href} onClick={onLink} className="sh-mini sh-mini-sm">
-                <ImageBox src={e?.image} accent={hex} glyph={I.music} className="sh-mini-img" />
-                <span className="sh-mini-title sh-mini-title-2">{e?.title || '—'}</span>
-                <span className="sh-mini-meta">{e?.artist || ''}</span>
+              <Link key={e?.trackSlug || `${kind}-${i}`} href={e?.trackSlug ? `/dainos/${e.trackSlug}` : href} onClick={onLink}
+                style={{ flex: '0 0 auto', width: 116, display: 'flex', flexDirection: 'column', gap: 3, textDecoration: 'none' }}>
+                <span style={{ width: 116, height: 64, borderRadius: 8, overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {e?.image
+                    ? <img src={proxyImg(e.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>{I.music}</span>}
+                </span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e?.title || '—'}</span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: -2 }}>{e?.artist || ''}</span>
               </Link>
             ))}
           </div>
@@ -984,21 +986,21 @@ function MobileExpansion({
       <div className="sh-mexp">
         {/* Pagrindiniai topai — LT TOP 30 + TOP 40, horizontaliai (kaip desktop) */}
         {mSongStrip('LT TOP 30', '/top30', '#22c55e', 'lt', mTop30)}
-        <div style={{ height: 12 }} />
+        <div style={{ height: 8 }} />
         {mSongStrip('TOP 40', '/top40', '#f97316', 'world', mTop40)}
 
         {/* Kiti topai — 2 stulpeliai × 3 eilutės, kompaktiškos kortelės */}
         {mCharts.length > 0 && (
-          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
-            <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Kiti topai</div>
+          <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--border-default)' }}>
+            <div style={{ ...SEC_HEAD, marginBottom: 6 }}>Kiti topai</div>
             <div className="sh-style-grid sh-style-grid-mobile sh-topgrid-mini">{mCharts.map(mFeatCard)}</div>
           </div>
         )}
 
         {/* Apdovanojimai ir rinkimai */}
         {mVotings.length > 0 && (
-          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
-            <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Apdovanojimai ir rinkimai</div>
+          <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--border-default)' }}>
+            <div style={{ ...SEC_HEAD, marginBottom: 6 }}>Apdovanojimai ir rinkimai</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {mVotings.map(v => (
                 <Link key={v.id} href={`/balsavimai/${v.slug}`} onClick={onLink} className="sh-shortcut">{v.name} →</Link>
@@ -1008,7 +1010,7 @@ function MobileExpansion({
         )}
 
         {/* Greitos nuorodos — kad nepasimestų svarbūs įėjimo taškai */}
-        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-default)', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--border-default)', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           <Link href="/topai" onClick={onLink} className="sh-shortcut">Visi topai →</Link>
           <Link href="/dienos-daina" onClick={onLink} className="sh-shortcut">Dienos daina →</Link>
           <Link href="/balsavimai" onClick={onLink} className="sh-shortcut">Balsavimai →</Link>
@@ -1016,6 +1018,7 @@ function MobileExpansion({
       </div>
     )
   }
+
 
   if (navKey === 'renginiai') {
     const events = data?.events || []
