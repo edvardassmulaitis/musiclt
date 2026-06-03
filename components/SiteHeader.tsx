@@ -950,47 +950,54 @@ function MobileExpansion({
         </Link>
       )
     }
-    const mByCountry = mFeatured.filter(c => c.country)
-    const mOther = mFeatured.filter(c => !c.country)
-    const mColumn = (badge: string, title: string, href: string, hex: string, entries: TopMini[]) => (
+    // Visi „kiti topai" (pagal šalis + pasaulio/viral) vienoje kompaktiškoje
+    // 2-stulpelių juostoje — taupo vertikalią vietą (be scrollo).
+    const mCharts = [...mFeatured.filter(c => c.country), ...mFeatured.filter(c => !c.country)].slice(0, 6)
+    // Horizontaliai scroll'inama dainų juosta (kaip desktop) — be Lietuva/Pasaulis badge'o.
+    const mSongStrip = (title: string, href: string, hex: string, kind: 'lt' | 'world', entries: TopMini[]) => (
       <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 4 }}>
-          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: hex }}>{badge}</span>
-          <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 900, color: 'var(--text-primary)' }}>{title}</span>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 5 }}>
+          <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{title}</span>
           <Link href={href} onClick={onLink} className="sh-mexp-more" style={{ marginLeft: 'auto' }}>Žiūrėti</Link>
         </div>
-        {entries.length > 0
-          ? entries.slice(0, 3).map(e => <TopMiniRow key={e.position} entry={e} fallbackHref={href} hex={hex} />)
-          : <Link href={href} onClick={onLink} style={{ display: 'block', padding: '10px', borderRadius: 9, border: '1px dashed var(--border-default)', textAlign: 'center', fontSize: 11.5, color: 'var(--text-muted)', textDecoration: 'none' }}>Formuojasi — balsuok →</Link>}
+        <div className="sh-strip-wrap">
+          <RowStripe kind={kind} />
+          <div className="sh-strip">
+            {(entries.length > 0 ? entries : Array(6).fill(null)).map((e: TopMini | null, i: number) => (
+              <Link key={e?.trackSlug || `${kind}-${i}`} href={e?.trackSlug ? `/dainos/${e.trackSlug}` : href} onClick={onLink} className="sh-mini sh-mini-sm">
+                <ImageBox src={e?.image} accent={hex} glyph={I.music} className="sh-mini-img" />
+                <span className="sh-mini-title sh-mini-title-2">{e?.title || '—'}</span>
+                <span className="sh-mini-meta">{e?.artist || ''}</span>
+              </Link>
+            ))}
+          </div>
+          <Link href={href} onClick={onLink} className="sh-expand-btn" aria-label="Atverti visą topą" title="Atverti visą topą">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <line x1="8" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="20" y2="12" /><line x1="8" y1="18" x2="20" y2="18" />
+              <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" />
+            </svg>
+          </Link>
+        </div>
       </div>
     )
     return (
       <div className="sh-mexp">
-        {/* Pagrindiniai topai — LT TOP 30 + TOP 40 (kaip desktop) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 4 }}>
-          {mColumn('Lietuva', 'LT TOP 30', '/top30', '#22c55e', mTop30)}
-          {mColumn('Pasaulis', 'TOP 40', '/top40', '#f97316', mTop40)}
-        </div>
+        {/* Pagrindiniai topai — LT TOP 30 + TOP 40, horizontaliai (kaip desktop) */}
+        {mSongStrip('LT TOP 30', '/top30', '#22c55e', 'lt', mTop30)}
+        <div style={{ height: 12 }} />
+        {mSongStrip('TOP 40', '/top40', '#f97316', 'world', mTop40)}
 
-        {/* Pagal šalis — consensus topai su vėliavomis (mirror desktop) */}
-        {mByCountry.length > 0 && (
-          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-            <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Pagal šalis</div>
-            <div className="sh-style-grid sh-style-grid-mobile">{mByCountry.map(mFeatCard)}</div>
-          </div>
-        )}
-
-        {/* Kiti topai — pasaulio / viral / albumai vizualinės kortelės */}
-        {mOther.length > 0 && (
-          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+        {/* Kiti topai — 2 stulpeliai × 3 eilutės, kompaktiškos kortelės */}
+        {mCharts.length > 0 && (
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
             <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Kiti topai</div>
-            <div className="sh-style-grid sh-style-grid-mobile">{mOther.map(mFeatCard)}</div>
+            <div className="sh-style-grid sh-style-grid-mobile sh-topgrid-mini">{mCharts.map(mFeatCard)}</div>
           </div>
         )}
 
         {/* Apdovanojimai ir rinkimai */}
         {mVotings.length > 0 && (
-          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
             <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Apdovanojimai ir rinkimai</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {mVotings.map(v => (
@@ -1001,7 +1008,7 @@ function MobileExpansion({
         )}
 
         {/* Greitos nuorodos — kad nepasimestų svarbūs įėjimo taškai */}
-        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-default)', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           <Link href="/topai" onClick={onLink} className="sh-shortcut">Visi topai →</Link>
           <Link href="/dienos-daina" onClick={onLink} className="sh-shortcut">Dienos daina →</Link>
           <Link href="/balsavimai" onClick={onLink} className="sh-shortcut">Balsavimai →</Link>
@@ -1498,6 +1505,19 @@ export function SiteHeader() {
         }
         .sh-style-card-mobile.sh-style-card-photo {
           min-height: 60px;
+        }
+        /* „Kiti topai" mobile grid — dar kompaktiškesnės kortelės (2 stulp. × 3 eil.
+           telpa be scrollo). Override'ina sh-style-card-mobile aukštį. */
+        .sh-topgrid-mini { gap: 6px; }
+        .sh-topgrid-mini .sh-style-card-mobile {
+          min-height: 44px;
+          padding: 7px 9px;
+        }
+        .sh-topgrid-mini .sh-style-card-mobile.sh-style-card-photo {
+          min-height: 46px;
+        }
+        .sh-topgrid-mini .sh-style-card-name {
+          font-size: 11.5px;
         }
         .sh-style-card {
           position: relative;
