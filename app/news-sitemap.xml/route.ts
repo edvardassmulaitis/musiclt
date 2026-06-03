@@ -22,7 +22,11 @@ async function recentNews(): Promise<Row[]> {
   const out: Row[] = []
   try {
     const sb = createAdminClient()
-    const [modern, legacy] = await Promise.all([
+    // Naujienos data = coalesce(first_post_at, created_at) — kaip news_feed
+    // RPC'e. Šviežiai nuscrape'inti legacy įrašai turi first_post_at=NULL ir
+    // created_at=insert laiką, todėl filtruojam abu (dvi atskiros užklausos
+    // PostgREST .or() parser problemos su ISO timestamp'ais išvengimui).
+    const [modern, legacyDated, legacyNullDate] = await Promise.all([
       sb.from('news')
         .select('slug, title, published_at')
         .gte('published_at', sinceIso)
@@ -34,12 +38,22 @@ async function recentNews(): Promise<Row[]> {
         .gte('first_post_at', sinceIso)
         .order('first_post_at', { ascending: false })
         .limit(500),
+      sb.from('discussions')
+        .select('slug, title, created_at')
+        .eq('legacy_kind', 'news').eq('is_legacy', true).eq('is_deleted', false)
+        .is('first_post_at', null)
+        .gte('created_at', sinceIso)
+        .order('created_at', { ascending: false })
+        .limit(500),
     ])
     for (const n of (modern.data || []) as any[]) {
       if (n.slug && n.published_at) out.push({ slug: n.slug, title: n.title, date: n.published_at })
     }
-    for (const d of (legacy.data || []) as any[]) {
+    for (const d of (legacyDated.data || []) as any[]) {
       if (d.slug && d.first_post_at) out.push({ slug: d.slug, title: d.title, date: d.first_post_at })
+    }
+    for (const d of (legacyNullDate.data || []) as any[]) {
+      if (d.slug && d.created_at) out.push({ slug: d.slug, title: d.title, date: d.created_at })
     }
   } catch {
     /* degrade gracefully */
