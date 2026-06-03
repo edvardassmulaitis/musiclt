@@ -15,8 +15,12 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   // Header'į paliekam (svarbu top-nav navigacijai), bet apačia uždara.
   const isChat = pathname?.startsWith('/pokalbiai')
 
-  // Apatinis mobile baras rodomas visur, išskyrus admin ir pilno ekrano chat'ą.
-  const showBottomNav = !isAdmin && !isChat
+  // Apatinis mobile baras: rodom visur (įskaitant /pokalbiai pokalbių SĄRAŠĄ,
+  // kad jaustųsi kaip in-app tab'as), išskyrus admin ir AKTYVŲ pokalbį
+  // (/pokalbiai/...), kuris yra pilno ekrano. ChatLayout list view'e rezervuoja
+  // vietą barui per --bottom-nav-h.
+  const isChatDeep = pathname?.startsWith('/pokalbiai/')
+  const showBottomNav = !isAdmin && !isChatDeep
 
   useEffect(() => {
     if (!isChat) return

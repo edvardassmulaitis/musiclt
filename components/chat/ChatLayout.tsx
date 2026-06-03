@@ -118,7 +118,9 @@ export function ChatLayout({ viewerId, initialConversations, activeConversation,
   return (
     <div style={{
       display: 'flex',
-      height: 'calc(100vh - 56px)',
+      // List view'e (be aktyvaus pokalbio) paliekam vietos apatiniam barui
+      // (mobile/tablet ≤1080px → var=58px); detail view'e baras paslėptas, todėl pilnas aukštis.
+      height: conv ? 'calc(100vh - 56px)' : 'calc(100vh - 56px - var(--bottom-nav-h))',
       background: 'var(--bg-body)',
       overflow: 'hidden',
       position: 'relative',

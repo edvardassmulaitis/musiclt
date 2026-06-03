@@ -683,9 +683,10 @@ blockquote.legacy-quote .legacy-quote-avatar-fallback {
   background: var(--accent-orange);
 }
 
-/* Apatinis mobile baras (MobileBottomNav) — vietos turiniui, kad neuždengtų. */
-@media (max-width: 1080px) {
-  main.has-bottom-nav {
-    padding-bottom: calc(58px + env(safe-area-inset-bottom));
-  }
+/* Apatinis mobile baras (MobileBottomNav). --bottom-nav-h naudojamas ir
+   turinio padding'ui, ir chat'o aukščio rezervui (kad baras neuždengtų). */
+:root { --bottom-nav-h: 0px; }
+@media (max-width: 1080px) { :root { --bottom-nav-h: 58px; } }
+main.has-bottom-nav {
+  padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
 }
