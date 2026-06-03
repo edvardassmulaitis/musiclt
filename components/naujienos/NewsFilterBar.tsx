@@ -1,0 +1,118 @@
+// components/naujienos/NewsFilterBar.tsx
+//
+// Filtrų juosta — chip'ai yra TIKRI <a> link'ai į dedikuotus SEO landing'us
+// (/naujienos/stilius/{slug}, /naujienos/kategorija/{slug}, /naujienos/lietuva).
+// Tai duoda crawl'inamą nuorodų tinklą + shareable URL'us, ne tik client state.
+//
+// Server komponentas.
+
+import Link from 'next/link'
+import {
+  NEWS_STYLES,
+  NEWS_BROWSE_CATEGORIES,
+  NEWS_SCOPES,
+} from '@/lib/news-taxonomy'
+import type { NewsFacets } from '@/lib/news-feed'
+
+type Active = { style?: number; category?: string; scope?: string }
+
+function Chip({
+  href,
+  active,
+  accent,
+  icon,
+  label,
+  count,
+}: {
+  href: string
+  active: boolean
+  accent?: string
+  icon?: string
+  label: string
+  count?: number
+}) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-all"
+      style={
+        active
+          ? { background: accent || 'var(--accent-orange,#f59e0b)', borderColor: accent || 'var(--accent-orange,#f59e0b)', color: '#fff' }
+          : { background: 'var(--bg-surface)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }
+      }
+    >
+      {icon && <span aria-hidden>{icon}</span>}
+      <span>{label}</span>
+      {typeof count === 'number' && count > 0 && (
+        <span className="text-[11px] font-bold opacity-60">{count.toLocaleString('lt-LT')}</span>
+      )}
+    </Link>
+  )
+}
+
+function Row({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="px-0.5 text-[11px] font-bold uppercase tracking-wider text-[var(--text-faint)]">{title}</span>
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+export default function NewsFilterBar({
+  facets,
+  active = {},
+}: {
+  facets: NewsFacets
+  active?: Active
+}) {
+  const anyActive = active.style != null || active.category != null || active.scope != null
+  // Kategorijų chip'ai rodomi tik kai bent viena kategorija jau klasifikuota.
+  const hasCategories = NEWS_BROWSE_CATEGORIES.some((c) => (facets.categories[c.key] || 0) > 0)
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Row title="Tema">
+        <Chip href="/naujienos" active={!anyActive} icon="📰" label="Visos" count={facets.total} />
+        {NEWS_SCOPES.map((s) => (
+          <Chip
+            key={s.key}
+            href={`/naujienos/${s.slug}`}
+            active={active.scope === s.key}
+            icon={s.key === 'lt' ? '🇱🇹' : '🌍'}
+            label={s.label}
+            count={facets.scope[s.key]}
+          />
+        ))}
+        {hasCategories &&
+          NEWS_BROWSE_CATEGORIES.map((c) => (
+            <Chip
+              key={c.key}
+              href={`/naujienos/kategorija/${c.slug}`}
+              active={active.category === c.key}
+              accent={c.accent}
+              icon={c.icon}
+              label={c.label}
+              count={facets.categories[c.key]}
+            />
+          ))}
+      </Row>
+
+      <Row title="Stilius">
+        {NEWS_STYLES.map((s) => (
+          <Chip
+            key={s.id}
+            href={`/naujienos/stilius/${s.slug}`}
+            active={active.style === s.id}
+            accent={s.accent}
+            icon={s.icon}
+            label={s.name.replace(' muzika', '')}
+            count={facets.styles[String(s.id)]}
+          />
+        ))}
+      </Row>
+    </div>
+  )
+}

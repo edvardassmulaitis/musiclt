@@ -1,145 +1,96 @@
 // app/naujienos/page.tsx
 //
-// Naujienos feed — sujungia dvi data sources:
-//   1. `news` table (modern editorial — sukurtos per /admin/news)
-//   2. `discussions` table su legacy_kind='news', is_legacy=true (scraped iš
-//      music.lt per group_deep_scrape canonical pipeline)
+// Naujienų HUB — redizainas (2026-06-03):
+//   • Featured hero (pagrindinė + naujausių sąrašas)
+//   • Filtrų juosta (tema/scope/kategorija + stilius) → dedikuoti SEO landing'ai
+//   • Naršymas pagal stilių (8 žanrų juostos)
+//   • „Visos naujienos" grid su „Rodyti daugiau" + sort + paieška
+//   • Pilnas SEO: metadata, canonical, OpenGraph, JSON-LD (CollectionPage+ItemList)
 //
-// Karteles linkina:
-//   - modern news → /news/{slug}
-//   - legacy news → /diskusijos/{slug}  (legacy bridge — rodom su same UI)
-//
-// Sort by date desc.
+// Data sluoksnis: lib/news-feed.ts (news_feed / news_facets / news_style_sections
+// RPC'ai). Kanoninis naujienos URL — /news/{slug}.
 
-import Link from 'next/link'
 import type { Metadata } from 'next'
-import { createAdminClient } from '@/lib/supabase'
+import { getNewsFeed, getNewsFacets, getNewsStyleSections, getFeaturedNews } from '@/lib/news-feed'
+import { SITE_URL } from '@/lib/artist-browse'
+import { newsCollectionJsonLd, breadcrumbJsonLd, jsonLdScript } from '@/lib/news-jsonld'
+import NewsHero from '@/components/naujienos/NewsHero'
+import NewsFilterBar from '@/components/naujienos/NewsFilterBar'
+import StyleSections from '@/components/naujienos/StyleSections'
+import NewsGrid from '@/components/naujienos/NewsGrid'
+
+export const revalidate = 120
+
+const TITLE = 'Muzikos naujienos — Lietuvos ir pasaulio scena | music.lt'
+const DESC =
+  'Naujausios Lietuvos ir pasaulio muzikos naujienos: nauji albumai ir singlai, koncertai, turai, interviu ir scenos įvykiai. Naršyk pagal stilių ir temą.'
 
 export const metadata: Metadata = {
-  title: 'Naujienos — music.lt',
-  description: 'Lietuvos ir pasaulio muzikos naujienos',
-}
-
-export const dynamic = 'force-dynamic'
-
-type NewsItem = {
-  href: string
-  title: string
-  date: string | null
-  image_url: string | null
-  artist_name: string | null
-  artist_slug: string | null
-  source: 'modern' | 'legacy'
-}
-
-async function getAllNews(limit = 60): Promise<NewsItem[]> {
-  const sb = createAdminClient()
-  const [modernRes, legacyRes] = await Promise.all([
-    sb.from('news')
-      .select('id, slug, title, published_at, image_small_url, artist:artist_id(name, slug)')
-      .order('published_at', { ascending: false, nullsFirst: false })
-      .limit(limit),
-    sb.from('discussions')
-      .select('id, slug, title, first_post_at, last_comment_at, created_at, artist:artist_id(name, slug, cover_image_url)')
-      .eq('legacy_kind', 'news')
-      .eq('is_legacy', true)
-      .eq('is_deleted', false)
-      .order('first_post_at', { ascending: false, nullsFirst: false })
-      .limit(limit),
-  ])
-
-  const modern: NewsItem[] = ((modernRes.data || []) as any[]).map((n: any) => ({
-    href: `/news/${n.slug}`,
-    title: n.title,
-    date: n.published_at,
-    image_url: n.image_small_url,
-    artist_name: n.artist?.name || null,
-    artist_slug: n.artist?.slug || null,
-    source: 'modern',
-  }))
-
-  const legacy: NewsItem[] = ((legacyRes.data || []) as any[]).map((d: any) => ({
-    href: `/diskusijos/${d.slug}`,
-    title: d.title,
-    date: d.first_post_at || d.last_comment_at || d.created_at,
-    image_url: d.artist?.cover_image_url || null,
-    artist_name: d.artist?.name || null,
-    artist_slug: d.artist?.slug || null,
-    source: 'legacy',
-  }))
-
-  // Combine + sort by date desc, newest first
-  const all = [...modern, ...legacy].sort((a, b) => {
-    const ta = a.date ? new Date(a.date).getTime() : 0
-    const tb = b.date ? new Date(b.date).getTime() : 0
-    return tb - ta
-  })
-  return all.slice(0, limit)
-}
-
-function fmtDate(iso: string | null): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return ''
-  const months = ['sausio','vasario','kovo','balandžio','gegužės','birželio',
-                  'liepos','rugpjūčio','rugsėjo','spalio','lapkričio','gruodžio']
-  return `${d.getFullYear()} m. ${months[d.getMonth()]} ${d.getDate()} d.`
+  title: TITLE,
+  description: DESC,
+  alternates: { canonical: `${SITE_URL}/naujienos` },
+  openGraph: {
+    type: 'website',
+    title: TITLE,
+    description: DESC,
+    url: `${SITE_URL}/naujienos`,
+    siteName: 'music.lt',
+    locale: 'lt_LT',
+  },
+  twitter: { card: 'summary_large_image', title: TITLE, description: DESC },
 }
 
 export default async function NaujienosPage() {
-  const items = await getAllNews(60)
+  const [featured, facets, sections, feed] = await Promise.all([
+    getFeaturedNews(5),
+    getNewsFacets(),
+    getNewsStyleSections(6),
+    getNewsFeed({ sort: 'newest', limit: 24 }),
+  ])
+
+  const collectionLd = newsCollectionJsonLd({
+    name: 'Muzikos naujienos',
+    description: DESC,
+    url: `${SITE_URL}/naujienos`,
+    items: feed.items.slice(0, 20),
+  })
+  const breadcrumbLd = breadcrumbJsonLd([
+    { name: 'Pradžia', path: '/' },
+    { name: 'Naujienos', path: '/naujienos' },
+  ])
+
   return (
     <div style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
-      <div className="mx-auto px-5 py-8" style={{ maxWidth: 1200 }}>
-        <h1 className="mb-2 text-3xl font-black text-[var(--text-primary)]">
-          Naujienos
-        </h1>
-        <p className="mb-8 text-sm text-[var(--text-muted)]">
-          Lietuvos ir pasaulio muzikos scenos pulsas
-        </p>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(collectionLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbLd) }} />
 
-        {items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-12 text-center text-[var(--text-muted)]">
-            Naujienų dar nėra
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((item, i) => (
-              <Link
-                key={`${item.source}-${i}`}
-                href={item.href}
-                className="group flex flex-col gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-lg"
-              >
-                {item.image_url && (
-                  <img
-                    src={item.image_url}
-                    alt={item.title}
-                    className="aspect-video w-full rounded-lg object-cover"
-                  />
-                )}
-                <div className="flex-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--accent-orange)]">
-                    Naujiena
-                  </div>
-                  <h2 className="mt-1 line-clamp-3 text-[15px] font-bold leading-snug text-[var(--text-primary)]">
-                    {item.title}
-                  </h2>
-                  <div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--text-faint)]">
-                    {item.artist_name && (
-                      <>
-                        <span className="font-semibold text-[var(--text-secondary)]">
-                          {item.artist_name}
-                        </span>
-                        <span>·</span>
-                      </>
-                    )}
-                    <span>{fmtDate(item.date)}</span>
-                  </div>
-                </div>
-              </Link>
-            ))}
+      <div className="mx-auto flex flex-col gap-10 px-4 py-7 sm:px-6" style={{ maxWidth: 1320 }}>
+        {/* Antraštė */}
+        <header className="flex flex-col gap-1">
+          <h1 className="text-3xl font-black text-[var(--text-primary)] sm:text-4xl">Naujienos</h1>
+          <p className="text-sm text-[var(--text-muted)]">
+            Lietuvos ir pasaulio muzikos scenos pulsas — {facets.total.toLocaleString('lt-LT')} naujienų
+          </p>
+        </header>
+
+        {/* Featured hero */}
+        {featured.length > 0 && <NewsHero items={featured} />}
+
+        {/* Filtrai → dedikuoti landing'ai */}
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+          <NewsFilterBar facets={facets} />
+        </div>
+
+        {/* Naršymas pagal stilių */}
+        {sections.length > 0 && (
+          <div className="flex flex-col gap-5">
+            <h2 className="text-2xl font-black text-[var(--text-primary)]">Naršyk pagal stilių</h2>
+            <StyleSections sections={sections} />
           </div>
         )}
+
+        {/* Visos naujienos */}
+        <NewsGrid initialItems={feed.items} initialTotal={feed.total} />
       </div>
     </div>
   )

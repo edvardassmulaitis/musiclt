@@ -3,6 +3,10 @@ import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
 import NewsArticleClient from './news-article-client'
 import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/artist-browse'
+import { proxyImg } from '@/lib/img-proxy'
+import { newsArticleJsonLd, breadcrumbJsonLd, jsonLdScript } from '@/lib/news-jsonld'
+import { categoryLabel } from '@/lib/news-taxonomy'
 
 // Force-dynamic — kad legacy news fallback'as (discussions table) gauautume
 // fresh duomenis iškart po scrape'o, ne 404 dėl SSG cache'o.
@@ -17,8 +21,8 @@ async function getNews(slug: string) {
   const modern = await supabase
     .from('news')
     .select(`
-      id, title, slug, body, type, source_url, source_name,
-      published_at, image_small_url, gallery,
+      id, title, slug, body, type, source_url, source_name, news_category,
+      published_at, created_at, image_small_url, gallery,
       image1_url, image1_caption, image2_url, image2_caption,
       image3_url, image3_caption, image4_url, image4_caption,
       image5_url, image5_caption,
@@ -36,7 +40,7 @@ async function getNews(slug: string) {
     .from('discussions')
     .select(`
       id, title, slug, body, legacy_kind, legacy_id, source_url, first_post_at,
-      created_at, last_comment_at, comment_count, related_tracks,
+      created_at, updated_at, last_comment_at, comment_count, news_category, related_tracks,
       artist:artist_id ( id, name, cover_image_url ),
       artist2:artist_id2 ( id, name, cover_image_url )
     `)
@@ -54,7 +58,9 @@ async function getNews(slug: string) {
       type: 'news',
       source_url: a.source_url,
       source_name: null,
+      news_category: a.news_category || null,
       published_at: a.first_post_at || a.created_at,
+      updated_at: a.updated_at || null,
       image_small_url: null,
       gallery: [],
       image1_url: null, image1_caption: null,
@@ -218,13 +224,34 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const news = await getNews(slug)
   if (!news) return { title: 'Naujiena nerasta' }
   const artist = Array.isArray(news.artist) ? news.artist[0] : news.artist
-  const heroImg = news.image_small_url || (artist as any)?.cover_image_url
+  const rawImg = news.image_small_url || (artist as any)?.cover_image_url
+  const heroImg = rawImg ? proxyImg(rawImg, 1200) : null
+  const desc = extractLede(news.body) || `${news.title} — music.lt muzikos naujiena.`
+  const url = `${SITE_URL}/news/${news.slug}`
+  const published = (news as any).published_at || undefined
+  const modified = (news as any).updated_at || published
+
   return {
     title: `${news.title} – music.lt`,
-    description: extractLede(news.body),
+    description: desc,
+    alternates: { canonical: url },
     openGraph: {
+      type: 'article',
       title: news.title,
-      description: extractLede(news.body),
+      description: desc,
+      url,
+      siteName: 'music.lt',
+      locale: 'lt_LT',
+      publishedTime: published,
+      modifiedTime: modified,
+      authors: news.source_name ? [news.source_name] : undefined,
+      section: categoryLabel((news as any).news_category) || undefined,
+      images: heroImg ? [{ url: heroImg }] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: news.title,
+      description: desc,
       images: heroImg ? [heroImg] : [],
     },
   }
@@ -323,5 +350,34 @@ export default async function NewsPage({ params }: Props) {
     artists: allArtists,  // VISI susiję atlikėjai (primary + Susijusi info section)
   }
 
-  return <NewsArticleClient news={news} related={related as any} songs={finalSongs} />
+  // ── SEO: NewsArticle + BreadcrumbList JSON-LD ──────────────────────────
+  const heroForLd = news.image_small_url
+    ? proxyImg(news.image_small_url, 1200)
+    : artistObj?.cover_image_url
+    ? proxyImg(artistObj.cover_image_url, 1200)
+    : null
+  const articleLd = newsArticleJsonLd({
+    title: news.title,
+    description: extractLede(news.body) || news.title,
+    url: `${SITE_URL}/news/${news.slug}`,
+    image: heroForLd,
+    datePublished: (raw as any).published_at || null,
+    dateModified: (raw as any).updated_at || (raw as any).published_at || null,
+    authorName: news.source_name || null,
+    section: categoryLabel((raw as any).news_category) || null,
+    keywords: [artistObj?.name, artist2Obj?.name].filter(Boolean) as string[],
+  })
+  const breadcrumbLd = breadcrumbJsonLd([
+    { name: 'Pradžia', path: '/' },
+    { name: 'Naujienos', path: '/naujienos' },
+    { name: news.title.slice(0, 60), path: `/news/${news.slug}` },
+  ])
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(articleLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbLd) }} />
+      <NewsArticleClient news={news} related={related as any} songs={finalSongs} />
+    </>
+  )
 }

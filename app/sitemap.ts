@@ -13,6 +13,8 @@
 import type { MetadataRoute } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import { SITE_URL, ltSlugify, LT_COUNTRY } from '@/lib/artist-browse'
+import { NEWS_STYLES, NEWS_BROWSE_CATEGORIES } from '@/lib/news-taxonomy'
+import { getNewsFacets } from '@/lib/news-feed'
 
 export const revalidate = 86400
 
@@ -70,7 +72,12 @@ async function topCountries(): Promise<string[]> {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
-  const [artists, genres, countries] = await Promise.all([allArtists(), genreSlugs(), topCountries()])
+  const [artists, genres, countries, newsFacets] = await Promise.all([
+    allArtists(),
+    genreSlugs(),
+    topCountries(),
+    getNewsFacets().catch(() => null),
+  ])
 
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, lastModified: now, changeFrequency: 'daily', priority: 1.0 },
@@ -81,6 +88,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/topai`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
     { url: `${SITE_URL}/renginiai`, lastModified: now, changeFrequency: 'daily', priority: 0.6 },
     { url: `${SITE_URL}/zanrai`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
+    { url: `${SITE_URL}/naujienos`, lastModified: now, changeFrequency: 'hourly', priority: 0.9 },
+    { url: `${SITE_URL}/naujienos/lietuva`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${SITE_URL}/naujienos/pasaulis`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
+  ]
+
+  // Naujienų landing'ai — stilius visada (turi turinį), kategorija tik kai
+  // jau klasifikuota (facet count > 0), kad neindeksuotume tuščių puslapių.
+  const newsPages: MetadataRoute.Sitemap = [
+    ...NEWS_STYLES.map((s) => ({
+      url: `${SITE_URL}/naujienos/stilius/${s.slug}`,
+      lastModified: now,
+      changeFrequency: 'daily' as const,
+      priority: 0.6,
+    })),
+    ...NEWS_BROWSE_CATEGORIES
+      .filter((c) => (newsFacets?.categories?.[c.key] || 0) > 0)
+      .map((c) => ({
+        url: `${SITE_URL}/naujienos/kategorija/${c.slug}`,
+        lastModified: now,
+        changeFrequency: 'daily' as const,
+        priority: 0.6,
+      })),
   ]
 
   // Dedikuoti stiliaus landing'ai (/zanrai/{slug}) — unikalus SEO turinys
@@ -108,5 +137,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }))
 
-  return [...staticPages, ...genrePages, ...facetPages, ...artistPages]
+  return [...staticPages, ...newsPages, ...genrePages, ...facetPages, ...artistPages]
 }

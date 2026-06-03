@@ -10,6 +10,7 @@ import { MasterSearch } from '@/components/MasterSearch'
 import { useSite } from '@/components/SiteContext'
 import { proxyImg } from '@/lib/img-proxy'
 import { GENRE_COLORS, GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
+import { NEWS_STYLES, NEWS_BROWSE_CATEGORIES, NEWS_SCOPES } from '@/lib/news-taxonomy'
 
 // Stilių išdėstymo tvarka nav dropdown'e (2 eilutės po 4 — Edvardo prašymu 2026-05-31).
 // 1 eilutė: Rokas, Sunkioji, Klasika, Alternatyva · 2 eilutė: Pop, Hip-hop, Elektronika, Kiti.
@@ -659,46 +660,98 @@ function AtradimaiPanel({ accent }: { accent: string }) {
   )
 }
 
+// Naujienų dropdown — redizainas (2026-06-03). 3 kolonos: featured naujienos,
+// naršymas pagal temą (LT/Pasaulis + kategorijos), naršymas pagal stilių.
+// Visi link'ai → dedikuoti SEO landing'ai (/naujienos/stilius|kategorija|lietuva).
 function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
   const news = data?.news.slice(0, 4) || []
+  const lead = news[0] || null
+  const rest = news.slice(1, 4)
   const placeholderTitles = [
     'Naujasis lietuviškos scenos pulsas',
     'Interviu su Lietuvos atlikėjais',
-    'Šios savaitės releases ir naujienos',
-    'Recenzija: paskutinis albumas',
+    'Šios savaitės releases',
   ]
   return (
-    <div className="sh-panel" style={{ minWidth: 720 }}>
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Naujausios naujienos</span>
-        <Link href="/naujienos" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {(news.length > 0 ? news : Array(4).fill(null)).map((n, i) => (
+    <div className="sh-panel" style={{ width: 960 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr 1.15fr', gap: 20 }}>
+
+        {/* ── Kolona 1: Featured ── */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="sh-panel-section">
+            <span className="sh-panel-section-title">Naujausios</span>
+            <Link href="/naujienos" className="sh-panel-section-more">Visos <ArrowRight size={11}/></Link>
+          </div>
+          {/* Pagrindinė naujiena */}
           <Link
-            key={n?.id || i}
-            href={n ? `/news/${n.slug}` : '/naujienos'}
-            className="sh-album-row"
+            href={lead ? `/news/${lead.slug}` : '/naujienos'}
+            style={{
+              display: 'flex', flexDirection: 'column', borderRadius: 14, overflow: 'hidden',
+              border: '1px solid var(--border-default)', marginBottom: 8, textDecoration: 'none',
+            }}
           >
-            <ImageBox
-              src={n?.image}
-              accent={accent}
-              glyph={I.blog}
-              className="sh-album-cover"
-            />
-            <span className="sh-album-info">
-              <span className="sh-album-title" style={{ WebkitLineClamp: 2 }}>
-                {n?.title || <span style={{ opacity: 0.55 }}>{placeholderTitles[i] || 'Naujiena'}</span>}
-              </span>
+            <div style={{ aspectRatio: '16 / 9', position: 'relative' }}>
+              <ImageBox src={lead?.image} accent={accent} glyph={I.blog} className="sh-news-hero-img" />
+            </div>
+            <span style={{ padding: '8px 10px', fontSize: 13, fontWeight: 700, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {lead?.title || placeholderTitles[0]}
             </span>
           </Link>
-        ))}
-      </div>
-      <div className="sh-panel-shortcuts">
-        <Link href="/naujienos" className="sh-shortcut">Visos →</Link>
-        <Link href="/naujienos?type=interview" className="sh-shortcut">Interviu →</Link>
-        <Link href="/naujienos?type=review" className="sh-shortcut">Recenzijos →</Link>
-        <Link href="/naujienos?type=release" className="sh-shortcut">Releases →</Link>
+          {/* Mažesnės */}
+          {(rest.length > 0 ? rest : Array(3).fill(null)).map((n, i) => (
+            <Link key={n?.id || i} href={n ? `/news/${n.slug}` : '/naujienos'} className="sh-album-row">
+              <ImageBox src={n?.image} accent={accent} glyph={I.blog} className="sh-album-cover" />
+              <span className="sh-album-info">
+                <span className="sh-album-title" style={{ WebkitLineClamp: 2 }}>
+                  {n?.title || <span style={{ opacity: 0.55 }}>{placeholderTitles[i + 1] || 'Naujiena'}</span>}
+                </span>
+              </span>
+            </Link>
+          ))}
+        </div>
+
+        {/* ── Kolona 2: Pagal temą ── */}
+        <div>
+          <div className="sh-panel-section"><span className="sh-panel-section-title">Pagal temą</span></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {NEWS_SCOPES.map(s => (
+              <Link key={s.key} href={`/naujienos/${s.slug}`} className="sh-news-link">
+                <span className="sh-news-link-icon" aria-hidden>{s.key === 'lt' ? '🇱🇹' : '🌍'}</span>
+                <span>{s.label}</span>
+              </Link>
+            ))}
+            <div style={{ height: 6 }} />
+            {NEWS_BROWSE_CATEGORIES.map(c => (
+              <Link key={c.key} href={`/naujienos/kategorija/${c.slug}`} className="sh-news-link">
+                <span className="sh-news-link-icon" aria-hidden>{c.icon}</span>
+                <span>{c.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Kolona 3: Pagal stilių ── */}
+        <div>
+          <div className="sh-panel-section">
+            <span className="sh-panel-section-title">Pagal stilių</span>
+            <Link href="/zanrai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {NEWS_STYLES.map(s => (
+              <Link
+                key={s.id}
+                href={`/naujienos/stilius/${s.slug}`}
+                className="sh-news-style"
+                style={{ ['--it-accent' as any]: s.accent }}
+              >
+                <span aria-hidden>{s.icon}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {s.name.replace(' muzika', '')}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -1631,6 +1684,38 @@ export function SiteHeader() {
         }
         .sh-album-row:hover { background: var(--bg-hover); }
         .sh-album-row:hover .sh-album-cover { transform: scale(1.05); }
+        /* ── Naujienų dropdown (redizainas 2026-06-03) ── */
+        .sh-news-hero-img {
+          position: absolute; inset: 0;
+          width: 100%; height: 100%;
+          background-size: cover; background-position: center;
+          background-color: var(--bg-hover);
+          transition: transform .3s ease;
+        }
+        .sh-panel a:hover .sh-news-hero-img { transform: scale(1.04); }
+        .sh-news-link {
+          display: flex; align-items: center; gap: 9px;
+          padding: 7px 9px; border-radius: 9px;
+          font-size: 13px; font-weight: 600;
+          color: var(--text-secondary); text-decoration: none;
+          transition: background .15s, color .15s;
+        }
+        .sh-news-link:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .sh-news-link-icon { font-size: 15px; line-height: 1; width: 18px; text-align: center; }
+        .sh-news-style {
+          display: flex; align-items: center; gap: 7px;
+          padding: 8px 10px; border-radius: 10px;
+          font-size: 12.5px; font-weight: 700;
+          color: var(--text-secondary); text-decoration: none;
+          border: 1px solid var(--border-default);
+          background: var(--bg-surface);
+          transition: border-color .15s, color .15s, background .15s;
+        }
+        .sh-news-style:hover {
+          border-color: var(--it-accent, var(--accent-orange));
+          color: var(--it-accent, var(--text-primary));
+          background: color-mix(in srgb, var(--it-accent, #888) 8%, transparent);
+        }
         .sh-album-cover {
           position: relative;
           flex-shrink: 0;

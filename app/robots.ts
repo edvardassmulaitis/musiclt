@@ -12,7 +12,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/admin', '/api/', '/pokalbiai', '/nustatymai'],
       },
     ],
-    sitemap: `${SITE_URL}/sitemap.xml`,
-    host: SITE_URL,
+    sitemap: [`${SITE_URL}/sitemap.xml`, `${SITE_URL}/news-sitemap.xml`],
   }
 }
