@@ -279,7 +279,15 @@ function PostCard({ p, showType = false }: { p: FeedPost; showType?: boolean }) 
         {p.cover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={proxyImg(p.cover)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
-        ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>}
+        ) : (
+          // Be viršelio (poezija / straipsniai be muzikos) — gradient + inicialas +
+          // tipo etiketė (kaip homepage Pulsas), kad nebūtų tuščio 🎵 kvadrato.
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center"
+            style={{ background: `linear-gradient(135deg, hsl(${hue(a?.username || p.title)},34%,22%), hsl(${(hue(a?.username || p.title) + 40) % 360},30%,12%))` }}>
+            <span className="font-['Outfit',sans-serif] text-3xl font-black text-white/85">{(a?.full_name || a?.username || p.title || '?').charAt(0).toUpperCase()}</span>
+            {tm && <span className="font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.12em] text-white/55">{tm.label}</span>}
+          </div>
+        )}
         {isReview && p.rating != null && (
           <span className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-black text-amber-300">★ {p.rating}</span>
         )}
