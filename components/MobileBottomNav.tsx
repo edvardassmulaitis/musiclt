@@ -3,16 +3,19 @@
 /**
  * MobileBottomNav — app-stiliaus apatinis meniu (tik mobile, ≤1080px).
  *
- * 5 vietos su centriniu „+" FAB:
- *   Srautas (♥) · Boombox (▶) · + (QuickCreate) · Pranešimai (🔔) · Pokalbiai (💬)
+ * v2 (5 vietos, centrinis „+" FAB):
+ *   🏠 Home · ❤️ Sekami · ➕ Kurti · 📈 Topai · 💬 Pokalbiai
  *
- * Pranešimai/Pokalbiai PERKELTI iš viršaus (header) į apačią mobile'e:
- *   - Pranešimai → atidaro esamą NotificationsBell dropdown'ą per openNotifications()
- *   - Pokalbiai → /pokalbiai (pilnas chat puslapis)
- * Abu su unread badge'ais. Viršuje (desktop) bells lieka.
+ * Pagrindinis principas: Home = muzikos pasaulis, ❤️ = mano muzikos pasaulis.
  *
- * Slepiasi desktop'e (CSS) ir /admin /pokalbiai (render gate SiteShell'yje).
- * Ikonos — inline SVG. JOKIO backdrop-filter (laužė mobile scroll'ą).
+ * Pakeitimai nuo v1:
+ *   - Pridėtas Home (/) ir Topai (/topai).
+ *   - Boombox PAŠALINTAS iš baro (pasiekiamas per „+" ir feed item'us).
+ *   - Pranešimai PERKELTI į top bar'ą (NotificationsBell header'yje, visada
+ *     matomas — kaip Instagram/TikTok). Apatiniame bare jų nebėra.
+ *
+ * Pokalbiai išlaiko unread badge'ą. Slepiasi desktop'e (CSS) ir /admin
+ * (render gate SiteShell'yje). Ikonos — inline SVG. Jokio backdrop-filter.
  */
 
 import { useEffect, useState } from 'react'
@@ -22,20 +25,18 @@ import { openQuickCreate } from '@/components/QuickCreate'
 
 export function MobileBottomNav() {
   const pathname = usePathname() || '/'
+  const isHome = pathname === '/'
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
-  const [notif, setNotif] = useState(0)
+  // Topai apima ir /top40 /top30 senuosius kelius
+  const isTopai = isActive('/topai') || isActive('/top40') || isActive('/top30') || isActive('/topas')
   const [msgs, setMsgs] = useState(0)
 
   useEffect(() => {
     let alive = true
     const load = async () => {
       try {
-        const [n, m] = await Promise.all([
-          fetch('/api/notifications?limit=1', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
-          fetch('/api/chat/unread', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
-        ])
+        const m = await fetch('/api/chat/unread', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null)
         if (!alive) return
-        if (n) setNotif(n.unread_count || 0)
         if (m) setMsgs(m.unread || 0)
       } catch { /* ignore */ }
     }
@@ -90,39 +91,38 @@ export function MobileBottomNav() {
         .mbn-fab svg { width: 26px; height: 26px; }
       `}</style>
       <nav className="mbn" aria-label="Apatinė navigacija">
-        {/* Srautas */}
+        {/* Home — muzikos pasaulis */}
+        <Link href="/" className={`mbn-item${isHome ? ' active' : ''}`}>
+          <span className="mbn-ico">
+            <svg viewBox="0 0 24 24" fill={isHome ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V9.5Z" /></svg>
+          </span>
+          <span className="mbn-label">Pradžia</span>
+        </Link>
+
+        {/* Sekami (❤️) — mano muzikos pasaulis */}
         <Link href="/srautas" className={`mbn-item${isActive('/srautas') ? ' active' : ''}`}>
           <span className="mbn-ico">
             <svg viewBox="0 0 24 24" fill={isActive('/srautas') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" /></svg>
           </span>
-          <span className="mbn-label">Srautas</span>
+          <span className="mbn-label">Sekami</span>
         </Link>
 
-        {/* Boombox */}
-        <Link href="/boombox" className={`mbn-item${isActive('/boombox') ? ' active' : ''}`}>
-          <span className="mbn-ico">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="8" width="18" height="12" rx="2" /><circle cx="8" cy="14" r="2" /><circle cx="16" cy="14" r="2" /><path d="M7 8V5a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v3" /></svg>
-          </span>
-          <span className="mbn-label">Boombox</span>
-        </Link>
-
-        {/* + (centras) */}
+        {/* + (centras) — Create Hub */}
         <div className="mbn-fab-wrap">
-          <button type="button" className="mbn-fab" aria-label="Pridėti" onClick={() => openQuickCreate()}>
+          <button type="button" className="mbn-fab" aria-label="Kurti" onClick={() => openQuickCreate()}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
           </button>
         </div>
 
-        {/* Pranešimai → /pranesimai (in-app puslapis, baras lieka — kaip Srautas) */}
-        <Link href="/pranesimai" className={`mbn-item${isActive('/pranesimai') ? ' active' : ''}`}>
+        {/* Topai — charts ir trending */}
+        <Link href="/topai" className={`mbn-item${isTopai ? ' active' : ''}`}>
           <span className="mbn-ico">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-            <Badge n={notif} />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="m7 14 4-4 3 3 5-6" /></svg>
           </span>
-          <span className="mbn-label">Pranešimai</span>
+          <span className="mbn-label">Topai</span>
         </Link>
 
-        {/* Pokalbiai → /pokalbiai */}
+        {/* Pokalbiai — social layer */}
         <Link href="/pokalbiai" className={`mbn-item${isActive('/pokalbiai') ? ' active' : ''}`}>
           <span className="mbn-ico">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>

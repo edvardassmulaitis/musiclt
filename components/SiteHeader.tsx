@@ -120,7 +120,7 @@ const NAV: NavItem[] = [
     key: 'muzika',
     label: 'Muzika',
     href: '/muzika',
-    match: ['/muzika', '/atlikejai', '/albumai', '/muzikos-stilius', '/dainos', '/lt'],
+    match: ['/muzika', '/atlikejai', '/albumai', '/zanrai', '/dainos', '/lt'],
     desc: 'Atlikėjai, albumai, dainos',
     accent: '#f59e0b',
     icon: I.music,
@@ -353,7 +353,7 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
           }}>
             Stiliai
           </span>
-          <Link href="/muzikos-stilius" className="sh-more-link">Daugiau →</Link>
+          <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
         </div>
         <div className="sh-chiprow">
           {styles.map(s => (
@@ -737,7 +737,7 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
           <span style={{ ...SECTION_HEAD, marginBottom: 0, paddingTop: 2 }}>Pagal stilių</span>
-          <Link href="/muzikos-stilius" className="sh-more-link">Daugiau →</Link>
+          <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
         </div>
         <div className="sh-chiprow">
           {NEWS_STYLES.map(s => (
@@ -2754,14 +2754,14 @@ export function SiteHeader() {
               <span>Kurti</span>
             </button>
 
-            {/* Žinutės + pranešimai — desktop top-right. Mobile'e juos dengia
-                apatinis baras, todėl paslepiam (bet NEišmontuojam — apatinio
-                baro „Pranešimai" tab'as atidaro šitą NotificationsBell dropdown'ą
-                per openNotifications() event'ą). */}
+            {/* Žinutės — TIK desktop top-right (mobile'e jas dengia apatinio baro
+                „Pokalbiai" tab'as). */}
             <span className="sh-desktop-bells">
               <MessagesBell />
-              <NotificationsBell />
             </span>
+            {/* Pranešimai — VISADA matomi (top bar), kaip Instagram/TikTok.
+                Nebėra apatiniame bare. Mobile'e bell atidaro full-screen modalą. */}
+            <NotificationsBell />
             <HeaderAuth />
           </div>
         </div>
