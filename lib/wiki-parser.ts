@@ -1361,6 +1361,27 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
         if (!fm) fm = noteM[1].match(/^\s*with\s+(.+)/i)
         if (!fm) fm = noteM[1].match(/\(\s*with\s+((?:[^()]+|\([^()]*\))+)\)/i)
         if (fm) featuring = cleanFeaturingTokens(fm[1].split(/[,&]/))
+        // 2026-06-02: Soundtrack/compilation per-track performer kreditai note'e.
+        // Garso takelių albumai (KPop Demon Hunters) kiekvienam track'ui note'e
+        // turi atlikėją: „Huntrix: [[Ejae]]...", „[[Twice]] version: ...",
+        // „Saja Boys: ...", „performed by [[X]]". extra_column dažnai „Producer(s)".
+        // Be šito visi soundtrack track'ai likdavo be atlikėjo (vien po „Garso
+        // takeliai" placeholder'iu). Imam grupę/aktą (prieš dvitaškį) kaip performer.
+        if (!featuring.length) {
+          const pby = noteM[1].match(/\bperformed\s+by\s+(.+)/i)
+          if (pby) {
+            featuring = cleanFeaturingTokens(pby[1].split(/[,&]/))
+          } else {
+            const colonM = noteM[1].match(/^\s*(.+?)\s*:\s*\S/)
+            if (colonM) {
+              const perf = cleanWikiText(colonM[1].replace(/\s+version\s*$/i, '').trim()).trim()
+              if (perf && perf.length > 1 && perf.length < 40
+                && !/\b(live|remix|instrumental|acoustic|demo|version|edit|remaster|reprise|interlude|intro|outro|bonus|original|cover|feat|from|recorded|note|theme|reissue|deluxe)\b/i.test(perf)) {
+                featuring = [perf]
+              }
+            }
+          }
+        }
       }
       const { cleanTitle, featuring: tf } = parseFeaturing(titleM[1].trim())
       if (!featuring.length) featuring = tf
@@ -1460,7 +1481,12 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
       // headline'e buvo „Deluxe edition (bonus DVD)" ir regex ieškojo tik
       // „documentary|film|making of" žodžių (be DVD/video/gallery).
       const hlLow = hl.toLowerCase()
-      if (/\b(documentary|film|movie|featurette|trailer|interview|behind\s+the\s+scenes|making\s+of|music\s+video|video\s+album|photo\s+gallery|gallery|bonus\s+dvd|video\s+edition|videos?\b)\b/.test(hlLow)) return false
+      // 2026-06-02: NEbeįtrauktas bare `film|movie` — soundtrack'ų headline'ai
+      // dažnai mini šaltinio filmą („Soundtrack from the Netflix Film", „Music
+      // from the Motion Picture") ir tai NĖRA video-tracklist signal'as. Dėl to
+      // KPop Demon Hunters dainų blokas būdavo išmetamas, paliekant tik score.
+      // Video turinį vis tiek pagauna documentary|music video|video album|DVD ir kt.
+      if (/\b(documentary|featurette|trailer|interview|behind\s+the\s+scenes|making\s+of|music\s+video|video\s+album|photo\s+gallery|gallery|bonus\s+dvd|video\s+edition|videos?\b)\b/.test(hlLow)) return false
       // Standalone „DVD" žodžio fix — pvz „Circus – Deluxe edition (bonus DVD)"
       // headline'e bonus DVD jau aukščiau, bet kas jei tik DVD: „Disc 2: DVD"
       if (/\bdvd\b/i.test(hlLow)) return false
@@ -1472,7 +1498,7 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
       // edition dvd | audio only section", o regex'as ieškojo tik dvd[2-9]
       // → match'o nerasdavo → 6 bonus track'us (Things I Don't Understand,
       // Pour Me Live, etc.) prilipdydavo prie main X&Y track listing'o.
-      if (/\b(documentary|dvd|film|movie|featurette|trailer|interview|behind[- ]the[- ]scenes|making[- ]of|music\s+video|video\s+album|video\s+edition|photo\s+gallery|tour\s+edition)\b/i.test(sectionBefore)) return false
+      if (/\b(documentary|dvd|featurette|trailer|interview|behind[- ]the[- ]scenes|making[- ]of|music\s+video|video\s+album|video\s+edition|photo\s+gallery|tour\s+edition)\b/i.test(sectionBefore)) return false
       return true
     }).map(({ block }) => block)
 
