@@ -351,9 +351,14 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
           // Dešimtmetis — reset ir tęsiame
           skipSubSection = false; hasYearCol = false
           currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false
-        } else if (/as lead|as solo|promotional|charity|other single/i.test(h) && !/as featured/i.test(h)) {
-          // Valid singles subsections like "As lead artist" — continue parsing
-          // Skip "As featured artist" — tik lead artist singlai aktualūs
+        } else if ((/as lead|as solo|promotional|charity|other single|\bsingles?\b/i.test(h)) && !/as featured/i.test(h)) {
+          // Valid singles subsections — continue parsing:
+          //  • "As lead artist" / "As solo artist"
+          //  • Kalbinės/regioninės sub-sekcijos: "Korean singles", "Japanese
+          //    singles", "English singles" (K-pop grupės kaip Le Sserafim — be
+          //    šito visi singlai dingdavo, nes `\bsingles?\b` nesutapdavo su
+          //    siaurais pattern'ais → skipSubSection=true → 0 singlų).
+          // Skip "As featured artist" — tik lead artist singlai aktualūs.
           skipSubSection = false; hasYearCol = false; inTable = false
           currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false
         } else {
