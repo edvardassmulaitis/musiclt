@@ -126,8 +126,8 @@ export default async function TopaiHubPage() {
   ]
 
   const songCards: Card[] = [
+    toCard(ext, 'consensus-lt', { sourcesKey: 'lt', country: 'lt' }),   // Lietuvos TOP 100 — VIRŠUJE
     toCard(ext, 'consensus-world', { sourcesKey: 'world', globe: true }),
-    toCard(ext, 'consensus-lt', { sourcesKey: 'lt', country: 'lt' }),
     toCard(ext, 'consensus-us', { sourcesKey: 'us', country: 'us' }),
     toCard(ext, 'consensus-uk', { sourcesKey: 'uk', title: 'UK TOP 100', country: 'gb' }),
     toCard(ext, 'consensus-shazam_world', { sourcesKey: 'shazam_world', globe: true }),
@@ -167,28 +167,22 @@ export default async function TopaiHubPage() {
 
       <TopaiTabs />
 
-      <header className="tp-hero">
-        <div className="tp-hero-text">
-          <h1 className="tp-hero-title">Muzikos topai</h1>
-          <p className="tp-hero-sub">
-            Lietuvos ir pasaulio dainų bei albumų reitingai vienoje vietoje. Music.lt TOP 40,
-            LT TOP 30 ir agreguoti AGATA, Spotify, Apple Music, Billboard, Official UK bei
-            Shazam topai — atnaujinami kas savaitę.
-          </p>
-        </div>
+      {/* H1 — SEO (vizualiai paslėptas, kad taupytume vietą; matomas „header"
+          pašalintas Edvardo prašymu). Music.lt TOP 40 / LT TOP 30 dabar tabuose,
+          tad jų kortelių hub'e nebėra. */}
+      <h1 style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+        Muzikos topai — Lietuva ir pasaulis
+      </h1>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '8px 0 4px' }}>
         <Link href="/topai/archyvas" className="tp-archive-link">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
           Praėjusių savaičių archyvas →
         </Link>
-      </header>
-
-      <div className="tp-grid">
-        {mainCards.map(c => <ChartCard key={c.key} card={c} cta="Žiūrėti →" />)}
       </div>
 
       {songCards.length > 0 && (
         <section className="tp-section">
-          <h2 className="tp-sec-title">Dainų topai</h2>
           <div className="tp-grid">{songCards.map(c => <ChartCard key={c.key} card={c} cta="Pilnas →" />)}</div>
         </section>
       )}
