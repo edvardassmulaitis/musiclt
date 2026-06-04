@@ -259,21 +259,6 @@ function RowStripe({ kind }: { kind: 'lt' | 'world' }) {
   return <span className="sh-stripe sh-stripe-world" aria-hidden />
 }
 
-/* Žanrų/stilių kortelės: vientisos brand-spalvos vizualas (be stock nuotraukų).
-   Per-žanro ikona kampe — viena nuosekli sistema visuose meniu (Muzika +
-   Naujienos, desktop + mobile). USE_GENRE_PHOTOS=false → solidžios spalvos;
-   jei kada panorėtume grįžti prie nuotraukų, užtenka perjungti į true. */
-const USE_GENRE_PHOTOS = false
-const STYLE_ICONS: Record<string, React.ReactNode> = {
-  'Alternatyvioji muzika':     I.headphones,
-  'Elektroninė, šokių muzika': I.equalizer,
-  "Hip-hop'o muzika":          I.mic,
-  'Kitų stilių muzika':        I.shuffle,
-  'Pop, R&B muzika':           I.heart,
-  'Rimtoji muzika':            I.piano,
-  'Roko muzika':               I.guitar,
-  'Sunkioji muzika':           I.flame,
-}
 
 function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
   const artistsLt    = data?.artistsLt    || []
@@ -366,32 +351,13 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
           </span>
           <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
         </div>
-        <div className="sh-style-grid">
-          {styles.map(s => {
-            const img = data?.genres?.[s.name] || null
-            const hasImage = USE_GENRE_PHOTOS && !!img
-            return (
-              <Link
-                key={s.name}
-                href={s.href}
-                className={`sh-style-card${hasImage ? ' sh-style-card-photo' : ''}`}
-                style={{
-                  ['--it-rgb' as any]: s.rgb,
-                  ...(hasImage ? { backgroundImage:
-                    `linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.30) 55%, rgba(0,0,0,0.10) 100%), url(${proxyImg(img)})`
-                  } : {}),
-                }}
-                title={s.name}
-              >
-                <span className="sh-style-card-name">{s.short}</span>
-                {!hasImage && (
-                  <span className="sh-style-card-deco" aria-hidden>
-                    {STYLE_ICONS[s.name] || I.shuffle}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
+        <div className="sh-chiprow">
+          {styles.map(s => (
+            <Link key={s.name} href={s.href} className="sh-navchip" title={s.name}>
+              <span className="sh-navchip-dot" style={{ background: `rgb(${s.rgb})` }} aria-hidden />
+              {s.short}
+            </Link>
+          ))}
         </div>
       </div>
     </div>
@@ -439,10 +405,6 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
 
   const anchor = (s: string) => s === 'world' ? '/topai#pasaulio-topai' : s === 'social' ? '/topai#trendai' : '/topai#lt-topai'
   const scopeGlyph = (s: string) => (s === 'social' ? I.trending : I.trophy)
-  const flagBg = (cc: string | null) => {
-    const c = (cc || '').toLowerCase()
-    return (c === 'lt' || c === 'us' || c === 'gb') ? `https://flagcdn.com/w320/${c}.png` : null
-  }
 
   // Dainų juosta su flag/spalvos stripe — kompaktiškos kortelės (cover+title+artist).
   const renderSongRow = (kind: 'lt' | 'world', title: string, href: string, hex: string, entries: TopMini[]) => (
@@ -476,23 +438,21 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
     </div>
   )
 
-  // Vėliavos / vizualo kortelė (Pagal šalis + Kiti topai grupėms).
-  const featCard = (c: NonNullable<NavPreview['featuredCharts']>[number]) => {
-    const isFlag = !c.image && !!flagBg(c.country)
-    const bg = c.image ? proxyImg(c.image) : flagBg(c.country)
-    const hasImg = !!bg
-    // Tamsą koncentruojam į ploną apačios juostą (tik po pavadinimu) — likusi
-    // vėliava / nuotrauka lieka ryški.
-    const grad = isFlag
-      ? 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 30%)'
-      : 'linear-gradient(to top, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.15) 38%, rgba(0,0,0,0) 62%)'
+  // Kompaktiškas chip'as su maža vėliavėle (Pagal šalis) arba ikona (Kiti topai).
+  const chartFlag = (cc: string | null): string | null => {
+    let c = (cc || '').toLowerCase()
+    c = (c === 'uk' || c === 'en') ? 'gb' : c
+    return /^[a-z]{2}$/.test(c) ? `https://flagcdn.com/w40/${c}.png` : null
+  }
+  const featChip = (c: NonNullable<NavPreview['featuredCharts']>[number]) => {
+    const flag = chartFlag(c.country)
     return (
       <Link key={c.id} href={c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : anchor(c.scope)}
-        className={`sh-style-card${hasImg ? ' sh-style-card-photo' : ''}`}
-        style={{ ['--it-rgb' as any]: hexToRgb(c.accent), ...(hasImg ? { backgroundImage: `${grad}, url(${bg})` } : {}) }}
-        title={c.title}>
-        <span className="sh-style-card-name">{c.title}</span>
-        {!hasImg && <span className="sh-style-card-deco" aria-hidden>{scopeGlyph(c.scope)}</span>}
+        className="sh-navchip" title={c.title}>
+        {flag
+          ? <img src={flag} alt="" className="sh-navchip-flag" />
+          : <span className="sh-navchip-ic" style={{ color: c.accent }} aria-hidden>{scopeGlyph(c.scope)}</span>}
+        {c.title}
       </Link>
     )
   }
@@ -506,27 +466,24 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
       <div style={{ height: 12 }} />
       {renderSongRow('world', 'TOP 40', '/top40', '#f97316', top40)}
 
-      {/* ── Pagal šalis: LT / JAV / UK consensus su vėliavomis ── */}
+      {/* ── Pagal šalis: maža vėliavėlė + pavadinimas (chip'ai) ── */}
       {byCountry.length > 0 && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-          <div style={{ ...SEC_HEAD, marginBottom: 10 }}>Pagal šalis</div>
-          <div className="sh-style-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>{byCountry.map(featCard)}</div>
+          <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Pagal šalis</div>
+          <div className="sh-chiprow">{byCountry.map(featChip)}</div>
         </div>
       )}
 
-      {/* ── Kiti topai: Pasaulio / Viral / Albumai ── */}
+      {/* ── Kiti topai: Pasaulio / Viral / Albumai (chip'ai) ── */}
       {otherCharts.length > 0 && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-          <div style={{ ...SEC_HEAD, marginBottom: 10 }}>Kiti topai</div>
-          <div className="sh-style-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>{otherCharts.map(featCard)}</div>
+          <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Kiti topai</div>
+          <div className="sh-chiprow">{otherCharts.map(featChip)}</div>
         </div>
       )}
       {featured.length === 0 && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-          <Link href="/topai" className="sh-style-card" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
-            <span className="sh-style-card-name">Visi topai</span>
-            <span className="sh-style-card-deco" aria-hidden>{I.trophy}</span>
-          </Link>
+          <Link href="/topai" className="sh-navchip"><span className="sh-navchip-ic" style={{ color: '#6366f1' }} aria-hidden>{I.trophy}</span>Visi topai</Link>
         </div>
       )}
 
@@ -634,13 +591,16 @@ const POST_TYPE_LABEL: Record<string, string> = {
   event: 'Renginys',
   release: 'Leidinys',
 }
-const postTypeBadge = (postType?: string): React.ReactNode => {
+// Tipas rodomas po pavadinimu (meta eilutėje), kad NEUŽDENGTŲ vizualo.
+const postTypeMeta = (postType?: string, author?: string): React.ReactNode => {
   const label = postType ? POST_TYPE_LABEL[postType] : null
-  if (!label) return null
+  if (!label && !author) return null
   return (
-    <span style={{ position: 'absolute', top: 4, left: 4, zIndex: 1, fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 5, background: 'rgba(0,0,0,0.72)', color: '#fff', letterSpacing: '0.02em', lineHeight: 1.45, backdropFilter: 'blur(2px)' }}>
-      {label}
-    </span>
+    <>
+      {label ? <span style={{ fontWeight: 800, color: 'var(--text-secondary)' }}>{label}</span> : null}
+      {label && author ? ' · ' : ''}
+      {author || ''}
+    </>
   )
 }
 
@@ -698,9 +658,9 @@ function AtradimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
         <div className="sh-strip">
           {(posts.length > 0 ? posts : Array(6).fill(null)).map((p: any, i: number) => (
             <Link key={p?.id || `dp-${i}`} href={p?.blogSlug ? `/blogas/${p.blogSlug}/${p.slug}` : '/blogas'} className="sh-mini sh-mini-md">
-              <ImageBox src={p?.image} accent={accent} glyph={I.blog} className="sh-mini-img">{postTypeBadge(p?.postType)}</ImageBox>
+              <ImageBox src={p?.image} accent={accent} glyph={I.blog} className="sh-mini-img" />
               <span className="sh-mini-title sh-mini-title-2">{p?.title || <span style={{ opacity: 0.45 }}>Įrašas</span>}</span>
-              {p?.author ? <span className="sh-mini-meta">{p.author}</span> : null}
+              <span className="sh-mini-meta">{postTypeMeta(p?.postType, p?.author)}</span>
             </Link>
           ))}
         </div>
@@ -781,34 +741,19 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
         </div>
       </div>
 
-      {/* ── Pagal stilių (kortelės su žanro vizualais — kaip Muzika) ── */}
+      {/* ── Pagal stilių (kompaktiški spalvų chip'ai — kaip Muzika) ── */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
           <span style={{ ...SECTION_HEAD, marginBottom: 0, paddingTop: 2 }}>Pagal stilių</span>
           <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
         </div>
-        <div className="sh-style-grid">
-          {NEWS_STYLES.map(s => {
-            const img = data?.genres?.[s.name] || null
-            const hasImage = USE_GENRE_PHOTOS && !!img
-            return (
-              <Link
-                key={s.id}
-                href={`/naujienos/stilius/${s.slug}`}
-                className={`sh-style-card${hasImage ? ' sh-style-card-photo' : ''}`}
-                style={{
-                  ['--it-rgb' as any]: hexToRgb(s.accent),
-                  ...(hasImage ? { backgroundImage:
-                    `linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.30) 55%, rgba(0,0,0,0.10) 100%), url(${proxyImg(img)})`
-                  } : {}),
-                }}
-                title={s.name}
-              >
-                <span className="sh-style-card-name">{s.name.replace(' muzika', '')}</span>
-                {!hasImage && <span className="sh-style-card-deco" aria-hidden>{STYLE_ICONS[s.name] || I.news}</span>}
-              </Link>
-            )
-          })}
+        <div className="sh-chiprow">
+          {NEWS_STYLES.map(s => (
+            <Link key={s.id} href={`/naujienos/stilius/${s.slug}`} className="sh-navchip" title={s.name}>
+              <span className="sh-navchip-dot" style={{ background: s.accent }} aria-hidden />
+              {s.name.replace(' muzika', '')}
+            </Link>
+          ))}
         </div>
       </div>
     </div>
@@ -949,28 +894,13 @@ function MobileExpansion({
           }}>
             Stiliai
           </div>
-          <div className="sh-style-grid sh-style-grid-mobile">
-            {STYLES_ORDERED.map(s => {
-              const img = data?.genres?.[s.name] || null
-              const hasImage = USE_GENRE_PHOTOS && !!img
-              return (
-                <Link
-                  key={s.name}
-                  href={s.href}
-                  onClick={onLink}
-                  className={`sh-style-card sh-style-card-mobile${hasImage ? ' sh-style-card-photo' : ''}`}
-                  style={{
-                    ['--it-rgb' as any]: s.rgb,
-                    ...(hasImage ? { backgroundImage:
-                      `linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.30) 55%, rgba(0,0,0,0.10) 100%), url(${proxyImg(img)})`
-                    } : {}),
-                  }}
-                  title={s.name}
-                >
-                  <span className="sh-style-card-name">{s.short}</span>
-                </Link>
-              )
-            })}
+          <div className="sh-chiprow">
+            {STYLES_ORDERED.map(s => (
+              <Link key={s.name} href={s.href} onClick={onLink} className="sh-navchip" title={s.name}>
+                <span className="sh-navchip-dot" style={{ background: `rgb(${s.rgb})` }} aria-hidden />
+                {s.short}
+              </Link>
+            ))}
           </div>
         </div>
       </div>
@@ -989,27 +919,20 @@ function MobileExpansion({
       return /^[a-z]{2}$/.test(c) ? `https://flagcdn.com/w320/${c}.png` : null
     }
     const mAnchor = (s: string) => s === 'world' ? '/topai#pasaulio-topai' : s === 'social' ? '/topai#trendai' : '/topai#lt-topai'
-    // Vėliavos / vizualo kortelė — identiška desktop TopaiPanel featCard logikai.
-    const mFeatCard = (c: NonNullable<NavPreview['featuredCharts']>[number]) => {
-      const isFlag = !c.image && !!mFlagBg(c.country)
-      const bg = c.image ? proxyImg(c.image) : mFlagBg(c.country)
-      const hasImg = !!bg
-      const grad = isFlag
-        ? 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 30%)'
-        : 'linear-gradient(to top, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.15) 38%, rgba(0,0,0,0) 62%)'
+    // Chip'as su maža vėliavėle (Pagal šalis) arba ikona (Kiti topai) — kaip desktop.
+    const mFeatChip = (c: NonNullable<NavPreview['featuredCharts']>[number]) => {
+      const flag = mFlagBg(c.country)
       return (
         <Link key={c.id} href={c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : mAnchor(c.scope)} onClick={onLink}
-          className={`sh-style-card sh-style-card-mobile${hasImg ? ' sh-style-card-photo' : ''}`}
-          style={{ ['--it-rgb' as any]: hexToRgb(c.accent), ...(hasImg ? { backgroundImage: `${grad}, url(${bg})` } : {}) }}
-          title={c.title}>
-          <span className="sh-style-card-name">{c.title}</span>
-          {!hasImg && <span className="sh-style-card-deco" aria-hidden>{c.scope === 'social' ? I.trending : I.trophy}</span>}
+          className="sh-navchip" title={c.title}>
+          {flag
+            ? <img src={flag} alt="" className="sh-navchip-flag" />
+            : <span className="sh-navchip-ic" style={{ color: c.accent }} aria-hidden>{c.scope === 'social' ? I.trending : I.trophy}</span>}
+          {c.title}
         </Link>
       )
     }
-    // Visi „kiti topai" (pagal šalis + pasaulio/viral) vienoje kompaktiškoje
-    // 2-stulpelių juostoje — taupo vertikalią vietą (be scrollo).
-    const mCharts = [...mFeatured.filter(c => c.country), ...mFeatured.filter(c => !c.country)].slice(0, 6)
+    const mCharts = [...mFeatured.filter(c => c.country), ...mFeatured.filter(c => !c.country)].slice(0, 8)
     // Horizontaliai scroll'inama dainų juosta (kaip desktop) — be Lietuva/Pasaulis badge'o.
     const mSongStrip = (title: string, href: string, hex: string, kind: 'lt' | 'world', entries: TopMini[]) => (
       <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
@@ -1046,11 +969,11 @@ function MobileExpansion({
         <div style={{ height: 8 }} />
         {mSongStrip('TOP 40', '/top40', '#f97316', 'world', mTop40)}
 
-        {/* Kiti topai — 2 stulpeliai × 3 eilutės, kompaktiškos kortelės */}
+        {/* Pagal šalis / kiti topai — vėliavėlių chip'ai */}
         {mCharts.length > 0 && (
           <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--border-default)' }}>
-            <div style={{ ...SEC_HEAD, marginBottom: 6 }}>Kiti topai</div>
-            <div className="sh-style-grid sh-style-grid-mobile sh-topgrid-mini">{mCharts.map(mFeatCard)}</div>
+            <div style={{ ...SEC_HEAD, marginBottom: 6 }}>Pagal šalis · kiti topai</div>
+            <div className="sh-chiprow">{mCharts.map(mFeatChip)}</div>
           </div>
         )}
 
@@ -1150,8 +1073,9 @@ function MobileExpansion({
               <div className="sh-strip">
                 {mPosts.map((p: any, i: number) => (
                   <Link key={p?.id || `dp-${i}`} href={p?.blogSlug ? `/blogas/${p.blogSlug}/${p.slug}` : '/blogas'} onClick={onLink} className="sh-mini sh-mini-md">
-                    <ImageBox src={p?.image} accent={accent} glyph={I.blog} className="sh-mini-img">{postTypeBadge(p?.postType)}</ImageBox>
+                    <ImageBox src={p?.image} accent={accent} glyph={I.blog} className="sh-mini-img" />
                     <span className="sh-mini-title sh-mini-title-2">{p?.title || 'Įrašas'}</span>
+                    <span className="sh-mini-meta">{postTypeMeta(p?.postType, p?.author)}</span>
                   </Link>
                 ))}
               </div>
@@ -1232,31 +1156,16 @@ function MobileExpansion({
           </div>
         </div>
 
-        {/* Pagal stilių (kortelės) */}
+        {/* Pagal stilių (chip'ai) */}
         <div style={{ paddingTop: 12, marginTop: 12, borderTop: '1px solid var(--border-default)' }}>
           <div style={SECTION_HEAD}>Pagal stilių</div>
-          <div className="sh-style-grid sh-style-grid-mobile">
-            {NEWS_STYLES.map(s => {
-              const img = data?.genres?.[s.name] || null
-              const hasImage = USE_GENRE_PHOTOS && !!img
-              return (
-                <Link
-                  key={s.id}
-                  href={`/naujienos/stilius/${s.slug}`}
-                  onClick={onLink}
-                  className={`sh-style-card sh-style-card-mobile${hasImage ? ' sh-style-card-photo' : ''}`}
-                  style={{
-                    ['--it-rgb' as any]: hexToRgb(s.accent),
-                    ...(hasImage ? { backgroundImage:
-                      `linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.30) 55%, rgba(0,0,0,0.10) 100%), url(${proxyImg(img)})`
-                    } : {}),
-                  }}
-                  title={s.name}
-                >
-                  <span className="sh-style-card-name">{s.name.replace(' muzika', '')}</span>
-                </Link>
-              )
-            })}
+          <div className="sh-chiprow">
+            {NEWS_STYLES.map(s => (
+              <Link key={s.id} href={`/naujienos/stilius/${s.slug}`} onClick={onLink} className="sh-navchip" title={s.name}>
+                <span className="sh-navchip-dot" style={{ background: s.accent }} aria-hidden />
+                {s.name.replace(' muzika', '')}
+              </Link>
+            ))}
           </div>
         </div>
       </div>
@@ -1580,6 +1489,31 @@ export function SiteHeader() {
           letter-spacing: -0.01em;
           color: var(--text-primary);
         }
+
+        /* ── Vieningi chip'ai antraeilėms sekcijoms (stiliai, šalys, kiti topai) —
+              lengvai skaitomi, mažai vizualo, vietoj didelių spalvotų kortelių. ── */
+        .sh-chiprow { display: flex; flex-wrap: wrap; gap: 7px; }
+        .sh-navchip {
+          display: inline-flex; align-items: center; gap: 7px;
+          padding: 6px 11px;
+          border-radius: 9px;
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-default);
+          font-size: 12.5px; font-weight: 600;
+          color: var(--text-primary);
+          text-decoration: none; white-space: nowrap;
+          line-height: 1.2;
+          transition: background .15s, border-color .15s, transform .1s;
+        }
+        .sh-navchip:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+        .sh-navchip:active { transform: scale(0.97); }
+        .sh-navchip-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+        .sh-navchip-flag {
+          width: 19px; height: 13px; border-radius: 2px; flex-shrink: 0;
+          object-fit: cover; box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+        }
+        .sh-navchip-ic { display: inline-flex; flex-shrink: 0; }
+        .sh-navchip-ic svg { width: 14px; height: 14px; }
 
         /* Stiliai grid — Spotify-style bold colored kortelės */
         .sh-style-grid {
