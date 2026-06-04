@@ -54,6 +54,8 @@ type NavPreview = {
   news:         { id: number; slug: string; title: string; image: string | null; date: string }[]
   newsLt?:      { id: string | number; slug: string; title: string; image: string | null; date: string | null }[]
   newsWorld?:   { id: string | number; slug: string; title: string; image: string | null; date: string | null }[]
+  dailySongs?:  { slug: string; title: string; artist: string; image: string | null; date: string | null }[]
+  discoveryPosts?: { id: number; slug: string; title: string; blogSlug: string | null; postType: string; image: string | null; author: string }[]
   /** name → cover_image_url map (admin'as nustato per /admin/genres) */
   genres?:      Record<string, string | null>
   /** Total atlikėjų skaičiai DB'je — naudojama Daugiau tile'ui */
@@ -621,43 +623,82 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
 // srautą (/atradimai), po juo 6 nuorodos: Pažink narius, Dienos daina, Diskusijos,
 // Narių įrašai, Pokalbių dėžutė, Boombox. Atitinka perdarytą /atradimai puslapį
 // (2026-06-03; žaidimai nebe atskira sekcija — viena Boombox kortelė).
-function AtradimaiPanel({ accent }: { accent: string }) {
+// Grido / sąrašo ikona expand mygtukui.
+const gridIcon = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
+    <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
+  </svg>
+)
+function AtradimaiPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
+  const dailySongs = data?.dailySongs || []
+  const posts = data?.discoveryPosts || []
   const items: { href: string; icon: React.ReactNode; title: string; desc: string; rgb: string }[] = [
     { href: '/vartotojai', icon: I.users, title: 'Pažink narius', desc: 'Aktyviausi bendruomenės nariai', rgb: '#f59e0b' },
-    { href: '/dienos-daina', icon: I.music, title: 'Dienos daina', desc: 'Siūlyk ir balsuok už dienos hitą', rgb: '#f97316' },
     { href: '/diskusijos', icon: I.forum, title: 'Diskusijos', desc: 'Forumo temos ir debatai', rgb: '#8b5cf6' },
-    { href: '/blogas', icon: I.blog, title: 'Narių įrašai', desc: 'Recenzijos, kūryba, topai', rgb: '#a855f7' },
     { href: '/pokalbiai', icon: I.chat, title: 'Pokalbių dėžutė', desc: 'Bendras gyvas chatas', rgb: '#06b6d4' },
     { href: '/boombox', icon: I.boombox, title: 'Boombox', desc: 'Muzikinis swipe žaidimas', rgb: '#6366f1' },
   ]
+  const headLabel: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif",
+    fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)',
+  }
+  const sectionHead = (label: string, glyph: React.ReactNode, href: string, more: string, mt = 0): React.ReactNode => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: mt }}>
+      <span style={headLabel}><span className="sh-trending-glyph">{glyph}</span>{label}</span>
+      <Link href={href} className="sh-more-link">{more} →</Link>
+    </div>
+  )
   return (
     <div className="sh-panel">
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Atradimai</span>
         <Link href="/atradimai" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
       </div>
-      {/* Hero — gyvas srautas */}
-      <Link
-        href="/atradimai"
-        className="sh-bigshortcut"
-        style={{ ['--it-rgb' as any]: hexToRgb('#8b5cf6'), gridColumn: '1 / -1', marginBottom: 8, background: 'linear-gradient(135deg, rgba(139,92,246,0.16), rgba(6,182,212,0.10))' }}
-      >
-        <span className="sh-bigshortcut-icon">{I.flame}</span>
-        <span>
-          <span className="sh-bigshortcut-title">Bendruomenės srautas</span>
-          <span className="sh-bigshortcut-desc">Kas naujo pas kitus narius — gyvai</span>
-        </span>
-      </Link>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-        {items.map(it => (
-          <Link key={it.href} href={it.href} className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb(it.rgb) }}>
-            <span className="sh-bigshortcut-icon">{it.icon}</span>
-            <span>
-              <span className="sh-bigshortcut-title">{it.title}</span>
-              <span className="sh-bigshortcut-desc">{it.desc}</span>
-            </span>
-          </Link>
-        ))}
+
+      {/* Dienos dainos — nugalėtojų juosta */}
+      {sectionHead('Dienos dainos', I.music, '/dienos-daina', 'Visos')}
+      <div className="sh-strip-wrap">
+        <div className="sh-strip">
+          {(dailySongs.length > 0 ? dailySongs : Array(6).fill(null)).map((s: any, i: number) => (
+            <Link key={s?.slug || `ds-${i}`} href={s?.slug ? `/dainos/${s.slug}` : '/dienos-daina'} className="sh-mini sh-mini-md">
+              <ImageBox src={s?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{s?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
+              {s?.artist ? <span className="sh-mini-meta">{s.artist}</span> : null}
+            </Link>
+          ))}
+        </div>
+        <Link href="/dienos-daina" className="sh-expand-btn" aria-label="Visos dienos dainos" title="Visos dienos dainos">{gridIcon}</Link>
+      </div>
+
+      {/* Naujausi narių įrašai */}
+      {sectionHead('Naujausi narių įrašai', I.blog, '/blogas', 'Visi', 16)}
+      <div className="sh-strip-wrap">
+        <div className="sh-strip">
+          {(posts.length > 0 ? posts : Array(6).fill(null)).map((p: any, i: number) => (
+            <Link key={p?.id || `dp-${i}`} href={p?.blogSlug ? `/blogas/${p.blogSlug}/${p.slug}` : '/blogas'} className="sh-mini sh-mini-md">
+              <ImageBox src={p?.image} accent={accent} glyph={I.blog} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{p?.title || <span style={{ opacity: 0.45 }}>Įrašas</span>}</span>
+              {p?.author ? <span className="sh-mini-meta">{p.author}</span> : null}
+            </Link>
+          ))}
+        </div>
+        <Link href="/blogas" className="sh-expand-btn" aria-label="Visi įrašai" title="Visi narių įrašai">{gridIcon}</Link>
+      </div>
+
+      {/* Greitos nuorodos — bendruomenės sekcijos */}
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
+          {items.map(it => (
+            <Link key={it.href} href={it.href} className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb(it.rgb) }}>
+              <span className="sh-bigshortcut-icon">{it.icon}</span>
+              <span>
+                <span className="sh-bigshortcut-title">{it.title}</span>
+                <span className="sh-bigshortcut-desc">{it.desc}</span>
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -1060,13 +1101,42 @@ function MobileExpansion({
   }
 
   if (navKey === 'atradimai') {
+    const mDaily = data?.dailySongs || []
+    const mPosts = data?.discoveryPosts || []
     return (
       <div className="sh-mexp">
-        {/* Hero — gyvas bendruomenės srautas */}
-        <Link href="/atradimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#8b5cf6'), gridColumn: '1 / -1', flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8, background: 'linear-gradient(135deg, rgba(139,92,246,0.16), rgba(6,182,212,0.10))' }}>
-          <span className="sh-mexp-tile-icon">{I.flame}</span>
-          <span className="sh-mexp-tile-label" style={{ textAlign: 'left' }}>Bendruomenės srautas — kas naujo</span>
-        </Link>
+        {/* Dienos dainos juosta */}
+        {mDaily.length > 0 && (
+          <>
+            <div style={{ ...SEC_HEAD, marginBottom: 6 }}>Dienos dainos</div>
+            <div className="sh-strip-wrap" style={{ marginBottom: 12 }}>
+              <div className="sh-strip">
+                {mDaily.map((s: any, i: number) => (
+                  <Link key={s?.slug || `ds-${i}`} href={s?.slug ? `/dainos/${s.slug}` : '/dienos-daina'} onClick={onLink} className="sh-mini sh-mini-md">
+                    <ImageBox src={s?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
+                    <span className="sh-mini-title sh-mini-title-2">{s?.title || 'Daina'}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+        {/* Naujausi narių įrašai juosta */}
+        {mPosts.length > 0 && (
+          <>
+            <div style={{ ...SEC_HEAD, marginBottom: 6 }}>Naujausi narių įrašai</div>
+            <div className="sh-strip-wrap" style={{ marginBottom: 12 }}>
+              <div className="sh-strip">
+                {mPosts.map((p: any, i: number) => (
+                  <Link key={p?.id || `dp-${i}`} href={p?.blogSlug ? `/blogas/${p.blogSlug}/${p.slug}` : '/blogas'} onClick={onLink} className="sh-mini sh-mini-md">
+                    <ImageBox src={p?.image} accent={accent} glyph={I.blog} className="sh-mini-img" />
+                    <span className="sh-mini-title sh-mini-title-2">{p?.title || 'Įrašas'}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
         <div className="sh-mexp-grid">
           <Link href="/vartotojai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f59e0b') }}>
             <span className="sh-mexp-tile-icon">{I.users}</span>
@@ -1275,7 +1345,7 @@ export function SiteHeader() {
       case 'topai':        return <TopaiPanel data={preview} accent={accent} />
       case 'renginiai':    return <RenginiaiPanel data={preview} accent={accent} />
       case 'naujienos':    return <NaujienosPanel data={preview} accent={accent} />
-      case 'atradimai':    return <AtradimaiPanel accent={accent} />
+      case 'atradimai':    return <AtradimaiPanel data={preview} accent={accent} />
       case 'skelbimai':    return <SkelbimaiPanel accent={accent} />
     }
   }

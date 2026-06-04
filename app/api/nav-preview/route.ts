@@ -157,6 +157,52 @@ export async function GET() {
       id: it.uid, slug: it.slug, title: it.title, image: it.image, date: it.date,
     })
 
+    // Atradimai dropdown'ui: dienos dainų nugalėtojai + naujausi narių įrašai.
+    const [dailyWinnersRes, discoveryPostsRes] = await Promise.all([
+      supabase
+        .from('daily_song_winners')
+        .select('date, tracks:track_id ( slug, title, cover_url, video_url, artists:artist_id ( name, slug, cover_image_url ) )')
+        .order('date', { ascending: false })
+        .limit(10),
+      supabase
+        .from('blog_posts')
+        .select('id, slug, title, cover_image_url, post_type, published_at, blogs:blog_id ( slug, profiles:user_id ( full_name, username, avatar_url ) )')
+        .eq('status', 'published')
+        .not('published_at', 'is', null)
+        .lte('published_at', new Date().toISOString())
+        .order('published_at', { ascending: false })
+        .limit(40),
+    ])
+    const dailySongs = (dailyWinnersRes.data || []).map((w: any) => {
+      const t = Array.isArray(w.tracks) ? w.tracks[0] : w.tracks
+      if (!t) return null
+      const ar = Array.isArray(t.artists) ? t.artists[0] : t.artists
+      return {
+        slug: t.slug, title: t.title, artist: ar?.name || '',
+        image: t.cover_url || ytThumb(t.video_url) || ar?.cover_image_url || null,
+        date: w.date,
+      }
+    }).filter(Boolean).slice(0, 8)
+    // Dedup per autorių (vienas naujausias įrašas per narį) — kad produktyvus
+    // narys neužfloodintų juostos. Cover fallback → autoriaus avataras.
+    const seenAuthors = new Set<string>()
+    const discoveryPosts: any[] = []
+    for (const r of (discoveryPostsRes.data || []) as any[]) {
+      const blg = Array.isArray(r.blogs) ? r.blogs[0] : r.blogs
+      const prof = blg ? (Array.isArray(blg.profiles) ? blg.profiles[0] : blg.profiles) : null
+      const key = prof?.username || `p${r.id}`
+      if (seenAuthors.has(key)) continue
+      seenAuthors.add(key)
+      discoveryPosts.push({
+        id: r.id, slug: r.slug, title: r.title || '',
+        blogSlug: blg?.slug || prof?.username || null,
+        postType: r.post_type || 'article',
+        image: r.cover_image_url || prof?.avatar_url || null,
+        author: prof?.full_name || prof?.username || '',
+      })
+      if (discoveryPosts.length >= 8) break
+    }
+
     // Renginių LT/užsienio skaidymas: LT jei BENT VIENAS atlikėjas iš Lietuvos
     // arba apskritai nėra užsienio atlikėjo (be info → LT, kad juosta nebūtų tuščia).
     const evMap = (e: any) => ({ id: e.id, slug: e.slug, title: e.title, date: e.start_date, venue: e.venue_name, image: e.cover_image_url })
@@ -209,6 +255,8 @@ export async function GET() {
       })),
       newsLt: ltNewsFeed.items.map(mapFeedNews),
       newsWorld: worldNewsFeed.items.map(mapFeedNews),
+      dailySongs,
+      discoveryPosts,
       // Žanrų name → cover_image_url map (frontend lookup'ina pagal name iš GENRE_COLORS)
       genres: (genresRes.data || []).reduce((acc: Record<string, string | null>, g: any) => {
         acc[g.name] = g.cover_image_url || null
