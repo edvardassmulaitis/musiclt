@@ -8,7 +8,6 @@ import { NotificationsBell } from '@/components/NotificationsBell'
 import { MessagesBell } from '@/components/MessagesBell'
 import { MasterSearch } from '@/components/MasterSearch'
 import { openQuickCreate } from '@/components/QuickCreate'
-import { AdminQuickActions } from '@/components/AdminQuickActions'
 import { useSite } from '@/components/SiteContext'
 import { proxyImg } from '@/lib/img-proxy'
 import { GENRE_COLORS, GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
@@ -2820,9 +2819,6 @@ export function SiteHeader() {
                 <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/>
               </svg>
             </Link>
-
-            {/* Admin greitieji veiksmai — tik admin'ams, tik desktop. */}
-            <AdminQuickActions variant="public" />
 
             {/* + Kurti — atidaro QuickCreate. Tik desktop (mobile = apatinis „+"). */}
             <button

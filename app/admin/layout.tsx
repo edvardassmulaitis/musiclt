@@ -1,6 +1,7 @@
 import AdminHeader from '@/components/admin-header'
 import { BackgroundTaskProvider } from '@/components/BackgroundTaskContext'
 import AdminThemeForcer from '@/components/AdminThemeForcer'
+import { AdminQuickAddModal } from '@/components/AdminQuickAddModal'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -10,6 +11,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <AdminHeader />
         <main>{children}</main>
       </div>
+      {/* Greitas pridėjimas — modalas, paleidžiamas iš admin header'io (tik admine). */}
+      <AdminQuickAddModal />
     </BackgroundTaskProvider>
   )
 }
