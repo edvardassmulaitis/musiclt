@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { signIn, signOut, useSession } from 'next-auth/react'
-import Image from 'next/image'
 import Link from 'next/link'
+import { proxyImg } from '@/lib/img-proxy'
 
 // ── AUTH MODAL ──────────────────────────────────────────────────────────────
 
@@ -221,11 +221,17 @@ function UserMenu() {
         className="flex items-center gap-2 hover:opacity-80 transition-opacity"
       >
         {session.user.image ? (
-          <Image
-            src={session.user.image}
+          // Paprastas <img> + proxyImg: next/image reikalauja domeno
+          // whitelist'o (remotePatterns), tad legacy music.lt avatarai (pvz.
+          // impersonuojant ghost-narį) per next/image lūždavo → „?". proxyImg
+          // music.lt URL'us paleidžia per weserv.nl, kitus (Google/FB) palieka.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={proxyImg(session.user.image)}
             alt={session.user.name || ''}
             width={32} height={32}
-            className="rounded-full ring-2 ring-white/20"
+            referrerPolicy="no-referrer"
+            className="w-8 h-8 rounded-full object-cover ring-2 ring-white/20"
           />
         ) : (
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-orange-500 flex items-center justify-center text-xs font-black text-white">
