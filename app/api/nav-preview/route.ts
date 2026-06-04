@@ -198,7 +198,7 @@ export async function GET() {
       if ((perAuthor.get(key) || 0) >= 2) continue
       perAuthor.set(key, (perAuthor.get(key) || 0) + 1)
       picked.push({ r, blg, prof })
-      if (picked.length >= 14) break
+      if (picked.length >= 30) break
     }
     // Cover resolve tiems, kurie neturi cover_image_url (migruoti diary įrašai).
     const needCover = picked.filter(p => !p.r.cover_image_url).map(p => p.r.id)
@@ -231,13 +231,19 @@ export async function GET() {
         }
       } catch {}
     }
-    const discoveryPosts = picked.map(({ r, blg, prof }) => ({
+    const mappedPosts = picked.map(({ r, blg, prof }) => ({
       id: r.id, slug: r.slug, title: r.title || '',
       blogSlug: blg?.slug || prof?.username || null,
       postType: r.post_type || 'article',
       image: r.cover_image_url || coverMap.get(r.id) || null,
       author: prof?.full_name || prof?.username || '',
     }))
+    // Pirma rodom įrašus su REALIU vizualu (cover/resolved), recency tvarka;
+    // teksto-only įrašus (gradientas) paliekam gale — kad juosta atrodytų pilna.
+    const discoveryPosts = [
+      ...mappedPosts.filter(p => p.image),
+      ...mappedPosts.filter(p => !p.image),
+    ].slice(0, 12)
 
     // Renginių LT/užsienio skaidymas: LT jei BENT VIENAS atlikėjas iš Lietuvos
     // arba apskritai nėra užsienio atlikėjo (be info → LT, kad juosta nebūtų tuščia).
