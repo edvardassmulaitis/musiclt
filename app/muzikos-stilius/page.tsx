@@ -12,6 +12,7 @@ import { SITE_URL } from '@/lib/artist-browse'
 import { getGenreCounts, getSubstyleCounts, genreHref } from '@/lib/muzika-hub'
 import { muzikaStyles, SectionHead, PillLink } from '@/components/muzika-ui'
 import SubstyleFilter from '@/components/SubstyleFilter'
+import { SUBSTYLES, GENRES } from '@/lib/constants'
 
 export const revalidate = 3600
 
@@ -31,6 +32,11 @@ export default async function GenresPage() {
   const [genres, substyles] = await Promise.all([getGenreCounts(), getSubstyleCounts()])
   const main = [...genres].sort((a, b) => b.n - a.n)
   const subs = [...substyles].sort((a, b) => b.n - a.n)
+  // Substilio pagrindinis stilius — iš lib/constants SUBSTYLES (ta pati grupė
+  // kaip admino stilių rinkiklyje). Nesutampantys → „Kitų stilių muzika".
+  const subToGenre: Record<string, string> = {}
+  for (const [g, names] of Object.entries(SUBSTYLES)) for (const nm of names) subToGenre[nm] = g
+  const subsGrouped = subs.map((s) => ({ ...s, genre: subToGenre[s.name] || 'Kitų stilių muzika' }))
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -85,7 +91,7 @@ export default async function GenresPage() {
         {subs.length > 0 && (
           <section className="mz-sec">
             <SectionHead title="Smulkesni stiliai" sub="Konkretesni žanrų pošakiai" />
-            <SubstyleFilter subs={subs} />
+            <SubstyleFilter subs={subsGrouped} genreOrder={GENRES} />
           </section>
         )}
 
