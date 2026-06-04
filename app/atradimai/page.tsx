@@ -94,9 +94,9 @@ const TYPE_META: Record<string, { label: string; rgb: string }> = {
 // ───────────────────────── Slim header ─────────────────────────
 function SlimHeader() {
   return (
-    <div className="mb-6">
-      <h1 className="m-0 font-['Outfit',sans-serif] text-[26px] font-black tracking-[-0.02em] text-[var(--text-primary)] sm:text-[30px]">Atradimai</h1>
-      <p className="m-0 mt-0.5 text-[13px] text-[var(--text-muted)]">Kas naujo pas kitus narius — gyvai, įrašai, topai, recenzijos, kūryba</p>
+    <div className="page-head">
+      <h1>Atradimai</h1>
+      <p>Kas naujo pas kitus narius — gyvai, įrašai, topai, recenzijos, kūryba</p>
     </div>
   )
 }
@@ -472,7 +472,7 @@ export default function AtradimaiPage() {
   }, [])
 
   return (
-    <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 sm:py-8">
+    <div className="page-shell">
       <SlimHeader />
       {/* Prominentų turinys viršuje */}
       <DienosDainaStrip />

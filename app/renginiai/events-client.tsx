@@ -462,13 +462,13 @@ function EventCard({ ev }: { ev: Event }) {
  * mz-fchip pill'ai, tile tinklelis). CSS kintamieji iš globals.css.
  * ──────────────────────────────────────────────────────────────── */
 const EV_CSS = `
-.ev-wrap { max-width:1400px; margin:0 auto; padding:18px 24px 80px; font-family:'DM Sans',system-ui,sans-serif; }
-@media(max-width:640px){ .ev-wrap { padding:14px 14px 64px; } }
+.ev-wrap { max-width:var(--page-max); margin:0 auto; padding:var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); font-family:'DM Sans',system-ui,sans-serif; }
+@media(max-width:640px){ .ev-wrap { padding-left:var(--page-pad-x-sm); padding-right:var(--page-pad-x-sm); } }
 
 /* Slim head */
-.ev-head { margin-bottom:16px; }
-.ev-head h1 { font-family:'Outfit',sans-serif; font-weight:900; letter-spacing:-.025em; font-size:clamp(1.5rem,3vw,2rem); line-height:1.05; color:var(--text-primary); }
-.ev-head p { color:var(--text-muted); font-size:13px; margin-top:4px; max-width:640px; }
+.ev-head { margin-bottom:var(--page-head-gap); }
+.ev-head h1 { font-family:'Outfit',sans-serif; font-weight:var(--page-h1-weight); letter-spacing:var(--page-h1-tracking); font-size:var(--page-h1-size); line-height:var(--page-h1-line); color:var(--text-primary); }
+.ev-head p { color:var(--page-sub-color); font-size:var(--page-sub-size); line-height:var(--page-sub-line); margin-top:6px; max-width:var(--page-sub-max); }
 
 /* Filter bar — viena kompaktiška eilutė */
 .ev-fbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px;

@@ -279,15 +279,16 @@ function ChartCard({ card, cta }: { card: Card; cta: string }) {
 
 /* ───────────────────────────── Styles ───────────────────────────── */
 const styles = `
-  .tp { max-width: 1120px; margin: 0 auto; padding: 40px 20px 80px; color: var(--text-primary); font-family: 'DM Sans', sans-serif; }
-  .tp-hero { margin-bottom: 26px; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
-  .tp-hero-text { max-width: 640px; }
-  .tp-hero-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: clamp(30px, 5vw, 46px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.05; }
-  .tp-hero-sub { margin: 10px 0 0; font-size: 14.5px; line-height: 1.55; color: var(--text-muted); max-width: 600px; }
+  .tp { max-width: var(--page-max); margin: 0 auto; padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); color: var(--text-primary); font-family: 'DM Sans', sans-serif; }
+  .tp-hero { margin-bottom: var(--page-head-gap); display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .tp-hero-text { max-width: var(--page-sub-max); }
+  .tp-hero-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: var(--page-h1-size); font-weight: var(--page-h1-weight); letter-spacing: var(--page-h1-tracking); line-height: var(--page-h1-line); }
+  .tp-hero-sub { margin: 6px 0 0; font-size: var(--page-sub-size); line-height: var(--page-sub-line); color: var(--page-sub-color); max-width: var(--page-sub-max); }
   .tp-archive-link { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--text-secondary); text-decoration: none; background: var(--bg-surface); border: 1px solid var(--border-subtle); transition: color .15s, border-color .15s, background .15s; }
   .tp-archive-link:hover { color: var(--text-primary); border-color: var(--border-default); background: var(--bg-elevated); }
   .tp-archive-link svg { flex-shrink: 0; }
   @media (max-width: 760px) { .tp-archive-link { order: -1; } }
+  @media (max-width: 640px) { .tp { padding-left: var(--page-pad-x-sm); padding-right: var(--page-pad-x-sm); } }
 
   .tp-section { margin-top: 34px; }
   .tp-sec-title { margin: 0 0 14px; font-family: 'Outfit', sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }

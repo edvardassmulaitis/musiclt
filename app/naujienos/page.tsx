@@ -53,10 +53,10 @@ export default async function NaujienosPage({ searchParams }: { searchParams: SP
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(collectionLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbLd) }} />
 
-      <div className="mx-auto flex flex-col gap-5 px-4 py-7 sm:px-6" style={{ maxWidth: 1320 }}>
-        <header className="flex flex-col gap-1">
-          <h1 className="text-3xl font-black text-[var(--text-primary)] sm:text-4xl">Naujienos</h1>
-          <p className="text-sm text-[var(--text-muted)]">Lietuvos ir pasaulio muzikos scenos pulsas</p>
+      <div className="page-shell">
+        <header className="page-head">
+          <h1>Naujienos</h1>
+          <p>Lietuvos ir pasaulio muzikos scenos pulsas</p>
         </header>
 
         <NewsExplorer

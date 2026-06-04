@@ -444,6 +444,70 @@ html, body {
   transition: background .25s ease, color .25s ease;
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   PAGE LAYOUT SYSTEM — vienos taisyklės VISIEMS puslapiams.
+
+   Kiekvienas top-level puslapis turi naudoti šiuos tokenus / klases, kad
+   turinio plotis, antraščių dydžiai, paraštės ir tarpai būtų vienodi.
+   Žr. PAGE_LAYOUT_RULES.md. Vertes keisk TIK čia — viskas atsinaujins globaliai.
+   ─────────────────────────────────────────────────────────────────── */
+:root {
+  --page-max:        1280px;            /* kanoninis turinio plotis */
+  --page-pad-x:      24px;              /* horizontali paraštė (desktop) */
+  --page-pad-x-sm:   16px;             /* horizontali paraštė (mobile) */
+  --page-pad-top:    28px;              /* viršutinis tarpas iki antraštės */
+  --page-pad-bottom: 80px;            /* apatinis tarpas (vieta mobile barui) */
+
+  /* Antraštė (H1) — viena skalė: ~28px → 36px */
+  --page-h1-size:    clamp(1.75rem, 1.2rem + 1.6vw, 2.25rem);
+  --page-h1-weight:  900;
+  --page-h1-tracking:-0.025em;
+  --page-h1-line:    1.05;
+
+  /* Paantraštė / lead */
+  --page-sub-size:   14.5px;
+  --page-sub-line:   1.55;
+  --page-sub-color:  var(--text-muted);
+  --page-sub-max:    640px;
+
+  --page-head-gap:   22px;              /* tarpas tarp antraštės bloko ir turinio */
+  --page-section-gap:34px;             /* tarpas tarp turinio sekcijų */
+}
+
+/* Turinio konteineris — centruotas, kanoninio pločio, vienodos paraštės. */
+.page-shell {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom);
+}
+
+/* Puslapio antraštės blokas — H1 + paantraštė. */
+.page-head { margin-bottom: var(--page-head-gap); }
+.page-head h1 {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+  font-size: var(--page-h1-size);
+  font-weight: var(--page-h1-weight);
+  letter-spacing: var(--page-h1-tracking);
+  line-height: var(--page-h1-line);
+  color: var(--text-primary);
+}
+.page-head p {
+  margin: 6px 0 0;
+  font-size: var(--page-sub-size);
+  line-height: var(--page-sub-line);
+  color: var(--page-sub-color);
+  max-width: var(--page-sub-max);
+}
+
+@media (max-width: 640px) {
+  .page-shell {
+    padding-left: var(--page-pad-x-sm);
+    padding-right: var(--page-pad-x-sm);
+  }
+}
+
 /* ── Selection ── */
 ::selection {
   background: rgba(29,78,216,0.3);

@@ -170,16 +170,16 @@ export function TrackList({ tracks }: { tracks: HubTrack[] }) {
 export const muzikaStyles = `
 .mz { background:var(--bg-body); color:var(--text-primary); min-height:100vh; font-family:'DM Sans',system-ui,sans-serif; }
 .mz a { text-decoration:none; color:inherit; }
-.mz-wrap { max-width:1400px; margin:0 auto; padding:0 24px; }
+.mz-wrap { max-width:var(--page-max); margin:0 auto; padding:0 var(--page-pad-x); }
 
 /* Hero */
-.mz-hero { position:relative; overflow:hidden; padding:48px 24px 26px; }
+.mz-hero { position:relative; overflow:hidden; padding:40px var(--page-pad-x) 26px; }
 .mz-hero::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 50% -20%, rgba(249,115,22,0.13), transparent 62%); pointer-events:none; }
-.mz-hero-inner { max-width:1400px; margin:0 auto; position:relative; }
+.mz-hero-inner { max-width:var(--page-max); margin:0 auto; position:relative; }
 .mz-crumbs { display:flex; gap:8px; align-items:center; font-size:12px; color:var(--text-muted); margin-bottom:12px; }
 .mz-crumbs a:hover { color:var(--accent-orange); }
-.mz-hero h1 { font-family:'Outfit',sans-serif; font-weight:900; letter-spacing:-.03em; font-size:clamp(2rem,4.4vw,3.2rem); line-height:1.04; }
-.mz-hero-lead { color:var(--text-secondary); font-size:15px; max-width:640px; margin-top:12px; line-height:1.55; }
+.mz-hero h1 { font-family:'Outfit',sans-serif; font-weight:var(--page-h1-weight); letter-spacing:var(--page-h1-tracking); font-size:var(--page-h1-size); line-height:var(--page-h1-line); }
+.mz-hero-lead { color:var(--page-sub-color); font-size:var(--page-sub-size); max-width:var(--page-sub-max); margin-top:10px; line-height:var(--page-sub-line); }
 
 /* Section block */
 .mz-sec { margin-top:44px; }
@@ -285,5 +285,9 @@ export const muzikaStyles = `
   .mz-tile-grid { grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:9px; }
   .mz-acard-grid { grid-template-columns:repeat(auto-fill,minmax(108px,1fr)); gap:12px; }
   .mz-tile-name { font-size:13px; }
+}
+@media(max-width:640px){
+  .mz-wrap { padding-left:var(--page-pad-x-sm); padding-right:var(--page-pad-x-sm); }
+  .mz-hero { padding-left:var(--page-pad-x-sm); padding-right:var(--page-pad-x-sm); }
 }
 `

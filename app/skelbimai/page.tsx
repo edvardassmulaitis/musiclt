@@ -103,12 +103,12 @@ export default async function SkelbimaiHub() {
   }
 
   return (
-    <div style={{ maxWidth: 1080, margin: '0 auto', padding: '28px 20px 80px' }}>
+    <div className="page-shell">
 
-      {/* Hero — suderintas su svetainės stiliumi (h1 kaip /naujienos) */}
-      <div style={{ marginBottom: 26 }}>
-        <h1 className="text-3xl font-black text-[var(--text-primary)] sm:text-4xl">Skelbimai</h1>
-        <p style={{ fontSize: 15, color: 'var(--text-secondary)', margin: '6px 0 0', maxWidth: 620, lineHeight: 1.5 }}>
+      {/* Hero — suderintas su svetainės stiliumi (.page-head) */}
+      <div className="page-head">
+        <h1>Skelbimai</h1>
+        <p>
           Nemokama muzikos bendruomenės lenta — įrašai, instrumentai, paslaugos ir muzikantai. Susitark tiesiogiai per žinutes.
         </p>
 
