@@ -58,6 +58,8 @@ type NavPreview = {
   discoveryPosts?: { id: number; slug: string; title: string; blogSlug: string | null; postType: string; image: string | null; author: string }[]
   /** name → cover_image_url map (admin'as nustato per /admin/genres) */
   genres?:      Record<string, string | null>
+  /** žanro name → atlikėjų skaičius (stilių chip'ų rikiavimui) */
+  genreCounts?: Record<string, number>
   /** Total atlikėjų skaičiai DB'je — naudojama Daugiau tile'ui */
   counts?: {
     artistsLt:    number
@@ -264,8 +266,10 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   const artistsLt    = data?.artistsLt    || []
   const artistsWorld = data?.artistsWorld || []
 
-  // 8 main stiliai — fiksuota nav tvarka (žr. STYLE_NAV_ORDER viršuje).
-  const styles = STYLES_ORDERED
+  // 8 main stiliai — rikiuojami pagal atlikėjų kiekį (populiariausi pirma);
+  // jei skaičių dar nėra (cache), krenta į fiksuotą STYLE_NAV_ORDER.
+  const gc = data?.genreCounts || {}
+  const styles = [...STYLES_ORDERED].sort((a, b) => (gc[b.name] || 0) - (gc[a.name] || 0))
 
   // Atlikėjų eilutė: scroll'inamų atlikėjų juosta + VISADA matomas „atverti
   // pilną sąrašą" button'as dešinėje (už scroll container'io — homepage
@@ -466,19 +470,11 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
       <div style={{ height: 12 }} />
       {renderSongRow('world', 'TOP 40', '/top40', '#f97316', top40)}
 
-      {/* ── Pagal šalis: maža vėliavėlė + pavadinimas (chip'ai) ── */}
-      {byCountry.length > 0 && (
-        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-          <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Pagal šalis</div>
-          <div className="sh-chiprow">{byCountry.map(featChip)}</div>
-        </div>
-      )}
-
-      {/* ── Kiti topai: Pasaulio / Viral / Albumai (chip'ai) ── */}
-      {otherCharts.length > 0 && (
+      {/* ── Kiti topai: visi (šalys su vėliavėlėmis + pasaulio/viral/albumai) iš eilės ── */}
+      {featured.length > 0 && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
           <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Kiti topai</div>
-          <div className="sh-chiprow">{otherCharts.map(featChip)}</div>
+          <div className="sh-chiprow">{[...byCountry, ...otherCharts].map(featChip)}</div>
         </div>
       )}
       {featured.length === 0 && (
@@ -895,7 +891,7 @@ function MobileExpansion({
             Stiliai
           </div>
           <div className="sh-chiprow">
-            {STYLES_ORDERED.map(s => (
+            {[...STYLES_ORDERED].sort((a, b) => ((data?.genreCounts || {})[b.name] || 0) - ((data?.genreCounts || {})[a.name] || 0)).map(s => (
               <Link key={s.name} href={s.href} onClick={onLink} className="sh-navchip" title={s.name}>
                 <span className="sh-navchip-dot" style={{ background: `rgb(${s.rgb})` }} aria-hidden />
                 {s.short}
@@ -972,7 +968,7 @@ function MobileExpansion({
         {/* Pagal šalis / kiti topai — vėliavėlių chip'ai */}
         {mCharts.length > 0 && (
           <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--border-default)' }}>
-            <div style={{ ...SEC_HEAD, marginBottom: 6 }}>Pagal šalis · kiti topai</div>
+            <div style={{ ...SEC_HEAD, marginBottom: 6 }}>Kiti topai</div>
             <div className="sh-chiprow">{mCharts.map(mFeatChip)}</div>
           </div>
         )}

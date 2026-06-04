@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { resolveDisplayWeek } from '@/lib/top-week'
 import { getNewsFeed } from '@/lib/news-feed'
+import { getGenreCounts } from '@/lib/muzika-hub'
 
 export const dynamic = 'force-dynamic'
 
@@ -159,6 +160,12 @@ export async function GET() {
       id: it.uid, slug: it.slug, title: it.title, image: it.image, date: it.date,
     })
 
+    // Žanrų atlikėjų skaičiai — Muzika dropdown'o stilių chip'ai rikiuojami pagal
+    // realų atlikėjų kiekį (populiariausi pirma).
+    const genreCountRows = await getGenreCounts()
+    const genreCounts: Record<string, number> = {}
+    for (const g of genreCountRows) genreCounts[g.name] = g.n
+
     // Atradimai dropdown'ui: dienos dainų nugalėtojai + naujausi narių įrašai.
     const [dailyWinnersRes, discoveryPostsRes] = await Promise.all([
       supabase
@@ -299,6 +306,7 @@ export async function GET() {
       newsWorld: worldNewsFeed.items.map(mapFeedNews),
       dailySongs,
       discoveryPosts,
+      genreCounts,
       // Žanrų name → cover_image_url map (frontend lookup'ina pagal name iš GENRE_COLORS)
       genres: (genresRes.data || []).reduce((acc: Record<string, string | null>, g: any) => {
         acc[g.name] = g.cover_image_url || null
