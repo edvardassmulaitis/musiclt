@@ -285,12 +285,20 @@ export default function ArtistImportPage() {
               <Section title="Kontaktai" count={preview.contactPlans.length}>
                 <div className="space-y-1.5">
                   {preview.contactPlans.map((c, i) => (
-                    <div key={i} className="flex flex-wrap items-center gap-2 text-xs">
-                      <Pill text={c.action} color={c.action === 'add' ? 'green' : 'blue'} />
-                      <span className="font-semibold text-[var(--text-secondary)]">{c.type}</span>
-                      <span className="text-[var(--text-primary)]">{c.email || c.phone || c.url || c.name}</span>
-                      {c.isPotential && <Pill text="lead" color="orange" />}
-                      <span className="text-[var(--text-faint)]">{c.confidence}</span>
+                    <div key={i} className="text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Pill text={c.action} color={c.action === 'add' ? 'green' : 'blue'} />
+                        <span className="font-semibold text-[var(--text-primary)]">{c.name || '(be pavadinimo)'}</span>
+                        <Pill text={c.type} color="gray" />
+                        {c.isPotential && <Pill text="lead" color="orange" />}
+                        <span className="text-[var(--text-faint)]">{c.confidence}</span>
+                      </div>
+                      <div className="ml-1 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[var(--text-muted)]">
+                        {c.email && <span>✉ {c.email}</span>}
+                        {c.phone && <span>☎ {c.phone}</span>}
+                        {c.url && <span className="max-w-full truncate">🔗 {c.url}</span>}
+                        {!c.email && !c.phone && !c.url && <span className="text-[var(--text-faint)]">be kontaktinių duomenų</span>}
+                      </div>
                     </div>
                   ))}
                 </div>

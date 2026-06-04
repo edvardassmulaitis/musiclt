@@ -202,6 +202,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/events', newHref: '/admin/events/new', icon: '📅', label: 'Renginiai', count: counts?.events },
     { href: '/admin/venues', newHref: '/admin/venues/new', icon: '📍', label: 'Vietos', count: counts?.venues },
     { href: '/admin/comments', icon: '💬', label: 'Komentarai', hint: 'Visi komentarai per visas surfaces' },
+    { href: '/admin/contacts', icon: '📇', label: 'Vadybininkų bazė', hint: 'Atlikėjų vadyba / booking / label kontaktai' },
   ]
 
   const tops: AdminCard[] = [

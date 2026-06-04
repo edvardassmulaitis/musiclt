@@ -8,6 +8,7 @@ import WikipediaImportDiscography from '@/components/WikipediaImportDiscography'
 import WikipediaImport from '@/components/WikipediaImport'
 import WikipediaImportAwards from '@/components/WikipediaImportAwards'
 import ArtistAwardsAdminPanel from '@/components/ArtistAwardsAdminPanel'
+import ArtistContactsPanel from '@/components/ArtistContactsPanel'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
 import { extractYouTubeId } from '@/components/ui/helpers'
 import { ScoreBadge } from '@/components/ScoreModal'
@@ -665,6 +666,9 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
 
         {/* Apdovanojimai — atskiras blokas po diskografijos */}
         <ArtistAwardsAdminPanel artistId={artistId} refreshKey={refreshKey} />
+
+        {/* Kontaktai — vadyba / booking / label (vadybininkų bazė) */}
+        <ArtistContactsPanel artistId={artistId} />
       </div>
     </div>
   )
