@@ -87,7 +87,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/dainos`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
     { url: `${SITE_URL}/topai`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
     { url: `${SITE_URL}/koncertai`, lastModified: now, changeFrequency: 'daily', priority: 0.6 },
-    { url: `${SITE_URL}/zanrai`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
+    { url: `${SITE_URL}/muzikos-stilius`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
     { url: `${SITE_URL}/naujienos`, lastModified: now, changeFrequency: 'hourly', priority: 0.9 },
     { url: `${SITE_URL}/naujienos/lietuva`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
     { url: `${SITE_URL}/naujienos/pasaulis`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
@@ -112,10 +112,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       })),
   ]
 
-  // Dedikuoti stiliaus landing'ai (/zanrai/{slug}) — unikalus SEO turinys
+  // Dedikuoti stiliaus landing'ai (/muzikos-stilius/{slug}) — unikalus SEO turinys
   // kiekvienam žanrui (top atlikėjai/albumai/dainos).
   const genrePages: MetadataRoute.Sitemap = genres.map((g) => ({
-    url: `${SITE_URL}/zanrai/${g}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.6,
+    url: `${SITE_URL}/muzikos-stilius/${g}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.6,
   }))
 
   // Atlikėjų facet landing'ai (šalis / žanras) — vertingi SEO puslapiai.

@@ -1,6 +1,6 @@
-// app/zanrai/[slug]/page.tsx
+// app/muzikos-stilius/[slug]/page.tsx
 //
-// Stiliaus LANDING puslapis (pvz. /zanrai/rokas) — dedikuotas SEO turinys
+// Stiliaus LANDING puslapis (pvz. /muzikos-stilius/rokas) — dedikuotas SEO turinys
 // kiekvienam žanrui: unikalus heading + intro, top Lietuvos ir pasaulio
 // atlikėjai, naujausi albumai, populiariausios dainos. SERVER-RENDERED, su
 // canonical'u ir JSON-LD. Tai stipresnis SEO sprendimas nei plonas facet
@@ -53,8 +53,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title,
     description,
-    alternates: { canonical: `${SITE_URL}/zanrai/${slug}` },
-    openGraph: { title, description, url: `${SITE_URL}/zanrai/${slug}`, type: 'website' },
+    alternates: { canonical: `${SITE_URL}/muzikos-stilius/${slug}` },
+    openGraph: { title, description, url: `${SITE_URL}/muzikos-stilius/${slug}`, type: 'website' },
   }
 }
 
@@ -77,7 +77,7 @@ export default async function GenreLandingPage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: `${name} muzika — music.lt`,
-    url: `${SITE_URL}/zanrai/${slug}`,
+    url: `${SITE_URL}/muzikos-stilius/${slug}`,
     isPartOf: { '@type': 'WebSite', name: 'music.lt', url: SITE_URL },
     mainEntity: {
       '@type': 'ItemList',
@@ -160,7 +160,7 @@ export default async function GenreLandingPage({ params }: Props) {
         <section className="mz-seo">
           <p className="mz-prose">
             Ieškai daugiau? <Link href={browseAll}>Naršyk visus {name.toLowerCase()} atlikėjus</Link> su
-            filtrais pagal šalį ir populiarumą, arba grįžk į <Link href="/zanrai">visų stilių sąrašą</Link>{' '}
+            filtrais pagal šalį ir populiarumą, arba grįžk į <Link href="/muzikos-stilius">visų stilių sąrašą</Link>{' '}
             ir <Link href="/muzika">muzikos katalogą</Link>.
           </p>
         </section>

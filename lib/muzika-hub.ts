@@ -1,6 +1,6 @@
 // lib/muzika-hub.ts
 //
-// Duomenų sluoksnis /muzika hub'ui ir /zanrai stilių landing puslapiams.
+// Duomenų sluoksnis /muzika hub'ui ir /muzikos-stilius stilių landing puslapiams.
 // VISI fetch'ai server-side, cache'inami (react cache + ISR revalidate),
 // ir apgaubti try/catch — kaip sitemap.ts, kad build-time DB nepasiekiamumas
 // NEgriautų puslapio (degrade į tuščią, runtime užsipildo per revalidate).
@@ -307,7 +307,7 @@ export const getNewestTracks = cache(async (limit = 12): Promise<HubTrack[]> => 
   }
 })
 
-/* ──────────────────────── Per-style agregacija (/zanrai/[slug]) ──────────────────────── */
+/* ──────────────────────── Per-style agregacija (/muzikos-stilius/[slug]) ──────────────────────── */
 
 export const getStyleArtists = cache(
   async (genreId: number, scope: 'lt' | 'world' | 'all', limit = 12): Promise<HubArtist[]> => {
@@ -392,5 +392,5 @@ export function trackHref(t: HubTrack): string {
 }
 
 export function genreHref(g: { name: string }): string {
-  return `/zanrai/${ltSlugify(g.name)}`
+  return `/muzikos-stilius/${ltSlugify(g.name)}`
 }

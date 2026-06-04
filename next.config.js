@@ -21,6 +21,8 @@ const nextConfig = {
       // Renginių hub'as pervadintas į „Koncertai" (SEO: tikslesnis terminas).
       // Tik tikslus /renginiai → /koncertai; renginio detalės lieka /renginiai/[slug].
       { source: '/renginiai', destination: '/koncertai', permanent: true },
+      { source: '/zanrai', destination: '/muzikos-stilius', permanent: true },
+      { source: '/zanrai/:slug', destination: '/muzikos-stilius/:slug', permanent: true },
     ]
   },
 }

@@ -143,7 +143,7 @@ export default async function MuzikaPage() {
             <SectionHead
               title="Naršyk pagal stilių"
               sub="Rokas, popsas, hip-hopas, elektronika, klasika ir kiti"
-              href="/zanrai"
+              href="/muzikos-stilius"
               hrefLabel="Visi stiliai"
             />
             <div className="mz-pills">
@@ -210,7 +210,7 @@ export default async function MuzikaPage() {
               <h3>Naršyk toliau</h3>
               <ul>
                 <li><Link href="/atlikejai" prefetch={false}><span>Visi atlikėjai ir grupės</span></Link></li>
-                <li><Link href="/zanrai" prefetch={false}><span>Visi stiliai</span></Link></li>
+                <li><Link href="/muzikos-stilius" prefetch={false}><span>Visi stiliai</span></Link></li>
                 <li><Link href="/albumai" prefetch={false}><span>Albumai</span></Link></li>
                 <li><Link href="/dainos" prefetch={false}><span>Dainos</span></Link></li>
                 <li><Link href="/topai" prefetch={false}><span>Topai ir reitingai</span></Link></li>
@@ -222,7 +222,7 @@ export default async function MuzikaPage() {
             <strong>music.lt</strong> — didžiausias lietuviškas muzikos katalogas. Čia rasi
             tūkstančius <Link href="/atlikejai">atlikėjų ir grupių</Link> su biografijomis,
             diskografijomis, <Link href="/dainos">dainomis</Link> ir <Link href="/albumai">albumais</Link>.
-            Naršyk muziką <Link href="/zanrai">pagal stilių</Link>, atrask{' '}
+            Naršyk muziką <Link href="/muzikos-stilius">pagal stilių</Link>, atrask{' '}
             <Link href="/atlikejai?country=lt">Lietuvos scenos</Link> lyderius ar pasaulio žvaigždes ir
             sek <Link href="/topai">topus</Link> — viskas vienoje vietoje.
           </p>

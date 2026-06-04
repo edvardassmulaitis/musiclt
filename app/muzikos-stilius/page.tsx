@@ -1,9 +1,9 @@
-// app/zanrai/page.tsx
+// app/muzikos-stilius/page.tsx
 //
 // Muzikos stilių INDEKSAS. 8 pagrindiniai stiliai linkina į dedikuotus
-// /zanrai/[slug] landing'us; smulkesni stiliai (substyles) → /atlikejai?substyle=.
+// /muzikos-stilius/[slug] landing'us; smulkesni stiliai (substyles) → /atlikejai?substyle=.
 // SERVER-RENDERED (SEO): realūs <a>, sitemap.ts išvardina visus landing'us.
-// Route lieka /zanrai (istorinis), bet UI label'as „stiliai" (kaip senasis
+// Route lieka /muzikos-stilius (istorinis), bet UI label'as „stiliai" (kaip senasis
 // music.lt) — per-puslapio title'ai naudoja „{X} muzika" long-tail.
 
 import type { Metadata } from 'next'
@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { SITE_URL } from '@/lib/artist-browse'
 import { getGenreCounts, getSubstyleCounts, genreHref } from '@/lib/muzika-hub'
 import { muzikaStyles, SectionHead, PillLink } from '@/components/muzika-ui'
+import SubstyleFilter from '@/components/SubstyleFilter'
 
 export const revalidate = 3600
 
@@ -22,8 +23,8 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/zanrai` },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: `${SITE_URL}/zanrai`, type: 'website' },
+  alternates: { canonical: `${SITE_URL}/muzikos-stilius` },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: `${SITE_URL}/muzikos-stilius`, type: 'website' },
 }
 
 export default async function GenresPage() {
@@ -36,7 +37,7 @@ export default async function GenresPage() {
     '@type': 'CollectionPage',
     name: 'Muzikos stiliai — music.lt',
     description: DESCRIPTION,
-    url: `${SITE_URL}/zanrai`,
+    url: `${SITE_URL}/muzikos-stilius`,
     isPartOf: { '@type': 'WebSite', name: 'music.lt', url: SITE_URL },
     mainEntity: {
       '@type': 'ItemList',
@@ -84,11 +85,7 @@ export default async function GenresPage() {
         {subs.length > 0 && (
           <section className="mz-sec">
             <SectionHead title="Smulkesni stiliai" sub="Konkretesni žanrų pošakiai" />
-            <div className="mz-pills">
-              {subs.map((s) => (
-                <PillLink key={s.substyle_id} href={`/atlikejai?substyle=${s.slug}`} label={s.name} count={s.n} />
-              ))}
-            </div>
+            <SubstyleFilter subs={subs} />
           </section>
         )}
 
