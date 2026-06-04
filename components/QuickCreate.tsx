@@ -44,10 +44,11 @@ const CREATE: Item[] = [
   { href: '/blogas/rasyti?type=creation', label: 'Kūryba', desc: 'Tavo daina/kūrinys', icon: sv(<><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>) },
   { href: '/blogas/rasyti?type=topas', label: 'Topas', desc: 'Sąrašas, reitingas', icon: sv(<><path d="M10 6h11" /><path d="M10 12h11" /><path d="M10 18h11" /><path d="M4 6h1v4" /><path d="M4 10h2" /><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" /></>) },
   { href: '/blogas/rasyti?type=event', label: 'Renginys', desc: 'Koncerto apžvalga', icon: sv(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18" /></>) },
+  { href: '/blogas/rasyti?type=mood', label: 'Nuotaikos daina', desc: 'Daina tavo profiliui', icon: sv(<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />) },
 ]
 
 const PARTICIPATE: Item[] = [
-  { href: '/dienos-daina', label: 'Dienos daina', desc: 'Siūlyk ir balsuok', accent: 'var(--accent-orange)', icon: sv(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>) },
+  { href: '/blogas/rasyti?type=daily', label: 'Dienos daina', desc: 'Pasiūlyk dainą', accent: 'var(--accent-orange)', icon: sv(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>) },
   { href: '/boombox', label: 'Boombox', desc: 'Atspėk, žaisk', accent: 'var(--accent-orange)', icon: sv(<><rect x="3" y="8" width="18" height="12" rx="2" /><circle cx="8" cy="14" r="2" /><circle cx="16" cy="14" r="2" /><path d="M7 8V5a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v3" /></>) },
   { href: '/pokalbiai', label: 'Diskusija', desc: 'Parašyk bendruomenei', accent: 'var(--accent-orange)', icon: sv(<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />) },
 ]

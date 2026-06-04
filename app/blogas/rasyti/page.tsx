@@ -1,362 +1,851 @@
 'use client'
 // app/blogas/rasyti/page.tsx
 //
-// Multi-modal blog editor'ius — antra iteracija:
-//   - Default'inis tipas: 'article' (Įrašas)
-//   - Drop'inom 'quick' ir 'journal' — main idėjimas dabar pakankamai easy
-//     pačiu Tiptap'u (URL paste virsta embed'u)
-//   - Pridedam 'event' (Renginio apžvalga)
-//   - Vertimas — tik dainos picker, jokio author/lang
-//   - Tagai pašalinti iš UI (DB stulpelis lieka migration use'ui)
-//   - Cover nuotrauka — perkelta į patį galą, optional, pervadinta
+// Turinio pridėjimo WIZARD'as — mobile-first, žingsnis po žingsnio. Kiekvienas
+// tipas turi savo pritaikytą srautą:
+//   review  — ką recenzuoji → (albumui) bendrai/per dainas → balas/turinys → final
+//   topas   — iš ko → kiek → įrašai po vieną → final
+//   article — tekstas → final
+//   translation — daina → vertimas → final
+//   creation — žanras → tekstas → final
+//   event   — renginys → įspūdžiai → final
+//   mood    — nuotaikos daina (1 žingsnis, ne blog įrašas)
+//   daily   — dienos dainos pasiūlymas (daina → komentaras)
+//
+// Redagavimas (?id=) — atskira kompaktiška forma (EditPostForm).
 
-import { useState, useEffect, Suspense, useCallback } from 'react'
+import { useState, useEffect, Suspense, useCallback, type ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { BlogEditor } from '@/components/BlogEditor'
-import { PostTypeSelector } from '@/components/blog/PostTypeSelector'
-import type { BlogPostType } from '@/components/blog/post-types'
 import { ImageUploadField } from '@/components/blog/ImageUploadField'
-import { ReviewTargetField, type ReviewTarget } from '@/components/blog/ReviewTargetField'
-import { TranslationField, type TranslationTarget } from '@/components/blog/TranslationField'
 import { EventTargetField, type EventTarget } from '@/components/blog/EventTargetField'
-import { ListEditorField, type ListItem } from '@/components/blog/ListEditorField'
 import { UsernameSetupGate } from '@/components/blog/UsernameSetupGate'
 import { VoiceRecorder } from '@/components/blog/VoiceRecorder'
+import type { BlogPostType } from '@/components/blog/post-types'
+import type { AttachmentHit } from '@/components/MusicSearchPicker'
+import { proxyImg } from '@/lib/img-proxy'
+import { WizardChrome } from '@/components/blog/wizard/WizardChrome'
+import { EntityPicker, SelectedEntityCard } from '@/components/blog/wizard/EntityPicker'
+import { RatingControl } from '@/components/blog/wizard/RatingControl'
+import { ChoiceCards, CountChips, FieldLabel, type Choice } from '@/components/blog/wizard/WizardControls'
+import { EditPostForm } from '@/components/blog/wizard/EditPostForm'
 
-type LoadedPost = {
-  title?: string
-  content?: string
-  summary?: string
-  cover_image_url?: string
-  status?: 'draft' | 'published'
-  post_type?: BlogPostType
-  rating?: number | null
-  target_artist_id?: number | null
-  target_album_id?: number | null
-  target_track_id?: number | null
-  target_event_id?: string | null
-  list_items?: ListItem[]
+type WizType = BlogPostType | 'mood' | 'daily'
+
+type TrackReview = {
+  entity_id: number | null
+  entity_slug: string | null
+  title: string
+  artist: string | null
+  image_url: string | null
+  rating: number | null
+  comment: string
+}
+
+type TopasItem = {
+  type: 'artist' | 'album' | 'track' | 'custom'
+  entity_id: number | null
+  entity_slug: string | null
+  title: string
+  artist: string | null
+  image_url: string | null
+  comment: string
+}
+
+const sv = (d: ReactNode) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
+)
+
+// ── Tipo pasirinkimo landing'as (kai nėra ?type) ────────────────────────────
+const TYPE_TILES: Array<{ type: WizType; label: string; desc: string; icon: ReactNode }> = [
+  { type: 'review',      label: 'Recenzija',     desc: 'Įvertink dainą, albumą ar atlikėją', icon: sv(<path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z" />) },
+  { type: 'topas',       label: 'Topas',         desc: 'Numeruotas sąrašas su komentarais', icon: sv(<><path d="M10 6h11" /><path d="M10 12h11" /><path d="M10 18h11" /><path d="M4 6h1v4" /><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" /></>) },
+  { type: 'article',     label: 'Įrašas',        desc: 'Straipsnis, mintis, naujiena', icon: sv(<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>) },
+  { type: 'event',       label: 'Renginys',      desc: 'Koncerto ar festivalio apžvalga', icon: sv(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18" /></>) },
+  { type: 'translation', label: 'Vertimas',      desc: 'Dainos žodžių vertimas į lietuvių', icon: sv(<><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></>) },
+  { type: 'creation',    label: 'Kūryba',        desc: 'Eilėraštis, esė, tavo kūrinys', icon: sv(<><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>) },
+  { type: 'mood',        label: 'Nuotaikos daina', desc: 'Daina tavo profiliui', icon: sv(<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />) },
+  { type: 'daily',       label: 'Dienos daina',  desc: 'Pasiūlyk dienos dainai', icon: sv(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>) },
+]
+
+const CREATION_SUBTYPES: Choice[] = [
+  { value: 'eilerastis', label: 'Eilėraštis' },
+  { value: 'ese',        label: 'Esė' },
+  { value: 'proza',      label: 'Proza / apsakymas' },
+  { value: 'kita',       label: 'Kita' },
+]
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 function EditorInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const editId = searchParams.get('id')
-  const initialType = searchParams.get('type') as BlogPostType | null
+  const initialType = searchParams.get('type') as WizType | null
 
+  // ── Auth / profile gate ────────────────────────────────────────────────
   const [profileLoading, setProfileLoading] = useState(true)
   const [hasUsername, setHasUsername] = useState(false)
+  const [username, setUsername] = useState<string | null>(null)
   const [authError, setAuthError] = useState('')
 
-  const [postType, setPostType] = useState<BlogPostType>(initialType || 'article')
+  // ── Wizard state ───────────────────────────────────────────────────────
+  const [type, setType] = useState<WizType | null>(initialType)
+  const [stepIdx, setStepIdx] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  // common
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
 
-  // Review state
-  const [reviewTarget, setReviewTarget] = useState<ReviewTarget>({
-    artist_id: null, album_id: null, track_id: null, display: null,
-  })
+  // review
+  const [target, setTarget] = useState<AttachmentHit | null>(null)
+  const [reviewMode, setReviewMode] = useState<'overall' | 'tracks' | null>(null)
   const [rating, setRating] = useState<number | null>(null)
+  const [trackReviews, setTrackReviews] = useState<TrackReview[]>([])
+  const [tracksLoading, setTracksLoading] = useState(false)
 
-  // Translation state — tik track picker
-  const [translation, setTranslation] = useState<TranslationTarget>({
-    track_id: null, display: null,
-  })
+  // topas
+  const [topasKind, setTopasKind] = useState<'artist' | 'album' | 'track' | 'mixed' | null>(null)
+  const [topasCount, setTopasCount] = useState<number | null>(null)
+  const [topasItems, setTopasItems] = useState<TopasItem[]>([])
 
-  // Event state
-  const [eventTarget, setEventTarget] = useState<EventTarget>({
-    event_id: null, display: null,
-  })
+  // translation / mood / daily song target
+  const [songTarget, setSongTarget] = useState<AttachmentHit | null>(null)
+  const [dailyComment, setDailyComment] = useState('')
 
-  // Topas state
-  const [listItems, setListItems] = useState<ListItem[]>([])
+  // event
+  const [eventTarget, setEventTarget] = useState<EventTarget>({ event_id: null, display: null })
 
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  // creation
+  const [creationSubtype, setCreationSubtype] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/profile').then(async r => {
-      if (r.status === 401) { setAuthError('Prisijunk, kad galėtum rašyti'); return }
+      if (r.status === 401) { setAuthError('Prisijunk, kad galėtum kurti'); return }
       const p = await r.json()
       setHasUsername(!!p?.username)
+      setUsername(p?.username || null)
     }).catch(() => setAuthError('Klaida kraunant profilį'))
       .finally(() => setProfileLoading(false))
   }, [])
 
-  useEffect(() => {
-    if (!editId) return
-    fetch(`/api/blog/posts/${editId}`).then(r => r.json()).then((p: LoadedPost) => {
-      if (!p?.title) return
-      setTitle(p.title || '')
-      setContent(p.content || '')
-      setCoverUrl(p.cover_image_url || '')
-      setPostType((p.post_type as BlogPostType) || 'article')
-      setRating(p.rating ?? null)
+  const next = useCallback(() => setStepIdx(i => i + 1), [])
 
-      if (p.target_artist_id || p.target_album_id || p.target_track_id) {
-        setReviewTarget({
-          artist_id: p.target_artist_id ?? null,
-          album_id: p.target_album_id ?? null,
-          track_id: p.target_track_id ?? null,
-          display: null,
-        })
+  // ── Album tracks fetch (review per-track mode) ──────────────────────────
+  const loadAlbumTracks = useCallback(async (albumId: number, albumCover: string | null, albumArtist: string | null) => {
+    setTracksLoading(true)
+    try {
+      const r = await fetch(`/api/albums/${albumId}/details`)
+      const d = await r.json()
+      const cover = d?.album?.cover_image_url || albumCover || null
+      const artist = d?.artist?.name || albumArtist || null
+      const items: TrackReview[] = (Array.isArray(d?.tracks) ? d.tracks : []).map((t: any) => ({
+        entity_id: t.id ?? null,
+        entity_slug: t.slug ?? null,
+        title: t.title || '',
+        artist,
+        image_url: cover,
+        rating: null,
+        comment: '',
+      })).filter((t: TrackReview) => t.title)
+      setTrackReviews(items)
+    } catch {
+      setTrackReviews([])
+    } finally {
+      setTracksLoading(false)
+    }
+  }, [])
+
+  // ── Pick handlers ───────────────────────────────────────────────────────
+  function pickReviewTarget(hit: AttachmentHit) {
+    setTarget(hit)
+    setReviewMode(null)
+    setRating(null)
+    setTrackReviews([])
+    setTitle(prev => prev || `Recenzija: ${hit.title}`)
+    next()
+  }
+
+  function pickReviewMode(mode: string) {
+    const m = mode as 'overall' | 'tracks'
+    setReviewMode(m)
+    if (m === 'tracks' && target) {
+      loadAlbumTracks(target.id, target.image_url, target.artist)
+    }
+    next()
+  }
+
+  function pickTopasItem(hit: AttachmentHit) {
+    const typeMap: Record<AttachmentHit['type'], TopasItem['type']> = { grupe: 'artist', albumas: 'album', daina: 'track' }
+    setTopasItems(items => [...items, {
+      type: typeMap[hit.type],
+      entity_id: hit.id,
+      entity_slug: hit.slug,
+      title: hit.title,
+      artist: hit.artist,
+      image_url: hit.image_url ? proxyImg(hit.image_url) : null,
+      comment: '',
+    }])
+  }
+
+  function pickTranslationTrack(hit: AttachmentHit) {
+    setSongTarget(hit)
+    setTitle(prev => prev || `${hit.title}${hit.artist ? ` — ${hit.artist}` : ''} (vertimas)`)
+    next()
+  }
+
+  // ── Voice ────────────────────────────────────────────────────────────────
+  function buildVoiceContext(): string {
+    if (type === 'review' && target) {
+      const what = target.type === 'grupe' ? 'atlikėją' : target.type === 'albumas' ? 'albumą' : 'dainą'
+      return `Muzikos recenzija apie ${what} „${target.title}"${target.artist ? ` (${target.artist})` : ''}. Lietuvių kalba.`
+    }
+    if (type === 'event' && eventTarget.display) {
+      return `Renginio apžvalga: „${eventTarget.display.title}"${eventTarget.display.city ? `, ${eventTarget.display.city}` : ''}. Lietuvių kalba.`
+    }
+    return 'Muzikos turinys lietuvių kalba.'
+  }
+  function appendVoiceText(text: string) {
+    const html = text.split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
+      .map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br />')}</p>`).join('')
+    if (html) setContent(prev => (prev || '') + html)
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+  async function submitBlog(status: 'draft' | 'published') {
+    setBusy(true); setError(null)
+    const body: any = { title: title.trim() || autoTitle(), content, cover_image_url: coverUrl || null, status, post_type: type }
+
+    if (type === 'review') {
+      if (reviewMode === 'tracks' && target) {
+        body.target_album_id = target.id
+        body.rating = rating // optional overall
+        body.list_items = trackReviews
+          .filter(t => t.rating !== null || t.comment.trim())
+          .map(t => ({ type: 'track', entity_id: t.entity_id, entity_slug: t.entity_slug, title: t.title, artist: t.artist, image_url: t.image_url, comment: t.comment.trim() || null, rating: t.rating }))
+      } else if (target) {
+        body.rating = rating
+        body.target_artist_id = target.type === 'grupe' ? target.id : null
+        body.target_album_id = target.type === 'albumas' ? target.id : null
+        body.target_track_id = target.type === 'daina' ? target.id : null
       }
-      if (p.target_track_id && p.post_type === 'translation') {
-        setTranslation({ track_id: p.target_track_id, display: null })
-      }
-      if (p.target_event_id) {
-        setEventTarget({ event_id: p.target_event_id, display: null })
-      }
-      if (Array.isArray(p.list_items) && p.list_items.length > 0) {
-        setListItems(p.list_items)
-      }
-    })
-  }, [editId])
-
-  const validate = useCallback((status: 'draft' | 'published'): string | null => {
-    if (!title.trim()) return 'Įvesk pavadinimą'
-    if (status === 'published' && postType === 'review') {
-      const hasTarget = reviewTarget.artist_id || reviewTarget.album_id || reviewTarget.track_id
-      if (!hasTarget) return 'Recenzijai pasirink atlikėją, albumą arba dainą'
-      if (rating === null) return 'Recenzijai nustatyk balą'
     }
-    if (status === 'published' && postType === 'translation') {
-      if (!translation.track_id) return 'Vertimui pasirink dainą'
+    if (type === 'translation' && songTarget) body.target_track_id = songTarget.id
+    if (type === 'event') body.target_event_id = eventTarget.event_id
+    if (type === 'topas') {
+      body.list_items = topasItems.map(it => ({
+        type: it.type, entity_id: it.entity_id, entity_slug: it.entity_slug,
+        title: it.title, artist: it.artist, image_url: it.image_url, comment: it.comment.trim() || null,
+      }))
     }
-    if (status === 'published' && postType === 'event') {
-      if (!eventTarget.event_id) return 'Renginio apžvalgai pasirink renginį'
-    }
-    if (status === 'published' && postType === 'topas') {
-      if (listItems.length < 2) return 'Topui pridėk bent 2 įrašus'
-    }
-    return null
-  }, [postType, title, reviewTarget, rating, translation, eventTarget, listItems])
-
-  async function handleSave(publishStatus: 'draft' | 'published') {
-    const err = validate(publishStatus)
-    if (err) { setError(err); return }
-    setSaving(true); setError('')
-
-    const body: any = {
-      title: title.trim(),
-      content,
-      cover_image_url: coverUrl || null,
-      status: publishStatus,
-      post_type: postType,
-    }
-
-    if (postType === 'review') {
-      body.rating = rating
-      body.target_artist_id = reviewTarget.artist_id
-      body.target_album_id = reviewTarget.album_id
-      body.target_track_id = reviewTarget.track_id
-    }
-
-    if (postType === 'translation') {
-      body.target_track_id = translation.track_id
-    }
-
-    if (postType === 'event') {
-      body.target_event_id = eventTarget.event_id
-    }
-
-    if (postType === 'topas') {
-      body.list_items = listItems
-    }
+    if (type === 'creation' && creationSubtype) body.creation_subtype = creationSubtype
 
     try {
-      let res: Response
-      if (editId) {
-        res = await fetch(`/api/blog/posts/${editId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-      } else {
-        res = await fetch('/api/blog/posts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+      const res = await fetch('/api/blog/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (res.ok) router.push('/blogas/mano')
+      else { const d = await res.json().catch(() => ({})); setError(d?.error || 'Klaida saugant'); setBusy(false) }
+    } catch (e: any) { setError(e.message); setBusy(false) }
+  }
+
+  async function submitMood() {
+    if (!songTarget) return
+    setBusy(true); setError(null)
+    try {
+      const res = await fetch('/api/profile/mood-song', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id: songTarget.id }) })
+      if (res.ok) router.push(username ? `/vartotojas/${username}` : '/blogas/mano')
+      else { const d = await res.json().catch(() => ({})); setError(d?.error || 'Klaida'); setBusy(false) }
+    } catch (e: any) { setError(e.message); setBusy(false) }
+  }
+
+  async function submitDaily() {
+    if (!songTarget) return
+    setBusy(true); setError(null)
+    try {
+      const res = await fetch('/api/dienos-daina/nominations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id: songTarget.id, comment: dailyComment.trim() || undefined }) })
+      if (res.ok) router.push('/dienos-daina')
+      else { const d = await res.json().catch(() => ({})); setError(d?.error || 'Klaida'); setBusy(false) }
+    } catch (e: any) { setError(e.message); setBusy(false) }
+  }
+
+  function autoTitle(): string {
+    if (type === 'review' && target) return `Recenzija: ${target.title}`
+    if (type === 'translation' && songTarget) return `${songTarget.title} (vertimas)`
+    if (type === 'event' && eventTarget.display) return eventTarget.display.title
+    return 'Be pavadinimo'
+  }
+
+  // ════════ STEP BUILDER ════════
+  type Step = { id: string; title: string; subtitle?: string; valid: boolean; node: ReactNode; primaryLabel?: string; secondary?: boolean }
+  function buildSteps(): Step[] {
+    if (!type) return []
+    const steps: Step[] = []
+
+    if (type === 'review') {
+      steps.push({
+        id: 'pick', title: 'Ką recenzuoji?',
+        subtitle: 'Pasirink atlikėją, albumą arba dainą — iš neseniai pamėgtų ar per paiešką.',
+        valid: !!target,
+        node: target
+          ? <div className="wz-stack"><SelectedEntityCard hit={target} onClear={() => { setTarget(null); setReviewMode(null) }} /></div>
+          : <EntityPicker kind="all" allowFilterChips onPick={pickReviewTarget} autoFocus />,
+      })
+      if (target?.type === 'albumas') {
+        steps.push({
+          id: 'mode', title: 'Kaip vertinsi albumą?',
+          subtitle: 'Gali įvertinti visą albumą bendrai arba kiekvieną dainą atskirai.',
+          valid: !!reviewMode,
+          node: <ChoiceCards
+            value={reviewMode}
+            onSelect={pickReviewMode}
+            choices={[
+              { value: 'overall', label: 'Visą albumą bendrai', desc: 'Vienas balas + tekstas apie albumą', icon: sv(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>) },
+              { value: 'tracks', label: 'Dainą po dainos', desc: 'Įvertink ir aprašyk atskiras dainas', icon: sv(<><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>) },
+            ]}
+          />,
         })
       }
-      if (res.ok) {
-        router.push('/blogas/mano')
+      const perTrack = target?.type === 'albumas' && reviewMode === 'tracks'
+      if (perTrack) {
+        steps.push({
+          id: 'tracks', title: 'Įvertink dainas',
+          subtitle: 'Bakstelėk balą prie kiekvienos dainos. Komentaras — neprivalomas.',
+          valid: trackReviews.some(t => t.rating !== null),
+          node: <TrackReviewList items={trackReviews} loading={tracksLoading} onChange={setTrackReviews} />,
+        })
       } else {
-        const data = await res.json().catch(() => ({}))
-        setError(data?.error || 'Klaida saugant')
+        steps.push({
+          id: 'rate', title: 'Tavo įvertinimas',
+          subtitle: 'Nustatyk balą ir parašyk įspūdžius.',
+          valid: rating !== null,
+          node: <div className="wz-stack">
+            <div><FieldLabel>Balas</FieldLabel><RatingControl value={rating} onChange={setRating} /></div>
+            <div>
+              <FieldLabel optional>Įspūdžiai</FieldLabel>
+              <VoiceRecorder context={buildVoiceContext()} onResult={appendVoiceText} />
+              <div className="wz-editor-wrap"><BlogEditor value={content} onChange={setContent} placeholder="Kuo patiko, kuo ne… (neprivaloma)" /></div>
+            </div>
+          </div>,
+        })
       }
-    } catch (e: any) {
-      setError(e.message)
-    } finally {
-      setSaving(false)
+      steps.push({
+        id: 'final', title: 'Beveik baigta',
+        subtitle: 'Pavadinimas ir, jei nori, antraštės nuotrauka.',
+        valid: !!title.trim() || !!autoTitle(),
+        node: <FinalStep
+          title={title} onTitle={setTitle} titlePlaceholder="Recenzijos pavadinimas"
+          coverUrl={coverUrl} onCover={setCoverUrl}
+          extra={perTrack ? <div>
+            <FieldLabel optional>Bendras albumo balas</FieldLabel>
+            <RatingControl value={rating} onChange={setRating} />
+            <div className="wz-editor-wrap" style={{ marginTop: 14 }}>
+              <FieldLabel optional>Įžanga apie albumą</FieldLabel>
+              <BlogEditor value={content} onChange={setContent} placeholder="Bendras įspūdis apie albumą (neprivaloma)" />
+            </div>
+          </div> : null}
+        />,
+      })
     }
-  }
 
-  // Balso įvestis: dinaminis kontekstas Whisper'iui (pagerina tikrinių
-  // daiktavardžių atpažinimą) + sutvarkyto teksto prisegimas prie turinio.
-  function buildVoiceContext(): string {
-    if (postType === 'review' && reviewTarget.display) {
-      const d = reviewTarget.display
-      const what = d.type === 'grupe' ? 'atlikėją' : d.type === 'albumas' ? 'albumą' : 'dainą'
-      return `Muzikos recenzija apie ${what} „${d.title}"${d.artist ? ` (${d.artist})` : ''}. Lietuvių kalba.`
+    else if (type === 'topas') {
+      steps.push({
+        id: 'source', title: 'Iš ko topas?',
+        subtitle: 'Ką rikiuosi šiame sąraše.',
+        valid: !!topasKind,
+        node: <ChoiceCards
+          value={topasKind}
+          onSelect={(v) => { setTopasKind(v as any); next() }}
+          choices={[
+            { value: 'track', label: 'Dainos', icon: sv(<><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>) },
+            { value: 'album', label: 'Albumai', icon: sv(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>) },
+            { value: 'artist', label: 'Atlikėjai', icon: sv(<><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 12 0v1" /></>) },
+            { value: 'mixed', label: 'Mišrus', desc: 'Įvairūs įrašai viename tope', icon: sv(<><path d="M10 6h11" /><path d="M10 12h11" /><path d="M10 18h11" /><path d="M4 6h1v4" /></>) },
+          ]}
+        />,
+      })
+      steps.push({
+        id: 'count', title: 'Kiek įrašų?',
+        subtitle: 'Galėsi keisti vėliau — tai tik orientyras.',
+        valid: !!topasCount,
+        node: <CountChips options={[3, 5, 10, 20]} value={topasCount} onChange={setTopasCount} />,
+      })
+      steps.push({
+        id: 'entries', title: 'Sudaryk sąrašą',
+        subtitle: topasCount ? `Pridėta ${topasItems.length} iš ${topasCount}. Tvarka = vieta tope.` : `Pridėta ${topasItems.length}.`,
+        valid: topasItems.length >= 2,
+        node: <TopasEntries
+          items={topasItems}
+          kind={topasKind === 'mixed' || !topasKind ? 'all' : topasKind}
+          onPick={pickTopasItem}
+          onChange={setTopasItems}
+        />,
+      })
+      steps.push({
+        id: 'final', title: 'Pavadink topą',
+        subtitle: 'Pridėk pavadinimą ir, jei nori, įžangą.',
+        valid: !!title.trim(),
+        node: <FinalStep
+          title={title} onTitle={setTitle} titlePlaceholder="Pvz. Mano TOP 10 LT albumų 2025"
+          coverUrl={coverUrl} onCover={setCoverUrl}
+          extra={<div className="wz-editor-wrap">
+            <FieldLabel optional>Įžanga</FieldLabel>
+            <BlogEditor value={content} onChange={setContent} placeholder="Konteksto paaiškinimas (neprivaloma)" />
+          </div>}
+        />,
+      })
     }
-    if (postType === 'event' && eventTarget.display) {
-      const e = eventTarget.display
-      return `Renginio apžvalga: „${e.title}"${e.city ? `, ${e.city}` : ''}. Lietuvių kalba.`
+
+    else if (type === 'article') {
+      steps.push({
+        id: 'write', title: 'Rašyk įrašą',
+        subtitle: 'Įklijuok YouTube/Spotify nuorodą — pavirs embed\'u. Numesk nuotrauką — įsikels.',
+        valid: !!title.trim() && !!content.trim(),
+        node: <div className="wz-stack">
+          <TitleInput value={title} onChange={setTitle} placeholder="Įrašo pavadinimas" />
+          <div className="wz-editor-wrap"><BlogEditor value={content} onChange={setContent} placeholder="Pradėk rašyti…" /></div>
+        </div>,
+      })
+      steps.push({
+        id: 'final', title: 'Antraštės nuotrauka', subtitle: 'Neprivaloma — bet padaro įrašą patrauklesnį.',
+        valid: true,
+        node: <ImageUploadField value={coverUrl} onChange={setCoverUrl} label="Antraštės nuotrauka" />,
+      })
     }
-    return 'Muzikos recenzija arba renginio apžvalga lietuvių kalba.'
+
+    else if (type === 'translation') {
+      steps.push({
+        id: 'pick', title: 'Kurią dainą verti?',
+        subtitle: 'Pasirink dainą iš music.lt.',
+        valid: !!songTarget,
+        node: songTarget
+          ? <SelectedEntityCard hit={songTarget} onClear={() => setSongTarget(null)} />
+          : <EntityPicker kind="track" onPick={pickTranslationTrack} autoFocus placeholder="Ieškok dainos…" />,
+      })
+      steps.push({
+        id: 'write', title: 'Vertimas',
+        subtitle: 'Įrašyk lietuvišką vertimą.',
+        valid: !!content.trim(),
+        node: <div className="wz-stack">
+          <TitleInput value={title} onChange={setTitle} placeholder="Vertimo pavadinimas" />
+          <div className="wz-editor-wrap"><BlogEditor value={content} onChange={setContent} placeholder="Lietuviškas vertimas…" /></div>
+        </div>,
+      })
+      steps.push({
+        id: 'final', title: 'Antraštės nuotrauka', subtitle: 'Neprivaloma.',
+        valid: true,
+        node: <ImageUploadField value={coverUrl} onChange={setCoverUrl} label="Antraštės nuotrauka" />,
+      })
+    }
+
+    else if (type === 'creation') {
+      steps.push({
+        id: 'subtype', title: 'Kūrybos rūšis',
+        subtitle: 'Pasirink, jei tinka (neprivaloma).',
+        valid: true,
+        node: <ChoiceCards value={creationSubtype} onSelect={setCreationSubtype} choices={CREATION_SUBTYPES} />,
+      })
+      steps.push({
+        id: 'write', title: 'Tavo kūrinys',
+        subtitle: 'Pavadinimas ir tekstas.',
+        valid: !!title.trim() && !!content.trim(),
+        node: <div className="wz-stack">
+          <TitleInput value={title} onChange={setTitle} placeholder="Kūrinio pavadinimas" />
+          <div className="wz-editor-wrap"><BlogEditor value={content} onChange={setContent} placeholder="Pradėk kurti…" /></div>
+        </div>,
+      })
+      steps.push({
+        id: 'final', title: 'Antraštės nuotrauka', subtitle: 'Neprivaloma.',
+        valid: true,
+        node: <ImageUploadField value={coverUrl} onChange={setCoverUrl} label="Antraštės nuotrauka" />,
+      })
+    }
+
+    else if (type === 'event') {
+      steps.push({
+        id: 'pick', title: 'Koks renginys?',
+        subtitle: 'Pasirink renginį, kurį nori apžvelgti.',
+        valid: !!eventTarget.event_id,
+        node: <EventTargetField target={eventTarget} onChange={(t) => { setEventTarget(t); if (t.display) setTitle(prev => prev || t.display!.title) }} />,
+      })
+      steps.push({
+        id: 'write', title: 'Tavo įspūdžiai',
+        subtitle: 'Atmosfera, atlikėjai, garsas, publika…',
+        valid: !!content.trim(),
+        node: <div className="wz-stack">
+          <VoiceRecorder context={buildVoiceContext()} onResult={appendVoiceText} />
+          <div className="wz-editor-wrap"><BlogEditor value={content} onChange={setContent} placeholder="Aprašyk renginį…" /></div>
+        </div>,
+      })
+      steps.push({
+        id: 'final', title: 'Beveik baigta',
+        subtitle: 'Pavadinimas ir nuotrauka.',
+        valid: !!title.trim(),
+        node: <FinalStep title={title} onTitle={setTitle} titlePlaceholder="Pvz. Mamontovo koncertas Žalgirio arenoje" coverUrl={coverUrl} onCover={setCoverUrl} />,
+      })
+    }
+
+    else if (type === 'mood') {
+      steps.push({
+        id: 'pick', title: 'Nuotaikos daina',
+        subtitle: 'Pasirink dainą, kuri rodysis tavo profilyje.',
+        valid: !!songTarget,
+        primaryLabel: 'Nustatyti',
+        node: songTarget
+          ? <SelectedEntityCard hit={songTarget} onClear={() => setSongTarget(null)} clearLabel="Keisti" />
+          : <EntityPicker kind="track" onPick={(h) => setSongTarget(h)} autoFocus placeholder="Ieškok dainos…" />,
+      })
+    }
+
+    else if (type === 'daily') {
+      steps.push({
+        id: 'pick', title: 'Dienos daina',
+        subtitle: 'Pasiūlyk dainą šiandienos balsavimui (turi būti išleista per pastaruosius metus).',
+        valid: !!songTarget,
+        node: songTarget
+          ? <SelectedEntityCard hit={songTarget} onClear={() => setSongTarget(null)} clearLabel="Keisti" />
+          : <EntityPicker kind="track" onPick={(h) => { setSongTarget(h); next() }} autoFocus placeholder="Ieškok dainos…" />,
+      })
+      steps.push({
+        id: 'comment', title: 'Komentaras',
+        subtitle: 'Kodėl siūlai šią dainą? (neprivaloma)',
+        valid: true,
+        primaryLabel: 'Pasiūlyti',
+        node: <div className="wz-stack">
+          {songTarget && <SelectedEntityCard hit={songTarget} onClear={() => { setSongTarget(null); setStepIdx(0) }} clearLabel="Keisti" />}
+          <textarea
+            value={dailyComment}
+            onChange={e => setDailyComment(e.target.value)}
+            placeholder="Trumpas komentaras…"
+            rows={3}
+            className="wz-textarea"
+          />
+        </div>,
+      })
+    }
+
+    return steps
   }
 
-  function appendVoiceText(text: string) {
-    const html = text
-      .split(/\n{2,}/)
-      .map((p) => p.trim())
-      .filter(Boolean)
-      .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br />')}</p>`)
-      .join('')
-    if (html) setContent((prev) => (prev || '') + html)
+  // ── Render gates ────────────────────────────────────────────────────────
+  if (editId) {
+    if (profileLoading) return <Loading />
+    if (authError) return <AuthGate msg={authError} />
+    if (!hasUsername) return <UsernameSetupGate onReady={() => setHasUsername(true)} />
+    return <EditPostForm editId={editId} />
   }
 
-  if (profileLoading) {
-    return <div className="min-h-[50vh] flex items-center justify-center text-sm" style={{ color: '#334058' }}>Kraunasi...</div>
-  }
+  if (profileLoading) return <Loading />
+  if (authError) return <AuthGate msg={authError} />
+  if (!hasUsername) return <UsernameSetupGate onReady={() => setHasUsername(true)} />
 
-  if (authError) {
+  // Type picker landing
+  if (!type) {
     return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4">
-        <p className="text-sm text-red-400">{authError}</p>
-        <Link href="/auth/signin" className="text-xs font-bold text-[#f97316] hover:underline">Prisijungti →</Link>
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="mb-5">
+          <Link href="/blogas/mano" className="text-xs hover:text-white transition" style={{ color: 'var(--text-muted)' }}>← Mano įrašai</Link>
+        </div>
+        <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.6rem,5vw,2rem)', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--text-primary)' }}>Ką nori pridėti?</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 6, marginBottom: 18 }}>Pasirink turinio tipą.</p>
+        <div className="tp-grid">
+          {TYPE_TILES.map(t => (
+            <button key={t.type} type="button" className="tp-tile" onClick={() => { setType(t.type); setStepIdx(0) }}>
+              <span className="tp-ico">{t.icon}</span>
+              <span className="tp-label">{t.label}</span>
+              <span className="tp-desc">{t.desc}</span>
+            </button>
+          ))}
+        </div>
+        <style jsx>{`
+          .tp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+          .tp-tile {
+            display: flex; flex-direction: column; gap: 4px; text-align: left;
+            padding: 16px; border-radius: 16px; cursor: pointer;
+            background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+            transition: border-color .12s, transform .08s; -webkit-tap-highlight-color: transparent;
+          }
+          .tp-tile:active { transform: scale(.98); }
+          .tp-tile:hover { border-color: var(--border-strong); }
+          .tp-ico { color: var(--accent-orange); margin-bottom: 4px; }
+          .tp-ico :global(svg) { width: 24px; height: 24px; }
+          .tp-label { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 16px; color: var(--text-primary); }
+          .tp-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.35; }
+        `}</style>
       </div>
     )
   }
 
-  if (!hasUsername) {
-    return <UsernameSetupGate onReady={() => setHasUsername(true)} />
+  const steps = buildSteps()
+  const safeIdx = Math.min(stepIdx, steps.length - 1)
+  const step = steps[safeIdx]
+  if (!step) return <Loading />
+  const isLast = safeIdx === steps.length - 1
+  const isBlog = !['mood', 'daily'].includes(type)
+
+  const finalLabel = type === 'mood' ? 'Nustatyti' : type === 'daily' ? 'Pasiūlyti' : 'Publikuoti'
+  const primaryLabel = step.primaryLabel || (isLast ? finalLabel : 'Toliau')
+
+  const handlePrimary = () => {
+    if (!step.valid) {
+      setError('Užpildyk šį žingsnį, kad tęstum.')
+      return
+    }
+    setError(null)
+    if (!isLast) { next(); return }
+    if (type === 'mood') submitMood()
+    else if (type === 'daily') submitDaily()
+    else submitBlog('published')
+  }
+
+  const handleBack = () => {
+    setError(null)
+    if (safeIdx > 0) setStepIdx(i => i - 1)
+    else if (!initialType) { setType(null); setStepIdx(0) }   // grįžti į tipo pasirinkimą
+    else router.push('/blogas/mano')
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <Link href="/blogas/mano" className="text-xs hover:text-white transition" style={{ color: '#5e7290' }}>← Mano įrašai</Link>
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleSave('draft')}
-            disabled={saving}
-            className="px-3 py-1 rounded-full text-xs font-bold transition disabled:opacity-40"
-            style={{ color: '#b0bdd4', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            {saving ? '...' : 'Juodraštis'}
-          </button>
-          <button
-            onClick={() => handleSave('published')}
-            disabled={saving}
-            className="px-3 py-1 rounded-full text-xs font-bold text-white bg-[#f97316] hover:bg-[#ea580c] transition disabled:opacity-40"
-          >
-            {saving ? '...' : 'Publikuoti'}
-          </button>
-        </div>
+    <WizardChrome
+      stepIndex={safeIdx}
+      totalSteps={steps.length}
+      title={step.title}
+      subtitle={step.subtitle}
+      onBack={handleBack}
+      primaryLabel={primaryLabel}
+      onPrimary={handlePrimary}
+      primaryDisabled={!step.valid}
+      primaryBusy={busy}
+      secondaryLabel={isLast && isBlog ? 'Juodraštis' : undefined}
+      onSecondary={isLast && isBlog ? () => submitBlog('draft') : undefined}
+      error={error}
+    >
+      {step.node}
+      <style jsx global>{`
+        .wz-stack { display: flex; flex-direction: column; gap: 18px; }
+        .wz-editor-wrap { margin-top: 8px; }
+        .wz-textarea {
+          width: 100%; border-radius: 12px; padding: 12px 14px; resize: vertical;
+          background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+          color: var(--text-primary); font-size: 15px; outline: none; font-family: inherit;
+        }
+        .wz-textarea:focus { border-color: var(--accent-orange); }
+      `}</style>
+    </WizardChrome>
+  )
+}
+
+// ── Small shared pieces ────────────────────────────────────────────────────
+function TitleInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  return (
+    <input
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="wz-title-input"
+      style={{
+        width: '100%', padding: '10px 0', fontFamily: "'Outfit', sans-serif",
+        fontSize: 'clamp(1.3rem,4.5vw,1.7rem)', fontWeight: 800, letterSpacing: '-.02em',
+        color: 'var(--text-primary)', background: 'transparent', border: 'none',
+        borderBottom: '2px solid var(--border-subtle)', outline: 'none',
+      }}
+    />
+  )
+}
+
+function FinalStep({
+  title, onTitle, titlePlaceholder, coverUrl, onCover, extra,
+}: {
+  title: string; onTitle: (v: string) => void; titlePlaceholder: string
+  coverUrl: string; onCover: (v: string) => void; extra?: ReactNode
+}) {
+  return (
+    <div className="wz-stack">
+      <div>
+        <FieldLabel>Pavadinimas</FieldLabel>
+        <TitleInput value={title} onChange={onTitle} placeholder={titlePlaceholder} />
       </div>
-
-      {error && (
-        <div className="text-xs text-red-400 mb-4 p-2 rounded" style={{ background: 'rgba(239,68,68,0.08)' }}>
-          {error}
-        </div>
-      )}
-
-      <PostTypeSelector value={postType} onChange={setPostType} />
-
-      {/* Tipo specifinė forma */}
-      {postType === 'review' && (
-        <ReviewTargetField
-          target={reviewTarget}
-          rating={rating}
-          onTargetChange={setReviewTarget}
-          onRatingChange={setRating}
-        />
-      )}
-
-      {postType === 'translation' && (
-        <TranslationField target={translation} onChange={setTranslation} />
-      )}
-
-      {postType === 'event' && (
-        <EventTargetField target={eventTarget} onChange={setEventTarget} />
-      )}
-
-      {postType === 'topas' && (
-        <ListEditorField items={listItems} onChange={setListItems} />
-      )}
-
-      {/* Pavadinimas */}
-      <div className="mb-4">
-        <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
-          Pavadinimas
-        </label>
-        <input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          placeholder={titlePlaceholder(postType)}
-          className="w-full px-3 py-2.5 text-2xl font-bold rounded-lg outline-none focus:border-[#f97316]/30 transition"
-          style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.02em', color: '#f2f4f8', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-        />
-      </div>
-
-      {/* Content */}
-      {(postType === 'review' || postType === 'event') && (
-        <div className="mb-2">
-          <VoiceRecorder context={buildVoiceContext()} onResult={appendVoiceText} />
-        </div>
-      )}
-      <BlogEditor
-        value={content}
-        onChange={setContent}
-        placeholder={contentPlaceholder(postType)}
-      />
-
-      {/* Antraštės nuotrauka — perkelta į galą, optional */}
-      <div className="mt-8">
-        <ImageUploadField value={coverUrl} onChange={setCoverUrl} label="Antraštės nuotrauka" />
+      {extra}
+      <div>
+        <ImageUploadField value={coverUrl} onChange={onCover} label="Antraštės nuotrauka (neprivaloma)" />
       </div>
     </div>
   )
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+// ── Per-track review list (album review) ────────────────────────────────────
+function TrackReviewList({
+  items, loading, onChange,
+}: { items: TrackReview[]; loading: boolean; onChange: (items: TrackReview[]) => void }) {
+  if (loading) return <p style={{ color: 'var(--text-faint)', fontSize: 14, padding: '20px 0', textAlign: 'center' }}>Kraunamos dainos…</p>
+  if (items.length === 0) return <p style={{ color: 'var(--text-faint)', fontSize: 14, padding: '20px 0', textAlign: 'center' }}>Šio albumo dainų nerasta.</p>
+
+  const set = (idx: number, patch: Partial<TrackReview>) => onChange(items.map((it, i) => i === idx ? { ...it, ...patch } : it))
+
+  return (
+    <div className="trl">
+      {items.map((t, idx) => (
+        <div key={idx} className="trl-row">
+          <div className="trl-head">
+            {t.image_url
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={proxyImg(t.image_url)} alt="" className="trl-cover" />
+              : <span className="trl-cover trl-cover-ph">🎵</span>}
+            <div className="trl-meta">
+              <span className="trl-num">{idx + 1}</span>
+              <span className="trl-title">{t.title}</span>
+            </div>
+            {t.rating !== null && <span className="trl-badge">{t.rating}</span>}
+          </div>
+          <RatingControl value={t.rating} onChange={(v) => set(idx, { rating: v })} compact />
+          <input
+            value={t.comment}
+            onChange={e => set(idx, { comment: e.target.value })}
+            placeholder="Komentaras (neprivaloma)"
+            className="trl-comment"
+          />
+        </div>
+      ))}
+      <style jsx>{`
+        .trl { display: flex; flex-direction: column; gap: 10px; }
+        .trl-row { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 14px; padding: 12px; }
+        .trl-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .trl-cover { width: 38px; height: 38px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+        .trl-cover-ph { display: flex; align-items: center; justify-content: center; background: var(--cover-placeholder); font-size: 16px; }
+        .trl-meta { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+        .trl-num { font-family: 'Outfit', sans-serif; font-weight: 800; color: var(--text-faint); font-size: 13px; }
+        .trl-title { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .trl-badge { flex-shrink: 0; background: var(--accent-orange); color: #fff; border-radius: 8px; padding: 2px 8px; font-weight: 800; font-size: 13px; font-family: 'Outfit', sans-serif; }
+        .trl-comment {
+          width: 100%; margin-top: 10px; border-radius: 9px; padding: 8px 11px;
+          background: var(--bg-body); border: 1px solid var(--border-subtle); color: var(--text-secondary);
+          font-size: 13px; outline: none;
+        }
+        .trl-comment:focus { border-color: var(--accent-orange); }
+      `}</style>
+    </div>
+  )
 }
 
-function titlePlaceholder(type: BlogPostType): string {
-  switch (type) {
-    case 'review':      return 'Recenzijos pavadinimas'
-    case 'translation': return 'Vertimo pavadinimas'
-    case 'creation':    return 'Kūrinio pavadinimas'
-    case 'event':       return 'Pvz. Andriaus Mamontovo koncertas Žalgirio arenoje'
-    case 'topas':       return 'Pvz. Mano TOP 10 LT albumų 2025'
-    case 'article':
-    default:            return 'Įrašo pavadinimas'
+// ── Topas entries (add one-by-one + reorder + comment) ──────────────────────
+function TopasEntries({
+  items, kind, onPick, onChange,
+}: {
+  items: TopasItem[]
+  kind: 'artist' | 'album' | 'track' | 'all'
+  onPick: (hit: AttachmentHit) => void
+  onChange: (items: TopasItem[]) => void
+}) {
+  const move = (idx: number, dir: -1 | 1) => {
+    const j = idx + dir
+    if (j < 0 || j >= items.length) return
+    const next = [...items]
+    ;[next[idx], next[j]] = [next[j], next[idx]]
+    onChange(next)
   }
+  const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx))
+  const setComment = (idx: number, c: string) => onChange(items.map((it, i) => i === idx ? { ...it, comment: c } : it))
+  const excludeKeys = items.filter(i => i.entity_id !== null).map(i => {
+    const t = i.type === 'artist' ? 'grupe' : i.type === 'album' ? 'albumas' : 'daina'
+    return `${t}:${i.entity_id}`
+  })
+
+  return (
+    <div className="te">
+      {items.length > 0 && (
+        <div className="te-list">
+          {items.map((it, idx) => (
+            <div key={idx} className="te-row">
+              <div className="te-main">
+                <span className="te-rank">{idx + 1}</span>
+                {it.image_url
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={it.image_url} alt="" className="te-cover" />
+                  : <span className="te-cover te-cover-ph" />}
+                <div className="te-text">
+                  <span className="te-title">{it.title}</span>
+                  {it.artist && <span className="te-artist">{it.artist}</span>}
+                </div>
+                <div className="te-btns">
+                  <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} aria-label="Aukštyn">↑</button>
+                  <button type="button" onClick={() => move(idx, 1)} disabled={idx === items.length - 1} aria-label="Žemyn">↓</button>
+                  <button type="button" onClick={() => remove(idx)} aria-label="Pašalinti" className="te-del">×</button>
+                </div>
+              </div>
+              <input
+                value={it.comment}
+                onChange={e => setComment(idx, e.target.value)}
+                placeholder="Komentaras (neprivaloma)"
+                className="te-comment"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="te-add">
+        <p className="te-add-label">Pridėti įrašą</p>
+        <EntityPicker
+          kind={kind}
+          allowFilterChips={kind === 'all'}
+          onPick={onPick}
+          excludeKeys={excludeKeys}
+          placeholder="Ieškok…"
+        />
+      </div>
+
+      <style jsx>{`
+        .te-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+        .te-row { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 13px; padding: 10px; }
+        .te-main { display: flex; align-items: center; gap: 10px; }
+        .te-rank { font-family: 'Outfit', sans-serif; font-weight: 900; font-size: 16px; color: var(--accent-orange); width: 20px; text-align: center; flex-shrink: 0; }
+        .te-cover { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+        .te-cover-ph { background: var(--cover-placeholder); }
+        .te-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .te-title { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .te-artist { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .te-btns { display: flex; gap: 2px; flex-shrink: 0; }
+        .te-btns button {
+          width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer;
+          background: var(--bg-hover); color: var(--text-secondary); font-size: 14px; font-weight: 700;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .te-btns button:disabled { opacity: .3; }
+        .te-del { color: var(--text-muted) !important; }
+        .te-comment {
+          width: 100%; margin-top: 8px; border-radius: 9px; padding: 7px 10px;
+          background: var(--bg-body); border: 1px solid var(--border-subtle); color: var(--text-secondary);
+          font-size: 13px; outline: none;
+        }
+        .te-comment:focus { border-color: var(--accent-orange); }
+        .te-add-label {
+          font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
+          color: var(--text-faint); font-family: 'Outfit', sans-serif; margin-bottom: 8px;
+        }
+      `}</style>
+    </div>
+  )
 }
 
-function contentPlaceholder(type: BlogPostType): string {
-  switch (type) {
-    case 'review':      return 'Įspūdžiai apie albumą/dainą...'
-    case 'translation': return 'Lietuviškas vertimas...'
-    case 'creation':    return 'Pradėk kurti...'
-    case 'event':       return 'Aprašyk renginį — atmosferą, atlikėjus, įspūdžius...'
-    case 'topas':       return 'Įžanga ir konteksto paaiškinimas (neprivaloma)...'
-    case 'article':
-    default:            return 'Įklijuok YouTube/Spotify nuorodą — auto-embed. Numesk nuotrauką — auto-upload.'
-  }
+function Loading() {
+  return <div className="min-h-[50vh] flex items-center justify-center text-sm" style={{ color: 'var(--text-faint)' }}>Kraunasi…</div>
+}
+function AuthGate({ msg }: { msg: string }) {
+  return (
+    <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4">
+      <p className="text-sm" style={{ color: '#fca5a5' }}>{msg}</p>
+      <Link href="/auth/signin" className="text-xs font-bold" style={{ color: 'var(--accent-orange)' }}>Prisijungti →</Link>
+    </div>
+  )
 }
 
 export default function BlogEditorPage() {
   return (
-    <Suspense fallback={<div className="min-h-[50vh] flex items-center justify-center text-sm" style={{ color: '#334058' }}>Kraunasi...</div>}>
+    <Suspense fallback={<Loading />}>
       <EditorInner />
     </Suspense>
   )

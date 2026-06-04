@@ -86,6 +86,11 @@ export async function POST(req: NextRequest) {
     data.target_artist_id = numOrNull(body.target_artist_id)
     data.target_album_id = numOrNull(body.target_album_id)
     data.target_track_id = numOrNull(body.target_track_id)
+    // Albumo recenzija „per dainas" — kiekviena daina su savo balu + komentaru.
+    // Saugom tame pačiame list_items JSONB kaip topas, su papildomu `rating`.
+    if (Array.isArray(body.list_items)) {
+      ;(data as any).list_items = normalizeListItems(body.list_items)
+    }
   }
 
   if (postType === 'translation') {
@@ -101,22 +106,14 @@ export async function POST(req: NextRequest) {
   }
 
   if (postType === 'topas') {
-    // list_items: array of { rank, type, entity_id, entity_slug, title, artist, image_url, comment }
+    // list_items: array of { rank, type, entity_id, entity_slug, title, artist, image_url, comment, rating }
     if (Array.isArray(body.list_items)) {
-      ;(data as any).list_items = body.list_items
-        .slice(0, 50)
-        .map((item: any, idx: number) => ({
-          rank: idx + 1,
-          type: ['artist','album','track','custom'].includes(item?.type) ? item.type : 'custom',
-          entity_id: item?.entity_id ?? null,
-          entity_slug: item?.entity_slug ?? null,
-          title: String(item?.title || '').slice(0, 200),
-          artist: item?.artist ? String(item.artist).slice(0, 200) : null,
-          image_url: item?.image_url ? String(item.image_url).slice(0, 500) : null,
-          comment: item?.comment ? String(item.comment).slice(0, 500) : null,
-        }))
-        .filter((item: any) => item.title)
+      ;(data as any).list_items = normalizeListItems(body.list_items)
     }
+  }
+
+  if (postType === 'creation' && body.creation_subtype) {
+    data.creation_subtype = String(body.creation_subtype).slice(0, 40)
   }
 
   try {
@@ -153,6 +150,25 @@ function clampRating(v: any): number | null {
   const n = Number(v)
   if (!Number.isFinite(n)) return null
   return Math.max(1, Math.min(10, Math.round(n)))
+}
+
+// Bendra list_items normalizacija topas'ui IR albumo recenzijai (per dainas).
+// `rating` per-item naudojamas tik recenzijoms (1–10), topas'e null.
+function normalizeListItems(raw: any[]): any[] {
+  return raw
+    .slice(0, 100)
+    .map((item: any, idx: number) => ({
+      rank: idx + 1,
+      type: ['artist', 'album', 'track', 'custom'].includes(item?.type) ? item.type : 'custom',
+      entity_id: item?.entity_id ?? null,
+      entity_slug: item?.entity_slug ?? null,
+      title: String(item?.title || '').slice(0, 200),
+      artist: item?.artist ? String(item.artist).slice(0, 200) : null,
+      image_url: item?.image_url ? String(item.image_url).slice(0, 500) : null,
+      comment: item?.comment ? String(item.comment).slice(0, 1000) : null,
+      rating: clampRating(item?.rating),
+    }))
+    .filter((item: any) => item.title)
 }
 
 function numOrNull(v: any): number | null {

@@ -15,8 +15,15 @@ const ALLOWED_FIELDS = new Set([
   'post_type', 'rating',
   'target_artist_id', 'target_album_id', 'target_track_id', 'target_event_id',
   'embed_url', 'embed_type', 'embed_thumbnail_url', 'embed_title', 'embed_html',
-  'tags', 'list_items',
+  'tags', 'list_items', 'creation_subtype',
 ])
+
+function clampItemRating(v: any): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  if (!Number.isFinite(n)) return null
+  return Math.max(1, Math.min(10, Math.round(n)))
+}
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -71,10 +78,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       .filter(Boolean)
   }
 
-  // ── List items normalize (topas tipas) ────────────────────────────────
+  // ── List items normalize (topas tipas IR albumo recenzija per dainas) ──
   if (Array.isArray(updates.list_items)) {
     updates.list_items = updates.list_items
-      .slice(0, 50)
+      .slice(0, 100)
       .map((item: any, idx: number) => ({
         rank: idx + 1,
         type: ['artist','album','track','custom'].includes(item?.type) ? item.type : 'custom',
@@ -83,7 +90,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         title: String(item?.title || '').slice(0, 200),
         artist: item?.artist ? String(item.artist).slice(0, 200) : null,
         image_url: item?.image_url ? String(item.image_url).slice(0, 500) : null,
-        comment: item?.comment ? String(item.comment).slice(0, 500) : null,
+        comment: item?.comment ? String(item.comment).slice(0, 1000) : null,
+        rating: clampItemRating(item?.rating),
       }))
       .filter((item: any) => item.title)
   }

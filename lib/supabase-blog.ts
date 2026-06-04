@@ -659,6 +659,7 @@ export type PostUpsertFields = {
   embed_html?: string | null
   tags?: string[]
   list_items?: any[]
+  creation_subtype?: string | null
 }
 
 export async function createPost(blogId: string, userId: string, data: PostUpsertFields & { slug: string }) {

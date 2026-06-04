@@ -527,6 +527,10 @@ export default function BlogPostPageClient(props: Props) {
                 <TopasList items={post.list_items} />
               )}
 
+              {postType === 'review' && post.list_items.length > 0 && (
+                <ReviewTrackList items={post.list_items} />
+              )}
+
               {/* Tags — palieku po body, kad neperkraut info box'o */}
               {visibleTags.length > 0 && (
                 <div className="bp-tags" style={{ marginTop: 32 }}>
@@ -990,6 +994,41 @@ function TopasList({ items }: { items: any[] }) {
         )
       })}
     </ol>
+  )
+}
+
+/* ─── Review track list (albumo recenzija per dainas) ──────────────────── */
+function ReviewTrackList({ items }: { items: any[] }) {
+  return (
+    <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <p style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 13, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-faint, #5e7290)', marginBottom: 4 }}>
+        Įvertintos dainos
+      </p>
+      {items.map((item, idx) => {
+        const href = item.type === 'track' && (item.entity_slug || item.entity_id) ? `/dainos/${item.entity_slug || item.entity_id}` : null
+        const Wrapper: any = href ? Link : 'div'
+        const wp = href ? { href } : {}
+        return (
+          <Wrapper key={idx} {...wp} style={{
+            display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 12,
+            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', textDecoration: 'none',
+          }}>
+            <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, color: '#5e7290', fontSize: 14, width: 22, textAlign: 'center', flexShrink: 0 }}>{idx + 1}</span>
+            {item.image_url
+              /* eslint-disable-next-line @next/next/no-img-element */
+              ? <img src={proxyImg(item.image_url)} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+              : <span style={{ width: 40, height: 40, borderRadius: 8, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 15, color: '#dde8f8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
+              {item.comment && <p style={{ fontSize: 13, color: '#9fb2cf', marginTop: 2 }}>{item.comment}</p>}
+            </div>
+            {item.rating !== null && item.rating !== undefined && (
+              <span style={{ flexShrink: 0, background: 'rgba(249,115,22,0.15)', color: '#f97316', borderRadius: 8, padding: '3px 9px', fontWeight: 800, fontSize: 14, fontFamily: "'Outfit', sans-serif" }}>{item.rating}</span>
+            )}
+          </Wrapper>
+        )
+      })}
+    </div>
   )
 }
 
