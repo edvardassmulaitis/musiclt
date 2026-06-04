@@ -52,6 +52,8 @@ type NavPreview = {
   eventsLt?:    { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
   eventsWorld?: { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
   news:         { id: number; slug: string; title: string; image: string | null; date: string }[]
+  newsLt?:      { id: string | number; slug: string; title: string; image: string | null; date: string | null }[]
+  newsWorld?:   { id: string | number; slug: string; title: string; image: string | null; date: string | null }[]
   /** name → cover_image_url map (admin'as nustato per /admin/genres) */
   genres?:      Record<string, string | null>
   /** Total atlikėjų skaičiai DB'je — naudojama Daugiau tile'ui */
@@ -255,6 +257,22 @@ function RowStripe({ kind }: { kind: 'lt' | 'world' }) {
   return <span className="sh-stripe sh-stripe-world" aria-hidden />
 }
 
+/* Žanrų/stilių kortelės: vientisos brand-spalvos vizualas (be stock nuotraukų).
+   Per-žanro ikona kampe — viena nuosekli sistema visuose meniu (Muzika +
+   Naujienos, desktop + mobile). USE_GENRE_PHOTOS=false → solidžios spalvos;
+   jei kada panorėtume grįžti prie nuotraukų, užtenka perjungti į true. */
+const USE_GENRE_PHOTOS = false
+const STYLE_ICONS: Record<string, React.ReactNode> = {
+  'Alternatyvioji muzika':     I.headphones,
+  'Elektroninė, šokių muzika': I.equalizer,
+  "Hip-hop'o muzika":          I.mic,
+  'Kitų stilių muzika':        I.shuffle,
+  'Pop, R&B muzika':           I.heart,
+  'Rimtoji muzika':            I.piano,
+  'Roko muzika':               I.guitar,
+  'Sunkioji muzika':           I.flame,
+}
+
 function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
   const artistsLt    = data?.artistsLt    || []
   const artistsWorld = data?.artistsWorld || []
@@ -306,17 +324,6 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   }
 
   // 8 main stiliai su SVG ikonomis (no emojis) — atspindi žanro charakterį
-  const STYLE_ICONS: Record<string, React.ReactNode> = {
-    'Alternatyvioji muzika':     I.headphones,
-    'Elektroninė, šokių muzika': I.equalizer,
-    "Hip-hop'o muzika":          I.mic,
-    'Kitų stilių muzika':        I.shuffle,
-    'Pop, R&B muzika':           I.heart,
-    'Rimtoji muzika':            I.piano,
-    'Roko muzika':               I.guitar,
-    'Sunkioji muzika':           I.flame,
-  }
-
   return (
     <div className="sh-panel sh-panel-muzika">
 
@@ -360,7 +367,7 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
         <div className="sh-style-grid">
           {styles.map(s => {
             const img = data?.genres?.[s.name] || null
-            const hasImage = !!img
+            const hasImage = USE_GENRE_PHOTOS && !!img
             return (
               <Link
                 key={s.name}
@@ -668,36 +675,44 @@ const SECTION_HEAD: React.CSSProperties = {
   color: 'var(--text-muted)', marginBottom: 8,
 }
 function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
-  const news = data?.news?.slice(0, 10) || []
+  const newsLt = data?.newsLt || data?.news || []
+  const newsWorld = data?.newsWorld || []
+  // LT / Pasaulio naujienų juostos — kaip Muzika/Topai/Koncertai (vientisumas).
+  const newsRow = (kind: 'lt' | 'world', href: string, items: any[]) => (
+    <div className="sh-strip-wrap">
+      <RowStripe kind={kind} />
+      <div className="sh-strip">
+        {(items.length > 0 ? items : Array(6).fill(null)).map((n: any, i: number) => (
+          <Link key={n?.id || `${kind}-${i}`} href={n ? `/news/${n.slug}` : href} className="sh-mini sh-mini-xl">
+            <ImageBox src={n?.image} accent={accent} glyph={I.news} className="sh-mini-img" />
+            <span className="sh-mini-title sh-mini-title-2">{n?.title || <span style={{ opacity: 0.45 }}>Naujiena</span>}</span>
+          </Link>
+        ))}
+      </div>
+      <Link href={href} className="sh-expand-btn" aria-label="Visos naujienos" title="Visos naujienos">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
+          <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
+        </svg>
+      </Link>
+    </div>
+  )
   return (
     <div className="sh-panel sh-panel-muzika">
-      {/* ── Naujausios naujienos (juosta) ── */}
+      {/* ── Naujausios naujienos: LT + Pasaulis juostos ── */}
       <div style={SECTION_HEAD}>
         <span className="sh-trending-glyph" title="Naujienos">{I.news}</span>
         Naujausios naujienos
       </div>
-      <div className="sh-strip-wrap">
-        <div className="sh-strip">
-          {(news.length > 0 ? news : Array(6).fill(null)).map((n, i) => (
-            <Link key={n?.id || i} href={n ? `/news/${n.slug}` : '/naujienos'} className="sh-mini sh-mini-xl">
-              <ImageBox src={n?.image} accent={accent} glyph={I.news} className="sh-mini-img" />
-              <span className="sh-mini-title sh-mini-title-2">{n?.title || <span style={{ opacity: 0.45 }}>Naujiena</span>}</span>
-            </Link>
-          ))}
-        </div>
-        <Link href="/naujienos" className="sh-expand-btn" aria-label="Visos naujienos" title="Visos naujienos">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
-            <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
-          </svg>
-        </Link>
-      </div>
+      <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 5px' }}>Lietuva</div>
+      {newsRow('lt', '/naujienos/lietuva', newsLt)}
+      <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', margin: '12px 0 5px' }}>Pasaulis</div>
+      {newsRow('world', '/naujienos/pasaulis', newsWorld)}
 
       {/* ── Pagal tipą (greitos nuorodos) ── */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
         <div style={SECTION_HEAD}>Pagal tipą</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-          <Link href="/naujienos/lietuva" className="sh-news-chip"><span aria-hidden>🇱🇹</span> Lietuva</Link>
           {NEWS_TYPES.filter(t => t.key !== 'kita').map(t => (
             <Link key={t.key} href={`/naujienos/tipas/${t.slug}`} className="sh-news-chip">{t.labelPlural}</Link>
           ))}
@@ -713,7 +728,7 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
         <div className="sh-style-grid">
           {NEWS_STYLES.map(s => {
             const img = data?.genres?.[s.name] || null
-            const hasImage = !!img
+            const hasImage = USE_GENRE_PHOTOS && !!img
             return (
               <Link
                 key={s.id}
@@ -728,7 +743,7 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
                 title={s.name}
               >
                 <span className="sh-style-card-name">{s.name.replace(' muzika', '')}</span>
-                {!hasImage && <span className="sh-style-card-deco" aria-hidden>{I.news}</span>}
+                {!hasImage && <span className="sh-style-card-deco" aria-hidden>{STYLE_ICONS[s.name] || I.news}</span>}
               </Link>
             )
           })}
@@ -875,7 +890,7 @@ function MobileExpansion({
           <div className="sh-style-grid sh-style-grid-mobile">
             {STYLES_ORDERED.map(s => {
               const img = data?.genres?.[s.name] || null
-              const hasImage = !!img
+              const hasImage = USE_GENRE_PHOTOS && !!img
               return (
                 <Link
                   key={s.name}
@@ -1083,36 +1098,43 @@ function MobileExpansion({
   }
 
   if (navKey === 'naujienos') {
-    const news = data?.news || []
+    const mNewsLt = data?.newsLt || data?.news || []
+    const mNewsWorld = data?.newsWorld || []
+    const mNewsRow = (kind: 'lt' | 'world', href: string, items: any[]) => (
+      <div className="sh-strip-wrap" style={{ marginBottom: 4 }}>
+        <RowStripe kind={kind} />
+        <div className="sh-strip">
+          {(items.length > 0 ? items.slice(0, 10) : Array(5).fill(null)).map((n: any, i: number) => (
+            <Link key={n?.id || `${kind}-${i}`} href={n ? `/news/${n.slug}` : href} onClick={onLink} className="sh-mini sh-mini-md">
+              <ImageBox src={n?.image} accent={accent} glyph={I.news} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{n?.title || 'Naujiena'}</span>
+            </Link>
+          ))}
+        </div>
+        <Link href={href} onClick={onLink} className="sh-expand-btn" aria-label="Visos naujienos" title="Visos naujienos">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
+            <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
+          </svg>
+        </Link>
+      </div>
+    )
     return (
       <div className="sh-mexp">
-        {/* Naujausių juosta */}
+        {/* Naujausios — LT + Pasaulis juostos */}
         <div style={SECTION_HEAD}>
           <span className="sh-trending-glyph" title="Naujienos">{I.news}</span>
           Naujausios naujienos
         </div>
-        <div className="sh-strip-wrap" style={{ marginBottom: 12 }}>
-          <div className="sh-strip">
-            {(news.length > 0 ? news.slice(0, 10) : Array(5).fill(null)).map((n, i) => (
-              <Link key={n?.id || i} href={n ? `/news/${n.slug}` : '/naujienos'} onClick={onLink} className="sh-mini sh-mini-md">
-                <ImageBox src={n?.image} accent={accent} glyph={I.news} className="sh-mini-img" />
-                <span className="sh-mini-title sh-mini-title-2">{n?.title || 'Naujiena'}</span>
-              </Link>
-            ))}
-          </div>
-          <Link href="/naujienos" onClick={onLink} className="sh-expand-btn" aria-label="Visos naujienos" title="Visos naujienos">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-              <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
-              <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
-            </svg>
-          </Link>
-        </div>
+        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>Lietuva</div>
+        {mNewsRow('lt', '/naujienos/lietuva', mNewsLt)}
+        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', margin: '10px 0 4px' }}>Pasaulis</div>
+        {mNewsRow('world', '/naujienos/pasaulis', mNewsWorld)}
 
         {/* Pagal tipą */}
-        <div style={{ paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
+        <div style={{ paddingTop: 12, marginTop: 8, borderTop: '1px solid var(--border-default)' }}>
           <div style={SECTION_HEAD}>Pagal tipą</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-            <Link href="/naujienos/lietuva" onClick={onLink} className="sh-news-chip"><span aria-hidden>🇱🇹</span> Lietuva</Link>
             {NEWS_TYPES.filter(t => t.key !== 'kita').map(t => (
               <Link key={t.key} href={`/naujienos/tipas/${t.slug}`} onClick={onLink} className="sh-news-chip">{t.labelPlural}</Link>
             ))}
@@ -1125,7 +1147,7 @@ function MobileExpansion({
           <div className="sh-style-grid sh-style-grid-mobile">
             {NEWS_STYLES.map(s => {
               const img = data?.genres?.[s.name] || null
-              const hasImage = !!img
+              const hasImage = USE_GENRE_PHOTOS && !!img
               return (
                 <Link
                   key={s.id}

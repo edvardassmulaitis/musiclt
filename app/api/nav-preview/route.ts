@@ -12,6 +12,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { resolveDisplayWeek } from '@/lib/top-week'
+import { getNewsFeed } from '@/lib/news-feed'
 
 export const dynamic = 'force-dynamic'
 
@@ -146,6 +147,16 @@ export async function GET() {
         .limit(8),
     ])
 
+    // Naujienų LT/užsienio skaidymas dropdown'ui — per news_feed RPC (scope).
+    // Atskiros juostos „Lietuva" / „Pasaulis", kaip Muzika/Topai/Koncertai.
+    const [ltNewsFeed, worldNewsFeed] = await Promise.all([
+      getNewsFeed({ scope: 'lt', sort: 'newest', limit: 8 }),
+      getNewsFeed({ scope: 'world', sort: 'newest', limit: 8 }),
+    ])
+    const mapFeedNews = (it: any) => ({
+      id: it.uid, slug: it.slug, title: it.title, image: it.image, date: it.date,
+    })
+
     // Renginių LT/užsienio skaidymas: LT jei BENT VIENAS atlikėjas iš Lietuvos
     // arba apskritai nėra užsienio atlikėjo (be info → LT, kad juosta nebūtų tuščia).
     const evMap = (e: any) => ({ id: e.id, slug: e.slug, title: e.title, date: e.start_date, venue: e.venue_name, image: e.cover_image_url })
@@ -196,6 +207,8 @@ export async function GET() {
         image: n.image_small_url || n.image_title_url || null,
         date: n.published_at,
       })),
+      newsLt: ltNewsFeed.items.map(mapFeedNews),
+      newsWorld: worldNewsFeed.items.map(mapFeedNews),
       // Žanrų name → cover_image_url map (frontend lookup'ina pagal name iš GENRE_COLORS)
       genres: (genresRes.data || []).reduce((acc: Record<string, string | null>, g: any) => {
         acc[g.name] = g.cover_image_url || null
