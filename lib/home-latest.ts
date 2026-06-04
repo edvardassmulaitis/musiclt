@@ -358,9 +358,13 @@ export async function getUpcomingAlbumsForHome(): Promise<{
   const isFuture = (a: LatestAlbumRow) => {
     if (a.is_upcoming) return true
     if (!a.year) return false
+    // Reikia bent mėnesio: vien metai (be tikslesnės datos) NĖRA „greitai
+    // pasirodys". Be šito year-only albumas gaudavo default month=12/day=31 ir
+    // klaidingai patekdavo į sekciją kaip ateities data.
+    if (!a.month) return false
     if (a.year > today.getFullYear()) return true
     if (a.year < today.getFullYear()) return false
-    const m = a.month ?? 12
+    const m = a.month
     const d = a.day ?? 31
     const cm = today.getMonth() + 1
     const cd = today.getDate()
