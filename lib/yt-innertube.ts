@@ -279,15 +279,34 @@ export async function getVideoDetails(videoId: string): Promise<YtVideoDetails |
     tryPlayerApi,
     trySearchText,
   ]
+  let winner: YtVideoDetails | null = null
+  let winnerSrc: ((id: string) => Promise<YtVideoDetails | null>) | null = null
   for (const src of sources) {
     try {
       const r = await src(videoId)
-      if (r && r.viewCount > 0) return r
+      if (r && r.viewCount > 0) { winner = r; winnerSrc = src; break }
     } catch {
       // Bandome kitą source
     }
   }
-  return null
+  if (!winner) return null
+
+  // Datos backfill: jei viewCount gavom iš mažiau patikimo source'o (pvz.
+  // search_text neturi uploadDate, o Vercel'yje watch/player dažnai blokuoti),
+  // datą pabandom ištraukti iš metadata-rich source'ų atskirai. Be šito
+  // release_year/month/day likdavo tušti, nors video data egzistuoja.
+  if (!winner.uploadedAt) {
+    for (const src of [tryYtDataApi, tryWatchPage, tryPlayerApi]) {
+      if (src === winnerSrc) continue
+      try {
+        const r = await src(videoId)
+        if (r?.uploadedAt) { winner.uploadedAt = r.uploadedAt; break }
+      } catch {
+        // Bandome kitą source
+      }
+    }
+  }
+  return winner
 }
 
 /** Ištraukia videoId iš įvairaus pavidalo YT URL. Grąžina null jei neatpažįsta. */

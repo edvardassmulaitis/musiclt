@@ -30,7 +30,6 @@ import * as wiki from '@/lib/wiki-parser'
 import { createAlbum, type AlbumFull, type TrackInAlbum } from '@/lib/supabase-albums'
 import { slugify } from '@/lib/slugify'
 import { syncTrackFeaturing } from '@/lib/featuring-utils'
-import { wikiTitleCase } from '@/lib/text-utils'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Tipai
@@ -162,6 +161,17 @@ function ensureWikiInit() {
 // ────────────────────────────────────────────────────────────────────────────
 // YT title → { artist, title }
 // ────────────────────────────────────────────────────────────────────────────
+
+/** Sakinio raidžių registras (LT): visą tekstą į mažąsias, pirmą raidinį
+ *  simbolį į didžiąją (praleidžiant kabutes/skliaustus pradžioje). LT-aware
+ *  (toLocaleUpperCase/'lt'), kad „į"→„Į" suveiktų teisingai. */
+function toSentenceCaseLt(s: string): string {
+  const lower = (s || '').toLocaleLowerCase('lt-LT')
+  return lower.replace(
+    /^([^\p{L}\p{N}]*)(\p{L})/u,
+    (_m, pre: string, ch: string) => pre + ch.toLocaleUpperCase('lt-LT'),
+  )
+}
 
 const YT_TITLE_NOISE = [
   /\(\s*official\s+music\s+video\s*\)/gi,
@@ -708,14 +718,12 @@ async function fetchTrackContext(url: string): Promise<TrackContext | { error: s
   ensureWikiInit()
   const { artist: artistSegment, title: rawTitle } = parseYtTitle(details.title || '', channelName)
   const { cleanTitle, featuring: titleFeats } = wiki.parseFeaturing(rawTitle || '')
-  // Title Case („NESIBAIGIANTI VASARA" → „Nesibaigianti Vasara"), kaip Wiki importe.
-  // Jei VISAS pavadinimas DIDŽIOSIOMIS — pirma sumažinam, nes wikiTitleCase
-  // capWord laiko ALL-CAPS žodį acronym'u ir palieka („NESIBAIGIANTI" liktų).
-  let baseTitle = (cleanTitle || rawTitle || '').trim()
-  const noLowercase = baseTitle === baseTitle.toUpperCase()   // nėra mažųjų raidžių
-  const hasUppercase = baseTitle !== baseTitle.toLowerCase()  // yra bent viena didžioji
-  if (noLowercase && hasUppercase) baseTitle = baseTitle.toLowerCase()
-  const title = wikiTitleCase(baseTitle)
+  // Dainos pavadinimas — SAKINIO raidžių registras (pirma raidė didžioji, kitos
+  // mažosios), kaip LT konvencija dainoms. NE Title Case (kiekvienas žodis didžiąja
+  // — tai angliška/Wiki albumų konvencija). Pvz. „ĮLINDO Į DŪŠLĄ"/„Įlindo Į Dūšlą"
+  // → „Įlindo į dūšlą".
+  const baseTitle = (cleanTitle || rawTitle || '').trim()
+  const title = toSentenceCaseLt(baseTitle)
 
   let year: number | null = null, month: number | null = null, day: number | null = null
   if (details.uploadedAt) {

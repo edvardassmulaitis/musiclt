@@ -85,7 +85,12 @@ export function AdminQuickAddModal() {
           .aqa-grab { display: none; }
         }
       `}</style>
-      <div className="aqa-overlay" onClick={() => setOpen(false)}>
+      <div
+        className="aqa-overlay"
+        data-theme="light"
+        style={{ colorScheme: 'light' }}
+        onClick={() => setOpen(false)}
+      >
         <div className="aqa-sheet" onClick={e => e.stopPropagation()}>
           <div className="aqa-grab" />
           <div className="aqa-head">
