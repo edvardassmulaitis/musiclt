@@ -414,7 +414,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
   const renderSongRow = (kind: 'lt' | 'world', title: string, href: string, hex: string, entries: TopMini[]) => (
     <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 15, fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{title}</span>
+        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{title}</span>
       </div>
       <div className="sh-strip-wrap">
         <RowStripe kind={kind} />
@@ -922,7 +922,7 @@ function MobileExpansion({
     // Horizontaliai scroll'inama dainų juosta (kaip desktop) — be Lietuva/Pasaulis badge'o.
     const mSongStrip = (title: string, href: string, hex: string, kind: 'lt' | 'world', entries: TopMini[]) => (
       <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
-        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 14, fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)', marginBottom: 4 }}>{title}</div>
+        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>{title}</div>
         <div className="sh-strip-wrap">
           <RowStripe kind={kind} />
           <div className="sh-strip">
@@ -1491,7 +1491,7 @@ export function SiteHeader() {
           line-height: 1.2;
           transition: background .15s, border-color .15s, transform .1s;
         }
-        .sh-navchip:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+        .sh-navchip:hover { background: var(--bg-hover); border-color: var(--accent-orange); }
         .sh-navchip:active { transform: scale(0.97); }
         .sh-navchip-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
         .sh-navchip-flag {
@@ -1690,10 +1690,10 @@ export function SiteHeader() {
            (Muzika/Topai/Koncertai/Naujienos/Atradimai). Platesnis nei aukštas, kad
            pavadinimai tilptų (mažiau truncation). xl ir md identiški. Pavadinimui
            rezervuotas 2 eilučių aukštis → visos kortelės vienodo aukščio. */
-        .sh-mini-xl, .sh-mini-md { flex-basis: 124px; width: 124px; max-width: 124px; gap: 6px; padding: 4px; }
-        .sh-mini-xl .sh-mini-img, .sh-mini-md .sh-mini-img { width: 116px; height: 92px; border-radius: 10px; }
-        .sh-mini-xl .sh-mini-title, .sh-mini-md .sh-mini-title { font-size: 12px; text-align: center; min-height: 30px; }
-        .sh-mini-md .sh-mini-meta { text-align: center; }
+        .sh-mini-xl, .sh-mini-md { flex-basis: 140px; width: 140px; max-width: 140px; gap: 7px; padding: 4px; }
+        .sh-mini-xl .sh-mini-img, .sh-mini-md .sh-mini-img { width: 132px; height: 102px; border-radius: 11px; }
+        .sh-mini-xl .sh-mini-title, .sh-mini-md .sh-mini-title { font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; line-height: 1.3; text-align: center; min-height: 34px; }
+        .sh-mini-xl .sh-mini-meta, .sh-mini-md .sh-mini-meta { font-size: 11px; text-align: center; }
 
         /* Dainos — mažiausi (60×60) */
         .sh-mini-sm { flex-basis: 68px; width: 68px; max-width: 68px; gap: 3px; }
@@ -1832,13 +1832,13 @@ export function SiteHeader() {
         }
         .sh-news-link:hover { background: var(--bg-hover); color: var(--text-primary); }
         .sh-news-chip {
-          display: inline-flex; align-items: center; gap: 5px;
-          padding: 6px 12px; border-radius: 100px;
-          font-size: 12px; font-weight: 600; font-family: 'Outfit', sans-serif;
-          background: var(--bg-hover); border: 1px solid var(--border-default);
-          color: var(--text-secondary); text-decoration: none; transition: all .15s; white-space: nowrap;
+          display: inline-flex; align-items: center; gap: 7px;
+          padding: 6px 11px; border-radius: 9px;
+          font-size: 12.5px; font-weight: 600;
+          background: var(--bg-elevated); border: 1px solid var(--border-default);
+          color: var(--text-primary); text-decoration: none; transition: background .15s, border-color .15s, transform .1s; white-space: nowrap;
         }
-        .sh-news-chip:hover { color: var(--text-primary); border-color: rgba(249,115,22,0.4); }
+        .sh-news-chip:hover { border-color: var(--accent-orange); }
         .sh-news-link-icon { font-size: 15px; line-height: 1; width: 18px; text-align: center; }
         .sh-news-style {
           display: flex; align-items: center; gap: 7px;
