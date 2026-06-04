@@ -89,7 +89,7 @@ function SectionTitle({ icon, label, hint }: { icon: string; label: string; hint
   )
 }
 
-export default function CollapseButton({
+function CollapseButton({
   icon, label, hint, count, open, onToggle, badge,
 }: {
   icon: string; label: string; hint: string; count: number
@@ -126,7 +126,7 @@ export default function CollapseButton({
   )
 }
 
-function AdminDashboardPage() {
+export default function AdminDashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [counts, setCounts] = useState<Counts | null>(null)
