@@ -351,7 +351,8 @@ export async function buildPreview(
   addDiff('active_from', 'Aktyvus nuo', existing?.active_from, p.active_year_start)
   addDiff('active_until', 'Aktyvus iki', existing?.active_until, p.active_year_end)
   if (p.is_active !== undefined) addDiff('is_active', 'Aktyvus', existing?.is_active, p.is_active)
-  addDiff('gender', 'Lytis', existing?.gender, p.gender)
+  if (p.gender && ['male', 'female'].includes(p.gender)) addDiff('gender', 'Lytis', existing?.gender, p.gender)
+  else if (p.gender) warnings.push(`Lytis "${p.gender}" nepalaikoma DB (tik male/female) — bus praleista.`)
   addDiff('genre_group', 'Stiliaus grupė', existingGenre, p.genre_group)
   if (p.genres && p.genres.length) addDiff('substyles', 'Sub-stiliai', existingSubstyles.join(', '), p.genres.join(', '))
   addDiff('description', 'Bio', existing?.description ? `${String(existing.description).slice(0, 120)}…` : null, p.bio ? `${p.bio.slice(0, 120)}…` : null)
@@ -531,7 +532,8 @@ export async function applyImport(
   if (p.active_year_start !== undefined && p.active_year_start !== null) col.active_from = p.active_year_start
   if (p.active_year_end !== undefined && p.active_year_end !== null) col.active_until = p.active_year_end
   if (p.is_active !== undefined) col.is_active = p.is_active
-  if (p.gender) col.gender = p.gender
+  if (p.gender && ['male', 'female'].includes(p.gender)) col.gender = p.gender
+  else if (p.gender) warnings.push(`Lytis "${p.gender}" nepalaikoma DB (tik male/female) — praleista.`)
   if (p.bio) col.description = p.bio
   for (const l of payload.links || []) {
     if (!l?.platform || !l?.url) continue
