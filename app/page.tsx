@@ -3380,12 +3380,19 @@ export default function Home() {
           <div
             className={pageReady ? 'overlay-fade-out' : ''}
             style={{
-              position: 'fixed', inset: 0, zIndex: 9999,
+              // zIndex 45 — ŽEMIAU header'io (z-50) ir apatinio baro (z-150),
+              // kad shell'as (top bar + bottom nav) liktų matomas ir aktyvus per
+              // home load'ą. Anksčiau z-9999 dengdavo viską → atrodė kaip pilnas
+              // reload'as ir „dingdavo" apatinis meniu. Loaderis užima tik turinio
+              // zoną tarp header'io ir baro.
+              position: 'fixed', inset: 0, zIndex: 45,
               background: dk ? '#080e1a' : '#f0f4fa',
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center',
               gap: 18,
-              pointerEvents: pageReady ? 'none' : 'auto',
+              // pointerEvents none — apatinis baras/headeris (virš loader'io)
+              // paspaudžiami iškart, nelaukiant pageReady.
+              pointerEvents: 'none',
             }}
           >
             {/* BigEqualizer + „Tavo muzikos pasaulis" tagline — IDENTIŠKAS

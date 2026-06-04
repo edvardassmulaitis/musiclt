@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import TopChartView, { type TopData } from '@/components/TopChartView'
+import { TopaiTabs } from '@/components/topai/TopaiTabs'
 import { resolveDisplayWeek, fetchLiveVoteSplit } from '@/lib/top-week'
 
 export const metadata: Metadata = {
@@ -66,15 +67,18 @@ async function getTopData(topType: string): Promise<TopData> {
 export default async function Top40Page() {
   const data = await getTopData('top40')
   return (
-    <TopChartView
-      data={data}
-      topType="top40"
-      title="TOP 40"
-      badge="Pasaulinis topas"
-      subtitle="Šios savaitės karščiausios pasaulinės muzikos dainos. Klausytojų balsai formuoja reitingą."
-      accent={{ hex: '#f97316', rgb: 'rgba(249, 115, 22, 0.10)' }}
-      siblingHref="/top30"
-      siblingLabel="Lietuviška TOP 30"
-    />
+    <>
+      <div style={{ paddingTop: 14 }}><TopaiTabs /></div>
+      <TopChartView
+        data={data}
+        topType="top40"
+        title="TOP 40"
+        badge="Pasaulinis topas"
+        subtitle="Šios savaitės karščiausios pasaulinės muzikos dainos. Klausytojų balsai formuoja reitingą."
+        accent={{ hex: '#f97316', rgb: 'rgba(249, 115, 22, 0.10)' }}
+        siblingHref="/top30"
+        siblingLabel="Lietuviška TOP 30"
+      />
+    </>
   )
 }

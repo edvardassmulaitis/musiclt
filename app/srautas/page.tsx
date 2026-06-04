@@ -219,10 +219,31 @@ function SrautasInner() {
     } finally { setLoadingMore(false) }
   }
 
-  // ── Tau feed (lazy — tik kai atidaromas) ──
+  // ── Tau feed (lazy — tik kai atidaromas) + sessionStorage cache ──
+  // Rekomendacijos brangios (RPC + enrichment), tad per sesiją cache'inam
+  // klientiškai — perjungus tab'us pirmyn/atgal feed'as atsiranda iškart.
   useEffect(() => {
     if (tab !== 'tau' || recLoaded) return
     let alive = true
+    const uid = (session?.user as any)?.id || 'anon'
+    const cacheKey = `srautas_tau_${uid}`
+    const TTL = 5 * 60 * 1000
+
+    // 1) Bandom cache'ą
+    try {
+      const raw = sessionStorage.getItem(cacheKey)
+      if (raw) {
+        const c = JSON.parse(raw)
+        if (c && Date.now() - c.ts < TTL && Array.isArray(c.items)) {
+          setRecs(c.items)
+          setRecPersonalized(!!c.personalized)
+          setRecLoaded(true)
+          return
+        }
+      }
+    } catch { /* ignore */ }
+
+    // 2) Fetch + store
     setRecLoading(true)
     fetch('/api/srautas/recommendations?limit=45')
       .then(r => r.json())
@@ -232,6 +253,7 @@ function SrautasInner() {
         setRecPersonalized(!!d.personalized)
         setRecLoaded(true)
         setRecLoading(false)
+        try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), items: d.items || [], personalized: !!d.personalized })) } catch { /* ignore */ }
       })
       .catch(() => { if (alive) { setRecLoading(false); setRecLoaded(true) } })
     return () => { alive = false }

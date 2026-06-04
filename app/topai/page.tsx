@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
+import { TopaiTabs } from '@/components/topai/TopaiTabs'
 import { createAdminClient } from '@/lib/supabase'
 import { resolveDisplayWeek } from '@/lib/top-week'
 import { proxyImg } from '@/lib/img-proxy'
@@ -163,6 +164,8 @@ export default async function TopaiHubPage() {
     <div className="tp">
       <style>{styles}</style>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
+      <TopaiTabs />
 
       <header className="tp-hero">
         <div className="tp-hero-text">
