@@ -8,6 +8,7 @@ import { ChatAvatar, ChatGroupAvatar } from './ChatAvatar'
 import { formatSidebarTime } from './ChatTime'
 import { proxyImg } from '@/lib/img-proxy'
 import { ShoutboxPanel } from './ShoutboxPanel'
+import { SegTabs } from '@/components/ui/SegTabs'
 
 export type SidebarTab = 'private' | 'discussions' | 'shoutbox'
 
@@ -107,33 +108,16 @@ export function ConversationSidebar({
         </button>
       </div>
 
-      {/* Tabs — Tavo pokalbiai vs Bendros diskusijos */}
-      <div style={{
-        display: 'flex', flexShrink: 0,
-        borderBottom: '1px solid var(--border-subtle)',
-      }}>
-        <TabButton
-          active={tab === 'private'}
-          onClick={() => onTabChange('private')}
-          badge={privateUnread}
-        >
-          Tavo pokalbiai
-        </TabButton>
-        <TabButton
-          active={tab === 'discussions'}
-          onClick={() => onTabChange('discussions')}
-          badge={0}
-        >
-          Diskusijos
-        </TabButton>
-        <TabButton
-          active={tab === 'shoutbox'}
-          onClick={() => onTabChange('shoutbox')}
-          badge={0}
-        >
-          Bendra
-        </TabButton>
-      </div>
+      {/* Tabs — bendras SegTabs komponentas (toks pat kaip /srautas Sekami|Tau) */}
+      <SegTabs
+        items={[
+          { key: 'private', label: 'Tavo pokalbiai', badge: privateUnread },
+          { key: 'discussions', label: 'Diskusijos' },
+          { key: 'shoutbox', label: 'Bendra' },
+        ]}
+        value={tab}
+        onChange={t => onTabChange(t as SidebarTab)}
+      />
 
       {/* Search — tik pokalbiams/diskusijoms (shoutbox'e neaktualu) */}
       {tab !== 'shoutbox' && (
@@ -187,38 +171,6 @@ export function ConversationSidebar({
         </div>
       )}
     </aside>
-  )
-}
-
-function TabButton({
-  active, children, onClick, badge,
-}: { active: boolean; children: React.ReactNode; onClick: () => void; badge: number }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1, padding: '11px 10px',
-        border: 'none', background: 'transparent', cursor: 'pointer',
-        fontSize: 12.5, fontWeight: 700,
-        color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-        borderBottom: active ? '2px solid var(--accent-orange)' : '2px solid transparent',
-        transition: 'color .12s, border-color .12s',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-      }}
-    >
-      {children}
-      {badge > 0 && (
-        <span style={{
-          minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8,
-          background: 'var(--accent-orange)', color: '#fff',
-          fontSize: 9, fontWeight: 800,
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          lineHeight: 1,
-        }}>
-          {badge > 99 ? '99+' : badge}
-        </span>
-      )}
-    </button>
   )
 }
 

@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession, signIn } from 'next-auth/react'
 import { proxyImg } from '@/lib/img-proxy'
+import { SegTabs } from '@/components/ui/SegTabs'
 
 type Kind = 'news' | 'blog' | 'track' | 'album' | 'artist' | 'event' | 'topic'
 
@@ -243,13 +244,9 @@ function SrautasInner() {
         .sr-h { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
         .sr-h svg { width: 24px; height: 24px; color: var(--accent-orange); }
         .sr-h h1 { font-size: 26px; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); margin: 0; }
-        /* Segmentai */
-        .sr-tabs { display: flex; gap: 4px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 4px; margin-bottom: 18px; }
-        .sr-tab { flex: 1; border: none; background: transparent; cursor: pointer; font-family: inherit;
-          font-size: 14px; font-weight: 800; letter-spacing: -0.01em; color: var(--text-muted);
-          padding: 9px 12px; border-radius: 9px; transition: background .14s, color .14s; -webkit-tap-highlight-color: transparent; }
-        .sr-tab.active { background: var(--accent-orange); color: #fff; }
-        .sr-lead { font-size: 13.5px; color: var(--text-muted); margin: -6px 0 16px; }
+        /* Segmentai (bendras SegTabs komponentas) */
+        .sr-segtabs { margin-bottom: 18px; }
+        .sr-lead { font-size: 13.5px; color: var(--text-muted); margin: 2px 0 16px; }
         .sr-cta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
           background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 14px;
           padding: 14px 16px; margin-bottom: 18px; font-size: 14px; color: var(--text-secondary); }
@@ -298,10 +295,12 @@ function SrautasInner() {
         <h1>Mano muzika</h1>
       </div>
 
-      <div className="sr-tabs" role="tablist">
-        <button role="tab" className={`sr-tab${tab === 'sekami' ? ' active' : ''}`} onClick={() => switchTab('sekami')}>Sekami</button>
-        <button role="tab" className={`sr-tab${tab === 'tau' ? ' active' : ''}`} onClick={() => switchTab('tau')}>Tau</button>
-      </div>
+      <SegTabs
+        className="sr-segtabs"
+        items={[{ key: 'sekami', label: 'Sekami' }, { key: 'tau', label: 'Tau' }]}
+        value={tab}
+        onChange={k => switchTab(k as 'sekami' | 'tau')}
+      />
 
       {tab === 'sekami' ? (
         <>
