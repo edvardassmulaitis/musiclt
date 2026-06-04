@@ -421,14 +421,10 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
         <div className="sh-strip">
           {(entries.length > 0 ? entries : Array(6).fill(null)).map((e: TopMini | null, i: number) => (
             <Link key={e?.trackSlug || `${kind}-${i}`} href={e?.trackSlug ? `/dainos/${e.trackSlug}` : href}
-              style={{ flex: '0 0 auto', width: 124, display: 'flex', flexDirection: 'column', gap: 4, textDecoration: 'none' }}>
-              <span style={{ width: 124, height: 70, borderRadius: 8, overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {e?.image
-                  ? <img src={proxyImg(e.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>{I.music}</span>}
-              </span>
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e?.title || '—'}</span>
-              <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: -2 }}>{e?.artist || ''}</span>
+              className="sh-mini sh-mini-xl">
+              <ImageBox src={e?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{e?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
+              {e?.artist ? <span className="sh-mini-meta">{e.artist}</span> : null}
             </Link>
           ))}
         </div>
@@ -492,7 +488,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
               <Link key={v.id} href={`/balsavimai/${v.slug}`}
                 style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 12px 7px 8px', borderRadius: 10, border: '1px solid var(--border-default)', textDecoration: 'none', background: 'var(--bg-elevated)' }}
                 className="sh-vote-chip">
-                <span style={{ width: 28, height: 28, borderRadius: 7, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, #eab308 16%, transparent)', color: '#eab308' }}>
+                <span style={{ width: 28, height: 28, borderRadius: 7, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>
                   {v.image ? <img src={proxyImg(v.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : I.award}
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{v.name}</span>
@@ -501,7 +497,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
           </div>
         ) : (
           <Link href="/balsavimai" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-default)', textDecoration: 'none' }}>
-            <span style={{ color: '#eab308' }}>{I.award}</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{I.award}</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Balsavimai ir apdovanojimai</span>
           </Link>
         )}
@@ -1696,15 +1692,12 @@ export function SiteHeader() {
         .sh-mini-lg .sh-mini-img { width: 88px; height: 88px; border-radius: 9px; }
         .sh-mini-lg .sh-mini-title { font-size: 11.5px; text-align: center; }
 
-        /* Atlikėjai XL — kai dropdown'e tik atlikėjai (daugiau erdvės) */
-        .sh-mini-xl { flex-basis: 116px; width: 116px; max-width: 116px; gap: 7px; padding: 6px; }
-        .sh-mini-xl .sh-mini-img { width: 108px; height: 108px; border-radius: 11px; }
-        .sh-mini-xl .sh-mini-title { font-size: 12.5px; text-align: center; }
-
-        /* Albumai — vidutiniai (74×74) */
-        .sh-mini-md { flex-basis: 82px; width: 82px; max-width: 82px; gap: 4px; }
-        .sh-mini-md .sh-mini-img { width: 74px; height: 74px; border-radius: 8px; }
-        .sh-mini-md .sh-mini-title { font-size: 11px; }
+        /* VIENODAS dropdown thumbnail dydis VISOSE sekcijose — 92×92 kvadratas
+           (Muzika/Topai/Koncertai/Naujienos/Atradimai). xl ir md identiški. */
+        .sh-mini-xl, .sh-mini-md { flex-basis: 100px; width: 100px; max-width: 100px; gap: 6px; padding: 4px; }
+        .sh-mini-xl .sh-mini-img, .sh-mini-md .sh-mini-img { width: 92px; height: 92px; border-radius: 10px; }
+        .sh-mini-xl .sh-mini-title, .sh-mini-md .sh-mini-title { font-size: 12px; text-align: center; }
+        .sh-mini-md .sh-mini-meta { text-align: center; }
 
         /* Dainos — mažiausi (60×60) */
         .sh-mini-sm { flex-basis: 68px; width: 68px; max-width: 68px; gap: 3px; }
@@ -2055,26 +2048,25 @@ export function SiteHeader() {
           position: relative;
           display: block;
           padding: 22px;
-          border-radius: 16px;
+          border-radius: 14px;
           text-decoration: none;
           background:
-            radial-gradient(circle at 20% 0%, rgba(255,255,255,0.1) 0%, transparent 50%),
-            radial-gradient(circle at 80% 100%, rgba(var(--it-rgb), 0.6) 0%, transparent 60%),
-            linear-gradient(135deg, rgba(var(--it-rgb), 1) 0%, rgba(var(--it-rgb), 0.7) 100%);
+            radial-gradient(circle at 85% 110%, rgba(249,115,22,0.12) 0%, transparent 55%),
+            var(--bg-elevated);
+          border: 0.5px solid var(--border-default);
           overflow: hidden;
-          color: #fff;
-          transition: transform .25s ease, box-shadow .25s ease;
-          box-shadow: 0 12px 30px rgba(var(--it-rgb), 0.30), inset 0 1px 0 rgba(255,255,255,0.15);
+          color: var(--text-primary);
+          transition: transform .25s ease, border-color .25s ease;
         }
         .sh-hero-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 18px 40px rgba(var(--it-rgb), 0.40), inset 0 1px 0 rgba(255,255,255,0.20);
+          border-color: var(--accent-orange);
         }
         .sh-hero-card:hover .sh-hero-deco-circle { transform: scale(1.08); }
         .sh-hero-deco-circle {
           position: absolute;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(249,115,22,0.08) 0%, transparent 70%);
           pointer-events: none;
           transition: transform .4s cubic-bezier(.4,0,.2,1);
         }
@@ -2090,7 +2082,7 @@ export function SiteHeader() {
         .sh-hero-eyebrow {
           font-size: 10.5px; font-weight: 800;
           text-transform: uppercase; letter-spacing: 0.12em;
-          color: rgba(255,255,255,0.85);
+          color: var(--accent-orange);
           margin-bottom: 4px;
         }
         .sh-hero-icon {
@@ -2098,23 +2090,22 @@ export function SiteHeader() {
           width: 40px; height: 40px;
           border-radius: 11px;
           align-items: center; justify-content: center;
-          background: rgba(255,255,255,0.15);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255,255,255,0.25);
-          color: #fff;
+          background: var(--bg-hover);
+          border: 0.5px solid var(--border-subtle);
+          color: var(--accent-orange);
           margin-bottom: 10px;
         }
         .sh-hero-icon svg { width: 22px; height: 22px; }
         .sh-hero-title {
           font-size: 24px; font-weight: 900;
           letter-spacing: -0.02em;
-          color: #fff;
+          color: var(--text-primary);
           line-height: 1.05;
           margin-bottom: 6px;
         }
         .sh-hero-desc {
           font-size: 13px;
-          color: rgba(255,255,255,0.85);
+          color: var(--text-muted);
           line-height: 1.5;
           max-width: 90%;
           margin-bottom: 12px;
@@ -2125,14 +2116,13 @@ export function SiteHeader() {
           padding: 7px 14px;
           border-radius: 999px;
           font-size: 12.5px; font-weight: 700;
-          background: rgba(255,255,255,0.18);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255,255,255,0.28);
-          color: #fff;
+          background: rgba(249,115,22,0.14);
+          border: 0.5px solid rgba(249,115,22,0.4);
+          color: var(--accent-orange);
           transition: background .15s, transform .15s;
         }
         .sh-hero-card:hover .sh-hero-cta {
-          background: rgba(255,255,255,0.28);
+          background: rgba(249,115,22,0.22);
           transform: translateX(2px);
         }
 
@@ -2141,25 +2131,26 @@ export function SiteHeader() {
           flex: 1;
           display: flex; align-items: center; gap: 12px;
           padding: 14px 15px;
-          border-radius: 14px;
+          border-radius: 12px;
           text-decoration: none;
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.16) 0%, rgba(var(--it-rgb), 0.05) 100%);
-          border: 1px solid rgba(var(--it-rgb), 0.26);
-          transition: transform .15s, border-color .15s, box-shadow .15s;
+          background: var(--bg-elevated);
+          border: 0.5px solid var(--border-default);
+          transition: transform .15s, border-color .15s;
         }
         .sh-spotlight:hover {
           transform: translateY(-2px);
-          border-color: rgba(var(--it-rgb), 0.55);
-          box-shadow: 0 8px 22px rgba(var(--it-rgb), 0.18);
+          border-color: var(--accent-orange);
         }
         .sh-spotlight-icon {
           flex-shrink: 0;
-          width: 42px; height: 42px;
-          border-radius: 12px;
+          width: 40px; height: 40px;
+          border-radius: 10px;
           display: flex; align-items: center; justify-content: center;
-          background: rgba(var(--it-rgb), 0.9);
-          color: #fff;
+          background: var(--bg-hover);
+          border: 0.5px solid var(--border-subtle);
+          color: var(--text-secondary);
         }
+        .sh-spotlight:hover .sh-spotlight-icon { color: var(--accent-orange); }
         .sh-spotlight-icon svg { width: 20px; height: 20px; }
         .sh-spotlight-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
         .sh-spotlight-title {
@@ -2167,8 +2158,8 @@ export function SiteHeader() {
           font-size: 14px; font-weight: 800;
           color: var(--text-primary);
         }
-        .sh-spotlight-title svg { color: rgb(var(--it-rgb)); transition: transform .15s; }
-        .sh-spotlight:hover .sh-spotlight-title svg { transform: translateX(3px); }
+        .sh-spotlight-title svg { color: var(--text-faint); transition: transform .15s, color .15s; }
+        .sh-spotlight:hover .sh-spotlight-title svg { transform: translateX(3px); color: var(--accent-orange); }
         .sh-spotlight-desc {
           font-size: 11.5px; line-height: 1.35;
           color: var(--text-muted);
@@ -2180,23 +2171,24 @@ export function SiteHeader() {
           padding: 12px 14px;
           border-radius: 12px;
           text-decoration: none;
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.13) 0%, rgba(var(--it-rgb), 0.04) 100%);
-          border: 1px solid rgba(var(--it-rgb), 0.22);
+          background: var(--bg-elevated);
+          border: 0.5px solid var(--border-default);
           transition: transform .15s, border-color .15s;
         }
         .sh-bigshortcut:hover {
           transform: translateX(2px);
-          border-color: rgba(var(--it-rgb), 0.5);
+          border-color: var(--accent-orange);
         }
         .sh-bigshortcut-icon {
           flex-shrink: 0;
           width: 36px; height: 36px;
           border-radius: 10px;
           display: flex; align-items: center; justify-content: center;
-          color: #fff;
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 1) 0%, rgba(var(--it-rgb), 0.75) 100%);
-          box-shadow: 0 4px 12px rgba(var(--it-rgb), 0.3);
+          color: var(--text-secondary);
+          background: var(--bg-hover);
+          border: 0.5px solid var(--border-subtle);
         }
+        .sh-bigshortcut:hover .sh-bigshortcut-icon { color: var(--accent-orange); }
         .sh-bigshortcut-icon svg { width: 18px; height: 18px; }
         .sh-bigshortcut-title {
           display: block;
@@ -2218,24 +2210,25 @@ export function SiteHeader() {
           padding: 14px 10px;
           border-radius: 12px;
           text-decoration: none;
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.14) 0%, rgba(var(--it-rgb), 0.04) 100%);
-          border: 1px solid rgba(var(--it-rgb), 0.22);
+          background: var(--bg-elevated);
+          border: 0.5px solid var(--border-default);
           transition: transform .15s, border-color .15s;
           text-align: center;
         }
         .sh-cat-tile:hover {
           transform: translateY(-2px);
-          border-color: rgba(var(--it-rgb), 0.5);
+          border-color: var(--accent-orange);
         }
         .sh-cat-icon {
           display: flex;
           width: 32px; height: 32px;
           border-radius: 9px;
           align-items: center; justify-content: center;
-          color: #fff;
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 1) 0%, rgba(var(--it-rgb), 0.75) 100%);
-          box-shadow: 0 4px 10px rgba(var(--it-rgb), 0.3);
+          color: var(--text-secondary);
+          background: var(--bg-hover);
+          border: 0.5px solid var(--border-subtle);
         }
+        .sh-cat-tile:hover .sh-cat-icon { color: var(--accent-orange); }
         .sh-cat-icon svg { width: 16px; height: 16px; }
         .sh-cat-label {
           font-size: 11.5px; font-weight: 700;
