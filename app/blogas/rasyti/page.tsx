@@ -22,6 +22,7 @@ import { TranslationField, type TranslationTarget } from '@/components/blog/Tran
 import { EventTargetField, type EventTarget } from '@/components/blog/EventTargetField'
 import { ListEditorField, type ListItem } from '@/components/blog/ListEditorField'
 import { UsernameSetupGate } from '@/components/blog/UsernameSetupGate'
+import { VoiceRecorder } from '@/components/blog/VoiceRecorder'
 
 type LoadedPost = {
   title?: string
@@ -193,6 +194,31 @@ function EditorInner() {
     }
   }
 
+  // Balso įvestis: dinaminis kontekstas Whisper'iui (pagerina tikrinių
+  // daiktavardžių atpažinimą) + sutvarkyto teksto prisegimas prie turinio.
+  function buildVoiceContext(): string {
+    if (postType === 'review' && reviewTarget.display) {
+      const d = reviewTarget.display
+      const what = d.type === 'grupe' ? 'atlikėją' : d.type === 'albumas' ? 'albumą' : 'dainą'
+      return `Muzikos recenzija apie ${what} „${d.title}"${d.artist ? ` (${d.artist})` : ''}. Lietuvių kalba.`
+    }
+    if (postType === 'event' && eventTarget.display) {
+      const e = eventTarget.display
+      return `Renginio apžvalga: „${e.title}"${e.city ? `, ${e.city}` : ''}. Lietuvių kalba.`
+    }
+    return 'Muzikos recenzija arba renginio apžvalga lietuvių kalba.'
+  }
+
+  function appendVoiceText(text: string) {
+    const html = text
+      .split(/\n{2,}/)
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br />')}</p>`)
+      .join('')
+    if (html) setContent((prev) => (prev || '') + html)
+  }
+
   if (profileLoading) {
     return <div className="min-h-[50vh] flex items-center justify-center text-sm" style={{ color: '#334058' }}>Kraunasi...</div>
   }
@@ -278,6 +304,11 @@ function EditorInner() {
       </div>
 
       {/* Content */}
+      {(postType === 'review' || postType === 'event') && (
+        <div className="mb-2">
+          <VoiceRecorder context={buildVoiceContext()} onResult={appendVoiceText} />
+        </div>
+      )}
       <BlogEditor
         value={content}
         onChange={setContent}
@@ -290,6 +321,13 @@ function EditorInner() {
       </div>
     </div>
   )
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }
 
 function titlePlaceholder(type: BlogPostType): string {
