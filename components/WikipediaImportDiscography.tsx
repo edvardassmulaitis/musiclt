@@ -392,7 +392,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
           let albumTitle: string | undefined
           for (let k = i + 1; k < Math.min(i + 20, lines.length); k++) {
             const nl = lines[k]
-            if (nl.trim() === '|-' || nl.startsWith('!')) break
+            if (/^\s*\|-/.test(nl) || nl.startsWith('!')) break
             if (/^\|/.test(nl) && !/^\|\|/.test(nl)) {
               if (/Non-album/i.test(nl)) { albumTitle = 'Non-album single'; break }
               const alm = nl.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
@@ -418,7 +418,11 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
     }
 
     // ── Row separator |- ──────────────────────────────────────────────────────
-    if (line.trim() === '|-') {
+    // 2026-06-02: row sep gali turėti atributus, pvz `|- style="font-size:smaller;"`
+    // (Chris Stapleton). Anksčiau `=== '|-'` to nepagaudavo → eilutė būdavo
+    // apdorojama kaip cell'as ir `"font-size:smaller;"` (cituota CSS reikšmė)
+    // tapdavo „singlu". `/^\s*\|-/` apima ir styled row sep'us.
+    if (/^\s*\|-/.test(line)) {
       if (yearRowspan > 1) yearRowspan--
       else if (yearRowspan === 1) yearRowspan = 0
       if (albumRowspan > 1) albumRowspan--
@@ -469,22 +473,41 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         // „La Graciosa"). TIK kai prieš ` with/feat/ft` yra closing quote — todėl
         // title'as „Dancing with Myself" (be trailing featuring) NEpaliečiamas.
         .replace(/("[^"]+")\s+(?:with|feat(?:uring)?\.?|ft\.?)\s+.*$/i, '$1')
+      // 2026-06-02: Wiki link'us renkam TIK iš paren-depth 0 (NE iš skliaustelių
+      // viduje). Pvz Chris Stapleton `"[[The Star-Spangled Banner]] (Live from
+      // [[Super Bowl LVII]])"` — anksčiau allLinks paimdavo IR „Super Bowl LVII"
+      // → split per " / " → fake antras singlas. `[[...]]` token'as suvalgomas
+      // atomiškai (pirma alternatyva), tad `(` iš `[[Title (song)|...]]` viduje
+      // neskaičiuojamas kaip paren depth. Double-A-side `"[[X]]" / "[[Y]]"` —
+      // abu depth 0 → vis dar split'inami.
       const allLinks: string[] = []
-      const linkRe = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
+      const tokRe = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]|[()]/g
+      let parenDepth = 0
       let lm: RegExpExecArray | null
-      while ((lm = linkRe.exec(titlePortion)) !== null) {
-        allLinks.push(cleanWikiText(lm[2] || lm[1]))
+      while ((lm = tokRe.exec(titlePortion)) !== null) {
+        if (lm[0] === '(') { parenDepth++; continue }
+        if (lm[0] === ')') { parenDepth = Math.max(0, parenDepth - 1); continue }
+        if (parenDepth === 0) allLinks.push(cleanWikiText(lm[2] || lm[1]))
       }
 
       let rawTitle = ''
       if (allLinks.length > 0) {
         rawTitle = allLinks.join(' / ')
-        // Pridėti TIKTAI paprastą skliaustelių suffix po paskutinio wiki link'o
-        // pvz. "[[Title]]" (2024 Mix) → "Title (2024 Mix)"
-        // Bet NE: "[[Title]]" (released on the single E.P. ...)
-        const afterLastLink = titlePortion.replace(/.*\]\]/, '').replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').trim()
-        const simpleSuffix = afterLastLink.match(/^\s*(\([^)]{1,40}\))/)
-        if (simpleSuffix) rawTitle += ' ' + simpleSuffix[1].trim()
+        // Suffix: pirmas (...) parenthetical (po depth-0 title), resolve'inant
+        // wiki link'us viduje į tekstą — pvz „(Live from Super Bowl LVII)".
+        const parenSuffix = titlePortion.match(/\(([^()]*(?:\[\[[^\]]*\]\][^()]*)*)\)/)
+        if (parenSuffix) {
+          const sfx = cleanWikiText(parenSuffix[1]).replace(/\s+/g, ' ').trim()
+          // tik trumpi, prasmingi qualifier'iai (Live/Version/Mix/Remix/with...)
+          if (sfx && sfx.length <= 40 && !/^\d/.test(sfx) && /\b(live|version|mix|remix|edit|acoustic|remaster|demo|with|from)\b/i.test(sfx)) {
+            rawTitle += ` (${sfx})`
+          }
+        } else {
+          // Fallback: paprastas skliaustelių suffix po paskutinio link'o (be wiki markup)
+          const afterLastLink = titlePortion.replace(/.*\]\]/, '').replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').trim()
+          const simpleSuffix = afterLastLink.match(/^\s*(\([^)]{1,40}\))/)
+          if (simpleSuffix) rawTitle += ' ' + simpleSuffix[1].trim()
+        }
       } else {
         // Kabučių pavadinimas: "Title" arba "Title" (Suffix)
         // Naudojame titlePortion (be <br> ir featured artistų) — kad negautume "(with [[Artist]])" kaip suffix
@@ -534,7 +557,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       let albumTitle: string | undefined
       for (let k = i + 1; k < Math.min(i + 30, lines.length); k++) {
         const nl = lines[k]
-        if (nl.trim() === '|-' || /!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(nl) || (nl.startsWith('!') && !nl.startsWith('!!'))) break
+        if (/^\s*\|-/.test(nl) || /!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(nl) || (nl.startsWith('!') && !nl.startsWith('!!'))) break
         if (/^\|/.test(nl) && !/^\|\|/.test(nl)) {
           if (/Non-album/i.test(nl)) { albumTitle = 'Non-album single'; break }
           if (/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/.test(nl)) continue
@@ -692,7 +715,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         if (!albumTitle) {
           for (let k = i + 1; k < Math.min(i + 25, lines.length); k++) {
             const nl = lines[k]
-            if (nl.trim() === '|-' || nl.startsWith('|}') || nl.startsWith('!') || nl.startsWith('{|') || /^==+/.test(nl)) break
+            if (/^\s*\|-/.test(nl) || nl.startsWith('|}') || nl.startsWith('!') || nl.startsWith('{|') || /^==+/.test(nl)) break
             if (!/^\|/.test(nl) || /^\|\|/.test(nl)) continue
             const nlClean = nl.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<small[^>]*>[\s\S]*?<\/small>/gi, '')
             const nlSegs = splitWikiCells(nlClean)

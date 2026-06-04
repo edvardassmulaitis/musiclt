@@ -622,7 +622,7 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
     if (line.startsWith('|}')) { inTable = false; yearMode = false; atRowStart = false; continue }
     if (!inTable) continue
 
-    if (line.trim() === '|-') {
+    if (/^\s*\|-/.test(line)) {  // 2026-06-02: apima styled row sep `|- style="..."`
       if (yearRowspan > 1) yearRowspan--
       else if (yearRowspan === 1) yearRowspan = 0
       atRowStart = true
@@ -694,7 +694,7 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
 
       for (let k = li + 1; k < Math.min(li + 30, lines.length); k++) {
         const nl = lines[k]
-        if (nl.trim() === '|-' || nl.startsWith('|}')) break
+        if (/^\s*\|-/.test(nl) || nl.startsWith('|}')) break
         if (/^!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(nl)) break
         rowLines.push(nl)
 
