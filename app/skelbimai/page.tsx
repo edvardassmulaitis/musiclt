@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ListingCard } from '@/components/skelbimai/ListingCard'
 import {
-  countsByType, listListings,
+  listListings,
   LISTING_TYPES, LISTING_TYPE_ORDER,
   type ListingType, type Listing,
 } from '@/lib/skelbimai'
@@ -91,13 +91,15 @@ function CategoryRow({ type, items }: { type: ListingType; items: Listing[] }) {
 }
 
 export default async function SkelbimaiHub() {
-  const [counts, paslaugos, rysiai] = await Promise.all([
-    countsByType(),
+  const [ploksteles, instrumentai, paslaugos, rysiai, kita] = await Promise.all([
+    listListings({ type: 'ploksteles', limit: 10, sort: 'newest' }),
+    listListings({ type: 'instrumentai', limit: 10, sort: 'newest' }),
     listListings({ type: 'paslaugos', limit: 10, sort: 'newest' }),
     listListings({ type: 'rysiai', limit: 10, sort: 'newest' }),
+    listListings({ type: 'kita', limit: 10, sort: 'newest' }),
   ])
   const itemsByType: Record<ListingType, Listing[]> = {
-    ploksteles: [], instrumentai: [], paslaugos, rysiai, kita: [],
+    ploksteles, instrumentai, paslaugos, rysiai, kita,
   }
 
   return (

@@ -41,7 +41,7 @@ export const LISTING_TYPES: Record<ListingType, ListingTypeMeta> = {
     h1: 'Muzikos įrašai — vinilai, CD, kasetės',
     seoTitle: 'Muzikos įrašai — vinilai, vinilinės plokštelės, CD pirk/parduok',
     desc: 'Vinilai, CD ir kasetės — parduok, pirk arba mainykis. Prisek prie music.lt katalogo.',
-    accent: '#0ea5e9', live: false,
+    accent: '#0ea5e9', live: true,
   },
   instrumentai: {
     type: 'instrumentai', slug: 'instrumentai', label: 'Instrumentai',
@@ -49,7 +49,7 @@ export const LISTING_TYPES: Record<ListingType, ListingTypeMeta> = {
     h1: 'Muzikos instrumentai',
     seoTitle: 'Muzikos instrumentai — gitaros, būgnai, klavišiniai',
     desc: 'Gitaros, bosinės, būgnai, klavišiniai, pučiamieji, garso technika — pirk ir parduok.',
-    accent: '#f59e0b', live: false,
+    accent: '#f59e0b', live: true,
   },
   paslaugos: {
     type: 'paslaugos', slug: 'paslaugos', label: 'Paslaugos',
@@ -73,7 +73,7 @@ export const LISTING_TYPES: Record<ListingType, ListingTypeMeta> = {
     h1: 'Kita — muzikos atributika ir kolekcijos',
     seoTitle: 'Kita — muzikos atributika, gaidos, kolekcijos | Skelbimai',
     desc: 'Muzikos atributika, gaidos, plakatai, kolekciniai daiktai ir viskas, kas netelpa kitur.',
-    accent: '#64748b', live: false,
+    accent: '#64748b', live: true,
   },
 }
 

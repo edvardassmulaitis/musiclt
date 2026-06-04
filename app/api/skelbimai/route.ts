@@ -49,9 +49,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-const VALID_TYPES: ListingType[] = ['ploksteles', 'instrumentai', 'paslaugos', 'rysiai']
-// 1 etape leidžiame kurti tik live tipus.
-const CREATABLE: ListingType[] = ['rysiai', 'paslaugos']
+const VALID_TYPES: ListingType[] = ['ploksteles', 'instrumentai', 'paslaugos', 'rysiai', 'kita']
+// Visos kategorijos aktyvios.
+const CREATABLE: ListingType[] = ['ploksteles', 'instrumentai', 'paslaugos', 'rysiai', 'kita']
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -78,6 +78,12 @@ export async function POST(req: NextRequest) {
   const price_cents = priceEur != null && Number.isFinite(priceEur) && priceEur >= 0
     ? Math.round(priceEur * 100) : null
 
+  const intOrNull = (v: any): number | null => {
+    if (v === '' || v == null) return null
+    const n = parseInt(String(v), 10)
+    return Number.isFinite(n) ? n : null
+  }
+
   const input: CreateListingInput = {
     type,
     subtype: body.subtype || null,
@@ -87,11 +93,26 @@ export async function POST(req: NextRequest) {
     genre: body.genre || null,
     photos: Array.isArray(body.photos) ? body.photos.filter((p: any) => typeof p === 'string').slice(0, 12) : [],
     price_cents,
-    price_unit: body.price_unit || null,
+    price_unit: type === 'paslaugos' ? (body.price_unit || null) : null,
     is_free: !!body.is_free,
+    // rysiai
     instrument: body.instrument || null,
     experience: body.experience || null,
     looking_for: typeof body.looking_for === 'boolean' ? body.looking_for : null,
+    // ploksteles
+    format: body.format || null,
+    media_cond: body.media_cond || null,
+    sleeve_cond: body.sleeve_cond || null,
+    release_year: intOrNull(body.release_year),
+    release_country: body.release_country || null,
+    catalog_no: body.catalog_no || null,
+    artist_id: intOrNull(body.artist_id),
+    album_id: intOrNull(body.album_id),
+    // instrumentai
+    brand: body.brand || null,
+    model: body.model || null,
+    item_cond: body.item_cond || null,
+    item_year: intOrNull(body.item_year),
   }
 
   try {

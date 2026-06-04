@@ -4,13 +4,16 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   SUBTYPES, CITIES, INSTRUMENTS, EXPERIENCE, GENRES, PRICE_UNITS,
+  CONDITIONS, ITEM_CONDITIONS,
   LISTING_TYPES,
   type ListingType,
 } from '@/lib/skelbimai'
 
-/* Žingsninis įdėjimo srautas. 1 etape — tik rysiai/paslaugos. */
+/* Žingsninis įdėjimo srautas — visi tipai aktyvūs. */
 
-const CREATABLE: ListingType[] = ['rysiai', 'paslaugos']
+const CREATABLE: ListingType[] = ['ploksteles', 'instrumentai', 'paslaugos', 'rysiai', 'kita']
+// Tipai, kuriuose rodom pardavimo kainą (vienkartinė, be vieneto).
+const SALE_TYPES: ListingType[] = ['ploksteles', 'instrumentai', 'kita']
 
 type Props = { initialType?: ListingType }
 
@@ -31,6 +34,18 @@ export function NewListingForm({ initialType }: Props) {
   const [priceUnit, setPriceUnit] = useState('val')
   const [isFree, setIsFree] = useState(false)
   const [photos, setPhotos] = useState<string[]>([])
+  // ploksteles
+  const [format, setFormat] = useState('')
+  const [mediaCond, setMediaCond] = useState('')
+  const [sleeveCond, setSleeveCond] = useState('')
+  const [releaseYear, setReleaseYear] = useState('')
+  const [releaseCountry, setReleaseCountry] = useState('')
+  const [catalogNo, setCatalogNo] = useState('')
+  // instrumentai
+  const [brand, setBrand] = useState('')
+  const [model, setModel] = useState('')
+  const [itemCond, setItemCond] = useState('')
+  const [itemYear, setItemYear] = useState('')
 
   const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -89,6 +104,19 @@ export function NewListingForm({ initialType }: Props) {
       if (type === 'paslaugos') {
         body.is_free = isFree
         if (!isFree && price) { body.price = price; body.price_unit = priceUnit }
+      }
+      if (type === 'ploksteles') {
+        body.format = format || null; body.media_cond = mediaCond || null; body.sleeve_cond = sleeveCond || null
+        body.release_year = releaseYear || null; body.release_country = releaseCountry || null; body.catalog_no = catalogNo || null
+        body.genre = genre || null
+        body.is_free = isFree; if (!isFree && price) body.price = price
+      }
+      if (type === 'instrumentai') {
+        body.brand = brand || null; body.model = model || null; body.item_cond = itemCond || null; body.item_year = itemYear || null
+        body.is_free = isFree; if (!isFree && price) body.price = price
+      }
+      if (type === 'kita') {
+        body.is_free = isFree; if (!isFree && price) body.price = price
       }
       const res = await fetch('/api/skelbimai', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -155,7 +183,13 @@ export function NewListingForm({ initialType }: Props) {
           <div>
             <label style={labelStyle}>Pavadinimas *</label>
             <input value={title} onChange={e => setTitle(e.target.value)} maxLength={140}
-              placeholder={type === 'rysiai' ? 'Pvz. „Indie grupė ieško būgnininko, Vilnius"' : 'Pvz. „Gitaros pamokos pradedantiesiems"'}
+              placeholder={
+                type === 'rysiai' ? 'Pvz. „Indie grupė ieško būgnininko, Vilnius"'
+                : type === 'paslaugos' ? 'Pvz. „Gitaros pamokos pradedantiesiems"'
+                : type === 'ploksteles' ? 'Pvz. „Foje – Geltona, LP, 1989"'
+                : type === 'instrumentai' ? 'Pvz. „Fender Stratocaster MIM, 2018"'
+                : 'Pvz. „Grupės marškinėliai, dydis L"'
+              }
               style={inputStyle} />
           </div>
 
@@ -225,6 +259,91 @@ export function NewListingForm({ initialType }: Props) {
             </div>
           )}
 
+          {type === 'ploksteles' && (
+            <>
+              <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr' }}>
+                <div>
+                  <label style={labelStyle}>Media būklė</label>
+                  <select value={mediaCond} onChange={e => setMediaCond(e.target.value)} style={inputStyle}>
+                    <option value="">—</option>
+                    {CONDITIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Voko būklė</label>
+                  <select value={sleeveCond} onChange={e => setSleeveCond(e.target.value)} style={inputStyle}>
+                    <option value="">—</option>
+                    {CONDITIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr 1fr' }}>
+                <div>
+                  <label style={labelStyle}>Metai</label>
+                  <input type="number" value={releaseYear} onChange={e => setReleaseYear(e.target.value)} placeholder="1989" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Šalis</label>
+                  <input value={releaseCountry} onChange={e => setReleaseCountry(e.target.value)} placeholder="LT" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Katalogo nr.</label>
+                  <input value={catalogNo} onChange={e => setCatalogNo(e.target.value)} placeholder="—" style={inputStyle} />
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Žanras</label>
+                <select value={genre} onChange={e => setGenre(e.target.value)} style={inputStyle}>
+                  <option value="">—</option>
+                  {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+            </>
+          )}
+
+          {type === 'instrumentai' && (
+            <>
+              <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr' }}>
+                <div>
+                  <label style={labelStyle}>Gamintojas</label>
+                  <input value={brand} onChange={e => setBrand(e.target.value)} placeholder="Pvz. Fender" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Modelis</label>
+                  <input value={model} onChange={e => setModel(e.target.value)} placeholder="Pvz. Stratocaster" style={inputStyle} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr' }}>
+                <div>
+                  <label style={labelStyle}>Būklė</label>
+                  <select value={itemCond} onChange={e => setItemCond(e.target.value)} style={inputStyle}>
+                    <option value="">—</option>
+                    {ITEM_CONDITIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Metai</label>
+                  <input type="number" value={itemYear} onChange={e => setItemYear(e.target.value)} placeholder="2018" style={inputStyle} />
+                </div>
+              </div>
+            </>
+          )}
+
+          {SALE_TYPES.includes(type) && (
+            <div>
+              <label style={labelStyle}>Kaina</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 14, color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={isFree} onChange={e => setIsFree(e.target.checked)} /> Nemokama / dovanoju
+              </label>
+              {!isFree && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input type="number" min="0" value={price} onChange={e => setPrice(e.target.value)} placeholder="25" style={{ ...inputStyle, flex: 1 }} />
+                  <span style={{ fontSize: 15, color: 'var(--text-muted)' }}>€</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label style={labelStyle}>Miestas</label>
             <select value={city} onChange={e => setCity(e.target.value)} style={inputStyle}>
@@ -287,6 +406,8 @@ export function NewListingForm({ initialType }: Props) {
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-link)', marginBottom: 6 }}>{meta.label}</div>
             <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>{title}</h3>
             {!isFree && price && type === 'paslaugos' && <div style={{ fontWeight: 800, color: 'var(--accent-green)', marginBottom: 8 }}>{price} €/{priceUnit === 'val' ? 'val.' : priceUnit}</div>}
+            {!isFree && price && SALE_TYPES.includes(type) && <div style={{ fontWeight: 800, color: 'var(--accent-green)', marginBottom: 8 }}>{price} €</div>}
+            {isFree && <div style={{ fontWeight: 800, color: 'var(--accent-green)', marginBottom: 8 }}>Nemokama</div>}
             {description && <p style={{ fontSize: 14.5, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', margin: '0 0 8px' }}>{description}</p>}
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{[city, genre].filter(Boolean).join(' · ')}</div>
             {photos.length > 0 && (

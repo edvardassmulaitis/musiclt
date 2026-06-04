@@ -37,7 +37,7 @@ export function CategoryBrowser({ type, initialListings, initialQ = '' }: Props)
 
   const showInstrument = type === 'rysiai'
   const showGenre = type === 'rysiai' || type === 'ploksteles'
-  const showPrice = type === 'paslaugos' || type === 'instrumentai' || type === 'ploksteles'
+  const showPrice = type === 'paslaugos' || type === 'instrumentai' || type === 'ploksteles' || type === 'kita'
 
   const fetchListings = useCallback(async () => {
     setLoading(true)
