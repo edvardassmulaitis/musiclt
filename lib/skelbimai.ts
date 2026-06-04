@@ -241,6 +241,9 @@ export type Listing = {
   status: ListingStatus
   is_promoted: boolean
   promoted_until: string | null
+  source_url: string | null
+  source_name: string | null
+  is_seed: boolean
   view_count: number
   save_count: number
   created_at: string
@@ -253,6 +256,7 @@ const SELECT_COLS =
   'id,type,subtype,author_id,title,slug,description,city,genre,photos,price_cents,price_unit,is_free,' +
   'instrument,experience,looking_for,artist_id,album_id,format,media_cond,sleeve_cond,release_year,' +
   'release_country,catalog_no,brand,model,item_cond,item_year,status,is_promoted,promoted_until,' +
+  'source_url,source_name,is_seed,' +
   'view_count,save_count,created_at,updated_at,' +
   'author:profiles!listings_author_id_fkey(id,username,full_name,avatar_url)'
 

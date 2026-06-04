@@ -153,6 +153,8 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
               isOwner={isOwner}
               initialSaved={saved}
               title={listing.title}
+              sourceUrl={listing.source_url}
+              sourceName={listing.source_name}
             />
 
             {/* Autoriaus blokas */}

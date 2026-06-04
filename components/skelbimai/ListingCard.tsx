@@ -85,7 +85,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
             {meta.join(' · ')}
           </span>
           <span style={{ fontSize: 11.5, color: 'var(--text-faint)', flexShrink: 0 }}>
-            {relativeTime(listing.created_at)}
+            {listing.source_name ? `↗ ${listing.source_name}` : relativeTime(listing.created_at)}
           </span>
         </div>
       </div>

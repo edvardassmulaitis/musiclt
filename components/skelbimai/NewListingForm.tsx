@@ -15,6 +15,14 @@ const CREATABLE: ListingType[] = ['ploksteles', 'instrumentai', 'paslaugos', 'ry
 // Tipai, kuriuose rodom pardavimo kainą (vienkartinė, be vieneto).
 const SALE_TYPES: ListingType[] = ['ploksteles', 'instrumentai', 'kita']
 
+const TYPE_ICON: Record<ListingType, React.ReactNode> = {
+  ploksteles: <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="1.5" fill="currentColor" /></svg>,
+  instrumentai: <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18 6.5 20.5a2.12 2.12 0 0 1-3-3L6 15" /><path d="m9 9 5 5L15 9 9 9z" /><path d="m22 2-9 9" /><path d="M9 9c-.5-1.5-2-2.5-3.5-2-1.5.5-2.5 2-2 3.5L4 12" /></svg>,
+  paslaugos: <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>,
+  rysiai: <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
+  kita: <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /></svg>,
+}
+
 type Props = { initialType?: ListingType }
 
 export function NewListingForm({ initialType }: Props) {
@@ -151,24 +159,28 @@ export function NewListingForm({ initialType }: Props) {
 
       {/* 0: tipas */}
       {step === 0 && (
-        <div style={{ display: 'grid', gap: 12 }}>
+        <div style={{ display: 'grid', gap: 10 }}>
           <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>Ką nori įdėti?</h2>
-          {(['rysiai', 'paslaugos', 'ploksteles', 'instrumentai', 'kita'] as ListingType[]).map(t => {
+          {(['ploksteles', 'instrumentai', 'paslaugos', 'rysiai', 'kita'] as ListingType[]).map(t => {
             const m = LISTING_TYPES[t]
-            const enabled = CREATABLE.includes(t)
             return (
-              <button key={t} disabled={!enabled}
+              <button key={t}
                 onClick={() => { setType(t); setSubtype(''); setStep(1) }}
                 style={{
-                  textAlign: 'left', padding: '16px 18px', borderRadius: 12, cursor: enabled ? 'pointer' : 'not-allowed',
-                  background: 'var(--bg-elevated)', border: `1px solid ${enabled ? 'var(--border-default)' : 'var(--border-subtle)'}`,
-                  opacity: enabled ? 1 : 0.5, color: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  textAlign: 'left', padding: '14px 16px', borderRadius: 14, cursor: 'pointer',
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'inherit',
                 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: 16, color: 'var(--text-primary)' }}>{m.label}</strong>
-                  {!enabled && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>Greitai</span>}
-                </div>
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>{m.desc}</p>
+                <span style={{
+                  width: 44, height: 44, borderRadius: 11, flexShrink: 0,
+                  background: `${m.accent}1f`, color: m.accent,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{TYPE_ICON[t]}</span>
+                <span style={{ minWidth: 0 }}>
+                  <strong style={{ fontSize: 16, color: 'var(--text-primary)', display: 'block' }}>{m.label}</strong>
+                  <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{m.subtitle}</span>
+                </span>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--text-faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto', flexShrink: 0 }}><polyline points="9 18 15 12 9 6" /></svg>
               </button>
             )
           })}
@@ -182,7 +194,7 @@ export function NewListingForm({ initialType }: Props) {
 
           <div>
             <label style={labelStyle}>Pavadinimas *</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} maxLength={140}
+            <input autoFocus value={title} onChange={e => setTitle(e.target.value)} maxLength={140}
               placeholder={
                 type === 'rysiai' ? 'Pvz. „Indie grupė ieško būgnininko, Vilnius"'
                 : type === 'paslaugos' ? 'Pvz. „Gitaros pamokos pradedantiesiems"'
@@ -195,10 +207,19 @@ export function NewListingForm({ initialType }: Props) {
 
           <div>
             <label style={labelStyle}>Potipis *</label>
-            <select value={subtype} onChange={e => setSubtype(e.target.value)} style={inputStyle}>
-              <option value="">Pasirink…</option>
-              {SUBTYPES[type].map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {SUBTYPES[type].map(o => {
+                const on = subtype === o.value
+                return (
+                  <button key={o.value} type="button" onClick={() => setSubtype(o.value)} style={{
+                    padding: '8px 14px', fontSize: 14, fontWeight: 600, borderRadius: 999, cursor: 'pointer',
+                    background: on ? 'var(--accent-orange)' : 'var(--bg-elevated)',
+                    color: on ? '#fff' : 'var(--text-primary)',
+                    border: `1px solid ${on ? 'var(--accent-orange)' : 'var(--border-default)'}`,
+                  }}>{o.label}</button>
+                )
+              })}
+            </div>
           </div>
 
           {type === 'rysiai' && (
@@ -353,7 +374,7 @@ export function NewListingForm({ initialType }: Props) {
           </div>
 
           <div>
-            <label style={labelStyle}>Aprašymas</label>
+            <label style={labelStyle}>Aprašymas <span style={{ color: 'var(--text-faint)', fontWeight: 500 }}>(neprivaloma)</span></label>
             <textarea value={description} onChange={e => setDescription(e.target.value)} rows={5} maxLength={5000}
               placeholder="Papasakok daugiau…" style={{ ...inputStyle, resize: 'vertical' }} />
           </div>

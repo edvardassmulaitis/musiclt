@@ -13,9 +13,11 @@ type Props = {
   isOwner: boolean
   initialSaved: boolean
   title: string
+  sourceUrl?: string | null
+  sourceName?: string | null
 }
 
-export function ListingActions({ listingId, authorId, isAuthed, isOwner, initialSaved, title }: Props) {
+export function ListingActions({ listingId, authorId, isAuthed, isOwner, initialSaved, title, sourceUrl, sourceName }: Props) {
   const router = useRouter()
   const [saved, setSaved] = useState(initialSaved)
   const [saving, setSaving] = useState(false)
@@ -75,7 +77,14 @@ export function ListingActions({ listingId, authorId, isAuthed, isOwner, initial
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {!isOwner && (
+      {sourceUrl ? (
+        <a href={sourceUrl} target="_blank" rel="noopener noreferrer nofollow" style={{
+          ...btnBase, background: 'var(--accent-orange)', color: '#fff', border: 'none', textDecoration: 'none',
+        }}>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+          Žiūrėti originalą{sourceName ? ` (${sourceName})` : ''}
+        </a>
+      ) : !isOwner ? (
         <button onClick={contact} disabled={contacting} style={{
           ...btnBase, background: 'var(--accent-orange)', color: '#fff', border: 'none',
           opacity: contacting ? 0.7 : 1,
@@ -83,8 +92,7 @@ export function ListingActions({ listingId, authorId, isAuthed, isOwner, initial
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
           {contacting ? 'Atidaroma…' : 'Susisiekti'}
         </button>
-      )}
-      {isOwner && (
+      ) : (
         <a href="/skelbimai/mano" style={{ ...btnBase, textDecoration: 'none' }}>Tai tavo skelbimas — tvarkyk</a>
       )}
 
