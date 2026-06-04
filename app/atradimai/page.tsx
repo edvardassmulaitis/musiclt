@@ -188,7 +188,7 @@ function DainaCard({ n, winner, maxVotes, voted, voting, onVote }: { n: Nom; win
   const level = votes > 0 ? Math.max(1, Math.round((votes / Math.max(1, maxVotes)) * 5)) : 0
   const img = dainaImg(t)
   return (
-    <div className="group flex shrink-0 snap-start flex-col" style={{ width: 188 }}>
+    <div className="group flex shrink-0 snap-start flex-col" style={{ width: 302 }}>
       <Link href={trackHref(t)} className="block no-underline">
         <div className="relative aspect-video overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]"
           style={{ borderColor: winner ? 'rgba(249,115,22,0.5)' : 'var(--border-default)' }}>
@@ -254,7 +254,7 @@ function DienosDainaStrip() {
       <RowHead title="Dienos daina" accent="#f97316" allHref="/dienos-daina" />
       {noms === null ? (
         <div className={SCROLL}>{Array(6).fill(null).map((_, i) => (
-          <div key={i} className="shrink-0" style={{ width: 188 }}><div className="hp-skel aspect-video rounded-xl" /><div className="hp-skel mt-2 h-3 w-4/5 rounded" /><div className="hp-skel mt-2 h-6 w-full rounded-full" /></div>
+          <div key={i} className="shrink-0" style={{ width: 302 }}><div className="hp-skel aspect-video rounded-xl" /><div className="hp-skel mt-2 h-3 w-4/5 rounded" /><div className="hp-skel mt-2 h-6 w-full rounded-full" /></div>
         ))}</div>
       ) : (
         <div className={SCROLL}>
@@ -268,7 +268,7 @@ function DienosDainaStrip() {
             </>
           )}
           {sorted.slice(0, 14).map(n => <DainaCard key={n.id} n={n} maxVotes={maxVotes} voted={votedIds.has(n.id)} voting={voting} onVote={handleVote} />)}
-          <Link href="/dienos-daina" className="group flex shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] text-center no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)]" style={{ width: 188, minHeight: 178 }}>
+          <Link href="/dienos-daina" className="group flex shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] text-center no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)]" style={{ width: 302, minHeight: 'var(--card-visual-h)' }}>
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(249,115,22,0.12)] text-[24px] font-bold leading-none text-[var(--accent-orange)] transition-colors group-hover:bg-[var(--accent-orange)] group-hover:text-white">+</span>
             <span className="px-3 font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">Pasiūlyti dainą</span>
             <span className="px-3 text-[10.5px] text-[var(--text-muted)]">Pridėk savo kandidatą</span>
@@ -285,7 +285,7 @@ function PostCard({ p, showType = false }: { p: FeedPost; showType?: boolean }) 
   const isReview = p.post_type === 'review'
   const tm = TYPE_META[p.post_type]
   return (
-    <Link href={feedHref(p)} className="group block w-[160px] shrink-0 snap-start no-underline sm:w-[172px]">
+    <Link href={feedHref(p)} className="group block w-[170px] shrink-0 snap-start no-underline">
       <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)]">
         {p.cover ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -306,11 +306,11 @@ function PostCard({ p, showType = false }: { p: FeedPost; showType?: boolean }) 
           <span className="absolute right-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[9.5px] font-extrabold text-white" style={{ background: `rgba(${tm.rgb},0.92)` }}>{tm.label}</span>
         )}
       </div>
-      <p className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[12.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title) || '(be pavadinimo)'}</p>
+      <p className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title) || '(be pavadinimo)'}</p>
       <div className="mt-1.5 flex items-center gap-1.5">
         <Avatar src={a?.avatar_url} name={a?.full_name || a?.username} size={16} />
-        <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-muted)]">{a?.full_name || a?.username || 'Narys'}</span>
-        {(p.like_count ?? 0) > 0 && <span className="shrink-0 text-[10.5px] text-[var(--text-faint)]">♥ {p.like_count}</span>}
+        <span className="min-w-0 flex-1 truncate text-[11.5px] text-[var(--text-muted)]">{a?.full_name || a?.username || 'Narys'}</span>
+        {(p.like_count ?? 0) > 0 && <span className="shrink-0 text-[11.5px] text-[var(--text-faint)]">♥ {p.like_count}</span>}
       </div>
     </Link>
   )
@@ -318,7 +318,7 @@ function PostCard({ p, showType = false }: { p: FeedPost; showType?: boolean }) 
 
 function InviteCard({ label, type }: { label: string; type: string }) {
   return (
-    <Link href={`/blogas/rasyti?type=${type}`} className="group flex w-[160px] shrink-0 snap-start flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-default)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)] sm:w-[172px]" style={{ aspectRatio: '1' }}>
+    <Link href={`/blogas/rasyti?type=${type}`} className="group flex w-[170px] shrink-0 snap-start flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-default)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)]" style={{ aspectRatio: '1' }}>
       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--bg-active)] text-[18px] font-black text-[var(--accent-orange)] transition-transform group-hover:scale-110">+</span>
       <span className="mt-2 font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">Būk pirmas</span>
       <span className="mt-0.5 text-[11px] text-[var(--text-muted)]">{label}</span>
@@ -329,7 +329,7 @@ function InviteCard({ label, type }: { label: string; type: string }) {
 function SkelRow() {
   return (
     <div className={SCROLL}>{Array(7).fill(null).map((_, i) => (
-      <div key={i} className="w-[160px] shrink-0 sm:w-[172px]"><div className="hp-skel aspect-square rounded-xl" /><div className="hp-skel mt-2 h-3 w-4/5 rounded" /></div>
+      <div key={i} className="w-[170px] shrink-0"><div className="hp-skel aspect-square rounded-xl" /><div className="hp-skel mt-2 h-3 w-4/5 rounded" /></div>
     ))}</div>
   )
 }

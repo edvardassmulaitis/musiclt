@@ -444,7 +444,6 @@ html, body {
   transition: background .25s ease, color .25s ease;
 }
 
-
 /* ═══════════════════════════════════════════════════════════════════
    PAGE LAYOUT SYSTEM — vienos taisyklės VISIEMS puslapiams.
 
@@ -473,6 +472,13 @@ html, body {
 
   --page-head-gap:   22px;              /* tarpas tarp antraštės bloko ir turinio */
   --page-section-gap:34px;             /* tarpas tarp turinio sekcijų */
+
+  /* Pirmų sekcijų kortelės: vienodas VIZUALO aukštis visose sekcijose
+     (kvadratas, 16:9 video, plakatas). Plotis prisitaiko pagal proporciją,
+     aukštis nesiskiria. Meta po vizualu: --card-title / --card-sub. */
+  --card-visual-h:   170px;
+  --card-title-size: 13px;
+  --card-sub-size:   11.5px;
 }
 
 /* Turinio konteineris — centruotas, kanoninio pločio, vienodos paraštės. */

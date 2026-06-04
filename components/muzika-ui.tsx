@@ -72,17 +72,16 @@ export function ArtistTile({ a, rank }: { a: HubArtist; rank?: number }) {
         ) : (
           <div className="mz-tile-noimg"><span>{a.name?.[0] || '?'}</span></div>
         )}
-        <div className="mz-tile-shade" />
         {typeof rank === 'number' && rank <= 3 && <span className="mz-tile-rank">#{rank}</span>}
         {a.is_verified && (
           <span className="mz-tile-verified" title="Patvirtintas">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
           </span>
         )}
-        <div className="mz-tile-meta">
-          <div className="mz-tile-name">{a.name}</div>
-          {flag && <div className="mz-tile-flag">{flag}</div>}
-        </div>
+      </div>
+      <div className="mz-tile-cap">
+        <span className="mz-tile-name">{a.name}</span>
+        {flag && <span className="mz-tile-flag">{flag}</span>}
       </div>
     </Link>
   )
@@ -193,30 +192,30 @@ export const muzikaStyles = `
 .mz-subhead { font-family:'Outfit',sans-serif; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-faint); margin:18px 0 12px; display:flex; align-items:center; gap:8px; }
 
 /* Artist tiles */
-.mz-tile-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:12px; }
-.mz-tile { position:relative; border-radius:14px; overflow:hidden; display:block; aspect-ratio:1/1; }
-.mz-tile-img { position:absolute; inset:0; background:var(--bg-elevated); overflow:hidden; }
+.mz-tile-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(158px,1fr)); gap:14px; }
+.mz-tile { position:relative; display:block; }
+.mz-tile-img { position:relative; aspect-ratio:1/1; border-radius:14px; background:var(--bg-elevated); overflow:hidden; }
 .mz-tile-img img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .4s ease; }
 .mz-tile:hover .mz-tile-img img { transform:scale(1.06); }
 .mz-tile-noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, var(--bg-elevated), rgba(249,115,22,0.08)); }
 .mz-tile-noimg span { font-family:'Outfit',sans-serif; font-weight:900; font-size:42px; color:rgba(255,255,255,0.08); }
-.mz-tile-shade { position:absolute; inset:0; background:linear-gradient(to top, rgba(5,8,13,0.92) 0%, rgba(5,8,13,0.42) 34%, transparent 64%); }
-.mz-tile-meta { position:absolute; left:0; right:0; bottom:0; padding:11px 12px; display:flex; align-items:flex-end; justify-content:space-between; gap:6px; }
-.mz-tile-name { font-family:'Outfit',sans-serif; font-weight:700; color:#fff; font-size:14px; line-height:1.15; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-.mz-tile-flag { font-size:14px; line-height:1; flex-shrink:0; }
+.mz-tile-cap { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:9px; padding:0 1px; }
+.mz-tile-name { font-family:'Outfit',sans-serif; font-weight:700; color:var(--text-primary); font-size:var(--card-title-size); line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.mz-tile:hover .mz-tile-name { color:var(--accent-orange); }
+.mz-tile-flag { font-size:13px; line-height:1; flex-shrink:0; }
 .mz-tile-rank { position:absolute; top:8px; left:8px; font-family:'Outfit',sans-serif; font-weight:900; font-size:13px; color:#fff; background:var(--accent-orange); padding:2px 8px; border-radius:100px; box-shadow:0 2px 8px rgba(0,0,0,.3); }
 .mz-tile-verified { position:absolute; top:8px; right:8px; width:20px; height:20px; border-radius:50%; background:#3b82f6; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.3); }
 
-/* Album cards */
-.mz-acard-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:16px; }
+/* Album cards — tas pats šablonas kaip atlikėjų (kvadratas + meta po juo) */
+.mz-acard-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(158px,1fr)); gap:14px; }
 .mz-acard { display:block; }
-.mz-acard-img { position:relative; aspect-ratio:1/1; border-radius:12px; overflow:hidden; background:var(--bg-elevated); }
+.mz-acard-img { position:relative; aspect-ratio:1/1; border-radius:14px; overflow:hidden; background:var(--bg-elevated); }
 .mz-acard-img img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .4s ease; }
 .mz-acard:hover .mz-acard-img img { transform:scale(1.05); }
 .mz-acard-noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:34px; color:rgba(255,255,255,0.12); }
-.mz-acard-title { font-family:'Outfit',sans-serif; font-weight:700; font-size:13.5px; margin-top:9px; line-height:1.2; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.mz-acard-title { font-family:'Outfit',sans-serif; font-weight:700; font-size:var(--card-title-size); margin-top:9px; line-height:1.2; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .mz-acard:hover .mz-acard-title { color:var(--accent-orange); }
-.mz-acard-sub { font-size:12px; color:var(--text-muted); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mz-acard-sub { font-size:var(--card-sub-size); color:var(--text-muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* Track list */
 .mz-tlist { display:grid; grid-template-columns:repeat(2, 1fr); gap:6px 28px; }

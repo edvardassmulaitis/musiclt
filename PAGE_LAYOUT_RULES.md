@@ -73,6 +73,22 @@ Nedubliuok skaičių — **nurodyk į tokenus**, kad liktų sinchronizuota:
 - ❌ Nemaišyk paantraštės spalvų — visada `var(--page-sub-color)`.
 - ✅ Reikia kitokio pločio (pvz. siauras straipsnis)? Naudok atskirą vidinį konteinerį turiniui, bet **išorinis `.page-shell` lieka**.
 
+## Pirmų sekcijų kortelės (spotlight card rows)
+
+Pirmose sekcijose (atlikėjai, dienos daina, naujausi įrašai, recenzijos…) korteles
+sudaro **vizualas + meta po juo**. Taisyklės:
+
+- Vizualo AUKŠTIS vienodas visose sekcijose: `--card-visual-h` (170px). Plotis
+  prisitaiko pagal proporciją — kvadratas (atlikėjas/albumas/recenzija) = 170×170,
+  16:9 video (dienos daina) = ~302×170 (platesnis, bet TOKS PAT aukštis), plakatas 4:5 = ~136×170.
+- Vardas/pavadinimas — VISADA po vizualu (ne overlay ant nuotraukos).
+- Meta kompaktiškas: pavadinimas `--card-title-size` (13px, 600/700) + 1 paeilutė
+  `--card-sub-size` (11.5px, muted). Be papildomų subtext eilučių. Funkciniai ženklai
+  (★ įvertinimas, „Balsuoti", ♥ count) lieka, bet kaip overlay ant vizualo arba 1 eilutė.
+
+Kvadratiniams grid'ams (atlikėjai/albumai) naudok `minmax(158px,1fr)` — gaunasi ~170px kvadratai.
+Horizontalaus scroll'o eilutėms nustatyk fiksuotą kortelės plotį pagal proporciją (kvadratas 170, video 302).
+
 ## Jau suvienodinta (2026-06-04)
 
 `muzika`, `topai`, `koncertai`/`renginiai`, `naujienos`, `atradimai`, `skelbimai`.
