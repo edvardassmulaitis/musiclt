@@ -8,6 +8,7 @@ import { NotificationsBell } from '@/components/NotificationsBell'
 import { MessagesBell } from '@/components/MessagesBell'
 import { MasterSearch } from '@/components/MasterSearch'
 import { openQuickCreate } from '@/components/QuickCreate'
+import { AdminQuickActions } from '@/components/AdminQuickActions'
 import { useSite } from '@/components/SiteContext'
 import { proxyImg } from '@/lib/img-proxy'
 import { GENRE_COLORS, GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
@@ -623,6 +624,27 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
 // srautą (/atradimai), po juo 6 nuorodos: Pažink narius, Dienos daina, Diskusijos,
 // Narių įrašai, Pokalbių dėžutė, Boombox. Atitinka perdarytą /atradimai puslapį
 // (2026-06-03; žaidimai nebe atskira sekcija — viena Boombox kortelė).
+// Narių įrašo tipo žyma (badge) — kad iškart matytųsi kas tai per įrašas.
+const POST_TYPE_LABEL: Record<string, string> = {
+  review: 'Recenzija',
+  topas: 'Topas',
+  creation: 'Kūryba',
+  translation: 'Vertimas',
+  article: 'Straipsnis',
+  interview: 'Interviu',
+  event: 'Renginys',
+  release: 'Leidinys',
+}
+const postTypeBadge = (postType?: string): React.ReactNode => {
+  const label = postType ? POST_TYPE_LABEL[postType] : null
+  if (!label) return null
+  return (
+    <span style={{ position: 'absolute', top: 4, left: 4, zIndex: 1, fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 5, background: 'rgba(0,0,0,0.72)', color: '#fff', letterSpacing: '0.02em', lineHeight: 1.45, backdropFilter: 'blur(2px)' }}>
+      {label}
+    </span>
+  )
+}
+
 // Grido / sąrašo ikona expand mygtukui.
 const gridIcon = (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -677,7 +699,7 @@ function AtradimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
         <div className="sh-strip">
           {(posts.length > 0 ? posts : Array(6).fill(null)).map((p: any, i: number) => (
             <Link key={p?.id || `dp-${i}`} href={p?.blogSlug ? `/blogas/${p.blogSlug}/${p.slug}` : '/blogas'} className="sh-mini sh-mini-md">
-              <ImageBox src={p?.image} accent={accent} glyph={I.blog} className="sh-mini-img" />
+              <ImageBox src={p?.image} accent={accent} glyph={I.blog} className="sh-mini-img">{postTypeBadge(p?.postType)}</ImageBox>
               <span className="sh-mini-title sh-mini-title-2">{p?.title || <span style={{ opacity: 0.45 }}>Įrašas</span>}</span>
               {p?.author ? <span className="sh-mini-meta">{p.author}</span> : null}
             </Link>
@@ -1129,7 +1151,7 @@ function MobileExpansion({
               <div className="sh-strip">
                 {mPosts.map((p: any, i: number) => (
                   <Link key={p?.id || `dp-${i}`} href={p?.blogSlug ? `/blogas/${p.blogSlug}/${p.slug}` : '/blogas'} onClick={onLink} className="sh-mini sh-mini-md">
-                    <ImageBox src={p?.image} accent={accent} glyph={I.blog} className="sh-mini-img" />
+                    <ImageBox src={p?.image} accent={accent} glyph={I.blog} className="sh-mini-img">{postTypeBadge(p?.postType)}</ImageBox>
                     <span className="sh-mini-title sh-mini-title-2">{p?.title || 'Įrašas'}</span>
                   </Link>
                 ))}
@@ -2798,6 +2820,9 @@ export function SiteHeader() {
                 <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/>
               </svg>
             </Link>
+
+            {/* Admin greitieji veiksmai — tik admin'ams, tik desktop. */}
+            <AdminQuickActions variant="public" />
 
             {/* + Kurti — atidaro QuickCreate. Tik desktop (mobile = apatinis „+"). */}
             <button
