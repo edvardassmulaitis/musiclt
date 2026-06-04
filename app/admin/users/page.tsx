@@ -16,11 +16,12 @@ type Profile = {
 }
 
 export default function AdminUsersPage() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
   const router = useRouter()
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
+  const [impersonating, setImpersonating] = useState<string | null>(null)
 
   const isSuperAdmin = session?.user?.role === 'super_admin'
 
@@ -51,6 +52,15 @@ export default function AdminUsersPage() {
     })
     await fetchUsers()
     setUpdating(null)
+  }
+
+  const impersonate = async (user: Profile) => {
+    if (!isSuperAdmin) return
+    if (!confirm(`Prisijungti kaip ${user.full_name || user.email}?\n\nMatysite svetainę jo akimis. Visada galėsite grįžti per raudoną juostą viršuje.`)) return
+    setImpersonating(user.id)
+    await update({ impersonate: user.id })
+    // Pilnas reload į pradinį — serverio komponentai persikrauna su nauja tapatybe.
+    window.location.href = '/'
   }
 
   if (status === 'loading' || loading) {
@@ -97,6 +107,7 @@ export default function AdminUsersPage() {
                 <th className="text-left px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider hidden sm:table-cell">Provider</th>
                 <th className="text-left px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider">Role</th>
                 {isSuperAdmin && <th className="text-left px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider">Keisti</th>}
+                {isSuperAdmin && <th className="text-left px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider">Veiksmai</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -138,6 +149,21 @@ export default function AdminUsersPage() {
                         </select>
                       ) : (
                         <span className="text-xs text-[var(--text-faint)]">Tu pats</span>
+                      )}
+                    </td>
+                  )}
+                  {isSuperAdmin && (
+                    <td className="px-4 py-3">
+                      {user.email !== session?.user?.email ? (
+                        <button
+                          onClick={() => impersonate(user)}
+                          disabled={impersonating === user.id}
+                          className="text-xs px-2.5 py-1.5 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50"
+                        >
+                          {impersonating === user.id ? 'Jungiamasi…' : 'Prisijungti kaip'}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-[var(--text-faint)]">—</span>
                       )}
                     </td>
                   )}

@@ -114,7 +114,7 @@ export const authOptions: AuthOptions = {
       return true
     },
 
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
         token.role = (user as any).role || 'user'
@@ -122,6 +122,62 @@ export const authOptions: AuthOptions = {
         token.name = user.name
         token.picture = user.image
       }
+
+      // ── Impersonation („prisijungti kaip") ─────────────────────────────
+      // Super_admin gali laikinai užsidėti bet kurio vartotojo tapatybę.
+      // Trigger'inama iš kliento per useSession().update({ impersonate: <id|null> }).
+      // Originali super_admin tapatybė saugoma token.impersonator — pagal ją
+      // (a) atstatom paskyrą sustabdžius, (b) autorizuojam patį veiksmą, kad
+      // impersonuojamas user'is negalėtų toliau hop'inti į kitą paskyrą.
+      if (trigger === 'update' && session && 'impersonate' in session) {
+        const target = (session as any).impersonate as string | null
+        // Tikra (ne impersonuota) rolė: jei jau impersonuojam — impersonator'io.
+        const realRole = (token.impersonator as any)?.role ?? token.role
+        if (!target) {
+          // Stop — atstatom originalią tapatybę.
+          if (token.impersonator) {
+            const imp = token.impersonator as any
+            token.id = imp.id
+            token.role = imp.role
+            token.email = imp.email
+            token.name = imp.name
+            token.picture = imp.picture
+            delete (token as any).impersonator
+          }
+        } else if (realRole === 'super_admin') {
+          try {
+            const supabase = createAdminClient()
+            const { data } = await supabase
+              .from('profiles')
+              .select('id, role, email, full_name, avatar_url')
+              .eq('id', target)
+              .maybeSingle()
+            if (data) {
+              // Užfiksuojam originalą tik pirmą kartą (kad re-impersonate
+              // neperrašytų super_admin'o impersonuojamu user'iu).
+              if (!token.impersonator) {
+                token.impersonator = {
+                  id: token.id,
+                  role: token.role,
+                  email: token.email,
+                  name: token.name,
+                  picture: token.picture,
+                }
+              }
+              token.id = data.id
+              token.role = data.role
+              token.email = data.email
+              token.name = data.full_name
+              token.picture = data.avatar_url
+              console.log(`[impersonation] ${(token.impersonator as any).email} → ${data.email}`)
+            }
+          } catch (e: any) {
+            console.error('[impersonation] error:', e?.message || e)
+          }
+        }
+        return token
+      }
+
       if (!token.role && token.email) {
         try {
           const supabase = createAdminClient()
@@ -152,6 +208,9 @@ export const authOptions: AuthOptions = {
         session.user.email = token.email as string
         session.user.name = token.name as string
         session.user.image = token.picture as string
+        // Impersonation būsena — kad UI galėtų rodyti juostą ir „grįžti" mygtuką.
+        session.user.impersonating = !!token.impersonator
+        session.impersonatorEmail = (token.impersonator as any)?.email ?? null
       }
       return session
     },
