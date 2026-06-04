@@ -7,6 +7,7 @@ import { SiteHeader } from '@/components/SiteHeader'
 import { SiteFooter } from '@/components/SiteFooter'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
 import { QuickCreate } from '@/components/QuickCreate'
+import { AdminQuickAddModal } from '@/components/AdminQuickAddModal'
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -36,6 +37,8 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
       {!isAdmin && !isChat && <SiteFooter />}
       {showBottomNav && <MobileBottomNav />}
       {!isAdmin && <QuickCreate />}
+      {/* Greitas pridėjimas (admin) — modalas paleidžiamas iš public ir admin header'ių. */}
+      <AdminQuickAddModal />
     </SiteProvider>
   )
 }

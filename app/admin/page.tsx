@@ -93,6 +93,7 @@ export default function AdminDashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [counts, setCounts] = useState<Counts | null>(null)
+  const [importsOpen, setImportsOpen] = useState(false)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -170,7 +171,9 @@ export default function AdminDashboardPage() {
     },
   ]
 
-  const migration: AdminCard[] = [
+  // Vienkartiniai / migracijos įrankiai — sukelti po vienu collapse mygtuku,
+  // kad dashboard'as nebūtų perkrautas (kasdien nenaudojami).
+  const importTools: AdminCard[] = [
     {
       href: '/admin/import',
       icon: '🚀',
@@ -191,6 +194,12 @@ export default function AdminDashboardPage() {
       icon: '🧵',
       label: 'Forum migracija',
       hint: 'Senas forumas → diskusijų threads',
+    },
+    {
+      href: '/admin/eventai',
+      icon: '📅',
+      label: 'Eventai (legacy)',
+      hint: 'Senų renginių importas',
     },
   ]
 
@@ -224,7 +233,6 @@ export default function AdminDashboardPage() {
   const system: AdminCard[] = [
     { href: '/admin/genres', icon: '🎨', label: 'Žanrai' },
     { href: '/admin/role-translations', icon: '🌐', label: 'Sričių vertimai' },
-    { href: '/admin/eventai', icon: '📅', label: 'Eventai (legacy)' },
     { href: '/admin/search', icon: '🔍', label: 'Paieška' },
     { href: '/admin/users', icon: '👥', label: 'Vartotojai' },
     { href: '/admin/settings', icon: '⚙️', label: 'Nustatymai' },
@@ -261,12 +269,42 @@ export default function AdminDashboardPage() {
           </div>
         </section>
 
-        {/* Migracija — atlikėjų importas + forum */}
+        {/* Importai / Migracija — vienkartiniai įrankiai sukelti po vienu mygtuku */}
         <section className="mb-8">
-          <SectionTitle icon="🚀" label="Migracija" hint="atlikėjų importas, forumas" />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {migration.map(card => <Card key={card.href} card={card} />)}
-          </div>
+          <button
+            type="button"
+            onClick={() => setImportsOpen(o => !o)}
+            aria-expanded={importsOpen}
+            className="flex w-full items-center gap-3 rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] px-4 py-3 text-left transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+          >
+            <span className="text-2xl">🚀</span>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="font-semibold text-[var(--text-primary)]">Importai / Migracija</span>
+              <span className="truncate text-[11px] text-[var(--text-muted)]">
+                Atlikėjų importas, JSON, forumas, legacy eventai — vienkartiniai įrankiai
+              </span>
+            </div>
+            {counts?.active_jobs && counts.active_jobs > 0 ? (
+              <span className="shrink-0 rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10.5px] font-bold text-orange-700">
+                {counts.active_jobs} aktyvūs
+              </span>
+            ) : null}
+            <span className="shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
+              {importTools.length}
+            </span>
+            <svg
+              width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+              className={`shrink-0 text-[var(--text-muted)] transition-transform ${importsOpen ? 'rotate-180' : ''}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {importsOpen && (
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {importTools.map(card => <Card key={card.href} card={card} />)}
+            </div>
+          )}
         </section>
 
         {/* Content management */}

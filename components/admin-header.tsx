@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import AdminSearchModal from './admin-search-modal'
 import { useBackgroundTasks, type BackgroundTask } from './BackgroundTaskContext'
+import { AdminQuickActions } from './AdminQuickActions'
 
 // ── Progress bar po header'iu ─────────────────────────────────────────────────
 
@@ -220,6 +221,7 @@ export default function AdminHeader() {
           <TaskIndicator />
 
           <nav className="flex items-center gap-1 shrink-0">
+            <AdminQuickActions variant="admin" />
             <Link href="/admin/users"
               className="w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 flex items-center justify-center rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors gap-1.5">
               <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 shrink-0">

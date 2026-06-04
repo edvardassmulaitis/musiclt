@@ -26,7 +26,7 @@ type Phase = 'idle' | 'previewing' | 'editing' | 'committing' | 'done'
 type ArtistRef = { id: number | null; name: string }
 type ArtistHit = { id: number; name: string; slug: string | null; country?: string | null; cover_image_url?: string | null }
 
-export default function AdminQuickAdd() {
+export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {}) {
   const [url, setUrl] = useState('')
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -112,8 +112,8 @@ export default function AdminQuickAdd() {
     : url.trim() ? '❓ Nepalaikoma nuoroda'
     : 'YouTube → daina · Wikipedia albumas → albumas'
 
-  return (
-    <div className="rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] p-4">
+  const content = (
+    <>
       <div className="mb-2 flex items-baseline gap-2">
         <span className="text-lg">⚡</span>
         <h2 className="font-['Outfit',sans-serif] text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
@@ -171,6 +171,13 @@ export default function AdminQuickAdd() {
           </button>
         </>
       )}
+    </>
+  )
+
+  if (bare) return content
+  return (
+    <div className="rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] p-4">
+      {content}
     </div>
   )
 }
