@@ -141,7 +141,7 @@ export function CategoryBrowser({ type, initialListings, initialQ = '' }: Props)
           padding: '48px 24px', textAlign: 'center', borderRadius: 16,
           border: '1px dashed var(--border-default)', color: 'var(--text-muted)',
         }}>
-          Nieko nerasta. Pabandyk kitus filtrus arba <a href="/skelbimai/naujas" style={{ color: 'var(--accent-green)' }}>įdėk savo skelbimą</a>.
+          Nieko nerasta. Pabandyk kitus filtrus arba <a href="/skelbimai/naujas" style={{ color: 'var(--accent-orange)' }}>įdėk savo skelbimą</a>.
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
@@ -169,7 +169,7 @@ export function CategoryBrowser({ type, initialListings, initialQ = '' }: Props)
             {filterControls}
             <button onClick={() => setShowFilters(false)} style={{
               marginTop: 8, padding: '12px', fontSize: 15, fontWeight: 700, borderRadius: 10,
-              background: 'var(--accent-green)', color: '#04140a', border: 'none', cursor: 'pointer',
+              background: 'var(--accent-orange)', color: '#fff', border: 'none', cursor: 'pointer',
             }}>Rodyti rezultatus</button>
           </div>
         </div>

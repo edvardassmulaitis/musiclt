@@ -111,7 +111,7 @@ export function NewListingForm({ initialType }: Props) {
       <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
         {['Tipas', 'Detalės', 'Nuotraukos', 'Peržiūra'].map((lbl, i) => (
           <div key={lbl} style={{ flex: 1, textAlign: 'center' }}>
-            <div style={{ height: 4, borderRadius: 2, background: i <= step ? 'var(--accent-green)' : 'var(--border-default)', marginBottom: 6 }} />
+            <div style={{ height: 4, borderRadius: 2, background: i <= step ? 'var(--accent-orange)' : 'var(--border-default)', marginBottom: 6 }} />
             <span style={{ fontSize: 11.5, color: i <= step ? 'var(--text-secondary)' : 'var(--text-faint)', fontWeight: i === step ? 700 : 500 }}>{lbl}</span>
           </div>
         ))}
@@ -125,7 +125,7 @@ export function NewListingForm({ initialType }: Props) {
       {step === 0 && (
         <div style={{ display: 'grid', gap: 12 }}>
           <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>Ką nori įdėti?</h2>
-          {(['rysiai', 'paslaugos', 'ploksteles', 'instrumentai'] as ListingType[]).map(t => {
+          {(['rysiai', 'paslaugos', 'ploksteles', 'instrumentai', 'kita'] as ListingType[]).map(t => {
             const m = LISTING_TYPES[t]
             const enabled = CREATABLE.includes(t)
             return (
@@ -175,8 +175,8 @@ export function NewListingForm({ initialType }: Props) {
                   {(['iesko', 'siulo'] as const).map(v => (
                     <button key={v} onClick={() => setLookingFor(v)} style={{
                       flex: 1, padding: '10px', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer',
-                      background: lookingFor === v ? 'var(--accent-green)' : 'var(--bg-elevated)',
-                      color: lookingFor === v ? '#04140a' : 'var(--text-primary)',
+                      background: lookingFor === v ? 'var(--accent-orange)' : 'var(--bg-elevated)',
+                      color: lookingFor === v ? '#fff' : 'var(--text-primary)',
                       border: '1px solid var(--border-default)',
                     }}>{v === 'iesko' ? 'Ieškau' : 'Siūlau'}</button>
                   ))}
@@ -311,7 +311,7 @@ export function NewListingForm({ initialType }: Props) {
 
 const btnPrimary: React.CSSProperties = {
   flex: 1, padding: '12px', fontSize: 15, fontWeight: 700, borderRadius: 10,
-  background: 'var(--accent-green)', color: '#04140a', border: 'none', cursor: 'pointer',
+  background: 'var(--accent-orange)', color: '#fff', border: 'none', cursor: 'pointer',
 }
 const btnGhost: React.CSSProperties = {
   padding: '12px 20px', fontSize: 15, fontWeight: 700, borderRadius: 10,

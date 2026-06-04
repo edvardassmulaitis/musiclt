@@ -12,13 +12,16 @@ import { createAdminClient } from '@/lib/supabase'
 import { slugify } from '@/lib/slugify'
 
 // ── Tipai ─────────────────────────────────────────────────────────────────────
-export type ListingType = 'ploksteles' | 'instrumentai' | 'paslaugos' | 'rysiai'
+// DB `type` reikšmės nekeičiamos (jau deploy'inta: ploksteles|instrumentai|
+// paslaugos|rysiai|kita). Keičiasi tik DISPLAY label'ai + URL slug'ai.
+export type ListingType = 'ploksteles' | 'instrumentai' | 'paslaugos' | 'rysiai' | 'kita'
 export type ListingStatus = 'active' | 'reserved' | 'closed' | 'expired' | 'hidden'
 
 export type ListingTypeMeta = {
   type: ListingType
-  slug: string            // URL segmentas (= type, plokštelėms papildomas alias 'vinilai')
-  label: string           // meniu pavadinimas
+  slug: string            // URL segmentas
+  label: string           // trumpas pavadinimas (nav/eilutės antraštė)
+  subtitle: string        // potipių eilutė po antrašte
   h1: string              // kategorijos H1
   seoTitle: string
   desc: string
@@ -27,48 +30,66 @@ export type ListingTypeMeta = {
   live: boolean
 }
 
-// SEO sprendimai iš SKELBIMAI_ETAPAS1_PLANAS.md:
-//   • „Įrašai" → „Plokštelės" (slug 'vinilai' = dominuojanti komercinė frazė)
-//   • Instrumentai → „Muzikos instrumentai"
+// SEO/vartosena (skelbiu.lt — dominuojantis LT portalas — naudoja
+// „Muzikos įrašai" ir „Muzikos instrumentai", tad sekam ta taksonomija):
+//   • Plokštelės → „Įrašai" (umbrella: vinilai/CD/kasetės)
+//   • Ryšiai → „Muzikantai" (aiškiau + SEO „ieškau muzikanto/grupės nario")
 export const LISTING_TYPES: Record<ListingType, ListingTypeMeta> = {
-  rysiai: {
-    type: 'rysiai', slug: 'rysiai', label: 'Ryšiai',
-    h1: 'Muzikantų ryšiai',
-    seoTitle: 'Ieškau grupės nario, muzikanto, bendraautorio — Skelbimai',
-    desc: 'Ieškai grupės nario ar grupės? Bendraautorio, repeticijų bazės, jam\'ų? Susirask muzikantų.',
-    accent: '#8b5cf6', live: true,
-  },
-  paslaugos: {
-    type: 'paslaugos', slug: 'paslaugos', label: 'Paslaugos',
-    h1: 'Muzikos paslaugos',
-    seoTitle: 'Muzikos pamokos, įrašymas, remontas — Skelbimai',
-    desc: 'Muzikos pamokos, garso įrašymas, instrumentų remontas, repeticijų bazės ir daugiau.',
-    accent: '#10b981', live: true,
-  },
   ploksteles: {
-    type: 'ploksteles', slug: 'vinilai', label: 'Plokštelės',
-    h1: 'Vinilinės plokštelės, CD, kasetės',
-    seoTitle: 'Vinilai, vinilinės plokštelės, CD — pirk, parduok | Skelbimai',
+    type: 'ploksteles', slug: 'irasai', label: 'Įrašai',
+    subtitle: 'Vinilai · CD · kasetės',
+    h1: 'Muzikos įrašai — vinilai, CD, kasetės',
+    seoTitle: 'Muzikos įrašai — vinilai, vinilinės plokštelės, CD pirk/parduok',
     desc: 'Vinilai, CD ir kasetės — parduok, pirk arba mainykis. Prisek prie music.lt katalogo.',
     accent: '#0ea5e9', live: false,
   },
   instrumentai: {
-    type: 'instrumentai', slug: 'instrumentai', label: 'Muzikos instrumentai',
+    type: 'instrumentai', slug: 'instrumentai', label: 'Instrumentai',
+    subtitle: 'Gitaros · būgnai · klavišiniai · garso technika',
     h1: 'Muzikos instrumentai',
-    seoTitle: 'Muzikos instrumentai — gitaros, būgnai, klavišiniai | Skelbimai',
+    seoTitle: 'Muzikos instrumentai — gitaros, būgnai, klavišiniai',
     desc: 'Gitaros, bosinės, būgnai, klavišiniai, pučiamieji, garso technika — pirk ir parduok.',
     accent: '#f59e0b', live: false,
+  },
+  paslaugos: {
+    type: 'paslaugos', slug: 'paslaugos', label: 'Paslaugos',
+    subtitle: 'Pamokos · įrašymas · remontas · repeticijos',
+    h1: 'Muzikos paslaugos',
+    seoTitle: 'Muzikos pamokos, įrašymas, remontas — Skelbimai',
+    desc: 'Muzikos pamokos, garso įrašymas, instrumentų remontas, repeticijų bazės ir daugiau.',
+    accent: '#14b8a6', live: true,
+  },
+  rysiai: {
+    type: 'rysiai', slug: 'muzikantai', label: 'Muzikantai',
+    subtitle: 'Grupės nariai · bendraautoriai · repeticijos · jam\'ai',
+    h1: 'Muzikantai ir grupės',
+    seoTitle: 'Ieškau grupės nario, muzikanto, bendraautorio — Skelbimai',
+    desc: 'Ieškai grupės nario ar grupės? Bendraautorio, repeticijų bazės, jam\'ų? Susirask muzikantų.',
+    accent: '#8b5cf6', live: true,
+  },
+  kita: {
+    type: 'kita', slug: 'kita', label: 'Kita',
+    subtitle: 'Atributika · gaidos · kolekcijos',
+    h1: 'Kita — muzikos atributika ir kolekcijos',
+    seoTitle: 'Kita — muzikos atributika, gaidos, kolekcijos | Skelbimai',
+    desc: 'Muzikos atributika, gaidos, plakatai, kolekciniai daiktai ir viskas, kas netelpa kitur.',
+    accent: '#64748b', live: false,
   },
 }
 
 /** Eiliškumas hub'e ir nav'e. */
-export const LISTING_TYPE_ORDER: ListingType[] = ['rysiai', 'paslaugos', 'ploksteles', 'instrumentai']
+export const LISTING_TYPE_ORDER: ListingType[] = ['ploksteles', 'instrumentai', 'paslaugos', 'rysiai', 'kita']
 
-/** URL slug → type (priima ir 'vinilai' aliasą plokštelėms). */
+/** URL slug → type (priima senus/alternatyvius aliasus). */
 export function typeFromSlug(slug: string): ListingType | null {
-  if (slug === 'vinilai' || slug === 'ploksteles') return 'ploksteles'
-  const hit = (Object.keys(LISTING_TYPES) as ListingType[]).find(t => t === slug)
-  return hit ?? null
+  const ALIAS: Record<string, ListingType> = {
+    irasai: 'ploksteles', vinilai: 'ploksteles', ploksteles: 'ploksteles',
+    instrumentai: 'instrumentai',
+    paslaugos: 'paslaugos',
+    muzikantai: 'rysiai', rysiai: 'rysiai',
+    kita: 'kita',
+  }
+  return ALIAS[slug] ?? null
 }
 
 // ── Potipiai ────────────────────────────────────────────────────────────────
@@ -106,6 +127,13 @@ export const SUBTYPES: Record<ListingType, Option[]> = {
     { value: 'single', label: 'Singlas 7"' },
     { value: 'cd', label: 'CD' },
     { value: 'kasete', label: 'Kasetė' },
+  ],
+  kita: [
+    { value: 'atributika', label: 'Atributika / marškinėliai' },
+    { value: 'gaidos', label: 'Gaidos / knygos' },
+    { value: 'plakatai', label: 'Plakatai / menas' },
+    { value: 'kolekcijos', label: 'Kolekciniai daiktai' },
+    { value: 'kita', label: 'Kita' },
   ],
 }
 
@@ -365,7 +393,7 @@ export async function isSaved(listingId: string, userId: string): Promise<boolea
 /** Skaičiai pagal tipą hub plytelėms. */
 export async function countsByType(): Promise<Record<ListingType, number>> {
   const sb = createAdminClient()
-  const base: Record<ListingType, number> = { rysiai: 0, paslaugos: 0, ploksteles: 0, instrumentai: 0 }
+  const base: Record<ListingType, number> = { rysiai: 0, paslaugos: 0, ploksteles: 0, instrumentai: 0, kita: 0 }
   try {
     const { data, error } = await sb.rpc('listings_counts_by_type')
     if (error) throw error

@@ -29,7 +29,7 @@ export default async function MyListingsPage() {
       </nav>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: 'clamp(22px,4vw,30px)', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Mano skelbimai</h1>
-        <Link href="/skelbimai/naujas" style={{ padding: '9px 16px', fontSize: 14, fontWeight: 700, borderRadius: 9, background: 'var(--accent-green)', color: '#04140a', textDecoration: 'none' }}>+ Įdėti skelbimą</Link>
+        <Link href="/skelbimai/naujas" style={{ padding: '9px 16px', fontSize: 14, fontWeight: 700, borderRadius: 9, background: 'var(--accent-orange)', color: '#fff', textDecoration: 'none' }}>+ Įdėti skelbimą</Link>
       </div>
       <MyListings initial={items} />
     </div>

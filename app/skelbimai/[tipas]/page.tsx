@@ -29,7 +29,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ tipas
         <p style={{ fontSize: 16, color: 'var(--text-secondary)', margin: '0 0 24px' }}>
           Ši kategorija ruošiama — netrukus galėsi {type === 'ploksteles' ? 'parduoti ir pirkti vinilus tiesiai iš music.lt katalogo' : 'parduoti ir pirkti instrumentus bei garso techniką'}.
         </p>
-        <Link href="/skelbimai" style={{ color: 'var(--accent-green)', fontWeight: 700, textDecoration: 'none' }}>← Atgal į skelbimus</Link>
+        <Link href="/skelbimai" style={{ color: 'var(--accent-orange)', fontWeight: 700, textDecoration: 'none' }}>← Atgal į skelbimus</Link>
       </div>
     )
   }
@@ -51,7 +51,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ tipas
         </div>
         <Link href={`/skelbimai/naujas?tipas=${meta.type}`} style={{
           padding: '10px 18px', fontSize: 14, fontWeight: 700, borderRadius: 10, whiteSpace: 'nowrap',
-          background: 'var(--accent-green)', color: '#04140a', textDecoration: 'none',
+          background: 'var(--accent-orange)', color: '#fff', textDecoration: 'none',
         }}>+ Įdėti skelbimą</Link>
       </div>
 

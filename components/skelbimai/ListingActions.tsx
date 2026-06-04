@@ -77,7 +77,7 @@ export function ListingActions({ listingId, authorId, isAuthed, isOwner, initial
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {!isOwner && (
         <button onClick={contact} disabled={contacting} style={{
-          ...btnBase, background: 'var(--accent-green)', color: '#04140a', border: 'none',
+          ...btnBase, background: 'var(--accent-orange)', color: '#fff', border: 'none',
           opacity: contacting ? 0.7 : 1,
         }}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>

@@ -31,7 +31,7 @@ export default async function SavedPage() {
 
       {items.length === 0 ? (
         <div style={{ padding: '48px 24px', textAlign: 'center', borderRadius: 16, border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>
-          Dar nieko neįsiminei. Naršyk <Link href="/skelbimai" style={{ color: 'var(--accent-green)' }}>skelbimus</Link> ir spausk ♥.
+          Dar nieko neįsiminei. Naršyk <Link href="/skelbimai" style={{ color: 'var(--accent-orange)' }}>skelbimus</Link> ir spausk ♥.
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
