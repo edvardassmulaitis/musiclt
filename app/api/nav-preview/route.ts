@@ -16,6 +16,8 @@ import { getNewsFeed } from '@/lib/news-feed'
 
 export const dynamic = 'force-dynamic'
 
+const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+
 /** YouTube thumbnail iš video_url (cover fallback). */
 function ytThumb(url: string | null | undefined): string | null {
   if (!url) return null
@@ -171,7 +173,7 @@ export async function GET() {
         .not('published_at', 'is', null)
         .lte('published_at', new Date().toISOString())
         .order('published_at', { ascending: false })
-        .limit(40),
+        .limit(80),
     ])
     const dailySongs = (dailyWinnersRes.data || []).map((w: any) => {
       const t = Array.isArray(w.tracks) ? w.tracks[0] : w.tracks
@@ -183,25 +185,59 @@ export async function GET() {
         date: w.date,
       }
     }).filter(Boolean).slice(0, 8)
-    // Dedup per autorių (vienas naujausias įrašas per narį) — kad produktyvus
-    // narys neužfloodintų juostos. Cover fallback → autoriaus avataras.
-    const seenAuthors = new Set<string>()
-    const discoveryPosts: any[] = []
+    // Naujausi narių įrašai — švelnus dedup (max 2/autorių, kad būtų ir įvairovės,
+    // ir pakankamai turinio). Vizualas = ĮRAŠO viršelis (cover_image_url arba
+    // resolve iš prikabintų tracks/albums/artists, kaip homepage Pulsas) — NE
+    // autoriaus avataras (avatar fallback pašalintas Edvardo prašymu 2026-06-04).
+    const perAuthor = new Map<string, number>()
+    const picked: any[] = []
     for (const r of (discoveryPostsRes.data || []) as any[]) {
       const blg = Array.isArray(r.blogs) ? r.blogs[0] : r.blogs
       const prof = blg ? (Array.isArray(blg.profiles) ? blg.profiles[0] : blg.profiles) : null
       const key = prof?.username || `p${r.id}`
-      if (seenAuthors.has(key)) continue
-      seenAuthors.add(key)
-      discoveryPosts.push({
-        id: r.id, slug: r.slug, title: r.title || '',
-        blogSlug: blg?.slug || prof?.username || null,
-        postType: r.post_type || 'article',
-        image: r.cover_image_url || prof?.avatar_url || null,
-        author: prof?.full_name || prof?.username || '',
-      })
-      if (discoveryPosts.length >= 8) break
+      if ((perAuthor.get(key) || 0) >= 2) continue
+      perAuthor.set(key, (perAuthor.get(key) || 0) + 1)
+      picked.push({ r, blg, prof })
+      if (picked.length >= 14) break
     }
+    // Cover resolve tiems, kurie neturi cover_image_url (migruoti diary įrašai).
+    const needCover = picked.filter(p => !p.r.cover_image_url).map(p => p.r.id)
+    const coverMap = new Map<number, string>()
+    if (needCover.length) {
+      try {
+        const [tj, aj, arj] = await Promise.all([
+          supabase.from('blog_post_tracks').select('post_id, tracks:track_id ( video_url, cover_url, artist:artist_id ( cover_image_url ) )').in('post_id', needCover),
+          supabase.from('blog_post_albums').select('post_id, albums:album_id ( cover_image_url )').in('post_id', needCover),
+          supabase.from('blog_post_artists').select('post_id, artists:artist_id ( cover_image_url )').in('post_id', needCover),
+        ])
+        for (const row of (tj.data || []) as any[]) {
+          if (coverMap.has(row.post_id)) continue
+          const t = Array.isArray(row.tracks) ? row.tracks[0] : row.tracks
+          if (!t) continue
+          const yt = (t.video_url || '').match(YT_RE)?.[1]
+          const art = Array.isArray(t.artist) ? t.artist[0] : t.artist
+          const img = yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : (t.cover_url || art?.cover_image_url || null)
+          if (img) coverMap.set(row.post_id, img)
+        }
+        for (const row of (aj.data || []) as any[]) {
+          if (coverMap.has(row.post_id)) continue
+          const a = Array.isArray(row.albums) ? row.albums[0] : row.albums
+          if (a?.cover_image_url) coverMap.set(row.post_id, a.cover_image_url)
+        }
+        for (const row of (arj.data || []) as any[]) {
+          if (coverMap.has(row.post_id)) continue
+          const a = Array.isArray(row.artists) ? row.artists[0] : row.artists
+          if (a?.cover_image_url) coverMap.set(row.post_id, a.cover_image_url)
+        }
+      } catch {}
+    }
+    const discoveryPosts = picked.map(({ r, blg, prof }) => ({
+      id: r.id, slug: r.slug, title: r.title || '',
+      blogSlug: blg?.slug || prof?.username || null,
+      postType: r.post_type || 'article',
+      image: r.cover_image_url || coverMap.get(r.id) || null,
+      author: prof?.full_name || prof?.username || '',
+    }))
 
     // Renginių LT/užsienio skaidymas: LT jei BENT VIENAS atlikėjas iš Lietuvos
     // arba apskritai nėra užsienio atlikėjo (be info → LT, kad juosta nebūtų tuščia).
