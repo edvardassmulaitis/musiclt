@@ -89,11 +89,49 @@ function SectionTitle({ icon, label, hint }: { icon: string; label: string; hint
   )
 }
 
-export default function AdminDashboardPage() {
+export default function CollapseButton({
+  icon, label, hint, count, open, onToggle, badge,
+}: {
+  icon: string; label: string; hint: string; count: number
+  open: boolean; onToggle: () => void; badge?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className="flex w-full items-center gap-3 rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] px-4 py-3 text-left transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+    >
+      <span className="text-2xl">{icon}</span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="font-semibold text-[var(--text-primary)]">{label}</span>
+        <span className="truncate text-[11px] text-[var(--text-muted)]">{hint}</span>
+      </div>
+      {badge && (
+        <span className="shrink-0 rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10.5px] font-bold text-orange-700">
+          {badge}
+        </span>
+      )}
+      <span className="shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
+        {count}
+      </span>
+      <svg
+        width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+        className={`shrink-0 text-[var(--text-muted)] transition-transform ${open ? 'rotate-180' : ''}`}
+      >
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
+    </button>
+  )
+}
+
+function AdminDashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [counts, setCounts] = useState<Counts | null>(null)
   const [importsOpen, setImportsOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -152,15 +190,6 @@ export default function AdminDashboardPage() {
         : undefined,
     },
     {
-      href: '/admin/users-migration',
-      icon: '👤',
-      label: 'Narių UGC migracija',
-      hint: 'Per-user content + likes (top karma sąrašas)',
-      badge: counts?.users_migrated && counts.users_migrated > 0
-        ? { text: `${counts.users_migrated} migruoti`, color: 'green' }
-        : undefined,
-    },
-    {
       href: '/admin/import/pending',
       icon: '⏳',
       label: 'Pending review',
@@ -201,8 +230,18 @@ export default function AdminDashboardPage() {
       label: 'Eventai (legacy)',
       hint: 'Senų renginių importas',
     },
+    {
+      href: '/admin/users-migration',
+      icon: '👤',
+      label: 'Narių UGC migracija',
+      hint: 'Per-user content + likes (beveik baigta)',
+      badge: counts?.users_migrated && counts.users_migrated > 0
+        ? { text: `${counts.users_migrated} migruoti`, color: 'green' }
+        : undefined,
+    },
   ]
 
+  // Pagrindinis turinys — kasdien tvarkomos esybės. Lieka matomos.
   const content: AdminCard[] = [
     { href: '/admin/artists', newHref: '/admin/artists/new', icon: '🎤', label: 'Atlikėjai', count: counts?.artists },
     { href: '/admin/albums', newHref: '/admin/albums/new', icon: '💿', label: 'Albumai', count: counts?.albums },
@@ -210,11 +249,11 @@ export default function AdminDashboardPage() {
     { href: '/admin/news', newHref: '/admin/news/new', icon: '📰', label: 'Naujienos', count: counts?.news },
     { href: '/admin/events', newHref: '/admin/events/new', icon: '📅', label: 'Renginiai', count: counts?.events },
     { href: '/admin/venues', newHref: '/admin/venues/new', icon: '📍', label: 'Vietos', count: counts?.venues },
-    { href: '/admin/comments', icon: '💬', label: 'Komentarai', hint: 'Visi komentarai per visas surfaces' },
-    { href: '/admin/contacts', icon: '📇', label: 'Vadybininkų bazė', hint: 'Atlikėjų vadyba / booking / label kontaktai' },
   ]
 
-  const tops: AdminCard[] = [
+  // Rečiau naudojama — topai, balsavimai, sistema, papildomi įrankiai.
+  // Sukelta po vienu collapse mygtuku, kad main page nebūtų perkrautas.
+  const more: AdminCard[] = [
     {
       href: '/admin/top',
       icon: '🏆',
@@ -228,9 +267,8 @@ export default function AdminDashboardPage() {
     { href: '/admin/dienos-daina', icon: '⭐', label: 'Dienos daina', hint: 'Daily song spotlight' },
     { href: '/admin/voting', icon: '🗳️', label: 'Balsavimai', hint: 'Apdovanojimai, votings' },
     { href: '/admin/boombox', icon: '🎛️', label: 'Boombox', hint: 'Live stream player config' },
-  ]
-
-  const system: AdminCard[] = [
+    { href: '/admin/comments', icon: '💬', label: 'Komentarai', hint: 'Visi komentarai per visas surfaces' },
+    { href: '/admin/contacts', icon: '📇', label: 'Vadybininkų bazė', hint: 'Atlikėjų vadyba / booking / label kontaktai' },
     { href: '/admin/genres', icon: '🎨', label: 'Žanrai' },
     { href: '/admin/role-translations', icon: '🌐', label: 'Sričių vertimai' },
     { href: '/admin/search', icon: '🔍', label: 'Paieška' },
@@ -256,79 +294,61 @@ export default function AdminDashboardPage() {
           <AdminQuickAdd />
         </section>
 
-        {/* Migracijos progresas — visų atlikėjų sutvarkymo % + priority list */}
-        <section className="mb-6">
-          <AdminMigrationProgress />
-        </section>
-
-        {/* Kasdienis darbas — inbox, narių UGC, pending review */}
+        {/* Kasdienis darbas — inbox review, pending entries */}
         <section className="mb-8">
-          <SectionTitle icon="📋" label="Kasdienis darbas" hint="inbox review, narių migracija, pending entries" />
+          <SectionTitle icon="📋" label="Kasdienis darbas" hint="inbox review, pending entries" />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {ops.map(card => <Card key={card.href} card={card} />)}
           </div>
         </section>
 
-        {/* Importai / Migracija — vienkartiniai įrankiai sukelti po vienu mygtuku */}
+        {/* Turinys — pagrindinės kasdien tvarkomos esybės */}
         <section className="mb-8">
-          <button
-            type="button"
-            onClick={() => setImportsOpen(o => !o)}
-            aria-expanded={importsOpen}
-            className="flex w-full items-center gap-3 rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] px-4 py-3 text-left transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-          >
-            <span className="text-2xl">🚀</span>
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="font-semibold text-[var(--text-primary)]">Importai / Migracija</span>
-              <span className="truncate text-[11px] text-[var(--text-muted)]">
-                Atlikėjų importas, JSON, forumas, legacy eventai — vienkartiniai įrankiai
-              </span>
-            </div>
-            {counts?.active_jobs && counts.active_jobs > 0 ? (
-              <span className="shrink-0 rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10.5px] font-bold text-orange-700">
-                {counts.active_jobs} aktyvūs
-              </span>
-            ) : null}
-            <span className="shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
-              {importTools.length}
-            </span>
-            <svg
-              width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-              className={`shrink-0 text-[var(--text-muted)] transition-transform ${importsOpen ? 'rotate-180' : ''}`}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-          {importsOpen && (
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {importTools.map(card => <Card key={card.href} card={card} />)}
-            </div>
-          )}
-        </section>
-
-        {/* Content management */}
-        <section className="mb-8">
-          <SectionTitle icon="📚" label="Turinys" hint="atlikėjai, albumai, dainos, news, events" />
+          <SectionTitle icon="📚" label="Turinys" hint="atlikėjai, albumai, dainos, naujienos, renginiai" />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {content.map(card => <Card key={card.href} card={card} />)}
           </div>
         </section>
 
-        {/* TOP / charts / votings */}
-        <section className="mb-8">
-          <SectionTitle icon="🏆" label="Topai ir balsavimai" />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {tops.map(card => <Card key={card.href} card={card} />)}
-          </div>
+        {/* ── Rečiau naudojama — sukelta po collapse mygtukais ──────────── */}
+
+        {/* Importai / Migracija — vienkartiniai įrankiai + progreso widget (lazy) */}
+        <section className="mb-4">
+          <CollapseButton
+            icon="🚀"
+            label="Importai / Migracija"
+            hint="Atlikėjų importas, JSON, forumas, legacy eventai, narių UGC — vienkartiniai įrankiai"
+            count={importTools.length}
+            open={importsOpen}
+            onToggle={() => setImportsOpen(o => !o)}
+            badge={counts?.active_jobs && counts.active_jobs > 0 ? `${counts.active_jobs} aktyvūs` : undefined}
+          />
+          {importsOpen && (
+            <div className="mt-3 space-y-3">
+              {/* Migracijos progresas — kraunamas tik atvėrus (kad main page negaištų) */}
+              <AdminMigrationProgress />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {importTools.map(card => <Card key={card.href} card={card} />)}
+              </div>
+            </div>
+          )}
         </section>
 
-        {/* System */}
+        {/* Daugiau — topai, balsavimai, sistema, papildomi įrankiai */}
         <section className="mb-6">
-          <SectionTitle icon="⚙️" label="Sistema" />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {system.map(card => <Card key={card.href} card={card} />)}
-          </div>
+          <CollapseButton
+            icon="🗂️"
+            label="Daugiau"
+            hint="Topai, balsavimai, komentarai, žanrai, vartotojai, nustatymai — rečiau naudojama"
+            count={more.length}
+            open={moreOpen}
+            onToggle={() => setMoreOpen(o => !o)}
+          />
+          {moreOpen && (
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {more.map(card => <Card key={card.href} card={card} />)}
+            </div>
+          )}
         </section>
       </div>
     </div>
