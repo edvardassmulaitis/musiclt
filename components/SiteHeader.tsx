@@ -1478,28 +1478,29 @@ export function SiteHeader() {
 
         /* ── Vieningi chip'ai antraeilėms sekcijoms (stiliai, šalys, kiti topai) —
               lengvai skaitomi, mažai vizualo, vietoj didelių spalvotų kortelių. ── */
-        .sh-chiprow { display: flex; flex-wrap: wrap; gap: 7px; }
+        .sh-chiprow { display: flex; flex-wrap: wrap; gap: 9px; }
         .sh-navchip {
-          display: inline-flex; align-items: center; gap: 7px;
-          padding: 6px 11px;
-          border-radius: 9px;
+          display: inline-flex; align-items: center; gap: 9px;
+          padding: 10px 15px;
+          border-radius: 11px;
           background: var(--bg-elevated);
           border: 1px solid var(--border-default);
-          font-size: 12.5px; font-weight: 600;
+          font-size: 13.5px; font-weight: 600;
           color: var(--text-primary);
           text-decoration: none; white-space: nowrap;
           line-height: 1.2;
           transition: background .15s, border-color .15s, transform .1s;
         }
         .sh-navchip:hover { background: var(--bg-hover); border-color: var(--accent-orange); }
+        .sh-navchip:hover .sh-navchip-ic { color: var(--accent-orange); }
         .sh-navchip:active { transform: scale(0.97); }
         .sh-navchip-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
         .sh-navchip-flag {
-          width: 19px; height: 13px; border-radius: 2px; flex-shrink: 0;
+          width: 22px; height: 15px; border-radius: 3px; flex-shrink: 0;
           object-fit: cover; box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
         }
-        .sh-navchip-ic { display: inline-flex; flex-shrink: 0; }
-        .sh-navchip-ic svg { width: 14px; height: 14px; }
+        .sh-navchip-ic { display: inline-flex; flex-shrink: 0; color: var(--text-secondary); transition: color .15s; }
+        .sh-navchip-ic svg { width: 17px; height: 17px; }
 
         /* Stiliai grid — Spotify-style bold colored kortelės */
         .sh-style-grid {
@@ -1690,10 +1691,10 @@ export function SiteHeader() {
            (Muzika/Topai/Koncertai/Naujienos/Atradimai). Platesnis nei aukštas, kad
            pavadinimai tilptų (mažiau truncation). xl ir md identiški. Pavadinimui
            rezervuotas 2 eilučių aukštis → visos kortelės vienodo aukščio. */
-        .sh-mini-xl, .sh-mini-md { flex-basis: 140px; width: 140px; max-width: 140px; gap: 7px; padding: 4px; }
-        .sh-mini-xl .sh-mini-img, .sh-mini-md .sh-mini-img { width: 132px; height: 102px; border-radius: 11px; }
-        .sh-mini-xl .sh-mini-title, .sh-mini-md .sh-mini-title { font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; line-height: 1.3; text-align: center; min-height: 34px; }
-        .sh-mini-xl .sh-mini-meta, .sh-mini-md .sh-mini-meta { font-size: 11px; text-align: center; }
+        .sh-mini-xl, .sh-mini-md { flex-basis: 140px; width: 140px; max-width: 140px; gap: 8px; padding: 4px; }
+        .sh-mini-xl .sh-mini-img, .sh-mini-md .sh-mini-img { width: 132px; height: 102px; border-radius: 12px; margin: 0; border: 0.5px solid var(--border-subtle); }
+        .sh-mini-xl .sh-mini-title, .sh-mini-md .sh-mini-title { font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; line-height: 1.3; text-align: left; min-height: 34px; padding: 0 2px; }
+        .sh-mini-xl .sh-mini-meta, .sh-mini-md .sh-mini-meta { font-size: 11px; text-align: left; padding: 0 2px; }
 
         /* Dainos — mažiausi (60×60) */
         .sh-mini-sm { flex-basis: 68px; width: 68px; max-width: 68px; gap: 3px; }
@@ -1832,13 +1833,13 @@ export function SiteHeader() {
         }
         .sh-news-link:hover { background: var(--bg-hover); color: var(--text-primary); }
         .sh-news-chip {
-          display: inline-flex; align-items: center; gap: 7px;
-          padding: 6px 11px; border-radius: 9px;
-          font-size: 12.5px; font-weight: 600;
+          display: inline-flex; align-items: center; gap: 9px;
+          padding: 10px 15px; border-radius: 11px;
+          font-size: 13.5px; font-weight: 600;
           background: var(--bg-elevated); border: 1px solid var(--border-default);
           color: var(--text-primary); text-decoration: none; transition: background .15s, border-color .15s, transform .1s; white-space: nowrap;
         }
-        .sh-news-chip:hover { border-color: var(--accent-orange); }
+        .sh-news-chip:hover { background: var(--bg-hover); border-color: var(--accent-orange); }
         .sh-news-link-icon { font-size: 15px; line-height: 1; width: 18px; text-align: center; }
         .sh-news-style {
           display: flex; align-items: center; gap: 7px;
