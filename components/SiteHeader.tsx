@@ -358,7 +358,7 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
         <div className="sh-chiprow">
           {styles.map(s => (
             <Link key={s.name} href={s.href} className="sh-navchip" title={s.name}>
-              <span className="sh-navchip-dot" style={{ background: `rgb(${s.rgb})` }} aria-hidden />
+              <span className="sh-navchip-dot" style={{ background: 'var(--text-faint)' }} aria-hidden />
               {s.short}
             </Link>
           ))}
@@ -451,7 +451,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
         className="sh-navchip" title={c.title}>
         {flag
           ? <img src={flag} alt="" className="sh-navchip-flag" />
-          : <span className="sh-navchip-ic" style={{ color: c.accent }} aria-hidden>{scopeGlyph(c.scope)}</span>}
+          : <span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{scopeGlyph(c.scope)}</span>}
         {c.title}
       </Link>
     )
@@ -475,7 +475,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
       )}
       {featured.length === 0 && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-          <Link href="/topai" className="sh-navchip"><span className="sh-navchip-ic" style={{ color: '#6366f1' }} aria-hidden>{I.trophy}</span>Visi topai</Link>
+          <Link href="/topai" className="sh-navchip"><span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{I.trophy}</span>Visi topai</Link>
         </div>
       )}
 
@@ -552,14 +552,11 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
       {renderRow(eventsWorld, 'world')}
 
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div className="sh-chiprow">
           {tiles.map(t => (
-            <Link key={t.href} href={t.href} className="sh-spotlight" style={{ ['--it-rgb' as any]: hexToRgb(t.rgb) }}>
-              <span className="sh-spotlight-icon">{t.icon}</span>
-              <span className="sh-spotlight-body">
-                <span className="sh-spotlight-title">{t.title} <ArrowRight size={12}/></span>
-                <span className="sh-spotlight-desc">{t.desc}</span>
-              </span>
+            <Link key={t.href} href={t.href} className="sh-navchip" title={t.desc}>
+              <span className="sh-navchip-ic" aria-hidden>{t.icon}</span>
+              {t.title}
             </Link>
           ))}
         </div>
@@ -661,14 +658,11 @@ function AtradimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
 
       {/* Greitos nuorodos — bendruomenės sekcijos */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
+        <div className="sh-chiprow">
           {items.map(it => (
-            <Link key={it.href} href={it.href} className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb(it.rgb) }}>
-              <span className="sh-bigshortcut-icon">{it.icon}</span>
-              <span>
-                <span className="sh-bigshortcut-title">{it.title}</span>
-                <span className="sh-bigshortcut-desc">{it.desc}</span>
-              </span>
+            <Link key={it.href} href={it.href} className="sh-navchip" title={it.desc}>
+              <span className="sh-navchip-ic" aria-hidden>{it.icon}</span>
+              {it.title}
             </Link>
           ))}
         </div>
@@ -742,7 +736,7 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
         <div className="sh-chiprow">
           {NEWS_STYLES.map(s => (
             <Link key={s.id} href={`/naujienos/stilius/${s.slug}`} className="sh-navchip" title={s.name}>
-              <span className="sh-navchip-dot" style={{ background: s.accent }} aria-hidden />
+              <span className="sh-navchip-dot" style={{ background: 'var(--text-faint)' }} aria-hidden />
               {s.name.replace(' muzika', '')}
             </Link>
           ))}
@@ -782,18 +776,18 @@ function SkelbimaiPanel({ accent }: { accent: string }) {
         <div className="sh-panel-section" style={{ marginBottom: 8 }}>
           <span className="sh-panel-section-title">Kategorijos</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        <div className="sh-chiprow">
           {[
-            { label: 'Vinilas',         icon: I.vinyl,   rgb: '14, 165, 233' },
-            { label: 'CD ir kasetės',   icon: I.boombox, rgb: '6, 182, 212' },
-            { label: 'Instrumentai',    icon: I.guitar,  rgb: '245, 158, 11' },
-            { label: 'Audio įranga',    icon: I.music,   rgb: '168, 85, 247' },
-            { label: 'Studijos',        icon: I.quiz,    rgb: '236, 72, 153' },
-            { label: 'Paslaugos',       icon: I.market,  rgb: '16, 185, 129' },
+            { label: 'Vinilas',         icon: I.vinyl   },
+            { label: 'CD ir kasetės',   icon: I.boombox },
+            { label: 'Instrumentai',    icon: I.guitar  },
+            { label: 'Audio įranga',    icon: I.music   },
+            { label: 'Studijos',        icon: I.quiz    },
+            { label: 'Paslaugos',       icon: I.market  },
           ].map(t => (
-            <Link key={t.label} href="/skelbimai" className="sh-cat-tile" style={{ ['--it-rgb' as any]: t.rgb }}>
-              <span className="sh-cat-icon">{t.icon}</span>
-              <span className="sh-cat-label">{t.label}</span>
+            <Link key={t.label} href="/skelbimai" className="sh-navchip" title={t.label}>
+              <span className="sh-navchip-ic" aria-hidden>{t.icon}</span>
+              {t.label}
             </Link>
           ))}
         </div>
@@ -889,7 +883,7 @@ function MobileExpansion({
           <div className="sh-chiprow">
             {[...STYLES_ORDERED].sort((a, b) => ((data?.genreCounts || {})[b.name] || 0) - ((data?.genreCounts || {})[a.name] || 0)).map(s => (
               <Link key={s.name} href={s.href} onClick={onLink} className="sh-navchip" title={s.name}>
-                <span className="sh-navchip-dot" style={{ background: `rgb(${s.rgb})` }} aria-hidden />
+                <span className="sh-navchip-dot" style={{ background: 'var(--text-faint)' }} aria-hidden />
                 {s.short}
               </Link>
             ))}
@@ -919,7 +913,7 @@ function MobileExpansion({
           className="sh-navchip" title={c.title}>
           {flag
             ? <img src={flag} alt="" className="sh-navchip-flag" />
-            : <span className="sh-navchip-ic" style={{ color: c.accent }} aria-hidden>{c.scope === 'social' ? I.trending : I.trophy}</span>}
+            : <span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{c.scope === 'social' ? I.trending : I.trophy}</span>}
           {c.title}
         </Link>
       )
@@ -1154,7 +1148,7 @@ function MobileExpansion({
           <div className="sh-chiprow">
             {NEWS_STYLES.map(s => (
               <Link key={s.id} href={`/naujienos/stilius/${s.slug}`} onClick={onLink} className="sh-navchip" title={s.name}>
-                <span className="sh-navchip-dot" style={{ background: s.accent }} aria-hidden />
+                <span className="sh-navchip-dot" style={{ background: 'var(--text-faint)' }} aria-hidden />
                 {s.name.replace(' muzika', '')}
               </Link>
             ))}
@@ -1692,11 +1686,13 @@ export function SiteHeader() {
         .sh-mini-lg .sh-mini-img { width: 88px; height: 88px; border-radius: 9px; }
         .sh-mini-lg .sh-mini-title { font-size: 11.5px; text-align: center; }
 
-        /* VIENODAS dropdown thumbnail dydis VISOSE sekcijose — 92×92 kvadratas
-           (Muzika/Topai/Koncertai/Naujienos/Atradimai). xl ir md identiški. */
-        .sh-mini-xl, .sh-mini-md { flex-basis: 100px; width: 100px; max-width: 100px; gap: 6px; padding: 4px; }
-        .sh-mini-xl .sh-mini-img, .sh-mini-md .sh-mini-img { width: 92px; height: 92px; border-radius: 10px; }
-        .sh-mini-xl .sh-mini-title, .sh-mini-md .sh-mini-title { font-size: 12px; text-align: center; }
+        /* VIENODAS dropdown vizualas VISOSE sekcijose — fiksuotas AUKŠTIS 92px
+           (Muzika/Topai/Koncertai/Naujienos/Atradimai). Platesnis nei aukštas, kad
+           pavadinimai tilptų (mažiau truncation). xl ir md identiški. Pavadinimui
+           rezervuotas 2 eilučių aukštis → visos kortelės vienodo aukščio. */
+        .sh-mini-xl, .sh-mini-md { flex-basis: 124px; width: 124px; max-width: 124px; gap: 6px; padding: 4px; }
+        .sh-mini-xl .sh-mini-img, .sh-mini-md .sh-mini-img { width: 116px; height: 92px; border-radius: 10px; }
+        .sh-mini-xl .sh-mini-title, .sh-mini-md .sh-mini-title { font-size: 12px; text-align: center; min-height: 30px; }
         .sh-mini-md .sh-mini-meta { text-align: center; }
 
         /* Dainos — mažiausi (60×60) */
