@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
 import Link from 'next/link'
+import FullEnrichButton from '@/components/FullEnrichButton'
 
 // Tipai dubliuoti iš lib/artist-import.ts (client'e nenorim importuoti server lib).
 interface MatchCandidate { id: number; name: string; slug: string; type: string | null; country: string | null }
@@ -191,6 +192,10 @@ export default function ArtistImportPage() {
                 <ul className="mt-1 list-inside list-disc">{summary.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
               </details>
             )}
+            <div className="mt-3 border-t border-green-200 pt-3">
+              <p className="mb-1.5 text-xs text-green-800">Užbaik profilį — paleisk YouTube video + peržiūras + dainų tekstus:</p>
+              <FullEnrichButton artistId={summary.artist_id} />
+            </div>
           </div>
         )}
 

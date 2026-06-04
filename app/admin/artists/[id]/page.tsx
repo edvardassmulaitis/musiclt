@@ -9,6 +9,7 @@ import WikipediaImport from '@/components/WikipediaImport'
 import WikipediaImportAwards from '@/components/WikipediaImportAwards'
 import ArtistAwardsAdminPanel from '@/components/ArtistAwardsAdminPanel'
 import ArtistContactsPanel from '@/components/ArtistContactsPanel'
+import FullEnrichButton from '@/components/FullEnrichButton'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
 import { extractYouTubeId } from '@/components/ui/helpers'
 import { ScoreBadge } from '@/components/ScoreModal'
@@ -1592,6 +1593,7 @@ export default function EditArtist() {
                 }} />
                 <YoutubeClearButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
                 <YoutubeEnrichButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
+                <FullEnrichButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} compact />
                 <RecalcCascadeButton artistId={artistId} />
               </ActionsOverflowMenu>
             </div>

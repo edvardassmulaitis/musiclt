@@ -130,6 +130,17 @@ export default function NewArtistPage() {
         {/* LEFT — Wikipedia import strip + ArtistForm */}
         <div className="flex-1 min-w-0">
 
+          {/* JSON importo nuoroda — greitas pilno atlikėjo importas iš GPT JSON */}
+          <div className="flex items-center justify-between gap-2 border-b border-[var(--input-border)] bg-[var(--hover-blue)] px-3 py-2 sm:px-4">
+            <span className="text-xs text-[var(--text-secondary)]">📋 Turi GPT JSON su visa atlikėjo info?</span>
+            <Link
+              href={`/admin/artist-import${prefillName ? `?name=${encodeURIComponent(prefillName)}` : ''}`}
+              className="shrink-0 rounded-lg border border-blue-200 bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-semibold text-music-blue transition-colors hover:bg-blue-50"
+            >
+              Importuoti per JSON →
+            </Link>
+          </div>
+
           {/* Wikipedia import strip — initialSearch prefill iš ?name= URL'o */}
           <div className="bg-[var(--bg-surface)] border-b border-[var(--input-border)] px-3 sm:px-4 py-3">
             <WikipediaImport onImport={handleWikiImport} initialSearch={prefillName} />

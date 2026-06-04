@@ -158,6 +158,30 @@ function albumSlug(title: string, year?: number | null): string {
   return slugify(title) + (year ? `-${year}` : '')
 }
 
+/** Ar atlikėjas lietuviškas? null/tuščia šalis = nežinoma → laikom LT (neskipinam vadybos).
+ *  Vadybos/kontaktų dalis taikoma tik LT atlikėjams (vadybininkų bazė LT scenai). */
+export function isNonLithuanian(country?: string | null): boolean {
+  if (!country || !country.trim()) return false
+  return !/^(lietuva|lithuania|lt)$/i.test(country.trim())
+}
+
+/** Spotify oEmbed (be auth) → albumo/dainos viršelio thumbnail URL.
+ *  open.spotify.com/oembed grąžina thumbnail_url (album art). Tylus fail → null. */
+export async function fetchSpotifyThumb(spotifyUrl?: string | null): Promise<string | null> {
+  if (!spotifyUrl) return null
+  try {
+    const ctrl = new AbortController()
+    const to = setTimeout(() => ctrl.abort(), 5000)
+    const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(spotifyUrl)}`, {
+      signal: ctrl.signal, headers: { 'User-Agent': 'music.lt/1.0' },
+    })
+    clearTimeout(to)
+    if (!res.ok) return null
+    const data = await res.json()
+    return data?.thumbnail_url || null
+  } catch { return null }
+}
+
 // ── Validacija ────────────────────────────────────────────────────────────────
 export interface ValidationResult { ok: boolean; errors: string[]; payload?: ArtistImportPayload }
 
@@ -353,13 +377,19 @@ export async function buildPreview(
   }
 
   // ── Contact plans ──
+  // Vadyba/kontaktai taikomi TIK LT atlikėjams (vadybininkų bazė LT scenai).
+  const resolvedCountry = p.country ?? existing?.country ?? null
+  const skipContacts = isNonLithuanian(resolvedCountry)
   const contactPlans: ContactPlan[] = []
   let existingContacts: any[] = []
-  if (targetArtistId) {
+  if (skipContacts && (payload.contacts || []).length) {
+    warnings.push(`Ne LT atlikėjas (${resolvedCountry}) — vadybos/kontaktų dalis praleidžiama (${(payload.contacts || []).length} kontaktai neimportuojami).`)
+  }
+  if (targetArtistId && !skipContacts) {
     const { data: cs } = await sb.from('artist_contacts').select('id, type, email, url, name').eq('artist_id', targetArtistId)
     existingContacts = cs || []
   }
-  for (const c of payload.contacts || []) {
+  for (const c of (skipContacts ? [] : payload.contacts || [])) {
     const type = c.type && CONTACT_TYPES.includes(c.type) ? c.type : 'general'
     if (c.type && !CONTACT_TYPES.includes(c.type)) warnings.push(`Nežinomas kontakto type "${c.type}" — saugoma kaip "general".`)
     const conf = c.confidence && CONFIDENCE_VALUES.includes(c.confidence) ? c.confidence : 'medium'
@@ -568,8 +598,17 @@ export async function applyImport(
     } catch (e: any) { warnings.push(`Sub-stilius "${name}" nepavyko: ${e.message}`) }
   }
 
-  // ── Kontaktai ──
-  for (const c of payload.contacts || []) {
+  // ── Kontaktai ── (tik LT atlikėjams — vadybininkų bazė)
+  let applyCountry: string | null = p.country ?? null
+  if (!applyCountry) {
+    const { data: ac } = await sb.from('artists').select('country').eq('id', artistId).maybeSingle()
+    applyCountry = ac?.country ?? null
+  }
+  const skipContacts = isNonLithuanian(applyCountry)
+  if (skipContacts && (payload.contacts || []).length) {
+    warnings.push(`Ne LT atlikėjas (${applyCountry}) — ${(payload.contacts || []).length} kontaktai praleisti.`)
+  }
+  for (const c of (skipContacts ? [] : payload.contacts || [])) {
     const type = c.type && CONTACT_TYPES.includes(c.type) ? c.type : 'general'
     const conf = c.confidence && CONFIDENCE_VALUES.includes(c.confidence) ? c.confidence : 'medium'
     const email = c.email || null
@@ -605,10 +644,12 @@ export async function applyImport(
     if (a.type && ALBUM_TYPE_FLAG[a.type]) typeFlags[ALBUM_TYPE_FLAG[a.type]] = true
     // Spotify id iš URL
     const spotifyId = a.spotify_url?.match(/album\/([A-Za-z0-9]+)/)?.[1] || null
+    // Viršelis per Spotify oEmbed (be auth)
+    const albumCover = await fetchSpotifyThumb(a.spotify_url)
 
-    let { data: existingAl } = await sb.from('albums').select('id, year, month, day, spotify_id').eq('artist_id', artistId).eq('slug', slug).maybeSingle()
+    let { data: existingAl } = await sb.from('albums').select('id, year, month, day, spotify_id, cover_image_url').eq('artist_id', artistId).eq('slug', slug).maybeSingle()
     if (!existingAl) {
-      const { data: byTitle } = await sb.from('albums').select('id, year, month, day, spotify_id').eq('artist_id', artistId).ilike('title', a.title).maybeSingle()
+      const { data: byTitle } = await sb.from('albums').select('id, year, month, day, spotify_id, cover_image_url').eq('artist_id', artistId).ilike('title', a.title).maybeSingle()
       existingAl = byTitle
     }
     if (existingAl) {
@@ -618,6 +659,7 @@ export async function applyImport(
       if (!existingAl.month && parts.month) upd.month = parts.month
       if (!existingAl.day && parts.day) upd.day = parts.day
       if (!existingAl.spotify_id && spotifyId) upd.spotify_id = spotifyId
+      if (!existingAl.cover_image_url && albumCover) upd.cover_image_url = albumCover
       Object.assign(upd, typeFlags)
       if (Object.keys(upd).length) {
         const { error } = await sb.from('albums').update(upd).eq('id', existingAl.id)
@@ -628,6 +670,7 @@ export async function applyImport(
       const insert: Record<string, any> = {
         title: a.title, slug, artist_id: artistId,
         year, month: parts.month, day: parts.day,
+        cover_image_url: albumCover,
         spotify_id: spotifyId, source: 'json_import', ...typeFlags,
       }
       const { data: newAl, error } = await sb.from('albums').insert(insert).select('id').single()
@@ -642,6 +685,7 @@ export async function applyImport(
     const map = (t.type && TRACK_TYPE_MAP[t.type]) || TRACK_TYPE_MAP.album_track
     const parts = parseDateParts(t.release_date)
     const spotifyId = t.spotify_url?.match(/track\/([A-Za-z0-9]+)/)?.[1] || null
+    const trackCover = await fetchSpotifyThumb(t.spotify_url)
 
     // Resolve album id
     let albumId: number | null = null
@@ -656,7 +700,7 @@ export async function applyImport(
 
     // Find/insert track
     let trackId: number | null = null
-    const { data: existingTr } = await sb.from('tracks').select('id, release_date, release_year, spotify_id').eq('artist_id', artistId).eq('slug', slugify(t.title)).maybeSingle()
+    const { data: existingTr } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url').eq('artist_id', artistId).eq('slug', slugify(t.title)).maybeSingle()
     if (existingTr) {
       trackId = existingTr.id
       const upd: Record<string, any> = {}
@@ -665,6 +709,7 @@ export async function applyImport(
       if (parts.month) upd.release_month = parts.month
       if (parts.day) upd.release_day = parts.day
       if (!existingTr.spotify_id && spotifyId) upd.spotify_id = spotifyId
+      if (!existingTr.cover_url && trackCover) upd.cover_url = trackCover
       if (map.is_single) upd.is_single = true
       if (Object.keys(upd).length) {
         const { error } = await sb.from('tracks').update(upd).eq('id', trackId)
@@ -683,6 +728,7 @@ export async function applyImport(
         title: t.title, slug, artist_id: artistId, type: map.type, is_single: map.is_single,
         release_date: t.release_date || null,
         release_year: parts.year, release_month: parts.month, release_day: parts.day,
+        cover_url: trackCover,
         spotify_id: spotifyId, source: 'json_import',
       }
       const { data: newTr, error } = await sb.from('tracks').insert(insert).select('id').single()
