@@ -73,10 +73,10 @@ export async function GET(req: NextRequest) {
       ? sb.from('artists').select('id, slug, name, cover_image_url, legacy_id').in('id', artistIds)
       : Promise.resolve({ data: [] as any[] }),
     albumIds.length
-      ? sb.from('albums').select('id, slug, title, cover_image_url, legacy_id, artists:artist_id(name)').in('id', albumIds)
+      ? sb.from('albums').select('id, slug, title, cover_image_url, legacy_id, artists:artist_id(name, cover_image_url)').in('id', albumIds)
       : Promise.resolve({ data: [] as any[] }),
     trackIds.length
-      ? sb.from('tracks').select('id, slug, title, cover_url, legacy_id, artists:artist_id(name)').in('id', trackIds)
+      ? sb.from('tracks').select('id, slug, title, cover_url, legacy_id, artists:artist_id(name, cover_image_url)').in('id', trackIds)
       : Promise.resolve({ data: [] as any[] }),
   ])
 
@@ -93,10 +93,10 @@ export async function GET(req: NextRequest) {
       if (a) out.push({ type: 'grupe', id: a.id, legacy_id: a.legacy_id ?? null, slug: a.slug, title: a.name, artist: null, image_url: a.cover_image_url ?? null })
     } else if (l.entity_type === 'album') {
       const a = albumMap.get(Number(l.entity_id))
-      if (a) out.push({ type: 'albumas', id: a.id, legacy_id: a.legacy_id ?? null, slug: a.slug, title: a.title, artist: one(a.artists)?.name ?? null, image_url: a.cover_image_url ?? null })
+      if (a) out.push({ type: 'albumas', id: a.id, legacy_id: a.legacy_id ?? null, slug: a.slug, title: a.title, artist: one(a.artists)?.name ?? null, image_url: a.cover_image_url ?? one(a.artists)?.cover_image_url ?? null })
     } else if (l.entity_type === 'track') {
       const t = trackMap.get(Number(l.entity_id))
-      if (t) out.push({ type: 'daina', id: t.id, legacy_id: t.legacy_id ?? null, slug: t.slug, title: t.title, artist: one(t.artists)?.name ?? null, image_url: t.cover_url ?? null })
+      if (t) out.push({ type: 'daina', id: t.id, legacy_id: t.legacy_id ?? null, slug: t.slug, title: t.title, artist: one(t.artists)?.name ?? null, image_url: t.cover_url ?? one(t.artists)?.cover_image_url ?? null })
     }
   }
 

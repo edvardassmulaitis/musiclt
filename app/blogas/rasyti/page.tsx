@@ -137,6 +137,12 @@ function EditorInner() {
 
   const next = useCallback(() => setStepIdx(i => i + 1), [])
 
+  // Uždaryti overlay — grįžti ten, iš kur atėjom (app-like)
+  const close = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back()
+    else router.push('/srautas')
+  }, [router])
+
   // ── Album tracks fetch (review per-track mode) ──────────────────────────
   const loadAlbumTracks = useCallback(async (albumId: number, albumCover: string | null, albumArtist: string | null) => {
     setTracksLoading(true)
@@ -543,18 +549,13 @@ function EditorInner() {
   if (authError) return <AuthGate msg={authError} />
   if (!hasUsername) return <UsernameSetupGate onReady={() => setHasUsername(true)} />
 
-  // Type picker landing
+  // Type picker — pirmas overlay ekranas
   if (!type) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        <div className="mb-5">
-          <Link href="/blogas/mano" className="text-xs hover:text-white transition" style={{ color: 'var(--text-muted)' }}>← Mano įrašai</Link>
-        </div>
-        <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.6rem,5vw,2rem)', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--text-primary)' }}>Ką nori pridėti?</h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 6, marginBottom: 18 }}>Pasirink turinio tipą.</p>
+      <WizardChrome stepIndex={0} totalSteps={1} title="Ką nori pridėti?" subtitle="Pasirink turinio tipą." onClose={close}>
         <div className="tp-grid">
           {TYPE_TILES.map(t => (
-            <button key={t.type} type="button" className="tp-tile" onClick={() => { setType(t.type); setStepIdx(0) }}>
+            <button key={t.type} type="button" className="tp-tile" onClick={() => { setType(t.type); setStepIdx(0); setError(null) }}>
               <span className="tp-ico">{t.icon}</span>
               <span className="tp-label">{t.label}</span>
               <span className="tp-desc">{t.desc}</span>
@@ -576,7 +577,7 @@ function EditorInner() {
           .tp-label { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 16px; color: var(--text-primary); }
           .tp-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.35; }
         `}</style>
-      </div>
+      </WizardChrome>
     )
   }
 
@@ -605,8 +606,7 @@ function EditorInner() {
   const handleBack = () => {
     setError(null)
     if (safeIdx > 0) setStepIdx(i => i - 1)
-    else if (!initialType) { setType(null); setStepIdx(0) }   // grįžti į tipo pasirinkimą
-    else router.push('/blogas/mano')
+    else { setType(null); setStepIdx(0) }   // visada grįžtam į tipo pasirinkimą
   }
 
   return (
@@ -616,6 +616,7 @@ function EditorInner() {
       title={step.title}
       subtitle={step.subtitle}
       onBack={handleBack}
+      onClose={close}
       primaryLabel={primaryLabel}
       onPrimary={handlePrimary}
       primaryDisabled={!step.valid}
