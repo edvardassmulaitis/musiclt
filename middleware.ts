@@ -4,6 +4,15 @@ export function middleware(req: NextRequest) {
   const url = req.nextUrl
   const { pathname } = url
 
+  // /atradimai (senas bendruomenės hub URL) → /feed (308). Middleware'e, kad
+  // apeitų Vercel edge cache'uotą seną statinį /atradimai puslapį (page-lygio
+  // permanentRedirect to nepadaro, nes serveris atiduoda cache HIT).
+  if (pathname === '/atradimai' || pathname.startsWith('/atradimai/')) {
+    const dest = url.clone()
+    dest.pathname = pathname.replace(/^\/atradimai/, '/feed')
+    return NextResponse.redirect(dest, 308)
+  }
+
   // Redirect /lt/daina/{slug}/{id}/ → /dainos/{slug}-{id}
   const trackMatch = pathname.match(/^\/lt\/daina\/(.+?)\/(\d+)\/?$/)
   if (trackMatch) {
