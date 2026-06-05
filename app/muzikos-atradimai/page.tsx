@@ -10,7 +10,6 @@ import type { Metadata } from 'next'
 import { SITE_URL } from '@/lib/artist-browse'
 import { getDiscoveries, buildFacets } from '@/lib/discoveries'
 import DiscoveriesClient from './discoveries-client'
-import MissingForm from './missing-form'
 
 // ISR — atsinaujina importuojant naujus atradimus.
 export const revalidate = 600
@@ -61,7 +60,6 @@ export default async function MuzikosAtradimaiPage() {
           Bendruomenės narių atrastos grupės, dainos ir albumai — nuo užmirštų klasikų iki naujų
           vardų. Forumo gija paversta naršomu srautu: paspausk ▶, kad pasiklausytum, ir atrask.
         </p>
-        <MissingForm />
       </header>
 
       {items.length === 0 ? (

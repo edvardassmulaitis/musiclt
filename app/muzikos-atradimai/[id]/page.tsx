@@ -65,8 +65,9 @@ export default async function DiscoveryDetailPage({ params }: Props) {
 
         {(d.artist_name || d.track_name) && (
           <h1 style={{ fontFamily: "'Outfit',sans-serif", fontSize: 24, fontWeight: 900, letterSpacing: '-0.02em', margin: '16px 0 6px', lineHeight: 1.2 }}>
-            {d.artist_slug && d.artist_name ? <Link href={`/atlikejai/${d.artist_slug}`} style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>{d.artist_name}</Link> : (d.artist_name || '')}
-            {d.track_name && <span style={{ color: 'var(--text-secondary)', fontWeight: 700 }}> — {d.track_name}</span>}
+            {d.artist_name && (d.artist_slug ? <Link href={`/atlikejai/${d.artist_slug}`} style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>{d.artist_name}</Link> : <span>{d.artist_name}</span>)}
+            {d.artist_name && d.track_name && <span style={{ color: 'var(--text-faint)' }}> — </span>}
+            {d.track_name && <span style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{d.track_name}</span>}
           </h1>
         )}
 
