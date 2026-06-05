@@ -44,6 +44,7 @@ type NavItem = {
 }
 
 type NavPreview = {
+  radar?:       { id: number; slug: string; name: string; image: string | null }[]
   artistsLt:    { id: number; slug: string; name: string; image: string | null }[]
   artistsWorld: { id: number; slug: string; name: string; image: string | null }[]
   albums:       { id: number; slug: string; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
@@ -239,7 +240,7 @@ function ImageBox({
  * ──────────────────────────────────────────────────────────────── */
 
 /* LT vėliavos / pasaulio mėlynos juostelės indikatorius eilutės pradžiai. */
-function RowStripe({ kind }: { kind: 'lt' | 'world' }) {
+function RowStripe({ kind }: { kind: 'lt' | 'world' | 'radar' }) {
   if (kind === 'lt') {
     return (
       <span className="sh-stripe sh-stripe-lt" aria-hidden>
@@ -249,6 +250,10 @@ function RowStripe({ kind }: { kind: 'lt' | 'world' }) {
       </span>
     )
   }
+  if (kind === 'radar') {
+    // Žalia juosta — radaro akcentas (NE LT vėliava, NE mėlyna)
+    return <span className="sh-stripe sh-stripe-world" style={{ background: 'var(--accent-green)' }} aria-hidden />
+  }
   return <span className="sh-stripe sh-stripe-world" aria-hidden />
 }
 
@@ -256,6 +261,7 @@ function RowStripe({ kind }: { kind: 'lt' | 'world' }) {
 function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
   const artistsLt    = data?.artistsLt    || []
   const artistsWorld = data?.artistsWorld || []
+  const radar        = data?.radar        || []
 
   // 8 main stiliai — rikiuojami pagal atlikėjų kiekį (populiariausi pirma);
   // jei skaičių dar nėra (cache), krenta į fiksuotą STYLE_NAV_ORDER.
@@ -305,6 +311,32 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
     )
   }
 
+  // Radaro eilutė — žalia juosta + mažesnės foto, nuoroda į /nauji-atlikejai.
+  const renderRadarRow = () => {
+    if (radar.length === 0) return null
+    return (
+      <div className="sh-strip-wrap">
+        <RowStripe kind="radar" />
+        <div className="sh-strip">
+          {radar.map((a, i) => (
+            <Link key={a.id || `rad-${i}`} href={`/atlikejai/${a.slug}`} className="sh-mini sh-mini-md">
+              <ImageBox src={a.image} accent="#22c55e" glyph={I.music} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{a.name}</span>
+            </Link>
+          ))}
+        </div>
+        <Link href="/nauji-atlikejai" className="sh-expand-btn" aria-label="Atverti radarą" title="Naujos muzikos radaras">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" />
+            <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
+            <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" />
+            <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
+          </svg>
+        </Link>
+      </div>
+    )
+  }
+
   // 8 main stiliai su SVG ikonomis (no emojis) — atspindi žanro charakterį
   return (
     <div className="sh-panel sh-panel-muzika">
@@ -322,15 +354,28 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
           <span className="sh-trending-glyph" title="Trending">{I.trending}</span>
           Atlikėjai ir grupės
         </span>
-        <Link href="/nauji-atlikejai" className="sh-more-link" style={{ color: 'var(--accent-green)' }}>
-          📡 Naujų radaras →
-        </Link>
       </div>
 
       {/* ── ATLIKĖJAI: LT + užsienio eilutės su flag stripe ── */}
       {renderArtistRow(artistsLt, 'lt')}
       <div style={{ height: 10 }} />
       {renderArtistRow(artistsWorld, 'world')}
+
+      {/* ── RADARAS: nauji/kylantys — žalia juosta + mažesnės foto ── */}
+      {radar.length > 0 && (
+        <>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+            fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 800,
+            textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--accent-green)',
+            margin: '14px 0 7px',
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>📡 Naujos muzikos radaras</span>
+            <Link href="/nauji-atlikejai" className="sh-more-link" style={{ color: 'var(--accent-green)' }}>Visi →</Link>
+          </div>
+          {renderRadarRow()}
+        </>
+      )}
 
       {/* ── STILIAI — realus stoko vizualas (admin'as nustato per /admin/genres),
               fallback'as: solid color + decorative ikona ── */}

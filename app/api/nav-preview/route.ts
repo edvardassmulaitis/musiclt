@@ -14,6 +14,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { resolveDisplayWeek } from '@/lib/top-week'
 import { getNewsFeed } from '@/lib/news-feed'
 import { getGenreCounts } from '@/lib/muzika-hub'
+import { getEmergingArtists } from '@/lib/radaras'
 
 export const dynamic = 'force-dynamic'
 
@@ -262,7 +263,15 @@ export async function GET() {
       return hasLt || !hasForeign
     }
 
+    // Radaras — nauji/kylantys LT atlikėjai (žr. lib/radaras.ts). Degrade į [].
+    let radarArtists: { id: number; slug: string; name: string; image: string | null }[] = []
+    try {
+      const r = await getEmergingArtists(8)
+      radarArtists = r.map((a) => ({ id: a.id, slug: a.slug, name: a.name, image: a.cover_image_url }))
+    } catch { radarArtists = [] }
+
     const payload = {
+      radar: radarArtists,
       artistsLt: (artistsLtRes.data || []).map((a: any) => ({
         id: a.id,
         slug: a.slug,
