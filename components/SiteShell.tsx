@@ -14,6 +14,9 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   // Pokalbiai turi tampti "atskiru app'u" — be footer'io, be body scroll'o.
   // Header'į paliekam (svarbu top-nav navigacijai), bet apačia uždara.
   const isChat = pathname?.startsWith('/pokalbiai')
+  // /srautas — app-stiliaus feed'as: be footer'io (hard stop ties paskutiniu
+  // siūlymu), kad mobile'e nesimatytų footeris po turiniu.
+  const isFeed = pathname?.startsWith('/srautas')
 
   // Apatinis mobile baras rodomas VISUR (įskaitant aktyvų pokalbį), išskyrus
   // admin'ą — kad niekur „nedingtų". Chat'as pats rezervuoja barui vietą per
@@ -33,7 +36,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
     <SiteProvider>
       {!isAdmin && <SiteHeader />}
       <main className={mainHasPadding ? 'has-bottom-nav' : undefined}>{children}</main>
-      {!isAdmin && !isChat && <SiteFooter />}
+      {!isAdmin && !isChat && !isFeed && <SiteFooter />}
       {showBottomNav && <MobileBottomNav />}
       {!isAdmin && <QuickCreate />}
     </SiteProvider>

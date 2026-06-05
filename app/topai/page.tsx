@@ -174,13 +174,6 @@ export default async function TopaiHubPage() {
         Muzikos topai — Lietuva ir pasaulis
       </h1>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '8px 0 4px' }}>
-        <Link href="/topai/archyvas" className="tp-archive-link">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-          Praėjusių savaičių archyvas →
-        </Link>
-      </div>
-
       {songCards.length > 0 && (
         <section className="tp-section">
           <div className="tp-grid">{songCards.map(c => <ChartCard key={c.key} card={c} cta="Pilnas →" />)}</div>
@@ -193,6 +186,14 @@ export default async function TopaiHubPage() {
           <div className="tp-grid">{albumCards.map(c => <ChartCard key={c.key} card={c} cta="Pilnas →" />)}</div>
         </section>
       )}
+
+      {/* Archyvas — apačioje (ne pagrindinė tema, todėl nukeltas nuo viršaus). */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
+        <Link href="/topai/archyvas" className="tp-archive-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          Praėjusių savaičių archyvas →
+        </Link>
+      </div>
     </div>
   )
 }
@@ -262,6 +263,7 @@ function ChartCard({ card, cta }: { card: Card; cta: string }) {
           </>
         )}
       </Link>
+      <Link href={card.href} className="tc-cta-btn">Visas topas →</Link>
       {card.sources.length > 0 && (
         <div className="tc-srcs">
           <span className="tc-srcs-label">Šaltiniai:</span>
@@ -306,6 +308,8 @@ const styles = `
   .tc-brand .tc-title { color: var(--c); }
   .tc-cta { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--text-muted); }
   .tc:hover .tc-cta { color: var(--text-secondary); }
+  .tc-cta-btn { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 4px 16px 14px; padding: 9px 12px; border-radius: 10px; font-size: 13px; font-weight: 800; color: var(--accent-orange); text-decoration: none; background: var(--bg-elevated); border: 1px solid var(--border-subtle); transition: background .14s, border-color .14s; }
+  .tc-cta-btn:hover { background: var(--bg-surface); border-color: var(--accent-orange); }
 
   .tc-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 16px; }
 

@@ -81,47 +81,22 @@ export function ConversationSidebar({
       height: '100%',
       overflow: 'hidden',
     }}>
-      {/* Header */}
-      <div style={{
-        padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexShrink: 0,
-      }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>Pokalbiai</div>
-        <button
-          onClick={onNewConversation}
-          aria-label="Naujas pokalbis"
-          style={{
-            width: 30, height: 30, borderRadius: 8, border: 'none',
-            background: 'var(--accent-orange)', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', fontSize: 16, fontWeight: 700,
-            transition: 'transform .12s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.06)')}
-          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-        </button>
-      </div>
-
-      {/* Tabs — bendras SegTabs komponentas (toks pat kaip /srautas Sekami|Tau) */}
+      {/* Tabs — bendras SegTabs komponentas (toks pat kaip /srautas).
+          „Pokalbiai" header'is pašalintas (ir taip aišku); „+" perkeltas prie
+          paieškos. Tabai: Privatūs · Bendri · Diskusijos. */}
       <SegTabs
         items={[
-          { key: 'private', label: 'Tavo pokalbiai', badge: privateUnread },
+          { key: 'private', label: 'Privatūs', badge: privateUnread },
+          { key: 'shoutbox', label: 'Bendri' },
           { key: 'discussions', label: 'Diskusijos' },
-          { key: 'shoutbox', label: 'Bendra' },
         ]}
         value={tab}
         onChange={t => onTabChange(t as SidebarTab)}
       />
 
-      {/* Search — tik pokalbiams/diskusijoms (shoutbox'e neaktualu) */}
+      {/* Search + „+" — tik pokalbiams/diskusijoms (shoutbox'e neaktualu) */}
       {tab !== 'shoutbox' && (
-        <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+        <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0, display: 'flex', gap: 8, alignItems: 'center' }}>
           <input
             type="search"
             name="chat-conv-filter"
@@ -136,7 +111,7 @@ export function ConversationSidebar({
             onChange={e => setFilter(e.target.value)}
             placeholder="Ieškoti…"
             style={{
-              width: '100%', height: 36, padding: '0 12px',
+              flex: 1, minWidth: 0, height: 38, padding: '0 12px',
               // iOS Safari neskautimas — 16px+ neleidžia auto-zoom'inti.
               fontSize: 16, color: 'var(--text-primary)',
               background: 'var(--input-bg, var(--bg-elevated))',
@@ -144,6 +119,24 @@ export function ConversationSidebar({
               borderRadius: 8, outline: 'none',
             }}
           />
+          <button
+            onClick={onNewConversation}
+            aria-label="Naujas pokalbis"
+            title="Naujas pokalbis"
+            style={{
+              flexShrink: 0, width: 38, height: 38, borderRadius: 8, border: 'none',
+              background: 'var(--accent-orange)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', transition: 'transform .12s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.06)')}
+            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
         </div>
       )}
 

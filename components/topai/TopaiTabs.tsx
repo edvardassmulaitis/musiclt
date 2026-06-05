@@ -23,7 +23,7 @@ export function TopaiTabs() {
         value={value}
         items={[
           { key: 'topai', label: 'Pasaulio topai', href: '/topai' },
-          { key: 'top40', label: 'Music.lt TOP 40', href: '/top40' },
+          { key: 'top40', label: 'TOP 40', href: '/top40' },
           { key: 'top30', label: 'LT TOP 30', href: '/top30' },
         ]}
       />

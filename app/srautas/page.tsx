@@ -2,14 +2,12 @@
 
 /**
  * /srautas — ❤️ asmeninė muzikos zona. Du segmentai:
+ *   • Tavo mėgstami — turinys iš JAU pamėgtų atlikėjų (/api/srautas/feed).
+ *   • Gali patikti  — atradimų rekomendacijos (/api/srautas/recommendations).
  *
- *   • Sekami — turinys iš JAU pamėgtų atlikėjų (/api/srautas/feed).
- *   • Tau    — atradimų rekomendacijos (/api/srautas/recommendations):
- *              rekomenduojami atlikėjai (su „Sekti"), jų leidiniai, koncertai,
- *              temos. Vienas supintas feed'as, ne dashboard blokai.
- *
- * Tab'as išsaugomas ?t= query param'e + localStorage'e. Be-cover'io kortelė →
- * gradientas + inicialas.
+ * Be didelio header'io (kaip kiti app puslapiai). Abu feed'ai cache'inami
+ * klientiškai (sessionStorage) → grįžus atsiranda iškart. Loading = equalizer
+ * (kaip homepage). Be footer'io (hard stop ties paskutiniu item'u).
  */
 
 import { useEffect, useState, useCallback, Suspense, type MouseEvent } from 'react'
@@ -31,6 +29,7 @@ type FeedItem = {
   date: string | null
   badge: string
   reason?: string
+  because?: string | null
   artist?: { id: number; name: string; slug: string | null } | null
   meta?: { post_type?: string; rating?: number | null; avatar?: string | null; comments?: number; likes?: number }
 }
@@ -65,6 +64,14 @@ function eventWhen(iso: string | null): string {
   return new Date(t).toLocaleDateString('lt-LT', { day: 'numeric', month: 'long' })
 }
 
+function Equalizer() {
+  return (
+    <div className="sr-loading">
+      <span className="eq-loader-big" aria-label="Kraunama"><span /><span /><span /><span /><span /></span>
+    </div>
+  )
+}
+
 /** Bendra horizontali kortelė — naujienoms, įrašams, leidiniams, koncertams, temoms. */
 function RowCard({ it }: { it: FeedItem }) {
   const initial = (it.title || '?').trim()[0]?.toUpperCase() || '?'
@@ -86,14 +93,15 @@ function RowCard({ it }: { it: FeedItem }) {
           {it.kind === 'blog' && it.meta?.rating ? ` · ${it.meta.rating}/10` : ''}
         </span>
         <span className="sr-title">{it.title}</span>
-        {it.subtitle && <span className="sr-sub">{it.subtitle}</span>}
+        {it.because ? <span className="sr-because">Nes tau patinka {it.because}</span>
+          : it.subtitle ? <span className="sr-sub">{it.subtitle}</span> : null}
         {when && <span className="sr-time">{when}</span>}
       </div>
     </Link>
   )
 }
 
-/** Atlikėjo rekomendacijos kortelė su „Sekti" mygtuku (tik Tau). */
+/** Atlikėjo rekomendacijos kortelė su širdute (sekti), kaip ir kitur svetainėje. */
 function ArtistCard({ it }: { it: FeedItem }) {
   const [following, setFollowing] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -102,15 +110,16 @@ function ArtistCard({ it }: { it: FeedItem }) {
   const follow = async (e: MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (busy || following || !it.artist) return
+    if (busy || !it.artist) return
     setBusy(true)
-    setFollowing(true) // optimistic
+    const next = !following
+    setFollowing(next) // optimistic
     try {
       const res = await fetch(`/api/artists/${it.artist.id}/like`, { method: 'POST' })
       const data = await res.json().catch(() => null)
       if (data && typeof data.liked === 'boolean') setFollowing(data.liked)
     } catch {
-      setFollowing(false)
+      setFollowing(!next)
     } finally {
       setBusy(false)
     }
@@ -132,29 +141,32 @@ function ArtistCard({ it }: { it: FeedItem }) {
           {it.badge}
         </span>
         <Link href={it.href} className="sr-atitle">{it.title}</Link>
-        {it.subtitle && <span className="sr-sub">{it.subtitle}</span>}
+        {it.because ? <span className="sr-because">Nes tau patinka {it.because}</span>
+          : it.subtitle ? <span className="sr-sub">{it.subtitle}</span> : null}
       </div>
       <button
         type="button"
-        className={`sr-follow${following ? ' done' : ''}`}
+        className={`sr-heart${following ? ' done' : ''}`}
         onClick={follow}
         disabled={busy}
-        aria-label={following ? 'Seki' : 'Sekti atlikėją'}
+        aria-label={following ? 'Nebesekti' : 'Sekti atlikėją'}
+        title={following ? 'Seki' : 'Sekti'}
       >
-        {following ? (
-          <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>Seki</>
-        ) : (
-          <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>Sekti</>
-        )}
+        <svg viewBox="0 0 24 24" fill={following ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />
+        </svg>
       </button>
     </div>
   )
 }
 
+const SEK_TTL = 5 * 60 * 1000
+
 function SrautasInner() {
   const { data: session } = useSession()
   const router = useRouter()
   const params = useSearchParams()
+  const uid = (session?.user as any)?.id || 'anon'
 
   const initialTab = (params.get('t') === 'tau' ? 'tau' : params.get('t') === 'sekami' ? 'sekami' : null)
   const [tab, setTab] = useState<'sekami' | 'tau'>(initialTab || 'sekami')
@@ -172,7 +184,6 @@ function SrautasInner() {
   const [recLoading, setRecLoading] = useState(false)
   const [recLoaded, setRecLoaded] = useState(false)
 
-  // atstatom paskutinį tab'ą iš localStorage (jei nėra ?t=)
   useEffect(() => {
     if (initialTab) return
     try {
@@ -189,7 +200,7 @@ function SrautasInner() {
     router.replace(`/srautas?${sp.toString()}`, { scroll: false })
   }
 
-  // ── Sekami feed ──
+  // ── Sekami feed (su sessionStorage cache) ──
   const loadFeed = useCallback(async (before?: string | null) => {
     const url = `/api/srautas/feed?limit=24${before ? `&before=${encodeURIComponent(before)}` : ''}`
     const res = await fetch(url)
@@ -198,6 +209,18 @@ function SrautasInner() {
 
   useEffect(() => {
     let alive = true
+    const cacheKey = `srautas_sekami_${uid}`
+    // cache hit → iškart
+    try {
+      const raw = sessionStorage.getItem(cacheKey)
+      if (raw) {
+        const c = JSON.parse(raw)
+        if (c && Date.now() - c.ts < SEK_TTL && Array.isArray(c.items)) {
+          setItems(c.items); setPersonalized(!!c.personalized); setNextBefore(c.nextBefore || null); setLoading(false)
+          return
+        }
+      }
+    } catch { /* ignore */ }
     setLoading(true)
     loadFeed().then(d => {
       if (!alive) return
@@ -205,9 +228,10 @@ function SrautasInner() {
       setPersonalized(!!d.personalized)
       setNextBefore(d.nextBefore || null)
       setLoading(false)
+      try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), items: d.items || [], personalized: !!d.personalized, nextBefore: d.nextBefore || null })) } catch { /* ignore */ }
     }).catch(() => alive && setLoading(false))
     return () => { alive = false }
-  }, [loadFeed, session?.user])
+  }, [loadFeed, uid])
 
   const moreFeed = async () => {
     if (!nextBefore || loadingMore) return
@@ -219,55 +243,38 @@ function SrautasInner() {
     } finally { setLoadingMore(false) }
   }
 
-  // ── Tau feed (lazy — tik kai atidaromas) + sessionStorage cache ──
-  // Rekomendacijos brangios (RPC + enrichment), tad per sesiją cache'inam
-  // klientiškai — perjungus tab'us pirmyn/atgal feed'as atsiranda iškart.
+  // ── Tau feed (lazy + sessionStorage cache) ──
   useEffect(() => {
     if (tab !== 'tau' || recLoaded) return
     let alive = true
-    const uid = (session?.user as any)?.id || 'anon'
     const cacheKey = `srautas_tau_${uid}`
-    const TTL = 5 * 60 * 1000
-
-    // 1) Bandom cache'ą
     try {
       const raw = sessionStorage.getItem(cacheKey)
       if (raw) {
         const c = JSON.parse(raw)
-        if (c && Date.now() - c.ts < TTL && Array.isArray(c.items)) {
-          setRecs(c.items)
-          setRecPersonalized(!!c.personalized)
-          setRecLoaded(true)
+        if (c && Date.now() - c.ts < SEK_TTL && Array.isArray(c.items)) {
+          setRecs(c.items); setRecPersonalized(!!c.personalized); setRecLoaded(true)
           return
         }
       }
     } catch { /* ignore */ }
-
-    // 2) Fetch + store
     setRecLoading(true)
     fetch('/api/srautas/recommendations?limit=45')
       .then(r => r.json())
       .then(d => {
         if (!alive) return
-        setRecs(d.items || [])
-        setRecPersonalized(!!d.personalized)
-        setRecLoaded(true)
-        setRecLoading(false)
+        setRecs(d.items || []); setRecPersonalized(!!d.personalized); setRecLoaded(true); setRecLoading(false)
         try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), items: d.items || [], personalized: !!d.personalized })) } catch { /* ignore */ }
       })
       .catch(() => { if (alive) { setRecLoading(false); setRecLoaded(true) } })
     return () => { alive = false }
-  }, [tab, recLoaded, session?.user])
+  }, [tab, recLoaded, uid])
 
   return (
     <div className="sr-wrap">
       <style>{`
-        .sr-wrap { max-width: 720px; margin: 0 auto; padding: 22px 16px 64px; }
-        .sr-h { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-        .sr-h svg { width: 24px; height: 24px; color: var(--accent-orange); }
-        .sr-h h1 { font-size: 26px; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); margin: 0; }
-        /* Segmentai (bendras SegTabs komponentas) */
-        .sr-segtabs { margin-bottom: 18px; }
+        .sr-wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 24px; }
+        .sr-segtabs { margin-bottom: 16px; }
         .sr-lead { font-size: 13.5px; color: var(--text-muted); margin: 2px 0 16px; }
         .sr-cta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
           background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 14px;
@@ -288,38 +295,34 @@ function SrautasInner() {
         .sr-dot { width: 6px; height: 6px; border-radius: 50%; }
         .sr-title { font-size: 15px; font-weight: 700; color: var(--text-primary); line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .sr-sub { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sr-because { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .sr-time { font-size: 12px; color: var(--text-faint); margin-top: 1px; }
-        /* Atlikėjo kortelė (Tau) */
+        /* Atlikėjo kortelė (Gali patikti) */
         .sr-acard { display: flex; gap: 14px; align-items: center;
           background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 14px; padding: 10px; }
-        .sr-acover { flex-shrink: 0; width: 72px; height: 72px; border-radius: 12px; overflow: hidden; text-decoration: none;
+        .sr-acover { flex-shrink: 0; width: 64px; height: 64px; border-radius: 12px; overflow: hidden; text-decoration: none;
           background: linear-gradient(135deg, var(--bg-active), var(--bg-surface)); display: flex; align-items: center; justify-content: center; }
         .sr-acover img { width: 100%; height: 100%; object-fit: cover; }
         .sr-abody { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
         .sr-atitle { font-size: 16px; font-weight: 800; color: var(--text-primary); text-decoration: none; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .sr-atitle:hover { color: var(--accent-orange); }
-        .sr-follow { flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-family: inherit;
-          border: 1px solid var(--accent-orange); background: var(--accent-orange); color: #fff; font-weight: 800; font-size: 13px;
-          padding: 8px 14px; border-radius: 10px; transition: background .14s, color .14s, opacity .14s; -webkit-tap-highlight-color: transparent; }
-        .sr-follow svg { width: 15px; height: 15px; }
-        .sr-follow:disabled { opacity: .7; }
-        .sr-follow.done { background: transparent; color: var(--accent-green); border-color: var(--accent-green); }
-        .sr-more { margin: 20px auto 0; display: block; border: 1px solid var(--border-default);
+        .sr-heart { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-family: inherit;
+          border: 1px solid var(--border-default); background: var(--bg-surface); color: var(--text-muted);
+          display: inline-flex; align-items: center; justify-content: center; transition: color .14s, background .14s, border-color .14s; -webkit-tap-highlight-color: transparent; }
+        .sr-heart svg { width: 20px; height: 20px; }
+        .sr-heart:disabled { opacity: .6; }
+        .sr-heart.done { color: var(--accent-red, #f5466b); border-color: transparent; background: rgba(245,70,107,0.13); }
+        .sr-more { margin: 18px auto 0; display: block; border: 1px solid var(--border-default);
           background: var(--bg-elevated); color: var(--text-secondary); font-weight: 700; font-size: 14px; padding: 11px 28px; border-radius: 10px; cursor: pointer; font-family: inherit; }
         .sr-more:hover { border-color: var(--accent-orange); color: var(--text-primary); }
+        .sr-end { text-align: center; padding: 18px 0 4px; font-size: 12.5px; color: var(--text-faint); }
         .sr-empty { text-align: center; padding: 48px 16px; color: var(--text-muted); }
-        .sr-skel { height: 100px; border-radius: 14px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); animation: srpulse 1.3s ease-in-out infinite; }
-        @keyframes srpulse { 0%,100% { opacity: .5 } 50% { opacity: 1 } }
+        .sr-loading { display: flex; justify-content: center; padding: 56px 0; }
       `}</style>
-
-      <div className="sr-h">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" /></svg>
-        <h1>Mano muzika</h1>
-      </div>
 
       <SegTabs
         className="sr-segtabs"
-        items={[{ key: 'sekami', label: 'Sekami' }, { key: 'tau', label: 'Tau' }]}
+        items={[{ key: 'sekami', label: 'Tavo mėgstami' }, { key: 'tau', label: 'Gali patikti' }]}
         value={tab}
         onChange={k => switchTab(k as 'sekami' | 'tau')}
       />
@@ -339,17 +342,15 @@ function SrautasInner() {
             </div>
           )}
           {loading ? (
-            <div className="sr-list">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="sr-skel" />)}</div>
+            <Equalizer />
           ) : items.length === 0 ? (
             <div className="sr-empty">Kol kas tuščia. Pamėk atlikėjų arba užsuk vėliau.</div>
           ) : (
             <>
               <div className="sr-list">{items.map(it => <RowCard key={it.key} it={it} />)}</div>
-              {nextBefore && (
-                <button className="sr-more" onClick={moreFeed} disabled={loadingMore}>
-                  {loadingMore ? 'Kraunama…' : 'Rodyti daugiau'}
-                </button>
-              )}
+              {nextBefore
+                ? <button className="sr-more" onClick={moreFeed} disabled={loadingMore}>{loadingMore ? 'Kraunama…' : 'Rodyti daugiau'}</button>
+                : <div className="sr-end">Tai viskas kol kas ✦</div>}
             </>
           )}
         </>
@@ -361,7 +362,7 @@ function SrautasInner() {
               : 'Atrask naujų atlikėjų pagal tai, ką jau mėgsti.'}
           </p>
           {recLoading && recs.length === 0 ? (
-            <div className="sr-list">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="sr-skel" />)}</div>
+            <Equalizer />
           ) : recs.length === 0 ? (
             <div className="sr-empty">
               {session?.user
@@ -369,11 +370,14 @@ function SrautasInner() {
                 : <>Prisijunk, kad gautum asmenines rekomendacijas. <button className="sr-more" onClick={() => signIn()}>Prisijungti</button></>}
             </div>
           ) : (
-            <div className="sr-list">
-              {recs.map(it => it.kind === 'artist'
-                ? <ArtistCard key={it.key} it={it} />
-                : <RowCard key={it.key} it={it} />)}
-            </div>
+            <>
+              <div className="sr-list">
+                {recs.map(it => it.kind === 'artist'
+                  ? <ArtistCard key={it.key} it={it} />
+                  : <RowCard key={it.key} it={it} />)}
+              </div>
+              <div className="sr-end">Tai viskas kol kas ✦</div>
+            </>
           )}
         </>
       )}

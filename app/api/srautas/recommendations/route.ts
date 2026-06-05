@@ -44,6 +44,7 @@ type RecItem = {
   date: string | null
   badge: string
   reason?: string
+  because?: string | null
   artist?: { id: number; name: string; slug: string | null } | null
   meta?: Record<string, any>
 }
@@ -181,6 +182,40 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     }
   }
 
+  // „Nes tau patinka X" — kiekvienam rekomenduojamam atlikėjui surandam pamėgtą
+  // atlikėją, dalijantį tą patį žanrą. 3 pigios indeksuotos užklausos (paralelės).
+  const becauseMap = new Map<number, string>()
+  const becauseTask = async () => {
+    if (!personalized || !recIds.length || !likedIds.length) return
+    const likedSample = likedIds.slice(0, 500)
+    const [lg, ln, rg] = await Promise.all([
+      sb.from('artist_genres').select('genre_id, artist_id').in('artist_id', likedSample),
+      sb.from('artists').select('id, name').in('id', likedSample),
+      sb.from('artist_genres').select('genre_id, artist_id').in('artist_id', recIds),
+    ])
+    const nameById = new Map<number, string>(((ln.data || []) as any[]).map(r => [Number(r.id), r.name as string]))
+    const genreToLiked = new Map<number, string>()
+    for (const r of (lg.data || []) as any[]) {
+      const gid = Number(r.genre_id)
+      if (genreToLiked.has(gid)) continue
+      const nm = nameById.get(Number(r.artist_id))
+      if (nm) genreToLiked.set(gid, nm)
+    }
+    const recGenres = new Map<number, number[]>()
+    for (const r of (rg.data || []) as any[]) {
+      const aid = Number(r.artist_id)
+      const arr = recGenres.get(aid) || []
+      arr.push(Number(r.genre_id))
+      recGenres.set(aid, arr)
+    }
+    for (const rid of recIds) {
+      for (const g of recGenres.get(rid) || []) {
+        const nm = genreToLiked.get(g)
+        if (nm) { becauseMap.set(rid, nm); break }
+      }
+    }
+  }
+
   const topicsTask = async () => {
     if (!matchIds.length) return
     const { data } = await sb.from('discussions')
@@ -199,7 +234,13 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     }
   }
 
-  await Promise.all([releasesTask(), eventsTask(), topicsTask()].map(p => p.catch(() => {})))
+  await Promise.all([releasesTask(), eventsTask(), topicsTask(), becauseTask()].map(p => p.catch(() => {})))
+
+  // Prikabinam „Nes tau patinka X" prie atlikėjų kortelių.
+  for (const a of queues.artist) {
+    const rid = a.artist?.id
+    if (rid && becauseMap.has(rid)) a.because = becauseMap.get(rid) || null
+  }
 
   return { items: weave(queues, limit), personalized, recommendedCount: recs.length }
 }
