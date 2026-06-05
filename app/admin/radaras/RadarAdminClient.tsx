@@ -108,27 +108,6 @@ export default function RadarAdminClient({
     }
   }, [])
 
-  const del = useCallback(async (a: AdminArtist) => {
-    // ⚠️ NEGRĮŽTAMA: ištrina atlikėją + VISAS jo dainas ir albumus iš DB.
-    // NE „pašalinti iš sąrašo" — tam yra 🚫 Paslėpti. Reikalaujam įvesti vardą.
-    const typed = window.prompt(
-      `⚠️ DĖMESIO — tai NEGRĮŽTAMAI ištrins „${a.name}" IR VISAS jo dainas/albumus iš visos duomenų bazės (NE tik iš radaro sąrašo!).\n\nJei tik nori pašalinti iš siūlymų — atšauk ir spausk „🚫 Paslėpti".\n\nKad patvirtintum trynimą, įvesk tikslų atlikėjo vardą:`,
-    )
-    if (typed == null) return
-    if (typed.trim() !== a.name.trim()) { setErr('Vardas nesutapo — trynimas atšauktas.'); return }
-    setBusy(a.id); setErr(null)
-    try {
-      const res = await fetch('/api/admin/radar/delete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ artistId: a.id }),
-      })
-      const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j.error || 'Nepavyko ištrinti')
-      removeFrom(a.id)
-      setResults((l) => l.filter((x) => x.id !== a.id))
-    } catch (e: any) { setErr(e?.message || 'Klaida') } finally { setBusy(null) }
-  }, [])
-
   const doSearch = useCallback(async (term: string) => {
     setQ(term)
     if (term.trim().length < 2) { setResults([]); return }
@@ -158,17 +137,15 @@ export default function RadarAdminClient({
         <button onClick={() => apply(a, 'included')} disabled={busy === a.id}
           className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] ring-1 ring-[var(--border-default)] disabled:opacity-50">＋ Įtraukti</button>
       )}
-      {a.radar_status !== 'excluded' && (
+      {a.radar_status !== 'excluded' ? (
         <button onClick={() => apply(a, 'excluded')} disabled={busy === a.id}
-          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-red)] ring-1 ring-[var(--border-default)] disabled:opacity-50">🚫 Paslėpti</button>
-      )}
-      {a.radar_status !== null && (
+          title="Pašalinti iš radaro siūlymų (atlikėjas DB lieka, tik nebesimaišo čia)"
+          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-red)] ring-1 ring-[var(--border-default)] disabled:opacity-50">✕ Pašalinti iš radaro</button>
+      ) : (
         <button onClick={() => apply(a, null)} disabled={busy === a.id}
-          title="Nuimti rankinį override (featured/įtraukti/paslėpti) ir grąžinti atlikėją algoritmui"
-          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)] ring-1 ring-[var(--border-default)] disabled:opacity-50">↺ Grąžinti į auto</button>
+          title="Grąžinti atgal į radarą"
+          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)] ring-1 ring-[var(--border-default)] disabled:opacity-50">↩︎ Grąžinti</button>
       )}
-      <button onClick={() => del(a)} disabled={busy === a.id} title="NEGRĮŽTAMAI ištrina atlikėją + dainas/albumus iš VISOS DB (ne tik iš radaro). Pašalinti iš sąrašo → 🚫 Paslėpti."
-        className="rounded-md bg-[rgba(248,113,113,0.10)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-red)] ring-1 ring-[rgba(248,113,113,0.4)] disabled:opacity-50">🗑 Trinti iš DB</button>
     </div>
   )
 
@@ -247,12 +224,12 @@ export default function RadarAdminClient({
         items={included} empty="Tuščia — auto kandidatai (žemiau) ir taip rodomi tinklelyje." />
 
       <Section title="📡 Auto kandidatai"
-        hint="Algoritmo rasti (nesenas LT įkėlimas + maža auditorija). Jau rodomi /nauji-atlikejai. Gali pakelti į featured arba paslėpti."
+        hint="Algoritmo rasti: naujas LT atlikėjas (pirmas YT įkėlimas ≤1 m. + maža auditorija). Jau rodomi /nauji-atlikejai. Gali pakelti į featured arba pašalinti."
         items={candidates} empty="Nėra kandidatų (gali būti DB ryšio problema arba langas tuščias)." />
 
-      <Section title="🚫 Paslėpti"
-        hint="Niekada nerodomi (pvz. klaidingai Lietuvai priskirti užsienio atlikėjai)."
-        items={excluded} empty="Nieko nepaslėpta." />
+      <Section title="✕ Pašalinti iš radaro"
+        hint="Nerodomi /nauji-atlikejai (atlikėjas DB lieka). Spausk „↩︎ Grąžinti“, jei nori atgal."
+        items={excluded} empty="Nieko nepašalinta." />
     </div>
   )
 }
