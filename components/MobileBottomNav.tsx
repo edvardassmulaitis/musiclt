@@ -3,19 +3,17 @@
 /**
  * MobileBottomNav — app-stiliaus apatinis meniu (tik mobile, ≤1080px).
  *
- * v5 (6 vietos, VISI vienam lygyje — be pakelto FAB), TIK IKONOS:
- *   🏠 Pradžia · ❤️ Sekami · 👥 Bendruomenė(/atrasti) · ➕ Kurti · 📊 Topai · 💬 Pokalbiai
+ * v6 (5 vietos, „+" CENTRE), TIK IKONOS:
+ *   🏠 Pradžia · ❤️ Sekami · ➕ Kurti · 👥 Bendruomenė(/atrasti) · 📊 Topai
  *
- * Kodėl v5: v4 centrinis FAB vedė į /atrasti, bet dingo „+" kūrimo galimybė
- * mobile'e. Dabar abu — Bendruomenė (👥→/atrasti) ir Kurti (➕→QuickCreate) —
- * stovi viduryje, vienam lygyje su kitais. „+" pažymėtas oranžine chip'u, kad
- * išliktų matomas kaip pagrindinis kūrimo veiksmas (bet nepakeltas).
+ * Kodėl v6: Pokalbiai (💬) perkelti į viršutinį baro (MessagesBell, šalia
+ * pranešimų), kad „+" Kurti liktų tiksliai per vidurį (3-ia iš 5). „+" pažymėtas
+ * oranžine chip'u kaip pagrindinis kūrimo veiksmas.
  *
  * Ikonos: plonesnės (strokeWidth 1.8, 24px), TIK kontūras (be fill) — aktyvus
  * žymimas tik oranžine spalva, kad pasirinkus ikonos nesusilietų į blob'ą.
  */
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { openQuickCreate } from '@/components/QuickCreate'
@@ -25,25 +23,6 @@ export function MobileBottomNav() {
   const isHome = pathname === '/'
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
   const isTopai = isActive('/topai') || isActive('/top40') || isActive('/top30') || isActive('/topas')
-  const [msgs, setMsgs] = useState(0)
-
-  useEffect(() => {
-    let alive = true
-    const load = async () => {
-      try {
-        const m = await fetch('/api/chat/unread', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null)
-        if (!alive) return
-        if (m) setMsgs(m.unread || 0)
-      } catch { /* ignore */ }
-    }
-    load()
-    const t = setInterval(load, 60000)
-    return () => { alive = false; clearInterval(t) }
-  }, [pathname])
-
-  const Badge = ({ n }: { n: number }) => n > 0
-    ? <span className="mbn-badge">{n > 9 ? '9+' : n}</span>
-    : null
 
   return (
     <>
@@ -68,11 +47,6 @@ export function MobileBottomNav() {
         .mbn-item.active { color: var(--accent-orange); }
         .mbn-ico { position: relative; display: flex; }
         .mbn-ico svg { width: 24px; height: 24px; display: block; }
-        .mbn-badge {
-          position: absolute; top: -4px; right: -8px; min-width: 15px; height: 15px; padding: 0 4px;
-          border-radius: 8px; background: var(--accent-red, #f87171); color: #fff;
-          font-size: 9.5px; font-weight: 800; line-height: 15px; text-align: center;
-        }
         /* „+" Kurti — oranžinis chip, vienam lygyje su kitais (nepakeltas). */
         .mbn-create-chip {
           display: flex; align-items: center; justify-content: center;
@@ -98,6 +72,13 @@ export function MobileBottomNav() {
           </span>
         </Link>
 
+        {/* ➕ Kurti — oranžinis chip, CENTRE (3-ia iš 5) */}
+        <button type="button" className="mbn-item" aria-label="Kurti" onClick={() => openQuickCreate()}>
+          <span className="mbn-create-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          </span>
+        </button>
+
         {/* 👥 Bendruomenė → /atrasti */}
         <Link href="/atrasti" className={`mbn-item${isActive('/atrasti') ? ' active' : ''}`} aria-label="Bendruomenė">
           <span className="mbn-ico">
@@ -105,25 +86,10 @@ export function MobileBottomNav() {
           </span>
         </Link>
 
-        {/* ➕ Kurti — oranžinis chip, vienam lygyje */}
-        <button type="button" className="mbn-item" aria-label="Kurti" onClick={() => openQuickCreate()}>
-          <span className="mbn-create-chip">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-          </span>
-        </button>
-
         {/* Topai — stulpelinė diagrama */}
         <Link href="/topai" className={`mbn-item${isTopai ? ' active' : ''}`} aria-label="Topai">
           <span className="mbn-ico">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="20" x2="6" y2="12" /><line x1="12" y1="20" x2="12" y2="5" /><line x1="18" y1="20" x2="18" y2="9" /></svg>
-          </span>
-        </Link>
-
-        {/* Pokalbiai */}
-        <Link href="/pokalbiai" className={`mbn-item${isActive('/pokalbiai') ? ' active' : ''}`} aria-label="Pokalbiai">
-          <span className="mbn-ico">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>
-            <Badge n={msgs} />
           </span>
         </Link>
       </nav>

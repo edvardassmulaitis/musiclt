@@ -2835,11 +2835,9 @@ export function SiteHeader() {
               </svg>
             </Link>
 
-            {/* Žinutės — TIK desktop top-right (mobile'e jas dengia apatinio baro
-                „Pokalbiai" tab'as). */}
-            <span className="sh-desktop-bells">
-              <MessagesBell />
-            </span>
+            {/* Žinutės (Pokalbiai) — VISADA matomi (top bar), kaip Instagram/TikTok.
+                Perkelti iš apatinio baro, kad „+" liktų per vidurį. */}
+            <MessagesBell />
             {/* Pranešimai — VISADA matomi (top bar), kaip Instagram/TikTok.
                 Nebėra apatiniame bare. Mobile'e bell atidaro full-screen modalą. */}
             <NotificationsBell />
