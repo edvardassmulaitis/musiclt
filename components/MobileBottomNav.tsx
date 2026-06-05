@@ -3,18 +3,22 @@
 /**
  * MobileBottomNav — app-stiliaus apatinis meniu (tik mobile, ≤1080px).
  *
- * v4 (5 vietos, centrinis 👥+ bendruomenės hub FAB), TIK IKONOS:
- *   🏠 Pradžia · ❤️ Sekami · 👥+ Bendruomenė(/feed) · 📊 Topai · 💬 Pokalbiai
+ * v5 (6 vietos, VISI vienam lygyje — be pakelto FAB), TIK IKONOS:
+ *   🏠 Pradžia · ❤️ Sekami · 👥 Bendruomenė(/atrasti) · ➕ Kurti · 📊 Topai · 💬 Pokalbiai
+ *
+ * Kodėl v5: v4 centrinis FAB vedė į /atrasti, bet dingo „+" kūrimo galimybė
+ * mobile'e. Dabar abu — Bendruomenė (👥→/atrasti) ir Kurti (➕→QuickCreate) —
+ * stovi viduryje, vienam lygyje su kitais. „+" pažymėtas oranžine chip'u, kad
+ * išliktų matomas kaip pagrindinis kūrimo veiksmas (bet nepakeltas).
  *
  * Ikonos: plonesnės (strokeWidth 1.8, 24px), TIK kontūras (be fill) — aktyvus
  * žymimas tik oranžine spalva, kad pasirinkus ikonos nesusilietų į blob'ą.
- * Centrinis FAB pakeltas virš baro (margin-top) — veda į bendruomenės hub'ą
- * (/feed), kuriame integruotas ir kūrimas (buvęs /atradimai turinys).
  */
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { openQuickCreate } from '@/components/QuickCreate'
 
 export function MobileBottomNav() {
   const pathname = usePathname() || '/'
@@ -69,17 +73,15 @@ export function MobileBottomNav() {
           border-radius: 8px; background: var(--accent-red, #f87171); color: #fff;
           font-size: 9.5px; font-weight: 800; line-height: 15px; text-align: center;
         }
-        .mbn-fab-wrap { flex: 1; display: flex; align-items: flex-start; justify-content: center; }
-        .mbn-fab {
-          width: 48px; height: 48px; margin-top: -14px; border-radius: 16px;
-          border: none; background: var(--accent-orange);
-          color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
-          box-shadow: 0 6px 16px rgba(249,115,22,0.42);
-          transition: transform .12s;
-          -webkit-tap-highlight-color: transparent;
+        /* „+" Kurti — oranžinis chip, vienam lygyje su kitais (nepakeltas). */
+        .mbn-create-chip {
+          display: flex; align-items: center; justify-content: center;
+          width: 34px; height: 34px; border-radius: 11px;
+          background: var(--accent-orange); color: #fff;
+          transition: transform .12s, filter .15s;
         }
-        .mbn-fab:active { transform: scale(.9); }
-        .mbn-fab svg { width: 24px; height: 24px; }
+        .mbn-create-chip svg { width: 22px; height: 22px; }
+        .mbn-item:active .mbn-create-chip { transform: scale(.9); }
       `}</style>
       <nav className="mbn" aria-label="Apatinė navigacija">
         {/* Pradžia */}
@@ -96,12 +98,19 @@ export function MobileBottomNav() {
           </span>
         </Link>
 
-        {/* 👥+ Bendruomenė (centras) — pakeltas FAB → /feed (hub su kūrimu) */}
-        <div className="mbn-fab-wrap">
-          <Link href="/atrasti" className="mbn-fab" aria-label="Bendruomenė">
+        {/* 👥 Bendruomenė → /atrasti */}
+        <Link href="/atrasti" className={`mbn-item${isActive('/atrasti') ? ' active' : ''}`} aria-label="Bendruomenė">
+          <span className="mbn-ico">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="6.5" r="2.8"/><circle cx="5.5" cy="8.5" r="2.1"/><circle cx="18.5" cy="8.5" r="2.1"/><path d="M12 11c-2.8 0-4.7 1.8-4.7 4.3V17h9.4v-1.7c0-2.5-1.9-4.3-4.7-4.3Z"/><path d="M5.5 12.9c-2.1 0-3.5 1.3-3.5 3.2V17h3.3"/><path d="M18.5 12.9c2.1 0 3.5 1.3 3.5 3.2V17h-3.3"/></svg>
-          </Link>
-        </div>
+          </span>
+        </Link>
+
+        {/* ➕ Kurti — oranžinis chip, vienam lygyje */}
+        <button type="button" className="mbn-item" aria-label="Kurti" onClick={() => openQuickCreate()}>
+          <span className="mbn-create-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          </span>
+        </button>
 
         {/* Topai — stulpelinė diagrama */}
         <Link href="/topai" className={`mbn-item${isTopai ? ' active' : ''}`} aria-label="Topai">
