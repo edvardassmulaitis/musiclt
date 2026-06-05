@@ -49,7 +49,7 @@ export type DiscoveryFacets = {
 
 const SELECT =
   'id, comment_id, created_at, author_id, artist_name, artist_id, track_name, track_id, ' +
-  'album_name, album_id, embed_type, embed_id, resolve_state, is_lt, ' +
+  'album_name, album_id, embed_type, embed_id, resolve_state, is_lt, source, body, ' +
   'comments:comment_id(body, like_count), ' +
   'artists:artist_id(slug, name), tracks:track_id(slug, title), albums:album_id(slug, title)'
 
@@ -73,7 +73,7 @@ async function attachTagsAndAuthors(sb: any, rows: any[]): Promise<Discovery[]> 
       id: r.id,
       comment_id: r.comment_id,
       created_at: r.created_at,
-      body: r.comments?.body ?? null,
+      body: r.comments?.body ?? r.body ?? null,
       like_count: r.comments?.like_count ?? 0,
       author: prof ? { username: prof.username, full_name: prof.full_name, avatar_url: prof.avatar_url } : null,
       artist_name: r.artist_name ?? r.artists?.name ?? null,
@@ -100,7 +100,7 @@ export async function getDiscoveries(threadId: number = ATRADIMAI_THREAD_ID): Pr
   const { data, error } = await sb
     .from('discoveries')
     .select(SELECT)
-    .eq('thread_id', threadId)
+    .or(`thread_id.eq.${threadId},source.eq.user`)
     .order('created_at', { ascending: false })
   if (error || !data) return []
   return attachTagsAndAuthors(sb, data as any[])

@@ -14,6 +14,7 @@ import { proxyImg } from '@/lib/img-proxy'
 import { LikePill } from '@/components/LikePill'
 import { relativeLt, type Discovery, type DiscoveryFacets } from '@/lib/discoveries'
 import MissingForm from './missing-form'
+import AddDiscovery from './add-discovery'
 
 function hue(s: string) { let h = 0; for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h }
 
@@ -78,7 +79,7 @@ function FilterPopover({ label, value, options, onPick }: { label: string; value
   return (
     <div className="ma-popwrap" ref={ref}>
       <button className={`ma-fchip${value ? ' on' : ''}`} onClick={() => setOpen(o => !o)}>
-        {value || label}
+        <span className="ma-fchip-lbl">{value ? `${label}: ${value}` : label}</span>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       {open && (
@@ -134,9 +135,10 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         </div>
         <FilterPopover label="Narys" value={member} options={facets.members} onPick={v => { setMember(v); setLimit(24) }} />
         {facets.genres.length > 0 && <FilterPopover label="Stilius" value={style} options={facets.genres} onPick={v => { setStyle(v); setLimit(24) }} />}
-        <MissingForm />
-        <span className="ma-count">{list.length} atradim{list.length === 1 ? 'as' : (list.length % 10 === 0 || list.length >= 11 ? 'ų' : 'ai')}</span>
         {hasFilters && <button className="ma-reset" onClick={() => { setQ(''); setMember(''); setStyle(''); setLimit(24) }}>Išvalyti</button>}
+        <div className="ma-bar-spacer" />
+        <span className="ma-count">{list.length} atradim{list.length === 1 ? 'as' : (list.length % 10 === 0 || list.length >= 11 ? 'ų' : 'ai')}</span>
+        <AddDiscovery />
       </div>
 
       {shown.length === 0 ? (
@@ -182,14 +184,23 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         <div className="ma-more"><button onClick={() => setLimit(l => l + 24)}>Rodyti daugiau ({list.length - shown.length})</button></div>
       )}
 
+      <div className="ma-foot">
+        <span>Matai, kad kažko trūksta duombazėje?</span>
+        <MissingForm />
+      </div>
+
       <style jsx>{`
         .ma-bar{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-bottom:20px}
         .ma-search-wrap{display:flex;align-items:center;gap:8px;background:var(--bg-hover);border:1px solid var(--border-default);border-radius:100px;padding:8px 14px;color:var(--text-muted);flex:1;min-width:200px;max-width:340px}
         .ma-search-wrap input{background:none;border:none;color:var(--text-primary);outline:none;width:100%;font-size:13.5px}
         .ma-popwrap{position:relative}
-        .ma-fchip{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:100px;font-size:12.5px;font-weight:600;font-family:'Outfit',sans-serif;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-secondary);cursor:pointer;white-space:nowrap;transition:all .15s}
-        .ma-fchip:hover{color:var(--text-primary);border-color:rgba(249,115,22,0.4)}
+        .ma-fchip{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:100px;font-size:12.5px;font-weight:600;font-family:'Outfit',sans-serif;background:var(--bg-elevated);border:1px solid var(--border-strong);color:var(--text-secondary);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;line-height:1.2;max-width:240px}
+        .ma-fchip svg{flex-shrink:0}
+        .ma-fchip-lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .ma-fchip:hover{color:var(--text-primary);border-color:rgba(249,115,22,0.5)}
         .ma-fchip.on{background:var(--accent-orange);border-color:var(--accent-orange);color:#fff}
+        .ma-bar-spacer{flex:1 1 20px;min-width:0}
+        .ma-foot{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:40px;padding-top:24px;border-top:1px solid var(--border-subtle);color:var(--text-muted);font-size:13px}
         .ma-pop{position:absolute;top:calc(100% + 8px);left:0;z-index:60;width:240px;padding:12px;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.32)}
         .ma-pop-search{width:100%;height:34px;border-radius:9px;padding:0 11px;font-size:13px;margin-bottom:8px;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-primary);outline:none}
         .ma-pop-list{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto}

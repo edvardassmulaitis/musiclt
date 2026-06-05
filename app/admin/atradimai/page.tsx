@@ -20,8 +20,8 @@ export default async function AtradimaiAdminPage() {
 
   const { data: pend } = await sb
     .from('discoveries')
-    .select('id, artist_name, track_name, embed_type, embed_id, comment_id')
-    .eq('thread_id', 128402)
+    .select('id, artist_name, track_name, embed_type, embed_id, comment_id, source')
+    .or('thread_id.eq.128402,source.eq.user')
     .eq('resolve_state', 'needs_import')
     .order('artist_name', { ascending: true })
 
