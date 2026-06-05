@@ -169,7 +169,6 @@ function MuzikosAtradimaiRow() {
           {items.map(d => {
             const thumb = d.embed_type === 'youtube' && d.embed_id ? `https://i.ytimg.com/vi/${d.embed_id}/mqdefault.jpg` : (d.artist_cover ? proxyImg(d.artist_cover) : null)
             const uname = d.author?.username || d.author_username
-            const miss = d.resolve_state === 'needs_import' || d.is_lt
             return (
               <Link key={d.id} href="/muzikos-atradimai" className="group block w-[200px] shrink-0 snap-start no-underline">
                 <div className="relative aspect-video overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)]">
@@ -181,7 +180,7 @@ function MuzikosAtradimaiRow() {
                       <span className="font-['Outfit',sans-serif] text-3xl font-black text-white/85">{(d.artist_name || '?').charAt(0).toUpperCase()}</span>
                     </div>
                   )}
-                  {miss && <span className="absolute right-1.5 top-1.5 rounded-md bg-[rgba(249,115,22,0.92)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-white">{d.is_lt ? 'LT' : 'nėra DB'}</span>}
+                  {d.embed_type && <span className="absolute right-1.5 top-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-white/90">{d.embed_type === 'youtube' ? '▶ YouTube' : 'Spotify'}</span>}
                 </div>
                 <p className="m-0 mt-2 line-clamp-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{d.artist_name || 'Atradimas'}</p>
                 <p className="m-0 mt-0.5 line-clamp-1 text-[11.5px] text-[var(--text-muted)]">{d.track_name || (uname ? `atrado ${uname}` : '')}</p>
