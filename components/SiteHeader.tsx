@@ -2279,8 +2279,9 @@ export function SiteHeader() {
           -webkit-tap-highlight-color: transparent;
         }
         .sh-hub-feed {
-          display: flex; align-items: center; justify-content: center;
-          width: 42px; color: var(--text-muted);
+          display: flex; align-items: center; gap: 6px; padding: 0 12px;
+          color: var(--text-muted);
+          font-family: inherit; font-size: 13px; font-weight: 700;
           transition: color .15s, background .15s;
         }
         .sh-hub-feed:hover { color: var(--text-primary); background: var(--bg-hover); }
@@ -2752,11 +2753,12 @@ export function SiteHeader() {
                 title="Bendruomenė — srautas, įrašai, diskusijos"
                 className={`sh-hub-feed${pathname.startsWith('/feed') ? ' active' : ''}`}
               >
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="6.5" r="2.8"/><circle cx="5.5" cy="8.5" r="2.1"/><circle cx="18.5" cy="8.5" r="2.1"/>
                   <path d="M12 11c-2.8 0-4.7 1.8-4.7 4.3V17h9.4v-1.7c0-2.5-1.9-4.3-4.7-4.3Z"/>
                   <path d="M5.5 12.9c-2.1 0-3.5 1.3-3.5 3.2V17h3.3"/><path d="M18.5 12.9c2.1 0 3.5 1.3 3.5 3.2V17h-3.3"/>
                 </svg>
+                <span>Atrasti</span>
               </Link>
               <span className="sh-hub-divider" aria-hidden />
               <button
