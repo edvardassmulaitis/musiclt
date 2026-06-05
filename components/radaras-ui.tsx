@@ -170,8 +170,8 @@ export function EmergingTile({ a }: { a: RadarArtist }) {
         <span className="rd-tile-name">{a.name}</span>
         {flag && <span className="rd-flag">{flag}</span>}
       </div>
-      {a.career_start ? (
-        <div className="rd-tile-latest"><span className="rd-dot" aria-hidden /> Kuria nuo {a.career_start}</div>
+      {a.first_upload_at ? (
+        <div className="rd-tile-latest"><span className="rd-dot" aria-hidden /> Pirmas įrašas {fmtAgo(a.first_upload_at)}</div>
       ) : a.genres[0] ? (
         <div className="rd-tile-latest">{styleLabel(a.genres[0])}</div>
       ) : null}

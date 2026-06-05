@@ -111,9 +111,9 @@ async function recentTrackArtists(limit = 700): Promise<{ order: number[]; lates
   return { order, latest }
 }
 
-/** Pirmo YT įkėlimo metai per atlikėją (veiklos startas) — vienam id rinkiniui. */
-async function firstUploadYears(ids: number[]): Promise<Map<number, number>> {
-  const out = new Map<number, number>()
+/** Pirmo YT įkėlimo DATA per atlikėją (veiklos startas, ISO) — vienam id rinkiniui. */
+async function firstUploadDates(ids: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>()
   if (ids.length === 0) return out
   try {
     const sb = createAdminClient()
@@ -125,10 +125,7 @@ async function firstUploadYears(ids: number[]): Promise<Map<number, number>> {
       .order('video_uploaded_at', { ascending: true })
       .limit(4000)
     for (const t of (data || []) as any[]) {
-      if (!out.has(t.artist_id)) {
-        const y = new Date(t.video_uploaded_at).getFullYear()
-        if (y > 1990 && y <= new Date().getFullYear()) out.set(t.artist_id, y)
-      }
+      if (!out.has(t.artist_id) && t.video_uploaded_at) out.set(t.artist_id, t.video_uploaded_at)
     }
   } catch { /* degrade */ }
   return out
@@ -141,7 +138,7 @@ async function hydrate(ids: number[], latest: Map<number, LatestRow>): Promise<R
     const { data } = await sb.from('artists').select(ARTIST_COLS).in('id', ids)
     const byId = new Map<number, any>()
     for (const a of (data || []) as any[]) byId.set(a.id, a)
-    const [genres, careers] = await Promise.all([genresForArtists(ids), firstUploadYears(ids)])
+    const [genres, firstUploads] = await Promise.all([genresForArtists(ids), firstUploadDates(ids)])
     const now = Date.now()
     const out: RadarArtist[] = []
     for (const id of ids) {
@@ -157,7 +154,7 @@ async function hydrate(ids: number[], latest: Map<number, LatestRow>): Promise<R
         genres: genres.get(id) || [],
         latest_title: lr?.latest_title ?? null, latest_at: lr?.latest_at ?? null,
         latest_video_url: lr?.latest_video_url ?? null,
-        career_start: careers.get(id) ?? null,
+        first_upload_at: firstUploads.get(id) ?? null,
         is_fresh: latestMs > 0 && now - latestMs < FRESH_BADGE_DAYS * 86_400_000,
       })
     }

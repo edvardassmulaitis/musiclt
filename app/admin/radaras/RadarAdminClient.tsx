@@ -108,6 +108,21 @@ export default function RadarAdminClient({
     }
   }, [])
 
+  const del = useCallback(async (a: AdminArtist) => {
+    if (!window.confirm(`VISIŠKAI ištrinti „${a.name}"?\n\nBus negrįžtamai pašalintas atlikėjas KARTU su jo dainomis ir albumais. Naudok tik šiukšlėms / klaidingiems įrašams.`)) return
+    setBusy(a.id); setErr(null)
+    try {
+      const res = await fetch('/api/admin/radar/delete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artistId: a.id }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Nepavyko ištrinti')
+      removeFrom(a.id)
+      setResults((l) => l.filter((x) => x.id !== a.id))
+    } catch (e: any) { setErr(e?.message || 'Klaida') } finally { setBusy(null) }
+  }, [])
+
   const doSearch = useCallback(async (term: string) => {
     setQ(term)
     if (term.trim().length < 2) { setResults([]); return }
@@ -145,6 +160,8 @@ export default function RadarAdminClient({
         <button onClick={() => apply(a, null)} disabled={busy === a.id}
           className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)] ring-1 ring-[var(--border-default)] disabled:opacity-50">↺ Auto</button>
       )}
+      <button onClick={() => del(a)} disabled={busy === a.id} title="Visiškai ištrinti iš DB"
+        className="rounded-md bg-[rgba(248,113,113,0.10)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-red)] ring-1 ring-[rgba(248,113,113,0.4)] disabled:opacity-50">🗑 Ištrinti</button>
     </div>
   )
 
@@ -191,16 +208,24 @@ export default function RadarAdminClient({
     <div>
       {err && <div className="mb-3 rounded-lg bg-[rgba(248,113,113,0.12)] px-3 py-2 text-sm text-[var(--accent-red)]">{err}</div>}
 
-      {/* search-to-add */}
-      <div className="rounded-xl bg-[var(--bg-surface)] p-3 ring-1 ring-[var(--border-subtle)]">
-        <label className="text-xs font-semibold text-[var(--text-secondary)]">Rasti bet kurį atlikėją (featured / paslėpti)</label>
+      {/* search-to-add — pridėti BET KURĮ atlikėją iš visos DB */}
+      <div className="rounded-xl bg-[var(--bg-surface)] p-3.5 ring-1 ring-[rgba(249,115,22,0.35)]">
+        <label className="block font-['Outfit',sans-serif] text-sm font-bold text-[var(--text-primary)]">
+          ➕ Pridėti bet kurį atlikėją iš DB
+        </label>
+        <p className="mb-2 mt-0.5 text-xs text-[var(--text-muted)]">
+          Ieškok visoje bazėje (ne tik radare) ir spausk <b>Featured</b> arba <b>Įtraukti</b> — atsiras /nauji-atlikejai.
+        </p>
         <input
           value={q}
           onChange={(e) => doSearch(e.target.value)}
-          placeholder="Atlikėjo vardas…"
-          className="mt-1.5 w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
+          placeholder="Įvesk atlikėjo vardą…"
+          className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
         />
         {searching && <p className="mt-2 text-xs text-[var(--text-faint)]">Ieškoma…</p>}
+        {q.trim().length >= 2 && !searching && results.length === 0 && (
+          <p className="mt-2 text-xs text-[var(--text-faint)]">Nieko nerasta (arba jau radare).</p>
+        )}
         {results.length > 0 && (
           <ul className="mt-2 flex flex-col gap-2">{results.map((a) => <Row key={a.id} a={a} />)}</ul>
         )}

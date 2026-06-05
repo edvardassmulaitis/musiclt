@@ -14,7 +14,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { resolveDisplayWeek } from '@/lib/top-week'
 import { getNewsFeed } from '@/lib/news-feed'
 import { getGenreCounts } from '@/lib/muzika-hub'
-import { getEmergingArtists } from '@/lib/radaras'
+import { getEmergingArtists, getFeaturedArtists } from '@/lib/radaras'
 
 export const dynamic = 'force-dynamic'
 
@@ -263,11 +263,15 @@ export async function GET() {
       return hasLt || !hasForeign
     }
 
-    // Radaras — nauji/kylantys LT atlikėjai (žr. lib/radaras.ts). Degrade į [].
+    // Radaras — „Dėmesio centre" (featured) PIRMI + nauji/kylantys. Degrade į [].
     let radarArtists: { id: number; slug: string; name: string; image: string | null }[] = []
     try {
-      const r = await getEmergingArtists(8)
-      radarArtists = r.map((a) => ({ id: a.id, slug: a.slug, name: a.name, image: a.cover_image_url }))
+      const [feat, emerging] = await Promise.all([getFeaturedArtists(), getEmergingArtists(8)])
+      const seen = new Set<number>()
+      radarArtists = [...feat, ...emerging]
+        .filter((a) => { if (seen.has(a.id)) return false; seen.add(a.id); return true })
+        .slice(0, 10)
+        .map((a) => ({ id: a.id, slug: a.slug, name: a.name, image: a.cover_image_url }))
     } catch { radarArtists = [] }
 
     const payload = {

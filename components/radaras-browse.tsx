@@ -5,7 +5,7 @@
 
 import { useState, useMemo } from 'react'
 import type { RadarArtist } from '@/lib/radaras-shared'
-import { styleShort, isLtCountry } from '@/lib/radaras-shared'
+import { styleShort, isLtCountry, isMainStyle } from '@/lib/radaras-shared'
 import { EmergingTile } from '@/components/radaras-ui'
 
 type Country = 'all' | 'lt' | 'world'
@@ -16,17 +16,18 @@ export default function RadarBrowse({ artists }: { artists: RadarArtist[] }) {
 
   const ltCount = useMemo(() => artists.filter((a) => isLtCountry(a.country)).length, [artists])
   const worldCount = artists.length - ltCount
-  const showCountry = ltCount > 0 && worldCount > 0
+  // Šalies filtrą rodom kai yra užsienio atlikėjų (kitaip viskas LT — nereikia).
+  const showCountry = worldCount > 0
 
   const byCountry = useMemo(() => {
     if (country === 'all') return artists
     return artists.filter((a) => isLtCountry(a.country) === (country === 'lt'))
   }, [country, artists])
 
-  // Stilių chip'ai pagal DABARTINĘ šalies atranką (kiekiai tikslūs).
+  // Stilių chip'ai — TIK 8 pagrindiniai stiliai (kitus genre'us ignoruojam).
   const styleList = useMemo(() => {
     const m = new Map<string, number>()
-    for (const a of byCountry) for (const g of a.genres) m.set(g, (m.get(g) || 0) + 1)
+    for (const a of byCountry) for (const g of a.genres) if (isMainStyle(g)) m.set(g, (m.get(g) || 0) + 1)
     return [...m.entries()].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n)
   }, [byCountry])
 

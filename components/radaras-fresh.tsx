@@ -19,12 +19,6 @@ function fmtAgo(iso: string | null): string {
   if (days < 365) return `prieš ${Math.floor(days / 30)} mėn.`
   return `prieš ${Math.floor(days / 365)} m.`
 }
-function fmtViews(n: number | null): string {
-  if (!n || n <= 0) return ''
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`
-  if (n >= 1_000) return `${Math.round(n / 1_000)}K`
-  return String(n)
-}
 
 const PLAY = (
   <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5v14l11-7z" /></svg>
@@ -43,7 +37,8 @@ export default function RadarFresh({ tracks }: { tracks: RadarTrack[] }) {
         {tracks.map((t, i) => {
           const yt = getYouTubeId(t.video_url)
           const cover = ytThumb(t.video_url) || t.cover_url
-          const meta = `${fmtAgo(t.uploaded_at)}${fmtViews(t.video_views) ? ` · ${fmtViews(t.video_views)}` : ''}`
+          // Peržiūrų skaičius kol kas nerodomas (greitai pasensta).
+          const meta = fmtAgo(t.uploaded_at)
           const inner = (
             <>
               <span className="rd-frow-rank">{i + 1}</span>

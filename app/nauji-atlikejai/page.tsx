@@ -95,7 +95,7 @@ export default async function NaujiAtlikejaiPage() {
         {/* ── Nauji ir kylantys (filtrai viršuje + tinklelis) ── */}
         <RadarSection
           title="Nauji ir kylantys"
-          sub="Atlikėjai ir grupės su naujausiais įkėlimais ir dar nedidele auditorija. Filtruok pagal stilių."
+          sub="Atlikėjai ir grupės, neseniai išleidę naujų dainų, bet dar mažai kam žinomi. Filtruok pagal stilių."
         >
           {emerging.length > 0 ? (
             <RadarBrowse artists={emerging} />

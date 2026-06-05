@@ -6,6 +6,7 @@
 // Server data sluoksnis gyvena lib/radaras.ts (jis re-export'ina šituos tipus).
 
 import { ltSlugify } from '@/lib/artist-browse'
+import { GENRE_COLORS, GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
 
 export type RadarArtist = {
   id: number
@@ -22,7 +23,7 @@ export type RadarArtist = {
   latest_title: string | null
   latest_at: string | null
   latest_video_url: string | null  // naujausios dainos YT (featured grotuvui)
-  career_start: number | null      // pirmo YT įkėlimo metai (veiklos startas)
+  first_upload_at: string | null   // pirmo YT įkėlimo data (veiklos startas, ISO)
   is_fresh: boolean
 }
 
@@ -66,20 +67,17 @@ export function styleLabel(name: string): string {
   return name.replace(/\s*muzika\s*$/i, '').trim() || name
 }
 
-/** Trumpas vardininko stiliaus pavadinimas (jaunai rinkai) filtro chip'ams.
- *  Pvz. „Roko muzika" → „Rokas" (ne „Roko"). */
-const STYLE_SHORT: Record<string, string> = {
-  'Roko muzika': 'Rokas',
-  'Sunkioji muzika': 'Metalas',
-  'Rimtoji muzika': 'Klasika',
-  'Alternatyvioji muzika': 'Alternatyva',
-  'Pop, R&B muzika': 'Pop, R&B',
-  "Hip-hop'o muzika": 'Repas',
-  'Elektroninė, šokių muzika': 'Elektronika',
-  'Kitų stilių muzika': 'Kita',
-}
+/** Trumpas stiliaus pavadinimas filtro chip'ams — naudoja KANONINIUS 8 main
+ *  stilių label'ius iš lib/genre-colors (Rokas, Hip-hop, Klasika…), kad sutaptų
+ *  su nav meniu ir nebūtų išgalvotų pavadinimų. */
 export function styleShort(name: string): string {
-  return STYLE_SHORT[name] || styleLabel(name)
+  return GENRE_COLOR_BY_NAME[name]?.short || styleLabel(name)
+}
+
+/** 8 pagrindiniai stiliai (filtravimui — kitus genre'us ignoruojam). */
+export const MAIN_STYLE_NAMES: string[] = GENRE_COLORS.map((g) => g.name)
+export function isMainStyle(name: string): boolean {
+  return MAIN_STYLE_NAMES.includes(name)
 }
 
 /** Ar atlikėjas laikomas lietuvišku (radaro šalies filtrui). */

@@ -13,6 +13,16 @@ import RadarHeart from '@/components/radaras-heart'
 
 const PLAY = <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5v14l11-7z" /></svg>
 
+function ago(iso: string | null): string {
+  if (!iso) return ''
+  const d = Date.parse(iso); if (!d) return ''
+  const days = Math.floor((Date.now() - d) / 86_400_000)
+  if (days < 7) return 'šią savaitę'
+  if (days < 31) return `prieš ${Math.floor(days / 7)} sav.`
+  if (days < 365) return `prieš ${Math.floor(days / 30)} mėn.`
+  return `prieš ${Math.floor(days / 365)} m.`
+}
+
 function blurbOf(a: RadarArtist): string {
   if (a.radar_blurb) return a.radar_blurb
   if (a.latest_title) return `Naujausia daina — „${a.latest_title}".`
@@ -67,7 +77,9 @@ export default function RadarFeatured({ artists }: { artists: RadarArtist[] }) {
                   </Link>
                   <RadarHeart artistId={a.id} size={34} />
                 </div>
-                {genre && <div className="rd-fx-genre">{genre}{a.career_start ? ` · nuo ${a.career_start}` : ''}</div>}
+                {(genre || a.first_upload_at) && (
+                  <div className="rd-fx-genre">{genre}{genre && a.first_upload_at ? ' · ' : ''}{a.first_upload_at ? `pirmas įrašas ${ago(a.first_upload_at)}` : ''}</div>
+                )}
                 <p className="rd-fx-blurb">{blurbOf(a)}</p>
               </div>
             </div>
