@@ -127,24 +127,22 @@ export default function RadarAdminClient({
     } catch { setResults([]) } finally { setSearching(false) }
   }, [featured, included, excluded])
 
+  // Tik DU toggle'ai. „Nuimti" grąžina į auto (vietoj atskiro Auto mygtuko).
   const ActionBtns = ({ a }: { a: AdminArtist }) => (
     <div className="flex flex-wrap gap-1.5">
-      {a.radar_status !== 'featured' && (
+      {a.radar_status !== 'featured' ? (
         <button onClick={() => apply(a, 'featured')} disabled={busy === a.id}
           className="rounded-md bg-[var(--accent-orange)] px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50">⭐ Featured</button>
+      ) : (
+        <button onClick={() => apply(a, null)} disabled={busy === a.id} title="Nuimti featured"
+          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-orange)] ring-1 ring-[rgba(249,115,22,0.4)] disabled:opacity-50">⭐ Nuimti</button>
       )}
-      {a.radar_status !== 'included' && (
+      {a.radar_status !== 'included' ? (
         <button onClick={() => apply(a, 'included')} disabled={busy === a.id}
           className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] ring-1 ring-[var(--border-default)] disabled:opacity-50">＋ Įtraukti</button>
-      )}
-      {a.radar_status !== 'excluded' ? (
-        <button onClick={() => apply(a, 'excluded')} disabled={busy === a.id}
-          title="Pašalinti iš radaro siūlymų (atlikėjas DB lieka, tik nebesimaišo čia)"
-          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-red)] ring-1 ring-[var(--border-default)] disabled:opacity-50">✕ Pašalinti iš radaro</button>
       ) : (
-        <button onClick={() => apply(a, null)} disabled={busy === a.id}
-          title="Grąžinti atgal į radarą"
-          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)] ring-1 ring-[var(--border-default)] disabled:opacity-50">↩︎ Grąžinti</button>
+        <button onClick={() => apply(a, null)} disabled={busy === a.id} title="Nuimti įtraukimą"
+          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)] ring-1 ring-[var(--border-strong)] disabled:opacity-50">＋ Nuimti</button>
       )}
     </div>
   )
@@ -224,12 +222,8 @@ export default function RadarAdminClient({
         items={included} empty="Tuščia — auto kandidatai (žemiau) ir taip rodomi tinklelyje." />
 
       <Section title="📡 Auto kandidatai"
-        hint="Algoritmo rasti: naujas LT atlikėjas (pirmas YT įkėlimas ≤1 m. + maža auditorija). Jau rodomi /nauji-atlikejai. Gali pakelti į featured arba pašalinti."
+        hint="Algoritmo rasti: naujas LT atlikėjas (pirmas YT įkėlimas ≤1 m. + maža auditorija). Jau rodomi /nauji-atlikejai. Seni atlikėjai čia nepatenka automatiškai."
         items={candidates} empty="Nėra kandidatų (gali būti DB ryšio problema arba langas tuščias)." />
-
-      <Section title="✕ Pašalinti iš radaro"
-        hint="Nerodomi /nauji-atlikejai (atlikėjas DB lieka). Spausk „↩︎ Grąžinti“, jei nori atgal."
-        items={excluded} empty="Nieko nepašalinta." />
     </div>
   )
 }

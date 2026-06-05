@@ -47,16 +47,16 @@ async function pendingSubmissions(): Promise<Submission[]> {
 }
 
 export default async function AdminRadarPage() {
-  const [featured, included, excluded, emerging, submissions] = await Promise.all([
+  const [featured, included, emerging, submissions] = await Promise.all([
     byStatus('featured'),
     byStatus('included'),
-    byStatus('excluded'),
     getEmergingArtists(40),
     pendingSubmissions(),
   ])
 
-  // Auto kandidatai = emerging be tų, kurie jau turi override.
-  const overridden = new Set([...featured, ...included, ...excluded].map((a) => a.id))
+  // Auto kandidatai = emerging be tų, kurie jau turi override. (Excluded jau
+  // atfiltruoti lib/radaras.ts pusėje — čia jų nerodom, kad psl. neaugtų.)
+  const overridden = new Set([...featured, ...included].map((a) => a.id))
   const candidates: AdminArtist[] = emerging
     .filter((a) => !overridden.has(a.id))
     .map((a) => ({
@@ -75,8 +75,8 @@ export default async function AdminRadarPage() {
         </h1>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
           Valdyk, kas rodoma <Link href="/nauji-atlikejai" className="text-[var(--accent-link)]">/nauji-atlikejai</Link>.
-          {' '}<b>Featured</b> = spotlight viršuje · <b>Įtraukti</b> = priverstinai tinklelyje ·
-          {' '}<b>Paslėpti</b> = niekada nerodyti (pvz. klaidingai priskirti užsienio atlikėjai) · <b>Auto</b> = palikti algoritmui.
+          {' '}<b>Featured</b> = spotlight viršuje · <b>Įtraukti</b> = priverstinai tinklelyje · <b>Nuimti</b> = grąžinti algoritmui.
+          {' '}Senų atlikėjų algoritmas nebesiūlo automatiškai (pirmas YT įkėlimas turi būti ≤1 m.).
         </p>
       </div>
 
@@ -87,7 +87,7 @@ export default async function AdminRadarPage() {
       <RadarAdminClient
         initialFeatured={featured}
         initialIncluded={included}
-        initialExcluded={excluded}
+        initialExcluded={[]}
         initialCandidates={candidates}
       />
     </div>
