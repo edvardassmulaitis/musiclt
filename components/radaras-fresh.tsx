@@ -96,7 +96,6 @@ export default function RadarFresh({ tracks }: { tracks: RadarTrack[] }) {
               <Link href={radarArtistHref({ slug: active.artist_slug })} prefetch={false}>{active.artist_name}</Link>
               {fmtAgo(active.uploaded_at) ? ` · ${fmtAgo(active.uploaded_at)}` : ''}
             </div>
-            <div className="rd-player-hint">Spausk kitą dainą sąraše — grotuvas persijungs.</div>
           </div>
         )}
       </div>

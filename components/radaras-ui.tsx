@@ -159,7 +159,6 @@ export function EmergingTile({ a }: { a: RadarArtist }) {
           <img src={a.cover_image_url} alt={a.name} loading="lazy"
             style={{ objectPosition: `${pos.x}% ${pos.y}%`, transform: `scale(${pos.zoom})`, transformOrigin: `${pos.x}% ${pos.y}%` }} />
         ) : <div className="rd-tile-noimg"><span>{a.name?.[0] || '?'}</span></div>}
-        {a.is_fresh && <span className="rd-tile-new" title="Neseniai išleido">Šviežia</span>}
         {a.is_verified && (
           <span className="rd-tile-verified" title="Patvirtintas">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
@@ -262,7 +261,7 @@ export const radarStyles = `
 .rd-stat span { font-size:12px; color:var(--text-muted); }
 
 /* radar sweep svg */
-.rd-sweep { width:178px; height:178px; flex-shrink:0; position:relative; z-index:1; opacity:.9; }
+.rd-sweep { width:150px; height:150px; flex-shrink:0; position:relative; z-index:1; opacity:.9; }
 .rd-sweep-rot { animation:rdrot 6s linear infinite; }
 @keyframes rdrot { to { transform:rotate(360deg); } }
 .rd-blip { animation:rdrot 6s linear infinite; }
@@ -274,7 +273,8 @@ export const radarStyles = `
 @media(max-width:760px){ .rd-sweep { display:none; } }
 
 /* ── Section ── */
-.rd-sec { margin-top:46px; }
+.rd-sec { margin-top:40px; }
+.rd-sec:first-of-type { margin-top:14px; }
 .rd-shead { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:18px; }
 .rd-kicker { display:block; font-family:'Outfit',sans-serif; font-weight:700; font-size:11px;
   text-transform:uppercase; letter-spacing:.08em; color:var(--accent-green); margin-bottom:5px; }
@@ -308,46 +308,58 @@ export const radarStyles = `
   overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .rd-feat-meta { font-size:11px; color:var(--text-faint); margin-top:auto; padding-top:7px; }
 
-/* ── Featured v2 (didelės kortelės + inline grotuvas) ── */
-.rd-fx-player { margin-bottom:18px; display:grid; grid-template-columns:1fr; gap:0; }
-.rd-fx-frame { position:relative; aspect-ratio:16/9; max-height:420px; border-radius:16px; overflow:hidden;
-  background:#000; border:1px solid var(--border-default); }
-.rd-fx-frame iframe { width:100%; height:100%; border:0; display:block; }
-.rd-fx-pmeta { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:11px; padding:0 2px; }
-.rd-fx-pmeta-l { min-width:0; }
-.rd-fx-pname { font-family:'Outfit',sans-serif; font-weight:800; font-size:17px; line-height:1.15; }
-.rd-fx-psub { font-size:13px; color:var(--text-muted); margin-top:2px; }
-.rd-fx-close { flex-shrink:0; font-size:12.5px; font-weight:700; color:var(--text-muted); background:var(--bg-hover);
-  border:1px solid var(--border-default); border-radius:9px; padding:7px 13px; cursor:pointer; font-family:'Outfit',sans-serif; }
-.rd-fx-close:hover { color:var(--text-primary); border-color:var(--border-strong); }
-
-.rd-fx-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px; }
-.rd-fx { position:relative; display:block; border-radius:18px; overflow:hidden; background:var(--bg-elevated);
-  border:1px solid var(--border-default); transition:border-color .18s, transform .18s; text-align:left; }
-.rd-fx:hover { border-color:rgba(249,115,22,0.45); transform:translateY(-3px); }
-.rd-fx-cover { position:relative; aspect-ratio:16/10; overflow:hidden; background:var(--bg-elevated); }
+/* ── Featured v3 (švarus vizualas + info atskirai + modalinis grotuvas) ── */
+.rd-fx-grid { display:grid; gap:16px; }
+.rd-fx { position:relative; display:flex; flex-direction:column; border-radius:18px; overflow:hidden;
+  background:var(--bg-surface); border:1px solid var(--border-default); transition:border-color .18s, transform .18s; }
+.rd-fx:hover { border-color:rgba(249,115,22,0.4); transform:translateY(-2px); }
+.rd-fx-cover { position:relative; display:block; aspect-ratio:16/10; overflow:hidden; background:var(--bg-elevated);
+  border:0; padding:0; width:100%; cursor:pointer; }
+.rd-fx--wide .rd-fx-cover { aspect-ratio:21/9; }
 .rd-fx-cover img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .5s ease; }
-.rd-fx:hover .rd-fx-cover img { transform:scale(1.05); }
+.rd-fx:hover .rd-fx-cover img { transform:scale(1.04); }
 .rd-fx-noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center;
   background:linear-gradient(135deg, var(--bg-elevated), rgba(249,115,22,0.12)); }
 .rd-fx-noimg span { font-family:'Outfit',sans-serif; font-weight:900; font-size:60px; color:rgba(255,255,255,0.10); }
-.rd-fx-cover::after { content:''; position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.12) 46%, transparent 70%); }
-.rd-fx-tag { position:absolute; top:11px; left:11px; z-index:2; font-family:'Outfit',sans-serif; font-weight:800;
-  font-size:9.5px; text-transform:uppercase; letter-spacing:.07em; color:#fff;
-  background:linear-gradient(92deg,var(--accent-orange),var(--accent-green)); padding:3px 9px; border-radius:100px; }
-.rd-fx-play { position:absolute; right:12px; bottom:12px; z-index:2; width:46px; height:46px; border-radius:50%;
+.rd-fx-play { position:absolute; right:12px; bottom:12px; z-index:2; width:52px; height:52px; border-radius:50%;
   background:var(--accent-orange); display:flex; align-items:center; justify-content:center;
-  box-shadow:0 4px 14px rgba(0,0,0,.4); transition:transform .15s, background .15s; }
-.rd-fx:hover .rd-fx-play { transform:scale(1.08); }
-.rd-fx-play svg { width:20px; height:20px; fill:#fff; margin-left:2px; }
-.rd-fx-cap { position:absolute; left:0; right:0; bottom:0; z-index:2; padding:0 14px 12px; }
-.rd-fx-name { font-family:'Outfit',sans-serif; font-weight:800; font-size:18px; color:#fff; line-height:1.15;
-  text-shadow:0 1px 6px rgba(0,0,0,.6); display:flex; align-items:center; gap:7px; }
-.rd-fx-genre { font-size:12px; color:rgba(255,255,255,0.82); font-weight:600; margin-top:3px; text-shadow:0 1px 4px rgba(0,0,0,.7); }
-.rd-fx-body { padding:11px 14px 13px; }
-.rd-fx-blurb { font-size:13px; color:var(--text-secondary); line-height:1.5;
+  box-shadow:0 6px 18px rgba(0,0,0,.45); transition:transform .15s; }
+.rd-fx-cover:hover .rd-fx-play { transform:scale(1.09); }
+.rd-fx-play svg { width:23px; height:23px; fill:#fff; margin-left:2px; }
+.rd-fx-body { padding:13px 15px 15px; display:flex; flex-direction:column; gap:4px; }
+.rd-fx-toprow { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.rd-fx-name { font-family:'Outfit',sans-serif; font-weight:800; font-size:18px; line-height:1.15;
+  color:var(--text-primary); display:inline-flex; align-items:center; gap:7px; min-width:0; }
+.rd-fx-name:hover { color:var(--accent-orange); }
+.rd-fx-flag { font-size:15px; flex-shrink:0; }
+.rd-fx-genre { font-size:12px; color:var(--accent-green); font-weight:600; }
+.rd-fx-blurb { font-size:13px; color:var(--text-secondary); line-height:1.5; margin-top:2px;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.rd-fx-meta { font-size:11.5px; color:var(--text-faint); margin-top:7px; }
+
+/* širdelė */
+.rd-heart { flex-shrink:0; display:inline-flex; align-items:center; gap:5px; padding:0 9px 0 7px;
+  border-radius:100px; background:var(--bg-hover); border:1px solid var(--border-default);
+  color:var(--text-muted); cursor:pointer; transition:all .15s; }
+.rd-heart:hover { color:var(--accent-red); border-color:rgba(248,113,113,0.4); }
+.rd-heart.on { color:var(--accent-red); border-color:rgba(248,113,113,0.45); background:rgba(248,113,113,0.08); }
+.rd-heart-n { font-family:'Outfit',sans-serif; font-size:12px; font-weight:700; }
+
+/* modalinis grotuvas */
+.rd-modal { position:fixed; inset:0; z-index:1000; background:rgba(4,8,14,0.82); backdrop-filter:blur(4px);
+  display:flex; align-items:center; justify-content:center; padding:20px; animation:rdfade .15s ease; }
+@keyframes rdfade { from { opacity:0; } to { opacity:1; } }
+.rd-modal-box { width:100%; max-width:920px; }
+.rd-modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.rd-modal-title { font-family:'Outfit',sans-serif; font-weight:700; font-size:15px; color:#fff; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rd-modal-title a:hover { color:var(--accent-orange); }
+.rd-modal-title span { color:rgba(255,255,255,0.65); font-weight:500; }
+.rd-modal-x { flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1px solid rgba(255,255,255,0.25);
+  background:rgba(255,255,255,0.08); color:#fff; font-size:15px; cursor:pointer; transition:all .15s; }
+.rd-modal-x:hover { background:rgba(255,255,255,0.18); }
+.rd-modal-frame { position:relative; aspect-ratio:16/9; border-radius:14px; overflow:hidden; background:#000;
+  box-shadow:0 20px 60px rgba(0,0,0,.5); }
+.rd-modal-frame iframe { width:100%; height:100%; border:0; display:block; }
 
 /* ── Country filter ── */
 .rd-filterrow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:11px; }

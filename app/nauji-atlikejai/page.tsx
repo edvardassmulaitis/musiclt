@@ -19,6 +19,7 @@ import { radarStyles, RadarSweep, RadarSection } from '@/components/radaras-ui'
 import RadarBrowse from '@/components/radaras-browse'
 import RadarFresh from '@/components/radaras-fresh'
 import RadarFeatured from '@/components/radaras-featured'
+import RadarSubmitButton from '@/components/radaras-submit-button'
 
 // ISR — radaras atsinaujina su naujais įkėlimais; perskaičiuojam kas 30 min.
 export const revalidate = 1800
@@ -93,7 +94,6 @@ export default async function NaujiAtlikejaiPage() {
 
         {/* ── Nauji ir kylantys (filtrai viršuje + tinklelis) ── */}
         <RadarSection
-          kicker="Radaras"
           title="Nauji ir kylantys"
           sub="Atlikėjai ir grupės su naujausiais įkėlimais ir dar nedidele auditorija. Filtruok pagal stilių."
         >
@@ -107,7 +107,6 @@ export default async function NaujiAtlikejaiPage() {
         {/* ── Šviežios dainos: sąrašas + grotuvas ── */}
         {freshTracks.length > 0 && (
           <RadarSection
-            kicker="Šviežia"
             title="Naujausios dainos"
             sub="Paskutiniai įkėlimai nuo kylančių kūrėjų — spausk ir klausyk čia pat."
           >
@@ -126,7 +125,7 @@ export default async function NaujiAtlikejaiPage() {
             </p>
           </div>
           <div className="rd-cta-actions">
-            <Link href="/nauji-atlikejai/pateikti" className="rd-btn rd-btn-primary" prefetch={false}>Pasiūlyk atlikėją</Link>
+            <RadarSubmitButton />
             <Link href="/atlikejai?country=lt" className="rd-btn rd-btn-ghost" prefetch={false}>Naršyti atlikėjus</Link>
           </div>
         </div>

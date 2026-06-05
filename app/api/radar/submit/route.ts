@@ -53,9 +53,19 @@ export async function POST(req: NextRequest) {
   const elapsed = Date.now() - ts
   if (!Number.isFinite(ts) || elapsed < MIN_FILL_MS || elapsed > MAX_FILL_MS) return okSilently()
 
+  // Prisijungęs naudotojas? (tada el. paštas nebūtinas — imam iš sesijos)
+  let sessionUserId: string | null = null
+  let sessionEmail: string | null = null
+  try {
+    const session = await getServerSession(authOptions)
+    sessionUserId = (session?.user as any)?.id || session?.user?.email || null
+    sessionEmail = session?.user?.email || null
+  } catch { /* anon */ }
+
   // Validacija
   const artist_name = String(body?.artist_name || '').trim()
-  const contact_email = String(body?.contact_email || '').trim()
+  const providedEmail = String(body?.contact_email || '').trim()
+  const contact_email = providedEmail || sessionEmail || ''
   const links = String(body?.links || '').trim().slice(0, 1000)
   const genre = String(body?.genre || '').trim().slice(0, 80) || null
   const city = String(body?.city || '').trim().slice(0, 80) || null
@@ -65,9 +75,9 @@ export async function POST(req: NextRequest) {
   if (artist_name.length < 2 || artist_name.length > 120)
     return NextResponse.json({ error: 'Įrašyk atlikėjo / grupės pavadinimą.' }, { status: 400 })
   if (!EMAIL_RE.test(contact_email))
-    return NextResponse.json({ error: 'Įrašyk teisingą el. pašto adresą.' }, { status: 400 })
+    return NextResponse.json({ error: 'Palik el. paštą, kad galėtume susisiekti.' }, { status: 400 })
   if (countUrls(`${bio} ${message}`) > MAX_URLS)
-    return NextResponse.json({ error: 'Per daug nuorodų tekste — sudėk jas į „Nuorodos" lauką.' }, { status: 400 })
+    return NextResponse.json({ error: 'Per daug nuorodų tekste.' }, { status: 400 })
 
   const sb = createAdminClient()
   const ip = clientIp(req)
@@ -87,12 +97,7 @@ export async function POST(req: NextRequest) {
     if ((emailDay || 0) >= EMAIL_DAILY) return NextResponse.json({ error: 'Šiuo el. paštu jau pateikta. Susisieksime!' }, { status: 429 })
   } catch { /* jei count nepavyko — leidžiam praeiti, insert vis tiek pending */ }
 
-  // submitter (jei prisijungęs)
-  let submitter_user_id: string | null = null
-  try {
-    const session = await getServerSession(authOptions)
-    submitter_user_id = (session?.user as any)?.id || session?.user?.email || null
-  } catch { /* anon */ }
+  const submitter_user_id = sessionUserId
 
   const { error } = await sb.from('radar_submissions').insert({
     artist_name, contact_email, links: links || null, genre, city,
