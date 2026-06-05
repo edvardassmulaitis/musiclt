@@ -35,6 +35,11 @@ export {
 export const RADAR_WINDOW_DAYS = 180
 /** legacy_likes lubos — virš jų atlikėjas laikomas jau žinomu (ne radarui). */
 export const RADAR_LIKES_CEIL = 250
+/** Karjeros amžiaus riba: PIRMAS YT įkėlimas negali būti senesnis nei tiek dienų
+ *  (≈1 metai). Taip atmetam veteranus, kurie turi naują dainą bet seną karjerą
+ *  (pvz. Romas Dambrauskas, Saulės Kliošas). Taikoma TIK auto-pool'ui; admin
+ *  „Įtraukti" praeina nepriklausomai. */
+export const RADAR_CAREER_MAX_DAYS = 366
 /** „Šviežia" ženkliukas — paskutinis įkėlimas per tiek dienų. */
 const FRESH_BADGE_DAYS = 45
 
@@ -191,12 +196,20 @@ export const getEmergingArtists = cache(async (limit = 36): Promise<RadarArtist[
     ])
     const featuredSet = new Set(((await sb.from('artists').select('id').eq('radar_status', 'featured')).data || []).map((a: any) => a.id))
     const includedIds = ((included.data || []) as any[]).map((a) => a.id)
+    const includedSet = new Set<number>(includedIds)
     const ordered: number[] = []
     const seen = new Set<number>()
     const push = (id: number) => { if (seen.has(id) || excl.has(id) || featuredSet.has(id)) return; seen.add(id); ordered.push(id) }
     includedIds.forEach(push)
     recent.order.forEach(push)
-    return hydrate(ordered.slice(0, limit), recent.latest)
+    const hydrated = await hydrate(ordered.slice(0, Math.max(limit * 2, 60)), recent.latest)
+    // Karjeros riba: auto kandidatas turi turėti PIRMĄ įkėlimą per ≤1 metus.
+    // Admin „Įtraukti" (includedSet) praeina nepriklausomai.
+    const careerCutoff = Date.now() - RADAR_CAREER_MAX_DAYS * 86_400_000
+    const filtered = hydrated.filter((a) =>
+      includedSet.has(a.id) || (a.first_upload_at != null && Date.parse(a.first_upload_at) >= careerCutoff),
+    )
+    return filtered.slice(0, limit)
   } catch { return [] }
 })
 
@@ -225,13 +238,19 @@ export const getFreshTracks = cache(async (limit = 16): Promise<RadarTrack[]> =>
       .gte('video_uploaded_at', SINCE())
       .order('video_uploaded_at', { ascending: false })
       .limit(160)
-    const out: RadarTrack[] = []
-    for (const t of (data || []) as any[]) {
+    // Pirma surenkam kandidatus, tada atmetam veteranus (pirmas įkėlimas > 1 m.).
+    const rows = ((data || []) as any[]).filter((t) => {
       const a = t.artists || {}
-      if (!isLt(a.country)) continue
-      if (!a.cover_image_url) continue
-      if ((a.legacy_likes ?? 0) >= RADAR_LIKES_CEIL) continue
-      if (excl.has(t.artist_id)) continue
+      return isLt(a.country) && a.cover_image_url && (a.legacy_likes ?? 0) < RADAR_LIKES_CEIL && !excl.has(t.artist_id)
+    })
+    const artistIds = [...new Set(rows.map((t) => t.artist_id))]
+    const careers = await firstUploadDates(artistIds)
+    const careerCutoff = Date.now() - RADAR_CAREER_MAX_DAYS * 86_400_000
+    const out: RadarTrack[] = []
+    for (const t of rows) {
+      const fu = careers.get(t.artist_id)
+      if (!fu || Date.parse(fu) < careerCutoff) continue   // tik nauja karjera (≤1 m.)
+      const a = t.artists || {}
       out.push({
         id: t.id, slug: t.slug ?? null, title: t.title,
         cover_url: t.cover_url ?? a.cover_image_url ?? null,

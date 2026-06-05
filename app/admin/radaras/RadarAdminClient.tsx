@@ -109,7 +109,13 @@ export default function RadarAdminClient({
   }, [])
 
   const del = useCallback(async (a: AdminArtist) => {
-    if (!window.confirm(`VISIŠKAI ištrinti „${a.name}"?\n\nBus negrįžtamai pašalintas atlikėjas KARTU su jo dainomis ir albumais. Naudok tik šiukšlėms / klaidingiems įrašams.`)) return
+    // ⚠️ NEGRĮŽTAMA: ištrina atlikėją + VISAS jo dainas ir albumus iš DB.
+    // NE „pašalinti iš sąrašo" — tam yra 🚫 Paslėpti. Reikalaujam įvesti vardą.
+    const typed = window.prompt(
+      `⚠️ DĖMESIO — tai NEGRĮŽTAMAI ištrins „${a.name}" IR VISAS jo dainas/albumus iš visos duomenų bazės (NE tik iš radaro sąrašo!).\n\nJei tik nori pašalinti iš siūlymų — atšauk ir spausk „🚫 Paslėpti".\n\nKad patvirtintum trynimą, įvesk tikslų atlikėjo vardą:`,
+    )
+    if (typed == null) return
+    if (typed.trim() !== a.name.trim()) { setErr('Vardas nesutapo — trynimas atšauktas.'); return }
     setBusy(a.id); setErr(null)
     try {
       const res = await fetch('/api/admin/radar/delete', {
@@ -158,10 +164,11 @@ export default function RadarAdminClient({
       )}
       {a.radar_status !== null && (
         <button onClick={() => apply(a, null)} disabled={busy === a.id}
-          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)] ring-1 ring-[var(--border-default)] disabled:opacity-50">↺ Auto</button>
+          title="Nuimti rankinį override (featured/įtraukti/paslėpti) ir grąžinti atlikėją algoritmui"
+          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)] ring-1 ring-[var(--border-default)] disabled:opacity-50">↺ Grąžinti į auto</button>
       )}
-      <button onClick={() => del(a)} disabled={busy === a.id} title="Visiškai ištrinti iš DB"
-        className="rounded-md bg-[rgba(248,113,113,0.10)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-red)] ring-1 ring-[rgba(248,113,113,0.4)] disabled:opacity-50">🗑 Ištrinti</button>
+      <button onClick={() => del(a)} disabled={busy === a.id} title="NEGRĮŽTAMAI ištrina atlikėją + dainas/albumus iš VISOS DB (ne tik iš radaro). Pašalinti iš sąrašo → 🚫 Paslėpti."
+        className="rounded-md bg-[rgba(248,113,113,0.10)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-red)] ring-1 ring-[rgba(248,113,113,0.4)] disabled:opacity-50">🗑 Trinti iš DB</button>
     </div>
   )
 
