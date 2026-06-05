@@ -131,6 +131,11 @@ export function WizardChrome({
         .wz-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .wz-inner {
           max-width: 620px; margin: 0 auto; padding: 20px 18px 28px;
+          animation: wz-rise .22s cubic-bezier(.4,0,.2,1);
+        }
+        @keyframes wz-rise {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         .wz-head { margin-bottom: 18px; }
         .wz-title {

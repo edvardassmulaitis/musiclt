@@ -541,7 +541,7 @@ function EditorInner() {
   if (editId) {
     if (profileLoading) return <Loading />
     if (authError) return <AuthGate msg={authError} />
-    if (!hasUsername) return <UsernameSetupGate onReady={() => setHasUsername(true)} />
+    if (!hasUsername) return <BootShell><UsernameSetupGate onReady={() => setHasUsername(true)} /></BootShell>
     return <EditPostForm editId={editId} />
   }
 
@@ -832,15 +832,42 @@ function TopasEntries({
   )
 }
 
-function Loading() {
-  return <div className="min-h-[50vh] flex items-center justify-center text-sm" style={{ color: 'var(--text-faint)' }}>Kraunasi…</div>
+// Opaque full-screen shell — naudojamas boot/loading/gate būsenoms, kad nuo
+// PIRMO kadro overlay dengtų svetainės chrome (jokio footerio mirktelėjimo).
+function BootShell({ children }: { children: ReactNode }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--bg-body)',
+      display: 'flex', flexDirection: 'column', overflowY: 'auto',
+    }}>
+      {children}
+    </div>
+  )
 }
+
+function Loading() {
+  return (
+    <BootShell>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{
+          width: 26, height: 26, borderRadius: '50%',
+          border: '3px solid var(--border-subtle)', borderTopColor: 'var(--accent-orange)',
+          animation: 'wzspin .7s linear infinite',
+        }} />
+      </div>
+      <style jsx>{`@keyframes wzspin { to { transform: rotate(360deg); } }`}</style>
+    </BootShell>
+  )
+}
+
 function AuthGate({ msg }: { msg: string }) {
   return (
-    <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4">
-      <p className="text-sm" style={{ color: '#fca5a5' }}>{msg}</p>
-      <Link href="/auth/signin" className="text-xs font-bold" style={{ color: 'var(--accent-orange)' }}>Prisijungti →</Link>
-    </div>
+    <BootShell>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+        <p className="text-sm" style={{ color: '#fca5a5' }}>{msg}</p>
+        <Link href="/auth/signin" className="text-xs font-bold" style={{ color: 'var(--accent-orange)' }}>Prisijungti →</Link>
+      </div>
+    </BootShell>
   )
 }
 
