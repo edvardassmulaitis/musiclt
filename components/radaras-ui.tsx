@@ -14,7 +14,7 @@ import { flagFor } from '@/lib/artist-browse'
 import {
   type RadarArtist, type RadarTrack,
   radarArtistHref, radarTrackHref, styleHref,
-} from '@/lib/radaras'
+} from '@/lib/radaras-shared'
 
 /* ─────────────── helpers ─────────────── */
 function parseCoverPos(pos: string | null): { x: number; y: number; zoom: number } {
@@ -364,6 +364,44 @@ export const radarStyles = `
 .rd-prose { max-width:780px; margin:40px 0 0; color:var(--text-muted); font-size:13.5px; line-height:1.7; }
 .rd-prose a { color:var(--accent-link); }
 .rd-prose a:hover { color:var(--accent-orange); }
+
+/* ── Filter bar (top style filter) ── */
+.rd-filterbar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+.rd-chip.on { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
+.rd-chip em { font-style:normal; font-size:11px; opacity:.7; margin-left:6px; font-weight:700; }
+.rd-chip.on em { opacity:.85; }
+
+/* ── Fresh: list + player (topų layout) ── */
+.rd-fresh { display:grid; grid-template-columns:1fr 384px; gap:26px; align-items:start; }
+@media(max-width:920px){ .rd-fresh { grid-template-columns:1fr; } }
+.rd-fresh-list { display:flex; flex-direction:column; gap:2px; }
+.rd-frow { display:flex; align-items:center; gap:12px; padding:8px 10px; border-radius:11px;
+  cursor:pointer; transition:background .15s; border:1px solid transparent; text-align:left; background:none; width:100%; }
+.rd-frow:hover { background:var(--bg-hover); }
+.rd-frow.on { background:var(--bg-hover); border-color:rgba(249,115,22,0.35); }
+.rd-frow-rank { width:22px; text-align:center; font-family:'Outfit',sans-serif; font-weight:800; font-size:13px; color:var(--text-faint); flex-shrink:0; }
+.rd-frow.on .rd-frow-rank { color:var(--accent-orange); }
+.rd-frow-cover { position:relative; width:46px; height:46px; border-radius:8px; overflow:hidden; background:var(--bg-elevated); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.rd-frow-cover img { width:100%; height:100%; object-fit:cover; }
+.rd-frow-noimg { font-size:18px; color:rgba(255,255,255,0.15); }
+.rd-frow-play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.32); opacity:0; transition:opacity .15s; }
+.rd-frow:hover .rd-frow-play, .rd-frow.on .rd-frow-play { opacity:1; }
+.rd-frow-play svg { width:18px; height:18px; fill:#fff; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.rd-frow-txt { flex:1; min-width:0; display:flex; flex-direction:column; }
+.rd-frow-title { font-family:'Outfit',sans-serif; font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-primary); }
+.rd-frow.on .rd-frow-title, .rd-frow:hover .rd-frow-title { color:var(--accent-orange); }
+.rd-frow-artist { font-size:12px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rd-frow-meta { font-size:11px; color:var(--text-faint); font-weight:600; flex-shrink:0; text-align:right; }
+
+.rd-player { position:sticky; top:78px; }
+.rd-player-frame { position:relative; aspect-ratio:16/9; border-radius:14px; overflow:hidden; background:#000; border:1px solid var(--border-default); }
+.rd-player-frame iframe { width:100%; height:100%; border:0; display:block; }
+.rd-player-empty { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--text-faint); font-size:13px; text-align:center; padding:20px; }
+.rd-player-meta { margin-top:11px; padding:0 2px; }
+.rd-player-title { font-family:'Outfit',sans-serif; font-weight:800; font-size:16px; line-height:1.2; }
+.rd-player-artist { font-size:13px; color:var(--text-muted); margin-top:3px; }
+.rd-player-artist a:hover { color:var(--accent-orange); }
+.rd-player-hint { font-size:11.5px; color:var(--text-faint); margin-top:10px; }
 
 @media(max-width:768px){
   .rd-grid { grid-template-columns:repeat(auto-fill,minmax(116px,1fr)); gap:13px 10px; }

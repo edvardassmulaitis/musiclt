@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase'
 import { getEmergingArtists } from '@/lib/radaras'
 import RadarAdminClient, { type AdminArtist } from './RadarAdminClient'
+import RadarSubmissions, { type Submission } from './RadarSubmissions'
 
 export const metadata: Metadata = { title: 'Radaras — admin | music.lt' }
 export const dynamic = 'force-dynamic'
@@ -30,12 +31,28 @@ async function byStatus(status: string): Promise<AdminArtist[]> {
   }
 }
 
+async function pendingSubmissions(): Promise<Submission[]> {
+  try {
+    const sb = createAdminClient()
+    const { data } = await sb
+      .from('radar_submissions')
+      .select('id, artist_name, contact_email, links, genre, city, bio, message, created_at, ip')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    return (data || []) as Submission[]
+  } catch {
+    return []
+  }
+}
+
 export default async function AdminRadarPage() {
-  const [featured, included, excluded, emerging] = await Promise.all([
+  const [featured, included, excluded, emerging, submissions] = await Promise.all([
     byStatus('featured'),
     byStatus('included'),
     byStatus('excluded'),
     getEmergingArtists(40),
+    pendingSubmissions(),
   ])
 
   // Auto kandidatai = emerging be tų, kurie jau turi override.
@@ -62,6 +79,10 @@ export default async function AdminRadarPage() {
           {' '}<b>Paslėpti</b> = niekada nerodyti (pvz. klaidingai priskirti užsienio atlikėjai) · <b>Auto</b> = palikti algoritmui.
         </p>
       </div>
+
+      <RadarSubmissions initial={submissions} />
+
+      <div className="my-6 border-t border-[var(--border-subtle)]" />
 
       <RadarAdminClient
         initialFeatured={featured}

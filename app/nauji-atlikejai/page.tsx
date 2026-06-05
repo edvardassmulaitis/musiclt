@@ -13,13 +13,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SITE_URL } from '@/lib/artist-browse'
 import {
-  getFeaturedArtists, getEmergingArtists, getFreshTracks, getRadarStats,
+  getFeaturedArtists, getEmergingArtists, getFreshTracks, getRadarStats, getRadarStyles,
 } from '@/lib/radaras'
-import { getGenreCounts } from '@/lib/muzika-hub'
 import {
-  radarStyles, RadarSweep, RadarSection, FeaturedRow, EmergingGrid,
-  FreshTrackList, StyleChips,
+  radarStyles, RadarSweep, RadarSection, FeaturedRow,
 } from '@/components/radaras-ui'
+import RadarBrowse from '@/components/radaras-browse'
+import RadarFresh from '@/components/radaras-fresh'
 
 // ISR — radaras atsinaujina su naujais įkėlimais; perskaičiuojam kas 30 min.
 export const revalidate = 1800
@@ -39,15 +39,13 @@ export const metadata: Metadata = {
 }
 
 export default async function NaujiAtlikejaiPage() {
-  const [featured, emerging, freshTracks, stats, genres] = await Promise.all([
+  const [featured, emerging, freshTracks, stats, styles] = await Promise.all([
     getFeaturedArtists(),
-    getEmergingArtists(30),
-    getFreshTracks(12),
+    getEmergingArtists(36),
+    getFreshTracks(16),
     getRadarStats(),
-    getGenreCounts(),
+    getRadarStyles(),
   ])
-
-  const topStyles = [...genres].sort((a, b) => b.n - a.n).slice(0, 12)
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -109,38 +107,31 @@ export default async function NaujiAtlikejaiPage() {
           </RadarSection>
         )}
 
-        {/* ── Nauji ir kylantys (auto tinklelis) ── */}
+        {/* ── Nauji ir kylantys (filtras viršuje + tinklelis) ── */}
         <RadarSection
           kicker="Radaras"
           title="Nauji ir kylantys"
-          sub="Lietuvos atlikėjai ir grupės su naujausiais įkėlimais ir dar nedidele auditorija."
+          sub="Lietuvos atlikėjai ir grupės su naujausiais įkėlimais ir dar nedidele auditorija. Filtruok pagal stilių."
           href="/atlikejai?country=lt"
           hrefLabel="Visi atlikėjai"
         >
           {emerging.length > 0 ? (
-            <EmergingGrid artists={emerging} />
+            <RadarBrowse artists={emerging} styles={styles} />
           ) : (
             <div className="rd-empty">Šiuo metu radaras kraunamas — užsuk kiek vėliau.</div>
           )}
         </RadarSection>
 
-        {/* ── Šviežios dainos ── */}
+        {/* ── Šviežios dainos: sąrašas + grotuvas ── */}
         {freshTracks.length > 0 && (
           <RadarSection
             kicker="Šviežia"
             title="Naujausios dainos"
-            sub="Paskutiniai įkėlimai nuo kylančių Lietuvos kūrėjų."
+            sub="Paskutiniai įkėlimai nuo kylančių Lietuvos kūrėjų — spausk ir klausyk čia pat."
             href="/dainos"
             hrefLabel="Visos dainos"
           >
-            <FreshTrackList tracks={freshTracks} />
-          </RadarSection>
-        )}
-
-        {/* ── Pagal stilių ── */}
-        {topStyles.length > 0 && (
-          <RadarSection kicker="Naršyk" title="Pagal stilių">
-            <StyleChips styles={topStyles} />
+            <RadarFresh tracks={freshTracks} />
           </RadarSection>
         )}
 
@@ -149,13 +140,13 @@ export default async function NaujiAtlikejaiPage() {
           <div className="rd-cta-txt">
             <h3>Esi kūrėjas ar pažįsti kylantį?</h3>
             <p>
-              Radaras skirtas naujiems ir mažai žinomiems Lietuvos atlikėjams. Nori patekti
-              arba pasiūlyti grupę, kurią verta išgirsti? Parašyk mums — pristatysime tave
-              klausytojams. (Pilna pateikimo forma — netrukus.)
+              Radaras skirtas naujiems ir mažai žinomiems Lietuvos atlikėjams. Pasiūlyk save
+              arba grupę, kurią verta išgirsti — užpildyk trumpą formą, o mes peržiūrėsime ir
+              pristatysime klausytojams.
             </p>
           </div>
           <div className="rd-cta-actions">
-            <Link href="/pokalbiai" className="rd-btn rd-btn-primary" prefetch={false}>Pasiūlyk atlikėją</Link>
+            <Link href="/nauji-atlikejai/pateikti" className="rd-btn rd-btn-primary" prefetch={false}>Pasiūlyk atlikėją</Link>
             <Link href="/atlikejai?country=lt" className="rd-btn rd-btn-ghost" prefetch={false}>Naršyti atlikėjus</Link>
           </div>
         </div>
