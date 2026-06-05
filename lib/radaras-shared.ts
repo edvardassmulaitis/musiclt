@@ -21,6 +21,8 @@ export type RadarArtist = {
   genres: string[]
   latest_title: string | null
   latest_at: string | null
+  latest_video_url: string | null  // naujausios dainos YT (featured grotuvui)
+  career_start: number | null      // pirmo YT įkėlimo metai (veiklos startas)
   is_fresh: boolean
 }
 
@@ -62,6 +64,28 @@ export function styleHref(name: string): string {
 /* ─────────────────────────── Utils ─────────────────────────── */
 export function styleLabel(name: string): string {
   return name.replace(/\s*muzika\s*$/i, '').trim() || name
+}
+
+/** Trumpas vardininko stiliaus pavadinimas (jaunai rinkai) filtro chip'ams.
+ *  Pvz. „Roko muzika" → „Rokas" (ne „Roko"). */
+const STYLE_SHORT: Record<string, string> = {
+  'Roko muzika': 'Rokas',
+  'Sunkioji muzika': 'Metalas',
+  'Rimtoji muzika': 'Klasika',
+  'Alternatyvioji muzika': 'Alternatyva',
+  'Pop, R&B muzika': 'Pop, R&B',
+  "Hip-hop'o muzika": 'Repas',
+  'Elektroninė, šokių muzika': 'Elektronika',
+  'Kitų stilių muzika': 'Kita',
+}
+export function styleShort(name: string): string {
+  return STYLE_SHORT[name] || styleLabel(name)
+}
+
+/** Ar atlikėjas laikomas lietuvišku (radaro šalies filtrui). */
+const LT_NAMES = ['Lietuva', 'LT', 'Lithuania']
+export function isLtCountry(country: string | null | undefined): boolean {
+  return !!country && LT_NAMES.includes(country)
 }
 export function getYouTubeId(url: string | null): string | null {
   if (!url) return null

@@ -52,28 +52,44 @@ function fmtViews(n: number | null): string {
   return String(n)
 }
 
-/* ─────────────── radar sweep (hero dekoras) ─────────────── */
+/* ─────────────── radar sweep + equalizer (hero dekoras) ─────────────── */
 export function RadarSweep() {
+  // EQ stulpeliai centre — „muzikos" elementas radare. Animuojami per CSS.
+  const bars = [
+    { x: 88, h: 14, d: '0s' }, { x: 94, h: 26, d: '.25s' }, { x: 100, h: 34, d: '.1s' },
+    { x: 106, h: 22, d: '.4s' }, { x: 112, h: 16, d: '.2s' },
+  ]
   return (
     <svg className="rd-sweep" viewBox="0 0 200 200" aria-hidden="true">
       <defs>
         <radialGradient id="rdg" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="rgba(34,197,94,0.0)" />
           <stop offset="78%" stopColor="rgba(34,197,94,0.0)" />
-          <stop offset="100%" stopColor="rgba(34,197,94,0.55)" />
+          <stop offset="100%" stopColor="rgba(34,197,94,0.5)" />
         </radialGradient>
         <linearGradient id="rdsweep" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="rgba(249,115,22,0)" />
-          <stop offset="100%" stopColor="rgba(249,115,22,0.45)" />
+          <stop offset="100%" stopColor="rgba(249,115,22,0.4)" />
         </linearGradient>
       </defs>
-      {[40, 64, 88].map((r) => (
+      {[44, 68, 92].map((r) => (
         <circle key={r} cx="100" cy="100" r={r} fill="none" stroke="url(#rdg)" strokeWidth="1" opacity="0.7" />
       ))}
+      {/* besisukantis skenavimo spindulys */}
       <g className="rd-sweep-rot" style={{ transformOrigin: '100px 100px' }}>
-        <path d="M100 100 L100 12 A88 88 0 0 1 168 56 Z" fill="url(#rdsweep)" />
+        <path d="M100 100 L100 8 A92 92 0 0 1 165 35 Z" fill="url(#rdsweep)" />
       </g>
-      <circle cx="100" cy="100" r="2.5" fill="var(--accent-green)" />
+      {/* „blip" kaip nata ant rato */}
+      <g className="rd-blip" style={{ transformOrigin: '100px 100px' }}>
+        <circle cx="156" cy="78" r="3.2" fill="var(--accent-orange)" />
+      </g>
+      {/* centro ekvalaizeris */}
+      <g className="rd-eq">
+        {bars.map((b, i) => (
+          <rect key={i} x={b.x} width="3.4" rx="1.4" y={100 - b.h / 2} height={b.h}
+            fill="var(--accent-green)" style={{ transformOrigin: `${b.x + 1.7}px 100px`, animationDelay: b.d }} />
+        ))}
+      </g>
     </svg>
   )
 }
@@ -155,11 +171,11 @@ export function EmergingTile({ a }: { a: RadarArtist }) {
         <span className="rd-tile-name">{a.name}</span>
         {flag && <span className="rd-flag">{flag}</span>}
       </div>
-      {a.latest_title && (
-        <div className="rd-tile-latest">
-          <span className="rd-dot" aria-hidden /> {fmtAgo(a.latest_at)}
-        </div>
-      )}
+      {a.career_start ? (
+        <div className="rd-tile-latest"><span className="rd-dot" aria-hidden /> Kuria nuo {a.career_start}</div>
+      ) : a.genres[0] ? (
+        <div className="rd-tile-latest">{styleLabel(a.genres[0])}</div>
+      ) : null}
     </Link>
   )
 }
@@ -225,12 +241,12 @@ export const radarStyles = `
              radial-gradient(ellipse at 92% 8%, rgba(34,197,94,0.13), transparent 52%);
   pointer-events:none; }
 .rd-hero-inner { position:relative; max-width:var(--page-max); margin:0 auto;
-  padding:46px var(--page-pad-x) 30px; display:flex; align-items:center; gap:30px; }
+  padding:26px var(--page-pad-x) 22px; display:flex; align-items:center; gap:30px; }
 .rd-hero-txt { position:relative; z-index:2; flex:1; min-width:0; }
 .rd-hero-tag { display:inline-flex; align-items:center; gap:7px; font-family:'Outfit',sans-serif;
-  font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.09em;
+  font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.09em;
   color:var(--accent-green); background:rgba(34,197,94,0.10); border:1px solid rgba(34,197,94,0.30);
-  padding:5px 11px; border-radius:100px; margin-bottom:14px; }
+  padding:4px 10px; border-radius:100px; margin-bottom:11px; }
 .rd-pulse { width:7px; height:7px; border-radius:50%; background:var(--accent-green);
   box-shadow:0 0 0 0 rgba(34,197,94,0.6); animation:rdpulse 2s infinite; }
 @keyframes rdpulse { 0%{box-shadow:0 0 0 0 rgba(34,197,94,0.5);} 70%{box-shadow:0 0 0 8px rgba(34,197,94,0);} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0);} }
@@ -238,7 +254,7 @@ export const radarStyles = `
   letter-spacing:var(--page-h1-tracking); font-size:var(--page-h1-size); line-height:1.04;
   background:linear-gradient(92deg, var(--text-primary) 30%, var(--accent-orange) 70%, var(--accent-green));
   -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-.rd-hero-lead { color:var(--page-sub-color); font-size:15px; max-width:560px; margin-top:12px; line-height:1.55; }
+.rd-hero-lead { color:var(--page-sub-color); font-size:14.5px; max-width:540px; margin-top:8px; line-height:1.5; }
 .rd-stats { display:flex; flex-wrap:wrap; gap:9px; margin-top:18px; }
 .rd-stat { display:inline-flex; align-items:baseline; gap:6px; background:var(--bg-hover);
   border:1px solid var(--border-default); border-radius:100px; padding:7px 14px; }
@@ -249,6 +265,12 @@ export const radarStyles = `
 .rd-sweep { width:178px; height:178px; flex-shrink:0; position:relative; z-index:1; opacity:.9; }
 .rd-sweep-rot { animation:rdrot 6s linear infinite; }
 @keyframes rdrot { to { transform:rotate(360deg); } }
+.rd-blip { animation:rdrot 6s linear infinite; }
+.rd-eq rect { animation:rdeq 1.1s ease-in-out infinite alternate; }
+@keyframes rdeq { from { transform:scaleY(0.35); } to { transform:scaleY(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .rd-sweep-rot, .rd-blip, .rd-eq rect { animation:none; }
+}
 @media(max-width:760px){ .rd-sweep { display:none; } }
 
 /* ── Section ── */
@@ -285,6 +307,52 @@ export const radarStyles = `
 .rd-feat-blurb { font-size:12.5px; color:var(--text-secondary); line-height:1.45; margin-top:7px;
   overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .rd-feat-meta { font-size:11px; color:var(--text-faint); margin-top:auto; padding-top:7px; }
+
+/* ── Featured v2 (didelės kortelės + inline grotuvas) ── */
+.rd-fx-player { margin-bottom:18px; display:grid; grid-template-columns:1fr; gap:0; }
+.rd-fx-frame { position:relative; aspect-ratio:16/9; max-height:420px; border-radius:16px; overflow:hidden;
+  background:#000; border:1px solid var(--border-default); }
+.rd-fx-frame iframe { width:100%; height:100%; border:0; display:block; }
+.rd-fx-pmeta { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:11px; padding:0 2px; }
+.rd-fx-pmeta-l { min-width:0; }
+.rd-fx-pname { font-family:'Outfit',sans-serif; font-weight:800; font-size:17px; line-height:1.15; }
+.rd-fx-psub { font-size:13px; color:var(--text-muted); margin-top:2px; }
+.rd-fx-close { flex-shrink:0; font-size:12.5px; font-weight:700; color:var(--text-muted); background:var(--bg-hover);
+  border:1px solid var(--border-default); border-radius:9px; padding:7px 13px; cursor:pointer; font-family:'Outfit',sans-serif; }
+.rd-fx-close:hover { color:var(--text-primary); border-color:var(--border-strong); }
+
+.rd-fx-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px; }
+.rd-fx { position:relative; display:block; border-radius:18px; overflow:hidden; background:var(--bg-elevated);
+  border:1px solid var(--border-default); transition:border-color .18s, transform .18s; text-align:left; }
+.rd-fx:hover { border-color:rgba(249,115,22,0.45); transform:translateY(-3px); }
+.rd-fx-cover { position:relative; aspect-ratio:16/10; overflow:hidden; background:var(--bg-elevated); }
+.rd-fx-cover img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .5s ease; }
+.rd-fx:hover .rd-fx-cover img { transform:scale(1.05); }
+.rd-fx-noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg, var(--bg-elevated), rgba(249,115,22,0.12)); }
+.rd-fx-noimg span { font-family:'Outfit',sans-serif; font-weight:900; font-size:60px; color:rgba(255,255,255,0.10); }
+.rd-fx-cover::after { content:''; position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.12) 46%, transparent 70%); }
+.rd-fx-tag { position:absolute; top:11px; left:11px; z-index:2; font-family:'Outfit',sans-serif; font-weight:800;
+  font-size:9.5px; text-transform:uppercase; letter-spacing:.07em; color:#fff;
+  background:linear-gradient(92deg,var(--accent-orange),var(--accent-green)); padding:3px 9px; border-radius:100px; }
+.rd-fx-play { position:absolute; right:12px; bottom:12px; z-index:2; width:46px; height:46px; border-radius:50%;
+  background:var(--accent-orange); display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 14px rgba(0,0,0,.4); transition:transform .15s, background .15s; }
+.rd-fx:hover .rd-fx-play { transform:scale(1.08); }
+.rd-fx-play svg { width:20px; height:20px; fill:#fff; margin-left:2px; }
+.rd-fx-cap { position:absolute; left:0; right:0; bottom:0; z-index:2; padding:0 14px 12px; }
+.rd-fx-name { font-family:'Outfit',sans-serif; font-weight:800; font-size:18px; color:#fff; line-height:1.15;
+  text-shadow:0 1px 6px rgba(0,0,0,.6); display:flex; align-items:center; gap:7px; }
+.rd-fx-genre { font-size:12px; color:rgba(255,255,255,0.82); font-weight:600; margin-top:3px; text-shadow:0 1px 4px rgba(0,0,0,.7); }
+.rd-fx-body { padding:11px 14px 13px; }
+.rd-fx-blurb { font-size:13px; color:var(--text-secondary); line-height:1.5;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.rd-fx-meta { font-size:11.5px; color:var(--text-faint); margin-top:7px; }
+
+/* ── Country filter ── */
+.rd-filterrow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:11px; }
+.rd-flabel { font-family:'Outfit',sans-serif; font-size:11px; font-weight:800; text-transform:uppercase;
+  letter-spacing:.07em; color:var(--text-faint); margin-right:2px; }
 
 /* ── Emerging grid ── */
 .rd-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(158px,1fr)); gap:16px 14px; }

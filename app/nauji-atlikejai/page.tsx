@@ -13,13 +13,12 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SITE_URL } from '@/lib/artist-browse'
 import {
-  getFeaturedArtists, getEmergingArtists, getFreshTracks, getRadarStats, getRadarStyles,
+  getFeaturedArtists, getEmergingArtists, getFreshTracks,
 } from '@/lib/radaras'
-import {
-  radarStyles, RadarSweep, RadarSection, FeaturedRow,
-} from '@/components/radaras-ui'
+import { radarStyles, RadarSweep, RadarSection } from '@/components/radaras-ui'
 import RadarBrowse from '@/components/radaras-browse'
 import RadarFresh from '@/components/radaras-fresh'
+import RadarFeatured from '@/components/radaras-featured'
 
 // ISR — radaras atsinaujina su naujais įkėlimais; perskaičiuojam kas 30 min.
 export const revalidate = 1800
@@ -39,12 +38,10 @@ export const metadata: Metadata = {
 }
 
 export default async function NaujiAtlikejaiPage() {
-  const [featured, emerging, freshTracks, stats, styles] = await Promise.all([
+  const [featured, emerging, freshTracks] = await Promise.all([
     getFeaturedArtists(),
-    getEmergingArtists(36),
+    getEmergingArtists(48),
     getFreshTracks(16),
-    getRadarStats(),
-    getRadarStyles(),
   ])
 
   const jsonLd = {
@@ -71,24 +68,15 @@ export default async function NaujiAtlikejaiPage() {
       <style>{radarStyles}</style>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      {/* ── Hero ── */}
+      {/* ── Hero (kompaktiškas) ── */}
       <header className="rd-hero">
         <div className="rd-hero-inner">
           <div className="rd-hero-txt">
             <span className="rd-hero-tag"><span className="rd-pulse" aria-hidden /> Naujos muzikos radaras</span>
             <h1>Nauji atlikėjai</h1>
             <p className="rd-hero-lead">
-              Nauji ir mažai žinomi Lietuvos atlikėjai bei grupės, šviežiausios dainos ir
-              kylantys kūrėjai — vieta atrasti tai, ką verta išgirsti pirmas.
+              Kylantys ir dar mažai kam žinomi kūrėjai — atrask juos pirmas.
             </p>
-            <div className="rd-stats">
-              {stats.emerging > 0 && (
-                <span className="rd-stat"><b>{stats.emerging}</b><span>kylančių atlikėjų</span></span>
-              )}
-              {stats.freshTracks > 0 && (
-                <span className="rd-stat"><b>{stats.freshTracks.toLocaleString('lt-LT')}</b><span>šviežių dainų per metus</span></span>
-              )}
-            </div>
           </div>
           <RadarSweep />
         </div>
@@ -96,27 +84,21 @@ export default async function NaujiAtlikejaiPage() {
 
       <div className="rd-wrap">
 
-        {/* ── Spotlight (admin featured) ── */}
+        {/* ── Dėmesio centre (admin featured) ── */}
         {featured.length > 0 && (
-          <RadarSection
-            kicker="Spotlight"
-            title="Redakcijos pasirinkimai"
-            sub="Kūrėjai, kuriuos šią savaitę verta įsidėmėti."
-          >
-            <FeaturedRow artists={featured} />
+          <RadarSection title="Dėmesio centre">
+            <RadarFeatured artists={featured} />
           </RadarSection>
         )}
 
-        {/* ── Nauji ir kylantys (filtras viršuje + tinklelis) ── */}
+        {/* ── Nauji ir kylantys (filtrai viršuje + tinklelis) ── */}
         <RadarSection
           kicker="Radaras"
           title="Nauji ir kylantys"
-          sub="Lietuvos atlikėjai ir grupės su naujausiais įkėlimais ir dar nedidele auditorija. Filtruok pagal stilių."
-          href="/atlikejai?country=lt"
-          hrefLabel="Visi atlikėjai"
+          sub="Atlikėjai ir grupės su naujausiais įkėlimais ir dar nedidele auditorija. Filtruok pagal šalį ir stilių."
         >
           {emerging.length > 0 ? (
-            <RadarBrowse artists={emerging} styles={styles} />
+            <RadarBrowse artists={emerging} />
           ) : (
             <div className="rd-empty">Šiuo metu radaras kraunamas — užsuk kiek vėliau.</div>
           )}
@@ -127,9 +109,7 @@ export default async function NaujiAtlikejaiPage() {
           <RadarSection
             kicker="Šviežia"
             title="Naujausios dainos"
-            sub="Paskutiniai įkėlimai nuo kylančių Lietuvos kūrėjų — spausk ir klausyk čia pat."
-            href="/dainos"
-            hrefLabel="Visos dainos"
+            sub="Paskutiniai įkėlimai nuo kylančių kūrėjų — spausk ir klausyk čia pat."
           >
             <RadarFresh tracks={freshTracks} />
           </RadarSection>
@@ -155,9 +135,9 @@ export default async function NaujiAtlikejaiPage() {
         <div className="rd-prose">
           <p>
             <strong>Naujos muzikos radaras</strong> — vieta, kur renkame naujus ir mažai
-            žinomus Lietuvos atlikėjus bei grupes. Čia rasi šviežiausius pasirodymus,
-            kylančius kūrėjus ir nepelnytai negirdėtą lietuvišką muziką. Norėdamas daugiau,
-            naršyk <Link href="/atlikejai?country=lt">visus Lietuvos atlikėjus</Link>,{' '}
+            žinomus atlikėjus bei grupes. Čia rasi šviežiausius pasirodymus, kylančius
+            kūrėjus ir nepelnytai negirdėtą muziką — gali filtruoti tik lietuviškus. Norėdamas
+            daugiau, naršyk <Link href="/atlikejai?country=lt">Lietuvos atlikėjus</Link>,{' '}
             <Link href="/muzika">muzikos katalogą</Link> arba{' '}
             <Link href="/topai">populiariausius topus</Link>.
           </p>

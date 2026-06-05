@@ -8,16 +8,15 @@
 // DB neturi švaraus „emerging" flag'o; `legacy_id IS NULL` poolas užterštas
 // chartų scaffold'u; `recent_score` visur 0; bandcamp/soundcloud tušti.
 // VIENINTELIS gyvas šviežumo signalas — tracks.video_uploaded_at.
-//   Auto-pool: country='Lietuva' + įkėlimas per RADAR_WINDOW_DAYS (180 = „pusė
-//   metų" → automatinis išėmimas, kai atlikėjas nustoja kelti) + legacy_likes <
-//   RADAR_LIKES_CEIL (atmeta žvaigždes) + cover.  Admin override: radar_status
-//   featured/included/excluded (žr. 20260605_radaras.sql).
+//   Auto-pool (BENDRAS — visos šalys): įkėlimas per RADAR_WINDOW_DAYS (180 =
+//   „pusė metų" → automatinis išėmimas, kai atlikėjas nustoja kelti) + legacy_likes
+//   < RADAR_LIKES_CEIL (mažai žinomas) + cover. Šalies (LT/užsienio) filtras —
+//   client-side. Admin override: radar_status featured/included/excluded.
 
 // NB: client komponentai importuoja iš lib/radaras-shared (ne iš čia), todėl
 // server kodas (createAdminClient) į client bundle'į nepatenka.
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase'
-import { LT_COUNTRY } from '@/lib/artist-browse'
 import {
   type RadarArtist, type RadarTrack, type RadarStats, type RadarStyle,
   styleLabel,
@@ -73,17 +72,17 @@ const excludedIds = cache(async (): Promise<Set<number>> => {
   } catch { return new Set() }
 })
 
-/* ─────────── Latest LT track uploads (šviežumo signalas) ─────────── */
-type LatestRow = { artist_id: number; latest_title: string | null; latest_at: string | null; legacy_likes: number | null }
+/* ─────────── Latest track uploads (šviežumo signalas, BENDRAS — visos šalys) ─────────── */
+type LatestRow = { artist_id: number; latest_title: string | null; latest_at: string | null; latest_video_url: string | null; legacy_likes: number | null }
 
-async function recentLtTrackArtists(limit = 700): Promise<{ order: number[]; latest: Map<number, LatestRow> }> {
+async function recentTrackArtists(limit = 900): Promise<{ order: number[]; latest: Map<number, LatestRow> }> {
   const latest = new Map<number, LatestRow>()
   const order: number[] = []
   try {
     const sb = createAdminClient()
     const { data } = await sb
       .from('tracks')
-      .select('artist_id, title, video_uploaded_at, artists!tracks_artist_id_fkey(country, legacy_likes, cover_image_url)')
+      .select('artist_id, title, video_url, video_uploaded_at, artists!tracks_artist_id_fkey(legacy_likes, cover_image_url)')
       .not('video_uploaded_at', 'is', null)
       .gte('video_uploaded_at', SINCE())
       .order('video_uploaded_at', { ascending: false })
@@ -91,16 +90,38 @@ async function recentLtTrackArtists(limit = 700): Promise<{ order: number[]; lat
     for (const t of (data || []) as any[]) {
       const a = t.artists || {}
       if (!t.artist_id) continue
-      if (a.country !== LT_COUNTRY) continue
-      if (!a.cover_image_url) continue
-      if ((a.legacy_likes ?? 0) >= RADAR_LIKES_CEIL) continue
+      if (!a.cover_image_url) continue                         // realus profilis
+      if ((a.legacy_likes ?? 0) >= RADAR_LIKES_CEIL) continue  // mažai žinomas
       if (!latest.has(t.artist_id)) {
-        latest.set(t.artist_id, { artist_id: t.artist_id, latest_title: t.title ?? null, latest_at: t.video_uploaded_at ?? null, legacy_likes: a.legacy_likes ?? null })
+        latest.set(t.artist_id, { artist_id: t.artist_id, latest_title: t.title ?? null, latest_at: t.video_uploaded_at ?? null, latest_video_url: t.video_url ?? null, legacy_likes: a.legacy_likes ?? null })
         order.push(t.artist_id)
       }
     }
   } catch { /* degrade */ }
   return { order, latest }
+}
+
+/** Pirmo YT įkėlimo metai per atlikėją (veiklos startas) — vienam id rinkiniui. */
+async function firstUploadYears(ids: number[]): Promise<Map<number, number>> {
+  const out = new Map<number, number>()
+  if (ids.length === 0) return out
+  try {
+    const sb = createAdminClient()
+    const { data } = await sb
+      .from('tracks')
+      .select('artist_id, video_uploaded_at')
+      .in('artist_id', ids)
+      .not('video_uploaded_at', 'is', null)
+      .order('video_uploaded_at', { ascending: true })
+      .limit(4000)
+    for (const t of (data || []) as any[]) {
+      if (!out.has(t.artist_id)) {
+        const y = new Date(t.video_uploaded_at).getFullYear()
+        if (y > 1990 && y <= new Date().getFullYear()) out.set(t.artist_id, y)
+      }
+    }
+  } catch { /* degrade */ }
+  return out
 }
 
 async function hydrate(ids: number[], latest: Map<number, LatestRow>): Promise<RadarArtist[]> {
@@ -110,7 +131,7 @@ async function hydrate(ids: number[], latest: Map<number, LatestRow>): Promise<R
     const { data } = await sb.from('artists').select(ARTIST_COLS).in('id', ids)
     const byId = new Map<number, any>()
     for (const a of (data || []) as any[]) byId.set(a.id, a)
-    const genres = await genresForArtists(ids)
+    const [genres, careers] = await Promise.all([genresForArtists(ids), firstUploadYears(ids)])
     const now = Date.now()
     const out: RadarArtist[] = []
     for (const id of ids) {
@@ -125,6 +146,8 @@ async function hydrate(ids: number[], latest: Map<number, LatestRow>): Promise<R
         radar_blurb: a.radar_blurb ?? null,
         genres: genres.get(id) || [],
         latest_title: lr?.latest_title ?? null, latest_at: lr?.latest_at ?? null,
+        latest_video_url: lr?.latest_video_url ?? null,
+        career_start: careers.get(id) ?? null,
         is_fresh: latestMs > 0 && now - latestMs < FRESH_BADGE_DAYS * 86_400_000,
       })
     }
@@ -145,7 +168,7 @@ export const getFeaturedArtists = cache(async (): Promise<RadarArtist[]> => {
       .limit(8)
     const ids = ((data || []) as any[]).map((a) => a.id)
     if (ids.length === 0) return []
-    const { latest } = await recentLtTrackArtists()
+    const { latest } = await recentTrackArtists()
     return hydrate(ids, latest)
   } catch { return [] }
 })
@@ -157,7 +180,7 @@ export const getEmergingArtists = cache(async (limit = 36): Promise<RadarArtist[
     const [excl, included, recent] = await Promise.all([
       excludedIds(),
       sb.from('artists').select('id, radar_sort').eq('radar_status', 'included').order('radar_sort', { ascending: false }).limit(40),
-      recentLtTrackArtists(),
+      recentTrackArtists(),
     ])
     const featuredSet = new Set(((await sb.from('artists').select('id').eq('radar_status', 'featured')).data || []).map((a: any) => a.id))
     const includedIds = ((included.data || []) as any[]).map((a) => a.id)
@@ -198,7 +221,7 @@ export const getFreshTracks = cache(async (limit = 16): Promise<RadarTrack[]> =>
     const out: RadarTrack[] = []
     for (const t of (data || []) as any[]) {
       const a = t.artists || {}
-      if (a.country !== LT_COUNTRY) continue
+      if (!a.cover_image_url) continue
       if ((a.legacy_likes ?? 0) >= RADAR_LIKES_CEIL) continue
       if (excl.has(t.artist_id)) continue
       out.push({
