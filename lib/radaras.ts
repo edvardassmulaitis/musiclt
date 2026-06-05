@@ -8,10 +8,11 @@
 // DB neturi švaraus „emerging" flag'o; `legacy_id IS NULL` poolas užterštas
 // chartų scaffold'u; `recent_score` visur 0; bandcamp/soundcloud tušti.
 // VIENINTELIS gyvas šviežumo signalas — tracks.video_uploaded_at.
-//   Auto-pool (BENDRAS — visos šalys): įkėlimas per RADAR_WINDOW_DAYS (180 =
-//   „pusė metų" → automatinis išėmimas, kai atlikėjas nustoja kelti) + legacy_likes
-//   < RADAR_LIKES_CEIL (mažai žinomas) + cover. Šalies (LT/užsienio) filtras —
-//   client-side. Admin override: radar_status featured/included/excluded.
+//   Auto-pool (TIK LIETUVA): įkėlimas per RADAR_WINDOW_DAYS (180 = „pusė metų" →
+//   automatinis išėmimas, kai atlikėjas nustoja kelti) + legacy_likes <
+//   RADAR_LIKES_CEIL (mažai žinomas) + cover. Užsienio emerging — RANKOMIS per
+//   admin „Įtraukti" (legacy_likes užsieniečiams nereiškia „emerging"). Šalies
+//   filtras client-side. Admin override: radar_status featured/included/excluded.
 
 // NB: client komponentai importuoja iš lib/radaras-shared (ne iš čia), todėl
 // server kodas (createAdminClient) į client bundle'į nepatenka.
@@ -72,17 +73,25 @@ const excludedIds = cache(async (): Promise<Set<number>> => {
   } catch { return new Set() }
 })
 
-/* ─────────── Latest track uploads (šviežumo signalas, BENDRAS — visos šalys) ─────────── */
+/* ─────────── Latest LT track uploads (šviežumo signalas) ───────────
+ * SVARBU: auto-pool TIK Lietuva. „Mažai žinomas" = legacy_likes (music.lt
+ * įsitraukimas) — užsienio atlikėjams šis signalas NEVEIKIA (pvz. The Cranberries,
+ * Wiz Khalifa turi mažai music.lt like'ų, bet NĖRA emerging). Užsienio emerging
+ * pridedami RANKOMIS per admin „Įtraukti" (radar_status='included'). */
 type LatestRow = { artist_id: number; latest_title: string | null; latest_at: string | null; latest_video_url: string | null; legacy_likes: number | null }
 
-async function recentTrackArtists(limit = 900): Promise<{ order: number[]; latest: Map<number, LatestRow> }> {
+function isLt(c: string | null | undefined): boolean {
+  return !!c && (c === 'Lietuva' || c === 'LT' || c === 'Lithuania')
+}
+
+async function recentTrackArtists(limit = 700): Promise<{ order: number[]; latest: Map<number, LatestRow> }> {
   const latest = new Map<number, LatestRow>()
   const order: number[] = []
   try {
     const sb = createAdminClient()
     const { data } = await sb
       .from('tracks')
-      .select('artist_id, title, video_url, video_uploaded_at, artists!tracks_artist_id_fkey(legacy_likes, cover_image_url)')
+      .select('artist_id, title, video_url, video_uploaded_at, artists!tracks_artist_id_fkey(country, legacy_likes, cover_image_url)')
       .not('video_uploaded_at', 'is', null)
       .gte('video_uploaded_at', SINCE())
       .order('video_uploaded_at', { ascending: false })
@@ -90,6 +99,7 @@ async function recentTrackArtists(limit = 900): Promise<{ order: number[]; lates
     for (const t of (data || []) as any[]) {
       const a = t.artists || {}
       if (!t.artist_id) continue
+      if (!isLt(a.country)) continue                           // tik Lietuva (auto)
       if (!a.cover_image_url) continue                         // realus profilis
       if ((a.legacy_likes ?? 0) >= RADAR_LIKES_CEIL) continue  // mažai žinomas
       if (!latest.has(t.artist_id)) {
@@ -221,6 +231,7 @@ export const getFreshTracks = cache(async (limit = 16): Promise<RadarTrack[]> =>
     const out: RadarTrack[] = []
     for (const t of (data || []) as any[]) {
       const a = t.artists || {}
+      if (!isLt(a.country)) continue
       if (!a.cover_image_url) continue
       if ((a.legacy_likes ?? 0) >= RADAR_LIKES_CEIL) continue
       if (excl.has(t.artist_id)) continue

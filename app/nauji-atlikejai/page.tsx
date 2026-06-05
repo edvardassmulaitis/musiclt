@@ -95,7 +95,7 @@ export default async function NaujiAtlikejaiPage() {
         <RadarSection
           kicker="Radaras"
           title="Nauji ir kylantys"
-          sub="Atlikėjai ir grupės su naujausiais įkėlimais ir dar nedidele auditorija. Filtruok pagal šalį ir stilių."
+          sub="Atlikėjai ir grupės su naujausiais įkėlimais ir dar nedidele auditorija. Filtruok pagal stilių."
         >
           {emerging.length > 0 ? (
             <RadarBrowse artists={emerging} />
@@ -135,9 +135,9 @@ export default async function NaujiAtlikejaiPage() {
         <div className="rd-prose">
           <p>
             <strong>Naujos muzikos radaras</strong> — vieta, kur renkame naujus ir mažai
-            žinomus atlikėjus bei grupes. Čia rasi šviežiausius pasirodymus, kylančius
-            kūrėjus ir nepelnytai negirdėtą muziką — gali filtruoti tik lietuviškus. Norėdamas
-            daugiau, naršyk <Link href="/atlikejai?country=lt">Lietuvos atlikėjus</Link>,{' '}
+            žinomus Lietuvos atlikėjus bei grupes. Čia rasi šviežiausius pasirodymus,
+            kylančius kūrėjus ir nepelnytai negirdėtą lietuvišką muziką. Norėdamas daugiau,
+            naršyk <Link href="/atlikejai?country=lt">Lietuvos atlikėjus</Link>,{' '}
             <Link href="/muzika">muzikos katalogą</Link> arba{' '}
             <Link href="/topai">populiariausius topus</Link>.
           </p>
