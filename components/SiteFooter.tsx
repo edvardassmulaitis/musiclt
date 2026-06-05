@@ -14,7 +14,7 @@ export function SiteFooter() {
           {[
             { t: 'Platforma', l: [['Topai', '/topai'], ['Nauja muzika', '/muzika'], ['Koncertai', '/koncertai'], ['Atlikėjai', '/atlikejai'], ['Albumai', '/albumai']] },
             { t: 'Bendruomenė', l: [['Diskusijos', '/diskusijos'], ['Pokalbiai', '/pokalbiai'], ['Blogai', '/blogas/mano'], ['Dienos daina', '/dienos-daina']] },
-            { t: 'Informacija', l: [['Apie mus', '/'], ['Atlikėjams', '/'], ['Reklama', '/'], ['Kontaktai', '/'], ['Privatumas', '/privatumas']] },
+            { t: 'Informacija', l: [['Apie mus', '/'], ['Atlikėjams', '/nauji-atlikejai'], ['Reklama', '/'], ['Kontaktai', '/'], ['Privatumas', '/privatumas']] },
           ].map(col => (
             <div key={col.t}>
               <h4 className="text-[10px] font-black uppercase tracking-[0.12em] mb-4" style={{ color: 'var(--text-faint)' }}>{col.t}</h4>

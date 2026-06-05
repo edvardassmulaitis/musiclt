@@ -120,7 +120,7 @@ const NAV: NavItem[] = [
     key: 'muzika',
     label: 'Muzika',
     href: '/muzika',
-    match: ['/muzika', '/atlikejai', '/albumai', '/zanrai', '/dainos', '/lt'],
+    match: ['/muzika', '/atlikejai', '/albumai', '/zanrai', '/dainos', '/lt', '/nauji-atlikejai'],
     desc: 'Atlikėjai, albumai, dainos',
     accent: '#f59e0b',
     icon: I.music,
@@ -320,15 +320,20 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
 
       {/* ── ATLIKĖJAI sekcijos header'is — vienodas su Stiliai stiliumi ── */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 6,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
         fontFamily: "'Outfit', sans-serif",
         fontSize: 11, fontWeight: 800,
         textTransform: 'uppercase', letterSpacing: '0.1em',
         color: 'var(--text-muted)',
         marginBottom: 8,
       }}>
-        <span className="sh-trending-glyph" title="Trending">{I.trending}</span>
-        Atlikėjai ir grupės
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="sh-trending-glyph" title="Trending">{I.trending}</span>
+          Atlikėjai ir grupės
+        </span>
+        <Link href="/nauji-atlikejai" className="sh-more-link" style={{ color: 'var(--accent-green)' }}>
+          📡 Naujų radaras →
+        </Link>
       </div>
 
       {/* ── ATLIKĖJAI: LT + užsienio eilutės su flag stripe ── */}
@@ -816,15 +821,20 @@ function MobileExpansion({
       <div className="sh-mexp">
         {/* ── ATLIKĖJAI sekcijos header'is (vienodas su Stiliai) ── */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
           fontFamily: "'Outfit', sans-serif",
           fontSize: 11, fontWeight: 800,
           textTransform: 'uppercase', letterSpacing: '0.1em',
           color: 'var(--text-muted)',
           marginBottom: 8,
         }}>
-          <span className="sh-trending-glyph" title="Trending">{I.trending}</span>
-          Atlikėjai ir grupės
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="sh-trending-glyph" title="Trending">{I.trending}</span>
+            Atlikėjai ir grupės
+          </span>
+          <Link href="/nauji-atlikejai" onClick={onLink} className="sh-more-link" style={{ color: 'var(--accent-green)' }}>
+            📡 Radaras →
+          </Link>
         </div>
 
         {/* ── ATLIKĖJAI: LT eilutė — Daugiau kaip last tile strip'e ── */}
