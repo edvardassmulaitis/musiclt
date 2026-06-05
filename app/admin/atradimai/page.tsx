@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
-import AtradimaiAdminClient, { type PendingGroup, type LinkedGroup, type Report } from './AtradimaiAdminClient'
+import AtradimaiAdminClient, { type Sample, type PendingGroup, type LinkedGroup, type Report } from './AtradimaiAdminClient'
 
 export const metadata: Metadata = { title: 'Atradimai — admin | music.lt' }
 export const dynamic = 'force-dynamic'
@@ -31,7 +31,7 @@ export default async function AtradimaiAdminPage() {
   const pg = new Map<string, PendingGroup>()
   for (const d of (pend || []) as any[]) {
     const key = d.artist_name || '(be vardo)'
-    const g = pg.get(key) || { artist_name: key, count: 0, samples: [] }
+    const g = pg.get(key) || { artist_name: key, count: 0, samples: [] as Sample[] }
     g.count++; if (g.samples.length < 8) g.samples.push(sample(d))
     pg.set(key, g)
   }
@@ -43,7 +43,7 @@ export default async function AtradimaiAdminPage() {
   const lg = new Map<number, LinkedGroup>()
   for (const d of (linked || []) as any[]) {
     const key = d.artist_id as number
-    const g = lg.get(key) || { artist_id: key, db_name: d.artists?.name || '?', slug: d.artists?.slug || null, raw_name: d.artist_name || '', count: 0, samples: [] }
+    const g = lg.get(key) || { artist_id: key, db_name: d.artists?.name || '?', slug: d.artists?.slug || null, raw_name: d.artist_name || '', count: 0, samples: [] as Sample[] }
     g.count++; if (g.samples.length < 8) g.samples.push(sample(d))
     lg.set(key, g)
   }
