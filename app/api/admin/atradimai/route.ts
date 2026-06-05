@@ -43,5 +43,17 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ ok: true })
   }
 
+  // Atrišti: grąžinti atradimus į trūkstamų eilę (klaidingo auto-match taisymui)
+  if (body.type === 'unlink' && body.artist_id) {
+    const { data: ids } = await sb.from('discoveries').select('id').eq('artist_id', body.artist_id)
+    const discIds = (ids || []).map((r: any) => r.id)
+    if (discIds.length) await sb.from('discovery_tags').delete().in('discovery_id', discIds)
+    const { error } = await sb.from('discoveries')
+      .update({ artist_id: null, resolve_state: 'needs_import' })
+      .eq('artist_id', body.artist_id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
   return NextResponse.json({ error: 'Bad request' }, { status: 400 })
 }
