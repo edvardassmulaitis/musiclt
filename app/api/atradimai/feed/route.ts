@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 
+// redeploy trigger 2026-06-05 (Vercel build queue restart)
 export const revalidate = 120
 
 const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
