@@ -250,6 +250,7 @@ export type Listing = {
   updated_at: string
   // JOIN'ai (optional)
   author?: { id: string; username: string | null; full_name: string | null; avatar_url: string | null } | null
+  artist?: { id: number; name: string; slug: string | null; cover_image_url: string | null } | null
 }
 
 const SELECT_COLS =
@@ -258,7 +259,8 @@ const SELECT_COLS =
   'release_country,catalog_no,brand,model,item_cond,item_year,status,is_promoted,promoted_until,' +
   'source_url,source_name,is_seed,' +
   'view_count,save_count,created_at,updated_at,' +
-  'author:profiles!listings_author_id_fkey(id,username,full_name,avatar_url)'
+  'author:profiles!listings_author_id_fkey(id,username,full_name,avatar_url),' +
+  'artist:artists!listings_artist_id_fkey(id,name,slug,cover_image_url)'
 
 export type ListFilters = {
   type?: ListingType

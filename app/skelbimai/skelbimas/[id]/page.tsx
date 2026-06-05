@@ -90,11 +90,11 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
       <div style={{ display: 'grid', gap: 28, gridTemplateColumns: 'minmax(0, 1.6fr) minmax(260px, 1fr)' }} className="sk-detail-grid">
         {/* Kairė: galerija + aprašymas */}
         <div>
-          {photos.length > 0 ? (
+          {(photos.length > 0 || listing.artist?.cover_image_url) ? (
             <div style={{ marginBottom: 20 }}>
               <div style={{ borderRadius: 14, overflow: 'hidden', background: 'var(--bg-surface)', marginBottom: photos.length > 1 ? 8 : 0 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={proxyImg(photos[0], 1000)} alt={listing.title} style={{ width: '100%', maxHeight: 480, objectFit: 'contain', display: 'block' }} />
+                <img src={proxyImg(photos[0] || listing.artist?.cover_image_url, 1000)} alt={listing.title} style={{ width: '100%', maxHeight: 480, objectFit: photos.length > 0 ? 'contain' : 'cover', display: 'block' }} />
               </div>
               {photos.length > 1 && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -131,10 +131,25 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
             ))}
           </div>
 
-          {/* Katalogo blokas (plokštelėms) */}
+          {/* Katalogo sąsaja (atlikėjas / albumas) */}
+          {listing.artist && (
+            <Link href={listing.artist.slug ? `/atlikejai/${listing.artist.slug}` : '#'} style={{
+              display: 'flex', alignItems: 'center', gap: 12, marginTop: 16, padding: '12px 14px', borderRadius: 12,
+              border: '1px solid var(--border-default)', background: 'var(--bg-elevated)', textDecoration: 'none',
+            }}>
+              {listing.artist.cover_image_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={proxyImg(listing.artist.cover_image_url, 96)} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+              )}
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)' }}>Atlikėjas music.lt kataloge</span>
+                <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: 'var(--accent-link)' }}>{listing.artist.name} →</span>
+              </span>
+            </Link>
+          )}
           {listing.album_id && (
             <Link href={`/albumai/${listing.album_id}`} style={{
-              display: 'block', marginTop: 16, padding: '14px 16px', borderRadius: 12,
+              display: 'block', marginTop: 10, padding: '14px 16px', borderRadius: 12,
               border: '1px solid var(--border-default)', background: 'var(--bg-elevated)',
               textDecoration: 'none', color: 'var(--accent-link)', fontWeight: 700, fontSize: 14,
             }}>
