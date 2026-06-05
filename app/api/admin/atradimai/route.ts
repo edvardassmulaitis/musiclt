@@ -32,5 +32,16 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ ok: true })
   }
 
+  // Susieti visus atradimus su raw_name → esamas DB atlikėjas
+  if (body.type === 'link_artist' && body.artist_id && body.artist_name) {
+    const { error } = await sb.from('discoveries')
+      .update({ artist_id: body.artist_id, resolve_state: 'resolved' })
+      .eq('artist_name', body.artist_name)
+      .eq('thread_id', 128402)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await sb.from('discovery_pending_artist').update({ status: 'done' }).eq('raw_name', body.artist_name)
+    return NextResponse.json({ ok: true })
+  }
+
   return NextResponse.json({ error: 'Bad request' }, { status: 400 })
 }
