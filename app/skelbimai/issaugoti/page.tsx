@@ -34,7 +34,7 @@ export default async function SavedPage() {
           Dar nieko neįsiminei. Naršyk <Link href="/skelbimai" style={{ color: 'var(--accent-orange)' }}>skelbimus</Link> ir spausk ♥.
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+        <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))' }}>
           {items.map(l => <ListingCard key={l.id} listing={l} />)}
         </div>
       )}

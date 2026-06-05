@@ -154,7 +154,7 @@ export function CategoryBrowser({ type, initialListings, initialQ = '' }: Props)
           Nieko nerasta. Pabandyk kitus filtrus arba <a href="/skelbimai/naujas" style={{ color: 'var(--accent-orange)' }}>įdėk savo skelbimą</a>.
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+        <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))' }}>
           {listings.map(l => <ListingCard key={l.id} listing={l} />)}
         </div>
       )}

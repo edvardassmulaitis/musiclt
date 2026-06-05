@@ -30,7 +30,7 @@ export function SkelbimaiHubClient({ itemsByType }: { itemsByType: Record<Listin
   const modalMeta = modal && modal !== 'all' ? LISTING_TYPES[modal] : null
 
   return (
-    <div style={{ maxWidth: 1080, margin: '0 auto', padding: '28px 20px 80px' }}>
+    <div className="page-shell">
       {/* Hero */}
       <div style={{ marginBottom: 26 }}>
         <h1 className="font-['Outfit',sans-serif] text-3xl font-black tracking-[-0.02em] text-[var(--text-primary)] sm:text-4xl">Skelbimai</h1>
@@ -81,12 +81,12 @@ export function SkelbimaiHubClient({ itemsByType }: { itemsByType: Record<Listin
               <div className="flex items-stretch gap-3">
                 <div className="sk-scroll flex min-w-0 flex-1 items-stretch gap-3 pb-1">
                   {items.map(l => (
-                    <div key={l.id} style={{ flex: '0 0 auto', width: 184 }}>
+                    <div key={l.id} style={{ flex: '0 0 auto', width: 240 }}>
                       <ListingCard listing={l} />
                     </div>
                   ))}
                 </div>
-                <StickyMoreButton count={items.length} height={236} onClick={() => setModal(t)} ariaLabel={`Atverti visus: ${meta.label}`} />
+                <StickyMoreButton count={items.length} height={232} onClick={() => setModal(t)} ariaLabel={`Atverti visus: ${meta.label}`} />
               </div>
             ) : (
               <Link href={`/skelbimai/naujas?tipas=${meta.type}`} style={{

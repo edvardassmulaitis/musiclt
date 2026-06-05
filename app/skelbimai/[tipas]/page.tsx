@@ -37,7 +37,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ tipas
   const initial = await listListings({ type, sort: 'newest', limit: 60 })
 
   return (
-    <div style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 20px 80px' }}>
+    <div className="page-shell">
       <nav style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
         <Link href="/skelbimai" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Skelbimai</Link>
         <span style={{ margin: '0 6px' }}>/</span>
