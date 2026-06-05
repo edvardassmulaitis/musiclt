@@ -30,6 +30,20 @@ import { createAdminClient } from '@/lib/supabase'
 
 const LT_COUNTRIES = ['Lietuva', 'LT', 'Lithuania']
 
+// ── Homepage block-list ──
+// Atlikėjai iš šių šalių NIEKADA nerodomi homepage'o „Naujos dainos" /
+// „Nauji albumai" / „Greitai pasirodys" sekcijose (politinis sprendimas,
+// 2026-06-05). Filtruojam JS lygyje po fetch'o — null-safe (NULL country
+// nelaikomas blokuotu; nežinomos kilmės įrašai praeina). Pastaba: Rusijos
+// atlikėjai dažnai turi country=NULL + kirilicos slug'ą — tokius patagavom
+// country='Rusija' DB lygyje, kad šis filtras juos pagautų.
+const BLOCKED_HOME_COUNTRIES = ['Rusija']
+
+function isBlockedCountry(country: string | null | undefined): boolean {
+  if (!country) return false
+  return BLOCKED_HOME_COUNTRIES.includes(country)
+}
+
 // 90 dienų — pakankamai šviežių LT releasų. Jei keisti, taip pat atnaujinti
 // memory.md ir homepage SectionHead label'ą („Naujausios").
 export const LATEST_TRACK_WINDOW_DAYS = 90
@@ -188,7 +202,10 @@ export async function getLatestTracksForHome(): Promise<{
   const rows = await cachedFetchLatestTracksRaw('v5-pro-200')
 
   // Filtruojam mojibake / placeholder titles, kur title == artist name.
-  let valid = rows.filter(r => r.artists && r.title && r.title !== r.artists.name)
+  // + block-list: Rusijos atlikėjai niekada nerodomi homepage'e.
+  let valid = rows.filter(
+    r => r.artists && r.title && r.title !== r.artists.name && !isBlockedCountry(r.artists.country)
+  )
 
   // ── Reissue filter ──
   // YT video_uploaded_at recent (90d) gali būti tik perleidimas seno track'o.
@@ -303,7 +320,9 @@ export async function getLatestAlbumsForHome(): Promise<{
     if (m > cm) return false
     return d <= cd
   }
-  const released = rows.filter(r => r.artists && isReleased(r))
+  const released = rows.filter(
+    r => r.artists && isReleased(r) && !isBlockedCountry(r.artists.country)
+  )
   const ltAll = released.filter(r => isLT(r.artists!.country))
   const worldAll = released.filter(r => !isLT(r.artists!.country))
   return {
@@ -372,7 +391,9 @@ export async function getUpcomingAlbumsForHome(): Promise<{
     if (m < cm) return false
     return d > cd
   }
-  const filtered = rows.filter(r => r.artists && isFuture(r))
+  const filtered = rows.filter(
+    r => r.artists && isFuture(r) && !isBlockedCountry(r.artists!.country)
+  )
   return {
     items: filtered.slice(0, HOME_LANE_LIMIT * 2),
     total: filtered.length,
