@@ -7,13 +7,14 @@
 //        a) prikabintų dainų/albumų/atlikėjų (blog_post_* — „article" diary),
 //        b) target_* kolonų (review/translation/event sieja konkretų entity),
 //        c) topas — list_items įrašų (collage iš top entry vizualų).
-//      Be šito row'ai atrodo tušti. „Kūryba" sąmoningai lieka be vizualo
-//      (nesietina su muzikos įrašais — Edvardo sprendimas 2026-06-05).
-//   2. TOPAS — grąžinam top-5 entries (rank/title/artist/image) mini-topui,
-//      kaip oficialūs muzikos topai.
+//      „Kūryba" sąmoningai lieka be vizualo (nesietina su muzika).
+//   2. TOPAS — grąžinam top-5 entries (rank/title/artist/image) mini-topui.
+//      DĖMESIO: yra DU list_items formatai:
+//        • naujas editor'iaus: {rank, type, entity_id, title, artist, image_url}
+//        • legacy importas (237/239): {position, artist_name, track_title,
+//          artist_legacy_id, track_legacy_id, album_legacy_id} — vizualus
+//          sprendžiam per legacy_id → tracks/albums/artists.
 //   3. DEDUP per autorių — vienas (naujausias) įrašas per narį.
-//
-// type praleistas = visi tipai sumaišyti (Naujausi įrašai row).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
@@ -29,17 +30,37 @@ function ytThumb(url?: string | null): string | null {
 function first<T>(v: T | T[] | null | undefined): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
 }
+const num = (v: any): number | null => (typeof v === 'number' ? v : (v != null && /^\d+$/.test(String(v)) ? parseInt(String(v)) : null))
 
-type ListEntry = { rank: number; title: string; artist: string | null; image: string | null; type: string; entity_id: number | null }
+type ListEntry = { rank: number; title: string; artist: string | null; image: string | null }
 
 type OutPost = {
   id: number; slug: string; title: string; post_type: string; rating: number | null
   like_count: number | null; comment_count: number | null; published_at: string | null
   cover: string | null
-  collage: string[] | null     // topas: top entry vizualai
-  entries: ListEntry[] | null  // topas: top-5 mini-top
+  collage: string[] | null
+  entries: ListEntry[] | null
   blog_slug: string | null
   author: { id: string | null; full_name: string | null; username: string | null; avatar_url: string | null } | null
+}
+
+// Normalizuojam abu list_item formatus į vieną.
+function normEntry(it: any, i: number) {
+  const rank = num(it.rank) ?? num(it.position) ?? i + 1
+  const trackTitle = it.track_title || null
+  const artistName = it.artist_name || null
+  // naujas formatas: title/artist; legacy: track_title/artist_name
+  const title = (it.title || trackTitle || artistName || '').toString()
+  const artist = it.artist || (trackTitle ? artistName : null) || null
+  return {
+    rank, title, artist,
+    image_url: it.image_url || null,
+    type: it.type || null,
+    entity_id: num(it.entity_id),
+    track_legacy_id: num(it.track_legacy_id),
+    album_legacy_id: num(it.album_legacy_id),
+    artist_legacy_id: num(it.artist_legacy_id),
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -67,7 +88,7 @@ export async function GET(req: NextRequest) {
 
     const rows = (data || []) as any[]
 
-    // ── Dedup per autorių (vienas naujausias įrašas per narį) PRIEŠ cover resolve. ──
+    // ── Dedup per autorių (vienas naujausias įrašas per narį). ──
     const seen = new Set<string>()
     const deduped: any[] = []
     for (const r of rows) {
@@ -79,8 +100,7 @@ export async function GET(req: NextRequest) {
       if (deduped.length >= limit) break
     }
 
-    // ── Cover resolve tiems, kurie neturi cover_image_url. ──
-    const thumb = new Map<number, string>()         // post_id → cover
+    const thumb = new Map<number, string>()
     const need = deduped.filter(r => !r.cover_image_url && r.post_type !== 'creation')
 
     // (a) Prikabinti entity (article diary) — blog_post_* lentelės.
@@ -110,11 +130,11 @@ export async function GET(req: NextRequest) {
       } catch {}
     }
 
-    // (b) target_* sieti entity (review / translation / event).
-    const trackIds = new Set<number>()
-    const albumIds = new Set<number>()
-    const artistIds = new Set<number>()
+    // ── Surenkam ID'us vizualų sprendimui (target_* + topas list_items). ──
+    const trackIds = new Set<number>(), albumIds = new Set<number>(), artistIds = new Set<number>()
     const eventIds = new Set<string>()
+    const trackLeg = new Set<number>(), albumLeg = new Set<number>(), artistLeg = new Set<number>()
+
     for (const r of need) {
       if (thumb.has(r.id)) continue
       if (r.target_track_id) trackIds.add(r.target_track_id)
@@ -122,37 +142,48 @@ export async function GET(req: NextRequest) {
       if (r.target_artist_id) artistIds.add(r.target_artist_id)
       if (r.target_event_id) eventIds.add(r.target_event_id)
     }
-    // (c) topas list_items — surenkam top-5 entry entity_id'us be image_url.
+
+    // Topas entries (normalizuotos, top-5 pagal rank/position).
+    const topNormById = new Map<number, ReturnType<typeof normEntry>[]>()
     const topasRows = deduped.filter(r => r.post_type === 'topas' && Array.isArray(r.list_items) && r.list_items.length)
     for (const r of topasRows) {
-      const top = [...r.list_items].sort((a: any, b: any) => (a.rank || 0) - (b.rank || 0)).slice(0, 5)
-      for (const it of top) {
-        if (it.image_url) continue
-        if (it.type === 'track' && it.entity_id) trackIds.add(it.entity_id)
-        else if (it.type === 'album' && it.entity_id) albumIds.add(it.entity_id)
-        else if (it.type === 'artist' && it.entity_id) artistIds.add(it.entity_id)
+      const norm = (r.list_items as any[]).map((it, i) => normEntry(it, i)).sort((a, b) => a.rank - b.rank).slice(0, 5)
+      topNormById.set(r.id, norm)
+      for (const e of norm) {
+        if (e.image_url) continue
+        if (e.entity_id) {
+          if (e.type === 'track') trackIds.add(e.entity_id)
+          else if (e.type === 'album') albumIds.add(e.entity_id)
+          else if (e.type === 'artist') artistIds.add(e.entity_id)
+        }
+        if (e.track_legacy_id) trackLeg.add(e.track_legacy_id)
+        if (e.album_legacy_id) albumLeg.add(e.album_legacy_id)
+        if (e.artist_legacy_id) artistLeg.add(e.artist_legacy_id)
       }
     }
 
-    // Batch entity užklausos → image map'ai pagal tipą.
-    const trackImg = new Map<number, string>()
-    const albumImg = new Map<number, string>()
-    const artistImg = new Map<number, string>()
+    // ── Batch entity užklausos (pagal id IR legacy_id). ──
+    const trackImg = new Map<number, string>(), albumImg = new Map<number, string>(), artistImg = new Map<number, string>()
+    const trackImgLeg = new Map<number, string>(), albumImgLeg = new Map<number, string>(), artistImgLeg = new Map<number, string>()
     const eventImg = new Map<string, string>()
+    const E = { data: [] as any[] }
     try {
-      const [tr, al, ar, ev] = await Promise.all([
-        trackIds.size ? sb.from('tracks').select('id, cover_url, video_url, artist:artist_id(cover_image_url)').in('id', [...trackIds]) : Promise.resolve({ data: [] as any[] }),
-        albumIds.size ? sb.from('albums').select('id, cover_image_url').in('id', [...albumIds]) : Promise.resolve({ data: [] as any[] }),
-        artistIds.size ? sb.from('artists').select('id, cover_image_url').in('id', [...artistIds]) : Promise.resolve({ data: [] as any[] }),
-        eventIds.size ? sb.from('events').select('id, cover_image_url').in('id', [...eventIds]) : Promise.resolve({ data: [] as any[] }),
+      const [tr, trL, al, alL, ar, arL, ev] = await Promise.all([
+        trackIds.size ? sb.from('tracks').select('id, cover_url, video_url, artist:artist_id(cover_image_url)').in('id', [...trackIds]) : Promise.resolve(E),
+        trackLeg.size ? sb.from('tracks').select('legacy_id, cover_url, video_url, artist:artist_id(cover_image_url)').in('legacy_id', [...trackLeg]) : Promise.resolve(E),
+        albumIds.size ? sb.from('albums').select('id, cover_image_url').in('id', [...albumIds]) : Promise.resolve(E),
+        albumLeg.size ? sb.from('albums').select('legacy_id, cover_image_url').in('legacy_id', [...albumLeg]) : Promise.resolve(E),
+        artistIds.size ? sb.from('artists').select('id, cover_image_url').in('id', [...artistIds]) : Promise.resolve(E),
+        artistLeg.size ? sb.from('artists').select('legacy_id, cover_image_url').in('legacy_id', [...artistLeg]) : Promise.resolve(E),
+        eventIds.size ? sb.from('events').select('id, cover_image_url').in('id', [...eventIds]) : Promise.resolve(E),
       ])
-      for (const t of ((tr as any).data || [])) {
-        const art = first<any>(t.artist)
-        const img = ytThumb(t.video_url) || t.cover_url || art?.cover_image_url || null
-        if (img) trackImg.set(t.id, img)
-      }
+      const trackImgOf = (t: any) => ytThumb(t.video_url) || t.cover_url || first<any>(t.artist)?.cover_image_url || null
+      for (const t of ((tr as any).data || [])) { const img = trackImgOf(t); if (img) trackImg.set(t.id, img) }
+      for (const t of ((trL as any).data || [])) { const img = trackImgOf(t); if (img) trackImgLeg.set(t.legacy_id, img) }
       for (const a of ((al as any).data || [])) if (a.cover_image_url) albumImg.set(a.id, a.cover_image_url)
+      for (const a of ((alL as any).data || [])) if (a.cover_image_url) albumImgLeg.set(a.legacy_id, a.cover_image_url)
       for (const a of ((ar as any).data || [])) if (a.cover_image_url) artistImg.set(a.id, a.cover_image_url)
+      for (const a of ((arL as any).data || [])) if (a.cover_image_url) artistImgLeg.set(a.legacy_id, a.cover_image_url)
       for (const e of ((ev as any).data || [])) if (e.cover_image_url) eventImg.set(e.id, e.cover_image_url)
     } catch {}
 
@@ -167,18 +198,23 @@ export async function GET(req: NextRequest) {
       if (img) thumb.set(r.id, img)
     }
 
-    // Topas entries (top-5) su išspręstais vizualais → mini-topui + collage.
+    // Topas entries → vizualai.
     const entriesById = new Map<number, ListEntry[]>()
     for (const r of topasRows) {
-      const top = [...r.list_items].sort((a: any, b: any) => (a.rank || 0) - (b.rank || 0)).slice(0, 5)
-      const entries: ListEntry[] = top.map((it: any, i: number) => {
-        let image: string | null = it.image_url || null
-        if (!image) {
-          if (it.type === 'track') image = it.entity_id ? (trackImg.get(it.entity_id) || null) : null
-          else if (it.type === 'album') image = it.entity_id ? (albumImg.get(it.entity_id) || null) : null
-          else if (it.type === 'artist') image = it.entity_id ? (artistImg.get(it.entity_id) || null) : null
+      const norm = topNormById.get(r.id) || []
+      const entries: ListEntry[] = norm.map(e => {
+        let image: string | null = e.image_url
+        if (!image && e.entity_id) {
+          if (e.type === 'track') image = trackImg.get(e.entity_id) || null
+          else if (e.type === 'album') image = albumImg.get(e.entity_id) || null
+          else if (e.type === 'artist') image = artistImg.get(e.entity_id) || null
         }
-        return { rank: it.rank || i + 1, title: it.title || '', artist: it.artist || null, image, type: it.type || 'custom', entity_id: it.entity_id ?? null }
+        if (!image) {
+          image = (e.track_legacy_id && trackImgLeg.get(e.track_legacy_id)) ||
+                  (e.album_legacy_id && albumImgLeg.get(e.album_legacy_id)) ||
+                  (e.artist_legacy_id && artistImgLeg.get(e.artist_legacy_id)) || null
+        }
+        return { rank: e.rank, title: e.title, artist: e.artist, image }
       })
       entriesById.set(r.id, entries)
     }
