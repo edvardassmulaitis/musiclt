@@ -120,7 +120,7 @@ const NAV: NavItem[] = [
     key: 'muzika',
     label: 'Muzika',
     href: '/muzika',
-    match: ['/muzika', '/atlikejai', '/albumai', '/zanrai', '/dainos', '/lt', '/nauji-atlikejai'],
+    match: ['/muzika', '/atlikejai', '/albumai', '/zanrai', '/dainos', '/lt', '/nauji-atlikejai', '/muzikos-atradimai'],
     desc: 'Atlikėjai, albumai, dainos',
     accent: '#f59e0b',
     icon: I.music,
@@ -155,8 +155,8 @@ const NAV: NavItem[] = [
   {
     key: 'atradimai',
     label: 'Atradimai',
-    href: '/atradimai',
-    match: ['/atradimai', '/pramogos', '/boombox', '/zaidimai', '/kvizai', '/bendruomene', '/diskusijos', '/blogas', '/pokalbiai', '/vartotojai', '/vartotojas', '/dienos-daina'],
+    href: '/feed',
+    match: ['/feed', '/pramogos', '/boombox', '/zaidimai', '/kvizai', '/bendruomene', '/diskusijos', '/blogas', '/pokalbiai', '/vartotojai', '/vartotojas', '/dienos-daina'],
     desc: 'Bendruomenės srautas, nariai, diskusijos',
     accent: '#8b5cf6',
     icon: I.fun,
@@ -358,7 +358,10 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
           }}>
             Stiliai
           </span>
-          <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
+          <span style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <Link href="/muzikos-atradimai" className="sh-more-link" style={{ color: 'var(--accent-orange)' }}>✨ Muzikos atradimai →</Link>
+            <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
+          </span>
         </div>
         <div className="sh-chiprow">
           {styles.map(s => (
@@ -628,7 +631,7 @@ function AtradimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
     <div className="sh-panel">
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Atradimai</span>
-        <Link href="/atradimai" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
+        <Link href="/feed" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
       </div>
 
       {/* Dienos dainos — nugalėtojų juosta */}

@@ -1869,7 +1869,7 @@ function PulsasSection() {
           nuo Pulso (Edvardo prašymu 2026-06-02). „+N" mygtukas atveria pilną
           bendruomenės aktyvumo modalą (blog + diskusijos + komentarai). ── */}
       <section>
-        <SectionHead label="Atradimai" href="/atradimai" cta="Daugiau →" />
+        <SectionHead label="Atradimai" href="/feed" cta="Daugiau →" />
         <div className="flex items-stretch gap-3">
           <div className="hp-scroll flex min-w-0 flex-1 items-stretch gap-3 pb-1">
             {loading ? Array(5).fill(null).map((_, i) => (
