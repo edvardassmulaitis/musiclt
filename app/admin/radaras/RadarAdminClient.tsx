@@ -208,10 +208,10 @@ export default function RadarAdminClient({
 
       <Section title="⭐ Featured (spotlight)" showBlurb
         hint="Rodomi viršuje su redakcijos prierašu. Pridėk blurb'ą, kad kortelė atrodytų pilnai."
-        items={featured} empty="Nieko nepriskirta — surask atlikėją viršuje ir spausk „Featured"." />
+        items={featured} empty="Nieko nepriskirta — surask atlikėją viršuje ir spausk „Featured“." />
 
       <Section title="＋ Įtraukti į tinklelį"
-        hint="Priverstinai rodomi „Nauji ir kylantys" tinklelyje, net jei auto signalai silpni."
+        hint="Priverstinai rodomi „Nauji ir kylantys“ tinklelyje, net jei auto signalai silpni."
         items={included} empty="Tuščia — auto kandidatai (žemiau) ir taip rodomi tinklelyje." />
 
       <Section title="📡 Auto kandidatai"
