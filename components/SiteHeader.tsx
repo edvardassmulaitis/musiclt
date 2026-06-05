@@ -2269,29 +2269,32 @@ export function SiteHeader() {
         /* Desktop-only veiksmai (Srautas ♥, + Kurti) — mobile juos dengia
            apatinis baras (MobileBottomNav). */
         .sh-desktop-action { display: flex; }
-        /* 👥+ split hub mygtukas — vientisas oranžinis pill su skirtuku:
-           kairė „+ Kurti" (QuickCreate), dešinė bendruomenės ikona → /feed. */
+        /* 👥+ split hub mygtukas — pill su border'iu, dvi atskirtos pusės:
+           kairė neparyškinta bendruomenės ikona → /feed; dešinė oranžinė
+           „+ Kurti" CTA (QuickCreate). Skirtingi fonai → aiškus split'as. */
         .sh-hub-split {
           align-items: stretch; height: 34px; border-radius: 18px;
-          overflow: hidden; background: var(--accent-orange);
+          overflow: hidden; background: transparent;
+          border: 1px solid var(--border-default);
           -webkit-tap-highlight-color: transparent;
         }
+        .sh-hub-feed {
+          display: flex; align-items: center; justify-content: center;
+          width: 42px; color: var(--text-muted);
+          transition: color .15s, background .15s;
+        }
+        .sh-hub-feed:hover { color: var(--text-primary); background: var(--bg-hover); }
+        .sh-hub-feed.active { color: var(--accent-orange); }
+        .sh-hub-divider { width: 1px; background: var(--border-default); flex-shrink: 0; }
         .sh-hub-create {
-          display: flex; align-items: center; gap: 6px; padding: 0 11px;
-          border: none; cursor: pointer; background: transparent; color: #fff;
+          display: flex; align-items: center; gap: 6px; padding: 0 13px;
+          border: none; cursor: pointer; background: var(--accent-orange); color: #fff;
           font-family: inherit; font-size: 13px; font-weight: 700;
           transition: filter .15s, transform .1s;
           -webkit-tap-highlight-color: transparent;
         }
-        .sh-hub-create:hover { filter: brightness(1.1); }
+        .sh-hub-create:hover { filter: brightness(1.08); }
         .sh-hub-create:active { transform: scale(.96); }
-        .sh-hub-divider { width: 1px; margin: 7px 0; background: rgba(255,255,255,0.32); flex-shrink: 0; }
-        .sh-hub-feed {
-          display: flex; align-items: center; justify-content: center;
-          width: 38px; color: #fff; transition: filter .15s, background .15s;
-        }
-        .sh-hub-feed:hover { filter: brightness(1.1); background: rgba(0,0,0,0.12); }
-        .sh-hub-feed.active { background: rgba(0,0,0,0.18); }
         /* display:contents — wrapper'is nesukuria box'o, bells lieka flex row'e.
            Mobile'e juos paslepiam (apatinis baras juos perima), bet komponentai
            lieka sumontuoti (NotificationsBell dropdown atidaromas per event'ą). */
@@ -2743,6 +2746,19 @@ export function SiteHeader() {
                 (QuickCreate). Dešinė: bendruomenės ikona → /feed (buvęs
                 /atradimai turinys). Tik desktop (mobile = apatinis baras). */}
             <div className="sh-desktop-action sh-hub-split">
+              <Link
+                href="/feed"
+                aria-label="Bendruomenė"
+                title="Bendruomenė — srautas, įrašai, diskusijos"
+                className={`sh-hub-feed${pathname.startsWith('/feed') ? ' active' : ''}`}
+              >
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="6.5" r="2.8"/><circle cx="5.5" cy="8.5" r="2.1"/><circle cx="18.5" cy="8.5" r="2.1"/>
+                  <path d="M12 11c-2.8 0-4.7 1.8-4.7 4.3V17h9.4v-1.7c0-2.5-1.9-4.3-4.7-4.3Z"/>
+                  <path d="M5.5 12.9c-2.1 0-3.5 1.3-3.5 3.2V17h3.3"/><path d="M18.5 12.9c2.1 0 3.5 1.3 3.5 3.2V17h-3.3"/>
+                </svg>
+              </Link>
+              <span className="sh-hub-divider" aria-hidden />
               <button
                 type="button"
                 onClick={() => openQuickCreate()}
@@ -2752,17 +2768,6 @@ export function SiteHeader() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 <span>Kurti</span>
               </button>
-              <span className="sh-hub-divider" aria-hidden />
-              <Link
-                href="/feed"
-                aria-label="Bendruomenė"
-                title="Bendruomenė — srautas, įrašai, diskusijos"
-                className={`sh-hub-feed${pathname.startsWith('/feed') ? ' active' : ''}`}
-              >
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                </svg>
-              </Link>
             </div>
 
             {/* Srautas (♥) — asmeninis feed. Tik desktop (mobile = apatinis baras). */}
