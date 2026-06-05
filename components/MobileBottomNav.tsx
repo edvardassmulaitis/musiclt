@@ -3,18 +3,18 @@
 /**
  * MobileBottomNav — app-stiliaus apatinis meniu (tik mobile, ≤1080px).
  *
- * v3 (5 vietos, centrinis „+" FAB), TIK IKONOS:
- *   🏠 Pradžia · ❤️ Sekami · ➕ Kurti · 📊 Topai · 💬 Pokalbiai
+ * v4 (5 vietos, centrinis 👥+ bendruomenės hub FAB), TIK IKONOS:
+ *   🏠 Pradžia · ❤️ Sekami · 👥+ Bendruomenė(/feed) · 📊 Topai · 💬 Pokalbiai
  *
  * Ikonos: plonesnės (strokeWidth 1.8, 24px), TIK kontūras (be fill) — aktyvus
  * žymimas tik oranžine spalva, kad pasirinkus ikonos nesusilietų į blob'ą.
- * „+" FAB pakeltas virš baro (margin-top), aiškiai atskirtas.
+ * Centrinis FAB pakeltas virš baro (margin-top) — veda į bendruomenės hub'ą
+ * (/feed), kuriame integruotas ir kūrimas (buvęs /atradimai turinys).
  */
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { openQuickCreate } from '@/components/QuickCreate'
 
 export function MobileBottomNav() {
   const pathname = usePathname() || '/'
@@ -96,11 +96,11 @@ export function MobileBottomNav() {
           </span>
         </Link>
 
-        {/* + (centras) — pakeltas FAB */}
+        {/* 👥+ Bendruomenė (centras) — pakeltas FAB → /feed (hub su kūrimu) */}
         <div className="mbn-fab-wrap">
-          <button type="button" className="mbn-fab" aria-label="Kurti" onClick={() => openQuickCreate()}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-          </button>
+          <Link href="/feed" className="mbn-fab" aria-label="Bendruomenė">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </Link>
         </div>
 
         {/* Topai — stulpelinė diagrama */}
