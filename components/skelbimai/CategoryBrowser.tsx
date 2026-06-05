@@ -81,7 +81,7 @@ export function CategoryBrowser({ type, initialListings, initialQ = '' }: Props)
   }, [type, q, subtype, city, instrument, genre, sort])
 
   useEffect(() => {
-    const t = setTimeout(fetchListings, q !== initialQ ? 350 : 0)
+    const t = setTimeout(fetchListings, q !== initialQ ? 180 : 0)
     return () => clearTimeout(t)
   }, [subtype, city, instrument, genre, sort, q]) // eslint-disable-line react-hooks/exhaustive-deps
 

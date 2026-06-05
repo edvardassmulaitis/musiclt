@@ -51,7 +51,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ tipas
         </div>
         <Link href={`/skelbimai/naujas?tipas=${meta.type}`} style={{
           padding: '10px 18px', fontSize: 14, fontWeight: 700, borderRadius: 10, whiteSpace: 'nowrap',
-          background: 'var(--accent-orange)', color: '#fff', textDecoration: 'none',
+          background: 'var(--accent-blue)', color: '#fff', textDecoration: 'none',
         }}>+ Įdėti skelbimą</Link>
       </div>
 
