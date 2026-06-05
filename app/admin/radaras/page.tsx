@@ -59,7 +59,7 @@ export default async function AdminRadarPage() {
         <p className="mt-1 text-sm text-[var(--text-muted)]">
           Valdyk, kas rodoma <Link href="/nauji-atlikejai" className="text-[var(--accent-link)]">/nauji-atlikejai</Link>.
           {' '}<b>Featured</b> = spotlight viršuje · <b>Įtraukti</b> = priverstinai tinklelyje ·
-          {' '}<b>Paslėpti</b> = niekada nerodyti (pvz. klaidingi mistag'ai) · <b>Auto</b> = palikti algoritmui.
+          {' '}<b>Paslėpti</b> = niekada nerodyti (pvz. klaidingai priskirti užsienio atlikėjai) · <b>Auto</b> = palikti algoritmui.
         </p>
       </div>
 
