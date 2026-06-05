@@ -36,7 +36,7 @@ function CategoryRow({ type, items }: { type: ListingType; items: Listing[] }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>{ICON[type]}</span>
           <div style={{ minWidth: 0 }}>
-            <h2 className="font-['Outfit',sans-serif]" style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--text-primary)', margin: 0, lineHeight: 1.15 }}>
+            <h2 className="font-['Outfit',sans-serif]" style={{ fontSize: 'var(--section-title-size)', fontWeight: 800, letterSpacing: 'var(--section-title-tracking)', color: 'var(--text-primary)', margin: 0, lineHeight: 1.15 }}>
               {meta.label}
               {meta.live && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-faint)', marginLeft: 8 }}>{items.length || ''}</span>}
             </h2>

@@ -134,7 +134,7 @@ function RowHead({ title, accent, allHref, addType }: { title: string; accent: s
     <div className="mb-3 flex items-end justify-between gap-3">
       <div className="flex items-center gap-2.5">
         <span style={{ width: 4, height: 18, borderRadius: 3, background: accent }} />
-        <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">{title}</h2>
+        <h2 className="m-0 font-['Outfit',sans-serif] font-extrabold text-[var(--text-primary)]" style={{ fontSize: 'var(--section-title-size)', letterSpacing: 'var(--section-title-tracking)' }}>{title}</h2>
       </div>
       <div className="flex shrink-0 items-center gap-3">
         {addType && <Link href={`/blogas/rasyti?type=${addType}`} className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)] no-underline transition-colors hover:text-[var(--accent-orange)]">+ Rašyti</Link>}

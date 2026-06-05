@@ -479,6 +479,11 @@ html, body {
   --card-visual-h:   170px;
   --card-title-size: 13px;
   --card-sub-size:   11.5px;
+
+  /* Sekcijų antraštės (h2) — vienodos visuose puslapiuose, mobile=desktop */
+  --section-title-size:     19px;
+  --section-title-weight:   800;
+  --section-title-tracking: -0.02em;
 }
 
 /* Turinio konteineris — centruotas, kanoninio pločio, vienodos paraštės. */

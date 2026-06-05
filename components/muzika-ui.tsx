@@ -184,7 +184,7 @@ export const muzikaStyles = `
 .mz-sec { margin-top:44px; }
 .mz-sec:first-of-type { margin-top:30px; }
 .mz-shead { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:16px; }
-.mz-shead h2 { font-family:'Outfit',sans-serif; font-weight:800; letter-spacing:-.02em; font-size:clamp(1.25rem,2.2vw,1.6rem); line-height:1.1; }
+.mz-shead h2 { font-family:'Outfit',sans-serif; font-weight:800; letter-spacing:-.02em; font-size:var(--section-title-size); line-height:1.1; }
 .mz-shead p { color:var(--text-muted); font-size:13px; margin-top:4px; }
 .mz-shead-all { flex-shrink:0; font-family:'Outfit',sans-serif; font-weight:700; font-size:13px; color:var(--accent-link); white-space:nowrap; padding-bottom:3px; }
 .mz-shead-all:hover { color:var(--accent-orange); }

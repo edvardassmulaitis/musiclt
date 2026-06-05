@@ -288,7 +288,7 @@ const styles = `
   @media (max-width: 640px) { .tp { padding-left: var(--page-pad-x-sm); padding-right: var(--page-pad-x-sm); } }
 
   .tp-section { margin-top: 34px; }
-  .tp-sec-title { margin: 0 0 14px; font-family: 'Outfit', sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+  .tp-sec-title { margin: 0 0 14px; font-family: 'Outfit', sans-serif; font-size: var(--section-title-size); font-weight: var(--section-title-weight); letter-spacing: var(--section-title-tracking); }
 
   .tp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 760px) { .tp-grid { grid-template-columns: 1fr; } }
