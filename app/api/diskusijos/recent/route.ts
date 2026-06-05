@@ -75,7 +75,9 @@ export async function GET(req: Request) {
         artist_image: art?.cover_image_url || null,
         latest_comment: c
           ? {
-              excerpt: body.length > 100 ? body.slice(0, 100).replace(/\s+\S*$/, '') + '…' : body,
+              // Pilnas komentaras (sanity cap 600 simb. — labai ilgi komentarai
+              // sutrumpinami, kad nepertemptų kortelės). UI rodo visą tekstą.
+              excerpt: body.length > 600 ? body.slice(0, 600).replace(/\s+\S*$/, '') + '…' : body,
               author: prof?.full_name || prof?.username || 'Vartotojas',
               avatar: prof?.avatar_url || null,
               created_at: c.created_at,

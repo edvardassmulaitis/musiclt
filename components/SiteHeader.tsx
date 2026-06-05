@@ -667,7 +667,7 @@ function AtradimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
     <div className="sh-panel">
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Atradimai</span>
-        <Link href="/feed" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
+        <Link href="/atrasti" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
       </div>
 
       {/* Dienos dainos — nugalėtojų juosta */}
@@ -2793,10 +2793,10 @@ export function SiteHeader() {
                 /atradimai turinys). Tik desktop (mobile = apatinis baras). */}
             <div className="sh-desktop-action sh-hub-split">
               <Link
-                href="/feed"
+                href="/atrasti"
                 aria-label="Bendruomenė"
                 title="Bendruomenė — srautas, įrašai, diskusijos"
-                className={`sh-hub-feed${pathname.startsWith('/feed') ? ' active' : ''}`}
+                className={`sh-hub-feed${pathname.startsWith('/atrasti') ? ' active' : ''}`}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="6.5" r="2.8"/><circle cx="5.5" cy="8.5" r="2.1"/><circle cx="18.5" cy="8.5" r="2.1"/>

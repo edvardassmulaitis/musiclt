@@ -98,7 +98,7 @@ export function MobileBottomNav() {
 
         {/* 👥+ Bendruomenė (centras) — pakeltas FAB → /feed (hub su kūrimu) */}
         <div className="mbn-fab-wrap">
-          <Link href="/feed" className="mbn-fab" aria-label="Bendruomenė">
+          <Link href="/atrasti" className="mbn-fab" aria-label="Bendruomenė">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="6.5" r="2.8"/><circle cx="5.5" cy="8.5" r="2.1"/><circle cx="18.5" cy="8.5" r="2.1"/><path d="M12 11c-2.8 0-4.7 1.8-4.7 4.3V17h9.4v-1.7c0-2.5-1.9-4.3-4.7-4.3Z"/><path d="M5.5 12.9c-2.1 0-3.5 1.3-3.5 3.2V17h3.3"/><path d="M18.5 12.9c2.1 0 3.5 1.3 3.5 3.2V17h-3.3"/></svg>
           </Link>
         </div>

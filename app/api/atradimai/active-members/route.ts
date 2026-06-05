@@ -111,19 +111,41 @@ export async function GET(req: NextRequest) {
       if (members.length >= limit) break
     }
 
-    // ── Nauji nariai — TIK realios registracijos (provider google/facebook/email).
-    // Ghost/legacy importai turi provider=null arba 'recreated' (created_at=import
-    // data) → juos praleidžiam, kitaip „nauji" užfloodintų 70k migruotų profilių. ──
-    let new_members: { username: string; name: string | null; avatar: string | null; created_at: string }[] = []
+    // ── Nauji nariai — suimportuoti music.lt nariai pagal REGISTRACIJOS datą
+    // (joined_legacy_at) mažėjančia tvarka. Reikalaujam avataro + tikro vardo
+    // (ne „Naujokas" placeholder'io), kad sekcija atrodytų gyvai, o ne tuščiai.
+    // Realios naujos registracijos (provider) natūraliai pakliūna į priekį, nes
+    // jų joined_legacy_at = NULL → atskirai prepend'inam jas, jei yra. ──
+    let new_members: { username: string; name: string | null; avatar: string | null; created_at: string; joined_legacy_at: string | null }[] = []
     try {
-      const { data: np } = await sb
+      const { data: real } = await sb
         .from('profiles')
         .select('username, full_name, avatar_url, created_at')
         .in('provider', ['google', 'facebook', 'email'])
         .not('username', 'is', null)
         .order('created_at', { ascending: false })
         .limit(limit)
-      new_members = (np || []).map((p: any) => ({ username: p.username, name: p.full_name || p.username, avatar: p.avatar_url, created_at: p.created_at }))
+      const realMembers = (real || []).map((p: any) => ({ username: p.username, name: p.full_name || p.username, avatar: p.avatar_url, created_at: p.created_at, joined_legacy_at: null as string | null }))
+
+      const { data: imp } = await sb
+        .from('profiles')
+        .select('username, full_name, avatar_url, created_at, joined_legacy_at')
+        .not('joined_legacy_at', 'is', null)
+        .not('username', 'is', null)
+        .not('avatar_url', 'is', null)
+        .not('full_name', 'is', null)
+        .neq('full_name', 'Naujokas')
+        .order('joined_legacy_at', { ascending: false })
+        .limit(limit + realMembers.length)
+      const impMembers = (imp || []).map((p: any) => ({ username: p.username, name: p.full_name || p.username, avatar: p.avatar_url, created_at: p.created_at, joined_legacy_at: p.joined_legacy_at as string | null }))
+
+      const seenU = new Set<string>()
+      for (const m of [...realMembers, ...impMembers]) {
+        if (seenU.has(m.username)) continue
+        seenU.add(m.username)
+        new_members.push(m)
+        if (new_members.length >= limit) break
+      }
     } catch {}
 
     // total_active — kiek SKIRTINGŲ narių apskritai turėjo viešų veiksmų per langą
