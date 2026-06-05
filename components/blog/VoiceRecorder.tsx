@@ -8,15 +8,24 @@
 //   -> vartotojas patvirtina/paredaguoja -> tekstas PRISEGAMAS prie esamo
 //   turinio (niekada neperrašo to, kas jau parašyta).
 //
-// Tema per CSS kintamuosius. Visa UI lietuviškai. Edge case'ai (spec §9):
-// mikrofono leidimas, MediaRecorder nepalaikymas, per trumpas įrašas, serviso
-// klaida — visi su aiškia LT žinute; rašyti ranka visada lieka galimybė.
+// ATSPARUMAS (po prod bug'o, kai antras įrašas užstrigdavo be galimybės
+// sustabdyti):
+//   • Stop duoda MOMENTINĮ feedback'ą (phase -> processing iškart),
+//     nelaukia MediaRecorder.onstop.
+//   • Watchdog: jei `onstop` nesuveikia (flaky kai kuriose naršyklėse),
+//     po 1.5s priverstinai apdorojam sukauptus chunk'us. Naudojam
+//     timeslice (start(1000)) kad chunk'ai kauptųsi įrašymo metu.
+//   • `fetch` su AbortController + 45s timeout — „Transkribuojama…" niekada
+//     nepakimba amžinai.
+//   • „Atšaukti" mygtukas KIEKVIENOJE būsenoje + re-entry guard.
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-const MAX_SECONDS = 300 // 5 min auto-stop (apsauga nuo per didelių failų)
+const MAX_SECONDS = 300 // 5 min auto-stop
 const MIN_MS = 2000 // < 2s = per trumpas
+const UPLOAD_TIMEOUT_MS = 45000
+const STOP_WATCHDOG_MS = 1500
 
 type Phase = 'idle' | 'recording' | 'processing' | 'preview' | 'error'
 
@@ -54,7 +63,11 @@ export function VoiceRecorder({
   const startRef = useRef<number>(0)
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const mimeRef = useRef<string>('')
+  const processedRef = useRef<boolean>(false) // ar šis ciklas jau apdorotas
+  const mountedRef = useRef<boolean>(true)
 
   // Feature detect — jei nepalaikoma, komponentas nepiešiamas (lieka rašymas).
   useEffect(() => {
@@ -67,13 +80,16 @@ export function VoiceRecorder({
   }, [])
 
   // Cleanup unmount'inant.
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      abortRef.current?.abort()
       cleanupStream()
       clearTimers()
-    },
-    [],
-  )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function clearTimers() {
     if (tickRef.current) {
@@ -84,6 +100,10 @@ export function VoiceRecorder({
       clearTimeout(autoStopRef.current)
       autoStopRef.current = null
     }
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current)
+      watchdogRef.current = null
+    }
   }
 
   function cleanupStream() {
@@ -93,7 +113,12 @@ export function VoiceRecorder({
   }
 
   async function startRecording() {
+    // Re-entry guard — nepradedam naujo įrašo per vykstantį.
+    if (phase === 'recording' || phase === 'processing') return
+
     setErrorMsg('')
+    processedRef.current = false
+
     let stream: MediaStream
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -126,8 +151,18 @@ export function VoiceRecorder({
     rec.ondataavailable = (ev) => {
       if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data)
     }
-    rec.onstop = handleStop
-    rec.start()
+    rec.onstop = () => {
+      void finishRecording()
+    }
+
+    try {
+      rec.start(1000) // timeslice: chunk'ai kaupiasi įrašymo metu
+    } catch {
+      cleanupStream()
+      setPhase('error')
+      setErrorMsg('Nepavyko pradėti įrašymo. Gali rašyti ranka.')
+      return
+    }
 
     startRef.current = Date.now()
     setSeconds(0)
@@ -136,22 +171,32 @@ export function VoiceRecorder({
     tickRef.current = setInterval(() => {
       setSeconds(Math.floor((Date.now() - startRef.current) / 1000))
     }, 250)
-    autoStopRef.current = setTimeout(() => stopRecording(), MAX_SECONDS * 1000)
+    autoStopRef.current = setTimeout(() => requestStop(), MAX_SECONDS * 1000)
   }
 
-  function stopRecording() {
+  // Sustabdymas: MOMENTINIS feedback + watchdog jei onstop nesuveiks.
+  function requestStop() {
+    if (phase !== 'recording') return
     clearTimers()
+    setPhase('processing') // iškart parodom kad sustojo ir dirba
+
     const rec = recRef.current
-    if (rec && rec.state !== 'inactive') {
-      try {
-        rec.stop()
-      } catch {
-        /* onstop vis tiek nesuveiks — handle'inam defensyviai */
-      }
+    try {
+      if (rec && rec.state !== 'inactive') rec.stop()
+    } catch {
+      /* onstop gali nesuveikti — watchdog padengs */
     }
+
+    watchdogRef.current = setTimeout(() => {
+      if (!processedRef.current) void finishRecording()
+    }, STOP_WATCHDOG_MS)
   }
 
-  async function handleStop() {
+  async function finishRecording() {
+    if (processedRef.current) return
+    processedRef.current = true
+    clearTimers()
+
     const elapsed = Date.now() - startRef.current
     const blob = new Blob(chunksRef.current, { type: mimeRef.current || 'audio/webm' })
     cleanupStream()
@@ -163,6 +208,14 @@ export function VoiceRecorder({
     }
 
     setPhase('processing')
+    await uploadBlob(blob)
+  }
+
+  async function uploadBlob(blob: Blob) {
+    const ac = new AbortController()
+    abortRef.current = ac
+    const timeout = setTimeout(() => ac.abort(), UPLOAD_TIMEOUT_MS)
+
     try {
       const ext = mimeRef.current.includes('mp4')
         ? 'mp4'
@@ -173,9 +226,15 @@ export function VoiceRecorder({
       fd.append('audio', blob, `irasas.${ext}`)
       fd.append('context', context || '')
 
-      const res = await fetch('/api/voice-to-review', { method: 'POST', body: fd })
-      const data = await res.json().catch(() => ({}))
+      const res = await fetch('/api/voice-to-review', {
+        method: 'POST',
+        body: fd,
+        signal: ac.signal,
+      })
+      clearTimeout(timeout)
+      if (!mountedRef.current) return
 
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setPhase('error')
         setErrorMsg(data?.error || 'Nepavyko apdoroti įrašo. Pabandyk dar kartą.')
@@ -191,20 +250,35 @@ export function VoiceRecorder({
 
       setPreview(text)
       setPhase('preview')
-    } catch {
+    } catch (e: any) {
+      clearTimeout(timeout)
+      if (!mountedRef.current) return
       setPhase('error')
-      setErrorMsg('Tinklo klaida. Pabandyk dar kartą.')
+      setErrorMsg(
+        e?.name === 'AbortError'
+          ? 'Užtruko per ilgai. Pabandyk trumpesnį įrašą.'
+          : 'Tinklo klaida. Pabandyk dar kartą.',
+      )
+    } finally {
+      abortRef.current = null
     }
+  }
+
+  // Universalus „atšaukti / iš naujo" — iš bet kurios būsenos atgal į idle.
+  function reset() {
+    abortRef.current?.abort()
+    processedRef.current = true
+    clearTimers()
+    cleanupStream()
+    setPreview('')
+    setErrorMsg('')
+    setSeconds(0)
+    setPhase('idle')
   }
 
   function acceptPreview() {
     const t = preview.trim()
     if (t) onResult(t)
-    setPreview('')
-    setPhase('idle')
-  }
-
-  function discardPreview() {
     setPreview('')
     setPhase('idle')
   }
@@ -232,32 +306,44 @@ export function VoiceRecorder({
         </button>
       )}
 
-      {/* ── Recording ── */}
+      {/* ── Recording — visa juosta + aiškus Stabdyti, viskas stabdo ── */}
       {phase === 'recording' && (
-        <div
-          className="inline-flex items-center gap-3 px-3 py-1.5 rounded-full"
-          style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.30)' }}
-        >
-          <span className="vr-dot" aria-hidden />
-          <span className="text-xs font-bold tabular-nums" style={{ color: '#fca5a5' }}>
-            {mm}:{ss}
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={stopRecording}
-            className="text-xs font-bold transition hover:opacity-80"
-            style={{ color: '#fecaca' }}
+            onClick={requestStop}
+            className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-full transition hover:opacity-90"
+            style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)' }}
           >
-            ⏹ Stabdyti
+            <span className="vr-dot" aria-hidden />
+            <span className="text-xs font-bold tabular-nums" style={{ color: '#fca5a5' }}>
+              {mm}:{ss}
+            </span>
+            <span className="text-xs font-bold" style={{ color: '#fecaca' }}>
+              ⏹ Stabdyti
+            </span>
           </button>
+          <span className="text-[10px]" style={{ color: '#5e7290' }}>
+            Spausk „Stabdyti", kai baigsi
+          </span>
         </div>
       )}
 
-      {/* ── Processing ── */}
+      {/* ── Processing — su escape hatch'u (nebepakimba) ── */}
       {phase === 'processing' && (
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: '#8aa8cc' }}>
-          <span className="vr-spin" aria-hidden />
-          Transkribuojama…
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-2 text-xs" style={{ color: '#8aa8cc' }}>
+            <span className="vr-spin" aria-hidden />
+            Transkribuojama…
+          </span>
+          <button
+            type="button"
+            onClick={reset}
+            className="text-[11px] font-bold transition hover:opacity-80"
+            style={{ color: '#6889a8' }}
+          >
+            Atšaukti
+          </button>
         </div>
       )}
 
@@ -287,7 +373,7 @@ export function VoiceRecorder({
           <div
             className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
             style={{ background: 'rgba(0,0,0,0.6)' }}
-            onClick={discardPreview}
+            onClick={reset}
           >
             <div
               className="w-full max-w-xl rounded-2xl p-6"
@@ -318,7 +404,7 @@ export function VoiceRecorder({
               <div className="flex items-center justify-end gap-2 mt-4">
                 <button
                   type="button"
-                  onClick={discardPreview}
+                  onClick={reset}
                   className="px-4 py-2 rounded-lg text-xs font-bold transition"
                   style={{ color: 'var(--text-muted, #6889a8)' }}
                 >
