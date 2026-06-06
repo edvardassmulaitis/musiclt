@@ -28,42 +28,70 @@ type Post = {
 
 type Tab = 'latest' | 'top' | 'drafts' | 'all'
 
+// Tipo ikona — inline emoji (projektas neturi ikonų bibliotekos)
+const TYPE_ICON: Record<BlogPostType, string> = {
+  article: '📝',
+  review: '⭐',
+  topas: '🏆',
+  translation: '🌐',
+  creation: '✍️',
+  event: '🎤',
+}
+
 export default function MyPostsPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('latest')
+  const [q, setQ] = useState('')
 
   useEffect(() => {
-    fetch('/api/blog/posts').then(r => r.json()).then(d => {
-      setPosts(Array.isArray(d) ? d : [])
-    }).finally(() => setLoading(false))
+    fetch('/api/blog/posts')
+      .then(r => r.json())
+      .then(d => setPosts(Array.isArray(d) ? d : []))
+      .finally(() => setLoading(false))
   }, [])
 
   // Bendra statistika viršuje
   const stats = useMemo(() => {
     const published = posts.filter(p => p.status === 'published')
+    const totalViews = published.reduce((s, p) => s + (p.view_count || 0), 0)
+    const totalLikes = published.reduce((s, p) => s + (p.like_count || 0), 0)
     return {
       total: posts.length,
       published: published.length,
       drafts: posts.length - published.length,
-      views: published.reduce((s, p) => s + (p.view_count || 0), 0),
-      likes: published.reduce((s, p) => s + (p.like_count || 0), 0),
+      views: totalViews,
+      likes: totalLikes,
       comments: published.reduce((s, p) => s + (p.comment_count || 0), 0),
     }
   }, [posts])
 
   const filtered = useMemo(() => {
-    if (tab === 'drafts') return posts.filter(p => p.status === 'draft')
-    if (tab === 'top') {
-      return [...posts.filter(p => p.status === 'published')]
-        .sort((a, b) => (b.view_count + b.like_count * 3 + b.comment_count * 2) - (a.view_count + a.like_count * 3 + a.comment_count * 2))
+    let list = posts
+    if (tab === 'drafts') list = posts.filter(p => p.status === 'draft')
+    else if (tab === 'top') {
+      list = [...posts.filter(p => p.status === 'published')].sort(
+        (a, b) =>
+          b.view_count + b.like_count * 3 + b.comment_count * 2 -
+          (a.view_count + a.like_count * 3 + a.comment_count * 2),
+      )
+    } else if (tab === 'latest') {
+      list = [...posts.filter(p => p.status === 'published')].sort(
+        (a, b) =>
+          new Date(b.published_at || b.updated_at).getTime() -
+          new Date(a.published_at || a.updated_at).getTime(),
+      )
     }
-    if (tab === 'latest') {
-      return [...posts.filter(p => p.status === 'published')]
-        .sort((a, b) => new Date(b.published_at || b.updated_at).getTime() - new Date(a.published_at || a.updated_at).getTime())
+    const term = q.trim().toLowerCase()
+    if (term) {
+      list = list.filter(
+        p =>
+          p.title.toLowerCase().includes(term) ||
+          (p.summary || '').toLowerCase().includes(term),
+      )
     }
-    return posts
-  }, [posts, tab])
+    return list
+  }, [posts, tab, q])
 
   async function handleDelete(id: string) {
     if (!confirm('Tikrai ištrinti šį įrašą?')) return
@@ -72,201 +100,321 @@ export default function MyPostsPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-2 gap-4 flex-wrap">
+    <div className="page-shell">
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div className="page-head">
+        <Link
+          href="/blogas"
+          className="inline-block text-xs font-semibold mb-2 transition"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          ← Visi blogai
+        </Link>
+        <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
-            <Link href="/blogas" className="text-xs hover:text-white transition" style={{ color: '#5e7290' }}>← Visi blogai</Link>
-            <h1 className="text-2xl font-black mt-2" style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.02em', color: '#f2f4f8' }}>
-              Mano įrašai
-            </h1>
+            <h1>Mano įrašai</h1>
+            <p>Tavo blogo valdymo skydelis — statistika, juodraščiai ir publikuoti įrašai vienoje vietoje.</p>
           </div>
-          <Link href="/blogas/rasyti" className="px-4 py-1.5 rounded-full text-xs font-bold text-white bg-[#f97316] hover:bg-[#ea580c] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            + Naujas
+          <Link
+            href="/blogas/rasyti"
+            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-bold text-white transition hover:brightness-110"
+            style={{ background: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}
+          >
+            <span className="text-base leading-none">+</span> Naujas įrašas
           </Link>
         </div>
+      </div>
 
-        {/* Stats overview */}
-        {!loading && stats.total > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-6">
-            <StatBox label="Įrašai" value={stats.published} sub={stats.drafts > 0 ? `+${stats.drafts} juodr.` : undefined} />
-            <StatBox label="Peržiūros" value={stats.views} icon="👁" />
-            <StatBox label="Patiko" value={stats.likes} icon="♥" />
-            <StatBox label="Komentarai" value={stats.comments} icon="💬" />
-            <StatBox label="Viso" value={stats.total} sub="su juodraščiais" />
+      {/* ── Stats hero ─────────────────────────────────────────── */}
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-7">
+          {[0, 1, 2, 3].map(i => <StatSkeleton key={i} />)}
+        </div>
+      ) : stats.total > 0 ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-7">
+          <StatBox label="Publikuota" value={stats.published} icon="📄" accent
+            sub={stats.drafts > 0 ? `+${stats.drafts} juodraščiai` : 'visi publikuoti'} />
+          <StatBox label="Peržiūros" value={stats.views} icon="👁" />
+          <StatBox label="Patiko" value={stats.likes} icon="♥" />
+          <StatBox label="Komentarai" value={stats.comments} icon="💬" />
+        </div>
+      ) : null}
+
+      {/* ── Toolbar: tabs + search ─────────────────────────────── */}
+      {!loading && stats.total > 0 && (
+        <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+          <div
+            className="flex gap-1 p-1 rounded-full"
+            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+          >
+            {([
+              { key: 'latest', label: 'Naujausi' },
+              { key: 'top', label: 'Populiariausi' },
+              { key: 'drafts', label: `Juodraščiai${stats.drafts ? ` ${stats.drafts}` : ''}` },
+              { key: 'all', label: 'Visi' },
+            ] as Array<{ key: Tab; label: string }>).map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className="px-3.5 py-1.5 text-xs font-bold rounded-full transition whitespace-nowrap"
+                style={
+                  tab === t.key
+                    ? { background: 'var(--accent-orange)', color: '#fff', fontFamily: "'Outfit', sans-serif" }
+                    : { color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }
+                }
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
-        )}
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-5 border-b border-white/[.05]">
-          {([
-            { key: 'latest',  label: 'Naujausi' },
-            { key: 'top',     label: 'Top' },
-            { key: 'drafts',  label: `Juodraščiai${stats.drafts ? ` (${stats.drafts})` : ''}` },
-            { key: 'all',     label: 'Archyvas' },
-          ] as Array<{ key: Tab; label: string }>).map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-3 py-2 text-xs font-bold transition relative ${
-                tab === t.key ? 'text-[#f97316]' : 'text-[#8aa8cc] hover:text-[#dde8f8]'
-              }`}
-              style={{ fontFamily: "'Outfit', sans-serif" }}
-            >
-              {t.label}
-              {tab === t.key && (
-                <span className="absolute left-3 right-3 -bottom-px h-px" style={{ background: '#f97316' }} />
-              )}
-            </button>
+          <input
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Ieškoti įrašo…"
+            className="px-3.5 py-2 rounded-full text-xs flex-1 min-w-[140px] sm:max-w-[220px] outline-none transition"
+            style={{
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-primary)',
+            }}
+          />
+        </div>
+      )}
+
+      {/* ── List ───────────────────────────────────────────────── */}
+      {loading ? (
+        <div className="space-y-3">{[0, 1, 2].map(i => <CardSkeleton key={i} />)}</div>
+      ) : filtered.length === 0 ? (
+        <EmptyState tab={tab} hasQuery={!!q.trim()} totalEmpty={stats.total === 0} />
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(p => (
+            <PostCard key={p.id} post={p} onDelete={() => handleDelete(p.id)} />
           ))}
         </div>
-
-        {/* List */}
-        {loading ? (
-          <p className="text-center py-12 text-sm" style={{ color: '#334058' }}>Kraunasi...</p>
-        ) : filtered.length === 0 ? (
-          <EmptyState tab={tab} />
-        ) : (
-          <div className="space-y-3">
-            {filtered.map(p => <PostCard key={p.id} post={p} onDelete={() => handleDelete(p.id)} />)}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }
 
-// ── Stat box (viršuje) ──────────────────────────────────────────────────────
-function StatBox({ label, value, sub, icon }: { label: string; value: number; sub?: string; icon?: string }) {
+// ── Stat box ───────────────────────────────────────────────────────────────
+function StatBox({
+  label, value, sub, icon, accent,
+}: { label: string; value: number; sub?: string; icon?: string; accent?: boolean }) {
   return (
-    <div className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-      <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: '#5e7290' }}>{label}</p>
-      <p className="text-xl font-black tabular-nums" style={{ fontFamily: "'Outfit', sans-serif", color: '#f2f4f8' }}>
-        {icon && <span className="text-sm mr-1" style={{ color: '#5e7290' }}>{icon}</span>}
+    <div
+      className="rounded-2xl p-4 transition"
+      style={{
+        background: accent
+          ? 'linear-gradient(135deg, rgba(249,115,22,0.14), rgba(249,115,22,0.04))'
+          : 'var(--bg-surface)',
+        border: `1px solid ${accent ? 'rgba(249,115,22,0.30)' : 'var(--border-subtle)'}`,
+      }}
+    >
+      <div className="flex items-center gap-1.5 mb-2">
+        {icon && <span className="text-sm">{icon}</span>}
+        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          {label}
+        </p>
+      </div>
+      <p
+        className="text-2xl sm:text-3xl font-black tabular-nums leading-none"
+        style={{ fontFamily: "'Outfit', sans-serif", color: accent ? 'var(--accent-orange)' : 'var(--text-primary)' }}
+      >
         {value.toLocaleString('lt-LT')}
       </p>
-      {sub && <p className="text-[10px] mt-0.5" style={{ color: '#5e7290' }}>{sub}</p>}
+      {sub && <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
     </div>
   )
 }
 
-// ── Empty state per tab ─────────────────────────────────────────────────────
-function EmptyState({ tab }: { tab: Tab }) {
+function StatSkeleton() {
+  return (
+    <div
+      className="rounded-2xl p-4 animate-pulse"
+      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', height: 96 }}
+    />
+  )
+}
+
+function CardSkeleton() {
+  return (
+    <div
+      className="rounded-2xl animate-pulse"
+      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', height: 104 }}
+    />
+  )
+}
+
+// ── Empty state ─────────────────────────────────────────────────────────────
+function EmptyState({ tab, hasQuery, totalEmpty }: { tab: Tab; hasQuery: boolean; totalEmpty: boolean }) {
+  if (hasQuery) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-sm font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>Nieko nerasta</p>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Pabandyk kitą paieškos žodį</p>
+      </div>
+    )
+  }
   const messages: Record<Tab, { title: string; sub: string }> = {
-    latest:  { title: 'Dar nieko nepublikavai',     sub: 'Pradėk nuo pirmojo įrašo' },
-    top:     { title: 'Dar nėra populiariausių',     sub: 'Reikia bent vieno publikuoto įrašo' },
-    drafts:  { title: 'Juodraščių nėra',             sub: 'Pradedant rašymą, automatiškai išsaugom kaip juodraštį' },
-    all:     { title: 'Archyvas tuščias',            sub: 'Visi tavo įrašai bus matomi čia' },
+    latest: { title: totalEmpty ? 'Dar nieko nepublikavai' : 'Nėra publikuotų įrašų', sub: 'Pradėk nuo pirmojo įrašo' },
+    top: { title: 'Dar nėra populiariausių', sub: 'Reikia bent vieno publikuoto įrašo' },
+    drafts: { title: 'Juodraščių nėra', sub: 'Pradedant rašyti, įrašas automatiškai išsaugomas kaip juodraštis' },
+    all: { title: 'Archyvas tuščias', sub: 'Visi tavo įrašai bus matomi čia' },
   }
   const m = messages[tab]
   return (
-    <div className="text-center py-16">
-      <p className="text-sm font-bold mb-1" style={{ color: '#dde8f8' }}>{m.title}</p>
-      <p className="text-xs mb-4" style={{ color: '#5e7290' }}>{m.sub}</p>
-      <Link href="/blogas/rasyti" className="inline-block px-4 py-1.5 rounded-full text-xs font-bold bg-[#f97316] text-white hover:bg-[#ea580c] transition">
-        Rašyti įrašą
+    <div
+      className="text-center py-16 rounded-2xl"
+      style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)' }}
+    >
+      <div className="text-3xl mb-3">✍️</div>
+      <p className="text-base font-bold mb-1" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+        {m.title}
+      </p>
+      <p className="text-xs mb-5" style={{ color: 'var(--text-muted)' }}>{m.sub}</p>
+      <Link
+        href="/blogas/rasyti"
+        className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-bold text-white transition hover:brightness-110"
+        style={{ background: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}
+      >
+        <span className="text-base leading-none">+</span> Rašyti įrašą
       </Link>
     </div>
   )
 }
 
-// ── Post card (eilutė liste) ────────────────────────────────────────────────
+// ── Post card ───────────────────────────────────────────────────────────────
 function PostCard({ post, onDelete }: { post: Post; onDelete: () => void }) {
   const blog = Array.isArray(post.blogs) ? post.blogs[0] : post.blogs
   const blogSlug = blog?.slug
   const viewUrl = blogSlug && post.status === 'published' ? `/blogas/${blogSlug}/${post.slug}` : null
   const editUrl = `/blogas/rasyti?id=${post.id}`
   const typeMeta = POST_TYPE_OPTIONS.find(o => o.type === post.post_type)
-  const excerpt = post.summary || extractExcerpt(post.content, 160)
+  const excerpt = post.summary || extractExcerpt(post.content, 150)
+  const published = post.status === 'published'
 
   return (
-    <div className="group rounded-lg p-4 transition" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-      <div className="flex gap-4">
+    <div
+      className="group rounded-2xl p-3 sm:p-4 transition"
+      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+    >
+      <div className="flex gap-3 sm:gap-4">
         {/* Cover */}
         {post.cover_image_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={post.cover_image_url} alt="" className="w-28 h-20 rounded-md object-cover flex-shrink-0" />
+          <img
+            src={post.cover_image_url}
+            alt=""
+            className="w-20 h-20 sm:w-28 sm:h-24 rounded-xl object-cover flex-shrink-0"
+          />
         ) : (
-          <div className="w-28 h-20 rounded-md flex-shrink-0 flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
-            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#334058' }}>{typeMeta?.label || ''}</span>
+          <div
+            className="w-20 h-20 sm:w-28 sm:h-24 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl"
+            style={{ background: 'var(--bg-elevated)' }}
+          >
+            {TYPE_ICON[post.post_type] || '📝'}
           </div>
         )}
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           {/* Status + type + rating */}
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span
-              className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+              className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
               style={
-                post.status === 'published'
-                  ? { background: 'rgba(34,197,94,0.12)', color: '#86efac' }
-                  : { background: 'rgba(234,179,8,0.12)', color: '#fde047' }
+                published
+                  ? { background: 'rgba(34,197,94,0.14)', color: 'var(--accent-green)' }
+                  : { background: 'rgba(251,191,36,0.14)', color: 'var(--accent-yellow)' }
               }
             >
-              {post.status === 'published' ? 'Publikuotas' : 'Juodraštis'}
+              {published ? 'Publikuotas' : 'Juodraštis'}
             </span>
             {typeMeta && (
-              <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#5e7290' }}>
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                <span>{TYPE_ICON[post.post_type]}</span>
                 {typeMeta.label}
               </span>
             )}
             {post.rating !== null && post.rating !== undefined && (
-              <span className="text-[9px] font-black" style={{ color: '#f97316' }}>{post.rating}/10</span>
+              <span className="text-[10px] font-black" style={{ color: 'var(--accent-orange)' }}>
+                {post.rating}/10
+              </span>
             )}
           </div>
 
           {/* Title + excerpt */}
-          <h3 className="text-base font-bold leading-tight mb-1" style={{ fontFamily: "'Outfit', sans-serif", color: '#f2f4f8' }}>
-            {post.title}
+          <h3
+            className="text-[15px] sm:text-base font-bold leading-tight mb-1 line-clamp-2"
+            style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}
+          >
+            {viewUrl ? (
+              <Link href={viewUrl} className="hover:underline">{post.title}</Link>
+            ) : (
+              post.title
+            )}
           </h3>
           {excerpt && (
-            <p className="text-xs line-clamp-2 mb-2" style={{ color: '#8aa8cc' }}>{excerpt}</p>
+            <p className="text-xs line-clamp-2 mb-2" style={{ color: 'var(--text-secondary)' }}>{excerpt}</p>
           )}
 
-          {/* Stats + meta */}
-          <div className="flex items-center gap-3 text-[10px] flex-wrap" style={{ color: '#5e7290' }}>
-            <span>{new Date(post.updated_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-            {post.status === 'published' && (
+          {/* Meta */}
+          <div className="flex items-center gap-2.5 text-[10px] flex-wrap" style={{ color: 'var(--text-muted)' }}>
+            <span>
+              {new Date(post.published_at || post.updated_at).toLocaleDateString('lt-LT', {
+                year: 'numeric', month: 'short', day: 'numeric',
+              })}
+            </span>
+            {published && (
               <>
-                <span>·</span>
-                <span>👁 {post.view_count}</span>
-                <span>♥ {post.like_count}</span>
-                <span>💬 {post.comment_count}</span>
+                <span aria-hidden>·</span>
+                <span>👁 {post.view_count.toLocaleString('lt-LT')}</span>
+                <span>♥ {post.like_count.toLocaleString('lt-LT')}</span>
+                <span>💬 {post.comment_count.toLocaleString('lt-LT')}</span>
               </>
             )}
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-col gap-1.5 items-end">
+        {/* Actions — desktop */}
+        <div className="hidden sm:flex flex-col gap-1.5 items-stretch shrink-0">
           {viewUrl ? (
-            <Link
-              href={viewUrl}
-              className="px-2.5 py-1 rounded text-[10px] font-bold hover:bg-white/[.06] transition"
-              style={{ background: 'rgba(255,255,255,0.04)', color: '#dde8f8' }}
-            >
+            <Link href={viewUrl} className="px-3 py-1 rounded-lg text-[11px] font-bold text-center transition hover:brightness-110"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>
               Peržiūrėti
             </Link>
           ) : (
-            <span className="px-2.5 py-1 text-[10px]" style={{ color: '#334058' }}>—</span>
+            <span className="px-3 py-1 text-[11px] text-center" style={{ color: 'var(--text-faint)' }}>—</span>
           )}
-          <Link
-            href={editUrl}
-            className="px-2.5 py-1 rounded text-[10px] font-bold hover:bg-white/[.06] transition"
-            style={{ background: 'rgba(255,255,255,0.04)', color: '#8aa8cc' }}
-          >
+          <Link href={editUrl} className="px-3 py-1 rounded-lg text-[11px] font-bold text-center transition hover:brightness-110"
+            style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}>
             Redaguoti
           </Link>
-          <button
-            onClick={onDelete}
-            className="px-2.5 py-1 rounded text-[10px] font-bold hover:bg-red-500/10 transition"
-            style={{ color: '#5e7290' }}
-          >
+          <button onClick={onDelete} className="px-3 py-1 rounded-lg text-[11px] font-bold transition hover:bg-red-500/10"
+            style={{ color: 'var(--text-muted)' }}>
             Trinti
           </button>
         </div>
+      </div>
+
+      {/* Actions — mobile */}
+      <div className="flex sm:hidden gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+        {viewUrl && (
+          <Link href={viewUrl} className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-center"
+            style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>
+            Peržiūrėti
+          </Link>
+        )}
+        <Link href={editUrl} className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-center"
+          style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}>
+          Redaguoti
+        </Link>
+        <button onClick={onDelete} className="px-3 py-1.5 rounded-lg text-[11px] font-bold"
+          style={{ color: 'var(--text-muted)' }}>
+          Trinti
+        </button>
       </div>
     </div>
   )
