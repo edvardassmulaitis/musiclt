@@ -27,6 +27,7 @@ import { ProfileInfoModal } from '@/components/profile/ProfileInfoModal'
 import { GenreFilterModal } from '@/components/profile/GenreFilterModal'
 import { MoreItemsModal } from '@/components/profile/MoreItemsModal'
 import { FavoriteArtistsCollage } from '@/components/profile/FavoriteArtistsCollage'
+import { FollowButton } from '@/components/profile/FollowButton'
 
 const POST_TYPE_LABEL: Record<string, string> = {
   article: 'Straipsnis', review: 'Recenzija', event: 'Renginys', creation: 'Kūriniai',
@@ -154,6 +155,36 @@ export function ProfileClient(props: any) {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-body)', color: 'var(--text-primary)' }}>
 
+      {/* ═════════════════ MOBILE (V13 — Substack-style tabs) ═════════════════ */}
+      <div className="lg:hidden">
+        <MobileProfileView
+          profile={profile}
+          karmaLevel={karmaLevel}
+          activityLevel={activityLevel}
+          bioSnippet={bioSnippet}
+          realPhotoUrl={realPhotoUrl}
+          hasMusicMeter={hasMusicMeter}
+          moodTrack={moodTrack}
+          blog={blog}
+          contentLanes={contentLanes}
+          stats={stats}
+          dailyPicks={dailyPicks}
+          favoriteArtists={favoriteArtists}
+          favoriteAlbums={favoriteAlbums}
+          favoriteTracks={favoriteTracks}
+          likesCounts={likesCounts}
+          albumResolvedTotal={albumResolvedTotal}
+          trackResolvedTotal={trackResolvedTotal}
+          recentComments={recentComments}
+          onOpenInfo={() => setInfoOpen(true)}
+          onOpenTaste={openTaste}
+          onOpenMore={setMoreOpen}
+        />
+      </div>
+
+      {/* ═════════════════ DESKTOP (esamas V12 layout) ═════════════════ */}
+      <div className="hidden lg:block">
+
       {/* ═════════════════ HERO ═════════════════ */}
       <section className="relative isolate">
         <div className="absolute inset-0 -z-10 max-h-[440px] overflow-hidden">
@@ -178,78 +209,6 @@ export function ProfileClient(props: any) {
         </div>
 
         <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7 lg:pt-9 pb-5 sm:pb-6 lg:pb-7">
-
-          {/* ─── MOBILE LAYOUT (V11.5): kuo kompaktiškiau ─── */}
-          <div className="lg:hidden">
-            <div className="flex items-center gap-2.5">
-              <div className="min-w-0 flex-1">
-                <h1
-                  className="font-black leading-[0.95] tracking-[-0.04em] text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] truncate"
-                  style={{ fontSize: 'clamp(1.35rem, 6vw, 1.8rem)', fontFamily: "'Outfit', sans-serif" }}
-                >
-                  {profile.username}
-                </h1>
-                {(karmaLevel > 0 || activityLevel > 0) && (
-                  <div className="mt-1.5 flex items-center gap-1.5 flex-nowrap">
-                    {karmaLevel > 0 && (
-                      <PopBarChip
-                        level={karmaLevel}
-                        title="Karma"
-                        delayMs={350}
-                        icon={
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
-                            <path d="M12 2l2.39 7.36H22l-6.18 4.48L18.21 22 12 17.27 5.79 22l2.39-8.16L2 9.36h7.61z" />
-                          </svg>
-                        }
-                      />
-                    )}
-                    {activityLevel > 0 && (
-                      <PopBarChip
-                        level={activityLevel}
-                        title="Aktyvumas"
-                        delayMs={1730}
-                        revealDelayMs={1450}
-                        icon={
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
-                            <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
-                          </svg>
-                        }
-                      />
-                    )}
-                  </div>
-                )}
-                <div className="mt-1.5 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setInfoOpen(true)}
-                    className="text-[11px] font-bold transition hover:opacity-80"
-                    style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
-                  >
-                    Daugiau →
-                  </button>
-                  <ShareButton username={profile.username} />
-                </div>
-              </div>
-
-              {moodTrack && (
-                <MobileMoodPill track={moodTrack} />
-              )}
-            </div>
-
-            <div className="mt-4">
-              {hasMusicMeter ? (
-                <SideEqualizer
-                  meter={profile.legacy_music_meter}
-                  variant="hero-mini"
-                  topN={8}
-                  mobileTopN={4}
-                  onExpand={(g) => openTaste(g)}
-                />
-              ) : (
-                <EqualizerPlaceholder onClick={() => openTaste()} />
-              )}
-            </div>
-          </div>
 
           {/* ─── DESKTOP LAYOUT (lg+): 3-col grid — V11.6: SWAPPED mood ↔ eq
               (mood viduryje, equalizer dešinėj). Jei mood nėra, equalizer span'ina
@@ -449,6 +408,8 @@ export function ProfileClient(props: any) {
         <SimpleClaimFooter isLegacy={isLegacy} isUnclaimed={isUnclaimed} />
       </div>
 
+      </div>{/* /desktop wrapper (hidden lg:block) */}
+
       {infoOpen && (
         <ProfileInfoModal
           profile={profile}
@@ -486,6 +447,280 @@ export function ProfileClient(props: any) {
         />
       )}
     </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// V13 — MOBILE Substack-style profilis su tab'ais.
+//   Header: avataras dešinėj, vardas + @username, „message" (bio), pop-bars,
+//           chips eilė (nuotaikos daina + mažas equalizer), veiksmai (Sekti /
+//           Dalintis / Daugiau).
+//   Tabai (sticky): Veikla · Įrašai · Like'ai (rodom tik turinčius turinio).
+//   Default: Įrašai jei yra postų, kitaip Veikla, kitaip Like'ai.
+// ═════════════════════════════════════════════════════════════════════════════
+
+type MobileTabKey = 'activity' | 'posts' | 'likes'
+
+function MobileProfileView(props: any) {
+  const {
+    profile, karmaLevel, activityLevel, bioSnippet, realPhotoUrl, hasMusicMeter,
+    moodTrack, blog, contentLanes, stats, dailyPicks, favoriteArtists,
+    favoriteAlbums, favoriteTracks, likesCounts, albumResolvedTotal,
+    trackResolvedTotal, recentComments, onOpenInfo, onOpenTaste, onOpenMore,
+  } = props
+
+  const hasPosts = !!blog && (contentLanes?.length || 0) > 0
+  const hasActivity = (recentComments?.length || 0) > 0 || (dailyPicks?.length || 0) > 0
+  const hasLikes = (favoriteArtists?.length || 0) > 0
+    || (favoriteAlbums?.length || 0) > 0 || (favoriteTracks?.length || 0) > 0
+
+  const tabs: { key: MobileTabKey; label: string; show: boolean }[] = [
+    { key: 'activity', label: 'Veikla', show: hasActivity },
+    { key: 'posts', label: 'Įrašai', show: hasPosts },
+    { key: 'likes', label: 'Like’ai', show: hasLikes },
+  ]
+  const visibleTabs = tabs.filter((t) => t.show)
+  const defaultTab: MobileTabKey = hasPosts ? 'posts' : hasActivity ? 'activity' : 'likes'
+  const [active, setActive] = useState<MobileTabKey>(defaultTab)
+
+  const avatar = realPhotoUrl || profile.avatar_url || null
+  const title = profile.full_name || profile.username
+  const showHandle = !!profile.full_name && profile.full_name !== profile.username
+
+  return (
+    <div>
+      {/* Blur cover fonas (subtilus) */}
+      <div className="relative">
+        <div className="absolute inset-0 -z-10 overflow-hidden">
+          {profile.cover_image_url || avatar ? (
+            <>
+              <div aria-hidden className="absolute inset-0"
+                   style={{
+                     backgroundImage: `url(${profile.cover_image_url || avatar})`,
+                     backgroundSize: 'cover', backgroundPosition: 'center',
+                     filter: 'blur(90px) saturate(1.3) brightness(0.32)', transform: 'scale(1.5)',
+                   }} />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/45 to-[var(--bg-body)]" />
+            </>
+          ) : (
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a2436 0%, #0f1622 55%, var(--bg-body) 100%)' }} />
+          )}
+        </div>
+
+        {/* ── HEADER ── */}
+        <header className="px-4 pt-5 pb-3">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="font-black leading-[1.0] tracking-[-0.035em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]"
+                  style={{ fontSize: 'clamp(1.45rem, 6.5vw, 2rem)', fontFamily: "'Outfit', sans-serif" }}>
+                {title}
+              </h1>
+              {showHandle && (
+                <div className="mt-0.5 text-[13px] font-semibold"
+                     style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.6)' }}>
+                  @{profile.username}
+                </div>
+              )}
+              {(karmaLevel > 0 || activityLevel > 0) && (
+                <div className="mt-2 flex items-center gap-1.5 flex-nowrap">
+                  {karmaLevel > 0 && (
+                    <PopBarChip level={karmaLevel} title="Karma — istoriniai music.lt taškai" delayMs={350}
+                      icon={<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden><path d="M12 2l2.39 7.36H22l-6.18 4.48L18.21 22 12 17.27 5.79 22l2.39-8.16L2 9.36h7.61z" /></svg>} />
+                  )}
+                  {activityLevel > 0 && (
+                    <PopBarChip level={activityLevel} title="Aktyvumas — turinio kūrimo intensyvumas" delayMs={1730} revealDelayMs={1450}
+                      icon={<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" /></svg>} />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatar} alt="" className="w-[74px] h-[74px] rounded-full object-cover flex-shrink-0 shadow-[0_6px_22px_rgba(0,0,0,0.5)]"
+                   style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.18)' }} />
+            ) : (
+              <div className="w-[74px] h-[74px] rounded-full flex-shrink-0 flex items-center justify-center text-2xl font-black text-white/80"
+                   style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.4), rgba(244,114,182,0.3))', fontFamily: "'Outfit', sans-serif" }}>
+                {(profile.username || '?')[0]?.toUpperCase()}
+              </div>
+            )}
+          </div>
+
+          {/* Message (bio) */}
+          {bioSnippet && (
+            <p className="mt-2.5 text-[13.5px] leading-relaxed line-clamp-3"
+               style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.8)' }}>
+              {bioSnippet}
+            </p>
+          )}
+
+          {/* Chips: nuotaikos daina + mažas equalizer */}
+          {(moodTrack || hasMusicMeter) && (
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              {moodTrack && <MobileMoodPill track={moodTrack} />}
+              {hasMusicMeter && <TasteChip meter={profile.legacy_music_meter} onClick={() => onOpenTaste()} />}
+            </div>
+          )}
+
+          {/* Veiksmai */}
+          <div className="mt-3.5 flex items-center gap-2">
+            <FollowButton targetId={profile.id} variant="ghost" />
+            <ShareButton username={profile.username} />
+            <button type="button" onClick={onOpenInfo}
+                    className="inline-flex items-center justify-center rounded-full w-8 h-8 transition hover:opacity-90"
+                    style={{ background: 'rgba(255,255,255,0.10)', color: '#fff', border: '1px solid rgba(255,255,255,0.24)' }}
+                    aria-label="Daugiau apie narį" title="Apie narį">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" />
+              </svg>
+            </button>
+          </div>
+        </header>
+      </div>
+
+      {/* ── TABAI (sticky) ── */}
+      {visibleTabs.length > 0 && (
+        <div className="sticky top-0 z-20 -mb-px backdrop-blur-md"
+             style={{ background: 'color-mix(in srgb, var(--bg-body) 88%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-stretch gap-1 px-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {visibleTabs.map((t) => {
+              const isActive = active === t.key
+              return (
+                <button key={t.key} type="button" onClick={() => setActive(t.key)}
+                        className="relative flex-shrink-0 px-3.5 py-3 text-[14px] font-extrabold transition"
+                        style={{
+                          fontFamily: "'Outfit', sans-serif",
+                          color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                        }}>
+                  {t.label}
+                  {isActive && (
+                    <span className="absolute left-2 right-2 bottom-0 h-[2.5px] rounded-full"
+                          style={{ background: 'var(--accent-orange)' }} />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── TURINYS ── */}
+      <div className="px-4 pt-3 pb-24">
+        {active === 'posts' && hasPosts && (
+          <div>
+            {contentLanes.map((lane: any) => (
+              <PostLane key={lane.type} lane={lane} blogSlug={blog.slug} />
+            ))}
+          </div>
+        )}
+
+        {active === 'activity' && (
+          <div>
+            {recentComments && recentComments.length > 0 && (
+              <section className="mt-2">
+                <SectionHeader title="Naujausi komentarai" meta="Paskutiniai nario komentarai" />
+                <RecentCommentsList comments={recentComments} />
+              </section>
+            )}
+            {dailyPicks.length > 0 && (
+              <section className="mt-8">
+                <SectionHeader
+                  title="Dienos dainos"
+                  meta={`${stats.daily_picks.toLocaleString('lt-LT')} dienų ši kolekcija auga`}
+                  link={stats.daily_picks > 12 ? { href: `/@${profile.username}/dienos-dainos`, label: 'Visa istorija →' } : undefined}
+                />
+                <DailyPicksScrollRow picks={dailyPicks} maxShown={12} totalCount={stats.daily_picks}
+                  moreHref={stats.daily_picks > 12 ? `/@${profile.username}/dienos-dainos` : null} />
+              </section>
+            )}
+          </div>
+        )}
+
+        {active === 'likes' && (
+          <div>
+            {favoriteArtists.length > 0 && (
+              <section className="mt-2">
+                <SectionHeader title="Mėgstami atlikėjai"
+                  meta={`${favoriteArtists.length} atlikėjų${favoriteArtists.some((a: any) => (a.affinity_score || 0) > 0) ? ' · dydis pagal pamėgtų albumų + dainų' : ''}`} />
+                <FavoriteArtistsCollage artists={favoriteArtists} maxShown={11}
+                  totalCount={favoriteArtists.length} onOpenMore={() => onOpenMore('artist')} />
+              </section>
+            )}
+            {favoriteAlbums.length > 0 && (
+              <section className="mt-8">
+                <SectionHeader title="Mėgstami albumai"
+                  meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0, profile.legacy_liked_albums_count)} />
+                <AlbumsFullWidth albums={favoriteAlbums} maxShown={12}
+                  onOpenMore={() => onOpenMore('album')} totalCount={albumResolvedTotal} />
+              </section>
+            )}
+            {favoriteTracks.length > 0 && (
+              <section className="mt-8">
+                <SectionHeader title="Mėgstamos dainos"
+                  meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0, profile.legacy_liked_tracks_count)} />
+                <TracksFullWidth tracks={favoriteTracks} maxShown={12}
+                  onOpenMore={() => onOpenMore('track')} totalCount={trackResolvedTotal} />
+              </section>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// V13 — mažas stilizuotas „muzikinio skonio" elementas (be stilių pavadinimų).
+// Mini animuoti bar'ai, dažoma pagal naudotojo top žanrus; click → pilnas
+// GenreFilterModal. Dydis kaip nuotaikos dainos pill.
+function TasteChip({ meter, onClick }: { meter: any; onClick: () => void }) {
+  // Spalvos iš top žanrų (jei yra), kitaip brand multicolor.
+  const palette = useMemo<string[]>(() => {
+    const fallback = ['#f97316', '#f472b6', '#a78bfa', '#60a5fa', '#34d399']
+    if (!Array.isArray(meter) || meter.length === 0) return fallback
+    const colorByShort: Record<string, string> = {
+      'Pop, R&B': '#f472b6', 'Pop-RB': '#f472b6', 'Elektronika': '#60a5fa',
+      'Hip-hop': '#fbbf24', 'Alternatyva': '#a78bfa', 'Rokas': '#f97316',
+      'Sunkioji': '#ef4444', 'Rimtoji': '#34d399', 'Kita': '#8b95a5',
+    }
+    const top = [...meter]
+      .filter((m: any) => (m.percent ?? 0) > 0)
+      .sort((a: any, b: any) => (b.percent ?? 0) - (a.percent ?? 0))
+      .slice(0, 5)
+      .map((m: any) => colorByShort[m.name] || '#f97316')
+    return top.length >= 3 ? top : fallback
+  }, [meter])
+
+  const heights = [9, 14, 7, 12, 10]
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group inline-flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-full flex-shrink-0 transition hover:scale-[1.02]"
+      style={{
+        background: 'linear-gradient(to right, rgba(96,165,250,0.16), rgba(167,139,250,0.10))',
+        border: '1px solid rgba(167,139,250,0.30)',
+      }}
+      title="Muzikinis skonis — atidaryti"
+      aria-label="Muzikinis skonis"
+    >
+      <span className="flex items-end gap-[2px] h-[16px]" aria-hidden>
+        {heights.map((h, i) => (
+          <span key={i} className="w-[3px] rounded-[1.5px]"
+                style={{
+                  height: `${h}px`,
+                  background: palette[i % palette.length],
+                  animation: `tasteChipBar ${1.1 + (i % 3) * 0.25}s ease-in-out ${i * 0.12}s infinite alternate`,
+                }} />
+        ))}
+      </span>
+      <span className="text-[8.5px] font-extrabold uppercase tracking-[0.16em]"
+            style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.82)' }}>
+        Skonis
+      </span>
+      <style>{`@keyframes tasteChipBar { from { transform: scaleY(0.55); } to { transform: scaleY(1); } }`}</style>
+    </button>
   )
 }
 
