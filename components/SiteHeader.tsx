@@ -2684,8 +2684,15 @@ export function SiteHeader() {
             </svg>
           </button>
 
+          <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
+            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
+          </Link>
+
           {/* Radaras — besisukanti mini animacija → /nauji-atlikejai (promo).
-              Matoma ir mobile, ir desktop (prieš logo). */}
+              PO logo, matoma ir mobile, ir desktop. Žalia nata = „aptikta nauja
+              muzika" (fresh) — atkartoja didelio hero radaro parašą (oranžinis
+              skenavimas + žalias muzikos elementas). */}
           <Link
             href="/nauji-atlikejai"
             aria-label="Naujos muzikos radaras"
@@ -2705,18 +2712,16 @@ export function SiteHeader() {
                 <path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="var(--accent-orange)" opacity="0.26" />
                 <line x1="16" y1="16" x2="16" y2="3" stroke="var(--accent-orange)" strokeWidth="1.6" strokeLinecap="round" />
               </g>
-              {/* blyksintis taškas (aptiktas naujas atlikėjas) */}
-              <circle cx="21" cy="10.5" r="1.6" fill="var(--accent-orange)">
-                <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.25;0.4;0.7;1" dur="2.8s" repeatCount="indefinite" />
-              </circle>
+              {/* žalia muzikos nata = aptikta nauja muzika (fresh), pulsuoja */}
+              <g>
+                <animate attributeName="opacity" values="0;0;1;1;0.15" keyTimes="0;0.25;0.42;0.78;1" dur="2.8s" repeatCount="indefinite" />
+                <ellipse cx="19" cy="12.6" rx="1.95" ry="1.5" fill="var(--accent-green)" transform="rotate(-22 19 12.6)" />
+                <path d="M20.8 12.1 V6.4" stroke="var(--accent-green)" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+                <path d="M20.8 6.4 q2.5 0.4 2.2 3" stroke="var(--accent-green)" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+              </g>
               {/* centras */}
               <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
             </svg>
-          </Link>
-
-          <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
           </Link>
 
           {/* Desktop nav with rich dropdowns */}
@@ -2828,7 +2833,7 @@ export function SiteHeader() {
                 title="Bendruomenė — srautas, įrašai, diskusijos"
                 className={`sh-hub-feed${pathname.startsWith('/atrasti') ? ' active' : ''}`}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="6.5" r="2.8"/><circle cx="5.5" cy="8.5" r="2.1"/><circle cx="18.5" cy="8.5" r="2.1"/>
                   <path d="M12 11c-2.8 0-4.7 1.8-4.7 4.3V17h9.4v-1.7c0-2.5-1.9-4.3-4.7-4.3Z"/>
                   <path d="M5.5 12.9c-2.1 0-3.5 1.3-3.5 3.2V17h3.3"/><path d="M18.5 12.9c2.1 0 3.5 1.3 3.5 3.2V17h-3.3"/>
