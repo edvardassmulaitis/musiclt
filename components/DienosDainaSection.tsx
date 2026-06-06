@@ -265,8 +265,45 @@ function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1 }: { w: DainaWinner; onO
   )
 }
 
+// ───────────────────────── past-day nomination card (read-only) ─────────────────────────
+// Vakar dienos „geriausiai pasirodžiusios" dainos — be balsavimo (diena baigta).
+function PastNomCard({ n, onOpenTrack, maxVotes = 1 }: { n: Nomination; onOpenTrack: (t: any) => void; maxVotes?: number }) {
+  const t = n.tracks
+  if (!t) return null
+  const v = extractYouTubeId(t.video_url)
+  const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
+  const imgSrc = t.cover_url || ytThumb || t.artists?.cover_image_url || null
+  const votes = n.weighted_votes || n.votes || 0
+  const level = votes > 0 ? Math.max(1, Math.round((votes / Math.max(1, maxVotes)) * 5)) : 0
+  return (
+    <div className="group flex shrink-0 flex-col" style={{ width: 188 }}>
+      <button
+        type="button"
+        onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
+        className="block cursor-pointer border-0 bg-transparent p-0 text-left no-underline"
+      >
+        <div className="relative aspect-video overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+          {imgSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
+          )}
+        </div>
+        <DainaPopBar level={level} />
+        <div className="mt-1 px-0.5">
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+          <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+        </div>
+      </button>
+      <p className="m-0 mt-1 px-0.5 text-[10.5px] font-bold text-[var(--text-faint)]">{votes} {votes === 1 ? 'taškas' : votes % 10 >= 2 && votes % 10 <= 9 && !(votes >= 11 && votes <= 19) ? 'taškai' : 'taškų'}</p>
+      {n.proposer && <div className="mt-1 px-0.5"><ProposerLine p={n.proposer} /></div>}
+    </div>
+  )
+}
+
 // ───────────────────────── main section ─────────────────────────
-export function DienosDainaSection({ onOpenTrack }: { onOpenTrack?: (t: any) => void }) {
+export function DienosDainaSection({ onOpenTrack, variant = 'inline' }: { onOpenTrack?: (t: any) => void; variant?: 'inline' | 'stacked' }) {
   const [noms, setNoms] = useState<Nomination[]>([])
   const [winner, setWinner] = useState<DainaWinner | null>(null)
   const [loading, setLoading] = useState(true)
@@ -313,6 +350,18 @@ export function DienosDainaSection({ onOpenTrack }: { onOpenTrack?: (t: any) => 
       .catch(() => {})
   }, [])
 
+  // „stacked" varianto (/atrasti) atveju vakar dienos pasiūlymus įkeliam iškart —
+  // jie rodomi atskira juosta po šiandienos kandidatais (ne tik modale).
+  useEffect(() => {
+    if (variant !== 'stacked' || !winner?.date) return
+    setYdayLoading(true)
+    fetch(`/api/dienos-daina/nominations?date=${winner.date}`)
+      .then(r => r.json())
+      .then(d => setYdayNoms(d.nominations || []))
+      .catch(() => setYdayNoms([]))
+      .finally(() => setYdayLoading(false))
+  }, [variant, winner?.date])
+
   const handleVote = useCallback(async (id: number) => {
     if (votedIds.has(id) || voting !== null) return
     setVoting(id); setVoteErr('')
@@ -338,6 +387,12 @@ export function DienosDainaSection({ onOpenTrack }: { onOpenTrack?: (t: any) => 
 
   const sorted = [...noms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0))
   const maxVotes = Math.max(1, ...sorted.map(n => n.weighted_votes || n.votes || 0))
+
+  // Vakar dienos geriausiai pasirodžiusios (stacked variantui) — be laimėtojo.
+  const ydaySorted = [...ydayNoms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0))
+  const winnerTrackId = winner?.tracks?.id
+  const ydayBest = ydaySorted.filter(n => n.tracks!.id !== winnerTrackId).slice(0, 12)
+  const ydayMax = Math.max(1, winner?.weighted_votes || winner?.total_votes || 0, ...ydaySorted.map(n => n.weighted_votes || n.votes || 0))
 
   const SectionHeader = (
     <div className="mb-3.5 flex items-center justify-between gap-3">
@@ -431,62 +486,122 @@ export function DienosDainaSection({ onOpenTrack }: { onOpenTrack?: (t: any) => 
     )
   }
 
+  // Suggest („Pasiūlyti dainą") kortelė — bendra abiem variantams.
+  const SuggestCard = !alreadyNominated ? (
+    <button
+      type="button"
+      onClick={() => setSuggestOpen(true)}
+      className="group flex shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] text-center transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:bg-[rgba(249,115,22,0.05)]"
+      style={{ width: 188, minHeight: 178 }}
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(249,115,22,0.12)] font-['Outfit',sans-serif] text-[24px] font-bold leading-none text-[var(--accent-orange)] transition-colors group-hover:bg-[var(--accent-orange)] group-hover:text-white">+</span>
+      <span className="px-3 font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">Pasiūlyti dainą</span>
+      <span className="px-3 text-[10.5px] text-[var(--text-muted)]">Pridėk savo kandidatą</span>
+    </button>
+  ) : null
+
+  // hp-scroll su breathing room viršuje (kad hover'io -translate-y nenukirptų kraštinės).
+  const ROW = 'hp-scroll flex items-stretch gap-3 overflow-x-auto pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+
   return (
     <>
       {SectionHeader}
-      {winner?.tracks ? (
-        <div className="mb-2 flex items-end gap-3">
-          <div style={{ width: 188 }} className="flex shrink-0 items-center gap-1.5 px-0.5">
-            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</span>
-            <button type="button" onClick={openYesterday} aria-label="Visi vakar dienos pasiūlymai" title="Visi vakar dienos pasiūlymai" className="flex h-4 w-4 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:text-[var(--accent-orange)]">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" /></svg>
-            </button>
-          </div>
-          <div className="shrink-0" style={{ width: 9 }} />
-          <div className="flex flex-1 items-center justify-between gap-3">
+
+      {variant === 'stacked' ? (
+        // ── /atrasti: dvi atskiros juostos — šiandien siūloma + vakar ──
+        <>
+          <div className="mb-1.5 flex items-center justify-between gap-3">
             <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Šiandien siūloma</span>
             {voteErr && <span className="text-[11px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
           </div>
-        </div>
-      ) : voteErr ? (
-        <div className="mb-2 text-[11.5px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</div>
-      ) : null}
-
-      <div className="flex items-stretch gap-3">
-        <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
-          {winner?.tracks && (
-            <>
-              <DainaWinnerCard w={winner} onOpenTrack={openTrack} maxVotes={maxVotes} />
-              <div className="flex shrink-0 items-stretch self-stretch px-1">
-                <div className="w-px self-stretch bg-[var(--border-default)]" />
+          <div className="flex items-stretch gap-3">
+            <div className={ROW + ' min-w-0 flex-1'}>
+              {sorted.length === 0 && (
+                <div className="flex items-center px-1 text-[12px] text-[var(--text-muted)]">Šiandien dar nėra pasiūlymų — būk pirmas.</div>
+              )}
+              {sorted.slice(0, 14).map((n) => <NomCard key={n.id} n={n} />)}
+              {SuggestCard}
+            </div>
+            {sorted.length > 6 && (
+              <div className="flex items-center">
+                <StickyMoreButton count={sorted.length} height={190} ariaLabel={`Žiūrėti visus (${sorted.length})`} onClick={() => setModalOpen(true)} />
               </div>
-            </>
-          )}
+            )}
+          </div>
 
-          {sorted.slice(0, 14).map((n) => <NomCard key={n.id} n={n} />)}
-
-          {!alreadyNominated && (
-            <button
-              type="button"
-              onClick={() => setSuggestOpen(true)}
-              className="group flex shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] text-center transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:bg-[rgba(249,115,22,0.05)]"
-              style={{ width: 188, minHeight: 178 }}
-            >
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(249,115,22,0.12)] font-['Outfit',sans-serif] text-[24px] font-bold leading-none text-[var(--accent-orange)] transition-colors group-hover:bg-[var(--accent-orange)] group-hover:text-white">+</span>
-              <span className="px-3 font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">Pasiūlyti dainą</span>
-              <span className="px-3 text-[10.5px] text-[var(--text-muted)]">Pridėk savo kandidatą</span>
-            </button>
+          {winner?.tracks && (
+            <div className="mt-6 border-t border-[var(--border-default)] pt-5">
+              <div className="mb-1.5 flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate">
+                  <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</span>
+                  <span className="ml-1.5 text-[10.5px] text-[var(--text-faint)]">ir geriausiai pasirodžiusios dainos</span>
+                </span>
+                {ydayBest.length > 0 && (
+                  <button type="button" onClick={openYesterday} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visi →</button>
+                )}
+              </div>
+              <div className={ROW}>
+                <DainaWinnerCard w={winner} onOpenTrack={openTrack} maxVotes={ydayMax} />
+                {(ydayBest.length > 0 || ydayLoading) && (
+                  <div className="flex shrink-0 items-stretch self-stretch px-1"><div className="w-px self-stretch bg-[var(--border-default)]" /></div>
+                )}
+                {ydayLoading && ydayBest.length === 0 ? (
+                  Array(4).fill(null).map((_, i) => (
+                    <div key={i} className="shrink-0" style={{ width: 188 }}><Skel w={188} h={106} r={12} /><div className="mt-2"><Skel w="80%" h={12} /></div></div>
+                  ))
+                ) : (
+                  ydayBest.map((n) => <PastNomCard key={n.id} n={n} onOpenTrack={openTrack} maxVotes={ydayMax} />)
+                )}
+              </div>
+            </div>
           )}
-        </div>
-        {sorted.length > 6 && (
-          <StickyMoreButton
-            count={sorted.length}
-            height={190}
-            ariaLabel={`Žiūrėti visus (${sorted.length})`}
-            onClick={() => setModalOpen(true)}
-          />
-        )}
-      </div>
+        </>
+      ) : (
+        // ── homepage: viena juosta (laimėtojas inline) ──
+        <>
+          {winner?.tracks ? (
+            <div className="mb-2 flex items-end gap-3">
+              <div style={{ width: 188 }} className="flex shrink-0 items-center gap-1.5 px-0.5">
+                <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</span>
+                <button type="button" onClick={openYesterday} aria-label="Visi vakar dienos pasiūlymai" title="Visi vakar dienos pasiūlymai" className="flex h-4 w-4 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:text-[var(--accent-orange)]">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" /></svg>
+                </button>
+              </div>
+              <div className="shrink-0" style={{ width: 9 }} />
+              <div className="flex flex-1 items-center justify-between gap-3">
+                <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Šiandien siūloma</span>
+                {voteErr && <span className="text-[11px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
+              </div>
+            </div>
+          ) : voteErr ? (
+            <div className="mb-2 text-[11.5px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</div>
+          ) : null}
+
+          <div className="flex items-stretch gap-3">
+            <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
+              {winner?.tracks && (
+                <>
+                  <DainaWinnerCard w={winner} onOpenTrack={openTrack} maxVotes={maxVotes} />
+                  <div className="flex shrink-0 items-stretch self-stretch px-1">
+                    <div className="w-px self-stretch bg-[var(--border-default)]" />
+                  </div>
+                </>
+              )}
+
+              {sorted.slice(0, 14).map((n) => <NomCard key={n.id} n={n} />)}
+              {SuggestCard}
+            </div>
+            {sorted.length > 6 && (
+              <StickyMoreButton
+                count={sorted.length}
+                height={190}
+                ariaLabel={`Žiūrėti visus (${sorted.length})`}
+                onClick={() => setModalOpen(true)}
+              />
+            )}
+          </div>
+        </>
+      )}
 
       {modalOpen && (
         <HomeListModal open onClose={() => setModalOpen(false)} title="Dienos daina" subtitle="Šiandienos kandidatai pagal balsus">

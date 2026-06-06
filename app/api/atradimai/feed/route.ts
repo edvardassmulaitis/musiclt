@@ -69,36 +69,55 @@ export async function GET(req: NextRequest) {
   const type = req.nextUrl.searchParams.get('type')
   const editorial = req.nextUrl.searchParams.get('editorial')
   const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '14'), 1), 30)
+  // Modalams / „Apie viską" bucket'ui: rūšiavimas, tipų/redakcinių tipų išskyrimas,
+  // dedup'o išjungimas (kad modalas rodytų ir kelis to paties autoriaus įrašus).
+  const sort = req.nextUrl.searchParams.get('sort') === 'liked' ? 'liked' : 'new'
+  const noDedup = req.nextUrl.searchParams.get('nodedup') === '1'
+  const csv = (v: string | null) => (v || '').split(',').map(s => s.trim()).filter(Boolean)
+  const excludeType = csv(req.nextUrl.searchParams.get('exclude_type'))
+  const excludeEditorial = csv(req.nextUrl.searchParams.get('exclude_editorial'))
 
   try {
     let q = sb
       .from('blog_posts')
-      .select('id, slug, title, cover_image_url, post_type, rating, like_count, comment_count, published_at, blog_id, ' +
+      .select('id, slug, title, cover_image_url, post_type, editorial_type, rating, like_count, comment_count, published_at, blog_id, ' +
         'target_track_id, target_album_id, target_artist_id, target_event_id, list_items, ' +
         'blogs:blog_id(slug, profiles:user_id(id, full_name, username, avatar_url))')
       .eq('status', 'published')
       .not('published_at', 'is', null)
       .lte('published_at', new Date().toISOString())
-      .order('published_at', { ascending: false })
       .limit(200)
+    // Rūšiavimas: populiariausi (pagal ♥) arba naujausi (default).
+    if (sort === 'liked') q = q.order('like_count', { ascending: false, nullsFirst: false }).order('published_at', { ascending: false })
+    else q = q.order('published_at', { ascending: false })
     if (type) q = q.eq('post_type', type)
     if (editorial) q = q.eq('editorial_type', editorial)
 
     const { data, error } = await q
     if (error) return NextResponse.json({ posts: [], error: error.message }, { status: 200 })
 
-    const rows = (data || []) as any[]
+    let rows = (data || []) as any[]
 
-    // ── Dedup per autorių (vienas naujausias įrašas per narį). ──
-    const seen = new Set<string>()
+    // ── „Apie viską" bucket — išskiriam tipus/redakcinius tipus, jau rodomus
+    //    kitose prominentiškose eilėse (topas/review/koncertai/recenzija ir kt.).
+    if (excludeType.length) rows = rows.filter(r => !excludeType.includes(r.post_type))
+    if (excludeEditorial.length) rows = rows.filter(r => !excludeEditorial.includes(r.editorial_type))
+
+    // ── Dedup per autorių (vienas naujausias įrašas per narį). Modaluose
+    //    (nodedup) rodom visus, kad pilnas sąrašas būtų turtingesnis. ──
     const deduped: any[] = []
-    for (const r of rows) {
-      const prof = r.blogs?.profiles
-      const key = prof?.username || prof?.id || `post-${r.id}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      deduped.push(r)
-      if (deduped.length >= limit) break
+    if (noDedup) {
+      for (const r of rows) { deduped.push(r); if (deduped.length >= limit) break }
+    } else {
+      const seen = new Set<string>()
+      for (const r of rows) {
+        const prof = r.blogs?.profiles
+        const key = prof?.username || prof?.id || `post-${r.id}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        deduped.push(r)
+        if (deduped.length >= limit) break
+      }
     }
 
     const thumb = new Map<number, string>()

@@ -5,22 +5,25 @@
 // „Kas naujo" — bendruomenės srautas (anksčiau /feed; pervadinta 2026-06-05,
 // /feed + /atradimai → 308 /atrasti).
 //
-// Struktūra (2026-06-05 perdarymas):
+// Struktūra (2026-06-06 perdarymas):
 //   1. Antraštė „Kas naujo"
-//   2. Top band: Dienos daina (bendras komponentas su homepage) + „Kas vyksta" dešinėje
+//   2. Top band: Dienos daina (du atskiri row'ai: šiandien siūloma + vakar) + „Kas vyksta"
 //   3. PROMINENTŪS muzikos įrašai: Muzikos apžvalgos · Koncertų įspūdžiai · Narių topai
-//   4. Muzikos atradimai · Naujausi įrašai (su išspręstais vizualais)
+//   4. Muzikos atradimai · Apie viską (misc bucket)
 //   5. Diskusijos (pilnas komentaras) · Nauji nariai (suimportuoti)
 //   6. ATSKIRAI ŽEMIAU: Kūryba ir vertimai
 //
-// Vizualai: topas → mini-top + collage; vertimas/renginys → susietos muzikos
-// thumbnail; kūryba → be vizualo (gradientas). Sprendžiama /api/atradimai/feed.
+// 2026-06-06: visos turinio eilės gauna „išskleidimo" modalą su filtrais (kaip
+// homepage'e per HomeListModal + StickyMoreButton) vietoj „Visi →" nuorodos į
+// atskirą puslapį. „Apie viską" pakeitė „Naujausius įrašus" ir rodo turinį,
+// nepatenkantį į topus/recenzijas/apžvalgas/kūrybą/vertimus.
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import { ActivityWidget } from '@/components/ActivityWidget'
 import { DienosDainaSection } from '@/components/DienosDainaSection'
+import { HomeListModal, StickyMoreButton } from '@/components/HomeListModal'
 
 // ───────────────────────── helpers ─────────────────────────
 function timeAgo(d?: string | null) {
@@ -100,7 +103,8 @@ function SlimHeader() {
 }
 
 // ───────────────────────── row primitives ─────────────────────────
-function RowHead({ title, accent, allHref, addType }: { title: string; accent: string; allHref: string; addType?: string }) {
+function RowHead({ title, accent, allHref, onAll, addType }: { title: string; accent: string; allHref?: string; onAll?: () => void; addType?: string }) {
+  const allCls = "font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
   return (
     <div className="mb-3 flex items-end justify-between gap-3">
       <div className="flex items-center gap-2.5">
@@ -109,13 +113,103 @@ function RowHead({ title, accent, allHref, addType }: { title: string; accent: s
       </div>
       <div className="flex shrink-0 items-center gap-3">
         {addType && <Link href={`/blogas/rasyti?type=${addType}`} className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)] no-underline transition-colors hover:text-[var(--accent-orange)]">+ Rašyti</Link>}
-        <Link href={allHref} className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visi →</Link>
+        {onAll ? (
+          <button type="button" onClick={onAll} className={allCls + ' cursor-pointer border-0 bg-transparent p-0'}>Visi →</button>
+        ) : allHref ? (
+          <Link href={allHref} className={allCls}>Visi →</Link>
+        ) : null}
       </div>
     </div>
   )
 }
 
-const SCROLL = 'hp-scroll flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x'
+// pt-1/pb-2 — kad hover'io `-translate-y` nenukirptų viršutinio kortelės kraštinės
+// (overflow-x:auto kerpa ir vertikaliai). 2026-06-06 fix.
+const SCROLL = 'hp-scroll flex gap-3 overflow-x-auto pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x'
+
+/** Horizontali juosta + dešinėje sticky „išskleisti" mygtukas (atveria modalą). */
+function ScrollRow({ children, count, height, onMore, ariaLabel }: { children: React.ReactNode; count: number; height: number; onMore: () => void; ariaLabel: string }) {
+  return (
+    <div className="flex items-stretch gap-3">
+      <div className={SCROLL + ' min-w-0 flex-1'}>{children}</div>
+      <div className="flex items-center">
+        <StickyMoreButton count={count} height={height} ariaLabel={ariaLabel} onClick={onMore} />
+      </div>
+    </div>
+  )
+}
+
+// ───────────────────────── filtrų juosta (rūšiavimas + tipas) ─────────────────────────
+type SortMode = 'new' | 'liked'
+const filterChip = (active: boolean) =>
+  `shrink-0 whitespace-nowrap rounded-full border px-3 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors ${
+    active
+      ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)]/12 text-[var(--accent-orange)]'
+      : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-strong)]'
+  }`
+
+function FeedFilterBar({ sort, setSort, types, activeType, setActiveType }: {
+  sort: SortMode; setSort: (s: SortMode) => void
+  types?: { value: string; label: string }[]
+  activeType?: string; setActiveType?: (v: string) => void
+}) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      <span className="mr-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-faint)]">Rūšiuoti</span>
+      <button type="button" className={filterChip(sort === 'new')} onClick={() => setSort('new')}>Naujausi</button>
+      <button type="button" className={filterChip(sort === 'liked')} onClick={() => setSort('liked')}>Populiariausi</button>
+      {types && types.length > 0 && setActiveType && (
+        <>
+          <span className="mx-1 h-4 w-px bg-[var(--border-default)]" />
+          <span className="mr-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-faint)]">Tipas</span>
+          <button type="button" className={filterChip(!activeType)} onClick={() => setActiveType('')}>Visi</button>
+          {types.map(t => (
+            <button key={t.value} type="button" className={filterChip(activeType === t.value)} onClick={() => setActiveType(t.value)}>{t.label}</button>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Universalus įrašų modalas — pilnas filtruotas sąrašas tinkleliu. */
+function FeedModal({ open, onClose, title, subtitle, baseQuery, variant = 'grid', types }: {
+  open: boolean; onClose: () => void; title: string; subtitle?: string | null
+  baseQuery: string; variant?: 'big' | 'topas' | 'grid'; types?: { value: string; label: string }[]
+}) {
+  const [sort, setSort] = useState<SortMode>('new')
+  const [activeType, setActiveType] = useState('')
+  const [posts, setPosts] = useState<FeedPost[] | null>(null)
+  useEffect(() => {
+    if (!open) return
+    let on = true
+    setPosts(null)
+    const base = activeType ? `type=${activeType}` : baseQuery
+    const q = [base, `sort=${sort}`, 'nodedup=1', 'limit=30'].filter(Boolean).join('&')
+    fetch(`/api/atradimai/feed?${q}`).then(r => r.json()).then(d => { if (on) setPosts(d.posts || []) }).catch(() => { if (on) setPosts([]) })
+    return () => { on = false }
+  }, [open, baseQuery, sort, activeType])
+
+  if (!open) return null
+  return (
+    <HomeListModal open onClose={onClose} title={title} subtitle={subtitle}>
+      <FeedFilterBar sort={sort} setSort={setSort} types={types} activeType={activeType} setActiveType={setActiveType} />
+      {posts === null ? (
+        <div className="flex flex-wrap gap-3">{Array(8).fill(null).map((_, i) => <div key={i} className="hp-skel h-[210px] w-[200px] rounded-xl" />)}</div>
+      ) : posts.length === 0 ? (
+        <div className="py-12 text-center text-[13px] text-[var(--text-muted)]">Šioje skiltyje įrašų dar nėra.</div>
+      ) : (
+        <div className="flex flex-wrap gap-3">
+          {posts.map(p => variant === 'big'
+            ? <BigPostCard key={p.id} p={p} />
+            : variant === 'topas'
+              ? <TopasCard key={p.id} p={p} />
+              : <PostCard key={p.id} p={p} showType />)}
+        </div>
+      )}
+    </HomeListModal>
+  )
+}
 
 // ───────────────────────── PROMINENT music card (apžvalgos/koncertai) ─────────────────────────
 function BigPostCard({ p }: { p: FeedPost }) {
@@ -160,23 +254,31 @@ function BigInviteCard({ label, type }: { label: string; type: string }) {
 
 function BigBlogRow({ title, query, accent, allHref, writeType, inviteLabel }: { title: string; query: string; accent: string; allHref: string; writeType: string; inviteLabel: string }) {
   const [posts, setPosts] = useState<FeedPost[] | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
   useEffect(() => {
     let on = true
     fetch(`/api/atradimai/feed?${query}&limit=16`).then(r => r.json()).then(d => { if (on) setPosts(d.posts || []) }).catch(() => { if (on) setPosts([]) })
     return () => { on = false }
   }, [query])
+  const items = posts || []
   return (
     <section className="mb-9">
-      <RowHead title={title} accent={accent} allHref={allHref} addType={writeType} />
+      <RowHead title={title} accent={accent} onAll={() => setModalOpen(true)} addType={writeType} />
       {posts === null ? (
         <div className={SCROLL}>{Array(4).fill(null).map((_, i) => (
           <div key={i} className="w-[260px] shrink-0"><div className="hp-skel aspect-[16/10] rounded-2xl" /><div className="hp-skel mt-2 h-4 w-4/5 rounded" /></div>
         ))}</div>
-      ) : posts.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className={SCROLL}><BigInviteCard label={inviteLabel} type={writeType} /></div>
       ) : (
-        <div className={SCROLL}>{posts.map(p => <BigPostCard key={p.id} p={p} />)}<BigInviteCard label={inviteLabel} type={writeType} /></div>
+        <ScrollRow count={items.length} height={250} ariaLabel={`Visi: ${title}`} onMore={() => setModalOpen(true)}>
+          {items.map(p => <BigPostCard key={p.id} p={p} />)}
+          <BigInviteCard label={inviteLabel} type={writeType} />
+        </ScrollRow>
       )}
+      <FeedModal open={modalOpen} onClose={() => setModalOpen(false)} title={title} subtitle="Visi nariai · rūšiuok pagal naujumą ar populiarumą" baseQuery={query} variant="big" />
+      {/* allHref nebenaudojamas (modalas pakeitė atskirą puslapį), bet paliekam signature suderinamumui */}
+      <span className="hidden">{allHref}</span>
     </section>
   )
 }
@@ -226,6 +328,7 @@ function TopasCard({ p }: { p: FeedPost }) {
 
 function TopaiRow() {
   const [posts, setPosts] = useState<FeedPost[] | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
   useEffect(() => {
     let on = true
     fetch('/api/atradimai/feed?type=topas&limit=16').then(r => r.json()).then(d => { if (on) setPosts(d.posts || []) }).catch(() => { if (on) setPosts([]) })
@@ -234,12 +337,15 @@ function TopaiRow() {
   if (posts !== null && posts.length === 0) return null
   return (
     <section className="mb-9">
-      <RowHead title="Narių topai" accent="#f59e0b" allHref="/blogas?type=topas" addType="topas" />
+      <RowHead title="Narių topai" accent="#f59e0b" onAll={() => setModalOpen(true)} addType="topas" />
       {posts === null ? (
         <div className={SCROLL}>{Array(3).fill(null).map((_, i) => <div key={i} className="hp-skel h-[260px] w-[300px] shrink-0 rounded-2xl" />)}</div>
       ) : (
-        <div className={SCROLL}>{posts.map(p => <TopasCard key={p.id} p={p} />)}</div>
+        <ScrollRow count={posts.length} height={256} ariaLabel="Visi narių topai" onMore={() => setModalOpen(true)}>
+          {posts.map(p => <TopasCard key={p.id} p={p} />)}
+        </ScrollRow>
       )}
+      <FeedModal open={modalOpen} onClose={() => setModalOpen(false)} title="Narių topai" subtitle="Visi narių sudaryti topai" baseQuery="type=topas" variant="topas" />
     </section>
   )
 }
@@ -293,7 +399,7 @@ function MuzikosAtradimaiRow() {
   )
 }
 
-// ───────────────────────── Naujausi įrašai (su vizualais) ─────────────────────────
+// ───────────────────────── Apie viską / Kūryba / Vertimai kortelė ─────────────────────────
 function CollageCover({ imgs }: { imgs: string[] }) {
   const four = imgs.slice(0, 4)
   if (four.length >= 4) {
@@ -367,21 +473,30 @@ function SkelRow() {
   )
 }
 
-function NaujausiRow() {
+// „Apie viską" — misc bucket: viskas, kas nepatenka į topus/recenzijas/apžvalgas/
+// kūrybą/vertimus. Modale — papildomas tipo filtras (Įrašai / Renginiai).
+const APIE_VISKA_QUERY = 'exclude_type=topas,review,creation,translation&exclude_editorial=recenzija,koncertai'
+const APIE_VISKA_TYPES = [{ value: 'article', label: 'Įrašai' }, { value: 'event', label: 'Renginiai' }]
+
+function ApieViskaRow() {
   const [posts, setPosts] = useState<FeedPost[] | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
   useEffect(() => {
     let on = true
-    fetch('/api/atradimai/feed?limit=18').then(r => r.json()).then(d => { if (on) setPosts(d.posts || []) }).catch(() => { if (on) setPosts([]) })
+    fetch(`/api/atradimai/feed?${APIE_VISKA_QUERY}&limit=18`).then(r => r.json()).then(d => { if (on) setPosts(d.posts || []) }).catch(() => { if (on) setPosts([]) })
     return () => { on = false }
   }, [])
   return (
     <section className="mb-9">
-      <RowHead title="Naujausi įrašai" accent="#0ea5e9" allHref="/blogas" />
+      <RowHead title="Apie viską" accent="#0ea5e9" onAll={() => setModalOpen(true)} />
       {posts === null ? <SkelRow /> : posts.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--border-default)] p-5 text-center text-[12.5px] text-[var(--text-muted)]">Įrašų dar nėra. <Link href="/blogas/rasyti" className="font-bold text-[var(--accent-orange)] no-underline">Parašyk pirmas →</Link></div>
       ) : (
-        <div className={SCROLL}>{posts.map(p => <PostCard key={p.id} p={p} showType />)}</div>
+        <ScrollRow count={posts.length} height={220} ariaLabel="Visi įrašai: Apie viską" onMore={() => setModalOpen(true)}>
+          {posts.map(p => <PostCard key={p.id} p={p} showType />)}
+        </ScrollRow>
       )}
+      <FeedModal open={modalOpen} onClose={() => setModalOpen(false)} title="Apie viską" subtitle="Bendruomenės įrašai, nepatenkantys į topus, recenzijas ar apžvalgas" baseQuery={APIE_VISKA_QUERY} variant="grid" types={APIE_VISKA_TYPES} />
     </section>
   )
 }
@@ -389,29 +504,104 @@ function NaujausiRow() {
 // ───────── Standartinė kategorijų eilė (Kūryba / Vertimai) ─────────
 function BlogRow({ title, query, accent, allHref, writeType, inviteLabel }: { title: string; query: string; accent: string; allHref: string; writeType: string; inviteLabel: string }) {
   const [posts, setPosts] = useState<FeedPost[] | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
   useEffect(() => {
     let on = true
     fetch(`/api/atradimai/feed?${query}&limit=16`).then(r => r.json()).then(d => { if (on) setPosts(d.posts || []) }).catch(() => { if (on) setPosts([]) })
     return () => { on = false }
   }, [query])
+  const items = posts || []
   return (
     <section className="mb-8">
-      <RowHead title={title} accent={accent} allHref={allHref} addType={writeType} />
-      {posts === null ? <SkelRow /> : posts.length === 0 ? (
+      <RowHead title={title} accent={accent} onAll={() => setModalOpen(true)} addType={writeType} />
+      {posts === null ? <SkelRow /> : items.length === 0 ? (
         <div className={SCROLL}>
           <InviteCard label={inviteLabel} type={writeType} />
           <div className="flex max-w-[280px] items-center text-[12.5px] leading-snug text-[var(--text-muted)]">Šios skilties dar niekas neužpildė — tavo įrašas čia būtų pirmas.</div>
         </div>
       ) : (
-        <div className={SCROLL}>{posts.map(p => <PostCard key={p.id} p={p} />)}<InviteCard label={inviteLabel} type={writeType} /></div>
+        <ScrollRow count={items.length} height={220} ariaLabel={`Visi: ${title}`} onMore={() => setModalOpen(true)}>
+          {items.map(p => <PostCard key={p.id} p={p} />)}
+          <InviteCard label={inviteLabel} type={writeType} />
+        </ScrollRow>
       )}
+      <FeedModal open={modalOpen} onClose={() => setModalOpen(false)} title={title} subtitle="Visi nariai · rūšiuok pagal naujumą ar populiarumą" baseQuery={query} variant="grid" />
+      <span className="hidden">{allHref}</span>
     </section>
   )
 }
 
 // ───────────────────────── Diskusijos (pilnas komentaras) ─────────────────────────
+function DiskusijaCard({ d }: { d: Diskusija }) {
+  return (
+    <Link href={`/diskusijos/${d.slug}`} className="group flex w-[360px] shrink-0 snap-start flex-col rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(139,92,246,0.5)]">
+      <div className="flex items-center gap-2.5">
+        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-[var(--cover-placeholder)]">
+          {d.artist_image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={proxyImg(d.artist_image)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center" style={{ background: `hsl(${hue(d.title)},30%,18%)`, color: `hsl(${hue(d.title)},45%,60%)` }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          {d.artist_name && <span className="block truncate text-[10px] font-extrabold uppercase tracking-[0.06em]" style={{ color: '#8b5cf6' }}>{d.artist_name}</span>}
+          <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{d.title}</p>
+        </div>
+      </div>
+      {d.latest_comment ? (
+        <div className="mt-3 flex items-start gap-2 rounded-xl bg-[var(--bg-hover)] p-3">
+          <Avatar src={d.latest_comment.avatar} name={d.latest_comment.author} size={26} />
+          <div className="min-w-0 flex-1">
+            <p className="m-0 text-[11.5px] font-bold text-[var(--text-secondary)]">{d.latest_comment.author}</p>
+            <p className="m-0 mt-1 line-clamp-[10] whitespace-pre-line text-[12.5px] leading-relaxed text-[var(--text-secondary)]">{d.latest_comment.excerpt}</p>
+          </div>
+        </div>
+      ) : (
+        <p className="m-0 mt-3 text-[12px] text-[var(--text-muted)]">{d.author_name || 'Anonimas'} pradėjo temą</p>
+      )}
+      <p className="m-0 mt-2 text-[10.5px] text-[var(--text-faint)]">prieš {timeAgo(d.latest_comment?.created_at || d.created_at)}</p>
+    </Link>
+  )
+}
+
+function DiskusijosModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [items, setItems] = useState<Diskusija[] | null>(null)
+  const [sort, setSort] = useState<'new' | 'active'>('new')
+  useEffect(() => {
+    if (!open) return
+    let on = true
+    setItems(null)
+    fetch('/api/diskusijos/recent?limit=40').then(r => r.json()).then(d => { if (on) setItems(d.items || []) }).catch(() => { if (on) setItems([]) })
+    return () => { on = false }
+  }, [open])
+  const sorted = items ? [...items].sort((a, b) => sort === 'active'
+    ? (b.comment_count || 0) - (a.comment_count || 0)
+    : new Date(b.latest_comment?.created_at || b.created_at).getTime() - new Date(a.latest_comment?.created_at || a.created_at).getTime()) : null
+  if (!open) return null
+  return (
+    <HomeListModal open onClose={onClose} title="Diskusijos" subtitle="Bendruomenės pokalbiai">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="mr-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-faint)]">Rūšiuoti</span>
+        <button type="button" className={filterChip(sort === 'new')} onClick={() => setSort('new')}>Naujausi</button>
+        <button type="button" className={filterChip(sort === 'active')} onClick={() => setSort('active')}>Aktyviausi</button>
+      </div>
+      {sorted === null ? (
+        <div className="flex flex-wrap gap-3">{Array(6).fill(null).map((_, i) => <div key={i} className="hp-skel h-[180px] w-[360px] rounded-2xl" />)}</div>
+      ) : sorted.length === 0 ? (
+        <div className="py-12 text-center text-[13px] text-[var(--text-muted)]">Diskusijų dar nėra.</div>
+      ) : (
+        <div className="flex flex-wrap gap-3">{sorted.map(d => <DiskusijaCard key={d.id} d={d} />)}</div>
+      )}
+    </HomeListModal>
+  )
+}
+
 function DiskusijosRow() {
   const [items, setItems] = useState<Diskusija[] | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
   useEffect(() => {
     let on = true
     fetch('/api/diskusijos/recent?limit=14').then(r => r.json()).then(d => {
@@ -427,47 +617,17 @@ function DiskusijosRow() {
   }, [])
   return (
     <section className="mb-9">
-      <RowHead title="Diskusijos" accent="#8b5cf6" allHref="/diskusijos" />
+      <RowHead title="Diskusijos" accent="#8b5cf6" onAll={() => setModalOpen(true)} />
       {items === null ? (
         <div className={SCROLL}>{Array(4).fill(null).map((_, i) => <div key={i} className="hp-skel h-[200px] w-[360px] shrink-0 rounded-2xl" />)}</div>
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--border-default)] p-5 text-center text-[12.5px] text-[var(--text-muted)]">Diskusijų dar nėra. <Link href="/diskusijos" className="font-bold text-[var(--accent-orange)] no-underline">Pradėk pirmas →</Link></div>
       ) : (
-        <div className="hp-scroll flex items-start gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x">
-          {items.map(d => (
-            <Link key={d.id} href={`/diskusijos/${d.slug}`} className="group flex w-[360px] shrink-0 snap-start flex-col rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(139,92,246,0.5)]">
-              <div className="flex items-center gap-2.5">
-                <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-[var(--cover-placeholder)]">
-                  {d.artist_image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(d.artist_image)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center" style={{ background: `hsl(${hue(d.title)},30%,18%)`, color: `hsl(${hue(d.title)},45%,60%)` }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  {d.artist_name && <span className="block truncate text-[10px] font-extrabold uppercase tracking-[0.06em]" style={{ color: '#8b5cf6' }}>{d.artist_name}</span>}
-                  <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{d.title}</p>
-                </div>
-              </div>
-              {d.latest_comment ? (
-                <div className="mt-3 flex items-start gap-2 rounded-xl bg-[var(--bg-hover)] p-3">
-                  <Avatar src={d.latest_comment.avatar} name={d.latest_comment.author} size={26} />
-                  <div className="min-w-0 flex-1">
-                    <p className="m-0 text-[11.5px] font-bold text-[var(--text-secondary)]">{d.latest_comment.author}</p>
-                    <p className="m-0 mt-1 line-clamp-[10] whitespace-pre-line text-[12.5px] leading-relaxed text-[var(--text-secondary)]">{d.latest_comment.excerpt}</p>
-                  </div>
-                </div>
-              ) : (
-                <p className="m-0 mt-3 text-[12px] text-[var(--text-muted)]">{d.author_name || 'Anonimas'} pradėjo temą</p>
-              )}
-              <p className="m-0 mt-2 text-[10.5px] text-[var(--text-faint)]">prieš {timeAgo(d.latest_comment?.created_at || d.created_at)}</p>
-            </Link>
-          ))}
-        </div>
+        <ScrollRow count={items.length} height={200} ariaLabel="Visos diskusijos" onMore={() => setModalOpen(true)}>
+          {items.map(d => <DiskusijaCard key={d.id} d={d} />)}
+        </ScrollRow>
       )}
+      <DiskusijosModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </section>
   )
 }
@@ -481,25 +641,54 @@ function memberSince(m: NewMember): string {
   return `prisijungė ${timeAgo(m.created_at)}`
 }
 
+function MemberCard({ m }: { m: NewMember }) {
+  return (
+    <Link href={`/@${m.username}`} className="group flex w-[120px] shrink-0 snap-start flex-col items-center rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3 text-center no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(16,185,129,0.5)]">
+      <Avatar src={m.avatar} name={m.name} size={46} />
+      <p className="m-0 mt-2 w-full truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{m.name}</p>
+      <p className="m-0 mt-0.5 text-[10px] text-[var(--text-faint)]">{memberSince(m)}</p>
+    </Link>
+  )
+}
+
+function NaujiNariaiModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [list, setList] = useState<NewMember[] | null>(null)
+  useEffect(() => {
+    if (!open) return
+    let on = true
+    setList(null)
+    fetch('/api/atradimai/active-members?days=30&limit=60').then(r => r.json()).then(d => { if (on) setList(d.new_members || []) }).catch(() => { if (on) setList([]) })
+    return () => { on = false }
+  }, [open])
+  if (!open) return null
+  return (
+    <HomeListModal open onClose={onClose} title="Nauji nariai" subtitle="Naujausi bendruomenės nariai">
+      {list === null ? (
+        <div className="flex flex-wrap gap-3">{Array(12).fill(null).map((_, i) => <div key={i} className="hp-skel h-[128px] w-[120px] rounded-xl" />)}</div>
+      ) : list.length === 0 ? (
+        <div className="py-12 text-center text-[13px] text-[var(--text-muted)]">Naujų narių dar nėra.</div>
+      ) : (
+        <div className="flex flex-wrap gap-3">{list.map(m => <MemberCard key={m.username} m={m} />)}</div>
+      )}
+    </HomeListModal>
+  )
+}
+
 function NaujiNariaiRow({ list, loading }: { list: NewMember[]; loading: boolean }) {
+  const [modalOpen, setModalOpen] = useState(false)
   return (
     <section className="mb-9">
-      <RowHead title="Nauji nariai" accent="#10b981" allHref="/vartotojai" />
+      <RowHead title="Nauji nariai" accent="#10b981" onAll={() => setModalOpen(true)} />
       {loading ? (
         <div className={SCROLL}>{Array(8).fill(null).map((_, i) => <div key={i} className="hp-skel h-[128px] w-[120px] shrink-0 rounded-xl" />)}</div>
       ) : list.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--border-default)] p-5 text-center text-[12.5px] text-[var(--text-muted)]">Naujų narių dar nėra.</div>
       ) : (
-        <div className={SCROLL}>
-          {list.map(m => (
-            <Link key={m.username} href={`/@${m.username}`} className="group flex w-[120px] shrink-0 snap-start flex-col items-center rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3 text-center no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(16,185,129,0.5)]">
-              <Avatar src={m.avatar} name={m.name} size={46} />
-              <p className="m-0 mt-2 w-full truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{m.name}</p>
-              <p className="m-0 mt-0.5 text-[10px] text-[var(--text-faint)]">{memberSince(m)}</p>
-            </Link>
-          ))}
-        </div>
+        <ScrollRow count={list.length} height={128} ariaLabel="Visi nauji nariai" onMore={() => setModalOpen(true)}>
+          {list.map(m => <MemberCard key={m.username} m={m} />)}
+        </ScrollRow>
       )}
+      <NaujiNariaiModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </section>
   )
 }
@@ -520,9 +709,9 @@ export default function AtrastiPage() {
     <div className="page-shell">
       <SlimHeader />
 
-      {/* Top band: Dienos daina + „Kas vyksta" dešinėje (mobile — po juo) */}
+      {/* Top band: Dienos daina (du atskiri row'ai) + „Kas vyksta" dešinėje (mobile — po juo) */}
       <section className="mb-9 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0"><DienosDainaSection /></div>
+        <div className="min-w-0"><DienosDainaSection variant="stacked" /></div>
         <div className="min-w-0">
           <div className="h-[360px] overflow-hidden"><ActivityWidget /></div>
         </div>
@@ -534,7 +723,7 @@ export default function AtrastiPage() {
       <TopaiRow />
 
       <MuzikosAtradimaiRow />
-      <NaujausiRow />
+      <ApieViskaRow />
       <DiskusijosRow />
       <NaujiNariaiRow list={newMembers || []} loading={newMembers === null} />
 
