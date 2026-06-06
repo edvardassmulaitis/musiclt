@@ -2712,13 +2712,10 @@ export function SiteHeader() {
                 <path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="var(--accent-orange)" opacity="0.26" />
                 <line x1="16" y1="16" x2="16" y2="3" stroke="var(--accent-orange)" strokeWidth="1.6" strokeLinecap="round" />
               </g>
-              {/* žalia muzikos nata = aptikta nauja muzika (fresh), pulsuoja */}
-              <g>
+              {/* žalias blip = aptikta nauja muzika (fresh), švelniai pulsuoja */}
+              <circle cx="20.5" cy="11" r="1.5" fill="var(--accent-green)">
                 <animate attributeName="opacity" values="0;0;1;1;0.15" keyTimes="0;0.25;0.42;0.78;1" dur="2.8s" repeatCount="indefinite" />
-                <ellipse cx="19" cy="12.6" rx="1.95" ry="1.5" fill="var(--accent-green)" transform="rotate(-22 19 12.6)" />
-                <path d="M20.8 12.1 V6.4" stroke="var(--accent-green)" strokeWidth="1.4" strokeLinecap="round" fill="none" />
-                <path d="M20.8 6.4 q2.5 0.4 2.2 3" stroke="var(--accent-green)" strokeWidth="1.4" strokeLinecap="round" fill="none" />
-              </g>
+              </circle>
               {/* centras */}
               <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
             </svg>
