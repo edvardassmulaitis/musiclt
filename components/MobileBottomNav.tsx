@@ -58,17 +58,17 @@ export function MobileBottomNav() {
         .mbn-item:active .mbn-create-chip { transform: scale(.9); }
       `}</style>
       <nav className="mbn" aria-label="Apatinė navigacija">
-        {/* Pradžia */}
+        {/* Pradžia (Home) */}
         <Link href="/" className={`mbn-item${isHome ? ' active' : ''}`} aria-label="Pradžia">
           <span className="mbn-ico">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.8 12 3.5l9 6.3V20a1 1 0 0 1-1 1h-4.5v-6.5h-7V21H4a1 1 0 0 1-1-1V9.8Z" /></svg>
           </span>
         </Link>
 
-        {/* Sekami (❤️) */}
-        <Link href="/srautas" className={`mbn-item${isActive('/srautas') ? ' active' : ''}`} aria-label="Sekami">
+        {/* Topai — stulpelinė diagrama */}
+        <Link href="/topai" className={`mbn-item${isTopai ? ' active' : ''}`} aria-label="Topai">
           <span className="mbn-ico">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="20" x2="6" y2="12" /><line x1="12" y1="20" x2="12" y2="5" /><line x1="18" y1="20" x2="18" y2="9" /></svg>
           </span>
         </Link>
 
@@ -79,17 +79,17 @@ export function MobileBottomNav() {
           </span>
         </button>
 
-        {/* 👥 Bendruomenė → /atrasti */}
+        {/* 👥 Bendruomenė (Community) → /atrasti */}
         <Link href="/atrasti" className={`mbn-item${isActive('/atrasti') ? ' active' : ''}`} aria-label="Bendruomenė">
           <span className="mbn-ico">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="6.5" r="2.8"/><circle cx="5.5" cy="8.5" r="2.1"/><circle cx="18.5" cy="8.5" r="2.1"/><path d="M12 11c-2.8 0-4.7 1.8-4.7 4.3V17h9.4v-1.7c0-2.5-1.9-4.3-4.7-4.3Z"/><path d="M5.5 12.9c-2.1 0-3.5 1.3-3.5 3.2V17h3.3"/><path d="M18.5 12.9c2.1 0 3.5 1.3 3.5 3.2V17h-3.3"/></svg>
           </span>
         </Link>
 
-        {/* Topai — stulpelinė diagrama */}
-        <Link href="/topai" className={`mbn-item${isTopai ? ' active' : ''}`} aria-label="Topai">
+        {/* Sekami (❤️ Heart) → /srautas */}
+        <Link href="/srautas" className={`mbn-item${isActive('/srautas') ? ' active' : ''}`} aria-label="Sekami">
           <span className="mbn-ico">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="20" x2="6" y2="12" /><line x1="12" y1="20" x2="12" y2="5" /><line x1="18" y1="20" x2="18" y2="9" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" /></svg>
           </span>
         </Link>
       </nav>

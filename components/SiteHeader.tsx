@@ -2684,6 +2684,36 @@ export function SiteHeader() {
             </svg>
           </button>
 
+          {/* Radaras — besisukanti mini animacija → /nauji-atlikejai (promo).
+              Matoma ir mobile, ir desktop (prieš logo). */}
+          <Link
+            href="/nauji-atlikejai"
+            aria-label="Naujos muzikos radaras"
+            title="Naujos muzikos radaras — kylantys LT atlikėjai"
+            className="sh-radar"
+            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textDecoration: 'none', transition: 'color .15s' }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
+          >
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden>
+              <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.45" />
+              <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
+              <circle cx="16" cy="16" r="3.4" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
+              {/* besisukanti spinduliuotė */}
+              <g>
+                <animateTransform attributeName="transform" type="rotate" from="0 16 16" to="360 16 16" dur="2.8s" repeatCount="indefinite" />
+                <path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="var(--accent-orange)" opacity="0.26" />
+                <line x1="16" y1="16" x2="16" y2="3" stroke="var(--accent-orange)" strokeWidth="1.6" strokeLinecap="round" />
+              </g>
+              {/* blyksintis taškas (aptiktas naujas atlikėjas) */}
+              <circle cx="21" cy="10.5" r="1.6" fill="var(--accent-orange)">
+                <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.25;0.4;0.7;1" dur="2.8s" repeatCount="indefinite" />
+              </circle>
+              {/* centras */}
+              <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
+            </svg>
+          </Link>
+
           <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
             <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
             <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
