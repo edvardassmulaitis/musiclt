@@ -230,7 +230,7 @@ function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; onDone: (
 }
 
 // ───────────────────────── winner card ─────────────────────────
-function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1 }: { w: DainaWinner; onOpenTrack: (t: any) => void; maxVotes?: number }) {
+function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1, compact = false }: { w: DainaWinner; onOpenTrack: (t: any) => void; maxVotes?: number; compact?: boolean }) {
   const t = w.tracks
   if (!t) return null
   const v = extractYouTubeId(t.video_url)
@@ -239,7 +239,7 @@ function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1 }: { w: DainaWinner; onO
   const votes = w.weighted_votes || w.total_votes || 0
   const level = votes > 0 ? Math.max(1, Math.round((votes / Math.max(1, maxVotes)) * 5)) : 0
   return (
-    <div className="group flex shrink-0 flex-col" style={{ width: 188 }}>
+    <div className="group flex shrink-0 flex-col" style={{ width: compact ? 150 : 188 }}>
       <button
         type="button"
         onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
@@ -253,21 +253,21 @@ function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1 }: { w: DainaWinner; onO
             <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
           )}
         </div>
-        <DainaPopBar level={level} />
-        <div className="mt-1 px-0.5">
-          <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-          <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+        {!compact && <DainaPopBar level={level} />}
+        <div className={compact ? 'mt-1.5 px-0.5' : 'mt-1 px-0.5'}>
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+          <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">{t.artists?.name}</p>
         </div>
       </button>
-      {w.proposer && <div className="mt-1.5 px-0.5"><ProposerLine p={w.proposer} /></div>}
-      {w.winning_comment && <p className="m-0 mt-1 px-0.5 line-clamp-2 text-[10.5px] italic text-[var(--text-muted)]">„{w.winning_comment}"</p>}
+      {!compact && w.proposer && <div className="mt-1.5 px-0.5"><ProposerLine p={w.proposer} /></div>}
+      {!compact && w.winning_comment && <p className="m-0 mt-1 px-0.5 line-clamp-2 text-[10.5px] italic text-[var(--text-muted)]">„{w.winning_comment}"</p>}
     </div>
   )
 }
 
 // ───────────────────────── past-day nomination card (read-only) ─────────────────────────
 // Vakar dienos „geriausiai pasirodžiusios" dainos — be balsavimo (diena baigta).
-function PastNomCard({ n, onOpenTrack, maxVotes = 1 }: { n: Nomination; onOpenTrack: (t: any) => void; maxVotes?: number }) {
+function PastNomCard({ n, onOpenTrack, maxVotes = 1, compact = false }: { n: Nomination; onOpenTrack: (t: any) => void; maxVotes?: number; compact?: boolean }) {
   const t = n.tracks
   if (!t) return null
   const v = extractYouTubeId(t.video_url)
@@ -276,7 +276,7 @@ function PastNomCard({ n, onOpenTrack, maxVotes = 1 }: { n: Nomination; onOpenTr
   const votes = n.weighted_votes || n.votes || 0
   const level = votes > 0 ? Math.max(1, Math.round((votes / Math.max(1, maxVotes)) * 5)) : 0
   return (
-    <div className="group flex shrink-0 flex-col" style={{ width: 188 }}>
+    <div className="group flex shrink-0 flex-col" style={{ width: compact ? 150 : 188 }}>
       <button
         type="button"
         onClick={() => onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
@@ -290,14 +290,14 @@ function PastNomCard({ n, onOpenTrack, maxVotes = 1 }: { n: Nomination; onOpenTr
             <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
           )}
         </div>
-        <DainaPopBar level={level} />
-        <div className="mt-1 px-0.5">
-          <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-          <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+        {!compact && <DainaPopBar level={level} />}
+        <div className={compact ? 'mt-1.5 px-0.5' : 'mt-1 px-0.5'}>
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+          <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">{t.artists?.name}</p>
         </div>
       </button>
       <p className="m-0 mt-1 px-0.5 text-[10.5px] font-bold text-[var(--text-faint)]">{votes} {votes === 1 ? 'taškas' : votes % 10 >= 2 && votes % 10 <= 9 && !(votes >= 11 && votes <= 19) ? 'taškai' : 'taškų'}</p>
-      {n.proposer && <div className="mt-1 px-0.5"><ProposerLine p={n.proposer} /></div>}
+      {!compact && n.proposer && <div className="mt-1 px-0.5"><ProposerLine p={n.proposer} /></div>}
     </div>
   )
 }
@@ -431,7 +431,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline' }: { onOpen
     )
   }
 
-  const NomCard = ({ n }: { n: Nomination; idx?: number }) => {
+  const NomCard = ({ n, compact = false }: { n: Nomination; idx?: number; compact?: boolean }) => {
     const t = n.tracks!
     const votes = n.weighted_votes || n.votes || 0
     const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
@@ -440,7 +440,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline' }: { onOpen
     const imgSrc = t.cover_url || ytThumb || t.artists?.cover_image_url || null
     const isVotedThis = votedIds.has(n.id)
     return (
-      <div className="group flex shrink-0 flex-col" style={{ width: 188 }}>
+      <div className="group flex shrink-0 flex-col" style={{ width: compact ? 150 : 188 }}>
         <button
           type="button"
           onClick={() => openTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
@@ -455,13 +455,13 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline' }: { onOpen
             )}
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           </div>
-          <DainaPopBar level={level} />
-          <div className="mt-1 px-0.5">
-            <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-            <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+          {!compact && <DainaPopBar level={level} />}
+          <div className={compact ? 'mt-1.5 px-0.5' : 'mt-1 px-0.5'}>
+            <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+            <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">{t.artists?.name}</p>
           </div>
         </button>
-        {n.proposer && <div className="mt-1.5 px-0.5"><ProposerLine p={n.proposer} /></div>}
+        {!compact && n.proposer && <div className="mt-1.5 px-0.5"><ProposerLine p={n.proposer} /></div>}
         {!n.own && (
           <div className="mt-1.5 px-0.5">
             <button
@@ -519,38 +519,38 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline' }: { onOpen
               {sorted.length === 0 && (
                 <div className="flex items-center px-1 text-[12px] text-[var(--text-muted)]">Šiandien dar nėra pasiūlymų — būk pirmas.</div>
               )}
-              {sorted.slice(0, 14).map((n) => <NomCard key={n.id} n={n} />)}
+              {sorted.slice(0, 14).map((n) => <NomCard key={n.id} n={n} compact />)}
               {SuggestCard}
             </div>
             {sorted.length > 6 && (
               <div className="flex items-center">
-                <StickyMoreButton count={sorted.length} height={190} ariaLabel={`Žiūrėti visus (${sorted.length})`} onClick={() => setModalOpen(true)} />
+                <StickyMoreButton count={sorted.length} height={150} ariaLabel={`Žiūrėti visus (${sorted.length})`} onClick={() => setModalOpen(true)} />
               </div>
             )}
           </div>
 
           {winner?.tracks && (
-            <div className="mt-6 border-t border-[var(--border-default)] pt-5">
+            <div className="mt-3.5 border-t border-[var(--border-default)] pt-3.5">
               <div className="mb-1.5 flex items-center justify-between gap-3">
                 <span className="min-w-0 truncate">
                   <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</span>
-                  <span className="ml-1.5 text-[10.5px] text-[var(--text-faint)]">ir geriausiai pasirodžiusios dainos</span>
+                  <span className="ml-1.5 text-[10.5px] text-[var(--text-faint)]">ir geriausiai pasirodžiusios</span>
                 </span>
                 {ydayBest.length > 0 && (
                   <button type="button" onClick={openYesterday} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visi →</button>
                 )}
               </div>
               <div className={ROW}>
-                <DainaWinnerCard w={winner} onOpenTrack={openTrack} maxVotes={ydayMax} />
+                <DainaWinnerCard w={winner} onOpenTrack={openTrack} maxVotes={ydayMax} compact />
                 {(ydayBest.length > 0 || ydayLoading) && (
                   <div className="flex shrink-0 items-stretch self-stretch px-1"><div className="w-px self-stretch bg-[var(--border-default)]" /></div>
                 )}
                 {ydayLoading && ydayBest.length === 0 ? (
                   Array(4).fill(null).map((_, i) => (
-                    <div key={i} className="shrink-0" style={{ width: 188 }}><Skel w={188} h={106} r={12} /><div className="mt-2"><Skel w="80%" h={12} /></div></div>
+                    <div key={i} className="shrink-0" style={{ width: 150 }}><Skel w={150} h={84} r={12} /><div className="mt-2"><Skel w="80%" h={12} /></div></div>
                   ))
                 ) : (
-                  ydayBest.map((n) => <PastNomCard key={n.id} n={n} onOpenTrack={openTrack} maxVotes={ydayMax} />)
+                  ydayBest.map((n) => <PastNomCard key={n.id} n={n} onOpenTrack={openTrack} maxVotes={ydayMax} compact />)
                 )}
               </div>
             </div>

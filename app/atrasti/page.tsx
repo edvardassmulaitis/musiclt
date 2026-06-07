@@ -709,11 +709,12 @@ export default function AtrastiPage() {
     <div className="page-shell">
       <SlimHeader />
 
-      {/* Top band: Dienos daina (du atskiri row'ai) + „Kas vyksta" dešinėje (mobile — po juo) */}
-      <section className="mb-9 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      {/* Top band: kompaktiška Dienos daina (du atskiri row'ai) + „Kas vyksta"
+          dešinėje. Abi kolonos vienodo aukščio (grid stretch). */}
+      <section className="mb-9 grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0"><DienosDainaSection variant="stacked" /></div>
         <div className="min-w-0">
-          <div className="h-[360px] overflow-hidden"><ActivityWidget /></div>
+          <div className="h-full min-h-[280px] max-h-[420px] overflow-hidden lg:max-h-none"><ActivityWidget /></div>
         </div>
       </section>
 
