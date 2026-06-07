@@ -701,11 +701,11 @@ function KasVykstaRow() {
     <section className="mb-9">
       <RowHead title="Kas vyksta" accent="#22c55e" onAll={events.length ? () => setModalOpen(true) : undefined} />
       {loading ? (
-        <div className={SCROLL}>{Array(5).fill(null).map((_, i) => <div key={i} className="hp-skel h-[86px] w-[290px] shrink-0 rounded-2xl" />)}</div>
+        <div className={SCROLL}>{Array(6).fill(null).map((_, i) => <div key={i} className="hp-skel h-[116px] w-[210px] shrink-0 rounded-2xl" />)}</div>
       ) : events.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--border-default)] p-5 text-center text-[12.5px] text-[var(--text-muted)]">Dar nėra aktyvumo.</div>
       ) : (
-        <ScrollRow count={events.length} height={86} ariaLabel="Visas aktyvumas" onMore={() => setModalOpen(true)}>
+        <ScrollRow count={events.length} height={116} ariaLabel="Visas aktyvumas" onMore={() => setModalOpen(true)}>
           {events.slice(0, 24).map(e => <ActivityCard key={e.id} e={e} />)}
         </ScrollRow>
       )}
@@ -730,8 +730,9 @@ export default function AtrastiPage() {
     <div className="page-shell">
       <SlimHeader />
 
-      {/* Dienos daina — viena juosta per visą plotį (toks pat stilius kaip homepage). */}
-      <section className="mb-9"><DienosDainaSection /></section>
+      {/* Dienos daina — viena juosta per visą plotį (homepage stilius), bet su
+          vientisu eilės header'iu (accent bar + „Visi →") kaip kitos eilės. */}
+      <section className="mb-9"><DienosDainaSection headerVariant="row" /></section>
 
       {/* „Kas vyksta" — horizontali eilė (vientisas stilius su kitomis eilėmis) + modalas. */}
       <KasVykstaRow />

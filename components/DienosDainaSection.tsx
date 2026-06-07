@@ -303,7 +303,7 @@ function PastNomCard({ n, onOpenTrack, maxVotes = 1, compact = false }: { n: Nom
 }
 
 // ───────────────────────── main section ─────────────────────────
-export function DienosDainaSection({ onOpenTrack, variant = 'inline' }: { onOpenTrack?: (t: any) => void; variant?: 'inline' | 'stacked' }) {
+export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVariant = 'plain' }: { onOpenTrack?: (t: any) => void; variant?: 'inline' | 'stacked'; headerVariant?: 'plain' | 'row' }) {
   const [noms, setNoms] = useState<Nomination[]>([])
   const [winner, setWinner] = useState<DainaWinner | null>(null)
   const [loading, setLoading] = useState(true)
@@ -394,7 +394,19 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline' }: { onOpen
   const ydayBest = ydaySorted.filter(n => n.tracks!.id !== winnerTrackId).slice(0, 12)
   const ydayMax = Math.max(1, winner?.weighted_votes || winner?.total_votes || 0, ...ydaySorted.map(n => n.weighted_votes || n.votes || 0))
 
-  const SectionHeader = (
+  // headerVariant='row' — vientisas stilius su kitomis /atrasti eilėmis (accent bar
+  // + section-title-size + „Visi →"). 'plain' — homepage stilius (didelis h2).
+  const SectionHeader = headerVariant === 'row' ? (
+    <div className="mb-3 flex items-end justify-between gap-3">
+      <div className="flex items-center gap-2.5">
+        <span style={{ width: 4, height: 18, borderRadius: 3, background: '#f97316' }} />
+        <h2 className="m-0 font-['Outfit',sans-serif] font-extrabold text-[var(--text-primary)]" style={{ fontSize: 'var(--section-title-size)', letterSpacing: 'var(--section-title-tracking)' }}>Dienos daina</h2>
+      </div>
+      {sorted.length > 0 && (
+        <button type="button" onClick={() => setModalOpen(true)} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visi →</button>
+      )}
+    </div>
+  ) : (
     <div className="mb-3.5 flex items-center justify-between gap-3">
       <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">Dienos daina</h2>
       {sorted.length > 0 && (
@@ -417,7 +429,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline' }: { onOpen
         <div className="mb-3.5 flex items-center justify-between gap-3">
           <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">Dienos daina</h2>
         </div>
-        <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
+        <div className="hp-scroll flex items-stretch gap-3 overflow-x-auto pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {Array(6).fill(null).map((_, i) => (
             <div key={i} className="shrink-0" style={{ width: 200 }}>
               <Skel w={200} h={112} r={12} />
@@ -578,7 +590,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline' }: { onOpen
           ) : null}
 
           <div className="flex items-stretch gap-3">
-            <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
+            <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 overflow-x-auto pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {winner?.tracks && (
                 <>
                   <DainaWinnerCard w={winner} onOpenTrack={openTrack} maxVotes={maxVotes} />
