@@ -1380,8 +1380,11 @@ export function SiteHeader() {
         }
         .sh-panel {
           /* Vienodas plotis VISIEMS dropdown'ams — solidus vientisumas.
-             Clamp'inam prie viewport'o, kad siauresniame desktop'e netilptų. */
-          width: min(880px, calc(100vw - 40px));
+             Clamp'inam prie viewport'o, kad siauresniame desktop'e netilptų.
+             1040px (buvo 880) — kad „Stiliai" eilė su 8 žanrų chip'ais tilptų
+             į VIENĄ eilutę (Alternatyvioji+Elektroninė+Kiti stiliai plačiausi).
+             Visi dropdown'ai praplėsti vienodai. */
+          width: min(1040px, calc(100vw - 40px));
           padding: 18px;
           background: rgba(var(--bg-surface-rgb), 1);
           backdrop-filter: blur(60px) saturate(180%);
