@@ -43,14 +43,18 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const cands = (rows || []) as any[]
 
-  let found = 0
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+  const delayMs = Math.max(0, Math.min(3000, parseInt(String(body?.delay_ms)) || 600))
+
+  let found = 0, processed = 0, errored = 0
   const sample: any[] = []
   for (const c of cands) {
     let parse
     try { parse = await classifyDiscovery(c.body) }
-    catch { parse = { is_discovery: false, artist: null, track: null } }
+    catch { errored++; continue }  // NELOGINAM per klaidą → bus pakartota kitą kartą
 
     await sb.from('discovery_parse_log').upsert({ comment_id: c.id, is_discovery: parse.is_discovery }, { onConflict: 'comment_id' })
+    processed++
 
     if (parse.is_discovery && parse.artist) {
       const { error: insErr } = await sb.from('discoveries').insert({
@@ -60,8 +64,9 @@ export async function POST(req: NextRequest) {
       })
       if (!insErr) { found++; if (sample.length < 5) sample.push({ artist: parse.artist, track: parse.track }) }
     }
+    if (delayMs) await sleep(delayMs)
   }
 
   const { data: rem } = await sb.rpc('discoveries_parse_remaining')
-  return NextResponse.json({ processed: cands.length, found, remaining: rem ?? null, done: cands.length === 0, sample })
+  return NextResponse.json({ processed, found, errored, remaining: rem ?? null, done: cands.length === 0, sample })
 }

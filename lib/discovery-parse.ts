@@ -17,23 +17,31 @@ Taisyklės:
 - is_discovery=false jei tai bendra diskusija, klausimas, ginčas, atsakymas kitam, ar tik nuoroda be konteksto, ar nepaminėtas konkretus atlikėjas.
 - Jei paminėti keli atlikėjai, imk ryškiausią/pirmą.`
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
 export async function classifyDiscovery(body: string): Promise<DiscoveryParse> {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) throw new Error('ANTHROPIC_API_KEY not set')
   const text = (body || '').slice(0, 1500)
   if (text.trim().length < 20) return { is_discovery: false, artist: null, track: null }
 
-  const res = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({
-      model: HAIKU_MODEL,
-      max_tokens: 200,
-      system: SYSTEM,
-      messages: [{ role: 'user', content: text }],
-    }),
-  })
-  if (!res.ok) throw new Error(`anthropic ${res.status}`)
+  // Retry su backoff'u rate-limit (429) / overloaded (529) atvejais — kad
+  // neprarastume komentaro (endpoint'as per klaidą NELOGINA → bus pakartota).
+  const BACKOFF = [1500, 4000, 9000, 18000]
+  let res: Response | null = null
+  for (let attempt = 0; attempt <= BACKOFF.length; attempt++) {
+    res = await fetch(ANTHROPIC_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: HAIKU_MODEL, max_tokens: 200, system: SYSTEM, messages: [{ role: 'user', content: text }] }),
+    })
+    if (res.ok) break
+    if ((res.status === 429 || res.status === 529 || res.status >= 500) && attempt < BACKOFF.length) {
+      await sleep(BACKOFF[attempt]); continue
+    }
+    throw new Error(`anthropic ${res.status}`)
+  }
+  if (!res || !res.ok) throw new Error('anthropic retry exhausted')
   const data = await res.json()
   const raw = (data?.content?.[0]?.text || '').trim()
   const m = raw.match(/\{[\s\S]*\}/)

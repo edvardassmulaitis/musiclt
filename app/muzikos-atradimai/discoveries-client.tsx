@@ -168,7 +168,9 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
                         ? <Link href={`/atlikejai/${d.artist_slug}`} className="ma-art">{d.artist_name}</Link>
                         : <span className="ma-art">{d.artist_name}</span>)}
                       {d.artist_name && d.track_name && <span className="ma-sep"> — </span>}
-                      {d.track_name && <span className="ma-tk">{d.track_name}</span>}
+                      {d.track_name && (d.track_slug
+                        ? <Link href={`/dainos/${d.track_slug}`} className="ma-tk ma-tk-link">{d.track_name} ♪</Link>
+                        : <span className="ma-tk">{d.track_name}</span>)}
                     </div>
                   )}
                   {d.body && <p className="ma-narr">{d.body}</p>}
@@ -233,6 +235,8 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         :global(a.ma-art:hover){color:var(--accent-orange)}
         .ma-sep{color:var(--text-faint)}
         .ma-tk{color:var(--text-secondary);font-weight:700}
+        :global(a.ma-tk-link){color:var(--text-secondary);text-decoration:none}
+        :global(a.ma-tk-link:hover){color:var(--accent-orange)}
         .ma-narr{font-size:13.5px;line-height:1.6;color:var(--text-secondary);margin:0;white-space:pre-wrap;word-break:break-word}
         .ma-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
         .ma-tag{background:var(--bg-hover);color:var(--text-muted);font-size:11px;padding:3px 9px;border-radius:12px;border:none;cursor:pointer;font-family:'Outfit',sans-serif}
