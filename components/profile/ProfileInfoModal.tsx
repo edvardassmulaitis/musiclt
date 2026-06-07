@@ -79,13 +79,16 @@ export function ProfileInfoModal({
 // rodyti TĄ PATĮ turinį inline (be modalo). showHeader=false praleidžia
 // avatar/vardą (mobile profilis jau turi header'į virš tab'ų).
 export function ProfileAboutContent({
-  profile, stats, memberSinceYear, showHeader = false,
+  profile, stats, memberSinceYear, showHeader = false, compact = false,
 }: {
   profile: any
   stats: Stats
   memberSinceYear: number
   showHeader?: boolean
+  compact?: boolean
 }) {
+  const secMb = compact ? 'mb-3.5' : 'mb-5'
+  const statGrid = compact ? 'grid grid-cols-3 gap-2 mt-2' : 'grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-2'
   const sigClean = profile.legacy_signature?.replace(/^["„]|["""]$/g, '') ?? ''
   const birth = profile.legacy_birth_date ? new Date(profile.legacy_birth_date) : null
   const age = birth
@@ -179,9 +182,9 @@ export function ProfileAboutContent({
 
           {/* Member photos — legacy_profile_photos */}
           {photos.length > 0 && (
-            <section className="mb-5">
+            <section className={secMb}>
               <SectionLabel>Nario nuotraukos</SectionLabel>
-              <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
+              <div className={compact ? 'mt-2 grid grid-cols-4 gap-1.5' : 'mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2'}>
                 {photos.slice(0, 8).map((p, i) => (
                   <a
                     key={i}
@@ -213,9 +216,9 @@ export function ProfileAboutContent({
 
           {/* Personal info */}
           {(profile.legacy_city || age != null || profile.legacy_occupation) && (
-            <section className="mb-5">
+            <section className={secMb}>
               <SectionLabel>Apie narį</SectionLabel>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2">
+              <div className={compact ? 'grid grid-cols-2 gap-2 mt-2' : 'grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2'}>
                 {profile.legacy_city && <Pair k="Miestas" v={profile.legacy_city} />}
                 {age != null && <Pair k="Amžius" v={`${age} m.`} />}
                 {profile.legacy_occupation && <Pair k="Užsiėmimas" v={profile.legacy_occupation} />}
@@ -226,7 +229,7 @@ export function ProfileAboutContent({
 
           {/* Bio */}
           {profile.bio && (
-            <section className="mb-5">
+            <section className={secMb}>
               <SectionLabel>
                 Aprašymas
                 <span className="ml-2 italic font-normal" style={{ color: 'var(--text-faint)' }}>
@@ -234,7 +237,7 @@ export function ProfileAboutContent({
                 </span>
               </SectionLabel>
               <div
-                className="mt-2 p-4 rounded-xl text-sm leading-relaxed whitespace-pre-line"
+                className={`mt-2 rounded-xl leading-relaxed whitespace-pre-line ${compact ? 'p-3 text-[13px]' : 'p-4 text-sm'}`}
                 style={{
                   background: 'var(--card-bg)',
                   border: '1px solid var(--border-subtle)',
@@ -255,7 +258,7 @@ export function ProfileAboutContent({
 
           {/* Mėgstamos knygos / muzika (legacy_favorite_books field) */}
           {profile.legacy_favorite_books && (
-            <section className="mb-5">
+            <section className={secMb}>
               <SectionLabel>Mėgstamiausios knygos</SectionLabel>
               <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }}>
                 {profile.legacy_favorite_books}
@@ -265,10 +268,10 @@ export function ProfileAboutContent({
 
           {/* Content stats */}
           {contentRows.length > 0 && (
-            <section className="mb-5">
+            <section className={secMb}>
               <SectionLabel>Turinys music.lt</SectionLabel>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-2">
-                {contentRows.map((r) => <StatBox key={r.label} {...r} />)}
+              <div className={statGrid}>
+                {contentRows.map((r) => <StatBox key={r.label} {...r} compact={compact} />)}
               </div>
             </section>
           )}
@@ -277,8 +280,8 @@ export function ProfileAboutContent({
           {rows.length > 0 && (
             <section>
               <SectionLabel>Statistika (legacy)</SectionLabel>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-2">
-                {rows.map((r) => <StatBox key={r.label} {...r} />)}
+              <div className={statGrid}>
+                {rows.map((r) => <StatBox key={r.label} {...r} compact={compact} />)}
               </div>
             </section>
           )}
@@ -318,20 +321,20 @@ function Pair({ k, v, highlight }: { k: string; v: string; highlight?: boolean }
   )
 }
 
-function StatBox({ label, value }: { label: string; value: string }) {
+function StatBox({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
   return (
     <div
-      className="px-3 py-3 rounded-lg text-center"
+      className={`${compact ? 'px-2 py-2' : 'px-3 py-3'} rounded-lg text-center`}
       style={{
         background: 'var(--card-bg)',
         border: '1px solid var(--border-subtle)',
       }}
     >
-      <div className="text-lg font-black leading-none mb-1"
+      <div className={`${compact ? 'text-[15px] mb-0.5' : 'text-lg mb-1'} font-black leading-none`}
            style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>
         {value}
       </div>
-      <div className="text-[10px] uppercase tracking-wider font-bold"
+      <div className={`${compact ? 'text-[9px]' : 'text-[10px]'} uppercase tracking-wider font-bold leading-tight`}
            style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         {label}
       </div>

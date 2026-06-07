@@ -476,8 +476,6 @@ function MobileProfileView(props: any) {
   const hasLikes = (favoriteArtists?.length || 0) > 0
     || (favoriteAlbums?.length || 0) > 0 || (favoriteTracks?.length || 0) > 0
 
-  // „Naujausia" — sumišęs chronologinis feed'as (postai + komentarai + dienos
-  // dainos), surikiuotas pagal datą.
   const recentItems = useMemo(() => {
     const items: any[] = []
     if (blog && Array.isArray(contentLanes)) {
@@ -513,8 +511,7 @@ function MobileProfileView(props: any) {
       items.push({
         id: `pick-${p.id}`, kind: 'pick', date: p.picked_on,
         url, thumb, kicker: 'Dienos daina', accent: '#34d399',
-        title: track?.title || 'Daina',
-        subtitle: artist?.name || null,
+        title: track?.title || 'Daina', subtitle: artist?.name || null,
         likes: p.like_count || 0, comments: 0,
       })
     }
@@ -542,7 +539,6 @@ function MobileProfileView(props: any) {
 
   return (
     <div>
-      {/* Blur cover fonas */}
       <div className="relative">
         <div className="absolute inset-0 -z-10 overflow-hidden">
           {profile.cover_image_url || avatar ? (
@@ -561,60 +557,58 @@ function MobileProfileView(props: any) {
         </div>
 
         {/* ── HEADER (kompaktiškas) ── */}
-        <header className="px-4 pt-4 pb-2.5">
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-black leading-[1.0] tracking-[-0.035em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]"
-                    style={{ fontSize: 'clamp(1.35rem, 6vw, 1.8rem)', fontFamily: "'Outfit', sans-serif" }}>
-                  {title}
-                </h1>
-                {activityLevel > 0 && (
-                  <PopBarChip level={activityLevel} title="Aktyvumas — turinio kūrimo intensyvumas" delayMs={900} revealDelayMs={700}
-                    icon={<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" /></svg>} />
-                )}
-              </div>
-              {showHandle && (
-                <div className="mt-0.5 text-[12.5px] font-semibold"
-                     style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.58)' }}>
-                  @{profile.username}
-                </div>
-              )}
-            </div>
-
+        <header className="px-4 pt-3 pb-2.5">
+          {/* Viršus: avataras + nuotaikos daina + equalizer (vienodo aukščio) */}
+          <div className="flex items-center gap-2.5">
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatar} alt="" className="w-[60px] h-[60px] rounded-full object-cover flex-shrink-0 shadow-[0_5px_18px_rgba(0,0,0,0.5)]"
+              <img src={avatar} alt="" className="w-[52px] h-[52px] rounded-full object-cover flex-shrink-0 shadow-[0_4px_14px_rgba(0,0,0,0.5)]"
                    style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.18)' }} />
             ) : (
-              <div className="w-[60px] h-[60px] rounded-full flex-shrink-0 flex items-center justify-center text-xl font-black text-white/80"
+              <div className="w-[52px] h-[52px] rounded-full flex-shrink-0 flex items-center justify-center text-lg font-black text-white/80"
                    style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.4), rgba(244,114,182,0.3))', fontFamily: "'Outfit', sans-serif" }}>
                 {(profile.username || '?')[0]?.toUpperCase()}
               </div>
             )}
+            {moodTrack ? <MobileMoodPill track={moodTrack} fill /> : <div className="flex-1" />}
+            {hasMusicMeter && <TasteChip meter={profile.legacy_music_meter} onClick={() => onOpenTaste()} />}
+          </div>
+
+          {/* Vardas */}
+          <h1 className="mt-2.5 font-black leading-[1.0] tracking-[-0.035em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]"
+              style={{ fontSize: 'clamp(1.4rem, 6.2vw, 1.85rem)', fontFamily: "'Outfit', sans-serif" }}>
+            {title}
+          </h1>
+
+          {/* @username + aktyvumo popbar po vardu */}
+          {(showHandle || activityLevel > 0) && (
+            <div className="mt-1 flex items-center gap-2 flex-wrap">
+              {showHandle && (
+                <span className="text-[12.5px] font-semibold"
+                      style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.58)' }}>
+                  @{profile.username}
+                </span>
+              )}
+              {activityLevel > 0 && (
+                <PopBarChip level={activityLevel} title="Aktyvumas — turinio kūrimo intensyvumas" delayMs={700} revealDelayMs={500}
+                  icon={<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" /></svg>} />
+              )}
+            </div>
+          )}
+
+          {/* Sekti + Dalintis po vardu */}
+          <div className="mt-2.5 flex items-center gap-2">
+            <FollowButton targetId={profile.id} variant="ghost" />
+            <ShareButton username={profile.username} />
           </div>
 
           {/* Message (bio) — kompaktiška */}
           {bioSnippet && (
-            <p className="mt-2 text-[13px] leading-snug line-clamp-2"
-               style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.78)' }}>
+            <p className="mt-2 text-[12.5px] leading-snug line-clamp-2"
+               style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.74)' }}>
               {bioSnippet}
             </p>
           )}
-
-          {/* Chips: nuotaikos daina (atlikėjas+title) + mažas equalizer */}
-          {(moodTrack || hasMusicMeter) && (
-            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-              {moodTrack && <MobileMoodPill track={moodTrack} />}
-              {hasMusicMeter && <TasteChip meter={profile.legacy_music_meter} onClick={() => onOpenTaste()} />}
-            </div>
-          )}
-
-          {/* Veiksmai — Sekti (širdelė) + Dalintis, vienodo dydžio */}
-          <div className="mt-3 flex items-center gap-2">
-            <FollowButton targetId={profile.id} variant="ghost" />
-            <ShareButton username={profile.username} />
-          </div>
         </header>
       </div>
 
@@ -628,15 +622,11 @@ function MobileProfileView(props: any) {
               return (
                 <button key={t.key} type="button" onClick={() => setActive(t.key)}
                         className="relative flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-extrabold transition"
-                        style={{
-                          fontFamily: "'Outfit', sans-serif",
-                          color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-                        }}>
+                        style={{ fontFamily: "'Outfit', sans-serif", color: isActive ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                   <span style={{ color: isActive ? 'var(--accent-orange)' : 'var(--text-faint)' }}>{t.icon}</span>
                   {t.label}
                   {isActive && (
-                    <span className="absolute left-2 right-2 bottom-0 h-[2.5px] rounded-full"
-                          style={{ background: 'var(--accent-orange)' }} />
+                    <span className="absolute left-2 right-2 bottom-0 h-[2.5px] rounded-full" style={{ background: 'var(--accent-orange)' }} />
                   )}
                 </button>
               )
@@ -654,34 +644,31 @@ function MobileProfileView(props: any) {
         )}
 
         {active === 'posts' && hasPosts && (
-          <div>
-            {contentLanes.map((lane: any) => (
-              <PostLane key={lane.type} lane={lane} blogSlug={blog.slug} />
-            ))}
-          </div>
+          <PostsFeed lanes={contentLanes} blogSlug={blog.slug} />
         )}
 
         {active === 'likes' && (
           <div>
+            <RecentlyLiked albums={favoriteAlbums} tracks={favoriteTracks} />
             {favoriteArtists.length > 0 && (
-              <section className="mt-2">
-                <SectionHeader title="Mėgstami atlikėjai"
+              <section className="mt-7">
+                <SectionHeader title="Visi atlikėjai"
                   meta={`${favoriteArtists.length} atlikėjų${favoriteArtists.some((a: any) => (a.affinity_score || 0) > 0) ? ' · dydis pagal pamėgtų albumų + dainų' : ''}`} />
                 <FavoriteArtistsCollage artists={favoriteArtists} maxShown={11}
                   totalCount={favoriteArtists.length} onOpenMore={() => onOpenMore('artist')} />
               </section>
             )}
             {favoriteAlbums.length > 0 && (
-              <section className="mt-8">
-                <SectionHeader title="Mėgstami albumai"
+              <section className="mt-7">
+                <SectionHeader title="Visi albumai"
                   meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0, profile.legacy_liked_albums_count)} />
                 <AlbumsFullWidth albums={favoriteAlbums} maxShown={12}
                   onOpenMore={() => onOpenMore('album')} totalCount={albumResolvedTotal} />
               </section>
             )}
             {favoriteTracks.length > 0 && (
-              <section className="mt-8">
-                <SectionHeader title="Mėgstamos dainos"
+              <section className="mt-7">
+                <SectionHeader title="Visos dainos"
                   meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0, profile.legacy_liked_tracks_count)} />
                 <TracksFullWidth tracks={favoriteTracks} maxShown={12}
                   onOpenMore={() => onOpenMore('track')} totalCount={trackResolvedTotal} />
@@ -692,7 +679,7 @@ function MobileProfileView(props: any) {
 
         {active === 'about' && (
           <div className="mt-1">
-            <ProfileAboutContent profile={profile} stats={stats} memberSinceYear={memberSinceYear} />
+            <ProfileAboutContent profile={profile} stats={stats} memberSinceYear={memberSinceYear} compact />
           </div>
         )}
       </div>
@@ -700,6 +687,157 @@ function MobileProfileView(props: any) {
   )
 }
 
+// ── Įrašų feed'as: vientisas vertikalus sąrašas + filtravimo tagai viršuje ──
+function PostsFeed({ lanes, blogSlug }: { lanes: any[]; blogSlug: string }) {
+  const all = useMemo(() => {
+    const arr: any[] = []
+    for (const lane of (lanes || [])) {
+      for (const p of (lane.posts || [])) arr.push({ ...p, _laneType: lane.type })
+    }
+    arr.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime())
+    return arr
+  }, [lanes])
+
+  const tags = useMemo(() => {
+    const t: { key: string | null; label: string; count: number }[] = [
+      { key: null, label: 'Visi', count: (lanes || []).reduce((s, l) => s + (l.count || 0), 0) },
+    ]
+    for (const l of (lanes || [])) t.push({ key: l.type, label: LANE_LABEL[l.type] || l.type, count: l.count || 0 })
+    return t
+  }, [lanes])
+
+  const [filter, setFilter] = useState<string | null>(null)
+  const shown = filter ? all.filter((p) => p._laneType === filter) : all
+
+  return (
+    <div>
+      <div className="mb-3 -mx-4 px-4 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {tags.map((tg) => {
+          const isActive = filter === tg.key
+          return (
+            <button key={tg.key ?? 'all'} type="button" onClick={() => setFilter(tg.key)}
+                    className="flex-shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[12px] font-bold transition"
+                    style={{
+                      fontFamily: "'Outfit', sans-serif",
+                      background: isActive ? 'rgba(249,115,22,0.16)' : 'var(--card-bg)',
+                      color: isActive ? 'var(--accent-orange)' : 'var(--text-secondary)',
+                      border: `1px solid ${isActive ? 'rgba(249,115,22,0.45)' : 'var(--border-subtle)'}`,
+                    }}>
+              {tg.label}
+              <span className="opacity-60 tabular-nums">{tg.count.toLocaleString('lt-LT')}</span>
+            </button>
+          )
+        })}
+      </div>
+      <ul className="flex flex-col gap-2">
+        {shown.map((p) => <PostFeedRow key={`${p._laneType}-${p.id}`} post={p} blogSlug={blogSlug} />)}
+      </ul>
+      <Link href={`/blogas/${blogSlug}`}
+            className="mt-3 block w-full text-center rounded-lg py-2.5 text-xs font-extrabold uppercase tracking-wider transition hover:scale-[1.005]"
+            style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px dashed var(--border-default)', color: 'var(--accent-orange)' }}>
+        Visi įrašai →
+      </Link>
+    </div>
+  )
+}
+
+function PostFeedRow({ post, blogSlug }: { post: any; blogSlug: string }) {
+  const url = postUrl(post, blogSlug)
+  const thumb = post.cover_image_url || post.fallback_thumb_url || null
+  const laneType = post._laneType
+  const items = Array.isArray(post.list_items) ? post.list_items : null
+  let kicker = LANE_LABEL[laneType] || 'Įrašas'
+  if (laneType === 'topas' && items?.length) kicker = `Topas · ${items.length}`
+  const isTranslation = laneType === 'translation'
+  return (
+    <li>
+      <Link href={url} className="group flex gap-3 p-2.5 rounded-xl transition hover:-translate-y-0.5"
+            style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+        {thumb ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={thumb} alt="" loading="lazy" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+        ) : (
+          <div className="w-16 h-16 rounded-lg flex-shrink-0 flex items-center justify-center text-xl font-black"
+               style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(249,115,22,0.06))', color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+            {(kicker[0] || '?')}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-[9px] font-extrabold uppercase tracking-wider mb-0.5"
+               style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
+            {kicker}
+          </div>
+          <h4 className="text-[14px] font-bold leading-tight line-clamp-2 group-hover:text-[var(--accent-orange)] transition"
+              style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+            {post.title}
+          </h4>
+          {isTranslation ? (
+            post.summary && <p className="mt-0.5 text-[11.5px] truncate" style={{ color: 'var(--text-muted)' }}>{post.summary}</p>
+          ) : (
+            <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
+          )}
+        </div>
+      </Link>
+    </li>
+  )
+}
+
+// ── „Neseniai pamėgta" — albumai + dainos pagal liked_at desc ──
+function RecentlyLiked({ albums, tracks }: { albums: any[]; tracks: any[] }) {
+  const items = useMemo(() => {
+    const a = (albums || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'album' }))
+    const t = (tracks || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'track' }))
+    return [...a, ...t].sort((x, y) => new Date(y.liked_at).getTime() - new Date(x.liked_at).getTime()).slice(0, 6)
+  }, [albums, tracks])
+
+  if (items.length === 0) return null
+
+  return (
+    <section className="mt-1">
+      <SectionHeader title="Neseniai pamėgta" meta="Paskutiniai ♥ albumai ir dainos" />
+      <div className="grid grid-cols-3 gap-2.5">
+        {items.map((it) => <LikedMiniCard key={`${it._kind}-${it.id}`} item={it} />)}
+      </div>
+    </section>
+  )
+}
+
+function LikedMiniCard({ item }: { item: any }) {
+  const artist = Array.isArray(item.artists) ? item.artists[0] : item.artists
+  const isTrack = item._kind === 'track'
+  const thumb = (isTrack ? ytThumbProfile(item.video_url) : null) || item.cover_url || artist?.cover_image_url || null
+  const href = artist ? `/atlikejai/${artist.slug}/${item.slug || item.id}`
+    : isTrack ? `/lt/daina/${item.slug || ''}/${item.id}` : `/lt/albumas/${item.slug || ''}/${item.id}`
+  return (
+    <Link href={href} className="group block rounded-lg overflow-hidden transition hover:-translate-y-0.5"
+          style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+      <div className="relative aspect-square w-full overflow-hidden"
+           style={{ background: 'linear-gradient(135deg, var(--border-subtle), var(--card-bg))' }}>
+        {thumb ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover transition group-hover:scale-105" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--text-faint)' }}>{isTrack ? '♬' : '⬚'}</div>
+        )}
+        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md text-[8px] font-extrabold uppercase tracking-wide backdrop-blur-sm"
+             style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}>
+          {isTrack ? 'Daina' : 'Albumas'}
+        </div>
+      </div>
+      <div className="p-1.5">
+        <div className="text-[11px] font-bold leading-tight line-clamp-2"
+             style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+          {item.title}
+        </div>
+        {artist && (
+          <div className="text-[9.5px] truncate mt-0.5" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+            {artist.name}
+          </div>
+        )}
+      </div>
+    </Link>
+  )
+}
 // ── Naujausios veiklos eilutė (postas / komentaras / dienos daina) ──
 function RecentItemRow({ item }: { item: any }) {
   const date = item.date ? new Date(item.date).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' }) : ''
@@ -778,18 +916,18 @@ function TasteChip({ meter, onClick }: { meter: any; onClick: () => void }) {
   }, [meter])
 
   const maxPct = Math.max(...bars.map((b) => b.pct), 1)
-  const MAXH = 22
+  const MAXH = 24
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group inline-flex items-end gap-[2.5px] px-2.5 rounded-full flex-shrink-0 transition hover:scale-[1.03]"
+      className="group inline-flex items-end gap-[2.5px] px-3 rounded-full flex-shrink-0 transition hover:scale-[1.03]"
       style={{
-        height: '32px',
+        height: '38px',
         background: 'rgba(255,255,255,0.10)',
         border: '1px solid rgba(255,255,255,0.18)',
-        paddingBottom: '5px', paddingTop: '5px',
+        paddingBottom: '7px', paddingTop: '7px',
       }}
       title="Muzikinis skonis — atidaryti"
       aria-label="Muzikinis skonis"
@@ -873,7 +1011,7 @@ function ShareButton({ username }: { username: string }) {
 
 // V11.5: mobile compact mood pill — circle cover + title/artist inline; clickable.
 // V11.6: YT thumb fallback + modern /dainos/ URL.
-function MobileMoodPill({ track }: { track: any }) {
+function MobileMoodPill({ track, fill = false }: { track: any; fill?: boolean }) {
   const artist = Array.isArray(track.artists) ? track.artists[0] : track.artists
   const ytThumb = ytThumbProfile(track.video_url)
   const cover = ytThumb || track.cover_url || artist?.cover_image_url || null
@@ -883,14 +1021,15 @@ function MobileMoodPill({ track }: { track: any }) {
   return (
     <Link
       href={href}
-      className="group flex items-center gap-2 px-2.5 py-1.5 rounded-full flex-shrink-0 max-w-[60%]"
+      className={`group flex items-center gap-2 pl-1.5 pr-3 rounded-full ${fill ? 'flex-1 min-w-0' : 'flex-shrink-0 max-w-[68%]'}`}
       style={{
+        height: '38px',
         background: 'linear-gradient(to right, rgba(249,115,22,0.18), rgba(244,114,182,0.08))',
         border: '1px solid rgba(249,115,22,0.30)',
       }}
       title={`${track.title}${artist ? ' — ' + artist.name : ''}`}
     >
-      <div className="relative w-8 h-8 flex-shrink-0">
+      <div className="relative w-7 h-7 flex-shrink-0">
         <div className="absolute -inset-0.5 rounded-full opacity-50"
              style={{
                background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #60a5fa, #f97316)',
@@ -899,22 +1038,22 @@ function MobileMoodPill({ track }: { track: any }) {
              }} />
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt="" className="relative w-8 h-8 rounded-full object-cover border border-white/15"
+          <img src={cover} alt="" className="relative w-7 h-7 rounded-full object-cover border border-white/15"
                style={{ animation: 'moodSpinV11 36s linear infinite' }} />
         ) : (
-          <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-[10px]">♬</div>
+          <div className="relative w-7 h-7 rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-[10px]">♬</div>
         )}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 rounded-full"
              style={{ background: 'var(--bg-body)' }} />
       </div>
-      <div className="min-w-0 flex flex-col leading-tight">
+      <div className="min-w-0 flex flex-col leading-[1.12]">
         <span className="text-[11.5px] font-bold text-white truncate"
-              style={{ fontFamily: "'Outfit', sans-serif", maxWidth: '200px' }}>
+              style={{ fontFamily: "'Outfit', sans-serif" }}>
           {track.title}
         </span>
         {artist && (
-          <span className="text-[9.5px] font-semibold truncate"
-                style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.62)', maxWidth: '200px' }}>
+          <span className="text-[9px] font-semibold truncate"
+                style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.6)' }}>
             {artist.name}
           </span>
         )}
