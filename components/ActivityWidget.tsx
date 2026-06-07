@@ -113,7 +113,7 @@ function dedupeVotes(events: Ev[]): Ev[] {
   return out
 }
 
-function useActivity(pollMs = 20000) {
+export function useActivity(pollMs = 20000) {
   const [events, setEvents] = useState<Ev[]>([])
   const [loading, setLoading] = useState(true)
   const load = useCallback(async () => {
@@ -127,7 +127,7 @@ function useActivity(pollMs = 20000) {
   return { events, loading }
 }
 
-function ActivityModal({ events, onClose }: { events: Ev[]; onClose: () => void }) {
+export function ActivityModal({ events, onClose }: { events: Ev[]; onClose: () => void }) {
   if (typeof document === 'undefined') return null
   return createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }} className="fixed inset-0 z-[1300] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
@@ -143,6 +143,53 @@ function ActivityModal({ events, onClose }: { events: Ev[]; onClose: () => void 
     </div>,
     document.body,
   )
+}
+
+// ───────────────────────── horizontalios eilės kortelė (/atrasti) ─────────────────────────
+// Tas pats „Kas vyksta" srautas, bet horizontalia kortele — vientisas stilius su
+// kitomis /atrasti eilėmis. h=86px (= ScrollRow/StickyMoreButton aukštis).
+export function ActivityCard({ e }: { e: Ev }) {
+  const name = e.actor_name || 'Vartotojas'
+  const verb = verbFor(e.event_type)
+  const isTopVote = e.event_type === 'top_vote'
+  const topIsLt = e.metadata?.top_type === 'lt_top30'
+  const topLabel = topIsLt ? 'LT TOP 30' : 'TOP 40'
+  const href = isTopVote ? (topIsLt ? '/top30' : '/top40') : (e.entity_url || null)
+  const entityTitle = isTopVote ? topLabel : e.entity_title
+  const img = !isTopVote ? e.entity_image : null
+  const cls = 'group flex w-[290px] shrink-0 snap-start items-stretch overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(34,197,94,0.5)] hover:shadow-[0_14px_32px_rgba(0,0,0,0.22)]'
+  const body = (
+    <>
+      <div className="relative h-full w-[78px] shrink-0 overflow-hidden bg-[var(--cover-placeholder)]">
+        {img ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={proxyImg(img)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center" style={{ background: `linear-gradient(135deg, hsl(${strHue(entityTitle || name)},34%,20%), hsl(${(strHue(entityTitle || name) + 40) % 360},28%,11%))` }}>
+            <span className="font-['Outfit',sans-serif] text-2xl font-black text-white/80">{(entityTitle || name).charAt(0).toUpperCase()}</span>
+          </div>
+        )}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3 py-2.5">
+        <div className="flex items-center gap-1.5">
+          {e.actor_avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={proxyImg(e.actor_avatar)} alt="" className="h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</span>
+          )}
+          <span className="min-w-0 flex-1 truncate text-[11.5px] font-bold text-[var(--text-secondary)]">{name}</span>
+          <span className="shrink-0 text-[10px] text-[var(--text-faint)]">{timeAgoShort(e.created_at)}</span>
+        </div>
+        <p className="m-0 line-clamp-2 text-[12.5px] leading-snug text-[var(--text-muted)]">
+          {verb}{entityTitle ? <> <span className="font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[#22c55e]">{entityTitle}</span></> : null}
+        </p>
+      </div>
+    </>
+  )
+  return href
+    ? <Link href={href} className={cls} style={{ height: 86 }}>{body}</Link>
+    : <div className={cls} style={{ height: 86 }}>{body}</div>
 }
 
 export function ActivityWidget() {

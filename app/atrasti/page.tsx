@@ -21,7 +21,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
-import { ActivityWidget } from '@/components/ActivityWidget'
+import { useActivity, ActivityModal, ActivityCard } from '@/components/ActivityWidget'
 import { DienosDainaSection } from '@/components/DienosDainaSection'
 import { HomeListModal, StickyMoreButton } from '@/components/HomeListModal'
 
@@ -693,6 +693,27 @@ function NaujiNariaiRow({ list, loading }: { list: NewMember[]; loading: boolean
   )
 }
 
+// ───────────────────────── Kas vyksta (horizontali eilė) ─────────────────────────
+function KasVykstaRow() {
+  const { events, loading } = useActivity()
+  const [modalOpen, setModalOpen] = useState(false)
+  return (
+    <section className="mb-9">
+      <RowHead title="Kas vyksta" accent="#22c55e" onAll={events.length ? () => setModalOpen(true) : undefined} />
+      {loading ? (
+        <div className={SCROLL}>{Array(5).fill(null).map((_, i) => <div key={i} className="hp-skel h-[86px] w-[290px] shrink-0 rounded-2xl" />)}</div>
+      ) : events.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[var(--border-default)] p-5 text-center text-[12.5px] text-[var(--text-muted)]">Dar nėra aktyvumo.</div>
+      ) : (
+        <ScrollRow count={events.length} height={86} ariaLabel="Visas aktyvumas" onMore={() => setModalOpen(true)}>
+          {events.slice(0, 24).map(e => <ActivityCard key={e.id} e={e} />)}
+        </ScrollRow>
+      )}
+      {modalOpen && <ActivityModal events={events} onClose={() => setModalOpen(false)} />}
+    </section>
+  )
+}
+
 // ───────────────────────── Page ─────────────────────────
 export default function AtrastiPage() {
   const [newMembers, setNewMembers] = useState<NewMember[] | null>(null)
@@ -709,15 +730,11 @@ export default function AtrastiPage() {
     <div className="page-shell">
       <SlimHeader />
 
-      {/* Top band: kompaktiška Dienos daina (du atskiri row'ai) + „Kas vyksta"
-          dešinėje. items-start — kad ilgas aktyvumo srautas NEišttemptų eilės
-          (widget'as turi savo vidinį scroll'ą fiksuoto aukščio rėmuose). */}
-      <section className="mb-9 grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="min-w-0"><DienosDainaSection variant="stacked" /></div>
-        <div className="min-w-0">
-          <div className="h-[340px]"><ActivityWidget /></div>
-        </div>
-      </section>
+      {/* Dienos daina — viena juosta per visą plotį (toks pat stilius kaip homepage). */}
+      <section className="mb-9"><DienosDainaSection /></section>
+
+      {/* „Kas vyksta" — horizontali eilė (vientisas stilius su kitomis eilėmis) + modalas. */}
+      <KasVykstaRow />
 
       {/* PROMINENTŪS muzikos įrašai */}
       <BigBlogRow title="Muzikos apžvalgos" query="editorial=recenzija" allHref="/blogas" writeType="review" accent="#ef4444" inviteLabel="Parašyk apžvalgą" />
