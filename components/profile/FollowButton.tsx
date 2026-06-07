@@ -82,22 +82,19 @@ export function FollowButton({
     }
   }
 
-  const pad = size === 'sm' ? 'px-3 py-1 text-[11px]' : 'px-4 py-1.5 text-[12px]'
+  // Dydis kaip „Dalintis" (ShareButton): px-3 py-1 text-[11px], 12px ikona.
+  // Stilius kaip atlikėjų „Sekti" širdelė: užpildytas oranžinis kai sekama,
+  // subtilus translucent (ghost) / card pill kai dar ne.
+  void count; void loaded
+  const base = 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition hover:opacity-90 active:scale-[0.97] disabled:opacity-60'
 
-  const base =
-    `inline-flex items-center justify-center gap-1.5 rounded-full font-extrabold transition active:scale-[0.97] disabled:opacity-60 ${pad}`
-
-  let cls: string
   let style: React.CSSProperties
   if (following) {
-    // Sekama — subtilus „outline" stilius
-    cls = base
-    style = variant === 'ghost'
-      ? { background: 'rgba(255,255,255,0.10)', color: '#fff', border: '1px solid rgba(255,255,255,0.28)' }
-      : { background: 'var(--card-bg)', color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }
+    style = { background: 'var(--accent-orange)', color: '#fff', border: '1px solid var(--accent-orange)', boxShadow: '0 4px 14px rgba(249,115,22,0.30)' }
+  } else if (variant === 'ghost') {
+    style = { background: 'rgba(255,255,255,0.13)', color: '#fff', border: '1px solid rgba(255,255,255,0.24)' }
   } else {
-    cls = base
-    style = { background: 'var(--accent-orange)', color: '#1a1206', border: '1px solid var(--accent-orange)' }
+    style = { background: 'var(--card-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }
   }
 
   return (
@@ -106,28 +103,17 @@ export function FollowButton({
       onClick={onClick}
       disabled={busy}
       aria-pressed={following}
-      className={cls}
+      className={base}
       style={{ fontFamily: "'Outfit', sans-serif", ...style }}
       title={following ? 'Nebesekti' : 'Sekti šį narį'}
     >
-      {following ? (
-        <>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          Sekama
-        </>
-      ) : (
-        <>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Sekti
-          {loaded && count != null && count > 0 && (
-            <span className="opacity-70 font-bold">· {count}</span>
-          )}
-        </>
-      )}
+      <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden
+           fill={following ? '#fff' : 'none'}
+           stroke={following ? '#fff' : 'var(--accent-orange)'}
+           strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+      </svg>
+      {following ? 'Seki' : 'Sekti'}
     </button>
   )
 }

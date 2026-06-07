@@ -41,39 +41,6 @@ export function ProfileInfoModal({
 
   if (typeof window === 'undefined') return null
 
-  const sigClean = profile.legacy_signature?.replace(/^["„]|["""]$/g, '') ?? ''
-  const birth = profile.legacy_birth_date ? new Date(profile.legacy_birth_date) : null
-  const age = birth
-    ? Math.floor((Date.now() - birth.getTime()) / (1000 * 60 * 60 * 24 * 365.25))
-    : null
-
-  const photos: { url: string; thumb_url?: string; caption?: string | null }[] =
-    Array.isArray(profile.legacy_profile_photos) ? profile.legacy_profile_photos : []
-  const isLegacy = profile.provider === 'legacy_forum' || !!profile.legacy_user_id
-  const isUnclaimed = !profile.is_claimed
-  // Vartotojo "tikras vardas" / display name — jei toks pat kaip username,
-  // tada nepasitiek to atskirai (vengiame dvigubo „einaras13 / einaras13").
-  const displayDifferent =
-    profile.full_name && profile.username && profile.full_name.toLowerCase() !== profile.username.toLowerCase()
-
-  const rows: { label: string; value: string }[] = []
-  if (profile.legacy_message_count != null) rows.push({ label: 'Žinučių forume', value: profile.legacy_message_count.toLocaleString('lt-LT') })
-  if (profile.legacy_login_count != null) rows.push({ label: 'Prisijungimų', value: profile.legacy_login_count.toLocaleString('lt-LT') })
-  if (profile.legacy_avg_message_len != null) rows.push({ label: 'Vidut. žinutės ilgis', value: `${Math.round(profile.legacy_avg_message_len)} simb.` })
-  if (profile.legacy_vote_avg_track != null) rows.push({ label: 'Dainos vidut. balas', value: profile.legacy_vote_avg_track.toFixed(2) })
-  if (profile.legacy_vote_avg_album != null) rows.push({ label: 'Albumo vidut. balas', value: profile.legacy_vote_avg_album.toFixed(2) })
-  if (profile.legacy_vote_avg_artist != null) rows.push({ label: 'Atlikėjo vidut. balas', value: profile.legacy_vote_avg_artist.toFixed(2) })
-  if (profile.legacy_liked_artists_count != null) rows.push({ label: '♥ atlikėjų', value: profile.legacy_liked_artists_count.toLocaleString('lt-LT') })
-  if (profile.legacy_liked_albums_count != null) rows.push({ label: '♥ albumų', value: profile.legacy_liked_albums_count.toLocaleString('lt-LT') })
-  if (profile.legacy_liked_tracks_count != null) rows.push({ label: '♥ dainų', value: profile.legacy_liked_tracks_count.toLocaleString('lt-LT') })
-
-  const contentRows: { label: string; value: string }[] = []
-  if (stats.daily_picks) contentRows.push({ label: 'Dienos dainos', value: stats.daily_picks.toLocaleString('lt-LT') })
-  if (stats.diary) contentRows.push({ label: 'Dienoraščio įrašai', value: stats.diary.toLocaleString('lt-LT') })
-  if (stats.translate) contentRows.push({ label: 'Vertimai', value: stats.translate.toLocaleString('lt-LT') })
-  if (stats.creation) contentRows.push({ label: 'Kūryba', value: stats.creation.toLocaleString('lt-LT') })
-  if (stats.comments_received) contentRows.push({ label: 'Komentarai', value: stats.comments_received.toLocaleString('lt-LT') })
-
   return createPortal(
     <div
       onClick={onClose}
@@ -100,7 +67,60 @@ export function ProfileInfoModal({
         </button>
 
         <div className="p-6 sm:p-8">
+          <ProfileAboutContent profile={profile} stats={stats} memberSinceYear={memberSinceYear} showHeader />
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// V13 — iškelta į atskirą komponentą, kad „Apie mane" mobile tab'as galėtų
+// rodyti TĄ PATĮ turinį inline (be modalo). showHeader=false praleidžia
+// avatar/vardą (mobile profilis jau turi header'į virš tab'ų).
+export function ProfileAboutContent({
+  profile, stats, memberSinceYear, showHeader = false,
+}: {
+  profile: any
+  stats: Stats
+  memberSinceYear: number
+  showHeader?: boolean
+}) {
+  const sigClean = profile.legacy_signature?.replace(/^["„]|["""]$/g, '') ?? ''
+  const birth = profile.legacy_birth_date ? new Date(profile.legacy_birth_date) : null
+  const age = birth
+    ? Math.floor((Date.now() - birth.getTime()) / (1000 * 60 * 60 * 24 * 365.25))
+    : null
+
+  const photos: { url: string; thumb_url?: string; caption?: string | null }[] =
+    Array.isArray(profile.legacy_profile_photos) ? profile.legacy_profile_photos : []
+  const isLegacy = profile.provider === 'legacy_forum' || !!profile.legacy_user_id
+  const isUnclaimed = !profile.is_claimed
+  const displayDifferent =
+    profile.full_name && profile.username && profile.full_name.toLowerCase() !== profile.username.toLowerCase()
+
+  const rows: { label: string; value: string }[] = []
+  if (profile.legacy_message_count != null) rows.push({ label: 'Žinučių forume', value: profile.legacy_message_count.toLocaleString('lt-LT') })
+  if (profile.legacy_login_count != null) rows.push({ label: 'Prisijungimų', value: profile.legacy_login_count.toLocaleString('lt-LT') })
+  if (profile.legacy_avg_message_len != null) rows.push({ label: 'Vidut. žinutės ilgis', value: `${Math.round(profile.legacy_avg_message_len)} simb.` })
+  if (profile.legacy_vote_avg_track != null) rows.push({ label: 'Dainos vidut. balas', value: profile.legacy_vote_avg_track.toFixed(2) })
+  if (profile.legacy_vote_avg_album != null) rows.push({ label: 'Albumo vidut. balas', value: profile.legacy_vote_avg_album.toFixed(2) })
+  if (profile.legacy_vote_avg_artist != null) rows.push({ label: 'Atlikėjo vidut. balas', value: profile.legacy_vote_avg_artist.toFixed(2) })
+  if (profile.legacy_liked_artists_count != null) rows.push({ label: '♥ atlikėjų', value: profile.legacy_liked_artists_count.toLocaleString('lt-LT') })
+  if (profile.legacy_liked_albums_count != null) rows.push({ label: '♥ albumų', value: profile.legacy_liked_albums_count.toLocaleString('lt-LT') })
+  if (profile.legacy_liked_tracks_count != null) rows.push({ label: '♥ dainų', value: profile.legacy_liked_tracks_count.toLocaleString('lt-LT') })
+
+  const contentRows: { label: string; value: string }[] = []
+  if (stats.daily_picks) contentRows.push({ label: 'Dienos dainos', value: stats.daily_picks.toLocaleString('lt-LT') })
+  if (stats.diary) contentRows.push({ label: 'Dienoraščio įrašai', value: stats.diary.toLocaleString('lt-LT') })
+  if (stats.translate) contentRows.push({ label: 'Vertimai', value: stats.translate.toLocaleString('lt-LT') })
+  if (stats.creation) contentRows.push({ label: 'Kūryba', value: stats.creation.toLocaleString('lt-LT') })
+  if (stats.comments_received) contentRows.push({ label: 'Komentarai', value: stats.comments_received.toLocaleString('lt-LT') })
+
+  return (
+        <>
           {/* Header */}
+          {showHeader && (
           <div className="flex items-center gap-4 mb-6">
             {profile.avatar_url ? (
               <img
@@ -155,6 +175,7 @@ export function ProfileInfoModal({
               </p>
             </div>
           </div>
+          )}
 
           {/* Member photos — legacy_profile_photos */}
           {photos.length > 0 && (
@@ -261,10 +282,7 @@ export function ProfileInfoModal({
               </div>
             </section>
           )}
-        </div>
-      </div>
-    </div>,
-    document.body
+        </>
   )
 }
 
