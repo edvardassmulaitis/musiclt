@@ -16,6 +16,7 @@ type CommunityItem = {
   id: string
   type: 'dd' | 'blog' | 'discussion'
   subtype?: string | null
+  editorial_type?: string | null
   title: string
   href: string
   cover: string | null
@@ -50,14 +51,25 @@ function timeAgo(iso: string) {
   const d = Math.floor(h / 24)
   return d < 30 ? `${d} d.` : `${Math.floor(d / 30)} mėn.`
 }
-function blogLabel(sub?: string | null) {
+function blogLabel(sub?: string | null, editorial?: string | null) {
+  // article tipai — skaidomi pagal editorial_type
+  if (sub === 'article') {
+    if (editorial === 'recenzija') return '⭐ Apžvalga'
+    if (editorial === 'koncertai') return '🎤 Koncertas'
+    return '✍️ Įrašas'
+  }
   const m: Record<string, string> = {
     review: '⭐ Recenzija', creation: '🎨 Kūryba', translation: '🌐 Vertimas',
-    topas: '📊 Topas', event: '📅 Renginys', article: '✍️ Dienoraštis', quick: '✍️ Įrašas',
+    topas: '📊 Topas', event: '📅 Renginys', quick: '✍️ Įrašas',
   }
   return m[sub || ''] || '✍️ Įrašas'
 }
-function blogColor(sub?: string | null) {
+function blogColor(sub?: string | null, editorial?: string | null) {
+  if (sub === 'article') {
+    if (editorial === 'recenzija') return 'var(--accent-yellow,#f59e0b)'
+    if (editorial === 'koncertai') return '#3b82f6'
+    return 'var(--accent-orange,#f2641a)'
+  }
   const m: Record<string, string> = {
     review: 'var(--accent-yellow,#f59e0b)', creation: '#3cca7e',
     translation: 'var(--accent-link,#5b9be8)', topas: '#a78bfa', event: '#fb923c',
@@ -190,7 +202,7 @@ function BlogCard({ it }: { it: CommunityItem }) {
     <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 220, flexShrink: 0 }}>
       <div className="relative">
         <Cover url={it.cover} alt={it.author_name || it.title} hue={h} />
-        <Badge label={blogLabel(it.subtype)} bg={blogColor(it.subtype)} />
+        <Badge label={blogLabel(it.subtype, it.editorial_type)} bg={blogColor(it.subtype, it.editorial_type)} />
       </div>
       <div className="flex flex-1 flex-col p-2.5 gap-1.5">
         <p className="m-0 line-clamp-2 text-[12.5px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"

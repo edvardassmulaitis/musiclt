@@ -54,9 +54,9 @@ export async function GET() {
         .select('id, date, tracks!track_id(title, slug, cover_url, video_url, artists!artist_id(name, slug, cover_image_url))')
         .lt('date', today).order('date', { ascending: false }).limit(1).maybeSingle(),
 
-      // Blog įrašai: +hide_from_homepage, +summary, +list_items, +target_*
+      // Blog įrašai: +hide_from_homepage, +summary, +list_items, +target_*, +editorial_type
       sb.from('blog_posts')
-        .select('id, slug, title, post_type, summary, cover_image_url, like_count, comment_count, published_at, list_items, target_track_id, target_album_id, target_artist_id, target_event_id, blogs:blog_id(slug, profiles:user_id(id, username, full_name, avatar_url, hide_from_homepage))')
+        .select('id, slug, title, post_type, editorial_type, summary, cover_image_url, like_count, comment_count, published_at, list_items, target_track_id, target_album_id, target_artist_id, target_event_id, blogs:blog_id(slug, profiles:user_id(id, username, full_name, avatar_url, hide_from_homepage))')
         .eq('status', 'published')
         .not('published_at', 'is', null)
         .gte('published_at', blog60d)
@@ -213,10 +213,12 @@ export async function GET() {
       if (seenAuthors.has(key)) continue
       seenAuthors.add(key)
 
-      // 1-per-type taisyklė
+      // 1-per-type taisyklė (article → skaidome pagal editorial_type)
       const tkey = b.post_type === 'review'
         ? (b.target_event_id ? 'review_event' : b.target_album_id ? 'review_album' : 'review_track')
-        : (b.post_type || 'article')
+        : b.post_type === 'article'
+          ? `article_${b.editorial_type || 'kita'}`
+          : (b.post_type || 'article_kita')
       if (typeSeen.has(tkey)) continue
       typeSeen.add(tkey)
 
@@ -243,6 +245,7 @@ export async function GET() {
 
       blogItems.push({
         id: `blog-${b.id}`, type: 'blog', subtype: b.post_type || null,
+        editorial_type: b.editorial_type || null,
         title: b.title, href: blogSlug ? `/blogas/${blogSlug}/${b.slug || b.id}` : '/blogas',
         cover, excerpt, entries,
         author_name: author?.full_name || author?.username || null,
