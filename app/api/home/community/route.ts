@@ -40,7 +40,7 @@ export async function GET() {
     // Bet kokia keitimas čia turi atitikti destruktūrizacijos eilutę viršuje!
     // Paslėpti nariai (hide_from_homepage) išmetami PER UŽKLAUSĄ (!inner + not.is.true),
     // todėl atskiro profiles query nebėra ir limit'o negali užtvindyti vienas produktyvus paslėptas narys.
-    const [nomRes, votesRes, pastWinnerRes, blogRes, discRes] = await Promise.all([
+    const [nomRes, votesRes, pastWinnerRes, blogRes, discRes, discoveryRes] = await Promise.all([
       // 0 — Šiandieninės nominacijos (DD lyderis + kandidatai)
       sb.from('daily_song_nominations')
         .select('id, tracks!track_id(title, slug, cover_url, video_url, artists!artist_id(name, slug, cover_image_url))')
@@ -76,6 +76,14 @@ export async function GET() {
         .gte('last_comment_at', disc2y)
         .order('last_comment_at', { ascending: false, nullsFirst: false })
         .limit(20),
+
+      // 5 — Muzikos atradimas (naujausias su embed'u).
+      //   discoveries.author_id NETURI FK į profiles → autorių traukiam atskirai žemiau.
+      sb.from('discoveries')
+        .select('id, artist_name, artist_id, track_name, track_id, embed_type, embed_id, created_at, author_id, tracks:track_id(cover_url), artists:artist_id(cover_image_url)')
+        .not('embed_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1),
     ])
 
     // ── Dienos daina ──────────────────────────────────────────────────────────
@@ -106,8 +114,9 @@ export async function GET() {
         author_name: artist?.name || null, author_slug: artist?.slug || null, author_avatar: null,
         created_at: today,
         vote_count: voteTotals[top.id] || 0, vote_total: noms.length,
-        // Kiti kandidatai (max 3)
-        candidates: noms.slice(1, 4).map(n => ({
+        // Kiti kandidatai (iki 5 — atvaizduojama kaip topo eilutės)
+        candidates: noms.slice(1, 6).map((n, i) => ({
+          rank: i + 2,
           title: n.tracks?.title || '?',
           artist: makeDDName(n),
           cover: makeDDCover(n),
@@ -118,13 +127,37 @@ export async function GET() {
       const w = pastWinnerRes.data as any
       const track = w.tracks
       const artist = first<any>(track?.artists)
+      // Laimėtojo dienos kiti kandidatai (pagal tos dienos balsus)
+      let pastCandidates: any[] = []
+      try {
+        const [pnRes, pvRes] = await Promise.all([
+          sb.from('daily_song_nominations')
+            .select('id, tracks!track_id(title, video_url, cover_url, artists!artist_id(name, cover_image_url))')
+            .eq('date', w.date).is('removed_at', null).limit(20),
+          sb.from('daily_song_votes').select('nomination_id, weight').eq('date', w.date),
+        ])
+        const pvt: Record<number, number> = {}
+        for (const v of (pvRes.data || []) as any[]) pvt[v.nomination_id] = (pvt[v.nomination_id] || 0) + v.weight
+        const winTitle = track?.title || null
+        pastCandidates = [...((pnRes.data || []) as any[])]
+          .sort((a, b) => (pvt[b.id] || 0) - (pvt[a.id] || 0))
+          .filter(n => (n.tracks?.title || '') !== winTitle)
+          .slice(0, 5)
+          .map((n, i) => ({
+            rank: i + 2,
+            title: n.tracks?.title || '?',
+            artist: first<any>(n.tracks?.artists)?.name || null,
+            cover: ytThumb(n.tracks?.video_url) || n.tracks?.cover_url || first<any>(n.tracks?.artists)?.cover_image_url || null,
+            votes: pvt[n.id] || 0,
+          }))
+      } catch {}
       ddItem = {
         id: `dd_past_${w.id}`,
         type: 'dd', subtype: 'yesterday_winner',
         title: track?.title || 'Dienos daina', href: '/dienos-daina',
         cover: ytThumb(track?.video_url) || track?.cover_url || artist?.cover_image_url || null,
         author_name: artist?.name || null, author_slug: artist?.slug || null, author_avatar: null,
-        created_at: w.date, vote_count: null, vote_total: null, candidates: [],
+        created_at: w.date, vote_count: null, vote_total: null, candidates: pastCandidates,
       }
     }
 
@@ -212,12 +245,18 @@ export async function GET() {
       const profRaw = b.blogs?.profiles
       const author = Array.isArray(profRaw) ? (profRaw[0] ?? null) : (profRaw ?? null)
 
+      // HOMEPAGE = tik su muzika susiję tipai (kaip /atrasti prominentūs).
+      // Praleidžiam „Bendruomenės įrašą" (article be muzikinio editorial_type) ir renginius —
+      // jie lieka tik /atrasti, nepromotinami homepage.
+      if (b.post_type === 'event') continue
+      if (b.post_type === 'article' && !['recenzija', 'koncertai'].includes(b.editorial_type || '')) continue
+
       // 1-per-type taisyklė (article → skaidome pagal editorial_type)
       const tkey = b.post_type === 'review'
         ? (b.target_event_id ? 'review_event' : b.target_album_id ? 'review_album' : 'review_track')
         : b.post_type === 'article'
-          ? `article_${b.editorial_type || 'kita'}`
-          : (b.post_type || 'article_kita')
+          ? `article_${b.editorial_type}`
+          : (b.post_type || 'review_track')
       if (typeSeen.has(tkey)) continue
       typeSeen.add(tkey)
 
@@ -263,28 +302,31 @@ export async function GET() {
       return b.engagement - a.engagement || (a.created_at < b.created_at ? 1 : -1)
     })
 
-    // ── Diskusijos — 1 vnt, latest comment iš forum_posts ────────────────────
-    // SVARBU: nefiltruojam parent_post_legacy_id — norim paskutinį bet kokį postą
+    // ── Diskusijos — 1 vnt, latest comment iš `comments` (discussion_id) ──────
+    // Komentarai gyvena public.comments (ne legacy forum_posts), join per discussion_id.
     const discRows = (discRes.data || []) as any[]
-    const legacyIds = discRows.map(d => d.legacy_id).filter(Boolean) as number[]
-    const lastCommentByLegacy = new Map<number, { text: string; author: string | null; avatar: string | null; time: string }>()
-    if (legacyIds.length) {
+    const discIds = discRows.slice(0, 1).map(d => d.id) as number[]
+    const lastCommentByDisc = new Map<number, { text: string; author: string | null; avatar: string | null; time: string }>()
+    if (discIds.length) {
       try {
-        const { data: posts } = await sb
-          .from('forum_posts')
-          .select('thread_legacy_id, content_text, author_username, author_avatar_url, created_at')
-          .in('thread_legacy_id', legacyIds)
-          // BEZ parent_post_legacy_id filtro — norim PASKUTINĮ komentarą, ne tik top-level
+        const { data: cmts } = await sb
+          .from('comments')
+          .select('discussion_id, body, created_at, profiles:author_id(username, avatar_url)')
+          .in('discussion_id', discIds)
+          .eq('is_deleted', false)
+          .not('body', 'is', null)
           .order('created_at', { ascending: false })
-          .limit(100)
-        for (const p of (posts || []) as any[]) {
-          if (lastCommentByLegacy.has(p.thread_legacy_id)) continue
-          const text = (p.content_text || '').replace(/\s+/g, ' ').trim()
-          lastCommentByLegacy.set(p.thread_legacy_id, {
+          .limit(30)
+        for (const c of (cmts || []) as any[]) {
+          if (lastCommentByDisc.has(c.discussion_id)) continue
+          const text = (c.body || '').replace(/\s+/g, ' ').trim()
+          if (!text) continue
+          const prof = first<any>(c.profiles)
+          lastCommentByDisc.set(c.discussion_id, {
             text: text.length > 110 ? text.slice(0, 110).trimEnd() + '…' : text,
-            author: p.author_username || null,
-            avatar: p.author_avatar_url || null,
-            time: p.created_at,
+            author: prof?.username || null,
+            avatar: prof?.avatar_url || null,
+            time: c.created_at,
           })
         }
       } catch {}
@@ -294,7 +336,7 @@ export async function GET() {
     const discItems: any[] = []
     for (const d of discRows.slice(0, 1)) {
       const artist = first<any>(d.artist)
-      const lastComment = d.legacy_id ? (lastCommentByLegacy.get(d.legacy_id) || null) : null
+      const lastComment = lastCommentByDisc.get(d.id) || null
       discItems.push({
         id: `disc-${d.id}`, type: 'discussion',
         title: d.title || '', href: `/diskusijos/${d.slug || d.id}`,
@@ -306,13 +348,40 @@ export async function GET() {
       })
     }
 
-    // ── Merge: blog + disc interleaved, DD pirmasis ───────────────────────────
+    // ── Atradimas (1 vnt) ────────────────────────────────────────────────────
+    const dv = first<any>(discoveryRes.data) as any
+    let atrItem: any = null
+    if (dv) {
+      const yt = dv.embed_type === 'youtube' && dv.embed_id ? `https://i.ytimg.com/vi/${dv.embed_id}/mqdefault.jpg` : null
+      const cover = yt || first<any>(dv.tracks)?.cover_url || first<any>(dv.artists)?.cover_image_url || null
+      let prof: any = null
+      if (dv.author_id) {
+        try {
+          const { data: p } = await sb.from('profiles').select('username, avatar_url').eq('id', dv.author_id).maybeSingle()
+          prof = p
+        } catch {}
+      }
+      const title = dv.track_name ? `${dv.artist_name ? dv.artist_name + ' — ' : ''}${dv.track_name}` : (dv.artist_name || 'Atradimas')
+      atrItem = {
+        id: `atr-${dv.id}`, type: 'atradimas',
+        title, href: `/muzikos-atradimai/${dv.id}`,
+        cover,
+        author_name: prof?.username || null,
+        author_avatar: prof?.avatar_url || null,
+        created_at: dv.created_at,
+      }
+    }
+
+    // ── Merge: blog + disc + atradimas interleaved, DD pirmasis ────────────────
+    const tail: any[] = []
+    if (atrItem) tail.push(atrItem)
+    if (discItems[0]) tail.push(discItems[0])
     const merged: any[] = []
-    let bi = 0, di = 0
-    while (merged.length < 10 && (bi < blogItems.length || di < discItems.length)) {
+    let bi = 0, ti = 0
+    while (merged.length < 10 && (bi < blogItems.length || ti < tail.length)) {
       if (bi < blogItems.length) merged.push(blogItems[bi++])
       if (bi < blogItems.length && merged.length < 10) merged.push(blogItems[bi++])
-      if (di < discItems.length && merged.length < 10) merged.push(discItems[di++])
+      if (ti < tail.length && merged.length < 10) merged.push(tail[ti++])
     }
 
     const items = ddItem ? [ddItem, ...merged] : merged

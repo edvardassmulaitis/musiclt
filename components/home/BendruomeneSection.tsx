@@ -10,11 +10,11 @@ import { proxyImg } from '@/lib/img-proxy'
 type Entry = { rank: number; title: string; artist: string | null; image: string | null }
 type LastComment = { text: string; author: string | null; avatar: string | null; time: string }
 
-type Candidate = { title: string; artist: string | null; cover: string | null; votes: number }
+type Candidate = { rank?: number; title: string; artist: string | null; cover: string | null; votes: number }
 
 type CommunityItem = {
   id: string
-  type: 'dd' | 'blog' | 'discussion'
+  type: 'dd' | 'blog' | 'discussion' | 'atradimas'
   subtype?: string | null
   editorial_type?: string | null
   title: string
@@ -52,31 +52,31 @@ function timeAgo(iso: string) {
   return d < 30 ? `${d} d.` : `${Math.floor(d / 30)} mėn.`
 }
 
-type TypeMeta = { label: string; color: string }
+type TypeMeta = { label: string }
+// Pavadinimai suderinti su /atrasti taksonomija. Spalvų nebėra — vienodi neutralūs headeriai.
 function getTypeMeta(type: string, sub?: string | null, editorial?: string | null): TypeMeta {
-  if (type === 'dd') return { label: 'Dienos daina', color: 'var(--accent-orange,#f2641a)' }
-  if (type === 'discussion') return { label: 'Diskusija', color: '#5b9be8' }
-  if (sub === 'topas') return { label: 'Narių topas', color: '#a78bfa' }
-  if (sub === 'creation') return { label: 'Kūryba', color: '#3cca7e' }
-  if (sub === 'translation') return { label: 'Vertimas', color: '#5b9be8' }
-  if (sub === 'event') return { label: 'Renginys', color: '#fb923c' }
-  if (sub === 'review') return { label: 'Recenzija', color: '#f59e0b' }
+  if (type === 'dd') return { label: 'Dienos daina' }
+  if (type === 'discussion') return { label: 'Diskusija' }
+  if (type === 'atradimas') return { label: 'Atradimas' }
+  if (sub === 'topas') return { label: 'Topas' }
+  if (sub === 'creation') return { label: 'Kūryba' }
+  if (sub === 'translation') return { label: 'Vertimas' }
+  if (sub === 'review') return { label: 'Apžvalga' }
   if (sub === 'article') {
-    if (editorial === 'recenzija') return { label: 'Muzikos apžvalga', color: '#f59e0b' }
-    if (editorial === 'koncertai') return { label: 'Koncertų įspūdžiai', color: '#3b82f6' }
-    return { label: 'Bendruomenės įrašas', color: 'var(--accent-orange,#f2641a)' }
+    if (editorial === 'recenzija') return { label: 'Muzikos apžvalga' }
+    if (editorial === 'koncertai') return { label: 'Koncertų įspūdžiai' }
+    return { label: 'Įrašas' }
   }
-  return { label: 'Įrašas', color: 'var(--accent-orange,#f2641a)' }
+  return { label: 'Įrašas' }
 }
 
-// ── Type header strip (virš foto) ─────────────────────────────────────────────
+// ── Type header strip (virš foto) — neutralus, be spalvų ──────────────────────
 function TypeStrip({ meta }: { meta: TypeMeta }) {
   return (
-    <div className="flex items-center gap-2 px-2.5 py-[7px]"
+    <div className="flex items-center px-2.5 py-[7px]"
          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-      <span className="shrink-0 rounded-full" style={{ width: 3, height: 12, background: meta.color }} />
-      <span className="text-[9.5px] font-extrabold uppercase tracking-[0.07em] truncate"
-            style={{ fontFamily: "'Outfit',sans-serif", color: meta.color }}>{meta.label}</span>
+      <span className="text-[9.5px] font-extrabold uppercase tracking-[0.07em] truncate text-[var(--text-muted)]"
+            style={{ fontFamily: "'Outfit',sans-serif" }}>{meta.label}</span>
     </div>
   )
 }
@@ -125,10 +125,7 @@ function DDCard({ it }: { it: CommunityItem }) {
   const isToday = it.subtype === 'today_leader'
   const h = strHue(it.author_name || it.title)
   const candidates = it.candidates || []
-  const meta: TypeMeta = {
-    label: isToday ? 'Šiandien lyderis' : 'Vakarykštis laimėtojas',
-    color: 'var(--accent-orange,#f2641a)',
-  }
+  const meta: TypeMeta = { label: 'Dienos daina' }
   return (
     <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 240, flexShrink: 0 }}>
       <TypeStrip meta={meta} />
@@ -166,6 +163,10 @@ function DDCard({ it }: { it: CommunityItem }) {
             </p>
             {candidates.map((c, i) => (
               <div key={i} className="flex items-center gap-1.5">
+                <span className="shrink-0 w-3 text-center text-[9px] font-extrabold"
+                      style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'Outfit',sans-serif" }}>
+                  {c.rank ?? i + 2}
+                </span>
                 {c.cover
                   ? <img src={proxyImg(c.cover)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
                       className="h-[18px] w-[18px] shrink-0 rounded object-cover" />
@@ -226,7 +227,7 @@ function TopasCard({ it }: { it: CommunityItem }) {
     <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 220, flexShrink: 0 }}>
       <TypeStrip meta={meta} />
       <div className="relative">
-        <Cover url={it.cover} alt={entries[0]?.title || it.title} hue={h} />
+        <Cover url={entries[0]?.image || it.cover} alt={entries[0]?.title || it.title} hue={h} />
       </div>
       <div className="flex flex-1 flex-col p-2.5 gap-1">
         <p className="m-0 line-clamp-1 text-[12px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
@@ -356,6 +357,7 @@ export default function BendruomeneSection() {
           : items.map(it => {
               if (it.type === 'dd') return <DDCard key={it.id} it={it} />
               if (it.type === 'discussion') return <DiscCard key={it.id} it={it} />
+              if (it.type === 'atradimas') return <BlogCard key={it.id} it={it} />
               if (it.subtype === 'topas') return <TopasCard key={it.id} it={it} />
               return <BlogCard key={it.id} it={it} />
             })
