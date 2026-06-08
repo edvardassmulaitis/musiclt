@@ -10,6 +10,8 @@ import { proxyImg } from '@/lib/img-proxy'
 type Entry = { rank: number; title: string; artist: string | null; image: string | null }
 type LastComment = { text: string; author: string | null; avatar: string | null; time: string }
 
+type Candidate = { title: string; artist: string | null; cover: string | null; votes: number }
+
 type CommunityItem = {
   id: string
   type: 'dd' | 'blog' | 'discussion'
@@ -24,6 +26,7 @@ type CommunityItem = {
   comment_count?: number
   vote_count?: number | null
   vote_total?: number | null
+  candidates?: Candidate[]
   engagement?: number
   // blog extras
   excerpt?: string | null
@@ -115,9 +118,10 @@ function Badge({ label, bg }: { label: string; bg: string }) {
 function DDCard({ it }: { it: CommunityItem }) {
   const isToday = it.subtype === 'today_leader'
   const h = strHue(it.author_name || it.title)
+  const candidates = it.candidates || []
   return (
-    <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 220, flexShrink: 0 }}>
-      {/* 16:9 — YT thumbnail nėra kvadratinis */}
+    <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 240, flexShrink: 0 }}>
+      {/* 16:9 — YT thumbnail */}
       <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
         {it.cover
           ? <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" // eslint-disable-line @next/next/no-img-element
@@ -139,10 +143,37 @@ function DDCard({ it }: { it: CommunityItem }) {
         )}
       </div>
       <div className="flex flex-1 flex-col p-2.5" style={{ background: 'linear-gradient(160deg,#1c0a00,#2d1400)' }}>
-        <p className="m-0 line-clamp-2 text-[12.5px] font-extrabold leading-snug text-white"
+        <p className="m-0 line-clamp-1 text-[12.5px] font-extrabold leading-snug text-white"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {it.author_name && (
           <p className="m-0 mt-0.5 truncate text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>{it.author_name}</p>
+        )}
+        {/* Kiti kandidatai */}
+        {candidates.length > 0 && (
+          <div className="mt-2 flex flex-col gap-1 border-t pt-2" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+            <p className="m-0 text-[8.5px] font-extrabold uppercase tracking-[0.08em]"
+               style={{ color: 'rgba(255,255,255,0.35)', fontFamily: "'Outfit',sans-serif" }}>
+              Kiti kandidatai
+            </p>
+            {candidates.map((c, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                {c.cover
+                  ? <img src={proxyImg(c.cover)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+                      className="h-[18px] w-[18px] shrink-0 rounded object-cover" />
+                  : <div className="h-[18px] w-[18px] shrink-0 rounded"
+                      style={{ background: `hsl(${strHue(c.title)},30%,22%)` }} />
+                }
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 truncate text-[10px] font-semibold leading-tight text-white/80"
+                     style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
+                  {c.artist && <p className="m-0 truncate text-[8.5px] leading-tight" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'Outfit',sans-serif" }}>{c.artist}</p>}
+                </div>
+                {c.votes > 0 && (
+                  <span className="shrink-0 text-[8.5px]" style={{ color: 'rgba(255,255,255,0.35)', fontFamily: "'Outfit',sans-serif" }}>{c.votes}b</span>
+                )}
+              </div>
+            ))}
+          </div>
         )}
         <span className="mt-auto pt-2 text-[10px] font-semibold text-[var(--accent-orange)] opacity-80">
           {isToday ? 'Balsuoti dabar →' : 'Dienos daina →'}
