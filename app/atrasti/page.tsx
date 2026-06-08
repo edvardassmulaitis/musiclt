@@ -23,7 +23,8 @@ import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import { useActivity, ActivityModal, ActivityCard } from '@/components/ActivityWidget'
 import { DienosDainaSection } from '@/components/DienosDainaSection'
-import { HomeListModal, StickyMoreButton } from '@/components/HomeListModal'
+import { HomeListModal } from '@/components/HomeListModal'
+import Scroller from '@/components/ui/Scroller'
 
 // ───────────────────────── helpers ─────────────────────────
 function timeAgo(d?: string | null) {
@@ -127,15 +128,15 @@ function RowHead({ title, accent, allHref, onAll, addType }: { title: string; ac
 // (overflow-x:auto kerpa ir vertikaliai). 2026-06-06 fix.
 const SCROLL = 'hp-scroll flex gap-3 overflow-x-auto pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x'
 
-/** Horizontali juosta + dešinėje sticky „išskleisti" mygtukas (atveria modalą). */
-function ScrollRow({ children, count, height, onMore, ariaLabel }: { children: React.ReactNode; count: number; height: number; onMore: () => void; ariaLabel: string }) {
+/** Lengva horizontali juosta — peek + krašto fade + (desktop) hover rodyklės.
+ *  Storas „Visi" mygtukas-kortelė pašalintas; „Visi →" antraštėje (RowHead) veda
+ *  į tą patį modalą (onAll === onMore). count/height/onMore palikti signature'e
+ *  suderinamumui su call site'ais, bet nebenaudojami. */
+function ScrollRow({ children, ariaLabel }: { children: React.ReactNode; count?: number; height?: number; onMore?: () => void; ariaLabel: string }) {
   return (
-    <div className="flex items-stretch gap-3">
-      <div className={SCROLL + ' min-w-0 flex-1'}>{children}</div>
-      <div className="flex items-center">
-        <StickyMoreButton count={count} height={height} ariaLabel={ariaLabel} onClick={onMore} />
-      </div>
-    </div>
+    <Scroller ariaLabel={ariaLabel} gap={12}>
+      {children}
+    </Scroller>
   )
 }
 

@@ -765,3 +765,54 @@ blockquote.legacy-quote .legacy-quote-avatar-fallback {
 main.has-bottom-nav {
   padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
 }
+
+/* ===== Lengvoji horizontali eilė (Scroller — components/ui/Scroller.tsx) =====
+   Peek + krašto fade + scroll-snap + (desktop) hover rodyklės. Flex layout —
+   kortelės išlaiko savo pločio klases, nieko nepertapetuojam. */
+.hrow { position: relative; }
+
+.hrow-track {
+  display: flex;
+  gap: var(--gap, 16px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-top: 6px;        /* vietos kortelės hover „pakilimui" (overflow-y:hidden kerpa) */
+  padding-bottom: 8px;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 2px;
+  scrollbar-width: none;                 /* Firefox */
+  -webkit-overflow-scrolling: touch;
+  --fl: 0px; --fr: 0px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%);
+}
+.hrow-track::-webkit-scrollbar { display: none; }   /* Chrome/Safari */
+.hrow-track > * { flex: 0 0 auto; scroll-snap-align: start; }
+
+/* fade tik tose pusėse, kur dar yra ką slinkti */
+.hrow:not(.at-start) .hrow-track { --fl: 52px; }
+.hrow:not(.at-end)   .hrow-track { --fr: 52px; }
+
+/* rodyklės — TIK įrenginiuose su pele; atsiranda ant hover; dingsta kraštuose */
+.hrow-arrow {
+  position: absolute; top: 38%; transform: translateY(-50%); z-index: 5;
+  width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--bg-elevated, #fff);
+  border: 1px solid var(--border-default, #e2e7ee);
+  color: var(--text-primary, #111);
+  box-shadow: 0 8px 22px -10px rgba(0,0,0,.5);
+  opacity: 0; pointer-events: none; cursor: pointer;
+  transition: opacity .18s, background .15s, color .15s, border-color .15s;
+}
+.hrow-arrow svg { width: 17px; height: 17px; }
+.hrow-arrow.prev { left: -6px; }
+.hrow-arrow.next { right: -6px; }
+
+@media (hover: hover) {
+  .hrow:hover .hrow-arrow { opacity: 1; pointer-events: auto; }
+  .hrow.at-start .hrow-arrow.prev { opacity: 0; pointer-events: none; }
+  .hrow.at-end   .hrow-arrow.next { opacity: 0; pointer-events: none; }
+  .hrow-arrow:hover { background: var(--accent-orange, #f2641a); color: #fff; border-color: transparent; }
+}
+@media (hover: none) { .hrow-arrow { display: none; } }  /* mobile: tik peek+fade */
