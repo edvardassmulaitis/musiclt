@@ -444,7 +444,6 @@ export function ProfileClient(props: any) {
           styles={favoriteStyles || []}
           artists={favoriteArtists}
           picks={dailyPicks}
-          moodTrack={moodTrack ?? undefined}
           onClose={() => { setTasteOpen(false); setTasteInitial(null) }}
         />
       )}
@@ -685,6 +684,40 @@ function MobileProfileView(props: any) {
 
         {active === 'about' && (
           <div className="mt-1">
+            {moodTrack && (() => {
+              const ma = Array.isArray(moodTrack.artists) ? moodTrack.artists[0] : moodTrack.artists
+              const mc = moodTrack.cover_url || ma?.cover_image_url || null
+              const mh = ma
+                ? `/dainos/${ma.slug}-${moodTrack.slug || moodTrack.id}-${moodTrack.id}`
+                : `/dainos/${moodTrack.slug || ''}-${moodTrack.id}`
+              return (
+                <Link href={mh}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2 mb-4 transition hover:opacity-85"
+                  style={{ background: 'rgba(249,115,22,0.10)', border: '1px solid rgba(249,115,22,0.22)' }}>
+                  {mc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={mc} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center"
+                         style={{ background: 'rgba(249,115,22,0.2)', fontSize: '18px' }}>♬</div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>
+                      {moodTrack.title}
+                    </p>
+                    {ma && (
+                      <p className="text-xs truncate" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+                        {ma.name}
+                      </p>
+                    )}
+                  </div>
+                  <span className="flex-shrink-0 text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+                        style={{ background: 'rgba(249,115,22,0.15)', color: 'rgba(249,115,22,0.9)', fontFamily: "'Outfit', sans-serif" }}>
+                    Nuotaika
+                  </span>
+                </Link>
+              )
+            })()}
             <ProfileAboutContent profile={profile} stats={stats} memberSinceYear={memberSinceYear} compact />
           </div>
         )}
