@@ -1457,15 +1457,10 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
           const accent = IST_ACCENT[t] || 'var(--accent-orange)'
           return (
             <div key={t}>
-              <div className="mb-2.5 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span style={{ width: 3, height: 16, borderRadius: 2, background: accent }} />
-                  <h3 className="m-0 font-['Outfit',sans-serif] text-[14.5px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">{cfg.label}</h3>
-                  <span className="text-[11px] font-bold text-[var(--text-faint)]">{list.length}</span>
-                </div>
-                {list.length > 7 && (
-                  <button type="button" onClick={() => setOpenCat(t)} className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">Daugiau →</button>
-                )}
+              <div className="mb-2.5 flex items-center gap-2">
+                <span style={{ width: 3, height: 16, borderRadius: 2, background: accent }} />
+                <h3 className="m-0 font-['Outfit',sans-serif] text-[14.5px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">{cfg.label}</h3>
+                <span className="text-[11px] font-bold text-[var(--text-faint)]">{list.length}</span>
               </div>
               <Scroller className="min-w-0" gap={12} ariaLabel={cfg.label}>
                   {list.slice(0, 14).map(it => {
