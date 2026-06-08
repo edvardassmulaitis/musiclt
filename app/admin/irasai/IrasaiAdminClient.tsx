@@ -31,7 +31,6 @@ const KINDS = [
   { v: 'kuryba', l: 'Kūryba', hint: '' },
   { v: 'vertimas', l: 'Vertimas', hint: '' },
 ]
-const KIND_LABEL: Record<string, string> = Object.fromEntries(KINDS.map(k => [k.v, k.l]))
 // Ar šis kind rodomas homepage Bendruomenės juostoje?
 const SHOWN_ON_HOME = new Set(['muzikos_apzvalga', 'koncertai', 'topas', 'kuryba', 'vertimas'])
 

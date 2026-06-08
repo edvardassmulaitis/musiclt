@@ -29,7 +29,7 @@ async function requireAdmin() {
 }
 
 // (post_type, editorial_type) → plokščias kind
-export function kindOf(postType: string, editorial: string | null): string {
+function kindOf(postType: string, editorial: string | null): string {
   if (postType === 'topas') return 'topas'
   if (postType === 'creation') return 'kuryba'
   if (postType === 'translation') return 'vertimas'
@@ -86,17 +86,18 @@ export async function GET(req: Request) {
     ? 'blogs:blog_id(slug, profiles:user_id(username, full_name, hide_from_homepage))'
     : 'blogs:blog_id!inner(slug, profiles:user_id!inner(username, full_name, hide_from_homepage))'
 
+  // SVARBU (supabase-js): filtrai (.not/.is/.eq/.in) PRIEŠ transformacijas (.order/.range).
   let q = sb.from('blog_posts')
     .select(`id, slug, title, post_type, editorial_type, status, published_at, created_at, homepage_reviewed_at, list_items, target_album_id, target_event_id, ${join}`)
     .eq('status', 'published')
     .in('post_type', ['article', 'topas', 'review', 'creation', 'translation', 'event'])
-    .order('published_at', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
   if (!includeHidden) q = q.not('blogs.profiles.hide_from_homepage', 'is', true)
   if (view === 'todo') q = q.is('homepage_reviewed_at', null)
 
   const { data, error } = await q
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const items = (data || []).map((b: any) => {
