@@ -12,7 +12,7 @@ import { proxyImg } from '@/lib/img-proxy'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
 import { DienosDainaSection } from '@/components/DienosDainaSection'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
-import { HomeListModal, StickyMoreButton } from '@/components/HomeListModal'
+import { HomeListModal } from '@/components/HomeListModal'
 import { HomeListContent } from '@/components/HomeListContent'
 import Scroller from '@/components/ui/Scroller'
 
@@ -160,18 +160,16 @@ function Skel({ w, h, r = 6 }: { w: number | string; h: number; r?: number }) {
 /** Tailwind versija SH'o — naudojam naujose sekcijose, kad font/letter-spacing
  *  atitiktų artist page'o tipografiją (`font-['Outfit',sans-serif]` +
  *  `tracking-[-0.01em]` + truputį didesnis font-size 18px). */
-function SectionHead({ label, href, cta = 'Daugiau →' }: { label: React.ReactNode; href?: string; cta?: string }) {
+function SectionHead({ label, href, cta = 'Daugiau →', onMore }: { label: React.ReactNode; href?: string; cta?: string; onMore?: () => void }) {
+  const ctaCls = "font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
   return (
     <div className="mb-3.5 flex items-center justify-between">
       <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">{label}</h2>
-      {href && (
-        <Link
-          href={href}
-          className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
-        >
-          {cta}
-        </Link>
-      )}
+      {onMore ? (
+        <button type="button" onClick={onMore} className={ctaCls}>{cta}</button>
+      ) : href ? (
+        <Link href={href} className={ctaCls}>{cta}</Link>
+      ) : null}
     </div>
   )
 }
@@ -1241,9 +1239,8 @@ function PulsasSection() {
           nuo Pulso (Edvardo prašymu 2026-06-02). „+N" mygtukas atveria pilną
           bendruomenės aktyvumo modalą (blog + diskusijos + komentarai). ── */}
       <section>
-        <SectionHead label="Kas naujo" href="/atrasti" cta="Daugiau →" />
-        <div className="flex items-stretch gap-3">
-          <div className="hp-scroll flex min-w-0 flex-1 items-stretch gap-3 pb-1">
+        <SectionHead label="Kas naujo" onMore={() => setModalOpen(true)} />
+        <Scroller className="min-w-0" gap={12} ariaLabel="Kas naujo">
             {loading ? Array(5).fill(null).map((_, i) => (
               <div key={i} className="shrink-0" style={{ width: 240 }}>
                 <div className="hp-skel aspect-video rounded-xl" />
@@ -1253,11 +1250,7 @@ function PulsasSection() {
             )) : sectionItems.length === 0 ? (
               <div className="flex shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]" style={{ height: 250 }}>Narių įrašų su vizualais dar nėra</div>
             ) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
-          </div>
-          {!loading && items.length > 0 && (
-            <StickyMoreButton count={items.length} height={258} ariaLabel="Atverti visą bendruomenės aktyvumą" onClick={() => setModalOpen(true)} />
-          )}
-        </div>
+        </Scroller>
       </section>
 
       {/* ── Pulsas — trys stulpeliai per visą plotį: Diskusijos / Pokalbiai /
@@ -1464,13 +1457,17 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
           const accent = IST_ACCENT[t] || 'var(--accent-orange)'
           return (
             <div key={t}>
-              <div className="mb-2.5 flex items-center gap-2">
-                <span style={{ width: 3, height: 16, borderRadius: 2, background: accent }} />
-                <h3 className="m-0 font-['Outfit',sans-serif] text-[14.5px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">{cfg.label}</h3>
-                <span className="text-[11px] font-bold text-[var(--text-faint)]">{list.length}</span>
+              <div className="mb-2.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span style={{ width: 3, height: 16, borderRadius: 2, background: accent }} />
+                  <h3 className="m-0 font-['Outfit',sans-serif] text-[14.5px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">{cfg.label}</h3>
+                  <span className="text-[11px] font-bold text-[var(--text-faint)]">{list.length}</span>
+                </div>
+                {list.length > 7 && (
+                  <button type="button" onClick={() => setOpenCat(t)} className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">Daugiau →</button>
+                )}
               </div>
-              <div className="flex items-stretch gap-3">
-                <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
+              <Scroller className="min-w-0" gap={12} ariaLabel={cfg.label}>
                   {list.slice(0, 14).map(it => {
                     // Badge: albumams — albumo amžius (sukaktis); gimtadieniams —
                     // kiek sukako GYVAM (miręs → „gimimo metinės" rodom tekste, ne
@@ -1535,18 +1532,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                       </Link>
                     )
                   })}
-                </div>
-                {/* „+N" button'as tik kai juosta tikrai persipildo (>7) — kitaip
-                    visi telpa be scroll'o ir button'as nereikalingas. 2026-06-01. */}
-                {list.length > 7 && (
-                  <StickyMoreButton
-                    count={list.length}
-                    height={200}
-                    ariaLabel={`Žiūrėti visus (${list.length})`}
-                    onClick={() => setOpenCat(t)}
-                  />
-                )}
-              </div>
+                </Scroller>
             </div>
           )
         })}
@@ -3141,9 +3127,8 @@ export default function Home() {
                   cover'iai 156px, badge'as su data/„Greitai". ── */}
               {upcomingAlbums.length > 0 && (
                 <section>
-                  <SectionHead label="Greitai pasirodys" />
-                  <div className="flex items-stretch gap-3">
-                    <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
+                  <SectionHead label="Greitai pasirodys" onMore={() => setListModal('upcoming')} />
+                  <Scroller className="min-w-0" gap={12} ariaLabel="Greitai pasirodys">
                     {upcomingAlbums.slice(0, 14).map(a => {
                       const rd = (a as any).release_date as string | null
                       // formatFutureDateLT: ≤30 d. → „Po X d.", >30 d. →
@@ -3193,16 +3178,7 @@ export default function Home() {
                         </button>
                       )
                     })}
-                    </div>
-                    {upcomingAlbums.length > 0 && (
-                      <StickyMoreButton
-                        count={totals.upcoming || upcomingAlbums.length}
-                        height={200}
-                        ariaLabel={`Žiūrėti visus (${totals.upcoming || upcomingAlbums.length})`}
-                        onClick={() => setListModal('upcoming')}
-                      />
-                    )}
-                  </div>
+                  </Scroller>
                 </section>
               )}
           {/* ── Renginiai LT + Užsienio: 2 lanes su badge'ais 'NAUJIENA' / 'GREITAI' ── */}
@@ -3264,9 +3240,21 @@ export default function Home() {
                     { lane: 'world' as const, items: world },
                   ].map(({ lane, items }, laneIdx) => (
                     <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
+                      {items.length > 0 && (
+                        <div className="mb-1 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setListModal(`events-${lane}`)}
+                            aria-label={`Daugiau: renginiai (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
+                            className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70"
+                          >
+                            Daugiau →
+                          </button>
+                        </div>
+                      )}
                       <div className="flex items-stretch gap-3">
                         <RowDivider icon={lane} />
-                        <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-1">
+                        <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Renginiai">
                         {filtEvt.length === 0 ? Array(8).fill(null).map((_, i) => (
                           <div key={i} className="shrink-0" style={{ width: 156 }}>
                             <Skel w={156} h={156} r={12} />
@@ -3353,15 +3341,7 @@ export default function Home() {
                             </Link>
                           )
                         })}
-                        </div>
-                        {items.length > 0 && (
-                          <StickyMoreButton
-                            count={items.length}
-                            height={200}
-                            ariaLabel={`Žiūrėti visus (${items.length})`}
-                            onClick={() => setListModal(`events-${lane}`)}
-                          />
-                        )}
+                        </Scroller>
                       </div>
                     </div>
                   ))}
