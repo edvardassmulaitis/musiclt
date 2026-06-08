@@ -45,14 +45,13 @@ export async function GET() {
         .order('published_at', { ascending: false })
         .limit(80),
 
-      // 3. Diskusijos su atlikėjo cover (last 30d, min 1 komentaras)
+      // 3. Diskusijos su atlikėjo cover (all-time, min 1 komentaras, top by comment_count)
       sb.from('discussions')
         .select('id, slug, title, author_name, author_avatar, comment_count, created_at, artist:artists!discussions_artist_id_fkey(name, cover_image_url)')
         .eq('is_deleted', false)
         .or('legacy_kind.is.null,legacy_kind.eq.discussion')
         .not('author_name', 'is', null)
         .gte('comment_count', 1)
-        .gte('created_at', disc30d)
         .order('comment_count', { ascending: false })
         .limit(20),
     ])
@@ -112,9 +111,10 @@ export async function GET() {
     const blogItems: any[] = []
     for (const b of blogRows) {
       const cover = b.cover_image_url || thumbByPost.get(b.id) || null
-      if (!cover) continue               // tik su vizualais
+      // allow no-cover — card shows gradient placeholder
       const author = b.blogs?.profiles
       if (!author) continue              // tik realūs nariai
+      if (!b.title) continue
       const key = author.username || String(b.id)
       if (seenAuthors.has(key)) continue // 1 per autorių
       seenAuthors.add(key)
