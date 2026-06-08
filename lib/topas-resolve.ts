@@ -143,6 +143,45 @@ export async function resolveTopasItems(
   return { items, summary }
 }
 
+// Ištraukia įrašus iš topo `content` HTML — paryškintos „N. Atlikėjas – Pavadinimas"
+// eilutės (taip nariai rašo free-text topus). Grąžina pseudo-legacy list_items,
+// kuriuos toliau apdoroja resolveTopasItems.
+export function parseTopasFromContent(content: string): any[] {
+  if (!content) return []
+  const decode = (s: string) => s
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+  const seen = new Map<number, { artist: string; title: string }>()
+  const re = /<strong[^>]*>([\s\S]*?)<\/strong>/gi
+  let m: RegExpExecArray | null
+  while ((m = re.exec(content))) {
+    const txt = decode(m[1].replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim()
+    const mm = txt.match(/^(\d{1,3})\.\s*(.+?)\s[–—-]\s(.+)$/)
+    if (!mm) continue
+    const rank = parseInt(mm[1], 10)
+    if (!seen.has(rank)) seen.set(rank, { artist: mm[2].trim(), title: mm[3].trim() })
+  }
+  return [...seen.entries()].sort((a, b) => a[0] - b[0]).map(([rank, v]) => ({
+    position: rank, artist_name: v.artist, track_title: v.title,
+  }))
+}
+
+// Sukuria ghost entitetą vienam įrašui (artist + daina arba tik artist).
+export async function createEntityForEntry(
+  sb: Sb, artist: string, title: string | null, isArtist: boolean,
+): Promise<{ type: 'track' | 'artist'; entity_id: number; entity_slug: string | null; image_url: string | null }> {
+  if (isArtist || !title) {
+    const aid = await findOrCreateArtist(sb, artist, null)
+    const { data } = await sb.from('artists').select('slug, cover_image_url').eq('id', aid).maybeSingle()
+    return { type: 'artist', entity_id: aid, entity_slug: data?.slug || null, image_url: data?.cover_image_url || null }
+  }
+  const aid = await findOrCreateArtist(sb, artist, null)
+  const tid = await createTrackForArtist(sb, aid, title)
+  const { data } = await sb.from('tracks').select('slug, cover_url, video_url, artists:artist_id(cover_image_url)').eq('id', tid).maybeSingle()
+  const ac = Array.isArray(data?.artists) ? data?.artists[0]?.cover_image_url : (data?.artists as any)?.cover_image_url
+  return { type: 'track', entity_id: tid, entity_slug: data?.slug || null, image_url: ytThumb(data?.video_url) || data?.cover_url || ac || null }
+}
+
 // Vieno įrašo (pagal rank) susiejimas su konkrečiu entitetu iš paieškos.
 export async function linkTopasEntry(
   sb: Sb, list: any[], rank: number, hit: { type: 'track' | 'artist' | 'album'; id: number; slug: string | null; title: string; artist: string | null; image_url: string | null },

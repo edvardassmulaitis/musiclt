@@ -15,7 +15,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { resolveTopasItems, linkTopasEntry, isNewItem } from '@/lib/topas-resolve'
+import { resolveTopasItems, linkTopasEntry, isNewItem, parseTopasFromContent, createEntityForEntry } from '@/lib/topas-resolve'
 
 export const maxDuration = 60
 
@@ -74,7 +74,7 @@ export async function GET(req: Request) {
     : 'blogs:blog_id!inner(slug, profiles:user_id!inner(username, full_name, hide_from_homepage))'
 
   let q = sb.from('blog_posts')
-    .select(`id, slug, title, status, published_at, created_at, list_items, topas_approved_at, ${join}`)
+    .select(`id, slug, title, status, published_at, created_at, list_items, topas_approved_at, content, ${join}`)
     .eq('post_type', 'topas')
     .eq('status', 'published')
   if (!includeHidden) q = q.not('blogs.profiles.hide_from_homepage', 'is', true)
@@ -97,6 +97,7 @@ export async function GET(req: Request) {
       hidden: !!prof?.hide_from_homepage,
       approved: !!b.topas_approved_at,
       published_at: b.published_at,
+      content_entries: parseTopasFromContent(b.content || '').length,
       ...s,
     }
   })
@@ -121,12 +122,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, approved: action === 'approve' })
   }
 
-  const { data: post } = await sb.from('blog_posts').select('id, post_type, list_items').eq('id', id).maybeSingle()
+  const { data: post } = await sb.from('blog_posts').select('id, post_type, list_items, content').eq('id', id).maybeSingle()
   if (!post || post.post_type !== 'topas') return NextResponse.json({ error: 'ne topas' }, { status: 400 })
-  const list = Array.isArray(post.list_items) ? post.list_items : []
+  let list = Array.isArray(post.list_items) ? post.list_items : []
+
+  // Importuoti įrašus iš content HTML (paryškintos „N. Atlikėjas – Pavadinimas" eilutės), tada automatch.
+  if (action === 'import_from_content') {
+    const parsed = parseTopasFromContent(post.content || '')
+    if (!parsed.length) return NextResponse.json({ error: 'Tekste nerasta „N. Atlikėjas – Pavadinimas" įrašų' }, { status: 400 })
+    const { items } = await resolveTopasItems(sb, parsed, { create: false })
+    const { error } = await sb.from('blog_posts').update({ list_items: items, homepage_reviewed_at: new Date().toISOString() }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, imported: parsed.length, ...summarize(items) })
+  }
 
   if (action === 'automatch' || action === 'create_missing') {
-    if (!list.length) return NextResponse.json({ error: 'tuščias' }, { status: 400 })
+    if (!list.length) return NextResponse.json({ error: 'Topas neturi struktūrintų įrašų. Spausk „Importuoti iš teksto" arba pridėk rankiniu būdu.' }, { status: 400 })
     const { items, summary } = await resolveTopasItems(sb, list, { create: action === 'create_missing' })
     const { error } = await sb.from('blog_posts')
       .update({ list_items: items, homepage_reviewed_at: new Date().toISOString() }).eq('id', id)
@@ -139,6 +150,49 @@ export async function POST(req: Request) {
     if (rank == null || !h?.id) return NextResponse.json({ error: 'rank + hit required' }, { status: 400 })
     const hit = { type: HIT_TYPE[h.type] || 'track', id: h.id, slug: h.slug ?? null, title: h.title || '', artist: h.artist ?? null, image_url: h.image_url ?? null }
     const items = await linkTopasEntry(sb, list, rank, hit)
+    const { error } = await sb.from('blog_posts').update({ list_items: items }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, ...summarize(items) })
+  }
+
+  // Sukurti ghost entitetą vienam įrašui (pagal rank).
+  if (action === 'create_entry') {
+    const rank = body.rank
+    const e = list.find((x: any) => (x?.rank ?? x?.position) === rank)
+    if (!e) return NextResponse.json({ error: 'įrašas nerastas' }, { status: 404 })
+    const artist = e.artist || e.artist_name || ''
+    const title = e.type === 'artist' ? null : (e.title || e.track_title || null)
+    if (!artist) return NextResponse.json({ error: 'nėra atlikėjo' }, { status: 400 })
+    const ent = await createEntityForEntry(sb, artist, title, e.type === 'artist')
+    const items = list.map((x: any) => ((x?.rank ?? x?.position) === rank
+      ? { rank, type: ent.type, entity_id: ent.entity_id, entity_slug: ent.entity_slug, title: x.title || x.track_title || artist, artist, image_url: ent.image_url, comment: x.comment ?? x.description ?? null, rating: x.rating ?? null, match_state: 'created' }
+      : x))
+    const { error } = await sb.from('blog_posts').update({ list_items: items }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, ...summarize(items) })
+  }
+
+  // Pridėti naują įrašą iš paieškos (append gale).
+  if (action === 'add_entry') {
+    const h = body.hit
+    if (!h?.id) return NextResponse.json({ error: 'hit required' }, { status: 400 })
+    const maxRank = list.reduce((mx: number, x: any) => Math.max(mx, x?.rank ?? x?.position ?? 0), 0)
+    const newItem = {
+      rank: maxRank + 1, type: HIT_TYPE[h.type] || 'track',
+      entity_id: h.id, entity_slug: h.slug ?? null,
+      title: h.title || '', artist: h.artist ?? null, image_url: h.image_url ?? null,
+      comment: null, rating: null, match_state: 'matched',
+    }
+    const items = [...list, newItem]
+    const { error } = await sb.from('blog_posts').update({ list_items: items }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, ...summarize(items) })
+  }
+
+  // Pašalinti įrašą (pagal rank).
+  if (action === 'remove_entry') {
+    const rank = body.rank
+    const items = list.filter((x: any) => (x?.rank ?? x?.position) !== rank)
     const { error } = await sb.from('blog_posts').update({ list_items: items }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, ...summarize(items) })
