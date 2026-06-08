@@ -2909,7 +2909,7 @@ export default function Home() {
               <section>
                 {/* SectionHead be CTA — „+N" button'as juostos dešinėje yra
                     primaryinis būdas atidaryti pilną sąrašą. */}
-                <SectionHead label="Naujos dainos" href="/dainos" cta="Visi →" />
+                <SectionHead label="Naujos dainos" />
                 {(() => {
                   const isLT = (x: any) => {
                     const c = x.artists?.country
@@ -2998,6 +2998,16 @@ export default function Home() {
                           )
                         })}
                       </Scroller>
+                      {items.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setListModal(`tracks-${lane}`)}
+                          aria-label={`Visi: naujos dainos (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
+                          className="self-center shrink-0 rounded-full border border-[var(--border-default)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+                        >
+                          Visi →
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -3007,7 +3017,7 @@ export default function Home() {
                   (atitinka artist page'o AlbumCard pattern'ą). Cover'is
                   ~140px aiškiai didesnis nei track row'o 38px thumb'as. */}
               <section>
-                <SectionHead label="Nauji albumai" href="/albumai" cta="Visi →" />
+                <SectionHead label="Nauji albumai" />
                 {(() => {
                   const isLT = (x: any) => {
                     const c = x.artists?.country
@@ -3105,6 +3115,16 @@ export default function Home() {
                         )
                       })}
                       </Scroller>
+                      {items.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setListModal(`albums-${lane}`)}
+                          aria-label={`Visi: nauji albumai (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
+                          className="self-center shrink-0 rounded-full border border-[var(--border-default)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+                        >
+                          Visi →
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
