@@ -14,6 +14,7 @@ import { DienosDainaSection } from '@/components/DienosDainaSection'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
 import { HomeListModal, StickyMoreButton } from '@/components/HomeListModal'
 import { HomeListContent } from '@/components/HomeListContent'
+import Scroller from '@/components/ui/Scroller'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
@@ -2928,7 +2929,7 @@ export default function Home() {
                         ir renginiais. */}
                     <div className="flex items-stretch gap-3">
                       <RowDivider icon={lane} />
-                      <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
+                      <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Naujos dainos">
                         {tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
                           <div key={i} className="shrink-0" style={{ width: 200 }}>
                             <Skel w={200} h={112} r={12} />
@@ -2996,7 +2997,7 @@ export default function Home() {
                             </button>
                           )
                         })}
-                      </div>
+                      </Scroller>
                       {items.length > 0 && (
                         <StickyMoreButton
                           count={total || items.length}
