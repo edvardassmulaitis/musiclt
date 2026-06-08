@@ -1,12 +1,5 @@
 'use client'
-// components/home/BendruomeneSection.tsx
-//
-// Sujungtas bendruomenės strip'as homepage'ui.
-// Viskas scrollinama — DD kortelė yra pirmas elementas, ne sticky.
-//
-// items[0].type === 'dd'         → DDCard (šiandien lyderis / vakarykštis)
-// items[n].type === 'blog'       → BlogCard (diary/review/creation/translation/topas)
-// items[n].type === 'discussion' → DiscCard (diskusija su atlikėjo cover)
+// components/home/BendruomeneSection.tsx — per-tipo rich cards, viskas scrollinama
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -14,6 +7,9 @@ import Scroller from '@/components/ui/Scroller'
 import { proxyImg } from '@/lib/img-proxy'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
+type Entry = { rank: number; title: string; artist: string | null; image: string | null }
+type LastComment = { text: string; author: string | null; avatar: string | null; time: string }
+
 type CommunityItem = {
   id: string
   type: 'dd' | 'blog' | 'discussion'
@@ -29,6 +25,11 @@ type CommunityItem = {
   vote_count?: number | null
   vote_total?: number | null
   engagement?: number
+  // blog extras
+  excerpt?: string | null
+  entries?: Entry[] | null
+  // discussion extras
+  last_comment?: LastComment | null
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -46,61 +47,67 @@ function timeAgo(iso: string) {
   const d = Math.floor(h / 24)
   return d < 30 ? `${d} d.` : `${Math.floor(d / 30)} mėn.`
 }
-function blogTypeLabel(sub?: string | null) {
-  const map: Record<string, string> = {
+function blogLabel(sub?: string | null) {
+  const m: Record<string, string> = {
     review: '⭐ Recenzija', creation: '🎨 Kūryba', translation: '🌐 Vertimas',
     topas: '📊 Topas', event: '📅 Renginys', article: '✍️ Dienoraštis', quick: '✍️ Įrašas',
   }
-  return map[sub || ''] || '✍️ Įrašas'
+  return m[sub || ''] || '✍️ Įrašas'
 }
-function blogTypeColor(sub?: string | null) {
-  const map: Record<string, string> = {
+function blogColor(sub?: string | null) {
+  const m: Record<string, string> = {
     review: 'var(--accent-yellow,#f59e0b)', creation: '#3cca7e',
     translation: 'var(--accent-link,#5b9be8)', topas: '#a78bfa', event: '#fb923c',
   }
-  return map[sub || ''] || 'var(--accent-orange,#f2641a)'
+  return m[sub || ''] || 'var(--accent-orange,#f2641a)'
 }
 
-// ── Cover with gradient fallback ───────────────────────────────────────────────
-function Cover({ url, alt, hue }: { url: string | null; alt: string; hue: number }) {
-  return url ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={proxyImg(url)} alt={alt} loading="lazy"
-      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
-    />
-  ) : (
-    <div
-      className="flex h-full w-full items-center justify-center"
-      style={{ background: `linear-gradient(135deg, hsl(${hue},34%,22%), hsl(${(hue + 40) % 360},30%,12%))` }}
-    >
-      <span className="font-['Outfit',sans-serif] text-3xl font-black text-white/60">
-        {(alt || '?').charAt(0).toUpperCase()}
-      </span>
+// ── Shared cover ───────────────────────────────────────────────────────────────
+function Cover({ url, alt, hue, ratio = '16/9' }: { url: string | null; alt: string; hue: number; ratio?: string }) {
+  return (
+    <div className="relative overflow-hidden" style={{ aspectRatio: ratio }}>
+      {url
+        ? <img src={proxyImg(url)} alt={alt} loading="lazy" // eslint-disable-line @next/next/no-img-element
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
+        : <div className="flex h-full w-full items-center justify-center"
+            style={{ background: `linear-gradient(135deg,hsl(${hue},34%,22%),hsl(${(hue+40)%360},30%,12%))` }}>
+            <span className="font-['Outfit',sans-serif] text-3xl font-black text-white/50">
+              {(alt || '?').charAt(0).toUpperCase()}
+            </span>
+          </div>
+      }
     </div>
   )
 }
 
-// ── Avatar row ─────────────────────────────────────────────────────────────────
-function AvatarRow({ name, avatar, time, hue }: { name: string | null; avatar: string | null; time: string; hue: number }) {
+// ── Author row ─────────────────────────────────────────────────────────────────
+function AuthorRow({ name, avatar, time, hue }: { name: string | null; avatar: string | null; time: string; hue: number }) {
   return (
-    <div className="mt-auto flex items-center gap-1.5 pt-2">
-      {avatar ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(avatar)} alt="" className="h-[16px] w-[16px] shrink-0 rounded-full object-cover" />
-      ) : name ? (
-        <div
-          className="flex h-[16px] w-[16px] shrink-0 items-center justify-center rounded-full text-[7px] font-extrabold"
-          style={{ fontFamily: "'Outfit',sans-serif", background: `hsl(${hue},32%,18%)`, color: `hsl(${hue},45%,55%)` }}
-        >
-          {name.charAt(0).toUpperCase()}
-        </div>
-      ) : null}
-      <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--text-secondary)]" style={{ fontFamily: "'Outfit',sans-serif" }}>
-        {name || 'Narys'}
-      </span>
+    <div className="flex items-center gap-1.5">
+      {avatar
+        ? <img src={proxyImg(avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+            className="h-[15px] w-[15px] shrink-0 rounded-full object-cover" />
+        : name
+          ? <div className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full text-[7px] font-extrabold"
+              style={{ fontFamily: "'Outfit',sans-serif", background: `hsl(${hue},32%,18%)`, color: `hsl(${hue},45%,55%)` }}>
+              {name.charAt(0).toUpperCase()}
+            </div>
+          : null
+      }
+      <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--text-secondary)]"
+            style={{ fontFamily: "'Outfit',sans-serif" }}>{name || 'Narys'}</span>
       <span className="shrink-0 text-[9px] text-[var(--text-faint)]">{timeAgo(time)}</span>
     </div>
+  )
+}
+
+// ── Badge overlay ──────────────────────────────────────────────────────────────
+function Badge({ label, bg }: { label: string; bg: string }) {
+  return (
+    <span className="absolute left-2 top-2 rounded px-1.5 py-0.5 text-[8.5px] font-extrabold uppercase tracking-[0.05em] text-white backdrop-blur-sm"
+          style={{ fontFamily: "'Outfit',sans-serif", background: bg }}>
+      {label}
+    </span>
   )
 }
 
@@ -109,29 +116,33 @@ function DDCard({ it }: { it: CommunityItem }) {
   const isToday = it.subtype === 'today_leader'
   const h = strHue(it.author_name || it.title)
   return (
-    <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 200, flexShrink: 0 }}>
-      {/* Square cover for DD */}
-      <div className="relative overflow-hidden" style={{ aspectRatio: '1/1' }}>
-        <Cover url={it.cover} alt={it.title} hue={h} />
-        <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 45%, rgba(0,0,0,0.7))' }} />
-        <span
-          className="absolute left-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] text-white backdrop-blur-sm"
-          style={{ background: isToday ? 'var(--accent-orange,#f2641a)' : 'rgba(30,10,0,0.75)' }}
-        >
-          {isToday ? '🎵 Šiandien lyderis' : '🏆 Vakarykštis'}
-        </span>
+    <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 220, flexShrink: 0 }}>
+      {/* 16:9 — YT thumbnail nėra kvadratinis */}
+      <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
+        {it.cover
+          ? <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" // eslint-disable-line @next/next/no-img-element
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
+          : <div className="flex h-full w-full items-center justify-center"
+              style={{ background: `linear-gradient(135deg,hsl(${h},50%,18%),hsl(${(h+30)%360},40%,10%))` }}>
+              <span className="text-4xl">🎵</span>
+            </div>
+        }
+        <div className="pointer-events-none absolute inset-0"
+             style={{ background: 'linear-gradient(to bottom,transparent 45%,rgba(0,0,0,0.65))' }} />
+        <Badge label={isToday ? '🎵 Šiandien lyderis' : '🏆 Vakarykštis'}
+               bg={isToday ? 'var(--accent-orange,#f2641a)' : 'rgba(20,8,0,0.75)'} />
         {isToday && (it.vote_count ?? 0) > 0 && (
-          <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">
+          <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm"
+                style={{ fontFamily: "'Outfit',sans-serif" }}>
             {it.vote_count} bals.
           </span>
         )}
       </div>
       <div className="flex flex-1 flex-col p-2.5" style={{ background: 'linear-gradient(160deg,#1c0a00,#2d1400)' }}>
-        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[12.5px] font-extrabold leading-snug text-white">
-          {it.title}
-        </p>
+        <p className="m-0 line-clamp-2 text-[12.5px] font-extrabold leading-snug text-white"
+           style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {it.author_name && (
-          <p className="m-0 mt-1 truncate text-[10.5px]" style={{ color: 'rgba(255,255,255,0.5)' }}>{it.author_name}</p>
+          <p className="m-0 mt-0.5 truncate text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>{it.author_name}</p>
         )}
         <span className="mt-auto pt-2 text-[10px] font-semibold text-[var(--accent-orange)] opacity-80">
           {isToday ? 'Balsuoti dabar →' : 'Dienos daina →'}
@@ -141,25 +152,74 @@ function DDCard({ it }: { it: CommunityItem }) {
   )
 }
 
-// ── Blog card ──────────────────────────────────────────────────────────────────
+// ── Blog card (article / review / creation / translation / quick) ──────────────
 function BlogCard({ it }: { it: CommunityItem }) {
   const h = strHue(it.author_name || it.title)
   return (
-    <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 210, flexShrink: 0 }}>
-      <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
+    <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 220, flexShrink: 0 }}>
+      <div className="relative">
         <Cover url={it.cover} alt={it.author_name || it.title} hue={h} />
-        <span
-          className="absolute left-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.05em] text-white backdrop-blur-sm"
-          style={{ background: blogTypeColor(it.subtype) }}
-        >
-          {blogTypeLabel(it.subtype)}
-        </span>
+        <Badge label={blogLabel(it.subtype)} bg={blogColor(it.subtype)} />
       </div>
-      <div className="flex flex-1 flex-col p-2.5">
-        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[12.5px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
-          {it.title}
-        </p>
-        <AvatarRow name={it.author_name} avatar={it.author_avatar} time={it.created_at} hue={h} />
+      <div className="flex flex-1 flex-col p-2.5 gap-1.5">
+        <p className="m-0 line-clamp-2 text-[12.5px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
+           style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
+        {it.excerpt && (
+          <p className="m-0 line-clamp-2 text-[10.5px] leading-relaxed text-[var(--text-secondary)]"
+             style={{ fontFamily: "'Outfit',sans-serif" }}>{it.excerpt}</p>
+        )}
+        <div className="mt-auto">
+          <AuthorRow name={it.author_name} avatar={it.author_avatar} time={it.created_at} hue={h} />
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+// ── Topas card — shows top 3 ranked entries ────────────────────────────────────
+function TopasCard({ it }: { it: CommunityItem }) {
+  const h = strHue(it.author_name || it.title)
+  const entries = it.entries || []
+  return (
+    <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 220, flexShrink: 0 }}>
+      {/* Cover: pirmoji vieta su vizualu, arba gradientas */}
+      <div className="relative">
+        <Cover url={it.cover} alt={entries[0]?.title || it.title} hue={h} />
+        <Badge label="📊 Topas" bg="#a78bfa" />
+      </div>
+      <div className="flex flex-1 flex-col p-2.5 gap-1">
+        <p className="m-0 line-clamp-1 text-[12px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
+           style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
+        {/* Top 3 rows */}
+        {entries.length > 0 && (
+          <div className="flex flex-col gap-0.5 mt-0.5">
+            {entries.map(e => (
+              <div key={e.rank} className="flex items-center gap-1.5">
+                <span className="shrink-0 w-4 text-center text-[9px] font-extrabold"
+                      style={{ color: e.rank === 1 ? '#fbbf24' : e.rank === 2 ? '#94a3b8' : '#c97d4d', fontFamily: "'Outfit',sans-serif" }}>
+                  {e.rank}
+                </span>
+                {e.image
+                  ? <img src={proxyImg(e.image)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+                      className="h-[22px] w-[22px] shrink-0 rounded object-cover" />
+                  : <div className="h-[22px] w-[22px] shrink-0 rounded"
+                      style={{ background: `hsl(${strHue(e.title)},30%,20%)` }} />
+                }
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 truncate text-[10px] font-bold leading-tight text-[var(--text-primary)]"
+                     style={{ fontFamily: "'Outfit',sans-serif" }}>{e.title}</p>
+                  {e.artist && (
+                    <p className="m-0 truncate text-[8.5px] leading-tight text-[var(--text-secondary)]"
+                       style={{ fontFamily: "'Outfit',sans-serif" }}>{e.artist}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-auto pt-1">
+          <AuthorRow name={it.author_name} avatar={it.author_avatar} time={it.created_at} hue={h} />
+        </div>
       </div>
     </Link>
   )
@@ -168,38 +228,50 @@ function BlogCard({ it }: { it: CommunityItem }) {
 // ── Discussion card ────────────────────────────────────────────────────────────
 function DiscCard({ it }: { it: CommunityItem }) {
   const h = strHue(it.title)
+  const lc = it.last_comment
   return (
-    <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 210, flexShrink: 0 }}>
-      <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
+    <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 220, flexShrink: 0 }}>
+      <div className="relative">
         <Cover url={it.cover} alt={it.title} hue={h} />
-        <span
-          className="absolute left-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.05em] text-white backdrop-blur-sm"
-          style={{ background: 'var(--accent-link,#5b9be8)' }}
-        >
-          💬 Diskusija
-        </span>
+        <Badge label="💬 Diskusija" bg="var(--accent-link,#5b9be8)" />
         {(it.comment_count ?? 0) > 0 && (
-          <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">
+          <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm"
+                style={{ fontFamily: "'Outfit',sans-serif" }}>
             {it.comment_count} atsak.
           </span>
         )}
       </div>
-      <div className="flex flex-1 flex-col p-2.5">
-        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[12.5px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
-          {it.title}
-        </p>
-        <AvatarRow name={it.author_name} avatar={it.author_avatar} time={it.created_at} hue={h} />
+      <div className="flex flex-1 flex-col p-2.5 gap-1.5">
+        <p className="m-0 line-clamp-2 text-[12.5px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
+           style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
+        {/* Latest comment preview */}
+        {lc?.text && (
+          <div className="flex items-start gap-1.5 rounded px-1.5 py-1"
+               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            {lc.avatar
+              ? <img src={proxyImg(lc.avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+                  className="mt-0.5 h-[13px] w-[13px] shrink-0 rounded-full object-cover" />
+              : <div className="mt-0.5 h-[13px] w-[13px] shrink-0 rounded-full"
+                  style={{ background: `hsl(${strHue(lc.author || '')},30%,25%)` }} />
+            }
+            <p className="m-0 line-clamp-2 text-[9.5px] leading-relaxed text-[var(--text-secondary)]"
+               style={{ fontFamily: "'Outfit',sans-serif" }}>{lc.text}</p>
+          </div>
+        )}
+        <div className="mt-auto">
+          <AuthorRow name={lc?.author || it.author_name} avatar={null} time={it.created_at} hue={h} />
+        </div>
       </div>
     </Link>
   )
 }
 
 // ── Skeletonai ─────────────────────────────────────────────────────────────────
-function CardSkel({ w = 210, ratio = '16/9' }: { w?: number; ratio?: string }) {
+function CardSkel() {
   return (
-    <div className="shrink-0" style={{ width: w }}>
-      <div className="hp-skel rounded-t-xl" style={{ aspectRatio: ratio }} />
-      <div className="hp-skel mt-0.5 h-[80px] rounded-b-xl" />
+    <div className="shrink-0" style={{ width: 220 }}>
+      <div className="hp-skel rounded-t-xl" style={{ aspectRatio: '16/9' }} />
+      <div className="hp-skel mt-0.5 h-[95px] rounded-b-xl" />
     </div>
   )
 }
@@ -230,27 +302,22 @@ export default function BendruomeneSection() {
         <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">
           Bendruomenė
         </h2>
-        <Link
-          href="/atrasti"
-          className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
-        >
+        <Link href="/atrasti"
+              className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">
           Atrasti →
         </Link>
       </div>
 
       <Scroller gap={10} ariaLabel="Bendruomenė">
         {loading
-          ? [
-              <CardSkel key="s0" w={200} ratio="1/1" />,
-              ...Array(4).fill(null).map((_, i) => <CardSkel key={i + 1} />),
-            ]
-          : items.map(it =>
-              it.type === 'dd'
-                ? <DDCard key={it.id} it={it} />
-                : it.type === 'discussion'
-                  ? <DiscCard key={it.id} it={it} />
-                  : <BlogCard key={it.id} it={it} />,
-            )}
+          ? Array(5).fill(null).map((_, i) => <CardSkel key={i} />)
+          : items.map(it => {
+              if (it.type === 'dd') return <DDCard key={it.id} it={it} />
+              if (it.type === 'discussion') return <DiscCard key={it.id} it={it} />
+              if (it.subtype === 'topas') return <TopasCard key={it.id} it={it} />
+              return <BlogCard key={it.id} it={it} />
+            })
+        }
       </Scroller>
     </section>
   )
