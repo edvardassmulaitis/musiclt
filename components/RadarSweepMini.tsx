@@ -1,62 +1,53 @@
 /* ─────────────── RadarSweepMini ───────────────
-   Bendrinis radaro „sweep" SVG — identiškas /nauji-atlikejai puslapio
-   RadarSweep (components/radaras-ui.tsx) dekorui, tik dydis valdomas per
-   `size` prop. Naudojamas nav dropdown'e (Muzika → Naujos muzikos radaras)
-   ir gali būti naudojamas kitur.
+   Bendrinis radaro + ekvalaizerio ženkliukas. Vienas dizainas, naudojamas
+   visur per `size` prop: top-nav (~32px), Muzika dropdown badge (36px) ir
+   /nauji-atlikejai hero (150px). Dideliam dydžiui (size >= 72) papildomai
+   piešiamas vidinis žiedas ir plonesni brūkšniai, kad atrodytų rafinuotai.
 
-   Vizualas: 3 koncentriniai žiedai (radialGradient), besisukantis sweep
-   spindulys (linearGradient, animateTransform), oranžinis blip sekantis
-   spindulį, ir centrinis ekvalaizeris (CSS animuojami bar'ai).
-
-   SVG id'ai (rdm-rg / rdm-sw) tyčia kiti nei puslapio (rdg / rdsweep), kad
-   nebūtų <defs> id kolizijos kai abu komponentai egzistuoja tame pačiame DOM.
+   Dizainas: oranžinis radaras (žiedas + sukamasis sweep + skenavimo linija) su
+   oranžiniu ekvalaizeriu apačioje-centre (atitinka loader'io EQ) ir vienu žaliu
+   „blip" tašku = aptikta nauja muzika. Spalvos per CSS kintamuosius
+   (--accent-orange / --accent-green). EQ animacija per lokalų <style>; sweep ir
+   blip — per SMIL animateTransform/animate (veikia visuose browser'iuose).
 */
 
 const RDM_BARS = [
-  { x: 88, h: 14, d: '0s' },
-  { x: 94, h: 26, d: '.25s' },
-  { x: 100, h: 34, d: '.1s' },
-  { x: 106, h: 22, d: '.4s' },
-  { x: 112, h: 16, d: '.2s' },
+  { x: 20, h: 8, d: '.1s' },
+  { x: 25.5, h: 12, d: '.3s' },
+  { x: 31, h: 16, d: '0s' },
+  { x: 36.5, h: 11, d: '.35s' },
+  { x: 42, h: 7, d: '.2s' },
 ]
 
-export function RadarSweepMini({ size = 40 }: { size?: number }) {
+export function RadarSweepMini({ size = 40, className }: { size?: number; className?: string }) {
+  const big = size >= 72
+  const ringW = big ? 1.6 : 2.6
+  const lineW = big ? 1.6 : 2.4
+  const blipR = big ? 2.2 : 2.4
   return (
     <>
       <style>{`
-        .rdm-eq rect { animation: rdm-eq 1.1s ease-in-out infinite alternate; }
-        @keyframes rdm-eq { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
+        .rdm-eq rect { animation: rdm-eq 1s ease-in-out infinite alternate; }
+        @keyframes rdm-eq { from { transform: scaleY(0.32); } to { transform: scaleY(1); } }
       `}</style>
-      <svg width={size} height={size} viewBox="0 0 200 200" aria-hidden style={{ flexShrink: 0 }}>
-        <defs>
-          <radialGradient id="rdm-rg" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="rgba(34,197,94,0)" />
-            <stop offset="78%" stopColor="rgba(34,197,94,0)" />
-            <stop offset="100%" stopColor="rgba(34,197,94,0.5)" />
-          </radialGradient>
-          <linearGradient id="rdm-sw" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="rgba(249,115,22,0)" />
-            <stop offset="100%" stopColor="rgba(249,115,22,0.4)" />
-          </linearGradient>
-        </defs>
-        {[44, 68, 92].map((r) => (
-          <circle key={r} cx="100" cy="100" r={r} fill="none" stroke="url(#rdm-rg)" strokeWidth="1" opacity="0.7" />
-        ))}
-        {/* besisukantis skenavimo spindulys */}
+      <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden className={className} style={{ flexShrink: 0 }}>
+        {/* radaro žiedai */}
+        <circle cx="32" cy="32" r="28" fill="none" stroke="var(--accent-orange)" strokeWidth={ringW} opacity={big ? 0.5 : 0.55} />
+        {big && <circle cx="32" cy="32" r="19" fill="none" stroke="var(--accent-orange)" strokeWidth={1} opacity={0.3} />}
+        {/* besisukantis sweep + skenavimo linija + žalias blip */}
         <g>
-          <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="6s" repeatCount="indefinite" />
-          <path d="M100 100 L100 8 A92 92 0 0 1 165 35 Z" fill="url(#rdm-sw)" />
+          <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="3s" repeatCount="indefinite" />
+          <path d="M32 32 L32 4 A28 28 0 0 1 54 13 Z" fill="var(--accent-orange)" opacity="0.2" />
+          <line x1="32" y1="32" x2="32" y2="4" stroke="var(--accent-orange)" strokeWidth={lineW} strokeLinecap="round" />
+          <circle cx="51" cy="16" r={blipR} fill="var(--accent-green)">
+            <animate attributeName="opacity" values="0;0;1;1;0.1" keyTimes="0;0.18;0.3;0.8;1" dur="3s" repeatCount="indefinite" />
+          </circle>
         </g>
-        {/* blip seka spindulį */}
-        <g>
-          <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="6s" repeatCount="indefinite" />
-          <circle cx="156" cy="78" r="3.2" fill="var(--accent-orange)" />
-        </g>
-        {/* centro ekvalaizeris */}
-        <g className="rdm-eq">
+        {/* ekvalaizeris (banga) apačioje-centre */}
+        <g className="rdm-eq" fill="var(--accent-orange)">
           {RDM_BARS.map((b, i) => (
-            <rect key={i} x={b.x} width="3.4" rx="1.4" y={100 - b.h / 2} height={b.h}
-              fill="var(--accent-green)" style={{ transformOrigin: `${b.x + 1.7}px 100px`, animationDelay: b.d }} />
+            <rect key={i} x={b.x} y={42 - b.h} width="3" height={b.h} rx="1.4"
+              style={{ transformBox: 'fill-box', transformOrigin: 'center bottom', animationDelay: b.d }} />
           ))}
         </g>
       </svg>
