@@ -10,12 +10,11 @@ import { ActivityWidget } from '@/components/ActivityWidget'
 import { LazySection } from '@/components/LazySection'
 import { proxyImg } from '@/lib/img-proxy'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
-import { DienosDainaSection } from '@/components/DienosDainaSection'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
 import { HomeListModal } from '@/components/HomeListModal'
 import { HomeListContent } from '@/components/HomeListContent'
 import Scroller from '@/components/ui/Scroller'
-import HotStrip from '@/components/home/HotStrip'
+import BendruomeneSection from '@/components/home/BendruomeneSection'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
@@ -1074,212 +1073,6 @@ function CommunityUserPostsCard() {
   )
 }
 
-/* ────────────────────────────── Pulsas section ──────────────────────────────
-   Naujausių UGC įrašų aktyvumo feed'as — keičia anksčiau buvusią „Bendruomenė"
-   sekciją. Rodo blog įrašus, diskusijas ir komentarus mažomis kortelėmis
-   (panašiai kaip news cards). Vienas vientisas sąrašas, sortuotas pagal datą. */
-
-type PulsasItem = {
-  id: string
-  type: 'blog' | 'discussion' | 'comment'
-  subtype?: string | null
-  title: string
-  excerpt: string | null
-  href: string
-  cover: string | null
-  author_name: string | null
-  author_slug: string | null
-  author_avatar: string | null
-  created_at: string
-  meta?: string | null
-}
-
-
-const PULSAS_FILTERS = [['all', 'Visi'], ['blog', 'Blogai'], ['discussion', 'Diskusijos'], ['comment', 'Komentarai']] as const
-
-function pulsasAccent(t: string, sub?: string | null): string {
-  if (t === 'discussion') return 'var(--accent-link)'
-  if (t === 'comment') return 'var(--accent-green)'
-  if (sub === 'review') return 'var(--accent-yellow)'
-  if (sub === 'translation') return 'var(--accent-link)'
-  return 'var(--accent-orange)'
-}
-function pulsasEmoji(t: string, sub?: string | null): string {
-  if (t === 'discussion') return '💬'
-  if (t === 'comment') return '💭'
-  if (sub === 'review') return '📝'
-  if (sub === 'creation') return '🎨'
-  if (sub === 'translation') return '🌐'
-  if (sub === 'topas') return '📊'
-  if (sub === 'event') return '📅'
-  return '✍️'
-}
-
-function PulsasCard({ it, inModal, onNavigate }: { it: PulsasItem; inModal: boolean; onNavigate?: () => void }) {
-  const ac = pulsasAccent(it.type, it.subtype)
-  // Komentarams — kitokia kortelė (FIX 4): komentaro tekstas NEbold (tai citata,
-  // ne pavadinimas), entity mini nuotrauka + „kam" eilutė apačioje. Aiškiau
-  // skiriasi nuo blog/diskusijos kortelės.
-  if (it.type === 'comment') {
-    return (
-      <Link
-        href={it.href}
-        onClick={onNavigate}
-        className={`hp-card group flex flex-col overflow-hidden no-underline ${inModal ? 'w-full' : 'shrink-0'}`}
-        style={inModal ? { borderColor: 'rgba(34,197,94,0.3)' } : { width: 240, borderColor: 'rgba(34,197,94,0.3)' }}
-      >
-        <div className="flex items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--accent-green)]/10 px-3 py-2">
-          <span className="text-[12px]">💬</span>
-          <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-green)]">Komentaras</span>
-        </div>
-        <div className="flex flex-1 gap-2.5 p-3">
-          {it.cover && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(it.cover)} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
-          )}
-          <div className="min-w-0 flex-1">
-            <p className={`m-0 ${inModal ? 'line-clamp-5' : 'line-clamp-3'} text-[12.5px] leading-relaxed text-[var(--text-primary)]`}>{it.title}</p>
-            {it.meta && <p className="m-0 mt-1.5 line-clamp-1 text-[10.5px] font-bold text-[var(--text-muted)]">{it.meta}</p>}
-          </div>
-        </div>
-        <div className="mt-auto flex items-center gap-2 px-3 pb-3">
-          {it.author_avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(it.author_avatar)} alt="" className="h-[20px] w-[20px] flex-shrink-0 rounded-full object-cover" />
-          ) : it.author_name ? (
-            <div className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[9px] font-extrabold" style={{ background: `hsl(${strHue(it.author_name)},32%,18%)`, color: `hsl(${strHue(it.author_name)},45%,55%)` }}>{it.author_name.charAt(0).toUpperCase()}</div>
-          ) : null}
-          <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-secondary)]">{it.author_name || 'Anonimas'}</span>
-          <span className="shrink-0 text-[9px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
-        </div>
-      </Link>
-    )
-  }
-  return (
-    <Link
-      href={it.href}
-      onClick={onNavigate}
-      className={`hp-card group flex flex-col overflow-hidden p-0 no-underline ${inModal ? 'w-full' : 'shrink-0'}`}
-      style={inModal ? undefined : { width: 240 }}
-    >
-      {/* Vizualas viršuje — cover (jei istraukėm) arba tipinis gradient+emoji. */}
-      <div className="relative aspect-video overflow-hidden bg-[var(--cover-placeholder)]">
-        {it.cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(it.cover)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
-        ) : (
-          <div
-            className="flex h-full w-full flex-col items-center justify-center gap-1"
-            style={{ background: `linear-gradient(135deg, hsl(${strHue(it.author_name || it.title)},34%,22%), hsl(${(strHue(it.author_name || it.title) + 40) % 360},30%,12%))` }}
-          >
-            <span className="font-['Outfit',sans-serif] text-3xl font-black text-white/85">{(it.author_name || it.title || '?').charAt(0).toUpperCase()}</span>
-            {it.meta && <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.12em] text-white/55">{it.meta}</span>}
-          </div>
-        )}
-        {it.meta && (
-          <span className="absolute left-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] text-white backdrop-blur-sm" style={{ background: ac }}>
-            {it.meta}
-          </span>
-        )}
-      </div>
-      <div className="flex flex-1 flex-col p-3">
-        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
-        {/* FIX 5: ilgesnis excerpt'as (section 4 eil., modale 6) užpildo kortelės
-            vertikalų plotą — nelieka tuščios baltos apačios prie aukštų gretimų
-            kortelių. */}
-        {it.excerpt && <p className={`m-0 mt-1.5 ${inModal ? 'line-clamp-6' : 'line-clamp-4'} text-[11.5px] leading-relaxed text-[var(--text-muted)]`}>{it.excerpt}</p>}
-        <div className="mt-auto flex items-center gap-2 pt-2.5">
-          {it.author_name ? (
-            it.author_avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={proxyImg(it.author_avatar)} alt="" className="h-[20px] w-[20px] flex-shrink-0 rounded-full object-cover" />
-            ) : (
-              <div className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[9px] font-extrabold" style={{ background: `hsl(${strHue(it.author_name)},32%,18%)`, color: `hsl(${strHue(it.author_name)},45%,55%)` }}>{it.author_name.charAt(0).toUpperCase()}</div>
-            )
-          ) : null}
-          <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-secondary)]">{it.author_name || 'Anonimas'}</span>
-          <span className="shrink-0 text-[9px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
-        </div>
-      </div>
-    </Link>
-  )
-}
-
-function PulsasSection() {
-  const [items, setItems] = useState<PulsasItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [typeFilter, setTypeFilter] = useState<'all' | 'blog' | 'discussion' | 'comment'>('all')
-  useEffect(() => {
-    let alive = true
-    fetch('/api/pulsas?limit=200')
-      .then(r => r.json())
-      .then(d => { if (alive) { setItems(d.items || []); setLoading(false) } })
-      .catch(() => { if (alive) setLoading(false) })
-    return () => { alive = false }
-  }, [])
-
-  // Homepage juosta = TIK realių narių BLOG įrašai SU VIZUALAIS (Edvardo prašymu).
-  // Diskusijos/komentarai gyvena modale + Pokalbių/Aktyvumo dėžutėse. Dedup per autorių.
-  const seenU = new Set<string>()
-  const deduped: PulsasItem[] = []
-  for (const it of items) {
-    if (it.type !== 'blog') continue
-    if (!it.cover) continue            // su vizualais
-    if (!it.author_name) continue      // realūs nariai (ne Anonimas)
-    const key = it.author_slug || it.author_name
-    if (seenU.has(key)) continue
-    seenU.add(key); deduped.push(it)
-  }
-  const sectionItems = deduped.slice(0, 12)
-  const modalItems = typeFilter === 'all' ? items : items.filter(i => i.type === typeFilter)
-
-  return (
-    <>
-      {/* ── Vartotojų įrašai — narių blog įrašai (vizualios kortelės). ATSKIRTA
-          nuo Pulso (Edvardo prašymu 2026-06-02). „+N" mygtukas atveria pilną
-          bendruomenės aktyvumo modalą (blog + diskusijos + komentarai). ── */}
-      <section>
-        <SectionHead label="Kas naujo" onMore={() => setModalOpen(true)} />
-        <Scroller className="min-w-0" gap={12} ariaLabel="Kas naujo">
-            {loading ? Array(5).fill(null).map((_, i) => (
-              <div key={i} className="shrink-0" style={{ width: 240 }}>
-                <div className="hp-skel aspect-video rounded-xl" />
-                <div className="hp-skel mt-2 h-3 w-4/5 rounded" />
-                <div className="hp-skel mt-1 h-2.5 w-3/5 rounded" />
-              </div>
-            )) : sectionItems.length === 0 ? (
-              <div className="flex shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]" style={{ height: 250 }}>Narių įrašų su vizualais dar nėra</div>
-            ) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
-        </Scroller>
-      </section>
-
-      {modalOpen && (
-        <HomeListModal open onClose={() => setModalOpen(false)} title="Pulsas" subtitle="Naujausi bendruomenės įrašai">
-          <div className="mb-4 flex flex-wrap items-center gap-1.5">
-            {PULSAS_FILTERS.map(([k, label]) => {
-              const cnt = k === 'all' ? items.length : items.filter(i => i.type === k).length
-              if (k !== 'all' && cnt === 0) return null
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setTypeFilter(k)}
-                  className={`rounded-full px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors ${typeFilter === k ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--bg-active)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                >
-                  {label} {cnt > 0 && <span className="opacity-60">{cnt}</span>}
-                </button>
-              )
-            })}
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {modalItems.map(it => <PulsasCard key={it.id} it={it} inModal onNavigate={() => setModalOpen(false)} />)}
-          </div>
-        </HomeListModal>
-      )}
-    </>
-  )
-}
 
 /* Pramogos kortelės (Boombox intro + Music Manager placeholder) pašalintos
    2026-05-29 — „Pramogos" sekcija pakeista į „Dienos daina". Boombox + Music
@@ -3331,53 +3124,10 @@ export default function Home() {
           </section>
           </LazySection>
 
-          {/* ── PULSAS — naujausi vartotojų įrašai: blogai, diskusijos, vertimai,
-              kūryba, komentarai. Pakeitė buvusią „Bendruomenė" sekciją su 3
-              kolonomis (diskusijos / chat / posts). Naujas dizainas — vientisas
-              feed'as su mažomis korteles, sortuotas pagal datą. ── */}
-          <LazySection
-            rootMargin="400px"
-            minHeight={280}
-            placeholder={
-              <section>
-                <SectionHead label="Pulsas" href="/bendruomene" cta="Daugiau →" />
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {Array(4).fill(null).map((_, i) => (
-                    <div key={i} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3.5">
-                      <Skel w="40%" h={10} />
-                      <div className="mt-3"><Skel w="92%" h={12} /></div>
-                      <div className="mt-1.5"><Skel w="80%" h={11} /></div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            }
-          >
-            <PulsasSection />
-          </LazySection>
-
-          {/* ── KARŠTA DABAR — svari narių veikla + dienos dainos slotai ── */}
-          <HotStrip />
-
-          {/* ── DIENOS DAINA — bendruomenės balsavimas (pakeitė „Pramogas". Boombox
-              + Music Manager kol kas pasiekiami tik per top menu). 2026-05-29. ── */}
-          <LazySection
-            rootMargin="400px"
-            minHeight={220}
-            placeholder={
-              <section>
-                <SectionHead label="Dienos daina" />
-                <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4" style={{ maxWidth: 560 }}>
-                  <Skel w="40%" h={11} />
-                  <div className="mt-3"><Skel w="100%" h={48} /></div>
-                  <div className="mt-2"><Skel w="60%" h={11} /></div>
-                </div>
-              </section>
-            }
-          >
-          <section>
-            <DienosDainaSection onOpenTrack={(t) => setOpenTrack(t)} />
-          </section>
+          {/* ── BENDRUOMENĖ — pinned DD + blog + diskusijos (pakeičia Pulsas +
+              HotStrip + DienosDainaSection) 2026-06-08 ── */}
+          <LazySection rootMargin="400px" minHeight={260}>
+            <BendruomeneSection />
           </LazySection>
 
           {/* ── ISTORIJA — sukaktys, jubiliejai, gimtadieniai ── */}
