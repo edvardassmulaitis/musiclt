@@ -2,6 +2,12 @@
 
 // Klientinis radaro valdiklis. Veiksmai POST'inami į /api/admin/radar.
 // Optimistinis perkėlimas tarp sąrašų; klaidos atveju grąžinam atgal.
+//
+// Statuso mašina:
+//   null       = auto-pool (algoritmo kandidatas)
+//   included   = rankiniu pridėtas į tinklelį
+//   featured   = spotlight (Dėmesio centre)
+//   excluded   = archyvas (atmesti auto / pristatyti ir baigti)
 
 import { useState, useCallback } from 'react'
 
@@ -87,7 +93,7 @@ export default function RadarAdminClient({
       if (status === 'featured') setFeatured((l) => [updated, ...l.filter((x) => x.id !== a.id)])
       else if (status === 'included') setIncluded((l) => [updated, ...l])
       else if (status === 'excluded') setExcluded((l) => [updated, ...l])
-      else setCandidates((l) => [updated, ...l]) // auto
+      // null = pašalintas iš radaro — neberodome jokioje sekcijoje
       setResults((l) => l.filter((x) => x.id !== a.id))
     } catch (e: any) {
       setErr(e?.message || 'Klaida')
@@ -127,36 +133,77 @@ export default function RadarAdminClient({
     } catch { setResults([]) } finally { setSearching(false) }
   }, [featured, included, excluded])
 
-  const ActionBtns = ({ a }: { a: AdminArtist }) => (
-    <div className="flex flex-wrap gap-1.5">
-      {a.radar_status === 'excluded' ? (
-        // Jei atmesta — tik „Atstatyti" mygtukas
-        <button onClick={() => apply(a, null)} disabled={busy === a.id}
-          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] ring-1 ring-[var(--border-default)] disabled:opacity-50">↺ Atstatyti</button>
-      ) : (
-        <>
-          {a.radar_status !== 'featured' ? (
-            <button onClick={() => apply(a, 'featured')} disabled={busy === a.id}
-              className="rounded-md bg-[var(--accent-orange)] px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50">⭐ Featured</button>
-          ) : (
-            <button onClick={() => apply(a, null)} disabled={busy === a.id} title="Nuimti featured"
-              className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-orange)] ring-1 ring-[rgba(249,115,22,0.4)] disabled:opacity-50">⭐ Nuimti</button>
-          )}
-          {a.radar_status !== 'included' ? (
-            <button onClick={() => apply(a, 'included')} disabled={busy === a.id}
-              className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] ring-1 ring-[var(--border-default)] disabled:opacity-50">＋ Įtraukti</button>
-          ) : (
-            <button onClick={() => apply(a, null)} disabled={busy === a.id} title="Nuimti įtraukimą"
-              className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)] ring-1 ring-[var(--border-strong)] disabled:opacity-50">＋ Nuimti</button>
-          )}
+  // Mygtukai pagal statusą ir kontekstą:
+  //   fromSearch  → tik Featured + Įtraukti (naujas rankiniu, be Atmesti)
+  //   null        → Featured + Įtraukti + Atmesti (auto-kandidatas)
+  //   included    → Featured + Pristatytas
+  //   featured    → Į tinklelį + Pristatytas
+  //   excluded    → Atstatyti (→ included) + Pašalinti (→ null, dingsta iš admin)
+  const ActionBtns = ({ a, fromSearch }: { a: AdminArtist; fromSearch?: boolean }) => {
+    if (a.radar_status === 'excluded') {
+      return (
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => apply(a, 'included')} disabled={busy === a.id}
+            className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] ring-1 ring-[var(--border-default)] disabled:opacity-50">
+            ↺ Atstatyti
+          </button>
+          <button onClick={() => apply(a, null)} disabled={busy === a.id}
+            className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-faint)] ring-1 ring-[var(--border-subtle)] disabled:opacity-50">
+            🗑 Pašalinti
+          </button>
+        </div>
+      )
+    }
+    if (a.radar_status === 'featured') {
+      return (
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => apply(a, 'included')} disabled={busy === a.id}
+            className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-orange)] ring-1 ring-[rgba(249,115,22,0.4)] disabled:opacity-50">
+            ↓ Į tinklelį
+          </button>
           <button onClick={() => apply(a, 'excluded')} disabled={busy === a.id}
-            className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-red)] ring-1 ring-[rgba(248,113,113,0.3)] disabled:opacity-50">🚫 Atmesti</button>
-        </>
-      )}
-    </div>
-  )
+            className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-green)] ring-1 ring-[rgba(34,197,94,0.35)] disabled:opacity-50">
+            ✓ Pristatytas
+          </button>
+        </div>
+      )
+    }
+    if (a.radar_status === 'included') {
+      return (
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => apply(a, 'featured')} disabled={busy === a.id}
+            className="rounded-md bg-[var(--accent-orange)] px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50">
+            ⭐ Featured
+          </button>
+          <button onClick={() => apply(a, 'excluded')} disabled={busy === a.id}
+            className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-green)] ring-1 ring-[rgba(34,197,94,0.35)] disabled:opacity-50">
+            ✓ Pristatytas
+          </button>
+        </div>
+      )
+    }
+    // null — auto-kandidatas arba rankinė paieška
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        <button onClick={() => apply(a, 'featured')} disabled={busy === a.id}
+          className="rounded-md bg-[var(--accent-orange)] px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50">
+          ⭐ Featured
+        </button>
+        <button onClick={() => apply(a, 'included')} disabled={busy === a.id}
+          className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] ring-1 ring-[var(--border-default)] disabled:opacity-50">
+          ＋ Įtraukti
+        </button>
+        {!fromSearch && (
+          <button onClick={() => apply(a, 'excluded')} disabled={busy === a.id}
+            className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-faint)] ring-1 ring-[var(--border-subtle)] disabled:opacity-50">
+            ✕ Atmesti
+          </button>
+        )}
+      </div>
+    )
+  }
 
-  const Row = ({ a, showBlurb }: { a: AdminArtist; showBlurb?: boolean }) => (
+  const Row = ({ a, showBlurb, fromSearch }: { a: AdminArtist; showBlurb?: boolean; fromSearch?: boolean }) => (
     <li className="flex flex-col gap-2 rounded-xl bg-[var(--bg-surface)] p-3 ring-1 ring-[var(--border-subtle)]">
       <div className="flex items-center gap-3">
         <Thumb a={a} />
@@ -171,7 +218,7 @@ export default function RadarAdminClient({
             {a.latest_title ? ` · „${a.latest_title}"` : ''}
           </div>
         </div>
-        <ActionBtns a={a} />
+        <ActionBtns a={a} fromSearch={fromSearch} />
       </div>
       {showBlurb && (
         <BlurbEditor a={a} onSave={saveBlurb} busy={busy === a.id} />
@@ -202,10 +249,10 @@ export default function RadarAdminClient({
       {/* search-to-add — pridėti BET KURĮ atlikėją iš visos DB */}
       <div className="rounded-xl bg-[var(--bg-surface)] p-3.5 ring-1 ring-[rgba(249,115,22,0.35)]">
         <label className="block font-['Outfit',sans-serif] text-sm font-bold text-[var(--text-primary)]">
-          ➕ Pridėti bet kurį atlikėją iš DB
+          ➕ Pridėti bet kurį atlikėją rankiniu
         </label>
         <p className="mb-2 mt-0.5 text-xs text-[var(--text-muted)]">
-          Ieškok visoje bazėje (ne tik radare) ir spausk <b>Featured</b> arba <b>Įtraukti</b> — atsiras /nauji-atlikejai.
+          Ieškok visoje bazėje ir spausk <b>Featured</b> arba <b>Įtraukti</b> — atsiras /nauji-atlikejai.
         </p>
         <input
           value={q}
@@ -218,25 +265,25 @@ export default function RadarAdminClient({
           <p className="mt-2 text-xs text-[var(--text-faint)]">Nieko nerasta (arba jau radare).</p>
         )}
         {results.length > 0 && (
-          <ul className="mt-2 flex flex-col gap-2">{results.map((a) => <Row key={a.id} a={a} />)}</ul>
+          <ul className="mt-2 flex flex-col gap-2">{results.map((a) => <Row key={a.id} a={a} fromSearch />)}</ul>
         )}
       </div>
 
       <Section title="⭐ Featured (spotlight)" showBlurb
-        hint="Rodomi viršuje su redakcijos prierašu. Pridėk blurb'ą, kad kortelė atrodytų pilnai."
-        items={featured} empty="Nieko nepriskirta — surask atlikėją viršuje ir spausk „Featured“." />
+        hint="Rodomi viršuje su redakcijos prierašu. Kai atlikėjas pristatytas — spausk Pristatytas."
+        items={featured} empty="Nieko nepriskirta — surask atlikėją viršuje ir spausk Featured." />
 
-      <Section title="＋ Įtraukti į tinklelį"
-        hint="Priverstinai rodomi „Nauji ir kylantys“ tinklelyje, net jei auto signalai silpni."
+      <Section title="＋ Tinklelyje (rankinis)"
+        hint="Priverstinai rodomi tinklelyje. Kai pristatyti — spausk Pristatytas, jie eis i archyva."
         items={included} empty="Tuščia — auto kandidatai (žemiau) ir taip rodomi tinklelyje." />
 
       <Section title="📡 Auto kandidatai"
-        hint="Algoritmo rasti: naujas LT atlikėjas (pirmas YT įkėlimas ≤1 m. + maža auditorija). Jau rodomi /nauji-atlikejai. Seni atlikėjai čia nepatenka automatiškai."
+        hint="Algoritmo rasti: naujas LT atlikėjas (pirmas YT įkėlimas mažiau nei prieš metus + maža auditorija)."
         items={candidates} empty="Nėra kandidatų (gali būti DB ryšio problema arba langas tuščias)." />
 
-      <Section title="🚫 Atmesti"
-        hint="Algoritmas jų nebesiūlys automatiškai. Spausk Atstatyti, kad grąžintum į auto-pool."
-        items={excluded} empty="Nėra atmestų atlikėjų." />
+      <Section title="📁 Archyvas"
+        hint="Atmesti auto-kandidatai ir pristatyti atlikėjai. Atstatyti = grazinti i tinkeli. Pasalinti = visam laikui isimti is radaro admin."
+        items={excluded} empty="Archyvas tuščias." />
     </div>
   )
 }

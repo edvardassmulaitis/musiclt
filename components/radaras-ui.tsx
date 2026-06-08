@@ -41,9 +41,12 @@ function fmtAgo(iso: string | null): string {
   if (days <= 0) return 'šiandien'
   if (days === 1) return 'vakar'
   if (days < 7) return `prieš ${days} d.`
-  if (days < 31) { const w = Math.floor(days / 7); return `prieš ${w} sav.` }
-  if (days < 365) { const m = Math.floor(days / 30); return `prieš ${m} mėn.` }
-  const y = Math.floor(days / 365); return `prieš ${y} m.`
+  const w = Math.floor(days / 7)
+  if (days < 31) return `prieš ${w} ${w === 1 ? 'savaitę' : w < 11 ? 'savaites' : 'savaičių'}`
+  const m = Math.floor(days / 30)
+  if (days < 365) return `prieš ${m} ${m === 1 ? 'mėnesį' : m < 11 ? 'mėnesius' : 'mėnesių'}`
+  const y = Math.floor(days / 365)
+  return `prieš ${y} ${y < 11 ? 'metus' : 'metų'}`
 }
 function fmtViews(n: number | null): string {
   if (!n || n <= 0) return ''
@@ -463,6 +466,21 @@ export const radarStyles = `
 .rd-yt-collage { width:100%; height:100%; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; }
 .rd-yt-collage img { width:100%; height:100%; object-fit:cover; display:block; }
 .rd-yt-collage:has(img:only-child) { grid-template-columns:1fr; }
+
+/* ── YT collage su individualiais play mygtukais (featured section) ── */
+.rd-yt-collage-cover { width:100%; height:100%; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; }
+.rd-yt-collage-cover:has(> :only-child) { grid-template-columns:1fr; }
+.rd-yt-thumb-btn { position:relative; padding:0; border:0; cursor:pointer; overflow:hidden; display:block; }
+.rd-yt-thumb-btn img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .35s ease; }
+.rd-yt-thumb-btn:hover img { transform:scale(1.08); }
+.rd-yt-thumb-play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.32); opacity:0; transition:opacity .15s; }
+.rd-yt-thumb-btn:hover .rd-yt-thumb-play { opacity:1; }
+.rd-yt-thumb-play svg { width:22px; height:22px; fill:#fff; filter:drop-shadow(0 1px 3px rgba(0,0,0,.6)); margin-left:2px; }
+
+@media(max-width:640px){
+  .rd-fx-grid { grid-template-columns:1fr !important; }
+}
 
 /* ── empty ── */
 .rd-empty { margin:30px 0; padding:26px; border-radius:14px; border:1px dashed var(--border-strong);
