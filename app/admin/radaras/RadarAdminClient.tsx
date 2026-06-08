@@ -71,6 +71,7 @@ export default function RadarAdminClient({
   const [candidates, setCandidates] = useState(initialCandidates)
   const [busy, setBusy] = useState<number | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [showArchive, setShowArchive] = useState(false)
 
   // search-to-add
   const [q, setQ] = useState('')
@@ -282,9 +283,28 @@ export default function RadarAdminClient({
         hint="Algoritmo rasti: naujas LT atlikėjas (pirmas YT įkėlimas mažiau nei prieš metus + maža auditorija)."
         items={candidates} empty="Nėra kandidatų (gali būti DB ryšio problema arba langas tuščias)." />
 
-      <Section title="📁 Archyvas"
-        hint="Atmesti kandidatai ir pristatyti atlikėjai. Atstatyti = grąžinti į tinklelį. Slėpti = pašalinti iš šio sąrašo (DB lieka kaip atmesta — nebegrįš kaip auto kandidatas)."
-        items={excluded} empty="Archyvas tuščias." />
+      {/* Archyvas — paslėptas default, kad neerzintų */}
+      <section className="mt-7">
+        <button
+          onClick={() => setShowArchive((v) => !v)}
+          className="flex items-center gap-2 text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+          <span>{showArchive ? '▾' : '▸'}</span>
+          <span>📁 Archyvas</span>
+          <span className="text-xs font-normal text-[var(--text-faint)]">· {excluded.length}</span>
+        </button>
+        {showArchive && (
+          <>
+            <p className="mb-3 mt-1 text-xs text-[var(--text-muted)]">
+              Atmesti kandidatai ir pristatyti atlikėjai. Atstatyti = grąžinti į tinklelį. Slėpti = pašalinti iš šio sąrašo (DB lieka kaip atmesta — nebegrįš kaip auto kandidatas).
+            </p>
+            {excluded.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-[var(--border-default)] p-4 text-center text-sm text-[var(--text-faint)]">Archyvas tuščias.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">{excluded.map((a) => <Row key={a.id} a={a} />)}</ul>
+            )}
+          </>
+        )}
+      </section>
     </div>
   )
 }
