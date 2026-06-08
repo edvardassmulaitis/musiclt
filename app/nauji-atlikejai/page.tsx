@@ -15,7 +15,8 @@ import { SITE_URL } from '@/lib/artist-browse'
 import {
   getFeaturedArtists, getEmergingArtists, getFreshTracks,
 } from '@/lib/radaras'
-import { radarStyles, RadarSweep, RadarSection } from '@/components/radaras-ui'
+import { radarStyles, RadarSection } from '@/components/radaras-ui'
+import { RadarSweepMini } from '@/components/RadarSweepMini'
 import RadarBrowse from '@/components/radaras-browse'
 import RadarFresh from '@/components/radaras-fresh'
 import RadarFeatured from '@/components/radaras-featured'
@@ -79,7 +80,7 @@ export default async function NaujiAtlikejaiPage() {
               Kylantys ir dar mažai kam žinomi kūrėjai — atrask juos pirmas.
             </p>
           </div>
-          <RadarSweep />
+          <RadarSweepMini size={150} className="rd-sweep" />
         </div>
       </header>
 
