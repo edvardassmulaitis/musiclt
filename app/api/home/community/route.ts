@@ -37,23 +37,25 @@ export async function GET() {
   const disc2y  = new Date(Date.now() - 2 * 365 * 86400000).toISOString()
 
   try {
-    const [nomRes, votesRes, pastWinnerRes, blogRes, discRes] = await Promise.all([
-      // Šiandieninės nominacijos (DD lyderis + kandidatai)
+    // SVARBU: kintamieji TIKSLIAI atitinka Promise.all eilutę (0-4).
+    // Bet kokia keitimas čia turi atitikti destruktūrizacijos eilutę viršuje!
+    const [nomRes, votesRes, pastWinnerRes, blogRes, hiddenRes, discRes] = await Promise.all([
+      // 0 — Šiandieninės nominacijos (DD lyderis + kandidatai)
       sb.from('daily_song_nominations')
         .select('id, tracks!track_id(title, slug, cover_url, video_url, artists!artist_id(name, slug, cover_image_url))')
         .eq('date', today)
         .is('removed_at', null)
         .limit(20),
 
-      // Balsai šiandien
+      // 1 — Balsai šiandien
       sb.from('daily_song_votes').select('nomination_id, weight').eq('date', today),
 
-      // Vakarykštis laimėtojas (fallback)
+      // 2 — Vakarykštis laimėtojas (fallback)
       sb.from('daily_song_winners')
         .select('id, date, tracks!track_id(title, slug, cover_url, video_url, artists!artist_id(name, slug, cover_image_url))')
         .lt('date', today).order('date', { ascending: false }).limit(1).maybeSingle(),
 
-      // Blog įrašai
+      // 3 — Blog įrašai
       sb.from('blog_posts')
         .select('id, slug, title, post_type, editorial_type, summary, cover_image_url, like_count, comment_count, published_at, list_items, target_track_id, target_album_id, target_artist_id, target_event_id, blogs:blog_id(slug, profiles:user_id(id, username, full_name, avatar_url))')
         .eq('status', 'published')
@@ -62,7 +64,10 @@ export async function GET() {
         .order('published_at', { ascending: false })
         .limit(80),
 
-      // Diskusijos: activity 2y+, sort by last_comment_at, +legacy_id
+      // 4 — Nariai su hide_from_homepage=true (jų įrašai nerodomi)
+      sb.from('profiles').select('id').eq('hide_from_homepage', true),
+
+      // 5 — Diskusijos: activity 2y+, sort by last_comment_at
       sb.from('discussions')
         .select('id, slug, title, author_name, author_avatar, comment_count, created_at, last_comment_at, legacy_id, artist:artists!discussions_artist_id_fkey(name, cover_image_url)')
         .eq('is_deleted', false)
@@ -198,12 +203,17 @@ export async function GET() {
       } catch {}
     }
 
-    // ── Blog items — 1-per-type ───────────────────────────────────────────────
+    // ── Blog items — 1-per-type, be hide_from_homepage narių ────────────────
+    // hiddenRes[4] = profiliai su hide_from_homepage=true
+    const hiddenIds = new Set<string>((hiddenRes.data || []).map((u: any) => u.id))
     const typeSeen = new Set<string>()
     const blogItems: any[] = []
     for (const b of blogRows) {
       if (!b.title) continue
-      const author = b.blogs?.profiles || null
+      // blogs:blog_id(profiles:user_id(...)) → vienas objektas (ne masyvas)
+      const profRaw = b.blogs?.profiles
+      const author = Array.isArray(profRaw) ? (profRaw[0] ?? null) : (profRaw ?? null)
+      if (author?.id && hiddenIds.has(author.id)) continue
 
       // 1-per-type taisyklė (article → skaidome pagal editorial_type)
       const tkey = b.post_type === 'review'
@@ -215,7 +225,7 @@ export async function GET() {
       typeSeen.add(tkey)
 
       const cover = b.cover_image_url || thumbByPost.get(b.id) || null
-      const blogSlug = b.blogs?.slug || author?.username || null
+      const blogSlug = b.blogs?.slug || (author as any)?.username || null
 
       // Topas entries (top 3)
       let entries: any[] | null = null
