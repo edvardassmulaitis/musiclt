@@ -846,25 +846,23 @@ function RowDivider({ icon }: { icon: 'lt' | 'world' }) {
   )
 }
 
-/* Horizontali juostos antraštė virš eilės: kairėje vėliava + šalies žyma,
-   dešinėje „Daugiau →" (atidaro tos juostos naujausių sąrašą). Taip eilės
-   kortelėms lieka VISAS horizontalus plotis — vietoj šoninio divider'io +
-   galinio mygtuko. */
-function LaneHead({ icon, label, onMore }: { icon: 'lt' | 'world'; label?: string; onMore?: () => void }) {
+/* Horizontali juostos antraštė virš eilės: kairėje TIK vėliavos juostelė
+   (be teksto — kad nebūtų triukšmo), dešinėje „Daugiau →" (atidaro tos juostos
+   naujausių sąrašą). Taip eilės kortelėms lieka VISAS horizontalus plotis —
+   vietoj šoninio divider'io + galinio mygtuko. */
+function LaneHead({ icon, onMore }: { icon: 'lt' | 'world'; onMore?: () => void }) {
+  const flagAria = icon === 'lt' ? 'Lietuva' : 'Užsienis'
   return (
     <div className="mb-2 flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2">
-        {icon === 'lt' ? (
-          <span style={{ display: 'flex', flexDirection: 'column', width: 18, height: 12, borderRadius: 2, overflow: 'hidden', flexShrink: 0, boxShadow: '0 0 0 1px var(--border-default)' }}>
-            <span style={{ flex: 1, background: '#FDBA12' }} />
-            <span style={{ flex: 1, background: '#006A44' }} />
-            <span style={{ flex: 1, background: '#C1272D' }} />
-          </span>
-        ) : (
-          <span style={{ width: 18, height: 12, borderRadius: 2, background: '#3b82f6', opacity: 0.7, flexShrink: 0, boxShadow: '0 0 0 1px var(--border-default)' }} />
-        )}
-        <span className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)]">{label ?? (icon === 'lt' ? 'Lietuva' : 'Užsienis')}</span>
-      </div>
+      {icon === 'lt' ? (
+        <span role="img" aria-label={flagAria} style={{ display: 'flex', flexDirection: 'column', width: 22, height: 14, borderRadius: 2.5, overflow: 'hidden', flexShrink: 0, boxShadow: '0 0 0 1px var(--border-default)' }}>
+          <span style={{ flex: 1, background: '#FDBA12' }} />
+          <span style={{ flex: 1, background: '#006A44' }} />
+          <span style={{ flex: 1, background: '#C1272D' }} />
+        </span>
+      ) : (
+        <span role="img" aria-label={flagAria} style={{ width: 22, height: 14, borderRadius: 2.5, background: '#3b82f6', opacity: 0.7, flexShrink: 0, boxShadow: '0 0 0 1px var(--border-default)' }} />
+      )}
       {onMore && (
         <button type="button" onClick={onMore} className="shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">Daugiau →</button>
       )}

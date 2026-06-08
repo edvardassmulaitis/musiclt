@@ -782,16 +782,23 @@ main.has-bottom-nav {
   scroll-padding-inline: 2px;
   scrollbar-width: none;                 /* Firefox */
   -webkit-overflow-scrolling: touch;
-  --fl: 0px; --fr: 0px;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%);
-          mask-image: linear-gradient(to right, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%);
 }
 .hrow-track::-webkit-scrollbar { display: none; }   /* Chrome/Safari */
 .hrow-track > * { flex: 0 0 auto; scroll-snap-align: start; }
 
-/* fade tik tose pusėse, kur dar yra ką slinkti */
-.hrow:not(.at-start) .hrow-track { --fl: 52px; }
-.hrow:not(.at-end)   .hrow-track { --fr: 52px; }
+/* krašto fade — gradient OVERLAY, NE mask-image.
+   iOS/WebKit turi seną bug'ą: mask/filter bet kur puslapyje laužo
+   position:fixed elementų piešimą (apatinis mobilus meniu „nuvažiuodavo" į
+   vidurį). Overlay to nedaro. Rodom tik tose pusėse, kur dar yra ką slinkti. */
+.hrow::before,
+.hrow::after {
+  content: ''; position: absolute; top: 6px; bottom: 8px; width: 46px;
+  z-index: 4; pointer-events: none; opacity: 0; transition: opacity .18s;
+}
+.hrow::before { left: 0;  background: linear-gradient(to right, var(--bg-body), transparent); }
+.hrow::after  { right: 0; background: linear-gradient(to left,  var(--bg-body), transparent); }
+.hrow:not(.at-start)::before { opacity: 1; }
+.hrow:not(.at-end)::after   { opacity: 1; }
 
 /* rodyklės — TIK įrenginiuose su pele; atsiranda ant hover; dingsta kraštuose */
 .hrow-arrow {
