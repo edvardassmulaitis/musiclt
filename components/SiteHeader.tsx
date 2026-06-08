@@ -273,40 +273,38 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   // StickyMoreButton stiliumi, kad nereiktų scroll'inti jį pasiekti).
   const renderArtistRow = (list: typeof artistsLt, kind: 'lt' | 'world') => {
     return (
-      <div className="sh-strip-wrap">
-        <RowStripe kind={kind} />
-        <div className="sh-strip">
-          {(list.length > 0 ? list : Array(6).fill(null)).map((a, i) => (
-            <Link
-              key={a?.id || `${kind}-${i}`}
-              href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
-              className="sh-mini sh-mini-xl"
-            >
-              <ImageBox
-                src={a?.image}
-                accent={accent}
-                glyph={I.music}
-                className="sh-mini-img"
-              />
-              <span className="sh-mini-title sh-mini-title-2">
-                {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
-              </span>
-            </Link>
-          ))}
+      <div>
+        <div className="sh-strip-more">
+          <Link
+            href={kind === 'lt' ? '/atlikejai?country=lt' : '/atlikejai?country=world'}
+            className="sh-more-link"
+            aria-label="Atverti visą sąrašą su filtrais"
+          >
+            Daugiau →
+          </Link>
         </div>
-        <Link
-          href={kind === 'lt' ? '/atlikejai?country=lt' : '/atlikejai?country=world'}
-          className="sh-expand-btn"
-          aria-label="Atverti visą sąrašą"
-          title="Atverti visą sąrašą su filtrais"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" />
-            <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
-            <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" />
-            <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
-          </svg>
-        </Link>
+        <div className="sh-strip-wrap">
+          <RowStripe kind={kind} />
+          <div className="sh-strip">
+            {(list.length > 0 ? list : Array(6).fill(null)).map((a, i) => (
+              <Link
+                key={a?.id || `${kind}-${i}`}
+                href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
+                className="sh-mini sh-mini-xl"
+              >
+                <ImageBox
+                  src={a?.image}
+                  accent={accent}
+                  glyph={I.music}
+                  className="sh-mini-img"
+                />
+                <span className="sh-mini-title sh-mini-title-2">
+                  {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
@@ -325,14 +323,6 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
             </Link>
           ))}
         </div>
-        <Link href="/nauji-atlikejai" className="sh-expand-btn" aria-label="Atverti radarą" title="Naujos muzikos radaras">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" />
-            <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
-            <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" />
-            <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
-          </svg>
-        </Link>
       </div>
     )
   }
@@ -1519,6 +1509,10 @@ export function SiteHeader() {
           transition: opacity .15s;
         }
         .sh-more-link:hover { opacity: 0.7; }
+
+        /* „Daugiau →" eilutė VIRŠ juostos (dešinėje) — kaip sutvarkytuose
+           puslapiuose; juostai lieka visas plotis, be galinės „sienos". */
+        .sh-strip-more { display: flex; justify-content: flex-end; margin-bottom: 4px; }
 
         /* Homepage stiliaus h2 (section title) */
         .sh-panel-head {
