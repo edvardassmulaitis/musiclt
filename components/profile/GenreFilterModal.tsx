@@ -12,7 +12,7 @@ type Style = { legacy_style_id: number; style_slug: string; style_name: string; 
 export function GenreFilterModal({
   initialFilter, meter, styles, artists, picks, moodTrack, onClose,
 }: {
-  initialFilter?: GenreFilter | null
+  initialFilter?: { kind: string; name: string } | null
   meter: any
   styles: Style[]
   artists: any[]
@@ -20,8 +20,10 @@ export function GenreFilterModal({
   moodTrack?: any
   onClose: () => void
 }) {
-  // Genre filter — used to filter artists/picks
-  const [genreFilter, setGenreFilter] = useState<GenreFilter | null>(initialFilter || null)
+  // Genre filter — used to filter artists/picks (only accept genre kind)
+  const [genreFilter, setGenreFilter] = useState<GenreFilter | null>(
+    initialFilter?.kind === 'genre' ? { kind: 'genre', name: initialFilter.name } : null
+  )
   // Substyle selection — visual only (artist_substyles data not yet populated)
   const [selectedSubstyle, setSelectedSubstyle] = useState<number | null>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
