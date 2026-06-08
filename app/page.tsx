@@ -2909,7 +2909,7 @@ export default function Home() {
               <section>
                 {/* SectionHead be CTA — „+N" button'as juostos dešinėje yra
                     primaryinis būdas atidaryti pilną sąrašą. */}
-                <SectionHead label="Naujos dainos" />
+                <SectionHead label="Naujos dainos" href="/dainos" cta="Visi →" />
                 {(() => {
                   const isLT = (x: any) => {
                     const c = x.artists?.country
@@ -2998,14 +2998,6 @@ export default function Home() {
                           )
                         })}
                       </Scroller>
-                      {items.length > 0 && (
-                        <StickyMoreButton
-                          count={total || items.length}
-                          height={156}
-                          ariaLabel={`Žiūrėti visus (${total || items.length})`}
-                          onClick={() => setListModal(`tracks-${lane}`)}
-                        />
-                      )}
                     </div>
                   </div>
                 ))}
@@ -3015,7 +3007,7 @@ export default function Home() {
                   (atitinka artist page'o AlbumCard pattern'ą). Cover'is
                   ~140px aiškiai didesnis nei track row'o 38px thumb'as. */}
               <section>
-                <SectionHead label="Nauji albumai" />
+                <SectionHead label="Nauji albumai" href="/albumai" cta="Visi →" />
                 {(() => {
                   const isLT = (x: any) => {
                     const c = x.artists?.country
@@ -3029,7 +3021,7 @@ export default function Home() {
                   <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
                     <div className="flex items-stretch gap-3">
                       <RowDivider icon={lane} />
-                      <div className="hp-scroll flex flex-1 min-w-0 items-stretch gap-3 pb-0.5">
+                      <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Nauji albumai">
                         {albums.length === 0 ? Array(8).fill(null).map((_, i) => (
                         <div key={i} className="shrink-0" style={{ width: 156 }}>
                           <Skel w={156} h={156} r={12} />
@@ -3112,15 +3104,7 @@ export default function Home() {
                           </button>
                         )
                       })}
-                      </div>
-                      {items.length > 0 && (
-                        <StickyMoreButton
-                          count={total || items.length}
-                          height={200}
-                          ariaLabel={`Žiūrėti visus (${total || items.length})`}
-                          onClick={() => setListModal(`albums-${lane}`)}
-                        />
-                      )}
+                      </Scroller>
                     </div>
                   </div>
                 ))}
