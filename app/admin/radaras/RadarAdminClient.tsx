@@ -235,7 +235,7 @@ export default function RadarAdminClient({
         items={candidates} empty="Nėra kandidatų (gali būti DB ryšio problema arba langas tuščias)." />
 
       <Section title="🚫 Atmesti"
-        hint="Algoritmas jų nebesiūlys automatiškai. Spausk „Atstatyti", kad grąžintum į auto-pool."
+        hint="Algoritmas jų nebesiūlys automatiškai. Spausk Atstatyti, kad grąžintum į auto-pool."
         items={excluded} empty="Nėra atmestų atlikėjų." />
     </div>
   )
