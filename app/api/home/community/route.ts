@@ -23,8 +23,8 @@ function todayLT(): string {
 export async function GET() {
   const sb = createAdminClient()
   const today = todayLT()
-  const blog14d = new Date(Date.now() - 14 * 86400000).toISOString()
-  const disc7d  = new Date(Date.now() -  7 * 86400000).toISOString()
+  const blog60d = new Date(Date.now() - 60 * 86400000).toISOString()
+  const disc30d = new Date(Date.now() - 30 * 86400000).toISOString()
 
   try {
     const [ddRes, blogRes, discRes] = await Promise.all([
@@ -36,23 +36,23 @@ export async function GET() {
         .limit(1)
         .maybeSingle(),
 
-      // 2. Blog įrašai (last 14d, visi tipai)
+      // 2. Blog įrašai (last 60d, visi tipai) — engagement desc
       sb.from('blog_posts')
         .select('id, slug, title, post_type, cover_image_url, like_count, comment_count, published_at, blogs:blog_id(slug, profiles:user_id(username, full_name, avatar_url))')
         .eq('status', 'published')
         .not('published_at', 'is', null)
-        .gte('published_at', blog14d)
+        .gte('published_at', blog60d)
         .order('published_at', { ascending: false })
-        .limit(60),
+        .limit(80),
 
-      // 3. Diskusijos su atlikėjo cover (last 7d, min 2 komentarai)
+      // 3. Diskusijos su atlikėjo cover (last 30d, min 1 komentaras)
       sb.from('discussions')
         .select('id, slug, title, author_name, author_avatar, comment_count, created_at, artist:artists!discussions_artist_id_fkey(name, cover_image_url)')
         .eq('is_deleted', false)
         .or('legacy_kind.is.null,legacy_kind.eq.discussion')
         .not('author_name', 'is', null)
-        .gte('comment_count', 2)
-        .gte('created_at', disc7d)
+        .gte('comment_count', 1)
+        .gte('created_at', disc30d)
         .order('comment_count', { ascending: false })
         .limit(20),
     ])

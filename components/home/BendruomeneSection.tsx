@@ -229,7 +229,7 @@ export default function BendruomeneSection() {
     <section>
       <div className="mb-3.5 flex items-center justify-between">
         <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">
-          Karšta dabar
+          Bendruomenė
         </h2>
         <Link
           href="/atrasti"
