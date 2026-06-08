@@ -10,6 +10,7 @@ import { flagFor } from '@/lib/artist-browse'
 import type { RadarArtist } from '@/lib/radaras-shared'
 import { getYouTubeId, styleLabel, radarArtistHref } from '@/lib/radaras-shared'
 import RadarHeart from '@/components/radaras-heart'
+import { YtCollage } from '@/components/radaras-ui'
 
 const PLAY = <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5v14l11-7z" /></svg>
 
@@ -59,7 +60,7 @@ export default function RadarFeatured({ artists }: { artists: RadarArtist[] }) {
               {a.cover_image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={a.cover_image_url} alt={a.name} loading="lazy" />
-              ) : <div className="rd-fx-noimg"><span>{a.name?.[0] || '?'}</span></div>}
+              ) : <YtCollage urls={a.top_video_urls} name={a.name} className="rd-fx-noimg" />}
               {hasYt && <span className="rd-fx-play">{PLAY}</span>}
             </>
           )

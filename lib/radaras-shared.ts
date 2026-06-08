@@ -25,6 +25,7 @@ export type RadarArtist = {
   latest_video_url: string | null  // naujausios dainos YT (featured grotuvui)
   first_upload_at: string | null   // pirmo YT įkėlimo data (veiklos startas, ISO)
   is_fresh: boolean
+  top_video_urls: string[]         // viršutiniai YT URL'ai collage fallback'ui (maks. 4)
 }
 
 export type RadarTrack = {

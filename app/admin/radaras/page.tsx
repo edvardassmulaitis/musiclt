@@ -47,16 +47,16 @@ async function pendingSubmissions(): Promise<Submission[]> {
 }
 
 export default async function AdminRadarPage() {
-  const [featured, included, emerging, submissions] = await Promise.all([
+  const [featured, included, excluded, emerging, submissions] = await Promise.all([
     byStatus('featured'),
     byStatus('included'),
+    byStatus('excluded'),
     getEmergingArtists(40),
     pendingSubmissions(),
   ])
 
-  // Auto kandidatai = emerging be tų, kurie jau turi override. (Excluded jau
-  // atfiltruoti lib/radaras.ts pusėje — čia jų nerodom, kad psl. neaugtų.)
-  const overridden = new Set([...featured, ...included].map((a) => a.id))
+  // Auto kandidatai = emerging be tų, kurie jau turi override.
+  const overridden = new Set([...featured, ...included, ...excluded].map((a) => a.id))
   const candidates: AdminArtist[] = emerging
     .filter((a) => !overridden.has(a.id))
     .map((a) => ({
@@ -87,7 +87,7 @@ export default async function AdminRadarPage() {
       <RadarAdminClient
         initialFeatured={featured}
         initialIncluded={included}
-        initialExcluded={[]}
+        initialExcluded={excluded}
         initialCandidates={candidates}
       />
     </div>

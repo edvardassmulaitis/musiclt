@@ -13,7 +13,7 @@ import Link from 'next/link'
 import { flagFor } from '@/lib/artist-browse'
 import {
   type RadarArtist, type RadarTrack,
-  radarArtistHref, radarTrackHref, styleHref,
+  radarArtistHref, radarTrackHref, styleHref, ytThumb,
 } from '@/lib/radaras-shared'
 
 /* ─────────────── helpers ─────────────── */
@@ -50,6 +50,29 @@ function fmtViews(n: number | null): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`
   if (n >= 1_000) return `${Math.round(n / 1_000)}K`
   return String(n)
+}
+
+/* ─────────────── YT collage fallback (kai nėra cover nuotraukos) ─────────────── */
+/** Rodo 2×2 koliažą iš atlikėjo YouTube miniatiūrų. Jei URLs nėra — rodo inicialą. */
+export function YtCollage({ urls, name, className }: { urls: string[]; name: string; className: string }) {
+  const thumbs = urls.map(ytThumb).filter(Boolean).slice(0, 4) as string[]
+  if (thumbs.length === 0) {
+    return (
+      <div className={className}>
+        <span style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 900, fontSize: '42px', color: 'rgba(255,255,255,0.08)' }}>
+          {name?.[0] || '?'}
+        </span>
+      </div>
+    )
+  }
+  return (
+    <div className="rd-yt-collage">
+      {thumbs.map((src, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={i} src={src} alt="" loading="lazy" />
+      ))}
+    </div>
+  )
 }
 
 /* ─────────────── radar sweep + equalizer (hero dekoras) ─────────────── */
@@ -133,7 +156,7 @@ export function FeaturedCard({ a }: { a: RadarArtist }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={a.cover_image_url} alt={a.name} loading="lazy"
             style={{ objectPosition: `${pos.x}% ${pos.y}%`, transform: `scale(${pos.zoom})`, transformOrigin: `${pos.x}% ${pos.y}%` }} />
-        ) : <div className="rd-feat-noimg"><span>{a.name?.[0] || '?'}</span></div>}
+        ) : <YtCollage urls={a.top_video_urls} name={a.name} className="rd-feat-noimg" />}
         <span className="rd-feat-badge">Spotlight</span>
       </div>
       <div className="rd-feat-body">
@@ -158,7 +181,7 @@ export function EmergingTile({ a }: { a: RadarArtist }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={a.cover_image_url} alt={a.name} loading="lazy"
             style={{ objectPosition: `${pos.x}% ${pos.y}%`, transform: `scale(${pos.zoom})`, transformOrigin: `${pos.x}% ${pos.y}%` }} />
-        ) : <div className="rd-tile-noimg"><span>{a.name?.[0] || '?'}</span></div>}
+        ) : <YtCollage urls={a.top_video_urls} name={a.name} className="rd-tile-noimg" />}
         {a.is_verified && (
           <span className="rd-tile-verified" title="Patvirtintas">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
@@ -435,6 +458,11 @@ export const radarStyles = `
 .rd-btn-primary:hover { filter:brightness(1.06); transform:translateY(-1px); }
 .rd-btn-ghost { color:var(--text-secondary); background:var(--bg-hover); border:1px solid var(--border-default); }
 .rd-btn-ghost:hover { color:var(--text-primary); border-color:var(--border-strong); }
+
+/* ── YT collage (fallback kai nėra cover) ── */
+.rd-yt-collage { width:100%; height:100%; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; }
+.rd-yt-collage img { width:100%; height:100%; object-fit:cover; display:block; }
+.rd-yt-collage:has(img:only-child) { grid-template-columns:1fr; }
 
 /* ── empty ── */
 .rd-empty { margin:30px 0; padding:26px; border-radius:14px; border:1px dashed var(--border-strong);

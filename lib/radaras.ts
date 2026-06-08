@@ -116,6 +116,28 @@ async function recentTrackArtists(limit = 700): Promise<{ order: number[]; lates
   return { order, latest }
 }
 
+/** Top YT URL'ai per atlikėją (collage fallback kai nėra cover) — maks. 4 per atlikėją. */
+async function topVideoUrls(ids: number[]): Promise<Map<number, string[]>> {
+  const out = new Map<number, string[]>()
+  if (ids.length === 0) return out
+  try {
+    const sb = createAdminClient()
+    const { data } = await sb
+      .from('tracks')
+      .select('artist_id, video_url')
+      .in('artist_id', ids)
+      .not('video_url', 'is', null)
+      .order('video_uploaded_at', { ascending: false })
+      .limit(ids.length * 6)
+    for (const t of (data || []) as any[]) {
+      if (!t.video_url) continue
+      const arr = out.get(t.artist_id) || []
+      if (arr.length < 4) { arr.push(t.video_url); out.set(t.artist_id, arr) }
+    }
+  } catch { /* degrade */ }
+  return out
+}
+
 /** Pirmo YT įkėlimo DATA per atlikėją (veiklos startas, ISO) — vienam id rinkiniui. */
 async function firstUploadDates(ids: number[]): Promise<Map<number, string>> {
   const out = new Map<number, string>()
@@ -143,7 +165,9 @@ async function hydrate(ids: number[], latest: Map<number, LatestRow>): Promise<R
     const { data } = await sb.from('artists').select(ARTIST_COLS).in('id', ids)
     const byId = new Map<number, any>()
     for (const a of (data || []) as any[]) byId.set(a.id, a)
-    const [genres, firstUploads] = await Promise.all([genresForArtists(ids), firstUploadDates(ids)])
+    const [genres, firstUploads, videoUrls] = await Promise.all([
+      genresForArtists(ids), firstUploadDates(ids), topVideoUrls(ids),
+    ])
     const now = Date.now()
     const out: RadarArtist[] = []
     for (const id of ids) {
@@ -161,6 +185,7 @@ async function hydrate(ids: number[], latest: Map<number, LatestRow>): Promise<R
         latest_video_url: lr?.latest_video_url ?? null,
         first_upload_at: firstUploads.get(id) ?? null,
         is_fresh: latestMs > 0 && now - latestMs < FRESH_BADGE_DAYS * 86_400_000,
+        top_video_urls: videoUrls.get(id) || [],
       })
     }
     return out
