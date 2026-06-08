@@ -366,9 +366,39 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
             margin: '14px 0 7px',
           }}>
-            {/* Pill badge — identiškas /nauji-atlikejai puslapio rd-hero-tag */}
+            {/* Mini RadarSweep — identiškas puslapio dideliam SVG, tik 32px */}
             <span className="sh-radar-badge">
-              <span className="sh-radar-dot" aria-hidden />
+              <svg width="32" height="32" viewBox="0 0 200 200" aria-hidden style={{ flexShrink: 0 }}>
+                <defs>
+                  <radialGradient id="sh-rdg" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="rgba(34,197,94,0)" />
+                    <stop offset="58%" stopColor="rgba(34,197,94,0)" />
+                    <stop offset="100%" stopColor="rgba(34,197,94,0.25)" />
+                  </radialGradient>
+                </defs>
+                <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(34,197,94,0.20)" strokeWidth="1.5" />
+                <circle cx="100" cy="100" r="62" fill="none" stroke="rgba(34,197,94,0.13)" strokeWidth="1" />
+                <circle cx="100" cy="100" r="32" fill="none" stroke="rgba(34,197,94,0.10)" strokeWidth="1" />
+                <line x1="100" y1="8" x2="100" y2="192" stroke="rgba(34,197,94,0.07)" strokeWidth="1" />
+                <line x1="8" y1="100" x2="192" y2="100" stroke="rgba(34,197,94,0.07)" strokeWidth="1" />
+                <g>
+                  <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="4s" repeatCount="indefinite" />
+                  <path d="M100 100 L100 8 A92 92 0 0 1 165 35 Z" fill="url(#sh-rdg)" opacity="0.8" />
+                  <line x1="100" y1="100" x2="100" y2="8" stroke="var(--accent-green)" strokeWidth="1.8" strokeLinecap="round" opacity="0.85" />
+                </g>
+                <g>
+                  <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="4s" repeatCount="indefinite" />
+                  <circle cx="156" cy="78" r="3.2" fill="var(--accent-orange)" />
+                </g>
+                <circle cx="100" cy="100" r="2.5" fill="var(--accent-green)" opacity="0.8" />
+                <g className="sh-rd-eq">
+                  <rect x="88" width="3.4" rx="1.4" y="93" height="14" fill="var(--accent-green)" style={{ transformOrigin: '89.7px 100px', animationDelay: '0s' }} />
+                  <rect x="94" width="3.4" rx="1.4" y="87" height="26" fill="var(--accent-green)" style={{ transformOrigin: '95.7px 100px', animationDelay: '.25s' }} />
+                  <rect x="100" width="3.4" rx="1.4" y="83" height="34" fill="var(--accent-green)" style={{ transformOrigin: '101.7px 100px', animationDelay: '.1s' }} />
+                  <rect x="106" width="3.4" rx="1.4" y="89" height="22" fill="var(--accent-green)" style={{ transformOrigin: '107.7px 100px', animationDelay: '.4s' }} />
+                  <rect x="112" width="3.4" rx="1.4" y="92" height="16" fill="var(--accent-green)" style={{ transformOrigin: '113.7px 100px', animationDelay: '.2s' }} />
+                </g>
+              </svg>
               Naujos muzikos radaras
             </span>
             <Link href="/nauji-atlikejai" className="sh-more-link">Daugiau →</Link>
@@ -2099,26 +2129,15 @@ export function SiteHeader() {
           50%      { opacity: 0.5; transform: scale(1.4); }
         }
 
-        /* Radaras pill badge nav dropdown'e — identiškas rd-hero-tag puslapyje */
+        /* Radaras mini SVG badge nav dropdown'e — atitinka puslapio RadarSweep */
         .sh-radar-badge {
-          display: inline-flex; align-items: center; gap: 7px;
+          display: inline-flex; align-items: center; gap: 8px;
           font-family: 'Outfit', sans-serif; font-size: 11px; font-weight: 700;
           text-transform: uppercase; letter-spacing: .09em;
           color: var(--accent-green);
-          background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.30);
-          border-radius: 100px; padding: 4px 10px;
         }
-        .sh-radar-dot {
-          width: 7px; height: 7px; border-radius: 50%;
-          background: var(--accent-green); flex-shrink: 0;
-          box-shadow: 0 0 0 0 rgba(34,197,94,0.6);
-          animation: sh-rdpulse 2s infinite;
-        }
-        @keyframes sh-rdpulse {
-          0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
-          70%  { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
-          100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
-        }
+        .sh-rd-eq rect { animation: sh-rdeq 1.1s ease-in-out infinite alternate; }
+        @keyframes sh-rdeq { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
 
         /* Hero kortelė (Pramogos / Skelbimai) — abstract gradient bg + decorative shapes */
         .sh-hero-card {
