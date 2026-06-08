@@ -2099,26 +2099,25 @@ export function SiteHeader() {
           50%      { opacity: 0.5; transform: scale(1.4); }
         }
 
-        /* Radaras pill badge nav dropdown'e — atitinka rd-hero-tag puslapyje */
+        /* Radaras pill badge nav dropdown'e — identiškas rd-hero-tag puslapyje */
         .sh-radar-badge {
-          display: inline-flex; align-items: center; gap: 6px;
+          display: inline-flex; align-items: center; gap: 7px;
           font-family: 'Outfit', sans-serif; font-size: 11px; font-weight: 700;
-          text-transform: uppercase; letter-spacing: 0.09em;
+          text-transform: uppercase; letter-spacing: .09em;
           color: var(--accent-green);
           background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.30);
-          border-radius: 40px; padding: 4px 10px;
-          animation: sh-radar-pulse 2s infinite;
-        }
-        @keyframes sh-radar-pulse {
-          0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
-          70%  { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
-          100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+          border-radius: 100px; padding: 4px 10px;
         }
         .sh-radar-dot {
           width: 7px; height: 7px; border-radius: 50%;
           background: var(--accent-green); flex-shrink: 0;
           box-shadow: 0 0 0 0 rgba(34,197,94,0.6);
-          animation: sh-radar-pulse 2s infinite;
+          animation: sh-rdpulse 2s infinite;
+        }
+        @keyframes sh-rdpulse {
+          0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+          70%  { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+          100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
         }
 
         /* Hero kortelė (Pramogos / Skelbimai) — abstract gradient bg + decorative shapes */
