@@ -15,6 +15,7 @@ import { resolveDisplayWeek } from '@/lib/top-week'
 import { getNewsFeed } from '@/lib/news-feed'
 import { getGenreCounts } from '@/lib/muzika-hub'
 import { getEmergingArtists, getFeaturedArtists } from '@/lib/radaras'
+import { formatPrice } from '@/lib/skelbimai'
 
 export const dynamic = 'force-dynamic'
 
@@ -168,7 +169,7 @@ export async function GET() {
     for (const g of genreCountRows) genreCounts[g.name] = g.n
 
     // Atradimai dropdown'ui: dienos dainų nugalėtojai + naujausi narių įrašai.
-    const [dailyWinnersRes, discoveryPostsRes] = await Promise.all([
+    const [dailyWinnersRes, discoveryPostsRes, listingsRes] = await Promise.all([
       supabase
         .from('daily_song_winners')
         .select('date, tracks:track_id ( slug, title, cover_url, video_url, artists:artist_id ( name, slug, cover_image_url ) )')
@@ -182,6 +183,14 @@ export async function GET() {
         .lte('published_at', new Date().toISOString())
         .order('published_at', { ascending: false })
         .limit(80),
+      // Naujausi aktyvūs skelbimai — Skelbimų dropdown'o juostai (realūs itemai)
+      supabase
+        .from('listings')
+        .select('id, type, title, photos, price_cents, price_unit, is_free, city')
+        .eq('status', 'active')
+        .order('is_promoted', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(10),
     ])
     const dailySongs = (dailyWinnersRes.data || []).map((w: any) => {
       const t = Array.isArray(w.tracks) ? w.tracks[0] : w.tracks
@@ -319,6 +328,14 @@ export async function GET() {
       newsWorld: worldNewsFeed.items.map(mapFeedNews),
       dailySongs,
       discoveryPosts,
+      listings: (listingsRes.data || []).map((l: any) => ({
+        id: l.id,
+        type: l.type,
+        title: l.title,
+        image: Array.isArray(l.photos) && l.photos.length ? l.photos[0] : null,
+        price: formatPrice(l.price_cents, l.price_unit, l.is_free),
+        city: l.city || null,
+      })),
       genreCounts,
       // Žanrų name → cover_image_url map (frontend lookup'ina pagal name iš GENRE_COLORS)
       genres: (genresRes.data || []).reduce((acc: Record<string, string | null>, g: any) => {

@@ -1318,7 +1318,7 @@ export function SiteHeader() {
       case 'renginiai':    return <RenginiaiPanel data={preview} accent={accent} />
       case 'naujienos':    return <NaujienosPanel data={preview} accent={accent} />
       case 'atradimai':    return <AtradimaiPanel data={preview} accent={accent} />
-      case 'skelbimai':    return <SkelbimaiPanel accent={accent} />
+      case 'skelbimai':    return <SkelbimaiPanel data={preview} accent={accent} />
     }
   }
 
