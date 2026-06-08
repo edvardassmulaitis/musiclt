@@ -477,7 +477,11 @@ export function ProfileClient(props: any) {
 //   Default: Įrašai jei yra postų, kitaip Veikla, kitaip Like'ai.
 // ═════════════════════════════════════════════════════════════════════════════
 
-type MobileTabKey = 'recent' | 'posts' | 'likes' | 'about'
+// ═══════════════════════════════════════════════════════════════════
+// V15 — 2-row header pagal mockup + sujungtas feed (Naujausia=Įrašai)
+// ═══════════════════════════════════════════════════════════════════
+
+type MobileTabKey = 'feed' | 'likes' | 'about'
 
 function MobileProfileView(props: any) {
   const {
@@ -487,11 +491,11 @@ function MobileProfileView(props: any) {
     trackResolvedTotal, recentComments, onOpenTaste, onOpenMore,
   } = props
 
-  const hasPosts = !!blog && (contentLanes?.length || 0) > 0
   const hasLikes = (favoriteArtists?.length || 0) > 0
     || (favoriteAlbums?.length || 0) > 0 || (favoriteTracks?.length || 0) > 0
 
-  const recentItems = useMemo(() => {
+  // Sujungtas feed: postai + komentarai + dienos dainos, lim 32
+  const feedItems = useMemo(() => {
     const items: any[] = []
     if (blog && Array.isArray(contentLanes)) {
       for (const lane of contentLanes) {
@@ -533,19 +537,18 @@ function MobileProfileView(props: any) {
     return items
       .filter((it) => it.date)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 16)
+      .slice(0, 32)
   }, [blog, contentLanes, recentComments, dailyPicks])
 
-  const hasRecent = recentItems.length > 0
+  const hasFeed = feedItems.length > 0
 
   const TABS: { key: MobileTabKey; label: string; show: boolean; icon: React.ReactNode }[] = [
-    { key: 'recent', label: 'Naujausia', show: hasRecent, icon: <IconSparkle /> },
-    { key: 'posts', label: 'Įrašai', show: hasPosts, icon: <IconDoc /> },
-    { key: 'likes', label: 'Mėgstami', show: hasLikes, icon: <IconHeart /> },
-    { key: 'about', label: 'Apie', show: true, icon: <IconUser /> },
+    { key: 'feed',  label: 'Naujausia', show: hasFeed,  icon: <IconSparkle /> },
+    { key: 'likes', label: 'Mėgstami',  show: hasLikes, icon: <IconHeart /> },
+    { key: 'about', label: 'Apie',       show: true,     icon: <IconUser /> },
   ]
   const visibleTabs = TABS.filter((t) => t.show)
-  const defaultTab: MobileTabKey = hasPosts ? 'posts' : hasRecent ? 'recent' : hasLikes ? 'likes' : 'about'
+  const defaultTab: MobileTabKey = hasFeed ? 'feed' : hasLikes ? 'likes' : 'about'
   const [active, setActive] = useState<MobileTabKey>(defaultTab)
 
   const avatar = realPhotoUrl || profile.avatar_url || null
@@ -569,10 +572,12 @@ function MobileProfileView(props: any) {
           )}
         </div>
 
-        {/* ── HEADER (V14.1 redesign) ── */}
-        <header className="px-4 pt-3 pb-2.5">
-          {/* Vienas row: avataras | @username + popbar + ♥ + share | [equalizer / mood stacked] */}
-          <div className="flex items-start gap-2.5">
+        {/* ── HEADER V15 ── */}
+        <header className="px-4 pt-3 pb-3">
+
+          {/* ── ROW 1: avatar | @username+actions+popbar | equalizer ── */}
+          <div className="flex items-stretch gap-2.5">
+            {/* Avataras */}
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatar} alt="" className="w-[52px] h-[52px] rounded-full object-cover flex-shrink-0 shadow-[0_4px_14px_rgba(0,0,0,0.5)]"
@@ -584,44 +589,49 @@ function MobileProfileView(props: any) {
               </div>
             )}
 
-            {/* Kairysis vidurys: @username + (popbar + ♥ + share eilutė) */}
-            <div className="flex-1 min-w-0">
-              <h1 className="font-black leading-[1.0] tracking-[-0.035em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] truncate"
-                  style={{ fontSize: 'clamp(1.1rem, 4.8vw, 1.45rem)', fontFamily: "'Outfit', sans-serif" }}>
-                @{profile.username}
-              </h1>
-              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                {activityLevel > 0 && (
-                  <PopBarChip level={activityLevel} title="Aktyvumas" delayMs={700} revealDelayMs={500}
-                    icon={<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" /></svg>} />
-                )}
+            {/* Centras: @username + ♥ + share viršuje, popbar apačioje */}
+            <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h1 className="font-black leading-tight tracking-[-0.03em] text-white truncate"
+                    style={{ fontSize: 'clamp(1.05rem, 4.5vw, 1.35rem)', fontFamily: "'Outfit', sans-serif" }}>
+                  @{profile.username}
+                </h1>
                 <FollowButton targetId={profile.id} variant="ghost" iconOnly />
                 <ShareButton username={profile.username} iconOnly />
               </div>
+              {activityLevel > 0 && (
+                <div>
+                  <PopBarChip level={activityLevel} title="Aktyvumas" delayMs={700} revealDelayMs={500}
+                    icon={<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" /></svg>} />
+                </div>
+              )}
             </div>
 
-            {/* Dešinysis stulpelis: TasteChip + MoodCompact vienas po kitu */}
-            {(hasMusicMeter || moodTrack) && (
-              <div className="flex-shrink-0 flex flex-col gap-1.5" style={{ width: '82px' }}>
-                {hasMusicMeter && (
-                  <TasteChip meter={profile.legacy_music_meter} onClick={() => onOpenTaste()} fill />
-                )}
-                {moodTrack && <MoodCompact track={moodTrack} />}
-              </div>
+            {/* Dešinys: equalizer (header mode — taller, tik modal) */}
+            {hasMusicMeter && (
+              <TasteChip meter={profile.legacy_music_meter} onClick={() => onOpenTaste()} size="header" />
             )}
           </div>
 
-          {/* Parašas (bio) — 2 eilutės kairėje */}
-          {bioSnippet && (
-            <p className="mt-2 text-[12px] leading-snug line-clamp-2"
-               style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.72)' }}>
-              {bioSnippet}
-            </p>
+          {/* ── ROW 2: parašas kairėje | nuotaikos daina dešinėje ── */}
+          {(bioSnippet || moodTrack) && (
+            <div className="mt-2.5 flex items-start gap-2.5">
+              {/* Parašas — flex-1, line-clamp-3 */}
+              {bioSnippet ? (
+                <p className="flex-1 min-w-0 text-[12px] leading-[1.45] line-clamp-3"
+                   style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.70)' }}>
+                  {bioSnippet}
+                </p>
+              ) : <div className="flex-1" />}
+
+              {/* Nuotaikos daina — kompaktiškas kortelė */}
+              {moodTrack && <MoodCard track={moodTrack} />}
+            </div>
           )}
         </header>
       </div>
 
-      {/* ── TABAI (sticky, ikonos + label) ── */}
+      {/* ── TABAI (sticky) ── */}
       {visibleTabs.length > 0 && (
         <div className="sticky top-0 z-20 -mb-px backdrop-blur-md"
              style={{ background: 'color-mix(in srgb, var(--bg-body) 88%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -646,14 +656,8 @@ function MobileProfileView(props: any) {
 
       {/* ── TURINYS ── */}
       <div className="px-4 pt-3 pb-24">
-        {active === 'recent' && (
-          <ul className="flex flex-col gap-2 mt-1">
-            {recentItems.map((it) => <RecentItemRow key={it.id} item={it} />)}
-          </ul>
-        )}
-
-        {active === 'posts' && hasPosts && (
-          <PostsFeed lanes={contentLanes} blogSlug={blog.slug} />
+        {active === 'feed' && (
+          <MergedFeed items={feedItems} blogSlug={blog?.slug} hasBlog={!!blog} />
         )}
 
         {active === 'likes' && (
@@ -912,7 +916,10 @@ function IconUser() {
 // Proporcingas nuotaikos dainos pill (apvalus, ~32px aukščio).
 // V14.1: fill=true — w-full + justify-center (dešiniame stulpelyje su MoodCompact).
 // Šiek tiek platesnės juostelės (3.5px) ir didesnis tarpas (3px).
-function TasteChip({ meter, onClick, fill = false }: { meter: any; onClick: () => void; fill?: boolean }) {
+// TasteChip: size='header' — taller bars matching avatar height, used in V15 Row 1 right column
+function TasteChip({ meter, onClick, fill = false, size = 'normal' }: {
+  meter: any; onClick: () => void; fill?: boolean; size?: 'normal' | 'header'
+}) {
   const bars = useMemo(() => {
     const byShort = new Map<string, number>()
     if (Array.isArray(meter)) {
@@ -928,19 +935,25 @@ function TasteChip({ meter, onClick, fill = false }: { meter: any; onClick: () =
   }, [meter])
 
   const maxPct = Math.max(...bars.map((b) => b.pct), 1)
-  const MAXH = 24
+  const isHeader = size === 'header'
+  // header mode: taller chip matching ~52px row height; wider bars too
+  const chipH = isHeader ? 52 : 36
+  const MAXH = isHeader ? 34 : 24
+  const barW = isHeader ? '3.5px' : '3.5px'
+  const padH = isHeader ? 9 : 7
+  const padX = isHeader ? 11 : 10
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group ${fill ? 'flex w-full justify-center' : 'inline-flex flex-shrink-0'} items-end gap-[3px] rounded-full transition hover:scale-[1.02]`}
+      className={`group ${fill ? 'flex w-full justify-center' : 'inline-flex flex-shrink-0'} items-end gap-[3px] rounded-2xl transition hover:scale-[1.02]`}
       style={{
-        height: '36px',
+        height: `${chipH}px`,
         background: 'rgba(255,255,255,0.10)',
         border: '1px solid rgba(255,255,255,0.18)',
-        paddingLeft: '10px', paddingRight: '10px',
-        paddingBottom: '7px', paddingTop: '7px',
+        paddingLeft: `${padX}px`, paddingRight: `${padX}px`,
+        paddingBottom: `${padH}px`, paddingTop: `${padH}px`,
       }}
       title="Muzikinis skonis — atidaryti"
       aria-label="Muzikinis skonis"
@@ -949,14 +962,16 @@ function TasteChip({ meter, onClick, fill = false }: { meter: any; onClick: () =
         const h = Math.max((b.pct / maxPct) * MAXH, 3)
         const lit = b.pct > 0
         return (
-          <span key={i} className="w-[3.5px] rounded-[1.75px]"
-                style={{
-                  height: `${h}px`,
-                  background: lit ? `rgb(${b.rgb})` : 'rgba(255,255,255,0.18)',
-                  boxShadow: lit ? `0 0 5px rgba(${b.rgb},0.5)` : 'none',
-                  transformOrigin: 'bottom',
-                  animation: lit ? `tasteChipBar ${1.2 + (i % 3) * 0.22}s ease-in-out ${i * 0.1}s infinite alternate` : undefined,
-                }} />
+          <span key={i} style={{
+            display: 'inline-block',
+            width: barW,
+            height: `${h}px`,
+            borderRadius: '1.75px',
+            background: lit ? `rgb(${b.rgb})` : 'rgba(255,255,255,0.18)',
+            boxShadow: lit ? `0 0 5px rgba(${b.rgb},0.5)` : 'none',
+            transformOrigin: 'bottom',
+            animation: lit ? `tasteChipBar ${1.2 + (i % 3) * 0.22}s ease-in-out ${i * 0.1}s infinite alternate` : undefined,
+          }} />
         )
       })}
       <style>{`@keyframes tasteChipBar { from { transform: scaleY(0.78); } to { transform: scaleY(1); } }`}</style>
@@ -964,9 +979,8 @@ function TasteChip({ meter, onClick, fill = false }: { meter: any; onClick: () =
   )
 }
 
-// V14.1: kompaktiškas nuotaikos dainos elementas — toks pat plotis kaip
-// TasteChip dešiniame stulpelyje. Vinilo vaizdas + pavadinimas.
-function MoodCompact({ track }: { track: any }) {
+// V15: kompaktiškas Nuotaikos dainos kortelė Row 2 dešinėje (~100px wide)
+function MoodCard({ track }: { track: any }) {
   const artist = Array.isArray(track.artists) ? track.artists[0] : track.artists
   const ytThumb = ytThumbProfile(track.video_url)
   const cover = ytThumb || track.cover_url || artist?.cover_image_url || null
@@ -976,33 +990,97 @@ function MoodCompact({ track }: { track: any }) {
   return (
     <Link
       href={href}
-      className="flex items-center gap-1.5 w-full rounded-full overflow-hidden transition hover:opacity-85"
+      className="flex-shrink-0 flex flex-col overflow-hidden rounded-xl transition hover:opacity-85"
       style={{
-        height: '32px',
-        paddingLeft: '6px', paddingRight: '8px',
-        background: 'linear-gradient(to right, rgba(249,115,22,0.15), rgba(244,114,182,0.08))',
+        width: '96px',
+        background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(244,114,182,0.10))',
         border: '1px solid rgba(249,115,22,0.28)',
       }}
       title={`${track.title}${artist ? ' — ' + artist.name : ''}`}
     >
-      {/* Mini spinning vinyl */}
-      <div className="relative w-[20px] h-[20px] flex-shrink-0">
-        <div className="absolute -inset-[2px] rounded-full opacity-60"
-             style={{ background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #f97316)', animation: 'moodSpinV11 14s linear infinite', filter: 'blur(1px)' }} />
+      {/* Cover art strip */}
+      <div className="relative w-full flex-shrink-0" style={{ height: '60px' }}>
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt="" className="relative w-[20px] h-[20px] rounded-full object-cover"
-               style={{ animation: 'moodSpinV11 36s linear infinite' }} />
+          <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
-          <div className="relative w-[20px] h-[20px] rounded-full flex items-center justify-center text-[9px]"
-               style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.3),rgba(220,38,38,0.3))' }}>♬</div>
+          <div className="absolute inset-0 flex items-center justify-center text-2xl"
+               style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.25),rgba(220,38,38,0.2))' }}>♬</div>
         )}
-        <div className="absolute inset-[30%] rounded-full" style={{ background: 'var(--bg-body)' }} />
+        {/* Spinning vinyl overlay */}
+        <div className="absolute bottom-1 right-1 w-[22px] h-[22px]">
+          <div className="absolute inset-0 rounded-full opacity-70"
+               style={{ background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #f97316)', animation: 'moodSpinV11 14s linear infinite', filter: 'blur(1px)' }} />
+          <div className="relative w-full h-full rounded-full" style={{ background: 'rgba(0,0,0,0.6)' }} />
+          <div className="absolute inset-[35%] rounded-full" style={{ background: '#111' }} />
+        </div>
+        {/* Gradient fade bottom */}
+        <div className="absolute inset-x-0 bottom-0 h-5" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5), transparent)' }} />
       </div>
-      <span className="text-[10px] font-bold truncate" style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.88)' }}>
-        {track.title}
-      </span>
+      {/* Text */}
+      <div className="px-1.5 py-1 flex flex-col gap-0">
+        <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'rgba(249,115,22,0.9)', fontFamily: "'Outfit', sans-serif" }}>
+          Nuotaikos daina
+        </span>
+        <span className="text-[10px] font-bold leading-tight line-clamp-1" style={{ color: 'rgba(255,255,255,0.9)', fontFamily: "'Outfit', sans-serif" }}>
+          {track.title}
+        </span>
+        {artist && (
+          <span className="text-[9px] leading-tight truncate" style={{ color: 'rgba(255,255,255,0.55)', fontFamily: "'Outfit', sans-serif" }}>
+            {artist.name}
+          </span>
+        )}
+      </div>
     </Link>
+  )
+}
+
+// V15: sujungtas feed (buvęs Naujausia + Įrašai) su tipo filter chips
+const FEED_KINDS: { key: string; label: string }[] = [
+  { key: 'all',     label: 'Visi' },
+  { key: 'post',    label: 'Įrašai' },
+  { key: 'pick',    label: 'Dienos daina' },
+  { key: 'comment', label: 'Komentarai' },
+]
+
+function MergedFeed({ items, blogSlug, hasBlog }: { items: any[]; blogSlug?: string; hasBlog: boolean }) {
+  void blogSlug; void hasBlog
+  const [kindFilter, setKindFilter] = useState<string>('all')
+  const visible = kindFilter === 'all' ? items : items.filter((it) => it.kind === kindFilter)
+
+  // Only show chips for kinds that exist
+  const presentKinds = new Set(items.map((it) => it.kind))
+  const chips = FEED_KINDS.filter((c) => c.key === 'all' || presentKinds.has(c.key))
+
+  return (
+    <div>
+      {chips.length > 2 && (
+        <div className="flex items-center gap-1.5 mb-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {chips.map((c) => {
+            const active = kindFilter === c.key
+            return (
+              <button key={c.key} type="button" onClick={() => setKindFilter(c.key)}
+                      className="flex-shrink-0 text-[11px] font-bold rounded-full px-3 py-1 transition"
+                      style={{
+                        fontFamily: "'Outfit', sans-serif",
+                        background: active ? 'var(--accent-orange)' : 'rgba(255,255,255,0.08)',
+                        color: active ? '#fff' : 'var(--text-muted)',
+                        border: active ? '1px solid var(--accent-orange)' : '1px solid rgba(255,255,255,0.14)',
+                      }}>
+                {c.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+      {visible.length === 0 ? (
+        <p className="text-[13px] text-center py-8" style={{ color: 'var(--text-faint)' }}>Nėra įrašų</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {visible.map((it) => <RecentItemRow key={it.id} item={it} />)}
+        </ul>
+      )}
+    </div>
   )
 }
 
