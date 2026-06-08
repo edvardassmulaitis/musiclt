@@ -33,13 +33,14 @@ function first<T>(v: T | T[] | null | undefined): T | null {
 export async function GET() {
   const sb = createAdminClient()
   const today = todayLT()
-  const blog60d = new Date(Date.now() - 60 * 86400000).toISOString()
   const disc2y  = new Date(Date.now() - 2 * 365 * 86400000).toISOString()
 
   try {
     // SVARBU: kintamieji TIKSLIAI atitinka Promise.all eilutę (0-4).
     // Bet kokia keitimas čia turi atitikti destruktūrizacijos eilutę viršuje!
-    const [nomRes, votesRes, pastWinnerRes, blogRes, hiddenRes, discRes] = await Promise.all([
+    // Paslėpti nariai (hide_from_homepage) išmetami PER UŽKLAUSĄ (!inner + not.is.true),
+    // todėl atskiro profiles query nebėra ir limit'o negali užtvindyti vienas produktyvus paslėptas narys.
+    const [nomRes, votesRes, pastWinnerRes, blogRes, discRes] = await Promise.all([
       // 0 — Šiandieninės nominacijos (DD lyderis + kandidatai)
       sb.from('daily_song_nominations')
         .select('id, tracks!track_id(title, slug, cover_url, video_url, artists!artist_id(name, slug, cover_image_url))')
@@ -55,19 +56,18 @@ export async function GET() {
         .select('id, date, tracks!track_id(title, slug, cover_url, video_url, artists!artist_id(name, slug, cover_image_url))')
         .lt('date', today).order('date', { ascending: false }).limit(1).maybeSingle(),
 
-      // 3 — Blog įrašai
+      // 3 — Blog įrašai (naujausi NEPASLĖPTŲ narių; pakanka, kad užpildytų po 1 kiekvieno tipo).
+      //   !inner join + hide_from_homepage=not.is.true → paslėpti nariai išmetami DB lygyje.
+      //   Be 60d floor: imam naujausią KIEKVIENO tipo įrašą, net jei tipas retas (pvz. topas).
       sb.from('blog_posts')
-        .select('id, slug, title, post_type, editorial_type, summary, cover_image_url, like_count, comment_count, published_at, list_items, target_track_id, target_album_id, target_artist_id, target_event_id, blogs:blog_id(slug, profiles:user_id(id, username, full_name, avatar_url))')
+        .select('id, slug, title, post_type, editorial_type, summary, cover_image_url, like_count, comment_count, published_at, list_items, target_track_id, target_album_id, target_artist_id, target_event_id, blogs:blog_id!inner(slug, profiles:user_id!inner(id, username, full_name, avatar_url, hide_from_homepage))')
         .eq('status', 'published')
         .not('published_at', 'is', null)
-        .gte('published_at', blog60d)
+        .not('blogs.profiles.hide_from_homepage', 'is', true)
         .order('published_at', { ascending: false })
-        .limit(80),
+        .limit(200),
 
-      // 4 — Nariai su hide_from_homepage=true (jų įrašai nerodomi)
-      sb.from('profiles').select('id').eq('hide_from_homepage', true),
-
-      // 5 — Diskusijos: activity 2y+, sort by last_comment_at
+      // 4 — Diskusijos: activity 2y+, sort by last_comment_at
       sb.from('discussions')
         .select('id, slug, title, author_name, author_avatar, comment_count, created_at, last_comment_at, legacy_id, artist:artists!discussions_artist_id_fkey(name, cover_image_url)')
         .eq('is_deleted', false)
@@ -203,9 +203,7 @@ export async function GET() {
       } catch {}
     }
 
-    // ── Blog items — 1-per-type, be hide_from_homepage narių ────────────────
-    // hiddenRes[4] = profiliai su hide_from_homepage=true
-    const hiddenIds = new Set<string>((hiddenRes.data || []).map((u: any) => u.id))
+    // ── Blog items — 1-per-type (paslėpti nariai jau išmesti per užklausą) ───
     const typeSeen = new Set<string>()
     const blogItems: any[] = []
     for (const b of blogRows) {
@@ -213,7 +211,6 @@ export async function GET() {
       // blogs:blog_id(profiles:user_id(...)) → vienas objektas (ne masyvas)
       const profRaw = b.blogs?.profiles
       const author = Array.isArray(profRaw) ? (profRaw[0] ?? null) : (profRaw ?? null)
-      if (author?.id && hiddenIds.has(author.id)) continue
 
       // 1-per-type taisyklė (article → skaidome pagal editorial_type)
       const tkey = b.post_type === 'review'
