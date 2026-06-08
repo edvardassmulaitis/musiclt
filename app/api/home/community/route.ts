@@ -7,7 +7,6 @@
 //   tik 1 topas / 1 review / 1 creation / 1 translation / 1 discussion / ...
 //
 // Filtravimas:
-//   - profiles.hide_from_homepage = true → to nario įrašai NERODOMI
 //   - diskusijos: tik su activity paskutiniais 2 metais
 //   - forum_posts: latest comment be parent_post_legacy_id filtro
 
@@ -38,7 +37,7 @@ export async function GET() {
   const disc2y  = new Date(Date.now() - 2 * 365 * 86400000).toISOString()
 
   try {
-    const [nomRes, votesRes, pastWinnerRes, blogRes, discRes, hiddenRes] = await Promise.all([
+    const [nomRes, votesRes, pastWinnerRes, blogRes, discRes] = await Promise.all([
       // Šiandieninės nominacijos (DD lyderis + kandidatai)
       sb.from('daily_song_nominations')
         .select('id, tracks!track_id(title, slug, cover_url, video_url, artists!artist_id(name, slug, cover_image_url))')
@@ -54,7 +53,7 @@ export async function GET() {
         .select('id, date, tracks!track_id(title, slug, cover_url, video_url, artists!artist_id(name, slug, cover_image_url))')
         .lt('date', today).order('date', { ascending: false }).limit(1).maybeSingle(),
 
-      // Blog įrašai (be hide_from_homepage nested join — filtruojam atskirai)
+      // Blog įrašai
       sb.from('blog_posts')
         .select('id, slug, title, post_type, editorial_type, summary, cover_image_url, like_count, comment_count, published_at, list_items, target_track_id, target_album_id, target_artist_id, target_event_id, blogs:blog_id(slug, profiles:user_id(id, username, full_name, avatar_url))')
         .eq('status', 'published')
@@ -62,9 +61,6 @@ export async function GET() {
         .gte('published_at', blog60d)
         .order('published_at', { ascending: false })
         .limit(80),
-
-      // Naudotojai, kurių įrašai NESRODOMI pagrindiniame
-      sb.from('profiles').select('id').eq('hide_from_homepage', true),
 
       // Diskusijos: activity 2y+, sort by last_comment_at, +legacy_id
       sb.from('discussions')
@@ -202,15 +198,12 @@ export async function GET() {
       } catch {}
     }
 
-    // ── Blog items — 1-per-type + hide_from_homepage filter ──────────────────
-    const hiddenIds = new Set<string>((hiddenRes.data || []).map((u: any) => u.id))
+    // ── Blog items — 1-per-type ───────────────────────────────────────────────
     const typeSeen = new Set<string>()
     const blogItems: any[] = []
     for (const b of blogRows) {
       if (!b.title) continue
       const author = b.blogs?.profiles || null
-      // Filtruojam narius su hide_from_homepage = true
-      if (author?.id && hiddenIds.has(author.id)) continue
 
       // 1-per-type taisyklė (article → skaidome pagal editorial_type)
       const tkey = b.post_type === 'review'
