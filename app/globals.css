@@ -823,3 +823,30 @@ main.has-bottom-nav {
   .hrow-arrow:hover { background: var(--accent-orange, #f2641a); color: #fff; border-color: transparent; }
 }
 @media (hover: none) { .hrow-arrow { display: none; } }  /* mobile: tik peek+fade */
+
+/* ── „Karšta dabar" chip'ai ─────────────────────────────────────────────── */
+.pchip {
+  display: flex; gap: 11px; align-items: center; height: 100%;
+  background: var(--bg-surface, #161c25);
+  border: 1px solid var(--border-default, #242e3a);
+  border-radius: 13px; padding: 9px 12px;
+  text-decoration: none; color: inherit;
+  transition: background .15s;
+}
+.pchip:hover { background: var(--bg-hover, #212c3a); }
+.pc-cover {
+  width: 46px; height: 46px; border-radius: 9px; flex: none;
+}
+.pc-tag {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .04em;
+  text-transform: uppercase; display: block; line-height: 1;
+}
+.pc-title {
+  font-weight: 700; font-size: 13.5px; line-height: 1.2; margin-top: 3px;
+  color: var(--text-primary, #eaeef4);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pc-meta {
+  font-size: 11.5px; color: var(--text-muted, #6b7686); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}

@@ -15,6 +15,7 @@ import AlbumInfoModal from '@/components/AlbumInfoModal'
 import { HomeListModal } from '@/components/HomeListModal'
 import { HomeListContent } from '@/components/HomeListContent'
 import Scroller from '@/components/ui/Scroller'
+import HotStrip from '@/components/home/HotStrip'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
@@ -1251,25 +1252,6 @@ function PulsasSection() {
               <div className="flex shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]" style={{ height: 250 }}>Narių įrašų su vizualais dar nėra</div>
             ) : sectionItems.map(it => <PulsasCard key={it.id} it={it} inModal={false} />)}
         </Scroller>
-      </section>
-
-      {/* ── Pulsas — trys stulpeliai per visą plotį: Diskusijos / Pokalbiai /
-          Kas vyksta. Desktop'e grid 3-col; mobile'e sukrauti vertikaliai.
-          Edvardo prašymu 2026-06-02. ── */}
-      <section className="mt-8">
-        <SectionHead label="Pulsas" />
-        {/* Desktop: 3 lygūs stulpeliai */}
-        <div className="hidden gap-3 sm:grid sm:grid-cols-3" style={{ height: 380 }}>
-          <CommunityDiscussionsCard />
-          <ShoutboxWidget />
-          <ActivityWidget />
-        </div>
-        {/* Mobile: sukrauti (Diskusijos box pridėtas Edvardo prašymu) */}
-        <div className="grid grid-cols-1 gap-3 sm:hidden">
-          <div style={{ height: 360 }}><CommunityDiscussionsCard /></div>
-          <div style={{ height: 340 }}><ShoutboxWidget /></div>
-          <div style={{ height: 340 }}><ActivityWidget /></div>
-        </div>
       </section>
 
       {modalOpen && (
@@ -3373,6 +3355,9 @@ export default function Home() {
           >
             <PulsasSection />
           </LazySection>
+
+          {/* ── KARŠTA DABAR — svari narių veikla + dienos dainos slotai ── */}
+          <HotStrip />
 
           {/* ── DIENOS DAINA — bendruomenės balsavimas (pakeitė „Pramogas". Boombox
               + Music Manager kol kas pasiekiami tik per top menu). 2026-05-29. ── */}
