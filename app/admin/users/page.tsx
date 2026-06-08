@@ -18,6 +18,7 @@ type Profile = {
   legacy_login_count: number | null
   legacy_karma_points: number | null
   last_seen_legacy_at: string | null
+  hide_from_homepage: boolean | null
 }
 
 const PAGE = 100
@@ -86,6 +87,17 @@ export default function AdminUsersPage() {
     const t = setTimeout(() => fetchUsers(0, false), q ? 300 : 0)
     return () => clearTimeout(t)
   }, [q, sort, claimedOnly, status, canAccess])
+
+  const toggleHide = async (userId: string, val: boolean) => {
+    setUpdating(userId)
+    await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, hide_from_homepage: val }),
+    })
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, hide_from_homepage: val } : u))
+    setUpdating(null)
+  }
 
   const updateRole = async (userId: string, newRole: string) => {
     if (!trulySuper) return
@@ -223,6 +235,7 @@ export default function AdminUsersPage() {
                 <th className="text-left px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider hidden md:table-cell">Aktyvumas</th>
                 <th className="text-left px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider">Role</th>
                 {trulySuper && <th className="text-left px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider hidden lg:table-cell">Keisti rolę</th>}
+                <th className="text-center px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider hidden md:table-cell">Slėpti HP</th>
                 {canImpersonate && <th className="text-right px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider">Veiksmas</th>}
               </tr>
             </thead>
@@ -286,6 +299,19 @@ export default function AdminUsersPage() {
                         )}
                       </td>
                     )}
+                    <td className="px-4 py-3 text-center hidden md:table-cell">
+                      <button
+                        type="button"
+                        onClick={() => toggleHide(user.id, !user.hide_from_homepage)}
+                        disabled={updating === user.id}
+                        title={user.hide_from_homepage ? 'Rodomas pagrindiniame' : 'Slėpti nuo pagrindinio'}
+                        className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50"
+                        style={{ background: user.hide_from_homepage ? 'var(--accent-orange,#f2641a)' : 'rgba(255,255,255,0.12)' }}
+                      >
+                        <span className="absolute h-4 w-4 rounded-full bg-white shadow transition-transform"
+                              style={{ left: 2, transform: user.hide_from_homepage ? 'translateX(16px)' : 'translateX(0)' }} />
+                      </button>
+                    </td>
                     {canImpersonate && (
                       <td className="px-4 py-3 text-right">
                         {!isSelf ? (

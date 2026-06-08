@@ -200,18 +200,15 @@ export async function GET() {
     }
 
     // ── Blog items — 1-per-type + hide_from_homepage filter ──────────────────
-    // Type key: vienas įrašas per semantinę kategoriją
+    // Taisyklė: VIENAS įrašas per semantinę kategoriją (be per-author dedupe —
+    // norim kiek galima daugiau skirtingų tipų, ne skirtingų autorių).
     const typeSeen = new Set<string>()
-    const seenAuthors = new Set<string>()
     const blogItems: any[] = []
     for (const b of blogRows) {
       if (!b.title) continue
       const author = b.blogs?.profiles || null
       // Filtruojam narius su hide_from_homepage = true
       if (author?.hide_from_homepage === true) continue
-      const key = author?.username || author?.id || `post-${b.id}`
-      if (seenAuthors.has(key)) continue
-      seenAuthors.add(key)
 
       // 1-per-type taisyklė (article → skaidome pagal editorial_type)
       const tkey = b.post_type === 'review'

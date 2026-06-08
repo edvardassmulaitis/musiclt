@@ -2,41 +2,16 @@
 
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 
 export default function ProfilePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [hideFromHomepage, setHideFromHomepage] = useState(false)
-  const [prefSaving, setPrefSaving] = useState(false)
-
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/auth/signin')
   }, [status, router])
-
-  useEffect(() => {
-    if (status !== 'authenticated') return
-    fetch('/api/profile/preferences')
-      .then(r => r.json())
-      .then(d => setHideFromHomepage(!!d.hide_from_homepage))
-      .catch(() => {})
-  }, [status])
-
-  async function toggleHideFromHomepage(val: boolean) {
-    setHideFromHomepage(val)
-    setPrefSaving(true)
-    try {
-      await fetch('/api/profile/preferences', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hide_from_homepage: val }),
-      })
-    } finally {
-      setPrefSaving(false)
-    }
-  }
 
   if (status === 'loading') {
     return (
@@ -117,30 +92,6 @@ export default function ProfilePage() {
           <div className="border-t border-white/10 pt-6 mt-6">
             <h2 className="text-lg font-semibold mb-4">Nustatymai</h2>
             <div className="space-y-2">
-
-              {/* hide_from_homepage toggle */}
-              <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-white/5">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-white">Nerodyti mano įrašų pagrindiniame</div>
-                  <div className="text-xs text-gray-400 mt-0.5">
-                    Tavo dienoraščiai, topai ir apžvalgos nebus rodomi bendruomenės juostoje
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => toggleHideFromHomepage(!hideFromHomepage)}
-                  disabled={prefSaving}
-                  className="relative shrink-0 h-6 w-11 rounded-full transition-colors duration-200"
-                  style={{ background: hideFromHomepage ? 'var(--accent-orange,#f2641a)' : 'rgba(255,255,255,0.15)' }}
-                  aria-checked={hideFromHomepage}
-                  role="switch"
-                >
-                  <span
-                    className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"
-                    style={{ transform: hideFromHomepage ? 'translateX(20px)' : 'translateX(0)' }}
-                  />
-                </button>
-              </div>
 
               <Link
                 href="/auth/profile/pranesimai"

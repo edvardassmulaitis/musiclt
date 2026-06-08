@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     .from('profiles')
     .select(
       'id, email, full_name, username, avatar_url, role, provider, is_claimed, created_at, ' +
-        'legacy_message_count, legacy_login_count, legacy_karma_points, last_seen_legacy_at',
+        'legacy_message_count, legacy_login_count, legacy_karma_points, last_seen_legacy_at, hide_from_homepage',
       { count: 'exact' }
     )
 
@@ -66,13 +66,31 @@ export async function PATCH(req: NextRequest) {
   if (!session || session.user?.role !== 'super_admin') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const { userId, role } = await req.json()
-  const validRoles = ['user', 'admin', 'super_admin', 'moderator']
-  if (!userId || !validRoles.includes(role)) {
-    return NextResponse.json({ error: 'Invalid' }, { status: 400 })
-  }
+  const body = await req.json()
+  const { userId } = body
+  if (!userId) return NextResponse.json({ error: 'Invalid' }, { status: 400 })
+
   const supabase = createAdminClient()
-  const { error } = await supabase.from('profiles').update({ role }).eq('id', userId)
+
+  // hide_from_homepage toggle (admin + super_admin gali)
+  if ('hide_from_homepage' in body) {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ hide_from_homepage: !!body.hide_from_homepage })
+      .eq('id', userId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  }
+
+  // role update (tik super_admin)
+  if (session.user?.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const validRoles = ['user', 'admin', 'super_admin', 'moderator']
+  if (!validRoles.includes(body.role)) {
+    return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+  }
+  const { error } = await supabase.from('profiles').update({ role: body.role }).eq('id', userId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
