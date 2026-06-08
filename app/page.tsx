@@ -2928,6 +2928,18 @@ export default function Home() {
                         2026-05-29: dainos perdarytos į vertikalią kortelę (cover
                         viršuje + info apačioje) — vienodas stilius su albumais
                         ir renginiais. */}
+                    {items.length > 0 && (
+                      <div className="mb-1 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setListModal(`tracks-${lane}`)}
+                          aria-label={`Daugiau: naujos dainos (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
+                          className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70"
+                        >
+                          Daugiau →
+                        </button>
+                      </div>
+                    )}
                     <div className="flex items-stretch gap-3">
                       <RowDivider icon={lane} />
                       <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Naujos dainos">
@@ -2999,16 +3011,6 @@ export default function Home() {
                           )
                         })}
                       </Scroller>
-                      {items.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setListModal(`tracks-${lane}`)}
-                          aria-label={`Daugiau: naujos dainos (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
-                          className="self-center shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70"
-                        >
-                          Daugiau →
-                        </button>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -3030,6 +3032,18 @@ export default function Home() {
                   ]
                 })().map(({ lane, items, total }, laneIdx) => (
                   <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
+                    {items.length > 0 && (
+                      <div className="mb-1 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setListModal(`albums-${lane}`)}
+                          aria-label={`Daugiau: nauji albumai (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
+                          className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70"
+                        >
+                          Daugiau →
+                        </button>
+                      </div>
+                    )}
                     <div className="flex items-stretch gap-3">
                       <RowDivider icon={lane} />
                       <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Nauji albumai">
@@ -3116,16 +3130,6 @@ export default function Home() {
                         )
                       })}
                       </Scroller>
-                      {items.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setListModal(`albums-${lane}`)}
-                          aria-label={`Daugiau: nauji albumai (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
-                          className="self-center shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70"
-                        >
-                          Daugiau →
-                        </button>
-                      )}
                     </div>
                   </div>
                 ))}
