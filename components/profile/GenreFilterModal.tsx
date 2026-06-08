@@ -26,13 +26,14 @@ type AnyFilter = SubstyleFilter | GenreFilter
 type Style = { legacy_style_id: number; style_slug: string; style_name: string; sort_order: number }
 
 export function GenreFilterModal({
-  initialFilter, meter, styles, artists, picks, onClose,
+  initialFilter, meter, styles, artists, picks, moodTrack, onClose,
 }: {
   initialFilter?: AnyFilter | null
   meter: any
   styles: Style[]
   artists: any[]
   picks: any[]
+  moodTrack?: any
   onClose: () => void
 }) {
   const [filter, setFilter] = useState<AnyFilter | null>(initialFilter || null)
@@ -148,6 +149,43 @@ export function GenreFilterModal({
               />
             </div>
           )}
+
+          {/* Nuotaikos daina */}
+          {moodTrack && (() => {
+            const artist = Array.isArray(moodTrack.artists) ? moodTrack.artists[0] : moodTrack.artists
+            const href = artist
+              ? `/dainos/${artist.slug}-${moodTrack.slug || moodTrack.id}-${moodTrack.id}`
+              : `/dainos/${moodTrack.slug || ''}-${moodTrack.id}`
+            const cover = moodTrack.cover_url || artist?.cover_image_url || null
+            return (
+              <div className="mb-5">
+                <SubLabel>Nuotaikos daina</SubLabel>
+                <Link href={href} onClick={onClose}
+                  className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 transition hover:opacity-85"
+                  style={{ background: 'linear-gradient(to right, rgba(249,115,22,0.14), rgba(244,114,182,0.08))', border: '1px solid rgba(249,115,22,0.28)' }}>
+                  {cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={cover} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center text-xl"
+                         style={{ background: 'rgba(249,115,22,0.2)' }}>♬</div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wide mb-0.5"
+                       style={{ color: 'rgba(249,115,22,0.9)', fontFamily: "'Outfit', sans-serif" }}>Šiuo metu klausosi</p>
+                    <p className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>
+                      {moodTrack.title}
+                    </p>
+                    {artist && (
+                      <p className="text-xs truncate" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+                        {artist.name}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              </div>
+            )
+          })()}
 
           {/* Substyles cloud */}
           {styles && styles.length > 0 && (

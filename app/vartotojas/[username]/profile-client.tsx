@@ -444,6 +444,7 @@ export function ProfileClient(props: any) {
           styles={favoriteStyles || []}
           artists={favoriteArtists}
           picks={dailyPicks}
+          moodTrack={moodTrack ?? undefined}
           onClose={() => { setTasteOpen(false); setTasteInitial(null) }}
         />
       )}
@@ -543,9 +544,9 @@ function MobileProfileView(props: any) {
   const hasFeed = feedItems.length > 0
 
   const TABS: { key: MobileTabKey; label: string; show: boolean; icon: React.ReactNode }[] = [
-    { key: 'feed',  label: 'Naujausia', show: hasFeed,  icon: <IconSparkle /> },
-    { key: 'likes', label: 'Mėgstami',  show: hasLikes, icon: <IconHeart /> },
-    { key: 'about', label: 'Apie',       show: true,     icon: <IconUser /> },
+    { key: 'feed',  label: 'Naujienos',      show: hasFeed,  icon: <IconSparkle /> },
+    { key: 'likes', label: 'Mėgstama muzika', show: hasLikes, icon: <IconHeart /> },
+    { key: 'about', label: 'Apie mane',       show: true,     icon: <IconUser /> },
   ]
   const visibleTabs = TABS.filter((t) => t.show)
   const defaultTab: MobileTabKey = hasFeed ? 'feed' : hasLikes ? 'likes' : 'about'
@@ -613,20 +614,12 @@ function MobileProfileView(props: any) {
             )}
           </div>
 
-          {/* ── ROW 2: parašas kairėje | nuotaikos daina dešinėje ── */}
-          {(bioSnippet || moodTrack) && (
-            <div className="mt-2.5 flex items-start gap-2.5">
-              {/* Parašas — flex-1, line-clamp-3 */}
-              {bioSnippet ? (
-                <p className="flex-1 min-w-0 text-[12px] leading-[1.45] line-clamp-3"
-                   style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.70)' }}>
-                  {bioSnippet}
-                </p>
-              ) : <div className="flex-1" />}
-
-              {/* Nuotaikos daina — kompaktiškas kortelė */}
-              {moodTrack && <MoodCard track={moodTrack} />}
-            </div>
+          {/* ── ROW 2: parašas ── */}
+          {bioSnippet && (
+            <p className="mt-2.5 text-[12px] leading-[1.45] line-clamp-3"
+               style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.70)' }}>
+              {bioSnippet}
+            </p>
           )}
         </header>
       </div>
