@@ -1,0 +1,163 @@
+// lib/topas-resolve.ts
+//
+// Vidinių narių topų (blog_posts.list_items) susiejimas su DB katalogu.
+// Borrow iš išorinių topų (lib/chart-resolve): match → entity_id; trūkstamus
+// galima sukurti (ghost atlikėjas + daina). Palaiko abu list_items formatus
+// (legacy plain-text ir naują ListItem) ir grąžina vieningą naują formatą su
+// `match_state` flag'u (matched / created / artist_only / unmatched / kept).
+
+import {
+  findConfidentMatch, normalizeForMatch, primaryArtist,
+  findOrCreateArtist, createTrackForArtist,
+} from '@/lib/chart-resolve'
+
+type Sb = any
+
+const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+function ytThumb(url?: string | null): string | null {
+  const m = url?.match?.(YT_RE)?.[1]
+  return m ? `https://img.youtube.com/vi/${m}/mqdefault.jpg` : null
+}
+
+// Randa atlikėją be kūrimo (normalizuotas lookup).
+async function findArtistOnly(sb: Sb, rawArtist: string): Promise<{ id: number; slug: string | null; cover: string | null } | null> {
+  const name = primaryArtist(rawArtist) || rawArtist
+  const nNorm = normalizeForMatch(name)
+  if (!nNorm) return null
+  const tok = (name.split(/[^\p{L}\p{N}]+/u).filter(t => t.length >= 2).sort((a, b) => b.length - a.length)[0] || name).replace(/[%_]/g, '')
+  const { data } = await sb.from('artists').select('id, name, slug, cover_image_url').ilike('name', `%${tok}%`).limit(60)
+  const hit = (data || []).find((a: any) => normalizeForMatch(a.name) === nNorm)
+  return hit ? { id: hit.id, slug: hit.slug || null, cover: hit.cover_image_url || null } : null
+}
+
+export type MatchState = 'matched' | 'created' | 'artist_only' | 'unmatched' | 'kept'
+export type ResolveSummary = { total: number; matched: number; created: number; kept: number; artist_only: number; unmatched: number }
+
+type RawEntry = { rank: number; artist: string; title: string | null; comment: string | null; rating: number | null; isArtistEntry: boolean; keep?: any }
+
+// Detekcija: ar list_item jau naujo formato.
+export function isNewItem(e: any): boolean {
+  return !!e && typeof e === 'object' && ('rank' in e || 'entity_id' in e || 'entity_slug' in e)
+}
+
+/**
+ * Konvertuoja + sumačina (ir, jei opts.create, sukuria trūkstamus) topo list_items.
+ * Grąžina naują items masyvą (ListItem + match_state) ir summary.
+ */
+export async function resolveTopasItems(
+  sb: Sb, list: any[], opts: { create?: boolean } = {},
+): Promise<{ items: any[]; summary: ResolveSummary }> {
+  // 1) RawEntry (palaikom abu formatus). Jau gerai sumatchintus paliekam (keep).
+  const raws: RawEntry[] = list.map((e: any, i: number) => {
+    const isNew = isNewItem(e)
+    const isArtistEntry = (e?.type === 'artist')
+    if (isNew && e.entity_id != null) {
+      return { rank: e.rank ?? i + 1, artist: e.artist || '', title: isArtistEntry ? null : (e.title || null), comment: e.comment ?? null, rating: e.rating ?? null, isArtistEntry, keep: e }
+    }
+    const artist = e.artist || e.artist_name || ''
+    const title = isArtistEntry ? null : (e.title || e.track_title || null)
+    return { rank: e.rank ?? e.position ?? i + 1, artist, title, comment: e.comment ?? e.description ?? null, rating: e.rating ?? null, isArtistEntry }
+  })
+
+  // 2) Match (chunked parallel).
+  type Resolved = { raw: RawEntry; trackId?: number; artistId?: number; state: MatchState }
+  const resolved: Resolved[] = new Array(raws.length)
+  const idxs = raws.map((_, i) => i)
+  for (let s = 0; s < idxs.length; s += 8) {
+    await Promise.all(idxs.slice(s, s + 8).map(async (i) => {
+      const r = raws[i]
+      if (r.keep) { resolved[i] = { raw: r, state: 'kept' }; return }
+      if (r.title && r.title.trim()) {
+        const m = await findConfidentMatch(sb, r.artist, r.title).catch(() => null)
+        if (m) { resolved[i] = { raw: r, trackId: m.trackId, artistId: m.artistId, state: 'matched' }; return }
+        const a = await findArtistOnly(sb, r.artist).catch(() => null)
+        resolved[i] = a ? { raw: r, artistId: a.id, state: 'artist_only' } : { raw: r, state: 'unmatched' }
+      } else {
+        const a = await findArtistOnly(sb, r.artist).catch(() => null)
+        resolved[i] = a ? { raw: r, artistId: a.id, state: 'matched' } : { raw: r, state: 'unmatched' }
+      }
+    }))
+  }
+
+  // 3) Create trūkstamus (SEKVENCIŠKAI — findOrCreateArtist race apsauga).
+  if (opts.create) {
+    for (const r of resolved) {
+      if (r.state === 'matched' || r.state === 'kept') continue
+      try {
+        if (r.raw.isArtistEntry) {
+          const aid = await findOrCreateArtist(sb, r.raw.artist, null)
+          r.artistId = aid; r.state = 'created'
+        } else {
+          const aid = r.artistId ?? await findOrCreateArtist(sb, r.raw.artist, null)
+          const tid = await createTrackForArtist(sb, aid, r.raw.title || r.raw.artist)
+          r.artistId = aid; r.trackId = tid; r.state = 'created'
+        }
+      } catch { /* lieka flag'as */ }
+    }
+  }
+
+  // 4) Cover/slug resolve (batch).
+  const trackIds = [...new Set(resolved.filter(r => r.trackId).map(r => r.trackId!))]
+  const artistIds = [...new Set(resolved.filter(r => r.artistId).map(r => r.artistId!))]
+  const trackInfo = new Map<number, { slug: string | null; image: string | null }>()
+  const artistInfo = new Map<number, { slug: string | null; image: string | null }>()
+  if (trackIds.length) {
+    const { data } = await sb.from('tracks').select('id, slug, cover_url, video_url, artists:artist_id(cover_image_url)').in('id', trackIds)
+    for (const t of (data || []) as any[]) {
+      const ac = Array.isArray(t.artists) ? t.artists[0]?.cover_image_url : t.artists?.cover_image_url
+      trackInfo.set(t.id, { slug: t.slug || null, image: ytThumb(t.video_url) || t.cover_url || ac || null })
+    }
+  }
+  if (artistIds.length) {
+    const { data } = await sb.from('artists').select('id, slug, cover_image_url').in('id', artistIds)
+    for (const a of (data || []) as any[]) artistInfo.set(a.id, { slug: a.slug || null, image: a.cover_image_url || null })
+  }
+
+  // 5) Naujas list_items.
+  const items = resolved.map((r) => {
+    if (r.state === 'kept') return r.raw.keep
+    const base = { rank: r.raw.rank, title: r.raw.title || r.raw.artist || '?', artist: r.raw.artist || null, comment: r.raw.comment, rating: r.raw.rating }
+    if ((r.state === 'matched' || r.state === 'created') && r.raw.isArtistEntry && r.artistId) {
+      const a = artistInfo.get(r.artistId)
+      return { ...base, type: 'artist', entity_id: r.artistId, entity_slug: a?.slug || null, image_url: a?.image || null, match_state: r.state }
+    }
+    if ((r.state === 'matched' || r.state === 'created') && r.trackId) {
+      const t = trackInfo.get(r.trackId)
+      return { ...base, type: 'track', entity_id: r.trackId, entity_slug: t?.slug || null, image_url: t?.image || null, match_state: r.state }
+    }
+    if (r.state === 'artist_only' && r.artistId) {
+      const a = artistInfo.get(r.artistId)
+      return { ...base, type: 'track', entity_id: null, entity_slug: null, image_url: a?.image || null, match_state: 'artist_only', artist_id_hint: r.artistId }
+    }
+    return { ...base, type: r.raw.isArtistEntry ? 'artist' : 'track', entity_id: null, entity_slug: null, image_url: null, match_state: 'unmatched' }
+  })
+
+  const summary: ResolveSummary = {
+    total: items.length,
+    matched: resolved.filter(r => r.state === 'matched').length,
+    created: resolved.filter(r => r.state === 'created').length,
+    kept: resolved.filter(r => r.state === 'kept').length,
+    artist_only: resolved.filter(r => r.state === 'artist_only').length,
+    unmatched: resolved.filter(r => r.state === 'unmatched').length,
+  }
+  return { items, summary }
+}
+
+// Vieno įrašo (pagal rank) susiejimas su konkrečiu entitetu iš paieškos.
+export async function linkTopasEntry(
+  sb: Sb, list: any[], rank: number, hit: { type: 'track' | 'artist' | 'album'; id: number; slug: string | null; title: string; artist: string | null; image_url: string | null },
+): Promise<any[]> {
+  return list.map((e: any) => {
+    const er = e?.rank ?? e?.position
+    if (er !== rank) return e
+    return {
+      rank, type: hit.type,
+      entity_id: hit.id, entity_slug: hit.slug,
+      title: hit.title, artist: hit.artist,
+      image_url: hit.image_url,
+      comment: e?.comment ?? e?.description ?? null,
+      rating: e?.rating ?? null,
+      match_state: 'matched',
+    }
+  })
+}

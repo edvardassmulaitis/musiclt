@@ -64,6 +64,8 @@ export async function GET() {
         .eq('status', 'published')
         .not('published_at', 'is', null)
         .not('blogs.profiles.hide_from_homepage', 'is', true)
+        // Topas rodomas TIK patvirtintas (/admin/topai-vidiniai); kiti tipai be apribojimo.
+        .or('post_type.neq.topas,topas_approved_at.not.is.null')
         .order('published_at', { ascending: false })
         .limit(200),
 
