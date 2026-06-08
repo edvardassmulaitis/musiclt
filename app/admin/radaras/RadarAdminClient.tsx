@@ -147,9 +147,10 @@ export default function RadarAdminClient({
             className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] ring-1 ring-[var(--border-default)] disabled:opacity-50">
             ↺ Atstatyti
           </button>
-          <button onClick={() => apply(a, null)} disabled={busy === a.id}
-            className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-faint)] ring-1 ring-[var(--border-subtle)] disabled:opacity-50">
-            🗑 Pašalinti
+          <button onClick={() => removeFrom(a.id)} disabled={busy === a.id}
+            className="rounded-md bg-[var(--bg-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--text-faint)] ring-1 ring-[var(--border-subtle)] disabled:opacity-50"
+            title="Slėpti iš sąrašo (liks DB kaip atmesta — nebegrįš kaip kandidatas)">
+            ✕ Slėpti
           </button>
         </div>
       )
@@ -282,7 +283,7 @@ export default function RadarAdminClient({
         items={candidates} empty="Nėra kandidatų (gali būti DB ryšio problema arba langas tuščias)." />
 
       <Section title="📁 Archyvas"
-        hint="Atmesti auto-kandidatai ir pristatyti atlikėjai. Atstatyti = grazinti i tinkeli. Pasalinti = visam laikui isimti is radaro admin."
+        hint="Atmesti kandidatai ir pristatyti atlikėjai. Atstatyti = grąžinti į tinklelį. Slėpti = pašalinti iš šio sąrašo (DB lieka kaip atmesta — nebegrįš kaip auto kandidatas)."
         items={excluded} empty="Archyvas tuščias." />
     </div>
   )
