@@ -146,6 +146,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
           tags: post.tags || [],
           list_items: Array.isArray(post.list_items) ? post.list_items : [],
           creation_subtype: (post as any).creation_subtype ?? null,
+          topas_meta: (post as any).topas_meta ?? null,
         }}
         postType={postType}
         typeLabel={typeMeta?.label || ''}

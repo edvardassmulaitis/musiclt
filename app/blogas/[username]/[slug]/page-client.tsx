@@ -46,6 +46,7 @@ type Props = {
     tags: string[]
     list_items: any[]
     creation_subtype?: string | null
+    topas_meta?: { intro?: string | null; outro?: string | null } | null
   }
   postType: BlogPostType
   typeLabel: string
@@ -409,18 +410,25 @@ export default function BlogPostPageClient(props: Props) {
         .bp-pill.is-on .bp-pill-count.is-link:hover { background:rgba(0,0,0,0.08); }
 
         /* Topas list */
-        .bp-topas { list-style:none; padding:0; margin:36px 0; display:flex; flex-direction:column; gap:10px; }
-        .bp-topas-item { display:flex; align-items:center; gap:18px; padding:14px 16px; border-radius:14px;
-                         background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.05);
-                         text-decoration:none; color:inherit; transition:transform .15s; }
-        .bp-topas-item.is-link:hover { transform:translateY(-1px); background:rgba(255,255,255,0.035); }
+        .bp-topas { list-style:none; padding:0; margin:36px 0; display:flex; flex-direction:column; gap:14px; }
+        .bp-topas-item { display:flex; flex-direction:column; gap:0; padding:16px 18px; border-radius:16px;
+                         background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.06);
+                         text-decoration:none; color:inherit; transition:transform .15s, background .15s, border-color .15s; }
+        .bp-topas-item.is-link:hover { transform:translateY(-2px); background:rgba(255,255,255,0.04); border-color:rgba(249,115,22,0.22); }
+        .bp-topas-head { display:flex; align-items:center; gap:18px; }
         .bp-topas-rank { font-family:'Outfit',sans-serif; font-weight:900; letter-spacing:-.03em; line-height:1;
-                         min-width:48px; text-align:center; }
-        .bp-topas-cover { width:62px; height:62px; border-radius:10px; object-fit:cover; flex-shrink:0;
-                          background:rgba(255,255,255,0.04); }
-        .bp-topas-title { font-family:'Outfit',sans-serif; font-size:1.04rem; font-weight:800; color:#f2f4f8; line-height:1.2;
+                         font-size:2.1rem; min-width:46px; text-align:center; }
+        .bp-topas-cover { width:72px; height:72px; border-radius:12px; object-fit:cover; flex-shrink:0;
+                          background:rgba(255,255,255,0.04); box-shadow:0 4px 14px rgba(0,0,0,0.25); }
+        .bp-topas-title { font-family:'Outfit',sans-serif; font-size:1.1rem; font-weight:800; color:#f2f4f8; line-height:1.25;
                           letter-spacing:-.01em; margin:0; }
-        .bp-topas-artist { font-size:.85rem; color:#8aa8cc; margin:3px 0 0; }
+        .bp-topas-artist-inline { color:#f97316; }
+        .bp-topas-genres { display:flex; flex-wrap:wrap; gap:6px; margin-top:7px; }
+        .bp-topas-genre { font-family:'Outfit',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.02em;
+                          text-transform:lowercase; color:#9db4d4; background:rgba(255,255,255,0.05);
+                          border:1px solid rgba(255,255,255,0.08); border-radius:100px; padding:2px 9px; }
+        .bp-topas-item.has-desc .bp-topas-comment { font-size:.92rem; color:#b6c6de; font-style:normal; margin:13px 0 0;
+                          line-height:1.65; padding-top:13px; border-top:1px solid rgba(255,255,255,0.06); }
         .bp-topas-comment { font-size:.88rem; color:#a4b8d4; font-style:italic; margin:8px 0 0; line-height:1.5; }
 
         /* Author footer */
@@ -517,14 +525,29 @@ export default function BlogPostPageClient(props: Props) {
             <main style={{ minWidth: 0 }}>
               {showSummary && <p className="bp-summary">{post.summary}</p>}
 
-              {post.content && (
-                <div className="bp-prose">
-                  <PostContent html={post.content} />
-                </div>
-              )}
+              {/* Topas su išparsinta struktūra: įžanga → stilingos kortelės → pabaiga (be raw content). */}
+              {postType === 'topas' && post.list_items.length > 0 && (post.topas_meta?.intro || post.topas_meta?.outro) ? (
+                <>
+                  {post.topas_meta?.intro && (
+                    <div className="bp-prose"><PostContent html={post.topas_meta.intro} /></div>
+                  )}
+                  <TopasList items={post.list_items} />
+                  {post.topas_meta?.outro && (
+                    <div className="bp-prose" style={{ marginTop: 32 }}><PostContent html={post.topas_meta.outro} /></div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {post.content && (
+                    <div className="bp-prose">
+                      <PostContent html={post.content} />
+                    </div>
+                  )}
 
-              {postType === 'topas' && post.list_items.length > 0 && (
-                <TopasList items={post.list_items} />
+                  {postType === 'topas' && post.list_items.length > 0 && (
+                    <TopasList items={post.list_items} />
+                  )}
+                </>
               )}
 
               {postType === 'review' && post.list_items.length > 0 && (
@@ -970,25 +993,31 @@ function TopasList({ items }: { items: any[] }) {
         const Wrapper: any = href ? Link : 'div'
         const wrapperProps = href ? { href } : {}
         const rankColor = idx === 0 ? '#f97316' : idx === 1 ? '#dde8f8' : idx === 2 ? '#a4b8d4' : '#5e7290'
+        const genres: string[] = Array.isArray(item.genres) ? item.genres : []
+        const hasDesc = !!item.comment
         return (
           <li key={idx}>
-            <Wrapper {...wrapperProps} className={`bp-topas-item ${href ? 'is-link' : ''}`}>
-              <div className="bp-topas-rank" style={{
-                fontSize: items.length >= 100 ? '1.5rem' : '2rem',
-                color: rankColor,
-              }}>
-                {item.rank || (idx + 1)}
+            <Wrapper {...wrapperProps} className={`bp-topas-item ${href ? 'is-link' : ''} ${hasDesc ? 'has-desc' : ''}`}>
+              <div className="bp-topas-head">
+                <div className="bp-topas-rank" style={{ color: rankColor }}>{item.rank || (idx + 1)}</div>
+                {item.image_url
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  ? <img src={item.image_url} alt="" className="bp-topas-cover" />
+                  : <div className="bp-topas-cover" />
+                }
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="bp-topas-title">
+                    {item.artist && <span className="bp-topas-artist-inline">{item.artist} — </span>}
+                    {item.title}
+                  </p>
+                  {genres.length > 0 && (
+                    <div className="bp-topas-genres">
+                      {genres.map((g, i) => <span key={i} className="bp-topas-genre">{g}</span>)}
+                    </div>
+                  )}
+                </div>
               </div>
-              {item.image_url
-                /* eslint-disable-next-line @next/next/no-img-element */
-                ? <img src={item.image_url} alt="" className="bp-topas-cover" />
-                : <div className="bp-topas-cover" />
-              }
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p className="bp-topas-title">{item.title}</p>
-                {item.artist && <p className="bp-topas-artist">{item.artist}</p>}
-                {item.comment && <p className="bp-topas-comment">{item.comment}</p>}
-              </div>
+              {hasDesc && <p className="bp-topas-comment">{item.comment}</p>}
             </Wrapper>
           </li>
         )

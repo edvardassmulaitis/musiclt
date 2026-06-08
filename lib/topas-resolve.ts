@@ -166,6 +166,75 @@ export function parseTopasFromContent(content: string): any[] {
   }))
 }
 
+// ── Protingas free-text topo parseris ───────────────────────────────────────
+// Supranta narių rašytą struktūrą: paryškinta antraštė „N. Atlikėjas – Pavadinimas
+// (žanrai)" + nuoroda į albumą/dainą + aprašymo pastraipa(-os). Atskiria įžangą
+// (prieš #1) ir pabaigą (pvz. „Garbingi paminėjimai"). Grąžina intro/outro HTML
+// (formatui išsaugoti) + entries su aprašymu, žanrais, legacy nuoroda.
+
+export type ParsedTopasEntry = {
+  rank: number; artist: string; title: string; genres: string[]
+  description: string; legacyType: 'album' | 'track' | null; legacyId: number | null
+}
+export type ParsedTopas = { intro: string; outro: string; entries: ParsedTopasEntry[] }
+
+function decodeEntities(s: string): string {
+  return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ').replace(/&ndash;/g, '–').replace(/&mdash;/g, '—')
+}
+const stripTags = (s: string) => decodeEntities((s || '').replace(/<[^>]+>/g, '')).replace(/ /g, ' ').replace(/\s+/g, ' ').trim()
+
+export function parseTopasArticle(content: string): ParsedTopas {
+  if (!content) return { intro: '', outro: '', entries: [] }
+  const c = content
+  type Head = ParsedTopasEntry & { hStart: number; hEnd: number }
+  const heads: Head[] = []
+  const re = /<strong[^>]*>([\s\S]*?)<\/strong>([\s\S]{0,400}?)(?=<p|<img|<\/p>)/gi
+  let m: RegExpExecArray | null
+  while ((m = re.exec(c))) {
+    const inner = stripTags(m[1])
+    const mm = inner.match(/^(\d{1,3})\.\s*(.+?)\s[–—]\s(.+)$/)
+    if (!mm) continue
+    const rank = parseInt(mm[1], 10)
+    if (heads.some(h => h.rank === rank)) continue
+    const tail = m[2] || ''
+    const gm = tail.match(/<em[^>]*>([\s\S]*?)<\/em>/i)
+    let genres: string[] = []
+    if (gm) {
+      const g = stripTags(gm[1]).replace(/^\(+|\)+$/g, '').trim()
+      genres = g.split(/[,/]/).map(x => x.trim()).filter(Boolean)
+    }
+    // artimiausia <a href> prieš antraštę (legacy nuoroda)
+    const pre = c.slice(Math.max(0, m.index - 400), m.index)
+    const hrefs = [...pre.matchAll(/href="([^"]*?(albumas|daina|grupe)[\/-][^"]*?(\d+)[^"]*?)"/gi)]
+    let legacyType: 'album' | 'track' | null = null; let legacyId: number | null = null
+    if (hrefs.length) {
+      const last = hrefs[hrefs.length - 1]
+      legacyType = last[2] === 'albumas' ? 'album' : last[2] === 'daina' ? 'track' : null
+      legacyId = parseInt(last[3], 10) || null
+    }
+    heads.push({ rank, artist: mm[2].trim(), title: mm[3].trim(), genres, description: '', legacyType, legacyId, hStart: m.index, hEnd: re.lastIndex })
+  }
+  if (!heads.length) return { intro: stripTags(c), outro: '', entries: [] }
+
+  // outro žymeklis (pvz. „Garbingų paminėjimų")
+  const om = c.match(/garbing\w*\s+paminėjim/i)
+  const omIdx = om && om.index != null && om.index > heads[heads.length - 1].hStart ? om.index : -1
+
+  // pastraipos pradžios snap'as (švarus HTML pjūvis)
+  const pStartBefore = (idx: number) => { const i = c.lastIndexOf('<p', idx); return i >= 0 ? i : idx }
+
+  const entries: ParsedTopasEntry[] = heads.map((h, i) => {
+    let bodyEnd = i + 1 < heads.length ? pStartBefore(heads[i + 1].hStart) : (omIdx >= 0 ? pStartBefore(omIdx) : c.length)
+    const desc = stripTags(c.slice(h.hEnd, bodyEnd))
+    return { rank: h.rank, artist: h.artist, title: h.title, genres: h.genres, description: desc, legacyType: h.legacyType, legacyId: h.legacyId }
+  })
+
+  const intro = c.slice(0, pStartBefore(heads[0].hStart)).trim()
+  const outro = omIdx >= 0 ? c.slice(pStartBefore(omIdx)).trim() : ''
+  return { intro, outro, entries }
+}
+
 // Sukuria ghost entitetą vienam įrašui (artist + daina arba tik artist).
 export async function createEntityForEntry(
   sb: Sb, artist: string, title: string | null, isArtist: boolean,

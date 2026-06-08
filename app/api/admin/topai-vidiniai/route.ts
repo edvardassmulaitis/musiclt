@@ -15,7 +15,12 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { resolveTopasItems, linkTopasEntry, isNewItem, parseTopasFromContent, createEntityForEntry } from '@/lib/topas-resolve'
+import { resolveTopasItems, linkTopasEntry, isNewItem, parseTopasArticle, createEntityForEntry } from '@/lib/topas-resolve'
+import { findConfidentMatch } from '@/lib/chart-resolve'
+
+const YT_RE2 = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+const ytThumb2 = (u?: string | null) => { const m = u?.match?.(YT_RE2)?.[1]; return m ? `https://img.youtube.com/vi/${m}/mqdefault.jpg` : null }
+const firstOf = (v: any) => Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
 
 export const maxDuration = 60
 
@@ -97,7 +102,7 @@ export async function GET(req: Request) {
       hidden: !!prof?.hide_from_homepage,
       approved: !!b.topas_approved_at,
       published_at: b.published_at,
-      content_entries: parseTopasFromContent(b.content || '').length,
+      content_entries: parseTopasArticle(b.content || '').entries.length,
       ...s,
     }
   })
@@ -126,14 +131,66 @@ export async function POST(req: Request) {
   if (!post || post.post_type !== 'topas') return NextResponse.json({ error: 'ne topas' }, { status: 400 })
   let list = Array.isArray(post.list_items) ? post.list_items : []
 
-  // Importuoti įrašus iš content HTML (paryškintos „N. Atlikėjas – Pavadinimas" eilutės), tada automatch.
+  // Importuoti iš content HTML: protingas parseris (aprašymai, žanrai, įžanga/pabaiga),
+  // legacy_id nuorodų rezoliucija (tiksli + albumo cover) + text fallback.
   if (action === 'import_from_content') {
-    const parsed = parseTopasFromContent(post.content || '')
-    if (!parsed.length) return NextResponse.json({ error: 'Tekste nerasta „N. Atlikėjas – Pavadinimas" įrašų' }, { status: 400 })
-    const { items } = await resolveTopasItems(sb, parsed, { create: false })
-    const { error } = await sb.from('blog_posts').update({ list_items: items, homepage_reviewed_at: new Date().toISOString() }).eq('id', id)
+    const parsed = parseTopasArticle(post.content || '')
+    if (!parsed.entries.length) return NextResponse.json({ error: 'Tekste nerasta „N. Atlikėjas – Pavadinimas" įrašų' }, { status: 400 })
+
+    const albumLids = [...new Set(parsed.entries.filter(e => e.legacyType === 'album' && e.legacyId).map(e => e.legacyId!))]
+    const trackLids = [...new Set(parsed.entries.filter(e => e.legacyType === 'track' && e.legacyId).map(e => e.legacyId!))]
+    const albumMap = new Map<number, any>(); const trackMap = new Map<number, any>()
+    if (albumLids.length) {
+      const { data } = await sb.from('albums').select('id, legacy_id, slug, cover_image_url, artist:artist_id(name)').in('legacy_id', albumLids)
+      for (const a of (data || []) as any[]) albumMap.set(a.legacy_id, a)
+    }
+    if (trackLids.length) {
+      const { data } = await sb.from('tracks').select('id, legacy_id, slug, cover_url, video_url, artist:artist_id(name, cover_image_url)').in('legacy_id', trackLids)
+      for (const t of (data || []) as any[]) trackMap.set(t.legacy_id, t)
+    }
+
+    // Pirmas praėjimas: legacy resolve; nerastiems — text match (chunked).
+    const items: any[] = new Array(parsed.entries.length)
+    const needText: number[] = []
+    parsed.entries.forEach((e, i) => {
+      const base = { rank: e.rank, title: e.title, artist: e.artist, comment: e.description || null, genres: e.genres, rating: null }
+      if (e.legacyType === 'album' && albumMap.has(e.legacyId!)) {
+        const a = albumMap.get(e.legacyId!); const ar = firstOf(a.artist)
+        items[i] = { ...base, type: 'album', entity_id: a.id, entity_slug: a.slug || null, image_url: a.cover_image_url || null, artist: ar?.name || e.artist, match_state: 'matched' }
+      } else if (e.legacyType === 'track' && trackMap.has(e.legacyId!)) {
+        const t = trackMap.get(e.legacyId!); const ar = firstOf(t.artist)
+        items[i] = { ...base, type: 'track', entity_id: t.id, entity_slug: t.slug || null, image_url: ytThumb2(t.video_url) || t.cover_url || ar?.cover_image_url || null, artist: ar?.name || e.artist, match_state: 'matched' }
+      } else {
+        items[i] = { ...base, type: e.legacyType === 'album' ? 'album' : 'track', entity_id: null, entity_slug: null, image_url: null, match_state: 'unmatched' }
+        needText.push(i)
+      }
+    })
+    // Text match leftovers (tik dainoms) — chunked
+    for (let s = 0; s < needText.length; s += 8) {
+      await Promise.all(needText.slice(s, s + 8).map(async (i) => {
+        const e = parsed.entries[i]
+        const fm = await findConfidentMatch(sb, e.artist, e.title).catch(() => null)
+        if (fm) items[i] = { ...items[i], type: 'track', entity_id: fm.trackId, match_state: 'matched' }
+      }))
+    }
+    // Cover/slug text-matched dainoms
+    const txtIds = [...new Set(items.filter(it => it.match_state === 'matched' && it.type === 'track' && !it.entity_slug && it.entity_id).map(it => it.entity_id))]
+    if (txtIds.length) {
+      const { data } = await sb.from('tracks').select('id, slug, cover_url, video_url, artist:artist_id(cover_image_url)').in('id', txtIds)
+      const mp = new Map<number, any>((data || []).map((t: any) => [t.id, t]))
+      for (const it of items) {
+        if (it.entity_id && mp.has(it.entity_id)) {
+          const t = mp.get(it.entity_id); const ar = firstOf(t.artist)
+          it.entity_slug = t.slug || null; it.image_url = it.image_url || ytThumb2(t.video_url) || t.cover_url || ar?.cover_image_url || null
+        }
+      }
+    }
+
+    const topas_meta = { intro: parsed.intro || null, outro: parsed.outro || null, parsed_at: new Date().toISOString() }
+    const { error } = await sb.from('blog_posts')
+      .update({ list_items: items, topas_meta, homepage_reviewed_at: new Date().toISOString() }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, imported: parsed.length, ...summarize(items) })
+    return NextResponse.json({ ok: true, imported: parsed.entries.length, ...summarize(items) })
   }
 
   if (action === 'automatch' || action === 'create_missing') {
