@@ -2,25 +2,14 @@
 //
 // GET /api/home/community → { items: CommunityItem[] }
 //
-// items[0] = Dienos daina (šiandien lyderis arba vakarykštis laimėtojas)
-// items[1..] = blog įrašai + diskusijos (2:1), maks 12 iš viso
+// items[0] = Dienos daina (šiandien lyderis + kiti kandidatai)
+// items[1..] = blog + diskusijos, 1 PER TIPĄ taisyklė:
+//   tik 1 topas / 1 review / 1 creation / 1 translation / 1 discussion / ...
 //
-// Per-tipo papildoma info:
-//   dd          → vote_count
-//   blog/topas  → entries[] top 3 (rank+title+artist+image), summary excerpt
-//   blog/kita   → summary excerpt
-//   discussion  → last_comment (text+author+avatar+time)
-//
-// Cover sprendimas (prioritetais):
-//   blog_posts.cover_image_url
-//   → blog_post_tracks → YT/track/artist
-//   → blog_post_albums → album
-//   → blog_post_artists → artist
-//   → target_track_id → YT/track/artist
-//   → target_album_id → album
-//   → target_artist_id → artist
-//   → topas list_items[0] image_url arba entity_id vizualas
-//   → gradiento rezervas
+// Filtravimas:
+//   - profiles.hide_from_homepage = true → to nario įrašai NERODOMI
+//   - diskusijos: tik su activity paskutiniais 2 metais
+//   - forum_posts: latest comment be parent_post_legacy_id filtro
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
@@ -41,22 +30,16 @@ function ytThumb(url?: string | null): string | null {
 function first<T>(v: T | T[] | null | undefined): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
 }
-function stripHtml(html?: string | null, max = 120): string {
-  if (!html) return ''
-  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-  return text.length > max ? text.slice(0, max).trimEnd() + '…' : text
-}
 
 export async function GET() {
   const sb = createAdminClient()
   const today = todayLT()
   const blog60d = new Date(Date.now() - 60 * 86400000).toISOString()
-  // Diskusijoms: reikalaujame activity paskutiniais 2 metais
-  const disc2y = new Date(Date.now() - 2 * 365 * 86400000).toISOString()
+  const disc2y  = new Date(Date.now() - 2 * 365 * 86400000).toISOString()
 
   try {
     const [nomRes, votesRes, pastWinnerRes, blogRes, discRes] = await Promise.all([
-      // Šiandieninės nominacijos
+      // Šiandieninės nominacijos (DD lyderis + kandidatai)
       sb.from('daily_song_nominations')
         .select('id, tracks!track_id(title, slug, cover_url, video_url, artists!artist_id(name, slug, cover_image_url))')
         .eq('date', today)
@@ -64,30 +47,23 @@ export async function GET() {
         .limit(20),
 
       // Balsai šiandien
-      sb.from('daily_song_votes')
-        .select('nomination_id, weight')
-        .eq('date', today),
+      sb.from('daily_song_votes').select('nomination_id, weight').eq('date', today),
 
       // Vakarykštis laimėtojas (fallback)
       sb.from('daily_song_winners')
         .select('id, date, tracks!track_id(title, slug, cover_url, video_url, artists!artist_id(name, slug, cover_image_url))')
-        .lt('date', today)
-        .order('date', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .lt('date', today).order('date', { ascending: false }).limit(1).maybeSingle(),
 
-      // Blog įrašai: visi tipai, last 60d, engagement desc
-      // summary — teksto intro parodymui; list_items — topas įrašams
+      // Blog įrašai: +hide_from_homepage, +summary, +list_items, +target_*
       sb.from('blog_posts')
-        .select('id, slug, title, post_type, summary, cover_image_url, like_count, comment_count, published_at, list_items, target_track_id, target_album_id, target_artist_id, blogs:blog_id(slug, profiles:user_id(id, username, full_name, avatar_url))')
+        .select('id, slug, title, post_type, summary, cover_image_url, like_count, comment_count, published_at, list_items, target_track_id, target_album_id, target_artist_id, target_event_id, blogs:blog_id(slug, profiles:user_id(id, username, full_name, avatar_url, hide_from_homepage))')
         .eq('status', 'published')
         .not('published_at', 'is', null)
         .gte('published_at', blog60d)
         .order('published_at', { ascending: false })
         .limit(80),
 
-      // Diskusijos: tik su recent activity (2m), sort by last_comment_at desc
-      // legacy_id reikalingas forum_posts latest comment fetch'ui
+      // Diskusijos: activity 2y+, sort by last_comment_at, +legacy_id
       sb.from('discussions')
         .select('id, slug, title, author_name, author_avatar, comment_count, created_at, last_comment_at, legacy_id, artist:artists!discussions_artist_id_fkey(name, cover_image_url)')
         .eq('is_deleted', false)
@@ -105,20 +81,34 @@ export async function GET() {
     }
     const noms = [...((nomRes.data || []) as any[])]
       .sort((a, b) => (voteTotals[b.id] || 0) - (voteTotals[a.id] || 0))
-    const topNom = noms[0] || null
+
+    const makeDDCover = (nom: any) => {
+      const track = nom.tracks
+      const artist = first<any>(track?.artists)
+      return ytThumb(track?.video_url) || track?.cover_url || artist?.cover_image_url || null
+    }
+    const makeDDName = (nom: any) => first<any>(nom.tracks?.artists)?.name || null
 
     let ddItem: any = null
-    if (topNom) {
-      const track = topNom.tracks
+    if (noms.length) {
+      const top = noms[0]
+      const track = top.tracks
       const artist = first<any>(track?.artists)
       ddItem = {
-        id: `dd_today_${topNom.id}`,
+        id: `dd_today_${top.id}`,
         type: 'dd', subtype: 'today_leader',
         title: track?.title || 'Dienos daina', href: '/dienos-daina',
-        cover: ytThumb(track?.video_url) || track?.cover_url || artist?.cover_image_url || null,
+        cover: makeDDCover(top),
         author_name: artist?.name || null, author_slug: artist?.slug || null, author_avatar: null,
         created_at: today,
-        vote_count: voteTotals[topNom.id] || 0, vote_total: noms.length,
+        vote_count: voteTotals[top.id] || 0, vote_total: noms.length,
+        // Kiti kandidatai (max 3)
+        candidates: noms.slice(1, 4).map(n => ({
+          title: n.tracks?.title || '?',
+          artist: makeDDName(n),
+          cover: makeDDCover(n),
+          votes: voteTotals[n.id] || 0,
+        })),
       }
     } else if (pastWinnerRes.data) {
       const w = pastWinnerRes.data as any
@@ -130,7 +120,7 @@ export async function GET() {
         title: track?.title || 'Dienos daina', href: '/dienos-daina',
         cover: ytThumb(track?.video_url) || track?.cover_url || artist?.cover_image_url || null,
         author_name: artist?.name || null, author_slug: artist?.slug || null, author_avatar: null,
-        created_at: w.date, vote_count: null, vote_total: null,
+        created_at: w.date, vote_count: null, vote_total: null, candidates: [],
       }
     }
 
@@ -147,10 +137,9 @@ export async function GET() {
         if (b.target_track_id) tgtTracks.add(b.target_track_id)
         if (b.target_album_id) tgtAlbums.add(b.target_album_id)
         if (b.target_artist_id) tgtArtists.add(b.target_artist_id)
-        // Topas: pirmas entry su entity_id (naujasis formatas)
         if (b.post_type === 'topas' && Array.isArray(b.list_items)) {
           for (const e of b.list_items.slice(0, 3)) {
-            if (e.image_url) break // turima, nereikia DB
+            if (e.image_url) break
             if (e.entity_id) {
               if (e.type === 'artist') topasArtists.add(e.entity_id)
               else if (e.type === 'track') topasTracks.add(e.entity_id)
@@ -169,11 +158,11 @@ export async function GET() {
           topasTracks.size ? sb.from('tracks').select('id, cover_url, video_url, artist:artist_id(cover_image_url)').in('id', [...topasTracks]) : Promise.resolve({ data: [] }),
           topasArtists.size ? sb.from('artists').select('id, cover_image_url').in('id', [...topasArtists]) : Promise.resolve({ data: [] }),
         ])
-        const trackImg = (t: any) => ytThumb(t.video_url) || t.cover_url || first<any>(t.artist)?.cover_image_url || null
+        const trackImgOf = (t: any) => ytThumb(t.video_url) || t.cover_url || first<any>(t.artist)?.cover_image_url || null
         for (const row of (tj.data || []) as any[]) {
           if (thumbByPost.has(row.post_id)) continue
           const t = first<any>(row.tracks); if (!t) continue
-          const img = trackImg(t); if (img) thumbByPost.set(row.post_id, img)
+          const img = trackImgOf(t); if (img) thumbByPost.set(row.post_id, img)
         }
         for (const row of (aj.data || []) as any[]) {
           if (thumbByPost.has(row.post_id)) continue
@@ -184,50 +173,58 @@ export async function GET() {
           const a = first<any>(row.artists); if (a?.cover_image_url) thumbByPost.set(row.post_id, a.cover_image_url)
         }
         const tgtTrackImg = new Map<number, string | null>()
-        for (const t of (tgtT.data || []) as any[]) tgtTrackImg.set(t.id, trackImg(t))
+        for (const t of (tgtT.data || []) as any[]) tgtTrackImg.set(t.id, trackImgOf(t))
         const tgtAlbumImg = new Map<number, string>((tgtA.data || []).map((a: any) => [a.id, a.cover_image_url]))
         const tgtArtistImg = new Map<number, string>((tgtAr.data || []).map((a: any) => [a.id, a.cover_image_url]))
-        const topasTrackImg = new Map<number, string | null>()
-        for (const t of (tpT.data || []) as any[]) topasTrackImg.set(t.id, trackImg(t))
-        const topasArtistImg = new Map<number, string>((tpAr.data || []).map((a: any) => [a.id, a.cover_image_url]))
+        const topTrackImg = new Map<number, string | null>()
+        for (const t of (tpT.data || []) as any[]) topTrackImg.set(t.id, trackImgOf(t))
+        const topArtistImg = new Map<number, string>((tpAr.data || []).map((a: any) => [a.id, a.cover_image_url]))
+
         for (const b of blogRows) {
           if (thumbByPost.has(b.id) || b.cover_image_url) continue
-          // target_* resolve
           const img =
             (b.target_track_id && tgtTrackImg.get(b.target_track_id)) ||
             (b.target_album_id && tgtAlbumImg.get(b.target_album_id)) ||
             (b.target_artist_id && tgtArtistImg.get(b.target_artist_id)) || null
           if (img) { thumbByPost.set(b.id, img); continue }
-          // topas entity resolve
           if (b.post_type === 'topas' && Array.isArray(b.list_items)) {
             for (const e of b.list_items.slice(0, 3)) {
               if (e.image_url) { thumbByPost.set(b.id, e.image_url); break }
-              if (e.entity_id) {
-                const eImg = (e.type === 'artist' && topasArtistImg.get(e.entity_id)) ||
-                             (e.type === 'track' && topasTrackImg.get(e.entity_id)) || null
-                if (eImg) { thumbByPost.set(b.id, eImg); break }
-              }
+              const eImg = (e.entity_id && e.type === 'artist' && topArtistImg.get(e.entity_id)) ||
+                           (e.entity_id && e.type === 'track' && topTrackImg.get(e.entity_id)) || null
+              if (eImg) { thumbByPost.set(b.id, eImg); break }
             }
           }
         }
       } catch {}
     }
 
-    // ── Blog items ────────────────────────────────────────────────────────────
-    type TopasEntry = { rank: number; title: string; artist: string | null; image: string | null }
+    // ── Blog items — 1-per-type + hide_from_homepage filter ──────────────────
+    // Type key: vienas įrašas per semantinę kategoriją
+    const typeSeen = new Set<string>()
     const seenAuthors = new Set<string>()
     const blogItems: any[] = []
     for (const b of blogRows) {
       if (!b.title) continue
-      const cover = b.cover_image_url || thumbByPost.get(b.id) || null
       const author = b.blogs?.profiles || null
+      // Filtruojam narius su hide_from_homepage = true
+      if (author?.hide_from_homepage === true) continue
       const key = author?.username || author?.id || `post-${b.id}`
       if (seenAuthors.has(key)) continue
       seenAuthors.add(key)
+
+      // 1-per-type taisyklė
+      const tkey = b.post_type === 'review'
+        ? (b.target_event_id ? 'review_event' : b.target_album_id ? 'review_album' : 'review_track')
+        : (b.post_type || 'article')
+      if (typeSeen.has(tkey)) continue
+      typeSeen.add(tkey)
+
+      const cover = b.cover_image_url || thumbByPost.get(b.id) || null
       const blogSlug = b.blogs?.slug || author?.username || null
 
-      // Topas: pirmos 3 vietos su vizualais
-      let entries: TopasEntry[] | null = null
+      // Topas entries (top 3)
+      let entries: any[] | null = null
       if (b.post_type === 'topas' && Array.isArray(b.list_items) && b.list_items.length) {
         entries = (b.list_items as any[])
           .sort((a, z) => (a.rank ?? a.position ?? 99) - (z.rank ?? z.position ?? 99))
@@ -240,14 +237,12 @@ export async function GET() {
           }))
       }
 
-      // Teksto intro (summary arba išvalytas HTML, maks 100 simbolių)
       const excerpt = b.summary
         ? (b.summary.length > 100 ? b.summary.slice(0, 100).trimEnd() + '…' : b.summary)
         : null
 
       blogItems.push({
-        id: `blog-${b.id}`,
-        type: 'blog', subtype: b.post_type || null,
+        id: `blog-${b.id}`, type: 'blog', subtype: b.post_type || null,
         title: b.title, href: blogSlug ? `/blogas/${blogSlug}/${b.slug || b.id}` : '/blogas',
         cover, excerpt, entries,
         author_name: author?.full_name || author?.username || null,
@@ -259,7 +254,8 @@ export async function GET() {
     }
     blogItems.sort((a, b) => b.engagement - a.engagement || (a.created_at < b.created_at ? 1 : -1))
 
-    // ── Diskusijų latest comments ─────────────────────────────────────────────
+    // ── Diskusijos — 1 vnt, latest comment iš forum_posts ────────────────────
+    // SVARBU: nefiltruojam parent_post_legacy_id — norim paskutinį bet kokį postą
     const discRows = (discRes.data || []) as any[]
     const legacyIds = discRows.map(d => d.legacy_id).filter(Boolean) as number[]
     const lastCommentByLegacy = new Map<number, { text: string; author: string | null; avatar: string | null; time: string }>()
@@ -269,14 +265,14 @@ export async function GET() {
           .from('forum_posts')
           .select('thread_legacy_id, content_text, author_username, author_avatar_url, created_at')
           .in('thread_legacy_id', legacyIds)
-          .is('parent_post_legacy_id', null)
+          // BEZ parent_post_legacy_id filtro — norim PASKUTINĮ komentarą, ne tik top-level
           .order('created_at', { ascending: false })
-          .limit(120)
+          .limit(100)
         for (const p of (posts || []) as any[]) {
           if (lastCommentByLegacy.has(p.thread_legacy_id)) continue
           const text = (p.content_text || '').replace(/\s+/g, ' ').trim()
           lastCommentByLegacy.set(p.thread_legacy_id, {
-            text: text.length > 100 ? text.slice(0, 100).trimEnd() + '…' : text,
+            text: text.length > 110 ? text.slice(0, 110).trimEnd() + '…' : text,
             author: p.author_username || null,
             avatar: p.author_avatar_url || null,
             time: p.created_at,
@@ -285,36 +281,32 @@ export async function GET() {
       } catch {}
     }
 
-    // ── Diskusijų items ───────────────────────────────────────────────────────
+    // Tik 1 diskusija (1-per-type)
     const discItems: any[] = []
-    for (const d of discRows) {
+    for (const d of discRows.slice(0, 1)) {
       const artist = first<any>(d.artist)
       const lastComment = d.legacy_id ? (lastCommentByLegacy.get(d.legacy_id) || null) : null
       discItems.push({
-        id: `disc-${d.id}`,
-        type: 'discussion',
-        title: d.title || '',
-        href: `/diskusijos/${d.slug || d.id}`,
+        id: `disc-${d.id}`, type: 'discussion',
+        title: d.title || '', href: `/diskusijos/${d.slug || d.id}`,
         cover: artist?.cover_image_url || null,
-        author_name: d.author_name || null,
-        author_avatar: d.author_avatar || null,
+        author_name: d.author_name || null, author_avatar: d.author_avatar || null,
         created_at: d.last_comment_at || d.created_at,
         comment_count: d.comment_count || 0,
         last_comment: lastComment,
       })
     }
 
-    // ── Merge 2:1 (blog:disc), DD pirmasis ───────────────────────────────────
+    // ── Merge: blog + disc interleaved, DD pirmasis ───────────────────────────
     const merged: any[] = []
     let bi = 0, di = 0
-    while (merged.length < 12 && (bi < blogItems.length || di < discItems.length)) {
+    while (merged.length < 10 && (bi < blogItems.length || di < discItems.length)) {
       if (bi < blogItems.length) merged.push(blogItems[bi++])
-      if (bi < blogItems.length && merged.length < 12) merged.push(blogItems[bi++])
-      if (di < discItems.length && merged.length < 12) merged.push(discItems[di++])
+      if (bi < blogItems.length && merged.length < 10) merged.push(blogItems[bi++])
+      if (di < discItems.length && merged.length < 10) merged.push(discItems[di++])
     }
 
     const items = ddItem ? [ddItem, ...merged] : merged
-
     return NextResponse.json({ items }, {
       headers: { 'Cache-Control': 'public, s-maxage=180, stale-while-revalidate=360' },
     })
