@@ -61,7 +61,7 @@ function getTypeMeta(type: string, sub?: string | null, editorial?: string | nul
   if (sub === 'topas') return { label: 'Topas' }
   if (sub === 'creation') return { label: 'Kūryba' }
   if (sub === 'translation') return { label: 'Vertimas' }
-  if (sub === 'review') return { label: 'Apžvalga' }
+  if (sub === 'review') return { label: 'Muzikos apžvalga' }
   if (sub === 'article') {
     if (editorial === 'recenzija') return { label: 'Muzikos apžvalga' }
     if (editorial === 'koncertai') return { label: 'Koncertų įspūdžiai' }

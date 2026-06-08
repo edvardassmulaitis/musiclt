@@ -145,7 +145,7 @@ export async function POST(req: Request) {
     unmatched: resolved.filter(r => r.state === 'unmatched').length,
   }
 
-  const { error: upErr } = await sb.from('blog_posts').update({ list_items: newItems }).eq('id', id)
+  const { error: upErr } = await sb.from('blog_posts').update({ list_items: newItems, homepage_reviewed_at: new Date().toISOString() }).eq('id', id)
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
 
   return NextResponse.json({ ok: true, summary, items: newItems })

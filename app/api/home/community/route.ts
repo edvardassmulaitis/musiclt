@@ -251,12 +251,13 @@ export async function GET() {
       if (b.post_type === 'event') continue
       if (b.post_type === 'article' && !['recenzija', 'koncertai'].includes(b.editorial_type || '')) continue
 
-      // 1-per-type taisyklė (article → skaidome pagal editorial_type)
-      const tkey = b.post_type === 'review'
-        ? (b.target_event_id ? 'review_event' : b.target_album_id ? 'review_album' : 'review_track')
+      // 1-per-type taisyklė (plokščias tipas, suderintas su /admin/irasai).
+      // review IR article/recenzija → VIENAS „Muzikos apžvalga" bucket (rodom naujausią iš abiejų).
+      const tkey =
+        b.post_type === 'review' ? 'muzikos_apzvalga'
         : b.post_type === 'article'
-          ? `article_${b.editorial_type}`
-          : (b.post_type || 'review_track')
+          ? (b.editorial_type === 'recenzija' ? 'muzikos_apzvalga' : 'koncertai')
+          : b.post_type
       if (typeSeen.has(tkey)) continue
       typeSeen.add(tkey)
 
