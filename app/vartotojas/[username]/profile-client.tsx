@@ -24,8 +24,20 @@ import Link from 'next/link'
 import { SideEqualizer } from '@/components/profile/SideEqualizer'
 import { DailyPickCard } from '@/components/profile/DailyPicksCards'
 import { ProfileInfoModal, ProfileAboutContent } from '@/components/profile/ProfileInfoModal'
-import { GENRE_COLORS } from '@/lib/genre-colors'
+import { GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
 import { FULL_TO_SHORT } from '@/components/profile/SideEqualizer'
+
+// V14: DISPLAY_ORDER iš SideEqualizer — ta pati tvarka kaip pilname equalizeryje.
+const TASTE_DISPLAY_ORDER: string[] = [
+  'Pop, R&B muzika',
+  'Elektroninė, šokių muzika',
+  "Hip-hop'o muzika",
+  'Alternatyvioji muzika',
+  'Roko muzika',
+  'Sunkioji muzika',
+  'Rimtoji muzika',
+  'Kitų stilių muzika',
+]
 import { GenreFilterModal } from '@/components/profile/GenreFilterModal'
 import { MoreItemsModal } from '@/components/profile/MoreItemsModal'
 import { FavoriteArtistsCollage } from '@/components/profile/FavoriteArtistsCollage'
@@ -125,13 +137,16 @@ export function ProfileClient(props: any) {
 
   // V11.2: ilgesnė bio ištrauka identity stulpeliui — pirmas paragrafas iki
   // ~220 simbolių (line-clamp-3 nutrina vizualiai jei reikia).
+  // V14: naudojam legacy_signature (Parašas) kaip bio overview tekstą,
+  // fallback į bio jei signature nėra.
   const bioSnippet = useMemo(() => {
-    if (!profile.bio) return null
-    const firstPara = (profile.bio as string).split(/\n\s*\n/)[0].replace(/\s+/g, ' ').trim()
+    const raw = profile.legacy_signature || profile.bio
+    if (!raw) return null
+    const firstPara = (raw as string).split(/\n\s*\n/)[0].replace(/\s+/g, ' ').trim()
     if (!firstPara) return null
     if (firstPara.length <= 220) return firstPara
     return firstPara.slice(0, 217).replace(/\s+\S*$/, '') + '…'
-  }, [profile.bio])
+  }, [profile.legacy_signature, profile.bio])
 
   // V11.2: real photo iš legacy_profile_photos array'aus (rezervuota
   // ProfileInfoModal'ui kaip pilna galerija; čia tik pirma — kaip portretas).
@@ -534,8 +549,6 @@ function MobileProfileView(props: any) {
   const [active, setActive] = useState<MobileTabKey>(defaultTab)
 
   const avatar = realPhotoUrl || profile.avatar_url || null
-  const title = profile.full_name || profile.username
-  const showHandle = !!profile.full_name && profile.full_name !== profile.username
 
   return (
     <div>
@@ -556,9 +569,9 @@ function MobileProfileView(props: any) {
           )}
         </div>
 
-        {/* ── HEADER (kompaktiškas) ── */}
+        {/* ── HEADER (V14 redesign) ── */}
         <header className="px-4 pt-3 pb-2.5">
-          {/* Viršus: avataras + nuotaikos daina + equalizer (vienodo aukščio) */}
+          {/* Viršus: avataras | @username + popbar | TasteChip */}
           <div className="flex items-center gap-2.5">
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -570,39 +583,38 @@ function MobileProfileView(props: any) {
                 {(profile.username || '?')[0]?.toUpperCase()}
               </div>
             )}
-            {moodTrack ? <MobileMoodPill track={moodTrack} fill /> : <div className="flex-1" />}
+
+            {/* Centrinis blokas: @username + popbar */}
+            <div className="flex-1 min-w-0">
+              <h1 className="font-black leading-[1.0] tracking-[-0.035em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] truncate"
+                  style={{ fontSize: 'clamp(1.15rem, 5.2vw, 1.55rem)', fontFamily: "'Outfit', sans-serif" }}>
+                @{profile.username}
+              </h1>
+              {activityLevel > 0 && (
+                <div className="mt-1">
+                  <PopBarChip level={activityLevel} title="Aktyvumas — turinio kūrimo intensyvumas" delayMs={700} revealDelayMs={500}
+                    icon={<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" /></svg>} />
+                </div>
+              )}
+            </div>
+
             {hasMusicMeter && <TasteChip meter={profile.legacy_music_meter} onClick={() => onOpenTaste()} />}
           </div>
 
-          {/* Vardas */}
-          <h1 className="mt-2.5 font-black leading-[1.0] tracking-[-0.035em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]"
-              style={{ fontSize: 'clamp(1.4rem, 6.2vw, 1.85rem)', fontFamily: "'Outfit', sans-serif" }}>
-            {title}
-          </h1>
-
-          {/* @username + aktyvumo popbar po vardu */}
-          {(showHandle || activityLevel > 0) && (
-            <div className="mt-1 flex items-center gap-2 flex-wrap">
-              {showHandle && (
-                <span className="text-[12.5px] font-semibold"
-                      style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.58)' }}>
-                  @{profile.username}
-                </span>
-              )}
-              {activityLevel > 0 && (
-                <PopBarChip level={activityLevel} title="Aktyvumas — turinio kūrimo intensyvumas" delayMs={700} revealDelayMs={500}
-                  icon={<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" /></svg>} />
-              )}
+          {/* Nuotaikos daina — po avataaro eilės, jei yra */}
+          {moodTrack && (
+            <div className="mt-2">
+              <MobileMoodPill track={moodTrack} fill />
             </div>
           )}
 
-          {/* Sekti + Dalintis po vardu */}
+          {/* Sekti + Dalintis */}
           <div className="mt-2.5 flex items-center gap-2">
             <FollowButton targetId={profile.id} variant="ghost" />
             <ShareButton username={profile.username} />
           </div>
 
-          {/* Message (bio) — kompaktiška */}
+          {/* Parašas (bio) — kompaktiška */}
           {bioSnippet && (
             <p className="mt-2 text-[12.5px] leading-snug line-clamp-2"
                style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.74)' }}>
@@ -907,10 +919,13 @@ function TasteChip({ meter, onClick }: { meter: any; onClick: () => void }) {
     if (Array.isArray(meter)) {
       for (const m of meter) byShort.set(m.name, m.percent ?? 0)
     }
-    const list = GENRE_COLORS.map((g) => {
-      const short = FULL_TO_SHORT[g.name]
+    // V14: iteruojam TASTE_DISPLAY_ORDER (ta pati tvarka kaip SideEqualizer),
+    // spalvas lookupam iš GENRE_COLOR_BY_NAME.
+    const list = TASTE_DISPLAY_ORDER.map((fullName) => {
+      const gc = GENRE_COLOR_BY_NAME[fullName]
+      const short = FULL_TO_SHORT[fullName] ?? ''
       const pct = byShort.get(short) ?? (short === 'Pop, R&B' ? byShort.get('Pop-RB') ?? 0 : 0)
-      return { rgb: g.rgb, hex: g.hex, pct: pct as number }
+      return { rgb: gc?.rgb ?? '120,120,120', hex: gc?.hex ?? '#787878', pct: pct as number }
     })
     return list
   }, [meter])
