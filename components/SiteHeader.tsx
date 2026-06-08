@@ -360,8 +360,21 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
             textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--accent-green)',
             margin: '14px 0 7px',
           }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>📡 Naujos muzikos radaras</span>
-            <Link href="/nauji-atlikejai" className="sh-more-link" style={{ color: 'var(--accent-green)' }}>Visi →</Link>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="15" height="15" viewBox="0 0 32 32" fill="none" aria-hidden style={{ flexShrink: 0 }}>
+                <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.45" />
+                <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
+                <g>
+                  <animateTransform attributeName="transform" type="rotate" from="0 16 16" to="360 16 16" dur="2.8s" repeatCount="indefinite" />
+                  <path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="var(--accent-orange)" opacity="0.26" />
+                  <line x1="16" y1="16" x2="16" y2="3" stroke="var(--accent-orange)" strokeWidth="1.6" strokeLinecap="round" />
+                </g>
+                <circle cx="20.5" cy="11" r="1.5" fill="var(--accent-green)" />
+                <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
+              </svg>
+              Muzikos atradimų radaras
+            </span>
+            <Link href="/nauji-atlikejai" className="sh-more-link" style={{ color: 'var(--accent-green)' }}>Daugiau →</Link>
           </div>
           {renderRadarRow()}
         </>
@@ -385,7 +398,6 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
             Stiliai
           </span>
           <span style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <Link href="/muzikos-atradimai" className="sh-more-link" style={{ color: 'var(--accent-orange)' }}>✨ Muzikos atradimai →</Link>
             <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
           </span>
         </div>
