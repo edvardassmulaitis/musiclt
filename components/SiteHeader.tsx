@@ -12,6 +12,7 @@ import { useSite } from '@/components/SiteContext'
 import { proxyImg } from '@/lib/img-proxy'
 import { GENRE_COLORS, GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
 import { NEWS_STYLES, NEWS_TYPES, NEWS_SCOPES } from '@/lib/news-taxonomy'
+import { LISTING_TYPES, LISTING_TYPE_ORDER } from '@/lib/skelbimai'
 
 // Stilių išdėstymo tvarka nav dropdown'e (2 eilutės po 4 — Edvardo prašymu 2026-05-31).
 // 1 eilutė: Rokas, Sunkioji, Klasika, Alternatyva · 2 eilutė: Pop, Hip-hop, Elektronika, Kiti.
@@ -57,6 +58,7 @@ type NavPreview = {
   newsWorld?:   { id: string | number; slug: string; title: string; image: string | null; date: string | null }[]
   dailySongs?:  { slug: string; title: string; artist: string; image: string | null; date: string | null }[]
   discoveryPosts?: { id: number; slug: string; title: string; blogSlug: string | null; postType: string; image: string | null; author: string }[]
+  listings?:    { id: string; type: string; title: string; image: string | null; price: string | null; city: string | null }[]
   /** name → cover_image_url map (admin'as nustato per /admin/genres) */
   genres?:      Record<string, string | null>
   /** žanro name → atlikėjų skaičius (stilių chip'ų rikiavimui) */
@@ -362,20 +364,21 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
         <>
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-            fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 800,
-            textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--accent-green)',
             margin: '14px 0 7px',
           }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="15" height="15" viewBox="0 0 32 32" fill="none" aria-hidden style={{ flexShrink: 0 }}>
-                <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.45" />
-                <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
+            {/* Pill badge — identiškas /nauji-atlikejai puslapio rd-hero-tag */}
+            <span className="sh-radar-badge">
+              <svg width="13" height="13" viewBox="0 0 32 32" fill="none" aria-hidden style={{ flexShrink: 0 }}>
+                <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.45" />
+                <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.32" />
                 <g>
                   <animateTransform attributeName="transform" type="rotate" from="0 16 16" to="360 16 16" dur="2.8s" repeatCount="indefinite" />
                   <path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="var(--accent-orange)" opacity="0.26" />
-                  <line x1="16" y1="16" x2="16" y2="3" stroke="var(--accent-orange)" strokeWidth="1.6" strokeLinecap="round" />
+                  <line x1="16" y1="16" x2="16" y2="3" stroke="var(--accent-orange)" strokeWidth="1.8" strokeLinecap="round" />
                 </g>
-                <circle cx="20.5" cy="11" r="1.5" fill="var(--accent-green)" />
+                <circle cx="20.5" cy="11" r="1.5" fill="var(--accent-green)">
+                  <animate attributeName="opacity" values="0;0;1;1;0.15" keyTimes="0;0.25;0.42;0.78;1" dur="2.8s" repeatCount="indefinite" />
+                </circle>
                 <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
               </svg>
               Naujos muzikos radaras
@@ -789,50 +792,55 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
   )
 }
 
-function SkelbimaiPanel({ accent }: { accent: string }) {
+function SkelbimaiPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
+  const listings = data?.listings || []
   return (
     <div className="sh-panel">
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Marketplace</span>
-        <span className="sh-soon-pill">Greitai</span>
+      {/* ── Naujausi skelbimai — realūs itemai (juosta kaip Muzika/Topai) ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>
+          <span className="sh-trending-glyph">{I.market}</span>
+          Naujausi skelbimai
+        </span>
+        <Link href="/skelbimai" className="sh-more-link">Daugiau →</Link>
       </div>
 
-      {/* Hero kortelė — abstract gradient su decorative shapes */}
-      <Link href="/skelbimai" className="sh-hero-card" style={{ ['--it-rgb' as any]: hexToRgb('#10b981') }}>
-        <span className="sh-hero-deco-circle sh-hero-deco-1" />
-        <span className="sh-hero-deco-circle sh-hero-deco-2" />
-        <span className="sh-hero-deco-circle sh-hero-deco-3" />
-        <span className="sh-hero-content">
-          <span className="sh-hero-eyebrow">Music marketplace</span>
-          <span className="sh-hero-icon">{I.market}</span>
-          <span className="sh-hero-title">Skelbimai</span>
-          <span className="sh-hero-desc">
-            Pirk, parduok, mainykis. Vinilas, instrumentai, audio įranga
-            ir muzikinės paslaugos vienoje vietoje.
-          </span>
-          <span className="sh-hero-cta">Greitai paleidžiame <ArrowRight size={13}/></span>
-        </span>
-      </Link>
-
-      {/* Kategorijų plytelės */}
-      <div style={{ marginTop: 12 }}>
-        <div className="sh-panel-section" style={{ marginBottom: 8 }}>
-          <span className="sh-panel-section-title">Kategorijos</span>
+      {listings.length > 0 ? (
+        <div className="sh-strip-wrap">
+          <div className="sh-strip">
+            {listings.map(l => (
+              <Link key={l.id} href={`/skelbimai/skelbimas/${l.id}`} className="sh-mini sh-mini-xl">
+                <ImageBox src={l.image} accent="#10b981" glyph={I.market} className="sh-mini-img" />
+                <span className="sh-mini-title sh-mini-title-2">{l.title}</span>
+                {l.price
+                  ? <span className="sh-mini-meta" style={{ color: 'var(--accent-green)', fontWeight: 700 }}>{l.price}</span>
+                  : l.city ? <span className="sh-mini-meta">{l.city}</span> : null}
+              </Link>
+            ))}
+          </div>
         </div>
-        <div className="sh-chiprow">
-          {[
-            { label: 'Vinilas',         icon: I.vinyl   },
-            { label: 'CD ir kasetės',   icon: I.boombox },
-            { label: 'Instrumentai',    icon: I.guitar  },
-            { label: 'Audio įranga',    icon: I.music   },
-            { label: 'Studijos',        icon: I.quiz    },
-            { label: 'Paslaugos',       icon: I.market  },
-          ].map(t => (
-            <Link key={t.label} href="/skelbimai" className="sh-navchip" title={t.label}>
-              <span className="sh-navchip-ic" aria-hidden>{t.icon}</span>
-              {t.label}
-            </Link>
-          ))}
+      ) : (
+        <Link href="/skelbimai/naujas" style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 12,
+          border: '1px dashed var(--border-default)', background: 'var(--bg-surface)', textDecoration: 'none',
+        }}>
+          <span style={{ color: '#10b981', display: 'flex' }}>{I.market}</span>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Skelbimų dar nėra — <span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>įdėk pirmas</span></span>
+        </Link>
+      )}
+
+      {/* ── Kategorijos — realūs skelbimų tipai ── */}
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+        <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 8 }}>Kategorijos</div>
+        <div className="sh-chiprow sh-chiprow-fill">
+          {LISTING_TYPE_ORDER.map(t => {
+            const meta = LISTING_TYPES[t]
+            return (
+              <Link key={t} href={`/skelbimai/${meta.slug}`} className="sh-navchip" title={meta.subtitle}>
+                {meta.label}
+              </Link>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -2101,6 +2109,22 @@ export function SiteHeader() {
         @keyframes sh-pulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50%      { opacity: 0.5; transform: scale(1.4); }
+        }
+
+        /* Radaras pill badge nav dropdown'e — atitinka rd-hero-tag puslapyje */
+        .sh-radar-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          font-family: 'Outfit', sans-serif; font-size: 11px; font-weight: 700;
+          text-transform: uppercase; letter-spacing: 0.09em;
+          color: var(--accent-green);
+          background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.30);
+          border-radius: 40px; padding: 4px 10px;
+          animation: sh-radar-pulse 2s infinite;
+        }
+        @keyframes sh-radar-pulse {
+          0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+          70%  { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+          100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
         }
 
         /* Hero kortelė (Pramogos / Skelbimai) — abstract gradient bg + decorative shapes */

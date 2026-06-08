@@ -101,12 +101,14 @@ export function RadarSweep() {
       {[44, 68, 92].map((r) => (
         <circle key={r} cx="100" cy="100" r={r} fill="none" stroke="url(#rdg)" strokeWidth="1" opacity="0.7" />
       ))}
-      {/* besisukantis skenavimo spindulys */}
-      <g className="rd-sweep-rot" style={{ transformOrigin: '100px 100px' }}>
+      {/* besisukantis skenavimo spindulys — animateTransform (ne CSS) kad veiktų visuose browser'iuose */}
+      <g>
+        <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="6s" repeatCount="indefinite" />
         <path d="M100 100 L100 8 A92 92 0 0 1 165 35 Z" fill="url(#rdsweep)" />
       </g>
-      {/* „blip" kaip nata ant rato */}
-      <g className="rd-blip" style={{ transformOrigin: '100px 100px' }}>
+      {/* „blip" seka spindulį — atskiras animateTransform tam pačiu ritmu */}
+      <g>
+        <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="6s" repeatCount="indefinite" />
         <circle cx="156" cy="78" r="3.2" fill="var(--accent-orange)" />
       </g>
       {/* centro ekvalaizeris */}
@@ -288,13 +290,10 @@ export const radarStyles = `
 
 /* radar sweep svg */
 .rd-sweep { width:150px; height:150px; flex-shrink:0; position:relative; z-index:1; opacity:.9; }
-.rd-sweep-rot { animation:rdrot 6s linear infinite; }
-@keyframes rdrot { to { transform:rotate(360deg); } }
-.rd-blip { animation:rdrot 6s linear infinite; }
 .rd-eq rect { animation:rdeq 1.1s ease-in-out infinite alternate; }
 @keyframes rdeq { from { transform:scaleY(0.35); } to { transform:scaleY(1); } }
 @media (prefers-reduced-motion: reduce) {
-  .rd-sweep-rot, .rd-blip, .rd-eq rect { animation:none; }
+  .rd-eq rect { animation:none; }
 }
 @media(max-width:760px){ .rd-sweep { display:none; } }
 
