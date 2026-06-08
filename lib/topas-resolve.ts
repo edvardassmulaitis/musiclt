@@ -217,9 +217,11 @@ export function parseTopasArticle(content: string): ParsedTopas {
   }
   if (!heads.length) return { intro: stripTags(c), outro: '', entries: [] }
 
-  // outro žymeklis (pvz. „Garbingų paminėjimų")
-  const om = c.match(/garbing\w*\s+paminėjim/i)
-  const omIdx = om && om.index != null && om.index > heads[heads.length - 1].hStart ? om.index : -1
+  // outro žymeklis (pvz. „Garbingų paminėjimų") — IEŠKOM TIK PO paskutinės antraštės
+  // (žymeklis dažnai paminimas ir įžangoje, tad globalus match'as klaidingas).
+  const lastHeadEnd = heads[heads.length - 1].hEnd
+  const omTail = c.slice(lastHeadEnd).match(/garbing\w*\s+paminėjim/i)
+  const omIdx = omTail && omTail.index != null ? lastHeadEnd + omTail.index : -1
 
   // pastraipos pradžios snap'as (švarus HTML pjūvis)
   const pStartBefore = (idx: number) => { const i = c.lastIndexOf('<p', idx); return i >= 0 ? i : idx }
