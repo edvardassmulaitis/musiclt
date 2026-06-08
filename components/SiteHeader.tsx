@@ -459,8 +459,9 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
   // Dainų juosta su flag/spalvos stripe — kompaktiškos kortelės (cover+title+artist).
   const renderSongRow = (kind: 'lt' | 'world', title: string, href: string, hex: string, entries: TopMini[]) => (
     <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
         <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{title}</span>
+        <Link href={href} className="sh-more-link">Daugiau →</Link>
       </div>
       <div className="sh-strip-wrap">
         <RowStripe kind={kind} />
@@ -474,12 +475,6 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
             </Link>
           ))}
         </div>
-        <Link href={href} className="sh-expand-btn" aria-label="Atverti visą topą" title="Atverti visą topą">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-            <line x1="8" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="20" y2="12" /><line x1="8" y1="18" x2="20" y2="18" />
-            <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" />
-          </svg>
-        </Link>
       </div>
     </div>
   )
@@ -560,19 +555,21 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
   const eventsWorld = data?.eventsWorld || []
 
   const renderRow = (list: NonNullable<NavPreview['eventsLt']>, kind: 'lt' | 'world') => (
-    <div className="sh-strip-wrap">
-      <RowStripe kind={kind} />
-      <div className="sh-strip">
-        {(list.length > 0 ? list : Array(5).fill(null)).map((e, i) => (
-          <Link key={e?.id || `${kind}-${i}`} href={e ? `/renginiai/${e.slug}` : '/koncertai'} className="sh-mini sh-mini-xl">
-            <ImageBox src={e?.image} accent={accent} glyph={I.calendar} className="sh-mini-img" />
-            <span className="sh-mini-title sh-mini-title-2">{e?.title || <span style={{ opacity: 0.45 }}>Koncertas</span>}</span>
-          </Link>
-        ))}
+    <div>
+      <div className="sh-strip-more">
+        <Link href="/koncertai" className="sh-more-link">Daugiau →</Link>
       </div>
-      <Link href="/koncertai" className="sh-expand-btn" aria-label="Visi koncertai" title="Visi koncertai">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></svg>
-      </Link>
+      <div className="sh-strip-wrap">
+        <RowStripe kind={kind} />
+        <div className="sh-strip">
+          {(list.length > 0 ? list : Array(5).fill(null)).map((e, i) => (
+            <Link key={e?.id || `${kind}-${i}`} href={e ? `/renginiai/${e.slug}` : '/koncertai'} className="sh-mini sh-mini-xl">
+              <ImageBox src={e?.image} accent={accent} glyph={I.calendar} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{e?.title || <span style={{ opacity: 0.45 }}>Koncertas</span>}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   )
 
@@ -673,7 +670,7 @@ function AtradimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
       </div>
 
       {/* Dienos dainos — nugalėtojų juosta */}
-      {sectionHead('Dienos dainos', I.music, '/dienos-daina', 'Visos')}
+      {sectionHead('Dienos dainos', I.music, '/dienos-daina', 'Daugiau')}
       <div className="sh-strip-wrap">
         <div className="sh-strip">
           {(dailySongs.length > 0 ? dailySongs : Array(6).fill(null)).map((s: any, i: number) => (
@@ -684,11 +681,10 @@ function AtradimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
             </Link>
           ))}
         </div>
-        <Link href="/dienos-daina" className="sh-expand-btn" aria-label="Visos dienos dainos" title="Visos dienos dainos">{gridIcon}</Link>
       </div>
 
       {/* Naujausi narių įrašai */}
-      {sectionHead('Naujausi narių įrašai', I.blog, '/blogas', 'Visi', 16)}
+      {sectionHead('Naujausi narių įrašai', I.blog, '/blogas', 'Daugiau', 16)}
       <div className="sh-strip-wrap">
         <div className="sh-strip">
           {(posts.length > 0 ? posts : Array(6).fill(null)).map((p: any, i: number) => (
@@ -699,7 +695,6 @@ function AtradimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
             </Link>
           ))}
         </div>
-        <Link href="/blogas" className="sh-expand-btn" aria-label="Visi įrašai" title="Visi narių įrašai">{gridIcon}</Link>
       </div>
 
       {/* Greitos nuorodos — bendruomenės sekcijos */}
@@ -733,22 +728,21 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
   const newsWorld = data?.newsWorld || []
   // LT / Pasaulio naujienų juostos — kaip Muzika/Topai/Koncertai (vientisumas).
   const newsRow = (kind: 'lt' | 'world', href: string, items: any[]) => (
-    <div className="sh-strip-wrap">
-      <RowStripe kind={kind} />
-      <div className="sh-strip">
-        {(items.length > 0 ? items : Array(6).fill(null)).map((n: any, i: number) => (
-          <Link key={n?.id || `${kind}-${i}`} href={n ? `/news/${n.slug}` : href} className="sh-mini sh-mini-xl">
-            <ImageBox src={n?.image} accent={accent} glyph={I.news} className="sh-mini-img" />
-            <span className="sh-mini-title sh-mini-title-2">{n?.title || <span style={{ opacity: 0.45 }}>Naujiena</span>}</span>
-          </Link>
-        ))}
+    <div>
+      <div className="sh-strip-more">
+        <Link href={href} className="sh-more-link">Daugiau →</Link>
       </div>
-      <Link href={href} className="sh-expand-btn" aria-label="Visos naujienos" title="Visos naujienos">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
-          <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
-        </svg>
-      </Link>
+      <div className="sh-strip-wrap">
+        <RowStripe kind={kind} />
+        <div className="sh-strip">
+          {(items.length > 0 ? items : Array(6).fill(null)).map((n: any, i: number) => (
+            <Link key={n?.id || `${kind}-${i}`} href={n ? `/news/${n.slug}` : href} className="sh-mini sh-mini-xl">
+              <ImageBox src={n?.image} accent={accent} glyph={I.news} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{n?.title || <span style={{ opacity: 0.45 }}>Naujiena</span>}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   )
   return (
