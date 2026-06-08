@@ -1475,20 +1475,25 @@ export function SiteHeader() {
            Stovi UŽ scroll'inamos juostos (flex-shrink:0) — todėl visada matomas
            dešinėje, nereikia scroll'inti. align-self:stretch → lygus juostos
            aukščiui. 2×2 grid ikona = „peržiūrėti visą sąrašą". */
+        /* Lengvas „atverti visą sąrašą" mygtukas — kompaktiškas, vertikaliai
+           centruotas (NE per visą juostos aukštį), kad kortelėms liktų daugiau
+           vietos ir nebūtų „sienos" jausmo. */
         .sh-expand-btn {
           flex-shrink: 0;
-          align-self: stretch;
-          width: 46px;
+          align-self: center;
+          width: 34px;
+          height: 34px;
           display: flex;
           align-items: center;
           justify-content: center;
-          border-radius: 12px;
+          border-radius: 9px;
           background: var(--bg-surface);
           border: 1px solid var(--border-default);
           color: var(--text-muted);
           text-decoration: none;
           transition: transform .15s ease, border-color .15s, background .15s, color .15s;
         }
+        .sh-expand-btn svg { width: 15px; height: 15px; }
         .sh-expand-btn:hover {
           transform: translateY(-1px);
           border-color: rgba(249, 115, 22, 0.45);
