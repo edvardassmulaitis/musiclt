@@ -96,7 +96,7 @@ async function recentTrackArtists(limit = 700): Promise<{ order: number[]; lates
     const sb = createAdminClient()
     const { data } = await sb
       .from('tracks')
-      .select('artist_id, title, video_url, video_uploaded_at, artists!tracks_artist_id_fkey(country, legacy_likes, cover_image_url)')
+      .select('artist_id, title, video_url, video_uploaded_at, artists!tracks_artist_id_fkey(country, legacy_likes, cover_image_url, radar_status)')
       .not('video_uploaded_at', 'is', null)
       .gte('video_uploaded_at', SINCE())
       .order('video_uploaded_at', { ascending: false })
@@ -107,6 +107,7 @@ async function recentTrackArtists(limit = 700): Promise<{ order: number[]; lates
       if (!isLt(a.country)) continue                           // tik Lietuva (auto)
       if (!a.cover_image_url) continue                         // realus profilis
       if ((a.legacy_likes ?? 0) >= RADAR_LIKES_CEIL) continue  // mažai žinomas
+      if (a.radar_status === 'excluded') continue              // DB lygio filtras
       if (!latest.has(t.artist_id)) {
         latest.set(t.artist_id, { artist_id: t.artist_id, latest_title: t.title ?? null, latest_at: t.video_uploaded_at ?? null, latest_video_url: t.video_url ?? null, legacy_likes: a.legacy_likes ?? null })
         order.push(t.artist_id)
@@ -173,6 +174,7 @@ async function hydrate(ids: number[], latest: Map<number, LatestRow>): Promise<R
     for (const id of ids) {
       const a = byId.get(id)
       if (!a) continue
+      if (a.radar_status === 'excluded') continue  // papildomas saugiklis
       const lr = latest.get(id)
       const latestMs = lr?.latest_at ? Date.parse(lr.latest_at) : 0
       out.push({
