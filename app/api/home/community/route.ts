@@ -50,7 +50,6 @@ export async function GET() {
         .select('id, slug, title, author_name, author_avatar, comment_count, created_at, artist:artists!discussions_artist_id_fkey(name, cover_image_url)')
         .eq('is_deleted', false)
         .or('legacy_kind.is.null,legacy_kind.eq.discussion')
-        .not('author_name', 'is', null)
         .gte('comment_count', 1)
         .order('comment_count', { ascending: false })
         .limit(20),
