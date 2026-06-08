@@ -24,7 +24,6 @@ export async function GET() {
   const sb = createAdminClient()
   const today = todayLT()
   const blog60d = new Date(Date.now() - 60 * 86400000).toISOString()
-  const disc30d = new Date(Date.now() - 30 * 86400000).toISOString()
 
   try {
     const [ddRes, blogRes, discRes] = await Promise.all([
@@ -37,8 +36,10 @@ export async function GET() {
         .maybeSingle(),
 
       // 2. Blog įrašai (last 60d, visi tipai) — engagement desc
+      //    DĖMESIO: legacy UGC įrašai neturi blog_id → blogs/profiles = null.
+      //    target_* naudojami cover'io sprendimui (review/translation).
       sb.from('blog_posts')
-        .select('id, slug, title, post_type, cover_image_url, like_count, comment_count, published_at, blogs:blog_id(slug, profiles:user_id(username, full_name, avatar_url))')
+        .select('id, slug, title, post_type, cover_image_url, like_count, comment_count, published_at, target_track_id, target_album_id, target_artist_id, blogs:blog_id(slug, profiles:user_id(id, username, full_name, avatar_url))')
         .eq('status', 'published')
         .not('published_at', 'is', null)
         .gte('published_at', blog60d)
@@ -77,11 +78,22 @@ export async function GET() {
     const needThumb = blogRows.filter(b => !b.cover_image_url).map(b => b.id)
     const thumbByPost = new Map<number, string>()
     if (needThumb.length) {
+      // Surenkam target_* ID'us (review/translation/event type įrašai)
+      const tgtTracks = new Set<number>(), tgtAlbums = new Set<number>(), tgtArtists = new Set<number>()
+      for (const b of blogRows) {
+        if (thumbByPost.has(b.id) || b.cover_image_url) continue
+        if (b.target_track_id) tgtTracks.add(b.target_track_id)
+        if (b.target_album_id) tgtAlbums.add(b.target_album_id)
+        if (b.target_artist_id) tgtArtists.add(b.target_artist_id)
+      }
       try {
-        const [tj, aj, arj] = await Promise.all([
+        const [tj, aj, arj, tgtT, tgtA, tgtAr] = await Promise.all([
           sb.from('blog_post_tracks').select('post_id, tracks:track_id(video_url, cover_url, artist:artist_id(cover_image_url))').in('post_id', needThumb),
           sb.from('blog_post_albums').select('post_id, albums:album_id(cover_image_url)').in('post_id', needThumb),
           sb.from('blog_post_artists').select('post_id, artists:artist_id(cover_image_url)').in('post_id', needThumb),
+          tgtTracks.size ? sb.from('tracks').select('id, cover_url, video_url, artist:artist_id(cover_image_url)').in('id', [...tgtTracks]) : Promise.resolve({ data: [] }),
+          tgtAlbums.size ? sb.from('albums').select('id, cover_image_url').in('id', [...tgtAlbums]) : Promise.resolve({ data: [] }),
+          tgtArtists.size ? sb.from('artists').select('id, cover_image_url').in('id', [...tgtArtists]) : Promise.resolve({ data: [] }),
         ])
         for (const row of (tj.data || []) as any[]) {
           if (thumbByPost.has(row.post_id)) continue
@@ -103,21 +115,36 @@ export async function GET() {
           const a = Array.isArray(row.artists) ? row.artists[0] : row.artists
           if (a?.cover_image_url) thumbByPost.set(row.post_id, a.cover_image_url)
         }
+        // target_* resolve (legacy review/translation covers)
+        const trackImgById = new Map((tgtT.data || []).map((t: any) => {
+          const yt = t.video_url?.match?.(YT_RE)?.[1]
+          return [t.id, yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : (t.cover_url || (Array.isArray(t.artist) ? t.artist[0]?.cover_image_url : t.artist?.cover_image_url) || null)]
+        }))
+        const albumImgById = new Map((tgtA.data || []).map((a: any) => [a.id, a.cover_image_url]))
+        const artistImgById = new Map((tgtAr.data || []).map((a: any) => [a.id, a.cover_image_url]))
+        for (const b of blogRows) {
+          if (thumbByPost.has(b.id) || b.cover_image_url) continue
+          const img =
+            (b.target_track_id && trackImgById.get(b.target_track_id)) ||
+            (b.target_album_id && albumImgById.get(b.target_album_id)) ||
+            (b.target_artist_id && artistImgById.get(b.target_artist_id)) || null
+          if (img) thumbByPost.set(b.id, img)
+        }
       } catch {}
     }
 
+    // Legacy UGC įrašai neturi blog_id → blogs/profiles = null.
+    // NESKIPINAM tokių — naudojam post-level fallback (kaip atradimai/feed).
     const seenAuthors = new Set<string>()
     const blogItems: any[] = []
     for (const b of blogRows) {
-      const cover = b.cover_image_url || thumbByPost.get(b.id) || null
-      // allow no-cover — card shows gradient placeholder
-      const author = b.blogs?.profiles
-      if (!author) continue              // tik realūs nariai
       if (!b.title) continue
-      const key = author.username || String(b.id)
+      const cover = b.cover_image_url || thumbByPost.get(b.id) || null
+      const author = b.blogs?.profiles || null
+      const key = author?.username || author?.id || `post-${b.id}`
       if (seenAuthors.has(key)) continue // 1 per autorių
       seenAuthors.add(key)
-      const blogSlug = b.blogs?.slug || author.username
+      const blogSlug = b.blogs?.slug || author?.username || null
       blogItems.push({
         id: `blog-${b.id}`,
         type: 'blog',
@@ -125,9 +152,9 @@ export async function GET() {
         title: b.title || '',
         href: blogSlug ? `/blogas/${blogSlug}/${b.slug || b.id}` : '/blogas',
         cover,
-        author_name: author.full_name || author.username || null,
-        author_slug: author.username || null,
-        author_avatar: author.avatar_url || null,
+        author_name: author?.full_name || author?.username || null,
+        author_slug: author?.username || null,
+        author_avatar: author?.avatar_url || null,
         created_at: b.published_at,
         engagement: (b.like_count || 0) + (b.comment_count || 0),
       })
