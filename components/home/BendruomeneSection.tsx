@@ -51,30 +51,34 @@ function timeAgo(iso: string) {
   const d = Math.floor(h / 24)
   return d < 30 ? `${d} d.` : `${Math.floor(d / 30)} mėn.`
 }
-function blogLabel(sub?: string | null, editorial?: string | null) {
-  // article tipai — skaidomi pagal editorial_type
+
+type TypeMeta = { label: string; color: string }
+function getTypeMeta(type: string, sub?: string | null, editorial?: string | null): TypeMeta {
+  if (type === 'dd') return { label: 'Dienos daina', color: 'var(--accent-orange,#f2641a)' }
+  if (type === 'discussion') return { label: 'Diskusija', color: '#5b9be8' }
+  if (sub === 'topas') return { label: 'Narių topas', color: '#a78bfa' }
+  if (sub === 'creation') return { label: 'Kūryba', color: '#3cca7e' }
+  if (sub === 'translation') return { label: 'Vertimas', color: '#5b9be8' }
+  if (sub === 'event') return { label: 'Renginys', color: '#fb923c' }
+  if (sub === 'review') return { label: 'Recenzija', color: '#f59e0b' }
   if (sub === 'article') {
-    if (editorial === 'recenzija') return '⭐ Apžvalga'
-    if (editorial === 'koncertai') return '🎤 Koncertas'
-    return '✍️ Įrašas'
+    if (editorial === 'recenzija') return { label: 'Muzikos apžvalga', color: '#f59e0b' }
+    if (editorial === 'koncertai') return { label: 'Koncertų įspūdžiai', color: '#3b82f6' }
+    return { label: 'Bendruomenės įrašas', color: 'var(--accent-orange,#f2641a)' }
   }
-  const m: Record<string, string> = {
-    review: '⭐ Recenzija', creation: '🎨 Kūryba', translation: '🌐 Vertimas',
-    topas: '📊 Topas', event: '📅 Renginys', quick: '✍️ Įrašas',
-  }
-  return m[sub || ''] || '✍️ Įrašas'
+  return { label: 'Įrašas', color: 'var(--accent-orange,#f2641a)' }
 }
-function blogColor(sub?: string | null, editorial?: string | null) {
-  if (sub === 'article') {
-    if (editorial === 'recenzija') return 'var(--accent-yellow,#f59e0b)'
-    if (editorial === 'koncertai') return '#3b82f6'
-    return 'var(--accent-orange,#f2641a)'
-  }
-  const m: Record<string, string> = {
-    review: 'var(--accent-yellow,#f59e0b)', creation: '#3cca7e',
-    translation: 'var(--accent-link,#5b9be8)', topas: '#a78bfa', event: '#fb923c',
-  }
-  return m[sub || ''] || 'var(--accent-orange,#f2641a)'
+
+// ── Type header strip (virš foto) ─────────────────────────────────────────────
+function TypeStrip({ meta }: { meta: TypeMeta }) {
+  return (
+    <div className="flex items-center gap-2 px-2.5 py-[7px]"
+         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <span className="shrink-0 rounded-full" style={{ width: 3, height: 12, background: meta.color }} />
+      <span className="text-[9.5px] font-extrabold uppercase tracking-[0.07em] truncate"
+            style={{ fontFamily: "'Outfit',sans-serif", color: meta.color }}>{meta.label}</span>
+    </div>
+  )
 }
 
 // ── Shared cover ───────────────────────────────────────────────────────────────
@@ -116,23 +120,18 @@ function AuthorRow({ name, avatar, time, hue }: { name: string | null; avatar: s
   )
 }
 
-// ── Badge overlay ──────────────────────────────────────────────────────────────
-function Badge({ label, bg }: { label: string; bg: string }) {
-  return (
-    <span className="absolute left-2 top-2 rounded px-1.5 py-0.5 text-[8.5px] font-extrabold uppercase tracking-[0.05em] text-white backdrop-blur-sm"
-          style={{ fontFamily: "'Outfit',sans-serif", background: bg }}>
-      {label}
-    </span>
-  )
-}
-
 // ── Dienos daina card ──────────────────────────────────────────────────────────
 function DDCard({ it }: { it: CommunityItem }) {
   const isToday = it.subtype === 'today_leader'
   const h = strHue(it.author_name || it.title)
   const candidates = it.candidates || []
+  const meta: TypeMeta = {
+    label: isToday ? 'Šiandien lyderis' : 'Vakarykštis laimėtojas',
+    color: 'var(--accent-orange,#f2641a)',
+  }
   return (
     <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 240, flexShrink: 0 }}>
+      <TypeStrip meta={meta} />
       {/* 16:9 — YT thumbnail */}
       <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
         {it.cover
@@ -140,13 +139,11 @@ function DDCard({ it }: { it: CommunityItem }) {
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
           : <div className="flex h-full w-full items-center justify-center"
               style={{ background: `linear-gradient(135deg,hsl(${h},50%,18%),hsl(${(h+30)%360},40%,10%))` }}>
-              <span className="text-4xl">🎵</span>
+              <span className="font-['Outfit',sans-serif] text-4xl font-black text-white/30">♪</span>
             </div>
         }
         <div className="pointer-events-none absolute inset-0"
              style={{ background: 'linear-gradient(to bottom,transparent 45%,rgba(0,0,0,0.65))' }} />
-        <Badge label={isToday ? '🎵 Šiandien lyderis' : '🏆 Vakarykštis'}
-               bg={isToday ? 'var(--accent-orange,#f2641a)' : 'rgba(20,8,0,0.75)'} />
         {isToday && (it.vote_count ?? 0) > 0 && (
           <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm"
                 style={{ fontFamily: "'Outfit',sans-serif" }}>
@@ -198,11 +195,12 @@ function DDCard({ it }: { it: CommunityItem }) {
 // ── Blog card (article / review / creation / translation / quick) ──────────────
 function BlogCard({ it }: { it: CommunityItem }) {
   const h = strHue(it.author_name || it.title)
+  const meta = getTypeMeta(it.type, it.subtype, it.editorial_type)
   return (
     <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 220, flexShrink: 0 }}>
+      <TypeStrip meta={meta} />
       <div className="relative">
         <Cover url={it.cover} alt={it.author_name || it.title} hue={h} />
-        <Badge label={blogLabel(it.subtype, it.editorial_type)} bg={blogColor(it.subtype, it.editorial_type)} />
       </div>
       <div className="flex flex-1 flex-col p-2.5 gap-1.5">
         <p className="m-0 line-clamp-2 text-[12.5px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
@@ -223,12 +221,12 @@ function BlogCard({ it }: { it: CommunityItem }) {
 function TopasCard({ it }: { it: CommunityItem }) {
   const h = strHue(it.author_name || it.title)
   const entries = it.entries || []
+  const meta = getTypeMeta(it.type, it.subtype, it.editorial_type)
   return (
     <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 220, flexShrink: 0 }}>
-      {/* Cover: pirmoji vieta su vizualu, arba gradientas */}
+      <TypeStrip meta={meta} />
       <div className="relative">
         <Cover url={it.cover} alt={entries[0]?.title || it.title} hue={h} />
-        <Badge label="📊 Topas" bg="#a78bfa" />
       </div>
       <div className="flex flex-1 flex-col p-2.5 gap-1">
         <p className="m-0 line-clamp-1 text-[12px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
@@ -272,11 +270,12 @@ function TopasCard({ it }: { it: CommunityItem }) {
 function DiscCard({ it }: { it: CommunityItem }) {
   const h = strHue(it.title)
   const lc = it.last_comment
+  const meta = getTypeMeta(it.type, it.subtype, it.editorial_type)
   return (
     <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: 220, flexShrink: 0 }}>
+      <TypeStrip meta={meta} />
       <div className="relative">
         <Cover url={it.cover} alt={it.title} hue={h} />
-        <Badge label="💬 Diskusija" bg="var(--accent-link,#5b9be8)" />
         {(it.comment_count ?? 0) > 0 && (
           <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm"
                 style={{ fontFamily: "'Outfit',sans-serif" }}>

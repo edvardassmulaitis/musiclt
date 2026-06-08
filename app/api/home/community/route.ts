@@ -252,7 +252,14 @@ export async function GET() {
         engagement: (b.like_count || 0) + (b.comment_count || 0),
       })
     }
-    blogItems.sort((a, b) => b.engagement - a.engagement || (a.created_at < b.created_at ? 1 : -1))
+    // Kūryba / vertimas į galą (mažiau universal interest)
+    const LAST_SUBTYPES = new Set(['creation', 'translation'])
+    blogItems.sort((a, b) => {
+      const aLast = LAST_SUBTYPES.has(a.subtype || '')
+      const bLast = LAST_SUBTYPES.has(b.subtype || '')
+      if (aLast !== bLast) return aLast ? 1 : -1
+      return b.engagement - a.engagement || (a.created_at < b.created_at ? 1 : -1)
+    })
 
     // ── Diskusijos — 1 vnt, latest comment iš forum_posts ────────────────────
     // SVARBU: nefiltruojam parent_post_legacy_id — norim paskutinį bet kokį postą
