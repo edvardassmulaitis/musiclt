@@ -266,7 +266,13 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   // 8 main stiliai — rikiuojami pagal atlikėjų kiekį (populiariausi pirma);
   // jei skaičių dar nėra (cache), krenta į fiksuotą STYLE_NAV_ORDER.
   const gc = data?.genreCounts || {}
-  const styles = [...STYLES_ORDERED].sort((a, b) => (gc[b.name] || 0) - (gc[a.name] || 0))
+  // „Kitų stilių muzika" VISADA paskutinė; likusios — pagal atlikėjų kiekį.
+  const styles = [...STYLES_ORDERED].sort((a, b) => {
+    const ka = a.name === 'Kitų stilių muzika' ? 1 : 0
+    const kb = b.name === 'Kitų stilių muzika' ? 1 : 0
+    if (ka !== kb) return ka - kb
+    return (gc[b.name] || 0) - (gc[a.name] || 0)
+  })
 
   // Atlikėjų eilutė: scroll'inamų atlikėjų juosta + VISADA matomas „atverti
   // pilną sąrašą" button'as dešinėje (už scroll container'io — homepage
@@ -372,9 +378,9 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
                 <circle cx="20.5" cy="11" r="1.5" fill="var(--accent-green)" />
                 <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
               </svg>
-              Muzikos atradimų radaras
+              Naujos muzikos radaras
             </span>
-            <Link href="/nauji-atlikejai" className="sh-more-link" style={{ color: 'var(--accent-green)' }}>Daugiau →</Link>
+            <Link href="/nauji-atlikejai" className="sh-more-link">daugiau →</Link>
           </div>
           {renderRadarRow()}
         </>
@@ -401,11 +407,11 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
             <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
           </span>
         </div>
-        <div className="sh-chiprow">
+        <div className="sh-chiprow sh-chiprow-fill">
           {styles.map(s => (
             <Link key={s.name} href={s.href} className="sh-navchip" title={s.name}>
               <span className="sh-navchip-dot" style={{ background: 'var(--text-faint)' }} aria-hidden />
-              {s.short}
+              {s.name === 'Rimtoji muzika' ? 'Rimtoji' : s.short}
             </Link>
           ))}
         </div>
@@ -492,7 +498,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
         className="sh-navchip" title={c.title}>
         {flag
           ? <img src={flag} alt="" className="sh-navchip-flag" />
-          : <span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{scopeGlyph(c.scope)}</span>}
+          : <span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{/album/i.test(c.title) ? I.vinyl : scopeGlyph(c.scope)}</span>}
         {c.title}
       </Link>
     )
@@ -587,7 +593,6 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
           <span className="sh-trending-glyph">{I.calendar}</span>
           Artimiausi koncertai
         </span>
-        <Link href="/koncertai" className="sh-more-link">Visi koncertai →</Link>
       </div>
 
       {renderRow(eventsLt, 'lt')}
@@ -752,9 +757,8 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
         <span className="sh-trending-glyph" title="Naujienos">{I.news}</span>
         Naujausios naujienos
       </div>
-      <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 5px' }}>Lietuva</div>
       {newsRow('lt', '/naujienos/lietuva', newsLt)}
-      <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', margin: '12px 0 5px' }}>Pasaulis</div>
+      <div style={{ height: 10 }} />
       {newsRow('world', '/naujienos/pasaulis', newsWorld)}
 
       {/* ── Pagal tipą (greitos nuorodos) ── */}
@@ -769,9 +773,8 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
 
       {/* ── Pagal stilių (kompaktiški spalvų chip'ai — kaip Muzika) ── */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ marginBottom: 8 }}>
           <span style={{ ...SECTION_HEAD, marginBottom: 0, paddingTop: 2 }}>Pagal stilių</span>
-          <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
         </div>
         <div className="sh-chiprow">
           {NEWS_STYLES.map(s => (
@@ -1536,6 +1539,9 @@ export function SiteHeader() {
         /* ── Vieningi chip'ai antraeilėms sekcijoms (stiliai, šalys, kiti topai) —
               lengvai skaitomi, mažai vizualo, vietoj didelių spalvotų kortelių. ── */
         .sh-chiprow { display: flex; flex-wrap: wrap; gap: 9px; }
+        /* Stilių chip'ai — užpildo visą plotį (be tarpo šone): kiekvienas auga
+           proporcingai, centruotas tekstas. */
+        .sh-chiprow-fill .sh-navchip { flex: 1 1 0; justify-content: center; min-width: max-content; }
         .sh-navchip {
           display: inline-flex; align-items: center; gap: 9px;
           padding: 10px 15px;
