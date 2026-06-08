@@ -83,6 +83,7 @@ type Props = {
   mobileTopN?: number
   orientation?: 'vertical' | 'horizontal'
   ledSelectedGenre?: string | null
+  hideHeader?: boolean
 }
 
 type Bar = {
@@ -302,7 +303,7 @@ function LedHorizontal({
 }
 
 function LedEqualizer({
-  meter, onExpand, topN = 8, mobileTopN, size = 'mini', selectedGenre, onSelect, orientation,
+  meter, onExpand, topN = 8, mobileTopN, size = 'mini', selectedGenre, onSelect, orientation, hideHeader,
 }: {
   meter: MeterEntry[]
   onExpand?: (preSelectedGenre?: string | null) => void
@@ -312,6 +313,7 @@ function LedEqualizer({
   selectedGenre?: string | null
   onSelect?: (fullGenreName: string | null) => void
   orientation?: 'vertical' | 'horizontal'
+  hideHeader?: boolean
 }) {
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
@@ -355,17 +357,19 @@ function LedEqualizer({
       }}
     >
       <div className="flex items-center justify-between mb-2">
-        <div
-          className="font-extrabold uppercase"
-          style={{
-            fontFamily: "'Outfit', sans-serif",
-            fontSize: isLarge ? '11px' : '10px',
-            letterSpacing: '0.22em',
-            color: 'var(--accent-orange)',
-          }}
-        >
-          Muzikinis skonis
-        </div>
+        {!hideHeader && (
+          <div
+            className="font-extrabold uppercase"
+            style={{
+              fontFamily: "'Outfit', sans-serif",
+              fontSize: isLarge ? '11px' : '10px',
+              letterSpacing: '0.22em',
+              color: 'var(--accent-orange)',
+            }}
+          >
+            Muzikinis skonis
+          </div>
+        )}
         {onExpand && !isLarge && (
           <button
             type="button"
@@ -419,12 +423,12 @@ function LedEqualizer({
   )
 }
 
-export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side', onExpand, topN, mobileTopN, orientation, ledSelectedGenre }: Props) {
+export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side', onExpand, topN, mobileTopN, orientation, ledSelectedGenre, hideHeader }: Props) {
   if (!meter || !Array.isArray(meter) || meter.length === 0) return null
 
   // V11.5: visi LED-style variantai per LedEqualizer (vienodas dizainas)
   if (variant === 'hero-mini' || variant === 'led-mini') {
-    return <LedEqualizer meter={meter} onExpand={onExpand} topN={topN ?? 8} mobileTopN={mobileTopN ?? 4} size="mini" orientation={orientation} />
+    return <LedEqualizer meter={meter} onExpand={onExpand} topN={topN ?? 8} mobileTopN={mobileTopN ?? 4} size="mini" orientation={orientation} hideHeader={hideHeader} />
   }
   if (variant === 'led-large') {
     return <LedEqualizer
@@ -436,6 +440,7 @@ export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side'
       orientation={orientation}
       selectedGenre={ledSelectedGenre ?? null}
       onSelect={onSelect}
+      hideHeader={hideHeader}
     />
   }
 
