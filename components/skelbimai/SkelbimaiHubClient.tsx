@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { HomeListModal, StickyMoreButton } from '@/components/HomeListModal'
+import { HomeListModal } from '@/components/HomeListModal'
+import Scroller from '@/components/ui/Scroller'
 import { ListingCard } from '@/components/skelbimai/ListingCard'
 import { CategoryBrowser } from '@/components/skelbimai/CategoryBrowser'
 import {
@@ -78,16 +79,13 @@ export function SkelbimaiHubClient({ itemsByType }: { itemsByType: Record<Listin
 
             {/* Eilė + sticky expand */}
             {items.length > 0 ? (
-              <div className="flex items-stretch gap-3">
-                <div className="sk-scroll flex min-w-0 flex-1 items-stretch gap-3 pb-1">
+              <Scroller className="min-w-0" gap={12} ariaLabel={meta.label}>
                   {items.map(l => (
                     <div key={l.id} style={{ flex: '0 0 auto', width: 240 }}>
                       <ListingCard listing={l} />
                     </div>
                   ))}
-                </div>
-                <StickyMoreButton count={items.length} height={232} onClick={() => setModal(t)} ariaLabel={`Atverti visus: ${meta.label}`} />
-              </div>
+              </Scroller>
             ) : (
               <Link href={`/skelbimai/naujas?tipas=${meta.type}`} style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '15px 18px', borderRadius: 12,
