@@ -281,6 +281,23 @@ export async function GET() {
         .filter((a) => { if (seen.has(a.id)) return false; seen.add(a.id); return true })
         .slice(0, 10)
         .map((a) => ({ id: a.id, slug: a.slug, name: a.name, image: a.cover_image_url }))
+
+      // Radaro atlikėjams be foto → top dainos vizualas (cover arba YouTube thumbnail).
+      const noImgIds = radarArtists.filter((a) => !a.image).map((a) => a.id)
+      if (noImgIds.length) {
+        const { data: trk } = await supabase
+          .from('tracks')
+          .select('artist_id, cover_url, video_url')
+          .in('artist_id', noImgIds)
+          .order('id', { ascending: false })
+        const imgByArtist = new Map<number, string>()
+        for (const t of (trk || []) as any[]) {
+          if (imgByArtist.has(t.artist_id)) continue
+          const img = t.cover_url || ytThumb(t.video_url)
+          if (img) imgByArtist.set(t.artist_id, img)
+        }
+        radarArtists = radarArtists.map((a) => a.image ? a : { ...a, image: imgByArtist.get(a.id) || null })
+      }
     } catch { radarArtists = [] }
 
     const payload = {

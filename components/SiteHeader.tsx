@@ -383,7 +383,7 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
               </svg>
               Naujos muzikos radaras
             </span>
-            <Link href="/nauji-atlikejai" className="sh-more-link">daugiau →</Link>
+            <Link href="/nauji-atlikejai" className="sh-more-link">Daugiau →</Link>
           </div>
           {renderRadarRow()}
         </>
