@@ -569,10 +569,10 @@ function MobileProfileView(props: any) {
           )}
         </div>
 
-        {/* ── HEADER (V14 redesign) ── */}
+        {/* ── HEADER (V14.1 redesign) ── */}
         <header className="px-4 pt-3 pb-2.5">
-          {/* Viršus: avataras | @username + popbar | TasteChip */}
-          <div className="flex items-center gap-2.5">
+          {/* Vienas row: avataras | @username + popbar + ♥ + share | [equalizer / mood stacked] */}
+          <div className="flex items-start gap-2.5">
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatar} alt="" className="w-[52px] h-[52px] rounded-full object-cover flex-shrink-0 shadow-[0_4px_14px_rgba(0,0,0,0.5)]"
@@ -584,40 +584,37 @@ function MobileProfileView(props: any) {
               </div>
             )}
 
-            {/* Centrinis blokas: @username + popbar */}
+            {/* Kairysis vidurys: @username + (popbar + ♥ + share eilutė) */}
             <div className="flex-1 min-w-0">
               <h1 className="font-black leading-[1.0] tracking-[-0.035em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] truncate"
-                  style={{ fontSize: 'clamp(1.15rem, 5.2vw, 1.55rem)', fontFamily: "'Outfit', sans-serif" }}>
+                  style={{ fontSize: 'clamp(1.1rem, 4.8vw, 1.45rem)', fontFamily: "'Outfit', sans-serif" }}>
                 @{profile.username}
               </h1>
-              {activityLevel > 0 && (
-                <div className="mt-1">
-                  <PopBarChip level={activityLevel} title="Aktyvumas — turinio kūrimo intensyvumas" delayMs={700} revealDelayMs={500}
+              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                {activityLevel > 0 && (
+                  <PopBarChip level={activityLevel} title="Aktyvumas" delayMs={700} revealDelayMs={500}
                     icon={<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" /></svg>} />
-                </div>
-              )}
+                )}
+                <FollowButton targetId={profile.id} variant="ghost" iconOnly />
+                <ShareButton username={profile.username} iconOnly />
+              </div>
             </div>
 
-            {hasMusicMeter && <TasteChip meter={profile.legacy_music_meter} onClick={() => onOpenTaste()} />}
+            {/* Dešinysis stulpelis: TasteChip + MoodCompact vienas po kitu */}
+            {(hasMusicMeter || moodTrack) && (
+              <div className="flex-shrink-0 flex flex-col gap-1.5" style={{ width: '82px' }}>
+                {hasMusicMeter && (
+                  <TasteChip meter={profile.legacy_music_meter} onClick={() => onOpenTaste()} fill />
+                )}
+                {moodTrack && <MoodCompact track={moodTrack} />}
+              </div>
+            )}
           </div>
 
-          {/* Nuotaikos daina — po avataaro eilės, jei yra */}
-          {moodTrack && (
-            <div className="mt-2">
-              <MobileMoodPill track={moodTrack} fill />
-            </div>
-          )}
-
-          {/* Sekti + Dalintis */}
-          <div className="mt-2.5 flex items-center gap-2">
-            <FollowButton targetId={profile.id} variant="ghost" />
-            <ShareButton username={profile.username} />
-          </div>
-
-          {/* Parašas (bio) — kompaktiška */}
+          {/* Parašas (bio) — 2 eilutės kairėje */}
           {bioSnippet && (
-            <p className="mt-2 text-[12.5px] leading-snug line-clamp-2"
-               style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.74)' }}>
+            <p className="mt-2 text-[12px] leading-snug line-clamp-2"
+               style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.72)' }}>
               {bioSnippet}
             </p>
           )}
@@ -913,14 +910,14 @@ function IconUser() {
 // equalizerio kopija (be stilių pavadinimų). Bar'ai realiom genre spalvom,
 // aukščiai ∝ naudotojo procentams; click → pilnas GenreFilterModal.
 // Proporcingas nuotaikos dainos pill (apvalus, ~32px aukščio).
-function TasteChip({ meter, onClick }: { meter: any; onClick: () => void }) {
+// V14.1: fill=true — w-full + justify-center (dešiniame stulpelyje su MoodCompact).
+// Šiek tiek platesnės juostelės (3.5px) ir didesnis tarpas (3px).
+function TasteChip({ meter, onClick, fill = false }: { meter: any; onClick: () => void; fill?: boolean }) {
   const bars = useMemo(() => {
     const byShort = new Map<string, number>()
     if (Array.isArray(meter)) {
       for (const m of meter) byShort.set(m.name, m.percent ?? 0)
     }
-    // V14: iteruojam TASTE_DISPLAY_ORDER (ta pati tvarka kaip SideEqualizer),
-    // spalvas lookupam iš GENRE_COLOR_BY_NAME.
     const list = TASTE_DISPLAY_ORDER.map((fullName) => {
       const gc = GENRE_COLOR_BY_NAME[fullName]
       const short = FULL_TO_SHORT[fullName] ?? ''
@@ -937,11 +934,12 @@ function TasteChip({ meter, onClick }: { meter: any; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="group inline-flex items-end gap-[2.5px] px-3 rounded-full flex-shrink-0 transition hover:scale-[1.03]"
+      className={`group ${fill ? 'flex w-full justify-center' : 'inline-flex flex-shrink-0'} items-end gap-[3px] rounded-full transition hover:scale-[1.02]`}
       style={{
-        height: '38px',
+        height: '36px',
         background: 'rgba(255,255,255,0.10)',
         border: '1px solid rgba(255,255,255,0.18)',
+        paddingLeft: '10px', paddingRight: '10px',
         paddingBottom: '7px', paddingTop: '7px',
       }}
       title="Muzikinis skonis — atidaryti"
@@ -951,7 +949,7 @@ function TasteChip({ meter, onClick }: { meter: any; onClick: () => void }) {
         const h = Math.max((b.pct / maxPct) * MAXH, 3)
         const lit = b.pct > 0
         return (
-          <span key={i} className="w-[3px] rounded-[1.5px]"
+          <span key={i} className="w-[3.5px] rounded-[1.75px]"
                 style={{
                   height: `${h}px`,
                   background: lit ? `rgb(${b.rgb})` : 'rgba(255,255,255,0.18)',
@@ -963,6 +961,48 @@ function TasteChip({ meter, onClick }: { meter: any; onClick: () => void }) {
       })}
       <style>{`@keyframes tasteChipBar { from { transform: scaleY(0.78); } to { transform: scaleY(1); } }`}</style>
     </button>
+  )
+}
+
+// V14.1: kompaktiškas nuotaikos dainos elementas — toks pat plotis kaip
+// TasteChip dešiniame stulpelyje. Vinilo vaizdas + pavadinimas.
+function MoodCompact({ track }: { track: any }) {
+  const artist = Array.isArray(track.artists) ? track.artists[0] : track.artists
+  const ytThumb = ytThumbProfile(track.video_url)
+  const cover = ytThumb || track.cover_url || artist?.cover_image_url || null
+  const href = artist
+    ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}`
+    : `/dainos/${track.slug || ''}-${track.id}`
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-1.5 w-full rounded-full overflow-hidden transition hover:opacity-85"
+      style={{
+        height: '32px',
+        paddingLeft: '6px', paddingRight: '8px',
+        background: 'linear-gradient(to right, rgba(249,115,22,0.15), rgba(244,114,182,0.08))',
+        border: '1px solid rgba(249,115,22,0.28)',
+      }}
+      title={`${track.title}${artist ? ' — ' + artist.name : ''}`}
+    >
+      {/* Mini spinning vinyl */}
+      <div className="relative w-[20px] h-[20px] flex-shrink-0">
+        <div className="absolute -inset-[2px] rounded-full opacity-60"
+             style={{ background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #f97316)', animation: 'moodSpinV11 14s linear infinite', filter: 'blur(1px)' }} />
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={cover} alt="" className="relative w-[20px] h-[20px] rounded-full object-cover"
+               style={{ animation: 'moodSpinV11 36s linear infinite' }} />
+        ) : (
+          <div className="relative w-[20px] h-[20px] rounded-full flex items-center justify-center text-[9px]"
+               style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.3),rgba(220,38,38,0.3))' }}>♬</div>
+        )}
+        <div className="absolute inset-[30%] rounded-full" style={{ background: 'var(--bg-body)' }} />
+      </div>
+      <span className="text-[10px] font-bold truncate" style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.88)' }}>
+        {track.title}
+      </span>
+    </Link>
   )
 }
 
@@ -987,7 +1027,7 @@ function trackMeta(resolved: number, pending: number, legacyCount?: number | nul
 // ─────────────────────────────────────────────────────────────────────────────
 // V12: Dalintis mygtukas — native share (mobile) → clipboard fallback. /@username.
 // ─────────────────────────────────────────────────────────────────────────────
-function ShareButton({ username }: { username: string }) {
+function ShareButton({ username, iconOnly = false }: { username: string; iconOnly?: boolean }) {
   const [copied, setCopied] = useState(false)
   const onClick = async () => {
     const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/@${username}`
@@ -1003,6 +1043,30 @@ function ShareButton({ username }: { username: string }) {
       setTimeout(() => setCopied(false), 1800)
     } catch { /* ignore */ }
   }
+
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={copied ? 'Nukopijuota' : 'Dalintis profiliu'}
+        className="inline-flex items-center justify-center rounded-full transition hover:opacity-90"
+        style={{ width: '28px', height: '28px', background: copied ? 'rgba(52,211,153,0.25)' : 'rgba(255,255,255,0.13)', border: `1px solid ${copied ? 'rgba(52,211,153,0.5)' : 'rgba(255,255,255,0.24)'}` }}
+      >
+        {copied ? (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ) : (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ color: '#fff' }}>
+            <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+        )}
+      </button>
+    )
+  }
+
   return (
     <button
       type="button"
