@@ -846,6 +846,32 @@ function RowDivider({ icon }: { icon: 'lt' | 'world' }) {
   )
 }
 
+/* Horizontali juostos antraštė virš eilės: kairėje vėliava + šalies žyma,
+   dešinėje „Daugiau →" (atidaro tos juostos naujausių sąrašą). Taip eilės
+   kortelėms lieka VISAS horizontalus plotis — vietoj šoninio divider'io +
+   galinio mygtuko. */
+function LaneHead({ icon, label, onMore }: { icon: 'lt' | 'world'; label?: string; onMore?: () => void }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
+        {icon === 'lt' ? (
+          <span style={{ display: 'flex', flexDirection: 'column', width: 18, height: 12, borderRadius: 2, overflow: 'hidden', flexShrink: 0, boxShadow: '0 0 0 1px var(--border-default)' }}>
+            <span style={{ flex: 1, background: '#FDBA12' }} />
+            <span style={{ flex: 1, background: '#006A44' }} />
+            <span style={{ flex: 1, background: '#C1272D' }} />
+          </span>
+        ) : (
+          <span style={{ width: 18, height: 12, borderRadius: 2, background: '#3b82f6', opacity: 0.7, flexShrink: 0, boxShadow: '0 0 0 1px var(--border-default)' }} />
+        )}
+        <span className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)]">{label ?? (icon === 'lt' ? 'Lietuva' : 'Užsienis')}</span>
+      </div>
+      {onMore && (
+        <button type="button" onClick={onMore} className="shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">Daugiau →</button>
+      )}
+    </div>
+  )
+}
+
 
 
 /* ────────────────────────────── Chart widget bits ──────────────────────────────
@@ -2927,9 +2953,9 @@ export default function Home() {
                         2026-05-29: dainos perdarytos į vertikalią kortelę (cover
                         viršuje + info apačioje) — vienodas stilius su albumais
                         ir renginiais. */}
-                    <div className="flex items-stretch gap-3">
-                      <RowDivider icon={lane} />
-                      <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Naujos dainos">
+                    <div>
+                      <LaneHead icon={lane} onMore={items.length > 0 ? () => setListModal(`tracks-${lane}`) : undefined} />
+                      <Scroller className="min-w-0" gap={12} ariaLabel="Naujos dainos">
                         {tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
                           <div key={i} className="shrink-0" style={{ width: 200 }}>
                             <Skel w={200} h={112} r={12} />
@@ -2998,16 +3024,6 @@ export default function Home() {
                           )
                         })}
                       </Scroller>
-                      {items.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setListModal(`tracks-${lane}`)}
-                          aria-label={`Visi: naujos dainos (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
-                          className="self-center shrink-0 rounded-full border border-[var(--border-default)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
-                        >
-                          Visi →
-                        </button>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -3029,9 +3045,9 @@ export default function Home() {
                   ]
                 })().map(({ lane, items, total }, laneIdx) => (
                   <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
-                    <div className="flex items-stretch gap-3">
-                      <RowDivider icon={lane} />
-                      <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Nauji albumai">
+                    <div>
+                      <LaneHead icon={lane} onMore={items.length > 0 ? () => setListModal(`albums-${lane}`) : undefined} />
+                      <Scroller className="min-w-0" gap={12} ariaLabel="Nauji albumai">
                         {albums.length === 0 ? Array(8).fill(null).map((_, i) => (
                         <div key={i} className="shrink-0" style={{ width: 156 }}>
                           <Skel w={156} h={156} r={12} />
@@ -3115,16 +3131,6 @@ export default function Home() {
                         )
                       })}
                       </Scroller>
-                      {items.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setListModal(`albums-${lane}`)}
-                          aria-label={`Visi: nauji albumai (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
-                          className="self-center shrink-0 rounded-full border border-[var(--border-default)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
-                        >
-                          Visi →
-                        </button>
-                      )}
                     </div>
                   </div>
                 ))}
