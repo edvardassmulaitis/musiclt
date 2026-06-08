@@ -266,6 +266,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/radaras', icon: '📡', label: 'Naujų atlikėjų radaras', hint: 'Featured / įtraukti / paslėpti — /nauji-atlikejai' },
     { href: '/admin/atradimai', icon: '✨', label: 'Muzikos atradimai', hint: 'Trūkstami atlikėjai — susieti su DB arba sukurti · /muzikos-atradimai' },
     { href: '/admin/charts', icon: '🌍', label: 'Išoriniai topai', hint: 'AGATA, Spotify, Apple — susieti dainas' },
+    { href: '/admin/irasai', icon: '🗂️', label: 'Narių įrašai', hint: 'Tipų priskyrimas homepage juostai + topų normalizavimas (legacy→entity)' },
     { href: '/admin/dienos-daina', icon: '⭐', label: 'Dienos daina', hint: 'Daily song spotlight' },
     { href: '/admin/voting', icon: '🗳️', label: 'Balsavimai', hint: 'Apdovanojimai, votings' },
     { href: '/admin/boombox', icon: '🎛️', label: 'Boombox', hint: 'Live stream player config' },
