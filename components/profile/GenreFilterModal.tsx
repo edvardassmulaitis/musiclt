@@ -1,20 +1,6 @@
 'use client'
 
-// components/profile/GenreFilterModal.tsx
-//
-// V11 — pakeitė rolę iš pre-filtered display į pilną „Muzikinis skonis"
-// explorer modal'ą:
-//   1. Viršuje — pilnas equalizer (SideEqualizer variant='hero') su click
-//      filtravimu pagal genre
-//   2. Žemiau — visi substyles chips, click ant chip filtruoja substyles
-//   3. Apačioje — filtered atlikėjai + dienos dainos, atnaujinami live'iniai
-//   4. "✕ Visi" mygtukas atstato filter
-//
-// Modal atidarymas iš dviejų vietų:
-//   a) Hero-mini equalizer expand ikona → modal'as su filter=null
-//   b) Click ant hero-mini bar'o → modal'as su pre-selected genre
-
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { SideEqualizer, FULL_TO_SHORT } from './SideEqualizer'
@@ -37,6 +23,7 @@ export function GenreFilterModal({
   onClose: () => void
 }) {
   const [filter, setFilter] = useState<AnyFilter | null>(initialFilter || null)
+  const resultsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -47,6 +34,13 @@ export function GenreFilterModal({
       document.body.style.overflow = ''
     }
   }, [onClose])
+
+  // (6) Scroll results into view when filter changes
+  useEffect(() => {
+    if (filter && resultsRef.current) {
+      resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [filter])
 
   const filteredArtists = useMemo(() => {
     if (!filter) return artists
@@ -62,7 +56,7 @@ export function GenreFilterModal({
 
   const filteredPicks = useMemo(() => {
     if (!filter) return picks
-    if (filter.kind !== 'genre') return [] // substyle per pick ne pasiekiamas
+    if (filter.kind !== 'genre') return []
     return picks.filter((p: any) => {
       const t = p.tracks
       if (!t) return false
@@ -71,10 +65,11 @@ export function GenreFilterModal({
     })
   }, [picks, filter])
 
-  const headline = useMemo(() => {
-    if (!filter) return 'Visi mėgstamiausi stiliai'
-    if (filter.kind === 'genre') return `„${FULL_TO_SHORT[filter.name] || filter.name}" muzika`
-    return `„${filter.name}" substilas`
+  // (5) No quotes, simplified
+  const filterLabel = useMemo(() => {
+    if (!filter) return null
+    if (filter.kind === 'genre') return `${FULL_TO_SHORT[filter.name] || filter.name} muzika`
+    return filter.name
   }, [filter])
 
   if (typeof window === 'undefined') return null
@@ -94,6 +89,7 @@ export function GenreFilterModal({
           boxShadow: 'var(--modal-shadow)',
         }}
       >
+        {/* Close button */}
         <button
           type="button"
           onClick={onClose}
@@ -105,13 +101,9 @@ export function GenreFilterModal({
         </button>
 
         <div className="overflow-y-auto p-5 sm:p-7">
-          <div
-            className="text-[10px] font-extrabold uppercase tracking-[0.22em] mb-1.5"
-            style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
-          >
-            Muzikinis skonis
-          </div>
-          <div className="flex items-baseline justify-between gap-3 flex-wrap mb-4">
+
+          {/* (1) Header — no duplicate, show filter label when active */}
+          <div className="flex items-baseline justify-between gap-3 flex-wrap mb-4 pr-10">
             <h2
               className="font-black tracking-[-0.025em] leading-tight"
               style={{
@@ -120,37 +112,23 @@ export function GenreFilterModal({
                 color: 'var(--text-primary)',
               }}
             >
-              {headline}
+              {filterLabel ?? 'Muzikinis skonis'}
             </h2>
+            {/* (5) Only ✕, no text */}
             {filter && (
               <button
                 type="button"
                 onClick={() => setFilter(null)}
-                className="text-[11px] font-extrabold uppercase tracking-wider transition hover:opacity-80"
-                style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
+                className="w-7 h-7 flex items-center justify-center rounded-full transition hover:opacity-80 flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)', color: 'var(--text-secondary)' }}
+                aria-label="Atstatyti filtrą"
               >
-                ✕ Atstatyti
+                ✕
               </button>
             )}
           </div>
 
-          {/* Full equalizer — LED style (same as hero, but larger) */}
-          {meter && Array.isArray(meter) && meter.length > 0 && (
-            <div className="mb-5">
-              <SideEqualizer
-                meter={meter}
-                variant="led-large"
-                topN={8}
-                ledSelectedGenre={filter?.kind === 'genre' ? filter.name : null}
-                onSelect={(g) => {
-                  if (!g) setFilter(null)
-                  else setFilter({ kind: 'genre', name: g })
-                }}
-              />
-            </div>
-          )}
-
-          {/* Nuotaikos daina */}
+          {/* (2) Nuotaikos daina VIRŠ equalizer, be "Šiuo metu klausosi" */}
           {moodTrack && (() => {
             const artist = Array.isArray(moodTrack.artists) ? moodTrack.artists[0] : moodTrack.artists
             const href = artist
@@ -171,8 +149,6 @@ export function GenreFilterModal({
                          style={{ background: 'rgba(249,115,22,0.2)' }}>♬</div>
                   )}
                   <div className="min-w-0">
-                    <p className="text-[10px] font-extrabold uppercase tracking-wide mb-0.5"
-                       style={{ color: 'rgba(249,115,22,0.9)', fontFamily: "'Outfit', sans-serif" }}>Šiuo metu klausosi</p>
                     <p className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>
                       {moodTrack.title}
                     </p>
@@ -187,15 +163,26 @@ export function GenreFilterModal({
             )
           })()}
 
-          {/* Substyles cloud */}
+          {/* Equalizer */}
+          {meter && Array.isArray(meter) && meter.length > 0 && (
+            <div className="mb-5">
+              <SideEqualizer
+                meter={meter}
+                variant="led-large"
+                topN={8}
+                ledSelectedGenre={filter?.kind === 'genre' ? filter.name : null}
+                onSelect={(g) => {
+                  if (!g) setFilter(null)
+                  else setFilter({ kind: 'genre', name: g })
+                }}
+              />
+            </div>
+          )}
+
+          {/* (3)(4) Substylai — "Detaliau", bez "click filtruoja" */}
           {styles && styles.length > 0 && (
-            <div className="mb-6">
-              <div
-                className="text-[10px] font-extrabold uppercase tracking-[0.18em] mb-2.5"
-                style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}
-              >
-                Mėgstamiausi substilai · click filtruoja
-              </div>
+            <div className="mb-5">
+              <SubLabel>Detaliau</SubLabel>
               <SubstyleCloud
                 styles={styles}
                 selectedId={filter?.kind === 'substyle' ? filter.legacyId : null}
@@ -204,105 +191,108 @@ export function GenreFilterModal({
             </div>
           )}
 
-          <p
-            className="text-xs sm:text-sm mb-3"
-            style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}
-          >
-            {filteredArtists.length} atlikėjų · {filteredPicks.length} dienos dainų
-          </p>
-
-          {filteredArtists.length === 0 && filteredPicks.length === 0 && (
-            <div
-              className="mt-3 p-5 rounded-xl text-center text-sm"
-              style={{
-                background: 'var(--card-bg)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-muted)',
-                fontFamily: "'Outfit', sans-serif",
-              }}
+          {/* (6) Results section — ref for scroll-into-view */}
+          <div ref={resultsRef}>
+            <p
+              className="text-xs sm:text-sm mb-3"
+              style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}
             >
-              Pagal šį filtrą dar nieko nepriskirta.
-            </div>
-          )}
+              {filteredArtists.length} atlikėjų · {filteredPicks.length} dienos dainų
+            </p>
 
-          {filteredArtists.length > 0 && (
-            <div className="mt-2">
-              <SubLabel>Atlikėjai</SubLabel>
-              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-2.5">
-                {filteredArtists.slice(0, 18).map((a: any) => (
-                  <Link
-                    key={a.id}
-                    href={`/atlikejai/${a.slug}`}
-                    onClick={onClose}
-                    className="group relative aspect-square rounded-xl overflow-hidden"
-                    style={{ background: 'var(--card-bg)' }}
-                  >
-                    {a.cover_image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={a.cover_image_url}
-                        alt=""
-                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                      />
-                    ) : (
-                      <div
-                        className="w-full h-full bg-gradient-to-br from-[#1a2436] to-[#080c12] flex items-center justify-center text-2xl font-black"
-                        style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.15)' }}
-                      >
-                        {a.name?.[0]?.toUpperCase() || '?'}
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-2">
-                      <p className="text-[11px] font-extrabold text-white leading-tight truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                        {a.name}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
+            {filteredArtists.length === 0 && filteredPicks.length === 0 && filter && (
+              <div
+                className="p-5 rounded-xl text-center text-sm"
+                style={{
+                  background: 'var(--card-bg)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-muted)',
+                  fontFamily: "'Outfit', sans-serif",
+                }}
+              >
+                Pagal šį filtrą dar nieko nepriskirta.
               </div>
-            </div>
-          )}
+            )}
 
-          {filteredPicks.length > 0 && (
-            <div className="mt-6">
-              <SubLabel>Dienos dainos</SubLabel>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-2.5">
-                {filteredPicks.slice(0, 12).map((p: any) => {
-                  const t = p.tracks
-                  const artist = t && (Array.isArray(t.artists) ? t.artists[0] : t.artists)
-                  const cover = artist?.cover_image_url
-                  return (
+            {filteredArtists.length > 0 && (
+              <div className="mt-2">
+                <SubLabel>Atlikėjai</SubLabel>
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-2.5">
+                  {filteredArtists.slice(0, 18).map((a: any) => (
                     <Link
-                      key={p.id}
-                      href={artist ? `/atlikejai/${artist.slug}` : '#'}
+                      key={a.id}
+                      href={`/atlikejai/${a.slug}`}
                       onClick={onClose}
-                      className="group block relative aspect-square rounded-xl overflow-hidden"
+                      className="group relative aspect-square rounded-xl overflow-hidden"
                       style={{ background: 'var(--card-bg)' }}
                     >
-                      {cover && (
+                      {a.cover_image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={cover}
+                          src={a.cover_image_url}
                           alt=""
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                         />
+                      ) : (
+                        <div
+                          className="w-full h-full bg-gradient-to-br from-[#1a2436] to-[#080c12] flex items-center justify-center text-2xl font-black"
+                          style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.15)' }}
+                        >
+                          {a.name?.[0]?.toUpperCase() || '?'}
+                        </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <p className="text-[9px] font-extrabold uppercase tracking-widest text-orange-300 truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                          {artist?.name || ''}
+                        <p className="text-[11px] font-extrabold text-white leading-tight truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                          {a.name}
                         </p>
-                        <h3 className="text-xs font-bold text-white leading-tight line-clamp-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                          {t?.title || '—'}
-                        </h3>
                       </div>
                     </Link>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {filteredPicks.length > 0 && (
+              <div className="mt-6">
+                <SubLabel>Dienos dainos</SubLabel>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-2.5">
+                  {filteredPicks.slice(0, 12).map((p: any) => {
+                    const t = p.tracks
+                    const artist = t && (Array.isArray(t.artists) ? t.artists[0] : t.artists)
+                    const cover = artist?.cover_image_url
+                    return (
+                      <Link
+                        key={p.id}
+                        href={artist ? `/atlikejai/${artist.slug}` : '#'}
+                        onClick={onClose}
+                        className="group block relative aspect-square rounded-xl overflow-hidden"
+                        style={{ background: 'var(--card-bg)' }}
+                      >
+                        {cover && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={cover}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-2">
+                          <p className="text-[9px] font-extrabold uppercase tracking-widest text-orange-300 truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                            {artist?.name || ''}
+                          </p>
+                          <h3 className="text-xs font-bold text-white leading-tight line-clamp-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                            {t?.title || '—'}
+                          </h3>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>,
@@ -351,7 +341,6 @@ function SubstyleCloud({
               borderColor: isSelected ? 'var(--accent-orange)' : 'rgba(255,255,255,0.10)',
               ...sizeFor(i),
             }}
-            title={`Filtruoti „${s.style_name}"`}
           >
             {s.style_name}
           </button>
