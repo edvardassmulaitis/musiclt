@@ -2275,6 +2275,29 @@ export default function Home() {
   /* ── Hero slides ── */
   useEffect(() => {
     const slides: HeroSlide[] = []
+    // TVARKA: naujienos PIRMOS — kad švieži įrašai būtų hero priekyje ir naujos
+    // naujienos „stumtų" senesnį turinį atgal. Topai (LT TOP 30 / TOP 40) eina
+    // PO naujienų — anksčiau jie buvo priekyje ir, kadangi LT TOP 30 dažnai
+    // tuščias, hero visada atsidarydavo ant statiško TOP 40. Edvardo prašymu
+    // 2026-06-09.
+    news.slice(0, 30).forEach(n => {
+      const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
+      const songs = newsSongs[n.id] || []
+      const song = songs.find((s: any) => s.youtube_url)
+      slides.push({
+        type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
+        title: sanitizeTitle(n.title),
+        subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
+        bgImg: n.image_title_url || n.image_small_url,
+        href: `/news/${n.slug}`,
+        videoId: extractYouTubeId(song?.youtube_url || null),
+        songTitle: song?.title || null,
+        songArtist: song?.artist_name || n.artist?.name || null,
+        songCover: null,
+        artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
+      })
+    })
+    // Topai PO naujienų.
     if (ltTop.length > 0) {
       slides.push({
         type: 'chart_lt', chip: 'LT TOP 30', chipBg: '#ea580c',
@@ -2295,23 +2318,6 @@ export default function Home() {
         chartTops: worldTop.slice(0, 5),
       } as any)
     }
-    news.slice(0, 30).forEach(n => {
-      const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
-      const songs = newsSongs[n.id] || []
-      const song = songs.find((s: any) => s.youtube_url)
-      slides.push({
-        type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
-        title: sanitizeTitle(n.title),
-        subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
-        bgImg: n.image_title_url || n.image_small_url,
-        href: `/news/${n.slug}`,
-        videoId: extractYouTubeId(song?.youtube_url || null),
-        songTitle: song?.title || null,
-        songArtist: song?.artist_name || n.artist?.name || null,
-        songCover: null,
-        artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
-      })
-    })
     events.slice(0, 3).forEach(ev => {
       const dateRaw = (ev as any).start_date || ev.event_date
       const d = dateRaw ? new Date(dateRaw) : null
@@ -2854,7 +2860,13 @@ export default function Home() {
                                 const validRD = releaseD && !isNaN(releaseD.getTime())
                                 const diff = validRD ? Math.ceil((releaseD!.getTime() - Date.now()) / 86400000) : null
                                 const isUpcoming = (a as any).is_upcoming === true || (diff !== null && diff > 0)
-                                const hasContent = !!(a.cover_image_url)
+                                // hasContent = ar albumas turi paveikslėlį (savo
+                                // cover ARBA atlikėjo nuotrauką — kaip ir kortelės
+                                // vaizdas). Anksčiau tikrino TIK a.cover_image_url,
+                                // tad LT albumai be savo cover'io (rodomi per
+                                // atlikėjo nuotrauką) negaudavo „Greitai" badge'o,
+                                // o užsienio (su savo cover) gaudavo. 2026-06-09.
+                                const hasContent = !!(a.cover_image_url || a.artists?.cover_image_url)
                                 let label: string | null = null
                                 let highlight = false
                                 if (isUpcoming) {
