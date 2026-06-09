@@ -436,10 +436,6 @@ export default function BlogPostPageClient(props: Props) {
         .bp-topas-cover-empty { display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
                           font-size:2.6rem; font-weight:900; color:rgba(255,255,255,0.18);
                           background:linear-gradient(135deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)); }
-        .bp-topas-rank-badge { position:absolute; top:8px; left:8px; z-index:2; min-width:30px; height:30px; padding:0 8px;
-                          display:flex; align-items:center; justify-content:center; border-radius:9px;
-                          font-family:'Outfit',sans-serif; font-weight:900; font-size:1.15rem; letter-spacing:-.03em;
-                          background:rgba(0,0,0,0.62); backdrop-filter:blur(3px); }
         .bp-topas-play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
                          border:0; cursor:pointer; color:#fff; background:rgba(0,0,0,0.34);
                          opacity:0; transition:opacity .16s; }
@@ -447,6 +443,9 @@ export default function BlogPostPageClient(props: Props) {
         .bp-topas-play > svg { width:34px; height:34px; filter:drop-shadow(0 2px 7px rgba(0,0,0,0.55));
                                background:rgba(249,115,22,0.95); border-radius:50%; padding:9px; }
         .bp-topas-body { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; padding:2px 0; }
+        .bp-topas-titlerow { display:flex; align-items:baseline; gap:13px; }
+        .bp-topas-rank { font-family:'Outfit',sans-serif; font-weight:900; font-size:1.7rem; letter-spacing:-.03em;
+                          line-height:1; flex-shrink:0; }
         .bp-topas-title { font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800; color:#f2f4f8; line-height:1.25;
                           letter-spacing:-.01em; margin:0; }
         .bp-topas-artist-inline { color:#f97316; }
@@ -510,11 +509,12 @@ export default function BlogPostPageClient(props: Props) {
           .bp-h1 { font-size:1.5rem; }
           .bp-topas { gap:12px; margin:26px 0; }
           .bp-topas-item { padding:12px; gap:14px; border-radius:15px; }
-          .bp-topas-cover-wrap { width:104px; height:104px; border-radius:12px; }
-          .bp-topas-cover { width:104px; height:104px; border-radius:12px; }
-          .bp-topas-rank-badge { top:6px; left:6px; min-width:24px; height:24px; font-size:.95rem; border-radius:7px; }
+          .bp-topas-cover-wrap { width:96px; height:96px; border-radius:12px; }
+          .bp-topas-cover { width:96px; height:96px; border-radius:12px; }
           .bp-topas-play { opacity:1; background:transparent; align-items:flex-end; justify-content:flex-end; padding:5px; }
           .bp-topas-play > svg { width:26px; height:26px; padding:6px; }
+          .bp-topas-titlerow { gap:9px; }
+          .bp-topas-rank { font-size:1.3rem; }
           .bp-topas-title { font-size:1rem; }
           .bp-topas-genre { font-size:.66rem; padding:2px 8px; }
           .bp-topas-comment { font-size:.88rem; margin-top:9px; line-height:1.6; }
@@ -1042,7 +1042,6 @@ function TopasList({ items }: { items: any[] }) {
           <li key={idx}>
             <Wrapper {...wrapperProps} className={`bp-topas-item ${clickable ? 'is-link' : ''}`}>
               <div className="bp-topas-cover-wrap">
-                <span className="bp-topas-rank-badge" style={{ color: rankColor }}>{item.rank || (idx + 1)}</span>
                 {item.image_url
                   /* eslint-disable-next-line @next/next/no-img-element */
                   ? <img src={item.image_url} alt="" className="bp-topas-cover" />
@@ -1056,11 +1055,14 @@ function TopasList({ items }: { items: any[] }) {
                 )}
               </div>
               <div className="bp-topas-body">
-                <p className="bp-topas-title">
-                  {item.artist && <span className="bp-topas-artist-inline">{item.artist}</span>}
-                  {item.artist && <span className="bp-topas-dash"> — </span>}
-                  {item.title}
-                </p>
+                <div className="bp-topas-titlerow">
+                  <span className="bp-topas-rank" style={{ color: rankColor }}>{item.rank || (idx + 1)}</span>
+                  <p className="bp-topas-title">
+                    {item.artist && <span className="bp-topas-artist-inline">{item.artist}</span>}
+                    {item.artist && <span className="bp-topas-dash"> — </span>}
+                    {item.title}
+                  </p>
+                </div>
                 {genres.length > 0 && (
                   <div className="bp-topas-genres">
                     {genres.map((g, i) => <span key={i} className="bp-topas-genre">{g}</span>)}
