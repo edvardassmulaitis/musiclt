@@ -822,7 +822,11 @@ main.has-bottom-nav {
   .hrow.at-end   .hrow-arrow.next { opacity: 0; pointer-events: none; }
   .hrow-arrow:hover { background: var(--accent-orange, #f2641a); color: #fff; border-color: transparent; }
 }
-@media (hover: none) { .hrow-arrow { display: none; } }  /* mobile: tik peek+fade */
+@media (hover: none) { .hrow-arrow { display: none; } }  /* mobile: tik peek */
+/* Mobile/touch: NUIMAM krašto fade overlay'us — slenkant į šoną jie užsidėdavo
+   ant kortelių ir trukdė matyti itemus. Rodyklių mobile vis tiek nėra, tad
+   fade nieko nebepridėjo. Edvardo prašymu 2026-06-09. */
+@media (hover: none) { .hrow::before, .hrow::after { display: none !important; } }
 
 /* ── „Karšta dabar" chip'ai ─────────────────────────────────────────────── */
 .pchip {
