@@ -94,6 +94,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
   const [activeVenue, setActiveVenue] = useState('')
   const [activeDate, setActiveDate] = useState<'all' | 'week' | 'month' | 'later'>('all')
   const [sort, setSort] = useState<Sort>('new')
+  const [genresExpanded, setGenresExpanded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [playingId, setPlayingId] = useState<number | null>(null) // inline YT play (tracks)
@@ -194,6 +195,40 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
         : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-strong)]'
     }`
 
+  // Žanrų filtras. Atsiradus daug stilių anksčiau jie suvyniodavo į netvarkingą
+  // kelių eilučių bloką (desktop flex-wrap). Dabar: tvarkinga VIENA eilutė su
+  // populiariausiais žanrais (rūšiuoti pagal count desc iš API) + „+N" mygtukas,
+  // kuris išskleidžia visus. Edvardo prašymu 2026-06-09.
+  const GENRE_CHIP_LIMIT = 10
+  const renderGenres = () => {
+    if (!genres.length) return null
+    const overflow = genres.length - GENRE_CHIP_LIMIT
+    const shownGenres = genresExpanded ? genres : genres.slice(0, GENRE_CHIP_LIMIT)
+    return (
+      <div
+        className={`hp-scroll flex min-w-0 items-center gap-1.5 pb-0.5 sm:pb-0 ${
+          genresExpanded
+            ? 'flex-wrap overflow-visible'
+            : 'overflow-x-auto sm:overflow-visible'
+        }`}
+      >
+        <button type="button" onClick={() => setActiveGenre('')} className={chipCls(activeGenre === '')}>Visi žanrai</button>
+        {shownGenres.map(g => (
+          <button key={g.name} type="button" onClick={() => setActiveGenre(g.name)} className={chipCls(activeGenre === g.name)}>{g.name} <span className="opacity-60">{g.count}</span></button>
+        ))}
+        {overflow > 0 && (
+          <button
+            type="button"
+            onClick={() => setGenresExpanded(v => !v)}
+            className="shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70"
+          >
+            {genresExpanded ? 'Mažiau' : `+${overflow} daugiau`}
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div style={{ minHeight: '58vh' }}>
       {/* Toolbar. Non-events: sort + žanrai. Events: data + miestai + žanrai
@@ -209,14 +244,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
               </button>
             ))}
           </div>
-          {genres.length > 0 && (
-            <div className="hp-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
-              <button type="button" onClick={() => setActiveGenre('')} className={chipCls(activeGenre === '')}>Visi žanrai</button>
-              {genres.map(g => (
-                <button key={g.name} type="button" onClick={() => setActiveGenre(g.name)} className={chipCls(activeGenre === g.name)}>{g.name} <span className="opacity-60">{g.count}</span></button>
-              ))}
-            </div>
-          )}
+          {renderGenres()}
           {!loading && total > 0 && (
             <span className="shrink-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-faint)] sm:ml-auto">Iš viso: {total}</span>
           )}
@@ -250,14 +278,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
               )}
             </div>
           )}
-          {genres.length > 0 && (
-            <div className="hp-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
-              <button type="button" onClick={() => setActiveGenre('')} className={chipCls(activeGenre === '')}>Visi žanrai</button>
-              {genres.map(g => (
-                <button key={g.name} type="button" onClick={() => setActiveGenre(g.name)} className={chipCls(activeGenre === g.name)}>{g.name} <span className="opacity-60">{g.count}</span></button>
-              ))}
-            </div>
-          )}
+          {renderGenres()}
         </div>
       )}
 
