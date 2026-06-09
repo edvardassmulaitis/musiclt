@@ -62,6 +62,9 @@ type Props = {
   /** Embedded music iš body (Spotify/YouTube iframes + legacy widget rows)
    *  — ekstraktinta server-side per extractMusicFromBody. Body lieka tekstas. */
   embeddedMusic: ExtractedTrack[]
+  /** Topo grojaraštis — sudarytas iš topo įrašų (daina/albumo top/atlikėjo top).
+   *  Naudojamas kai topas neturi manual prisegtos muzikos (tada ta overridina). */
+  topasPlayerTracks?: ExtractedTrack[]
   targetInfo: any | null
   hasSidebar: boolean
 }
@@ -102,7 +105,7 @@ function karmaToLevel(k: number | null): number {
 export default function BlogPostPageClient(props: Props) {
   const { post, postType, typeLabel, authorName, authorUsername, authorAvatar,
           authorKarma, authorJoinedYear, blogTitle, heroImage, attachments,
-          embeddedMusic, targetInfo } = props
+          embeddedMusic, topasPlayerTracks, targetInfo } = props
   // hasSidebar prop'as iš page.tsx — paliekam Props type'e backward compat,
   // bet visada renderinam sidebar'ą su InfoBox (info dalis visada matosi).
   void props.hasSidebar
@@ -128,6 +131,13 @@ export default function BlogPostPageClient(props: Props) {
     }).filter((t: ExtractedTrack) => !!t.embed_url),
     ...embeddedMusic.filter(m => !!m.embed_url),
   ]
+
+  // Topas: jei autorius pats prisegė muzikos (playerTracks) — ta overridina;
+  // kitaip grojaraštis sudaromas iš topo įrašų (album→top daina, artist→top daina).
+  const effectivePlayerTracks: ExtractedTrack[] =
+    postType === 'topas'
+      ? (playerTracks.length > 0 ? playerTracks : (topasPlayerTracks || []))
+      : playerTracks
 
   const showChip = postType !== 'article'   // tik custom type'ams
   const visibleTags = (post.tags || []).filter(t => !AUTO_TAGS.has((t || '').toLowerCase()))
@@ -600,7 +610,7 @@ export default function BlogPostPageClient(props: Props) {
                 karmaLevel={karmaLevel}
                 onScrollToComments={scrollToComments}
               />
-              {playerTracks.length > 0 && <UnifiedPlayer tracks={playerTracks} />}
+              {effectivePlayerTracks.length > 0 && <UnifiedPlayer tracks={effectivePlayerTracks} />}
               {targetInfo && (targetInfo.artist || targetInfo.album || targetInfo.track || targetInfo.event) && (
                 <TargetEntityCard target={targetInfo} postType={postType} />
               )}

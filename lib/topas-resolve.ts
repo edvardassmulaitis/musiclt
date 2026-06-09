@@ -166,6 +166,78 @@ export function parseTopasFromContent(content: string): any[] {
   }))
 }
 
+// ── Topo grojaraštis (player) ────────────────────────────────────────────────
+// Iš topo įrašų sudaro grojaraštį: daina→ta daina; albumas→populiariausia (score)
+// to albumo daina; atlikėjas→populiariausia to atlikėjo daina. Tik su YT video.
+// Grąžina ExtractedTrack[] suderinamą su UnifiedPlayer.
+const YT_PLAY = /(?:youtube\.com\/watch\?v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/
+export async function buildTopasPlaylist(sb: Sb, listItems: any[]): Promise<any[]> {
+  const items = Array.isArray(listItems) ? listItems : []
+  const trackIds: number[] = [], albumIds: number[] = [], artistIds: number[] = []
+  for (const e of items) {
+    if (!e || e.entity_id == null) continue
+    if (e.type === 'track') trackIds.push(e.entity_id)
+    else if (e.type === 'album') albumIds.push(e.entity_id)
+    else if (e.type === 'artist') artistIds.push(e.entity_id)
+  }
+  const trackById = new Map<number, any>()
+  const TSEL = 'id, title, slug, video_url, cover_url, score, artist:artist_id(name, slug)'
+
+  if (trackIds.length) {
+    const { data } = await sb.from('tracks').select(TSEL).in('id', trackIds)
+    for (const t of (data || []) as any[]) trackById.set(t.id, t)
+  }
+
+  const albumTop = new Map<number, number>()
+  if (albumIds.length) {
+    const { data } = await sb.from('album_tracks')
+      .select(`album_id, position, tracks:track_id(${TSEL})`).in('album_id', albumIds)
+    const byAlbum = new Map<number, any[]>()
+    for (const r of (data || []) as any[]) {
+      const t = Array.isArray(r.tracks) ? r.tracks[0] : r.tracks
+      if (!t) continue
+      const arr = byAlbum.get(r.album_id) || []; arr.push({ ...t, _pos: r.position }); byAlbum.set(r.album_id, arr)
+    }
+    for (const [aid, arr] of byAlbum) {
+      const playable = arr.filter(t => t.video_url)
+      const pool = playable.length ? playable : arr
+      pool.sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || (a._pos ?? 999) - (b._pos ?? 999))
+      const best = pool[0]
+      if (best) { albumTop.set(aid, best.id); trackById.set(best.id, best) }
+    }
+  }
+
+  const artistTop = new Map<number, number>()
+  if (artistIds.length) {
+    const { data } = await sb.from('tracks').select(`${TSEL}, artist_id`)
+      .in('artist_id', artistIds).not('video_url', 'is', null)
+      .order('score', { ascending: false, nullsFirst: false }).limit(artistIds.length * 10)
+    for (const t of (data || []) as any[]) {
+      if (!artistTop.has(t.artist_id)) { artistTop.set(t.artist_id, t.id); trackById.set(t.id, t) }
+    }
+  }
+
+  const out: any[] = []; const seen = new Set<number>()
+  for (const e of items) {
+    if (e.entity_id == null) continue
+    const tid = e.type === 'track' ? e.entity_id : e.type === 'album' ? albumTop.get(e.entity_id) : e.type === 'artist' ? artistTop.get(e.entity_id) : null
+    if (!tid || seen.has(tid)) continue
+    const t = trackById.get(tid); if (!t) continue
+    const yt = t.video_url?.match?.(YT_PLAY)?.[1]; if (!yt) continue
+    seen.add(tid)
+    const a = Array.isArray(t.artist) ? t.artist[0] : t.artist
+    out.push({
+      source: 'youtube', key: `topas:track:${tid}`,
+      title: t.title, artist_name: a?.name,
+      cover_url: t.cover_url || `https://img.youtube.com/vi/${yt}/mqdefault.jpg`,
+      embed_url: `https://www.youtube-nocookie.com/embed/${yt}?rel=0`,
+      source_url: t.video_url,
+      db_track: { id: tid, slug: t.slug, artist_slug: a?.slug },
+    })
+  }
+  return out
+}
+
 // ── Protingas free-text topo parseris ───────────────────────────────────────
 // Supranta narių rašytą struktūrą: paryškinta antraštė „N. Atlikėjas – Pavadinimas
 // (žanrai)" + nuoroda į albumą/dainą + aprašymo pastraipa(-os). Atskiria įžangą

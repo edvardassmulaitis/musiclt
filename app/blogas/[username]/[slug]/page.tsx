@@ -14,6 +14,7 @@ import {
   getReviewTargetInfo,
 } from '@/lib/supabase-blog'
 import { extractMusicFromBody, enrichTracksWithOembed, resolveEmbedsToDbTracks } from '@/lib/blog-content'
+import { buildTopasPlaylist } from '@/lib/topas-resolve'
 import { createAdminClient } from '@/lib/supabase'
 import BlogPostPageClient from './page-client'
 import { POST_TYPE_OPTIONS, type BlogPostType } from '@/components/blog/post-types'
@@ -63,6 +64,12 @@ export default async function PostPage({ params }: { params: Promise<{ username:
   // „Daugiau" pill, nukreipiantį į /dainos/<slug> page'ą.
   const sbAdmin = createAdminClient()
   const embeddedMusic = await resolveEmbedsToDbTracks(enrichedMusic, sbAdmin)
+
+  // Topo grojaraštis player'iui: daina→ta daina, albumas→populiariausia albumo
+  // daina, atlikėjas→populiariausia daina. Manual attachment'ai (žemiau) overridina.
+  const topasPlayerTracks = postType === 'topas' && Array.isArray(post.list_items)
+    ? await buildTopasPlaylist(sbAdmin, post.list_items)
+    : []
 
   // getPost grąžina post + nested `blog` (singular), kuriame yra `profiles`
   // su author meta. Supabase JOIN'as gali grąžinti arr or object — handle abu.
@@ -165,6 +172,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
         heroImage={heroImage}
         attachments={attachments}
         embeddedMusic={embeddedMusic}
+        topasPlayerTracks={topasPlayerTracks}
         targetInfo={targetInfo}
         hasSidebar={hasSidebar}
       />
