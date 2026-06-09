@@ -231,6 +231,47 @@ export async function getLatestTracksForHome(): Promise<{
     return true
   })
 
+  const uploadMs = (r: LatestTrackRow) =>
+    r.video_uploaded_at ? Date.parse(r.video_uploaded_at)
+      : r.release_date ? Date.parse(r.release_date) : 0
+  // Įkėlimo DIENA (YYYY-MM-DD) — be valandų, kad to paties tako kelios versijos
+  // įkeltos tą pačią dieną būtų laikomos „ta pačia diena".
+  const uploadDay = (r: LatestTrackRow) => {
+    const src = r.video_uploaded_at || r.release_date || ''
+    return src.slice(0, 10)
+  }
+
+  // ── Tos pačios DAINOS dedup ──
+  // Ta pati daina gali turėti kelis įrašus (perįkėlimai, „(Live)"/„(Acoustic)"
+  // versijos). Rodom TIK vieną:
+  //   - skirtingos įkėlimo dienos → naujausia;
+  //   - ta pati diena → daugiausiai YT peržiūrų.
+  // Raktas = atlikėjas + normalizuotas pavadinimas (be skliaustų/skyrybos).
+  // Edvardo prašymu 2026-06-09.
+  const normTitle = (t: string) =>
+    (t || '')
+      .toLowerCase()
+      .replace(/[\(\[\{].*?[\)\]\}]/g, ' ')   // pašalinam (Live), [Remix] ir pan.
+      .replace(/feat\.?.*$/i, ' ')            // feat ... uodegą
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')       // skyryba/diakritika → tarpas
+      .trim()
+      .replace(/\s+/g, ' ')
+  const pickBetter = (a: LatestTrackRow, b: LatestTrackRow) => {
+    const da = uploadDay(a), db = uploadDay(b)
+    if (da !== db) return db > da ? b : a          // skirtinga diena → naujausia
+    return (b.video_views ?? 0) > (a.video_views ?? 0) ? b : a  // ta pati diena → peržiūros
+  }
+  const songDedupe = (arr: LatestTrackRow[]) => {
+    const byKey = new Map<string, LatestTrackRow>()
+    for (const r of arr) {
+      const k = `${r.artist_id}::${normTitle(r.title)}`
+      const ex = byKey.get(k)
+      byKey.set(k, ex ? pickBetter(ex, r) : r)
+    }
+    return Array.from(byKey.values()).sort((a, b) => uploadMs(b) - uploadMs(a))
+  }
+
+  // Per-atlikėją dedup homepage juostai (viena daina per atlikėją, populiariausia).
   const dedupe = (arr: LatestTrackRow[]) => {
     const byArtist = new Map<number, LatestTrackRow>()
     for (const r of arr) {
@@ -244,15 +285,12 @@ export async function getLatestTracksForHome(): Promise<{
       if (rV > exV) byArtist.set(r.artist_id, r)
     }
     // Atstatom rūšiavimą pagal upload datą DESC (Map saugojo paskutinį, ne tvarką).
-    return Array.from(byArtist.values()).sort((a, b) => {
-      const ta = a.video_uploaded_at ? Date.parse(a.video_uploaded_at) : 0
-      const tb = b.video_uploaded_at ? Date.parse(b.video_uploaded_at) : 0
-      return tb - ta
-    })
+    return Array.from(byArtist.values()).sort((a, b) => uploadMs(b) - uploadMs(a))
   }
 
-  const ltRaw = valid.filter(r => isLT(r.artists?.country))
-  const worldRaw = valid.filter(r => !isLT(r.artists?.country))
+  // raw = vienas įrašas per DAINĄ (modalui — kelios skirtingos dainos per atlikėją OK).
+  const ltRaw = songDedupe(valid.filter(r => isLT(r.artists?.country)))
+  const worldRaw = songDedupe(valid.filter(r => !isLT(r.artists?.country)))
   const ltFull = dedupe(ltRaw)
   const worldFull = dedupe(worldRaw)
   return {
@@ -320,8 +358,12 @@ export async function getLatestAlbumsForHome(): Promise<{
     if (m > cm) return false
     return d <= cd
   }
+  // Albumai BE jokio paveikslėlio (nei savo cover, nei atlikėjo nuotraukos)
+  // nerodomi — kitaip homepage'e atsiranda tušti 💿 placeholder'iai. Edvardo
+  // prašymu 2026-06-09. (Atlikėjo nuotrauka kaip fallback'as leidžiama.)
+  const hasCover = (r: LatestAlbumRow) => !!(r.cover_image_url || r.artists?.cover_image_url)
   const released = rows.filter(
-    r => r.artists && isReleased(r) && !isBlockedCountry(r.artists.country)
+    r => r.artists && isReleased(r) && hasCover(r) && !isBlockedCountry(r.artists.country)
   )
   const ltAll = released.filter(r => isLT(r.artists!.country))
   const worldAll = released.filter(r => !isLT(r.artists!.country))
@@ -391,8 +433,11 @@ export async function getUpcomingAlbumsForHome(): Promise<{
     if (m < cm) return false
     return d > cd
   }
+  // Be paveikslėlio (savo cover ar atlikėjo nuotraukos) — nerodom (žr.
+  // getLatestAlbumsForHome). 2026-06-09.
+  const hasCover = (r: LatestAlbumRow) => !!(r.cover_image_url || r.artists?.cover_image_url)
   const filtered = rows.filter(
-    r => r.artists && isFuture(r) && !isBlockedCountry(r.artists!.country)
+    r => r.artists && isFuture(r) && hasCover(r) && !isBlockedCountry(r.artists!.country)
   )
   return {
     items: filtered.slice(0, HOME_LANE_LIMIT * 2),
