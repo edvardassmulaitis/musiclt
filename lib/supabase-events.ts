@@ -52,7 +52,16 @@ export async function getEvents(opts: {
     .range(offset, offset + limit - 1)
 
   if (!showPast) {
-    q = q.in('status', ['upcoming', 'ongoing'])
+    // SVARBU: nepakanka filtruoti pagal `status` — daug įrašų liko 'upcoming'
+    // nors data jau praėjo (statusas neatnaujinamas). Pridedam DATOS grindis:
+    //   - daugiadieniai renginiai: end_date >= šiandien (LT) → dar vyksta;
+    //   - vienadieniai (end_date NULL): start_date >= šiandien (LT).
+    // Naudojam LT (Europe/Vilnius) dieną, kad nedingtų šiandienos vakaro
+    // koncertai. 2026-06-09.
+    const ltToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+    q = q
+      .in('status', ['upcoming', 'ongoing'])
+      .or(`end_date.gte.${ltToday},and(end_date.is.null,start_date.gte.${ltToday})`)
   }
   if (status) q = q.eq('status', status)
   if (city && city !== 'Visi') q = q.eq('city', city)
