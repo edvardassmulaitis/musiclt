@@ -260,7 +260,9 @@ export default function LikesModal({
           {sortedUsers.length === 0 ? (
             loading ? <EqualizerLoader /> : (
               <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: 13 }}>
-                Dar niekas nepaspaudė.
+                {count > 0
+                  ? `Patiko ${count.toLocaleString('lt-LT')} ${count === 1 ? 'nariui' : 'nariams'} — pamėgusiųjų sąrašas dar perkeliamas.`
+                  : 'Dar niekas nepaspaudė.'}
               </div>
             )
           ) : (
