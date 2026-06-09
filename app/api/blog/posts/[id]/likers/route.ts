@@ -15,13 +15,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params
   const sb = createAdminClient()
 
-  // 1. Resolve post → legacy_id (jei egzistuoja)
+  // 1. Resolve post → legacy_id + stored like_count (denormalizuotas skaitiklis)
   const { data: post } = await sb
     .from('blog_posts')
-    .select('legacy_id')
+    .select('legacy_id, like_count')
     .eq('id', id)
     .maybeSingle() as { data: any }
   const legacyId = post?.legacy_id ?? null
+  const storedCount = Number(post?.like_count) || 0
 
   // 2. Paraleliai: legacy + modern likers
   const [legacyRes, modernRes] = await Promise.all([
@@ -60,5 +61,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   for (const r of (modernRes.data || [])) push(r)
   for (const r of (legacyRes.data || [])) push(r)
 
-  return NextResponse.json({ count: users.length, users })
+  // `count` = autoritetingas skaitiklis. Legacy įrašams individualūs like'ai
+  // gali būti dar nemigruoti (likes lentelėje 0 eilučių), bet blog_posts.like_count
+  // turi tikrą skaičių iš music.lt. Imame max — kad atidarius modalą skaitiklis
+  // NEnukristų į 0, kai liker'ių sąrašas nepilnas. `resolved` = kiek vardų turim.
+  const count = Math.max(users.length, storedCount)
+  return NextResponse.json({ count, resolved: users.length, users })
 }
