@@ -19,50 +19,90 @@ function escHtml(s: string) { return (s || '').replace(/&/g, '&amp;').replace(/<
  * „Atlikėjas – Pavadinimas" eilutes, kurios YRA DB kataloge, ir paverčia jas
  * aktyviomis nuorodomis su mini viršeliu. Nerasti lieka paprastu tekstu.
  */
-export async function enrichProseLinks(sb: Sb, html: string): Promise<string> {
-  if (!html || (html.indexOf('–') < 0 && html.indexOf('—') < 0)) return html
-  const blocks = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
-  type Cand = { block: string; text: string; artist: string; title: string }
-  const cands: Cand[] = []; const seenBlk = new Set<string>()
-  for (const m of blocks) {
-    const text = stripTags(m[1]).trim()
-    const dm = text.match(/^(.{2,80}?)\s[–—]\s(.{2,140})$/)
-    if (!dm || /^\d+\./.test(text)) continue           // praleidžiam numeruotas (jau kortelėse)
-    if (seenBlk.has(m[0])) continue; seenBlk.add(m[0])
-    cands.push({ block: m[0], text, artist: dm[1].trim(), title: dm[2].trim() })
-  }
-  if (!cands.length) return html
+const ENRICH_STOP = new Set(['bet', 'jau', 'tai', 'nes', 'kad', 'dar', 'jis', 'jie', 'man', 'mano', 'sis', 'sie', 'taip', 'todel', 'taciau', 'beje', 'zinoma', 'visgi', 'spotify', 'youtube', 'the', 'and', 'with', 'for', 'this', 'that', 'gale', 'apie', 'kaip', 'savo', 'labai', 'tik', 'net', 'gal', 'jog', 'vis', 'pirma', 'antra'])
+function enrichLinkHtml(inf: { href: string; cover: string | null }, text: string) {
+  const thumb = inf.cover ? `<img class="bp-enrich-thumb" src="${inf.cover}" alt=""/>` : ''
+  return `<a class="bp-enrich" href="${inf.href}">${thumb}<span>${escHtml(text)}</span></a>`
+}
+async function enrichAlbInfo(sb: Sb, id: number) { const { data } = await sb.from('albums').select('slug, cover_image_url, artist:artist_id(slug)').eq('id', id).maybeSingle(); const ar = firstArr(data?.artist); return { href: `/albumai/${[ar?.slug, data?.slug].filter(Boolean).join('-')}-${id}`, cover: data?.cover_image_url || null } }
+async function enrichTrkInfo(sb: Sb, id: number) { const { data } = await sb.from('tracks').select('slug, cover_url, video_url').eq('id', id).maybeSingle(); return { href: `/dainos/${data?.slug}-${id}`, cover: ytThumb(data?.video_url) || data?.cover_url || null } }
+async function enrichByTitle(sb: Sb, title: string) {
+  const tN = normalizeForMatch(title); if (!tN) return null
+  const tok = (title.split(/[^\p{L}\p{N}]+/u).filter(t => t.length >= 2).sort((a, b) => b.length - a.length)[0] || title).replace(/[%_]/g, '')
+  const { data: tr } = await sb.from('tracks').select('id, slug, title, cover_url, video_url, score').ilike('title', `%${tok}%`).limit(40)
+  const th = (tr || []).filter((x: any) => normalizeForMatch(x.title) === tN).sort((a: any, b: any) => (b.score ?? -1) - (a.score ?? -1))[0]
+  if (th) return { href: `/dainos/${th.slug}-${th.id}`, cover: ytThumb(th.video_url) || th.cover_url || null }
+  const { data: al } = await sb.from('albums').select('id, slug, title, cover_image_url, score, artist:artist_id(slug)').ilike('title', `%${tok}%`).limit(40)
+  const ah = (al || []).filter((x: any) => normalizeForMatch(x.title) === tN).sort((a: any, b: any) => (b.score ?? -1) - (a.score ?? -1))[0]
+  if (ah) { const ar = firstArr(ah.artist); return { href: `/albumai/${[ar?.slug, ah.slug].filter(Boolean).join('-')}-${ah.id}`, cover: ah.cover_image_url || null } }
+  return null
+}
 
-  const resByText = new Map<string, { type: 'album' | 'track'; id: number }>()
-  for (let s = 0; s < cands.length && s < 80; s += 8) {
-    await Promise.all(cands.slice(s, s + 8).map(async (c) => {
-      const al = await findConfidentAlbumMatch(sb, c.artist, c.title).catch(() => null)
-      if (al) { resByText.set(c.text, { type: 'album', id: al.albumId }); return }
-      const tr = await findConfidentMatch(sb, c.artist, c.title).catch(() => null)
-      if (tr) resByText.set(c.text, { type: 'track', id: tr.trackId })
+// AGRESYVUS: ne tik „Atlikėjas – Pavadinimas", bet ir cituoti pavadinimai („X")
+// + tekste minimi atlikėjų vardai (DB). Manual triggeris → kelios klaidos OK.
+export async function enrichProseLinks(sb: Sb, html: string): Promise<string> {
+  if (!html) return html
+  const blocks = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => ({ raw: m[0], text: stripTags(m[1]) }))
+  if (!blocks.length) return html
+
+  type Cand = { kind: 'pair' | 'title' | 'artist'; text: string; artist?: string; title?: string }
+  const cands = new Map<string, Cand>()
+  const QUOTE = /[„“"'’‘]([^„“”"'’‘<>]{3,70}?)[“”"'’]/gu
+  const PHRASE = /(\p{Lu}[\p{L}\p{N}.&'’-]+(?:\s+(?:&\s+|and\s+)?\p{Lu}[\p{L}\p{N}.&'’-]+){0,3})/gu
+  for (const b of blocks) {
+    const tt = b.text.trim()
+    const dm = tt.match(/^(.{2,80}?)\s[–—]\s(.{2,140})$/)
+    if (dm && !/^\d+\./.test(tt)) { if (!cands.has('p:' + tt)) cands.set('p:' + tt, { kind: 'pair', text: tt, artist: dm[1].trim(), title: dm[2].trim() }); continue }
+    for (const m of b.text.matchAll(QUOTE)) { const t = m[1].trim().replace(/[.,;:!?]+$/, ''); if (t.length >= 3 && !cands.has('t:' + t)) cands.set('t:' + t, { kind: 'title', text: t, title: t }) }
+    for (const m of b.text.matchAll(PHRASE)) { const t = m[1].trim().replace(/[.,;:]+$/, ''); if (t.length >= 4 && !ENRICH_STOP.has(t.toLowerCase()) && !cands.has('a:' + t) && !cands.has('t:' + t)) cands.set('a:' + t, { kind: 'artist', text: t, artist: t }) }
+  }
+
+  const resolved = new Map<string, { href: string; cover: string | null }>()
+  const list = [...cands.values()].slice(0, 90)
+  for (let s = 0; s < list.length; s += 8) {
+    await Promise.all(list.slice(s, s + 8).map(async (c) => {
+      try {
+        if (c.kind === 'pair') {
+          const al = await findConfidentAlbumMatch(sb, c.artist!, c.title!).catch(() => null)
+          if (al) { resolved.set(c.text, await enrichAlbInfo(sb, al.albumId)); return }
+          const tr = await findConfidentMatch(sb, c.artist!, c.title!).catch(() => null)
+          if (tr) resolved.set(c.text, await enrichTrkInfo(sb, tr.trackId))
+        } else if (c.kind === 'title') {
+          const e = await enrichByTitle(sb, c.title!); if (e) resolved.set(c.text, e)
+        } else {
+          const a = await findArtistByName(sb, c.artist!).catch(() => null)
+          if (a?.slug) resolved.set(c.text, { href: `/atlikejai/${a.slug}`, cover: a.cover || null })
+        }
+      } catch {}
     }))
   }
-  if (!resByText.size) return html
-
-  const albIds = [...new Set([...resByText.values()].filter(v => v.type === 'album').map(v => v.id))]
-  const trkIds = [...new Set([...resByText.values()].filter(v => v.type === 'track').map(v => v.id))]
-  const info = new Map<string, { href: string; cover: string | null }>()
-  if (albIds.length) {
-    const { data } = await sb.from('albums').select('id, slug, cover_image_url, artist:artist_id(slug)').in('id', albIds)
-    for (const a of (data || []) as any[]) { const ar = firstArr(a.artist); info.set('album:' + a.id, { href: `/albumai/${[ar?.slug, a.slug].filter(Boolean).join('-')}-${a.id}`, cover: a.cover_image_url || null }) }
-  }
-  if (trkIds.length) {
-    const { data } = await sb.from('tracks').select('id, slug, cover_url, video_url').in('id', trkIds)
-    for (const t of (data || []) as any[]) info.set('track:' + t.id, { href: `/dainos/${t.slug}-${t.id}`, cover: ytThumb(t.video_url) || t.cover_url || null })
-  }
+  if (!resolved.size) return html
 
   let out = html
-  for (const c of cands) {
-    const r = resByText.get(c.text); if (!r) continue
-    const inf = info.get(`${r.type}:${r.id}`); if (!inf) continue
-    const thumb = inf.cover ? `<img class="bp-enrich-thumb" src="${inf.cover}" alt=""/>` : ''
-    const newBlock = `<p><a class="bp-enrich" href="${inf.href}">${thumb}<span>${escHtml(c.text)}</span></a></p>`
-    out = out.replace(c.block, newBlock)
+  const isWord = (ch: string) => /[\p{L}\p{N}]/u.test(ch)
+  for (const b of blocks) {
+    const tt = b.text.trim()
+    if (resolved.has(tt)) { out = out.replace(b.raw, `<p>${enrichLinkHtml(resolved.get(tt)!, tt)}</p>`); continue }
+    const matches: { start: number; end: number; text: string }[] = []
+    for (const [text] of resolved) {
+      if (text === tt) continue
+      let idx = 0
+      while ((idx = b.text.indexOf(text, idx)) >= 0) {
+        const before = idx > 0 ? b.text[idx - 1] : ' '
+        const after = idx + text.length < b.text.length ? b.text[idx + text.length] : ' '
+        if (!isWord(before) && !isWord(after)) matches.push({ start: idx, end: idx + text.length, text })
+        idx += text.length
+      }
+    }
+    if (!matches.length) continue
+    matches.sort((x, y) => x.start - y.start || (y.end - y.start) - (x.end - x.start))
+    const chosen: typeof matches = []; let last = -1
+    for (const m of matches) { if (m.start >= last) { chosen.push(m); last = m.end } }
+    if (!chosen.length) continue
+    let h = '', pos = 0
+    for (const m of chosen) { h += escHtml(b.text.slice(pos, m.start)) + enrichLinkHtml(resolved.get(m.text)!, m.text); pos = m.end }
+    h += escHtml(b.text.slice(pos))
+    out = out.replace(b.raw, `<p>${h}</p>`)
   }
   return out
 }
