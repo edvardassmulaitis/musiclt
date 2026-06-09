@@ -218,8 +218,22 @@ async function fetchToday(): Promise<IstItem[]> {
   const rankOf = (x: any) => x.type === 'album_anniversary'
     ? (x._views || 0) + (x.likeCount || 0) * 1000
     : (x.score || 0)
-  items.sort((a: any, b: any) => (rankOf(b) - rankOf(a)) || (b.age || 0) - (a.age || 0))
-  return (items as IstItem[]).slice(0, 40)
+  // SVARBU: rikiuoti ir riboti KIEKVIENĄ tipą ATSKIRAI. Anksčiau viskas buvo
+  // sumaišoma į vieną sąrašą ir slice(0,40) — albumų rangas (YT peržiūros
+  // milijonais) visada nustelbdavo gimtadienius/mirties metines (rangas = score,
+  // maži skaičiai), tad visi 40 slot'ų atitekdavo albumams ir gimtadieniai/
+  // mirties metinės dingdavo (komponentas tuščias sekcijas slepia). 2026-06-09.
+  const byType: Record<string, any[]> = { album_anniversary: [], birthday: [], death_anniversary: [] }
+  for (const it of items as any[]) (byType[it.type] ||= []).push(it)
+  const out: any[] = []
+  // Per tipą: rikiuojam pagal rangą, paimame iki 40. Komponentas pats rodo
+  // visus to tipo įrašus su „daugiau“ modalu, tad kiekvienas tipas išlieka.
+  for (const t of ['album_anniversary', 'birthday', 'death_anniversary']) {
+    const arr = byType[t] || []
+    arr.sort((a: any, b: any) => (rankOf(b) - rankOf(a)) || (b.age || 0) - (a.age || 0))
+    out.push(...arr.slice(0, 40))
+  }
+  return out as IstItem[]
 }
 
 export async function GET() {
