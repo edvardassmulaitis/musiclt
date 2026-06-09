@@ -572,11 +572,11 @@ export default function BlogPostPageClient(props: Props) {
               {postType === 'topas' && post.list_items.length > 0 && (post.topas_meta?.intro || post.topas_meta?.outro) ? (
                 <>
                   {post.topas_meta?.intro && (
-                    <div className="bp-prose"><PostContent html={post.topas_meta.intro} /></div>
+                    <div className="bp-prose"><EnrichedProse html={post.topas_meta.intro} /></div>
                   )}
                   <TopasList items={post.list_items} />
                   {post.topas_meta?.outro && (
-                    <div className="bp-prose" style={{ marginTop: 32 }}><PostContent html={post.topas_meta.outro} /></div>
+                    <div className="bp-prose" style={{ marginTop: 32 }}><EnrichedProse html={post.topas_meta.outro} /></div>
                   )}
                 </>
               ) : (
@@ -1020,6 +1020,25 @@ function BlogLikePill({ postId, initialCount }: { postId: string; initialCount: 
         users={likers}
       />
     </>
+  )
+}
+
+/* ─── Enrichinta proza — bp-enrich nuorodos atidaro modalą (ne atskirą page) ── */
+function EnrichedProse({ html }: { html: string }) {
+  const [albumId, setAlbumId] = useState<number | null>(null)
+  const onClick = (e: React.MouseEvent) => {
+    const a = (e.target as HTMLElement).closest?.('a.bp-enrich') as HTMLAnchorElement | null
+    if (!a) return
+    const href = a.getAttribute('href') || ''
+    const am = href.match(/\/albumai\/.*-(\d+)$/)
+    if (am) { e.preventDefault(); setAlbumId(parseInt(am[1], 10)) }
+    // dainoms paliekam nav (retas atvejis prozoje)
+  }
+  return (
+    <div onClick={onClick}>
+      <PostContent html={html} />
+      <AlbumInfoModal albumId={albumId} onClose={() => setAlbumId(null)} />
+    </div>
   )
 }
 
