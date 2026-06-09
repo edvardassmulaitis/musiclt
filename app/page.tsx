@@ -1250,6 +1250,9 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                       : it.type === 'birthday'
                         ? (it.age ? (it.deceased ? `${it.age} gimimo metinės` : `${it.age} m.`) : null)
                         : (it.year ? `${it.year} m.` : null)
+                    // Albumo „apvalus" jubiliejus (10, 20, 30 m. ir t.t.) → oranžinis
+                    // badge'as (pabrėžiam reikšmingas sukaktis). Edvardo prašymu 2026-06-09.
+                    const isJubilee = it.type === 'album_anniversary' && !!it.age && it.age % 10 === 0
                     // Miręs atlikėjas → grayscale nuotrauka. Edvardo prašymu 2026-06-01.
                     const gray = it.type === 'death_anniversary' || it.deceased
                     // Cover + badge — bendra abiem (button album'ui / Link kitiems).
@@ -1264,7 +1267,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                           </div>
                         )}
                         {badge && (
-                          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{badge}</span>
+                          <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm ${isJubilee ? 'bg-[var(--accent-orange)]' : 'bg-black/70'}`}>{badge}</span>
                         )}
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       </div>
@@ -1328,7 +1331,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                   ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>}
-                  {it.age ? <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{it.age} m.</span> : null}
+                  {it.age ? <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm ${it.age % 10 === 0 ? 'bg-[var(--accent-orange)]' : 'bg-black/70'}`}>{it.age} m.</span> : null}
                 </div>
                 <div className="mt-2 px-0.5">
                   {(it.pop ?? 0) > 0 && <span className="mb-1 flex"><IstPopBar level={it.pop} /></span>}
@@ -1394,7 +1397,13 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
   return (
     <Link
       href={slide.href}
-      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_42px_rgba(0,0,0,0.35)]"
+      className={`group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-0.5 ${
+        // Light mode'e stiprus juodas šešėlis atrodė prastai — sumažinam. Tamsoje
+        // paliekam gilesnį (gerai matosi ant tamsaus fono). Edvardo prašymu 2026-06-09.
+        dk
+          ? 'shadow-[0_8px_32px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_42px_rgba(0,0,0,0.35)]'
+          : 'shadow-[0_2px_10px_rgba(0,0,0,0.06)] hover:shadow-[0_6px_18px_rgba(0,0,0,0.10)]'
+      }`}
     >
       {/* BG image — height-driven, hugs right side for portrait covers */}
       <div className="absolute inset-0 flex items-stretch justify-end overflow-hidden">
