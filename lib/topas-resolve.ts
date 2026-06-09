@@ -7,9 +7,65 @@
 // `match_state` flag'u (matched / created / artist_only / unmatched / kept).
 
 import {
-  findConfidentMatch, normalizeForMatch, primaryArtist,
+  findConfidentMatch, findConfidentAlbumMatch, normalizeForMatch, primaryArtist,
   findOrCreateArtist, createTrackForArtist,
 } from '@/lib/chart-resolve'
+
+const firstArr = (v: any) => Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
+function escHtml(s: string) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
+
+/**
+ * Enrichina prozą (įžanga/pabaiga, pvz. „Garbingi paminėjimai"): suranda
+ * „Atlikėjas – Pavadinimas" eilutes, kurios YRA DB kataloge, ir paverčia jas
+ * aktyviomis nuorodomis su mini viršeliu. Nerasti lieka paprastu tekstu.
+ */
+export async function enrichProseLinks(sb: Sb, html: string): Promise<string> {
+  if (!html || (html.indexOf('–') < 0 && html.indexOf('—') < 0)) return html
+  const blocks = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
+  type Cand = { block: string; text: string; artist: string; title: string }
+  const cands: Cand[] = []; const seenBlk = new Set<string>()
+  for (const m of blocks) {
+    const text = stripTags(m[1]).trim()
+    const dm = text.match(/^(.{2,80}?)\s[–—]\s(.{2,140})$/)
+    if (!dm || /^\d+\./.test(text)) continue           // praleidžiam numeruotas (jau kortelėse)
+    if (seenBlk.has(m[0])) continue; seenBlk.add(m[0])
+    cands.push({ block: m[0], text, artist: dm[1].trim(), title: dm[2].trim() })
+  }
+  if (!cands.length) return html
+
+  const resByText = new Map<string, { type: 'album' | 'track'; id: number }>()
+  for (let s = 0; s < cands.length && s < 80; s += 8) {
+    await Promise.all(cands.slice(s, s + 8).map(async (c) => {
+      const al = await findConfidentAlbumMatch(sb, c.artist, c.title).catch(() => null)
+      if (al) { resByText.set(c.text, { type: 'album', id: al.albumId }); return }
+      const tr = await findConfidentMatch(sb, c.artist, c.title).catch(() => null)
+      if (tr) resByText.set(c.text, { type: 'track', id: tr.trackId })
+    }))
+  }
+  if (!resByText.size) return html
+
+  const albIds = [...new Set([...resByText.values()].filter(v => v.type === 'album').map(v => v.id))]
+  const trkIds = [...new Set([...resByText.values()].filter(v => v.type === 'track').map(v => v.id))]
+  const info = new Map<string, { href: string; cover: string | null }>()
+  if (albIds.length) {
+    const { data } = await sb.from('albums').select('id, slug, cover_image_url, artist:artist_id(slug)').in('id', albIds)
+    for (const a of (data || []) as any[]) { const ar = firstArr(a.artist); info.set('album:' + a.id, { href: `/albumai/${[ar?.slug, a.slug].filter(Boolean).join('-')}-${a.id}`, cover: a.cover_image_url || null }) }
+  }
+  if (trkIds.length) {
+    const { data } = await sb.from('tracks').select('id, slug, cover_url, video_url').in('id', trkIds)
+    for (const t of (data || []) as any[]) info.set('track:' + t.id, { href: `/dainos/${t.slug}-${t.id}`, cover: ytThumb(t.video_url) || t.cover_url || null })
+  }
+
+  let out = html
+  for (const c of cands) {
+    const r = resByText.get(c.text); if (!r) continue
+    const inf = info.get(`${r.type}:${r.id}`); if (!inf) continue
+    const thumb = inf.cover ? `<img class="bp-enrich-thumb" src="${inf.cover}" alt=""/>` : ''
+    const newBlock = `<p><a class="bp-enrich" href="${inf.href}">${thumb}<span>${escHtml(c.text)}</span></a></p>`
+    out = out.replace(c.block, newBlock)
+  }
+  return out
+}
 
 type Sb = any
 

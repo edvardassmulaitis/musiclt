@@ -15,7 +15,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { resolveTopasItems, linkTopasEntry, isNewItem, parseTopasArticle, createEntityForEntry, findArtistByName } from '@/lib/topas-resolve'
+import { resolveTopasItems, linkTopasEntry, isNewItem, parseTopasArticle, createEntityForEntry, findArtistByName, enrichProseLinks } from '@/lib/topas-resolve'
 import { findConfidentMatch, findOrCreateArtist } from '@/lib/chart-resolve'
 
 const YT_RE2 = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
@@ -210,7 +210,12 @@ export async function POST(req: Request) {
       }))
     }
 
-    const topas_meta = { intro: parsed.intro || null, outro: parsed.outro || null, parsed_at: new Date().toISOString() }
+    // Enrichinam prozą — DB esančius paminėtus albumus/dainas paverčiam nuorodomis su mini viršeliu.
+    const [introEn, outroEn] = await Promise.all([
+      enrichProseLinks(sb, parsed.intro || '').catch(() => parsed.intro || ''),
+      enrichProseLinks(sb, parsed.outro || '').catch(() => parsed.outro || ''),
+    ])
+    const topas_meta = { intro: introEn || null, outro: outroEn || null, parsed_at: new Date().toISOString() }
     const { error } = await sb.from('blog_posts')
       .update({ list_items: items, topas_meta, homepage_reviewed_at: new Date().toISOString() }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
