@@ -420,35 +420,42 @@ export default function BlogPostPageClient(props: Props) {
         .bp-pill-count.is-link:hover { background:rgba(255,255,255,0.06); }
         .bp-pill.is-on .bp-pill-count.is-link:hover { background:rgba(0,0,0,0.08); }
 
-        /* Topas list */
-        .bp-topas { list-style:none; padding:0; margin:36px 0; display:flex; flex-direction:column; gap:14px; }
-        .bp-topas-item { display:flex; flex-direction:column; gap:0; padding:16px 18px; border-radius:16px;
-                         background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.06);
-                         text-decoration:none; color:inherit; transition:transform .15s, background .15s, border-color .15s; }
-        .bp-topas-item.is-link:hover { transform:translateY(-2px); background:rgba(255,255,255,0.04); border-color:rgba(249,115,22,0.22); }
-        .bp-topas-head { display:flex; align-items:center; gap:18px; }
-        .bp-topas-rank { font-family:'Outfit',sans-serif; font-weight:900; letter-spacing:-.03em; line-height:1;
-                         font-size:2.1rem; min-width:46px; text-align:center; }
-        .bp-topas-cover-wrap { position:relative; flex-shrink:0; width:96px; height:96px; border-radius:13px; overflow:hidden;
-                               box-shadow:0 4px 16px rgba(0,0,0,0.3); }
-        .bp-topas-cover { width:96px; height:96px; border-radius:13px; object-fit:cover; display:block;
+        /* Topas list — fancy: didelis viršelis kairėje, tekstas dešinėje */
+        .bp-topas { list-style:none; padding:0; margin:36px 0; display:flex; flex-direction:column; gap:16px; }
+        .bp-topas-item { display:flex; align-items:stretch; gap:22px; padding:18px; border-radius:18px;
+                         background:linear-gradient(150deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018));
+                         border:1px solid rgba(255,255,255,0.07);
+                         text-decoration:none; color:inherit; transition:transform .16s, background .16s, border-color .16s, box-shadow .16s; }
+        .bp-topas-item.is-link { cursor:pointer; }
+        .bp-topas-item.is-link:hover { transform:translateY(-2px); border-color:rgba(249,115,22,0.32);
+                         box-shadow:0 12px 30px rgba(0,0,0,0.28); }
+        .bp-topas-cover-wrap { position:relative; flex-shrink:0; width:150px; height:150px; border-radius:14px; overflow:hidden;
+                               box-shadow:0 6px 20px rgba(0,0,0,0.34); }
+        .bp-topas-cover { width:150px; height:150px; border-radius:14px; object-fit:cover; display:block;
                           background:rgba(255,255,255,0.04); }
+        .bp-topas-cover-empty { display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
+                          font-size:2.6rem; font-weight:900; color:rgba(255,255,255,0.18);
+                          background:linear-gradient(135deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)); }
+        .bp-topas-rank-badge { position:absolute; top:8px; left:8px; z-index:2; min-width:30px; height:30px; padding:0 8px;
+                          display:flex; align-items:center; justify-content:center; border-radius:9px;
+                          font-family:'Outfit',sans-serif; font-weight:900; font-size:1.15rem; letter-spacing:-.03em;
+                          background:rgba(0,0,0,0.62); backdrop-filter:blur(3px); }
         .bp-topas-play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-                         border:0; cursor:pointer; color:#fff; background:rgba(0,0,0,0.32);
+                         border:0; cursor:pointer; color:#fff; background:rgba(0,0,0,0.34);
                          opacity:0; transition:opacity .16s; }
         .bp-topas-cover-wrap:hover .bp-topas-play, .bp-topas-play:focus-visible { opacity:1; }
-        .bp-topas-play > svg { width:30px; height:30px; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));
-                               background:rgba(249,115,22,0.92); border-radius:50%; padding:7px; }
-        .bp-topas-title { font-family:'Outfit',sans-serif; font-size:1.1rem; font-weight:800; color:#f2f4f8; line-height:1.25;
+        .bp-topas-play > svg { width:34px; height:34px; filter:drop-shadow(0 2px 7px rgba(0,0,0,0.55));
+                               background:rgba(249,115,22,0.95); border-radius:50%; padding:9px; }
+        .bp-topas-body { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; padding:2px 0; }
+        .bp-topas-title { font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800; color:#f2f4f8; line-height:1.25;
                           letter-spacing:-.01em; margin:0; }
         .bp-topas-artist-inline { color:#f97316; }
-        .bp-topas-genres { display:flex; flex-wrap:wrap; gap:6px; margin-top:7px; }
+        .bp-topas-dash { color:#5e7290; }
+        .bp-topas-genres { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
         .bp-topas-genre { font-family:'Outfit',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.02em;
                           text-transform:lowercase; color:#9db4d4; background:rgba(255,255,255,0.05);
                           border:1px solid rgba(255,255,255,0.08); border-radius:100px; padding:2px 9px; }
-        .bp-topas-item.has-desc .bp-topas-comment { font-size:.92rem; color:#b6c6de; font-style:normal; margin:13px 0 0;
-                          line-height:1.65; padding-top:13px; border-top:1px solid rgba(255,255,255,0.06); }
-        .bp-topas-comment { font-size:.88rem; color:#a4b8d4; font-style:italic; margin:8px 0 0; line-height:1.5; }
+        .bp-topas-comment { font-size:.92rem; color:#b6c6de; margin:12px 0 0; line-height:1.66; max-width:60ch; }
 
         /* Author footer */
         .bp-author-footer { margin-top:48px; padding:18px; background:rgba(255,255,255,0.03);
@@ -501,17 +508,16 @@ export default function BlogPostPageClient(props: Props) {
         @media (max-width: 540px) {
           .bp-hero-photo { height:130px; }
           .bp-h1 { font-size:1.5rem; }
-          .bp-topas { gap:11px; margin:26px 0; }
-          .bp-topas-item { padding:13px 14px; border-radius:14px; }
-          .bp-topas-head { gap:12px; }
-          .bp-topas-rank { font-size:1.5rem; min-width:24px; }
-          .bp-topas-cover-wrap { width:66px; height:66px; border-radius:11px; }
-          .bp-topas-cover { width:66px; height:66px; border-radius:11px; }
-          .bp-topas-play { opacity:1; background:transparent; align-items:flex-end; justify-content:flex-end; padding:3px; }
-          .bp-topas-play > svg { width:22px; height:22px; padding:4px; }
-          .bp-topas-title { font-size:.98rem; }
+          .bp-topas { gap:12px; margin:26px 0; }
+          .bp-topas-item { padding:12px; gap:14px; border-radius:15px; }
+          .bp-topas-cover-wrap { width:104px; height:104px; border-radius:12px; }
+          .bp-topas-cover { width:104px; height:104px; border-radius:12px; }
+          .bp-topas-rank-badge { top:6px; left:6px; min-width:24px; height:24px; font-size:.95rem; border-radius:7px; }
+          .bp-topas-play { opacity:1; background:transparent; align-items:flex-end; justify-content:flex-end; padding:5px; }
+          .bp-topas-play > svg { width:26px; height:26px; padding:6px; }
+          .bp-topas-title { font-size:1rem; }
           .bp-topas-genre { font-size:.66rem; padding:2px 8px; }
-          .bp-topas-item.has-desc .bp-topas-comment { font-size:.88rem; margin-top:11px; padding-top:11px; line-height:1.6; }
+          .bp-topas-comment { font-size:.88rem; margin-top:9px; line-height:1.6; }
         }
       `}</style>
 
@@ -1017,52 +1023,51 @@ function TopasList({ items }: { items: any[] }) {
     <>
     <ol className="bp-topas">
       {items.map((item, idx) => {
+        // Albumas → atidaro AlbumInfoModal (NE nav, nes /albumai reikia {artist-album-id}).
+        // Daina → /dainos/{slug-id}; atlikėjas → /atlikejai/{slug}.
+        const isAlbum = item.type === 'album' && item.entity_id
         const href =
-          item.type === 'artist' ? `/atlikejai/${item.entity_slug || item.entity_id}` :
-          item.type === 'album'  ? `/albumai/${item.entity_slug || item.entity_id}`   :
-          item.type === 'track'  ? `/dainos/${item.entity_slug || item.entity_id}`    :
+          item.type === 'track'  && item.entity_slug && item.entity_id ? `/dainos/${item.entity_slug}-${item.entity_id}` :
+          item.type === 'artist' && item.entity_slug ? `/atlikejai/${item.entity_slug}` :
           null
-        const Wrapper: any = href ? Link : 'div'
-        const wrapperProps = href ? { href } : {}
+        const openAlbum = (e: any) => { e.preventDefault(); e.stopPropagation(); setAlbumModalId(item.entity_id) }
+        const Wrapper: any = isAlbum ? 'div' : href ? Link : 'div'
+        const wrapperProps = isAlbum ? { onClick: openAlbum, role: 'button', tabIndex: 0 } : href ? { href } : {}
+        const clickable = isAlbum || !!href
         const rankColor = idx === 0 ? '#f97316' : idx === 1 ? '#dde8f8' : idx === 2 ? '#a4b8d4' : '#5e7290'
         const genres: string[] = Array.isArray(item.genres) ? item.genres : []
         const hasDesc = !!item.comment
-        // Play mygtukas — albumams atidaro album modalą (su grojaraščiu); kitiems veda į puslapį.
-        const canPlayAlbum = item.type === 'album' && item.entity_id
+        const playable = isAlbum || (item.type === 'track' && item.entity_id)
         return (
           <li key={idx}>
-            <Wrapper {...wrapperProps} className={`bp-topas-item ${href ? 'is-link' : ''} ${hasDesc ? 'has-desc' : ''}`}>
-              <div className="bp-topas-head">
-                <div className="bp-topas-rank" style={{ color: rankColor }}>{item.rank || (idx + 1)}</div>
-                <div className="bp-topas-cover-wrap">
-                  {item.image_url
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    ? <img src={item.image_url} alt="" className="bp-topas-cover" />
-                    : <div className="bp-topas-cover" />
-                  }
-                  {(canPlayAlbum || (item.type === 'track' && item.entity_id)) && (
-                    <button type="button" className="bp-topas-play" aria-label="Klausyti"
-                      onClick={(e) => {
-                        if (canPlayAlbum) { e.preventDefault(); e.stopPropagation(); setAlbumModalId(item.entity_id) }
-                        // track: paliekam default Link → /dainos puslapis su player'iu
-                      }}>
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                    </button>
-                  )}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="bp-topas-title">
-                    {item.artist && <span className="bp-topas-artist-inline">{item.artist} — </span>}
-                    {item.title}
-                  </p>
-                  {genres.length > 0 && (
-                    <div className="bp-topas-genres">
-                      {genres.map((g, i) => <span key={i} className="bp-topas-genre">{g}</span>)}
-                    </div>
-                  )}
-                </div>
+            <Wrapper {...wrapperProps} className={`bp-topas-item ${clickable ? 'is-link' : ''}`}>
+              <div className="bp-topas-cover-wrap">
+                <span className="bp-topas-rank-badge" style={{ color: rankColor }}>{item.rank || (idx + 1)}</span>
+                {item.image_url
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  ? <img src={item.image_url} alt="" className="bp-topas-cover" />
+                  : <div className="bp-topas-cover bp-topas-cover-empty">{(item.artist || item.title || '?').charAt(0).toUpperCase()}</div>
+                }
+                {playable && (
+                  <button type="button" className="bp-topas-play" aria-label="Klausyti"
+                    onClick={(e) => { if (isAlbum) openAlbum(e) }}>
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  </button>
+                )}
               </div>
-              {hasDesc && <p className="bp-topas-comment">{item.comment}</p>}
+              <div className="bp-topas-body">
+                <p className="bp-topas-title">
+                  {item.artist && <span className="bp-topas-artist-inline">{item.artist}</span>}
+                  {item.artist && <span className="bp-topas-dash"> — </span>}
+                  {item.title}
+                </p>
+                {genres.length > 0 && (
+                  <div className="bp-topas-genres">
+                    {genres.map((g, i) => <span key={i} className="bp-topas-genre">{g}</span>)}
+                  </div>
+                )}
+                {hasDesc && <p className="bp-topas-comment">{item.comment}</p>}
+              </div>
             </Wrapper>
           </li>
         )
