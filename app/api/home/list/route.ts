@@ -56,9 +56,11 @@ export async function GET(req: NextRequest) {
       entityType = 'album'
     } else {
       const t = await getLatestTracksForHome()
-      // Modal'e rodom NE-dedup'intą sąrašą (kelias dainas per atlikėją) — kad
-      // matytųsi DAUGIAU naujų dainų nei homepage juostoje (kuri dedup'inta).
-      rows = (lane === 'world' ? t.worldRaw : t.ltRaw).map(mapTrackForHome)
+      // Modal'e rodom VIENĄ dainą per atlikėją (Full = per-artist dedup), kaip ir
+      // homepage juostoje, tik be 10 įrašų limito. Anksčiau buvo Raw (per-daina),
+      // tad atlikėjui išleidus albumą modalą užtvindydavo visi to atlikėjo takeliai
+      // (pvz. Latto 9 dainos). Edvardo prašymu 2026-06-09.
+      rows = (lane === 'world' ? t.worldFull : t.ltFull).map(mapTrackForHome)
       entityType = 'track'
     }
 
