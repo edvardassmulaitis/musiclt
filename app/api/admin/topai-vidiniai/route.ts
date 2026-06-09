@@ -15,8 +15,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { resolveTopasItems, linkTopasEntry, isNewItem, parseTopasArticle, createEntityForEntry } from '@/lib/topas-resolve'
-import { findConfidentMatch } from '@/lib/chart-resolve'
+import { resolveTopasItems, linkTopasEntry, isNewItem, parseTopasArticle, createEntityForEntry, findArtistByName } from '@/lib/topas-resolve'
+import { findConfidentMatch, findOrCreateArtist } from '@/lib/chart-resolve'
 
 const YT_RE2 = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
 const ytThumb2 = (u?: string | null) => { const m = u?.match?.(YT_RE2)?.[1]; return m ? `https://img.youtube.com/vi/${m}/mqdefault.jpg` : null }
@@ -30,29 +30,42 @@ async function requireAdmin() {
   return session
 }
 
-// list_item → UI entry su state
+// list_item → UI entry su state (+ atskiri atlikėjo / entiteto statusai ir nuorodos)
 function entryView(e: any, i: number) {
   const isNew = isNewItem(e)
-  if (!isNew) {
-    return {
-      rank: e?.position ?? i + 1,
-      title: e?.track_title || e?.artist_name || '?',
-      artist: e?.artist_name || null,
-      type: e?.track_title ? 'track' : 'artist',
-      entity_id: null, entity_slug: null, image_url: null,
-      state: 'legacy' as const,
-    }
-  }
-  const connected = e.entity_id != null
-  const state = connected ? 'matched' : (e.match_state === 'artist_only' ? 'artist_only' : 'unmatched')
+  const rank = isNew ? (e.rank ?? i + 1) : (e?.position ?? i + 1)
+  const type = isNew ? (e.type || 'track') : (e?.track_title ? 'track' : 'artist')
+  const title = isNew ? (e.title || e.artist || '?') : (e?.track_title || e?.artist_name || '?')
+  const artist = isNew ? (e.artist || null) : (e?.artist_name || null)
+  const entity_id = isNew ? (e.entity_id ?? null) : null
+  const entity_slug = isNew ? (e.entity_slug ?? null) : null
+  const artist_id = isNew ? (e.artist_id ?? e.artist_id_hint ?? null) : null
+  const artist_slug = isNew ? (e.artist_slug ?? null) : null
+
+  const artist_ok = artist_id != null
+  const entity_ok = entity_id != null
+  // Viešos + admin nuorodos (open in new tab)
+  const web_href =
+    type === 'artist' ? (artist_slug ? `/atlikejai/${artist_slug}` : null)
+    : type === 'album' && entity_id ? `/albumai/${[artist_slug, entity_slug].filter(Boolean).join('-')}-${entity_id}`
+    : type === 'track' && entity_id && entity_slug ? `/dainos/${entity_slug}-${entity_id}`
+    : null
+  const admin_href =
+    type === 'artist' && artist_id ? `/admin/artists/${artist_id}`
+    : type === 'album' && entity_id ? `/admin/albums/${entity_id}`
+    : type === 'track' && entity_id ? `/admin/tracks/${entity_id}`
+    : null
+  const artist_web = artist_slug ? `/atlikejai/${artist_slug}` : null
+  const artist_admin = artist_id ? `/admin/artists/${artist_id}` : null
+
+  const state = isNew
+    ? (entity_ok ? 'matched' : (artist_ok ? 'artist_only' : 'unmatched'))
+    : 'legacy' as const
   return {
-    rank: e.rank ?? i + 1,
-    title: e.title || e.artist || '?',
-    artist: e.artist || null,
-    type: e.type || 'track',
-    entity_id: e.entity_id ?? null,
-    entity_slug: e.entity_slug ?? null,
-    image_url: e.image_url ?? null,
+    rank, title, artist, type,
+    entity_id, entity_slug, image_url: isNew ? (e.image_url ?? null) : null,
+    artist_id, artist_slug, artist_ok, entity_ok,
+    web_href, admin_href, artist_web, artist_admin,
     state,
   }
 }
@@ -141,11 +154,11 @@ export async function POST(req: Request) {
     const trackLids = [...new Set(parsed.entries.filter(e => e.legacyType === 'track' && e.legacyId).map(e => e.legacyId!))]
     const albumMap = new Map<number, any>(); const trackMap = new Map<number, any>()
     if (albumLids.length) {
-      const { data } = await sb.from('albums').select('id, legacy_id, slug, cover_image_url, artist:artist_id(name)').in('legacy_id', albumLids)
+      const { data } = await sb.from('albums').select('id, legacy_id, slug, cover_image_url, artist:artist_id(id, name, slug)').in('legacy_id', albumLids)
       for (const a of (data || []) as any[]) albumMap.set(a.legacy_id, a)
     }
     if (trackLids.length) {
-      const { data } = await sb.from('tracks').select('id, legacy_id, slug, cover_url, video_url, artist:artist_id(name, cover_image_url)').in('legacy_id', trackLids)
+      const { data } = await sb.from('tracks').select('id, legacy_id, slug, cover_url, video_url, artist:artist_id(id, name, slug, cover_image_url)').in('legacy_id', trackLids)
       for (const t of (data || []) as any[]) trackMap.set(t.legacy_id, t)
     }
 
@@ -156,12 +169,12 @@ export async function POST(req: Request) {
       const base = { rank: e.rank, title: e.title, artist: e.artist, comment: e.description || null, genres: e.genres, rating: null }
       if (e.legacyType === 'album' && albumMap.has(e.legacyId!)) {
         const a = albumMap.get(e.legacyId!); const ar = firstOf(a.artist)
-        items[i] = { ...base, type: 'album', entity_id: a.id, entity_slug: a.slug || null, image_url: a.cover_image_url || null, artist: ar?.name || e.artist, match_state: 'matched' }
+        items[i] = { ...base, type: 'album', entity_id: a.id, entity_slug: a.slug || null, image_url: a.cover_image_url || null, artist: ar?.name || e.artist, artist_id: ar?.id || null, artist_slug: ar?.slug || null, match_state: 'matched' }
       } else if (e.legacyType === 'track' && trackMap.has(e.legacyId!)) {
         const t = trackMap.get(e.legacyId!); const ar = firstOf(t.artist)
-        items[i] = { ...base, type: 'track', entity_id: t.id, entity_slug: t.slug || null, image_url: ytThumb2(t.video_url) || t.cover_url || ar?.cover_image_url || null, artist: ar?.name || e.artist, match_state: 'matched' }
+        items[i] = { ...base, type: 'track', entity_id: t.id, entity_slug: t.slug || null, image_url: ytThumb2(t.video_url) || t.cover_url || ar?.cover_image_url || null, artist: ar?.name || e.artist, artist_id: ar?.id || null, artist_slug: ar?.slug || null, match_state: 'matched' }
       } else {
-        items[i] = { ...base, type: e.legacyType === 'album' ? 'album' : 'track', entity_id: null, entity_slug: null, image_url: null, match_state: 'unmatched' }
+        items[i] = { ...base, type: e.legacyType === 'album' ? 'album' : 'track', entity_id: null, entity_slug: null, image_url: null, artist_id: null, artist_slug: null, match_state: 'unmatched' }
         needText.push(i)
       }
     })
@@ -170,20 +183,29 @@ export async function POST(req: Request) {
       await Promise.all(needText.slice(s, s + 8).map(async (i) => {
         const e = parsed.entries[i]
         const fm = await findConfidentMatch(sb, e.artist, e.title).catch(() => null)
-        if (fm) items[i] = { ...items[i], type: 'track', entity_id: fm.trackId, match_state: 'matched' }
+        if (fm) items[i] = { ...items[i], type: 'track', entity_id: fm.trackId, artist_id: fm.artistId, match_state: 'matched' }
       }))
     }
     // Cover/slug text-matched dainoms
     const txtIds = [...new Set(items.filter(it => it.match_state === 'matched' && it.type === 'track' && !it.entity_slug && it.entity_id).map(it => it.entity_id))]
     if (txtIds.length) {
-      const { data } = await sb.from('tracks').select('id, slug, cover_url, video_url, artist:artist_id(cover_image_url)').in('id', txtIds)
+      const { data } = await sb.from('tracks').select('id, slug, cover_url, video_url, artist:artist_id(id, slug, cover_image_url)').in('id', txtIds)
       const mp = new Map<number, any>((data || []).map((t: any) => [t.id, t]))
       for (const it of items) {
         if (it.entity_id && mp.has(it.entity_id)) {
           const t = mp.get(it.entity_id); const ar = firstOf(t.artist)
           it.entity_slug = t.slug || null; it.image_url = it.image_url || ytThumb2(t.video_url) || t.cover_url || ar?.cover_image_url || null
+          if (!it.artist_id && ar?.id) { it.artist_id = ar.id; it.artist_slug = ar.slug || null }
         }
       }
+    }
+    // Atlikėjo rezoliucija įrašams, kuriems vis dar nėra artist_id (radom atlikėją, bet ne entitetą)
+    const needArtist = items.map((it, i) => (!it.artist_id ? i : -1)).filter(i => i >= 0)
+    for (let s = 0; s < needArtist.length; s += 8) {
+      await Promise.all(needArtist.slice(s, s + 8).map(async (i) => {
+        const a = await findArtistByName(sb, items[i].artist || '').catch(() => null)
+        if (a) { items[i].artist_id = a.id; items[i].artist_slug = a.slug || null; if (items[i].match_state === 'unmatched') items[i].match_state = 'artist_only' }
+      }))
     }
 
     const topas_meta = { intro: parsed.intro || null, outro: parsed.outro || null, parsed_at: new Date().toISOString() }
@@ -212,7 +234,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ...summarize(items) })
   }
 
-  // Sukurti ghost entitetą vienam įrašui (pagal rank).
+  // Sukurti ghost entitetą vienam įrašui (pagal rank) — atlikėjas + daina/albumas.
   if (action === 'create_entry') {
     const rank = body.rank
     const e = list.find((x: any) => (x?.rank ?? x?.position) === rank)
@@ -221,8 +243,26 @@ export async function POST(req: Request) {
     const title = e.type === 'artist' ? null : (e.title || e.track_title || null)
     if (!artist) return NextResponse.json({ error: 'nėra atlikėjo' }, { status: 400 })
     const ent = await createEntityForEntry(sb, artist, title, e.type === 'artist')
+    const a = await findArtistByName(sb, artist).catch(() => null)
     const items = list.map((x: any) => ((x?.rank ?? x?.position) === rank
-      ? { rank, type: ent.type, entity_id: ent.entity_id, entity_slug: ent.entity_slug, title: x.title || x.track_title || artist, artist, image_url: ent.image_url, comment: x.comment ?? x.description ?? null, rating: x.rating ?? null, match_state: 'created' }
+      ? { ...x, rank, type: ent.type, entity_id: ent.entity_id, entity_slug: ent.entity_slug, title: x.title || x.track_title || artist, artist, image_url: ent.image_url, artist_id: a?.id ?? x.artist_id ?? null, artist_slug: a?.slug ?? x.artist_slug ?? null, comment: x.comment ?? x.description ?? null, rating: x.rating ?? null, genres: x.genres ?? null, match_state: 'created' }
+      : x))
+    const { error } = await sb.from('blog_posts').update({ list_items: items }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, ...summarize(items) })
+  }
+
+  // Sukurti TIK atlikėją (be dainos/albumo) — kaip external topuose.
+  if (action === 'create_artist') {
+    const rank = body.rank
+    const e = list.find((x: any) => (x?.rank ?? x?.position) === rank)
+    if (!e) return NextResponse.json({ error: 'įrašas nerastas' }, { status: 404 })
+    const artist = e.artist || e.artist_name || ''
+    if (!artist) return NextResponse.json({ error: 'nėra atlikėjo' }, { status: 400 })
+    const aid = await findOrCreateArtist(sb, artist, null)
+    const { data: ar } = await sb.from('artists').select('slug').eq('id', aid).maybeSingle()
+    const items = list.map((x: any) => ((x?.rank ?? x?.position) === rank
+      ? { ...x, artist_id: aid, artist_slug: ar?.slug ?? null, match_state: x.entity_id ? x.match_state : 'artist_only' }
       : x))
     const { error } = await sb.from('blog_posts').update({ list_items: items }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

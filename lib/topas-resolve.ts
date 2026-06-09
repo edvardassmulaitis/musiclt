@@ -19,7 +19,10 @@ function ytThumb(url?: string | null): string | null {
   return m ? `https://img.youtube.com/vi/${m}/mqdefault.jpg` : null
 }
 
-// Randa atlikėją be kūrimo (normalizuotas lookup).
+// Randa atlikėją be kūrimo (normalizuotas lookup). Eksportuotas alias žemiau.
+export async function findArtistByName(sb: Sb, rawArtist: string): Promise<{ id: number; slug: string | null; cover: string | null } | null> {
+  return findArtistOnly(sb, rawArtist)
+}
 async function findArtistOnly(sb: Sb, rawArtist: string): Promise<{ id: number; slug: string | null; cover: string | null } | null> {
   const name = primaryArtist(rawArtist) || rawArtist
   const nNorm = normalizeForMatch(name)

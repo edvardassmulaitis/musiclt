@@ -10,6 +10,8 @@ import { proxyImg } from '@/lib/img-proxy'
 type Entry = {
   rank: number; title: string; artist: string | null; type: string
   entity_id: number | null; entity_slug: string | null; image_url: string | null
+  artist_id: number | null; artist_slug: string | null; artist_ok: boolean; entity_ok: boolean
+  web_href: string | null; admin_href: string | null; artist_web: string | null; artist_admin: string | null
   state: 'matched' | 'artist_only' | 'unmatched' | 'legacy'
 }
 type Topas = {
@@ -19,12 +21,6 @@ type Topas = {
   content_entries: number
 }
 
-const STATE_BADGE: Record<Entry['state'], { l: string; c: string }> = {
-  matched: { l: '✓', c: 'bg-emerald-100 text-emerald-700' },
-  artist_only: { l: '⚠ tik atlikėjas', c: 'bg-amber-100 text-amber-700' },
-  unmatched: { l: '✗ nerasta', c: 'bg-red-100 text-red-600' },
-  legacy: { l: 'neapdorota', c: 'bg-gray-100 text-gray-500' },
-}
 const PAGE = 40
 
 export default function TopaiVidiniaiClient() {
@@ -79,6 +75,7 @@ export default function TopaiVidiniaiClient() {
   const createMissing = async (id: string) => { const d = await act(id, 'create_missing'); if (d) { patchTopas(id, d); setMsg(`✓ Sukurta · ${d.connected}/${d.total} sujungta`) } }
   const importContent = async (id: string) => { const d = await act(id, 'import_from_content'); if (d) { patchTopas(id, d); setMsg(`✓ Importuota ${d.imported} įrašų · ${d.connected}/${d.total} sujungta`) } }
   const createEntry = async (id: string, rank: number) => { const d = await act(id, 'create_entry', { rank }); if (d) patchTopas(id, d) }
+  const createArtist = async (id: string, rank: number) => { const d = await act(id, 'create_artist', { rank }); if (d) patchTopas(id, d) }
   const removeEntry = async (id: string, rank: number) => { const d = await act(id, 'remove_entry', { rank }); if (d) patchTopas(id, d) }
   const linkEntry = async (id: string, rank: number, hit: AttachmentHit) => { const d = await act(id, 'link_entry', { rank, hit }); if (d) { patchTopas(id, d); setLinkOpen(null) } }
   const addEntry = async (id: string, hit: AttachmentHit) => { const d = await act(id, 'add_entry', { hit }); if (d) { patchTopas(id, d) } }
@@ -171,30 +168,54 @@ export default function TopaiVidiniaiClient() {
                     <div className="mt-3 border-t border-gray-100 pt-2 space-y-1">
                       {t.entries.map(e => {
                         const key = `${t.id}:${e.rank}`
-                        const sb = STATE_BADGE[e.state]
+                        const entLabel = e.type === 'album' ? 'Albumas' : e.type === 'artist' ? 'Atlikėjas' : 'Daina'
                         return (
-                          <div key={e.rank}>
-                            <div className="flex items-center gap-2 py-1">
+                          <div key={e.rank} className="py-1.5 border-b border-gray-50 last:border-0">
+                            <div className="flex items-center gap-2">
                               <span className="shrink-0 w-5 text-center text-xs font-bold text-gray-400">{e.rank}</span>
                               {e.image_url
-                                ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(e.image_url)} alt="" className="w-7 h-7 rounded object-cover shrink-0" />
-                                : <div className="w-7 h-7 rounded bg-gray-100 shrink-0" />}
+                                ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(e.image_url)} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+                                : <div className="w-8 h-8 rounded bg-gray-100 shrink-0" />}
                               <div className="min-w-0 flex-1">
                                 <div className="text-sm text-gray-800 truncate">{e.title}</div>
                                 {e.artist && <div className="text-xs text-gray-500 truncate">{e.artist}</div>}
                               </div>
-                              <span className={`shrink-0 text-[11px] px-1.5 py-0.5 rounded font-semibold ${sb.c}`}>{sb.l}</span>
-                              {e.entity_id == null && (
-                                <button onClick={() => createEntry(t.id, e.rank)} disabled={isBusy} title="sukurti naują DB įrašą"
-                                  className="shrink-0 text-xs px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 disabled:opacity-50">Sukurti</button>
-                              )}
-                              <button onClick={() => setLinkOpen(linkOpen === key ? null : key)}
-                                className="shrink-0 text-xs px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700">{e.entity_id == null ? 'Susieti' : 'Keisti'}</button>
-                              <button onClick={() => removeEntry(t.id, e.rank)} disabled={isBusy} title="pašalinti įrašą"
-                                className="shrink-0 text-xs px-1.5 py-1 rounded-lg bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500">✕</button>
+                              {/* Atlikėjo statusas */}
+                              <div className="shrink-0 flex items-center gap-1">
+                                {e.artist_ok ? (
+                                  <>
+                                    <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold bg-emerald-100 text-emerald-700" title="Atlikėjas yra DB">✓ atl.</span>
+                                    {e.artist_web && <a href={e.artist_web} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-orange-600 text-xs px-1" title="Vieša atlikėjo nuoroda">↗</a>}
+                                    {e.artist_admin && <a href={e.artist_admin} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-violet-700 text-xs px-1" title="Redaguoti atlikėją (admin)">✎</a>}
+                                  </>
+                                ) : (
+                                  <button onClick={() => createArtist(t.id, e.rank)} disabled={isBusy} title="Sukurti tik atlikėją (be dainos)"
+                                    className="text-[11px] px-1.5 py-0.5 rounded font-semibold bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50">✗ atl. · Sukurti</button>
+                                )}
+                              </div>
+                              {/* Entiteto (albumas/daina) statusas */}
+                              <div className="shrink-0 flex items-center gap-1">
+                                {e.entity_ok ? (
+                                  <>
+                                    <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold bg-emerald-100 text-emerald-700" title={`${entLabel} yra DB`}>✓ {entLabel.slice(0,3).toLowerCase()}.</span>
+                                    {e.web_href && <a href={e.web_href} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-orange-600 text-xs px-1" title={`Vieša ${entLabel.toLowerCase()} nuoroda`}>↗</a>}
+                                    {e.admin_href && <a href={e.admin_href} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-violet-700 text-xs px-1" title={`Redaguoti (admin)`}>✎</a>}
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold bg-red-50 text-red-600" title={`${entLabel} nerasta`}>✗ {entLabel.slice(0,3).toLowerCase()}.</span>
+                                    <button onClick={() => createEntry(t.id, e.rank)} disabled={isBusy} title="Sukurti atlikėją + dainą"
+                                      className="text-xs px-1.5 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 disabled:opacity-50">Sukurti</button>
+                                  </>
+                                )}
+                                <button onClick={() => setLinkOpen(linkOpen === key ? null : key)}
+                                  className="text-xs px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700">{e.entity_ok ? 'Keisti' : 'Susieti'}</button>
+                                <button onClick={() => removeEntry(t.id, e.rank)} disabled={isBusy} title="pašalinti įrašą"
+                                  className="text-xs px-1 py-0.5 rounded bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500">✕</button>
+                              </div>
                             </div>
                             {linkOpen === key && (
-                              <div className="ml-7 mb-2 p-2 rounded-lg bg-gray-50 border border-gray-200">
+                              <div className="ml-7 mt-1.5 p-2 rounded-lg bg-gray-50 border border-gray-200">
                                 <MusicSearchPicker compact placeholder="Ieškok dainos ar atlikėjo…" onAdd={(hit) => linkEntry(t.id, e.rank, hit)} />
                               </div>
                             )}
