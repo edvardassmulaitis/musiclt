@@ -184,6 +184,19 @@ function decodeEntities(s: string): string {
 }
 const stripTags = (s: string) => decodeEntities((s || '').replace(/<[^>]+>/g, '')).replace(/ /g, ' ').replace(/\s+/g, ' ').trim()
 
+// Word/CKEditor prozos valymas: pašalina tuščias pastraipas (didžiuliai tarpai),
+// MS-Office inline šiukšles, dvigubus <br>. Palieka švarų tekstą + nuorodas.
+function cleanProseHtml(h: string): string {
+  return (h || '')
+    .replace(/<o:p>[\s\S]*?<\/o:p>/gi, '')
+    .replace(/<p[^>]*>(?:[\s ]|&nbsp;|<br\s*\/?>|<span[^>]*>|<\/span>)*<\/p>/gi, '')
+    .replace(/(\s*<br\s*\/?>\s*){2,}/gi, '<br>')
+    .replace(/\sstyle="[^"]*mso[^"]*"/gi, '')
+    .replace(/\sclass="MsoNormal"/gi, '')
+    .replace(/\slang="[^"]*"/gi, '')
+    .trim()
+}
+
 export function parseTopasArticle(content: string): ParsedTopas {
   if (!content) return { intro: '', outro: '', entries: [] }
   const c = content
@@ -232,8 +245,8 @@ export function parseTopasArticle(content: string): ParsedTopas {
     return { rank: h.rank, artist: h.artist, title: h.title, genres: h.genres, description: desc, legacyType: h.legacyType, legacyId: h.legacyId }
   })
 
-  const intro = c.slice(0, pStartBefore(heads[0].hStart)).trim()
-  const outro = omIdx >= 0 ? c.slice(pStartBefore(omIdx)).trim() : ''
+  const intro = cleanProseHtml(c.slice(0, pStartBefore(heads[0].hStart)))
+  const outro = omIdx >= 0 ? cleanProseHtml(c.slice(pStartBefore(omIdx))) : ''
   return { intro, outro, entries }
 }
 

@@ -482,6 +482,14 @@ export default function BlogPostPageClient(props: Props) {
         @media (max-width: 540px) {
           .bp-hero-photo { height:130px; }
           .bp-h1 { font-size:1.5rem; }
+          .bp-topas { gap:11px; margin:26px 0; }
+          .bp-topas-item { padding:13px 14px; border-radius:14px; }
+          .bp-topas-head { gap:12px; }
+          .bp-topas-rank { font-size:1.55rem; min-width:30px; }
+          .bp-topas-cover { width:54px; height:54px; border-radius:10px; }
+          .bp-topas-title { font-size:.98rem; }
+          .bp-topas-genre { font-size:.66rem; padding:2px 8px; }
+          .bp-topas-item.has-desc .bp-topas-comment { font-size:.88rem; margin-top:11px; padding-top:11px; line-height:1.6; }
         }
       `}</style>
 
