@@ -2703,25 +2703,21 @@ export function SiteHeader() {
             </svg>
           </button>
 
-          <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
-          </Link>
-
-          {/* Radaras — besisukanti mini animacija → /nauji-atlikejai (promo).
-              PO logo, matoma ir mobile, ir desktop. Žalia nata = „aptikta nauja
-              muzika" (fresh) — atkartoja didelio hero radaro parašą (oranžinis
-              skenavimas + žalias muzikos elementas). */}
+          {/* Radaras → /nauji-atlikejai (promo). PRIEŠ logo, matoma mobile+desktop.
+              Žalias blip = „aptikta nauja muzika"; atkartoja hero radaro parašą. */}
           <Link
             href="/nauji-atlikejai"
             aria-label="Naujos muzikos radaras"
             title="Naujos muzikos radaras — kylantys LT atlikėjai"
             className="sh-radar"
-            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textDecoration: 'none', transition: 'color .15s' }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
+            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
           >
             <RadarSweepMini size={32} />
+          </Link>
+
+          <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
+            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
           </Link>
 
           {/* Desktop nav with rich dropdowns */}
