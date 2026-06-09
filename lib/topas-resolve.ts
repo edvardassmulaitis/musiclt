@@ -261,7 +261,10 @@ const stripTags = (s: string) => decodeEntities((s || '').replace(/<[^>]+>/g, ''
 function cleanProseHtml(h: string): string {
   return (h || '')
     .replace(/<o:p>[\s\S]*?<\/o:p>/gi, '')
-    .replace(/<p[^>]*>(?:[\s ]|&nbsp;|<br\s*\/?>|<span[^>]*>|<\/span>)*<\/p>/gi, '')
+    .replace(/<img[^>]*>/gi, '')
+    .replace(/\sstyle="[^"]*float[^"]*"/gi, '')
+    .replace(/(\s*<hr\s*\/?>\s*)+$/gi, '')
+    .replace(/<p[^>]*>(?:[\s ]|&nbsp;|<br\s*\/?>|<\/?(?:span|strong|b|em|i|u)[^>]*>)*<\/p>/gi, '')
     .replace(/(\s*<br\s*\/?>\s*){2,}/gi, '<br>')
     .replace(/\sstyle="[^"]*mso[^"]*"/gi, '')
     .replace(/\sclass="MsoNormal"/gi, '')
