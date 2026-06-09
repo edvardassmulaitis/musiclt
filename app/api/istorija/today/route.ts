@@ -144,10 +144,12 @@ async function fetchToday(): Promise<IstItem[]> {
         const gs = byMember[it._artistId] || []
         it.groups = gs
         it.subtitle = gs.length ? gs.slice(0, 2).map(x => x.name).join(', ') + (gs.length > 2 ? ` +${gs.length - 2}` : '') : ''
-        // Rikiavimo balas = max(savo score, populiariausios grupės score) — grupių
-        // nariai (pvz. būgnininkai) turi mažą asmeninį score, bet priklauso
-        // populiarioms grupėms. Edvardo prašymu 2026-06-02.
-        it.score = Math.max(Number(it.score || 0), grpScoreByMember[it._artistId] || 0)
+        // Rikiavimo balas = SAVO score + populiariausios grupės score (NE max).
+        // „Ne tik pagal grupių populiarumą" — atlikėjo asmeninė reikšmė irgi
+        // įtakoja: pvz. Matt Bellamy (Muse 34 + savo 10 = 44) > Pete Gill
+        // (Motörhead 35 + savo 0 = 35), nes jis pats — grupės frontman'as, o ne
+        // tik būgnininkas populiarioje grupėje. Edvardo prašymu 2026-06-09.
+        it.score = Number(it.score || 0) + (grpScoreByMember[it._artistId] || 0)
       }
     }
   } catch {}
@@ -215,9 +217,7 @@ async function fetchToday(): Promise<IstItem[]> {
   //    (likes sveriami, kad ir mažiau žiūrėtas bet mėgstamas albumas kiltų).
   //    Edvardo prašymu 2026-06-02.
   //  - kiti tipai: pagal atlikėjo populiarumą (score) desc, tiebreak pagal amžių.
-  const rankOf = (x: any) => x.type === 'album_anniversary'
-    ? (x._views || 0) + (x.likeCount || 0) * 1000
-    : (x.score || 0)
+  const score = (x: any) => x.score || 0
   // SVARBU: rikiuoti ir riboti KIEKVIENĄ tipą ATSKIRAI. Anksčiau viskas buvo
   // sumaišoma į vieną sąrašą ir slice(0,40) — albumų rangas (YT peržiūros
   // milijonais) visada nustelbdavo gimtadienius/mirties metines (rangas = score,
@@ -225,13 +225,30 @@ async function fetchToday(): Promise<IstItem[]> {
   // mirties metinės dingdavo (komponentas tuščias sekcijas slepia). 2026-06-09.
   const byType: Record<string, any[]> = { album_anniversary: [], birthday: [], death_anniversary: [] }
   for (const it of items as any[]) (byType[it.type] ||= []).push(it)
+
+  // Albumai: PIRMIAUSIA pagal music.lt narių patiktukus (likeCount), tiebreak
+  // pagal YT peržiūras. Anksčiau likes ir views buvo maišomi (likes*1000+views),
+  // tad daug peržiūrų turintis bet 0 patiktukų albumas nustelbdavo mėgstamus —
+  // eilė atrodė atsitiktinė. Edvardo prašymu 2026-06-09: likes dominuoja.
+  byType.album_anniversary.sort((a: any, b: any) =>
+    ((b.likeCount || 0) - (a.likeCount || 0)) ||
+    ((b._views || 0) - (a._views || 0)) ||
+    ((b.age || 0) - (a.age || 0)))
+
+  // Gimtadieniai: GYVI pirmiau, MIRĘ (gimimo metinės) — į galą. Tipo viduje
+  // pagal populiarumą (savo + grupės score) desc. Edvardo prašymu 2026-06-09.
+  byType.birthday.sort((a: any, b: any) => {
+    const da = a.deceased ? 1 : 0, db = b.deceased ? 1 : 0
+    if (da !== db) return da - db
+    return (score(b) - score(a)) || ((b.age || 0) - (a.age || 0))
+  })
+
+  // Mirties metinės: pagal atlikėjo populiarumą desc.
+  byType.death_anniversary.sort((a: any, b: any) => (score(b) - score(a)) || ((b.age || 0) - (a.age || 0)))
+
   const out: any[] = []
-  // Per tipą: rikiuojam pagal rangą, paimame iki 40. Komponentas pats rodo
-  // visus to tipo įrašus su „daugiau“ modalu, tad kiekvienas tipas išlieka.
   for (const t of ['album_anniversary', 'birthday', 'death_anniversary']) {
-    const arr = byType[t] || []
-    arr.sort((a: any, b: any) => (rankOf(b) - rankOf(a)) || (b.age || 0) - (a.age || 0))
-    out.push(...arr.slice(0, 40))
+    out.push(...(byType[t] || []).slice(0, 40))
   }
   return out as IstItem[]
 }
