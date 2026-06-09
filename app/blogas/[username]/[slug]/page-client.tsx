@@ -437,11 +437,17 @@ export default function BlogPostPageClient(props: Props) {
                           font-size:2.6rem; font-weight:900; color:rgba(255,255,255,0.18);
                           background:linear-gradient(135deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)); }
         .bp-topas-play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-                         border:0; cursor:pointer; color:#fff; background:rgba(0,0,0,0.34);
-                         opacity:0; transition:opacity .16s; }
-        .bp-topas-cover-wrap:hover .bp-topas-play, .bp-topas-play:focus-visible { opacity:1; }
-        .bp-topas-play > svg { width:34px; height:34px; filter:drop-shadow(0 2px 7px rgba(0,0,0,0.55));
-                               background:rgba(249,115,22,0.95); border-radius:50%; padding:9px; }
+                         border:0; cursor:pointer; color:#fff;
+                         background:linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0.1));
+                         opacity:0; transition:opacity .2s ease; }
+        /* Subtilus play elementas — pasirodo hover'inant VISĄ kortelę (aiškus klikinamumo ženklas) */
+        .bp-topas-item.is-link:hover .bp-topas-play, .bp-topas-play:focus-visible { opacity:1; }
+        .bp-topas-play > svg { width:38px; height:38px; box-sizing:border-box; filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+                               background:rgba(249,115,22,0.96); border-radius:50%; padding:10px;
+                               transform:scale(0.82); transition:transform .2s cubic-bezier(0.22,1,0.36,1); }
+        .bp-topas-item.is-link:hover .bp-topas-play > svg { transform:scale(1); }
+        .bp-topas-item.is-link:hover .bp-topas-cover { transform:scale(1.04); transition:transform .3s ease; }
+        .bp-topas-cover { transition:transform .3s ease; }
         .bp-topas-body { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; padding:2px 0; }
         .bp-topas-titlerow { display:flex; align-items:baseline; gap:13px; }
         .bp-topas-rank { font-family:'Outfit',sans-serif; font-weight:900; font-size:1.7rem; letter-spacing:-.03em;
