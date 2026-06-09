@@ -42,8 +42,10 @@ function entryView(e: any, i: number) {
   const artist_id = isNew ? (e.artist_id ?? e.artist_id_hint ?? null) : null
   const artist_slug = isNew ? (e.artist_slug ?? null) : null
 
-  const artist_ok = artist_id != null
   const entity_ok = entity_id != null
+  // Susietas albumas/daina BŪTINAI turi atlikėją — tad atlikėjas „yra" net jei
+  // artist_id (nuorodoms) dar neišsaugotas.
+  const artist_ok = artist_id != null || entity_ok
   // Viešos + admin nuorodos (open in new tab)
   const web_href =
     type === 'artist' ? (artist_slug ? `/atlikejai/${artist_slug}` : null)
@@ -227,8 +229,17 @@ export async function POST(req: Request) {
   if (action === 'link_entry') {
     const rank = body.rank; const h = body.hit
     if (rank == null || !h?.id) return NextResponse.json({ error: 'rank + hit required' }, { status: 400 })
-    const hit = { type: HIT_TYPE[h.type] || 'track', id: h.id, slug: h.slug ?? null, title: h.title || '', artist: h.artist ?? null, image_url: h.image_url ?? null }
-    const items = await linkTopasEntry(sb, list, rank, hit)
+    const t = HIT_TYPE[h.type] || 'track'
+    const hit = { type: t, id: h.id, slug: h.slug ?? null, title: h.title || '', artist: h.artist ?? null, image_url: h.image_url ?? null }
+    // Susieto entiteto atlikėjo rezoliucija (kad atlikėjo statusas + nuorodos veiktų).
+    let artist_id: number | null = null; let artist_slug: string | null = null
+    if (t === 'artist') { artist_id = h.id; artist_slug = h.slug ?? null }
+    else {
+      const { data } = await sb.from(t === 'album' ? 'albums' : 'tracks').select('artist:artist_id(id, slug)').eq('id', h.id).maybeSingle()
+      const ar = firstOf((data as any)?.artist); artist_id = ar?.id ?? null; artist_slug = ar?.slug ?? null
+    }
+    const linked = await linkTopasEntry(sb, list, rank, hit)
+    const items = linked.map((x: any) => ((x?.rank ?? x?.position) === rank ? { ...x, artist_id, artist_slug } : x))
     const { error } = await sb.from('blog_posts').update({ list_items: items }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, ...summarize(items) })

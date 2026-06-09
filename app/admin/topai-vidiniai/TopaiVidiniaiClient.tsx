@@ -23,6 +23,21 @@ type Topas = {
 
 const PAGE = 40
 
+function Flag({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span className={`shrink-0 text-[11px] px-1.5 py-0.5 rounded font-semibold ${ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+      {ok ? '✓' : '✗'} {label}
+    </span>
+  )
+}
+function Ext({ href, kind }: { href: string; kind: 'admin' | 'web' }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer"
+      className={`shrink-0 text-xs px-1 ${kind === 'admin' ? 'text-gray-400 hover:text-violet-700' : 'text-gray-400 hover:text-orange-600'}`}
+      title={kind === 'admin' ? 'Redaguoti (admin)' : 'Vieša nuoroda'}>{kind === 'admin' ? '✎' : '↗'}</a>
+  )
+}
+
 export default function TopaiVidiniaiClient() {
   const [items, setItems] = useState<Topas[]>([])
   const [loading, setLoading] = useState(true)
@@ -168,57 +183,64 @@ export default function TopaiVidiniaiClient() {
                     <div className="mt-3 border-t border-gray-100 pt-2 space-y-1">
                       {t.entries.map(e => {
                         const key = `${t.id}:${e.rank}`
-                        const entLabel = e.type === 'album' ? 'Albumas' : e.type === 'artist' ? 'Atlikėjas' : 'Daina'
+                        const entLabel = e.type === 'album' ? 'alb.' : e.type === 'artist' ? 'atl.' : 'dai.'
+                        const Flag = ({ ok, label }: { ok: boolean; label: string }) => (
+                          <span className={`shrink-0 text-[11px] px-1.5 py-0.5 rounded font-semibold ${ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                            {ok ? '✓' : '✗'} {label}
+                          </span>
+                        )
+                        const Ext = ({ href, kind }: { href: string; kind: 'admin' | 'web' }) => (
+                          <a href={href} target="_blank" rel="noreferrer"
+                            className={`shrink-0 text-xs px-1 ${kind === 'admin' ? 'text-gray-400 hover:text-violet-700' : 'text-gray-400 hover:text-orange-600'}`}
+                            title={kind === 'admin' ? 'Redaguoti (admin)' : 'Vieša nuoroda'}>{kind === 'admin' ? '✎' : '↗'}</a>
+                        )
                         return (
-                          <div key={e.rank} className="py-1.5 border-b border-gray-50 last:border-0">
-                            <div className="flex items-center gap-2">
-                              <span className="shrink-0 w-5 text-center text-xs font-bold text-gray-400">{e.rank}</span>
-                              {e.image_url
-                                ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(e.image_url)} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
-                                : <div className="w-8 h-8 rounded bg-gray-100 shrink-0" />}
-                              <div className="min-w-0 flex-1">
-                                <div className="text-sm text-gray-800 truncate">{e.title}</div>
-                                {e.artist && <div className="text-xs text-gray-500 truncate">{e.artist}</div>}
-                              </div>
-                              {/* Atlikėjo statusas */}
-                              <div className="shrink-0 flex items-center gap-1">
-                                {e.artist_ok ? (
+                          <div key={e.rank} className="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0">
+                            <span className="shrink-0 w-5 text-center text-xs font-bold text-gray-400 pt-0.5">{e.rank}</span>
+                            {e.image_url
+                              ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(e.image_url)} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                              : <div className="w-10 h-10 rounded bg-gray-100 shrink-0" />}
+                            <div className="min-w-0 flex-1 space-y-1">
+                              {/* Eilutė 1 — albumas / daina */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-sm font-medium text-gray-800 truncate max-w-[260px]">{e.title}</span>
+                                {!e.entity_ok && (
                                   <>
-                                    <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold bg-emerald-100 text-emerald-700" title="Atlikėjas yra DB">✓ atl.</span>
-                                    {e.artist_web && <a href={e.artist_web} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-orange-600 text-xs px-1" title="Vieša atlikėjo nuoroda">↗</a>}
-                                    {e.artist_admin && <a href={e.artist_admin} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-violet-700 text-xs px-1" title="Redaguoti atlikėją (admin)">✎</a>}
-                                  </>
-                                ) : (
-                                  <button onClick={() => createArtist(t.id, e.rank)} disabled={isBusy} title="Sukurti tik atlikėją (be dainos)"
-                                    className="text-[11px] px-1.5 py-0.5 rounded font-semibold bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50">✗ atl. · Sukurti</button>
-                                )}
-                              </div>
-                              {/* Entiteto (albumas/daina) statusas */}
-                              <div className="shrink-0 flex items-center gap-1">
-                                {e.entity_ok ? (
-                                  <>
-                                    <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold bg-emerald-100 text-emerald-700" title={`${entLabel} yra DB`}>✓ {entLabel.slice(0,3).toLowerCase()}.</span>
-                                    {e.web_href && <a href={e.web_href} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-orange-600 text-xs px-1" title={`Vieša ${entLabel.toLowerCase()} nuoroda`}>↗</a>}
-                                    {e.admin_href && <a href={e.admin_href} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-violet-700 text-xs px-1" title={`Redaguoti (admin)`}>✎</a>}
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold bg-red-50 text-red-600" title={`${entLabel} nerasta`}>✗ {entLabel.slice(0,3).toLowerCase()}.</span>
-                                    <button onClick={() => createEntry(t.id, e.rank)} disabled={isBusy} title="Sukurti atlikėją + dainą"
-                                      className="text-xs px-1.5 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 disabled:opacity-50">Sukurti</button>
+                                    <button onClick={() => createEntry(t.id, e.rank)} disabled={isBusy} title="Sukurti atlikėją + dainą/albumą"
+                                      className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 disabled:opacity-50">Sukurti</button>
+                                    <button onClick={() => setLinkOpen(linkOpen === key ? null : key)}
+                                      className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700">Susieti</button>
                                   </>
                                 )}
-                                <button onClick={() => setLinkOpen(linkOpen === key ? null : key)}
-                                  className="text-xs px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700">{e.entity_ok ? 'Keisti' : 'Susieti'}</button>
-                                <button onClick={() => removeEntry(t.id, e.rank)} disabled={isBusy} title="pašalinti įrašą"
-                                  className="text-xs px-1 py-0.5 rounded bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500">✕</button>
+                                <Flag ok={e.entity_ok} label={entLabel} />
+                                {e.entity_ok && e.admin_href && <Ext href={e.admin_href} kind="admin" />}
+                                {e.entity_ok && e.web_href && <Ext href={e.web_href} kind="web" />}
+                                {e.entity_ok && (
+                                  <button onClick={() => setLinkOpen(linkOpen === key ? null : key)}
+                                    className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700">Keisti</button>
+                                )}
                               </div>
+                              {/* Eilutė 2 — atlikėjas */}
+                              {e.artist && (
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs text-gray-500 truncate max-w-[220px]">{e.artist}</span>
+                                  {!e.artist_ok && (
+                                    <button onClick={() => createArtist(t.id, e.rank)} disabled={isBusy} title="Sukurti tik atlikėją (be dainos)"
+                                      className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 disabled:opacity-50">Sukurti</button>
+                                  )}
+                                  <Flag ok={e.artist_ok} label="atl." />
+                                  {e.artist_ok && e.artist_admin && <Ext href={e.artist_admin} kind="admin" />}
+                                  {e.artist_ok && e.artist_web && <Ext href={e.artist_web} kind="web" />}
+                                </div>
+                              )}
+                              {linkOpen === key && (
+                                <div className="p-2 rounded-lg bg-gray-50 border border-gray-200">
+                                  <MusicSearchPicker compact placeholder="Ieškok dainos ar atlikėjo…" onAdd={(hit) => linkEntry(t.id, e.rank, hit)} />
+                                </div>
+                              )}
                             </div>
-                            {linkOpen === key && (
-                              <div className="ml-7 mt-1.5 p-2 rounded-lg bg-gray-50 border border-gray-200">
-                                <MusicSearchPicker compact placeholder="Ieškok dainos ar atlikėjo…" onAdd={(hit) => linkEntry(t.id, e.rank, hit)} />
-                              </div>
-                            )}
+                            <button onClick={() => removeEntry(t.id, e.rank)} disabled={isBusy} title="pašalinti įrašą"
+                              className="shrink-0 text-xs px-1 py-0.5 rounded bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500">✕</button>
                           </div>
                         )
                       })}
