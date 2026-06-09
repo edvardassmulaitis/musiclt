@@ -422,10 +422,11 @@ export default function BlogPostPageClient(props: Props) {
 
         /* Topas list — fancy: didelis viršelis kairėje, tekstas dešinėje */
         .bp-topas { list-style:none; padding:0; margin:36px 0; display:flex; flex-direction:column; gap:16px; }
-        .bp-topas-item { display:flex; align-items:stretch; gap:22px; padding:18px; border-radius:18px;
+        .bp-topas-item { display:flex; flex-direction:column; gap:14px; padding:18px; border-radius:18px;
                          background:linear-gradient(150deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018));
                          border:1px solid rgba(255,255,255,0.07);
                          text-decoration:none; color:inherit; transition:transform .16s, background .16s, border-color .16s, box-shadow .16s; }
+        .bp-topas-lower { display:flex; align-items:flex-start; gap:20px; }
         .bp-topas-item.is-link { cursor:pointer; }
         .bp-topas-item.is-link:hover { transform:translateY(-2px); border-color:rgba(249,115,22,0.32);
                          box-shadow:0 12px 30px rgba(0,0,0,0.28); }
@@ -448,19 +449,18 @@ export default function BlogPostPageClient(props: Props) {
         .bp-topas-item.is-link:hover .bp-topas-play > svg { transform:scale(1); }
         .bp-topas-item.is-link:hover .bp-topas-cover { transform:scale(1.04); transition:transform .3s ease; }
         .bp-topas-cover { transition:transform .3s ease; }
-        .bp-topas-body { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; padding:2px 0; }
-        .bp-topas-titlerow { display:flex; align-items:baseline; gap:13px; }
+        .bp-topas-titlerow { display:flex; align-items:baseline; gap:14px; }
         .bp-topas-rank { font-family:'Outfit',sans-serif; font-weight:900; font-size:1.7rem; letter-spacing:-.03em;
                           line-height:1; flex-shrink:0; }
         .bp-topas-title { font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800; color:#f2f4f8; line-height:1.25;
                           letter-spacing:-.01em; margin:0; }
         .bp-topas-artist-inline { color:#f97316; }
         .bp-topas-dash { color:#5e7290; }
-        .bp-topas-genres { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+        .bp-topas-genres { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
         .bp-topas-genre { font-family:'Outfit',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.02em;
                           text-transform:lowercase; color:#9db4d4; background:rgba(255,255,255,0.05);
                           border:1px solid rgba(255,255,255,0.08); border-radius:100px; padding:2px 9px; }
-        .bp-topas-comment { font-size:.92rem; color:#b6c6de; margin:12px 0 0; line-height:1.66; max-width:60ch; }
+        .bp-topas-comment { flex:1; min-width:0; font-size:.94rem; color:#b6c6de; margin:0; line-height:1.7; }
 
         /* Author footer */
         .bp-author-footer { margin-top:48px; padding:18px; background:rgba(255,255,255,0.03);
@@ -514,16 +514,17 @@ export default function BlogPostPageClient(props: Props) {
           .bp-hero-photo { height:130px; }
           .bp-h1 { font-size:1.5rem; }
           .bp-topas { gap:12px; margin:26px 0; }
-          .bp-topas-item { padding:12px; gap:14px; border-radius:15px; }
-          .bp-topas-cover-wrap { width:96px; height:96px; border-radius:12px; }
-          .bp-topas-cover { width:96px; height:96px; border-radius:12px; }
+          .bp-topas-item { padding:13px; gap:12px; border-radius:15px; }
+          .bp-topas-lower { gap:13px; }
+          .bp-topas-cover-wrap { width:92px; height:92px; border-radius:12px; }
+          .bp-topas-cover { width:92px; height:92px; border-radius:12px; }
+          .bp-topas-comment { font-size:.88rem; line-height:1.62; }
           .bp-topas-play { opacity:1; background:transparent; align-items:flex-end; justify-content:flex-end; padding:5px; }
           .bp-topas-play > svg { width:26px; height:26px; padding:6px; }
           .bp-topas-titlerow { gap:9px; }
           .bp-topas-rank { font-size:1.3rem; }
           .bp-topas-title { font-size:1rem; }
           .bp-topas-genre { font-size:.66rem; padding:2px 8px; }
-          .bp-topas-comment { font-size:.88rem; margin-top:9px; line-height:1.6; }
         }
       `}</style>
 
@@ -1047,33 +1048,37 @@ function TopasList({ items }: { items: any[] }) {
         return (
           <li key={idx}>
             <Wrapper {...wrapperProps} className={`bp-topas-item ${clickable ? 'is-link' : ''}`}>
-              <div className="bp-topas-cover-wrap">
-                {item.image_url
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  ? <img src={item.image_url} alt="" className="bp-topas-cover" />
-                  : <div className="bp-topas-cover bp-topas-cover-empty">{(item.artist || item.title || '?').charAt(0).toUpperCase()}</div>
-                }
-                {playable && (
-                  <button type="button" className="bp-topas-play" aria-label="Klausyti"
-                    onClick={(e) => { if (isAlbum) openAlbum(e) }}>
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                  </button>
-                )}
-              </div>
-              <div className="bp-topas-body">
-                <div className="bp-topas-titlerow">
-                  <span className="bp-topas-rank" style={{ color: rankColor }}>{item.rank || (idx + 1)}</span>
+              {/* Viršus per visą plotį — numeris + pavadinimas + žanrai */}
+              <div className="bp-topas-titlerow">
+                <span className="bp-topas-rank" style={{ color: rankColor }}>{item.rank || (idx + 1)}</span>
+                <div className="min-w-0">
                   <p className="bp-topas-title">
                     {item.artist && <span className="bp-topas-artist-inline">{item.artist}</span>}
                     {item.artist && <span className="bp-topas-dash"> — </span>}
                     {item.title}
                   </p>
+                  {genres.length > 0 && (
+                    <div className="bp-topas-genres">
+                      {genres.map((g, i) => <span key={i} className="bp-topas-genre">{g}</span>)}
+                    </div>
+                  )}
                 </div>
-                {genres.length > 0 && (
-                  <div className="bp-topas-genres">
-                    {genres.map((g, i) => <span key={i} className="bp-topas-genre">{g}</span>)}
-                  </div>
-                )}
+              </div>
+              {/* Apačia — viršelis kairėje + aprašymas per visą likusį plotį */}
+              <div className="bp-topas-lower">
+                <div className="bp-topas-cover-wrap">
+                  {item.image_url
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    ? <img src={item.image_url} alt="" className="bp-topas-cover" />
+                    : <div className="bp-topas-cover bp-topas-cover-empty">{(item.artist || item.title || '?').charAt(0).toUpperCase()}</div>
+                  }
+                  {playable && (
+                    <button type="button" className="bp-topas-play" aria-label="Klausyti"
+                      onClick={(e) => { if (isAlbum) openAlbum(e) }}>
+                      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                  )}
+                </div>
                 {hasDesc && <p className="bp-topas-comment">{item.comment}</p>}
               </div>
             </Wrapper>
