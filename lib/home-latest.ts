@@ -271,24 +271,23 @@ export async function getLatestTracksForHome(): Promise<{
     return Array.from(byKey.values()).sort((a, b) => uploadMs(b) - uploadMs(a))
   }
 
-  // Per-atlikėją dedup homepage juostai (viena daina per atlikėją, populiariausia).
+  // Per-atlikėją dedup — VIENA daina per atlikėją (ir homepage juostai, IR
+  // modalui). Atlikėjui išleidus albumą per dieną atsiranda daug takelių (pvz.
+  // Latto 9 dainų) — rodom tik vieną reprezentatyvią. Atranka per pickBetter:
+  // skirtingos dienos → naujausia, ta pati diena → daugiausiai YT peržiūrų.
+  // Edvardo prašymu 2026-06-09 (modalas vis tiek rodė kelias to paties atlikėjo).
   const dedupe = (arr: LatestTrackRow[]) => {
     const byArtist = new Map<number, LatestTrackRow>()
     for (const r of arr) {
       const existing = byArtist.get(r.artist_id)
-      if (!existing) {
-        byArtist.set(r.artist_id, r)
-        continue
-      }
-      const exV = existing.video_views ?? 0
-      const rV = r.video_views ?? 0
-      if (rV > exV) byArtist.set(r.artist_id, r)
+      byArtist.set(r.artist_id, existing ? pickBetter(existing, r) : r)
     }
     // Atstatom rūšiavimą pagal upload datą DESC (Map saugojo paskutinį, ne tvarką).
     return Array.from(byArtist.values()).sort((a, b) => uploadMs(b) - uploadMs(a))
   }
 
-  // raw = vienas įrašas per DAINĄ (modalui — kelios skirtingos dainos per atlikėją OK).
+  // raw = vienas įrašas per DAINĄ (paliekam suderinamumui; modalas dabar naudoja
+  // Full = vienas per atlikėją). Full = per-artist dedup ant song-dedup'into raw.
   const ltRaw = songDedupe(valid.filter(r => isLT(r.artists?.country)))
   const worldRaw = songDedupe(valid.filter(r => !isLT(r.artists?.country)))
   const ltFull = dedupe(ltRaw)
