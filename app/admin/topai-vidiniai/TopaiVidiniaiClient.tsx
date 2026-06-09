@@ -89,6 +89,7 @@ export default function TopaiVidiniaiClient() {
   const automatch = async (id: string) => { const d = await act(id, 'automatch'); if (d) { patchTopas(id, d); setMsg(`✓ Auto-match: ${d.connected}/${d.total} sujungta`) } }
   const createMissing = async (id: string) => { const d = await act(id, 'create_missing'); if (d) { patchTopas(id, d); setMsg(`✓ Sukurta · ${d.connected}/${d.total} sujungta`) } }
   const importContent = async (id: string) => { const d = await act(id, 'import_from_content'); if (d) { patchTopas(id, d); setMsg(`✓ Importuota ${d.imported} įrašų · ${d.connected}/${d.total} sujungta`) } }
+  const enrichProse = async (id: string) => { const d = await act(id, 'enrich_prose'); if (d) setMsg(`✓ Tekstas enrichintas: ${d.enriched} nuorodų su mini viršeliais`) }
   const createEntry = async (id: string, rank: number) => { const d = await act(id, 'create_entry', { rank }); if (d) patchTopas(id, d) }
   const createArtist = async (id: string, rank: number) => { const d = await act(id, 'create_artist', { rank }); if (d) patchTopas(id, d) }
   const removeEntry = async (id: string, rank: number) => { const d = await act(id, 'remove_entry', { rank }); if (d) patchTopas(id, d) }
@@ -159,6 +160,8 @@ export default function TopaiVidiniaiClient() {
                     {t.total > 0 && <button onClick={() => automatch(t.id)} disabled={isBusy} className="text-sm px-3 py-1 rounded-lg bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50">{isBusy ? '…' : 'Auto-match'}</button>}
                     {t.unconnected > 0 && <button onClick={() => createMissing(t.id)} disabled={isBusy} className="text-sm px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 disabled:opacity-50">Sukurti trūkstamus ({t.unconnected})</button>}
                     <button onClick={() => setAddOpen(addOpen === t.id ? null : t.id)} className="text-sm px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">+ Pridėti įrašą</button>
+                    <button onClick={() => enrichProse(t.id)} disabled={isBusy} title="Surasti DB esančius albumus/dainas tekste (įžanga/pabaiga) ir paversti nuorodomis su viršeliu"
+                      className="text-sm px-3 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 disabled:opacity-50">✨ Enrichinti tekstą</button>
                     <div className="ml-auto">
                       {t.approved
                         ? <button onClick={() => approve(t.id, false)} disabled={isBusy} className="text-sm px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600">↩ Atšaukti</button>

@@ -210,16 +210,29 @@ export async function POST(req: Request) {
       }))
     }
 
-    // Enrichinam prozą — DB esančius paminėtus albumus/dainas paverčiam nuorodomis su mini viršeliu.
-    const [introEn, outroEn] = await Promise.all([
-      enrichProseLinks(sb, parsed.intro || '').catch(() => parsed.intro || ''),
-      enrichProseLinks(sb, parsed.outro || '').catch(() => parsed.outro || ''),
-    ])
-    const topas_meta = { intro: introEn || null, outro: outroEn || null, parsed_at: new Date().toISOString() }
+    // Prozos enrichinimas NEvykdomas automatiškai (apkrova) — atskiras manual mygtukas „Enrichinti tekstą".
+    const topas_meta = { intro: parsed.intro || null, outro: parsed.outro || null, parsed_at: new Date().toISOString() }
     const { error } = await sb.from('blog_posts')
       .update({ list_items: items, topas_meta, homepage_reviewed_at: new Date().toISOString() }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, imported: parsed.entries.length, ...summarize(items) })
+  }
+
+  // Manual prozos enrichinimas (įžanga/pabaiga) — DB paminėti albumai/dainos → nuorodos su mini viršeliu.
+  if (action === 'enrich_prose') {
+    const { data: p } = await sb.from('blog_posts').select('topas_meta').eq('id', id).maybeSingle()
+    const meta = (p?.topas_meta || {}) as any
+    if (!meta.intro && !meta.outro) return NextResponse.json({ error: 'Nėra teksto (įžangos/pabaigos). Pirma „Importuoti iš teksto".' }, { status: 400 })
+    const before = ((meta.intro || '') + (meta.outro || '')).match(/bp-enrich/g)?.length || 0
+    const [introEn, outroEn] = await Promise.all([
+      enrichProseLinks(sb, meta.intro || '').catch(() => meta.intro || ''),
+      enrichProseLinks(sb, meta.outro || '').catch(() => meta.outro || ''),
+    ])
+    const after = ((introEn || '') + (outroEn || '')).match(/bp-enrich"/g)?.length || 0
+    const { error } = await sb.from('blog_posts')
+      .update({ topas_meta: { ...meta, intro: introEn || null, outro: outroEn || null } }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, enriched: after, was: before })
   }
 
   if (action === 'automatch' || action === 'create_missing') {
