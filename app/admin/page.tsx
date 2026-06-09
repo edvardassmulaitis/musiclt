@@ -268,6 +268,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/charts', icon: '🌍', label: 'Išoriniai topai', hint: 'AGATA, Spotify, Apple — susieti dainas' },
     { href: '/admin/irasai', icon: '🗂️', label: 'Narių įrašai', hint: 'Tipų priskyrimas homepage juostai + topų normalizavimas (legacy→entity)' },
     { href: '/admin/topai-vidiniai', icon: '📋', label: 'Vidiniai topai', hint: 'Narių topų susiejimas su DB + patvirtinimas (kaip išoriniai topai)' },
+    { href: '/admin/truksta-muzikos', icon: '🧩', label: 'Trūkstama muzika', hint: 'Vieninga eilė: bendruomenės minimi atlikėjai/albumai/dainos, kurių dar nėra DB' },
     { href: '/admin/dienos-daina', icon: '⭐', label: 'Dienos daina', hint: 'Daily song spotlight' },
     { href: '/admin/voting', icon: '🗳️', label: 'Balsavimai', hint: 'Apdovanojimai, votings' },
     { href: '/admin/boombox', icon: '🎛️', label: 'Boombox', hint: 'Live stream player config' },
