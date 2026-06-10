@@ -16,7 +16,7 @@
 //     (heart + count, count'as atidaro likers modal'ą)
 //   • Komentarų skaitliukas — mygtukas, paspaudus scroll'inasi į komentarų bloką
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
