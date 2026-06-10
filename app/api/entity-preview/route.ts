@@ -36,10 +36,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ type, title: a.name, subtitle: null, cover: a.cover_image_url || null, genres, metric: a.legacy_likes || 0, metric_label: 'sekėjų', href: `/atlikejai/${a.slug}` }, HDR)
   }
   if (type === 'album') {
-    const { data: al } = await sb.from('albums').select('id, legacy_id, title, slug, cover_image_url, release_year, artist:artist_id(name, slug)').eq('id', id).maybeSingle()
+    const { data: al } = await sb.from('albums').select('id, legacy_id, title, slug, cover_image_url, year, artist:artist_id(name, slug)').eq('id', id).maybeSingle()
     if (!al) return NextResponse.json({ error: 'not found' }, { status: 404 })
     const ar = first(al.artist)
-    return NextResponse.json({ type, title: al.title, subtitle: ar?.name || null, cover: al.cover_image_url || null, genres: al.release_year ? [String(al.release_year)] : [], metric: await likeCount('album', al.id, al.legacy_id), metric_label: 'patinka', href: `/albumai/${[ar?.slug, al.slug].filter(Boolean).join('-')}-${al.id}` }, HDR)
+    return NextResponse.json({ type, title: al.title, subtitle: ar?.name || null, cover: al.cover_image_url || null, genres: al.year ? [String(al.year)] : [], metric: await likeCount('album', al.id, al.legacy_id), metric_label: 'patinka', href: `/albumai/${[ar?.slug, al.slug].filter(Boolean).join('-')}-${al.id}` }, HDR)
   }
   const { data: t } = await sb.from('tracks').select('id, legacy_id, title, slug, cover_url, video_url, artist:artist_id(name, slug)').eq('id', id).maybeSingle()
   if (!t) return NextResponse.json({ error: 'not found' }, { status: 404 })
