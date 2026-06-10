@@ -2,12 +2,12 @@
 
 // app/muzikos-atradimai/discoveries-client.tsx
 //
-// Atradimas = forumo komentaras. Kortelė: autorius (avatar+username) + relatyvi
-// data + LikePill (forumo like+skaičius); VEIKIANTIS embed (YT click-to-play,
-// Spotify tiesioginis); pilnas komentaras (nenukirptas); atlikėjas—daina.
-// Filtrų juosta — Renginių (ev-fbar) stiliaus: viena kompaktiška dėžutė su
-// paieška + Narys/Stilius popover chip'ais + count + „Pridėti atradimą" CTA.
-// Naujas atradimas po formos submit'o iškart prepend'inamas sąrašo viršuje.
+// Atradimas = forumo komentaras. LAYOUT — forumo stiliaus EILUTĖS (rows):
+// kairėje embed (YT click-to-play / Spotify), viduryje autorius + pilnas
+// komentaras (clamp + „Skaityti daugiau"), dešinėje susietas atlikėjas
+// (foto + vardas + oficialūs stiliai + ryšys „dar N atradimų"). Filtrų
+// juosta — Renginių (ev-fbar) stilius + rūšiavimas Naujausi/Populiariausi.
+// Naujas atradimas po formos submit'o iškart prepend'inamas viršuje.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -110,11 +110,10 @@ function FilterPopover({ id, openId, setOpenId, label, icon, value, options, onP
 const IconUser = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
 const IconNote = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
 
-// Ilgas komentaras — clamp'inam iki ~8 eilučių su „Skaityti daugiau" toggle,
-// kad masonry kortelės liktų tvarkingo aukščio nepriklausomai nuo teksto.
+// Ilgas komentaras — clamp'inam iki ~8 eilučių su „Skaityti daugiau" toggle.
 function ClampText({ text }: { text: string }) {
   const [open, setOpen] = useState(false)
-  const long = text.length > 380 || text.split('\n').length > 7
+  const long = text.length > 460 || text.split('\n').length > 8
   return (
     <>
       <p className={`ma-narr${long && !open ? ' ma-clamp' : ''}`}>{text}</p>
@@ -127,38 +126,44 @@ function ClampText({ text }: { text: string }) {
   )
 }
 
-// Atlikėjo blokas kortelės apačioje — mini foto + vardas + oficialūs stiliai.
-function ArtistFooter({ d, onStyle }: { d: Discovery; onStyle?: (s: string) => void }) {
-  if (!d.artist_slug) return null
+// Atlikėjo panelė eilutės dešinėje: foto + vardas + oficialūs stiliai +
+// ryšys su kitais to paties atlikėjo atradimais.
+function ArtistAside({ d, moreCount, onMore }: { d: Discovery; moreCount: number; onMore: () => void }) {
   const nm = d.artist_name || '?'
   return (
-    <div className="ma-artfoot">
-      <Link href={`/atlikejai/${d.artist_slug}`} className="ma-artfoot-link">
+    <aside className="ma-aside">
+      <Link href={`/atlikejai/${d.artist_slug}`} className="ma-aside-link">
         {d.artist_cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(d.artist_cover)} alt="" width={34} height={34} loading="lazy" className="ma-artfoot-img" />
+          <img src={proxyImg(d.artist_cover)} alt="" width={56} height={56} loading="lazy" className="ma-aside-img" />
         ) : (
-          <span className="ma-artfoot-img ma-artfoot-ph" style={{ background: `hsl(${hue(nm)},32%,20%)`, color: `hsl(${hue(nm)},52%,64%)` }}>{nm.charAt(0).toUpperCase()}</span>
+          <span className="ma-aside-img ma-aside-ph" style={{ background: `hsl(${hue(nm)},32%,20%)`, color: `hsl(${hue(nm)},52%,64%)` }}>{nm.charAt(0).toUpperCase()}</span>
         )}
-        <span className="ma-artfoot-meta">
-          <span className="ma-artfoot-nm">{nm}</span>
-          <span className="ma-artfoot-sub">Atlikėjo puslapis →</span>
-        </span>
+        <span className="ma-aside-nm">{nm}</span>
       </Link>
       {d.artist_styles.length > 0 && (
-        <span className="ma-artfoot-styles">
+        <div className="ma-aside-styles">
           {d.artist_styles.slice(0, 3).map(s => <span key={s} className="ma-style">{s}</span>)}
-        </span>
+        </div>
       )}
-    </div>
+      {moreCount > 0 && (
+        <button className="ma-aside-more" onClick={onMore}>
+          + dar {moreCount} atradim{moreCount === 1 ? 'as' : (moreCount % 10 === 0 || moreCount >= 11 ? 'ų' : 'ai')}
+        </button>
+      )}
+    </aside>
   )
 }
+
+type Sort = 'new' | 'top'
 
 export default function DiscoveriesClient({ items, facets }: { items: Discovery[]; facets: DiscoveryFacets }) {
   const [q, setQ] = useState('')
   const [member, setMember] = useState('')
   const [style, setStyle] = useState('')
-  const [limit, setLimit] = useState(24)
+  const [artistF, setArtistF] = useState<{ id: number; name: string } | null>(null)
+  const [sort, setSort] = useState<Sort>('new')
+  const [limit, setLimit] = useState(20)
   const [openId, setOpenId] = useState<string | null>(null)
   const [likedSet, setLikedSet] = useState<Set<number>>(new Set())
   // Ką tik per formą pridėti atradimai — prepend'inami viršuje iškart,
@@ -171,6 +176,13 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
     return [...added, ...items.filter(i => !ids.has(i.id))]
   }, [items, added])
 
+  // Kiek atradimų turi kiekvienas susietas atlikėjas (ryšiui „dar N").
+  const byArtist = useMemo(() => {
+    const m = new Map<number, number>()
+    for (const d of allItems) if (d.artist_id) m.set(d.artist_id, (m.get(d.artist_id) || 0) + 1)
+    return m
+  }, [allItems])
+
   // Batch: kuriuos komentarus žiūrintysis jau pamėgo
   useEffect(() => {
     const ids = allItems.map(i => i.comment_id).filter(Boolean) as number[]
@@ -179,23 +191,41 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
       .then(d => setLikedSet(new Set<number>(d.liked_ids || []))).catch(() => {})
   }, [allItems])
 
-  const list = useMemo(() => allItems.filter(d => {
-    if (member && d.author?.username !== member) return false
-    if (style && !d.tags.includes(style)) return false
-    if (q) {
-      const hay = `${d.artist_name || ''} ${d.track_name || ''} ${d.album_name || ''} ${d.body || ''} ${d.author?.username || ''} ${d.tags.join(' ')}`.toLowerCase()
-      if (!hay.includes(q.toLowerCase())) return false
+  const list = useMemo(() => {
+    const filtered = allItems.filter(d => {
+      if (artistF && d.artist_id !== artistF.id) return false
+      if (member && d.author?.username !== member) return false
+      if (style && !d.tags.includes(style)) return false
+      if (q) {
+        const hay = `${d.artist_name || ''} ${d.track_name || ''} ${d.album_name || ''} ${d.body || ''} ${d.author?.username || ''} ${d.tags.join(' ')}`.toLowerCase()
+        if (!hay.includes(q.toLowerCase())) return false
+      }
+      return true
+    })
+    if (sort === 'top') {
+      filtered.sort((a, b) =>
+        (b.like_count || 0) - (a.like_count || 0) ||
+        +new Date(b.created_at || 0) - +new Date(a.created_at || 0))
     }
-    return true
-  }), [allItems, q, member, style])
+    return filtered
+  }, [allItems, q, member, style, artistF, sort])
 
   const shown = list.slice(0, limit)
-  const hasFilters = q || member || style
+  const hasFilters = q || member || style || artistF
+
+  function resetAll() { setQ(''); setMember(''); setStyle(''); setArtistF(null); setLimit(20) }
 
   function handleAdded(d: Discovery) {
     setAdded(prev => [d, ...prev])
-    // Išvalom filtrus, kad naujas atradimas garantuotai matytųsi viršuje
-    setQ(''); setMember(''); setStyle(''); setLimit(24)
+    // Išvalom filtrus + grįžtam į „Naujausi", kad naujas atradimas matytųsi viršuje
+    resetAll(); setSort('new')
+  }
+
+  function pickArtist(d: Discovery) {
+    if (!d.artist_id) return
+    setArtistF({ id: d.artist_id, name: d.artist_name || '' })
+    setLimit(20)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
@@ -204,17 +234,31 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
       <div className="ma-fbar">
         <div className="ma-search-wrap">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input value={q} onChange={e => { setQ(e.target.value); setLimit(24) }} placeholder="Ieškoti atlikėjo, dainos, teksto…" />
+          <input value={q} onChange={e => { setQ(e.target.value); setLimit(20) }} placeholder="Ieškoti atlikėjo, dainos, teksto…" />
         </div>
 
         <span className="ma-divider" />
 
-        <FilterPopover id="member" openId={openId} setOpenId={setOpenId} label="Narys" icon={IconUser} value={member} options={facets.members} onPick={v => { setMember(v); setLimit(24) }} />
+        {/* Rūšiavimas */}
+        <button className={`ma-chip${sort === 'new' ? ' on' : ''}`} onClick={() => { setSort('new'); setLimit(20) }}>Naujausi</button>
+        <button className={`ma-chip${sort === 'top' ? ' on' : ''}`} onClick={() => { setSort('top'); setLimit(20) }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+          Populiariausi
+        </button>
+
+        <span className="ma-divider" />
+
+        <FilterPopover id="member" openId={openId} setOpenId={setOpenId} label="Narys" icon={IconUser} value={member} options={facets.members} onPick={v => { setMember(v); setLimit(20) }} />
         {facets.genres.length > 0 && (
-          <FilterPopover id="style" openId={openId} setOpenId={setOpenId} label="Stilius" icon={IconNote} value={style} options={facets.genres} onPick={v => { setStyle(v); setLimit(24) }} />
+          <FilterPopover id="style" openId={openId} setOpenId={setOpenId} label="Stilius" icon={IconNote} value={style} options={facets.genres} onPick={v => { setStyle(v); setLimit(20) }} />
+        )}
+        {artistF && (
+          <button className="ma-chip on" onClick={() => { setArtistF(null); setLimit(20) }} title="Pašalinti atlikėjo filtrą">
+            {artistF.name} ✕
+          </button>
         )}
 
-        {hasFilters && <button className="ma-reset" onClick={() => { setQ(''); setMember(''); setStyle(''); setLimit(24) }}>Išvalyti ✕</button>}
+        {hasFilters && <button className="ma-reset" onClick={resetAll}>Išvalyti ✕</button>}
 
         <span className="ma-count">{list.length}</span>
         <AddDiscovery onAdded={handleAdded} />
@@ -223,28 +267,29 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
       {shown.length === 0 ? (
         <div className="ma-empty">Nieko nerasta su šiais filtrais.</div>
       ) : (
-        <div className="ma-grid">
+        <div className="ma-list">
           {shown.map(d => {
             const uname = d.author?.username
             const when = relativeLt(d.created_at)
             const fresh = added.some(a => a.id === d.id)
+            const moreCount = d.artist_id ? Math.max(0, (byArtist.get(d.artist_id) || 1) - 1) : 0
             return (
-              <article key={d.id} className={`ma-card${fresh ? ' ma-fresh' : ''}`}>
-                <div className="ma-head">
-                  <Avatar src={d.author?.avatar_url} name={uname} />
-                  <div className="ma-who">
-                    {uname ? <Link href={`/@${uname}`} className="ma-nm">{uname}</Link> : <span className="ma-nm">Narys</span>}
-                    {when && <span className="ma-dt">{when}</span>}
+              <article key={d.id} className={`ma-row${fresh ? ' ma-fresh' : ''}`}>
+                {d.embed_id && <div className="ma-media"><Embed d={d} /></div>}
+
+                <div className="ma-main">
+                  <div className="ma-head">
+                    <Avatar src={d.author?.avatar_url} name={uname} size={30} />
+                    <div className="ma-who">
+                      {uname ? <Link href={`/@${uname}`} className="ma-nm">{uname}</Link> : <span className="ma-nm">Narys</span>}
+                      {when && <span className="ma-dt">{when}</span>}
+                    </div>
+                    <CardLike commentId={d.comment_id} count={d.like_count} liked={d.comment_id ? likedSet.has(d.comment_id) : false} />
                   </div>
-                  <CardLike commentId={d.comment_id} count={d.like_count} liked={d.comment_id ? likedSet.has(d.comment_id) : false} />
-                </div>
 
-                <div className="ma-embed"><Embed d={d} /></div>
-
-                <div className="ma-body">
                   {((d.artist_name && !d.artist_slug) || d.track_name) && (
                     <div className="ma-title">
-                      {/* Kai atlikėjas susietas — jo vardas+foto rodomi footer'yje,
+                      {/* Kai atlikėjas susietas — jis rodomas dešinėje panelėje,
                           title lieka tik dainai. Nesusietam — kaip anksčiau. */}
                       {d.artist_name && !d.artist_slug && <span className="ma-art">{d.artist_name}</span>}
                       {d.artist_name && !d.artist_slug && d.track_name && <span className="ma-sep"> — </span>}
@@ -254,10 +299,10 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
                     </div>
                   )}
                   {d.body && <ClampText text={d.body} />}
-                  {d.tags.length > 0 && <div className="ma-tags">{d.tags.slice(0, 4).map(t => <button key={t} className="ma-tag" onClick={() => { setStyle(t); setLimit(24); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>{t}</button>)}</div>}
+                  {d.tags.length > 0 && <div className="ma-tags">{d.tags.slice(0, 4).map(t => <button key={t} className="ma-tag" onClick={() => { setStyle(t); setLimit(20); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>{t}</button>)}</div>}
                 </div>
 
-                <ArtistFooter d={d} />
+                {d.artist_slug && <ArtistAside d={d} moreCount={moreCount} onMore={() => pickArtist(d)} />}
               </article>
             )
           })}
@@ -265,7 +310,7 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
       )}
 
       {shown.length < list.length && (
-        <div className="ma-more"><button onClick={() => setLimit(l => l + 24)}>Rodyti daugiau ({list.length - shown.length})</button></div>
+        <div className="ma-more"><button onClick={() => setLimit(l => l + 20)}>Rodyti daugiau ({list.length - shown.length})</button></div>
       )}
 
       <div className="ma-foot">
@@ -295,52 +340,63 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         :global(.ma-opt.on){color:var(--accent-orange)}
         :global(.ma-pop-empty){color:var(--text-muted);font-size:12.5px;padding:8px 10px}
         .ma-foot{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:40px;padding-top:24px;border-top:1px solid var(--border-subtle);color:var(--text-muted);font-size:13px}
-        /* Masonry — CSS columns: kortelės skirtingo aukščio sukrenta be tarpų
-           (Pinterest stilius). break-inside:avoid kad kortelė nesilaužytų. */
-        .ma-grid{columns:340px 3;column-gap:16px}
-        @media(max-width:760px){.ma-grid{columns:1}}
-        .ma-card{background:var(--card-surface);border:1px solid var(--card-border-default);border-radius:14px;overflow:hidden;display:block;break-inside:avoid;-webkit-column-break-inside:avoid;margin-bottom:16px}
-        .ma-card:hover{border-color:var(--border-strong)}
+
+        /* ── Eilutės (forumo stilius) ── */
+        .ma-list{display:flex;flex-direction:column;gap:14px}
+        .ma-row{display:flex;gap:18px;align-items:flex-start;background:var(--card-surface);border:1px solid var(--card-border-default);border-radius:14px;padding:16px}
+        .ma-row:hover{border-color:var(--border-strong)}
         .ma-fresh{border-color:rgba(249,115,22,0.55);box-shadow:0 0 0 1px rgba(249,115,22,0.35)}
-        .ma-head{display:flex;align-items:center;gap:9px;padding:13px 14px 11px}
+        .ma-media{width:300px;flex-shrink:0}
+        .ma-main{flex:1;min-width:0}
+        .ma-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
         :global(.ma-av){border-radius:50%;object-fit:cover;flex-shrink:0}
         :global(.ma-av-ph){display:flex;align-items:center;justify-content:center;font-weight:800;border-radius:50%;flex-shrink:0}
-        .ma-who{display:flex;flex-direction:column;line-height:1.25;min-width:0;flex:1}
+        .ma-who{display:flex;align-items:baseline;gap:8px;line-height:1.25;min-width:0;flex:1}
         :global(.ma-nm){font-size:13.5px;font-weight:700;color:var(--text-primary);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         :global(.ma-nm:hover){color:var(--accent-orange)}
-        .ma-dt{color:var(--text-muted);font-size:11.5px}
-        .ma-embed{padding:0 14px;min-height:8px}
-        .ma-embed :global(.ma-yt){position:relative;display:block;width:100%;border:none;padding:0;border-radius:10px;overflow:hidden;aspect-ratio:16/9;background:#000;cursor:pointer}
-        .ma-embed :global(.ma-yt img){width:100%;height:100%;object-fit:cover;display:block;opacity:.92;transition:.15s}
-        .ma-embed :global(.ma-yt:hover img){opacity:1}
-        .ma-embed :global(.ma-play){position:absolute;inset:0;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 8px rgba(0,0,0,.6))}
-        .ma-embed :global(.ma-frame){width:100%;border:none;border-radius:10px;aspect-ratio:16/9}
-        .ma-embed :global(.ma-sp){width:100%;border:none;border-radius:12px}
-        .ma-body{padding:12px 15px 15px}
-        .ma-title{font-family:'Outfit',sans-serif;font-size:15.5px;font-weight:800;letter-spacing:-.01em;margin-bottom:7px;line-height:1.3}
+        .ma-dt{color:var(--text-muted);font-size:11.5px;flex-shrink:0}
+        .ma-media :global(.ma-yt){position:relative;display:block;width:100%;border:none;padding:0;border-radius:10px;overflow:hidden;aspect-ratio:16/9;background:#000;cursor:pointer}
+        .ma-media :global(.ma-yt img){width:100%;height:100%;object-fit:cover;display:block;opacity:.92;transition:.15s}
+        .ma-media :global(.ma-yt:hover img){opacity:1}
+        .ma-media :global(.ma-play){position:absolute;inset:0;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 8px rgba(0,0,0,.6))}
+        .ma-media :global(.ma-frame){width:100%;border:none;border-radius:10px;aspect-ratio:16/9}
+        .ma-media :global(.ma-sp){width:100%;border:none;border-radius:12px}
+        .ma-title{font-family:'Outfit',sans-serif;font-size:15px;font-weight:800;letter-spacing:-.01em;margin-bottom:6px;line-height:1.3}
         :global(.ma-art){color:var(--text-primary);text-decoration:none}
-        :global(a.ma-art:hover){color:var(--accent-orange)}
         .ma-sep{color:var(--text-faint)}
         .ma-tk{color:var(--text-secondary);font-weight:700}
         :global(a.ma-tk-link){color:var(--text-secondary);text-decoration:none}
         :global(a.ma-tk-link:hover){color:var(--accent-orange)}
-        :global(.ma-narr){font-size:13.5px;line-height:1.6;color:var(--text-secondary);margin:0;white-space:pre-wrap;word-break:break-word}
+        :global(.ma-narr){font-size:13.5px;line-height:1.65;color:var(--text-secondary);margin:0;white-space:pre-wrap;word-break:break-word}
         :global(.ma-narr.ma-clamp){display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;overflow:hidden}
-        :global(.ma-readmore){margin-top:7px;padding:0;background:none;border:none;color:var(--accent-orange);font-size:12px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer}
-        /* Atlikėjo blokas kortelės apačioje */
-        :global(.ma-artfoot){display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--border-subtle);background:var(--bg-hover)}
-        :global(.ma-artfoot-link){display:flex;align-items:center;gap:9px;text-decoration:none;min-width:0;flex:1}
-        :global(.ma-artfoot-img){width:34px;height:34px;border-radius:9px;object-fit:cover;flex-shrink:0}
-        :global(.ma-artfoot-ph){display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
-        :global(.ma-artfoot-meta){display:flex;flex-direction:column;line-height:1.25;min-width:0}
-        :global(.ma-artfoot-nm){font-family:'Outfit',sans-serif;font-size:13.5px;font-weight:800;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        :global(.ma-artfoot-link:hover .ma-artfoot-nm){color:var(--accent-orange)}
-        :global(.ma-artfoot-sub){font-size:10.5px;font-weight:600;color:var(--text-faint)}
-        :global(.ma-artfoot-styles){display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
-        :global(.ma-style){background:var(--bg-elevated);border:1px solid var(--border-subtle);color:var(--text-muted);font-size:10.5px;font-weight:700;font-family:'Outfit',sans-serif;padding:3px 8px;border-radius:100px;white-space:nowrap}
-        .ma-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+        :global(.ma-readmore){margin-top:7px;padding:0;background:none;border:none;color:var(--accent-orange);font-size:12px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer;display:block}
+        .ma-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
         .ma-tag{background:var(--bg-hover);color:var(--text-muted);font-size:11px;padding:3px 9px;border-radius:12px;border:none;cursor:pointer;font-family:'Outfit',sans-serif}
         .ma-tag:hover{color:var(--accent-orange)}
+
+        /* ── Atlikėjo panelė dešinėje ── */
+        :global(.ma-aside){width:172px;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-start;gap:9px;border-left:1px solid var(--border-subtle);padding-left:16px;align-self:stretch}
+        :global(.ma-aside-link){display:flex;flex-direction:column;gap:8px;text-decoration:none;min-width:0}
+        :global(.ma-aside-img){width:56px;height:56px;border-radius:12px;object-fit:cover}
+        :global(.ma-aside-ph){display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px}
+        :global(.ma-aside-nm){font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;color:var(--text-primary);line-height:1.25;word-break:break-word}
+        :global(.ma-aside-link:hover .ma-aside-nm){color:var(--accent-orange)}
+        :global(.ma-aside-styles){display:flex;gap:5px;flex-wrap:wrap}
+        :global(.ma-style){background:var(--bg-hover);border:1px solid var(--border-subtle);color:var(--text-muted);font-size:10.5px;font-weight:700;font-family:'Outfit',sans-serif;padding:3px 8px;border-radius:100px;white-space:nowrap}
+        :global(.ma-aside-more){margin-top:auto;padding:5px 10px;border-radius:100px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);color:var(--accent-orange);font-size:11px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer;white-space:nowrap}
+        :global(.ma-aside-more:hover){background:rgba(249,115,22,0.18)}
+
+        /* Mobile: media per visą plotį, atlikėjas — horizontali juosta apačioje */
+        @media(max-width:860px){
+          .ma-row{flex-direction:column;gap:12px}
+          .ma-media{width:100%}
+          :global(.ma-aside){width:100%;flex-direction:row;align-items:center;border-left:none;border-top:1px solid var(--border-subtle);padding-left:0;padding-top:12px;gap:10px}
+          :global(.ma-aside-link){flex-direction:row;align-items:center;gap:10px;flex:1}
+          :global(.ma-aside-img){width:38px;height:38px;border-radius:10px}
+          :global(.ma-aside-ph){font-size:15px}
+          :global(.ma-aside-more){margin-top:0;margin-left:auto}
+        }
+
         .ma-more{display:flex;justify-content:center;margin-top:24px}
         .ma-more button{padding:10px 22px;border-radius:100px;font-size:13px;font-weight:700;font-family:'Outfit',sans-serif;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-primary);cursor:pointer}
         .ma-more button:hover{border-color:var(--accent-orange)}
