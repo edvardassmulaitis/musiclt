@@ -116,20 +116,20 @@ export async function GET(req: NextRequest) {
     // (ne „Naujokas" placeholder'io), kad sekcija atrodytų gyvai, o ne tuščiai.
     // Realios naujos registracijos (provider) natūraliai pakliūna į priekį, nes
     // jų joined_legacy_at = NULL → atskirai prepend'inam jas, jei yra. ──
-    let new_members: { username: string; name: string | null; avatar: string | null; created_at: string; joined_legacy_at: string | null }[] = []
+    let new_members: { username: string; name: string | null; avatar: string | null; created_at: string; joined_legacy_at: string | null; tastes: string[] }[] = []
     try {
       const { data: real } = await sb
         .from('profiles')
-        .select('username, full_name, avatar_url, created_at')
+        .select('id, username, full_name, avatar_url, created_at')
         .in('provider', ['google', 'facebook', 'email'])
         .not('username', 'is', null)
         .order('created_at', { ascending: false })
         .limit(limit)
-      const realMembers = (real || []).map((p: any) => ({ username: p.username, name: p.full_name || p.username, avatar: p.avatar_url, created_at: p.created_at, joined_legacy_at: null as string | null }))
+      const realMembers = (real || []).map((p: any) => ({ id: p.id as string, username: p.username, name: p.full_name || p.username, avatar: p.avatar_url, created_at: p.created_at, joined_legacy_at: null as string | null }))
 
       const { data: imp } = await sb
         .from('profiles')
-        .select('username, full_name, avatar_url, created_at, joined_legacy_at')
+        .select('id, username, full_name, avatar_url, created_at, joined_legacy_at')
         .not('joined_legacy_at', 'is', null)
         .not('username', 'is', null)
         .not('avatar_url', 'is', null)
@@ -137,15 +137,50 @@ export async function GET(req: NextRequest) {
         .neq('full_name', 'Naujokas')
         .order('joined_legacy_at', { ascending: false })
         .limit(limit + realMembers.length)
-      const impMembers = (imp || []).map((p: any) => ({ username: p.username, name: p.full_name || p.username, avatar: p.avatar_url, created_at: p.created_at, joined_legacy_at: p.joined_legacy_at as string | null }))
+      const impMembers = (imp || []).map((p: any) => ({ id: p.id as string, username: p.username, name: p.full_name || p.username, avatar: p.avatar_url, created_at: p.created_at, joined_legacy_at: p.joined_legacy_at as string | null }))
 
+      const picked: typeof realMembers = []
       const seenU = new Set<string>()
       for (const m of [...realMembers, ...impMembers]) {
         if (seenU.has(m.username)) continue
         seenU.add(m.username)
-        new_members.push(m)
-        if (new_members.length >= limit) break
+        picked.push(m)
+        if (picked.length >= limit) break
       }
+
+      // Muzikos skonis — iki 3 mėgstamų atlikėjų per narį („Nauji nariai" kortelėms).
+      const tasteByUser = new Map<string, string[]>()
+      try {
+        const uids = picked.map(m => m.id).filter(Boolean)
+        if (uids.length) {
+          // likes.entity_id — generinis (be FK į artists), tad jokio embedded
+          // join'o: pirmiausia like'ai, tada batch'u atlikėjų vardai.
+          const { data: lk } = await sb
+            .from('likes')
+            .select('user_id, entity_id, created_at')
+            .eq('entity_type', 'artist')
+            .in('user_id', uids)
+            .order('created_at', { ascending: false })
+            .limit(uids.length * 12)
+          const likeRows = (lk || []) as any[]
+          const artIds = [...new Set(likeRows.map(r => r.entity_id).filter(Boolean))]
+          const nameById = new Map<number, string>()
+          if (artIds.length) {
+            const { data: arts } = await sb.from('artists').select('id, name').in('id', artIds)
+            for (const a of (arts || []) as any[]) if (a.name) nameById.set(a.id, a.name)
+          }
+          for (const row of likeRows) {
+            const nm = nameById.get(row.entity_id)
+            if (!nm) continue
+            const arr = tasteByUser.get(row.user_id) || []
+            if (arr.length >= 3 || arr.includes(nm)) continue
+            arr.push(nm)
+            tasteByUser.set(row.user_id, arr)
+          }
+        }
+      } catch {}
+
+      new_members = picked.map(m => ({ username: m.username, name: m.name, avatar: m.avatar, created_at: m.created_at, joined_legacy_at: m.joined_legacy_at, tastes: tasteByUser.get(m.id) || [] }))
     } catch {}
 
     // total_active — kiek SKIRTINGŲ narių apskritai turėjo viešų veiksmų per langą

@@ -79,7 +79,8 @@ function DainaPopBar({ level }: { level: number }) {
 }
 
 // ───────────────────────── suggest modal ─────────────────────────
-function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+// export — naudoja ir naujasis /atrasti DD hero (2026-06-10 redesign).
+export function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<any[]>([])
   const [searching, setSearching] = useState(false)

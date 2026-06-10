@@ -38,6 +38,9 @@ type ListEntry = { rank: number; title: string; artist: string | null; image: st
 type OutPost = {
   id: number; slug: string; title: string; post_type: string; rating: number | null
   like_count: number | null; comment_count: number | null; published_at: string | null
+  editorial_type: string | null
+  excerpt: string | null
+  featured_until: string | null
   cover: string | null
   collage: string[] | null
   entries: ListEntry[] | null
@@ -68,7 +71,13 @@ export async function GET(req: NextRequest) {
   const sb = createAdminClient()
   const type = req.nextUrl.searchParams.get('type')
   const editorial = req.nextUrl.searchParams.get('editorial')
-  const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '14'), 1), 30)
+  const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '14'), 1), 60)
+  // Pulsas „Rodyti daugiau" — offset taikomas PO filtrų/dedup'o (klientas
+  // paduoda kiek jau parodė).
+  const offset = Math.max(parseInt(req.nextUrl.searchParams.get('offset') || '0') || 0, 0)
+  // Kuruotas „Verta dėmesio" blokas: ?featured=1 → tik įrašai su galiojančiu
+  // featured_until (naujausi featured viršuje).
+  const featuredOnly = req.nextUrl.searchParams.get('featured') === '1'
   // Modalams / „Apie viską" bucket'ui: rūšiavimas, tipų/redakcinių tipų išskyrimas,
   // dedup'o išjungimas (kad modalas rodytų ir kelis to paties autoriaus įrašus).
   const sort = req.nextUrl.searchParams.get('sort') === 'liked' ? 'liked' : 'new'
@@ -80,18 +89,20 @@ export async function GET(req: NextRequest) {
   try {
     let q = sb
       .from('blog_posts')
-      .select('id, slug, title, cover_image_url, post_type, editorial_type, rating, like_count, comment_count, published_at, blog_id, ' +
+      .select('id, slug, title, summary, cover_image_url, post_type, editorial_type, rating, like_count, comment_count, published_at, featured_until, blog_id, ' +
         'target_track_id, target_album_id, target_artist_id, target_event_id, list_items, ' +
         'blogs:blog_id(slug, profiles:user_id(id, full_name, username, avatar_url))')
       .eq('status', 'published')
       .not('published_at', 'is', null)
       .lte('published_at', new Date().toISOString())
-      .limit(200)
-    // Rūšiavimas: populiariausi (pagal ♥) arba naujausi (default).
-    if (sort === 'liked') q = q.order('like_count', { ascending: false, nullsFirst: false }).order('published_at', { ascending: false })
-    else q = q.order('published_at', { ascending: false })
     if (type) q = q.eq('post_type', type)
     if (editorial) q = q.eq('editorial_type', editorial)
+    if (featuredOnly) q = q.gt('featured_until', new Date().toISOString())
+    // Filtrai PRIEŠ order/range (FilterBuilder → TransformBuilder tvarka).
+    if (featuredOnly) q = q.order('featured_until', { ascending: false })
+    else if (sort === 'liked') q = q.order('like_count', { ascending: false, nullsFirst: false }).order('published_at', { ascending: false })
+    else q = q.order('published_at', { ascending: false })
+    q = q.limit(featuredOnly ? 4 : Math.min(200 + offset, 400))
 
     const { data, error } = await q
     if (error) return NextResponse.json({ posts: [], error: error.message }, { status: 200 })
@@ -106,8 +117,9 @@ export async function GET(req: NextRequest) {
     // ── Dedup per autorių (vienas naujausias įrašas per narį). Modaluose
     //    (nodedup) rodom visus, kad pilnas sąrašas būtų turtingesnis. ──
     const deduped: any[] = []
+    const wanted = offset + limit
     if (noDedup) {
-      for (const r of rows) { deduped.push(r); if (deduped.length >= limit) break }
+      for (const r of rows) { deduped.push(r); if (deduped.length >= wanted) break }
     } else {
       const seen = new Set<string>()
       for (const r of rows) {
@@ -116,9 +128,12 @@ export async function GET(req: NextRequest) {
         if (seen.has(key)) continue
         seen.add(key)
         deduped.push(r)
-        if (deduped.length >= limit) break
+        if (deduped.length >= wanted) break
       }
     }
+    // Offset taikomas po dedup'o — „Rodyti daugiau" tęsia nuo ten, kur baigė.
+    const hasMore = deduped.length >= wanted
+    if (offset) deduped.splice(0, offset)
 
     const thumb = new Map<number, string>()
     const need = deduped.filter(r => !r.cover_image_url && r.post_type !== 'creation')
@@ -244,10 +259,14 @@ export async function GET(req: NextRequest) {
       const entries = entriesById.get(r.id) || null
       const collage = entries ? entries.map(e => e.image).filter((x): x is string => !!x).slice(0, 4) : null
       const topasCover = collage && collage.length ? collage[0] : null
+      const rawSummary = (r.summary || '').replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim()
       return {
         id: r.id, slug: r.slug, title: r.title || '', post_type: r.post_type || 'article',
         rating: r.rating ?? null, like_count: r.like_count ?? null, comment_count: r.comment_count ?? null,
         published_at: r.published_at,
+        editorial_type: r.editorial_type || null,
+        excerpt: rawSummary ? (rawSummary.length > 360 ? rawSummary.slice(0, 360).replace(/\s+\S*$/, '') + '…' : rawSummary) : null,
+        featured_until: r.featured_until || null,
         cover: r.cover_image_url || thumb.get(r.id) || topasCover || null,
         collage: collage && collage.length ? collage : null,
         entries,
@@ -256,7 +275,7 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    return NextResponse.json({ posts })
+    return NextResponse.json({ posts, hasMore })
   } catch (e: any) {
     return NextResponse.json({ posts: [], error: e?.message || 'error' }, { status: 200 })
   }

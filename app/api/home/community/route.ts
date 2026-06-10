@@ -271,7 +271,7 @@ export async function GET() {
       if (b.post_type === 'topas' && Array.isArray(b.list_items) && b.list_items.length) {
         entries = (b.list_items as any[])
           .sort((a, z) => (a.rank ?? a.position ?? 99) - (z.rank ?? z.position ?? 99))
-          .slice(0, 3)
+          .slice(0, 5)
           .map((e, i) => ({
             rank: e.rank ?? e.position ?? i + 1,
             title: e.title || e.track_title || e.artist_name || '',
@@ -280,8 +280,9 @@ export async function GET() {
           }))
       }
 
+      // Aukštesnės kortelės (2026-06-10) — daugiau teksto (iki ~240 simb.).
       const excerpt = b.summary
-        ? (b.summary.length > 100 ? b.summary.slice(0, 100).trimEnd() + '…' : b.summary)
+        ? (b.summary.length > 240 ? b.summary.slice(0, 240).trimEnd() + '…' : b.summary)
         : null
 
       blogItems.push({
@@ -289,7 +290,8 @@ export async function GET() {
         editorial_type: b.editorial_type || null,
         title: b.title, href: blogSlug ? `/blogas/${blogSlug}/${b.slug || b.id}` : '/blogas',
         cover, excerpt, entries,
-        author_name: author?.full_name || author?.username || null,
+        // username pirmiau už full_name — bendruomenėje rodomi username'ai.
+        author_name: author?.username || author?.full_name || null,
         author_slug: author?.username || null,
         author_avatar: author?.avatar_url || null,
         created_at: b.published_at,

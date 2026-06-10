@@ -16,6 +16,8 @@ type Item = {
   editorial_type: string | null
   kind: string
   reviewed: boolean
+  featured: boolean
+  featured_until: string | null
   published_at: string | null
   author: string | null
   hidden: boolean
@@ -93,6 +95,17 @@ export default function IrasaiAdminClient() {
       const d = await r.json(); if (!r.ok) throw new Error(d.error || 'klaida')
       setItems(prev => prev.map(it => it.id === id ? { ...it, kind, reviewed: true } : it))
       dropIfTodo(id)
+    } catch (e: any) { setMsg('Klaida: ' + e.message) }
+    setBusy(null)
+  }
+
+  // „Verta dėmesio" — featured 48h /atrasti viršuje.
+  const setFeatured = async (id: string, featured: boolean) => {
+    setBusy(id); setMsg(null)
+    try {
+      const r = await fetch('/api/admin/irasai', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, featured }) })
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || 'klaida')
+      setItems(prev => prev.map(it => it.id === id ? { ...it, featured, featured_until: d.featured_until || null } : it))
     } catch (e: any) { setMsg('Klaida: ' + e.message) }
     setBusy(null)
   }
@@ -186,6 +199,7 @@ export default function IrasaiAdminClient() {
                           : <span className="font-bold text-gray-900 truncate">{it.title}</span>}
                         {it.hidden && <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-semibold">narys paslėptas</span>}
                         {it.reviewed && <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">sutvarkyta</span>}
+                        {it.featured && <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title={it.featured_until ? `iki ${new Date(it.featured_until).toLocaleString('lt-LT')}` : ''}>★ verta dėmesio</span>}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
                         {it.author || 'be autoriaus'} · {it.published_at ? new Date(it.published_at).toLocaleDateString('lt-LT') : 'nepublikuotas'}
@@ -218,6 +232,12 @@ export default function IrasaiAdminClient() {
                         )}
                       </div>
                     )}
+
+                    <button onClick={() => setFeatured(it.id, !it.featured)} disabled={busy === it.id}
+                      title={'„Verta dėmesio" — rodomas /atrasti viršuje 48 val.'}
+                      className={`text-sm px-3 py-1 rounded-lg disabled:opacity-50 ${it.featured ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-amber-50 hover:bg-amber-100 text-amber-700'}`}>
+                      {it.featured ? '★ Featured (išjungti)' : '☆ Featured 48h'}
+                    </button>
 
                     {it.post_type !== 'topas' && (
                       <button onClick={() => openEnrich(it.id)} disabled={busy === it.id} title="Peržiūrėti / pridėti nuorodas tekste"
