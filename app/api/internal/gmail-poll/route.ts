@@ -142,9 +142,14 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify({
           thread_id: msg.threadId,
+          // 2026-06-11 KRITINIS FIX: message_id anksčiau NEBUVO siunčiamas,
+          // todėl gmail-ingest niekada nepasiekdavo .docx attachment kelio
+          // (press release dokumentas) ir naudodavo tik subject+body.
+          message_id: msg.id,
           from: msg.from,
           subject: msg.subject,
           raw_body: msg.body.slice(0, 20_000),
+          received_at: msg.receivedAt || undefined,
         }),
       })
       const data = await res.json()

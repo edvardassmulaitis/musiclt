@@ -11,6 +11,7 @@
  */
 
 import crypto from 'crypto'
+import { decodeHtmlEntities } from './html-entities'
 
 export type ExtractedArticle = {
   url: string
@@ -112,16 +113,9 @@ export function parseHtml(html: string, baseUrl: string): ExtractedArticle {
   }
 
   // 9) Plain text — strip tags
-  const text = cleaned
+  const text = decodeHtmlEntities(cleaned
     .replace(/<\/?(p|br|div|h[1-6]|li)[^>]*>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x?[0-9a-f]+;/gi, ' ')
+    .replace(/<[^>]+>/g, ' '))
     .replace(/\s+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]+/g, ' ')
@@ -142,13 +136,9 @@ export function parseHtml(html: string, baseUrl: string): ExtractedArticle {
 }
 
 function decodeHtml(s: string): string {
-  return s
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
+  // 2026-06-11: pilnas entity decode (numeric + named) — og:title dažnai
+  // turi &#8217; &#038; tipo entities.
+  return decodeHtmlEntities(s)
 }
 
 function absoluteUrl(href: string, base: string): string {

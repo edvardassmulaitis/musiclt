@@ -9,6 +9,8 @@
  * `portalOverrides` map'ą šitame faile.
  */
 
+import { decodeHtmlEntities } from './html-entities'
+
 const USER_AGENT = 'Mozilla/5.0 (compatible; music.lt-scout/1.0; +https://music.lt)'
 
 export type FeedItem = {
@@ -117,14 +119,8 @@ function escapeRe(s: string): string {
 }
 
 function decodeXml(s: string): string {
-  return s
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#39;/g, "'")
-    .trim()
+  // 2026-06-11: pilnas entity decode — RSS title'ai turi &#8217; &#038; ir pan.
+  return decodeHtmlEntities(s).trim()
 }
 
 function cleanSummary(raw: string): string {

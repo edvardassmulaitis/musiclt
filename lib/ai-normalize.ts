@@ -13,16 +13,18 @@ import { applyMusicLtFixes } from './music-lt-style-guide'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
-const SONNET_MODEL = 'claude-sonnet-4-6'
-// 2026-05-20: grįžom į Sonnet'ą — bet TIK on-demand rewrite'e (admin spaudžia
-// „Perrašyti į LT" inbox'e). Scout cron'as nebedaro pilno rewrite'o, todėl
-// per-call cost padidėjimas kompensuojamas drastiškai sumažėjusiu call'ų
-// skaičiumi (~5-7/d vietoj ~30/d). Žr. LT_TRANSLATION_IMPROVEMENT_PLAN.md.
-const NORMALIZE_MODEL = SONNET_MODEL
-// 3000 → 6000 chars: news essence dažnai trečiame-penktame paragrafe (citatos,
+const OPUS_MODEL = 'claude-opus-4-8'
+// 2026-06-11: upgrade Sonnet → Opus 4.8 LT rewrite'ui. Kadangi rewrite'as
+// vyksta TIK on-demand (admin'as spaudžia „Perrašyti į LT" atrinktoms top
+// naujienoms, ~5-7/d), per-call cost padidėjimas priimtinas, o Opus LT
+// gramatika/linksniavimas pastebimai geresni už Sonnet (mažiau calque'ų).
+// Env knob NORMALIZE_MODEL_OVERRIDE leidžia greitai grįžti į Sonnet
+// ('claude-sonnet-4-6') be deploy'aus.
+const NORMALIZE_MODEL = process.env.NORMALIZE_MODEL_OVERRIDE || OPUS_MODEL
+// 6000 → 9000 chars: news essence dažnai trečiame-penktame paragrafe (citatos,
 // tour datos, full track list). Su prompt caching system block'as nesudaro
-// daugiau cost'o, o input limit'as mažiau halucinacijų triggerina.
-const NORMALIZE_TEXT_LIMIT = 6000
+// daugiau cost'o, o platesnis kontekstas mažiau halucinacijų triggerina.
+const NORMALIZE_TEXT_LIMIT = 9000
 
 function getApiKey(): string {
   const key = process.env.ANTHROPIC_API_KEY

@@ -116,10 +116,18 @@ export async function POST(
   for (const m of trackMatches) {
     matchedByTitle.set(m.title.toLowerCase().trim(), m.track_id)
   }
-  const aiTracksMentioned = (ai.tracks_mentioned || []).map(t => {
+  // 2026-06-11 fix: anksčiau VISIEMS mention'ams būdavo priskiriamas tas pats
+  // PIRMAS YT embed'as — klaidinantis kai straipsnyje keli video. Dabar:
+  // 1 mention + N embed'ų → pirmas embed; N mentions → embed pagal indeksą
+  // (straipsniuose embed'ai dažniausiai eina ta pačia tvarka kaip paminėjimai),
+  // jei embed'ų trūksta → null (admin'as pasirinks per TrackSuggestPicker).
+  const ytEmbeds = (ai.embed_urls || []).filter(u => /youtube\.com|youtu\.be/.test(u))
+  const aiTracksMentioned = (ai.tracks_mentioned || []).map((t, i) => {
     const key = (t.title || '').toLowerCase().trim()
     const matched = matchedByTitle.get(key) || null
-    const youtubeUrl = (ai.embed_urls || []).find(u => /youtube\.com|youtu\.be/.test(u)) || null
+    const youtubeUrl = (ai.tracks_mentioned || []).length === 1
+      ? (ytEmbeds[0] || null)
+      : (ytEmbeds[i] || null)
     return {
       title: t.title,
       artist: t.artist,

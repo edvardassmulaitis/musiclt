@@ -24,6 +24,27 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50', 10)
 
   const supabase = createAdminClient()
+
+  // 2026-06-11: auto-expire senienos (kaupėsi šimtai pending event'ų):
+  //   1) renginiai, kurių data jau praėjo (vakar ir anksčiau)
+  //   2) renginiai be datos, scrapinti prieš >45d (nebepataisysi — pasenę)
+  // Idempotent UPDATE'ai kiekvieno list GET'o metu.
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    await supabase
+      .from('event_candidates')
+      .update({ status: 'expired' })
+      .eq('status', 'pending')
+      .lt('event_date', today)
+    const staleCutoff = new Date(Date.now() - 45 * 86_400_000).toISOString()
+    await supabase
+      .from('event_candidates')
+      .update({ status: 'expired' })
+      .eq('status', 'pending')
+      .is('event_date', null)
+      .lt('created_at', staleCutoff)
+  } catch { /* non-fatal */ }
+
   // Sort by newest scraped (created_at DESC) — matches news inbox semantic.
   // Anksciau buvo event_date ASC (artimiausias renginys pirma) — ta sortavimas
   // gerai end-user'iui, bet adminui review'ui geriau matyti naujausius scraped.

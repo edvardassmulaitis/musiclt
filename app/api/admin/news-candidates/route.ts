@@ -34,6 +34,19 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient()
 
+  // 2026-06-11: auto-expire senienos — preview/pending kandidatai senesni nei
+  // 30d nebeaktualūs (naujiena pasenusi), žymim 'expired' kad nekauptų
+  // skaičiukų ir nesimaišytų inbox'e. Pigus UPDATE su filtru, vykdomas
+  // kiekvieno list GET'o metu (idempotent).
+  try {
+    const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString()
+    await supabase
+      .from('news_candidates')
+      .update({ status: 'expired' })
+      .in('status', ['preview', 'pending'])
+      .lt('created_at', cutoff)
+  } catch { /* non-fatal */ }
+
   // Sort by NEWEST first (created_at desc) — kandidatai chronologiškai.
   // ai_confidence palieka kaip tie-breaker'is ant tos pačios dienos kandidatų.
   let q = supabase

@@ -9,6 +9,7 @@ import type { Photo } from '@/components/PhotoGallery'
 import InboxTabs from '@/components/InboxTabs'
 import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
 import TrackSuggestPicker, { type PickResult } from '@/components/TrackSuggestPicker'
+import { decodeHtmlEntities } from '@/lib/html-entities'
 import dynamic from 'next/dynamic'
 
 // Tiptap WYSIWYG — naudojam vietoj raw HTML textarea (be HTML tag'ų matomumo,
@@ -323,7 +324,7 @@ export default function AdminInboxPage() {
 
   const openEdit = async (cand: Candidate) => {
     setEditing(cand)
-    setEditTitle(cand.ai_title || '')
+    setEditTitle(decodeHtmlEntities(cand.ai_title || ''))
     setEditBody(await fetchBody(cand.id))
     setEditImages([])
     // ─── Artist'ų wizard state'as ───
@@ -470,7 +471,10 @@ export default function AdminInboxPage() {
       const out = [...prev]
       for (const r of results) {
         if (!r.video_url) continue
-        const vid = r.video_url.match(/[?&]v=([^&]+)/)?.[1] || r.video_url.match(/youtu\.be\/([^?&]+)/)?.[1]
+        // 2026-06-11: + embed/shorts URL palaikymas (anksčiau tik watch?v= ir youtu.be)
+        const vid = r.video_url.match(/[?&]v=([^&]+)/)?.[1]
+          || r.video_url.match(/youtu\.be\/([^?&]+)/)?.[1]
+          || r.video_url.match(/youtube\.com\/(?:embed|shorts)\/([^?&/]+)/)?.[1]
         if (!vid) continue
         const thumbUrl = `https://img.youtube.com/vi/${vid}/hqdefault.jpg`
         if (!out.some(o => o.url === thumbUrl)) {
@@ -753,9 +757,9 @@ export default function AdminInboxPage() {
                             ? 'text-[var(--text-muted)] italic'
                             : 'text-[var(--text-primary)] cursor-pointer'
                         }`}>
-                        {cand.status === 'preview'
+                        {decodeHtmlEntities(cand.status === 'preview'
                           ? (cand.original_title || cand.ai_title || '(be antraštės)')
-                          : (cand.ai_title || cand.original_title || '(be antraštės)')}
+                          : (cand.ai_title || cand.original_title || '(be antraštės)'))}
                       </h2>
 
                       {/* Summary — tik pending kortelėms (preview neturi LT

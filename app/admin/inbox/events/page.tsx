@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import InboxTabs from '@/components/InboxTabs'
+import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
+import { decodeHtmlEntities } from '@/lib/html-entities'
 
 type SuggestedArtist = {
   id: number
@@ -84,7 +86,99 @@ export default function EventInboxPage() {
   const [busy, setBusy] = useState<number | null>(null)
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
 
+  // ─── Edit-prieš-publish modalas (2026-06-11) ───
+  const [editing, setEditing] = useState<EventCandidate | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editVenue, setEditVenue] = useState('')
+  const [editCity, setEditCity] = useState('')
+  const [editTicketUrl, setEditTicketUrl] = useState('')
+  const [editImageUrl, setEditImageUrl] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editArtistIds, setEditArtistIds] = useState<number[]>([])
+  const [editPrimaryId, setEditPrimaryId] = useState<number | null>(null)
+  const [artistMeta, setArtistMeta] = useState<Record<number, SuggestedArtist>>({})
+  const [artistSearchOpen, setArtistSearchOpen] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+
+  // Body scroll lock kai modalas atidarytas
+  useEffect(() => {
+    if (!editing) return
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [editing])
+
+  const openEdit = (cand: EventCandidate) => {
+    setEditing(cand)
+    setEditTitle(decodeHtmlEntities(cand.title))
+    setEditDate(cand.event_date ? cand.event_date.slice(0, 10) : '')
+    setEditVenue(cand.venue_name_raw || '')
+    setEditCity(cand.city || '')
+    setEditTicketUrl(cand.ticket_url || '')
+    setEditImageUrl(cand.image_url || '')
+    setEditDescription(cand.description || '')
+    const suggested = cand.suggested_artists || []
+    const meta: Record<number, SuggestedArtist> = {}
+    for (const a of suggested) meta[a.id] = a
+    if (cand.primary_artist && !meta[cand.primary_artist.id]) meta[cand.primary_artist.id] = cand.primary_artist
+    setArtistMeta(meta)
+    setEditArtistIds(suggested.map(a => a.id))
+    setEditPrimaryId(cand.primary_artist_id || suggested[0]?.id || null)
+    setArtistSearchOpen(false)
+  }
+
+  const closeEdit = () => {
+    setEditing(null)
+    setArtistSearchOpen(false)
+  }
+
+  const addEditArtist = (id: number, name: string, avatar: string | null) => {
+    if (editArtistIds.includes(id)) return
+    setEditArtistIds(prev => [...prev, id])
+    setArtistMeta(prev => ({ ...prev, [id]: { id, name, slug: '', cover_image_url: avatar, legacy_likes: null } }))
+    setEditPrimaryId(prev => prev || id)
+  }
+
+  const removeEditArtist = (id: number) => {
+    setEditArtistIds(prev => prev.filter(x => x !== id))
+    setEditPrimaryId(prev => {
+      if (prev !== id) return prev
+      const remaining = editArtistIds.filter(x => x !== id)
+      return remaining[0] || null
+    })
+  }
+
+  // Auto-detect naujo atlikėjo sukūrimą kitame tab'e (tas pats pattern'as kaip
+  // news inbox'e): „+ Naujas atlikėjas" įrašo localStorage, focus event grįžus
+  // search'ina DB ir auto-add'ina į modalą.
+  useEffect(() => {
+    if (!editing) return
+    const checkPendingArtist = async () => {
+      try {
+        const raw = localStorage.getItem('pending_artist_creation_event')
+        if (!raw) return
+        const pending: { name: string; candidateId?: number; timestamp: number } = JSON.parse(raw)
+        if (pending.candidateId !== editing.id) return
+        if (Date.now() - pending.timestamp > 30 * 60 * 1000) {
+          localStorage.removeItem('pending_artist_creation_event')
+          return
+        }
+        const res = await fetch(`/api/artists?search=${encodeURIComponent(pending.name)}&limit=3&exact=1`)
+        if (!res.ok) return
+        const data = await res.json()
+        const found = (data.artists || [])[0]
+        if (found && found.id) {
+          addEditArtist(found.id, found.name, found.cover_image_url || null)
+          localStorage.removeItem('pending_artist_creation_event')
+        }
+      } catch {}
+    }
+    window.addEventListener('focus', checkPendingArtist)
+    checkPendingArtist()
+    return () => window.removeEventListener('focus', checkPendingArtist)
+  }, [editing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -104,13 +198,13 @@ export default function EventInboxPage() {
     if (status === 'authenticated') load()
   }, [status, isAdmin, router, load])
 
-  const handleAction = async (id: number, action: 'approve' | 'reject', reason?: string) => {
+  const handleAction = async (id: number, action: 'approve' | 'reject', extra?: Record<string, any>) => {
     setBusy(id)
     try {
       const res = await fetch(`/api/admin/event-candidates/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, reason }),
+        body: JSON.stringify({ action, ...(extra || {}) }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -119,6 +213,7 @@ export default function EventInboxPage() {
       }
       setCandidates(prev => prev.filter(c => c.id !== id))
       setTotal(t => t - 1)
+      closeEdit()
       if (action === 'approve' && data.slug) {
         window.open(`/renginiai/${data.slug}`, '_blank')
       }
@@ -127,12 +222,36 @@ export default function EventInboxPage() {
     }
   }
 
+  const handleSaveEdit = async () => {
+    if (!editing) return
+    if (!editDate) { alert('Renginio data privaloma.'); return }
+    const ordered = editPrimaryId
+      ? [editPrimaryId, ...editArtistIds.filter(id => id !== editPrimaryId)]
+      : editArtistIds
+    setSavingEdit(true)
+    try {
+      await handleAction(editing.id, 'approve', {
+        title: editTitle.trim(),
+        event_date: editDate,
+        venue_name: editVenue.trim() || undefined,
+        city: editCity.trim() || undefined,
+        ticket_url: editTicketUrl.trim() || undefined,
+        image_url: editImageUrl.trim() || undefined,
+        description: editDescription,
+        artist_ids: ordered,
+        primary_artist_id: editPrimaryId,
+      })
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   // 1-click reject — be confirmation. Alt+click → su reason (power-user)
   const handleReject = (id: number, e?: React.MouseEvent) => {
     if (e?.altKey) {
       const reason = prompt('Atmetimo priežastis:')
       if (reason === null) return
-      handleAction(id, 'reject', reason)
+      handleAction(id, 'reject', { reason })
     } else {
       handleAction(id, 'reject')
     }
@@ -247,7 +366,7 @@ export default function EventInboxPage() {
                       <h2
                         onClick={() => toggleExpand(cand.id)}
                         className="font-bold text-[var(--text-primary)] text-base leading-snug mb-1 cursor-pointer">
-                        {cand.title}
+                        {decodeHtmlEntities(cand.title)}
                       </h2>
 
                       {/* Event details */}
@@ -288,16 +407,22 @@ export default function EventInboxPage() {
                           )}
                         </div>
                       ) : (
-                        <p className="text-xs text-amber-600 mb-3">⚠ Atlikėjo nerasta DB</p>
+                        <p className="text-xs text-amber-600 mb-3">⚠ Atlikėjo nerasta DB — priskirk per „Redaguoti"</p>
                       )}
 
-                      {/* Actions — 2 primary big buttons matching news inbox */}
+                      {/* Actions — Redaguoti (edit-prieš-publish) + greitas Patvirtinti + Atmesti */}
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openEdit(cand)}
+                          disabled={busy === cand.id}
+                          className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
+                          📝 Redaguoti & paskelbti
+                        </button>
                         <button
                           onClick={() => handleAction(cand.id, 'approve')}
                           disabled={busy === cand.id || !cand.event_date}
-                          title={!cand.event_date ? 'event_date privaloma — redaguok rankomis' : undefined}
-                          className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
+                          title={!cand.event_date ? 'Nėra datos — naudok „Redaguoti"' : 'Paskelbti be redagavimo'}
+                          className="hidden sm:block px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
                           {busy === cand.id ? '...' : '✓ Patvirtinti'}
                         </button>
                         <button
@@ -336,6 +461,198 @@ export default function EventInboxPage() {
           </div>
         )}
       </div>
+
+      {/* ─── Edit modalas — title/data/vieta/atlikėjai prieš publish ─── */}
+      {editing && (
+        <div className="fixed inset-0 z-50 sm:bg-black/60 sm:backdrop-blur-sm flex items-stretch sm:items-center justify-center sm:p-4" style={{ overscrollBehavior: 'contain' }}>
+          <div className="bg-[var(--bg-surface)] sm:rounded-2xl sm:shadow-2xl w-full max-w-2xl sm:max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
+            <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-[var(--border-subtle)] flex items-center justify-between gap-2 shrink-0">
+              <div className="min-w-0">
+                <h2 className="text-sm sm:text-base font-bold text-[var(--text-primary)] leading-tight">🎫 Redaguoti renginį</h2>
+                {editing.source_url && (
+                  <a href={editing.source_url} target="_blank" rel="noopener" className="text-[10px] text-[var(--text-muted)] hover:underline truncate block">
+                    {editing.source_portal} ↗
+                  </a>
+                )}
+              </div>
+              <button onClick={closeEdit} aria-label="Uždaryti" className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-2xl leading-none shrink-0">×</button>
+            </div>
+
+            <div className="px-3 py-2 sm:px-4 sm:py-3 space-y-3 flex-1 overflow-y-auto">
+              {/* Atlikėjai */}
+              <div>
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">Atlikėjai</div>
+                <div className="flex flex-wrap items-center gap-1">
+                  {editArtistIds.length === 0 && (
+                    <span className="text-xs text-amber-600">⚠ Nepriskirtas</span>
+                  )}
+                  {editArtistIds.map(id => {
+                    const a = artistMeta[id]
+                    if (!a) return null
+                    const isPrimary = id === editPrimaryId
+                    return (
+                      <div key={id} className={`inline-flex items-center gap-1 pl-0.5 pr-0.5 py-0.5 rounded-full text-xs font-medium ${isPrimary ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-400' : 'bg-blue-50 text-blue-700'}`}>
+                        <button type="button" onClick={() => setEditPrimaryId(id)} title="Nustatyti headliner'iu" className="flex items-center gap-1 px-1">
+                          {a.cover_image_url ? (
+                            <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                          ) : (
+                            <span className="w-4 h-4 rounded-full bg-blue-200 flex items-center justify-center text-[9px]">🎤</span>
+                          )}
+                          <span>{isPrimary ? '★ ' : ''}{a.name}</span>
+                        </button>
+                        <button type="button" onClick={() => removeEditArtist(id)} aria-label="Pašalinti" className="w-4 h-4 rounded-full hover:bg-red-200 text-red-500 flex items-center justify-center text-xs">×</button>
+                      </div>
+                    )
+                  })}
+                  {/* AI suggested, dar nepridėti */}
+                  {(editing.suggested_artists || []).filter(a => !editArtistIds.includes(a.id)).map(a => (
+                    <button key={a.id} type="button" onClick={() => addEditArtist(a.id, a.name, a.cover_image_url)}
+                      className="inline-flex items-center gap-1 pl-0.5 pr-1.5 py-0.5 rounded-full text-xs bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-dashed border-[var(--input-border)]">
+                      <span className="w-4 h-4 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[9px]">🎤</span>
+                      <span>+ {a.name}</span>
+                    </button>
+                  ))}
+                  <button type="button" onClick={() => setArtistSearchOpen(v => !v)} title="Ieškoti atlikėjo"
+                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-[var(--input-border)]">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const defaultName = (decodeHtmlEntities(editing.title) || '').split(/[—–:|@]/)[0].trim().slice(0, 60)
+                      const name = window.prompt('Atlikėjo pavadinimas (Wikipedia paieška auto-paleidžiama):', defaultName)
+                      if (!name?.trim()) return
+                      try {
+                        localStorage.setItem('pending_artist_creation_event', JSON.stringify({
+                          name: name.trim(),
+                          candidateId: editing.id,
+                          timestamp: Date.now(),
+                        }))
+                      } catch {}
+                      window.open(`/admin/artists/new?name=${encodeURIComponent(name.trim())}`, '_blank')
+                    }}
+                    title="Sukurti naują atlikėją DB'oje su Wikipedia importu"
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-dashed border-emerald-300">
+                    + Naujas atlikėjas
+                  </button>
+                </div>
+                {artistSearchOpen && (
+                  <div className="mt-1.5">
+                    <ArtistSearchInput
+                      placeholder="Ieškoti atlikėjo..."
+                      onSelect={(id, name, avatar) => { addEditArtist(id, name, avatar || null); setArtistSearchOpen(false) }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Pavadinimas */}
+              <div>
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">Pavadinimas</div>
+                <input
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm"
+                />
+              </div>
+
+              {/* Data + miestas + vieta */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div>
+                  <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">Data *</div>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={e => setEditDate(e.target.value)}
+                    className="w-full px-2 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm"
+                  />
+                  {!editDate && editing.event_date_text && (
+                    <p className="text-[10px] text-amber-600 mt-0.5">Šaltinis: „{editing.event_date_text}"</p>
+                  )}
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">Miestas</div>
+                  <input
+                    value={editCity}
+                    onChange={e => setEditCity(e.target.value)}
+                    placeholder="Vilnius"
+                    className="w-full px-2 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm"
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">Vieta</div>
+                  <input
+                    value={editVenue}
+                    onChange={e => setEditVenue(e.target.value)}
+                    placeholder="Compensa, Lukiškių kalėjimas..."
+                    className="w-full px-2 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Bilietai + foto URL */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">Bilietų URL</div>
+                  <input
+                    value={editTicketUrl}
+                    onChange={e => setEditTicketUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full px-2 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">Foto URL</div>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      value={editImageUrl}
+                      onChange={e => setEditImageUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="flex-1 px-2 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm"
+                    />
+                    {editImageUrl && (
+                      <img src={editImageUrl} alt="" className="w-9 h-9 rounded object-cover border border-[var(--input-border)] shrink-0" onError={e => ((e.target as HTMLImageElement).style.display = 'none')} />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Aprašymas */}
+              <div>
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">Aprašymas</div>
+                <textarea
+                  value={editDescription}
+                  onChange={e => setEditDescription(e.target.value)}
+                  rows={6}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm leading-relaxed resize-y"
+                  placeholder="Renginio aprašymas (HTML arba tekstas)..."
+                />
+              </div>
+            </div>
+
+            <div className="px-3 py-2 sm:px-4 sm:py-3 border-t border-[var(--border-subtle)] flex gap-2 items-center shrink-0">
+              <button onClick={closeEdit} className="px-3 py-1.5 sm:py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm font-medium text-[var(--text-secondary)]">
+                Atšaukti
+              </button>
+              <button
+                onClick={() => handleReject(editing.id)}
+                disabled={savingEdit || busy === editing.id}
+                className="px-3 py-1.5 sm:py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium disabled:opacity-50">
+                ✗ Atmesti
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={savingEdit || busy === editing.id || !editTitle.trim() || !editDate}
+                title={!editDate ? 'Data privaloma' : ''}
+                className="flex-1 px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-bold">
+                {savingEdit ? '...' : '✓ Paskelbti'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

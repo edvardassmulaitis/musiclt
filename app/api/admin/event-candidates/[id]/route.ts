@@ -95,6 +95,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const overrideVenue = (body.venue_name as string | undefined) || cand.venue_name_raw
     const overrideCity  = (body.city as string | undefined) || cand.city
     const overrideImage = (body.image_url as string | undefined) || cand.image_url || null
+    // 2026-06-11: edit-prieš-publish overrides iš inbox edit modalo
+    const overrideDescription = (typeof body.description === 'string' ? body.description : undefined) ?? cand.description
+    const overrideTicketUrl = (typeof body.ticket_url === 'string' ? body.ticket_url : undefined) ?? cand.ticket_url
 
     if (!overrideDate) {
       return NextResponse.json({ error: 'event_date required for approval' }, { status: 400 })
@@ -103,20 +106,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     try {
       const event = await createEvent({
         title: overrideTitle,
-        description: cand.description || undefined,
+        description: overrideDescription || undefined,
         start_date: overrideDate,
         venue_name: overrideVenue || undefined,
         city: overrideCity || undefined,
         cover_image_url: overrideImage || undefined,
-        ticket_url: cand.ticket_url || undefined,
+        ticket_url: overrideTicketUrl || undefined,
       }, (session.user as any).id || '')
 
-      // Link artists (visus iš suggested_artist_ids, ne tik primary)
-      const artistIds: number[] = cand.suggested_artist_ids || []
+      // Link artists — wizard'o override (body.artist_ids) turi pirmenybę prieš
+      // AI suggested sąrašą. primary_artist_id override'as nustato headliner'į.
+      const wizardArtistIds: number[] | undefined = Array.isArray(body.artist_ids)
+        ? body.artist_ids.filter((x: any) => typeof x === 'number' && x > 0)
+        : undefined
+      const artistIds: number[] = wizardArtistIds ?? (cand.suggested_artist_ids || [])
+      const primaryId: number | null = (typeof body.primary_artist_id === 'number' ? body.primary_artist_id : null)
+        || cand.primary_artist_id
+        || artistIds[0]
+        || null
       if (event?.id && artistIds.length > 0) {
         await setEventArtists(event.id, artistIds.map((id, i) => ({
           artist_id: id,
-          is_headliner: id === cand.primary_artist_id || (i === 0 && !cand.primary_artist_id),
+          is_headliner: id === primaryId || (i === 0 && !primaryId),
         })))
       }
 

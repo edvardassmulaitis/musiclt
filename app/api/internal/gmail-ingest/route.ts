@@ -66,6 +66,36 @@ function canonicalHash(s: string): string {
   return s.slice(0, 64)
 }
 
+/**
+ * 2026-06-11: email body cleanup kai naudojamas kaip fallback'as (be .docx).
+ * Nukerpa:
+ *   - pradžios boilerplate eilutes: „Sveiki", „Laba diena", „Pranešimas
+ *     žiniasklaidai/spaudai", „Press release", „Hello/Hi"
+ *   - pabaigos parašą: nuo „--", „Pagarbiai", „Best regards", „Kind regards",
+ *     „Su pagarba" (jei tai paskutiniai ~30% teksto — kad nenukirpti vidurio)
+ */
+function cleanEmailBody(raw: string): string {
+  const lines = raw.split('\n')
+  let start = 0
+  const greetingRe = /^\s*(sveiki|laba\s*diena|labas|hello|hi|dear|gerb\.?|pranešimas\s+(žiniasklaidai|spaudai)|press\s+release|spaudos\s+pranešimas)[\s,.!:]*$/i
+  // Praleidžiam iki 5 pirmų eilučių, jei jos boilerplate arba tuščios
+  for (let i = 0; i < Math.min(lines.length, 6); i++) {
+    const l = lines[i].trim()
+    if (l === '' || greetingRe.test(l)) { start = i + 1; continue }
+    break
+  }
+  let end = lines.length
+  const signoffRe = /^\s*(--+|pagarbiai|su\s+pagarba|best\s+regards|kind\s+regards|regards|linkėjimai|daugiau\s+informacijos:?)\s*[,.]?\s*$/i
+  // Parašo ieškom tik paskutiniame 40% teksto
+  const searchFrom = Math.floor(lines.length * 0.6)
+  for (let i = searchFrom; i < lines.length; i++) {
+    if (signoffRe.test(lines[i])) { end = i; break }
+  }
+  const out = lines.slice(start, end).join('\n').trim()
+  // Jei po valymo liko per mažai — grąžinam originalą (apsidraudimas)
+  return out.length >= 80 ? out : raw.trim()
+}
+
 export async function POST(req: NextRequest) {
   // Auth — Bearer INTERNAL_CRON_TOKEN
   const authHeader = req.headers.get('authorization') || ''
@@ -158,21 +188,33 @@ export async function POST(req: NextRequest) {
   if (messageIdForDocx) {
     try {
       const metas = await getMessageAttachments(messageIdForDocx)
-      const docxMeta = metas.find(m =>
-        /^application\/(vnd\.openxmlformats-officedocument\.wordprocessingml\.document|msword)$/i.test(m.mimeType)
+      // 2026-06-11: tikrinam VISUS doc/docx attachment'us (ne tik pirmą) ir
+      // imam tą, kurio extract'intas tekstas ilgiausias — laiškuose pasitaiko
+      // keli .docx (pvz. EN + LT versijos arba tuščias template'as).
+      const docMetas = metas.filter(m =>
+        (/^application\/(vnd\.openxmlformats-officedocument\.wordprocessingml\.document|msword)$/i.test(m.mimeType)
+          || /\.docx?$/i.test(m.filename))
         && m.size > 1000 && m.size < 10 * 1024 * 1024
-      )
-      if (docxMeta) {
-        const buf = await getAttachmentBuffer(messageIdForDocx, docxMeta.attachmentId)
-        const extracted = await extractDocxFromBuffer(buf)
-        if (extracted.has_content) {
-          docxTitle = extracted.title
-          docxBodyHtml = extracted.body_html
-          docxBodyText = extracted.body_text
+      ).slice(0, 4)
+      let best: { title: string | null; body_html: string; body_text: string } | null = null
+      for (const meta of docMetas) {
+        try {
+          const buf = await getAttachmentBuffer(messageIdForDocx, meta.attachmentId)
+          const extracted = await extractDocxFromBuffer(buf)
+          if (extracted.has_content && (!best || extracted.body_text.length > best.body_text.length)) {
+            best = { title: extracted.title, body_html: extracted.body_html, body_text: extracted.body_text }
+          }
+        } catch (e: any) {
+          console.warn(`[gmail-ingest] docx extract failed (${meta.filename}):`, e?.message || e)
         }
       }
+      if (best) {
+        docxTitle = best.title
+        docxBodyHtml = best.body_html
+        docxBodyText = best.body_text
+      }
     } catch (e: any) {
-      console.warn('[gmail-ingest] docx extract failed:', e?.message || e)
+      console.warn('[gmail-ingest] docx attachment scan failed:', e?.message || e)
     }
   }
 
@@ -182,18 +224,20 @@ export async function POST(req: NextRequest) {
     .trim()
   const cleanTitle = docxTitle || cleanSubject || 'Be antraštės'
 
-  // Body — docx HTML pirmiausia (turi heading + paragraphus), tada raw_body
+  // Body — docx HTML pirmiausia (turi heading + paragraphus), tada email body
+  // su boilerplate cleanup'u (pasveikinimai/parašai nukerpami).
   const escapeHtml = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const bodyHtml = docxBodyHtml || rawBody
+  const cleanedBody = cleanEmailBody(rawBody)
+  const bodyHtml = docxBodyHtml || cleanedBody
     .split(/\n\s*\n/)
     .map(p => p.trim())
     .filter(p => p.length > 0)
     .map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
     .join('\n')
 
-  // Summary — pirmas paragrafas iš docx text arba raw_body (max 280 chars)
-  const summarySource = docxBodyText || rawBody
+  // Summary — pirmas paragrafas iš docx text arba išvalyto email body (max 280 chars)
+  const summarySource = docxBodyText || cleanedBody
   const firstPara = summarySource.split(/\n\s*\n/).map(p => p.trim()).find(p => p.length > 20) || summarySource.slice(0, 300)
   const summary = firstPara.slice(0, 280).replace(/\s+\S*$/, '').trim() + (firstPara.length > 280 ? '…' : '')
 
@@ -231,6 +275,23 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 2026-06-11: track mention'ai iš kabučių antraštėje + pirmame paragrafe —
+  // press release'uose dainos visada kabutėse („Vasara", "DNA", 'Laikas').
+  // Anksčiau Gmail kanalas išvis nesiūlydavo track'ų (tracks_mentioned=[]).
+  const quoteSource = `${cleanTitle}\n${firstPara}`
+  const quotedTitles: string[] = []
+  for (const m of quoteSource.matchAll(/[„"']([^„""'']{2,60})["""']/g)) {
+    const t = m[1].trim()
+    if (t && !quotedTitles.some(x => x.toLowerCase() === t.toLowerCase())) {
+      quotedTitles.push(t)
+      if (quotedTitles.length >= 3) break
+    }
+  }
+  const tracksMentioned = quotedTitles.map(t => ({
+    title: t,
+    artist: artistsMentioned[0]?.name || '',
+  }))
+
   // Category — iš anksčiau gauto Haiku verdict'o (step 2)
   const ai = {
     category: haikuCategory,
@@ -240,7 +301,7 @@ export async function POST(req: NextRequest) {
     confidence: haikuConfidence,
     model: 'gmail-passthrough',
     artists_mentioned: artistsMentioned,
-    tracks_mentioned: [] as Array<{ title: string; artist: string }>,
+    tracks_mentioned: tracksMentioned,
     embed_urls: embedUrls,
   }
 
@@ -272,7 +333,11 @@ export async function POST(req: NextRequest) {
       source_portal: 'gmail',
       source_email_thread_id: threadId,
       source_email_from: fromEmail || null,
-      source_published_at: null, // Gmail received time gali ateit per worker'į, v1 NULL
+      // 2026-06-11: Gmail received time iš poll worker'io (received_at body lauke)
+      source_published_at: (() => {
+        const r = typeof body.received_at === 'string' ? new Date(body.received_at) : null
+        return r && !isNaN(r.getTime()) ? r.toISOString() : null
+      })(),
       raw_text: rawBody.slice(0, 20_000),
       raw_html: null,
       raw_lang: (subject && /[ąčęėįšųūž]/i.test(subject)) || /[ąčęėįšųūž]/i.test(rawBody) ? 'lt' : 'en',

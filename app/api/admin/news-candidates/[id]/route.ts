@@ -103,8 +103,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (loadErr || !cand) {
     return NextResponse.json({ error: 'Candidate not found' }, { status: 404 })
   }
-  if (cand.status !== 'pending') {
+  // 2026-06-11: reject leidžiamas IR 'preview' kandidatams (anksčiau guard'as
+  // `status !== 'pending'` grąžindavo „Already preview" ir nebuvo įmanoma
+  // išsivalyti inbox'o nuo preview kortelių). Approve lieka pending-only,
+  // nes preview neturi LT turinio.
+  const ACTIONABLE_STATUSES = ['pending', 'preview']
+  if (!ACTIONABLE_STATUSES.includes(cand.status)) {
     return NextResponse.json({ error: `Already ${cand.status}` }, { status: 409 })
+  }
+  if (action === 'approve' && cand.status === 'preview') {
+    return NextResponse.json({ error: 'Preview kandidatas — pirma paspausk „Perrašyti į LT"' }, { status: 409 })
   }
 
   if (action === 'reject') {
@@ -227,6 +235,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ? body.image_urls.filter((x: any) => typeof x === 'string' && x).slice(0, 5)
       : ((body.image_url as string | undefined) ? [body.image_url as string] : [])
     let finalImage: string | null = wizardImages[0] || (body.image_url as string | undefined) || null
+    // 2026-06-11: email attachment (press foto) fallback'as PRIEŠ artist photos —
+    // jei press release atėjo su foto, ji aktualiausia šitai naujienai.
+    if (!finalImage) {
+      const { data: pressImg } = await supabase
+        .from('news_candidate_images')
+        .select('public_url')
+        .eq('candidate_id', candidateId)
+        .order('sort_order', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      if (pressImg?.public_url) finalImage = pressImg.public_url
+    }
     if (!finalImage && artistId1) {
       const { data: photos } = await supabase
         .from('artist_photos')

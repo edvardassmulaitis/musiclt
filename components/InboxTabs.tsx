@@ -17,8 +17,11 @@ export default function InboxTabs() {
 
   useEffect(() => {
     let cancelled = false
+    // 2026-06-11: news count = preview+pending (tas pats query kaip inbox
+    // puslapio sąrašas) — anksčiau čia buvo tik 'pending' ir skaičiai
+    // nesutapdavo su tuo, kas matosi tab'e.
     Promise.all([
-      fetch('/api/admin/news-candidates?status=pending&limit=1').then(r => r.json()).catch(() => null),
+      fetch('/api/admin/news-candidates?status=preview,pending&limit=1').then(r => r.json()).catch(() => null),
       fetch('/api/admin/event-candidates?status=pending&limit=1').then(r => r.json()).catch(() => null),
     ]).then(([n, e]) => {
       if (cancelled) return
