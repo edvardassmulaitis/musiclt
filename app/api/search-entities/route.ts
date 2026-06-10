@@ -36,7 +36,12 @@ export async function GET(request: Request) {
   if (q.length < 2) return NextResponse.json({ results: [] })
 
   const sb = createAdminClient()
-  const safe = (s: string) => s.replace(/[%_]/g, '')
+  // Diakritikai NEJAUTRI paieška: ieškom prieš *_norm stulpelius (unaccent+lower).
+  // normLt nuima LT + bendrą diakritiką ir mažina raides — tad veikia ir su „tėkmės",
+  // ir su „tekmes".
+  const LT_MAP: Record<string, string> = { ą: 'a', č: 'c', ę: 'e', ė: 'e', į: 'i', š: 's', ų: 'u', ū: 'u', ž: 'z' }
+  const normLt = (s: string) => (s || '').toLowerCase().replace(/[ąčęėįšųūž]/g, c => LT_MAP[c] || c).normalize('NFKD').replace(/[̀-ͯ]/g, '')
+  const safe = (s: string) => normLt(s).replace(/[%_]/g, '')
 
   // Tokens for compound matching — keep >=2 chars to avoid noise from
   // single-letter fragments. Compound branch only runs when ≥2 such tokens.
@@ -69,18 +74,18 @@ export async function GET(request: Request) {
   const [artistsRes, albumsRes, tracksRes] = await Promise.all([
     sb.from('artists')
       .select('id,slug,name,cover_image_url,legacy_id,score')
-      .ilike('name', fullPattern)
+      .ilike('name_norm',fullPattern)
       .order('score', { ascending: false, nullsFirst: false })
       .limit(8),
     orderEntity(sb.from('albums')
       .select('id,slug,title,cover_image_url,legacy_id,artist_id,artists:artist_id(name),score')
-      .ilike('title', fullPattern))
+      .ilike('title_norm',fullPattern))
       .limit(10),
     // Track query — JOIN su artists pulling cover_image_url, kad search
     // rezultatai galėtų rodyti mini foto.
     orderEntity(sb.from('tracks')
       .select('id,slug,title,legacy_id,artist_id,artists:artist_id(name,cover_image_url),score')
-      .ilike('title', fullPattern))
+      .ilike('title_norm',fullPattern))
       .limit(12),
   ])
 
@@ -120,7 +125,7 @@ export async function GET(request: Request) {
       const { data: matchArtists } = await sb
         .from('artists')
         .select('id,name,score')
-        .ilike('name', aPat)
+        .ilike('name_norm',aPat)
         .order('score', { ascending: false, nullsFirst: false })
         .limit(30)
       if (!matchArtists || matchArtists.length === 0) return { tracks: [], albums: [] }
@@ -133,8 +138,8 @@ export async function GET(request: Request) {
         .in('artist_id', artistIds)
       for (const tok of titleToks) {
         const tPat = `%${safe(tok)}%`
-        tq = tq.ilike('title', tPat)
-        alq = alq.ilike('title', tPat)
+        tq = tq.ilike('title_norm',tPat)
+        alq = alq.ilike('title_norm',tPat)
       }
       const [tHit, alHit] = await Promise.all([
         tq.order('score', { ascending: false, nullsFirst: false }).limit(12),

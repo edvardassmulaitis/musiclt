@@ -100,7 +100,13 @@ export async function enrichProseLinks(sb: Sb, html: string): Promise<string> {
     for (const m of matches) { if (m.start >= last) { chosen.push(m); last = m.end } }
     if (!chosen.length) continue
     let h = '', pos = 0
-    for (const m of chosen) { h += escHtml(b.text.slice(pos, m.start)) + enrichLinkHtml(resolved.get(m.text)!, m.text); pos = m.end }
+    const isQuote = (ch: string) => /[„“”‘’"']/.test(ch)
+    for (const m of chosen) {
+      let s = m.start, e = m.end
+      // Kabučių slėpimas: jei terminas apsuptas „…" — įtraukiam kabutes į praleidžiamą ruožą
+      if (s > 0 && isQuote(b.text[s - 1]) && e < b.text.length && isQuote(b.text[e])) { s -= 1; e += 1 }
+      h += escHtml(b.text.slice(pos, s)) + enrichLinkHtml(resolved.get(m.text)!, m.text); pos = e
+    }
     h += escHtml(b.text.slice(pos))
     out = out.replace(b.raw, `<p>${h}</p>`)
   }

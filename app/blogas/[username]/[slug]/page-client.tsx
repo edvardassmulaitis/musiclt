@@ -23,6 +23,7 @@ import { proxyImg } from '@/lib/img-proxy'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
+import { HomeTrackModal } from '@/components/HomeTrackModal'
 import { PostContent } from './post-content'
 import { type BlogPostType } from '@/components/blog/post-types'
 import { type ExtractedTrack } from '@/lib/blog-content'
@@ -1023,21 +1024,25 @@ function BlogLikePill({ postId, initialCount }: { postId: string; initialCount: 
   )
 }
 
-/* ─── Enrichinta proza — bp-enrich nuorodos atidaro modalą (ne atskirą page) ── */
+/* ─── Enrichinta proza — albumas/daina atidaro modalą, atlikėjas → naujas tabas ── */
 function EnrichedProse({ html }: { html: string }) {
   const [albumId, setAlbumId] = useState<number | null>(null)
+  const [track, setTrack] = useState<{ id: number; title: string } | null>(null)
   const onClick = (e: React.MouseEvent) => {
     const a = (e.target as HTMLElement).closest?.('a.bp-enrich') as HTMLAnchorElement | null
     if (!a) return
     const href = a.getAttribute('href') || ''
     const am = href.match(/\/albumai\/.*-(\d+)$/)
-    if (am) { e.preventDefault(); setAlbumId(parseInt(am[1], 10)) }
-    // dainoms paliekam nav (retas atvejis prozoje)
+    if (am) { e.preventDefault(); setAlbumId(parseInt(am[1], 10)); return }
+    const tm = href.match(/\/dainos\/.*-(\d+)$/)
+    if (tm) { e.preventDefault(); setTrack({ id: parseInt(tm[1], 10), title: (a.textContent || '').trim() }); return }
+    if (/\/atlikejai\//.test(href)) { e.preventDefault(); window.open(href, '_blank', 'noopener,noreferrer') }
   }
   return (
     <div onClick={onClick}>
       <PostContent html={html} />
       <AlbumInfoModal albumId={albumId} onClose={() => setAlbumId(null)} />
+      <HomeTrackModal track={track as any} onClose={() => setTrack(null)} />
     </div>
   )
 }

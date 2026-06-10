@@ -50,19 +50,23 @@ async function entityLink(sb: any, type: string, id: number) {
   if (type === 'album') { const { data } = await sb.from('albums').select('slug, cover_image_url, artist:artist_id(slug)').eq('id', id).maybeSingle(); const ar = Array.isArray(data?.artist) ? data?.artist[0] : data?.artist; return { href: `/albumai/${[ar?.slug, data?.slug].filter(Boolean).join('-')}-${id}`, cover: data?.cover_image_url || null } }
   const { data } = await sb.from('tracks').select('slug, cover_url').eq('id', id).maybeSingle(); return { href: `/dainos/${data?.slug}-${id}`, cover: data?.cover_url || null }
 }
-// Įterpia nuorodą į konkretų tekstą (pirmą pasitaikymą, NE esamose nuorodose).
+// Įterpia nuorodą į VISUS termino pasitaikymus (NE esamose nuorodose). Jei terminas
+// apsuptas kabučių („…" / "…") — kabutės paslepiamos (įtraukiamos į nuorodą).
+const QUO_CLASS = '[„“”‘’"\']'
 function wrapText(html: string, text: string, href: string, cover: string | null): { html: string; wrapped: boolean } {
   const thumb = cover ? `<img class="bp-enrich-thumb" src="${cover}" alt=""/>` : ''
   const link = (t: string) => `<a class="bp-enrich" href="${href}">${thumb}<span>${t}</span></a>`
   const parts = html.split(/(<a\b[^>]*>[\s\S]*?<\/a>)/i)
-  const re = new RegExp(`(^|[^\\p{L}\\p{N}])(${escRe(text)})(?=[^\\p{L}\\p{N}]|$)`, 'iu')
-  let done = false
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])(${QUO_CLASS}?)(${escRe(text)})(${QUO_CLASS}?)(?![\\p{L}\\p{N}])`, 'giu')
+  let wrapped = false
   for (let i = 0; i < parts.length; i++) {
-    if (i % 2 === 1) continue            // anchor segment — praleidžiam
-    if (done) break
-    if (re.test(parts[i])) { parts[i] = parts[i].replace(re, (_m, pre, t) => `${pre}${link(t)}`); done = true }
+    if (i % 2 === 1) continue            // anchor segmentas — praleidžiam
+    parts[i] = parts[i].replace(re, (_m, q1, t, q2) => {
+      wrapped = true
+      return (q1 && q2) ? link(t) : `${q1}${link(t)}${q2}`   // abi kabutės → paslepiam
+    })
   }
-  return { html: parts.join(''), wrapped: done }
+  return { html: parts.join(''), wrapped }
 }
 
 export async function POST(req: Request) {
