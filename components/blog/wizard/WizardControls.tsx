@@ -71,11 +71,13 @@ export function ChoiceCards({
 }
 
 export function CountChips({
-  options, value, onChange, allowCustom = true, max = 100,
+  options, value, onChange, onPick, allowCustom = true, max = 100,
 }: {
   options: number[]
   value: number | null
   onChange: (v: number) => void
+  /** Kviečiamas TIK paspaudus chip'ą (ne rašant custom skaičių) — auto-advance. */
+  onPick?: (v: number) => void
   allowCustom?: boolean
   max?: number
 }) {
@@ -88,7 +90,7 @@ export function CountChips({
             key={o}
             type="button"
             className={`ctc-chip${value === o ? ' is-active' : ''}`}
-            onClick={() => onChange(o)}
+            onClick={() => { onChange(o); onPick?.(o) }}
           >
             {o}
           </button>

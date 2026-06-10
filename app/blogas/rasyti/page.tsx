@@ -58,15 +58,19 @@ const sv = (d: ReactNode) => (
 )
 
 // ── Tipo pasirinkimo landing'as (kai nėra ?type) ────────────────────────────
-const TYPE_TILES: Array<{ type: WizType; label: string; desc: string; icon: ReactNode }> = [
+// Tvarka pagal svarbą — kaip /atrasti ir QuickCreate: dalinimosi turinys
+// (koncertas → recenzija → topas → atradimas) pirmiau, kūryba ir profilis po.
+// 'atradimas' — ne wizard tipas, navigacija į /muzikos-atradimai/pasidalink.
+const TYPE_TILES: Array<{ type: WizType | 'atradimas'; label: string; desc: string; icon: ReactNode }> = [
+  { type: 'event',       label: 'Koncerto įspūdžiai', desc: 'Koncerto ar festivalio apžvalga', icon: sv(<path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3zM19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8" />) },
   { type: 'review',      label: 'Recenzija',     desc: 'Įvertink dainą, albumą ar atlikėją', icon: sv(<path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z" />) },
   { type: 'topas',       label: 'Topas',         desc: 'Numeruotas sąrašas su komentarais', icon: sv(<><path d="M10 6h11" /><path d="M10 12h11" /><path d="M10 18h11" /><path d="M4 6h1v4" /><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" /></>) },
-  { type: 'article',     label: 'Įrašas',        desc: 'Straipsnis, mintis, naujiena', icon: sv(<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>) },
-  { type: 'event',       label: 'Renginys',      desc: 'Koncerto ar festivalio apžvalga', icon: sv(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18" /></>) },
-  { type: 'translation', label: 'Vertimas',      desc: 'Dainos žodžių vertimas į lietuvių', icon: sv(<><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></>) },
+  { type: 'atradimas',   label: 'Atradimas',     desc: 'Pasidalink rasta muzika', icon: sv(<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" />) },
   { type: 'creation',    label: 'Kūryba',        desc: 'Eilėraštis, esė, tavo kūrinys', icon: sv(<><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>) },
-  { type: 'mood',        label: 'Nuotaikos daina', desc: 'Daina tavo profiliui', icon: sv(<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />) },
+  { type: 'translation', label: 'Vertimas',      desc: 'Dainos žodžių vertimas į lietuvių', icon: sv(<><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></>) },
+  { type: 'article',     label: 'Įrašas',        desc: 'Straipsnis, mintis, naujiena', icon: sv(<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>) },
   { type: 'daily',       label: 'Dienos daina',  desc: 'Pasiūlyk dienos dainai', icon: sv(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>) },
+  { type: 'mood',        label: 'Nuotaikos daina', desc: 'Daina tavo profiliui', icon: sv(<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />) },
 ]
 
 const CREATION_SUBTYPES: Choice[] = [
@@ -378,7 +382,7 @@ function EditorInner() {
         id: 'count', title: 'Kiek įrašų?',
         subtitle: 'Galėsi keisti vėliau — tai tik orientyras.',
         valid: !!topasCount,
-        node: <CountChips options={[3, 5, 10, 20]} value={topasCount} onChange={setTopasCount} />,
+        node: <CountChips options={[3, 5, 10, 20]} value={topasCount} onChange={setTopasCount} onPick={() => next()} />,
       })
       steps.push({
         id: 'entries', title: 'Sudaryk sąrašą',
@@ -555,7 +559,7 @@ function EditorInner() {
       <WizardChrome stepIndex={0} totalSteps={1} title="Ką nori pridėti?" subtitle="Pasirink turinio tipą." onClose={close}>
         <div className="tp-grid">
           {TYPE_TILES.map(t => (
-            <button key={t.type} type="button" className="tp-tile" onClick={() => { setType(t.type); setStepIdx(0); setError(null) }}>
+            <button key={t.type} type="button" className="tp-tile" onClick={() => { if (t.type === 'atradimas') { router.push('/muzikos-atradimai/pasidalink'); return } setType(t.type as WizType); setStepIdx(0); setError(null) }}>
               <span className="tp-ico">{t.icon}</span>
               <span className="tp-label">{t.label}</span>
               <span className="tp-desc">{t.desc}</span>
