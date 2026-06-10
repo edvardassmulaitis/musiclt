@@ -4,6 +4,7 @@
 // Visi įrašai naujausi pirma (su „Rodyti daugiau"). „Sutvarkyta" pašalina iš eilės.
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
 
 type TopasInfo = { format: 'empty' | 'legacy' | 'new' | 'mixed'; total: number; matched: number; unmatched: number }
 type Item = {
@@ -52,6 +53,8 @@ export default function IrasaiAdminClient() {
   const [showHidden, setShowHidden] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [enrichPanel, setEnrichPanel] = useState<string | null>(null)
+  const [enrichLinks, setEnrichLinks] = useState<{ text: string; href: string; context: string }[]>([])
   const offsetRef = useRef(0)
 
   const fetchPage = useCallback(async (off: number) => {
@@ -105,15 +108,24 @@ export default function IrasaiAdminClient() {
     setBusy(null)
   }
 
-  const enrich = async (id: string) => {
+  const enrichAct = async (id: string, action: string, extra: any = {}) => {
     setBusy(id); setMsg(null)
     try {
-      const r = await fetch('/api/admin/irasai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'enrich_prose', id }) })
+      const r = await fetch('/api/admin/irasai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, id, ...extra }) })
       const d = await r.json(); if (!r.ok) throw new Error(d.error || 'klaida')
-      setMsg(`✓ Tekstas enrichintas: ${d.enriched} nuorodų su mini viršeliais`)
-    } catch (e: any) { setMsg('Klaida: ' + e.message) }
-    setBusy(null)
+      return d
+    } catch (e: any) { setMsg('Klaida: ' + e.message); return null }
+    finally { setBusy(null) }
   }
+  const openEnrich = async (id: string) => {
+    if (enrichPanel === id) { setEnrichPanel(null); return }
+    setEnrichPanel(id)
+    const d = await enrichAct(id, 'enrich_info'); if (d) setEnrichLinks(d.links || [])
+  }
+  const enrich = async (id: string) => { const d = await enrichAct(id, 'enrich_prose'); if (d) { setEnrichLinks(d.links || []); setEnrichPanel(id); setMsg(`✓ Auto-enrichinta: ${d.enriched} nuorodų`) } }
+  const linkText = async (id: string, hit: any) => { const d = await enrichAct(id, 'link_text', { hit, term: hit.title || hit.artist }); if (d) { if (d.ok === false) setMsg(d.error); else setEnrichLinks(d.links || []) } }
+  const unlinkText = async (id: string, text: string) => { const d = await enrichAct(id, 'unlink_text', { text }); if (d) setEnrichLinks(d.links || []) }
+  const resetEnrich = async (id: string) => { const d = await enrichAct(id, 'reset_enrich'); if (d) { setEnrichLinks([]); setMsg('↺ Enrichinimas atstatytas') } }
   const normalize = async (id: string) => {
     setBusy(id); setMsg(null)
     try {
@@ -208,8 +220,8 @@ export default function IrasaiAdminClient() {
                     )}
 
                     {it.post_type !== 'topas' && (
-                      <button onClick={() => enrich(it.id)} disabled={busy === it.id} title="Surasti DB esančius albumus/dainas/atlikėjus tekste ir paversti nuorodomis"
-                        className="text-sm px-3 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 disabled:opacity-50">✨ Enrichinti tekstą</button>
+                      <button onClick={() => openEnrich(it.id)} disabled={busy === it.id} title="Peržiūrėti / pridėti nuorodas tekste"
+                        className={`text-sm px-3 py-1 rounded-lg disabled:opacity-50 ${enrichPanel === it.id ? 'bg-violet-600 text-white' : 'bg-violet-50 hover:bg-violet-100 text-violet-700'}`}>✨ Nuorodos</button>
                     )}
                     <div className="ml-auto">
                       {it.reviewed
@@ -219,6 +231,30 @@ export default function IrasaiAdminClient() {
                             className="text-sm px-3 py-1 rounded-lg bg-gray-900 hover:bg-black text-white disabled:opacity-50">✓ Sutvarkyta</button>}
                     </div>
                   </div>
+
+                  {/* Enrichinimo peržiūra / redagavimas */}
+                  {enrichPanel === it.id && (
+                    <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button onClick={() => enrich(it.id)} disabled={busy === it.id} className="text-sm px-3 py-1 rounded-lg bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50">✨ Auto-enrichinti</button>
+                        <button onClick={() => resetEnrich(it.id)} disabled={busy === it.id} className="text-sm px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600">↺ Atstatyti</button>
+                        <a href={it.blog_slug ? `/blogas/${it.blog_slug}/${it.slug || it.id}` : '#'} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline">↗ Peržiūrėti įrašą</a>
+                      </div>
+                      <div className="text-xs text-gray-500">Pridėti nuorodą rankiniu būdu (suras pavadinimą tekste ir prikabins):</div>
+                      <MusicSearchPicker compact placeholder="Ieškok atlikėjo / albumo / dainos…" onAdd={(hit: AttachmentHit) => linkText(it.id, hit)} />
+                      {enrichLinks.length === 0
+                        ? <div className="text-xs text-gray-400">Dar nėra nuorodų. Spausk „Auto-enrichinti" arba pridėk rankiniu būdu.</div>
+                        : <div className="space-y-1">
+                            {enrichLinks.map((l, i) => (
+                              <div key={i} className="flex items-start gap-2 text-xs">
+                                <a href={l.href} target="_blank" rel="noreferrer" className="shrink-0 font-semibold text-orange-600 hover:underline">{l.text}</a>
+                                <span className="text-gray-400 flex-1 truncate" title={l.context}>{l.context}</span>
+                                <button onClick={() => unlinkText(it.id, l.text)} disabled={busy === it.id} title="atrišti" className="shrink-0 text-gray-400 hover:text-red-500">✕</button>
+                              </div>
+                            ))}
+                          </div>}
+                    </div>
+                  )}
 
                   {it.post_type === 'topas' && it.topas && it.topas.unmatched > 0 && it.topas.format === 'new' && (
                     <div className="mt-2 text-[12px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5">

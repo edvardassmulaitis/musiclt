@@ -67,14 +67,12 @@ export function PostContent({ html }: { html: string }) {
         .prose-custom .ml-card { transition: background .15s ease; }
         .prose-custom .ml-card:hover { background: rgba(255,255,255,0.06) !important; }
         .prose-custom hr { border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 36px 0; }
-        /* Enrichintos nuorodos prozoje (DB albumai/dainos) — su mini viršeliu */
-        .prose-custom a.bp-enrich { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px;
-                                    border-radius: 9px; background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.2);
-                                    color: #f3b88a; text-decoration: none; font-weight: 600; line-height: 1.2;
-                                    transition: background .15s, border-color .15s; }
-        .prose-custom a.bp-enrich:hover { background: rgba(249,115,22,0.16); border-color: rgba(249,115,22,0.4); color: #fb923c; }
-        .prose-custom img.bp-enrich-thumb { width: 32px; height: 32px; border-radius: 6px; margin: 0; display: inline-block;
-                                            object-fit: cover; box-shadow: none; vertical-align: middle; }
+        /* Enrichintos nuorodos prozoje — subtilios, kaip teksto dalis (be box/border/vizualo) */
+        .prose-custom a.bp-enrich { color: #f97316; text-decoration: underline; text-underline-offset: 2px;
+                                    text-decoration-color: rgba(249,115,22,0.4); text-decoration-thickness: 1px;
+                                    cursor: pointer; }
+        .prose-custom a.bp-enrich:hover { color: #fb923c; text-decoration-color: #fb923c; }
+        .prose-custom img.bp-enrich-thumb { display: none; }
       `}</style>
     </>
   )

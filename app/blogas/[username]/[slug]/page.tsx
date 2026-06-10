@@ -55,7 +55,8 @@ export default async function PostPage({ params }: { params: Promise<{ username:
 
   // EXTRACT inline music embeds (YouTube/Spotify iframes + legacy favorite
   // widget) iš body — perkelti į sidebar player'į. Body lieka švarus tekstas.
-  const { cleanedHtml, music: rawEmbeddedMusic } = extractMusicFromBody(post.content || '')
+  // content_enriched (admin enrichinta versija su DB nuorodomis) turi pirmenybę prieš originalų content.
+  const { cleanedHtml, music: rawEmbeddedMusic } = extractMusicFromBody((post as any).content_enriched || post.content || '')
   // Enrich with Spotify/YouTube oEmbed metadata (title + artist + cover thumb)
   // — kitaip sidebar rodytų generic "Spotify takelis" be konteksto.
   const enrichedMusic = await enrichTracksWithOembed(rawEmbeddedMusic)

@@ -31,21 +31,88 @@ async function requireAdmin() {
   return session
 }
 
-// Manual prozos enrichinimas: regular įrašo content → DB albumai/dainos/atlikėjai nuorodomis.
+// Enrichinimas saugomas ATSKIRAI (content_enriched) — userio originalus content nekeičiamas.
+const escRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const stripTags2 = (s: string) => s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+function enrichLinkList(html: string) {
+  const out: { text: string; href: string; context: string }[] = []
+  const re = /<a class="bp-enrich" href="([^"]*)">(?:<img[^>]*>)?<span>([^<]*)<\/span><\/a>/gi
+  let m: RegExpExecArray | null
+  while ((m = re.exec(html))) {
+    const ctxStart = Math.max(0, m.index - 80)
+    const ctx = stripTags2(html.slice(ctxStart, m.index + m[0].length + 60))
+    out.push({ text: m[2], href: m[1], context: '…' + ctx + '…' })
+  }
+  return out
+}
+async function entityLink(sb: any, type: string, id: number) {
+  if (type === 'artist') { const { data } = await sb.from('artists').select('slug, cover_image_url').eq('id', id).maybeSingle(); return { href: `/atlikejai/${data?.slug}`, cover: data?.cover_image_url || null } }
+  if (type === 'album') { const { data } = await sb.from('albums').select('slug, cover_image_url, artist:artist_id(slug)').eq('id', id).maybeSingle(); const ar = Array.isArray(data?.artist) ? data?.artist[0] : data?.artist; return { href: `/albumai/${[ar?.slug, data?.slug].filter(Boolean).join('-')}-${id}`, cover: data?.cover_image_url || null } }
+  const { data } = await sb.from('tracks').select('slug, cover_url').eq('id', id).maybeSingle(); return { href: `/dainos/${data?.slug}-${id}`, cover: data?.cover_url || null }
+}
+// Įterpia nuorodą į konkretų tekstą (pirmą pasitaikymą, NE esamose nuorodose).
+function wrapText(html: string, text: string, href: string, cover: string | null): { html: string; wrapped: boolean } {
+  const thumb = cover ? `<img class="bp-enrich-thumb" src="${cover}" alt=""/>` : ''
+  const link = (t: string) => `<a class="bp-enrich" href="${href}">${thumb}<span>${t}</span></a>`
+  const parts = html.split(/(<a\b[^>]*>[\s\S]*?<\/a>)/i)
+  const re = new RegExp(`(^|[^\\p{L}\\p{N}])(${escRe(text)})(?=[^\\p{L}\\p{N}]|$)`, 'iu')
+  let done = false
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) continue            // anchor segment — praleidžiam
+    if (done) break
+    if (re.test(parts[i])) { parts[i] = parts[i].replace(re, (_m, pre, t) => `${pre}${link(t)}`); done = true }
+  }
+  return { html: parts.join(''), wrapped: done }
+}
+
 export async function POST(req: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json().catch(() => ({}))
-  if (body.action !== 'enrich_prose' || !body.id) return NextResponse.json({ error: 'bad request' }, { status: 400 })
+  const action = String(body.action || ''); const id = body.id
+  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
   const sb = createAdminClient()
-  const { data: post } = await sb.from('blog_posts').select('id, post_type, content').eq('id', body.id).maybeSingle()
+  const { data: post } = await sb.from('blog_posts').select('id, post_type, content, content_enriched').eq('id', id).maybeSingle()
   if (!post) return NextResponse.json({ error: 'not found' }, { status: 404 })
   if (post.post_type === 'topas') return NextResponse.json({ error: 'Topas enrichinamas per /admin/topai-vidiniai' }, { status: 400 })
-  if (!post.content) return NextResponse.json({ error: 'nėra teksto' }, { status: 400 })
-  const enriched = await enrichProseLinks(sb, post.content).catch(() => post.content)
-  const count = (enriched.match(/bp-enrich"/g) || []).length
-  const { error } = await sb.from('blog_posts').update({ content: enriched }).eq('id', body.id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true, enriched: count })
+  const base = post.content_enriched || post.content || ''
+
+  if (action === 'enrich_info') {
+    return NextResponse.json({ ok: true, links: enrichLinkList(base), has_enriched: !!post.content_enriched })
+  }
+  if (action === 'reset_enrich') {
+    await sb.from('blog_posts').update({ content_enriched: null }).eq('id', id)
+    return NextResponse.json({ ok: true, links: [] })
+  }
+  if (action === 'enrich_prose') {
+    if (!post.content) return NextResponse.json({ error: 'nėra teksto' }, { status: 400 })
+    const enriched = await enrichProseLinks(sb, post.content).catch(() => post.content)  // VISADA iš švaraus content
+    await sb.from('blog_posts').update({ content_enriched: enriched }).eq('id', id)
+    return NextResponse.json({ ok: true, enriched: (enriched.match(/bp-enrich"/g) || []).length, links: enrichLinkList(enriched) })
+  }
+  // Rankinis susiejimas: pasirinktas entitetas → suranda jo pavadinimą tekste ir prikabina nuorodą.
+  if (action === 'link_text') {
+    const h = body.hit
+    if (!h?.id) return NextResponse.json({ error: 'hit required' }, { status: 400 })
+    const map: Record<string, string> = { daina: 'track', grupe: 'artist', albumas: 'album', track: 'track', artist: 'artist', album: 'album' }
+    const type = map[h.type] || 'track'
+    const inf = await entityLink(sb, type, h.id)
+    const term = (body.term || h.title || h.artist || '').trim()
+    if (!term) return NextResponse.json({ error: 'nėra termino' }, { status: 400 })
+    const { html, wrapped } = wrapText(post.content_enriched || post.content || '', term, inf.href, inf.cover)
+    if (!wrapped) return NextResponse.json({ ok: false, error: `Tekste nerasta „${term}"`, links: enrichLinkList(base) })
+    await sb.from('blog_posts').update({ content_enriched: html }).eq('id', id)
+    return NextResponse.json({ ok: true, links: enrichLinkList(html) })
+  }
+  // Atrišti konkretų terminą
+  if (action === 'unlink_text') {
+    const text = String(body.text || '')
+    if (!post.content_enriched) return NextResponse.json({ error: 'nėra enrichinto' }, { status: 400 })
+    const re = new RegExp(`<a class="bp-enrich"[^>]*><(?:img[^>]*>)?(?:<span>)?${escRe(text)}(?:</span>)?</a>|<a class="bp-enrich"[^>]*>(?:<img[^>]*>)?<span>${escRe(text)}</span></a>`, 'i')
+    const html = post.content_enriched.replace(re, text)
+    await sb.from('blog_posts').update({ content_enriched: html }).eq('id', id)
+    return NextResponse.json({ ok: true, links: enrichLinkList(html) })
+  }
+  return NextResponse.json({ error: 'bad action' }, { status: 400 })
 }
 
 // (post_type, editorial_type) → plokščias kind
