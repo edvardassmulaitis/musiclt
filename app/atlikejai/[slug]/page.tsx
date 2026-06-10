@@ -1053,7 +1053,7 @@ export default async function ArtistPage({ params }: Props) {
  */
 const fetchArtistData = unstable_cache(
   async (artistId: number, country: string | null, score: number, rawRoles: string[] | null) => {
-    const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount, news, rawEvents, _allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards, eras, displayRoles] = await Promise.all([
+    const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount, news, rawEvents, _allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards, eras, displayRoles, discoveries] = await Promise.all([
       getGenres(artistId), getSubstyles(artistId), getLinks(artistId), getPhotos(artistId), getAlbums(artistId), getTracks(artistId),
       getMembers(artistId), getMemberOf(artistId), getFollowers(artistId), getLikeCount(artistId), getNews(artistId), getEvents(artistId),
       getAllArtistTrackLegacyIds(artistId),
@@ -1063,6 +1063,7 @@ const fetchArtistData = unstable_cache(
       getArtistAwards(artistId),
       getArtistEras(artistId),
       getDisplayRoles(rawRoles),
+      getDiscoveriesByArtist(artistId),
     ])
     const linkedTrackIds = Array.from(linkedTrackIdSet)
     const albumIds = (albums as any[]).map((a: any) => a.id).filter((x: any) => typeof x === 'number')
@@ -1085,12 +1086,14 @@ const fetchArtistData = unstable_cache(
       genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount,
       news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards, eras,
       similar, legacyCommunity, ranks, lastPostsArr, displayRoles, popBarLevel, recentPopBarLevel,
+      discoveries,
     }
   },
+  // v10 — 2026-06-10 bump: +discoveries („Muzikos atradimai" kortelė Diskusijose).
   // v9 — 2026-05-24 bump: cached v8 nelaikė substyles/genres array'us
   // šviežiai INTL atlikėjams po backfill'o (cache hit grąžindavo stale empty
   // tuplus). v9 priverčia full refetch — visi artist'ai gauna fresh data.
-  ['artist-full-data-v9'],
+  ['artist-full-data-v10'],
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
@@ -1107,6 +1110,7 @@ async function ArtistContent({ artist }: { artist: any }) {
     similar, legacyCommunity, ranks, lastPostsArr, displayRoles, popBarLevel, recentPopBarLevel,
   } = data
   const memberOf = (data as any).memberOf || []
+  const discoveries = (data as any).discoveries || []
   const links = buildSocialLinks(artist, tableLinks as { platform: string; url: string }[])
   const lastPosts = new Map(lastPostsArr)
 
@@ -1229,6 +1233,7 @@ async function ArtistContent({ artist }: { artist: any }) {
       similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}
       chartData={mockChart(albums)} hasNewMusic={newTracks.length > 0}
       legacyCommunity={legacyCommunity} legacyThreads={legacyThreadsWithPosts as any} legacyNews={legacyNewsWithPosts as any}
+      discoveries={discoveries as any}
       ranks={ranks}
       substyles={substyles}
       linkedTrackIds={linkedTrackIds}

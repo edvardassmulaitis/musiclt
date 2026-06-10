@@ -8,7 +8,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 
 export type Sample = { id: number; track_name: string | null; embed_type: string | null; embed_id: string | null; body: string }
-export type PendingGroup = { artist_name: string; count: number; samples: Sample[] }
+export type PendingGroup = { artist_name: string; count: number; ids: number[]; samples: Sample[] }
 export type LinkedGroup = { artist_id: number; db_name: string; slug: string | null; raw_name: string; count: number; samples: Sample[] }
 export type Report = { id: number; kind: string; name: string; note: string | null; source_url: string | null; context: string | null; created_at: string }
 type ArtistHit = { id: number; name: string; slug: string; country: string | null; cover_image_url: string | null }
@@ -52,7 +52,7 @@ function ExpandToggle({ open, set, count }: { open: boolean; set: (v: boolean) =
   )
 }
 
-function LinkArtist({ rawName, onLinked }: { rawName: string; onLinked: () => void }) {
+function LinkArtist({ rawName, ids, onLinked }: { rawName: string; ids?: number[]; onLinked: () => void }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [res, setRes] = useState<ArtistHit[]>([])
@@ -61,7 +61,7 @@ function LinkArtist({ rawName, onLinked }: { rawName: string; onLinked: () => vo
     setQ(v); if (v.trim().length < 2) { setRes([]); return }
     try { const r = await fetch('/api/admin/artists/search?q=' + encodeURIComponent(v)).then(r => r.json()); setRes(r.results || []) } catch { setRes([]) }
   }
-  async function link(a: ArtistHit) { setBusy(true); await patch({ type: 'link_artist', artist_name: rawName, artist_id: a.id }); onLinked() }
+  async function link(a: ArtistHit) { setBusy(true); await patch({ type: 'link_artist', artist_name: rawName, artist_id: a.id, discovery_ids: ids }); onLinked() }
   if (!open) return <button style={{ ...btn, color: '#2563eb', borderColor: '#2563eb44' }} onClick={() => { setOpen(true); search(rawName) }}>🔗 Susieti su DB</button>
   return (
     <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
@@ -95,9 +95,9 @@ function PendingCard({ g, onGone }: { g: PendingGroup; onGone: () => void }) {
       <ExpandToggle open={open} set={setOpen} count={g.count} />
       {open && <Samples samples={g.samples} />}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
-        <LinkArtist rawName={g.artist_name} onLinked={onGone} />
+        <LinkArtist rawName={g.artist_name} ids={g.ids} onLinked={onGone} />
         <Link href="/admin/artist-import" style={{ ...btn, color: '#f97316', borderColor: '#f9731644', textDecoration: 'none' }}>+ Sukurti</Link>
-        <button style={btn} onClick={() => { patch({ type: 'pending_done', artist_name: g.artist_name }); onGone() }}>Praleisti</button>
+        <button style={btn} onClick={() => { patch({ type: 'pending_done', artist_name: g.artist_name, discovery_ids: g.ids }); onGone() }}>Praleisti</button>
       </div>
     </div>
   )

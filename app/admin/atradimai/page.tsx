@@ -25,14 +25,18 @@ export default async function AtradimaiAdminPage() {
   if (!session?.user || !['admin', 'super_admin'].includes((session.user as any).role || '')) redirect('/')
   const sb = createAdminClient()
 
+  // needs_import (su atlikėjo vardu) + narių pridėti be atlikėjo (pending) —
+  // kad per formą pridėti atradimai iškart matytųsi admin'e.
   const { data: pend } = await sb.from('discoveries').select(SEL)
-    .or('thread_id.eq.128402,source.eq.user').eq('resolve_state', 'needs_import').order('artist_name', { ascending: true })
+    .or('thread_id.eq.128402,source.eq.user')
+    .or('resolve_state.eq.needs_import,and(source.eq.user,resolve_state.eq.pending)')
+    .order('artist_name', { ascending: true })
 
   const pg = new Map<string, PendingGroup>()
   for (const d of (pend || []) as any[]) {
-    const key = d.artist_name || '(be vardo)'
-    const g = pg.get(key) || { artist_name: key, count: 0, samples: [] as Sample[] }
-    g.count++; if (g.samples.length < 8) g.samples.push(sample(d))
+    const key = d.artist_name || '(be atlikėjo)'
+    const g = pg.get(key) || { artist_name: key, count: 0, ids: [] as number[], samples: [] as Sample[] }
+    g.count++; g.ids.push(d.id); if (g.samples.length < 8) g.samples.push(sample(d))
     pg.set(key, g)
   }
   const pendingGroups = [...pg.values()].sort((a, b) => b.count - a.count)

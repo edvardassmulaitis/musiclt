@@ -4,6 +4,7 @@
 //   PATCH { type:'pending_done', artist_name }  — pažymėti trūkstamą atlikėją sutvarkytu
 
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -29,17 +30,35 @@ export async function PATCH(req: Request) {
   if (body.type === 'pending_done' && body.artist_name) {
     const { error } = await sb.from('discovery_pending_artist').update({ status: 'done' }).eq('raw_name', body.artist_name)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    // Per ids (narių pridėti / „(be atlikėjo)" grupė) — pažymim skipped, kad
+    // nebesirodytų trūkstamų eilėje.
+    const ids = Array.isArray(body.discovery_ids) ? body.discovery_ids.filter((x: any) => Number.isInteger(x)) : []
+    if (ids.length) {
+      await sb.from('discoveries').update({ resolve_state: 'skipped' }).in('id', ids)
+    }
     return NextResponse.json({ ok: true })
   }
 
-  // Susieti visus atradimus su raw_name → esamas DB atlikėjas
+  // Susieti visus atradimus su raw_name → esamas DB atlikėjas.
+  // discovery_ids (kai admin UI juos paduoda) — tikslesnis kelias, veikia ir
+  // narių pridėtiems atradimams (source='user', be thread_id) bei „(be
+  // atlikėjo)" grupei. Fallback — senas raw_name+thread_id kelias.
   if (body.type === 'link_artist' && body.artist_id && body.artist_name) {
-    const { error } = await sb.from('discoveries')
-      .update({ artist_id: body.artist_id, resolve_state: 'resolved' })
-      .eq('artist_name', body.artist_name)
-      .eq('thread_id', 128402)
+    const ids = Array.isArray(body.discovery_ids) ? body.discovery_ids.filter((x: any) => Number.isInteger(x)) : []
+    let error = null as any
+    if (ids.length) {
+      ;({ error } = await sb.from('discoveries')
+        .update({ artist_id: body.artist_id, resolve_state: 'resolved' })
+        .in('id', ids))
+    } else {
+      ;({ error } = await sb.from('discoveries')
+        .update({ artist_id: body.artist_id, resolve_state: 'resolved' })
+        .eq('artist_name', body.artist_name)
+        .or('thread_id.eq.128402,source.eq.user'))
+    }
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     await sb.from('discovery_pending_artist').update({ status: 'done' }).eq('raw_name', body.artist_name)
+    revalidatePath('/muzikos-atradimai')
     return NextResponse.json({ ok: true })
   }
 

@@ -5,8 +5,9 @@
 // Sistema bando susieti atlikėją su DB; nesusietus admin sujungia rankiniu.
 
 import { useState } from 'react'
+import type { Discovery } from '@/lib/discoveries'
 
-export default function AddDiscovery() {
+export default function AddDiscovery({ onAdded }: { onAdded?: (d: Discovery) => void }) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [desc, setDesc] = useState('')
@@ -26,7 +27,10 @@ export default function AddDiscovery() {
       })
       if (res.status === 401) { setErr('Reikia prisijungti, kad pridėtum atradimą'); return }
       const d = await res.json()
-      if (res.ok) { setDone({ linked: !!d.linked }); setUrl(''); setDesc(''); setArtist(''); setTrack('') }
+      if (res.ok) {
+        setDone({ linked: !!d.linked }); setUrl(''); setDesc(''); setArtist(''); setTrack('')
+        if (d.discovery && onAdded) onAdded(d.discovery as Discovery)
+      }
       else setErr(d.error || 'Nepavyko')
     } catch { setErr('Nepavyko') } finally { setBusy(false) }
   }

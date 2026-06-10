@@ -106,6 +106,21 @@ export async function getDiscoveries(threadId: number = ATRADIMAI_THREAD_ID): Pr
   return attachTagsAndAuthors(sb, data as any[])
 }
 
+// Atradimai apie konkretų atlikėją — grupės (atlikėjo) puslapio Diskusijų
+// kortelei. Tik resolved/susieti įrašai (artist_id FK).
+export async function getDiscoveriesByArtist(artistId: number, limit = 100): Promise<Discovery[]> {
+  if (!artistId) return []
+  const sb = createAdminClient()
+  const { data, error } = await sb
+    .from('discoveries')
+    .select(SELECT)
+    .eq('artist_id', artistId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error || !data) return []
+  return attachTagsAndAuthors(sb, data as any[])
+}
+
 // Vienas atradimas + jo atsakymai (komentarai su parent_id = comment_id).
 export async function getDiscovery(id: number): Promise<{ discovery: Discovery; replies: DiscoveryReply[] } | null> {
   const sb = createAdminClient()

@@ -5,6 +5,7 @@
 // sutapimas); jei neranda — atradimas patenka į admin „trūkstamų" eilę.
 
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -52,6 +53,7 @@ export async function POST(req: Request) {
     if (a?.id) { artist_id = a.id; resolve_state = 'resolved' }
   }
 
+  const createdAt = new Date().toISOString()
   const { data, error } = await sb.from('discoveries').insert({
     source: 'user',
     author_id: uid,
@@ -62,8 +64,8 @@ export async function POST(req: Request) {
     embed_type: emb?.type || null,
     embed_id: emb?.id || null,
     resolve_state,
-    created_at: new Date().toISOString(),
-  }).select('id').maybeSingle()
+    created_at: createdAt,
+  }).select('id, artists:artist_id(slug, name)').maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -77,5 +79,36 @@ export async function POST(req: Request) {
     }).then(() => {}, () => {})
   }
 
-  return NextResponse.json({ ok: true, id: data?.id, linked: resolve_state === 'resolved' })
+  // ISR puslapis atsinaujina iškart — naujas atradimas matomas viršuje
+  // be 600s laukimo.
+  revalidatePath('/muzikos-atradimai')
+
+  // Autoriaus profilis — klientas optimistiškai prepend'ina pilną kortelę.
+  const { data: prof } = await sb.from('profiles')
+    .select('username, full_name, avatar_url').eq('id', uid).maybeSingle()
+
+  const discovery = {
+    id: data?.id ?? 0,
+    comment_id: null,
+    created_at: createdAt,
+    body: desc || null,
+    like_count: 0,
+    author: prof ? { username: prof.username, full_name: prof.full_name, avatar_url: prof.avatar_url } : null,
+    artist_name: artistName ?? (data as any)?.artists?.name ?? null,
+    artist_id,
+    artist_slug: (data as any)?.artists?.slug ?? null,
+    track_name: trackName,
+    track_id: null,
+    track_slug: null,
+    album_name: null,
+    album_id: null,
+    album_slug: null,
+    embed_type: emb?.type || null,
+    embed_id: emb?.id || null,
+    resolve_state,
+    is_lt: false,
+    tags: [] as string[],
+  }
+
+  return NextResponse.json({ ok: true, id: data?.id, linked: resolve_state === 'resolved', discovery })
 }
