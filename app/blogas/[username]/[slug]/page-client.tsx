@@ -16,7 +16,7 @@
 //     (heart + count, count'as atidaro likers modal'ą)
 //   • Komentarų skaitliukas — mygtukas, paspaudus scroll'inasi į komentarų bloką
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
@@ -1025,7 +1025,7 @@ function BlogLikePill({ postId, initialCount }: { postId: string; initialCount: 
 }
 
 /* ─── Enrichinta proza — albumas/daina → modalas, atlikėjas → naujas tabas; hover kortelė ── */
-type EnrichPreview = { type: string; title: string; subtitle: string | null; cover: string | null; genres: string[]; followers: number; href: string }
+type EnrichPreview = { type: string; title: string; subtitle: string | null; cover: string | null; genres: string[]; metric: number; metric_label: string; href: string }
 function parseEnrichHref(href: string): { type: string; q: string } | null {
   let m = href.match(/\/albumai\/.*-(\d+)$/); if (m) return { type: 'album', q: `id=${m[1]}` }
   m = href.match(/\/dainos\/.*-(\d+)$/); if (m) return { type: 'track', q: `id=${m[1]}` }
@@ -1062,10 +1062,12 @@ function EnrichedProse({ html }: { html: string }) {
     }, 240)
   }
   const onOut = () => { clearTimeout(timerRef.current); timerRef.current = setTimeout(() => setHover(null), 120) }
+  // Memoizuotas — kad hover state pokyčiai NEperkrautų embed'ų (Spotify/YT iframe).
+  const rendered = useMemo(() => <PostContent html={html} />, [html])
 
   return (
     <div onClick={onClick} onMouseOver={onOver} onMouseOut={onOut} style={{ position: 'relative' }}>
-      <PostContent html={html} />
+      {rendered}
       {hover && (
         <div style={{ position: 'fixed', left: hover.left, top: hover.top, transform: 'translateY(-100%) translateY(-10px)', zIndex: 60, width: 264, pointerEvents: 'none' }}>
           <div style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 12, boxShadow: '0 12px 36px rgba(0,0,0,0.5)', display: 'flex', gap: 11 }}>
@@ -1081,7 +1083,7 @@ function EnrichedProse({ html }: { html: string }) {
                   {hover.data.genres.slice(0, 3).map((g, i) => <span key={i} style={{ fontSize: 9.5, color: '#9db4d4', background: 'rgba(255,255,255,0.06)', borderRadius: 100, padding: '1px 7px' }}>{g}</span>)}
                 </div>
               )}
-              <div style={{ fontSize: 11, color: '#f97316', marginTop: 6, fontWeight: 600 }}>♥ {hover.data.followers.toLocaleString('lt-LT')} sekėjų</div>
+              <div style={{ fontSize: 11, color: '#f97316', marginTop: 6, fontWeight: 600 }}>♥ {hover.data.metric.toLocaleString('lt-LT')} {hover.data.metric_label}</div>
             </div>
           </div>
         </div>

@@ -31,8 +31,15 @@ function rewriteImageSrcs(html: string): string {
   })
 }
 
+// Pašalina kabutes, apsupančias enrichintą nuorodą („<a bp-enrich>…</a>" → <a>…</a>).
+// Render metu — veikia visam turiniui, nepriklausomai nuo to, kaip enrichinta.
+function stripEnrichQuotes(html: string): string {
+  if (!html || html.indexOf('bp-enrich') < 0) return html
+  return html.replace(/[„“”‘’"'](\s*<a class="bp-enrich"[\s\S]*?<\/a>\s*)[„“”‘’"']/g, '$1')
+}
+
 export function PostContent({ html }: { html: string }) {
-  const processedHtml = rewriteImageSrcs(html)
+  const processedHtml = stripEnrichQuotes(rewriteImageSrcs(html))
   return (
     <>
       <div
