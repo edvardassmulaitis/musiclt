@@ -92,11 +92,13 @@ function Avatar({ src, name, size = 24 }: { src?: string | null; name?: string |
   )
 }
 
-function PopBar({ level, w = 11 }: { level: number; w?: number }) {
+function PopBar({ level, w = 11, onDark = false }: { level: number; w?: number; onDark?: boolean }) {
+  // onDark — DD hero fonas visada tamsus (nepriklausomai nuo temos), tad
+  // neužpildyti brūkšneliai ten turi būti šviesūs permatomi, ne theme-var.
   return (
     <span className="flex items-center gap-[3px]" aria-label={`Balsų lygis ${level}/5`}>
       {Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} className={`h-[3px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} style={{ width: w }} />
+        <span key={i} className={`h-[3px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : onDark ? 'bg-[rgba(255,255,255,0.18)]' : 'bg-[var(--border-default)]'}`} style={{ width: w }} />
       ))}
     </span>
   )
@@ -411,25 +413,25 @@ function DienosDainaHero() {
           ) : <div className="h-[34px] w-[34px] shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-baseline gap-1.5">
-              <span className="truncate text-[12.5px] font-bold text-[var(--text-primary)]">{sani(t.title)}</span>
-              <span className="truncate text-[11px] text-[var(--text-muted)]">{t.artists?.name}</span>
+              <span className="truncate text-[12.5px] font-bold text-[#f0f4fc]">{sani(t.title)}</span>
+              <span className="truncate text-[11px] text-[#8ea8c4]">{t.artists?.name}</span>
             </div>
-            {n.comment && <p className="m-0 mt-0.5 truncate text-[11px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
-            {level > 0 && <div className="mt-1"><PopBar level={level} w={9} /></div>}
+            {n.comment && <p className="m-0 mt-0.5 truncate text-[11px] italic text-[#8ea8c4]">„{n.comment}"</p>}
+            {level > 0 && <div className="mt-1"><PopBar level={level} w={9} onDark /></div>}
           </div>
         </button>
         {n.proposer && (
-          <span className="hidden shrink-0 items-center gap-1.5 text-[11px] text-[var(--text-secondary)] md:flex">
+          <span className="hidden shrink-0 items-center gap-1.5 text-[11px] text-[#aec4dd] md:flex">
             <Avatar src={n.proposer.avatar_url} name={uname(n.proposer)} size={18} />
             {uname(n.proposer)}
           </span>
         )}
         {n.own ? (
-          <span className="shrink-0 rounded-lg border border-dashed border-[var(--border-strong)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-faint)]">Tavo</span>
+          <span className="shrink-0 rounded-lg border border-dashed border-[rgba(255,255,255,0.25)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[#8ea8c4]">Tavo</span>
         ) : (
           <button type="button" onClick={() => handleVote(n.id)} disabled={voted || voting !== null}
             className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold transition-colors ${
-              voted ? 'border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[#fdba74]' : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'
+              voted ? 'border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[#fdba74]' : 'border-[rgba(255,255,255,0.25)] text-[#aec4dd] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'
             }`}>
             <Ic d={I.heart} size={11} filled={voted} /> {voting === n.id ? '…' : voted ? 'Balsuota' : 'Balsuok'}
           </button>
@@ -469,18 +471,18 @@ function DienosDainaHero() {
               <div className="flex items-center gap-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
               </div>
-              <h2 className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[24px] font-black leading-[1.08] tracking-[-0.02em] text-[var(--text-primary)] sm:text-[28px]">{sani(leader.tracks!.title)}</h2>
-              <p className="m-0 mt-0.5 text-[14.5px] font-semibold text-[var(--text-secondary)]">{leader.tracks!.artists?.name}</p>
-              {leader.comment && <p className="m-0 mt-2 line-clamp-2 text-[12.5px] italic leading-snug text-[var(--text-secondary)]">„{leader.comment}"</p>}
+              <h2 className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[24px] font-black leading-[1.08] tracking-[-0.02em] text-[#f0f4fc] sm:text-[28px]">{sani(leader.tracks!.title)}</h2>
+              <p className="m-0 mt-0.5 text-[14.5px] font-semibold text-[#aec4dd]">{leader.tracks!.artists?.name}</p>
+              {leader.comment && <p className="m-0 mt-2 line-clamp-2 text-[12.5px] italic leading-snug text-[#aec4dd]">„{leader.comment}"</p>}
               {leader.proposer && (
-                <div className="mt-2 flex items-center gap-2 text-[12px] text-[var(--text-muted)]">
+                <div className="mt-2 flex items-center gap-2 text-[12px] text-[#8ea8c4]">
                   <Avatar src={leader.proposer.avatar_url} name={uname(leader.proposer)} size={20} />
-                  siūlo <b className="font-semibold text-[var(--text-primary)]">{uname(leader.proposer)}</b>
+                  siūlo <b className="font-semibold text-[#f0f4fc]">{uname(leader.proposer)}</b>
                 </div>
               )}
               <div className="mt-3 flex items-center gap-3">
-                <PopBar level={Math.max(1, Math.round(((leader.weighted_votes || leader.votes || 0) / maxVotes) * 5))} />
-                <span className="flex items-center gap-1.5 text-[11.5px] text-[var(--text-muted)]"><Ic d={I.clock} size={12} /> liko <Countdown /></span>
+                <PopBar level={Math.max(1, Math.round(((leader.weighted_votes || leader.votes || 0) / maxVotes) * 5))} onDark />
+                <span className="flex items-center gap-1.5 text-[11.5px] text-[#8ea8c4]"><Ic d={I.clock} size={12} /> liko <Countdown /></span>
               </div>
             </div>
           </>
@@ -489,7 +491,7 @@ function DienosDainaHero() {
             <div className="flex items-center gap-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
             </div>
-            <p className="m-0 text-[15px] font-bold text-[var(--text-primary)]">Šiandien dar nėra pasiūlymų — tavo daina gali būti pirma.</p>
+            <p className="m-0 text-[15px] font-bold text-[#f0f4fc]">Šiandien dar nėra pasiūlymų — tavo daina gali būti pirma.</p>
             <button type="button" onClick={() => setSuggestOpen(true)} className="mt-1 cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-5 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white shadow-[0_6px_20px_rgba(249,115,22,0.35)]">+ Pasiūlyti dainą</button>
           </div>
         )}
@@ -499,7 +501,7 @@ function DienosDainaHero() {
       {rest.length > 0 || (leader && !alreadyNominated) ? (
         <div className="relative border-t border-[rgba(255,255,255,0.08)] px-4 pb-4 pt-3 sm:px-5">
           <div className="mb-2 flex items-center justify-between px-1">
-            <span className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Siūlomos dainos</span>
+            <span className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#8ea8c4]">Siūlomos dainos</span>
             <div className="flex items-center gap-3">
               {voteErr && <span className="text-[11px] font-bold text-[#f87171]">{voteErr}</span>}
               {!alreadyNominated && (
@@ -510,7 +512,7 @@ function DienosDainaHero() {
           {/* mobile: visi kandidatai iškart; desktop: vidinis scroll, kad hero neišsitemptų */}
           <div className="flex flex-col gap-[5px] sm:max-h-[238px] sm:overflow-y-auto sm:pr-1.5 [&::-webkit-scrollbar-thumb]:rounded-[3px] [&::-webkit-scrollbar-thumb]:bg-[rgba(255,255,255,0.14)] [&::-webkit-scrollbar]:w-[6px]">
             {rest.map(n => <CandRow key={n.id} n={n} />)}
-            {rest.length === 0 && <p className="m-0 px-1 py-2 text-[12px] text-[var(--text-muted)]">Kol kas vienintelis kandidatas — pasiūlyk alternatyvą!</p>}
+            {rest.length === 0 && <p className="m-0 px-1 py-2 text-[12px] text-[#8ea8c4]">Kol kas vienintelis kandidatas — pasiūlyk alternatyvą!</p>}
           </div>
         </div>
       ) : null}
@@ -524,8 +526,8 @@ function DienosDainaHero() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={proxyImg(trackImg(winner.tracks)!)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
             ) : <div className="h-9 w-9 shrink-0 rounded-lg" style={{ background: `hsl(${hue(winner.tracks.title)},30%,18%)` }} />}
-            <span className="min-w-0 truncate text-[12.5px] text-[var(--text-secondary)]">
-              <b className="font-bold text-[var(--text-primary)]">{sani(winner.tracks.title)}</b> — {winner.tracks.artists?.name}{winner.proposer ? ` · siūlė ${uname(winner.proposer)}` : ''}
+            <span className="min-w-0 truncate text-[12.5px] text-[#aec4dd]">
+              <b className="font-bold text-[#f0f4fc]">{sani(winner.tracks.title)}</b> — {winner.tracks.artists?.name}{winner.proposer ? ` · siūlė ${uname(winner.proposer)}` : ''}
             </span>
           </button>
           <button type="button" onClick={() => setWinnersOpen(true)} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[#fbbf24] transition-opacity hover:opacity-70">Visos →</button>
@@ -621,7 +623,7 @@ function HappeningBox() {
   const [tab, setTab] = useState<'act' | 'shout'>('act')
   const [modalOpen, setModalOpen] = useState(false)
   return (
-    <div className="flex h-full min-h-[380px] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] lg:min-h-0">
+    <div className="flex h-full max-h-[480px] min-h-[380px] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] lg:max-h-none lg:min-h-0">
       <div className="flex shrink-0 border-b border-[var(--border-subtle)]">
         <button type="button" onClick={() => setTab('act')}
           className={`flex flex-1 cursor-pointer items-center justify-center gap-2 border-0 bg-transparent px-2 pb-2.5 pt-3 font-['Outfit',sans-serif] text-[12px] font-extrabold transition-colors ${tab === 'act' ? 'text-[var(--text-primary)] shadow-[inset_0_-2px_0_var(--accent-orange)]' : 'text-[var(--text-muted)]'}`}>
@@ -1198,10 +1200,11 @@ export default function AtrastiPage() {
 
       <FeaturedBlock />
 
-      {/* ŠIANDIEN: DD hero + Kas vyksta/Pokalbiai */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_350px]">
+      {/* ŠIANDIEN: DD hero + Kas vyksta/Pokalbiai. items-start — hero netempiamas
+          iki dešinės kolonos aukščio; dešinė kolona ribojama fiksuotu aukščiu. */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_350px]">
         <DienosDainaHero />
-        <HappeningBox />
+        <div className="lg:h-[540px]"><HappeningBox /></div>
       </div>
 
       <PromptsRow />

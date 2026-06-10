@@ -161,26 +161,27 @@ function DDCard({ it }: { it: CommunityItem }) {
             </span>
           </div>
         </div>
+        {/* DD kortelės fonas visada tamsus → tekstas hard-coded šviesus (ne theme-var). */}
         <div className="min-w-0 flex-1">
           <p className="m-0 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.13em] text-[var(--accent-orange)]">Dienos daina</p>
-          <p className="m-0 mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">{it.title}</p>
-          {it.author_name && <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-secondary)]">{it.author_name}</p>}
+          <p className="m-0 mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[#f0f4fc]">{it.title}</p>
+          {it.author_name && <p className="m-0 mt-0.5 truncate text-[11.5px] text-[#aec4dd]">{it.author_name}</p>}
         </div>
       </div>
       {candidates.length > 0 && (
         <div className="mx-3.5 mt-3 flex flex-col gap-1.5 border-t border-[rgba(255,255,255,0.08)] pt-2.5">
-          <p className="m-0 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Siūlomos dainos</p>
+          <p className="m-0 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.1em] text-[#8ea8c4]">Siūlomos dainos</p>
           {candidates.map((c, i) => (
             <div key={i} className="flex items-center gap-2">
-              <span className="w-3 shrink-0 text-center font-['Outfit',sans-serif] text-[10px] font-extrabold text-[var(--text-faint)]">{c.rank ?? i + 2}</span>
+              <span className="w-3 shrink-0 text-center font-['Outfit',sans-serif] text-[10px] font-extrabold text-[#8ea8c4]">{c.rank ?? i + 2}</span>
               {c.cover
                 ? <img src={proxyImg(c.cover)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
                     className="h-[24px] w-[24px] shrink-0 rounded object-cover" />
                 : <div className="h-[24px] w-[24px] shrink-0 rounded" style={{ background: `hsl(${strHue(c.title)},30%,22%)` }} />
               }
               <div className="min-w-0 flex-1">
-                <p className="m-0 truncate text-[11px] font-semibold leading-tight text-[var(--text-primary)]" style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
-                {c.artist && <p className="m-0 truncate text-[9.5px] leading-tight text-[var(--text-muted)]">{c.artist}</p>}
+                <p className="m-0 truncate text-[11px] font-semibold leading-tight text-[#f0f4fc]" style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
+                {c.artist && <p className="m-0 truncate text-[9.5px] leading-tight text-[#8ea8c4]">{c.artist}</p>}
               </div>
             </div>
           ))}
