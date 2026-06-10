@@ -144,7 +144,7 @@ function DDCard({ it }: { it: CommunityItem }) {
   const candidates = (it.candidates || []).slice(0, 3)
   return (
     <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline"
-      style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0, background: 'linear-gradient(135deg,#1b1208 0%,var(--bg-surface) 65%)', borderColor: 'rgba(249,115,22,0.3)' }}>
+      style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0, background: 'linear-gradient(135deg,#241308 0%,#10141f 65%)', borderColor: 'rgba(249,115,22,0.3)' }}>
       <div className="flex items-center gap-3 px-3.5 pt-3.5">
         <div className="relative h-[86px] w-[86px] shrink-0 overflow-hidden rounded-xl shadow-[0_8px_22px_rgba(0,0,0,0.45)]">
           {it.cover

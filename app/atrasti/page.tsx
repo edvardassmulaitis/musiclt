@@ -441,7 +441,7 @@ function DienosDainaHero() {
   }
 
   return (
-    <div id="dienos-daina" className="relative flex flex-col overflow-hidden rounded-[20px] border border-[var(--border-default)]">
+    <div id="dienos-daina" className="relative flex flex-col overflow-hidden rounded-[20px] border border-[var(--border-default)]" style={{ background: '#0a101c' }}>
       {/* fonas iš lyderio cover */}
       <div className="absolute inset-0">
         {leaderImg && (
