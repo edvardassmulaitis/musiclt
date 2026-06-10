@@ -158,6 +158,26 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
   const { searchParams } = new URL(req.url)
+
+  // ?likers=<comment_id> — viešas sąrašas, kas pamėgo komentarą (LikesModal).
+  const likersOf = parseInt(searchParams.get('likers') || '')
+  if (likersOf) {
+    const sbPub = createAdminClient()
+    const { data } = await sbPub
+      .from('comment_likes')
+      .select('user_id, profiles:user_id(username, avatar_url, rank)')
+      .eq('comment_id', likersOf)
+    const users = ((data || []) as any[]).map(r => {
+      const p = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles
+      return {
+        user_username: p?.username || 'narys',
+        user_rank: p?.rank || null,
+        user_avatar_url: p?.avatar_url || null,
+      }
+    })
+    return NextResponse.json({ users, count: users.length })
+  }
+
   const commentIds = (searchParams.get('ids') || '').split(',').map(Number).filter(n => !isNaN(n))
   const legacyIds = (searchParams.get('legacy_ids') || '').split(',').map(Number).filter(n => !isNaN(n))
   if ((commentIds.length === 0 && legacyIds.length === 0) || !session?.user?.id) {

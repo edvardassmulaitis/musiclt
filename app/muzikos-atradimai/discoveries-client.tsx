@@ -11,8 +11,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { createPortal } from 'react-dom'
+import { useSession } from 'next-auth/react'
 import { proxyImg } from '@/lib/img-proxy'
 import { LikePill } from '@/components/LikePill'
+import LikesModal, { type LikeUser } from '@/components/LikesModal'
 import { relativeLt, type Discovery, type DiscoveryFacets } from '@/lib/discoveries'
 import MissingForm from './missing-form'
 import AddDiscovery from './add-discovery'
@@ -54,7 +57,11 @@ function CardLike({ commentId, count, liked }: { commentId: number | null; count
   const [n, setN] = useState(count || 0)
   const [self, setSelf] = useState(liked)
   const [pending, setPending] = useState(false)
+  const [modal, setModal] = useState(false)
+  const [users, setUsers] = useState<LikeUser[]>([])
+  const [loading, setLoading] = useState(false)
   useEffect(() => { setSelf(liked) }, [liked])
+  useEffect(() => { setN(count || 0) }, [count])
   async function toggle() {
     if (pending || !commentId) return
     setPending(true)
@@ -62,10 +69,25 @@ function CardLike({ commentId, count, liked }: { commentId: number | null; count
       const res = await fetch('/api/comments/likes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comment_id: commentId }) })
       if (res.status === 401) return
       const d = await res.json()
-      if (res.ok) { setSelf(!!d.liked); setN(x => x + (d.liked ? 1 : -1)) }
+      if (res.ok) { setSelf(!!d.liked); setN(x => Math.max(0, x + (d.liked ? 1 : -1))) }
     } catch {} finally { setPending(false) }
   }
-  return <LikePill likes={n} selfLiked={self} onToggle={toggle} pending={pending} variant="surface" />
+  // Count zona — atidaro „kas pamėgo" modalą
+  async function openLikers() {
+    if (!commentId) return
+    setModal(true); setLoading(true)
+    try {
+      const d = await fetch(`/api/comments/likes?likers=${commentId}`).then(r => r.json())
+      setUsers(d.users || [])
+      if (typeof d.count === 'number') setN(c => Math.max(c, d.count))
+    } catch {} finally { setLoading(false) }
+  }
+  return (
+    <>
+      <LikePill likes={n} selfLiked={self} onToggle={toggle} pending={pending} variant="surface" onOpenModal={commentId ? openLikers : undefined} />
+      <LikesModal open={modal} onClose={() => setModal(false)} title="Patinka" count={n} users={users} loading={loading} selfLiked={self} authed onToggleSelfLike={toggle} selfLikePending={pending} />
+    </>
+  )
 }
 
 // Renginių stiliaus popover chip'as su paieška (Narys / Stilius).
@@ -110,14 +132,26 @@ function FilterPopover({ id, openId, setOpenId, label, icon, value, options, onP
 const IconUser = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
 const IconNote = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
 
-// Ilgas komentaras — clamp'inam iki ~8 eilučių su „Skaityti daugiau" toggle.
+// Ilgas komentaras — clamp'inam iki 8 eilučių. Ar tekstas TIKRAI netelpa,
+// matuojam per DOM (scrollHeight > clientHeight), ne per simbolių skaičių —
+// kitaip mygtukas rodydavosi tekstams, kurie ir taip telpa.
 function ClampText({ text }: { text: string }) {
   const [open, setOpen] = useState(false)
-  const long = text.length > 460 || text.split('\n').length > 8
+  const [overflows, setOverflows] = useState(false)
+  const ref = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => { if (!open) setOverflows(el.scrollHeight > el.clientHeight + 2) }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [text, open])
   return (
     <>
-      <p className={`ma-narr${long && !open ? ' ma-clamp' : ''}`}>{text}</p>
-      {long && (
+      <p ref={ref} className={`ma-narr${!open ? ' ma-clamp' : ''}`}>{text}</p>
+      {(overflows || open) && (
         <button className="ma-readmore" onClick={() => setOpen(o => !o)}>
           {open ? 'Suskleisti ↑' : 'Skaityti daugiau ↓'}
         </button>
@@ -155,26 +189,115 @@ function ArtistAside({ d, moreCount, onMore }: { d: Discovery; moreCount: number
   )
 }
 
+// Modalas su visais to paties atlikėjo atradimais — atsidaro paspaudus
+// „+ dar N atradimai" (sąrašo turinys nesikeičia, layout'as nesigriauna).
+function ArtistDiscoveriesModal({ src, items, likedSet, onClose }: {
+  src: Discovery; items: Discovery[]; likedSet: Set<number>; onClose: () => void
+}) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', h); document.body.style.overflow = '' }
+  }, [onClose])
+  if (typeof document === 'undefined') return null
+  const nm = src.artist_name || '?'
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8"
+      style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="flex max-h-[90vh] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)]">
+        <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+          {src.artist_cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={proxyImg(src.artist_cover)} alt="" width={44} height={44} className="h-11 w-11 flex-shrink-0 rounded-xl object-cover" />
+          ) : (
+            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl font-extrabold" style={{ background: `hsl(${hue(nm)},32%,20%)`, color: `hsl(${hue(nm)},52%,64%)` }}>{nm.charAt(0).toUpperCase()}</span>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">Muzikos atradimai · {items.length}</div>
+            {src.artist_slug
+              ? <Link href={`/atlikejai/${src.artist_slug}`} className="block truncate font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">{nm}</Link>
+              : <div className="truncate font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">{nm}</div>}
+          </div>
+          {src.artist_styles.length > 0 && (
+            <div className="hidden flex-wrap justify-end gap-1.5 sm:flex">
+              {src.artist_styles.slice(0, 3).map(s => <span key={s} className="ma-style">{s}</span>)}
+            </div>
+          )}
+          <button
+            onClick={onClose}
+            aria-label="Uždaryti"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-transparent text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13" /></svg>
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 py-5">
+          <div className="flex flex-col gap-4">
+            {items.map(d => {
+              const uname = d.author?.username
+              const when = relativeLt(d.created_at)
+              return (
+                <article key={d.id} className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-hover)] p-3.5">
+                  <div className="mb-2.5 flex items-center gap-2.5">
+                    <Avatar src={d.author?.avatar_url} name={uname} size={28} />
+                    <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                      {uname ? <Link href={`/@${uname}`} className="ma-nm">{uname}</Link> : <span className="ma-nm">Narys</span>}
+                      {when && <span className="text-[11px] text-[var(--text-muted)]">{when}</span>}
+                    </div>
+                    <CardLike commentId={d.comment_id} count={d.like_count} liked={d.comment_id ? likedSet.has(d.comment_id) : false} />
+                  </div>
+                  {d.embed_id && <div className="mb-2.5"><Embed d={d} /></div>}
+                  {d.track_name && (
+                    <div className="mb-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
+                      {d.track_slug
+                        ? <Link href={`/dainos/${d.track_slug}`} className="no-underline hover:text-[var(--accent-orange)]" style={{ color: 'inherit' }}>{d.track_name} ♪</Link>
+                        : <>{d.track_name}</>}
+                    </div>
+                  )}
+                  {d.body && <ClampText text={d.body} />}
+                </article>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 type Sort = 'new' | 'top'
 
 export default function DiscoveriesClient({ items, facets }: { items: Discovery[]; facets: DiscoveryFacets }) {
+  const { data: session } = useSession()
+  const isAdmin = ['admin', 'super_admin'].includes(((session?.user as any)?.role) || '')
   const [q, setQ] = useState('')
   const [member, setMember] = useState('')
   const [style, setStyle] = useState('')
-  const [artistF, setArtistF] = useState<{ id: number; name: string } | null>(null)
   const [sort, setSort] = useState<Sort>('new')
   const [limit, setLimit] = useState(20)
   const [openId, setOpenId] = useState<string | null>(null)
   const [likedSet, setLikedSet] = useState<Set<number>>(new Set())
+  // „+ dar N atradimai" modalas — src discovery, iš kurio paimam atlikėją
+  const [artistModal, setArtistModal] = useState<Discovery | null>(null)
+  // Admin paslėpti atradimai (optimistinis pašalinimas iš sąrašo)
+  const [hiddenIds, setHiddenIds] = useState<Set<number>>(new Set())
   // Ką tik per formą pridėti atradimai — prepend'inami viršuje iškart,
   // kol ISR revalidate atneš juos su server data.
   const [added, setAdded] = useState<Discovery[]>([])
 
   const allItems = useMemo(() => {
-    if (added.length === 0) return items
-    const ids = new Set(added.map(a => a.id))
-    return [...added, ...items.filter(i => !ids.has(i.id))]
-  }, [items, added])
+    let base = items
+    if (added.length > 0) {
+      const ids = new Set(added.map(a => a.id))
+      base = [...added, ...items.filter(i => !ids.has(i.id))]
+    }
+    return hiddenIds.size ? base.filter(i => !hiddenIds.has(i.id)) : base
+  }, [items, added, hiddenIds])
 
   // Kiek atradimų turi kiekvienas susietas atlikėjas (ryšiui „dar N").
   const byArtist = useMemo(() => {
@@ -193,7 +316,6 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
 
   const list = useMemo(() => {
     const filtered = allItems.filter(d => {
-      if (artistF && d.artist_id !== artistF.id) return false
       if (member && d.author?.username !== member) return false
       if (style && !d.tags.includes(style)) return false
       if (q) {
@@ -208,12 +330,12 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         +new Date(b.created_at || 0) - +new Date(a.created_at || 0))
     }
     return filtered
-  }, [allItems, q, member, style, artistF, sort])
+  }, [allItems, q, member, style, sort])
 
   const shown = list.slice(0, limit)
-  const hasFilters = q || member || style || artistF
+  const hasFilters = q || member || style
 
-  function resetAll() { setQ(''); setMember(''); setStyle(''); setArtistF(null); setLimit(20) }
+  function resetAll() { setQ(''); setMember(''); setStyle(''); setLimit(20) }
 
   function handleAdded(d: Discovery) {
     setAdded(prev => [d, ...prev])
@@ -221,11 +343,13 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
     resetAll(); setSort('new')
   }
 
-  function pickArtist(d: Discovery) {
-    if (!d.artist_id) return
-    setArtistF({ id: d.artist_id, name: d.artist_name || '' })
-    setLimit(20)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  // Admin: paslėpti atradimą iš viešo srauto
+  async function hideDiscovery(d: Discovery) {
+    if (!window.confirm(`Paslėpti šį atradimą iš viešo srauto?`)) return
+    setHiddenIds(prev => new Set(prev).add(d.id))
+    try {
+      await fetch('/api/admin/atradimai', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'hide', id: d.id }) })
+    } catch {}
   }
 
   return (
@@ -252,12 +376,6 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         {facets.genres.length > 0 && (
           <FilterPopover id="style" openId={openId} setOpenId={setOpenId} label="Stilius" icon={IconNote} value={style} options={facets.genres} onPick={v => { setStyle(v); setLimit(20) }} />
         )}
-        {artistF && (
-          <button className="ma-chip on" onClick={() => { setArtistF(null); setLimit(20) }} title="Pašalinti atlikėjo filtrą">
-            {artistF.name} ✕
-          </button>
-        )}
-
         {hasFilters && <button className="ma-reset" onClick={resetAll}>Išvalyti ✕</button>}
 
         <span className="ma-count">{list.length}</span>
@@ -285,6 +403,11 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
                       {when && <span className="ma-dt">{when}</span>}
                     </div>
                     <CardLike commentId={d.comment_id} count={d.like_count} liked={d.comment_id ? likedSet.has(d.comment_id) : false} />
+                    {isAdmin && (
+                      <button className="ma-hide" title="Paslėpti iš viešo srauto (admin)" onClick={() => hideDiscovery(d)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.526 13.526 0 0 0 2 12s3 8 10 8a9.74 9.74 0 0 0 5.39-1.61M2 2l20 20"/></svg>
+                      </button>
+                    )}
                   </div>
 
                   {((d.artist_name && !d.artist_slug) || d.track_name) && (
@@ -299,10 +422,12 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
                     </div>
                   )}
                   {d.body && <ClampText text={d.body} />}
-                  {d.tags.length > 0 && <div className="ma-tags">{d.tags.slice(0, 4).map(t => <button key={t} className="ma-tag" onClick={() => { setStyle(t); setLimit(20); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>{t}</button>)}</div>}
+                  {/* Forumo tag'ai rodomi TIK kai nėra susieto atlikėjo —
+                      kitaip dubliuotųsi su oficialiais stiliais panelėje. */}
+                  {!d.artist_slug && d.tags.length > 0 && <div className="ma-tags">{d.tags.slice(0, 4).map(t => <button key={t} className="ma-tag" onClick={() => { setStyle(t); setLimit(20); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>{t}</button>)}</div>}
                 </div>
 
-                {d.artist_slug && <ArtistAside d={d} moreCount={moreCount} onMore={() => pickArtist(d)} />}
+                {d.artist_slug && <ArtistAside d={d} moreCount={moreCount} onMore={() => setArtistModal(d)} />}
               </article>
             )
           })}
@@ -317,6 +442,15 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         <span>Matai, kad kažko trūksta duombazėje?</span>
         <MissingForm />
       </div>
+
+      {artistModal && (
+        <ArtistDiscoveriesModal
+          src={artistModal}
+          items={allItems.filter(x => x.artist_id === artistModal.artist_id)}
+          likedSet={likedSet}
+          onClose={() => setArtistModal(null)}
+        />
+      )}
 
       <style jsx>{`
         /* Filtrų juosta — Renginių (ev-fbar) stilius */
@@ -355,12 +489,14 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         :global(.ma-nm){font-size:13.5px;font-weight:700;color:var(--text-primary);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         :global(.ma-nm:hover){color:var(--accent-orange)}
         .ma-dt{color:var(--text-muted);font-size:11.5px;flex-shrink:0}
-        .ma-media :global(.ma-yt){position:relative;display:block;width:100%;border:none;padding:0;border-radius:10px;overflow:hidden;aspect-ratio:16/9;background:#000;cursor:pointer}
-        .ma-media :global(.ma-yt img){width:100%;height:100%;object-fit:cover;display:block;opacity:.92;transition:.15s}
-        .ma-media :global(.ma-yt:hover img){opacity:1}
-        .ma-media :global(.ma-play){position:absolute;inset:0;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 8px rgba(0,0,0,.6))}
-        .ma-media :global(.ma-frame){width:100%;border:none;border-radius:10px;aspect-ratio:16/9}
-        .ma-media :global(.ma-sp){width:100%;border:none;border-radius:12px}
+        .ma-hide{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:transparent;border:1px solid var(--border-subtle);color:var(--text-faint);cursor:pointer;flex-shrink:0}
+        .ma-hide:hover{color:var(--accent-red,#ef4444);border-color:var(--accent-red,#ef4444)}
+        :global(.ma-yt){position:relative;display:block;width:100%;border:none;padding:0;border-radius:10px;overflow:hidden;aspect-ratio:16/9;background:#000;cursor:pointer}
+        :global(.ma-yt img){width:100%;height:100%;object-fit:cover;display:block;opacity:.92;transition:.15s}
+        :global(.ma-yt:hover img){opacity:1}
+        :global(.ma-play){position:absolute;inset:0;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 8px rgba(0,0,0,.6))}
+        :global(.ma-frame){width:100%;border:none;border-radius:10px;aspect-ratio:16/9}
+        :global(.ma-sp){width:100%;border:none;border-radius:12px}
         .ma-title{font-family:'Outfit',sans-serif;font-size:15px;font-weight:800;letter-spacing:-.01em;margin-bottom:6px;line-height:1.3}
         :global(.ma-art){color:var(--text-primary);text-decoration:none}
         .ma-sep{color:var(--text-faint)}

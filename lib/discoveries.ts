@@ -71,6 +71,15 @@ async function attachTagsAndAuthors(sb: any, rows: any[]): Promise<Discovery[]> 
     const { data: profs } = await sb.from('profiles').select('id, username, full_name, avatar_url').in('id', authorIds)
     for (const p of (profs || []) as any[]) profMap.set(p.id, p)
   }
+  // Tikri like skaičiai iš comment_likes eilučių — comments.like_count counter
+  // istoriškai nesinchronizuotas (rodydavo 0 nors like'ų yra). Imame max().
+  const commentIds = [...new Set(rows.map(r => r.comment_id).filter(Boolean))] as number[]
+  const likeCountMap = new Map<number, number>()
+  for (let i = 0; i < commentIds.length; i += 200) {
+    const chunk = commentIds.slice(i, i + 200)
+    const { data: ls } = await sb.from('comment_likes').select('comment_id').in('comment_id', chunk)
+    for (const l of (ls || []) as any[]) likeCountMap.set(l.comment_id, (likeCountMap.get(l.comment_id) || 0) + 1)
+  }
   // Oficialūs atlikėjų stiliai (artist_genres → genres.name) — kortelės footer'iui.
   const artistIds = [...new Set(rows.map(r => r.artist_id).filter(Boolean))] as number[]
   const styleMap = new Map<number, string[]>()
@@ -91,7 +100,7 @@ async function attachTagsAndAuthors(sb: any, rows: any[]): Promise<Discovery[]> 
       comment_id: r.comment_id,
       created_at: r.created_at,
       body: r.comments?.body ?? r.body ?? null,
-      like_count: r.comments?.like_count ?? 0,
+      like_count: Math.max(r.comments?.like_count ?? 0, r.comment_id ? (likeCountMap.get(r.comment_id) || 0) : 0),
       author: prof ? { username: prof.username, full_name: prof.full_name, avatar_url: prof.avatar_url } : null,
       artist_name: r.artist_name ?? r.artists?.name ?? null,
       artist_id: r.artist_id,
@@ -120,6 +129,7 @@ export async function getDiscoveries(threadId: number = ATRADIMAI_THREAD_ID): Pr
     .from('discoveries')
     .select(SELECT)
     .or(`thread_id.eq.${threadId},source.eq.user`)
+    .neq('resolve_state', 'hidden')
     .order('created_at', { ascending: false })
   if (error || !data) return []
   return attachTagsAndAuthors(sb, data as any[])
@@ -134,6 +144,7 @@ export async function getDiscoveriesByArtist(artistId: number, limit = 100): Pro
     .from('discoveries')
     .select(SELECT)
     .eq('artist_id', artistId)
+    .neq('resolve_state', 'hidden')
     .order('created_at', { ascending: false })
     .limit(limit)
   if (error || !data) return []

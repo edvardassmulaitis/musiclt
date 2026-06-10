@@ -27,6 +27,15 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ ok: true })
   }
 
+  // Paslėpti atradimą iš viešo srauto (admin „Slėpti" mygtukas kortelėje).
+  // Be migracijos: resolve_state='hidden', getDiscoveries jį atfiltruoja.
+  if (body.type === 'hide' && body.id) {
+    const { error } = await sb.from('discoveries').update({ resolve_state: 'hidden' }).eq('id', body.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    revalidatePath('/muzikos-atradimai')
+    return NextResponse.json({ ok: true })
+  }
+
   if (body.type === 'pending_done' && body.artist_name) {
     const { error } = await sb.from('discovery_pending_artist').update({ status: 'done' }).eq('raw_name', body.artist_name)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
