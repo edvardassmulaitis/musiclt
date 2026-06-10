@@ -1024,23 +1024,68 @@ function BlogLikePill({ postId, initialCount }: { postId: string; initialCount: 
   )
 }
 
-/* ─── Enrichinta proza — albumas/daina atidaro modalą, atlikėjas → naujas tabas ── */
+/* ─── Enrichinta proza — albumas/daina → modalas, atlikėjas → naujas tabas; hover kortelė ── */
+type EnrichPreview = { type: string; title: string; subtitle: string | null; cover: string | null; genres: string[]; followers: number; href: string }
+function parseEnrichHref(href: string): { type: string; q: string } | null {
+  let m = href.match(/\/albumai\/.*-(\d+)$/); if (m) return { type: 'album', q: `id=${m[1]}` }
+  m = href.match(/\/dainos\/.*-(\d+)$/); if (m) return { type: 'track', q: `id=${m[1]}` }
+  m = href.match(/\/atlikejai\/([^/?#]+)/); if (m) return { type: 'artist', q: `slug=${encodeURIComponent(m[1])}` }
+  return null
+}
 function EnrichedProse({ html }: { html: string }) {
   const [albumId, setAlbumId] = useState<number | null>(null)
   const [track, setTrack] = useState<{ id: number; title: string } | null>(null)
+  const [hover, setHover] = useState<{ left: number; top: number; data: EnrichPreview } | null>(null)
+  const cacheRef = useRef<Map<string, EnrichPreview>>(new Map())
+  const timerRef = useRef<any>(null)
+
   const onClick = (e: React.MouseEvent) => {
     const a = (e.target as HTMLElement).closest?.('a.bp-enrich') as HTMLAnchorElement | null
     if (!a) return
     const href = a.getAttribute('href') || ''
-    const am = href.match(/\/albumai\/.*-(\d+)$/)
-    if (am) { e.preventDefault(); setAlbumId(parseInt(am[1], 10)); return }
-    const tm = href.match(/\/dainos\/.*-(\d+)$/)
-    if (tm) { e.preventDefault(); setTrack({ id: parseInt(tm[1], 10), title: (a.textContent || '').trim() }); return }
-    if (/\/atlikejai\//.test(href)) { e.preventDefault(); window.open(href, '_blank', 'noopener,noreferrer') }
+    const p = parseEnrichHref(href)
+    if (p?.type === 'album') { e.preventDefault(); setAlbumId(parseInt(p.q.slice(3), 10)); return }
+    if (p?.type === 'track') { e.preventDefault(); setTrack({ id: parseInt(p.q.slice(3), 10), title: (a.textContent || '').trim() }); return }
+    if (p?.type === 'artist') { e.preventDefault(); window.open(href, '_blank', 'noopener,noreferrer') }
   }
+  const onOver = (e: React.MouseEvent) => {
+    const a = (e.target as HTMLElement).closest?.('a.bp-enrich') as HTMLAnchorElement | null
+    if (!a || typeof window === 'undefined' || !window.matchMedia?.('(hover: hover)').matches) return
+    const p = parseEnrichHref(a.getAttribute('href') || ''); if (!p) return
+    const key = `${p.type}:${p.q}`
+    clearTimeout(timerRef.current)
+    const rect = a.getBoundingClientRect()
+    const show = (data: EnrichPreview) => setHover({ left: Math.min(rect.left, window.innerWidth - 280), top: rect.top, data })
+    if (cacheRef.current.has(key)) { timerRef.current = setTimeout(() => show(cacheRef.current.get(key)!), 180); return }
+    timerRef.current = setTimeout(async () => {
+      try { const r = await fetch(`/api/entity-preview?type=${p.type}&${p.q}`); const d = await r.json(); if (d?.title) { cacheRef.current.set(key, d); show(d) } } catch {}
+    }, 240)
+  }
+  const onOut = () => { clearTimeout(timerRef.current); timerRef.current = setTimeout(() => setHover(null), 120) }
+
   return (
-    <div onClick={onClick}>
+    <div onClick={onClick} onMouseOver={onOver} onMouseOut={onOut} style={{ position: 'relative' }}>
       <PostContent html={html} />
+      {hover && (
+        <div style={{ position: 'fixed', left: hover.left, top: hover.top, transform: 'translateY(-100%) translateY(-10px)', zIndex: 60, width: 264, pointerEvents: 'none' }}>
+          <div style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 12, boxShadow: '0 12px 36px rgba(0,0,0,0.5)', display: 'flex', gap: 11 }}>
+            {hover.data.cover
+              /* eslint-disable-next-line @next/next/no-img-element */
+              ? <img src={proxyImg(hover.data.cover)} alt="" style={{ width: 56, height: 56, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
+              : <div style={{ width: 56, height: 56, borderRadius: 9, background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />}
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 14, color: '#f2f4f8', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hover.data.title}</div>
+              {hover.data.subtitle && <div style={{ fontSize: 11.5, color: '#8aa8cc', marginTop: 2 }}>{hover.data.subtitle}</div>}
+              {hover.data.genres.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                  {hover.data.genres.slice(0, 3).map((g, i) => <span key={i} style={{ fontSize: 9.5, color: '#9db4d4', background: 'rgba(255,255,255,0.06)', borderRadius: 100, padding: '1px 7px' }}>{g}</span>)}
+                </div>
+              )}
+              <div style={{ fontSize: 11, color: '#f97316', marginTop: 6, fontWeight: 600 }}>♥ {hover.data.followers.toLocaleString('lt-LT')} sekėjų</div>
+            </div>
+          </div>
+        </div>
+      )}
       <AlbumInfoModal albumId={albumId} onClose={() => setAlbumId(null)} />
       <HomeTrackModal track={track as any} onClose={() => setTrack(null)} />
     </div>
