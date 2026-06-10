@@ -220,14 +220,24 @@ export async function PATCH(req: Request) {
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
   const sb = createAdminClient()
 
-  // „Verta dėmesio" (featured) — /atrasti viršuje iki featured_until.
-  // body.featured: true → now + featured_hours (default 48h); false → null.
+  // „Dėmesio centre" (featured) — /atrasti viršuje iki featured_until.
+  // body.featured: true → now + featured_hours (default 48h, max 14 d.); false → null.
   if ('featured' in body && !('kind' in body)) {
     const hours = Math.min(Math.max(parseInt(body.featured_hours) || 48, 1), 24 * 14)
     const featured_until = body.featured ? new Date(Date.now() + hours * 3600_000).toISOString() : null
     const { error } = await sb.from('blog_posts').update({ featured_until }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, featured_until })
+  }
+
+  // Vizualo priskyrimas featured įrašui be cover (admin įklijuoja URL arba
+  // paima iš entity) — saugom į cover_image_url, naudojasi visi puslapiai.
+  if (typeof body.featured_cover === 'string' && !('kind' in body)) {
+    const url = body.featured_cover.trim()
+    if (!/^https?:\/\//.test(url)) return NextResponse.json({ error: 'blogas URL' }, { status: 400 })
+    const { error } = await sb.from('blog_posts').update({ cover_image_url: url }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, cover_image_url: url })
   }
 
   // Tik „sutvarkyta" perjungimas (be tipo keitimo)

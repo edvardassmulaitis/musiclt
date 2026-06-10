@@ -34,6 +34,7 @@ export type Discovery = {
   embed_id: string | null
   resolve_state: string
   is_lt: boolean
+  featured_until?: string | null
   tags: string[]
 }
 
@@ -53,7 +54,7 @@ export type DiscoveryFacets = {
 
 const SELECT =
   'id, comment_id, created_at, author_id, artist_name, artist_id, track_name, track_id, ' +
-  'album_name, album_id, embed_type, embed_id, resolve_state, is_lt, source, body, ' +
+  'album_name, album_id, embed_type, embed_id, resolve_state, is_lt, source, body, featured_until, ' +
   'comments:comment_id(body, like_count), ' +
   'artists:artist_id(slug, name, cover_image_url), tracks:track_id(slug, title), albums:album_id(slug, title)'
 
@@ -117,6 +118,7 @@ async function attachTagsAndAuthors(sb: any, rows: any[]): Promise<Discovery[]> 
       embed_id: r.embed_id,
       resolve_state: r.resolve_state,
       is_lt: !!r.is_lt,
+      featured_until: r.featured_until || null,
       tags: tagMap.get(r.id) || [],
     } as Discovery
   })

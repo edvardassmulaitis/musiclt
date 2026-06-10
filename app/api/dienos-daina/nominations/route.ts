@@ -115,6 +115,20 @@ export async function POST(req: Request) {
   if (existing)
     return NextResponse.json({ error: 'Jau pasiulei daina siandien' }, { status: 400 })
 
+  // Taisyklė (2026-06-10): negalima siūlyti dainos, kuri buvo siūloma VAKAR
+  // (arba jau pasiūlyta šiandien) — kitaip tos pačios dainos suktųsi ratu.
+  const yday = new Date(`${date}T12:00:00Z`)
+  yday.setUTCDate(yday.getUTCDate() - 1)
+  const ydayStr = yday.toISOString().slice(0, 10)
+  const { data: recentSame } = await supabase
+    .from('daily_song_nominations')
+    .select('id, date')
+    .eq('track_id', track_id)
+    .in('date', [date, ydayStr])
+    .limit(1)
+  if (recentSame && recentSame.length)
+    return NextResponse.json({ error: (recentSame[0] as any).date === date ? 'Ši daina šiandien jau pasiūlyta' : 'Ši daina buvo siūloma vakar — pasiūlyk kitą' }, { status: 400 })
+
   const { data, error } = await supabase
     .from('daily_song_nominations')
     .insert({

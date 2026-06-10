@@ -233,6 +233,24 @@ export async function GET(req: NextRequest) {
       if (img) thumb.set(r.id, img)
     }
 
+    // ── PASKUTINIS fallback: YT embed/nuoroda pačiame įrašo tekste → thumbnail.
+    //    (legacy įrašai dažnai turi iframe'us, bet jokio cover/target.) Tekstą
+    //    traukiam atskira batch užklausa tik likusiems be vizualo. ──
+    const stillBare = need.filter(r => !thumb.has(r.id)).map(r => r.id)
+    if (stillBare.length) {
+      try {
+        const { data: bodies } = await sb
+          .from('blog_posts')
+          .select('id, content_enriched, content')
+          .in('id', stillBare.slice(0, 40))
+        const YT_ANY = /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/
+        for (const b of (bodies || []) as any[]) {
+          const m = String(b.content_enriched || b.content || '').match(YT_ANY)
+          if (m?.[1]) thumb.set(b.id, `https://img.youtube.com/vi/${m[1]}/mqdefault.jpg`)
+        }
+      } catch {}
+    }
+
     // Topas entries → vizualai.
     const entriesById = new Map<number, ListEntry[]>()
     for (const r of topasRows) {

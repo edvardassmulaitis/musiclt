@@ -23,6 +23,7 @@ type Member = {
   total: number
   last_active: string
   headline: string
+  tastes?: string[]
 }
 
 // Veiksmų grupavimas „antraštei". Raktas → žmogiškas daiktavardis (daugiskaita).
@@ -148,10 +149,11 @@ export async function GET(req: NextRequest) {
         if (picked.length >= limit) break
       }
 
-      // Muzikos skonis — iki 3 mėgstamų atlikėjų per narį („Nauji nariai" kortelėms).
+      // Muzikos skonis — iki 3 mėgstamų atlikėjų per narį (ir aktyviems, ir
+      // naujiems — „Aktyvūs nariai" kortelėms).
       const tasteByUser = new Map<string, string[]>()
       try {
-        const uids = picked.map(m => m.id).filter(Boolean)
+        const uids = [...new Set([...picked.map(m => m.id), ...members.map(m => m.user_id)])].filter(Boolean)
         if (uids.length) {
           // likes.entity_id — generinis (be FK į artists), tad jokio embedded
           // join'o: pirmiausia like'ai, tada batch'u atlikėjų vardai.
@@ -181,6 +183,8 @@ export async function GET(req: NextRequest) {
       } catch {}
 
       new_members = picked.map(m => ({ username: m.username, name: m.name, avatar: m.avatar, created_at: m.created_at, joined_legacy_at: m.joined_legacy_at, tastes: tasteByUser.get(m.id) || [] }))
+      // Aktyviems nariams — tas pats skonis.
+      for (const m of members as any[]) m.tastes = tasteByUser.get(m.user_id) || []
     } catch {}
 
     // total_active — kiek SKIRTINGŲ narių apskritai turėjo viešų veiksmų per langą

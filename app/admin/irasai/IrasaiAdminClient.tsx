@@ -99,13 +99,26 @@ export default function IrasaiAdminClient() {
     setBusy(null)
   }
 
-  // „Verta dėmesio" — featured 48h /atrasti viršuje.
-  const setFeatured = async (id: string, featured: boolean) => {
+  // „Dėmesio centre" — featured su pasirenkama trukme.
+  const setFeatured = async (id: string, featured: boolean, hours = 48) => {
     setBusy(id); setMsg(null)
     try {
-      const r = await fetch('/api/admin/irasai', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, featured }) })
+      const r = await fetch('/api/admin/irasai', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, featured, featured_hours: hours }) })
       const d = await r.json(); if (!r.ok) throw new Error(d.error || 'klaida')
       setItems(prev => prev.map(it => it.id === id ? { ...it, featured, featured_until: d.featured_until || null } : it))
+    } catch (e: any) { setMsg('Klaida: ' + e.message) }
+    setBusy(null)
+  }
+
+  // Vizualas featured įrašui (kai cover neišsisprendžia automatiškai).
+  const setFeaturedCover = async (id: string) => {
+    const url = window.prompt('Vizualo URL (nuotraukos adresas):')
+    if (!url) return
+    setBusy(id); setMsg(null)
+    try {
+      const r = await fetch('/api/admin/irasai', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, featured_cover: url }) })
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || 'klaida')
+      setMsg('Vizualas išsaugotas ✓')
     } catch (e: any) { setMsg('Klaida: ' + e.message) }
     setBusy(null)
   }
@@ -233,11 +246,28 @@ export default function IrasaiAdminClient() {
                       </div>
                     )}
 
-                    <button onClick={() => setFeatured(it.id, !it.featured)} disabled={busy === it.id}
-                      title={'„Verta dėmesio" — rodomas /atrasti viršuje 48 val.'}
-                      className={`text-sm px-3 py-1 rounded-lg disabled:opacity-50 ${it.featured ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-amber-50 hover:bg-amber-100 text-amber-700'}`}>
-                      {it.featured ? '★ Featured (išjungti)' : '☆ Featured 48h'}
-                    </button>
+                    {it.featured ? (
+                      <span className="flex items-center gap-1.5">
+                        <button onClick={() => setFeatured(it.id, false)} disabled={busy === it.id}
+                          className="text-sm px-3 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">★ Featured (išjungti)</button>
+                        <button onClick={() => setFeaturedCover(it.id)} disabled={busy === it.id}
+                          title="Priskirti vizualą (jei automatiškai neišsisprendžia)"
+                          className="text-sm px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 disabled:opacity-50">🖼</button>
+                      </span>
+                    ) : (
+                      <label className="flex items-center gap-1 text-xs text-gray-500">
+                        <span className="text-amber-600 font-semibold">☆ Featured</span>
+                        <select defaultValue="" disabled={busy === it.id}
+                          onChange={e => { const h = parseInt(e.target.value); if (h) setFeatured(it.id, true, h); e.target.value = '' }}
+                          className="text-sm border border-amber-200 rounded-lg px-1.5 py-1 bg-amber-50 text-amber-700">
+                          <option value="" disabled>trukmė…</option>
+                          <option value="24">24 val.</option>
+                          <option value="48">48 val.</option>
+                          <option value="168">7 d.</option>
+                          <option value="336">14 d.</option>
+                        </select>
+                      </label>
+                    )}
 
                     {it.post_type !== 'topas' && (
                       <button onClick={() => openEnrich(it.id)} disabled={busy === it.id} title="Peržiūrėti / pridėti nuorodas tekste"

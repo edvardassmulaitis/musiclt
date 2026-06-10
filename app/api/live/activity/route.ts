@@ -48,11 +48,32 @@ export async function GET(req: Request) {
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // ── Ištrinto turinio filtras (2026-06-10): jei narys ištrynė įrašą/diskusiją,
+  //    event'as likdavo sraute ir mesdavo į 404. Batch'u patikrinam, ar entity
+  //    dar egzistuoja, ir dingusius išmetam. ──
+  let alive = (data || []) as any[]
+  try {
+    const blogIds = [...new Set(alive.filter(r => r.entity_type === 'blog' && r.entity_id).map(r => Number(r.entity_id)))]
+    const discIds = [...new Set(alive.filter(r => r.entity_type === 'discussion' && r.entity_id).map(r => Number(r.entity_id)))]
+    const E = { data: [] as any[] }
+    const [bp, dc] = await Promise.all([
+      blogIds.length ? supabase.from('blog_posts').select('id').eq('status', 'published').in('id', blogIds) : Promise.resolve(E),
+      discIds.length ? supabase.from('discussions').select('id').eq('is_deleted', false).in('id', discIds) : Promise.resolve(E),
+    ])
+    const liveBlog = new Set((((bp as any).data || []) as any[]).map(x => x.id))
+    const liveDisc = new Set((((dc as any).data || []) as any[]).map(x => x.id))
+    alive = alive.filter(r => {
+      if (r.entity_type === 'blog' && r.entity_id) return liveBlog.has(Number(r.entity_id))
+      if (r.entity_type === 'discussion' && r.entity_id) return liveDisc.has(Number(r.entity_id))
+      return true
+    })
+  } catch {}
+
   // ── Mini nuotraukos (FIX 3): jei snapshot entity_image tuščias, batch'iniu
   //    būdu išsprendžiam entity → atvaizdą. track → cover_url/YT thumb/atlikėjo
   //    nuotrauka; album → cover_image_url; artist → cover_image_url. Po vieną
   //    užklausą per tipą — pigu (feed limit ≤ 50). ──
-  const rows = (data || []) as any[]
+  const rows = alive
   const needImg = rows.filter(r => !r.entity_image && r.entity_id && r.entity_type)
   if (needImg.length) {
     const byType: Record<string, Set<number>> = {}
