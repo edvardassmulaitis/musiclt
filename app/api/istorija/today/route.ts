@@ -47,7 +47,7 @@ async function fetchToday(): Promise<IstItem[]> {
   try {
     const { data: albums } = await sb
       .from('albums')
-      .select('id, slug, title, cover_image_url, year, type_studio, type_compilation, type_live, type_ep, artists!albums_artist_id_fkey(id, slug, name, score)')
+      .select('id, slug, title, cover_image_url, year, type_studio, type_compilation, type_live, type_ep, artists!albums_artist_id_fkey(id, slug, name, score, cover_image_url)')
       .eq('month', M)
       .eq('day', D)
       .not('year', 'is', null)
@@ -73,7 +73,7 @@ async function fetchToday(): Promise<IstItem[]> {
         subtitle: '',
         href: artistSlug ? `/albumai/${artistSlug}-${(a.slug || a.id)}-${a.id}` : `/albumai/${a.slug || a.id}-${a.id}`,
         emoji: '💿',
-        cover: a.cover_image_url || null,
+        cover: a.cover_image_url || a.artists?.cover_image_url || null,
         year: a.year,
         age: yrsAgo,
         albumId: a.id,
@@ -213,10 +213,6 @@ async function fetchToday(): Promise<IstItem[]> {
   } catch {}
 
   // Rikiavimas. Komponentas grupuoja pagal tipą, tad svarbi TIK eilė tipo viduje.
-  //  - album_anniversary: pagal populiarumą = YT peržiūros + music.lt patiktukai
-  //    (likes sveriami, kad ir mažiau žiūrėtas bet mėgstamas albumas kiltų).
-  //    Edvardo prašymu 2026-06-02.
-  //  - kiti tipai: pagal atlikėjo populiarumą (score) desc, tiebreak pagal amžių.
   const score = (x: any) => x.score || 0
   // SVARBU: rikiuoti ir riboti KIEKVIENĄ tipą ATSKIRAI. Anksčiau viskas buvo
   // sumaišoma į vieną sąrašą ir slice(0,40) — albumų rangas (YT peržiūros
