@@ -105,6 +105,15 @@ export default function IrasaiAdminClient() {
     setBusy(null)
   }
 
+  const enrich = async (id: string) => {
+    setBusy(id); setMsg(null)
+    try {
+      const r = await fetch('/api/admin/irasai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'enrich_prose', id }) })
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || 'klaida')
+      setMsg(`✓ Tekstas enrichintas: ${d.enriched} nuorodų su mini viršeliais`)
+    } catch (e: any) { setMsg('Klaida: ' + e.message) }
+    setBusy(null)
+  }
   const normalize = async (id: string) => {
     setBusy(id); setMsg(null)
     try {
@@ -198,6 +207,10 @@ export default function IrasaiAdminClient() {
                       </div>
                     )}
 
+                    {it.post_type !== 'topas' && (
+                      <button onClick={() => enrich(it.id)} disabled={busy === it.id} title="Surasti DB esančius albumus/dainas/atlikėjus tekste ir paversti nuorodomis"
+                        className="text-sm px-3 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 disabled:opacity-50">✨ Enrichinti tekstą</button>
+                    )}
                     <div className="ml-auto">
                       {it.reviewed
                         ? <button onClick={() => markReviewed(it.id, false)} disabled={busy === it.id}

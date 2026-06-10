@@ -583,7 +583,7 @@ export default function BlogPostPageClient(props: Props) {
                 <>
                   {post.content && (
                     <div className="bp-prose">
-                      <PostContent html={post.content} />
+                      <EnrichedProse html={post.content} />
                     </div>
                   )}
 

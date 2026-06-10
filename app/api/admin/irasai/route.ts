@@ -21,11 +21,31 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { enrichProseLinks } from '@/lib/topas-resolve'
+
+export const maxDuration = 60
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions)
   if (!session?.user || !['admin', 'super_admin'].includes((session.user as any).role || '')) return null
   return session
+}
+
+// Manual prozos enrichinimas: regular įrašo content → DB albumai/dainos/atlikėjai nuorodomis.
+export async function POST(req: Request) {
+  if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const body = await req.json().catch(() => ({}))
+  if (body.action !== 'enrich_prose' || !body.id) return NextResponse.json({ error: 'bad request' }, { status: 400 })
+  const sb = createAdminClient()
+  const { data: post } = await sb.from('blog_posts').select('id, post_type, content').eq('id', body.id).maybeSingle()
+  if (!post) return NextResponse.json({ error: 'not found' }, { status: 404 })
+  if (post.post_type === 'topas') return NextResponse.json({ error: 'Topas enrichinamas per /admin/topai-vidiniai' }, { status: 400 })
+  if (!post.content) return NextResponse.json({ error: 'nėra teksto' }, { status: 400 })
+  const enriched = await enrichProseLinks(sb, post.content).catch(() => post.content)
+  const count = (enriched.match(/bp-enrich"/g) || []).length
+  const { error } = await sb.from('blog_posts').update({ content: enriched }).eq('id', body.id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true, enriched: count })
 }
 
 // (post_type, editorial_type) → plokščias kind
