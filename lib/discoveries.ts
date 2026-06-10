@@ -20,6 +20,10 @@ export type Discovery = {
   artist_name: string | null
   artist_id: number | null
   artist_slug: string | null
+  /** Atlikėjo mini nuotrauka kortelės footer'iui (artists.cover_image_url). */
+  artist_cover: string | null
+  /** Oficialūs atlikėjo stiliai iš artist_genres (ne forumo tag'ai). */
+  artist_styles: string[]
   track_name: string | null
   track_id: number | null
   track_slug: string | null
@@ -51,7 +55,7 @@ const SELECT =
   'id, comment_id, created_at, author_id, artist_name, artist_id, track_name, track_id, ' +
   'album_name, album_id, embed_type, embed_id, resolve_state, is_lt, source, body, ' +
   'comments:comment_id(body, like_count), ' +
-  'artists:artist_id(slug, name), tracks:track_id(slug, title), albums:album_id(slug, title)'
+  'artists:artist_id(slug, name, cover_image_url), tracks:track_id(slug, title), albums:album_id(slug, title)'
 
 async function attachTagsAndAuthors(sb: any, rows: any[]): Promise<Discovery[]> {
   if (rows.length === 0) return []
@@ -67,6 +71,19 @@ async function attachTagsAndAuthors(sb: any, rows: any[]): Promise<Discovery[]> 
     const { data: profs } = await sb.from('profiles').select('id, username, full_name, avatar_url').in('id', authorIds)
     for (const p of (profs || []) as any[]) profMap.set(p.id, p)
   }
+  // Oficialūs atlikėjų stiliai (artist_genres → genres.name) — kortelės footer'iui.
+  const artistIds = [...new Set(rows.map(r => r.artist_id).filter(Boolean))] as number[]
+  const styleMap = new Map<number, string[]>()
+  for (let i = 0; i < artistIds.length; i += 200) {
+    const chunk = artistIds.slice(i, i + 200)
+    const { data: gs } = await sb.from('artist_genres').select('artist_id, genres(name)').in('artist_id', chunk)
+    for (const g of (gs || []) as any[]) {
+      const nm = g.genres?.name
+      if (!nm) continue
+      const arr = styleMap.get(g.artist_id) || []
+      if (!arr.includes(nm)) { arr.push(nm); styleMap.set(g.artist_id, arr) }
+    }
+  }
   return rows.map(r => {
     const prof = r.author_id ? profMap.get(r.author_id) : null
     return {
@@ -79,6 +96,8 @@ async function attachTagsAndAuthors(sb: any, rows: any[]): Promise<Discovery[]> 
       artist_name: r.artist_name ?? r.artists?.name ?? null,
       artist_id: r.artist_id,
       artist_slug: r.artists?.slug ?? null,
+      artist_cover: r.artists?.cover_image_url ?? null,
+      artist_styles: r.artist_id ? (styleMap.get(r.artist_id) || []) : [],
       track_name: r.track_name ?? r.tracks?.title ?? null,
       track_id: r.track_id,
       track_slug: r.tracks?.slug ?? null,

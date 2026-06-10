@@ -110,6 +110,50 @@ function FilterPopover({ id, openId, setOpenId, label, icon, value, options, onP
 const IconUser = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
 const IconNote = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
 
+// Ilgas komentaras — clamp'inam iki ~8 eilučių su „Skaityti daugiau" toggle,
+// kad masonry kortelės liktų tvarkingo aukščio nepriklausomai nuo teksto.
+function ClampText({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  const long = text.length > 380 || text.split('\n').length > 7
+  return (
+    <>
+      <p className={`ma-narr${long && !open ? ' ma-clamp' : ''}`}>{text}</p>
+      {long && (
+        <button className="ma-readmore" onClick={() => setOpen(o => !o)}>
+          {open ? 'Suskleisti ↑' : 'Skaityti daugiau ↓'}
+        </button>
+      )}
+    </>
+  )
+}
+
+// Atlikėjo blokas kortelės apačioje — mini foto + vardas + oficialūs stiliai.
+function ArtistFooter({ d, onStyle }: { d: Discovery; onStyle?: (s: string) => void }) {
+  if (!d.artist_slug) return null
+  const nm = d.artist_name || '?'
+  return (
+    <div className="ma-artfoot">
+      <Link href={`/atlikejai/${d.artist_slug}`} className="ma-artfoot-link">
+        {d.artist_cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={proxyImg(d.artist_cover)} alt="" width={34} height={34} loading="lazy" className="ma-artfoot-img" />
+        ) : (
+          <span className="ma-artfoot-img ma-artfoot-ph" style={{ background: `hsl(${hue(nm)},32%,20%)`, color: `hsl(${hue(nm)},52%,64%)` }}>{nm.charAt(0).toUpperCase()}</span>
+        )}
+        <span className="ma-artfoot-meta">
+          <span className="ma-artfoot-nm">{nm}</span>
+          <span className="ma-artfoot-sub">Atlikėjo puslapis →</span>
+        </span>
+      </Link>
+      {d.artist_styles.length > 0 && (
+        <span className="ma-artfoot-styles">
+          {d.artist_styles.slice(0, 3).map(s => <span key={s} className="ma-style">{s}</span>)}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default function DiscoveriesClient({ items, facets }: { items: Discovery[]; facets: DiscoveryFacets }) {
   const [q, setQ] = useState('')
   const [member, setMember] = useState('')
@@ -198,20 +242,22 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
                 <div className="ma-embed"><Embed d={d} /></div>
 
                 <div className="ma-body">
-                  {(d.artist_name || d.track_name) && (
+                  {((d.artist_name && !d.artist_slug) || d.track_name) && (
                     <div className="ma-title">
-                      {d.artist_name && (d.artist_slug
-                        ? <Link href={`/atlikejai/${d.artist_slug}`} className="ma-art">{d.artist_name}</Link>
-                        : <span className="ma-art">{d.artist_name}</span>)}
-                      {d.artist_name && d.track_name && <span className="ma-sep"> — </span>}
+                      {/* Kai atlikėjas susietas — jo vardas+foto rodomi footer'yje,
+                          title lieka tik dainai. Nesusietam — kaip anksčiau. */}
+                      {d.artist_name && !d.artist_slug && <span className="ma-art">{d.artist_name}</span>}
+                      {d.artist_name && !d.artist_slug && d.track_name && <span className="ma-sep"> — </span>}
                       {d.track_name && (d.track_slug
                         ? <Link href={`/dainos/${d.track_slug}`} className="ma-tk ma-tk-link">{d.track_name} ♪</Link>
                         : <span className="ma-tk">{d.track_name}</span>)}
                     </div>
                   )}
-                  {d.body && <p className="ma-narr">{d.body}</p>}
+                  {d.body && <ClampText text={d.body} />}
                   {d.tags.length > 0 && <div className="ma-tags">{d.tags.slice(0, 4).map(t => <button key={t} className="ma-tag" onClick={() => { setStyle(t); setLimit(24); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>{t}</button>)}</div>}
                 </div>
+
+                <ArtistFooter d={d} />
               </article>
             )
           })}
@@ -249,8 +295,11 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         :global(.ma-opt.on){color:var(--accent-orange)}
         :global(.ma-pop-empty){color:var(--text-muted);font-size:12.5px;padding:8px 10px}
         .ma-foot{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:40px;padding-top:24px;border-top:1px solid var(--border-subtle);color:var(--text-muted);font-size:13px}
-        .ma-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;align-items:start}
-        .ma-card{background:var(--card-surface);border:1px solid var(--card-border-default);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+        /* Masonry — CSS columns: kortelės skirtingo aukščio sukrenta be tarpų
+           (Pinterest stilius). break-inside:avoid kad kortelė nesilaužytų. */
+        .ma-grid{columns:340px 3;column-gap:16px}
+        @media(max-width:760px){.ma-grid{columns:1}}
+        .ma-card{background:var(--card-surface);border:1px solid var(--card-border-default);border-radius:14px;overflow:hidden;display:block;break-inside:avoid;-webkit-column-break-inside:avoid;margin-bottom:16px}
         .ma-card:hover{border-color:var(--border-strong)}
         .ma-fresh{border-color:rgba(249,115,22,0.55);box-shadow:0 0 0 1px rgba(249,115,22,0.35)}
         .ma-head{display:flex;align-items:center;gap:9px;padding:13px 14px 11px}
@@ -275,7 +324,20 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         .ma-tk{color:var(--text-secondary);font-weight:700}
         :global(a.ma-tk-link){color:var(--text-secondary);text-decoration:none}
         :global(a.ma-tk-link:hover){color:var(--accent-orange)}
-        .ma-narr{font-size:13.5px;line-height:1.6;color:var(--text-secondary);margin:0;white-space:pre-wrap;word-break:break-word}
+        :global(.ma-narr){font-size:13.5px;line-height:1.6;color:var(--text-secondary);margin:0;white-space:pre-wrap;word-break:break-word}
+        :global(.ma-narr.ma-clamp){display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;overflow:hidden}
+        :global(.ma-readmore){margin-top:7px;padding:0;background:none;border:none;color:var(--accent-orange);font-size:12px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer}
+        /* Atlikėjo blokas kortelės apačioje */
+        :global(.ma-artfoot){display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--border-subtle);background:var(--bg-hover)}
+        :global(.ma-artfoot-link){display:flex;align-items:center;gap:9px;text-decoration:none;min-width:0;flex:1}
+        :global(.ma-artfoot-img){width:34px;height:34px;border-radius:9px;object-fit:cover;flex-shrink:0}
+        :global(.ma-artfoot-ph){display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+        :global(.ma-artfoot-meta){display:flex;flex-direction:column;line-height:1.25;min-width:0}
+        :global(.ma-artfoot-nm){font-family:'Outfit',sans-serif;font-size:13.5px;font-weight:800;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        :global(.ma-artfoot-link:hover .ma-artfoot-nm){color:var(--accent-orange)}
+        :global(.ma-artfoot-sub){font-size:10.5px;font-weight:600;color:var(--text-faint)}
+        :global(.ma-artfoot-styles){display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+        :global(.ma-style){background:var(--bg-elevated);border:1px solid var(--border-subtle);color:var(--text-muted);font-size:10.5px;font-weight:700;font-family:'Outfit',sans-serif;padding:3px 8px;border-radius:100px;white-space:nowrap}
         .ma-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
         .ma-tag{background:var(--bg-hover);color:var(--text-muted);font-size:11px;padding:3px 9px;border-radius:12px;border:none;cursor:pointer;font-family:'Outfit',sans-serif}
         .ma-tag:hover{color:var(--accent-orange)}

@@ -4827,146 +4827,77 @@ function DiscoveryLike({ commentId, count, liked }: { commentId: number | null; 
   )
 }
 
-/** Speciali kortelė Diskusijų grid'e — DiscussionRow look'as su oranžiniu
- *  akcentu. Click → ArtistDiscoveriesModal. */
-function DiscoveriesCard({ discoveries, onOpen }: { discoveries: DiscoveryItem[]; onOpen: () => void }) {
-  const n = discoveries.length
-  const teasers = discoveries.slice(0, 2)
+/** Pilna atradimo kortelė Diskusijų sekcijoje — visas turinys iškart matomas
+ *  (be modalo): label + autorius + embed + pilnas komentaras + like. */
+function DiscoveryFullCard({ d, liked }: { d: DiscoveryItem; liked: boolean }) {
+  const uname = d.author?.username
+  const when = relativeLt(d.created_at)
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group flex h-full flex-col gap-2.5 rounded-xl border bg-[var(--bg-surface)] px-3.5 py-3 text-left transition-all hover:-translate-y-0.5 hover:bg-[var(--bg-hover)] hover:shadow-sm"
-      style={{ borderColor: 'rgba(249,115,22,0.4)' }}
-    >
-      <div className="flex items-center gap-2" style={{ minHeight: '2.6em' }}>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(249,115,22,0.14)', color: 'var(--accent-orange)' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="m16.2 7.8-2 6.3-6.3 2 2-6.3z"/></svg>
+    <article className="flex h-full flex-col overflow-hidden rounded-xl border bg-[var(--bg-surface)]" style={{ borderColor: 'rgba(249,115,22,0.35)' }}>
+      <div className="flex items-center gap-2 px-3.5 pb-1.5 pt-3">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(249,115,22,0.14)', color: 'var(--accent-orange)' }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="m16.2 7.8-2 6.3-6.3 2 2-6.3z"/></svg>
         </span>
-        <div className="font-['Outfit',sans-serif] text-[13.5px] font-bold leading-snug text-[var(--text-primary)]">
-          Muzikos atradimai
-          <div className="text-[10.5px] font-semibold text-[var(--text-muted)]">Bendruomenė rekomenduoja</div>
+        <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">
+          Muzikos atradimas
+        </span>
+        <span className="ml-auto"><DiscoveryLike commentId={d.comment_id} count={d.like_count} liked={liked} /></span>
+      </div>
+      <div className="flex items-center gap-2.5 px-3.5 pb-2.5">
+        <UserAvatar name={uname || 'Narys'} avatarUrl={d.author?.avatar_url} size={26} />
+        <div className="flex min-w-0 flex-1 items-baseline gap-2 leading-tight">
+          {uname
+            ? <Link href={`/@${uname}`} className="truncate text-[12.5px] font-bold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">{uname}</Link>
+            : <span className="text-[12.5px] font-bold text-[var(--text-primary)]">Narys</span>}
+          {when && <span className="shrink-0 text-[10.5px] text-[var(--text-muted)]">{when}</span>}
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-2">
-        {teasers.map((d) => {
-          const author = d.author?.username || 'Narys'
-          const text = (d.body || d.track_name || '').slice(0, 140)
-          return (
-            <div key={d.id} className="flex items-start gap-2 border-t border-[var(--border-subtle)] pt-2 first:border-t-0 first:pt-0">
-              <UserAvatar name={author} avatarUrl={d.author?.avatar_url} size={20} />
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)]">{author}</div>
-                <div className="line-clamp-2 text-[11.5px] leading-snug text-[var(--text-muted)]">{text}</div>
-              </div>
-            </div>
-          )
-        })}
+      {d.embed_id && <div className="px-3.5"><DiscoveryEmbed d={d} /></div>}
+      <div className="flex-1 px-3.5 pb-3.5 pt-2.5">
+        {d.track_name && (
+          <div className="mb-1 font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)]">
+            {d.track_slug
+              ? <Link href={`/dainos/${d.track_slug}`} className="no-underline hover:text-[var(--accent-orange)]" style={{ color: 'inherit' }}>{d.track_name} ♪</Link>
+              : <>{d.track_name}</>}
+          </div>
+        )}
+        {d.body && <p className="m-0 whitespace-pre-wrap break-words text-[12.5px] leading-relaxed text-[var(--text-secondary)]">{d.body}</p>}
       </div>
-      <div className="border-t border-[var(--border-subtle)] pt-2">
-        <span className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--accent-orange)] group-hover:underline">
-          {n} atradim{n === 1 ? 'as' : (n % 10 === 0 || n >= 11 ? 'ų' : 'ai')} →
-        </span>
-      </div>
-    </button>
+    </article>
   )
 }
 
-/** Modalas su visais bendruomenės atradimais apie šį atlikėją — pilnas
- *  komentaras + veikiantis embed + autorius + like. Footer'yje nuoroda į
- *  /muzikos-atradimai (visas srautas). */
-function ArtistDiscoveriesModal({
-  open, artistName, discoveries, onClose,
-}: { open: boolean; artistName: string; discoveries: DiscoveryItem[]; onClose: () => void }) {
+/** Atradimų blokas Diskusijų sekcijoje — kiekvienas atradimas atskira pilna
+ *  kortelė (be modalo). >6 — „Rodyti visus" toggle. Batch'u pasiimam, kuriuos
+ *  komentarus žiūrintysis jau pamėgo. */
+function ArtistDiscoveries({ discoveries }: { discoveries: DiscoveryItem[] }) {
   const [likedSet, setLikedSet] = useState<Set<number>>(new Set())
+  const [showAll, setShowAll] = useState(false)
   useEffect(() => {
-    if (!open) return
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', h)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', h)
-      document.body.style.overflow = ''
-    }
-  }, [open, onClose])
-  // Batch: kuriuos atradimų komentarus žiūrintysis jau pamėgo
-  useEffect(() => {
-    if (!open) return
     const ids = discoveries.map(d => d.comment_id).filter(Boolean) as number[]
     if (!ids.length) return
     fetch(`/api/comments/likes?ids=${ids.join(',')}`).then(r => r.json())
       .then(d => setLikedSet(new Set<number>(d.liked_ids || []))).catch(() => {})
-  }, [open, discoveries])
-
-  if (!open || typeof document === 'undefined') return null
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8"
-      style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="flex max-h-[90vh] w-full max-w-[760px] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)]">
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
-          <div className="min-w-0">
-            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-              Muzikos atradimai
-            </div>
-            <div className="mt-0.5 truncate font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">
-              Ką bendruomenė atrado: {artistName}
-            </div>
-          </div>
+  }, [discoveries])
+  const shown = showAll ? discoveries : discoveries.slice(0, 6)
+  return (
+    <div className="mb-3">
+      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {shown.map(d => (
+          <DiscoveryFullCard key={d.id} d={d} liked={d.comment_id ? likedSet.has(d.comment_id) : false} />
+        ))}
+      </div>
+      {discoveries.length > 6 && !showAll && (
+        <div className="mt-3 flex justify-center">
           <button
-            onClick={onClose}
-            aria-label="Uždaryti"
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            onClick={() => setShowAll(true)}
+            className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--text-primary)]"
           >
-            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-              <path d="M3 3l10 10M13 3L3 13" />
-            </svg>
+            Rodyti visus atradimus ({discoveries.length})
           </button>
         </div>
-        <div className="overflow-y-auto px-5 py-5">
-          <div className="flex flex-col gap-4">
-            {discoveries.map((d) => {
-              const uname = d.author?.username
-              const when = relativeLt(d.created_at)
-              return (
-                <article key={d.id} className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated,var(--bg-surface))]">
-                  <div className="flex items-center gap-2.5 px-3.5 pb-2.5 pt-3">
-                    <UserAvatar name={uname || 'Narys'} avatarUrl={d.author?.avatar_url} size={30} />
-                    <div className="flex min-w-0 flex-1 flex-col leading-tight">
-                      {uname
-                        ? <Link href={`/@${uname}`} className="truncate text-[13px] font-bold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">{uname}</Link>
-                        : <span className="text-[13px] font-bold text-[var(--text-primary)]">Narys</span>}
-                      {when && <span className="text-[11px] text-[var(--text-muted)]">{when}</span>}
-                    </div>
-                    <DiscoveryLike commentId={d.comment_id} count={d.like_count} liked={d.comment_id ? likedSet.has(d.comment_id) : false} />
-                  </div>
-                  <div className="px-3.5"><DiscoveryEmbed d={d} /></div>
-                  <div className="px-3.5 pb-3.5 pt-2.5">
-                    {d.track_name && (
-                      <div className="mb-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
-                        {d.track_slug
-                          ? <Link href={`/dainos/${d.track_slug}`} className="no-underline hover:text-[var(--accent-orange)]" style={{ color: 'inherit' }}>{d.track_name} ♪</Link>
-                          : <>{d.track_name}</>}
-                      </div>
-                    )}
-                    {d.body && <p className="m-0 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--text-secondary)]">{d.body}</p>}
-                  </div>
-                </article>
-              )
-            })}
-          </div>
-          <div className="mt-5 border-t border-[var(--border-subtle)] pt-4 text-center">
-            <Link href="/muzikos-atradimai" className="font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--accent-orange)] no-underline hover:underline">
-              Visi bendruomenės atradimai →
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body,
+      )}
+    </div>
   )
 }
 
@@ -5112,8 +5043,6 @@ export default function ArtistProfileClient({
   const [albumModalOpen, setAlbumModalOpen] = useState<Album | null>(null)
   const [eventsModalOpen, setEventsModalOpen] = useState(false)
   const [discussionsModalOpen, setDiscussionsModalOpen] = useState(false)
-  // „Muzikos atradimai" modalas — atidaromas iš specialios kortelės Diskusijose
-  const [discoveriesModalOpen, setDiscoveriesModalOpen] = useState(false)
   // activeThread — wired back (2026-05-12): visi diskusijų click'ai dabar
   // atidaro DiscussionThreadModal artist page'e (user'is pageidavo, kad
   // visi linkai atsidarytų modaluose, nereiktų išeit iš main page).
@@ -5753,14 +5682,6 @@ export default function ArtistProfileClient({
         onOpenThread={(t) => { setDiscussionsModalOpen(false); setActiveThread(t) }}
       />
 
-      {/* Bendruomenės „Muzikos atradimai" apie šį atlikėją — pilni komentarai
-          su embed'ais. Atidaromas iš specialios kortelės Diskusijų grid'e. */}
-      <ArtistDiscoveriesModal
-        open={discoveriesModalOpen}
-        artistName={artist.name}
-        discoveries={discoveries}
-        onClose={() => setDiscoveriesModalOpen(false)}
-      />
 
       {/* DiscussionThreadModal — pilnas thread'as artist page'e (nebereikia exit'inti). */}
       <DiscussionThreadModal
@@ -6425,10 +6346,8 @@ export default function ArtistProfileClient({
             kad visos eilutės kortelėse būtų vienodo aukščio, neprikl. nuo
             komentarų skaičiaus. */}
         {(() => {
-          // Atradimų kortelė užima vieną grid cell'ą — kai ji yra, rodom 5
-          // diskusijų korteles, kad eilutės liktų pilnos (6 cell'ai).
           const hasDiscoveries = discoveries.length > 0
-          const PREVIEW_LIMIT = hasDiscoveries ? 5 : 6
+          const PREVIEW_LIMIT = 6
           const previewThreads = legacyThreads.slice(0, PREVIEW_LIMIT)
           const overflow = Math.max(0, legacyThreads.length - PREVIEW_LIMIT)
           return (
@@ -6444,13 +6363,12 @@ export default function ArtistProfileClient({
                   </button>
                 )}
               </div>
-              {(legacyThreads.length > 0 || hasDiscoveries) ? (
+              {/* „Muzikos atradimai" — bendruomenės komentarai apie šį atlikėją
+                  iš /muzikos-atradimai. Kiekvienas atradimas — atskira pilna
+                  kortelė (embed + visas tekstas), be modalo. */}
+              {hasDiscoveries && <ArtistDiscoveries discoveries={discoveries} />}
+              {legacyThreads.length > 0 ? (
                 <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* „Muzikos atradimai" — bendruomenės komentarai apie šį
-                      atlikėją iš /muzikos-atradimai, visada pirma kortelė. */}
-                  {hasDiscoveries && (
-                    <DiscoveriesCard discoveries={discoveries} onOpen={() => setDiscoveriesModalOpen(true)} />
-                  )}
                   {/* Cards link directly to canonical /diskusijos/tema/{legacy_id}
                       page (kuris renderuoja pilną thread-page-client su likes,
                       replies, composer, sort). Anksčiau buvo custom drawer su
@@ -6460,7 +6378,7 @@ export default function ArtistProfileClient({
                     <DiscussionRow key={t.legacy_id} t={t} onOpen={setActiveThread} />
                   ))}
                 </div>
-              ) : (
+              ) : hasDiscoveries ? null : (
                 <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-8 text-center">
                   <div className="mb-1 text-[14px] font-bold text-[var(--text-muted)]">Dar nėra diskusijų apie {artist.name}</div>
                   <div className="text-[12px] text-[var(--text-faint)]">Diskusijų kūrimo funkcija ruošiama.</div>

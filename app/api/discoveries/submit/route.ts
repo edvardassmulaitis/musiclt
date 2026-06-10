@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     embed_id: emb?.id || null,
     resolve_state,
     created_at: createdAt,
-  }).select('id, artists:artist_id(slug, name)').maybeSingle()
+  }).select('id, artists:artist_id(slug, name, cover_image_url)').maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -97,6 +97,8 @@ export async function POST(req: Request) {
     artist_name: artistName ?? (data as any)?.artists?.name ?? null,
     artist_id,
     artist_slug: (data as any)?.artists?.slug ?? null,
+    artist_cover: (data as any)?.artists?.cover_image_url ?? null,
+    artist_styles: [] as string[],
     track_name: trackName,
     track_id: null,
     track_slug: null,
