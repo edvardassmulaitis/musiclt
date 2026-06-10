@@ -74,11 +74,9 @@ export function PostContent({ html }: { html: string }) {
         .prose-custom .ml-card { transition: background .15s ease; }
         .prose-custom .ml-card:hover { background: rgba(255,255,255,0.06) !important; }
         .prose-custom hr { border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 36px 0; }
-        /* Enrichintos nuorodos prozoje — subtilios, kaip teksto dalis (be box/border/vizualo) */
-        .prose-custom a.bp-enrich { color: #f97316; text-decoration: underline; text-underline-offset: 2px;
-                                    text-decoration-color: rgba(249,115,22,0.4); text-decoration-thickness: 1px;
-                                    cursor: pointer; }
-        .prose-custom a.bp-enrich:hover { color: #fb923c; text-decoration-color: #fb923c; }
+        /* Enrichintos nuorodos prozoje — tiesiog bold, be oranžinės/pabraukimo (kaip teksto dalis) */
+        .prose-custom a.bp-enrich { color: inherit; text-decoration: none; font-weight: 700; cursor: pointer; }
+        .prose-custom a.bp-enrich:hover { color: #f97316; }
         .prose-custom img.bp-enrich-thumb { display: none; }
       `}</style>
     </>
