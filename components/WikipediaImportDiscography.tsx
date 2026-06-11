@@ -384,7 +384,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         let title = bm[1].trim()
         const yearM = line.match(/\((\d{4})\b/)
         const year = yearM ? parseInt(yearM[1]) : null
-        singles.push({ title, year, album: undefined, featured: undefined })
+        singles.push({ title, year, month: null, day: null, source: 'wikipedia', selected: true })
       }
       continue
     }
