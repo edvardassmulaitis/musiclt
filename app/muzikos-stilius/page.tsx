@@ -10,7 +10,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SITE_URL } from '@/lib/artist-browse'
 import { getGenreCounts, getSubstyleCounts, genreHref } from '@/lib/muzika-hub'
-import { muzikaStyles, SectionHead, PillLink } from '@/components/muzika-ui'
+import { muzikaStyles, SectionHead } from '@/components/muzika-ui'
+import { getGenreColor } from '@/lib/genre-colors'
 import SubstyleFilter from '@/components/SubstyleFilter'
 import { SUBSTYLES, GENRES } from '@/lib/constants'
 
@@ -80,10 +81,28 @@ export default async function GenresPage() {
               Stilių sąrašas šiuo metu nepasiekiamas. <Link href="/atlikejai" style={{ color: 'var(--accent-link)' }}>Naršyk atlikėjus →</Link>
             </p>
           ) : (
-            <div className="mz-pills">
-              {main.map((g) => (
-                <PillLink key={g.genre_id} href={genreHref(g)} label={`${g.name.replace(/\s*muzika$/i, '')} muzika`} count={g.n} />
-              ))}
+            // 2026-06-11 consistency: pagrindiniai stiliai — spalvotos kortelės
+            // (brand spalvos iš lib/genre-colors, tos pačios kaip nav dropdown'e)
+            // vietoj pilkų tekstinių pill'ų. Stilius turi atrodyti kaip muzika.
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+              {main.map((g) => {
+                const gc = getGenreColor(g.name)
+                return (
+                  <Link key={g.genre_id} href={genreHref(g)} style={{
+                    display: 'flex', flexDirection: 'column', gap: 4, textDecoration: 'none',
+                    borderRadius: 16, padding: '20px 18px',
+                    border: `1px solid rgba(${gc.rgb}, 0.35)`,
+                    background: `linear-gradient(135deg, rgba(${gc.rgb}, 0.28), rgba(${gc.rgb}, 0.05))`,
+                  }}>
+                    <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 17, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                      {g.name.replace(/\s*muzika$/i, '')}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {g.n.toLocaleString('lt-LT')} atlikėj{g.n % 10 === 1 && g.n % 100 !== 11 ? 'as' : g.n % 10 >= 2 && g.n % 10 <= 9 && !(g.n % 100 >= 11 && g.n % 100 <= 19) ? 'ai' : 'ų'}
+                    </span>
+                  </Link>
+                )
+              })}
             </div>
           )}
         </section>

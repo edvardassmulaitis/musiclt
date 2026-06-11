@@ -220,7 +220,14 @@ function ArtistCard({ a, big, rank, sort }: { a: Artist; big: boolean; rank?: nu
             style={{ objectPosition: `${pos.x}% ${pos.y}%`, transform: `scale(${pos.zoom})`, transformOrigin: `${pos.x}% ${pos.y}%` }}
           />
         ) : (
-          <div className="ab-tile-noimg"><span>{a.name?.[0] || '?'}</span></div>
+          // Ryškus fallback (2026-06-11 consistency): gradient pagal vardo hue +
+          // matomas inicialas — anksčiau 8% opacity inicialas atrodė kaip tuščia
+          // balta kortelė (ypač šviesioj temoj, su #1 badge ant viršaus).
+          (() => { const h = Array.from(a.name || '?').reduce((acc, c) => (acc * 31 + c.charCodeAt(0)) % 360, 0); return (
+            <div className="ab-tile-noimg" style={{ background: `linear-gradient(135deg, hsl(${h},34%,24%), hsl(${(h + 40) % 360},30%,13%))` }}>
+              <span style={{ color: `hsl(${h},45%,62%)`, opacity: 0.9 }}>{a.name?.[0] || '?'}</span>
+            </div>
+          ) })()
         )}
         <div className="ab-tile-shade" />
         {typeof rank === 'number' && rank <= 3 && <span className="ab-tile-rank">#{rank}</span>}

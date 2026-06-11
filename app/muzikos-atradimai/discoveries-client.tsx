@@ -378,7 +378,7 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         )}
         {hasFilters && <button className="ma-reset" onClick={resetAll}>Išvalyti ✕</button>}
 
-        <span className="ma-count">{list.length}</span>
+        <span className="ma-count">{list.length} {list.length === 1 ? 'atradimas' : list.length % 10 >= 1 && list.length % 10 <= 9 && !(list.length % 100 >= 11 && list.length % 100 <= 19) ? 'atradimai' : 'atradimų'}</span>
         <AddDiscovery onAdded={handleAdded} />
       </div>
 

@@ -359,7 +359,7 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
         <button className={`ev-chip${worthTrip ? ' on' : ''}`} onClick={() => setWorthTrip(!worthTrip)}>{Icon.plane}<span>Verta kelionės</span></button>
 
         {anyFilter && <button className="ev-reset" onClick={resetAll}>Išvalyti ✕</button>}
-        <span className="ev-count">{filtered.length}</span>
+        <span className="ev-count">{filtered.length} {filtered.length === 1 ? 'renginys' : filtered.length % 10 >= 1 && filtered.length % 10 <= 9 && !(filtered.length % 100 >= 11 && filtered.length % 100 <= 19) ? 'renginiai' : 'renginių'}</span>
       </div>
 
       {/* ── Archyvo juosta (viršuje — lengva išjungti) ── */}

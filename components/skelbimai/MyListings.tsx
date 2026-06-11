@@ -43,7 +43,7 @@ export function MyListings({ initial }: { initial: Listing[] }) {
     return (
       <div style={{ padding: '48px 24px', textAlign: 'center', borderRadius: 16, border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>
         <p style={{ margin: '0 0 14px' }}>Dar neturi skelbimų.</p>
-        <Link href="/skelbimai/naujas" style={{ display: 'inline-block', padding: '10px 20px', borderRadius: 10, fontWeight: 700, background: 'var(--accent-blue)', color: '#fff', textDecoration: 'none' }}>+ Įdėti skelbimą</Link>
+        <Link href="/skelbimai/naujas" style={{ display: 'inline-block', padding: '10px 20px', borderRadius: 10, fontWeight: 700, background: 'var(--accent-orange)', color: '#fff', textDecoration: 'none' }}>+ Įdėti skelbimą</Link>
       </div>
     )
   }

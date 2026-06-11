@@ -45,7 +45,7 @@ export async function GET(req: Request) {
   // diskusijų sąrašą ir maišydavo realų pokalbio turinį.
   let query = supabase
     .from('discussions')
-    .select('id, slug, title, body, user_id, author_name, author_avatar, tags, is_pinned, is_locked, comment_count, like_count, view_count, last_comment_at, created_at', { count: 'exact' })
+    .select('id, slug, title, body, user_id, author_name, author_avatar, tags, is_pinned, is_locked, comment_count, like_count, view_count, last_comment_at, created_at, artist:artist_id(name, slug, cover_image_url)', { count: 'exact' })
     .eq('is_deleted', false)
     .or('legacy_kind.is.null,legacy_kind.eq.discussion')
     .range(offset, offset + limit - 1)

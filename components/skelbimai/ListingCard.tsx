@@ -69,8 +69,10 @@ export function ListingCard({ listing }: { listing: Listing }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={proxyImg(cover, 600)} alt={listing.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center" style={{ background: `linear-gradient(135deg, ${accent}33, ${accent}12)`, color: accent }}>
-            {icon}
+          // Neutralesnis placeholder'is (2026-06-11): tamsus gradientas + prislopinta
+          // accent ikona — ryškios spalvotos plytelės rėkė garsiau už realias foto.
+          <div className="flex h-full w-full items-center justify-center" style={{ background: 'linear-gradient(135deg, #28324a, #161d2e)', color: accent, opacity: 0.9 }}>
+            <span style={{ opacity: 0.55 }}>{icon}</span>
           </div>
         )}
         {sub && (

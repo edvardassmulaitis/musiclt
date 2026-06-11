@@ -500,9 +500,15 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
 
   return (
     <div className="sh-panel sh-panel-muzika">
-      {/* ── Pagrindiniai topai: LT TOP 30 + TOP 40 juostos (kaip Muzika) ── */}
-      {renderSongRow('lt', 'LT TOP 30', '/top30', '#22c55e', top30)}
-      <div style={{ height: 12 }} />
+      {/* ── Pagrindiniai topai: LT TOP 30 + TOP 40 juostos (kaip Muzika).
+          LT30 rodomas tik kai turi bent 3 įrašus su vizualais — kitaip pilna
+          placeholder'ių eilė atrodo kaip bug (2026-06-11 consistency). ── */}
+      {top30.filter(e => e.image).length >= 3 && (
+        <>
+          {renderSongRow('lt', 'LT TOP 30', '/top30', '#22c55e', top30)}
+          <div style={{ height: 12 }} />
+        </>
+      )}
       {renderSongRow('world', 'TOP 40', '/top40', '#f97316', top40)}
 
       {/* ── Kiti topai: visi (šalys su vėliavėlėmis + pasaulio/viral/albumai) iš eilės ── */}
@@ -2333,23 +2339,28 @@ export function SiteHeader() {
         /* Desktop-only veiksmai (Srautas ♥, + Kurti) — mobile juos dengia
            apatinis baras (MobileBottomNav). */
         .sh-desktop-action { display: flex; }
+        /* Hamburger tik mobile — desktop'e pilnas nav, ☰ perteklinis. */
+        @media (min-width: 1081px) { .sh-burger { display: none !important; } }
         /* 👥+ split hub mygtukas — pill su border'iu, dvi atskirtos pusės:
            kairė neparyškinta bendruomenės ikona → /feed; dešinė oranžinė
            „+ Kurti" CTA (QuickCreate). Skirtingi fonai → aiškus split'as. */
+        /* 2026-06-11 consistency polish: vientisesnė „Atrasti / + Kurti" pora —
+           radius suvienodintas su CTA šeima (12px vietoj pill 18), kairė pusė su
+           subtiliu fonu (matosi, kad tai mygtukas), aktyvi būsena su orange tint. */
         .sh-hub-split {
-          align-items: stretch; height: 34px; border-radius: 18px;
+          align-items: stretch; height: 34px; border-radius: 12px;
           overflow: hidden; background: transparent;
-          border: 1px solid var(--border-default);
+          border: 1px solid var(--border-strong);
           -webkit-tap-highlight-color: transparent;
         }
         .sh-hub-feed {
-          display: flex; align-items: center; gap: 6px; padding: 0 12px;
-          color: var(--text-muted);
-          font-family: inherit; font-size: 13px; font-weight: 700;
+          display: flex; align-items: center; gap: 6px; padding: 0 13px;
+          color: var(--text-secondary); background: var(--card-bg);
+          font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700;
           transition: color .15s, background .15s;
         }
         .sh-hub-feed:hover { color: var(--text-primary); background: var(--bg-hover); }
-        .sh-hub-feed.active { color: var(--accent-orange); }
+        .sh-hub-feed.active { color: var(--accent-orange); background: rgba(249,115,22,0.1); }
         .sh-hub-divider { width: 1px; background: var(--border-default); flex-shrink: 0; }
         .sh-hub-create {
           display: flex; align-items: center; gap: 6px; padding: 0 13px;
@@ -2694,7 +2705,9 @@ export function SiteHeader() {
       <header className="sticky top-0 z-50" style={{ background: bg, backdropFilter: 'blur(22px)', borderBottom: bdr }}>
         <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', gap: 14, position: 'relative' }}>
 
-          <button onClick={() => setMenuOpen(true)} aria-label="Meniu"
+          {/* Hamburger — TIK mobile (≤1080px): desktop'e pilnas nav matomas,
+              ☰ šalia jo buvo perteklinis (2026-06-11 consistency). */}
+          <button onClick={() => setMenuOpen(true)} aria-label="Meniu" className="sh-burger"
             style={{ flexShrink: 0, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', color: hamColor, borderRadius: 8, transition: 'color .15s, background .15s' }}
             onMouseEnter={e => { e.currentTarget.style.color = navHover; e.currentTarget.style.background = navHoverBg }}
             onMouseLeave={e => { e.currentTarget.style.color = hamColor; e.currentTarget.style.background = 'transparent' }}>
@@ -2703,21 +2716,41 @@ export function SiteHeader() {
             </svg>
           </button>
 
-          {/* Radaras → /nauji-atlikejai (promo). PRIEŠ logo, matoma mobile+desktop.
-              Žalias blip = „aptikta nauja muzika"; atkartoja hero radaro parašą. */}
+          <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
+            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
+          </Link>
+
+          {/* Radaras — besisukanti mini animacija → /nauji-atlikejai (promo).
+              PO logo, matoma ir mobile, ir desktop. Žalia nata = „aptikta nauja
+              muzika" (fresh) — atkartoja didelio hero radaro parašą (oranžinis
+              skenavimas + žalias muzikos elementas). */}
           <Link
             href="/nauji-atlikejai"
             aria-label="Naujos muzikos radaras"
             title="Naujos muzikos radaras — kylantys LT atlikėjai"
             className="sh-radar"
-            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textDecoration: 'none', transition: 'color .15s' }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
           >
-            <RadarSweepMini size={32} />
-          </Link>
-
-          <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden>
+              <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.45" />
+              <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
+              <circle cx="16" cy="16" r="3.4" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
+              {/* besisukanti spinduliuotė */}
+              <g>
+                <animateTransform attributeName="transform" type="rotate" from="0 16 16" to="360 16 16" dur="2.8s" repeatCount="indefinite" />
+                <path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="var(--accent-orange)" opacity="0.26" />
+                <line x1="16" y1="16" x2="16" y2="3" stroke="var(--accent-orange)" strokeWidth="1.6" strokeLinecap="round" />
+              </g>
+              {/* žalias blip = aptikta nauja muzika (fresh), švelniai pulsuoja */}
+              <circle cx="20.5" cy="11" r="1.5" fill="var(--accent-green)">
+                <animate attributeName="opacity" values="0;0;1;1;0.15" keyTimes="0;0.25;0.42;0.78;1" dur="2.8s" repeatCount="indefinite" />
+              </circle>
+              {/* centras */}
+              <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
+            </svg>
           </Link>
 
           {/* Desktop nav with rich dropdowns */}

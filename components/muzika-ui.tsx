@@ -70,7 +70,13 @@ export function ArtistTile({ a, rank }: { a: HubArtist; rank?: number }) {
             style={{ objectPosition: `${pos.x}% ${pos.y}%`, transform: `scale(${pos.zoom})`, transformOrigin: `${pos.x}% ${pos.y}%` }}
           />
         ) : (
-          <div className="mz-tile-noimg"><span>{a.name?.[0] || '?'}</span></div>
+          // Ryškus fallback (2026-06-11): hue gradient + matomas inicialas —
+          // anksčiau 8% opacity inicialas = „tuščios baltos kortelės" įspūdis.
+          (() => { const h = Array.from(a.name || '?').reduce((acc, c) => (acc * 31 + c.charCodeAt(0)) % 360, 0); return (
+            <div className="mz-tile-noimg" style={{ background: `linear-gradient(135deg, hsl(${h},34%,24%), hsl(${(h + 40) % 360},30%,13%))` }}>
+              <span style={{ color: `hsl(${h},45%,62%)`, opacity: 0.9 }}>{a.name?.[0] || '?'}</span>
+            </div>
+          ) })()
         )}
         {typeof rank === 'number' && rank <= 3 && <span className="mz-tile-rank">#{rank}</span>}
         {a.is_verified && (
@@ -212,7 +218,7 @@ export const muzikaStyles = `
 .mz-acard-img { position:relative; aspect-ratio:1/1; border-radius:14px; overflow:hidden; background:var(--bg-elevated); }
 .mz-acard-img img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .4s ease; }
 .mz-acard:hover .mz-acard-img img { transform:scale(1.05); }
-.mz-acard-noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:34px; color:rgba(255,255,255,0.12); }
+.mz-acard-noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:34px; color:rgba(255,255,255,0.4); background:linear-gradient(135deg, #2a3550, #161d2e); }
 .mz-acard-title { font-family:'Outfit',sans-serif; font-weight:700; font-size:var(--card-title-size); margin-top:9px; line-height:1.2; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .mz-acard:hover .mz-acard-title { color:var(--accent-orange); }
 .mz-acard-sub { font-size:var(--card-sub-size); color:var(--text-muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -225,7 +231,7 @@ export const muzikaStyles = `
 .mz-trow-rank { width:20px; text-align:center; font-family:'Outfit',sans-serif; font-weight:800; font-size:13px; color:var(--text-faint); flex-shrink:0; }
 .mz-trow-cover { width:40px; height:40px; border-radius:7px; overflow:hidden; background:var(--bg-elevated); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
 .mz-trow-cover img { width:100%; height:100%; object-fit:cover; }
-.mz-trow-noimg { font-size:16px; color:rgba(255,255,255,0.15); }
+.mz-trow-noimg { font-size:16px; color:rgba(255,255,255,0.45); }
 .mz-trow-txt { flex:1; min-width:0; display:flex; flex-direction:column; }
 .mz-trow-title { font-family:'Outfit',sans-serif; font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .mz-trow:hover .mz-trow-title { color:var(--accent-orange); }

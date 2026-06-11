@@ -1,10 +1,21 @@
 'use client'
 
+// app/diskusijos/page.tsx
+//
+// 2026-06-11 consistency redesign (pagal UI_CONSISTENCY_AUDIT):
+//   • theme-aware (anksčiau hard-coded tamsus fonas ignoravo šviesią temą);
+//   • standartinis .page-shell/.page-head + pill filter bar (kaip /koncertai);
+//   • primary CTA oranžinė (buvo mėlynas gradientas);
+//   • kortelės su susietos grupės vizualu (artist join) + body excerpt +
+//     komentarų count footer'yje; „??" avatarai ir „Vartotojas" placeholder'iai
+//     pakeisti fallback'ais; „0 peržiūrų" slepiama.
+
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { prettifyDiscussionTitle } from '@/lib/forum-title'
+import { proxyImg } from '@/lib/img-proxy'
 
 type Discussion = {
   id: number; slug: string; title: string; body: string
@@ -12,20 +23,49 @@ type Discussion = {
   tags: string[]; is_pinned: boolean; is_locked: boolean
   comment_count: number; like_count: number; view_count: number
   last_comment_at: string | null; created_at: string
+  artist?: { name: string; slug: string; cover_image_url: string | null } | { name: string; slug: string; cover_image_url: string | null }[] | null
 }
 
 const AVAILABLE_TAGS = ['Klausimai', 'Rekomendacijos', 'Diskusijos', 'Marketplace', 'Renginiai', 'Kita']
 
+function hue(s: string) { let h = 0; for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h }
+function sani(s?: string | null) {
+  return (s || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
+}
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Ka tik'
-  if (mins < 60) return 'pries ' + mins + ' min.'
+  if (mins < 1) return 'ką tik'
+  if (mins < 60) return `prieš ${mins} min.`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return 'pries ' + hrs + ' val.'
+  if (hrs < 24) return `prieš ${hrs} val.`
   const days = Math.floor(hrs / 24)
-  if (days < 30) return 'pries ' + days + ' d.'
+  if (days < 30) return `prieš ${days} d.`
   return new Date(dateStr).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+function artistOf(d: Discussion) {
+  return Array.isArray(d.artist) ? d.artist[0] : d.artist
+}
+
+const pill = (active: boolean) =>
+  `shrink-0 cursor-pointer whitespace-nowrap rounded-full border px-3.5 py-1.5 font-['Outfit',sans-serif] text-[12.5px] font-bold transition-colors ${
+    active
+      ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white'
+      : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]'
+  }`
+
+function Avatar({ src, name, size = 20 }: { src?: string | null; name?: string | null; size?: number }) {
+  const nm = name || 'narys'
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={proxyImg(src)} alt="" width={size} height={size} loading="lazy" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
+  }
+  return (
+    <span className="flex shrink-0 items-center justify-center rounded-full font-extrabold"
+      style={{ width: size, height: size, fontSize: size * 0.42, background: `hsl(${hue(nm)},32%,20%)`, color: `hsl(${hue(nm)},52%,62%)` }}>
+      {nm.charAt(0).toUpperCase()}
+    </span>
+  )
 }
 
 function NewDiscussionModal({ onClose, onCreated }: { onClose: () => void; onCreated: (d: Discussion) => void }) {
@@ -51,46 +91,37 @@ function NewDiscussionModal({ onClose, onCreated }: { onClose: () => void; onCre
 
   if (typeof document === 'undefined') return null
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4 py-8 overflow-y-auto"
-      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
+    <div className="fixed inset-0 z-[1300] flex items-center justify-center overflow-y-auto bg-black/60 px-4 py-8 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl"
-        style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.12)' }}>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
-          <h3 className="font-black text-white text-xl">Nauja diskusija</h3>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all">x</button>
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)]">
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
+          <h3 className="m-0 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Nauja diskusija</h3>
+          <button onClick={onClose} aria-label="Uždaryti" className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-0 bg-[var(--bg-active)] text-[var(--text-secondary)]">✕</button>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="flex flex-col gap-4 p-5">
           <input type="text" value={title} onChange={e => setTitle(e.target.value)}
-            placeholder="Pavadinimas..."
-            className="w-full px-4 py-3 rounded-2xl text-white placeholder:text-gray-500 text-base font-semibold focus:outline-none"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
+            placeholder="Pavadinimas…" style={{ fontSize: 16 }}
+            className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-3 font-semibold text-[var(--text-primary)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]" />
           <textarea value={text} onChange={e => setText(e.target.value)}
-            placeholder="Parasyk diskusijos turini..."
-            rows={6}
-            className="w-full px-4 py-3 rounded-2xl text-white placeholder:text-gray-500 text-sm resize-none focus:outline-none"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
+            placeholder="Parašyk diskusijos turinį…" rows={6} style={{ fontSize: 16 }}
+            className="w-full resize-none rounded-xl border border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-3 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]" />
           <div>
-            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Tagai</p>
+            <p className="m-0 mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-muted)]">Tagai</p>
             <div className="flex flex-wrap gap-2">
               {AVAILABLE_TAGS.map(tag => (
-                <button key={tag} onClick={() => setTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${tags.includes(tag) ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'}`}>
+                <button key={tag} type="button" onClick={() => setTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
+                  className={pill(tags.includes(tag))}>
                   {tag}
                 </button>
               ))}
             </div>
           </div>
           {error && (
-            <p className="text-red-400 text-sm px-3 py-2 rounded-xl"
-              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-              {error}
-            </p>
+            <p className="m-0 rounded-xl border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-3 py-2 text-[13px] text-[var(--accent-red,#f87171)]">{error}</p>
           )}
           <button onClick={submit} disabled={sending || title.trim().length < 5 || text.trim().length < 10}
-            className="w-full py-3.5 rounded-2xl font-black text-white text-base transition-all disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg, #1d4ed8, #4f46e5)' }}>
-            {sending ? 'Kuriama...' : 'Sukurti diskusija'}
+            className="w-full cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] py-3.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px disabled:opacity-40">
+            {sending ? 'Kuriama…' : 'Sukurti diskusiją'}
           </button>
         </div>
       </div>
@@ -101,46 +132,48 @@ function NewDiscussionModal({ onClose, onCreated }: { onClose: () => void; onCre
 
 function DiscussionCard({ d }: { d: Discussion }) {
   const activityDate = d.last_comment_at || d.created_at
+  const art = artistOf(d)
+  const title = prettifyDiscussionTitle(d.title, d.slug)
+  const body = sani(d.body)
+  // Body excerpt slepiamas, jei jis tik dubliuoja pavadinimą (legacy bug).
+  const excerpt = body && body.toLowerCase() !== title.toLowerCase() ? body : ''
   return (
-    <Link href={`/diskusijos/${d.slug}`} className="block group transition-all hover:translate-y-[-1px]">
-      <div className="px-5 py-4 rounded-2xl transition-all"
-        style={{
-          background: d.is_pinned ? 'rgba(249,115,22,0.06)' : 'rgba(255,255,255,0.04)',
-          border: d.is_pinned ? '1px solid rgba(249,115,22,0.15)' : '1px solid rgba(255,255,255,0.07)',
-        }}>
-        <div className="flex items-start gap-3">
-          <div className="hidden sm:flex flex-col items-center gap-3 flex-shrink-0 w-10">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold"
-              style={{ background: 'rgba(29,78,216,0.2)', color: '#93c5fd' }}>
-              {d.author_name?.slice(0, 2).toUpperCase() || '??'}
-            </div>
-            <div className="text-center">
-              <p className="text-xs font-bold text-white">{d.comment_count}</p>
-              <p className="text-[10px] text-gray-600">atl.</p>
-            </div>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start gap-2 flex-wrap mb-1">
-              {d.is_pinned && <span className="text-[10px] font-black text-orange-400 uppercase">Prisegta</span>}
-              {d.is_locked && <span className="text-[10px] font-black text-gray-600 uppercase">Uzrakinta</span>}
-              {(d.tags || []).map(tag => (
-                <span key={tag} className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                  style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc' }}>
-                  {tag}
-                </span>
-              ))}
-            </div>
-            <h3 className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors leading-snug">{prettifyDiscussionTitle(d.title, d.slug)}</h3>
-            <p className="text-xs text-gray-600 mt-1 line-clamp-1">{d.body}</p>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="text-xs text-gray-600">{d.author_name || 'Vartotojas'}</span>
-              <span className="text-gray-800 text-xs">·</span>
-              <span className="text-xs text-gray-600">{timeAgo(activityDate)}</span>
-              <span className="text-gray-800 text-xs">·</span>
-              <span className="text-xs text-gray-600">{d.view_count} peržiūrų</span>
-            </div>
-          </div>
+    <Link href={`/diskusijos/${d.slug}`}
+      className={`group flex flex-col overflow-hidden rounded-2xl border no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(139,92,246,0.5)] ${
+        d.is_pinned ? 'border-[rgba(249,115,22,0.3)]' : 'border-[var(--border-default)]'
+      }`}
+      style={{ background: 'linear-gradient(160deg, rgba(139,92,246,0.07), var(--bg-surface) 60%)' }}>
+      {art?.cover_image_url && (
+        <div className="relative h-[110px] shrink-0 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={proxyImg(art.cover_image_url)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 40%, rgba(13,19,32,0.85))' }} />
+          <span className="absolute bottom-2 left-3 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-white/90">{art.name}</span>
         </div>
+      )}
+      <div className="flex flex-1 flex-col gap-1.5 px-4 pb-2.5 pt-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {d.is_pinned && <span className="rounded-md bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-orange)]">Prisegta</span>}
+          {d.is_locked && <span className="rounded-md bg-[var(--bg-active)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-faint)]">Užrakinta</span>}
+          {(d.tags || []).map(tag => (
+            <span key={tag} className="rounded-md bg-[rgba(139,92,246,0.13)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-bold text-[#a78bfa]">{tag}</span>
+          ))}
+        </div>
+        <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{title}</h3>
+        {excerpt && <p className="m-0 line-clamp-3 text-[12.5px] leading-relaxed text-[var(--text-secondary)]">{excerpt}</p>}
+      </div>
+      <div className="mt-auto flex items-center gap-2 border-t border-[var(--border-subtle)] px-4 py-2.5">
+        <Avatar src={d.author_avatar} name={d.author_name} />
+        <span className="min-w-0 truncate text-[11.5px] font-semibold text-[var(--text-secondary)]">{d.author_name || 'narys'}</span>
+        <span className="ml-auto flex shrink-0 items-center gap-3 text-[11px] text-[var(--text-muted)]">
+          {d.comment_count > 0 && (
+            <span className="flex items-center gap-1 font-bold text-[#a78bfa]">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>
+              {d.comment_count}
+            </span>
+          )}
+          <span className="text-[var(--text-faint)]">{timeAgo(activityDate)}</span>
+        </span>
       </div>
     </Link>
   )
@@ -167,83 +200,63 @@ export default function DiskusijosPage() {
   useEffect(() => { load() }, [load])
 
   return (
-    <div style={{ background: '#080d14', minHeight: '100vh' }}>
-      <div className="max-w-[860px] mx-auto px-5 py-10">
+    <div className="page-shell">
+      <div className="page-head">
+        <h1>Diskusijos</h1>
+        <p>Bendruomenės pokalbiai apie muziką — klausk, rekomenduok, ginčykis</p>
+      </div>
 
-        <div className="flex items-start justify-between gap-4 mb-8 flex-wrap">
-          <div>
-            <h1 className="text-4xl font-black text-white mb-1">Diskusijos</h1>
-            <p className="text-gray-500">Laisvos diskusijos, klausimai, rekomendacijos</p>
-          </div>
-          {session ? (
-            <button onClick={() => setShowNew(true)}
-              className="px-5 py-2.5 rounded-2xl font-black text-white text-sm transition-all hover:scale-105"
-              style={{ background: 'linear-gradient(135deg, #1d4ed8, #4f46e5)' }}>
-              + Nauja diskusija
-            </button>
-          ) : (
-            <Link href="/auth/signin"
-              className="px-5 py-2.5 rounded-2xl font-bold text-sm text-white transition-all hover:scale-105"
-              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
-              Prisijungti
-            </Link>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3 mb-5 flex-wrap">
-          <div className="flex gap-1 p-1 rounded-xl"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            {([['activity', 'Aktyvios'], ['newest', 'Naujos'], ['popular', 'Populiarios']] as const).map(([k, l]) => (
-              <button key={k} onClick={() => setSort(k)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${sort === k ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-                {l}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <button onClick={() => setActiveTag(null)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${!activeTag ? 'bg-white/15 text-white' : 'bg-white/5 text-gray-500 border border-white/10 hover:bg-white/10'}`}>
-              Visos
-            </button>
-            {AVAILABLE_TAGS.map(tag => (
-              <button key={tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${activeTag === tag ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/40' : 'bg-white/5 text-gray-500 border border-white/10 hover:bg-white/10'}`}>
-                {tag}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-7 h-7 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : discussions.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-5xl mb-4">💬</p>
-            <p className="text-xl font-black text-white mb-2">Dar nera diskusiju</p>
-            <p className="text-gray-500 mb-6">Buk pirmas — sukurk diskusijos tema!</p>
-            {session && (
-              <button onClick={() => setShowNew(true)}
-                className="px-8 py-3 rounded-2xl font-black text-white"
-                style={{ background: 'linear-gradient(135deg, #1d4ed8, #4f46e5)' }}>
-                + Nauja diskusija
-              </button>
-            )}
-          </div>
+      {/* Standartinis pill filter bar (kaip /koncertai) + primary CTA dešinėje */}
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        {([['activity', 'Aktyvios'], ['newest', 'Naujos'], ['popular', 'Populiarios']] as const).map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setSort(k)} className={pill(sort === k)}>{l}</button>
+        ))}
+        <span className="mx-1 h-4 w-px bg-[var(--border-default)]" />
+        <button type="button" onClick={() => setActiveTag(null)} className={pill(!activeTag)}>Visos</button>
+        {AVAILABLE_TAGS.map(tag => (
+          <button key={tag} type="button" onClick={() => setActiveTag(activeTag === tag ? null : tag)} className={pill(activeTag === tag)}>{tag}</button>
+        ))}
+        <span className="ml-auto" />
+        {session ? (
+          <button onClick={() => setShowNew(true)}
+            className="shrink-0 cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px">
+            + Nauja diskusija
+          </button>
         ) : (
-          <div className="space-y-2">
-            {discussions.map(d => <DiscussionCard key={d.id} d={d} />)}
-          </div>
-        )}
-
-        {showNew && (
-          <NewDiscussionModal
-            onClose={() => setShowNew(false)}
-            onCreated={d => { setDiscussions(prev => [d, ...prev]); setShowNew(false) }}
-          />
+          <Link href="/auth/signin"
+            className="shrink-0 rounded-xl border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-2 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-secondary)] no-underline">
+            Prisijunk kurti diskusiją
+          </Link>
         )}
       </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array(6).fill(null).map((_, i) => <div key={i} className="hp-skel h-[190px] rounded-2xl" />)}
+        </div>
+      ) : discussions.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[var(--border-default)] py-16 text-center">
+          <p className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">Dar nėra diskusijų</p>
+          <p className="m-0 mt-1 text-[13px] text-[var(--text-muted)]">Būk pirmas — sukurk diskusijos temą!</p>
+          {session && (
+            <button onClick={() => setShowNew(true)}
+              className="mt-5 cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-7 py-3 font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)]">
+              + Nauja diskusija
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {discussions.map(d => <DiscussionCard key={d.id} d={d} />)}
+        </div>
+      )}
+
+      {showNew && (
+        <NewDiscussionModal
+          onClose={() => setShowNew(false)}
+          onCreated={d => { setDiscussions(prev => [d, ...prev]); setShowNew(false) }}
+        />
+      )}
     </div>
   )
 }

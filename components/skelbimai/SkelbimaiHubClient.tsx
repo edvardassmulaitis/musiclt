@@ -91,7 +91,7 @@ export function SkelbimaiHubClient({ itemsByType }: { itemsByType: Record<Listin
                 display: 'flex', alignItems: 'center', gap: 10, padding: '15px 18px', borderRadius: 12,
                 border: '1px dashed var(--border-default)', background: 'var(--bg-surface)', textDecoration: 'none',
               }}>
-                <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>Kol kas tuščia — <span style={{ color: 'var(--accent-blue)', fontWeight: 700 }}>būk pirmas, įdėk skelbimą</span></span>
+                <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>Kol kas tuščia — <span style={{ color: 'var(--accent-orange)', fontWeight: 700 }}>būk pirmas, įdėk skelbimą</span></span>
               </Link>
             )}
           </section>
@@ -134,5 +134,5 @@ const btnOrange: React.CSSProperties = {
 }
 const btnBlue: React.CSSProperties = {
   padding: '11px 18px', fontSize: 15, fontWeight: 700, borderRadius: 10,
-  background: 'var(--accent-blue)', color: '#fff', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+  background: 'var(--accent-orange)', color: '#fff', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
 }
