@@ -287,7 +287,8 @@ async function loadBlogPosts(blog: any): Promise<{ lanes: { type: string; posts:
   // DU list_items formatai: naujas {title, artist, image_url} ir legacy
   // {track_title, artist_name, track_legacy_id} (be image_url — resolvinam
   // per tracks.legacy_id → YT thumb žemiau).
-  const previewsNeedingThumb: { preview: any; legacyId: number }[] = []
+  const trackResolve: { preview: any; legacyId: number }[] = []
+  const albumResolve: { preview: any; legacyId: number }[] = []
   for (const lane of laneResults) {
     for (const p of lane.posts) {
       if (Array.isArray(p.list_items) && p.list_items.length > 0) {
@@ -298,8 +299,10 @@ async function loadBlogPosts(blog: any): Promise<{ lanes: { type: string; posts:
             artist: it?.artist_name ?? it?.artist ?? it?.subtitle ?? null,
             image_url: it?.image_url ?? null,
           }
-          if (!preview.image_url && it?.track_legacy_id) {
-            previewsNeedingThumb.push({ preview, legacyId: it.track_legacy_id })
+          if (it?.track_legacy_id && (!preview.image_url || !preview.title)) {
+            trackResolve.push({ preview, legacyId: it.track_legacy_id })
+          } else if (it?.album_legacy_id && (!preview.image_url || !preview.title)) {
+            albumResolve.push({ preview, legacyId: it.album_legacy_id })
           }
           return preview
         })
@@ -308,23 +311,39 @@ async function loadBlogPosts(blog: any): Promise<{ lanes: { type: string; posts:
     }
   }
 
-  // Legacy preview thumb'ai vienu batch'u (max ~36 id)
-  if (previewsNeedingThumb.length > 0) {
-    const ids = [...new Set(previewsNeedingThumb.map((x) => x.legacyId))]
+  // Legacy preview title/thumb resolve dviem batch'ais (track + album)
+  const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+  if (trackResolve.length > 0) {
+    const ids = [...new Set(trackResolve.map((x) => x.legacyId))]
     const { data: trs } = await sb
       .from('tracks')
-      .select('legacy_id, video_url, cover_url')
+      .select('legacy_id, title, video_url, cover_url')
       .in('legacy_id', ids)
-    const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
-    const byLegacy = new Map<number, string>()
-    for (const t of (trs || []) as any[]) {
-      const yt = t.video_url?.match?.(YT_RE)?.[1]
-      const thumb = yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : t.cover_url || null
-      if (thumb && t.legacy_id != null) byLegacy.set(t.legacy_id, thumb)
+    const byLegacy = new Map<number, any>()
+    for (const t of (trs || []) as any[]) if (t.legacy_id != null) byLegacy.set(t.legacy_id, t)
+    for (const { preview, legacyId } of trackResolve) {
+      const t = byLegacy.get(legacyId)
+      if (!t) continue
+      if (!preview.title) preview.title = t.title
+      if (!preview.image_url) {
+        const yt = t.video_url?.match?.(YT_RE)?.[1]
+        preview.image_url = yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : t.cover_url || null
+      }
     }
-    for (const { preview, legacyId } of previewsNeedingThumb) {
-      const thumb = byLegacy.get(legacyId)
-      if (thumb) preview.image_url = thumb
+  }
+  if (albumResolve.length > 0) {
+    const ids = [...new Set(albumResolve.map((x) => x.legacyId))]
+    const { data: als } = await sb
+      .from('albums')
+      .select('legacy_id, title, cover_image_url')
+      .in('legacy_id', ids)
+    const byLegacy = new Map<number, any>()
+    for (const a of (als || []) as any[]) if (a.legacy_id != null) byLegacy.set(a.legacy_id, a)
+    for (const { preview, legacyId } of albumResolve) {
+      const a = byLegacy.get(legacyId)
+      if (!a) continue
+      if (!preview.title) preview.title = a.title
+      if (!preview.image_url) preview.image_url = a.cover_image_url || null
     }
   }
 
