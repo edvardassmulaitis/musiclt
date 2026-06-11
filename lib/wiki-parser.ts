@@ -896,7 +896,20 @@ export function parseHashListTracks(
       release_day: dateInfo?.day ?? null,
     })
   }
-  return tracks
+  // 2026-06-11: deduplikacija pagal pavadinimą. Kai ==Track listings== turi
+  // kelias versijas (UK LP / US LP / CD reissue — Russians & Americans),
+  // parser'is paima visas → 40 dainų vietoj ~9. Pirmas occurrence laimi
+  // (paprastai originalus leidimas), dublikatai pašalinami.
+  const seen = new Set<string>()
+  const deduped: TrackEntry[] = []
+  let dedupOrder = 1
+  for (const t of tracks) {
+    const key = t.title.toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (seen.has(key)) continue
+    seen.add(key)
+    deduped.push({ ...t, sort_order: dedupOrder++ })
+  }
+  return deduped
 }
 
 /**
