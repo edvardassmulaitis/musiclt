@@ -33,17 +33,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slugId: s
   const parsed = parseSlugId(slugId)
   if (!parsed) return { title: 'Daina – music.lt' }
 
-  const supabase = createAdminClient()
-  const { data: track } = await supabase
-    .from('tracks')
-    .select('title, description')
-    .eq('id', parsed.id)
-    .single()
-
-  if (!track) return { title: 'Daina – music.lt' }
+  // PERF: reuse fetchTrackData (unstable_cache) vietoj atskiros DB query —
+  // metadata + page render dalinasi vienu fetch'u (cache warm-up).
+  const data = await fetchTrackData(parsed.id)
+  if (!data?.track) return { title: 'Daina – music.lt' }
+  const artistName = data.artistRow?.name
   return {
-    title: `${track.title} – music.lt`,
-    description: track.description ?? undefined,
+    title: `${data.track.title}${artistName ? ` – ${artistName}` : ''} – music.lt`,
+    description: data.track.description ?? undefined,
   }
 }
 
@@ -63,7 +60,12 @@ export default async function DainaPage({ params }: { params: Promise<{ slugId: 
 }
 
 // Cache'inam visus track page queries (60s) — sekantys hit'ai per 60s
-// gauna iš function memory cache'o (~50-200ms) vietoj re-running 11 queries.
+// gauna iš function memory cache'o (~50-200ms) vietoj re-running queries.
+//
+// PERF 2026-06-11: numesti 4 nenaudojami query'iai (legacy likes count +
+// users, lyric comments, entity comments) — TrackPageClient jų NENAUDOJO
+// (EntityCommentsBlock ir LyricsWithReactions patys fetch'ina client-side).
+// 10 queries → 6. Cache key v2 (shape pasikeitė, +duration).
 const fetchTrackData = unstable_cache(
   async (id: number) => {
     const supabase = createAdminClient()
@@ -82,18 +84,13 @@ const fetchTrackData = unstable_cache(
     ;(track as any).score = null
     ;(track as any).score_breakdown = null
 
-    const trackLegacyId = (track as any).legacy_id ?? null
     const titleFragment = track.title.split('(')[0].split('-')[0].trim().slice(0, 20)
 
-    const [artistRes, featuringRes, albumTrackRes, likesRes, legacyCntRes, legacyUsersRes, lyricCommentsRes, entityCommentsRes, versionsRes, relatedRes] = await Promise.all([
+    const [artistRes, featuringRes, albumTrackRes, likesRes, versionsRes, relatedRes] = await Promise.all([
       supabase.from('artists').select('id, slug, name, cover_image_url').eq('id', track.artist_id).single(),
       supabase.from('track_artists').select('artists(id, slug, name, cover_image_url)').eq('track_id', id).neq('artist_id', track.artist_id),
       supabase.from('album_tracks').select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio, type)').eq('track_id', id),
       supabase.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'track').eq('entity_id', id),
-      trackLegacyId ? supabase.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'track').eq('entity_legacy_id', trackLegacyId) : Promise.resolve({ count: 0 } as any),
-      trackLegacyId ? supabase.from('likes').select('user_username, profiles:user_id(avatar_url, rank)').eq('entity_type', 'track').eq('entity_legacy_id', trackLegacyId).order('id', { ascending: true }).limit(30) : Promise.resolve({ data: [] } as any),
-      supabase.from('track_lyric_comments').select('id, selection_start, selection_end, selected_text, type, text, likes, created_at').eq('track_id', id).order('created_at', { ascending: true }),
-      trackLegacyId ? supabase.from('entity_comments').select('legacy_id, author_username, author_avatar_url, created_at, content_html, content_text, like_count').eq('entity_type', 'track').eq('entity_legacy_id', trackLegacyId).order('created_at', { ascending: true }) : Promise.resolve({ data: [] as any[] } as any),
       supabase.from('tracks').select('id, slug, title, type, video_url').eq('artist_id', track.artist_id).ilike('title', `%${titleFragment}%`).neq('id', id).limit(10),
       supabase.from('tracks').select('id, slug, title, type, video_url, is_new, release_date').eq('artist_id', track.artist_id).neq('id', id).order('release_date', { ascending: false }).limit(8),
     ])
@@ -103,28 +100,18 @@ const fetchTrackData = unstable_cache(
       featuringRows: (featuringRes as any).data ?? [],
       albumTrackRows: (albumTrackRes as any).data ?? [],
       likes: (likesRes as any).count ?? 0,
-      legacyCnt: (legacyCntRes as any).count || 0,
-      // Flatten profiles JOIN → user_avatar_url/user_rank (backward-compat
-       // su child UI komponentais po 2026-05-28c slim-down).
-      legacyUsers: (((legacyUsersRes as any).data as any[]) || []).map((u: any) => ({
-        user_username: u.user_username,
-        user_avatar_url: u.profiles?.avatar_url || null,
-        user_rank: u.profiles?.rank || null,
-      })),
-      lyricComments: (lyricCommentsRes as any).data ?? [],
-      entityComments: (entityCommentsRes as any).data ?? [],
       versionRows: (versionsRes as any).data ?? [],
       relatedRows: (relatedRes as any).data ?? [],
     }
   },
-  ['track-full-data-v1'],
+  ['track-full-data-v2'],
   { revalidate: TRACK_CACHE_TTL, tags: ['track'] },
 )
 
 async function TrackContent({ slug, id }: { slug: string; id: number }): Promise<React.ReactElement> {
   const data = await fetchTrackData(id)
   if (!data) notFound()
-  const { track, artistRow, featuringRows, albumTrackRows, likes, legacyCnt, legacyUsers, lyricComments, entityComments, versionRows, relatedRows } = data
+  const { track, artistRow, featuringRows, albumTrackRows, likes, versionRows, relatedRows } = data
   if (!artistRow) notFound()
 
   // ── Canonical slug check ─────────────────────────────────────────────────
@@ -143,9 +130,6 @@ async function TrackContent({ slug, id }: { slug: string; id: number }): Promise
     .filter(Boolean)
     .map((a: any) => ({ ...a, type: a.type_studio ? 'Studijinis albumas' : (a.type ?? 'Albumas') }))
 
-  const legacyLikes = { count: legacyCnt, users: legacyUsers }
-  const isLegacy = typeof (track as any).source === 'string' && (track as any).source.startsWith('legacy')
-
   // ── Wikipedia trivia placeholder ──
   const trivia: string | null = null
 
@@ -160,13 +144,6 @@ async function TrackContent({ slug, id }: { slug: string; id: number }): Promise
     featuring: [],
   }))
 
-  // (Old function body inlined above — return stayed the same below)
-  // Skip the now-redundant fetch block by returning early-shaped data:
-  return _renderTrackPage({ track, artistRow, featuring, albums, likes, lyricComments, entityComments, versionRows, trivia, relatedTracks, isLegacy, legacyLikes })
-}
-
-function _renderTrackPage(opts: any): React.ReactElement {
-  const { track, artistRow, featuring, albums, likes, lyricComments, entityComments, versionRows, trivia, relatedTracks, isLegacy, legacyLikes } = opts
   return (
     <TrackPageClient
       track={{ ...track, featuring, show_ai_interpretation: track.show_ai_interpretation ?? false } as any}
@@ -174,13 +151,9 @@ function _renderTrackPage(opts: any): React.ReactElement {
       albums={albums as any}
       versions={(versionRows ?? []) as any}
       likes={likes ?? 0}
-      lyricComments={(lyricComments ?? []) as any}
-      entityComments={(entityComments ?? []) as any}
       trivia={trivia}
       relatedTracks={relatedTracks as any}
       aiInterpretation={(track as any).ai_interpretation ?? null}
-      isLegacy={isLegacy}
-      legacyLikes={legacyLikes}
     />
   )
 }

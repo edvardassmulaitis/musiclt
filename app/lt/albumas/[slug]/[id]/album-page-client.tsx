@@ -27,6 +27,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import { LikePill } from '@/components/LikePill'
+import { SharePill } from '@/components/SharePill'
 import LikesModal from '@/components/LikesModal'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 
@@ -216,6 +217,8 @@ export default function AlbumPageClient({
 
   // Tab toggle — Dainos ↔ Komentarai (visiems viewport'ams, kaip modal'e).
   const [mobileTab, setMobileTab] = useState<'tracks' | 'comments'>('tracks')
+  // Komentarų count — emit'ina EntityCommentsBlock (tab badge + header pill).
+  const [commentTotal, setCommentTotal] = useState(0)
   // Click-to-play video state — orange play overlay matches modal pattern.
   const [videoStarted, setVideoStarted] = useState(false)
   const videoIframeRef = useRef<HTMLIFrameElement>(null)
@@ -375,13 +378,47 @@ export default function AlbumPageClient({
             )}
           </Link>
           <div className="min-w-0 flex-1">
-            <div className="truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[16px]">
-              {album.title}
+            {/* Kicker — TIPAS · METAI, kaip track puslapio header'yje. */}
+            <div className="mb-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--accent-orange)]">
+              {albumTypeLabel}
+              {album.year ? ` · ${album.year} m.` : ''}
             </div>
+            <h1 className="truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[16px]">
+              {album.title}
+            </h1>
             <div className="truncate text-[11.5px] leading-tight">
               <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
                 {artist.name}
               </Link>
+            </div>
+            {/* Veiksmų eilutė — LikePill + Komentarai + Dalintis. Identiška
+                track puslapio / modalų veiksmų eilutei. */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <LikePill
+                likes={likeCount}
+                selfLiked={selfLiked}
+                onToggle={onToggleLike}
+                onOpenModal={onOpenLikersModal}
+                pending={selfLikePending}
+                variant="surface"
+              />
+              <button
+                type="button"
+                onClick={() => setMobileTab('comments')}
+                title="Peršokti į komentarus"
+                className="inline-flex h-[30px] items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                Komentarai
+                {commentTotal > 0 && (
+                  <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
+                    {commentTotal}
+                  </span>
+                )}
+              </button>
+              <SharePill title={`${album.title} — ${artist.name}`} url={`/albumai/${artist.slug}-${album.slug}-${album.id}`} />
             </div>
           </div>
           <Link
@@ -447,23 +484,17 @@ export default function AlbumPageClient({
               </div>
             )}
           </div>
-          <div className="flex flex-col items-start gap-1 border-l border-[var(--border-subtle)] px-3 py-2 text-[11px]">
-            <LikePill
-              likes={likeCount}
-              selfLiked={selfLiked}
-              onToggle={onToggleLike}
-              onOpenModal={onOpenLikersModal}
-              pending={selfLikePending}
-              variant="surface"
-            />
+          {/* Meta stack — chip stilius kaip track puslapyje/modale. LikePill
+              perkeltas į header'io veiksmų eilutę. */}
+          <div className="flex flex-row flex-wrap items-start gap-2 border-l border-[var(--border-subtle)] px-3 py-2 text-[11px] sm:flex-col">
             {dateStr && (
-              <span className="mt-2 font-['Outfit',sans-serif] text-[11px] font-extrabold leading-tight text-[var(--text-primary)]">
+              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-primary)]">
                 {dateStr}
               </span>
             )}
-            {albumTypeLabel && (
-              <span className="font-['Outfit',sans-serif] text-[10.5px] font-bold leading-tight text-[var(--text-muted)]">
-                {albumTypeLabel}
+            {tracks.length > 0 && (
+              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold leading-tight text-[var(--text-muted)]">
+                {tracks.length} dain{tracks.length % 10 === 1 && tracks.length % 100 !== 11 ? 'a' : (tracks.length % 10 >= 2 && tracks.length % 10 <= 9 && (tracks.length % 100 < 11 || tracks.length % 100 > 19) ? 'os' : 'ų')}
               </span>
             )}
             {album.is_upcoming && (
@@ -486,7 +517,12 @@ export default function AlbumPageClient({
                 : 'text-[var(--text-muted)]',
             ].join(' ')}
           >
-            Dainos
+            <span>Dainos</span>
+            {tracks.length > 0 && (
+              <span className="rounded-full bg-[var(--bg-hover)] px-1.5 py-px text-[10px] font-extrabold leading-none text-[var(--text-muted)]">
+                {tracks.length}
+              </span>
+            )}
           </button>
           <button
             type="button"
@@ -498,7 +534,12 @@ export default function AlbumPageClient({
                 : 'text-[var(--text-muted)]',
             ].join(' ')}
           >
-            Komentarai
+            <span>Komentarai</span>
+            {commentTotal > 0 && (
+              <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
+                {commentTotal}
+              </span>
+            )}
           </button>
         </div>
 
@@ -512,7 +553,8 @@ export default function AlbumPageClient({
               entityType="album"
               entityId={album.id}
               compact
-              title="Komentarai"
+              title={commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Komentarai'}
+              onCountChange={setCommentTotal}
             />
           </div>
         </div>
@@ -536,7 +578,7 @@ export default function AlbumPageClient({
                 {otherAlbums.slice(0, 6).map(a => (
                   <AlbumThumbCard
                     key={a.id}
-                    href={`/lt/albumas/${a.slug}/${a.id}/`}
+                    href={`/albumai/${artist.slug}-${a.slug}-${a.id}`}
                     cover={a.cover_image_url || null}
                     title={a.title}
                     subtitle={a.year ? String(a.year) : ''}
@@ -554,7 +596,7 @@ export default function AlbumPageClient({
                 {similarAlbums.slice(0, 6).map((a: any) => (
                   <AlbumThumbCard
                     key={a.id}
-                    href={`/lt/albumas/${a.slug}/${a.id}/`}
+                    href={a.artists?.slug ? `/albumai/${a.artists.slug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`}
                     cover={a.cover_image_url || null}
                     title={a.title}
                     subtitle={a.artists?.name ? a.artists.name : (a.year ? String(a.year) : '')}

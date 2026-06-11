@@ -15,6 +15,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { LikePill } from '@/components/LikePill'
+import { SharePill } from '@/components/SharePill'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
 import { proxyImg } from '@/lib/img-proxy'
@@ -100,10 +101,12 @@ export function TrackInfoModal({
   //  always-visible aside. Reason: opacity-0 + translate-y-full initial state
   //  could get stuck on iOS Safari if rAF/setMounted didn't propagate, leaving
   //  user with backdrop-blur but invisible aside.)
-  // Local "self liked" toggle for the LikePill — track page'as pats turi pilną
-  // optimistic-update logiką. Drawer'is paprastesnis: vizualus toggle, kad
-  // user'is matytų reakciją; pilnas like persist'inimas vyksta track puslapyje.
+  // Like — PERSISTINAMAS per /api/tracks/[id]/like (kaip track puslapyje ir
+  // albumo modale). Anksčiau buvo tik vizualus toggle be persist'o.
   const [selfLiked, setSelfLiked] = useState(false)
+  const [likePending, setLikePending] = useState(false)
+  // Server count — kai GET sync grąžina, naudojam jį vietoj track.like_count.
+  const [serverLikeCount, setServerLikeCount] = useState<number | null>(null)
   // Likers modal valdymas — atidarymas iš LikePill onOpenModal callback'o.
   const [likersOpen, setLikersOpen] = useState(false)
   const [likersUsers, setLikersUsers] = useState<Array<{ user_username: string; user_rank: string | null; user_avatar_url: string | null }> | null>(null)
@@ -189,6 +192,7 @@ export function TrackInfoModal({
     document.body.style.width = '100%'
     // Per-track state reset.
     setSelfLiked(false)
+    setServerLikeCount(null)
     setMobileTab('lyrics')
     setVideoStarted(false)
     return () => {
@@ -214,6 +218,40 @@ export function TrackInfoModal({
       .catch(() => setLikersUsers([]))
   }, [likersOpen, track?.id])
 
+  // Like sync — ar šis vartotojas jau like'inęs + tikras count.
+  useEffect(() => {
+    if (!track) return
+    let cancelled = false
+    fetch(`/api/tracks/${track.id}/like`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        if (typeof d.liked === 'boolean') setSelfLiked(d.liked)
+        if (typeof d.count === 'number') setServerLikeCount(d.count)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [track?.id])
+
+  const onToggleLike = async () => {
+    if (likePending || !track) return
+    setLikePending(true)
+    const prev = selfLiked
+    setSelfLiked(!prev)
+    setServerLikeCount(c => (c ?? (typeof track.like_count === 'number' ? track.like_count : 0)) + (prev ? -1 : 1))
+    try {
+      const res = await fetch(`/api/tracks/${track.id}/like`, { method: 'POST' })
+      const d = await res.json()
+      if (typeof d.liked === 'boolean') setSelfLiked(d.liked)
+      if (typeof d.count === 'number') setServerLikeCount(d.count)
+    } catch {
+      setSelfLiked(prev)
+      setServerLikeCount(c => (c ?? 0) - (prev ? -1 : 1))
+    } finally {
+      setLikePending(false)
+    }
+  }
+
   const handleClose = () => {
     onClose()
   }
@@ -231,8 +269,9 @@ export function TrackInfoModal({
     ? (() => { const d = new Date(track.release_date!); return isNaN(d.getTime()) ? null : `${d.getFullYear()} m. ${ltMonths[d.getMonth()]} ${d.getDate()} d.` })()
     : (track.release_year && track.release_month ? `${track.release_year} m. ${ltMonths[track.release_month - 1]} mėn.` : null)
   const dateLabel = fullDate || (year ? `${year} m.` : null)
-  const baseLikes = typeof track.like_count === 'number' ? track.like_count : 0
-  const likes = baseLikes + (selfLiked ? 1 : 0)
+  // serverLikeCount (sync'intas iš /api/tracks/[id]/like) jau įskaito visus
+  // like'us, įskaitant šio user'io — fallback į track.like_count kol kraunasi.
+  const likes = serverLikeCount ?? (typeof track.like_count === 'number' ? track.like_count : 0)
   const lyrics = (track.lyrics || '').trim()
   const lyricsText = lyrics ? lyrics.replace(/<[^>]+>/g, '').trim() : null
   const trackHref = `/dainos/${artistSlug}-${track.slug}-${track.id}`
@@ -382,6 +421,19 @@ export function TrackInfoModal({
                 track.featuring || [],
               )}
             </div>
+            {/* Veiksmų eilutė — identiška track puslapio header'iui (LikePill
+                + Dalintis). Vienoda „dainos kortelės kalba" abiejuose. */}
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <LikePill
+                likes={likes}
+                selfLiked={selfLiked}
+                onToggle={onToggleLike}
+                pending={likePending}
+                onOpenModal={() => setLikersOpen(true)}
+                variant="surface"
+              />
+              <SharePill title={`${track.title} — ${artistName}`} url={trackHref} size="sm" />
+            </div>
           </div>
           <Link
             href={trackHref}
@@ -474,45 +526,41 @@ export function TrackInfoModal({
             )}
           </div>
 
-          {/* Right: meta stack — likes (fixed width), tarpas, data + albumai.
-              items-start kad LikePill nesistretchintų per visą col plotį. */}
-          <div className="flex flex-row flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--border-subtle)] px-3 py-2.5 text-[11px] sm:flex-col sm:items-start sm:gap-1 sm:border-l sm:border-t-0 sm:px-2.5 sm:py-2">
-            {/* DropBar (emoji reactions) paslėpta — re-enable kai user'iui jis taps relevant. */}
-            <LikePill
-              likes={likes}
-              selfLiked={selfLiked}
-              onToggle={() => setSelfLiked(v => !v)}
-              onOpenModal={() => setLikersOpen(true)}
-              variant="surface"
-            />
+          {/* Right: meta stack — data + albumai chip'ais (tas pats stilius
+              kaip track puslapio meta cluster'yje). LikePill perkeltas į
+              header'io veiksmų eilutę. */}
+          <div className="flex flex-row flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] px-3 py-2.5 text-[11px] sm:flex-col sm:items-start sm:border-l sm:border-t-0 sm:px-2.5 sm:py-2">
             {dateLabel && (
-              <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold leading-tight text-[var(--text-primary)] sm:mt-2">
+              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-primary)]">
                 {dateLabel}
               </span>
             )}
             {dur && (
-              <span className="truncate font-['Outfit',sans-serif] text-[11px] font-bold tabular-nums text-[var(--text-muted)]">
+              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold tabular-nums leading-tight text-[var(--text-muted)]">
                 {dur}
               </span>
             )}
+            {/* Albumo chip — KANONINIS /albumai/{artist}-{album}-{id} URL.
+                FIX 2026-06-11: anksčiau vedė į seną /lt/albumas/... kelią. */}
             {(track.albums || []).slice(0, 2).map((al) => (
               <Link
                 key={al.id}
-                href={`/lt/albumas/${al.slug}/${al.id}`}
+                href={`/albumai/${artistSlug}-${al.slug}-${al.id}`}
                 target="_blank"
                 rel="noopener"
                 title={al.title}
-                className="flex min-w-0 items-center gap-1.5 no-underline"
+                className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] py-0.5 pl-1 pr-2.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
               >
-                <span className="h-5 w-5 shrink-0 overflow-hidden rounded bg-[var(--cover-placeholder)]">
+                <span className="h-5 w-5 shrink-0 overflow-hidden rounded-full bg-[var(--cover-placeholder)]">
                   {al.cover_image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(al.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                   ) : null}
                 </span>
-                <span className="line-clamp-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-secondary)]">
+                <span className="truncate font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-primary)]">
                   {al.title}
                 </span>
+                {al.year && <span className="shrink-0 text-[9.5px] font-bold text-[var(--text-faint)]">{al.year}</span>}
               </Link>
             ))}
           </div>
@@ -593,12 +641,61 @@ export function TrackInfoModal({
             />
           </div>
         </div>
+
+        {/* ── „Daugiau iš atlikėjo" footer strip — kad modalas nebūtų
+            aklavietė. Rodom tik kai parent perdavė artistTracks (artist
+            page). Click → onSelectTrack (switch'ina modalą be uždarymo),
+            fallback — nuoroda į dainos puslapį. */}
+        {(() => {
+          const more = (artistTracks || [])
+            .filter((t: any) => t.id !== track.id && yt(t.video_url))
+            .slice(0, 6)
+          if (more.length === 0) return null
+          return (
+            <div className="shrink-0 border-t border-[var(--border-subtle)] px-4 pb-3 pt-2.5">
+              <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                Daugiau iš {artistName}
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                {more.map((t: any) => {
+                  const tvid = yt(t.video_url)
+                  const inner = (
+                    <>
+                      <span className="block aspect-video w-full overflow-hidden rounded bg-black">
+                        {tvid && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`}
+                            alt=""
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover"
+                          />
+                        )}
+                      </span>
+                      <span className="block truncate px-1 pb-0.5 pt-1 text-left font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-primary)]">
+                        {t.title}
+                      </span>
+                    </>
+                  )
+                  const cls = 'block w-[124px] shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
+                  return onSelectTrack ? (
+                    <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>
+                      {inner}
+                    </button>
+                  ) : (
+                    <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>
+                      {inner}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
       </aside>
 
       {LikersOverlay}
     </div>,
     document.body,
   )
-  // artistSlug is kept for future deep-links (e.g. "More from artist")
-  void artistSlug
 }

@@ -1,14 +1,13 @@
 'use client'
 // app/lt/daina/[slug]/[id]/track-page-client.tsx
-import { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import LegacyLikesPanel, { type LegacyLikeUser } from '@/components/LegacyLikesPanel'
 import ScoreCard from '@/components/ScoreCard'
 import { LikePill } from '@/components/LikePill'
+import { SharePill } from '@/components/SharePill'
 import { proxyImg } from '@/lib/img-proxy'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
-import DropBar from '@/components/DropBar'
 import { formatArtistList } from '@/lib/format-artists'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -24,31 +23,13 @@ type Track = {
   peak_chart_position?: number | null; certifications?: any
 }
 type Album = { id: number; slug: string; title: string; year?: number; cover_image_url: string | null; type: string }
-type LyricReaction = {
-  id: number; selection_start: number; selection_end: number
-  selected_text: string; type: 'like' | 'comment'; text: string
-  likes: number; created_at: string
-}
 type Version = { id: number; slug: string; title: string; type: string; video_url: string | null }
-type EntityComment = {
-  legacy_id: number
-  author_username: string | null
-  author_avatar_url: string | null
-  created_at: string | null
-  content_html: string | null
-  content_text: string | null
-  like_count: number
-}
 type Props = {
   track: Track; artist: Artist; albums: Album[]
   versions: Version[]; likes: number
-  lyricComments: LyricReaction[]; trivia: string | null
+  trivia: string | null
   relatedTracks: Track[]
   aiInterpretation?: string | null
-  isLegacy?: boolean
-  legacyLikes?: { count: number; users: LegacyLikeUser[] }
-  /** Music.lt komentarai prie šios dainos (entity_comments lentelė). */
-  entityComments?: EntityComment[]
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -74,15 +55,6 @@ const MusicIcon = ({ s = 16, c = '#fff' }: { s?: number; c?: string }) => (
 const GuitarIcon = ({ s = 13, c = 'currentColor' }: { s?: number; c?: string }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M19.59 3c-.96 0-1.86.37-2.54 1.05L14 7.1C12.45 6.39 10.6 6.6 9.26 7.93L3 14.19l.71.71-1.42 1.41 1.42 1.41 1.06-1.06.7.71-1.41 1.41 1.41 1.41 1.41-1.41.71.71-1.06 1.06 1.41 1.41L16.07 15c1.33-1.33 1.54-3.19.82-4.73l3.06-3.06C20.63 6.53 21 5.63 21 4.66 21 3.74 20.26 3 19.59 3zM15 15l-5-5 1.41-1.41 5 5L15 15z"/></svg>
 )
-// ── Stable sub-components (never re-mount) ─────────────────────────────────────
-
-const YoutubeEmbed = memo(({ videoId }: { videoId: string }) => (
-  <iframe src={`https://www.youtube.com/embed/${videoId}?rel=0`}
-    allow="autoplay; encrypted-media" allowFullScreen
-    style={{ width: '100%', aspectRatio: '16/9', border: 'none', display: 'block' }} />
-))
-YoutubeEmbed.displayName = 'YoutubeEmbed'
-
 /**
  * CustomPlayOverlay — vietoj YT native chrome'o detail'ų rodom mūsų
  * thumbnail + Play overlay'ą. Paspaudus:
@@ -207,22 +179,64 @@ function CustomPlayOverlay({ vid, title, trackId }: { vid: string; title: string
 
 export default function TrackPageClient({
   track, artist, albums, versions, likes: initialLikes,
-  lyricComments: initialReactions, trivia, relatedTracks,
+  trivia, relatedTracks,
   aiInterpretation,
-  isLegacy = false,
-  legacyLikes,
-  entityComments = [],
 }: Props) {
-  const hasLegacyLikes = !!legacyLikes && legacyLikes.count > 0
-
   // ── State ──────────────────────────────────────────────────────────────────
-  const [liked, setLiked] = useState(false)
+  // Like — PERSISTINAMAS per /api/tracks/[id]/like (auth + anon cookie flow,
+  // kaip albumo puslapyje). Anksčiau buvo tik vizualus toggle.
+  const [selfLiked, setSelfLiked] = useState(false)
+  const [likePending, setLikePending] = useState(false)
+  const [likeCount, setLikeCount] = useState(initialLikes)
   const [tab, setTab] = useState<'lyrics' | 'chords'>('lyrics')
   const [showAllV, setShowAllV] = useState(false)
-  const [loaded, setLoaded] = useState(false)
   // Mobile tab toggle — kaip artist'o modal'e: tarp lyrics ir comments,
   // kad nereikėtų stacked column'ų vienoj per kitą screen'e.
   const [mobileTab, setMobileTab] = useState<'lyrics' | 'comments'>('lyrics')
+  // Komentarų count — emit'ina EntityCommentsBlock. Rodomas header'io
+  // veiksmų eilutėje ir stulpelio antraštėje (consistency su modal'u).
+  const [commentTotal, setCommentTotal] = useState(0)
+  // Scroll target — „Komentarai" pill desktop'e scroll'ina į komentarų stulpelį.
+  const commentsColRef = useRef<HTMLDivElement>(null)
+
+  // Like sync + toggle (mirrors album-page-client)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/tracks/${track.id}/like`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        if (typeof d.liked === 'boolean') setSelfLiked(d.liked)
+        if (typeof d.count === 'number') setLikeCount(d.count)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [track.id])
+
+  const onToggleLike = async () => {
+    if (likePending) return
+    setLikePending(true)
+    const prev = selfLiked
+    setSelfLiked(!prev)
+    setLikeCount(c => c + (prev ? -1 : 1))
+    try {
+      const res = await fetch(`/api/tracks/${track.id}/like`, { method: 'POST' })
+      const data = await res.json()
+      if (typeof data.liked === 'boolean') setSelfLiked(data.liked)
+      if (typeof data.count === 'number') setLikeCount(data.count)
+    } catch {
+      setSelfLiked(prev)
+      setLikeCount(c => c - (prev ? -1 : 1))
+    } finally {
+      setLikePending(false)
+    }
+  }
+
+  const goToComments = () => {
+    // Mobile (<lg): tab perjungimas. Desktop: scroll į komentarų stulpelį.
+    setMobileTab('comments')
+    commentsColRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   // Likers modal — universal'us pop-over visiems entity types (comment / track /
   // album / post). Atidaromas paspaudus ant ♥N badge'o.
@@ -241,8 +255,6 @@ export default function TrackPageClient({
   const [aiText, setAiText] = useState<string | null>(aiInterpretation ?? null)
   const [aiLoad, setAiLoad] = useState(false)
   const [aiErr, setAiErr] = useState(false)
-
-  useEffect(() => { setLoaded(true) }, [])
 
   // Page-view ping — fire-and-forget. Server-side endpoint dedup'ina
   // per cookie (30 min lange), todėl page reload'ai netaškys counter'io.
@@ -291,123 +303,10 @@ export default function TrackPageClient({
   // ══════════════════════════════════════════════════════════════════════════
 
   // ── Cards ──────────────────────────────────────────────────────────────────
+  // (2026-06-11 valymas: TrackInfoCard, PlayerCard + vidAvailable probe,
+  //  DiscussionsCard, RelatedCard, LyricsCard — dead code, niekur
+  //  nerenderinti nuo modal-style layout perėjimo. Pašalinti.)
 
-  const TrackInfoCard = () => (
-    <div style={cardStyle}>
-      <div style={{ background: 'var(--cover-area-bg)', padding: 14, position: 'relative', opacity: loaded ? 1 : 0, transition: 'opacity .35s' }}>
-        {/* Like pill — heart toggle'ina vartotojo like'ą, count atidaro
-            modal'ą su visais user'iais kuriems patiko (kaip artist page'e). */}
-        <div style={{ position: 'absolute', top: 10, right: 12, zIndex: 2 }}>
-          <LikePill
-            likes={initialLikes + (liked ? 1 : 0)}
-            selfLiked={liked}
-            onToggle={() => setLiked(v => !v)}
-            onOpenModal={() => setLikersModalEntity({ type: 'track', id: track.id, label: 'dainą' })}
-            variant="surface"
-          />
-        </div>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', paddingRight: 76 }}>
-          {/* Profile thumb. Iteracijų istorija: 100x100 (per didelis, upscale
-              artifact'ai) → 72x72 (vis dar matosi pixelation) → 56x56. Music.lt
-              cover/avatar dažnai 60-80px source → bet kas <60px display'inant
-              GUARANTUOJA, kad nevyksta upscale, todėl natūralus rendering'as.
-              Be filter — smaller box nereikalauja smoothing'o. */}
-          <div style={{ flexShrink: 0, width: 56, height: 56, borderRadius: 10, overflow: 'hidden', boxShadow: '0 6px 18px rgba(0,0,0,.5)', background: 'var(--cover-placeholder)', position: 'relative' }}>
-            {(() => {
-              // Priority: newest galerijos foto > primary album cover > artist legacy thumb.
-              // Galerijos foto dažniausiai didesnės rezoliucijos nei legacy thumb,
-              // todėl matomas mažas profile thumb atrodo aštresnis.
-              const thumbSrc = (artist as any).profile_thumb_url || primaryAlbum?.cover_image_url || artist.cover_image_url || null
-              return thumbSrc ? (
-                <img
-                  src={proxyImg(thumbSrc)}
-                  alt=""
-                  style={{
-                    width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-                    imageRendering: 'auto',
-                  }}
-                />
-              ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🎵</div>
-              )
-            })()}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', fontFamily: 'Outfit,sans-serif', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <span>{track.type === 'normal' ? 'Daina' : (track.type || 'Daina')}</span>
-              {track.is_new && <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>NEW</span>}
-              {/* archive label removed */}
-            </div>
-            <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 'clamp(15px,2vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: 'var(--text-primary)', margin: '0 0 5px', wordBreak: 'break-word' }}>{track.title}</h1>
-            {/* Atlikėjų sąrašas — bendra LT formatavimo logika su modal'u
-                (komos tarp ne-paskutinių, „ir" prieš paskutinį). Vienas
-                šaltinis: lib/format-artists. */}
-            <div style={{ fontSize: 13, marginBottom: 2, lineHeight: 1.3 }}>
-              {formatArtistList(
-                { id: artist.id, slug: artist.slug, name: artist.name },
-                track.featuring,
-              )}
-            </div>
-            {dateStr && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dateStr}</div>}
-          </div>
-        </div>
-      </div>
-      {albums.length > 0 && (
-        <div style={{ padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--card-border-subtle)' }}>
-          <span style={{ fontSize: 10, color: 'var(--text-faint)', alignSelf: 'center', fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.06em' }}>Albumas</span>
-          {albums.map(a => (
-            <Link key={a.id} href={`/albumai/${artist.slug}-${a.slug}-${a.id}`}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px 5px 6px', borderRadius: 999, background: 'var(--card-hover-bg)', border: '1px solid var(--card-border-default)', textDecoration: 'none' }}>
-              {a.cover_image_url
-                ? <img src={proxyImg(a.cover_image_url)} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover' }} alt="" />
-                : <div style={{ width: 22, height: 22, borderRadius: 5, background: 'var(--cover-placeholder)' }} />}
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>{a.title}</span>
-              {a.year && <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{a.year}</span>}
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-
-  // YT video availability probe — bandom hqdefault.jpg dimensijas. YT
-  // unavailable video grąžina 120x90 generic placeholder, live video —
-  // 480x360 thumbnail. null = nepatikrinta, true = OK, false = unavailable.
-  const [vidAvailable, setVidAvailable] = useState<boolean | null>(null)
-  useEffect(() => {
-    if (!vid) { setVidAvailable(null); return }
-    setVidAvailable(null)
-    const img = new Image()
-    img.onload = () => {
-      // hqdefault size: live = 480x360, unavailable = 120x90
-      setVidAvailable(img.naturalWidth >= 200)
-    }
-    img.onerror = () => setVidAvailable(false)
-    img.src = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`
-  }, [vid])
-
-  // PlayerCard stable with useMemo
-  const PlayerCard = useMemo(() => {
-    const showVideo = vid && vidAvailable !== false  // hide if known dead
-    if (!showVideo && !track.show_player) return null
-    return (
-      <div style={{ ...cardStyle }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 13px 8px', borderBottom: 'var(--card-border-subtle)' }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <MusicIcon s={15} />
-          </div>
-          <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--head-text)', fontFamily: 'Outfit,sans-serif' }}>Klausyk</span>
-        </div>
-        {showVideo && <YoutubeEmbed videoId={vid!} />}
-        {track.spotify_id && (
-          <iframe src={`https://open.spotify.com/embed/track/${track.spotify_id}?utm_source=generator&theme=0`}
-            style={{ width: '100%', height: 80, border: 'none', display: 'block', borderTop: '1px solid var(--card-border-subtle)' }}
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" />
-        )}
-      </div>
-    )
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vid, vidAvailable, track.spotify_id, track.show_player])
 
   const AICard = () => {
     if (!track.show_ai_interpretation) return null
@@ -498,109 +397,6 @@ export default function TrackPageClient({
     )
   }
 
-  // Diskusijų sekcija — naudojam unifikuotą EntityCommentsBlock (track modal,
-  // album page taip pat). Komponentas pats fetch'ina modern + legacy
-  // komentarus, palaiko like'us, replies, music attachments.
-  const DiscussionsCard = () => (
-    <div style={cardStyle}>
-      <div style={{ padding: '14px 14px 12px' }}>
-        <EntityCommentsBlock
-          entityType="track"
-          entityId={track.id}
-          title="Komentarai"
-        />
-      </div>
-    </div>
-  )
-
-  const RelatedCard = () => {
-    if (relatedTracks.length === 0) return null
-    return (
-      <div style={cardStyle}>
-        <div style={headStyle}>Kitos {artist.name} dainos</div>
-        {relatedTracks.slice(0, 6).map((t, i) => (
-          <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: i < 5 ? '1px solid var(--card-border-subtle)' : 'none', textDecoration: 'none' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--card-hover-bg)')}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
-            <div style={{ width: 30, height: 30, borderRadius: 6, background: 'var(--cover-placeholder)', flexShrink: 0, overflow: 'hidden' }}>
-              {artist.cover_image_url && <img src={proxyImg(artist.cover_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
-            </div>
-            {ytId(t.video_url) && (
-              <div style={{ width: 18, height: 18, borderRadius: 4, background: 'rgba(249,115,22,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="7" height="7" viewBox="0 0 10 10" fill="#f97316"><polygon points="2,1 9,5 2,9"/></svg>
-              </div>
-            )}
-          </Link>
-        ))}
-      </div>
-    )
-  }
-
-  // ── Lyrics ─────────────────────────────────────────────────────────────────
-  const LyricsCard = () => (
-    <div style={cardStyle}>
-      {/* Tabs — Akordai tabas rodomas TIK jei yra akordų. Anksčiau buvo
-          rodomas su "Akordai dar nepridėti" empty state, bet vis tiek
-          užimdavo vietą. */}
-      <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--card-border-subtle)', padding: '0 14px' }}>
-        {(['lyrics', 'chords'] as const).filter(t => t === 'lyrics' || hasChords).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '11px 12px 10px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: tab === t ? 800 : 600, color: tab === t ? '#f97316' : 'var(--text-faint)', borderBottom: tab === t ? '2px solid #f97316' : '2px solid transparent', marginBottom: -1, fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.07em' }}>
-            {t === 'lyrics'
-              ? <><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h12v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg> Dainos tekstas</>
-              : <><GuitarIcon s={11} /> Akordai</>}
-          </button>
-        ))}
-        {tab === 'lyrics' && hasLyrics && (
-          <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--text-faint)', fontStyle: 'italic' }}>Pažymėk tekstą</span>
-        )}
-      </div>
-
-      {/* Lyrics content — naudojam unifikuotą LyricsWithReactions (tas pats
-          komponentas veikia track modal'e, čia, ir bus visur kur reikia
-          reaguoti į konkrečias dainos eilutes). */}
-      {tab === 'lyrics' && (
-        !hasLyrics
-          ? <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>Dainos tekstas dar nepridėtas</div>
-          : (
-            <div style={{ position: 'relative', padding: '16px 18px' }}>
-              <LyricsWithReactions trackId={track.id} lyrics={track.lyrics ?? ''} />
-            </div>
-          )
-      )}
-
-      {/* Chords content */}
-      {tab === 'chords' && (
-        !hasChords
-          ? <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>Akordai dar nepridėti</div>
-          : (
-            <div style={{ padding: '12px 18px' }}>
-              <div style={{ marginBottom: 10, fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <GuitarIcon c="var(--text-muted)" /> Akordai ir žodžiai
-              </div>
-              <pre style={{ fontFamily: "'DM Mono','Fira Mono',monospace", fontSize: 13, lineHeight: 1.9, color: 'var(--lyric-text)', margin: 0, whiteSpace: 'pre-wrap' }}>
-                {(track.chords ?? '').split('\n').map((line, i) => {
-                  const isChord = /^[A-G][#bm]?(maj|min|aug|dim|sus|add|M)?[0-9]?(\s+[A-G][#bm]?(maj|min|aug|dim|sus|add|M)?[0-9]?)*\s*$/.test(line)
-                  if (isChord) return (
-                    <div key={i} style={{ marginBottom: 2 }}>
-                      {line.split(/(\s+)/).map((tok, j) => tok.trim()
-                        ? <span key={j} style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 5, background: 'var(--chord-bg)', color: 'var(--chord-text)', fontWeight: 700, marginRight: 4, fontSize: 12 }}>{tok}</span>
-                        : <span key={j}>{tok}</span>)}
-                    </div>
-                  )
-                  return <div key={i}>{line || ' '}</div>
-                })}
-              </pre>
-            </div>
-          )
-      )}
-    </div>
-  )
-
   // ══════════════════════════════════════════════════════════════════════════
   // MAIN RETURN — modal-style layout for the standalone track page.
   // Idėja: pati struktūra atitiktu artist'o TrackInfoModal'ą — top bar pilnu
@@ -617,6 +413,7 @@ export default function TrackPageClient({
   )
   const hasMobileTabs = hasLyrics  // tabs only matter when we have content for both
   const trackTypeLabel = track.type === 'normal' ? 'Daina' : (track.type || 'Daina')
+  const releaseYear = track.release_date ? new Date(track.release_date).getFullYear() : null
 
   return (
     // route-enter: 280ms fade-in iš loading.tsx skeleton'o (žr. globals.css).
@@ -661,14 +458,19 @@ export default function TrackPageClient({
             </Link>
           )
         })()}
-        {/* Identity cluster — title viršuj, atlikėjas, paskui chip eilutė
-            su LikePill + DropBar. Stack'inta vertikaliai, kad reakcijos
-            netruktų prie title'o ir nesimaištytų su tipografijos lygiu. */}
+        {/* Identity cluster — kicker (TIPAS · METAI) → title → atlikėjas →
+            veiksmų eilutė (LikePill + Komentarai + Dalintis). Ta pati
+            struktūra kaip TrackInfoModal header'yje — vienoda „dainos
+            kortelės kalba" puslapyje ir modale. */}
         <div className="min-w-0 flex-1">
+          <div className="mb-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--accent-orange)]">
+            {trackTypeLabel}
+            {releaseYear ? ` · ${releaseYear} m.` : ''}
+          </div>
           <div className="flex flex-wrap items-baseline gap-2">
-            <span className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[17px]">
+            <h1 className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[17px]">
               {track.title}
-            </span>
+            </h1>
             {track.is_new && (
               <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
                 NEW
@@ -678,16 +480,34 @@ export default function TrackPageClient({
           <div className="mt-0.5 truncate text-[12px] sm:text-[12.5px]">
             {artistLine}
           </div>
-          {/* Reactions row — atskira nuo title/artistas tipografijos */}
+          {/* Veiksmų eilutė — like (persistinamas per /api/tracks/[id]/like) +
+              komentarų count + Dalintis. Identiška modal'o veiksmų eilutei. */}
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <LikePill
-              likes={initialLikes + (liked ? 1 : 0)}
-              selfLiked={liked}
-              onToggle={() => setLiked(v => !v)}
+              likes={likeCount}
+              selfLiked={selfLiked}
+              onToggle={onToggleLike}
+              pending={likePending}
               onOpenModal={() => setLikersModalEntity({ type: 'track', id: track.id, label: 'dainą' })}
               variant="surface"
             />
-            {/* DropBar paslėpta — re-enable kai user'iui taps relevant. */}
+            <button
+              type="button"
+              onClick={goToComments}
+              title="Peršokti į komentarus"
+              className="inline-flex h-[30px] items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Komentarai
+              {commentTotal > 0 && (
+                <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
+                  {commentTotal}
+                </span>
+              )}
+            </button>
+            <SharePill title={`${track.title} — ${artist.name}`} url={`/dainos/${artist.slug}-${track.slug}-${track.id}`} />
           </div>
         </div>
         {/* Meta cluster — data + albumai. Slepiasi siauresniam ekrane. */}
@@ -755,19 +575,26 @@ export default function TrackPageClient({
             ].join(' ')}
           >
             Komentarai
+            {commentTotal > 0 && (
+              <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
+                {commentTotal}
+              </span>
+            )}
           </button>
         </div>
       )}
 
-      {/* ── Mobile inline player — kaip modal'e, virš tabs/turinio ────────
+      {/* ── Inline player virš turinio — mobile IR lg (1024–1279px) ───────
           Custom Play overlay (vietoj YT native chrome details), kad išvengtumėm
-          autoplay block'o + galėtumėm inkrementuoti track_plays per pingPlay()
-          fire-and-forget. Iframe mount'inamas tik po user gesture (clicked=true)
-          — autoplay=1&mute=1 garantuoja, kad video pradės grojimą iškart.
-      */}
+          autoplay block'o + galėtumėm inkrementuoti track_plays fire-and-forget.
+          FIX 2026-06-11: buvo lg:hidden, o player stulpelis xl:flex — tarp
+          1024–1279px video IŠVIS nebuvo matomas. Dabar xl:hidden + max-w
+          constrain'as, kad lg plotyje video nebūtų per milžiniškas. */}
       {vid && (
-        <div className="aspect-video w-full bg-black lg:hidden">
-          <CustomPlayOverlay vid={vid} title={`${track.title} — ${artist.name}`} trackId={track.id} />
+        <div className="w-full bg-black xl:hidden">
+          <div className="mx-auto aspect-video w-full max-w-[760px]">
+            <CustomPlayOverlay vid={vid} title={`${track.title} — ${artist.name}`} trackId={track.id} />
+          </div>
         </div>
       )}
 
@@ -832,8 +659,9 @@ export default function TrackPageClient({
           </div>
         )}
 
-        {/* Comments col */}
-        <div className={[
+        {/* Comments col — ref naudojamas header'io „Komentarai" pill scroll'ui.
+            Title rodo count (kaip modal'o tab'as) kai žinomas. */}
+        <div ref={commentsColRef} className={[
           'min-h-0 px-5 py-5',
           mobileTab === 'comments' ? 'block' : 'hidden lg:block',
         ].join(' ')}>
@@ -841,7 +669,8 @@ export default function TrackPageClient({
             entityType="track"
             entityId={track.id}
             compact
-            title="Komentarai"
+            title={commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Komentarai'}
+            onCountChange={setCommentTotal}
           />
         </div>
 
@@ -927,8 +756,10 @@ export default function TrackPageClient({
 
       </div>
 
-      {/* ── Mobile-only ekstra (po main flow) — AI, Trivia, Versions, Daugiau */}
-      <div className="flex flex-col gap-3 px-4 pb-12 pt-4 lg:hidden">
+      {/* ── Ekstra po main flow (mobile + lg) — AI, Trivia, Versions, Daugiau.
+          FIX 2026-06-11: buvo lg:hidden — tarp 1024–1279px šios kortelės
+          dingdavo (xl player stulpelis jų dar nerodo). Dabar xl:hidden. */}
+      <div className="flex flex-col gap-3 px-4 pb-12 pt-4 xl:hidden">
         <AICard />
         <TriviaCard />
         <VersionsCard />
