@@ -813,7 +813,14 @@ export function parseHashListTracks(
   const nextSec = wikitext.slice(sectionStart).match(boundaryRe)
   const sectionEnd = nextSec && nextSec.index !== undefined
     ? sectionStart + nextSec.index : Math.min(sectionStart + 8000, wikitext.length)
+  // 2026-06-11: strip <small>/<ref>/HTML tags prieš regex matching'ą.
+  // Senesni jazz/classical album puslapiai (Michael Brecker „Don't Try This at Home")
+  // naudoja `# "Title" <small>(credits)</small> – 7:41` formatą — <small> tag'ai
+  // laužo regex'ą, nes jis tikisi `"Title" (note) – duration` be HTML tarpų.
   const body = wikitext.slice(sectionStart, sectionEnd)
+    .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+    .replace(/<ref[^/]*\/>/gi, '')
+    .replace(/<\/?(?:small|span|sup|sub|br\s*\/?|nowrap|abbr)[^>]*>/gi, '')
 
   // Singles ir dates — jei caller perdavė, naudoj; antraip parsuojam patys
   // iš wikitext'o (kad funkcija liktų self-contained external naudotojams).
