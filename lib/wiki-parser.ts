@@ -555,6 +555,11 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
   let inTable = false, skipSection = false, inSinglesSection = false, yearMode = false
   let currentYear: number | null = null
   let yearRowspan = 0
+  // 2026-06-11: ar šioje eilutėje jau radome title'ą. yearMode fallback'as (žemiau)
+  // agresyviai ima BET KOKĮ wikilink'ą cell'ą — The Sound lentelėje Label stulpelis
+  // ([[Korova]], [[Play It Again Sam Records]], [[WEA]]) tapdavo albumų pavadinimais.
+  // foundTitleInRow neleidžia imti daugiau nei VIENĄ title per eilutę.
+  let foundTitleInRow = false
   // 2026-06-02: ar dabartinė table eilutė yra pirmas cell po `|-`. Senesnio
   // formato lentelės (be plainrowheaders) albumo title'ą deda kaip pirmą PLAIN
   // cell'ą `| ''[[Title]]''` (ne `! scope="row"`). Buckshot rapper disco — visi
@@ -628,17 +633,18 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       // kviečiama ant MAIN page wikitext'o. Be šito Awards/Tours/Career skyriai
       // (kurie turi wikitable'us) leak'avo į studio sąrašą.
       if (!matched && depth === 2) { skipSection = true }
-      yearMode = false; currentYear = null; yearRowspan = 0; continue
+      yearMode = false; currentYear = null; yearRowspan = 0; foundTitleInRow = false; continue
     }
     if (skipSection || inSinglesSection) continue
-    if (line.startsWith('{|')) { inTable = true; yearMode = false; currentYear = null; yearRowspan = 0; atRowStart = false; continue }
-    if (line.startsWith('|}')) { inTable = false; yearMode = false; atRowStart = false; continue }
+    if (line.startsWith('{|')) { inTable = true; yearMode = false; currentYear = null; yearRowspan = 0; atRowStart = false; foundTitleInRow = false; continue }
+    if (line.startsWith('|}')) { inTable = false; yearMode = false; atRowStart = false; foundTitleInRow = false; continue }
     if (!inTable) continue
 
     if (/^\s*\|-/.test(line)) {  // 2026-06-02: apima styled row sep `|- style="..."`
       if (yearRowspan > 1) yearRowspan--
       else if (yearRowspan === 1) yearRowspan = 0
       atRowStart = true
+      foundTitleInRow = false
       continue
     }
 
@@ -744,23 +750,31 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       const peak_chart_position = parsePeakChartPosition(rowLines)
 
       albums.push({ title, year, month, day, type: currentType, wikiTitle, source: 'wikipedia', certifications, peak_chart_position })
+      foundTitleInRow = true
       continue
     }
 
-    if (yearMode && /^\|/.test(line) && !/^\|\|/.test(line)) {
+    // 2026-06-11: yearMode fallback TIK jei dar neradome title šioje eilutėje.
+    // Anksčiau KIEKVIENAS wikilink cell'as (Label stulpelis: [[Korova]], [[WEA]],
+    // [[Play It Again Sam Records]]) tapdavo albumu. foundTitleInRow užtikrina
+    // tik VIENĄ title per row (pirmas wikilink/italic cell po year'o).
+    if (yearMode && !foundTitleInRow && /^\|/.test(line) && !/^\|\|/.test(line)) {
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
       if (wm) {
         const wikiTitle = wm[1].trim(), title = cleanWikiText(wm[2] || wm[1])
         if (title && title.length > 2 && !/^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle) && !/^\d{4}/.test(title)) {
           const yr = line.match(/\b(19|20)\d{2}\b/)
           albums.push({ title, year: yr ? parseInt(yr[0]) : currentYear, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
+          foundTitleInRow = true
         }
       } else {
         const pm = line.match(/''([^']+)''/)
         if (pm) {
           const title = cleanWikiText(pm[1])
-          if (title && title.length > 2 && !/^\d/.test(title))
+          if (title && title.length > 2 && !/^\d/.test(title)) {
             albums.push({ title, year: currentYear, month: null, day: null, type: currentType, wikiTitle: title.replace(/ /g, '_'), source: 'wikipedia' })
+            foundTitleInRow = true
+          }
         }
       }
     }

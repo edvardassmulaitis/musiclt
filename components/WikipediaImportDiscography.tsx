@@ -370,6 +370,25 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
     }
 
     if (!inSingles || skipSubSection) continue
+
+    // 2026-06-11: Bullet-list singlai. Daugelis grupių (The Sound, senesnės
+    // punk/post-punk grupės) turi singlus NE wikitable, o bullet formatu:
+    //   * "Title"/"B-side" (YYYY, Label)
+    //   * "Title" (YYYY)
+    // Anksčiau `if (!inTable) continue` praleidžia visas ne-table eilutes →
+    // bullet-list singlai niekada nebuvo parse'inami.
+    if (!inTable && line.startsWith('*')) {
+      // Match: * "Title" ... (YYYY ...)
+      const bm = line.match(/^\*\s*"([^"]+)"/)
+      if (bm) {
+        let title = bm[1].trim()
+        const yearM = line.match(/\((\d{4})\b/)
+        const year = yearM ? parseInt(yearM[1]) : null
+        singles.push({ title, year, album: undefined, featured: undefined })
+      }
+      continue
+    }
+
     if (line.startsWith('{|')) { inTable = true; hasYearCol = false; sawScopeRow = false; currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false; continue }
     if (line.startsWith('|}')) { inTable = false; continue }
     if (!inTable) continue
