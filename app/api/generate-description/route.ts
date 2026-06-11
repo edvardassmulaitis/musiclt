@@ -124,7 +124,12 @@ LIETUVIŲ KALBA:
     if (!apiRes.ok) {
       const errBody = await apiRes.text()
       console.error('[generate-description] Anthropic error:', apiRes.status, errBody)
-      return NextResponse.json({ description: '' })
+      const status = apiRes.status
+      const hint = status === 529 ? 'Anthropic API perkrauta — bandyk dar kartą'
+        : status === 429 ? 'Per daug užklausų — palaukite minutę'
+        : status === 401 ? 'Neteisingas API raktas'
+        : `Anthropic API klaida (${status})`
+      return NextResponse.json({ description: '', error: hint })
     }
 
     const data = await apiRes.json()
@@ -142,6 +147,6 @@ LIETUVIŲ KALBA:
     return NextResponse.json({ description })
   } catch (e: any) {
     console.error('[generate-description]', e.message)
-    return NextResponse.json({ description: '' })
+    return NextResponse.json({ description: '', error: e.message || 'Vidinė klaida' })
   }
 }

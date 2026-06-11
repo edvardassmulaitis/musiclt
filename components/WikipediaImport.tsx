@@ -1125,6 +1125,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
               type="button"
               onClick={async () => {
                 setStep('Generuojamas aprašymas...')
+                setError('')
                 try {
                   const dr = await fetch('/api/generate-description', {
                     method: 'POST',
@@ -1135,14 +1136,18 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                       type: p.type
                     }),
                   })
-                  if (dr.ok) {
-                    const d: any = await dr.json()
-                    if (d.description) {
-                      setPreview(prev => prev ? { ...prev, description: d.description, _descExpanded: true, _descEditing: false } as any : prev)
-                      setTranslateOk(true)
-                    }
+                  const d: any = await dr.json()
+                  if (d.description) {
+                    setPreview(prev => prev ? { ...prev, description: d.description, _descExpanded: true, _descEditing: false } as any : prev)
+                    setTranslateOk(true)
+                  } else if (d.error) {
+                    setError(`Aprašymo generavimas: ${d.error}`)
+                  } else {
+                    setError('Nepavyko sugeneruoti aprašymo — bandyk dar kartą')
                   }
-                } catch {}
+                } catch (e: any) {
+                  setError(`Aprašymo generavimas: ${e.message || 'tinklo klaida'}`)
+                }
                 setStep('')
               }}
               className="mt-1.5 text-[11px] text-blue-500 hover:text-blue-700 underline"

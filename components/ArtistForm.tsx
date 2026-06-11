@@ -1106,12 +1106,12 @@ function DescriptionEditor({ value, onChange, artistName, artistMeta }: {
         }),
       })
 
+      const data = await res.json()
       if (!res.ok) {
-        // Fallback: try direct Anthropic API (client-side, no key needed if proxied)
-        throw new Error(`HTTP ${res.status}`)
+        const hint = res.status === 529 ? 'API perkrauta' : res.status === 429 ? 'Per daug užklausų' : data.error || `Klaida ${res.status}`
+        throw new Error(hint)
       }
 
-      const data = await res.json()
       const text = data.content?.[0]?.text || ''
       if (text) {
         setDraft(`<p>${text.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`)
@@ -1119,7 +1119,7 @@ function DescriptionEditor({ value, onChange, artistName, artistMeta }: {
         throw new Error('Tuščias atsakymas')
       }
     } catch (e: any) {
-      setGenError('Nepavyko sugeneruoti. Bandyk dar kartą.')
+      setGenError(e.message || 'Nepavyko sugeneruoti')
     } finally {
       setGenerating(false)
     }
