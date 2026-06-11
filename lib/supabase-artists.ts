@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { normalizeBio } from '@/lib/normalize-bio'
+import { searchArtistsCore } from '@/lib/search-core'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -88,27 +89,17 @@ export async function getArtists(limit = 50, offset = 0, search = '', sort = 'na
   const orderAsc = sort !== 'score' // score descending, name ascending
 
   if (search) {
-    const { data, error } = await supabase.rpc('search_artists', {
-      search_term: search,
-      row_limit: limit,
-      row_offset: offset,
+    // BENDRAS paieškos variklis (lib/search-core): name_norm trigram indeksas
+    // (diakritikai nejautru, „zveris" randa „Žvėris") + rikiavimas
+    // exact > prefix > contains, tier'o viduje pagal populiarumą (score desc).
+    // Pakeitė lėtą search_artists RPC + count:'exact' skenavimą — paieškos
+    // kandidatai VISADA pagal populiarumą; sort param galioja tik browse režimui.
+    const rows = await searchArtistsCore(supabase, search, {
+      limit: offset + limit,
+      select: selectFields,
     })
-    if (error) {
-      const { data: fallback, count, error: e2 } = await supabase
-        .from('artists')
-        .select(selectFields, { count: 'exact' })
-        .ilike('name', `%${search}%`)
-        .order(orderCol, { ascending: orderAsc, nullsFirst: false })
-        .range(offset, offset + limit - 1)
-      if (e2) throw e2
-      return { artists: fallback || [], total: count || 0 }
-    }
-    // RPC doesn't support sorting, so sort client-side if needed
-    let results = data || []
-    if (sort === 'score') {
-      results = [...results].sort((a: any, b: any) => (b.score ?? -1) - (a.score ?? -1))
-    }
-    return { artists: results, total: results.length }
+    const page = rows.slice(offset, offset + limit)
+    return { artists: page, total: rows.length }
   }
 
   let query = supabase

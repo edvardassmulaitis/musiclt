@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
+import { searchTracksCore } from '@/lib/search-core'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -170,22 +171,26 @@ export async function GET(req: NextRequest) {
   const SELECT_FIELDS = `id, title, type, release_date, release_year, release_month, release_day, video_url, video_views, video_views_checked_at, video_uploaded_at, spotify_id, is_single, is_new, is_new_date, cover_url, lyrics, source, legacy_id, artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country), track_artists(artist_id, is_primary, artists(id, name, slug)), album_tracks(position, albums(id, title, year, cover_image_url))`
 
   if (search) {
-    const { data: artistMatches } = await supabase
-      .from('artists').select('id').ilike('name', `%${search}%`).limit(20)
-    const artistIds = (artistMatches || []).map((a: any) => a.id)
-    let query = supabase
+    // BENDRAS paieškos variklis (lib/search-core): diakritikai nejautru
+    // (title_norm/name_norm trigram), compound „atlikėjas + pavadinimas"
+    // skaidymas, kandidatai pagal populiarumą (score desc). Ta pati logika
+    // kaip /api/search-entities — naudoja dienos daina, admin topai, merge,
+    // admin search modalas.
+    const ids = await searchTracksCore(supabase, search, {
+      limit: offset + Math.min(limit, 60),
+      artistId: artist_id ? parseInt(artist_id) : undefined,
+    })
+    const pageIds = ids.slice(offset, offset + limit)
+    if (pageIds.length === 0) return NextResponse.json({ tracks: [], total: 0 })
+    const { data, error } = await supabase
       .from('tracks')
-      // jokio count:'exact' — search rezultatas grąžina data.length (žemiau),
-      // exact count per 61k tracks lentelę buvo bereikalingas skenavimas
       .select(SELECT_FIELDS)
-      .order('title', { ascending: true })
-      .range(offset, offset + limit - 1)
-    if (artistIds.length > 0) query = query.or(`title.ilike.%${search}%,artist_id.in.(${artistIds.join(',')})`)
-    else query = query.ilike('title', `%${search}%`)
-    if (artist_id) query = query.eq('artist_id', parseInt(artist_id))
-    const { data, error } = await query
+      .in('id', pageIds)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ tracks: (data || []).map(mapTrack).filter(isRealTrack), total: (data || []).length })
+    // Atstatom variklio rikiavimą (.in() grąžina bet kokia tvarka).
+    const pos = new Map(pageIds.map((id, i) => [id, i]))
+    const rows = (data || []).slice().sort((a: any, b: any) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0))
+    return NextResponse.json({ tracks: rows.map(mapTrack).filter(isRealTrack), total: rows.length })
   }
 
   let query = supabase

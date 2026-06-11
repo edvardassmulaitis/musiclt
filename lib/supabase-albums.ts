@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { searchAlbumsCore } from '@/lib/search-core'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -103,19 +104,10 @@ export type TrackFull = {
 
 // ── Albums ──────────────────────────────────────────────────────────────────
 
-export async function getAlbums(artistId?: number, limit = 50, offset = 0, search = '') {
-  let q = supabase
-    .from('albums')
-    .select(
-      'id, slug, title, year, month, day, cover_image_url, artist_id, type_studio, type_ep, type_compilation, type_live, type_single, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, is_upcoming, source, legacy_id, artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country)',
-      { count: 'exact' }
-    )
-  if (artistId) q = q.eq('artist_id', artistId)
-  if (search) q = q.ilike('title', `%${search}%`)
-  q = q.order('year', { ascending: false }).order('month', { ascending: false }).range(offset, offset + limit - 1)
-  const { data, error, count } = await q
-  if (error) throw error
-  const albums = (data || []).map((a: any) => ({
+const ALBUM_LIST_SELECT = 'id, slug, title, year, month, day, cover_image_url, artist_id, type_studio, type_ep, type_compilation, type_live, type_single, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, is_upcoming, source, legacy_id, artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country)'
+
+function mapAlbumListRow(a: any) {
+  return {
     ...a,
     // `artists.slug` reikalingas client'ui SEO URL'ui (/albumai/{artistSlug}-{albumSlug}-{id}).
     // `slug` ant pačio album'o — tas pats: be jo URL'as turi `undefined` segmentą.
@@ -127,8 +119,38 @@ export async function getAlbums(artistId?: number, limit = 50, offset = 0, searc
     release_date: a.year && a.month && a.day
       ? `${a.year}-${String(a.month).padStart(2,'0')}-${String(a.day).padStart(2,'0')}`
       : (a.year && a.month ? `${a.year}-${String(a.month).padStart(2,'0')}-01` : null),
-  }))
-  return { albums, total: count || 0 }
+  }
+}
+
+export async function getAlbums(artistId?: number, limit = 50, offset = 0, search = '') {
+  if (search) {
+    // BENDRAS paieškos variklis (lib/search-core): title_norm trigram
+    // (diakritikai nejautru) + compound „atlikėjas + albumas" skaidymas +
+    // populiarumo (score desc) rikiavimas. ID hidratuojami pilnu select'u.
+    const ids = await searchAlbumsCore(supabase, search, {
+      limit: offset + limit,
+      artistId: artistId || undefined,
+    })
+    const pageIds = ids.slice(offset, offset + limit)
+    if (pageIds.length === 0) return { albums: [], total: 0 }
+    const { data, error } = await supabase
+      .from('albums')
+      .select(ALBUM_LIST_SELECT)
+      .in('id', pageIds)
+    if (error) throw error
+    const pos = new Map(pageIds.map((id, i) => [id, i]))
+    const sorted = (data || []).slice().sort((a: any, b: any) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0))
+    return { albums: sorted.map(mapAlbumListRow), total: sorted.length }
+  }
+
+  let q = supabase
+    .from('albums')
+    .select(ALBUM_LIST_SELECT, { count: 'exact' })
+  if (artistId) q = q.eq('artist_id', artistId)
+  q = q.order('year', { ascending: false }).order('month', { ascending: false }).range(offset, offset + limit - 1)
+  const { data, error, count } = await q
+  if (error) throw error
+  return { albums: (data || []).map(mapAlbumListRow), total: count || 0 }
 }
 
 export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: TrackInAlbum[]; substyle_ids: number[] }> {

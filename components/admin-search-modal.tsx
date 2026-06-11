@@ -32,21 +32,25 @@ export default function AdminSearchModal({ onClose }: { onClose: () => void }) {
       setArtists([]); setAlbums([]); setTracks([]); setSearched(false)
       return
     }
+    let cancelled = false
     const t = setTimeout(async () => {
       setLoading(true)
-      try {
-        const [ar, al, tr] = await Promise.all([
-          fetch(`/api/artists?search=${encodeURIComponent(query)}&limit=10`).then(r => r.json()),
-          fetch(`/api/albums?search=${encodeURIComponent(query)}&limit=10`).then(r => r.json()),
-          fetch(`/api/tracks?search=${encodeURIComponent(query)}&limit=12`).then(r => r.json()),
-        ])
-        setArtists(ar.artists || [])
-        setAlbums(al.albums || [])
-        setTracks(tr.tracks || [])
-        setSearched(true)
-      } finally { setLoading(false) }
+      // STAGED rodymas: atlikėjų paieška greičiausia (vienas trigram index
+      // hit) — rodom ją VOS gavus, nelaukiant dainų/albumų (compound paieška
+      // su skaidymais lėtesnė). Visi trys per BENDRĄ search variklį.
+      const ar = fetch(`/api/artists?search=${encodeURIComponent(query)}&limit=10`).then(r => r.json())
+        .then(d => { if (!cancelled) { setArtists(d.artists || []); setSearched(true) } })
+        .catch(() => { if (!cancelled) setArtists([]) })
+      const al = fetch(`/api/albums?search=${encodeURIComponent(query)}&limit=10`).then(r => r.json())
+        .then(d => { if (!cancelled) setAlbums(d.albums || []) })
+        .catch(() => { if (!cancelled) setAlbums([]) })
+      const tr = fetch(`/api/tracks?search=${encodeURIComponent(query)}&limit=12`).then(r => r.json())
+        .then(d => { if (!cancelled) setTracks(d.tracks || []) })
+        .catch(() => { if (!cancelled) setTracks([]) })
+      await Promise.allSettled([ar, al, tr])
+      if (!cancelled) { setSearched(true); setLoading(false) }
     }, 250)
-    return () => clearTimeout(t)
+    return () => { cancelled = true; clearTimeout(t) }
   }, [query])
 
   const hasResults = artists.length > 0 || albums.length > 0 || tracks.length > 0

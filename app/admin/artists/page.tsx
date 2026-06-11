@@ -41,15 +41,23 @@ export default function ArtistsAdmin() {
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const isSuperAdmin = session?.user?.role === 'super_admin'
 
+  const loadSeqRef = useRef(0)
+
   const load = useCallback(async (q: string, s: SortKey = sort) => {
+    const seq = ++loadSeqRef.current
     setLoading(true)
     try {
-      const res = await fetch(`/api/artists?limit=100&search=${encodeURIComponent(q)}&sort=${s}&includeInactive=true`)
+      // Paieškai užtenka 50 kandidatų (rikiuoti pagal populiarumą serveryje) —
+      // greitesnis atsakas; pilnas 100 tik browse režimui.
+      const res = await fetch(`/api/artists?limit=${q ? 50 : 100}&search=${encodeURIComponent(q)}&sort=${s}&includeInactive=true`)
       const data = await res.json()
+      // Stale-response guard: jei vartotojas spėjo įvesti naują užklausą,
+      // senesnio (lėtesnio) atsakymo neberodyti.
+      if (seq !== loadSeqRef.current) return
       setArtists(data.artists || [])
       setTotal(data.total || 0)
     } finally {
-      setLoading(false)
+      if (seq === loadSeqRef.current) setLoading(false)
     }
   }, [sort])
 
@@ -62,7 +70,7 @@ export default function ArtistsAdmin() {
   const handleSearch = (value: string) => {
     setSearch(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => load(value, sort), 500)
+    debounceRef.current = setTimeout(() => load(value, sort), 250)
   }
 
   const handleSort = (key: SortKey) => {

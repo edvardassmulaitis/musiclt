@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { safeLike, buildSplits } from '@/lib/search-core'
 
 /**
  * Master search — vienas endpoint visam svetainės paieškos turiniui.
@@ -43,7 +44,11 @@ type Hit = {
   score?: number
 }
 
-const safe = (s: string) => s.replace(/[%_]/g, '')
+// BENDRAS paieškos variklis (lib/search-core): normalizacija (diakritikai
+// nejautru) + multi-word skaidymas — ta pati logika kaip /api/search-entities,
+// /api/tracks, /api/artists ir admin paieškos. Query'ai eina prieš *_norm
+// stulpelius (lower+unaccent, GIN trigram indeksai).
+const safe = safeLike
 
 const slugTrack = (artistSlug: string | null | undefined, trackSlug: string, id: number) =>
   artistSlug ? `/dainos/${artistSlug}-${trackSlug}-${id}` : `/dainos/${trackSlug}-${id}`
@@ -94,7 +99,7 @@ export async function GET(request: Request) {
   // į response tik jei kategorija leista.
   const artistsRes = await sb.from('artists')
     .select('id,slug,name,cover_image_url,score,legacy_id')
-    .ilike('name', pat)
+    .ilike('name_norm', pat)
     .order('score', { ascending: false, nullsFirst: false })
     .limit(Math.max(limitPerCat, 8))   // bent 8 fan-out paskaičiavimui
   const matchedArtists = (artistsRes.data || []) as any[]
@@ -125,7 +130,7 @@ export async function GET(request: Request) {
     useCat('albums')
       ? sb.from('albums')
           .select('id,slug,title,cover_image_url,score,artist_id,artists:artist_id(id,name,slug)')
-          .ilike('title', pat)
+          .ilike('title_norm', pat)
           .order('score', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
@@ -133,7 +138,7 @@ export async function GET(request: Request) {
     useCat('tracks')
       ? sb.from('tracks')
           .select('id,slug,title,score,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
-          .ilike('title', pat)
+          .ilike('title_norm', pat)
           .order('score', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
@@ -141,7 +146,7 @@ export async function GET(request: Request) {
     useCat('profiles')
       ? sb.from('profiles')
           .select('id,username,full_name,avatar_url,bio,is_public')
-          .or(`username.ilike.${pat},full_name.ilike.${pat}`)
+          .or(`username_norm.ilike.${pat},full_name_norm.ilike.${pat}`)
           .eq('is_public', true)
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
@@ -151,7 +156,7 @@ export async function GET(request: Request) {
     useCat('events')
       ? sb.from('events')
           .select('id,slug,title,start_date,city,venue_name,cover_image_url,status')
-          .ilike('title', pat)
+          .ilike('title_norm', pat)
           .gte('start_date', upcomingThreshold)
           .order('start_date', { ascending: true })
           .limit(limitPerCat)
@@ -160,14 +165,14 @@ export async function GET(request: Request) {
     useCat('venues')
       ? sb.from('venues')
           .select('id,slug,name,city,country,cover_image_url')
-          .ilike('name', pat)
+          .ilike('name_norm', pat)
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
 
     useCat('news')
       ? sb.from('news')
           .select('id,slug,title,image_small_url,image_title_url,published_at,type')
-          .ilike('title', pat)
+          .ilike('title_norm', pat)
           .order('published_at', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
@@ -175,7 +180,7 @@ export async function GET(request: Request) {
     useCat('blog_posts')
       ? sb.from('blog_posts')
           .select('id,slug,title,summary,cover_image_url,published_at,view_count,like_count,blog_id,blogs:blog_id(slug,profiles:user_id(username,full_name,avatar_url))')
-          .ilike('title', pat)
+          .ilike('title_norm', pat)
           .eq('status', 'published')
           .order('published_at', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
@@ -184,7 +189,7 @@ export async function GET(request: Request) {
     useCat('discussions')
       ? sb.from('discussions')
           .select('id,slug,title,body,author_name,author_avatar,comment_count,like_count,created_at,is_deleted')
-          .ilike('title', pat)
+          .ilike('title_norm', pat)
           .eq('is_deleted', false)
           .order('last_comment_at', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
@@ -217,10 +222,10 @@ export async function GET(request: Request) {
       ? sb.from('albums').select('id', { count: 'exact', head: true }).in('artist_id', fanoutArtistIds)
       : Promise.resolve(emptyCount as any),
     useCat('albums')
-      ? sb.from('albums').select('id', { count: 'exact', head: true }).ilike('title', pat)
+      ? sb.from('albums').select('id', { count: 'exact', head: true }).ilike('title_norm', pat)
       : Promise.resolve(emptyCount as any),
     useCat('tracks')
-      ? sb.from('tracks').select('id', { count: 'exact', head: true }).ilike('title', pat)
+      ? sb.from('tracks').select('id', { count: 'exact', head: true }).ilike('title_norm', pat)
       : Promise.resolve(emptyCount as any),
 
     // Compound queries (artist + title) — tik kai ≥2 meaningful tokenai.
@@ -329,37 +334,37 @@ export async function GET(request: Request) {
 async function runCompound(
   sb: any, tokens: string[], limit: number, useCat: (c: Category) => boolean,
 ): Promise<{ tracks: Hit[]; albums: Hit[] }> {
-  const variants = [
-    { aTok: tokens[0], tTok: tokens.slice(1).join(' ') },
-    { aTok: tokens[tokens.length - 1], tTok: tokens.slice(0, -1).join(' ') },
-  ]
-  const results = await Promise.all(variants.map(async ({ aTok, tTok }) => {
-    const aPat = `%${safe(aTok)}%`
-    const tPat = `%${safe(tTok)}%`
+  // VISI „pirmi k žodžių = atlikėjas, likę = pavadinimas" skaidymai (abiem
+  // kryptim) iš bendro variklio — sutvarko kelių žodžių atlikėjus („Olivia
+  // Dean Man I Need"). Pavadinimas match'inamas AND-sujungtais ilike per
+  // KIEKVIENĄ token'ą (stop-word'ai ir tarpai nelaužo match'o).
+  const results = await Promise.all(buildSplits(tokens).map(async ({ artistToks, titleToks }) => {
+    const aPat = `%${safe(artistToks.join(' '))}%`
     const { data: matchArtists } = await sb
       .from('artists')
       .select('id,name,slug,cover_image_url,score')
-      .ilike('name', aPat)
+      .ilike('name_norm', aPat)
       .order('score', { ascending: false, nullsFirst: false })
       .limit(20)
     if (!matchArtists || matchArtists.length === 0) return { tracks: [], albums: [] }
     const aIds = matchArtists.map((x: any) => x.id)
+    let tq = sb.from('tracks')
+      .select('id,slug,title,score,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
+      .in('artist_id', aIds)
+    let alq = sb.from('albums')
+      .select('id,slug,title,cover_image_url,score,artist_id,artists:artist_id(id,name,slug)')
+      .in('artist_id', aIds)
+    for (const tok of titleToks) {
+      const tPat = `%${safe(tok)}%`
+      tq = tq.ilike('title_norm', tPat)
+      alq = alq.ilike('title_norm', tPat)
+    }
     const [tHit, alHit] = await Promise.all([
       useCat('tracks')
-        ? sb.from('tracks')
-            .select('id,slug,title,score,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
-            .in('artist_id', aIds)
-            .ilike('title', tPat)
-            .order('score', { ascending: false, nullsFirst: false })
-            .limit(limit)
+        ? tq.order('score', { ascending: false, nullsFirst: false }).limit(limit)
         : Promise.resolve({ data: [] }),
       useCat('albums')
-        ? sb.from('albums')
-            .select('id,slug,title,cover_image_url,score,artist_id,artists:artist_id(id,name,slug)')
-            .in('artist_id', aIds)
-            .ilike('title', tPat)
-            .order('score', { ascending: false, nullsFirst: false })
-            .limit(limit)
+        ? alq.order('score', { ascending: false, nullsFirst: false }).limit(limit)
         : Promise.resolve({ data: [] }),
     ])
     return {

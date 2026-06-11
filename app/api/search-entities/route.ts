@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { safeLike, broadTerm, rankTier } from '@/lib/search-core'
 
 /** Combined search across artists / albums / tracks for the music attach picker.
  *
@@ -37,32 +38,16 @@ export async function GET(request: Request) {
 
   const sb = createAdminClient()
   // Diakritikai NEJAUTRI paieška: ieškom prieš *_norm stulpelius (unaccent+lower).
-  // normLt nuima LT + bendrą diakritiką ir mažina raides — tad veikia ir su „tėkmės",
-  // ir su „tekmes".
-  const LT_MAP: Record<string, string> = { ą: 'a', č: 'c', ę: 'e', ė: 'e', į: 'i', š: 's', ų: 'u', ū: 'u', ž: 'z' }
-  const normLt = (s: string) => (s || '').toLowerCase().replace(/[ąčęėįšųūž]/g, c => LT_MAP[c] || c).normalize('NFKD').replace(/[̀-ͯ]/g, '')
-  const safe = (s: string) => normLt(s).replace(/[%_]/g, '')
+  // Normalizacija + broad-term logika gyvena BENDRAME variklyje lib/search-core
+  // (ta pati visiems search'ams: /api/tracks, /api/artists, admin quick-add).
+  const safe = safeLike
 
   // Tokens for compound matching — keep >=2 chars to avoid noise from
   // single-letter fragments. Compound branch only runs when ≥2 such tokens.
   const tokens = q.split(/\s+/).filter(t => t.length >= 2)
   const compound = tokens.length >= 2
 
-  // Broad single-term pattern. If user typed "vartai m" (one strong token,
-  // one stray letter), `q` itself ("vartai m") won't match any title since
-  // no song contains that literal substring. Fall back to the LONGEST
-  // meaningful token so we still surface tracks that contain "vartai".
-  // Otherwise use the full query (handles single-token searches like
-  // "vartai" cleanly).
-  const allWords = q.split(/\s+/).filter(Boolean)
-  const longWords = allWords.filter(t => t.length >= 2)
-  const broadTerm =
-    allWords.length === longWords.length
-      ? q  // every word is meaningful, search by full string
-      : longWords.length > 0
-        ? longWords.sort((a, b) => b.length - a.length)[0]  // longest word
-        : q
-  const fullPattern = `%${safe(broadTerm)}%`
+  const fullPattern = `%${safe(broadTerm(q))}%`
 
   // Always run the broad single-term search — ranks compound queries fairly
   // when the title itself contains everything ("Trys milijonai" doesn't,
@@ -220,12 +205,15 @@ export async function GET(request: Request) {
     }, 1)
   }
 
-  // Artist hits.
+  // Artist hits. Jei atlikėjo vardas EXACT/prefix match'ina užklausą („jessica
+  // shy" → Jessica Shy), atlikėjas keliauja VIRŠ pavidinimo-contains match'ų —
+  // vartotojas beveik tikrai ieško paties atlikėjo.
   for (const a of (artistsRes.data as any[] | null) ?? []) {
+    const tier = rankTier(a.name, q)
     push({
       type: 'grupe', id: a.id, legacy_id: a.legacy_id, slug: a.slug,
       title: a.name, artist: null, image_url: a.cover_image_url,
-    }, 2)
+    }, tier <= 1 ? 0.5 : 2)
   }
 
   // Artist fan-out — push deeper down so direct matches win, but available
