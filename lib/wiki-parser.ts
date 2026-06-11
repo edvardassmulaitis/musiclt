@@ -537,7 +537,9 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
     // 2. `* YYYY:` arba `*YYYY:` prefix — Brazilian/PT-influenced pages (Caetano Veloso, Gilberto Gil, Tom Zé)
     // 3. `* '''YYYY'''` bold prefix — kai kurie naudoja bold metus
     // 4. `* YYYY —` arba `* YYYY -` dash separator
-    const yearM = line.match(/\((\d{4})\)/)
+    // 2026-06-11: bare `\((\d{4})\)` neatpažindavo `(February 1969)` (Al Kooper).
+    // Naujas `\([^)]*?(\d{4})\)` leidžia mėnesį/label prieš metus.
+    const yearM = line.match(/\([^)]*?(\d{4})\)/)
       || line.match(/^\*\s*'''(\d{4})'''/)
       || line.match(/^\*\s*(\d{4})\s*[:：\-—–]/)
     albums.push({ title, year: yearM ? parseInt(yearM[1]) : null, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
@@ -862,7 +864,7 @@ export function parseHashListTracks(
   // ==Track listing== sekcijoje). Be-trukmės regex'as saugus nes:
   // (a) tik `# "..."` formatas (ne bullet `*`), (b) tik ==Track listing== viduje.
   // Duration formatai: `– 6:17` (dash) ARBA `(6:17)` (skliausteliuose, Last Days of the Century)
-  const lineReWithDur = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*(?:[–—-]\s*(\d{1,2}:\d{2}(?::\d{2})?)|\((\d{1,2}:\d{2}(?::\d{2})?)\))/gm
+  const lineReWithDur = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*(?:[–—-]\s*\(?(\d{1,2}:\d{2}(?::\d{2})?)\)?|\((\d{1,2}:\d{2}(?::\d{2})?)\))/gm
   const lineReNoDur = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*$/gm
   // Pirma bandome su trukme — jei randa bent 1, naudojam tik tą regex'ą
   const withDurMatches = [...body.matchAll(lineReWithDur)]
