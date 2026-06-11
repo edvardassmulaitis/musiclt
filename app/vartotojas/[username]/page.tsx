@@ -67,15 +67,19 @@ export default async function UserProfilePage({ params }: Props) {
     // per +Daugiau modal'ą.
     getProfileFavoriteArtists(profile.id),
     getProfileFavoriteStyles(profile.id),
-    getProfileFavoriteAlbums(profile.username, 100),
-    getProfileFavoriteTracks(profile.username, 100),
+    // PERF V16 (2026-06-11): 100→48. Klientas rodo max 12 grid'e + 5 sidebar
+    // „Neseniai pamėgta"; likusius atidaro MoreItemsModal iš to paties masyvo.
+    // 48 pakanka modalui, o serialized payload'as perpus mažesnis.
+    getProfileFavoriteAlbums(profile.username, 48),
+    getProfileFavoriteTracks(profile.username, 48),
     getProfileLikesCounts(profile.username),
     getProfileFriends(profile.id, 24),
     getBlogByUserId(profile.id),
     getUserContentStats(profile.id),
     getMoodSongTrack(profile.mood_song_track_id ?? null),
-    getDailySongPicks(profile.id, 18),
-    getUserTranslations(profile.id, 60),
+    // 21 = ~3 savaitės dienos dainų klasteriams feed'e
+    getDailySongPicks(profile.id, 21),
+    getUserTranslations(profile.id, 12),
     getUserRecentComments(profile.username, 10),
   ])
 
@@ -259,7 +263,8 @@ async function loadBlogPosts(blog: any): Promise<{ lanes: { type: string; posts:
   for (const r of (lite || []) as any[]) counts[r.post_type] = (counts[r.post_type] || 0) + 1
 
   // 2. Per-type sample postai juostoms (translation — atskirai per translations prop)
-  const LANE_TYPES = ['article', 'creation', 'topas']
+  // V16: +review/+event — feed'as juos rodo atskiromis vaizdingomis kortelėmis
+  const LANE_TYPES = ['article', 'review', 'event', 'creation', 'topas']
   const present = LANE_TYPES.filter((t) => (counts[t] || 0) > 0)
   const laneResults = await Promise.all(present.map(async (t) => {
     const { data } = await sb
@@ -276,6 +281,22 @@ async function loadBlogPosts(blog: any): Promise<{ lanes: { type: string; posts:
 
   // 3. Enrichinam visus sample postus vienu batch'u
   await enrichPostThumbs(sb, laneResults.flatMap((l) => l.posts))
+
+  // 4. PERF V16: topas list_items gali turėti po 50 pozicijų su image URL'ais —
+  // klientui reikia tik top-3 preview + count. Trim'inam prieš serializaciją.
+  for (const lane of laneResults) {
+    for (const p of lane.posts) {
+      if (Array.isArray(p.list_items) && p.list_items.length > 0) {
+        p.list_items_count = p.list_items.length
+        p.list_items_preview = p.list_items.slice(0, 3).map((it: any) => ({
+          title: it?.title ?? it?.name ?? null,
+          artist: it?.artist_name ?? it?.artist ?? it?.subtitle ?? null,
+          image_url: it?.image_url ?? null,
+        }))
+      }
+      delete p.list_items
+    }
+  }
 
   return { lanes: laneResults, counts }
 }

@@ -105,7 +105,7 @@ export function ProfileClient(props: any) {
     if (!blog) return [] as { type: string; count: number; posts: any[] }[]
     const byType = new Map<string, any[]>((postLanes || []).map((l: any) => [l.type, l.posts]))
     const lanes: { type: string; count: number; posts: any[] }[] = []
-    for (const t of ['article', 'creation', 'topas']) {
+    for (const t of ['article', 'review', 'event', 'creation', 'topas']) {
       const posts = byType.get(t) || []
       const count = postTypeCounts?.[t] || 0
       if (count > 0 && posts.length > 0) lanes.push({ type: t, count, posts })
@@ -215,8 +215,10 @@ export function ProfileClient(props: any) {
                   backgroundImage: `url(${profile.cover_image_url || profile.avatar_url})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
-                  filter: 'blur(120px) saturate(1.35) brightness(0.3)',
-                  transform: 'scale(1.4)',
+                  // PERF V16: blur 120→64px + mažesnis scale — pilno ekrano
+                  // 120px gaussian'as buvo pagrindinė scroll jank priežastis
+                  filter: 'blur(64px) saturate(1.35) brightness(0.3)',
+                  transform: 'scale(1.25) translateZ(0)',
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/55 to-[var(--bg-body)]" />
@@ -298,6 +300,8 @@ export function ProfileClient(props: any) {
               )}
 
               <div className="flex items-center gap-2.5 self-start">
+                {/* V16: Sekti su širdele (kaip prie atlikėjų) ir desktop'e */}
+                <FollowButton targetId={profile.id} variant="ghost" size="sm" />
                 <button
                   type="button"
                   onClick={() => setInfoOpen(true)}
@@ -334,97 +338,24 @@ export function ProfileClient(props: any) {
         </div>
       </section>
 
-      {/* ═════════════════ BODY ═════════════════ */}
-      <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-
-        {/* ĮRAŠAI — V12: turinio juostos pagal tipą (Dienoraštis / Kūryba /
-            Topai / Vertimai). Tikri count'ai, tuščio tipo juostos nerodom. */}
-        {blog && contentLanes.map((lane) => (
-          <PostLane key={lane.type} lane={lane} blogSlug={blog.slug} />
-        ))}
-
-        {/* DIENOS DAINOS PASIRINKIMAI */}
-        {dailyPicks.length > 0 && (
-          <section className="mt-8 sm:mt-10">
-            <SectionHeader
-              title="Dienos dainos pasirinkimai"
-              meta={`${stats.daily_picks.toLocaleString('lt-LT')} dienų ši kolekcija auga`}
-              link={stats.daily_picks > 12 ? { href: `/@${profile.username}/dienos-dainos`, label: 'Visa istorija →' } : undefined}
-            />
-            <DailyPicksScrollRow
-              picks={dailyPicks}
-              maxShown={12}
-              totalCount={stats.daily_picks}
-              moreHref={stats.daily_picks > 12 ? `/@${profile.username}/dienos-dainos` : null}
-            />
-          </section>
-        )}
-
-        {/* MĖGSTAMI ATLIKĖJAI — bento koliažas */}
-        {favoriteArtists.length > 0 && (
-          <section className="mt-8 sm:mt-10">
-            <SectionHeader
-              title="Mėgstami atlikėjai"
-              meta={`${favoriteArtists.length} atlikėjų${favoriteArtists.some((a: any) => (a.affinity_score || 0) > 0) ? ' · dydis pagal pamėgtų albumų + dainų' : ''}`}
-            />
-            <FavoriteArtistsCollage
-              artists={favoriteArtists}
-              maxShown={11}
-              totalCount={favoriteArtists.length}
-              onOpenMore={() => setMoreOpen('artist')}
-            />
-          </section>
-        )}
-
-        {/* MĖGSTAMI ALBUMAI — V11.7: rodome ir kai legacy_liked_albums_count
-            yra, net jei pending=0 (galimas user_username case mismatch
-            likes lentelei) */}
-        {/* V12 (#6): rodom TIK kai yra realių įrašų — jokių pending-only
-            placeholder'ių, kad reti profiliai atrodytų užpildyti turima info. */}
-        {favoriteAlbums.length > 0 && (
-          <section className="mt-8 sm:mt-10">
-            <SectionHeader
-              title="Mėgstami albumai"
-              meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0, profile.legacy_liked_albums_count)}
-            />
-            <AlbumsFullWidth
-              albums={favoriteAlbums}
-              maxShown={12}
-              onOpenMore={() => setMoreOpen('album')}
-              totalCount={albumResolvedTotal}
-            />
-          </section>
-        )}
-
-        {/* MĖGSTAMOS DAINOS */}
-        {favoriteTracks.length > 0 && (
-          <section className="mt-8 sm:mt-10">
-            <SectionHeader
-              title="Mėgstamos dainos"
-              meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0, profile.legacy_liked_tracks_count)}
-            />
-            <TracksFullWidth
-              tracks={favoriteTracks}
-              maxShown={12}
-              onOpenMore={() => setMoreOpen('track')}
-              totalCount={trackResolvedTotal}
-            />
-          </section>
-        )}
-
-        {/* NAUJAUSI KOMENTARAI — activity log */}
-        {recentComments && recentComments.length > 0 && (
-          <section className="mt-8 sm:mt-10">
-            <SectionHeader
-              title="Naujausi komentarai"
-              meta="Paskutiniai nario komentarai"
-            />
-            <RecentCommentsList comments={recentComments} />
-          </section>
-        )}
-
-        <SimpleClaimFooter isLegacy={isLegacy} isUnclaimed={isUnclaimed} />
-      </div>
+      {/* ═════════════════ BODY V16 — Substack-style feed ═════════════════ */}
+      <ProfileBodyDesktop
+        profile={profile}
+        blog={blog}
+        contentLanes={contentLanes}
+        postTypeCounts={postTypeCounts}
+        stats={stats}
+        dailyPicks={dailyPicks}
+        favoriteArtists={favoriteArtists}
+        favoriteAlbums={favoriteAlbums}
+        favoriteTracks={favoriteTracks}
+        likesCounts={likesCounts}
+        albumResolvedTotal={albumResolvedTotal}
+        trackResolvedTotal={trackResolvedTotal}
+        isLegacy={isLegacy}
+        isUnclaimed={isUnclaimed}
+        onOpenMore={setMoreOpen}
+      />
 
       </div>{/* /desktop wrapper (hidden lg:block) */}
 
@@ -494,23 +425,16 @@ function MobileProfileView(props: any) {
   const hasLikes = (favoriteArtists?.length || 0) > 0
     || (favoriteAlbums?.length || 0) > 0 || (favoriteTracks?.length || 0) > 0
 
-  // Sujungtas feed: postai + komentarai + dienos dainos, lim 32
+  // V16: sujungtas feed = shared builder (postai + dienos dainų SAVAITĖS +
+  // like klasterių fallback) + komentarai mažomis eilutėmis.
   const feedItems = useMemo(() => {
-    const items: any[] = []
-    if (blog && Array.isArray(contentLanes)) {
-      for (const lane of contentLanes) {
-        for (const p of (lane.posts || [])) {
-          items.push({
-            id: `post-${p.id}`, kind: 'post', date: p.published_at,
-            url: postUrl(p, blog.slug),
-            thumb: p.cover_image_url || p.fallback_thumb_url || null,
-            kicker: LANE_LABEL[lane.type] || 'Įrašas', accent: '#f97316',
-            title: p.title, subtitle: lane.type === 'translation' ? (p.summary || null) : null,
-            likes: p.like_count || 0, comments: p.comment_count || 0,
-          })
-        }
-      }
-    }
+    const items: any[] = buildFeedItems({
+      contentLanes: blog ? (contentLanes || []) : [],
+      dailyPicks: dailyPicks || [],
+      favoriteArtists: favoriteArtists || [],
+      favoriteAlbums: favoriteAlbums || [],
+      favoriteTracks: favoriteTracks || [],
+    })
     for (const c of (recentComments || [])) {
       const re = resolveCommentEntity(c)
       const plain = (c.content_text || c.content_html || '').replace(/<[^>]*>/g, '').trim()
@@ -522,23 +446,11 @@ function MobileProfileView(props: any) {
         likes: c.like_count || 0, comments: 0,
       })
     }
-    for (const p of (dailyPicks || [])) {
-      const track = p.tracks
-      const artist = track && (Array.isArray(track.artists) ? track.artists[0] : track.artists)
-      const thumb = ytThumbProfile(track?.video_url) || track?.cover_url || artist?.cover_image_url || null
-      const url = (artist && track) ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}` : '#'
-      items.push({
-        id: `pick-${p.id}`, kind: 'pick', date: p.picked_on,
-        url, thumb, kicker: 'Dienos daina', accent: '#34d399',
-        title: track?.title || 'Daina', subtitle: artist?.name || null,
-        likes: p.like_count || 0, comments: 0,
-      })
-    }
     return items
       .filter((it) => it.date)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 32)
-  }, [blog, contentLanes, recentComments, dailyPicks])
+      .slice(0, 36)
+  }, [blog, contentLanes, recentComments, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks])
 
   const hasFeed = feedItems.length > 0
 
@@ -563,7 +475,7 @@ function MobileProfileView(props: any) {
                    style={{
                      backgroundImage: `url(${profile.cover_image_url || avatar})`,
                      backgroundSize: 'cover', backgroundPosition: 'center',
-                     filter: 'blur(90px) saturate(1.3) brightness(0.32)', transform: 'scale(1.5)',
+                     filter: 'blur(56px) saturate(1.3) brightness(0.32)', transform: 'scale(1.3) translateZ(0)',
                    }} />
               <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/45 to-[var(--bg-body)]" />
             </>
@@ -649,7 +561,19 @@ function MobileProfileView(props: any) {
       {/* ── TURINYS ── */}
       <div className="px-4 pt-3 pb-24">
         {active === 'feed' && (
-          <MergedFeed items={feedItems} blogSlug={blog?.slug} hasBlog={!!blog} />
+          <MergedFeed
+            items={feedItems}
+            blogSlug={blog?.slug || ''}
+            username={profile.username}
+            streak={stats?.daily_picks || 0}
+            hasLikes={hasLikes}
+            favoriteArtists={favoriteArtists}
+            favoriteAlbums={favoriteAlbums}
+            favoriteTracks={favoriteTracks}
+            albumResolvedTotal={albumResolvedTotal}
+            trackResolvedTotal={trackResolvedTotal}
+            onOpenMore={onOpenMore}
+          />
         )}
 
         {active === 'likes' && (
@@ -1061,50 +985,104 @@ function MoodCard({ track }: { track: any }) {
   )
 }
 
-// V15: sujungtas feed (buvęs Naujausia + Įrašai) su tipo filter chips
-const FEED_KINDS: { key: string; label: string }[] = [
-  { key: 'all',     label: 'Visi' },
-  { key: 'post',    label: 'Įrašai' },
-  { key: 'pick',    label: 'Dienos daina' },
-  { key: 'comment', label: 'Komentarai' },
-]
-
-function MergedFeed({ items, blogSlug, hasBlog }: { items: any[]; blogSlug?: string; hasBlog: boolean }) {
-  void blogSlug; void hasBlog
+// V16: sujungtas mobile feed — turtingos kortelės pagal tipą + tipo filtrai.
+// Mobile rodom max 3 pagrindinius chip'us + „Daugiau" (user feedback: ilgas
+// horizontal scroll slepia tab'us).
+function MergedFeed({
+  items, blogSlug, username, streak, hasLikes,
+  favoriteArtists, favoriteAlbums, favoriteTracks,
+  albumResolvedTotal, trackResolvedTotal, onOpenMore,
+}: any) {
   const [kindFilter, setKindFilter] = useState<string>('all')
-  const visible = kindFilter === 'all' ? items : items.filter((it) => it.kind === kindFilter)
+  const [chipsExpanded, setChipsExpanded] = useState(false)
 
-  // Only show chips for kinds that exist
-  const presentKinds = new Set(items.map((it) => it.kind))
-  const chips = FEED_KINDS.filter((c) => c.key === 'all' || presentKinds.has(c.key))
+  // Chip'ai pagal realiai esamą turinį
+  const chips = useMemo(() => {
+    const present = new Set<string>()
+    for (const it of items) {
+      if (it.kind === 'post' && it.laneType) present.add(it.laneType)
+      else if (it.kind === 'ddweek') present.add('dd')
+      else if (it.kind === 'comment') present.add('comment')
+      else if (it.kind === 'likecluster') present.add('likeclusters')
+    }
+    const out: { key: string; label: string }[] = [{ key: 'all', label: 'Visi' }]
+    for (const t of ['article', 'review', 'event', 'topas']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t] })
+    if (present.has('dd')) out.push({ key: 'dd', label: 'Dienos dainos' })
+    for (const t of ['creation', 'translation']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t] })
+    if (present.has('comment')) out.push({ key: 'comment', label: 'Komentarai' })
+    return out
+  }, [items])
+
+  const visibleChips = chipsExpanded ? chips : chips.slice(0, 3)
+  const hiddenCount = chips.length - visibleChips.length
+
+  const visible = useMemo(() => items.filter((it: any) => {
+    if (kindFilter === 'all') return true
+    if (kindFilter === 'dd') return it.kind === 'ddweek'
+    if (kindFilter === 'comment') return it.kind === 'comment'
+    return it.kind === 'post' && it.laneType === kindFilter
+  }), [items, kindFilter])
+
+  const renderItem = (it: any) => {
+    if (it.kind === 'post') return <FeedPostCard key={it.id} post={it.post} laneType={it.laneType} blogSlug={blogSlug} compact />
+    if (it.kind === 'ddweek') return <DdWeekCard key={it.id} picks={it.picks} label={it.label} username={username} streak={streak} />
+    if (it.kind === 'likecluster') return <LikesClusterCard key={it.id} likes={it.likes} label={it.label} onOpenMore={onOpenMore} />
+    return <ul key={it.id} className="list-none"><RecentItemRow item={it} /></ul>
+  }
+
+  // „Neseniai pamėgta" kortelė — mobile feed'e po pirmo elemento (desktop'e
+  // tai gyvena sidebar'e; mobile kitaip nepasiekiama be tab'o)
+  const likedCard = hasLikes && kindFilter === 'all' ? (
+    <RecentLikesCard
+      key="recent-likes"
+      favoriteArtists={favoriteArtists}
+      favoriteAlbums={favoriteAlbums}
+      favoriteTracks={favoriteTracks}
+      albumResolvedTotal={albumResolvedTotal}
+      trackResolvedTotal={trackResolvedTotal}
+      onOpenMore={onOpenMore}
+    />
+  ) : null
 
   return (
     <div>
       {chips.length > 2 && (
-        <div className="flex items-center gap-1.5 mb-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {chips.map((c) => {
+        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+          {visibleChips.map((c: any) => {
             const active = kindFilter === c.key
             return (
               <button key={c.key} type="button" onClick={() => setKindFilter(c.key)}
-                      className="flex-shrink-0 text-[11px] font-bold rounded-full px-3 py-1 transition"
+                      className="flex-shrink-0 text-[11.5px] font-bold rounded-full px-3 py-1.5 transition"
                       style={{
                         fontFamily: "'Outfit', sans-serif",
-                        background: active ? 'var(--accent-orange)' : 'rgba(255,255,255,0.08)',
+                        background: active ? 'var(--accent-orange)' : 'var(--card-bg)',
                         color: active ? '#fff' : 'var(--text-muted)',
-                        border: active ? '1px solid var(--accent-orange)' : '1px solid rgba(255,255,255,0.14)',
+                        border: active ? '1px solid var(--accent-orange)' : '1px solid var(--border-subtle)',
                       }}>
                 {c.label}
               </button>
             )
           })}
+          {hiddenCount > 0 && (
+            <button type="button" onClick={() => setChipsExpanded(true)}
+                    className="flex-shrink-0 text-[11.5px] font-bold rounded-full px-3 py-1.5 transition"
+                    style={{
+                      fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)',
+                      color: 'var(--accent-orange)', border: '1px dashed var(--border-default)',
+                    }}>
+              Daugiau ▾
+            </button>
+          )}
         </div>
       )}
       {visible.length === 0 ? (
         <p className="text-[13px] text-center py-8" style={{ color: 'var(--text-faint)' }}>Nėra įrašų</p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {visible.map((it) => <RecentItemRow key={it.id} item={it} />)}
-        </ul>
+        <div className="flex flex-col gap-3">
+          {visible.length > 0 && renderItem(visible[0])}
+          {likedCard}
+          {visible.slice(1).map(renderItem)}
+        </div>
       )}
     </div>
   )
@@ -1966,7 +1944,9 @@ function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
   const typeKey = post.display_post_type || post.post_type
   const typeColor = POST_TYPE_COLOR[typeKey] || '#f97316'
   const typeLabel = POST_TYPE_LABEL[typeKey] || typeKey
-  const items = Array.isArray(post.list_items) && post.list_items.length > 0 ? post.list_items : null
+  // V16: server'is siunčia tik list_items_preview (3) + list_items_count
+  const items = Array.isArray(post.list_items_preview) && post.list_items_preview.length > 0 ? post.list_items_preview : null
+  const itemsCount = post.list_items_count || (items ? items.length : 0)
   const heroImg = post.cover_image_url || post.fallback_thumb_url
 
   return (
@@ -1982,15 +1962,18 @@ function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
         {heroImg ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={heroImg} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-        ) : items && items.length >= 4 ? (
+        ) : items && items.length >= 2 ? (
           <div className="grid grid-cols-2 grid-rows-2 h-full">
-            {items.slice(0, 4).map((it: any, i: number) => (
-              <div key={i} className="overflow-hidden" style={{ background: 'var(--bg-body)' }}>
-                {it.image_url
-                  ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={it.image_url} alt="" className="w-full h-full object-cover" />
-                  : <div className="w-full h-full flex items-center justify-center text-lg" style={{ color: 'var(--text-faint)' }}>{i + 1}</div>}
-              </div>
-            ))}
+            {[0, 1, 2, 3].map((i) => {
+              const it = items[i]
+              return (
+                <div key={i} className="overflow-hidden" style={{ background: 'var(--bg-body)' }}>
+                  {it?.image_url
+                    ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={it.image_url} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center text-lg" style={{ color: 'var(--text-faint)' }}>{i + 1}</div>}
+                </div>
+              )
+            })}
           </div>
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-orange-500/15 to-rose-600/15 flex items-center justify-center text-6xl"
@@ -2002,7 +1985,7 @@ function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
 
         <div className="absolute top-3 left-3 px-2 py-1 rounded-full backdrop-blur-md text-[10px] font-extrabold uppercase tracking-wider"
              style={{ background: `${typeColor}40`, color: typeColor, border: `1px solid ${typeColor}60` }}>
-          {typeLabel}{items ? ` · ${items.length}` : ''}
+          {typeLabel}{itemsCount ? ` · ${itemsCount}` : ''}
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
@@ -2187,6 +2170,722 @@ function resolveCommentEntity(c: any): { url: string | null; title: string | nul
     }
   }
   return { url: null, title: null, kind: 'Komentaras', cover: null }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// V16 (2026-06-11) — Substack-style profilio feed'as.
+//   • Vienas vertikalus mišrus feed'as vietoj horizontalių juostų per tipą.
+//   • Sticky tipo filtrai (pill'ai) po hero.
+//   • Kiekvienas tipas turi savo vizualinę kalbą (žr. FeedPostCard).
+//   • Dienos dainos → savaitiniai klasteriai (1 kortelė = 1 savaitė), kad
+//     nenustelbtų kito turinio, bet „tik dienos dainas" darančio nario
+//     profilis vis tiek būtų gyvas.
+//   • Jei narys neturi įrašų — feed'ą užpildo „Pamėgta muzika" klasteriai
+//     iš like'ų (savaitėmis), tad net tylus profilis neatrodo tuščias.
+//   • Desktop: dešinėje „Neseniai pamėgta" rail'as + Sekti CTA.
+// ═════════════════════════════════════════════════════════════════════════════
+
+type FeedItem = {
+  id: string
+  date: string
+  kind: 'post' | 'ddweek' | 'likecluster'
+  post?: any
+  laneType?: string
+  picks?: any[]
+  likes?: any[]
+  label?: string
+}
+
+const LT_MONTHS_GEN = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio', 'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio']
+
+function isoWeekKeyLt(dateStr: string): string {
+  const d = new Date(dateStr)
+  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  const day = dt.getUTCDay() || 7
+  dt.setUTCDate(dt.getUTCDate() + 4 - day)
+  const y = dt.getUTCFullYear()
+  const week = Math.ceil(((dt.getTime() - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7)
+  return `${y}-${String(week).padStart(2, '0')}`
+}
+
+function weekLabelLt(dateStr: string): string {
+  const d = new Date(dateStr)
+  return `${LT_MONTHS_GEN[d.getMonth()]} ${Math.min(Math.ceil(d.getDate() / 7), 4)} sav., ${d.getFullYear()}`
+}
+
+// Posts iš contentLanes + dienos dainų savaitės + (fallback) like klasteriai.
+function buildFeedItems({
+  contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks,
+}: {
+  contentLanes: { type: string; count: number; posts: any[] }[]
+  dailyPicks: any[]
+  favoriteArtists: any[]
+  favoriteAlbums: any[]
+  favoriteTracks: any[]
+}): FeedItem[] {
+  const items: FeedItem[] = []
+
+  for (const lane of (contentLanes || [])) {
+    for (const p of (lane.posts || [])) {
+      if (!p.published_at) continue
+      items.push({ id: `post-${lane.type}-${p.id}`, kind: 'post', date: p.published_at, post: p, laneType: lane.type })
+    }
+  }
+
+  // Dienos dainos — savaitiniai klasteriai
+  const byWeek = new Map<string, any[]>()
+  for (const p of (dailyPicks || [])) {
+    if (!p.picked_on) continue
+    const k = isoWeekKeyLt(p.picked_on)
+    if (!byWeek.has(k)) byWeek.set(k, [])
+    byWeek.get(k)!.push(p)
+  }
+  for (const [k, picks] of byWeek) {
+    picks.sort((a, b) => new Date(b.picked_on).getTime() - new Date(a.picked_on).getTime())
+    items.push({
+      id: `ddweek-${k}`, kind: 'ddweek', date: picks[0].picked_on,
+      picks, label: weekLabelLt(picks[0].picked_on),
+    })
+  }
+
+  // Fallback: narys be įrašų — feed'as iš pamėgtos muzikos (savaitėmis)
+  const hasPosts = items.some((it) => it.kind === 'post')
+  if (!hasPosts) {
+    const likes: any[] = [
+      ...(favoriteArtists || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'artist' })),
+      ...(favoriteAlbums || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'album' })),
+      ...(favoriteTracks || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'track' })),
+    ]
+    const lByWeek = new Map<string, any[]>()
+    for (const l of likes) {
+      const k = isoWeekKeyLt(l.liked_at)
+      if (!lByWeek.has(k)) lByWeek.set(k, [])
+      lByWeek.get(k)!.push(l)
+    }
+    const weeks = [...lByWeek.entries()]
+      .map(([k, arr]) => {
+        arr.sort((a, b) => new Date(b.liked_at).getTime() - new Date(a.liked_at).getTime())
+        return { k, arr }
+      })
+      .sort((a, b) => new Date(b.arr[0].liked_at).getTime() - new Date(a.arr[0].liked_at).getTime())
+      .slice(0, 4)
+    for (const { k, arr } of weeks) {
+      items.push({
+        id: `likes-${k}`, kind: 'likecluster', date: arr[0].liked_at,
+        likes: arr.slice(0, 6), label: weekLabelLt(arr[0].liked_at),
+      })
+    }
+  }
+
+  items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  return items
+}
+
+// ── Filtrų pill'ai ──
+const FEED_PILL_LABEL: Record<string, string> = {
+  article: 'Muzikos apžvalgos', review: 'Recenzijos', event: 'Koncertai',
+  topas: 'Topai', creation: 'Kūryba', translation: 'Vertimai',
+}
+// Eilė: vertingiausi pirmi, kūryba/vertimai gale (user feedback 2026-06-11)
+const FEED_PILL_ORDER = ['article', 'review', 'event', 'topas']
+const FEED_PILL_TAIL = ['creation', 'translation']
+
+function buildFeedPills(postTypeCounts: Record<string, number>, ddTotal: number, hasLikes: boolean) {
+  const pills: { key: string; label: string; color: string }[] = [{ key: 'all', label: 'Visi', color: '#f97316' }]
+  for (const t of FEED_PILL_ORDER) {
+    if ((postTypeCounts?.[t] || 0) > 0) pills.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+  }
+  if (ddTotal > 0) pills.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
+  if (hasLikes) pills.push({ key: 'likes', label: '♥ Mėgstama muzika', color: '#e11d48' })
+  for (const t of FEED_PILL_TAIL) {
+    if ((postTypeCounts?.[t] || 0) > 0) pills.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+  }
+  return pills
+}
+
+function feedItemMatches(it: FeedItem, filter: string): boolean {
+  if (filter === 'all') return true
+  if (filter === 'dd') return it.kind === 'ddweek'
+  if (filter === 'likes') return it.kind === 'likecluster'
+  return it.kind === 'post' && it.laneType === filter
+}
+
+function FeedFilterPills({ pills, active, onChange }: {
+  pills: { key: string; label: string; color: string }[]
+  active: string
+  onChange: (k: string) => void
+}) {
+  return (
+    <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {pills.map((p) => {
+        const isActive = active === p.key
+        return (
+          <button key={p.key} type="button" onClick={() => onChange(p.key)}
+                  className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-bold transition"
+                  style={{
+                    fontFamily: "'Outfit', sans-serif",
+                    background: isActive ? 'var(--text-primary)' : 'var(--card-bg)',
+                    color: isActive ? 'var(--bg-body)' : 'var(--text-secondary)',
+                    border: `1px solid ${isActive ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
+                  }}>
+            {p.key !== 'all' && p.key !== 'likes' && (
+              <span aria-hidden className="w-[7px] h-[7px] rounded-full" style={{ background: p.color }} />
+            )}
+            {p.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Desktop body ──
+function ProfileBodyDesktop(props: any) {
+  const {
+    profile, blog, contentLanes, postTypeCounts, stats, dailyPicks,
+    favoriteArtists, favoriteAlbums, favoriteTracks, likesCounts,
+    albumResolvedTotal, trackResolvedTotal, isLegacy, isUnclaimed, onOpenMore,
+  } = props
+
+  const hasLikes = (favoriteArtists?.length || 0) > 0 || (favoriteAlbums?.length || 0) > 0 || (favoriteTracks?.length || 0) > 0
+  const [filter, setFilter] = useState<string>('all')
+
+  const feedItems = useMemo(
+    () => buildFeedItems({ contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks }),
+    [contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks],
+  )
+  const pills = useMemo(
+    () => buildFeedPills(postTypeCounts || {}, stats?.daily_picks || 0, hasLikes),
+    [postTypeCounts, stats?.daily_picks, hasLikes],
+  )
+
+  // Featured — naujausias postas su vizualu (tik „Visi" rodinyje)
+  const featured = useMemo(() => {
+    if (filter !== 'all') return null
+    return feedItems.find((it) => it.kind === 'post' && (it.post.cover_image_url || it.post.fallback_thumb_url)) || null
+  }, [feedItems, filter])
+
+  const visible = useMemo(
+    () => feedItems.filter((it) => feedItemMatches(it, filter) && it !== featured),
+    [feedItems, filter, featured],
+  )
+
+  // „♥ Mėgstama muzika" pill'as visada atidaro pilną mėgstamos muzikos
+  // rodinį (atlikėjai/albumai/dainos) — tai tas pats turinys, kuriuo
+  // užsipildo tuščias profilis, tik išskleistas.
+  const showLikesView = filter === 'likes'
+
+  return (
+    <>
+      {/* Sticky filtrai (po sticky SiteHeader, kuris yra 56px) */}
+      <div className="sticky top-[56px] z-30 backdrop-blur-md"
+           style={{ background: 'color-mix(in srgb, var(--bg-body) 90%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
+          <FeedFilterPills pills={pills} active={filter} onChange={setFilter} />
+        </div>
+      </div>
+
+      <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20">
+        {showLikesView ? (
+          <LikesSections
+            profile={profile}
+            favoriteArtists={favoriteArtists}
+            favoriteAlbums={favoriteAlbums}
+            favoriteTracks={favoriteTracks}
+            likesCounts={likesCounts}
+            albumResolvedTotal={albumResolvedTotal}
+            trackResolvedTotal={trackResolvedTotal}
+            onOpenMore={onOpenMore}
+          />
+        ) : (
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_332px] gap-7 items-start">
+            {/* FEED */}
+            <div className="flex flex-col gap-5 min-w-0">
+              {featured && blog && <FeaturedPostCard post={featured.post} blogSlug={blog.slug} />}
+              {visible.map((it) => (
+                it.kind === 'post' ? (
+                  <FeedPostCard key={it.id} post={it.post} laneType={it.laneType!} blogSlug={blog?.slug || ''} />
+                ) : it.kind === 'ddweek' ? (
+                  <DdWeekCard key={it.id} picks={it.picks!} label={it.label!} username={profile.username} streak={stats?.daily_picks || 0} />
+                ) : (
+                  <LikesClusterCard key={it.id} likes={it.likes!} label={it.label!} onOpenMore={onOpenMore} />
+                )
+              ))}
+              {visible.length === 0 && !featured && (
+                <div className="p-8 rounded-2xl text-center text-sm"
+                     style={{ background: 'var(--card-bg)', border: '1px dashed var(--border-default)', color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+                  Šioje kategorijoje įrašų dar nėra
+                </div>
+              )}
+              <FollowCtaCard profile={profile} />
+              {blog && (postTypeCounts && Object.values(postTypeCounts as Record<string, number>).reduce((s: number, n: any) => s + (n || 0), 0) > visible.length) && (
+                <Link href={`/blogas/${blog.slug}`}
+                      className="block w-full text-center rounded-full py-3 text-[13px] font-extrabold transition hover:opacity-85"
+                      style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                  Visi įrašai →
+                </Link>
+              )}
+            </div>
+
+            {/* SIDE RAIL */}
+            <aside className="flex flex-col gap-4 lg:sticky lg:top-[120px]">
+              {hasLikes && (
+                <RecentLikesCard
+                  favoriteArtists={favoriteArtists}
+                  favoriteAlbums={favoriteAlbums}
+                  favoriteTracks={favoriteTracks}
+                  albumResolvedTotal={albumResolvedTotal}
+                  trackResolvedTotal={trackResolvedTotal}
+                  onOpenMore={onOpenMore}
+                />
+              )}
+            </aside>
+          </div>
+        )}
+
+        <SimpleClaimFooter isLegacy={isLegacy} isUnclaimed={isUnclaimed} />
+      </div>
+    </>
+  )
+}
+
+// ── „Mėgstama muzika" rodinys (pilnos sekcijos — buvęs V12 body turinys) ──
+function LikesSections(props: any) {
+  const {
+    profile, favoriteArtists, favoriteAlbums, favoriteTracks, likesCounts,
+    albumResolvedTotal, trackResolvedTotal, onOpenMore,
+  } = props
+  return (
+    <div>
+      {favoriteArtists.length > 0 && (
+        <section>
+          <SectionHeader title="Mėgstami atlikėjai"
+            meta={`${favoriteArtists.length} atlikėjų${favoriteArtists.some((a: any) => (a.affinity_score || 0) > 0) ? ' · dydis pagal pamėgtų albumų + dainų' : ''}`} />
+          <FavoriteArtistsCollage artists={favoriteArtists} maxShown={11}
+            totalCount={favoriteArtists.length} onOpenMore={() => onOpenMore('artist')} />
+        </section>
+      )}
+      {favoriteAlbums.length > 0 && (
+        <section className="mt-8 sm:mt-10">
+          <SectionHeader title="Mėgstami albumai"
+            meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0, profile.legacy_liked_albums_count)} />
+          <AlbumsFullWidth albums={favoriteAlbums} maxShown={12}
+            onOpenMore={() => onOpenMore('album')} totalCount={albumResolvedTotal} />
+        </section>
+      )}
+      {favoriteTracks.length > 0 && (
+        <section className="mt-8 sm:mt-10">
+          <SectionHeader title="Mėgstamos dainos"
+            meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0, profile.legacy_liked_tracks_count)} />
+          <TracksFullWidth tracks={favoriteTracks} maxShown={12}
+            onOpenMore={() => onOpenMore('track')} totalCount={trackResolvedTotal} />
+        </section>
+      )}
+    </div>
+  )
+}
+
+// ── Pagrindinis feed'o kortelės komponentas — vizualinė kalba pagal tipą ──
+function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
+  post: any; laneType: string; blogSlug: string; compact?: boolean
+}) {
+  const url = postUrl(post, blogSlug)
+  const typeKey = post.display_post_type || laneType
+  const typeColor = POST_TYPE_COLOR[typeKey] || POST_TYPE_COLOR[laneType] || '#f97316'
+  const FEED_CARD_LABEL: Record<string, string> = {
+    self: 'Apie mane', article: 'Muzikos apžvalga', review: 'Recenzija',
+    event: 'Koncertų įspūdžiai', creation: 'Kūryba', topas: 'Topas', translation: 'Vertimas',
+  }
+  const typeLabel = FEED_CARD_LABEL[typeKey] || FEED_CARD_LABEL[laneType] || POST_TYPE_LABEL[typeKey] || 'Įrašas'
+  const thumb = post.cover_image_url || post.fallback_thumb_url || null
+  const listPreview: any[] | null = Array.isArray(post.list_items_preview) && post.list_items_preview.length > 0 ? post.list_items_preview : null
+  const listCount = post.list_items_count || listPreview?.length || 0
+  const isCreation = laneType === 'creation'
+  const isTopas = laneType === 'topas'
+  const isTranslation = laneType === 'translation'
+
+  // ── TOPAS: chart preview be didelio cover ──
+  if (isTopas && listPreview) {
+    return (
+      <Link href={url} className="group block rounded-2xl overflow-hidden transition hover:-translate-y-0.5"
+            style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+        <div className="flex items-center gap-2.5 px-5 pt-4 pb-1 flex-wrap">
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
+                style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>
+            Topas{listCount ? ` · ${listCount}` : ''}
+          </span>
+          <h3 className="text-[17px] font-extrabold leading-tight group-hover:text-[var(--accent-orange)] transition"
+              style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+            {post.title}
+          </h3>
+        </div>
+        <div className="px-5 py-1.5">
+          {listPreview.map((it, i) => (
+            <div key={i} className="flex items-center gap-3 py-2"
+                 style={{ borderBottom: i < listPreview.length - 1 ? '1px dashed var(--border-subtle)' : 'none' }}>
+              <span className="w-6 text-center text-[15px] font-black flex-shrink-0" style={{ color: typeColor, fontFamily: "'Outfit', sans-serif" }}>{i + 1}</span>
+              {it.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={it.image_url} alt="" loading="lazy" className="w-[54px] h-[32px] rounded-md object-cover flex-shrink-0" />
+              ) : (
+                <div className="w-[54px] h-[32px] rounded-md flex-shrink-0 flex items-center justify-center text-[11px]"
+                     style={{ background: `${typeColor}14`, color: typeColor }}>♬</div>
+              )}
+              <div className="min-w-0">
+                <div className="text-[13px] font-bold leading-tight truncate" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+                  {it.title || '—'}
+                </div>
+                {it.artist && <div className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>{it.artist}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+        {listCount > listPreview.length && (
+          <div className="mx-5 mb-2 mt-1 text-center text-[12px] font-bold rounded-lg py-2"
+               style={{ color: typeColor, background: `${typeColor}10`, fontFamily: "'Outfit', sans-serif" }}>
+            Visas topas — dar {listCount - listPreview.length} poz. →
+          </div>
+        )}
+        <div className="px-5 pb-3.5">
+          <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
+        </div>
+      </Link>
+    )
+  }
+
+  // ── VERTIMAS: kompaktiška eilutė ──
+  if (isTranslation) {
+    return (
+      <Link href={url} className="group block rounded-2xl p-4 transition hover:-translate-y-0.5"
+            style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+        <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white mb-2"
+              style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>Vertimas</span>
+        <h3 className="text-[15.5px] font-extrabold leading-tight group-hover:text-[var(--accent-orange)] transition"
+            style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+          {post.title}
+        </h3>
+        {post.summary && <p className="mt-1 text-[12.5px] truncate" style={{ color: 'var(--text-muted)' }}>{post.summary}</p>}
+      </Link>
+    )
+  }
+
+  // ── SU VIZUALU: didelis cover ──
+  if (thumb) {
+    return (
+      <Link href={url} className="group block rounded-2xl overflow-hidden transition hover:-translate-y-0.5"
+            style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+        <div className={`relative w-full overflow-hidden ${compact ? 'aspect-[16/8]' : 'aspect-[16/7.5]'}`} style={{ background: 'var(--bg-elevated)' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
+          <span className="absolute top-3 left-3 px-2 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
+                style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>
+            {typeLabel}
+          </span>
+        </div>
+        <div className="px-5 pt-3.5 pb-1">
+          <h3 className="text-[17.5px] font-extrabold leading-snug group-hover:text-[var(--accent-orange)] transition line-clamp-2"
+              style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+            {post.title}
+          </h3>
+          {post.summary && (
+            <p className="mt-1.5 text-[13px] leading-relaxed line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
+              {post.summary}
+            </p>
+          )}
+        </div>
+        <div className="px-5 pb-3.5">
+          <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
+        </div>
+      </Link>
+    )
+  }
+
+  // ── KŪRYBA be vizualo: serif „popieriaus" kortelė ──
+  if (isCreation) {
+    return (
+      <Link href={url} className="group block rounded-2xl p-5 transition hover:-translate-y-0.5"
+            style={{ background: 'var(--card-bg)', border: `1px solid ${typeColor}30` }}>
+        <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white mb-2.5"
+              style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>
+          {post.creation_subtype ? `Kūryba · ${post.creation_subtype}` : 'Kūryba'}
+        </span>
+        <h3 className="text-[18px] font-bold leading-snug group-hover:text-[var(--accent-orange)] transition"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: 'var(--text-primary)' }}>
+          {post.title}
+        </h3>
+        {post.summary && (
+          <p className="mt-2 text-[14px] leading-relaxed line-clamp-3 italic"
+             style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: 'var(--text-secondary)' }}>
+            {post.summary}
+          </p>
+        )}
+        <div aria-hidden className="text-center mt-3 text-[13px]" style={{ color: typeColor, opacity: 0.5, letterSpacing: '8px' }}>⁂</div>
+        <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
+      </Link>
+    )
+  }
+
+  // ── BE VIZUALO: tipografinė citatos kortelė (vietoj pilko stačiakampio) ──
+  return (
+    <Link href={url} className="group block rounded-2xl overflow-hidden transition hover:-translate-y-0.5"
+          style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+      <div className="relative px-6 pt-9 pb-5"
+           style={{ background: `linear-gradient(125deg, ${typeColor}d8, ${typeColor}90)` }}>
+        <span aria-hidden className="absolute top-1 left-4 text-[72px] leading-none font-bold text-white"
+              style={{ fontFamily: "Georgia, serif", opacity: 0.2 }}>„</span>
+        <span className="relative inline-block px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider mb-2.5 text-white"
+              style={{ background: 'rgba(0,0,0,0.25)', fontFamily: "'Outfit', sans-serif" }}>
+          {typeLabel}
+        </span>
+        <p className="relative text-[16.5px] leading-relaxed text-white line-clamp-3 italic"
+           style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+          {post.summary || post.title}
+        </p>
+      </div>
+      <div className="px-5 pt-3 pb-3.5">
+        <h3 className="text-[16.5px] font-extrabold leading-snug group-hover:text-[var(--accent-orange)] transition line-clamp-2"
+            style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+          {post.title}
+        </h3>
+        <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
+      </div>
+    </Link>
+  )
+}
+
+// ── Dienos dainų savaitės klasteris — 1 kortelė = 1 savaitė ──
+function DdWeekCard({ picks, label, username, streak }: {
+  picks: any[]; label: string; username: string; streak: number
+}) {
+  const shown = picks.slice(0, 7)
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+      <div className="flex items-center gap-2.5 px-5 pt-4 pb-1 flex-wrap">
+        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
+              style={{ background: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>
+          Dienos dainos
+        </span>
+        <h3 className="text-[15.5px] font-extrabold capitalize" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+          {label}
+        </h3>
+        {streak > 30 && (
+          <span className="ml-auto text-[11.5px] font-bold" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+            🔥 {streak.toLocaleString('lt-LT')} d. serija
+          </span>
+        )}
+      </div>
+      <div className="px-5 py-1.5">
+        {shown.map((p, i) => {
+          const track = p.tracks
+          const artist = track && (Array.isArray(track.artists) ? track.artists[0] : track.artists)
+          const thumb = ytThumbProfile(track?.video_url) || track?.cover_url || artist?.cover_image_url || null
+          const href = (artist && track) ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}` : '#'
+          const d = new Date(p.picked_on)
+          return (
+            <Link key={p.id} href={href} className="group flex items-center gap-3 py-2 transition hover:opacity-85"
+                  style={{ borderBottom: i < shown.length - 1 ? '1px dashed var(--border-subtle)' : 'none' }}>
+              <span className="w-[44px] flex-shrink-0 text-[10px] font-extrabold uppercase leading-tight"
+                    style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+                {LT_MONTHS_GEN[d.getMonth()].slice(0, 3)} {d.getDate()}
+              </span>
+              {thumb ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={thumb} alt="" loading="lazy" className="w-[44px] h-[44px] rounded-lg object-cover flex-shrink-0" />
+              ) : (
+                <div className="w-[44px] h-[44px] rounded-lg flex-shrink-0 flex items-center justify-center"
+                     style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--accent-orange)' }}>♬</div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="text-[13.5px] font-bold leading-tight truncate group-hover:text-[var(--accent-orange)] transition"
+                     style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+                  {track?.title || 'Daina'}
+                </div>
+                {artist && <div className="text-[11.5px] truncate" style={{ color: 'var(--text-muted)' }}>{artist.name}</div>}
+              </div>
+              {(p.like_count || 0) > 0 && (
+                <span className="text-[11px] font-bold flex-shrink-0" style={{ color: 'var(--text-faint)' }}>♥ {p.like_count}</span>
+              )}
+            </Link>
+          )
+        })}
+      </div>
+      <Link href={`/@${username}/dienos-dainos`}
+            className="block mx-5 mb-3.5 mt-1 text-center text-[12px] font-bold rounded-lg py-2 transition hover:opacity-85"
+            style={{ color: 'var(--accent-orange)', background: 'rgba(249,115,22,0.08)', fontFamily: "'Outfit', sans-serif" }}>
+        Visa kolekcija →
+      </Link>
+    </div>
+  )
+}
+
+// ── Like klasteris — feed'o užpildas nariui be įrašų ──
+function LikesClusterCard({ likes, label, onOpenMore }: {
+  likes: any[]; label: string; onOpenMore: (k: 'artist' | 'album' | 'track') => void
+}) {
+  const KIND_LABEL: Record<string, string> = { artist: 'Atlikėjas', album: 'Albumas', track: 'Daina' }
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+      <div className="flex items-center gap-2.5 px-5 pt-4 pb-2 flex-wrap">
+        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
+              style={{ background: '#e11d48', fontFamily: "'Outfit', sans-serif" }}>♥ Pamėgta muzika</span>
+        <h3 className="text-[15.5px] font-extrabold capitalize" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{label}</h3>
+      </div>
+      <div className="grid grid-cols-3 gap-2.5 px-5 pb-3">
+        {likes.map((it) => {
+          const artist = Array.isArray(it.artists) ? it.artists[0] : it.artists
+          const isArtist = it._kind === 'artist'
+          const thumb = isArtist
+            ? (it.cover_image_url || null)
+            : (it._kind === 'track' ? ytThumbProfile(it.video_url) : null) || it.cover_url || artist?.cover_image_url || null
+          const href = isArtist ? `/atlikejai/${it.slug}`
+            : artist ? `/atlikejai/${artist.slug}/${it.slug || it.id}`
+            : it._kind === 'track' ? `/lt/daina/${it.slug || ''}/${it.id}` : `/lt/albumas/${it.slug || ''}/${it.id}`
+          return (
+            <Link key={`${it._kind}-${it.id}`} href={href} className="group block rounded-lg overflow-hidden transition hover:-translate-y-0.5"
+                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+              <div className="relative aspect-square w-full overflow-hidden">
+                {thumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover transition group-hover:scale-105" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--text-faint)' }}>♬</div>
+                )}
+                <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wide text-white"
+                      style={{ background: 'rgba(0,0,0,0.55)' }}>
+                  {KIND_LABEL[it._kind]}
+                </span>
+              </div>
+              <div className="p-1.5">
+                <div className="text-[11px] font-bold leading-tight line-clamp-1" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+                  {isArtist ? it.name : it.title}
+                </div>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+      <button type="button" onClick={() => onOpenMore('track')}
+              className="block w-[calc(100%-40px)] mx-5 mb-3.5 text-center text-[12px] font-bold rounded-lg py-2 transition hover:opacity-85"
+              style={{ color: '#e11d48', background: 'rgba(225,29,72,0.07)', fontFamily: "'Outfit', sans-serif" }}>
+        Visa mėgstama muzika →
+      </button>
+    </div>
+  )
+}
+
+// ── Sidebar: Neseniai pamėgta ──
+function relTimeLt(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const d = Math.floor(diff / 86400000)
+  if (d <= 0) return 'šiandien'
+  if (d === 1) return 'vakar'
+  if (d < 7) return `prieš ${d} d.`
+  if (d < 30) return `prieš ${Math.floor(d / 7)} sav.`
+  if (d < 365) return `prieš ${Math.floor(d / 30)} mėn.`
+  return `prieš ${Math.floor(d / 365)} m.`
+}
+
+function RecentLikesCard({
+  favoriteArtists, favoriteAlbums, favoriteTracks,
+  albumResolvedTotal, trackResolvedTotal, onOpenMore,
+}: any) {
+  const items = useMemo(() => {
+    const arr: any[] = [
+      ...(favoriteArtists || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'artist' })),
+      ...(favoriteAlbums || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'album' })),
+      ...(favoriteTracks || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'track' })),
+    ]
+    return arr.sort((a, b) => new Date(b.liked_at).getTime() - new Date(a.liked_at).getTime()).slice(0, 5)
+  }, [favoriteArtists, favoriteAlbums, favoriteTracks])
+
+  const KIND_LABEL: Record<string, string> = { artist: 'Atlikėjas', album: 'Albumas', track: 'Daina' }
+
+  return (
+    <div className="rounded-2xl p-5" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+      <h4 className="text-[11px] font-extrabold uppercase tracking-wider mb-2.5"
+          style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+        ♥ Neseniai pamėgta
+      </h4>
+      {items.length > 0 ? items.map((it, i) => {
+        const artist = Array.isArray(it.artists) ? it.artists[0] : it.artists
+        const isArtist = it._kind === 'artist'
+        const thumb = isArtist
+          ? (it.cover_image_url || null)
+          : (it._kind === 'track' ? ytThumbProfile(it.video_url) : null) || it.cover_url || artist?.cover_image_url || null
+        const href = isArtist ? `/atlikejai/${it.slug}`
+          : artist ? `/atlikejai/${artist.slug}/${it.slug || it.id}`
+          : it._kind === 'track' ? `/lt/daina/${it.slug || ''}/${it.id}` : `/lt/albumas/${it.slug || ''}/${it.id}`
+        return (
+          <Link key={`${it._kind}-${it.id}`} href={href}
+                className="group flex items-center gap-2.5 py-2 transition hover:opacity-85"
+                style={{ borderBottom: i < items.length - 1 ? '1px dashed var(--border-subtle)' : 'none' }}>
+            {thumb ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={thumb} alt="" loading="lazy"
+                   className={`w-[40px] h-[40px] object-cover flex-shrink-0 ${isArtist ? 'rounded-full' : 'rounded-lg'}`} />
+            ) : (
+              <div className={`w-[40px] h-[40px] flex-shrink-0 flex items-center justify-center ${isArtist ? 'rounded-full' : 'rounded-lg'}`}
+                   style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>♬</div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="text-[12.5px] font-bold leading-tight truncate group-hover:text-[var(--accent-orange)] transition"
+                   style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+                {isArtist ? it.name : it.title}
+              </div>
+              <div className="text-[10.5px] truncate" style={{ color: 'var(--text-faint)' }}>
+                {artist && !isArtist ? `${artist.name} · ` : ''}{relTimeLt(it.liked_at)}
+              </div>
+            </div>
+            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[8.5px] font-extrabold uppercase tracking-wide"
+                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+              {KIND_LABEL[it._kind]}
+            </span>
+          </Link>
+        )
+      }) : (
+        <p className="text-[12px] py-2" style={{ color: 'var(--text-muted)' }}>Pamėgtos muzikos dar nėra</p>
+      )}
+      <div className="mt-3 pt-2.5 flex flex-col gap-1.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+        {(favoriteArtists?.length || 0) > 0 && (
+          <button type="button" onClick={() => onOpenMore('artist')} className="flex justify-between text-[12px] font-bold transition hover:opacity-80"
+                  style={{ color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }}>
+            <span>Mėgstami atlikėjai</span><span style={{ color: 'var(--accent-orange)' }}>{favoriteArtists.length} →</span>
+          </button>
+        )}
+        {(albumResolvedTotal || 0) > 0 && (
+          <button type="button" onClick={() => onOpenMore('album')} className="flex justify-between text-[12px] font-bold transition hover:opacity-80"
+                  style={{ color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }}>
+            <span>Mėgstami albumai</span><span style={{ color: 'var(--accent-orange)' }}>{Number(albumResolvedTotal).toLocaleString('lt-LT')} →</span>
+          </button>
+        )}
+        {(trackResolvedTotal || 0) > 0 && (
+          <button type="button" onClick={() => onOpenMore('track')} className="flex justify-between text-[12px] font-bold transition hover:opacity-80"
+                  style={{ color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }}>
+            <span>Mėgstamos dainos</span><span style={{ color: 'var(--accent-orange)' }}>{Number(trackResolvedTotal).toLocaleString('lt-LT')} →</span>
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Sekti CTA feed'o gale ──
+function FollowCtaCard({ profile }: { profile: any }) {
+  return (
+    <div className="rounded-2xl text-center px-5 py-6"
+         style={{ background: 'linear-gradient(120deg, #0d1322, #16203a)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="text-[15.5px] font-extrabold text-white mb-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        Patinka, ką rašo @{profile.username}?
+      </div>
+      <div className="text-[12.5px] mb-3.5" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: "'Outfit', sans-serif" }}>
+        Sek ir gauk pranešimą apie kiekvieną naują įrašą
+      </div>
+      <div className="flex justify-center">
+        <FollowButton targetId={profile.id} variant="primary" />
+      </div>
+    </div>
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
