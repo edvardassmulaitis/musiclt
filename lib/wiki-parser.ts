@@ -1402,7 +1402,7 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
           ? parseInt(durMatch[1]) * 3600 + parseInt(durMatch[2]) * 60 + parseInt(durMatch[3])
           : parseInt(durMatch[1]) * 60 + parseInt(durMatch[2])
         if (totalSec < 10) continue
-        if (totalSec > 900) continue
+        if (totalSec > 2700) continue
       }
       let featuring: string[] = []
       if (noteM) {
