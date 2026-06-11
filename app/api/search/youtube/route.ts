@@ -100,18 +100,28 @@ export async function GET(req: NextRequest) {
 
     // 2. Patikrinti video statusą + paimti statistics (viewCount) — vienas call
     const videoIds = items.map((i: any) => i.id.videoId).join(',')
-    const detailRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/videos?` +
-      `part=status,contentDetails,statistics&id=${videoIds}&key=${apiKey}`
-    )
-    const detailData = await detailRes.json()
-
-    // Sudaryti žemėlapį: videoId → statusas + statistics
-    const statusMap: Record<string, any> = {}
-    for (const v of detailData.items || []) statusMap[v.id] = v
+    let statusMap: Record<string, any> = {}
+    let detailFailed = false
+    try {
+      const detailRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?` +
+        `part=status,contentDetails,statistics&id=${videoIds}&key=${apiKey}`
+      )
+      const detailData = await detailRes.json()
+      if (detailData.error) {
+        console.error('[yt-search] videos detail error:', detailData.error.code, detailData.error.message)
+        detailFailed = true
+      } else {
+        for (const v of detailData.items || []) statusMap[v.id] = v
+      }
+    } catch (e: any) {
+      console.error('[yt-search] videos detail fetch failed:', e.message)
+      detailFailed = true
+    }
 
     // 3. Filtruoti ir ranguoti — pirmenybė oficialiam kanalui
-    const validItems = items.filter((item: any) => {
+    // Jei detail call nepavyko, naudojam visus rezultatus be filtravimo
+    const validItems = detailFailed ? items : items.filter((item: any) => {
       const vid = item.id.videoId
       const detail = statusMap[vid]
       if (!detail) return false
@@ -175,6 +185,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       results,
       nextPageToken: searchData.nextPageToken || null,
+      ...(detailFailed && { warning: 'YouTube video details unavailable — results unfiltered' }),
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, results: [] }, { status: 500 })
