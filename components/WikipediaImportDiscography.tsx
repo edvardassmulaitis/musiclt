@@ -1331,10 +1331,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       // (3 EP/film), kuris short-circuit'indavo table fallback'ą → 4 studio
       // albumai (table'e) dingdavo. Fix: paleisti ABU ant main page'o ir
       // sujungti pagal title. Table-parsed įrašas laimi tipą (per-section
-      // ! scope=row patikimesnis nei carried-over bullet currentType). Solo
-      // filter'iui (isSolo) table-merge praleidžiam — parseDiscographyPage
-      // neturi group-context skip'o, tad galėtų įtraukti svetimas sekcijas.
-      if (!filter || filter === '__all__') {
+      // ! scope=row patikimesnis nei carried-over bullet currentType).
+      // 2026-06-11: __solo__ taip pat leidžiam merge — solo artistai (Al Stewart)
+      // gali turėti studio albumus table'e + compilations bullet'ais. parseDiscographyPage
+      // turi savo section-type matching'ą (===Studio albums=== etc.), tad nesukels
+      // klaidingų svetimų sekcijų. Tikras group-context rizika tik su konkrečiu
+      // grupės filtru (pvz "Queen"), bet __solo__ reiškia VIENĄ artistą.
+      if (!filter || filter === '__all__' || filter === '__solo__') {
         const tableAlbums = parseDiscographyPage(mainWikitext)
         if (tableAlbums.length) {
           const normKey = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, '')
