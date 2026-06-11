@@ -854,6 +854,9 @@ export function parseHashListTracks(
     .replace(/<ref[^/]*\/>/gi, '')
     .replace(/<\/?(?:small|span|sup|sub|br\s*\/?|nowrap|abbr)[^>]*>/gi, '')
     .replace(/&nbsp;/gi, ' ')
+    // 2026-06-11: {{lang|XX|"Title"}} template'ai (Popol Vuh vokiški pavadinimai)
+    // apgaubia quoted title → hash-list regex nematch'ina. Strip'inam į turinį.
+    .replace(/\{\{lang\|[^|]*\|([^}]*)\}\}/gi, '$1')
 
   // Singles ir dates — jei caller perdavė, naudoj; antraip parsuojam patys
   // iš wikitext'o (kad funkcija liktų self-contained external naudotojams).
