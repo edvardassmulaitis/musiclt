@@ -11,7 +11,7 @@ export async function GET(req: Request) {
 
   let query = supabase
     .from('top_suggestions')
-    .select('id, top_type, status, created_at, suggested_by_user_id, track_id')
+    .select('id, top_type, status, created_at, suggested_by_user_id, track_id, manual_title, manual_artist')
     .eq('status', status)
     .order('created_at', { ascending: false })
     .limit(100)
@@ -38,9 +38,13 @@ export async function GET(req: Request) {
     t.id, { ...t, artist_name: artistMap.get(t.artist_id)?.name ?? '' }
   ]))
 
-  const enriched = suggestions.map(s => ({
+  const enriched = suggestions.map((s: any) => ({
     ...s,
-    track: s.track_id ? trackMap.get(s.track_id) ?? null : null,
+    track: s.track_id
+      ? trackMap.get(s.track_id) ?? null
+      : (s.manual_title
+          ? { id: null, title: s.manual_title, artist_name: s.manual_artist || '', manual: true }
+          : null),
   }))
 
   return NextResponse.json({ suggestions: enriched })
@@ -52,10 +56,39 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   const body = await req.json()
-  const { top_type, track_id } = body
+  const { top_type, track_id, manual_title, manual_artist, status: requestedStatus } = body
   const supabase = createAdminClient()
 
-  if (!track_id) return NextResponse.json({ error: 'Daina nenurodyta' }, { status: 400 })
+  const isAdmin = ['admin', 'super_admin'].includes(session.user.role || '')
+
+  // Admin'as gali iš karto nustatyti statusą (auto-pasiūlymų panelė:
+  // approved = patvirtinti, rejected = praleisti/nebesiūlyti). Ne-admin'ams
+  // statusas visada 'pending'.
+  const initialStatus =
+    isAdmin && ['approved', 'rejected'].includes(requestedStatus) ? requestedStatus : 'pending'
+
+  // MANUAL pasiūlymas (be track_id) — public modalas leidžia įvesti dainą
+  // ranka, kai jos nėra kataloge. Guard'ai (dublikatai/amžius) netaikomi.
+  if (!track_id) {
+    if (!manual_title?.trim() || !manual_artist?.trim())
+      return NextResponse.json({ error: 'Daina nenurodyta' }, { status: 400 })
+
+    const { data, error } = await supabase
+      .from('top_suggestions')
+      .insert({
+        top_type,
+        track_id: null,
+        manual_title: manual_title.trim().slice(0, 200),
+        manual_artist: manual_artist.trim().slice(0, 200),
+        suggested_by_user_id: session.user.id,
+        status: 'pending',
+      })
+      .select()
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ suggestion: data })
+  }
 
   // ─── GUARD 1: daina jau yra einamos savaitės tope ───
   // Suk'a per active week — jei track_id yra top_entries (bet kokia pozicija,
@@ -86,8 +119,6 @@ export async function POST(req: Request) {
   // ─── GUARD 2: daina senesnė nei 1 metai (TIK paprastiems user'iams) ───
   // Per web tik freshmusic. Admin'as gali pridėti bet kokio amžiaus dainų —
   // taip jam paprasčiau test'inti ir building back-catalog'us.
-  const isAdmin = ['admin', 'super_admin'].includes(session.user.role || '')
-
   if (!isAdmin) {
     const { data: track } = await supabase
       .from('tracks')
@@ -129,6 +160,21 @@ export async function POST(req: Request) {
     .maybeSingle()
 
   if (existing) {
+    // Admin'as su explicit statusu gali perrašyti esamą (pvz. anksčiau
+    // atmestą kandidatą patvirtinti per paiešką). Kitiems — idempotent return.
+    if (isAdmin && initialStatus !== 'pending' && existing.status !== initialStatus) {
+      const { data: updated } = await supabase
+        .from('top_suggestions')
+        .update({
+          status: initialStatus,
+          reviewed_by: session.user.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+        .select()
+        .single()
+      return NextResponse.json({ suggestion: updated ?? existing })
+    }
     return NextResponse.json({ suggestion: existing })
   }
 
@@ -138,7 +184,10 @@ export async function POST(req: Request) {
       top_type,
       track_id,
       suggested_by_user_id: session.user.id,
-      status: 'pending',
+      status: initialStatus,
+      ...(initialStatus !== 'pending'
+        ? { reviewed_by: session.user.id, reviewed_at: new Date().toISOString() }
+        : {}),
     })
     .select()
     .single()

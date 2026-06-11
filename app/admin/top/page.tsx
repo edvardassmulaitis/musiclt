@@ -36,8 +36,25 @@ type Suggestion = {
   top_type: TopType
   status: string
   created_at: string
-  track: { id: number; title: string; artist_name: string } | null
+  track: { id: number | null; title: string; artist_name: string; manual?: boolean } | null
   _group?: string
+}
+
+type AutoCandidate = {
+  track_id: number
+  title: string
+  artist_id: number | null
+  artist_name: string
+  cover_url: string | null
+  score: number
+  reasons: string[]
+  penalty: boolean
+  history: {
+    last_top_week: string | null
+    last_top_track: string | null
+    last_suggested_at: string | null
+    last_suggested_track: string | null
+  }
 }
 
 function TrendBadge({ curr, prev }: { curr: number | null; prev: number | null }) {
@@ -81,6 +98,9 @@ function AdminTopInner() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [loadingEntries, setLoadingEntries] = useState(false)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [autoCands, setAutoCands] = useState<AutoCandidate[]>([])
+  const [loadingAuto, setLoadingAuto] = useState(false)
+  const [autoBusy, setAutoBusy] = useState<number | null>(null)
   const [trackSearch, setTrackSearch] = useState('')
   const [trackResults, setTrackResults] = useState<any[]>([])
   const [addingSuggestion, setAddingSuggestion] = useState(false)
@@ -140,6 +160,45 @@ function AdminTopInner() {
     if (status !== 'authenticated' || !isAdmin) return
     loadSuggestions()
   }, [status, isAdmin, topType]) // eslint-disable-line
+
+  const loadAuto = useCallback(async () => {
+    setLoadingAuto(true)
+    try {
+      const res = await fetch(`/api/top/suggestions/auto?type=${topType}`)
+      const data = await res.json()
+      setAutoCands(data.candidates || [])
+    } finally {
+      setLoadingAuto(false)
+    }
+  }, [topType])
+
+  useEffect(() => {
+    if (status !== 'authenticated' || !isAdmin) return
+    loadAuto()
+  }, [status, isAdmin, topType]) // eslint-disable-line
+
+  // Auto-kandidato patvirtinimas/praleidimas — vienas POST su admin status
+  // param'u. 'rejected' persist'inasi top_suggestions, todėl kandidatas
+  // daugiau nebebus siūlomas.
+  const actOnAuto = async (c: AutoCandidate, newStatus: 'approved' | 'rejected') => {
+    setAutoBusy(c.track_id)
+    try {
+      const res = await fetch('/api/top/suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ top_type: topType, track_id: c.track_id, status: newStatus }),
+      })
+      const d = await res.json()
+      if (!res.ok) { showMsg(d.error || 'Klaida', 'err'); return }
+      setAutoCands(prev => prev.filter(x => x.track_id !== c.track_id))
+      if (newStatus === 'approved') {
+        showMsg(`„${c.title}" patvirtinta ✓`)
+        loadSuggestions()
+      }
+    } finally {
+      setAutoBusy(null)
+    }
+  }
 
   // Track search
   useEffect(() => {
@@ -347,6 +406,75 @@ function AdminTopInner() {
           {/* LEFT: Pasiūlymai */}
           <div className="space-y-4">
             <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">💡 Pasiūlymai</h2>
+
+            {/* AUTO pasiūlymai */}
+            <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl shadow-sm p-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide">🤖 Auto pasiūlymai</p>
+                <button onClick={loadAuto} disabled={loadingAuto}
+                  className="text-xs text-gray-400 hover:text-gray-600 font-semibold transition-colors">
+                  ↻ Atnaujinti
+                </button>
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)] mb-3">
+                Kandidatai iš naujų dainų srauto ir external topų. Patvirtinti pateks į kitą savaitę; praleisti — nebebus siūlomi.
+              </p>
+              {loadingAuto ? (
+                <div className="flex justify-center py-6">
+                  <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : autoCands.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">Naujų kandidatų nėra.</p>
+              ) : (
+                <div className="space-y-1 max-h-[480px] overflow-y-auto pr-1">
+                  {autoCands.map(c => (
+                    <div key={c.track_id}
+                      className={`flex items-start gap-3 px-3 py-2 rounded-xl border ${
+                        c.penalty ? 'border-amber-200 bg-amber-50/40' : 'border-gray-100 bg-white'
+                      }`}>
+                      <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 mt-0.5">
+                        {c.cover_url
+                          ? <img src={c.cover_url} alt="" className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">♪</div>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{c.title}</p>
+                        <p className="text-xs text-gray-500 truncate">{c.artist_name}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {c.reasons.map((r, i) => (
+                            <span key={i} className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
+                              {r}
+                            </span>
+                          ))}
+                        </div>
+                        {(c.history.last_top_week || c.history.last_suggested_at) && (
+                          <p className={`text-[10px] mt-1 ${c.penalty ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
+                            {c.history.last_top_week && (
+                              <>Tope {new Date(c.history.last_top_week).toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' })} su „{c.history.last_top_track}"</>
+                            )}
+                            {c.history.last_top_week && c.history.last_suggested_at && ' · '}
+                            {c.history.last_suggested_at && (
+                              <>Siūlytas {new Date(c.history.last_suggested_at).toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' })} su „{c.history.last_suggested_track}"</>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1 flex-shrink-0">
+                        <button onClick={() => actOnAuto(c, 'approved')} disabled={autoBusy === c.track_id}
+                          className="px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50">
+                          ✓
+                        </button>
+                        <button onClick={() => actOnAuto(c, 'rejected')} disabled={autoBusy === c.track_id}
+                          title="Praleisti — daugiau nebesiūlyti"
+                          className="px-2.5 py-1 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 border border-gray-200 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50">
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Search */}
             <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl shadow-sm p-4">

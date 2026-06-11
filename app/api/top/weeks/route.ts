@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getCurrentWeekMonday, getVoteClose } from '@/lib/top-week'
+import { finalizeWeekTS, carryOverToNewWeek } from '@/lib/top-rotation'
 
 /**
  * Self-heal anchor: visada nustato dabartinę kalendorinę savaitę kaip
@@ -50,34 +51,43 @@ export async function GET(req: Request) {
       .single()
 
     if (newWeek) {
-      // Perkelti approved pasiūlymus į naujos savaitės top_entries
-      const { data: approved } = await supabase
-        .from('top_suggestions')
-        .select('id, track_id')
-        .eq('top_type', topType)
-        .eq('status', 'approved')
-        .not('track_id', 'is', null)
+      // Self-heal rotacija (jei cron'as nesuveikė): finalizuoti praeitą
+      // savaitę + perkelti entries su state transitions + approved
+      // pasiūlymai → newcomers. Visa logika lib/top-rotation.ts (ta pati,
+      // kurią naudoja cron'as).
+      try {
+        // Look-back: naujausia praeita savaitė, kuri TURI entries (tarpinės
+        // tuščios savaitės — pvz. cron'o sukurtos be carry-over — praleidžiamos,
+        // kad topas neišnyktų po vienos „blogos" savaitės).
+        const { data: prevWeeks } = await supabase
+          .from('top_weeks')
+          .select('*')
+          .eq('top_type', topType)
+          .lt('week_start', thisMonday)
+          .order('week_start', { ascending: false })
+          .limit(10)
 
-      if (approved && approved.length > 0) {
-        // Suggestions tampa NEWCOMERS (weeks_in_top=0), ne iš karto į topą.
-        // Tik po cycle rotation (Reset) jei pateks į top N — tampa "in top".
-        await supabase.from('top_entries').insert(
-          approved.map((s, i) => ({
-            week_id: newWeek.id,
-            track_id: s.track_id,
-            top_type: topType,
-            position: i + 1,
-            total_votes: 0,
-            is_new: true,
-            weeks_in_top: 0,         // NEWCOMER
-            peak_position: null,
-          }))
-        )
+        let prevWeek: any = null
+        for (const w of (prevWeeks || [])) {
+          const { count } = await supabase
+            .from('top_entries')
+            .select('id', { count: 'exact', head: true })
+            .eq('week_id', w.id)
+          if ((count || 0) > 0) { prevWeek = w; break }
+        }
 
+        const finals = prevWeek ? await finalizeWeekTS(supabase, prevWeek) : []
+        await carryOverToNewWeek(supabase, topType, finals, newWeek.id)
+
+        // Užstrigusių is_active cleanup
         await supabase
-          .from('top_suggestions')
-          .update({ status: 'used' })
-          .in('id', approved.map(s => s.id))
+          .from('top_weeks')
+          .update({ is_active: false })
+          .eq('top_type', topType)
+          .eq('is_active', true)
+          .neq('id', newWeek.id)
+      } catch {
+        // Self-heal neturi nuversti GET'o — rotaciją pakartos cron'as.
       }
     }
   }
