@@ -834,6 +834,7 @@ export function parseHashListTracks(
     .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
     .replace(/<ref[^/]*\/>/gi, '')
     .replace(/<\/?(?:small|span|sup|sub|br\s*\/?|nowrap|abbr)[^>]*>/gi, '')
+    .replace(/&nbsp;/gi, ' ')
 
   // Singles ir dates — jei caller perdavė, naudoj; antraip parsuojam patys
   // iš wikitext'o (kad funkcija liktų self-contained external naudotojams).
