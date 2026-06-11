@@ -509,7 +509,10 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
     if (line.startsWith('{|')) { inTable = true; continue }
     if (line.startsWith('|}')) { inTable = false; continue }
     if (inTable) continue
-    if (!inDiscSection || skipGroup || !line.startsWith('*')) continue
+    // 2026-06-11: kai kurios diskografijos naudoja `#` (numbered list) vietoj `*`
+    // (bullet list) — pvz. Popol Vuh. Abu formatai turi tą pačią struktūrą:
+    // `# ''[[Album]]'' (YYYY)` arba `* ''[[Album]]'' (YYYY)`.
+    if (!inDiscSection || skipGroup || (!line.startsWith('*') && !line.startsWith('#'))) continue
     if (line.toLowerCase().includes('main article') || line.toLowerCase().includes('see also')) continue
 
     let title = '', wikiTitle = ''
