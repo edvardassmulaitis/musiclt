@@ -486,25 +486,28 @@ function DiscussionsWidget() {
 
 const REELS_DURATION = 8000
 
-/* ── Desktop hero SLIDER (2026-06-11 v3) — /atrasti „Dėmesio centre" stilius:
-   vienas didelis slide'as per visą plotį (vizualas | tamsus teksto panelis),
-   rodyklės ‹› + taškai. Auto-rotaciją varo esamas heroIdx timer'is (8s). ── */
-function HeroSliderDesktop({ slides, idx, onIdx }: { slides: HeroSlide[]; idx: number; onIdx: (i: number) => void }) {
-  const s = slides[Math.min(idx, slides.length - 1)]
-  if (!s) return null
-  const many = slides.length > 1
-  const isChart = s.type === 'chart_lt' || s.type === 'chart_world'
-  const cta = isChart ? 'Žiūrėti topą' : s.type === 'dd' ? 'Balsuoti' : s.type === 'event' ? 'Renginio puslapis' : 'Skaityti'
+/* ── Desktop hero (2026-06-11 v4) — ~3 kortelių juosta su „peek" (ketvirta
+   matosi nepilna = aiškus kvietimas slinkti į šoną) + rodyklės ‹›. Vieno
+   didelio slide'o atsisakyta: YT thumbnail'ų kokybė per žema dideliam formatui. ── */
+function HeroSliderDesktop({ slides, dk }: { slides: HeroSlide[]; dk: boolean }) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const scrollBy = (dir: -1 | 1) => {
+    const el = trackRef.current
+    if (!el) return
+    const card = el.querySelector('.hp-hero-slot') as HTMLElement | null
+    const step = card ? card.offsetWidth + 16 : el.clientWidth * 0.9
+    el.scrollBy({ left: dir * step, behavior: 'smooth' })
+  }
   const arrow = (dir: -1 | 1) => (
-    <button type="button" aria-label={dir < 0 ? 'Ankstesnis' : 'Kitas'}
-      onClick={() => onIdx((idx + dir + slides.length) % slides.length)}
+    <button type="button" aria-label={dir < 0 ? 'Ankstesnis' : 'Kitas'} onClick={() => scrollBy(dir)}
       style={{
         position: 'absolute', top: '50%', transform: 'translateY(-50%)', zIndex: 4,
-        [dir < 0 ? 'left' : 'right']: 12,
+        [dir < 0 ? 'left' : 'right']: -6,
         width: 38, height: 38, borderRadius: '50%', cursor: 'pointer',
-        background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(255,255,255,0.2)',
-        color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        backdropFilter: 'blur(6px)',
+        background: dk ? 'rgba(13,19,32,0.92)' : 'rgba(255,255,255,0.95)',
+        border: '1px solid var(--border-strong)', color: 'var(--text-primary)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
       } as any}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         {dir < 0 ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 6l6 6-6 6" />}
@@ -512,62 +515,16 @@ function HeroSliderDesktop({ slides, idx, onIdx }: { slides: HeroSlide[]; idx: n
     </button>
   )
   return (
-    <div>
-      <div style={{ position: 'relative', borderRadius: 22, overflow: 'hidden', border: '1px solid var(--border-default)', background: '#0d1320' }}>
-        <Link key={idx} href={s.href} className="hp-heroslide" style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', minHeight: 340, textDecoration: 'none' }}>
-          {/* Vizualas */}
-          <div style={{ position: 'relative', minHeight: 240, overflow: 'hidden', background: '#0a0f1a' }}>
-            {s.bgImg ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={proxyImg(s.bgImg)} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
-            )}
-            <span style={{ position: 'absolute', top: 14, left: 14, zIndex: 2, padding: '5px 11px', borderRadius: 8, fontSize: 10, fontWeight: 900, color: '#fff', background: s.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{s.chip}</span>
-            {s.videoId && (
-              <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 56, height: 56, borderRadius: '50%', background: 'rgba(249,115,22,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 10px 30px rgba(0,0,0,0.45)' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
-              </span>
-            )}
+    <div style={{ position: 'relative' }}>
+      <div ref={trackRef} className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory" style={{ overflowX: 'auto' }}>
+        {slides.map((slide) => (
+          <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
+            <HeroV2Card slide={slide} dk={dk} />
           </div>
-          {/* Teksto panelis */}
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '28px 32px', background: 'linear-gradient(135deg, #131c2e 0%, #0d1320 70%)' }}>
-            <div style={{ pointerEvents: 'none', position: 'absolute', inset: 0, background: 'radial-gradient(520px 280px at 0% 100%, rgba(249,115,22,0.1), transparent 60%)' }} />
-            <h2 style={{ position: 'relative', margin: 0, fontFamily: 'Outfit,sans-serif', fontSize: 28, fontWeight: 900, lineHeight: 1.14, letterSpacing: '-0.02em', color: '#f0f4fc', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as any}>{s.title}</h2>
-            {isChart && s.chartTops?.length ? (
-              <div style={{ position: 'relative', marginTop: 14, display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {s.chartTops.slice(0, 4).map(t => (
-                  <span key={t.pos} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <b style={{ fontFamily: 'Outfit,sans-serif', fontSize: 14, color: '#f97316', width: 16, textAlign: 'center' }}>{t.pos}</b>
-                    {(t.cover_url || t.artist_image) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={proxyImg(t.cover_url || t.artist_image || '')} alt="" style={{ width: 30, height: 30, borderRadius: 7, objectFit: 'cover' }} />
-                    ) : <span style={{ width: 30, height: 30, borderRadius: 7, background: 'rgba(255,255,255,0.08)' }} />}
-                    <span style={{ minWidth: 0, fontSize: 13, fontWeight: 700, color: '#f0f4fc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</span>
-                    <span style={{ minWidth: 0, fontSize: 11.5, color: '#8ea8c4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.artist}</span>
-                  </span>
-                ))}
-              </div>
-            ) : s.subtitle ? (
-              <p style={{ position: 'relative', margin: '10px 0 0', fontSize: 14, lineHeight: 1.55, color: '#aec4dd', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as any}>{s.subtitle}</p>
-            ) : null}
-            <span style={{ position: 'relative', marginTop: 18, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 12, background: '#f97316', color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800, boxShadow: '0 6px 20px rgba(249,115,22,0.3)' }}>
-              {cta}
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </span>
-          </div>
-        </Link>
-        {many && arrow(-1)}
-        {many && arrow(1)}
+        ))}
       </div>
-      {many && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginTop: 10 }}>
-          {slides.map((sl, i) => (
-            <button key={`${sl.type}-${sl.href}`} type="button" aria-label={`Slide ${i + 1}`} onClick={() => onIdx(i)}
-              style={{ width: i === idx ? 22 : 8, height: 8, borderRadius: 999, border: 'none', cursor: 'pointer', padding: 0, background: i === idx ? 'var(--accent-orange)' : 'var(--border-strong)', transition: 'all .2s' }} />
-          ))}
-        </div>
-      )}
+      {slides.length > 3 && arrow(-1)}
+      {slides.length > 3 && arrow(1)}
     </div>
   )
 }
@@ -2791,10 +2748,11 @@ export default function Home() {
         @keyframes hp-pulse{0%,100%{opacity:.05}50%{opacity:.08}}
         .hp-skel{background:var(--homepage-skeleton-bg);animation:hp-pulse 1.8s ease-in-out infinite}
         .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
-        .hp-hero-slot{width:580px;flex-shrink:0;min-width:0}
+        /* v4: ~3.3 kortelės eilėje (ketvirta „peek“ — kvietimas slinkti) */
+        .hp-hero-slot{width:calc((100% - 72px) / 3.35);min-width:330px;flex-shrink:0}
         /* >=1400px: siauresnės kortelės, kad 3-čia naujiena aiškiau matytųsi
            (peek ~38% vietoj ankstesnio ~10%). Edvardo prašymu 2026-05-31. */
-        @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 64px) / 2.3)}}
+        @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 80px) / 3.35)}}
         @media(max-width:768px){.hp-hero-slot{width:calc(88vw)}}
         .hp-scroll::-webkit-scrollbar{display:none}
         /* 2026-05-29: desktop side-scroll rodyklės pašalintos (Edvardo prašymu) —
@@ -2951,14 +2909,8 @@ export default function Home() {
         {pageReady && heroSlides.length > 0 && (
           <section className="hp-hero-v2" ref={heroRef}>
             <div className="mx-auto max-w-[1360px] px-5 pt-5">
-              {/* 2026-06-11 v3 — /atrasti stiliaus slider'is (rodyklės + taškai)
-                  vietoj horizontalios kortelių juostos. Auto-rotacija — esamas
-                  heroIdx 8s timer'is. */}
-              <HeroSliderDesktop
-                slides={heroSlides}
-                idx={heroIdx}
-                onIdx={(i) => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(i) }}
-              />
+              {/* 2026-06-11 v4 — ~3 kortelių juosta su peek + rodyklėmis. */}
+              <HeroSliderDesktop slides={heroSlides} dk={dk} />
             </div>
           </section>
         )}
