@@ -2233,16 +2233,22 @@ function buildFeedItems({
     }
   }
 
-  // Dienos dainos — savaitiniai klasteriai
+  // Dienos dainos — savaitiniai klasteriai. Skip'inam neresolvintus picks
+  // (be tracks ryšio nėra ką rodyti) ir ribojam iki 3 naujausių savaičių,
+  // kad senų metų pavieniai pasirinkimai neužterštų feed'o tuščiomis kortelėmis.
   const byWeek = new Map<string, any[]>()
   for (const p of (dailyPicks || [])) {
-    if (!p.picked_on) continue
+    if (!p.picked_on || !p.tracks) continue
     const k = isoWeekKeyLt(p.picked_on)
     if (!byWeek.has(k)) byWeek.set(k, [])
     byWeek.get(k)!.push(p)
   }
-  for (const [k, picks] of byWeek) {
+  const ddWeeks = [...byWeek.entries()].map(([k, picks]) => {
     picks.sort((a, b) => new Date(b.picked_on).getTime() - new Date(a.picked_on).getTime())
+    return { k, picks }
+  }).sort((a, b) => new Date(b.picks[0].picked_on).getTime() - new Date(a.picks[0].picked_on).getTime())
+    .slice(0, 3)
+  for (const { k, picks } of ddWeeks) {
     items.push({
       id: `ddweek-${k}`, kind: 'ddweek', date: picks[0].picked_on,
       picks, label: weekLabelLt(picks[0].picked_on),
