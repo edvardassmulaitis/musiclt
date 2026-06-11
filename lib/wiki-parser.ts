@@ -513,9 +513,22 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
     if (line.toLowerCase().includes('main article') || line.toLowerCase().includes('see also')) continue
 
     let title = '', wikiTitle = ''
-    const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-    if (wm) { wikiTitle = wm[1].trim(); title = cleanWikiText(wm[2] || wm[1]) }
-    else { const im = line.match(/'{2,3}([^']+)'{2,3}/); if (im) { title = cleanWikiText(im[1]); wikiTitle = title.replace(/ /g, '_') } }
+    // 2026-06-11: italic PIRMA, wikilink tik fallback. Wikipedia konvencija:
+    // albumo pavadinimas VISADA italic ''...''. Anksčiau [[wikilink]] buvo pirmas,
+    // todėl `''Modern Times'' with [[Mike Mainieri]]` gaudavo „Mike Mainieri"
+    // kaip albumo pavadinimą (pirmas [[...]] match'as buvo „with" artistas).
+    const im = line.match(/'{2,3}([^']+)'{2,3}/)
+    if (im) {
+      const inner = im[1]
+      // Italic viduje gali būti wikilink: ''[[Album (dis)|Album]]''
+      const innerWm = inner.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      if (innerWm) { wikiTitle = innerWm[1].trim(); title = cleanWikiText(innerWm[2] || innerWm[1]) }
+      else { title = cleanWikiText(inner); wikiTitle = title.replace(/ /g, '_') }
+    } else {
+      // Fallback: bare [[wikilink]] be italic (retesnis formatas)
+      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      if (wm) { wikiTitle = wm[1].trim(); title = cleanWikiText(wm[2] || wm[1]) }
+    }
     if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle) || /^[A-Z]{2,3}$/.test(title)) continue
     const bad = ['discography', 'songs', 'videography', 'filmography', 'certification', 'chart']
     if (bad.some(b => title.toLowerCase().includes(b) || wikiTitle.toLowerCase().includes(b))) continue
@@ -828,24 +841,24 @@ export function parseHashListTracks(
     ? { names: passedSingles, dates: passedDates }
     : parseSinglesFromInfobox(wikitext)
 
-  // Strict pattern: `# "Title" – duration` (en/em/regular dash, optional)
-  // Also accepts `# "Title" (note)` with duration appended later
-  // Skip lines that look like references/citations
-  const lineRe = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*[–—-]\s*(\d{1,2}:\d{2}(?::\d{2})?)/gm
+  // 2026-06-11: DU regex'ai — su trukme ir BE trukmės. Pirma bandome su trukme
+  // (patikimesnis — mažiau false positive), tada be trukmės (Magnetic Steps Ahead:
+  // `# "Trains" ([[Mike Mainieri]])` — nėra trukmės, bet yra quoted title
+  // ==Track listing== sekcijoje). Be-trukmės regex'as saugus nes:
+  // (a) tik `# "..."` formatas (ne bullet `*`), (b) tik ==Track listing== viduje.
+  const lineReWithDur = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*[–—-]\s*(\d{1,2}:\d{2}(?::\d{2})?)/gm
+  const lineReNoDur = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*$/gm
+  // Pirma bandome su trukme — jei randa bent 1, naudojam tik tą regex'ą
+  const withDurMatches = [...body.matchAll(lineReWithDur)]
+  const useRe = withDurMatches.length > 0 ? lineReWithDur : lineReNoDur
+  useRe.lastIndex = 0
   let lm: RegExpExecArray | null
   let order = 1
-  while ((lm = lineRe.exec(body)) !== null) {
-    // Raw capture'as gali tureti `[[Stay on These Roads (song)|Stay on These Roads]]`
-    // tipo wikilink'us — a-ha „Stay on These Roads" hash-list formatas. Anksčiau
-    // pushindavom `lm[1].trim()` neapdorotą, todėl titles likdavo su `[[...]]`
-    // brackets. cleanWikiText išsprendžia: `[[X|Y]] → Y`, `[[X]] → X` ir t.t.
-    // Tas pats pipeline'as kaip parseTracklist eilutėje ~863-865, kad
-    // hash-list ir {{Track listing}} formatai duoda identišką output'ą.
+  while ((lm = useRe.exec(body)) !== null) {
     const { cleanTitle, featuring: titleFeat } = parseFeaturing(lm[1].trim())
-    // Wiki Style title case — toks pats kaip {{Track listing}} pipeline'e
     const title = wikiTitleCase(cleanWikiText(cleanTitle))
     const noteRaw = lm[2] || ''
-    const duration = lm[3]
+    const duration = lm[3] || undefined
     if (title.length < 2) continue
     // Determine track type from optional note
     const noteLow = noteRaw.toLowerCase()
