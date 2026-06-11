@@ -65,6 +65,7 @@ const PARTICIPATE: Item[] = [
 export function QuickCreate() {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [dailyDone, setDailyDone] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
   const { data: session } = useSession()
@@ -80,6 +81,17 @@ export function QuickCreate() {
   // Užsidaro pasikeitus maršrutui (kad nelikt' kabantis po navigacijos).
   useEffect(() => { setOpen(false) }, [pathname])
 
+  // Kai atidaromas — patikrinam ar jau pasiūlė dienos dainą šiandien.
+  useEffect(() => {
+    if (!open || !session?.user) return
+    let on = true
+    fetch('/api/dienos-daina/nominations')
+      .then(r => r.json())
+      .then(d => { if (on) setDailyDone(!!d.already_nominated) })
+      .catch(() => {})
+    return () => { on = false }
+  }, [open, session?.user])
+
   // ESC uždaro. NB: NEblokuojam body/html overflow — overlay'us pats dengia
   // foną, o overflow lock'as buvo paliekamas „stuck" po navigacijos ir laužė
   // viso puslapio scroll'ą mobile'e.
@@ -94,7 +106,15 @@ export function QuickCreate() {
 
   const go = (href: string) => { setOpen(false); router.push(href) }
 
-  const Tile = ({ it }: { it: Item }) => (
+  const Tile = ({ it, done }: { it: Item; done?: boolean }) => done ? (
+    <div className="qc-tile qc-tile--done">
+      <span className="qc-tile-icon" style={{ color: '#22c55e' }}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+      </span>
+      <span className="qc-tile-label" style={{ color: '#22c55e' }}>{it.label}</span>
+      <span className="qc-tile-desc" style={{ color: '#22c55e', opacity: 0.7 }}>Pasiūlyta!</span>
+    </div>
+  ) : (
     <button type="button" className="qc-tile" onClick={() => go(it.href)}>
       <span className="qc-tile-icon" style={it.accent ? { color: it.accent } : undefined}>{it.icon}</span>
       <span className="qc-tile-label">{it.label}</span>
@@ -182,8 +202,9 @@ export function QuickCreate() {
           background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 14px;
           transition: border-color .14s, background .14s, transform .1s;
         }
-        .qc-tile:hover { border-color: var(--border-strong); background: var(--bg-active); }
-        .qc-tile:active { transform: scale(.97); }
+        .qc-tile:not(.qc-tile--done):hover { border-color: var(--border-strong); background: var(--bg-active); }
+        .qc-tile:not(.qc-tile--done):active { transform: scale(.97); }
+        .qc-tile--done { cursor: default; border-color: rgba(34,197,94,0.25); background: rgba(34,197,94,0.06); }
         .qc-tile-icon { color: var(--accent-link); }
         .qc-tile-icon svg { width: 22px; height: 22px; }
         .qc-tile-label { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
@@ -219,7 +240,7 @@ export function QuickCreate() {
           <div className="qc-grid">{CREATE.map(it => <Tile key={it.href} it={it} />)}</div>
 
           <div className="qc-group-label">Dalyvauk</div>
-          <div className="qc-grid-4">{PARTICIPATE.map(it => <Tile key={it.href} it={it} />)}</div>
+          <div className="qc-grid-4">{PARTICIPATE.map(it => <Tile key={it.href} it={it} done={it.label === 'Dienos daina' && dailyDone} />)}</div>
         </div>
       </div>
     </>,

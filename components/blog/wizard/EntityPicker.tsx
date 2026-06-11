@@ -146,13 +146,15 @@ export function EntityPicker({
         </div>
       ) : (
         <div className="ep-list">
-          {shownSuggestions.length > 0 && (
-            <p className="ep-section">Neseniai pamėgti</p>
-          )}
-          {loadedSug && shownSuggestions.length === 0 ? (
-            <p className="ep-hint">Pradėk rašyti, kad surastum.</p>
+          {!loadedSug ? (
+            <p className="ep-hint">Kraunami pasiūlymai…</p>
+          ) : shownSuggestions.length > 0 ? (
+            <>
+              <p className="ep-section">Neseniai pamėgti</p>
+              {shownSuggestions.map(hit => <Row key={key(hit)} hit={hit} onPick={onPick} />)}
+            </>
           ) : (
-            shownSuggestions.map(hit => <Row key={key(hit)} hit={hit} onPick={onPick} />)
+            <p className="ep-hint">Pradėk rašyti, kad surastum.</p>
           )}
         </div>
       )}

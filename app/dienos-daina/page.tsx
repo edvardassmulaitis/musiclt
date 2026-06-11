@@ -43,7 +43,8 @@ async function getData() {
         tracks:track_id (
           id, slug, title, cover_url, spotify_id, video_url,
           artists:artist_id ( id, slug, name, cover_image_url )
-        )
+        ),
+        proposer:profiles!daily_song_nominations_user_id_fkey ( username, full_name, avatar_url )
       `)
       .eq('date', today)
       .is('removed_at', null)
@@ -87,9 +88,23 @@ async function getData() {
     }))
     .sort((a: any, b: any) => b.weighted_votes - a.weighted_votes)
 
+  // Resolve proposer profiles for winners
+  const winnerUserIds = Array.from(new Set(
+    (winnersRes.data || []).map((w: any) => w.winning_user_id).filter(Boolean)
+  ))
+  const proposerById: Record<string, any> = {}
+  if (winnerUserIds.length > 0) {
+    const { data: profs } = await supabase
+      .from('profiles')
+      .select('id, username, full_name, avatar_url')
+      .in('id', winnerUserIds)
+    for (const p of (profs || []) as any[]) proposerById[p.id] = { username: p.username, full_name: p.full_name, avatar_url: p.avatar_url }
+  }
+
   const enrichedWinners = (winnersRes.data || []).map((w: any) => ({
     ...w,
     tracks: normalizeTrack(w.tracks),
+    proposer: w.winning_user_id ? proposerById[w.winning_user_id] || null : null,
   }))
 
   return {

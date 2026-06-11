@@ -514,7 +514,7 @@ function EditorInner() {
     else if (type === 'daily') {
       steps.push({
         id: 'pick', title: 'Dienos daina',
-        subtitle: 'Pasiūlyk dainą šiandienos balsavimui (turi būti išleista per pastaruosius metus).',
+        subtitle: 'Pasiūlyk dainą šiandienos balsavimui.',
         valid: !!songTarget,
         node: songTarget
           ? <SelectedEntityCard hit={songTarget} onClear={() => setSongTarget(null)} clearLabel="Keisti" />

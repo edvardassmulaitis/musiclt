@@ -84,21 +84,32 @@ export async function GET(req: NextRequest) {
   const albumMap  = new Map((albumsRes.data || []).map((a: any) => [a.id, a]))
   const trackMap  = new Map((tracksRes.data || []).map((t: any) => [t.id, t]))
 
-  // Išlaikom like'ų eilę (naujausi pirmi)
+  // Diversity: max 2 tracks per artist, kad suggestions būtų įvairesni.
   const out: Hit[] = []
+  const artistCount: Record<string, number> = {}
+  const MAX_PER_ARTIST = 2
+
   for (const l of likes) {
-    if (out.length >= limit && kind !== 'all') break
+    if (out.length >= (kind === 'all' ? limit * 2 : limit)) break
     if (l.entity_type === 'artist') {
       const a = artistMap.get(Number(l.entity_id))
       if (a) out.push({ type: 'grupe', id: a.id, legacy_id: a.legacy_id ?? null, slug: a.slug, title: a.name, artist: null, image_url: a.cover_image_url ?? null })
     } else if (l.entity_type === 'album') {
       const a = albumMap.get(Number(l.entity_id))
-      if (a) out.push({ type: 'albumas', id: a.id, legacy_id: a.legacy_id ?? null, slug: a.slug, title: a.title, artist: one(a.artists)?.name ?? null, image_url: a.cover_image_url ?? one(a.artists)?.cover_image_url ?? null })
+      if (!a) continue
+      const artName = one(a.artists)?.name ?? '_'
+      if ((artistCount[artName] || 0) >= MAX_PER_ARTIST) continue
+      artistCount[artName] = (artistCount[artName] || 0) + 1
+      out.push({ type: 'albumas', id: a.id, legacy_id: a.legacy_id ?? null, slug: a.slug, title: a.title, artist: artName === '_' ? null : artName, image_url: a.cover_image_url ?? one(a.artists)?.cover_image_url ?? null })
     } else if (l.entity_type === 'track') {
       const t = trackMap.get(Number(l.entity_id))
-      if (t) out.push({ type: 'daina', id: t.id, legacy_id: t.legacy_id ?? null, slug: t.slug, title: t.title, artist: one(t.artists)?.name ?? null, image_url: t.cover_url ?? one(t.artists)?.cover_image_url ?? null })
+      if (!t) continue
+      const artName = one(t.artists)?.name ?? '_'
+      if ((artistCount[artName] || 0) >= MAX_PER_ARTIST) continue
+      artistCount[artName] = (artistCount[artName] || 0) + 1
+      out.push({ type: 'daina', id: t.id, legacy_id: t.legacy_id ?? null, slug: t.slug, title: t.title, artist: artName === '_' ? null : artName, image_url: t.cover_url ?? one(t.artists)?.cover_image_url ?? null })
     }
   }
 
-  return NextResponse.json({ suggestions: out.slice(0, kind === 'all' ? limit * 2 : limit) })
+  return NextResponse.json({ suggestions: out })
 }

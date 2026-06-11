@@ -449,12 +449,19 @@ function FeaturedSlider() {
 
 // ═════════════════════════ 2. DIENOS DAINA hero ═════════════════════════
 function Countdown() {
-  const [txt, setTxt] = useState('—:—:—')
+  const [txt, setTxt] = useState('')
   useEffect(() => {
     const tick = () => {
       const n = new Date(); const m = new Date(n); m.setHours(24, 0, 0, 0)
-      const s = Math.max(0, Math.floor((m.getTime() - n.getTime()) / 1000))
-      setTxt(`${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`)
+      const totalSec = Math.max(0, Math.floor((m.getTime() - n.getTime()) / 1000))
+      const h = Math.floor(totalSec / 3600)
+      const min = Math.floor((totalSec % 3600) / 60)
+      const sec = totalSec % 60
+      if (h >= 1) {
+        setTxt(min > 0 ? `~${h} val. ${min} min.` : `~${h} val.`)
+      } else {
+        setTxt(`${min}:${String(sec).padStart(2, '0')}`)
+      }
     }
     tick()
     const iv = setInterval(tick, 1000)
