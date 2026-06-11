@@ -486,6 +486,92 @@ function DiscussionsWidget() {
 
 const REELS_DURATION = 8000
 
+/* ── Desktop hero SLIDER (2026-06-11 v3) — /atrasti „Dėmesio centre" stilius:
+   vienas didelis slide'as per visą plotį (vizualas | tamsus teksto panelis),
+   rodyklės ‹› + taškai. Auto-rotaciją varo esamas heroIdx timer'is (8s). ── */
+function HeroSliderDesktop({ slides, idx, onIdx }: { slides: HeroSlide[]; idx: number; onIdx: (i: number) => void }) {
+  const s = slides[Math.min(idx, slides.length - 1)]
+  if (!s) return null
+  const many = slides.length > 1
+  const isChart = s.type === 'chart_lt' || s.type === 'chart_world'
+  const cta = isChart ? 'Žiūrėti topą' : s.type === 'dd' ? 'Balsuoti' : s.type === 'event' ? 'Renginio puslapis' : 'Skaityti'
+  const arrow = (dir: -1 | 1) => (
+    <button type="button" aria-label={dir < 0 ? 'Ankstesnis' : 'Kitas'}
+      onClick={() => onIdx((idx + dir + slides.length) % slides.length)}
+      style={{
+        position: 'absolute', top: '50%', transform: 'translateY(-50%)', zIndex: 4,
+        [dir < 0 ? 'left' : 'right']: 12,
+        width: 38, height: 38, borderRadius: '50%', cursor: 'pointer',
+        background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(255,255,255,0.2)',
+        color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backdropFilter: 'blur(6px)',
+      } as any}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        {dir < 0 ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 6l6 6-6 6" />}
+      </svg>
+    </button>
+  )
+  return (
+    <div>
+      <div style={{ position: 'relative', borderRadius: 22, overflow: 'hidden', border: '1px solid var(--border-default)', background: '#0d1320' }}>
+        <Link key={idx} href={s.href} className="hp-heroslide" style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', minHeight: 340, textDecoration: 'none' }}>
+          {/* Vizualas */}
+          <div style={{ position: 'relative', minHeight: 240, overflow: 'hidden', background: '#0a0f1a' }}>
+            {s.bgImg ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={proxyImg(s.bgImg)} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
+            )}
+            <span style={{ position: 'absolute', top: 14, left: 14, zIndex: 2, padding: '5px 11px', borderRadius: 8, fontSize: 10, fontWeight: 900, color: '#fff', background: s.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{s.chip}</span>
+            {s.videoId && (
+              <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 56, height: 56, borderRadius: '50%', background: 'rgba(249,115,22,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 10px 30px rgba(0,0,0,0.45)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
+              </span>
+            )}
+          </div>
+          {/* Teksto panelis */}
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '28px 32px', background: 'linear-gradient(135deg, #131c2e 0%, #0d1320 70%)' }}>
+            <div style={{ pointerEvents: 'none', position: 'absolute', inset: 0, background: 'radial-gradient(520px 280px at 0% 100%, rgba(249,115,22,0.1), transparent 60%)' }} />
+            <h2 style={{ position: 'relative', margin: 0, fontFamily: 'Outfit,sans-serif', fontSize: 28, fontWeight: 900, lineHeight: 1.14, letterSpacing: '-0.02em', color: '#f0f4fc', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as any}>{s.title}</h2>
+            {isChart && s.chartTops?.length ? (
+              <div style={{ position: 'relative', marginTop: 14, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {s.chartTops.slice(0, 4).map(t => (
+                  <span key={t.pos} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <b style={{ fontFamily: 'Outfit,sans-serif', fontSize: 14, color: '#f97316', width: 16, textAlign: 'center' }}>{t.pos}</b>
+                    {(t.cover_url || t.artist_image) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={proxyImg(t.cover_url || t.artist_image || '')} alt="" style={{ width: 30, height: 30, borderRadius: 7, objectFit: 'cover' }} />
+                    ) : <span style={{ width: 30, height: 30, borderRadius: 7, background: 'rgba(255,255,255,0.08)' }} />}
+                    <span style={{ minWidth: 0, fontSize: 13, fontWeight: 700, color: '#f0f4fc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</span>
+                    <span style={{ minWidth: 0, fontSize: 11.5, color: '#8ea8c4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.artist}</span>
+                  </span>
+                ))}
+              </div>
+            ) : s.subtitle ? (
+              <p style={{ position: 'relative', margin: '10px 0 0', fontSize: 14, lineHeight: 1.55, color: '#aec4dd', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as any}>{s.subtitle}</p>
+            ) : null}
+            <span style={{ position: 'relative', marginTop: 18, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 12, background: '#f97316', color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800, boxShadow: '0 6px 20px rgba(249,115,22,0.3)' }}>
+              {cta}
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </span>
+          </div>
+        </Link>
+        {many && arrow(-1)}
+        {many && arrow(1)}
+      </div>
+      {many && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginTop: 10 }}>
+          {slides.map((sl, i) => (
+            <button key={`${sl.type}-${sl.href}`} type="button" aria-label={`Slide ${i + 1}`} onClick={() => onIdx(i)}
+              style={{ width: i === idx ? 22 : 8, height: 8, borderRadius: 999, border: 'none', cursor: 'pointer', padding: 0, background: i === idx ? 'var(--accent-orange)' : 'var(--border-strong)', transition: 'all .2s' }} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChartVote, onIdxChange, dk }: {
   slides: HeroSlide[]
   initialIdx: number
@@ -511,7 +597,6 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   const [sheet, setSheet] = useState<null | 'song' | 'news' | 'event'>(null)
   const [newsBody, setNewsBody] = useState<{ id: number; html: string } | null>(null)
   const [liked, setLiked] = useState<Set<number>>(new Set())
-  const [muted, setMuted] = useState(true)
 
   const progressRef = useRef<number>(0)
   const startRef = useRef<number>(0)
@@ -591,18 +676,33 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     }
   }, [idx]) // eslint-disable-line
 
+  /* ── Fullscreen režimas (2026-06-11 v3): body scroll lock + header/bottom
+     nav paslėpimas (per body.reels-open CSS) + NE-passive touchmove ant
+     track'o, kad vertikalūs gestai nepradėtų puslapio/naršyklės scroll'o
+     („išlenda headeris ir reikia dar kartą swipint" bug fix). ── */
+  useEffect(() => {
+    document.body.classList.add('reels-open')
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const el = trackRef.current
+    const blockScroll = (e: TouchEvent) => { e.preventDefault() }
+    el?.addEventListener('touchmove', blockScroll, { passive: false })
+    return () => {
+      document.body.classList.remove('reels-open')
+      document.body.style.overflow = prevOverflow
+      el?.removeEventListener('touchmove', blockScroll)
+    }
+  }, [])
+
   /* Pause/resume when video/sheet opens */
   useEffect(() => {
     if (videoOpen || sheet) stopProgress()
     else startProgress()
   }, [videoOpen, sheet]) // eslint-disable-line
 
-  /* Auto-advance — ne kai atidarytas video/sheet ir ne dainų slide'ams su
-     autoplay (leidžiam klausytis, nesisuka pats). */
+  /* Auto-advance — ne kai atidarytas video/sheet. */
   useEffect(() => {
-    const cur = slides[idx]
-    const isAutoplaySong = cur && (cur.type === 'song' || cur.type === 'dd') && cur.videoId && !muted
-    if (progress >= 1 && !videoOpen && !sheet && !isAutoplaySong) goTo(idx + 1)
+    if (progress >= 1 && !videoOpen && !sheet) goTo(idx + 1)
   }, [progress]) // eslint-disable-line
 
   /* ── Touch swipe (horizontal) ── */
@@ -689,7 +789,10 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
 
   const translateX = -idx * 100 + (dragOffset / window.innerWidth) * 100
 
-  return (
+  // Portal į body — kad fixed overlay tikrai dengtų VISKĄ (header/bottom nav)
+  // nepriklausomai nuo tėvinių stacking context'ų (2026-06-11 v3).
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div className="hp-reels" style={{ userSelect: 'none' }}>
       {/* Progress bars */}
       <div style={{
@@ -752,35 +855,22 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
                 ? <img src={proxyImg(s.bgImg)} alt="" draggable={false} />
                 : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
               }
-              {/* Dainų slide'ams — mute autoplay video fonas (vizualus turinys,
-                  2026-06-11). Tik aktyviam slide'ui; 🔊 mygtukas įjungia garsą
-                  (tada auto-advance sustoja — leidžiam klausytis). */}
-              {(s.type === 'song' || s.type === 'dd') && s.videoId && i === idx && !videoOpen && (
-                <>
-                  <iframe
-                    key={`${s.videoId}-${muted ? 'm' : 'u'}`}
-                    className="hp-reels-autoplay"
-                    src={`https://www.youtube.com/embed/${s.videoId}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&loop=1&playlist=${s.videoId}&playsinline=1&rel=0&modestbranding=1`}
-                    allow="autoplay; encrypted-media"
-                    tabIndex={-1}
-                  />
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setMuted(m => !m) }}
-                    aria-label={muted ? 'Įjungti garsą' : 'Išjungti garsą'}
-                    style={{
-                      position: 'absolute', right: 12, bottom: 12, zIndex: 5,
-                      width: 38, height: 38, borderRadius: '50%', cursor: 'pointer',
-                      background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.25)',
-                      color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      backdropFilter: 'blur(6px)',
-                    }}>
-                    {muted ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4zM23 9l-6 6M17 9l6 6"/></svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>
-                    )}
-                  </button>
-                </>
+              {/* PLAY per vidurį (2026-06-11 v3) — autoplay fono atsisakyta
+                  (YT mute-autoplay nepatikimas mobile). Tap → on-top grotuvas,
+                  kuris paleidžia iškart. */}
+              {s.videoId && i === idx && !videoOpen && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }}
+                  aria-label="Klausyti"
+                  style={{
+                    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 5,
+                    width: 64, height: 64, borderRadius: '50%', cursor: 'pointer',
+                    background: 'rgba(249,115,22,0.94)', border: '2px solid rgba(255,255,255,0.35)',
+                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 10px 34px rgba(0,0,0,0.5)',
+                  }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 3 }}><path d="M8 5v14l11-7z"/></svg>
+                </button>
               )}
               {/* Video popup — on top of image */}
               {s.videoId && videoOpen && i === idx && (
@@ -832,35 +922,18 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
               <p
                 onClick={() => goTo(idx + 1)}
                 style={{
-                  fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
-                  color: '#fff', lineHeight: 1.1, margin: '0 0 8px',
+                  fontFamily: 'Outfit,sans-serif', fontSize: 24, fontWeight: 900,
+                  color: '#fff', lineHeight: 1.14, margin: '0 0 8px',
                   letterSpacing: '-0.02em', cursor: 'pointer',
-                  display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                  /* Pilnas title (2026-06-11 v3) — clamp tik ekstremaliais atvejais. */
+                  display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                 }}>{s.title}</p>
 
               {/* Subtitle/excerpt pašalintas — naudotojas paprašė rodyti tik
                   main title naujienoms (mobile + desktop). Subtitle dažnai
                   buvo nuvedamas (excerpt'as), todėl card'as atrodė užkrautas. */}
 
-              {/* Video trigger */}
-              {s.videoId && !videoOpen && i === idx && (
-                <button onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 8px 8px',
-                  background: 'rgba(255,255,255,0.07)', borderRadius: 12,
-                  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', width: '100%',
-                }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={`https://img.youtube.com/vi/${s.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
-                  </div>
-                  <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.songTitle || 'Klausyti'}</p>
-                    {s.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{s.songArtist}</p>}
-                  </div>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: 'rgba(255,255,255,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
-                  </div>
-                </button>
-              )}
+              {/* Video trigger perkeltas į PLAY per vidurį (image zonoje). */}
 
               {/* Bottom action area — chart slide'ams 'Balsuok' (atveria sheet'ą,
                   reels lieka), kitiems standard 'Daugiau' link'as. */}
@@ -884,57 +957,36 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
                     arba braukk aukštyn ↑
                   </p>
                 </div>
-              ) : (s.type === 'song' || s.type === 'dd') ? (
-                /* Dainos/DD slide — ♥ Pamėgti + Daugiau (explore sheet) */
-                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
+              ) : (
+                /* Vienas „braukk aukštyn" affordance vietoj didelio „Daugiau"
+                   mygtuko, konkuravusio su swipe (2026-06-11 v3): tap ant jo =
+                   tas pats explore. Dainoms šalia — ♥ Pamėgti. */
+                <div style={{ marginTop: 14, display: 'flex', gap: 8, alignItems: 'stretch' }}>
+                  {(s.type === 'song' || s.type === 'dd') && s.trackId && (
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleLike(s) }}
+                      aria-label="Pamėgti"
                       style={{
-                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                        padding: '13px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer',
-                        background: s.trackId && liked.has(s.trackId) ? 'rgba(249,115,22,0.25)' : 'rgba(255,255,255,0.1)',
-                        color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
-                        backdropFilter: 'blur(6px)',
+                        width: 52, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        borderRadius: 14, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer',
+                        background: liked.has(s.trackId) ? 'rgba(249,115,22,0.3)' : 'rgba(255,255,255,0.1)',
+                        color: '#fff', backdropFilter: 'blur(6px)', flexShrink: 0,
                       }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill={s.trackId && liked.has(s.trackId) ? '#f97316' : 'none'} stroke={s.trackId && liked.has(s.trackId) ? '#f97316' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8z"/></svg>
-                      {s.trackId && liked.has(s.trackId) ? 'Pamėgta' : 'Pamėgti'}
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill={liked.has(s.trackId) ? '#f97316' : 'none'} stroke={liked.has(s.trackId) ? '#f97316' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8z"/></svg>
                     </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openExplore(s) }}
-                      style={{
-                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                        padding: '13px 16px', borderRadius: 14, border: 'none', cursor: 'pointer',
-                        background: s.type === 'dd' ? '#f59e0b' : '#f97316', color: '#fff',
-                        fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
-                        boxShadow: '0 4px 20px rgba(249,115,22,0.35)',
-                      }}>
-                      {s.type === 'dd' ? 'Balsuok' : 'Daugiau'}
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-                    </button>
-                  </div>
-                  <p style={{ margin: 0, textAlign: 'center', fontSize: 10.5, color: 'rgba(255,255,255,0.5)', fontWeight: 600, letterSpacing: '0.04em' }}>
-                    arba braukk aukštyn ↑
-                  </p>
-                </div>
-              ) : (
-                <div style={{ marginTop: 14, paddingTop: 0, display: 'flex', alignItems: 'center' }}>
-                  <Link
-                    href={s.href}
-                    onClick={onClose}
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openExplore(s) }}
                     style={{
-                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                      padding: '13px 20px', borderRadius: 14,
-                      background: seenSlides.has(s.href) ? 'rgba(255,255,255,0.12)' : '#f97316',
-                      color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
-                      textDecoration: 'none', letterSpacing: '-0.01em',
-                      boxShadow: seenSlides.has(s.href) ? 'none' : '0 4px 20px rgba(249,115,22,0.35)',
-                      transition: 'all .2s',
-                    }}
-                  >
-                    Daugiau
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                  </Link>
+                      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+                      padding: '9px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.16)', cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.08)', color: '#fff', backdropFilter: 'blur(6px)',
+                    }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: .85 }}><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                    <span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 11.5, fontWeight: 800, letterSpacing: '0.05em', opacity: .9 }}>
+                      {s.type === 'dd' ? 'BALSUOK' : 'DAUGIAU'}
+                    </span>
+                  </button>
                 </div>
               )}
             </div>
@@ -957,7 +1009,8 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
           onJump={(i) => { closeSheet(); goTo(i) }}
         />
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -2358,6 +2411,8 @@ export default function Home() {
   const [tracks, setTracks] = useState<Track[]>([])
   // Dienos dainos lyderis — hero/reels slide'ui (2026-06-11 music-first feed).
   const [ddLeaderSlide, setDdLeaderSlide] = useState<any | null>(null)
+  // „Dėmesio centre" featured įrašai — vietoj statinių promo (admin approvina).
+  const [featuredPosts, setFeaturedPosts] = useState<any[]>([])
   const [albums, setAlbums] = useState<Album[]>([])
   // „Greitai pasirodys" — bendras (LT + INTL) sąrašas, dar neišleistų albumų
   // (is_upcoming=true arba release_date ateityje). Vienas lane'as, sortinta
@@ -2532,6 +2587,11 @@ export default function Home() {
         .sort((a: any, b: any) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0))
       setDdLeaderSlide(noms[0] || null)
     }).catch(() => {})
+    // „Dėmesio centre" featured — realus admin'o pažymėtas turinys reels'e
+    // (vietoj statinių promo kortelių, 2026-06-11 v3).
+    fetch('/api/atradimai/feed?featured=1&nodedup=1&limit=4').then(r => r.json()).then(d => {
+      setFeaturedPosts(d.posts || [])
+    }).catch(() => {})
     // News + songs vienu request'u. `since_days=30` apriboja į pastarąsias 30 d.
     // tiek modern, tiek legacy news. Limit 12 vietoj 30 — hero reels rodo
     // max ~10 slide'ų; daugiau payload tik teršia bandwidth'ą.
@@ -2560,31 +2620,10 @@ export default function Home() {
     // Topo slide'o href gauna savaitės raktą — nauja savaitė = naujas „unseen"
     // žiedas (kitaip topas kabo visą savaitę jau balsavusiems).
 
-    // 1) Naujos dainos — tik su YT video (kokybės filtras; reels = vizualus
-    //    turinys su mute autoplay). LT lane pirmiau (tracks = [...lt, ...world]).
-    const songSlides: HeroSlide[] = []
-    for (const t of tracks) {
-      if (songSlides.length >= 4) break
-      const vid = extractYouTubeId(t.video_url || null)
-      if (!vid) continue
-      const img = t.cover_url || `https://img.youtube.com/vi/${vid}/hqdefault.jpg`
-      songSlides.push({
-        type: 'song', chip: 'NAUJA DAINA', chipBg: '#f97316',
-        title: sanitizeTitle(t.title),
-        subtitle: t.artists?.name || '',
-        bgImg: img,
-        href: `/dainos/${t.slug || `${quickSlugify(t.title)}-${t.id}`}`,
-        videoId: vid,
-        songTitle: sanitizeTitle(t.title),
-        songArtist: t.artists?.name || null,
-        songCover: t.cover_url || null,
-        trackId: t.id,
-        artist: t.artists ? { name: t.artists.name, slug: t.artists.slug, image: t.artists.cover_image_url || null } : null,
-      })
-    }
-    slides.push(...songSlides)
+    // 1) Dainos hero'e NEBERODOMOS (2026-06-11 v3) — dubliavo „Naujos dainos"
+    //    sekciją žemiau. Muzikos vertė mobile — per sekcijų tvarką.
 
-    // 2) Dienos daina — pastovi vieta po naujų dainų (įprotis balsuoti).
+    // 2) Dienos daina — pastovi pirma vieta (įprotis balsuoti).
     if (ddLeaderSlide?.tracks) {
       const t = ddLeaderSlide.tracks
       const vid = extractYouTubeId(t.video_url || null)
@@ -2667,16 +2706,26 @@ export default function Home() {
         artist: firstArtist?.artists ? { name: firstArtist.artists.name, slug: firstArtist.artists.slug, image: firstArtist.artists.cover_image_url || null } : null,
       })
     })
-    // 5) Promo kortelės — feature discovery, įterpiamos kas ~5 pozicijas
-    //    (max 2; be Boombox — Edvardo sprendimas).
-    const PROMOS: HeroSlide[] = [
-      { type: 'promo', chip: 'BENDRUOMENĖ', chipBg: '#8b5cf6', title: 'Atrask, kuo gyvena bendruomenė', subtitle: 'Dienos daina · atradimai · diskusijos', href: '/atrasti' },
-      { type: 'promo', chip: 'BALSAVIMAI', chipBg: '#f59e0b', title: 'Tavo balsas formuoja topus', subtitle: 'TOP 40 ir apdovanojimų balsavimai', href: '/balsavimai' },
-      { type: 'promo', chip: 'SKELBIMAI', chipBg: '#10b981', title: 'Vinilai, instrumentai, muzikantai', subtitle: 'Bendruomenės skelbimų lenta', href: '/skelbimai' },
-    ]
-    let promoI = 0
-    for (let pos = 5; pos < slides.length && promoI < 2; pos += 6) {
-      slides.splice(pos, 0, PROMOS[promoI++])
+    // 5) „Dėmesio centre" featured įrašai — REALUS admin'o approvintas turinys
+    //    (apžvalga/topas/atradimas) vietoj statinių promo (2026-06-11 v3).
+    //    Nėra featured → jokių įterpimų.
+    const featSlides: HeroSlide[] = featuredPosts.slice(0, 2).map((p: any) => {
+      const kind = p.post_type === 'topas' ? 'TOPAS'
+        : (p.post_type === 'review' || p.editorial_type === 'recenzija') ? 'MUZIKOS APŽVALGA'
+        : p.editorial_type === 'koncertai' ? 'KONCERTŲ ĮSPŪDŽIAI'
+        : p.editorial_type === 'atradimas' ? 'ATRADIMAS' : 'ĮRAŠAS'
+      const color = kind === 'TOPAS' ? '#f59e0b' : kind === 'MUZIKOS APŽVALGA' ? '#ef4444' : kind === 'KONCERTŲ ĮSPŪDŽIAI' ? '#3b82f6' : '#f97316'
+      return {
+        type: 'featured', chip: kind, chipBg: color,
+        title: sanitizeTitle(p.title || ''),
+        subtitle: p.excerpt || '',
+        bgImg: p.cover || null,
+        href: p.blog_slug ? `/blogas/${p.blog_slug}/${p.slug}` : '/atrasti',
+      }
+    })
+    let featI = 0
+    for (let pos = 4; pos < slides.length && featI < featSlides.length; pos += 5) {
+      slides.splice(pos, 0, featSlides[featI++])
     }
 
     if (!slides.length) slides.push({
@@ -2689,7 +2738,7 @@ export default function Home() {
     setHeroIdx(0)
     readyBits.current.hero = true
     tryReady.current()
-  }, [news, events, newsSongs, ltTop, worldTop, tracks, ddLeaderSlide])
+  }, [news, events, newsSongs, ltTop, worldTop, ddLeaderSlide, featuredPosts])
 
   useEffect(() => {
     if (!heroSlides.length || heroVideoPlaying) return
@@ -2773,7 +2822,13 @@ export default function Home() {
         @media(max-width:960px){.hp-feed-strip{display:flex}.hp-mobile-chart{display:block}}
 
         /* ── Reels overlay — horizontal Stories ── */
-        .hp-reels{position:fixed;inset:0;z-index:300;background:#000;overflow:hidden;touch-action:pan-x}
+        .hp-reels{position:fixed;inset:0;z-index:400;background:#000;overflow:hidden}
+        /* touch-action TIK track'ui — sheet'as (sibling) turi laisvai scrollintis */
+        .hp-reels-track{touch-action:none}
+        /* Reels atidaryti — slepiam site header + bottom nav (smooth fullscreen).
+           Plain <style> tag'as ir taip globalus. */
+        body.reels-open header{visibility:hidden}
+        body.reels-open .mbn{display:none!important}
         .hp-reels-track{height:100%;display:flex;flex-direction:row;will-change:transform;transition:transform .32s cubic-bezier(.4,0,.2,1)}
         .hp-reels-slide{height:100vh;width:100vw;flex-shrink:0;display:flex;flex-direction:column;background:#000;position:relative;overflow:hidden}
 
@@ -2897,13 +2952,14 @@ export default function Home() {
         {pageReady && heroSlides.length > 0 && (
           <section className="hp-hero-v2" ref={heroRef}>
             <div className="mx-auto max-w-[1360px] px-5 pt-5">
-              <div className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory">
-                {heroSlides.map((slide) => (
-                  <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
-                    <HeroV2Card slide={slide} dk={dk} />
-                  </div>
-                ))}
-              </div>
+              {/* 2026-06-11 v3 — /atrasti stiliaus slider'is (rodyklės + taškai)
+                  vietoj horizontalios kortelių juostos. Auto-rotacija — esamas
+                  heroIdx 8s timer'is. */}
+              <HeroSliderDesktop
+                slides={heroSlides}
+                idx={heroIdx}
+                onIdx={(i) => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(i) }}
+              />
             </div>
           </section>
         )}
@@ -2933,7 +2989,6 @@ export default function Home() {
                 }
                 // ── Default slide (news/event/promo) — opens reels ──
                 const isSeen = seenSlides.has(slide.href)
-                const artistName = slide.artist?.name || null
                 // showExcerpt — naujienoms NEBE rodom subtitle (excerpt'as).
                 // Card'as paprastesnis: chip + title (+ artist'as jei yra).
                 // Eventams paliekam subtitle (data/vieta) — jis kontekstinis.
@@ -2955,12 +3010,11 @@ export default function Home() {
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
                     {/* Bottom: title + excerpt + artist */}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
-                      <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
+                      {/* Pilnesnis title (clamp 4) + atlikėjo eilutės atsisakyta —
+                          jis beveik visada minimas pačiame title (2026-06-11 v3). */}
+                      <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
                       {showExcerpt && (
                         <p style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.78)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
-                      )}
-                      {artistName && (
-                        <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
                       )}
                     </div>
                     {/* Top: chip badge */}
