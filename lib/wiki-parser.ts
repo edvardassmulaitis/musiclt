@@ -814,7 +814,7 @@ export function parseHashListTracks(
 ): TrackEntry[] {
   const tracks: TrackEntry[] = []
   // Find ==Track listing== section (case-insensitive, allow "Track list", "Tracks")
-  const secMatch = wikitext.match(/^(==+)\s*(?:Track\s*list(?:ing)?|Tracks)\s*\1\s*$/im)
+  const secMatch = wikitext.match(/^(==+)\s*(?:Track\s*list(?:ings?)?|Tracks)\s*\1\s*$/im)
   if (!secMatch || secMatch.index === undefined) return []
   const sectionLevel = secMatch[1].length  // count of '=' chars (e.g. 2 for ==X==)
   const sectionStart = secMatch.index + secMatch[0].length
@@ -847,7 +847,8 @@ export function parseHashListTracks(
   // `# "Trains" ([[Mike Mainieri]])` — nėra trukmės, bet yra quoted title
   // ==Track listing== sekcijoje). Be-trukmės regex'as saugus nes:
   // (a) tik `# "..."` formatas (ne bullet `*`), (b) tik ==Track listing== viduje.
-  const lineReWithDur = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*[–—-]\s*(\d{1,2}:\d{2}(?::\d{2})?)/gm
+  // Duration formatai: `– 6:17` (dash) ARBA `(6:17)` (skliausteliuose, Last Days of the Century)
+  const lineReWithDur = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*(?:[–—-]\s*(\d{1,2}:\d{2}(?::\d{2})?)|\((\d{1,2}:\d{2}(?::\d{2})?)\))/gm
   const lineReNoDur = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*$/gm
   // Pirma bandome su trukme — jei randa bent 1, naudojam tik tą regex'ą
   const withDurMatches = [...body.matchAll(lineReWithDur)]
@@ -859,7 +860,7 @@ export function parseHashListTracks(
     const { cleanTitle, featuring: titleFeat } = parseFeaturing(lm[1].trim())
     const title = wikiTitleCase(cleanWikiText(cleanTitle))
     const noteRaw = lm[2] || ''
-    const duration = lm[3] || undefined
+    const duration = lm[3] || lm[4] || undefined  // group 3 = dash format, group 4 = parens format
     if (title.length < 2) continue
     // Determine track type from optional note
     const noteLow = noteRaw.toLowerCase()
