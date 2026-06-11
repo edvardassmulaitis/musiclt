@@ -630,7 +630,6 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     if (newIdx < 0 || newIdx >= slides.length) { onClose(); return }
     setVideoOpen(false)
     setSheet(null)
-    setMuted(true)
     setIdx(newIdx)
     onIdxChange?.(newIdx)
   }, [slides.length, onClose, onIdxChange])
