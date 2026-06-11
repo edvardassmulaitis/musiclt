@@ -284,17 +284,47 @@ async function loadBlogPosts(blog: any): Promise<{ lanes: { type: string; posts:
 
   // 4. PERF V16: topas list_items gali turėti po 50 pozicijų su image URL'ais —
   // klientui reikia tik top-3 preview + count. Trim'inam prieš serializaciją.
+  // DU list_items formatai: naujas {title, artist, image_url} ir legacy
+  // {track_title, artist_name, track_legacy_id} (be image_url — resolvinam
+  // per tracks.legacy_id → YT thumb žemiau).
+  const previewsNeedingThumb: { preview: any; legacyId: number }[] = []
   for (const lane of laneResults) {
     for (const p of lane.posts) {
       if (Array.isArray(p.list_items) && p.list_items.length > 0) {
         p.list_items_count = p.list_items.length
-        p.list_items_preview = p.list_items.slice(0, 3).map((it: any) => ({
-          title: it?.title ?? it?.name ?? null,
-          artist: it?.artist_name ?? it?.artist ?? it?.subtitle ?? null,
-          image_url: it?.image_url ?? null,
-        }))
+        p.list_items_preview = p.list_items.slice(0, 3).map((it: any) => {
+          const preview = {
+            title: it?.title ?? it?.track_title ?? it?.name ?? null,
+            artist: it?.artist_name ?? it?.artist ?? it?.subtitle ?? null,
+            image_url: it?.image_url ?? null,
+          }
+          if (!preview.image_url && it?.track_legacy_id) {
+            previewsNeedingThumb.push({ preview, legacyId: it.track_legacy_id })
+          }
+          return preview
+        })
       }
       delete p.list_items
+    }
+  }
+
+  // Legacy preview thumb'ai vienu batch'u (max ~36 id)
+  if (previewsNeedingThumb.length > 0) {
+    const ids = [...new Set(previewsNeedingThumb.map((x) => x.legacyId))]
+    const { data: trs } = await sb
+      .from('tracks')
+      .select('legacy_id, video_url, cover_url')
+      .in('legacy_id', ids)
+    const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+    const byLegacy = new Map<number, string>()
+    for (const t of (trs || []) as any[]) {
+      const yt = t.video_url?.match?.(YT_RE)?.[1]
+      const thumb = yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : t.cover_url || null
+      if (thumb && t.legacy_id != null) byLegacy.set(t.legacy_id, thumb)
+    }
+    for (const { preview, legacyId } of previewsNeedingThumb) {
+      const thumb = byLegacy.get(legacyId)
+      if (thumb) preview.image_url = thumb
     }
   }
 

@@ -2210,7 +2210,8 @@ function isoWeekKeyLt(dateStr: string): string {
 
 function weekLabelLt(dateStr: string): string {
   const d = new Date(dateStr)
-  return `${LT_MONTHS_GEN[d.getMonth()]} ${Math.min(Math.ceil(d.getDate() / 7), 4)} sav., ${d.getFullYear()}`
+  const m = LT_MONTHS_GEN[d.getMonth()]
+  return `${m[0].toUpperCase()}${m.slice(1)} ${Math.min(Math.ceil(d.getDate() / 7), 4)} sav., ${d.getFullYear()}`
 }
 
 // Posts iš contentLanes + dienos dainų savaitės + (fallback) like klasteriai.
@@ -2666,7 +2667,7 @@ function DdWeekCard({ picks, label, username, streak }: {
               style={{ background: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>
           Dienos dainos
         </span>
-        <h3 className="text-[15.5px] font-extrabold capitalize" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+        <h3 className="text-[15.5px] font-extrabold" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
           {label}
         </h3>
         {streak > 30 && (
@@ -2729,7 +2730,7 @@ function LikesClusterCard({ likes, label, onOpenMore }: {
       <div className="flex items-center gap-2.5 px-5 pt-4 pb-2 flex-wrap">
         <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
               style={{ background: '#e11d48', fontFamily: "'Outfit', sans-serif" }}>♥ Pamėgta muzika</span>
-        <h3 className="text-[15.5px] font-extrabold capitalize" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{label}</h3>
+        <h3 className="text-[15.5px] font-extrabold" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{label}</h3>
       </div>
       <div className="grid grid-cols-3 gap-2.5 px-5 pb-3">
         {likes.map((it) => {
