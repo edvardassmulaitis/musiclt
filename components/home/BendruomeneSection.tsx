@@ -61,7 +61,7 @@ function timeAgo(iso: string) {
 
 // ── Poetry-style line breaks for creative excerpts ────────────────────────────
 // Kūryba/vertimas excerpt → eilutės po ~35 simb. žodžio riboje (lyg eilėraštis).
-function poetryBreak(text: string): string {
+function poetryLines(text: string): string[] {
   const words = text.split(' ')
   const lines: string[] = []
   let cur = ''
@@ -74,7 +74,18 @@ function poetryBreak(text: string): string {
     }
   }
   if (cur) lines.push(cur)
-  return lines.join('\n')
+  return lines
+}
+
+// ── PopBar — 5 discrete bars (matches /atrasti style) ────────────────────────
+function PopBar({ level, w = 11, onDark = false }: { level: number; w?: number; onDark?: boolean }) {
+  return (
+    <span className="flex items-center gap-[3px]" aria-label={`Balsų lygis ${level}/5`}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <span key={i} className={`h-[3px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : onDark ? 'bg-[rgba(255,255,255,0.18)]' : 'bg-[var(--border-default)]'}`} style={{ width: w }} />
+      ))}
+    </span>
+  )
 }
 
 // ── Placeholder SVG icons for cover fallback ──────────────────────────────────
@@ -198,10 +209,17 @@ function DDCard({ it }: { it: CommunityItem }) {
   const isToday = it.subtype === 'today_leader'
   const h = strHue(it.author_name || it.title)
   const candidates = (it.candidates || []).slice(0, 3)
+  const meta = getTypeMeta('dd')
+  // Winner votes for popbar level calculation
+  const winnerVotes = it.vote_count ?? it.vote_total ?? 0
+  const allVotes = [winnerVotes, ...candidates.map(c => c.votes)]
+  const maxVotes = Math.max(...allVotes, 1)
+  const winnerLevel = Math.max(1, Math.round((winnerVotes / maxVotes) * 5))
   return (
-    <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline"
+    <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline"
       style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0, background: 'linear-gradient(135deg,#241308 0%,#10141f 65%)', borderColor: 'rgba(249,115,22,0.3)' }}>
-      <div className="flex items-center gap-3 px-3.5 pt-3.5">
+      <Badge meta={meta} />
+      <div className="flex items-center gap-3 px-3.5 pt-9">
         <div className="relative h-[86px] w-[86px] shrink-0 overflow-hidden rounded-xl shadow-[0_8px_22px_rgba(0,0,0,0.45)]">
           {it.cover
             ? <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" // eslint-disable-line @next/next/no-img-element
@@ -218,9 +236,9 @@ function DDCard({ it }: { it: CommunityItem }) {
                 style={{ background: '#f97316' }}>#1</span>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="m-0 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.13em] text-[var(--accent-orange)]">Dienos daina</p>
-          <p className="m-0 mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[#f0f4fc]">{it.title}</p>
+          <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[#f0f4fc]">{it.title}</p>
           {it.author_name && <p className="m-0 mt-0.5 truncate text-[11.5px] text-[#aec4dd]">{it.author_name}</p>}
+          <div className="mt-1.5"><PopBar level={winnerLevel} onDark /></div>
         </div>
       </div>
       <div className="mx-3.5 mt-3 flex flex-col gap-1.5 border-t border-[rgba(255,255,255,0.08)] pt-2.5">
@@ -228,9 +246,7 @@ function DDCard({ it }: { it: CommunityItem }) {
           <>
             <p className="m-0 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.1em] text-[#8ea8c4]">Kiti pasiūlymai</p>
             {candidates.map((c, i) => {
-              // Popbar — proporcinga balsų juosta (lyginant su #1 laimėtoju)
-              const maxVotes = Math.max(...candidates.map(x => x.votes), 1)
-              const pct = Math.max(8, Math.round((c.votes / maxVotes) * 100))
+              const level = Math.max(1, Math.round((c.votes / maxVotes) * 5))
               return (
                 <div key={i} className="flex items-center gap-2">
                   <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[12px] font-black text-[#8ea8c4]">{c.rank ?? i + 2}</span>
@@ -242,9 +258,7 @@ function DDCard({ it }: { it: CommunityItem }) {
                   <div className="min-w-0 flex-1">
                     <p className="m-0 truncate text-[11.5px] font-bold leading-tight text-[#f0f4fc]" style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
                     {c.artist && <p className="m-0 truncate text-[9.5px] leading-tight text-[#8ea8c4]">{c.artist}</p>}
-                    <div className="mt-1 h-[3px] rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'rgba(249,115,22,0.5)' }} />
-                    </div>
+                    <div className="mt-1"><PopBar level={level} w={9} onDark /></div>
                   </div>
                 </div>
               )
@@ -283,15 +297,16 @@ function BlogCard({ it }: { it: CommunityItem }) {
     <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
       <Badge meta={meta} />
       <Cover url={it.cover} alt={it.author_name || it.title} hue={h} iconType={isCreative ? it.subtype! : 'blog'} />
-      <div className="flex flex-1 flex-col gap-1.5 px-3 pb-2 pt-2.5">
+      <div className="flex flex-col gap-1.5 px-3 pb-2 pt-2.5">
         <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {it.excerpt && (
           isCreative ? (
-            <p className="m-0 text-[12px] leading-[1.8] text-[var(--text-secondary)]"
-               style={{ fontStyle: 'italic', display: '-webkit-box', WebkitLineClamp: 7, WebkitBoxOrient: 'vertical', overflow: 'hidden', whiteSpace: 'pre-line' }}>
-              {poetryBreak(it.excerpt)}
-            </p>
+            <div className="overflow-hidden" style={{ maxHeight: '10.5em' }}>
+              {poetryLines(it.excerpt).map((line, i) => (
+                <span key={i} className="block text-[12px] leading-[1.8] text-[var(--text-secondary)]" style={{ fontStyle: 'italic' }}>{line}</span>
+              ))}
+            </div>
           ) : (
             <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-secondary)]"
                style={{ display: '-webkit-box', WebkitLineClamp: isLong ? 6 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it.excerpt}</p>
@@ -310,7 +325,7 @@ function TopasCard({ it }: { it: CommunityItem }) {
   return (
     <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
       <Badge meta={meta} />
-      <div className="flex flex-1 flex-col gap-1 px-3 pb-1 pt-9">
+      <div className="flex flex-col gap-1 px-3 pb-1 pt-9">
         <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {entries.length > 0 && (
@@ -371,7 +386,7 @@ function DiscCard({ it }: { it: CommunityItem }) {
       ) : (
         <div className="px-3 pt-3"><span className="rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.08em] text-white" style={{ background: meta.color }}>{meta.label}</span></div>
       )}
-      <div className="flex flex-1 flex-col gap-1.5 px-3 pb-3 pt-2.5">
+      <div className="flex flex-col gap-1.5 px-3 pb-3 pt-2.5">
         <p className="m-0 line-clamp-2 text-[13.5px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {comments.map((c, i) => (
@@ -394,7 +409,7 @@ function AtradimasCard({ it }: { it: CommunityItem }) {
     <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
       <Badge meta={meta} />
       <Cover url={it.cover} alt={artistName} hue={h} iconType="atradimas" />
-      <div className="flex flex-1 flex-col gap-1 px-3 pb-2 pt-2.5">
+      <div className="flex flex-col gap-1 px-3 pb-2 pt-2.5">
         {trackName ? (
           <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
              style={{ fontFamily: "'Outfit',sans-serif" }}>{trackName}</p>
