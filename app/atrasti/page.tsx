@@ -511,8 +511,8 @@ function FeaturedSlider() {
         .atr-feat-loaded .atr-feat-card{animation:atr-fade-in .4s ease-out both}
         .atr-feat-loaded .atr-feat-card:nth-child(2){animation-delay:.08s}
         .atr-feat-loaded .atr-feat-card:nth-child(3){animation-delay:.16s}
-        @keyframes atr-skel-pulse{0%,100%{opacity:.6}50%{opacity:.35}}
-        .atr-skel-card{background:linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03));
+        @keyframes atr-skel-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+        .atr-skel-card{background:var(--bg-surface);
           border:1px solid var(--border-default);animation:atr-skel-pulse 2s ease-in-out infinite}
       `}</style>
       <div className="atr-feat-wrap relative">
