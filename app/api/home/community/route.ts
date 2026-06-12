@@ -280,9 +280,10 @@ export async function GET() {
           }))
       }
 
-      // Aukštesnės kortelės (2026-06-10) — daugiau teksto (iki ~240 simb.).
+      // Aukštesnės kortelės — daugiau teksto. Koncertų įspūdžiai gauna ilgesnį excerpt.
+      const maxLen = (b.editorial_type === 'koncertai') ? 360 : 240
       const excerpt = b.summary
-        ? (b.summary.length > 240 ? b.summary.slice(0, 240).trimEnd() + '…' : b.summary)
+        ? (b.summary.length > maxLen ? b.summary.slice(0, maxLen).trimEnd() + '…' : b.summary)
         : null
 
       blogItems.push({
@@ -300,21 +301,19 @@ export async function GET() {
     }
     // Fiksuota tvarka: koncertai → topas → muzikos_apzvalga → creation → translation
     const BLOG_PRIORITY: Record<string, number> = {
-      koncertai: 0, topas: 1, muzikos_apzvalga: 2, review: 2,
-      article: 3, creation: 4, translation: 5,
+      topas: 1, review: 2, creation: 4, translation: 5,
     }
     const blogPriority = (it: any) => {
-      // editorial_type=koncertai → koncertų įspūdžiai (highest blog priority)
       if (it.editorial_type === 'koncertai') return 0
+      if (it.editorial_type === 'recenzija' || it.subtype === 'review') return 2
       return BLOG_PRIORITY[it.subtype || ''] ?? 3
     }
     blogItems.sort((a, b) => blogPriority(a) - blogPriority(b))
 
-    // ── Diskusijos — 1 vnt, latest comment iš `comments` (discussion_id) ──────
-    // Komentarai gyvena public.comments (ne legacy forum_posts), join per discussion_id.
+    // ── Diskusijos — 1 vnt, 2 naujausi komentarai ────────────────────────────
     const discRows = (discRes.data || []) as any[]
     const discIds = discRows.slice(0, 1).map(d => d.id) as number[]
-    const lastCommentByDisc = new Map<number, { text: string; author: string | null; avatar: string | null; time: string }>()
+    const commentsByDisc = new Map<number, { text: string; author: string | null; avatar: string | null; time: string }[]>()
     if (discIds.length) {
       try {
         const { data: cmts } = await sb
@@ -326,25 +325,26 @@ export async function GET() {
           .order('created_at', { ascending: false })
           .limit(30)
         for (const c of (cmts || []) as any[]) {
-          if (lastCommentByDisc.has(c.discussion_id)) continue
-          const text = (c.body || '').replace(/\s+/g, ' ').trim()
+          const list = commentsByDisc.get(c.discussion_id) || []
+          if (list.length >= 2) continue
+          const text = (c.body || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
           if (!text) continue
           const prof = first<any>(c.profiles)
-          lastCommentByDisc.set(c.discussion_id, {
-            text: text.length > 110 ? text.slice(0, 110).trimEnd() + '…' : text,
+          list.push({
+            text: text.length > 140 ? text.slice(0, 140).trimEnd() + '…' : text,
             author: prof?.username || null,
             avatar: prof?.avatar_url || null,
             time: c.created_at,
           })
+          commentsByDisc.set(c.discussion_id, list)
         }
       } catch {}
     }
 
-    // Tik 1 diskusija (1-per-type)
     const discItems: any[] = []
     for (const d of discRows.slice(0, 1)) {
       const artist = first<any>(d.artist)
-      const lastComment = lastCommentByDisc.get(d.id) || null
+      const comments = commentsByDisc.get(d.id) || []
       discItems.push({
         id: `disc-${d.id}`, type: 'discussion',
         title: d.title || '', href: `/diskusijos/${d.slug || d.id}`,
@@ -352,7 +352,8 @@ export async function GET() {
         author_name: d.author_name || null, author_avatar: d.author_avatar || null,
         created_at: d.last_comment_at || d.created_at,
         comment_count: d.comment_count || 0,
-        last_comment: lastComment,
+        last_comment: comments[0] || null,
+        last_comments: comments,
       })
     }
 
@@ -377,7 +378,7 @@ export async function GET() {
           const { data: cmt } = await sb.from('comments').select('body').eq('id', dv.comment_id).maybeSingle()
           if (cmt?.body) {
             const clean = (cmt.body as string).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-            atrExcerpt = clean.length > 180 ? clean.slice(0, 180).trimEnd() + '…' : clean
+            atrExcerpt = clean.length > 300 ? clean.slice(0, 300).trimEnd() + '…' : clean
           }
         } catch {}
       }

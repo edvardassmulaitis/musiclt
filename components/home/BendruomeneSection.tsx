@@ -1,15 +1,13 @@
 'use client'
 // components/home/BendruomeneSection.tsx — per-tipo rich cards, viskas scrollinama.
 //
-// 2026-06-10 redesign (suderinta su /atrasti „Pulsas" kortelių kalba):
-//   • aukštesnės kortelės (min-height 330) su daugiau turinio — excerpt iki 4
-//     eilučių, topas iki 4 pozicijų, diskusija su pilnesniu komentaru;
-//   • spalvoti tipo badge'ai (ta pati paletė kaip /atrasti chips);
-//   • DD kortelė — STABILI: solid fonas + cover thumb (jokio teksto ant foto);
-//   • senų įrašų data slepiama (>45 d. — legacy turinys gali kabėti ilgai,
-//     bet neturi atrodyti apmiręs);
-//   • like/comment skaičiai rodomi TIK kai > 0.
-// Admin apsauga (hide_from_homepage + topas_approved_at) lieka API pusėje.
+// 2026-06-12 v3:
+//   • DD: #1 badge, no play hover, CTA su search ikona (be emoji/subheaderio)
+//   • Koncertų excerpt: line-clamp-6 (daugiau teksto)
+//   • Topas badge: absolute kaip kitose kortelėse
+//   • Diskusija: be AuthorRow, 2 komentarai
+//   • Atradimas: line-clamp-5, atlikėjas su profilio foto, atskirtas nuo teksto
+//   • Cover fallback: SVG placeholder ikonos (ne pirmos raidės)
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -18,7 +16,7 @@ import { proxyImg } from '@/lib/img-proxy'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Entry = { rank: number; title: string; artist: string | null; image: string | null }
-type LastComment = { text: string; author: string | null; avatar: string | null; time: string }
+type CommentBubble = { text: string; author: string | null; avatar: string | null; time: string }
 type Candidate = { rank?: number; title: string; artist: string | null; cover: string | null; votes: number }
 
 type CommunityItem = {
@@ -40,7 +38,8 @@ type CommunityItem = {
   engagement?: number
   excerpt?: string | null
   entries?: Entry[] | null
-  last_comment?: LastComment | null
+  last_comment?: CommentBubble | null
+  last_comments?: CommentBubble[] | null
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -49,8 +48,6 @@ function strHue(s: string) {
   for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) % 360
   return h
 }
-// Data rodoma tik šviežiems įrašams (≤45 d.) — seni „perlai" gali kabėti be
-// „prieš 37 mėn." įspūdžio.
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
   const m = Math.floor(diff / 60000)
@@ -60,6 +57,22 @@ function timeAgo(iso: string) {
   const d = Math.floor(h / 24)
   if (d <= 45) return `${d} d.`
   return ''
+}
+
+// ── Placeholder SVG icons for cover fallback ──────────────────────────────────
+function PlaceholderIcon({ type }: { type: string }) {
+  // Music note for tracks/general, vinyl for albums, mic for artists, chat for disc
+  if (type === 'discussion') return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  )
+  // Generic music note
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+    </svg>
+  )
 }
 
 type TypeMeta = { label: string; color: string }
@@ -88,25 +101,17 @@ function Badge({ meta }: { meta: TypeMeta }) {
       style={{ background: meta.color }}>{meta.label}</span>
   )
 }
-function BadgeInline({ meta }: { meta: TypeMeta }) {
-  return (
-    <span className="self-start rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.08em] text-white"
-      style={{ background: meta.color }}>{meta.label}</span>
-  )
-}
 
-// ── Shared cover ───────────────────────────────────────────────────────────────
-function Cover({ url, alt, hue, h = 134 }: { url: string | null; alt: string; hue: number; h?: number }) {
+// ── Shared cover with SVG placeholder fallback ────────────────────────────────
+function Cover({ url, alt, hue, h = 134, iconType = 'blog' }: { url: string | null; alt: string; hue: number; h?: number; iconType?: string }) {
   const [failed, setFailed] = useState(false)
   const showGradient = !url || failed
   return (
     <div className="relative shrink-0 overflow-hidden" style={{ height: h }}>
       {showGradient
-        ? <div className="flex h-full w-full items-center justify-center"
+        ? <div className="flex h-full w-full items-center justify-center text-white/25"
             style={{ background: `linear-gradient(135deg,hsl(${hue},34%,22%),hsl(${(hue+40)%360},30%,12%))` }}>
-            <span className="font-['Outfit',sans-serif] text-3xl font-black text-white/50">
-              {(alt || '?').charAt(0).toUpperCase()}
-            </span>
+            <PlaceholderIcon type={iconType} />
           </div>
         : <img src={proxyImg(url!)} alt={alt} loading="lazy" onError={() => setFailed(true)} // eslint-disable-line @next/next/no-img-element
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
@@ -139,7 +144,27 @@ function AuthorRow({ it }: { it: CommunityItem }) {
   )
 }
 
-// ── Dienos daina card — STABILI (solid fonas, cover kaip thumb) ────────────────
+// ── Comment bubble (reusable) ─────────────────────────────────────────────────
+function CommentBubbleEl({ c, clamp = 4 }: { c: CommentBubble; clamp?: number }) {
+  const ch = strHue(c.author || '')
+  return (
+    <div className="flex flex-col gap-1 rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-2.5 py-2">
+      <div className="flex items-center gap-1.5">
+        {c.avatar
+          ? <img src={proxyImg(c.avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+              className="h-[15px] w-[15px] shrink-0 rounded-full object-cover" />
+          : <div className="h-[15px] w-[15px] shrink-0 rounded-full"
+              style={{ background: `hsl(${ch},30%,25%)` }} />
+        }
+        {c.author && <span className="truncate text-[10px] font-bold text-[var(--text-primary)]">{c.author}</span>}
+      </div>
+      <p className={`m-0 text-[11px] leading-relaxed text-[var(--text-secondary)]`}
+         style={{ display: '-webkit-box', WebkitLineClamp: clamp, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{c.text}</p>
+    </div>
+  )
+}
+
+// ── Dienos daina card ─────────────────────────────────────────────────────────
 function DDCard({ it }: { it: CommunityItem }) {
   const isToday = it.subtype === 'today_leader'
   const h = strHue(it.author_name || it.title)
@@ -152,18 +177,17 @@ function DDCard({ it }: { it: CommunityItem }) {
           {it.cover
             ? <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" // eslint-disable-line @next/next/no-img-element
                 className="h-full w-full object-cover" />
-            : <div className="flex h-full w-full items-center justify-center"
+            : <div className="flex h-full w-full items-center justify-center text-white/20"
                 style={{ background: `linear-gradient(135deg,hsl(${h},50%,18%),hsl(${(h+30)%360},40%,10%))` }}>
-                <span className="font-['Outfit',sans-serif] text-2xl font-black text-white/30">♪</span>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                </svg>
               </div>
           }
-          <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity group-hover:opacity-100">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            </span>
-          </div>
+          {/* #1 badge */}
+          <span className="absolute left-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full font-['Outfit',sans-serif] text-[9px] font-black text-white"
+                style={{ background: '#f97316' }}>#1</span>
         </div>
-        {/* DD kortelės fonas visada tamsus → tekstas hard-coded šviesus (ne theme-var). */}
         <div className="min-w-0 flex-1">
           <p className="m-0 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.13em] text-[var(--accent-orange)]">Dienos daina</p>
           <p className="m-0 mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[#f0f4fc]">{it.title}</p>
@@ -190,10 +214,16 @@ function DDCard({ it }: { it: CommunityItem }) {
             ))}
           </>
         ) : (
-          <div className="flex flex-col items-center gap-2 py-3 text-center">
-            <span className="text-2xl">🎵</span>
-            <p className="m-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[#8ea8c4]">Pasiūlyk savo dienos dainą!</p>
-            <p className="m-0 text-[10px] text-[#6b86a4]">Kiekvieną dieną renkame geriausią</p>
+          <div className="flex items-center gap-3 rounded-lg px-1 py-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(249,115,22,0.15)' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="m-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[#f0f4fc]">Siūlyti dainą</p>
+              <p className="m-0 text-[10px] text-[#8ea8c4]">Rink dienos dainą su bendruomene</p>
+            </div>
           </div>
         )}
       </div>
@@ -208,15 +238,18 @@ function DDCard({ it }: { it: CommunityItem }) {
 function BlogCard({ it }: { it: CommunityItem }) {
   const h = strHue(it.author_name || it.title)
   const meta = getTypeMeta(it.type, it.subtype, it.editorial_type)
+  // Koncertų įspūdžiai → daugiau teksto
+  const isKoncertai = it.editorial_type === 'koncertai'
   return (
     <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
       <Badge meta={meta} />
-      <Cover url={it.cover} alt={it.author_name || it.title} hue={h} />
+      <Cover url={it.cover} alt={it.author_name || it.title} hue={h} iconType="blog" />
       <div className="flex flex-1 flex-col gap-1.5 px-3 pb-2 pt-2.5">
         <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {it.excerpt && (
-          <p className="m-0 line-clamp-4 text-[11.5px] leading-relaxed text-[var(--text-secondary)]">{it.excerpt}</p>
+          <p className={`m-0 text-[11.5px] leading-relaxed text-[var(--text-secondary)]`}
+             style={{ display: '-webkit-box', WebkitLineClamp: isKoncertai ? 6 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it.excerpt}</p>
         )}
       </div>
       <AuthorRow it={it} />
@@ -226,13 +259,12 @@ function BlogCard({ it }: { it: CommunityItem }) {
 
 // ── Topas card — iki 5 ranked entries ──────────────────────────────────────────
 function TopasCard({ it }: { it: CommunityItem }) {
-  const h = strHue(it.author_name || it.title)
   const meta = getTypeMeta(it.type, it.subtype, it.editorial_type)
   const entries = (it.entries || []).slice(0, 5)
   return (
-    <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
-      <div className="px-3 pt-3"><BadgeInline meta={meta} /></div>
-      <div className="flex flex-1 flex-col gap-1 px-3 pb-1 pt-2">
+    <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
+      <Badge meta={meta} />
+      <div className="flex flex-1 flex-col gap-1 px-3 pb-1 pt-9">
         <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {entries.length > 0 && (
@@ -270,18 +302,17 @@ function TopasCard({ it }: { it: CommunityItem }) {
   )
 }
 
-// ── Discussion card — grupės foto (cover) + pilnesnis komentaras ───────────────
+// ── Discussion card — 2 komentarai, be AuthorRow ──────────────────────────────
 function DiscCard({ it }: { it: CommunityItem }) {
-  const h = strHue(it.title)
-  const lc = it.last_comment
   const meta = getTypeMeta(it.type, it.subtype, it.editorial_type)
+  const comments = it.last_comments || (it.last_comment ? [it.last_comment] : [])
   return (
     <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline"
       style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0, background: 'linear-gradient(160deg,rgba(139,92,246,0.1),var(--bg-surface) 60%)' }}>
       {it.cover ? (
         <>
           <Badge meta={meta} />
-          <div className="relative shrink-0 overflow-hidden" style={{ height: 110 }}>
+          <div className="relative shrink-0 overflow-hidden" style={{ height: 100 }}>
             <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" // eslint-disable-line @next/next/no-img-element
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
             <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to bottom,transparent 40%,rgba(13,19,32,0.8))' }} />
@@ -292,32 +323,20 @@ function DiscCard({ it }: { it: CommunityItem }) {
           </div>
         </>
       ) : (
-        <div className="px-3 pt-3"><BadgeInline meta={meta} /></div>
+        <div className="px-3 pt-3"><span className="rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.08em] text-white" style={{ background: meta.color }}>{meta.label}</span></div>
       )}
-      <div className="flex flex-1 flex-col gap-1.5 px-3 pb-2 pt-2.5">
+      <div className="flex flex-1 flex-col gap-1.5 px-3 pb-3 pt-2.5">
         <p className="m-0 line-clamp-2 text-[13.5px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
-        {lc?.text && (
-          <div className="flex flex-col gap-1 rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-2.5 py-2">
-            <div className="flex items-center gap-1.5">
-              {lc.avatar
-                ? <img src={proxyImg(lc.avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
-                    className="h-[15px] w-[15px] shrink-0 rounded-full object-cover" />
-                : <div className="h-[15px] w-[15px] shrink-0 rounded-full"
-                    style={{ background: `hsl(${strHue(lc.author || '')},30%,25%)` }} />
-              }
-              {lc.author && <span className="truncate text-[10px] font-bold text-[var(--text-primary)]">{lc.author}</span>}
-            </div>
-            <p className="m-0 line-clamp-4 text-[11px] leading-relaxed text-[var(--text-secondary)]">{lc.text}</p>
-          </div>
-        )}
+        {comments.map((c, i) => (
+          <CommentBubbleEl key={i} c={c} clamp={comments.length > 1 ? 3 : 4} />
+        ))}
       </div>
-      <AuthorRow it={it} />
     </Link>
   )
 }
 
-// ── Atradimas card — muzikos atradimas (artist — track, su embed cover) ──────
+// ── Atradimas card — atlikėjas atskirtas su profilio foto ─────────────────────
 function AtradimasCard({ it }: { it: CommunityItem }) {
   const h = strHue(it.author_name || it.title)
   const meta = getTypeMeta(it.type, it.subtype, it.editorial_type)
@@ -328,24 +347,36 @@ function AtradimasCard({ it }: { it: CommunityItem }) {
   return (
     <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
       <Badge meta={meta} />
-      <Cover url={it.cover} alt={it.author_name || it.title} hue={h} />
-      <div className="flex flex-1 flex-col gap-1.5 px-3 pb-2 pt-2.5">
+      <Cover url={it.cover} alt={artistName} hue={h} iconType="atradimas" />
+      <div className="flex flex-1 flex-col gap-1 px-3 pb-2 pt-2.5">
         {trackName ? (
-          <>
-            <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
-               style={{ fontFamily: "'Outfit',sans-serif" }}>{trackName}</p>
-            <p className="m-0 truncate text-[12px] font-semibold text-[var(--text-secondary)]"
-               style={{ fontFamily: "'Outfit',sans-serif" }}>{artistName}</p>
-          </>
+          <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
+             style={{ fontFamily: "'Outfit',sans-serif" }}>{trackName}</p>
         ) : (
           <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
              style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         )}
+        {artistName && trackName && (
+          <p className="m-0 truncate text-[11px] font-bold text-[var(--text-muted)]"
+             style={{ fontFamily: "'Outfit',sans-serif" }}>{artistName}</p>
+        )}
         {it.excerpt && (
-          <p className="m-0 line-clamp-3 text-[11.5px] leading-relaxed text-[var(--text-secondary)]">{it.excerpt}</p>
+          <div className="mt-1 flex gap-2">
+            {it.author_avatar
+              ? <img src={proxyImg(it.author_avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+                  className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
+              : it.author_name
+                ? <div className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[8px] font-extrabold"
+                    style={{ fontFamily: "'Outfit',sans-serif", background: `hsl(${strHue(it.author_name)},32%,18%)`, color: `hsl(${strHue(it.author_name)},45%,55%)` }}>
+                    {it.author_name.charAt(0).toUpperCase()}
+                  </div>
+                : null
+            }
+            <p className="m-0 text-[11px] leading-relaxed text-[var(--text-secondary)]"
+               style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it.excerpt}</p>
+          </div>
         )}
       </div>
-      <AuthorRow it={it} />
     </Link>
   )
 }
