@@ -359,9 +359,6 @@ export function TrackInfoModal({
         // Backdrop dimming: stiprus mobile (focus modal), švelnesnis desktop'e
         // (kad user'is matytų artist'o page'ą + hero player'į pro modal'ą).
         'bg-black/60 sm:bg-black/30',
-        // Wide desktop (≥lg) — modal'as align'inamas kairiau nei center, bet
-        // ne į kraštą — kad hero player'is dešinėj liktų aiškiai matomas.
-        'lg:justify-start lg:pl-[10%]',
       ].join(' ')}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
@@ -391,7 +388,7 @@ export function TrackInfoModal({
           // FIXED height (NE max-h) — kad content swap (tab perjungimas)
           // neresize'intų modal'o. User'is mato stabilią modal box dimension'ą.
           'h-[90vh] rounded-t-2xl',
-          'sm:h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[720px]',
+          'sm:h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[960px]',
         ].join(' ')}
       >
         {/* Mobile handle bar */}
@@ -421,8 +418,8 @@ export function TrackInfoModal({
                 track.featuring || [],
               )}
             </div>
-            {/* Meta row — data + albumas inline */}
-            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10.5px] text-[var(--text-muted)]">
+            {/* Meta row — mobile only; desktop meta is in header right side */}
+            <div className="mt-0.5 flex sm:hidden flex-wrap items-center gap-1.5 text-[10.5px] text-[var(--text-muted)]">
               {dateLabel && (
                 <span className="font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">
                   {dateLabel}
@@ -455,8 +452,8 @@ export function TrackInfoModal({
                 </span>
               ))}
             </div>
-            {/* Veiksmų eilutė — like + share */}
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {/* Veiksmų eilutė — mobile only */}
+            <div className="mt-1 flex sm:hidden flex-wrap items-center gap-1.5">
               <LikePill
                 likes={likes}
                 selfLiked={selfLiked}
@@ -467,6 +464,39 @@ export function TrackInfoModal({
               />
               <SharePill title={`${track.title} — ${artistName}`} url={trackHref} size="sm" />
             </div>
+          </div>
+          {/* Desktop meta chips — right side of header */}
+          <div className="hidden sm:flex shrink-0 items-center gap-1.5 text-[10.5px] text-[var(--text-muted)]">
+            {dateLabel && (
+              <span className="font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">{dateLabel}</span>
+            )}
+            {dur && (
+              <>
+                {dateLabel && <span className="text-[var(--text-faint)]">·</span>}
+                <span className="font-['Outfit',sans-serif] font-bold tabular-nums text-[var(--text-muted)]">{dur}</span>
+              </>
+            )}
+            {(track.albums || []).slice(0, 1).map((al) => (
+              <span key={al.id} className="inline-flex min-w-0 items-center gap-1">
+                <span className="text-[var(--text-faint)]">·</span>
+                <Link href={`/albumai/${artistSlug}-${al.slug}-${al.id}`} target="_blank" rel="noopener" title={al.title}
+                  className="inline-flex min-w-0 items-center gap-1 no-underline transition-colors hover:text-[var(--text-primary)]">
+                  {al.cover_image_url && (
+                    <span className="h-4 w-4 shrink-0 overflow-hidden rounded bg-[var(--cover-placeholder)]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={proxyImg(al.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    </span>
+                  )}
+                  <span className="max-w-[140px] truncate font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">{al.title}</span>
+                </Link>
+              </span>
+            ))}
+          </div>
+          {/* Desktop actions */}
+          <div className="hidden sm:flex shrink-0 items-center gap-1.5">
+            <LikePill likes={likes} selfLiked={selfLiked} onToggle={onToggleLike} pending={likePending}
+              onOpenModal={() => setLikersOpen(true)} variant="surface" />
+            <SharePill title={`${track.title} — ${artistName}`} url={trackHref} size="sm" />
           </div>
           <Link
             href={trackHref}
@@ -491,145 +521,173 @@ export function TrackInfoModal({
           </button>
         </div>
 
-        {/* Video — FULL WIDTH. Meta perkeltas į header. */}
-        <div className="shrink-0 border-b border-[var(--border-subtle)]">
-          <div className="relative aspect-video w-full overflow-hidden bg-black" style={{ maxHeight: '50vh' }}>
-            {trackVid ? (
-              <>
-                <iframe
-                  ref={videoIframeRef}
-                  key={`modal-video-${trackVid}`}
-                  src={`https://www.youtube.com/embed/${trackVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=${typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : ''}`}
-                  title={`${track.title} — ${artistName}`}
-                  className="absolute inset-0 h-full w-full"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  allowFullScreen
-                />
-                {!videoStarted && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVideoStarted(true)
-                      videoIframeRef.current?.contentWindow?.postMessage(
-                        JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
-                        '*',
-                      )
-                    }}
-                    aria-label={`Leisti ${track.title} vaizdo įrašą`}
-                    className="group absolute inset-0 block h-full w-full overflow-hidden"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`https://i.ytimg.com/vi/${trackVid}/hqdefault.jpg`}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
-                      referrerPolicy="no-referrer"
+        {/* ── Content — side-by-side on md+, stacked on mobile ── */}
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+          {/* Left — video + daugiau */}
+          <div className="shrink-0 md:w-[55%] md:flex md:flex-col">
+            <div className="shrink-0 border-b border-[var(--border-subtle)] md:border-b-0">
+              <div className="relative aspect-video w-full overflow-hidden bg-black">
+                {trackVid ? (
+                  <>
+                    <iframe
+                      ref={videoIframeRef}
+                      key={`modal-video-${trackVid}`}
+                      src={`https://www.youtube.com/embed/${trackVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=${typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : ''}`}
+                      title={`${track.title} — ${artistName}`}
+                      className="absolute inset-0 h-full w-full"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                      allowFullScreen
                     />
-                    <div className="absolute inset-0 bg-black/25 transition-colors group-hover:bg-black/40" />
-                    <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform group-hover:scale-110 sm:h-14 sm:w-14">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </span>
-                  </button>
+                    {!videoStarted && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVideoStarted(true)
+                          videoIframeRef.current?.contentWindow?.postMessage(
+                            JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
+                            '*',
+                          )
+                        }}
+                        aria-label={`Leisti ${track.title} vaizdo įrašą`}
+                        className="group absolute inset-0 block h-full w-full overflow-hidden"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`https://i.ytimg.com/vi/${trackVid}/hqdefault.jpg`}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-black/25 transition-colors group-hover:bg-black/40" />
+                        <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform group-hover:scale-110 sm:h-14 sm:w-14">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
+                    Vaizdo įrašo nėra
+                  </div>
                 )}
-              </>
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
-                Vaizdo įrašo nėra
+              </div>
+            </div>
+            {/* Daugiau — desktop only in left col */}
+            {(() => {
+              const more = (artistTracks || [])
+                .filter((t: any) => t.id !== track.id && yt(t.video_url))
+                .slice(0, 6)
+              if (more.length === 0) return null
+              return (
+                <div className="hidden md:block flex-1 min-h-0 overflow-y-auto px-3 py-3">
+                  <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                    Daugiau iš {artistName}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {more.map((t: any) => {
+                      const tvid = yt(t.video_url)
+                      const inner = (
+                        <>
+                          <span className="block aspect-video w-full overflow-hidden rounded bg-black">
+                            {tvid && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt=""
+                                referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                            )}
+                          </span>
+                          <span className="block truncate px-1 pb-0.5 pt-1 text-left font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-primary)]">
+                            {t.title}
+                          </span>
+                        </>
+                      )
+                      const cls = 'block overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
+                      return onSelectTrack ? (
+                        <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>{inner}</button>
+                      ) : (
+                        <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>{inner}</Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* Right — tabs + content */}
+          <div className="flex-1 min-h-0 flex flex-col md:border-l md:border-[var(--border-subtle)]">
+            {/* Tabs */}
+            {lyricsText && (
+              <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => setMobileTab('lyrics')}
+                  className={[
+                    "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                    mobileTab === 'lyrics'
+                      ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                      : 'text-[var(--text-muted)]',
+                  ].join(' ')}
+                >
+                  Tekstas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileTab('comments')}
+                  className={[
+                    "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                    mobileTab === 'comments'
+                      ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                      : 'text-[var(--text-muted)]',
+                  ].join(' ')}
+                >
+                  <span>Komentarai</span>
+                  {commentTotal > 0 && (
+                    <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
+                      {commentTotal}
+                    </span>
+                  )}
+                </button>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Tabs — tik kai lyrics yra. Visiems viewport'ams. */}
-        {lyricsText && (
-          <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
-            <button
-              type="button"
-              onClick={() => setMobileTab('lyrics')}
-              className={[
-                "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
-                mobileTab === 'lyrics'
-                  ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
-                  : 'text-[var(--text-muted)]',
-              ].join(' ')}
-            >
-              Tekstas
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileTab('comments')}
-              className={[
-                "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
-                mobileTab === 'comments'
-                  ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
-                  : 'text-[var(--text-muted)]',
-              ].join(' ')}
-            >
-              <span>Komentarai</span>
-              {commentTotal > 0 && (
-                <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
-                  {commentTotal}
-                </span>
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* ── BODY — VIENA scroll kolona ─────────────────────────────────
-            flex-1 min-h-0 (užima likusią vietą), overflow-y-auto (scroll'as
-            čia ir tik čia), overscroll-contain (iOS Safari fix — scroll'as
-            neprasprūsta į pagrindinį page'ą). Vidus — jokio kito overflow,
-            jokios flex tricks, tik content stack'as.
-
-            Kas matoma:
-            • Jei lyrics yra IR mobileTab='lyrics' → lyrics
-            • Jei lyrics yra IR mobileTab='comments' → komentarai
-            • Jei lyrics nėra → komentarai (visada).
-            Vienoda taisyklė visiems viewport'ams = bulletproof. */}
-        <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4">
-          {/* Lyrics — always mounted (rodom/slepiam pagal tab), kad
-              reactions counts būtų laiku užkrauti. */}
-          {lyricsText && (
-            <div className={mobileTab === 'lyrics' ? 'block' : 'hidden'}>
-              <div className="mb-4 flex items-baseline gap-2">
-                <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                  Dainos tekstas
+            {/* Scrollable body */}
+            <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4">
+              {lyricsText && (
+                <div className={mobileTab === 'lyrics' ? 'block' : 'hidden'}>
+                  <div className="mb-4 flex items-baseline gap-2">
+                    <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                      Dainos tekstas
+                    </div>
+                    <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                      pažymėk → reaguok
+                    </span>
+                  </div>
+                  <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
                 </div>
-                <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
-                  pažymėk → reaguok
-                </span>
+              )}
+              <div className={!lyricsText || mobileTab === 'comments' ? 'block' : 'hidden'}>
+                <EntityCommentsBlock
+                  entityType="track"
+                  entityId={track.id}
+                  compact
+                  title="Komentarai"
+                  onCountChange={setCommentTotal}
+                />
               </div>
-              <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
             </div>
-          )}
-          {/* Komentarai — taip pat always mounted, kad count badge'as
-              būtų populated iškart kai modal'as atsidaro (anksčiau load'inosi
-              tik kai user'is paspaudžia tab'ą → 0 rodydavo iki click'o). */}
-          <div className={!lyricsText || mobileTab === 'comments' ? 'block' : 'hidden'}>
-            <EntityCommentsBlock
-              entityType="track"
-              entityId={track.id}
-              compact
-              title="Komentarai"
-              onCountChange={setCommentTotal}
-            />
           </div>
         </div>
 
-        {/* ── „Daugiau iš atlikėjo" footer strip — kad modalas nebūtų
-            aklavietė. Rodom tik kai parent perdavė artistTracks (artist
-            page). Click → onSelectTrack (switch'ina modalą be uždarymo),
-            fallback — nuoroda į dainos puslapį. */}
+        {/* Daugiau — mobile only footer */}
         {(() => {
           const more = (artistTracks || [])
             .filter((t: any) => t.id !== track.id && yt(t.video_url))
             .slice(0, 6)
           if (more.length === 0) return null
           return (
-            <div className="shrink-0 border-t border-[var(--border-subtle)] px-4 pb-3 pt-2.5">
+            <div className="shrink-0 border-t border-[var(--border-subtle)] px-4 pb-3 pt-2.5 md:hidden">
               <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                 Daugiau iš {artistName}
               </div>
@@ -641,12 +699,8 @@ export function TrackInfoModal({
                       <span className="block aspect-video w-full overflow-hidden rounded bg-black">
                         {tvid && (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`}
-                            alt=""
-                            referrerPolicy="no-referrer"
-                            className="h-full w-full object-cover"
-                          />
+                          <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt=""
+                            referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                         )}
                       </span>
                       <span className="block truncate px-1 pb-0.5 pt-1 text-left font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-primary)]">
@@ -656,13 +710,9 @@ export function TrackInfoModal({
                   )
                   const cls = 'block w-[124px] shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
                   return onSelectTrack ? (
-                    <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>
-                      {inner}
-                    </button>
+                    <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>{inner}</button>
                   ) : (
-                    <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>
-                      {inner}
-                    </Link>
+                    <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>{inner}</Link>
                   )
                 })}
               </div>

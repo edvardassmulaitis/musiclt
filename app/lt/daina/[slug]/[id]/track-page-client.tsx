@@ -536,146 +536,25 @@ export default function TrackPageClient({
         )}
       </div>
 
-      {/* ── Mobile tab strip ─────────────────────────────────────────────── */}
-      {hasMobileTabs && (
-        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setMobileTab('lyrics')}
-            className={[
-              "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
-              mobileTab === 'lyrics'
-                ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
-                : 'text-[var(--text-muted)]',
-            ].join(' ')}
-          >
-            Tekstas
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileTab('comments')}
-            className={[
-              "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
-              mobileTab === 'comments'
-                ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
-                : 'text-[var(--text-muted)]',
-            ].join(' ')}
-          >
-            Komentarai
-            {commentTotal > 0 && (
-              <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
-                {commentTotal}
-              </span>
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* ── Inline player virš turinio — mobile IR lg (1024–1279px) ───────
-          Custom Play overlay (vietoj YT native chrome details), kad išvengtumėm
-          autoplay block'o + galėtumėm inkrementuoti track_plays fire-and-forget.
-          FIX 2026-06-11: buvo lg:hidden, o player stulpelis xl:flex — tarp
-          1024–1279px video IŠVIS nebuvo matomas. Dabar xl:hidden + max-w
-          constrain'as, kad lg plotyje video nebūtų per milžiniškas. */}
-      {vid && (
-        <div className="w-full bg-black xl:hidden">
-          <div className="mx-auto aspect-video w-full max-w-[760px]">
-            <CustomPlayOverlay vid={vid} title={`${track.title} — ${artist.name}`} trackId={track.id} />
-          </div>
-        </div>
-      )}
-
-      {/* ── Body — desktop 3-col / tablet 2-col / mobile single ─────────── */}
-      {/* Proporcijos atitinka modal'ą (TrackInfoModal): modal'as turi 860px
-          body lyrics+comments + likusi viewport vieta player'ui. Čia tą patį
-          atkartojam: lyrics ir comments stulpeliai apie po 430px, player
-          stulpelis = likusi 1fr vieta. Anksčiau buvo lygūs 3×1fr — tas darė
-          video stulpelį per siaurą (≈530px @ 1600px), dabar player gauna
-          ≈740px (≈417px aukšto video) ir atitinka modal'o vizualinį svorį. */}
+      {/* ── Body — player left, content right on lg+ ─────────── */}
       <div className={[
-        'mx-auto w-full max-w-[1600px]',
+        'mx-auto w-full max-w-[1400px]',
         'grid grid-cols-1',
-        hasLyrics
-          ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,430px)_minmax(0,430px)_minmax(0,1fr)]'
-          : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] xl:grid-cols-[minmax(0,430px)_minmax(0,1fr)]',
-        'lg:divide-x lg:divide-[var(--border-subtle)]',
+        'lg:grid-cols-[minmax(0,55%)_minmax(0,45%)]',
       ].join(' ')}>
 
-        {/* Lyrics col — desktop'e visada matoma; mobile'e tik kai tab='lyrics'.
-            Be lyrics — pati skiltis nesirenderinama, bet komentarai užima
-            visą plotą per kitą col grid'ą aukščiau. */}
-        {hasLyrics && (
-          <div className={[
-            'min-h-0 px-5 py-5',
-            mobileTab === 'lyrics' ? 'block' : 'hidden lg:block',
-          ].join(' ')}>
-            <div className="mb-4 flex items-baseline gap-2">
-              <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                Dainos tekstas
-              </div>
-              <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
-                pažymėk → reaguok
-              </span>
-              {hasChords && (
-                <button
-                  type="button"
-                  onClick={() => setTab(tab === 'lyrics' ? 'chords' : 'lyrics')}
-                  className="ml-auto inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-                >
-                  <GuitarIcon s={9} /> {tab === 'lyrics' ? 'Akordai' : 'Tekstas'}
-                </button>
-              )}
-            </div>
-            {tab === 'lyrics' ? (
-              <LyricsWithReactions trackId={track.id} lyrics={track.lyrics ?? ''} compact />
-            ) : (
-              <pre style={{ fontFamily: "'DM Mono','Fira Mono',monospace", fontSize: 13, lineHeight: 1.9, color: 'var(--lyric-text)', margin: 0, whiteSpace: 'pre-wrap' }}>
-                {(track.chords ?? '').split('\n').map((line, i) => {
-                  const isChord = /^[A-G][#bm]?(maj|min|aug|dim|sus|add|M)?[0-9]?(\s+[A-G][#bm]?(maj|min|aug|dim|sus|add|M)?[0-9]?)*\s*$/.test(line)
-                  if (isChord) return (
-                    <div key={i} style={{ marginBottom: 2 }}>
-                      {line.split(/(\s+)/).map((tok, j) => tok.trim()
-                        ? <span key={j} style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 5, background: 'var(--chord-bg)', color: 'var(--chord-text)', fontWeight: 700, marginRight: 4, fontSize: 12 }}>{tok}</span>
-                        : <span key={j}>{tok}</span>)}
-                    </div>
-                  )
-                  return <div key={i}>{line || ' '}</div>
-                })}
-              </pre>
-            )}
-          </div>
-        )}
-
-        {/* Comments col — ref naudojamas header'io „Komentarai" pill scroll'ui.
-            Title rodo count (kaip modal'o tab'as) kai žinomas. */}
-        <div ref={commentsColRef} className={[
-          'min-h-0 px-5 py-5',
-          mobileTab === 'comments' ? 'block' : 'hidden lg:block',
-        ].join(' ')}>
-          <EntityCommentsBlock
-            entityType="track"
-            entityId={track.id}
-            compact
-            title={commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Komentarai'}
-            onCountChange={setCommentTotal}
-          />
-        </div>
-
-        {/* Player + Daugiau col — tik xl (≥1280px). Mobile'e player'is
-            jau virš body'jo (lg:hidden). */}
-        <div className="hidden min-h-0 flex-col gap-4 px-5 py-5 xl:flex">
-          {vid ? (
-            <div>
-              <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                Klausyti
-              </div>
-              <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
+        {/* Left — player + extras */}
+        <div className="lg:border-r lg:border-[var(--border-subtle)]">
+          {/* Video player */}
+          {vid && (
+            <div className="w-full bg-black">
+              <div className="aspect-video w-full overflow-hidden lg:rounded-none">
                 <CustomPlayOverlay vid={vid} title={`${track.title} — ${artist.name}`} trackId={track.id} />
               </div>
-              {/* Spotify embed removed — link in header actions row instead */}
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-10 text-center">
+          )}
+          {!vid && (
+            <div className="hidden lg:flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-10 mx-5 mt-5 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--card-bg)] ring-1 ring-[var(--border-subtle)]">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)]">
                   <path d="M23 7l-7 5 7 5V7z" />
@@ -688,94 +567,168 @@ export default function TrackPageClient({
             </div>
           )}
 
-          {/* Daugiau iš artist'o — vertikalus sąrašas track page'e (ne
-              horizontal carousel kaip modal'e). Track page turi vietos
-              dešiniame stulpelyje rodyti daugiau dainų vienu metu, ir
-              vertikalus list'as labiau nuoseklus visam page flow'ui. */}
-          {relatedTracks.length > 0 && (
-            <div>
-              <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                Daugiau iš {artist.name}
+          {/* Extras below player */}
+          <div className="flex flex-col gap-3 px-5 py-5">
+            <AICard />
+            <TriviaCard />
+            <VersionsCard />
+
+            {/* Daugiau iš artist'o — vertical on lg+, horizontal on mobile */}
+            {relatedTracks.length > 0 && (
+              <div>
+                <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                  Daugiau iš {artist.name}
+                </div>
+                {/* Desktop vertical list */}
+                <div className="hidden lg:flex flex-col gap-1.5">
+                  {relatedTracks.filter(t => ytId(t.video_url)).map(t => {
+                    const tvid = ytId(t.video_url)
+                    const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
+                    return (
+                      <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
+                        title={`${t.title} — ${artist.name}`}
+                        className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                        <div className="aspect-video h-12 shrink-0 overflow-hidden rounded bg-black">
+                          {thumb && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
+                          <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
+                        </div>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)] transition-transform group-hover:translate-x-0.5">
+                          <path d="M9 18l6-6-6-6" />
+                        </svg>
+                      </Link>
+                    )
+                  })}
+                </div>
+                {/* Mobile horizontal carousel */}
+                <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+                  {relatedTracks.filter(t => ytId(t.video_url)).map(t => {
+                    const tvid = ytId(t.video_url)
+                    const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
+                    return (
+                      <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
+                        title={`${t.title} — ${artist.name}`}
+                        className="group flex w-[160px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                        <div className="aspect-video w-full overflow-hidden rounded bg-black">
+                          {thumb && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                          )}
+                        </div>
+                        <div className="px-1">
+                          <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
+                          <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                {relatedTracks.filter(t => ytId(t.video_url)).map(t => {
-                  const tvid = ytId(t.video_url)
-                  const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
-                  return (
-                    <Link
-                      key={t.id}
-                      href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                      title={`${t.title} — ${artist.name}`}
-                      className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                    >
-                      <div className="aspect-video h-12 shrink-0 overflow-hidden rounded bg-black">
-                        {thumb && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
-                        <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
-                      </div>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)] transition-transform group-hover:translate-x-0.5">
-                        <path d="M9 18l6-6-6-6" />
-                      </svg>
-                    </Link>
-                  )
-                })}
-              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right — tabs + lyrics/comments */}
+        <div className="min-h-0">
+          {/* Tab strip — mobile only */}
+          {hasMobileTabs && (
+            <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileTab('lyrics')}
+                className={[
+                  "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                  mobileTab === 'lyrics'
+                    ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                    : 'text-[var(--text-muted)]',
+                ].join(' ')}
+              >
+                Tekstas
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTab('comments')}
+                className={[
+                  "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                  mobileTab === 'comments'
+                    ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                    : 'text-[var(--text-muted)]',
+                ].join(' ')}
+              >
+                Komentarai
+                {commentTotal > 0 && (
+                  <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
+                    {commentTotal}
+                  </span>
+                )}
+              </button>
             </div>
           )}
 
-          {/* AI / Trivia / Versions — kompaktiški card'ai dešinėje. Žemiau
-              video, kad nebūtų per daug informacijos top'e. */}
-          <AICard />
-          <TriviaCard />
-          <VersionsCard />
+          {/* Lyrics */}
+          {hasLyrics && (
+            <div className={[
+              'min-h-0 px-5 py-5',
+              mobileTab === 'lyrics' ? 'block' : 'hidden lg:block',
+            ].join(' ')}>
+              <div className="mb-4 flex items-baseline gap-2">
+                <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                  Dainos tekstas
+                </div>
+                <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                  pažymėk → reaguok
+                </span>
+                {hasChords && (
+                  <button
+                    type="button"
+                    onClick={() => setTab(tab === 'lyrics' ? 'chords' : 'lyrics')}
+                    className="ml-auto inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                  >
+                    <GuitarIcon s={9} /> {tab === 'lyrics' ? 'Akordai' : 'Tekstas'}
+                  </button>
+                )}
+              </div>
+              {tab === 'lyrics' ? (
+                <LyricsWithReactions trackId={track.id} lyrics={track.lyrics ?? ''} compact />
+              ) : (
+                <pre style={{ fontFamily: "'DM Mono','Fira Mono',monospace", fontSize: 13, lineHeight: 1.9, color: 'var(--lyric-text)', margin: 0, whiteSpace: 'pre-wrap' }}>
+                  {(track.chords ?? '').split('\n').map((line, i) => {
+                    const isChord = /^[A-G][#bm]?(maj|min|aug|dim|sus|add|M)?[0-9]?(\s+[A-G][#bm]?(maj|min|aug|dim|sus|add|M)?[0-9]?)*\s*$/.test(line)
+                    if (isChord) return (
+                      <div key={i} style={{ marginBottom: 2 }}>
+                        {line.split(/(\s+)/).map((tok, j) => tok.trim()
+                          ? <span key={j} style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 5, background: 'var(--chord-bg)', color: 'var(--chord-text)', fontWeight: 700, marginRight: 4, fontSize: 12 }}>{tok}</span>
+                          : <span key={j}>{tok}</span>)}
+                      </div>
+                    )
+                    return <div key={i}>{line || ' '}</div>
+                  })}
+                </pre>
+              )}
+            </div>
+          )}
+
+          {/* Comments */}
+          <div ref={commentsColRef} className={[
+            'min-h-0 px-5 py-5',
+            hasLyrics ? 'border-t border-[var(--border-subtle)]' : '',
+            mobileTab === 'comments' ? 'block' : 'hidden lg:block',
+          ].join(' ')}>
+            <EntityCommentsBlock
+              entityType="track"
+              entityId={track.id}
+              compact
+              title={commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Komentarai'}
+              onCountChange={setCommentTotal}
+            />
+          </div>
         </div>
 
-      </div>
-
-      {/* ── Ekstra po main flow (mobile + lg) — AI, Trivia, Versions, Daugiau.
-          FIX 2026-06-11: buvo lg:hidden — tarp 1024–1279px šios kortelės
-          dingdavo (xl player stulpelis jų dar nerodo). Dabar xl:hidden. */}
-      <div className="flex flex-col gap-3 px-4 pb-12 pt-4 xl:hidden">
-        <AICard />
-        <TriviaCard />
-        <VersionsCard />
-        {relatedTracks.length > 0 && (
-          <div>
-            <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Daugiau iš {artist.name}
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
-              {relatedTracks.filter(t => ytId(t.video_url)).map(t => {
-                const tvid = ytId(t.video_url)
-                const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
-                return (
-                  <Link
-                    key={t.id}
-                    href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                    title={`${t.title} — ${artist.name}`}
-                    className="group flex w-[160px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                  >
-                    <div className="aspect-video w-full overflow-hidden rounded bg-black">
-                      {thumb && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                      )}
-                    </div>
-                    <div className="px-1">
-                      <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
-                      <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Likers modal — universal'us pop-over visiems entity types */}
