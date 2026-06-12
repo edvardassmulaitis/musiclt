@@ -2351,13 +2351,7 @@ export function SiteHeader() {
         .sh-desktop-action { display: flex; }
         /* Hamburger tik mobile — desktop'e pilnas nav, ☰ perteklinis. */
         @media (min-width: 1081px) { .sh-burger { display: none !important; } }
-        /* Radaras: desktop = po logo (sh-radar-desktop matomas), mobile = dešinėje (sh-radar-mobile matomas) */
-        .sh-radar-desktop { display: flex; }
-        .sh-radar-mobile { display: none !important; }
-        @media (max-width: 1080px) {
-          .sh-radar-desktop { display: none !important; }
-          .sh-radar-mobile { display: flex !important; }
-        }
+        /* Radaras — visada kairėje, prieš logo */
         /* + Kurti — standalone CTA mygtukas (oranžinis pill). */
         .sh-hub-create-standalone {
           display: flex; align-items: center; gap: 6px; padding: 0 14px;
@@ -2714,18 +2708,12 @@ export function SiteHeader() {
             </svg>
           </button>
 
-          <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
-          </Link>
-
-          {/* Radaras — besisukanti mini animacija → /nauji-atlikejai (promo).
-              Desktop: po logo. Mobile: perkeltas į dešinę (sh-radar-mobile). */}
+          {/* Radaras — PRIEŠ logo, kairėje. Matomas ir mobile, ir desktop. */}
           <Link
             href="/nauji-atlikejai"
             aria-label="Naujos muzikos radaras"
             title="Naujos muzikos radaras — kylantys LT atlikėjai"
-            className="sh-radar sh-radar-desktop"
+            className="sh-radar"
             style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textDecoration: 'none', transition: 'color .15s' }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)' }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
@@ -2744,6 +2732,11 @@ export function SiteHeader() {
               </circle>
               <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
             </svg>
+          </Link>
+
+          <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
+            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
           </Link>
 
           {/* Desktop nav with rich dropdowns */}
@@ -2844,31 +2837,6 @@ export function SiteHeader() {
                 <path d="m21 21-4.35-4.35"/>
               </svg>
             </button>
-
-            {/* Radaras — mobile only (dešinėje, kaip desktop). Desktop versija yra po logo. */}
-            <Link
-              href="/nauji-atlikejai"
-              aria-label="Naujos muzikos radaras"
-              className="sh-radar-mobile"
-              style={{ flexShrink: 0, display: 'none', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textDecoration: 'none', transition: 'color .15s' }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
-            >
-              <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden>
-                <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.45" />
-                <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
-                <circle cx="16" cy="16" r="3.4" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
-                <g>
-                  <animateTransform attributeName="transform" type="rotate" from="0 16 16" to="360 16 16" dur="2.8s" repeatCount="indefinite" />
-                  <path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="var(--accent-orange)" opacity="0.26" />
-                  <line x1="16" y1="16" x2="16" y2="3" stroke="var(--accent-orange)" strokeWidth="1.6" strokeLinecap="round" />
-                </g>
-                <circle cx="20.5" cy="11" r="1.5" fill="var(--accent-green)">
-                  <animate attributeName="opacity" values="0;0;1;1;0.15" keyTimes="0;0.25;0.42;0.78;1" dur="2.8s" repeatCount="indefinite" />
-                </circle>
-                <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
-              </svg>
-            </Link>
 
             {/* + Kurti — standalone CTA mygtukas (QuickCreate).
                 Tik desktop (mobile = apatinis baras). */}
