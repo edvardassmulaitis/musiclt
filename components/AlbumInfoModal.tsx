@@ -468,230 +468,242 @@ export default function AlbumInfoModal({
           </button>
         </div>
 
-        {/* Row 2: 2-col video + meta (60/40) */}
-        <div className="grid shrink-0 grid-cols-[minmax(0,3fr)_minmax(0,2fr)] border-b border-[var(--border-subtle)]">
-          {/* Left: video — iframe always-mounted (enablejsapi=1, no autoplay).
-              Overlay (thumbnail + orange play button) covers iframe until click.
-              Click → setVideoStarted(true) + postMessage playVideo. */}
-          <div className="relative aspect-video max-h-[220px] w-full overflow-hidden bg-black sm:max-h-[340px]">
-            {playerVid ? (
-              <>
-                <iframe
-                  ref={videoIframeRef}
-                  key={`album-modal-video-${playerVid}`}
-                  src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
-                  title={titleNow}
-                  className="absolute inset-0 h-full w-full"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  allowFullScreen
-                />
-                {!videoStarted && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVideoStarted(true)
-                      setPlaying(true)
-                      videoIframeRef.current?.contentWindow?.postMessage(
-                        JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
-                        '*',
-                      )
-                    }}
-                    aria-label={`Leisti ${titleNow} vaizdo įrašą`}
-                    className="group absolute inset-0 block h-full w-full overflow-hidden"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`https://i.ytimg.com/vi/${playerVid}/hqdefault.jpg`}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-black/25 transition-colors group-hover:bg-black/40" />
-                    <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform group-hover:scale-110 sm:h-14 sm:w-14">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </span>
-                  </button>
+        {/* ── Two-column layout (desktop) / single-column (mobile) ── */}
+        <div className="flex flex-1 min-h-0 flex-col md:flex-row">
+          {/* Left column — video + meta chips (desktop only) */}
+          <div className="md:flex md:w-[55%] md:flex-col md:border-r md:border-[var(--border-subtle)]">
+            {/* Video player */}
+            <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-black">
+              {playerVid ? (
+                <>
+                  <iframe
+                    ref={videoIframeRef}
+                    key={`album-modal-video-${playerVid}`}
+                    src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+                    title={titleNow}
+                    className="absolute inset-0 h-full w-full"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                    allowFullScreen
+                  />
+                  {!videoStarted && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVideoStarted(true)
+                        setPlaying(true)
+                        videoIframeRef.current?.contentWindow?.postMessage(
+                          JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
+                          '*',
+                        )
+                      }}
+                      aria-label={`Leisti ${titleNow} vaizdo įrašą`}
+                      className="group absolute inset-0 block h-full w-full overflow-hidden"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`https://i.ytimg.com/vi/${playerVid}/hqdefault.jpg`}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-black/25 transition-colors group-hover:bg-black/40" />
+                      <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform group-hover:scale-110 sm:h-14 sm:w-14">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </span>
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
+                  Vaizdo įrašo nėra
+                </div>
+              )}
+            </div>
+            {/* Meta chips + album info — below video, desktop only */}
+            <div className="hidden md:flex flex-1 min-h-0 flex-col overflow-y-auto px-3 py-3">
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {album?.dateFormatted && (
+                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-primary)]">
+                    {album.dateFormatted}
+                  </span>
                 )}
-              </>
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
-                Vaizdo įrašo nėra
+                {tracks.length > 0 && (
+                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold leading-tight text-[var(--text-muted)]">
+                    {tracks.length} dain.
+                  </span>
+                )}
+                {album?.is_upcoming && (
+                  <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                    Greitai
+                  </span>
+                )}
               </div>
-            )}
+              {/* Comment CTA — invite to comment */}
+              <button
+                type="button"
+                onClick={() => setMobileTab('comments')}
+                className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                {commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Pasidalink nuomone'}
+              </button>
+            </div>
           </div>
-          {/* Right: meta stack — chip stilius kaip puslapyje. LikePill
-              perkeltas į header'io veiksmų eilutę. */}
-          <div className="flex flex-row flex-wrap items-start gap-2 border-l border-[var(--border-subtle)] px-2.5 py-2 text-[11px] sm:flex-col">
-            {album?.dateFormatted && (
-              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-primary)]">
-                {album.dateFormatted}
-              </span>
-            )}
-            {tracks.length > 0 && (
-              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold leading-tight text-[var(--text-muted)]">
-                {tracks.length} dain.
-              </span>
-            )}
-            {album?.is_upcoming && (
-              <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
-                Greitai
-              </span>
-            )}
-          </div>
-        </div>
 
-        {/* Tabs — Dainos / Komentarai */}
-        <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
-          <button
-            type="button"
-            onClick={() => setMobileTab('tracks')}
-            className={[
-              "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
-              mobileTab === 'tracks'
-                ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
-                : 'text-[var(--text-muted)]',
-            ].join(' ')}
-          >
-            <span>Dainos</span>
-            {tracks.length > 0 && (
-              <span className="rounded-full bg-[var(--bg-hover)] px-1.5 py-px text-[10px] font-extrabold leading-none text-[var(--text-muted)]">
-                {tracks.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileTab('comments')}
-            className={[
-              "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
-              mobileTab === 'comments'
-                ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
-                : 'text-[var(--text-muted)]',
-            ].join(' ')}
-          >
-            <span>Komentarai</span>
-            {commentTotal > 0 && (
-              <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
-                {commentTotal}
-              </span>
-            )}
-          </button>
-        </div>
+          {/* Right column — tabs + tracklist/comments */}
+          <div className="flex flex-1 min-h-0 flex-col">
+            {/* Tabs — Dainos / Komentarai */}
+            <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
+              <button
+                type="button"
+                onClick={() => setMobileTab('tracks')}
+                className={[
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                  mobileTab === 'tracks'
+                    ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                    : 'text-[var(--text-muted)]',
+                ].join(' ')}
+              >
+                <span>Dainos</span>
+                {tracks.length > 0 && (
+                  <span className="rounded-full bg-[var(--bg-hover)] px-1.5 py-px text-[10px] font-extrabold leading-none text-[var(--text-muted)]">
+                    {tracks.length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTab('comments')}
+                className={[
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                  mobileTab === 'comments'
+                    ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                    : 'text-[var(--text-muted)]',
+                ].join(' ')}
+              >
+                <span>Komentarai</span>
+                {commentTotal > 0 && (
+                  <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
+                    {commentTotal}
+                  </span>
+                )}
+              </button>
+            </div>
 
-        {/* Body — VIENA scroll kolona. Tracks ARBA komentarai pagal tab. */}
-        <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4">
-          <div className={mobileTab === 'tracks' ? 'block' : 'hidden'}>
-            {loading && tracks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center">
-                {/* Equalizer loader — visa platforma turi vienodą animation
-                    (matosi loading.tsx + track player active state). */}
-                <span className="relative inline-flex h-5 w-6 items-end justify-center gap-[3px]" aria-hidden>
-                  <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.20s infinite' }} />
-                  <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.45s infinite' }} />
-                  <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.10s infinite' }} />
-                </span>
-                <div className="text-[11px] uppercase tracking-wider text-[var(--text-muted)]">Kraunama…</div>
-                <style>{`@keyframes eqBar { 0%,100% { height: 30%; } 50% { height: 100%; } }`}</style>
-              </div>
-            ) : tracks.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[12px] text-[var(--text-faint)]">
-                Dainų nėra
-              </div>
-            ) : (
-              <ul className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)]">
-                {sortedTracks.map((t, i) => {
-                  const isActive = effectiveIdx === i
-                  const isPlaying = isActive && playing
-                  const v = ytId(t.video_url)
-                  const canPlay = !!v
-                  const lc = (t as any).like_count
-                  const level = (typeof lc === 'number' && maxTrackLikes > 0)
-                    ? popLevelRelative(lc, maxTrackLikes)
-                    : popLevelByPosition(i, sortedTracks.length)
-                  return (
-                    <li key={t.id}>
-                      <div
-                        className={[
-                          'flex w-full items-center gap-2 px-3 py-2 transition-colors',
-                          isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
-                        ].join(' ')}
-                      >
-                        <span
-                          className={[
-                            'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
-                            isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
-                          ].join(' ')}
-                          aria-hidden
-                        >
-                          {positionsUnknown ? '·' : (t.position || i + 1)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => canPlay && handlePlay(i)}
-                          disabled={!canPlay}
-                          className={[
-                            'flex min-w-0 flex-1 flex-col items-start border-0 bg-transparent p-0 text-left',
-                            canPlay ? 'cursor-pointer' : 'cursor-default',
-                          ].join(' ')}
-                        >
-                          <div className={[
-                            'w-full truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
-                            isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
-                          ].join(' ')}>
-                            {t.title}
-                            {t.featuring.length > 0 && (
-                              <span className="ml-1 font-medium text-[var(--text-muted)]">su {t.featuring.join(', ')}</span>
-                            )}
+            {/* Body — tracklist or comments */}
+            <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3">
+              <div className={mobileTab === 'tracks' ? 'block' : 'hidden'}>
+                {loading && tracks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center">
+                    <span className="relative inline-flex h-5 w-6 items-end justify-center gap-[3px]" aria-hidden>
+                      <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.20s infinite' }} />
+                      <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.45s infinite' }} />
+                      <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.10s infinite' }} />
+                    </span>
+                    <div className="text-[11px] uppercase tracking-wider text-[var(--text-muted)]">Kraunama…</div>
+                    <style>{`@keyframes eqBar { 0%,100% { height: 30%; } 50% { height: 100%; } }`}</style>
+                  </div>
+                ) : tracks.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[12px] text-[var(--text-faint)]">
+                    Dainų nėra
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)]">
+                    {sortedTracks.map((t, i) => {
+                      const isActive = effectiveIdx === i
+                      const isPlaying = isActive && playing
+                      const v = ytId(t.video_url)
+                      const canPlay = !!v
+                      const lc = (t as any).like_count
+                      const level = (typeof lc === 'number' && maxTrackLikes > 0)
+                        ? popLevelRelative(lc, maxTrackLikes)
+                        : popLevelByPosition(i, sortedTracks.length)
+                      return (
+                        <li key={t.id}>
+                          <div
+                            className={[
+                              'flex w-full items-center gap-2 px-3 py-2 transition-colors',
+                              isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
+                            ].join(' ')}
+                          >
+                            <span
+                              className={[
+                                'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
+                                isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
+                              ].join(' ')}
+                              aria-hidden
+                            >
+                              {positionsUnknown ? '·' : (t.position || i + 1)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => canPlay && handlePlay(i)}
+                              disabled={!canPlay}
+                              className={[
+                                'flex min-w-0 flex-1 flex-col items-start border-0 bg-transparent p-0 text-left',
+                                canPlay ? 'cursor-pointer' : 'cursor-default',
+                              ].join(' ')}
+                            >
+                              <div className={[
+                                'w-full truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
+                                isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
+                              ].join(' ')}>
+                                {t.title}
+                                {t.featuring.length > 0 && (
+                                  <span className="ml-1 font-medium text-[var(--text-muted)]">su {t.featuring.join(', ')}</span>
+                                )}
+                              </div>
+                              <PopBar level={level} />
+                            </button>
+                            <button
+                              onClick={() => canPlay && handlePlay(i)}
+                              disabled={!canPlay}
+                              aria-label={!canPlay ? 'Video nėra' : (isPlaying ? `Pauzė ${t.title}` : `Leisti ${t.title}`)}
+                              title={!canPlay ? '' : (isPlaying ? 'Pauzė' : 'Leisti')}
+                              className={[
+                                'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
+                                canPlay
+                                  ? isActive
+                                    ? 'bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)]'
+                                    : 'bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--accent-orange)] hover:text-white'
+                                  : 'cursor-default bg-transparent text-[var(--text-faint)] opacity-50',
+                              ].join(' ')}
+                            >
+                              {isPlaying ? (
+                                <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden>
+                                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                                  <rect x="14" y="5" width="4" height="14" rx="1" />
+                                </svg>
+                              ) : (
+                                <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
+                                  <polygon points="6,4 20,12 6,20" />
+                                </svg>
+                              )}
+                            </button>
                           </div>
-                          <PopBar level={level} />
-                        </button>
-                        <button
-                          onClick={() => canPlay && handlePlay(i)}
-                          disabled={!canPlay}
-                          aria-label={!canPlay ? 'Video nėra' : (isPlaying ? `Pauzė ${t.title}` : `Leisti ${t.title}`)}
-                          title={!canPlay ? '' : (isPlaying ? 'Pauzė' : 'Leisti')}
-                          className={[
-                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
-                            canPlay
-                              ? isActive
-                                ? 'bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)]'
-                                : 'bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--accent-orange)] hover:text-white'
-                              : 'cursor-default bg-transparent text-[var(--text-faint)] opacity-50',
-                          ].join(' ')}
-                        >
-                          {isPlaying ? (
-                            <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden>
-                              <rect x="6" y="5" width="4" height="14" rx="1" />
-                              <rect x="14" y="5" width="4" height="14" rx="1" />
-                            </svg>
-                          ) : (
-                            <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
-                              <polygon points="6,4 20,12 6,20" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
-          <div className={mobileTab === 'comments' ? 'block' : 'hidden'}>
-            {album ? (
-              <EntityCommentsBlock
-                entityType="album"
-                entityId={album.id}
-                compact
-                title="Komentarai"
-                onCountChange={setCommentTotal}
-              />
-            ) : (
-              <div className="text-[12px] text-[var(--text-faint)]">Kraunama…</div>
-            )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+              <div className={mobileTab === 'comments' ? 'block' : 'hidden'}>
+                {album ? (
+                  <EntityCommentsBlock
+                    entityType="album"
+                    entityId={album.id}
+                    compact
+                    title="Komentarai"
+                    onCountChange={setCommentTotal}
+                  />
+                ) : (
+                  <div className="text-[12px] text-[var(--text-faint)]">Kraunama…</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

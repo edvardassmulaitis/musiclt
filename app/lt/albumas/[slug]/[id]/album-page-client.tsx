@@ -433,129 +433,147 @@ export default function AlbumPageClient({
           </Link>
         </div>
 
-        {/* Row 2 — 60/40: video left (click-to-play orange overlay), meta right. */}
-        <div className="grid shrink-0 grid-cols-[minmax(0,3fr)_minmax(0,2fr)] border-b border-[var(--border-subtle)]">
-          <div className="relative aspect-video max-h-[260px] w-full overflow-hidden bg-black sm:max-h-[380px]">
-            {playerVid ? (
-              <>
-                <iframe
-                  ref={videoIframeRef}
-                  key={`album-page-video-${playerVid}`}
-                  src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
-                  title={`${album.title} — ${artist.name}`}
-                  className="absolute inset-0 h-full w-full"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  allowFullScreen
-                />
-                {!videoStarted && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVideoStarted(true)
-                      setPlaying(true)
-                      videoIframeRef.current?.contentWindow?.postMessage(
-                        JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
-                        '*',
-                      )
-                    }}
-                    aria-label={`Leisti ${album.title}`}
-                    className="group absolute inset-0 block h-full w-full overflow-hidden"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`https://i.ytimg.com/vi/${playerVid}/hqdefault.jpg`}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
-                      referrerPolicy="no-referrer"
+        {/* ── Two-column layout (desktop) / single-column with sticky video (mobile) ── */}
+        <div className="flex flex-1 flex-col md:flex-row">
+          {/* Left column — video + meta chips (desktop) / sticky video (mobile) */}
+          <div className="md:w-[55%] md:border-r md:border-[var(--border-subtle)]">
+            {/* Video player — sticky on mobile */}
+            <div className="sticky top-0 z-10 md:relative md:z-auto">
+              <div className="relative aspect-video w-full overflow-hidden bg-black">
+                {playerVid ? (
+                  <>
+                    <iframe
+                      ref={videoIframeRef}
+                      key={`album-page-video-${playerVid}`}
+                      src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+                      title={`${album.title} — ${artist.name}`}
+                      className="absolute inset-0 h-full w-full"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                      allowFullScreen
                     />
-                    <div className="absolute inset-0 bg-black/25 transition-colors group-hover:bg-black/40" />
-                    <span className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform group-hover:scale-110 sm:h-16 sm:w-16">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </span>
-                  </button>
+                    {!videoStarted && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVideoStarted(true)
+                          setPlaying(true)
+                          videoIframeRef.current?.contentWindow?.postMessage(
+                            JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
+                            '*',
+                          )
+                        }}
+                        aria-label={`Leisti ${album.title}`}
+                        className="group absolute inset-0 block h-full w-full overflow-hidden"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`https://i.ytimg.com/vi/${playerVid}/hqdefault.jpg`}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-black/25 transition-colors group-hover:bg-black/40" />
+                        <span className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform group-hover:scale-110 sm:h-16 sm:w-16">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
+                    Vaizdo įrašo nėra
+                  </div>
                 )}
-              </>
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
-                Vaizdo įrašo nėra
               </div>
-            )}
+            </div>
+            {/* Meta chips + comment CTA — below video, desktop only */}
+            <div className="hidden md:flex flex-col px-4 py-3">
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {dateStr && (
+                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-primary)]">
+                    {dateStr}
+                  </span>
+                )}
+                {tracks.length > 0 && (
+                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold leading-tight text-[var(--text-muted)]">
+                    {tracks.length} dain{tracks.length % 10 === 1 && tracks.length % 100 !== 11 ? 'a' : (tracks.length % 10 >= 2 && tracks.length % 10 <= 9 && (tracks.length % 100 < 11 || tracks.length % 100 > 19) ? 'os' : 'ų')}
+                  </span>
+                )}
+                {album.is_upcoming && (
+                  <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                    Greitai
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileTab('comments')}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                {commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Pasidalink nuomone'}
+              </button>
+            </div>
           </div>
-          {/* Meta stack — chip stilius kaip track puslapyje/modale. LikePill
-              perkeltas į header'io veiksmų eilutę. */}
-          <div className="flex flex-row flex-wrap items-start gap-2 border-l border-[var(--border-subtle)] px-3 py-2 text-[11px] sm:flex-col">
-            {dateStr && (
-              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-primary)]">
-                {dateStr}
-              </span>
-            )}
-            {tracks.length > 0 && (
-              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold leading-tight text-[var(--text-muted)]">
-                {tracks.length} dain{tracks.length % 10 === 1 && tracks.length % 100 !== 11 ? 'a' : (tracks.length % 10 >= 2 && tracks.length % 10 <= 9 && (tracks.length % 100 < 11 || tracks.length % 100 > 19) ? 'os' : 'ų')}
-              </span>
-            )}
-            {album.is_upcoming && (
-              <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
-                Greitai
-              </span>
-            )}
-          </div>
-        </div>
 
-        {/* Tabs — Dainos / Komentarai (visiems viewport'ams). */}
-        <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5 sm:px-5">
-          <button
-            type="button"
-            onClick={() => setMobileTab('tracks')}
-            className={[
-              "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
-              mobileTab === 'tracks'
-                ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
-                : 'text-[var(--text-muted)]',
-            ].join(' ')}
-          >
-            <span>Dainos</span>
-            {tracks.length > 0 && (
-              <span className="rounded-full bg-[var(--bg-hover)] px-1.5 py-px text-[10px] font-extrabold leading-none text-[var(--text-muted)]">
-                {tracks.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileTab('comments')}
-            className={[
-              "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
-              mobileTab === 'comments'
-                ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
-                : 'text-[var(--text-muted)]',
-            ].join(' ')}
-          >
-            <span>Komentarai</span>
-            {commentTotal > 0 && (
-              <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
-                {commentTotal}
-              </span>
-            )}
-          </button>
-        </div>
+          {/* Right column — tabs + tracklist/comments */}
+          <div className="flex flex-1 flex-col">
+            {/* Tabs — Dainos / Komentarai */}
+            <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5 sm:px-5">
+              <button
+                type="button"
+                onClick={() => setMobileTab('tracks')}
+                className={[
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                  mobileTab === 'tracks'
+                    ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                    : 'text-[var(--text-muted)]',
+                ].join(' ')}
+              >
+                <span>Dainos</span>
+                {tracks.length > 0 && (
+                  <span className="rounded-full bg-[var(--bg-hover)] px-1.5 py-px text-[10px] font-extrabold leading-none text-[var(--text-muted)]">
+                    {tracks.length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTab('comments')}
+                className={[
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                  mobileTab === 'comments'
+                    ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                    : 'text-[var(--text-muted)]',
+                ].join(' ')}
+              >
+                <span>Komentarai</span>
+                {commentTotal > 0 && (
+                  <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
+                    {commentTotal}
+                  </span>
+                )}
+              </button>
+            </div>
 
-        {/* Body — single scroll, switches by tab. */}
-        <div ref={bodyScrollRef} className="flex-1 overscroll-contain px-4 py-4 sm:px-5">
-          <div className={mobileTab === 'tracks' ? 'block' : 'hidden'}>
-            {Tracklist}
-          </div>
-          <div className={mobileTab === 'comments' ? 'block' : 'hidden'}>
-            <EntityCommentsBlock
-              entityType="album"
-              entityId={album.id}
-              compact
-              title={commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Komentarai'}
-              onCountChange={setCommentTotal}
-            />
+            {/* Body — tracklist or comments */}
+            <div ref={bodyScrollRef} className="flex-1 overscroll-contain px-4 py-4 sm:px-5">
+              <div className={mobileTab === 'tracks' ? 'block' : 'hidden'}>
+                {Tracklist}
+              </div>
+              <div className={mobileTab === 'comments' ? 'block' : 'hidden'}>
+                <EntityCommentsBlock
+                  entityType="album"
+                  entityId={album.id}
+                  compact
+                  title={commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Komentarai'}
+                  onCountChange={setCommentTotal}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
