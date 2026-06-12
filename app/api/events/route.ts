@@ -23,6 +23,13 @@ export async function GET(req: NextRequest) {
       limit: parseInt(sp.get('limit') || '20'),
       offset: parseInt(sp.get('offset') || '0'),
     })
+    // compact=1 — homepage'ui: numetam description (160KB+), ticket_url
+    if (sp.get('compact') === '1' && result.events) {
+      result.events = result.events.map((e: any) => {
+        const { description, ...rest } = e
+        return rest
+      })
+    }
     // CDN edge cache — homepage renginių sekcija.
     return NextResponse.json(result, {
       headers: {

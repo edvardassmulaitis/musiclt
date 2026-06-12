@@ -513,18 +513,11 @@ function HeroSliderDesktop({ slides, dk }: { slides: HeroSlide[]; dk: boolean })
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
   }, [])
+  const arrowCls = 'hp-hero-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80'
   const arrow = (dir: -1 | 1) => (
     <button type="button" aria-label={dir < 0 ? 'Ankstesnis' : 'Kitas'} onClick={() => scrollBy(dir)}
-      className="hp-hero-arrow"
-      style={{
-        position: 'absolute', top: '50%', transform: 'translateY(-50%)', zIndex: 4,
-        [dir < 0 ? 'left' : 'right']: -6,
-        width: 36, height: 36, borderRadius: '50%', cursor: 'pointer',
-        background: dk ? 'rgba(13,19,32,0.92)' : 'rgba(255,255,255,0.95)',
-        border: '1px solid var(--border-strong)', color: 'var(--text-primary)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
-      } as any}>
+      className={arrowCls}
+      style={{ [dir < 0 ? 'left' : 'right']: -6 } as any}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         {dir < 0 ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 6l6 6-6 6" />}
       </svg>
@@ -2570,7 +2563,7 @@ export default function Home() {
       })
       .catch(() => { clearTimeout(tracksTimer); readyBits.current.tracks = true; tryReady.current() })
 
-    fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
+    fetch('/api/events?limit=24&compact=1').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
     // Dienos dainos lyderis — hero/reels „DIENOS DAINA" slide'ui (2026-06-11).
     fetch('/api/dienos-daina/nominations').then(r => r.json()).then(d => {
       const noms = (d.nominations || []).filter((n: any) => n.tracks)
@@ -2786,8 +2779,7 @@ export default function Home() {
         .hp-hero-slot{width:calc((100% - 16px) / 2.35);min-width:360px;flex-shrink:0}
         @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 16px) / 2.4)}}
         @media(max-width:768px){.hp-hero-slot{width:calc(88vw)}}
-        @media(pointer:fine){.hp-hero-arrow{opacity:0;transition:opacity .2s}}
-        .hp-hero-track:hover .hp-hero-arrow{opacity:1}
+        @media(max-width:768px){.hp-hero-arrow{display:none}}
         .hp-scroll::-webkit-scrollbar{display:none}
         /* Scroll-arrow hide for non-hero rows */
         .hp-scroll-arrow{display:none !important}
