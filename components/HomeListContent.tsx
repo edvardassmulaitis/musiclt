@@ -101,7 +101,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
 
   const fetchPage = useCallback(async (offset: number): Promise<{ items: any[]; total: number; genres?: Facet[] }> => {
     if (isEvents) {
-      const r = await fetch('/api/events?limit=200').then(res => res.json()).catch(() => ({ events: [] }))
+      const r = await fetch('/api/events?limit=200&compact=1').then(res => res.json()).catch(() => ({ events: [] }))
       let evs = (r.events || []).filter((ev: any) => (lane === 'world' ? !eventIsLT(ev) : eventIsLT(ev)))
       evs = evs.sort((a: any, b: any) => {
         const da = new Date(a.start_date || a.event_date || 0).getTime()

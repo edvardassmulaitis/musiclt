@@ -136,9 +136,32 @@ export async function GET(req: NextRequest) {
       ? rows.filter(r => (r.genres as string[]).includes(genre))
       : rows
 
-    // 6) Rūšiavimas. „new" jau atėjo surūšiuotas iš libo.
-    if (sort === 'liked') {
-      filtered = [...filtered].sort((a, b) => (b.like_count || 0) - (a.like_count || 0))
+    // 6) Rūšiavimas.
+    //   „new"   = pagal realią datą (naujausi viršuje) — VISAS rinkinys
+    //   „liked" = hibridinis balas (70% šviežumas + 30% populiarumas)
+    //   „az"    = abėcėlė
+    if (sort === 'new') {
+      // Tracks: video_uploaded_at > release_date. Albums: release_date > year.
+      filtered = [...filtered].sort((a, b) => {
+        const da = new Date(a.video_uploaded_at || a.release_date || (a.year ? `${a.year}-01-01` : '1970-01-01')).getTime()
+        const db = new Date(b.video_uploaded_at || b.release_date || (b.year ? `${b.year}-01-01` : '1970-01-01')).getTime()
+        return db - da
+      })
+    } else if (sort === 'liked') {
+      // Hibridinis: freshness * 0.7 + popularity * 0.3
+      const nowMs = Date.now()
+      const windowMs = 90 * 86_400_000
+      filtered = [...filtered].sort((a, b) => {
+        const scoreOf = (r: any) => {
+          const dateMs = new Date(r.video_uploaded_at || r.release_date || (r.year ? `${r.year}-01-01` : '1970-01-01')).getTime()
+          const freshness = Math.max(0, Math.min(1, (dateMs - (nowMs - windowMs)) / windowMs))
+          const popArtist = Math.min(1, (r.artists?.score || 0) / 80)
+          const popViews = (r.views || 0) > 0 ? Math.min(1, Math.log10(r.views) / 8) : 0
+          const popularity = popArtist * 0.7 + popViews * 0.3
+          return freshness * 0.7 + popularity * 0.3
+        }
+        return scoreOf(b) - scoreOf(a)
+      })
     } else if (sort === 'az') {
       filtered = [...filtered].sort((a, b) =>
         String(a.title || '').localeCompare(String(b.title || ''), 'lt'),
@@ -150,7 +173,13 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { items, total, genres },
-      { headers: { 'Cache-Control': 'private, no-store' } },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+          'CDN-Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+          'Vercel-CDN-Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+        },
+      },
     )
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Server error' }, { status: 500 })
