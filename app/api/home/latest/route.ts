@@ -24,14 +24,16 @@ import {
 
 export async function GET() {
   try {
-    // Atskirai await'iname kiekvieną, kad galėtume parodyti, kuri grandis
-    // numirė. Anksčiau Promise.all'as suskaitydavo tik bendrą error message'ą.
-    let tracks
-    let albums
-    let upcoming
-    try { tracks = await getLatestTracksForHome() } catch (e: any) { console.error('home/latest tracks failed:', e?.message); throw new Error(`tracks: ${e?.message}`) }
-    try { albums = await getLatestAlbumsForHome() } catch (e: any) { console.error('home/latest albums failed:', e?.message); throw new Error(`albums: ${e?.message}`) }
-    try { upcoming = await getUpcomingAlbumsForHome() } catch (e: any) { console.error('home/latest upcoming failed:', e?.message); throw new Error(`upcoming: ${e?.message}`) }
+    // Parallel — visos trys užklausos vienu metu. Kiekviena turi savo
+    // error handling'ą — jei viena fail'ina, kitos vis tiek grąžina duomenis.
+    const [tracksResult, albumsResult, upcomingResult] = await Promise.allSettled([
+      getLatestTracksForHome(),
+      getLatestAlbumsForHome(),
+      getUpcomingAlbumsForHome(),
+    ])
+    const tracks = tracksResult.status === 'fulfilled' ? tracksResult.value : (() => { console.error('home/latest tracks failed:', (tracksResult as any).reason?.message); return { lt: [], world: [], totalLt: 0, totalWorld: 0 } })()
+    const albums = albumsResult.status === 'fulfilled' ? albumsResult.value : (() => { console.error('home/latest albums failed:', (albumsResult as any).reason?.message); return { lt: [], world: [], totalLt: 0, totalWorld: 0 } })()
+    const upcoming = upcomingResult.status === 'fulfilled' ? upcomingResult.value : (() => { console.error('home/latest upcoming failed:', (upcomingResult as any).reason?.message); return { items: [], total: 0 } })()
 
     const payload = {
       tracks: {
