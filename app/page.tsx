@@ -486,11 +486,12 @@ function DiscussionsWidget() {
 
 const REELS_DURATION = 8000
 
-/* ── Desktop hero (2026-06-11 v4) — ~3 kortelių juosta su „peek" (ketvirta
-   matosi nepilna = aiškus kvietimas slinkti į šoną) + rodyklės ‹›. Vieno
-   didelio slide'o atsisakyta: YT thumbnail'ų kokybė per žema dideliam formatui. ── */
+/* ── Desktop hero (2026-06-12 v5) — 2 pilnos kortelės + trečia „peek"
+   (aiškus kvietimas slinkti). Po kortele slider taškai. Tekstai sumažinti
+   kad neuždengtų nuotraukos. Vieningas dizainas su /atrasti hero. ── */
 function HeroSliderDesktop({ slides, dk }: { slides: HeroSlide[]; dk: boolean }) {
   const trackRef = useRef<HTMLDivElement>(null)
+  const [activeIdx, setActiveIdx] = useState(0)
   const scrollBy = (dir: -1 | 1) => {
     const el = trackRef.current
     if (!el) return
@@ -498,22 +499,44 @@ function HeroSliderDesktop({ slides, dk }: { slides: HeroSlide[]; dk: boolean })
     const step = card ? card.offsetWidth + 16 : el.clientWidth * 0.9
     el.scrollBy({ left: dir * step, behavior: 'smooth' })
   }
+  /* Track scroll position for dot indicator */
+  useEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+    const onScroll = () => {
+      const card = el.querySelector('.hp-hero-slot') as HTMLElement | null
+      if (!card) return
+      const step = card.offsetWidth + 16
+      const idx = Math.round(el.scrollLeft / step)
+      setActiveIdx(idx)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
   const arrow = (dir: -1 | 1) => (
     <button type="button" aria-label={dir < 0 ? 'Ankstesnis' : 'Kitas'} onClick={() => scrollBy(dir)}
+      className="hp-hero-arrow"
       style={{
         position: 'absolute', top: '50%', transform: 'translateY(-50%)', zIndex: 4,
         [dir < 0 ? 'left' : 'right']: -6,
-        width: 38, height: 38, borderRadius: '50%', cursor: 'pointer',
+        width: 36, height: 36, borderRadius: '50%', cursor: 'pointer',
         background: dk ? 'rgba(13,19,32,0.92)' : 'rgba(255,255,255,0.95)',
         border: '1px solid var(--border-strong)', color: 'var(--text-primary)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
+        boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
       } as any}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         {dir < 0 ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 6l6 6-6 6" />}
       </svg>
     </button>
   )
+  const scrollTo = (i: number) => {
+    const el = trackRef.current
+    if (!el) return
+    const card = el.querySelector('.hp-hero-slot') as HTMLElement | null
+    if (!card) return
+    el.scrollTo({ left: i * (card.offsetWidth + 16), behavior: 'smooth' })
+  }
   return (
     <div style={{ position: 'relative' }}>
       <div ref={trackRef} className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory" style={{ overflowX: 'auto' }}>
@@ -523,8 +546,19 @@ function HeroSliderDesktop({ slides, dk }: { slides: HeroSlide[]; dk: boolean })
           </div>
         ))}
       </div>
-      {slides.length > 3 && arrow(-1)}
-      {slides.length > 3 && arrow(1)}
+      {slides.length > 2 && arrow(-1)}
+      {slides.length > 2 && arrow(1)}
+      {/* Slider dots */}
+      {slides.length > 2 && (
+        <div className="mt-3 flex justify-center gap-1.5">
+          {slides.map((s, i) => (
+            <button key={`dot-${s.type}-${s.href}`} type="button" aria-label={`Naujiena ${i + 1}`}
+              onClick={() => scrollTo(i)}
+              className="cursor-pointer rounded-full border-0 p-0 transition-all"
+              style={{ width: i === activeIdx ? 20 : 7, height: 7, background: i === activeIdx ? 'var(--accent-orange)' : 'var(--border-strong)' }} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -1698,14 +1732,14 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
       {/* Bottom gradient for text readability */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
       {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-end p-5">
+      <div className="absolute inset-0 flex flex-col justify-end p-4">
         <span
-          className="mb-2 inline-flex w-fit rounded-full px-3 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
+          className="mb-1.5 inline-flex w-fit rounded-full px-2.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-black uppercase tracking-[0.1em] text-white"
           style={{ background: slide.chipBg }}
         >
           {slide.chip}
         </span>
-        <h3 className="m-0 max-w-[460px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">
+        <h3 className="m-0 max-w-[420px] font-['Outfit',sans-serif] text-[19px] font-black leading-[1.15] tracking-tight text-white transition-opacity group-hover:opacity-90 sm:text-[21px]">
           {slide.title}
         </h3>
         {/* Subtitle/excerpt naujienoms pašalintas — UI'as paprastesnis,
@@ -2748,16 +2782,14 @@ export default function Home() {
         @keyframes hp-pulse{0%,100%{opacity:.05}50%{opacity:.08}}
         .hp-skel{background:var(--homepage-skeleton-bg);animation:hp-pulse 1.8s ease-in-out infinite}
         .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
-        /* v4: ~3.3 kortelės eilėje (ketvirta „peek“ — kvietimas slinkti) */
-        .hp-hero-slot{width:calc((100% - 72px) / 3.35);min-width:330px;flex-shrink:0}
-        /* >=1400px: siauresnės kortelės, kad 3-čia naujiena aiškiau matytųsi
-           (peek ~38% vietoj ankstesnio ~10%). Edvardo prašymu 2026-05-31. */
-        @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 80px) / 3.35)}}
+        /* v5: 2 pilnos kortelės + trečia „peek” (~35% matosi) */
+        .hp-hero-slot{width:calc((100% - 16px) / 2.35);min-width:360px;flex-shrink:0}
+        @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 16px) / 2.4)}}
         @media(max-width:768px){.hp-hero-slot{width:calc(88vw)}}
+        @media(pointer:fine){.hp-hero-arrow{opacity:0;transition:opacity .2s}}
+        .hp-hero-track:hover .hp-hero-arrow{opacity:1}
         .hp-scroll::-webkit-scrollbar{display:none}
-        /* 2026-05-29: desktop side-scroll rodyklės pašalintos (Edvardo prašymu) —
-           native trackpad/shift-scroll + „Visi" modalas pakanka. display:none
-           paslepia injected ‹ › mygtukus visur (anksčiau tik coarse pointer'iuose). */
+        /* Scroll-arrow hide for non-hero rows */
         .hp-scroll-arrow{display:none !important}
         .hp-scroll-arrow:hover{background:var(--accent-orange);color:#fff;border-color:var(--accent-orange);transform:translateY(-50%) scale(1.08)}
         .hp-scroll-arrow-l{left:-8px}

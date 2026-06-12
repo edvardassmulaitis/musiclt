@@ -391,10 +391,13 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
   )
 }
 
+/* ── Featured slider (2026-06-12 v2) — horizontalus scroll su 2 pilnomis
+   kortelėmis + trečia „peek", vieningas su homepage hero dizainu. ── */
 function FeaturedSlider() {
   const [items, setItems] = useState<FeatItem[] | null>(null)
-  const [idx, setIdx] = useState(0)
+  const [activeIdx, setActiveIdx] = useState(0)
   const [openDisc, setOpenDisc] = useState<Atradimas | null>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     let on = true
     Promise.all([
@@ -413,32 +416,156 @@ function FeaturedSlider() {
     return () => { on = false }
   }, [])
 
+  /* Track scroll for dots */
+  useEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+    const onScroll = () => {
+      const card = el.querySelector('.atr-feat-card') as HTMLElement | null
+      if (!card) return
+      const step = card.offsetWidth + 16
+      setActiveIdx(Math.round(el.scrollLeft / step))
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [items])
+
   if (items === null || items.length === 0) return null
-  const cur = items[Math.min(idx, items.length - 1)]
   const many = items.length > 1
-  const arrowCls = 'absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/45 text-white backdrop-blur-sm transition-colors hover:bg-black/70'
+
+  const scrollTo = (i: number) => {
+    const el = trackRef.current
+    if (!el) return
+    const card = el.querySelector('.atr-feat-card') as HTMLElement | null
+    if (!card) return
+    el.scrollTo({ left: i * (card.offsetWidth + 16), behavior: 'smooth' })
+  }
+  const scrollByDir = (dir: -1 | 1) => {
+    const el = trackRef.current
+    if (!el) return
+    const card = el.querySelector('.atr-feat-card') as HTMLElement | null
+    const step = card ? card.offsetWidth + 16 : el.clientWidth * 0.9
+    el.scrollBy({ left: dir * step, behavior: 'smooth' })
+  }
+
+  /* Resolve cover image + title for a unified card */
+  const cardInfo = (it: FeatItem) => {
+    if (it.kind === 'post') {
+      const p = it.post
+      const isTopas = p.post_type === 'topas'
+      const entries = (p.entries || []).slice(0, 4)
+      return {
+        href: feedHref(p),
+        img: p.cover || (isTopas && entries[0]?.image) || null,
+        chip: postKind(p),
+        chipBg: '#f97316',
+        title: sani(p.title),
+        author: uname(p.author),
+        avatar: p.author?.avatar_url,
+        time: timeAgo(p.published_at),
+        onClick: undefined as (() => void) | undefined,
+      }
+    }
+    if (it.kind === 'discussion') {
+      const d = it.d
+      return {
+        href: `/diskusijos/${d.slug}`,
+        img: d.artist_image,
+        chip: 'diskusija',
+        chipBg: '#3b82f6',
+        title: sani(d.title),
+        author: d.artist_name || '',
+        avatar: null,
+        time: null,
+        onClick: undefined as (() => void) | undefined,
+      }
+    }
+    const a = it.a
+    return {
+      href: '',
+      img: discThumb(a),
+      chip: 'atradimas',
+      chipBg: '#f97316',
+      title: a.artist_name ? `${a.artist_name}${a.track_name ? ` — ${a.track_name}` : ''}` : 'Atradimas',
+      author: uname(a.author),
+      avatar: a.author?.avatar_url,
+      time: timeAgo(a.created_at),
+      onClick: () => setOpenDisc(a),
+    }
+  }
 
   return (
     <section className="mb-5">
-      <div className="relative overflow-hidden rounded-[22px] border border-[var(--border-default)]" style={{ background: '#0d1320' }}>
-        <FeaturedSlide it={cur} onOpenDiscovery={setOpenDisc} />
+      <style>{`
+        .atr-feat-card{width:calc((100% - 16px) / 2.35);min-width:300px;flex-shrink:0}
+        @media(max-width:768px){.atr-feat-card{width:calc(88vw)}}
+        .atr-feat-track::-webkit-scrollbar{display:none}
+        @media(pointer:fine){.atr-feat-arrow{opacity:0;transition:opacity .2s}}
+        .atr-feat-wrap:hover .atr-feat-arrow{opacity:1}
+      `}</style>
+      <div className="atr-feat-wrap relative">
+        <div ref={trackRef} className="atr-feat-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory" style={{ overflowX: 'auto', scrollbarWidth: 'none', scrollBehavior: 'smooth' }}>
+          {items.map((it) => {
+            const c = cardInfo(it)
+            const inner = (
+              <div className="group relative block aspect-[16/9] h-full w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[#0d1320] no-underline transition-all hover:-translate-y-0.5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_42px_rgba(0,0,0,0.35)]">
+                <div className="absolute inset-0 flex items-stretch justify-end overflow-hidden">
+                  {c.img ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(c.img)} alt="" loading="lazy" className="h-full w-auto max-w-full object-cover"
+                      style={{ objectPosition: 'center 25%', WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)', maskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)' }} />
+                  ) : <div className="h-full w-full" style={{ background: `linear-gradient(135deg, hsl(${hue(c.title)},34%,22%), hsl(${(hue(c.title) + 40) % 360},30%,12%))` }} />}
+                </div>
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                <div className="absolute inset-0 flex flex-col justify-end p-4">
+                  <span className="mb-1.5 inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-black uppercase tracking-[0.1em] text-white"
+                    style={{ background: c.chipBg }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    {c.chip}
+                  </span>
+                  <h3 className="m-0 max-w-[420px] font-['Outfit',sans-serif] text-[19px] font-black leading-[1.15] tracking-tight text-white transition-opacity group-hover:opacity-90 sm:text-[21px]">
+                    {c.title}
+                  </h3>
+                  {c.author && (
+                    <p className="m-0 mt-1 text-[12px] font-medium text-white/70">{c.author}{c.time ? ` · ${c.time}` : ''}</p>
+                  )}
+                </div>
+              </div>
+            )
+            return (
+              <div key={it.key} className="atr-feat-card shrink-0 snap-start">
+                {c.onClick ? (
+                  <button type="button" onClick={c.onClick} className="block h-full w-full cursor-pointer border-0 bg-transparent p-0 text-left">{inner}</button>
+                ) : (
+                  <Link href={c.href} className="block h-full no-underline">{inner}</Link>
+                )}
+              </div>
+            )
+          })}
+        </div>
         {many && (
           <>
-            <button type="button" aria-label="Ankstesnis" onClick={() => setIdx(i => (i - 1 + items.length) % items.length)} className={arrowCls} style={{ left: 10 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+            <button type="button" aria-label="Ankstesnis" onClick={() => scrollByDir(-1)}
+              className="atr-feat-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+              style={{ left: -6 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
             </button>
-            <button type="button" aria-label="Kitas" onClick={() => setIdx(i => (i + 1) % items.length)} className={arrowCls} style={{ right: 10 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+            <button type="button" aria-label="Kitas" onClick={() => scrollByDir(1)}
+              className="atr-feat-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+              style={{ right: -6 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
             </button>
           </>
         )}
       </div>
+      {/* Slider dots */}
       {many && (
-        <div className="mt-2.5 flex justify-center gap-2">
+        <div className="mt-3 flex justify-center gap-1.5">
           {items.map((it, i) => (
-            <button key={it.key} type="button" aria-label={`Įrašas ${i + 1}`} onClick={() => setIdx(i)}
+            <button key={`dot-${it.key}`} type="button" aria-label={`Įrašas ${i + 1}`}
+              onClick={() => scrollTo(i)}
               className="cursor-pointer rounded-full border-0 p-0 transition-all"
-              style={{ width: i === idx ? 22 : 8, height: 8, background: i === idx ? 'var(--accent-orange)' : 'var(--border-strong)' }} />
+              style={{ width: i === activeIdx ? 20 : 7, height: 7, background: i === activeIdx ? 'var(--accent-orange)' : 'var(--border-strong)' }} />
           ))}
         </div>
       )}
