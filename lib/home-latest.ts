@@ -56,7 +56,7 @@ export const HOME_LANE_LIMIT = 10
 // (mažuma) neiškristų: 90d tracks ~1100, albums year>=2025 ~700.
 // Šie limitai taikomi prieš JS-lygio dedupe/filter — didesnis pool
 // = tikslesnė LT juosta. Pro plan (1 GB RAM) laiko ~1200 be problemų.
-const TRACKS_CANDIDATE_FETCH_LIMIT = 1200
+const TRACKS_CANDIDATE_FETCH_LIMIT = 500
 const ALBUMS_CANDIDATE_FETCH_LIMIT = 800
 
 /* ────────────────────────────── Tags ────────────────────────────── */
