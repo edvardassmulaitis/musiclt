@@ -379,6 +379,14 @@ export default function DienesDainaClient({
   const [votingId, setVotingId] = useState<number | null>(null)
   const [showNominate, setShowNominate] = useState(false)
   const [hasNominatedToday, setHasNominatedToday] = useState(false)
+
+  // Auto-open nominate modal from ?siulyti=1 (homepage CTA)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('siulyti') === '1') {
+      setShowNominate(true)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
   const [voteError, setVoteError] = useState('')
   const [expandedDay, setExpandedDay] = useState<string | null>(null)
 

@@ -280,8 +280,10 @@ export async function GET() {
           }))
       }
 
-      // Aukštesnės kortelės — daugiau teksto. Koncertų įspūdžiai gauna ilgesnį excerpt.
-      const maxLen = (b.editorial_type === 'koncertai') ? 360 : 240
+      // Aukštesnės kortelės — daugiau teksto. Koncertai/apžvalgos/kūryba gauna ilgesnį excerpt.
+      const wantLong = b.editorial_type === 'koncertai' || b.editorial_type === 'recenzija'
+        || b.post_type === 'review' || b.post_type === 'creation' || b.post_type === 'translation'
+      const maxLen = wantLong ? 360 : 240
       const excerpt = b.summary
         ? (b.summary.length > maxLen ? b.summary.slice(0, maxLen).trimEnd() + '…' : b.summary)
         : null

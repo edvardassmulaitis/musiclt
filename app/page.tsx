@@ -513,6 +513,18 @@ function HeroSliderDesktop({ slides, dk }: { slides: HeroSlide[]; dk: boolean })
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
   }, [])
+  /* Keyboard arrows — left/right scrolls hero */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Only handle when no modal/input is focused
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.key === 'ArrowLeft') { scrollBy(-1); e.preventDefault() }
+      else if (e.key === 'ArrowRight') { scrollBy(1); e.preventDefault() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const arrowCls = 'hp-hero-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80'
   const arrow = (dir: -1 | 1) => (
     <button type="button" aria-label={dir < 0 ? 'Ankstesnis' : 'Kitas'} onClick={() => scrollBy(dir)}
@@ -2606,22 +2618,7 @@ export default function Home() {
     // 1) Dainos hero'e NEBERODOMOS (2026-06-11 v3) — dubliavo „Naujos dainos"
     //    sekciją žemiau. Muzikos vertė mobile — per sekcijų tvarką.
 
-    // 2) Dienos daina — pastovi pirma vieta (įprotis balsuoti).
-    if (ddLeaderSlide?.tracks) {
-      const t = ddLeaderSlide.tracks
-      const vid = extractYouTubeId(t.video_url || null)
-      slides.push({
-        type: 'dd', chip: 'DIENOS DAINA', chipBg: '#f59e0b',
-        title: sanitizeTitle(t.title),
-        subtitle: t.artists?.name || '',
-        bgImg: t.cover_url || (vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : null) || t.artists?.cover_image_url || null,
-        href: '/atrasti#dienos-daina',
-        videoId: vid,
-        songTitle: sanitizeTitle(t.title),
-        songArtist: t.artists?.name || null,
-        trackId: t.id,
-      })
-    }
+    // 2) Dienos daina — IŠJUNGTA hero'e (2026-06-12). Rodoma Bendruomenės sekcijoje.
 
     // 3) Naujienos — max 6 (anksčiau 30 užgoždavo visą feed'ą).
     news.slice(0, 6).forEach(n => {

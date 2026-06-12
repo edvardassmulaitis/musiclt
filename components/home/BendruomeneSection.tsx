@@ -61,10 +61,21 @@ function timeAgo(iso: string) {
 
 // ── Placeholder SVG icons for cover fallback ──────────────────────────────────
 function PlaceholderIcon({ type }: { type: string }) {
-  // Music note for tracks/general, vinyl for albums, mic for artists, chat for disc
   if (type === 'discussion') return (
     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  )
+  // Kūryba — pen/feather
+  if (type === 'creation') return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><path d="M16 8 2 22"/><path d="M17.5 15H9"/>
+    </svg>
+  )
+  // Vertimas — languages/globe
+  if (type === 'translation') return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
     </svg>
   )
   // Generic music note
@@ -83,9 +94,9 @@ function getTypeMeta(type: string, sub?: string | null, editorial?: string | nul
   if (sub === 'topas') return { label: 'Topas', color: '#f59e0b' }
   if (sub === 'creation') return { label: 'Kūryba', color: '#ec4899' }
   if (sub === 'translation') return { label: 'Vertimas', color: '#10b981' }
-  if (sub === 'review') return { label: 'Apžvalga', color: '#ef4444' }
+  if (sub === 'review') return { label: 'Muzikos apžvalga', color: '#ef4444' }
   if (sub === 'article') {
-    if (editorial === 'recenzija') return { label: 'Apžvalga', color: '#ef4444' }
+    if (editorial === 'recenzija') return { label: 'Muzikos apžvalga', color: '#ef4444' }
     if (editorial === 'koncertai') return { label: 'Koncertų įspūdžiai', color: '#3b82f6' }
     return { label: 'Įrašas', color: '#94a3b8' }
   }
@@ -214,7 +225,9 @@ function DDCard({ it }: { it: CommunityItem }) {
             ))}
           </>
         ) : (
-          <div className="flex items-center gap-3 rounded-lg px-1 py-2.5">
+          <a href="/dienos-daina?siulyti=1"
+             onClick={e => e.stopPropagation()}
+             className="flex items-center gap-3 rounded-lg px-2 py-2.5 no-underline transition-colors hover:bg-[rgba(249,115,22,0.08)]">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(249,115,22,0.15)' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
@@ -224,7 +237,7 @@ function DDCard({ it }: { it: CommunityItem }) {
               <p className="m-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[#f0f4fc]">Siūlyti dainą</p>
               <p className="m-0 text-[10px] text-[#8ea8c4]">Rink dienos dainą su bendruomene</p>
             </div>
-          </div>
+          </a>
         )}
       </div>
       <span className="mt-auto px-3.5 pb-3.5 pt-3 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)]">
@@ -238,18 +251,25 @@ function DDCard({ it }: { it: CommunityItem }) {
 function BlogCard({ it }: { it: CommunityItem }) {
   const h = strHue(it.author_name || it.title)
   const meta = getTypeMeta(it.type, it.subtype, it.editorial_type)
-  // Koncertų įspūdžiai → daugiau teksto
-  const isKoncertai = it.editorial_type === 'koncertai'
+  const isLong = it.editorial_type === 'koncertai' || it.subtype === 'review' || it.editorial_type === 'recenzija'
+  const isCreative = it.subtype === 'creation' || it.subtype === 'translation'
   return (
     <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
       <Badge meta={meta} />
-      <Cover url={it.cover} alt={it.author_name || it.title} hue={h} iconType="blog" />
+      <Cover url={it.cover} alt={it.author_name || it.title} hue={h} iconType={isCreative ? it.subtype! : 'blog'} />
       <div className="flex flex-1 flex-col gap-1.5 px-3 pb-2 pt-2.5">
         <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {it.excerpt && (
-          <p className={`m-0 text-[11.5px] leading-relaxed text-[var(--text-secondary)]`}
-             style={{ display: '-webkit-box', WebkitLineClamp: isKoncertai ? 6 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it.excerpt}</p>
+          isCreative ? (
+            <p className="m-0 text-[12px] leading-[1.7] text-[var(--text-secondary)]"
+               style={{ fontStyle: 'italic', display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden', whiteSpace: 'pre-line' }}>
+              {it.excerpt.replace(/([.!?…]) /g, '$1\n')}
+            </p>
+          ) : (
+            <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-secondary)]"
+               style={{ display: '-webkit-box', WebkitLineClamp: isLong ? 6 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it.excerpt}</p>
+          )
         )}
       </div>
       <AuthorRow it={it} />
