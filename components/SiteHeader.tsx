@@ -36,7 +36,7 @@ const STYLES_ORDERED = STYLE_NAV_ORDER
  * ────────────────────────────────────────────────────────────────── */
 
 type NavItem = {
-  key: 'muzika' | 'topai' | 'renginiai' | 'naujienos' | 'atradimai' | 'skelbimai'
+  key: 'muzika' | 'topai' | 'renginiai' | 'naujienos' | 'atradimai' | 'skelbimai' | 'bendruomene'
   label: string
   href: string
   match: string[]
@@ -164,6 +164,15 @@ const NAV: NavItem[] = [
     desc: 'Vinilas, instrumentai, paslaugos',
     accent: '#10b981',
     icon: I.market,
+  },
+  {
+    key: 'bendruomene',
+    label: 'Bendruomenė',
+    href: '/atrasti',
+    match: ['/atrasti', '/vartotojai', '/diskusijos', '/pokalbiai', '/boombox', '/dienos-daina', '/blogas', '/feed', '/srautas'],
+    desc: 'Nariai, diskusijos, kūryba',
+    accent: '#8b5cf6',
+    icon: I.users,
   },
 ]
 
@@ -646,7 +655,7 @@ const gridIcon = (
     <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
   </svg>
 )
-function AtradimaiPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
+function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: string }) {
   const dailySongs = data?.dailySongs || []
   const posts = data?.discoveryPosts || []
   const items: { href: string; icon: React.ReactNode; title: string; desc: string; rgb: string }[] = [
@@ -668,7 +677,7 @@ function AtradimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
   return (
     <div className="sh-panel">
       <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Atradimai</span>
+        <span className="sh-panel-section-title">Bendruomenė</span>
         <Link href="/atrasti" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
       </div>
 
@@ -1312,7 +1321,8 @@ export function SiteHeader() {
       case 'topai':        return <TopaiPanel data={preview} accent={accent} />
       case 'renginiai':    return <RenginiaiPanel data={preview} accent={accent} />
       case 'naujienos':    return <NaujienosPanel data={preview} accent={accent} />
-      case 'atradimai':    return <AtradimaiPanel data={preview} accent={accent} />
+      case 'atradimai':    return <BendruomenePanel data={preview} accent={accent} />
+      case 'bendruomene':  return <BendruomenePanel data={preview} accent={accent} />
       case 'skelbimai':    return <SkelbimaiPanel data={preview} accent={accent} />
     }
   }
@@ -2341,36 +2351,24 @@ export function SiteHeader() {
         .sh-desktop-action { display: flex; }
         /* Hamburger tik mobile — desktop'e pilnas nav, ☰ perteklinis. */
         @media (min-width: 1081px) { .sh-burger { display: none !important; } }
-        /* 👥+ split hub mygtukas — pill su border'iu, dvi atskirtos pusės:
-           kairė neparyškinta bendruomenės ikona → /feed; dešinė oranžinė
-           „+ Kurti" CTA (QuickCreate). Skirtingi fonai → aiškus split'as. */
-        /* 2026-06-11 consistency polish: vientisesnė „Atrasti / + Kurti" pora —
-           radius suvienodintas su CTA šeima (12px vietoj pill 18), kairė pusė su
-           subtiliu fonu (matosi, kad tai mygtukas), aktyvi būsena su orange tint. */
-        .sh-hub-split {
-          align-items: stretch; height: 34px; border-radius: 12px;
-          overflow: hidden; background: transparent;
-          border: 1px solid var(--border-strong);
-          -webkit-tap-highlight-color: transparent;
+        /* Radaras: desktop = po logo (sh-radar-desktop matomas), mobile = dešinėje (sh-radar-mobile matomas) */
+        .sh-radar-desktop { display: flex; }
+        .sh-radar-mobile { display: none !important; }
+        @media (max-width: 1080px) {
+          .sh-radar-desktop { display: none !important; }
+          .sh-radar-mobile { display: flex !important; }
         }
-        .sh-hub-feed {
-          display: flex; align-items: center; gap: 6px; padding: 0 13px;
-          color: var(--text-secondary); background: var(--card-bg);
-          font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700;
-          transition: color .15s, background .15s;
-        }
-        .sh-hub-feed:hover { color: var(--text-primary); background: var(--bg-hover); }
-        .sh-hub-feed.active { color: var(--accent-orange); background: rgba(249,115,22,0.1); }
-        .sh-hub-divider { width: 1px; background: var(--border-default); flex-shrink: 0; }
-        .sh-hub-create {
-          display: flex; align-items: center; gap: 6px; padding: 0 13px;
+        /* + Kurti — standalone CTA mygtukas (oranžinis pill). */
+        .sh-hub-create-standalone {
+          display: flex; align-items: center; gap: 6px; padding: 0 14px;
+          height: 34px; border-radius: 12px;
           border: none; cursor: pointer; background: var(--accent-orange); color: #fff;
           font-family: inherit; font-size: 13px; font-weight: 700;
           transition: filter .15s, transform .1s;
           -webkit-tap-highlight-color: transparent;
         }
-        .sh-hub-create:hover { filter: brightness(1.08); }
-        .sh-hub-create:active { transform: scale(.96); }
+        .sh-hub-create-standalone:hover { filter: brightness(1.08); }
+        .sh-hub-create-standalone:active { transform: scale(.96); }
         /* display:contents — wrapper'is nesukuria box'o, bells lieka flex row'e.
            Mobile'e juos paslepiam (apatinis baras juos perima), bet komponentai
            lieka sumontuoti (NotificationsBell dropdown atidaromas per event'ą). */
@@ -2722,14 +2720,12 @@ export function SiteHeader() {
           </Link>
 
           {/* Radaras — besisukanti mini animacija → /nauji-atlikejai (promo).
-              PO logo, matoma ir mobile, ir desktop. Žalia nata = „aptikta nauja
-              muzika" (fresh) — atkartoja didelio hero radaro parašą (oranžinis
-              skenavimas + žalias muzikos elementas). */}
+              Desktop: po logo. Mobile: perkeltas į dešinę (sh-radar-mobile). */}
           <Link
             href="/nauji-atlikejai"
             aria-label="Naujos muzikos radaras"
             title="Naujos muzikos radaras — kylantys LT atlikėjai"
-            className="sh-radar"
+            className="sh-radar sh-radar-desktop"
             style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textDecoration: 'none', transition: 'color .15s' }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)' }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
@@ -2738,17 +2734,14 @@ export function SiteHeader() {
               <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.45" />
               <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
               <circle cx="16" cy="16" r="3.4" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
-              {/* besisukanti spinduliuotė */}
               <g>
                 <animateTransform attributeName="transform" type="rotate" from="0 16 16" to="360 16 16" dur="2.8s" repeatCount="indefinite" />
                 <path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="var(--accent-orange)" opacity="0.26" />
                 <line x1="16" y1="16" x2="16" y2="3" stroke="var(--accent-orange)" strokeWidth="1.6" strokeLinecap="round" />
               </g>
-              {/* žalias blip = aptikta nauja muzika (fresh), švelniai pulsuoja */}
               <circle cx="20.5" cy="11" r="1.5" fill="var(--accent-green)">
                 <animate attributeName="opacity" values="0;0;1;1;0.15" keyTimes="0;0.25;0.42;0.78;1" dur="2.8s" repeatCount="indefinite" />
               </circle>
-              {/* centras */}
               <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
             </svg>
           </Link>
@@ -2852,34 +2845,42 @@ export function SiteHeader() {
               </svg>
             </button>
 
-            {/* 👥+ Bendruomenės hub — split mygtukas. Kairė: „+ Kurti"
-                (QuickCreate). Dešinė: bendruomenės ikona → /feed (buvęs
-                /atradimai turinys). Tik desktop (mobile = apatinis baras). */}
-            <div className="sh-desktop-action sh-hub-split">
-              <Link
-                href="/atrasti"
-                aria-label="Bendruomenė"
-                title="Bendruomenė — srautas, įrašai, diskusijos"
-                className={`sh-hub-feed${pathname.startsWith('/atrasti') ? ' active' : ''}`}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="6.5" r="2.8"/><circle cx="5.5" cy="8.5" r="2.1"/><circle cx="18.5" cy="8.5" r="2.1"/>
-                  <path d="M12 11c-2.8 0-4.7 1.8-4.7 4.3V17h9.4v-1.7c0-2.5-1.9-4.3-4.7-4.3Z"/>
-                  <path d="M5.5 12.9c-2.1 0-3.5 1.3-3.5 3.2V17h3.3"/><path d="M18.5 12.9c2.1 0 3.5 1.3 3.5 3.2V17h-3.3"/>
-                </svg>
-                <span>Atrasti</span>
-              </Link>
-              <span className="sh-hub-divider" aria-hidden />
-              <button
-                type="button"
-                onClick={() => openQuickCreate()}
-                aria-label="Kurti"
-                className="sh-hub-create"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>Kurti</span>
-              </button>
-            </div>
+            {/* Radaras — mobile only (dešinėje, kaip desktop). Desktop versija yra po logo. */}
+            <Link
+              href="/nauji-atlikejai"
+              aria-label="Naujos muzikos radaras"
+              className="sh-radar-mobile"
+              style={{ flexShrink: 0, display: 'none', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textDecoration: 'none', transition: 'color .15s' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden>
+                <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.45" />
+                <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
+                <circle cx="16" cy="16" r="3.4" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
+                <g>
+                  <animateTransform attributeName="transform" type="rotate" from="0 16 16" to="360 16 16" dur="2.8s" repeatCount="indefinite" />
+                  <path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="var(--accent-orange)" opacity="0.26" />
+                  <line x1="16" y1="16" x2="16" y2="3" stroke="var(--accent-orange)" strokeWidth="1.6" strokeLinecap="round" />
+                </g>
+                <circle cx="20.5" cy="11" r="1.5" fill="var(--accent-green)">
+                  <animate attributeName="opacity" values="0;0;1;1;0.15" keyTimes="0;0.25;0.42;0.78;1" dur="2.8s" repeatCount="indefinite" />
+                </circle>
+                <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
+              </svg>
+            </Link>
+
+            {/* + Kurti — standalone CTA mygtukas (QuickCreate).
+                Tik desktop (mobile = apatinis baras). */}
+            <button
+              type="button"
+              onClick={() => openQuickCreate()}
+              aria-label="Kurti"
+              className="sh-desktop-action sh-hub-create-standalone"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Kurti</span>
+            </button>
 
             {/* Srautas (♥) — asmeninis feed. Tik desktop (mobile = apatinis baras). */}
             <Link
