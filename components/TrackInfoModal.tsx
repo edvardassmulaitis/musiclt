@@ -767,9 +767,29 @@ export function TrackInfoModal({
                 )
               }
 
-              // ── CASE 3: No comments, no album → artist tracks + CTA ──
+              // ── CASE 3: No comments, no album → artist card + tracks + CTA ──
               return (
                 <div className="hidden md:flex flex-1 min-h-0 flex-col overflow-y-auto px-3 py-3">
+                  {/* Artist card — always show when we have a thumb */}
+                  <Link
+                    href={`/atlikejai/${artistSlug}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="mb-2.5 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-2.5 no-underline transition-colors hover:border-[var(--border-strong)]"
+                  >
+                    {artistThumbUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={proxyImg(artistThumbUrl)} alt="" style={{ objectPosition: 'center top' }} className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[18px] font-bold text-[var(--text-muted)]">
+                        {artistName.charAt(0)}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{artistName}</div>
+                      <div className="font-['Outfit',sans-serif] text-[10px] text-[var(--text-muted)]">Atlikėjo puslapis →</div>
+                    </div>
+                  </Link>
                   {more.length > 0 && (
                     <>
                       <div className="mb-1.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">

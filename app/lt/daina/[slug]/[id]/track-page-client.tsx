@@ -815,9 +815,28 @@ export default function TrackPageClient({
                 )
               }
 
-              // ── CASE 3: No comments, no album → tracks + CTA ──
+              // ── CASE 3: No comments, no album → artist card + tracks + CTA ──
+              const artThumb = (artist as any).profile_thumb_url || artist.cover_image_url || null
               return (
                 <div>
+                  {/* Artist card — always show as fallback */}
+                  <Link
+                    href={`/atlikejai/${artist.slug}`}
+                    className="mb-3 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-colors hover:border-[var(--border-strong)]"
+                  >
+                    {artThumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={proxyImg(artThumb)} alt="" style={{ objectPosition: 'center top' }} className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[20px] font-bold text-[var(--text-muted)]">
+                        {artist.name.charAt(0)}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">{artist.name}</div>
+                      <div className="font-['Outfit',sans-serif] text-[11px] text-[var(--text-muted)]">Atlikėjo puslapis →</div>
+                    </div>
+                  </Link>
                   {more.length > 0 && (
                     <>
                       <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
