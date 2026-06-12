@@ -224,6 +224,20 @@ export default function TrackPageClient({
     return () => { cancelled = true }
   }, [track.id])
 
+  // Artist genres for fallback card
+  const [artistGenres, setArtistGenres] = useState<string[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/artists/${artist.id}`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        setArtistGenres((d.substyleNames || []).slice(0, 4))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [artist.id])
+
   // Like sync + toggle (mirrors album-page-client)
   useEffect(() => {
     let cancelled = false
@@ -732,179 +746,50 @@ export default function TrackPageClient({
                 )
               }
 
-              // ── CASE 2: No comments, has album → album card + tracks + CTA ──
-              if (primaryAlbum) {
-                return (
-                  <div>
-                    <Link
-                      href={`/albumai/${artist.slug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
-                      className="mb-3 flex items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-2.5 no-underline transition-colors hover:border-[var(--border-strong)]"
-                    >
-                      {primaryAlbum.cover_image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={proxyImg(primaryAlbum.cover_image_url)} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover" />
-                      ) : (
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[var(--cover-placeholder)] text-[18px]">💿</div>
-                      )}
-                      <div className="min-w-0">
-                        <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{primaryAlbum.title}</div>
-                        <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-muted)]">{artist.name} {primaryAlbum.year ? `· ${primaryAlbum.year}` : ''}</div>
-                      </div>
-                    </Link>
-                    {more.length > 0 && (
-                      <>
-                        <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                          Daugiau iš {artist.name}
-                        </div>
-                        <div className="hidden lg:flex flex-col gap-1.5">
-                          {more.map(t => {
-                            const tvid = ytId(t.video_url)
-                            const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
-                            return (
-                              <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                                title={`${t.title} — ${artist.name}`}
-                                className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                                <div className="aspect-video h-12 shrink-0 overflow-hidden rounded bg-black">
-                                  {thumb && (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
-                                  <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
-                                </div>
-                              </Link>
-                            )
-                          })}
-                        </div>
-                        <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
-                          {more.map(t => {
-                            const tvid = ytId(t.video_url)
-                            const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
-                            return (
-                              <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                                title={`${t.title} — ${artist.name}`}
-                                className="group flex w-[160px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                                <div className="aspect-video w-full overflow-hidden rounded bg-black">
-                                  {thumb && (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                                  )}
-                                </div>
-                                <div className="px-1">
-                                  <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
-                                  <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
-                                </div>
-                              </Link>
-                            )
-                          })}
-                        </div>
-                      </>
-                    )}
-                    {/* Orange CTA */}
-                    <button
-                      type="button"
-                      onClick={() => { setMobileTab('comments'); commentsColRef.current?.scrollIntoView({ behavior: 'smooth' }) }}
-                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-3 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                      Būk pirmas! Pasidalink nuomone
-                    </button>
-                  </div>
-                )
-              }
-
-              // ── CASE 3: No comments, no album → hero artist card + tracks + CTA ──
-              const heroImg = artist.cover_image_wide_url || (artist as any).profile_thumb_url || artist.cover_image_url || null
+              // ── No comments → artist overview card + CTA ──
+              const artThumb = (artist as any).profile_thumb_url || artist.cover_image_url || null
               return (
                 <div>
-                  {/* Large artist hero card */}
+                  {/* Artist card — square photo + name + genres */}
                   <Link
                     href={`/atlikejai/${artist.slug}`}
-                    className="group relative mb-3 block overflow-hidden rounded-xl border border-[var(--border-subtle)] no-underline transition-colors hover:border-[var(--border-strong)]"
+                    className="group mb-3 flex items-start gap-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3.5 no-underline transition-colors hover:border-[var(--border-strong)]"
                   >
-                    {heroImg ? (
+                    {artThumb ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={proxyImg(heroImg)}
+                        src={proxyImg(artThumb)}
                         alt=""
                         style={{ objectPosition: 'center top' }}
-                        className="block h-[200px] w-full object-cover brightness-[0.7] transition-all duration-300 group-hover:brightness-[0.8] group-hover:scale-[1.02]"
+                        className="h-[100px] w-[100px] shrink-0 rounded-lg object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                       />
                     ) : (
-                      <div className="flex h-[200px] w-full items-center justify-center bg-gradient-to-br from-[var(--bg-elevated)] to-[var(--bg-surface)]">
-                        <span className="font-['Outfit',sans-serif] text-[56px] font-bold text-[var(--text-muted)] opacity-30">{artist.name.charAt(0)}</span>
+                      <div className="flex h-[100px] w-[100px] shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--bg-elevated)] to-[var(--bg-surface)]">
+                        <span className="font-['Outfit',sans-serif] text-[36px] font-bold text-[var(--text-muted)] opacity-40">{artist.name.charAt(0)}</span>
                       </div>
                     )}
-                    {/* Name overlay at bottom */}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-10">
-                      <div className="font-['Outfit',sans-serif] text-[18px] font-extrabold leading-tight text-white">{artist.name}</div>
-                      <div className="mt-0.5 font-['Outfit',sans-serif] text-[11px] font-medium text-white/70">Atlikėjo puslapis →</div>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)]">{artist.name}</div>
+                      {artistGenres.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {artistGenres.map(g => (
+                            <span key={g} className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-semibold text-[var(--text-muted)]">{g}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </Link>
-                  {/* Artist description snippet */}
+                  {/* Artist description */}
                   {artist.description && (
-                    <p className="mb-3 line-clamp-3 font-['Outfit',sans-serif] text-[12px] leading-[1.6] text-[var(--text-secondary)]">
+                    <p className="mb-3 line-clamp-4 font-['Outfit',sans-serif] text-[13px] leading-[1.6] text-[var(--text-secondary)]">
                       {artist.description}
                     </p>
-                  )}
-                  {more.length > 0 && (
-                    <>
-                      <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                        Daugiau iš {artist.name}
-                      </div>
-                      <div className="hidden lg:flex flex-col gap-1.5">
-                        {more.map(t => {
-                          const tvid = ytId(t.video_url)
-                          const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
-                          return (
-                            <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                              title={`${t.title} — ${artist.name}`}
-                              className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                              <div className="aspect-video h-12 shrink-0 overflow-hidden rounded bg-black">
-                                {thumb && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
-                                <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
-                              </div>
-                            </Link>
-                          )
-                        })}
-                      </div>
-                      <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
-                        {more.map(t => {
-                          const tvid = ytId(t.video_url)
-                          const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
-                          return (
-                            <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                              title={`${t.title} — ${artist.name}`}
-                              className="group flex w-[160px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                              <div className="aspect-video w-full overflow-hidden rounded bg-black">
-                                {thumb && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                                )}
-                              </div>
-                              <div className="px-1">
-                                <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
-                                <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
-                              </div>
-                            </Link>
-                          )
-                        })}
-                      </div>
-                    </>
                   )}
                   {/* Orange CTA */}
                   <button
                     type="button"
                     onClick={() => { setMobileTab('comments'); commentsColRef.current?.scrollIntoView({ behavior: 'smooth' }) }}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-3 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-3 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     Būk pirmas! Pasidalink nuomone
