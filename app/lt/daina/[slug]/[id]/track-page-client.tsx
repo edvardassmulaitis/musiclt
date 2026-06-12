@@ -12,7 +12,7 @@ import { formatArtistList } from '@/lib/format-artists'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
+type Artist = { id: number; slug: string; name: string; cover_image_url: string | null; cover_image_wide_url?: string | null; description?: string | null }
 type Track = {
   id: number; slug: string; title: string; type: string
   video_url: string | null; spotify_id: string | null; release_date: string | null
@@ -815,28 +815,40 @@ export default function TrackPageClient({
                 )
               }
 
-              // ── CASE 3: No comments, no album → artist card + tracks + CTA ──
-              const artThumb = (artist as any).profile_thumb_url || artist.cover_image_url || null
+              // ── CASE 3: No comments, no album → hero artist card + tracks + CTA ──
+              const heroImg = artist.cover_image_wide_url || (artist as any).profile_thumb_url || artist.cover_image_url || null
               return (
                 <div>
-                  {/* Artist card — always show as fallback */}
+                  {/* Large artist hero card */}
                   <Link
                     href={`/atlikejai/${artist.slug}`}
-                    className="mb-3 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-colors hover:border-[var(--border-strong)]"
+                    className="group relative mb-3 block overflow-hidden rounded-xl border border-[var(--border-subtle)] no-underline transition-colors hover:border-[var(--border-strong)]"
                   >
-                    {artThumb ? (
+                    {heroImg ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={proxyImg(artThumb)} alt="" style={{ objectPosition: 'center top' }} className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                      <img
+                        src={proxyImg(heroImg)}
+                        alt=""
+                        style={{ objectPosition: 'center top' }}
+                        className="block h-[200px] w-full object-cover brightness-[0.7] transition-all duration-300 group-hover:brightness-[0.8] group-hover:scale-[1.02]"
+                      />
                     ) : (
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[20px] font-bold text-[var(--text-muted)]">
-                        {artist.name.charAt(0)}
+                      <div className="flex h-[200px] w-full items-center justify-center bg-gradient-to-br from-[var(--bg-elevated)] to-[var(--bg-surface)]">
+                        <span className="font-['Outfit',sans-serif] text-[56px] font-bold text-[var(--text-muted)] opacity-30">{artist.name.charAt(0)}</span>
                       </div>
                     )}
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">{artist.name}</div>
-                      <div className="font-['Outfit',sans-serif] text-[11px] text-[var(--text-muted)]">Atlikėjo puslapis →</div>
+                    {/* Name overlay at bottom */}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-10">
+                      <div className="font-['Outfit',sans-serif] text-[18px] font-extrabold leading-tight text-white">{artist.name}</div>
+                      <div className="mt-0.5 font-['Outfit',sans-serif] text-[11px] font-medium text-white/70">Atlikėjo puslapis →</div>
                     </div>
                   </Link>
+                  {/* Artist description snippet */}
+                  {artist.description && (
+                    <p className="mb-3 line-clamp-3 font-['Outfit',sans-serif] text-[12px] leading-[1.6] text-[var(--text-secondary)]">
+                      {artist.description}
+                    </p>
+                  )}
                   {more.length > 0 && (
                     <>
                       <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">

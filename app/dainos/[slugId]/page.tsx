@@ -87,7 +87,7 @@ const fetchTrackData = unstable_cache(
     const titleFragment = track.title.split('(')[0].split('-')[0].trim().slice(0, 20)
 
     const [artistRes, featuringRes, albumTrackRes, likesRes, versionsRes, relatedRes] = await Promise.all([
-      supabase.from('artists').select('id, slug, name, cover_image_url').eq('id', track.artist_id).single(),
+      supabase.from('artists').select('id, slug, name, cover_image_url, cover_image_wide_url, description').eq('id', track.artist_id).single(),
       supabase.from('track_artists').select('artists(id, slug, name, cover_image_url)').eq('track_id', id).neq('artist_id', track.artist_id),
       supabase.from('album_tracks').select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio, type)').eq('track_id', id),
       supabase.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'track').eq('entity_id', id),
