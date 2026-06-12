@@ -149,26 +149,53 @@ function isLT(country: string | null | undefined): boolean {
 
 /* ────────────────────────────── Tracks ────────────────────────────── */
 
+const TRACK_SELECT =
+  'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
+  'release_date, release_year, artist_id, ' +
+  'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country), ' +
+  'album_tracks(albums(id, year))'
+
 async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
   const supabase = createAdminClient()
   const since = isoDaysAgo(LATEST_TRACK_WINDOW_DAYS)
-  // Po Pro plan + slim-down: galim atstatyti `album_tracks(albums(year))`
-  // JOIN'ą reissue filter'iui. Su 200 candidates Pro tier (1 GB RAM,
-  // 2-core ARM) atsako per ~500ms.
-  const { data, error } = await supabase
-    .from('tracks')
-    .select(
-      'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
+  const currentYear = new Date().getFullYear()
+
+  // Du query lygiagrečiai:
+  // 1) Dainos su video_uploaded_at per 90d (pagrindinis šaltinis)
+  // 2) Dainos BE video_uploaded_at, bet su release_year >= currentYear-1
+  //    (admin'o suvestos dainos, kurioms YT data nenustatyta)
+  // Sujungiam ir dedupliuojam pagal id.
+  const [r1, r2] = await Promise.all([
+    supabase
+      .from('tracks')
+      .select(TRACK_SELECT)
+      .not('video_uploaded_at', 'is', null)
+      .gte('video_uploaded_at', since)
+      .order('video_uploaded_at', { ascending: false })
+      .limit(TRACKS_CANDIDATE_FETCH_LIMIT),
+    supabase
+      .from('tracks')
+      .select(
+        'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
         'release_date, release_year, artist_id, ' +
-        'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country), ' +
-        'album_tracks(albums(id, year))'
-    )
-    .not('video_uploaded_at', 'is', null)
-    .gte('video_uploaded_at', since)
-    .order('video_uploaded_at', { ascending: false })
-    .limit(TRACKS_CANDIDATE_FETCH_LIMIT)
-  if (error) throw error
-  return (data || []) as unknown as LatestTrackRow[]
+        'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country)'
+      )
+      .is('video_uploaded_at', null)
+      .not('release_year', 'is', null)
+      .gte('release_year', currentYear - 1)
+      .not('video_url', 'is', null)
+      .order('id', { ascending: false })
+      .limit(200),
+  ])
+  if (r1.error) throw r1.error
+  if (r2.error) throw r2.error
+
+  // Dedupe pagal id (jei kažkodėl dubliuotųsi)
+  const byId = new Map<number, LatestTrackRow>()
+  for (const row of [...(r1.data || []), ...(r2.data || [])] as unknown as LatestTrackRow[]) {
+    if (!byId.has(row.id)) byId.set(row.id, row)
+  }
+  return Array.from(byId.values())
 }
 
 /** Cache'inta raw fetch'inimo funkcija. Vidinis arg pirmiausia veikia kaip
