@@ -52,11 +52,12 @@ export const LATEST_NEWS_WINDOW_DAYS = 30
 
 // Per lane'ą rodom 10 įrašų. Fetch'inam daugiau kandidatų prieš dedupe.
 export const HOME_LANE_LIMIT = 10
-// Po 2026-05-28 Pro plan upgrade + architectural slim-down + VACUUM FULL:
-// DB grįžo į healthy state, statement_timeout 60s, MICRO compute (1 GB RAM).
-// Atstatom limit'ą į 200 — gauname pilnesnį candidate pool dedupe'ui.
-const TRACKS_CANDIDATE_FETCH_LIMIT = 200
-const ALBUMS_CANDIDATE_FETCH_LIMIT = 200
+// Candidate pool limitai. Reikia pakankamai didelių, kad LT turinys
+// (mažuma) neiškristų: 90d tracks ~1100, albums year>=2025 ~700.
+// Šie limitai taikomi prieš JS-lygio dedupe/filter — didesnis pool
+// = tikslesnė LT juosta. Pro plan (1 GB RAM) laiko ~1200 be problemų.
+const TRACKS_CANDIDATE_FETCH_LIMIT = 1200
+const ALBUMS_CANDIDATE_FETCH_LIMIT = 800
 
 /* ────────────────────────────── Tags ────────────────────────────── */
 
