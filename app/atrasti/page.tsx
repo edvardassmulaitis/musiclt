@@ -755,7 +755,7 @@ function DienosDainaHero() {
     return (
       <div className="flex items-center gap-2.5 rounded-[10px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-2.5 py-2 transition-colors hover:bg-[rgba(255,255,255,0.09)]">
         {n.proposer && (
-          <span className="hidden shrink-0 items-center md:flex" title={uname(n.proposer)}>
+          <span className="flex shrink-0 items-center" title={uname(n.proposer)}>
             <Avatar src={n.proposer.avatar_url} name={uname(n.proposer)} size={22} />
           </span>
         )}
@@ -770,7 +770,7 @@ function DienosDainaHero() {
             {level > 0 && <div className="mt-1"><PopBar level={level} w={9} onDark /></div>}
           </div>
         </button>
-        {n.comment && <span className="hidden shrink-0 truncate text-[11px] italic text-[#8ea8c4] sm:block sm:max-w-[140px]">„{n.comment}"</span>}
+        {n.comment && <span className="hidden shrink-0 truncate text-[11px] italic text-[#8ea8c4] sm:block sm:max-w-[140px]">{n.comment}</span>}
         {n.own ? (
           <span className="shrink-0 rounded-lg border border-dashed border-[rgba(255,255,255,0.25)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[#8ea8c4]">Tavo</span>
         ) : (
@@ -851,10 +851,10 @@ function DienosDainaHero() {
         )}
       </div>
 
-      {/* kandidatai */}
+      {/* kandidatai — flex-1 + min-h-0 leidžia scroll'ui veikti fixed-height hero viduje */}
       {(rest.length > 0 || (leader && !alreadyNominated)) && (
-        <div className="relative border-t border-[rgba(255,255,255,0.08)] px-4 pb-4 pt-3 sm:px-5">
-          <div className="mb-2 flex items-center justify-between px-1">
+        <div className="relative flex min-h-0 flex-1 flex-col border-t border-[rgba(255,255,255,0.08)] px-4 pb-2 pt-3 sm:px-5 lg:pb-1">
+          <div className="mb-2 flex shrink-0 items-center justify-between px-1">
             <span className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#8ea8c4]">Siūlomos dainos</span>
             <div className="flex items-center gap-3">
               {voteErr && <span className="text-[11px] font-bold text-[#f87171]">{voteErr}</span>}
@@ -863,17 +863,16 @@ function DienosDainaHero() {
               )}
             </div>
           </div>
-          {/* mobile: visi kandidatai iškart; desktop: vidinis scroll, kad hero neišsitemptų */}
-          <div className="flex flex-col gap-[5px] sm:max-h-[238px] sm:overflow-y-auto sm:pr-1.5 [&::-webkit-scrollbar-thumb]:rounded-[3px] [&::-webkit-scrollbar-thumb]:bg-[rgba(255,255,255,0.14)] [&::-webkit-scrollbar]:w-[6px]">
+          <div className="flex min-h-0 flex-1 flex-col gap-[5px] overflow-y-auto pr-0.5 lg:pr-1.5 [&::-webkit-scrollbar-thumb]:rounded-[3px] [&::-webkit-scrollbar-thumb]:bg-[rgba(255,255,255,0.14)] [&::-webkit-scrollbar]:w-[6px]">
             {rest.map(n => <CandRow key={n.id} n={n} />)}
             {rest.length === 0 && <p className="m-0 px-1 py-2 text-[12px] text-[#8ea8c4]">Kol kas vienintelis kandidatas — pasiūlyk alternatyvą!</p>}
           </div>
         </div>
       )}
 
-      {/* vakar laimėtoja — tik viena eilutė, likę per "Visos" modalą */}
+      {/* vakar laimėtoja — shrink-0 kad niekada nebūtų suglaudinta */}
       {winner?.tracks && (
-        <div className="relative border-t border-[rgba(255,255,255,0.08)] px-4 pb-3 pt-3 sm:px-5">
+        <div className="relative shrink-0 border-t border-[rgba(255,255,255,0.08)] px-4 pb-3 pt-3 sm:px-5">
           <div className="mb-2 flex items-center justify-between px-1">
             <span className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#54749a]">Vakar laimėjo</span>
             <button type="button" onClick={() => setWinnersOpen(true)} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[#fbbf24] transition-opacity hover:opacity-70">Visos →</button>
@@ -881,7 +880,7 @@ function DienosDainaHero() {
           <div className="flex flex-col gap-[5px]">
             <button type="button" onClick={() => openTrack(winner.tracks!)} className="flex items-center gap-2.5 rounded-[10px] border border-[rgba(251,191,36,0.18)] bg-[rgba(251,191,36,0.06)] px-2.5 py-2 text-left transition-colors hover:bg-[rgba(251,191,36,0.12)]">
               {winner.proposer && (
-                <span className="hidden shrink-0 items-center md:flex" title={uname(winner.proposer)}>
+                <span className="flex shrink-0 items-center" title={uname(winner.proposer)}>
                   <Avatar src={winner.proposer.avatar_url} name={uname(winner.proposer)} size={22} />
                 </span>
               )}
