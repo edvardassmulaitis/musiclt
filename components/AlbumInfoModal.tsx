@@ -32,7 +32,7 @@ type AlbumDetails = {
     type_studio?: boolean
     legacy_id?: number | null
   }
-  artist: { id: number; slug: string; name: string; cover_image_url: string | null }
+  artist: { id: number; slug: string; name: string; cover_image_url: string | null; description?: string | null }
   tracks: Array<{
     id: number; slug: string; title: string; type: string
     video_url: string | null; is_new: boolean; is_single: boolean
@@ -155,6 +155,32 @@ export default function AlbumInfoModal({
   const [likeUsers, setLikeUsers] = useState<any[]>([])
   const [likeUsersLoaded, setLikeUsersLoaded] = useState(false)
 
+  // Artist description + genres — for left column overview (like TrackInfoModal)
+  const [artistDesc, setArtistDesc] = useState<string | null>(null)
+  const [artistGenres, setArtistGenres] = useState<string[]>([])
+
+  // Fetch artist extras when details arrive
+  useEffect(() => {
+    if (!details?.artist) return
+    const a = details.artist
+    // If details API already provides description, use it
+    if (a.description) {
+      setArtistDesc(a.description)
+    }
+    // Fetch full artist data for substyleNames
+    let cancelled = false
+    fetch(`/api/artists/${a.id}`)
+      .then(r => r.json())
+      .then((full: any) => {
+        if (cancelled) return
+        if (full.description && !a.description) setArtistDesc(full.description)
+        if (full.description) setArtistDesc(full.description)
+        setArtistGenres((full.substyleNames || []).slice(0, 4))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [details?.artist])
+
   // Per-album state reset — kai albumId keičiasi (user'is navigates tarp albumų),
   // reset'inam visus state'us, kad nebūtų state-leak'inimo iš ankstesnio.
   // PRIES: anksciau details/likeCount/mobileTab/etc. likdavo persistuoti iš
@@ -177,6 +203,8 @@ export default function AlbumInfoModal({
     setLikersOpen(false)
     setLikeUsers([])
     setLikeUsersLoaded(false)
+    setArtistDesc(null)
+    setArtistGenres([])
   }, [albumId])
 
   // Fetch details when albumId changes
@@ -406,11 +434,13 @@ export default function AlbumInfoModal({
             </div>
           )}
           <div className="min-w-0 flex-1">
-            {/* Kicker — TIPAS · METAI, kaip albumo puslapio header'yje. */}
+            {/* Kicker — TIPAS · DATA · DAINŲ SK. */}
             {album && (
               <div className="mb-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--accent-orange)]">
                 {albumTypeLabel}
-                {album.year ? ` · ${album.year} m.` : ''}
+                {album.dateFormatted ? ` · ${album.dateFormatted}` : album.year ? ` · ${album.year} m.` : ''}
+                {tracks.length > 0 && ` · ${tracks.length} dain.`}
+                {album.is_upcoming && ' · Greitai'}
               </div>
             )}
             <div className="truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">
@@ -522,26 +552,43 @@ export default function AlbumInfoModal({
                 </div>
               )}
             </div>
-            {/* Meta chips + album info — below video, desktop only */}
+            {/* Artist overview + comment CTA — below video, desktop only */}
             <div className="hidden md:flex flex-1 min-h-0 flex-col overflow-y-auto px-3 py-3">
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {album?.dateFormatted && (
-                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-primary)]">
-                    {album.dateFormatted}
-                  </span>
-                )}
-                {tracks.length > 0 && (
-                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold leading-tight text-[var(--text-muted)]">
-                    {tracks.length} dain.
-                  </span>
-                )}
-                {album?.is_upcoming && (
-                  <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
-                    Greitai
-                  </span>
-                )}
-              </div>
-              {/* Comment CTA — invite to comment */}
+              {/* Artist overview card — photo + name + genres + description */}
+              {artist && (
+                <div className="flex gap-3 mb-3">
+                  <Link href={`/atlikejai/${artist.slug}`} className="shrink-0">
+                    <div className="h-[88px] w-[88px] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--cover-placeholder)]">
+                      {artist.cover_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={proxyImg(artist.cover_image_url)} alt={artist.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[28px]">🎤</div>
+                      )}
+                    </div>
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">
+                      {artist.name}
+                    </Link>
+                    {artistGenres.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {artistGenres.map(g => (
+                          <span key={g} className="rounded-full bg-[var(--bg-hover)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-muted)]">
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {artistDesc && (
+                      <p className="mt-1.5 line-clamp-4 text-[12px] leading-[1.5] text-[var(--text-secondary)]">
+                        {artistDesc}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* Comment CTA */}
               <button
                 type="button"
                 onClick={() => setMobileTab('comments')}
@@ -703,41 +750,40 @@ export default function AlbumInfoModal({
                   <div className="text-[12px] text-[var(--text-faint)]">Kraunama…</div>
                 )}
               </div>
+              {/* „Daugiau iš atlikėjo" — INSIDE scroll area so it doesn't steal
+                  fixed space from tracklist, especially on mobile. */}
+              {artist && (details?.otherAlbums || []).length > 0 && (
+                <div className="mt-4 border-t border-[var(--border-subtle)] pt-3">
+                  <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                    Daugiau iš {artist.name}
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                    {(details?.otherAlbums || []).slice(0, 6).map(a => (
+                      <Link
+                        key={a.id}
+                        href={`/albumai/${artist.slug}-${a.slug}-${a.id}`}
+                        target="_blank"
+                        rel="noopener"
+                        title={a.title}
+                        className="block w-[84px] shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                      >
+                        <span className="block aspect-square w-full overflow-hidden rounded bg-[var(--cover-placeholder)]">
+                          {a.cover_image_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                          )}
+                        </span>
+                        <span className="block truncate px-0.5 pb-0.5 pt-1 font-['Outfit',sans-serif] text-[10px] font-extrabold text-[var(--text-primary)]">
+                          {a.title}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
-
-        {/* ── „Daugiau iš atlikėjo" footer strip — kiti albumai, kad modalas
-            nebūtų aklavietė (kaip TrackInfoModal „Daugiau" juosta). */}
-        {artist && (details?.otherAlbums || []).length > 0 && (
-          <div className="shrink-0 border-t border-[var(--border-subtle)] px-4 pb-3 pt-2.5">
-            <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-              Daugiau iš {artist.name}
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-              {(details?.otherAlbums || []).slice(0, 6).map(a => (
-                <Link
-                  key={a.id}
-                  href={`/albumai/${artist.slug}-${a.slug}-${a.id}`}
-                  target="_blank"
-                  rel="noopener"
-                  title={a.title}
-                  className="block w-[84px] shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                >
-                  <span className="block aspect-square w-full overflow-hidden rounded bg-[var(--cover-placeholder)]">
-                    {a.cover_image_url && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                    )}
-                  </span>
-                  <span className="block truncate px-0.5 pb-0.5 pt-1 font-['Outfit',sans-serif] text-[10px] font-extrabold text-[var(--text-primary)]">
-                    {a.title}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
       </aside>
 
       {/* Likers modal — kam patiko albumas (kaip standalone puslapyje). */}

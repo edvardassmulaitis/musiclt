@@ -48,7 +48,7 @@ export async function GET(
 
   const { data: albumRow, error: albumErr } = await sb
     .from('albums')
-    .select('*, artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country)')
+    .select('*, artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country, description)')
     .eq('id', albumId)
     .single()
   if (albumErr || !albumRow) {
@@ -173,6 +173,7 @@ export async function GET(
       slug: artist.slug,
       name: artist.name,
       cover_image_url: artist.cover_image_url || null,
+      description: artist.description || null,
     },
     tracks,
     otherAlbums,
