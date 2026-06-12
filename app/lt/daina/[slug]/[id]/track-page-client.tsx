@@ -196,8 +196,33 @@ export default function TrackPageClient({
   // Komentarų count — emit'ina EntityCommentsBlock. Rodomas header'io
   // veiksmų eilutėje ir stulpelio antraštėje (consistency su modal'u).
   const [commentTotal, setCommentTotal] = useState(0)
+  // Top comments for left-column social proof preview
+  type TopComment = { id: number; author_name: string | null; author_avatar: string | null; body: string; like_count: number }
+  const [topComments, setTopComments] = useState<TopComment[]>([])
   // Scroll target — „Komentarai" pill desktop'e scroll'ina į komentarų stulpelį.
   const commentsColRef = useRef<HTMLDivElement>(null)
+
+  // Fetch top comments for left column preview
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/comments?entity_type=track&entity_id=${track.id}&sort=popular&limit=3`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        const comments = (d.comments || [])
+          .filter((c: any) => c.body && !c.is_deleted)
+          .map((c: any) => ({
+            id: c.id,
+            author_name: c.author_name,
+            author_avatar: c.author_avatar,
+            body: c.body,
+            like_count: c.like_count || 0,
+          }))
+        setTopComments(comments)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [track.id])
 
   // Like sync + toggle (mirrors album-page-client)
   useEffect(() => {
@@ -573,63 +598,289 @@ export default function TrackPageClient({
             <TriviaCard />
             <VersionsCard />
 
-            {/* Daugiau iš artist'o — vertical on lg+, horizontal on mobile */}
-            {relatedTracks.length > 0 && (
-              <div>
-                <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                  Daugiau iš {artist.name}
-                </div>
-                {/* Desktop vertical list */}
-                <div className="hidden lg:flex flex-col gap-1.5">
-                  {relatedTracks.filter(t => ytId(t.video_url)).map(t => {
-                    const tvid = ytId(t.video_url)
-                    const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
-                    return (
-                      <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                        title={`${t.title} — ${artist.name}`}
-                        className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                        <div className="aspect-video h-12 shrink-0 overflow-hidden rounded bg-black">
-                          {thumb && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+            {/* Social proof / fallback cascade below extras */}
+            {(() => {
+              const more = relatedTracks.filter(t => ytId(t.video_url)).slice(0, 6)
+              const hasComments = topComments.length > 0
+
+              // ── CASE 1: Has comments → featured quote(s) + "Visi →" ──
+              if (hasComments) {
+                return (
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                        Ką sako klausytojai
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setMobileTab('comments'); commentsColRef.current?.scrollIntoView({ behavior: 'smooth' }) }}
+                        className="font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)] transition-opacity hover:opacity-80"
+                      >
+                        Visi {commentTotal > 0 ? commentTotal : ''} →
+                      </button>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {topComments.map((c, i) => (
+                        <div key={c.id} className={[
+                          'relative rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3',
+                          i === 0 ? 'pl-8' : '',
+                        ].join(' ')}>
+                          {i === 0 && (
+                            <span className="absolute left-2.5 top-2 font-['Georgia',serif] text-[28px] leading-none text-[var(--accent-orange)] opacity-30">&ldquo;</span>
                           )}
+                          <p className="text-[12.5px] leading-[1.65] text-[var(--text-secondary)]" style={{ display: '-webkit-box', WebkitLineClamp: i === 0 ? 3 : 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {c.body.replace(/<[^>]+>/g, '')}
+                          </p>
+                          <div className="mt-1.5 flex items-center gap-1.5">
+                            {c.author_avatar ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={proxyImg(c.author_avatar)} alt="" className="h-5 w-5 rounded-full object-cover" />
+                            ) : (
+                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[8px] font-bold text-[#818cf8]">
+                                {(c.author_name || '?').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <span className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-muted)]">{c.author_name || 'Anonimas'}</span>
+                            {c.like_count > 0 && (
+                              <span className="ml-auto font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">♥ {c.like_count}</span>
+                            )}
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
-                          <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
+                      ))}
+                    </div>
+                    {/* Stacked avatars */}
+                    {topComments.length >= 2 && (
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <div className="flex -space-x-1.5">
+                          {topComments.slice(0, 3).map(c => (
+                            c.author_avatar ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img key={c.id} src={proxyImg(c.author_avatar)} alt="" className="h-5 w-5 rounded-full border border-[var(--bg-surface)] object-cover" />
+                            ) : (
+                              <div key={c.id} className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--bg-surface)] bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[7px] font-bold text-[#818cf8]">
+                                {(c.author_name || '?').charAt(0).toUpperCase()}
+                              </div>
+                            )
+                          ))}
                         </div>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)] transition-transform group-hover:translate-x-0.5">
-                          <path d="M9 18l6-6-6-6" />
-                        </svg>
-                      </Link>
-                    )
-                  })}
+                        {commentTotal > 3 && (
+                          <span className="font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">+{commentTotal - 3} dar</span>
+                        )}
+                      </div>
+                    )}
+                    {/* Subtle CTA */}
+                    <button
+                      type="button"
+                      onClick={() => { setMobileTab('comments'); commentsColRef.current?.scrollIntoView({ behavior: 'smooth' }) }}
+                      className="mt-2.5 flex w-full items-center gap-2 rounded-lg border border-dashed border-[var(--border-subtle)] px-3 py-2.5 text-left transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.04)]"
+                    >
+                      <span className="font-['Outfit',sans-serif] text-[11px] text-[var(--text-muted)]">Pasidalink nuomone...</span>
+                    </button>
+                    {/* Related tracks below comments */}
+                    {more.length > 0 && (
+                      <div className="mt-4">
+                        <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                          Daugiau iš {artist.name}
+                        </div>
+                        <div className="hidden lg:flex flex-col gap-1.5">
+                          {more.slice(0, 4).map(t => {
+                            const tvid = ytId(t.video_url)
+                            const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
+                            return (
+                              <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
+                                title={`${t.title} — ${artist.name}`}
+                                className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                                <div className="aspect-video h-12 shrink-0 overflow-hidden rounded bg-black">
+                                  {thumb && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
+                                  <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
+                                </div>
+                              </Link>
+                            )
+                          })}
+                        </div>
+                        <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+                          {more.slice(0, 6).map(t => {
+                            const tvid = ytId(t.video_url)
+                            const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
+                            return (
+                              <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
+                                title={`${t.title} — ${artist.name}`}
+                                className="group flex w-[160px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                                <div className="aspect-video w-full overflow-hidden rounded bg-black">
+                                  {thumb && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                  )}
+                                </div>
+                                <div className="px-1">
+                                  <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
+                                  <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
+                                </div>
+                              </Link>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+
+              // ── CASE 2: No comments, has album → album card + tracks + CTA ──
+              if (primaryAlbum) {
+                return (
+                  <div>
+                    <Link
+                      href={`/albumai/${artist.slug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
+                      className="mb-3 flex items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-2.5 no-underline transition-colors hover:border-[var(--border-strong)]"
+                    >
+                      {primaryAlbum.cover_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={proxyImg(primaryAlbum.cover_image_url)} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover" />
+                      ) : (
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[var(--cover-placeholder)] text-[18px]">💿</div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{primaryAlbum.title}</div>
+                        <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-muted)]">{artist.name} {primaryAlbum.year ? `· ${primaryAlbum.year}` : ''}</div>
+                      </div>
+                    </Link>
+                    {more.length > 0 && (
+                      <>
+                        <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                          Daugiau iš {artist.name}
+                        </div>
+                        <div className="hidden lg:flex flex-col gap-1.5">
+                          {more.map(t => {
+                            const tvid = ytId(t.video_url)
+                            const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
+                            return (
+                              <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
+                                title={`${t.title} — ${artist.name}`}
+                                className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                                <div className="aspect-video h-12 shrink-0 overflow-hidden rounded bg-black">
+                                  {thumb && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
+                                  <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
+                                </div>
+                              </Link>
+                            )
+                          })}
+                        </div>
+                        <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+                          {more.map(t => {
+                            const tvid = ytId(t.video_url)
+                            const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
+                            return (
+                              <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
+                                title={`${t.title} — ${artist.name}`}
+                                className="group flex w-[160px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                                <div className="aspect-video w-full overflow-hidden rounded bg-black">
+                                  {thumb && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                  )}
+                                </div>
+                                <div className="px-1">
+                                  <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
+                                  <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
+                                </div>
+                              </Link>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
+                    {/* Orange CTA */}
+                    <button
+                      type="button"
+                      onClick={() => { setMobileTab('comments'); commentsColRef.current?.scrollIntoView({ behavior: 'smooth' }) }}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-3 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      Būk pirmas! Pasidalink nuomone
+                    </button>
+                  </div>
+                )
+              }
+
+              // ── CASE 3: No comments, no album → tracks + CTA ──
+              return (
+                <div>
+                  {more.length > 0 && (
+                    <>
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                        Daugiau iš {artist.name}
+                      </div>
+                      <div className="hidden lg:flex flex-col gap-1.5">
+                        {more.map(t => {
+                          const tvid = ytId(t.video_url)
+                          const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
+                          return (
+                            <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
+                              title={`${t.title} — ${artist.name}`}
+                              className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                              <div className="aspect-video h-12 shrink-0 overflow-hidden rounded bg-black">
+                                {thumb && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
+                                <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
+                              </div>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                      <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+                        {more.map(t => {
+                          const tvid = ytId(t.video_url)
+                          const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
+                          return (
+                            <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
+                              title={`${t.title} — ${artist.name}`}
+                              className="group flex w-[160px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                              <div className="aspect-video w-full overflow-hidden rounded bg-black">
+                                {thumb && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                )}
+                              </div>
+                              <div className="px-1">
+                                <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
+                                <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
+                              </div>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
+                  {/* Orange CTA */}
+                  <button
+                    type="button"
+                    onClick={() => { setMobileTab('comments'); commentsColRef.current?.scrollIntoView({ behavior: 'smooth' }) }}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-3 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Būk pirmas! Pasidalink nuomone
+                  </button>
                 </div>
-                {/* Mobile horizontal carousel */}
-                <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
-                  {relatedTracks.filter(t => ytId(t.video_url)).map(t => {
-                    const tvid = ytId(t.video_url)
-                    const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
-                    return (
-                      <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                        title={`${t.title} — ${artist.name}`}
-                        className="group flex w-[160px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                        <div className="aspect-video w-full overflow-hidden rounded bg-black">
-                          {thumb && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                          )}
-                        </div>
-                        <div className="px-1">
-                          <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
-                          <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
-                        </div>
-                      </Link>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+              )
+            })()}
           </div>
         </div>
 

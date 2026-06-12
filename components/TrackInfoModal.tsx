@@ -39,6 +39,7 @@ export type ModalTrack = {
   like_count?: number | null
   featuring?: Array<{ id: number; slug: string; name: string }>
   albums?: any[]
+  spotify_id?: string | null
 }
 
 const yt = (u?: string | null) => {
@@ -228,6 +229,31 @@ export function TrackInfoModal({
         if (cancelled) return
         if (typeof d.liked === 'boolean') setSelfLiked(d.liked)
         if (typeof d.count === 'number') setServerLikeCount(d.count)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [track?.id])
+
+  // Top comments for left-column social proof preview
+  type TopComment = { id: number; author_name: string | null; author_avatar: string | null; body: string; like_count: number }
+  const [topComments, setTopComments] = useState<TopComment[]>([])
+  useEffect(() => {
+    if (!track) { setTopComments([]); return }
+    let cancelled = false
+    fetch(`/api/comments?entity_type=track&entity_id=${track.id}&sort=popular&limit=3`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        const comments = (d.comments || [])
+          .filter((c: any) => c.body && !c.is_deleted)
+          .map((c: any) => ({
+            id: c.id,
+            author_name: c.author_name,
+            author_avatar: c.author_avatar,
+            body: c.body,
+            like_count: c.like_count || 0,
+          }))
+        setTopComments(comments)
       })
       .catch(() => {})
     return () => { cancelled = true }
@@ -498,6 +524,19 @@ export function TrackInfoModal({
               onOpenModal={() => setLikersOpen(true)} variant="surface" />
             <SharePill title={`${track.title} — ${artistName}`} url={trackHref} size="sm" />
           </div>
+          {track.spotify_id && (
+            <a
+              href={`https://open.spotify.com/track/${track.spotify_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Klausyti Spotify"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#1DB954] transition-opacity hover:opacity-80"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+              </svg>
+            </a>
+          )}
           <Link
             href={trackHref}
             target="_blank"
@@ -575,42 +614,203 @@ export function TrackInfoModal({
                 )}
               </div>
             </div>
-            {/* Daugiau — desktop only in left col */}
+            {/* Social proof / fallback cascade below video — desktop only */}
             {(() => {
               const more = (artistTracks || [])
                 .filter((t: any) => t.id !== track.id && yt(t.video_url))
-                .slice(0, 6)
-              if (more.length === 0) return null
-              return (
-                <div className="hidden md:block flex-1 min-h-0 overflow-y-auto px-3 py-3">
-                  <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                    Daugiau iš {artistName}
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {more.map((t: any) => {
-                      const tvid = yt(t.video_url)
-                      const inner = (
-                        <>
-                          <span className="block aspect-video w-full overflow-hidden rounded bg-black">
-                            {tvid && (
+                .slice(0, 4)
+              const primaryAlbum = (track.albums || [])[0]
+              const hasComments = topComments.length > 0
+
+              // ── CASE 1: Has comments → featured quote(s) + "Visi →" ──
+              if (hasComments) {
+                return (
+                  <div className="hidden md:flex flex-1 min-h-0 flex-col overflow-y-auto px-3 py-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                        Ką sako klausytojai
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMobileTab('comments')}
+                        className="font-['Outfit',sans-serif] text-[10px] font-extrabold text-[var(--accent-orange)] transition-opacity hover:opacity-80"
+                      >
+                        Visi {commentTotal > 0 ? commentTotal : ''} →
+                      </button>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {topComments.map((c, i) => (
+                        <div key={c.id} className={[
+                          'relative rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3',
+                          i === 0 ? 'pl-8' : '',
+                        ].join(' ')}>
+                          {i === 0 && (
+                            <span className="absolute left-2.5 top-2 font-['Georgia',serif] text-[28px] leading-none text-[var(--accent-orange)] opacity-30">"</span>
+                          )}
+                          <p className="text-[12px] leading-[1.6] text-[var(--text-secondary)]" style={{ display: '-webkit-box', WebkitLineClamp: i === 0 ? 3 : 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {c.body.replace(/<[^>]+>/g, '')}
+                          </p>
+                          <div className="mt-1.5 flex items-center gap-1.5">
+                            {c.author_avatar ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt=""
-                                referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                              <img src={proxyImg(c.author_avatar)} alt="" className="h-4 w-4 rounded-full object-cover" />
+                            ) : (
+                              <div className="flex h-4 w-4 items-center justify-center rounded-full bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[7px] font-bold text-[#818cf8]">
+                                {(c.author_name || '?').charAt(0).toUpperCase()}
+                              </div>
                             )}
-                          </span>
-                          <span className="block truncate px-1 pb-0.5 pt-1 text-left font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-primary)]">
-                            {t.title}
-                          </span>
-                        </>
-                      )
-                      const cls = 'block overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
-                      return onSelectTrack ? (
-                        <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>{inner}</button>
-                      ) : (
-                        <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>{inner}</Link>
-                      )
-                    })}
+                            <span className="font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-muted)]">{c.author_name || 'Anonimas'}</span>
+                            {c.like_count > 0 && (
+                              <span className="ml-auto font-['Outfit',sans-serif] text-[9px] text-[var(--text-faint)]">♥ {c.like_count}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Stacked avatars of commenters */}
+                    {topComments.length >= 2 && (
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <div className="flex -space-x-1.5">
+                          {topComments.slice(0, 3).map(c => (
+                            c.author_avatar ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img key={c.id} src={proxyImg(c.author_avatar)} alt="" className="h-5 w-5 rounded-full border border-[var(--bg-surface)] object-cover" />
+                            ) : (
+                              <div key={c.id} className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--bg-surface)] bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[7px] font-bold text-[#818cf8]">
+                                {(c.author_name || '?').charAt(0).toUpperCase()}
+                              </div>
+                            )
+                          ))}
+                        </div>
+                        {commentTotal > 3 && (
+                          <span className="font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">+{commentTotal - 3} dar</span>
+                        )}
+                      </div>
+                    )}
+                    {/* Subtle CTA */}
+                    <button
+                      type="button"
+                      onClick={() => setMobileTab('comments')}
+                      className="mt-2 flex w-full items-center gap-2 rounded-lg border border-dashed border-[var(--border-subtle)] px-3 py-2 text-left transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.04)]"
+                    >
+                      <span className="font-['Outfit',sans-serif] text-[11px] text-[var(--text-muted)]">Pasidalink nuomone...</span>
+                    </button>
                   </div>
+                )
+              }
+
+              // ── CASE 2: No comments, has album → artist card + album tracks + CTA ──
+              if (primaryAlbum) {
+                return (
+                  <div className="hidden md:flex flex-1 min-h-0 flex-col overflow-y-auto px-3 py-3">
+                    {/* Album context */}
+                    <Link
+                      href={`/albumai/${artistSlug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
+                      target="_blank"
+                      rel="noopener"
+                      className="mb-2 flex items-center gap-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-2 no-underline transition-colors hover:border-[var(--border-strong)]"
+                    >
+                      {primaryAlbum.cover_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={proxyImg(primaryAlbum.cover_image_url)} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />
+                      ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--cover-placeholder)] text-[16px]">💿</div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="truncate font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-primary)]">{primaryAlbum.title}</div>
+                        <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-muted)]">{artistName}</div>
+                      </div>
+                    </Link>
+                    {/* More from album/artist */}
+                    {more.length > 0 && (
+                      <>
+                        <div className="mb-1.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                          Daugiau iš {artistName}
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {more.map((t: any) => {
+                            const tvid = yt(t.video_url)
+                            const inner = (
+                              <>
+                                <span className="block aspect-video w-full overflow-hidden rounded bg-black">
+                                  {tvid && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt=""
+                                      referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                  )}
+                                </span>
+                                <span className="block truncate px-1 pb-0.5 pt-1 text-left font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-primary)]">
+                                  {t.title}
+                                </span>
+                              </>
+                            )
+                            const cls = 'block overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
+                            return onSelectTrack ? (
+                              <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>{inner}</button>
+                            ) : (
+                              <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>{inner}</Link>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
+                    {/* Orange CTA */}
+                    <button
+                      type="button"
+                      onClick={() => setMobileTab('comments')}
+                      className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      Būk pirmas! Pasidalink nuomone
+                    </button>
+                  </div>
+                )
+              }
+
+              // ── CASE 3: No comments, no album → artist tracks + CTA ──
+              return (
+                <div className="hidden md:flex flex-1 min-h-0 flex-col overflow-y-auto px-3 py-3">
+                  {more.length > 0 && (
+                    <>
+                      <div className="mb-1.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                        Daugiau iš {artistName}
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {more.map((t: any) => {
+                          const tvid = yt(t.video_url)
+                          const inner = (
+                            <>
+                              <span className="block aspect-video w-full overflow-hidden rounded bg-black">
+                                {tvid && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt=""
+                                    referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                )}
+                              </span>
+                              <span className="block truncate px-1 pb-0.5 pt-1 text-left font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-primary)]">
+                                {t.title}
+                              </span>
+                            </>
+                          )
+                          const cls = 'block overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
+                          return onSelectTrack ? (
+                            <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>{inner}</button>
+                          ) : (
+                            <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>{inner}</Link>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
+                  {/* Orange CTA */}
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab('comments')}
+                    className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Būk pirmas! Pasidalink nuomone
+                  </button>
                 </div>
               )
             })()}
