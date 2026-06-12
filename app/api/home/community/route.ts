@@ -298,14 +298,17 @@ export async function GET() {
         engagement: (b.like_count || 0) + (b.comment_count || 0),
       })
     }
-    // Kūryba / vertimas į galą (mažiau universal interest)
-    const LAST_SUBTYPES = new Set(['creation', 'translation'])
-    blogItems.sort((a, b) => {
-      const aLast = LAST_SUBTYPES.has(a.subtype || '')
-      const bLast = LAST_SUBTYPES.has(b.subtype || '')
-      if (aLast !== bLast) return aLast ? 1 : -1
-      return b.engagement - a.engagement || (a.created_at < b.created_at ? 1 : -1)
-    })
+    // Fiksuota tvarka: koncertai → topas → muzikos_apzvalga → creation → translation
+    const BLOG_PRIORITY: Record<string, number> = {
+      koncertai: 0, topas: 1, muzikos_apzvalga: 2, review: 2,
+      article: 3, creation: 4, translation: 5,
+    }
+    const blogPriority = (it: any) => {
+      // editorial_type=koncertai → koncertų įspūdžiai (highest blog priority)
+      if (it.editorial_type === 'koncertai') return 0
+      return BLOG_PRIORITY[it.subtype || ''] ?? 3
+    }
+    blogItems.sort((a, b) => blogPriority(a) - blogPriority(b))
 
     // ── Diskusijos — 1 vnt, latest comment iš `comments` (discussion_id) ──────
     // Komentarai gyvena public.comments (ne legacy forum_posts), join per discussion_id.
@@ -377,19 +380,30 @@ export async function GET() {
       }
     }
 
-    // ── Merge: blog + disc + atradimas interleaved, DD pirmasis ────────────────
-    const tail: any[] = []
-    if (atrItem) tail.push(atrItem)
-    if (discItems[0]) tail.push(discItems[0])
+    // ── Merge: fiksuota tvarka DD → Koncertų įsp. → Topas → Muz.apžvalga →
+    //    Diskusija → Atradimas → Kūryba → Vertimas ─────────────────────────────
+    // Blog items jau surūšiuoti pagal BLOG_PRIORITY (koncertai→topas→apžvalga→…).
+    // Tarp blog'ų intarpuojame diskusiją (po apžvalgos=priority 2) ir atradimą
+    // (po diskusijos).
     const merged: any[] = []
-    let bi = 0, ti = 0
-    while (merged.length < 10 && (bi < blogItems.length || ti < tail.length)) {
-      if (bi < blogItems.length) merged.push(blogItems[bi++])
-      if (bi < blogItems.length && merged.length < 10) merged.push(blogItems[bi++])
-      if (ti < tail.length && merged.length < 10) merged.push(tail[ti++])
+    let discInserted = false, atrInserted = false
+    for (const b of blogItems) {
+      const p = blogPriority(b)
+      // Diskusija eina po blog priority 2 (muzikos apžvalga)
+      if (!discInserted && p > 2 && discItems[0]) {
+        merged.push(discItems[0]); discInserted = true
+      }
+      // Atradimas eina po diskusijos
+      if (!atrInserted && p > 2 && discInserted && atrItem) {
+        merged.push(atrItem); atrInserted = true
+      }
+      merged.push(b)
     }
+    // Jei diskusija/atradimas dar neįterpti (nėra creation/translation blog'ų)
+    if (!discInserted && discItems[0]) merged.push(discItems[0])
+    if (!atrInserted && atrItem) merged.push(atrItem)
 
-    const items = ddItem ? [ddItem, ...merged] : merged
+    const items = ddItem ? [ddItem, ...merged.slice(0, 9)] : merged.slice(0, 10)
     return NextResponse.json({ items }, {
       headers: { 'Cache-Control': 'public, s-maxage=180, stale-while-revalidate=360' },
     })

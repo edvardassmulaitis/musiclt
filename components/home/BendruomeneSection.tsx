@@ -97,17 +97,19 @@ function BadgeInline({ meta }: { meta: TypeMeta }) {
 
 // ── Shared cover ───────────────────────────────────────────────────────────────
 function Cover({ url, alt, hue, h = 134 }: { url: string | null; alt: string; hue: number; h?: number }) {
+  const [failed, setFailed] = useState(false)
+  const showGradient = !url || failed
   return (
     <div className="relative shrink-0 overflow-hidden" style={{ height: h }}>
-      {url
-        ? <img src={proxyImg(url)} alt={alt} loading="lazy" // eslint-disable-line @next/next/no-img-element
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
-        : <div className="flex h-full w-full items-center justify-center"
+      {showGradient
+        ? <div className="flex h-full w-full items-center justify-center"
             style={{ background: `linear-gradient(135deg,hsl(${hue},34%,22%),hsl(${(hue+40)%360},30%,12%))` }}>
             <span className="font-['Outfit',sans-serif] text-3xl font-black text-white/50">
               {(alt || '?').charAt(0).toUpperCase()}
             </span>
           </div>
+        : <img src={proxyImg(url!)} alt={alt} loading="lazy" onError={() => setFailed(true)} // eslint-disable-line @next/next/no-img-element
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
       }
     </div>
   )
@@ -168,25 +170,33 @@ function DDCard({ it }: { it: CommunityItem }) {
           {it.author_name && <p className="m-0 mt-0.5 truncate text-[11.5px] text-[#aec4dd]">{it.author_name}</p>}
         </div>
       </div>
-      {candidates.length > 0 && (
-        <div className="mx-3.5 mt-3 flex flex-col gap-1.5 border-t border-[rgba(255,255,255,0.08)] pt-2.5">
-          <p className="m-0 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.1em] text-[#8ea8c4]">Siūlomos dainos</p>
-          {candidates.map((c, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span className="w-3 shrink-0 text-center font-['Outfit',sans-serif] text-[10px] font-extrabold text-[#8ea8c4]">{c.rank ?? i + 2}</span>
-              {c.cover
-                ? <img src={proxyImg(c.cover)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
-                    className="h-[24px] w-[24px] shrink-0 rounded object-cover" />
-                : <div className="h-[24px] w-[24px] shrink-0 rounded" style={{ background: `hsl(${strHue(c.title)},30%,22%)` }} />
-              }
-              <div className="min-w-0 flex-1">
-                <p className="m-0 truncate text-[11px] font-semibold leading-tight text-[#f0f4fc]" style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
-                {c.artist && <p className="m-0 truncate text-[9.5px] leading-tight text-[#8ea8c4]">{c.artist}</p>}
+      <div className="mx-3.5 mt-3 flex flex-col gap-1.5 border-t border-[rgba(255,255,255,0.08)] pt-2.5">
+        {candidates.length > 0 ? (
+          <>
+            <p className="m-0 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.1em] text-[#8ea8c4]">Siūlomos dainos</p>
+            {candidates.map((c, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-3 shrink-0 text-center font-['Outfit',sans-serif] text-[10px] font-extrabold text-[#8ea8c4]">{c.rank ?? i + 2}</span>
+                {c.cover
+                  ? <img src={proxyImg(c.cover)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+                      className="h-[24px] w-[24px] shrink-0 rounded object-cover" />
+                  : <div className="h-[24px] w-[24px] shrink-0 rounded" style={{ background: `hsl(${strHue(c.title)},30%,22%)` }} />
+                }
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 truncate text-[11px] font-semibold leading-tight text-[#f0f4fc]" style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
+                  {c.artist && <p className="m-0 truncate text-[9.5px] leading-tight text-[#8ea8c4]">{c.artist}</p>}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-2 py-3 text-center">
+            <span className="text-2xl">🎵</span>
+            <p className="m-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[#8ea8c4]">Pasiūlyk savo dienos dainą!</p>
+            <p className="m-0 text-[10px] text-[#6b86a4]">Kiekvieną dieną renkame geriausią</p>
+          </div>
+        )}
+      </div>
       <span className="mt-auto px-3.5 pb-3.5 pt-3 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)]">
         {isToday ? 'Balsuoti dabar →' : 'Dienos daina →'}
       </span>
@@ -214,11 +224,11 @@ function BlogCard({ it }: { it: CommunityItem }) {
   )
 }
 
-// ── Topas card — iki 4 ranked entries ──────────────────────────────────────────
+// ── Topas card — iki 5 ranked entries ──────────────────────────────────────────
 function TopasCard({ it }: { it: CommunityItem }) {
   const h = strHue(it.author_name || it.title)
   const meta = getTypeMeta(it.type, it.subtype, it.editorial_type)
-  const entries = (it.entries || []).slice(0, 4)
+  const entries = (it.entries || []).slice(0, 5)
   return (
     <Link href={it.href} className="hp-card group flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
       <div className="px-3 pt-3"><BadgeInline meta={meta} /></div>
@@ -251,8 +261,8 @@ function TopasCard({ it }: { it: CommunityItem }) {
             ))}
           </div>
         )}
-        {(it.entries?.length || 0) > 4 && (
-          <p className="m-0 pt-1 text-[10.5px] text-[var(--text-muted)]">+ dar {(it.entries!.length - 4)} →</p>
+        {(it.entries?.length || 0) > 5 && (
+          <p className="m-0 pt-1 text-[10.5px] text-[var(--text-muted)]">Visas topas →</p>
         )}
       </div>
       <AuthorRow it={it} />
@@ -308,6 +318,40 @@ function DiscCard({ it }: { it: CommunityItem }) {
   )
 }
 
+// ── Atradimas card — muzikos atradimas (artist — track, su embed cover) ──────
+function AtradimasCard({ it }: { it: CommunityItem }) {
+  const h = strHue(it.author_name || it.title)
+  const meta = getTypeMeta(it.type, it.subtype, it.editorial_type)
+  // title formatas: "Artist — Track"
+  const parts = it.title.split(/\s*[—–-]\s*/)
+  const artistName = parts[0] || it.title
+  const trackName = parts.length > 1 ? parts.slice(1).join(' — ') : null
+  return (
+    <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
+      <Badge meta={meta} />
+      <Cover url={it.cover} alt={it.author_name || it.title} hue={h} />
+      <div className="flex flex-1 flex-col gap-1.5 px-3 pb-2 pt-2.5">
+        {trackName ? (
+          <>
+            <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
+               style={{ fontFamily: "'Outfit',sans-serif" }}>{trackName}</p>
+            <p className="m-0 truncate text-[12px] font-semibold text-[var(--text-secondary)]"
+               style={{ fontFamily: "'Outfit',sans-serif" }}>{artistName}</p>
+          </>
+        ) : (
+          <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
+             style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
+        )}
+        {it.excerpt && (
+          <p className="m-0 line-clamp-3 text-[11.5px] leading-relaxed text-[var(--text-secondary)]">{it.excerpt}</p>
+        )}
+        <span className="mt-auto pt-1 text-[11px] font-bold text-[var(--accent-orange)]">Klausyti →</span>
+      </div>
+      <AuthorRow it={it} />
+    </Link>
+  )
+}
+
 // ── Skeletonai ─────────────────────────────────────────────────────────────────
 function CardSkel() {
   return <div className="hp-skel shrink-0 rounded-xl" style={{ width: CARD_W, height: CARD_MIN_H }} />
@@ -351,7 +395,7 @@ export default function BendruomeneSection() {
           : items.map(it => {
               if (it.type === 'dd') return <DDCard key={it.id} it={it} />
               if (it.type === 'discussion') return <DiscCard key={it.id} it={it} />
-              if (it.type === 'atradimas') return <BlogCard key={it.id} it={it} />
+              if (it.type === 'atradimas') return <AtradimasCard key={it.id} it={it} />
               if (it.subtype === 'topas') return <TopasCard key={it.id} it={it} />
               return <BlogCard key={it.id} it={it} />
             })
