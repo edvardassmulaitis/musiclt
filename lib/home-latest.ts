@@ -306,11 +306,11 @@ export async function getLatestTracksForHome(): Promise<{
 
 /* ────────────────────────────── Albums ────────────────────────────── */
 
+// Vienas query su padidintu limitu (buvo 200, bet albumų year>=2025 yra 600+ —
+// LT albumai nustumiami, nes world albumų yra žymiai daugiau). 800 padengia
+// visus 2025+2026 metus su atsarga. JS-lygio LT/World split pagal isLT().
 async function fetchLatestAlbumsRaw(): Promise<LatestAlbumRow[]> {
   const supabase = createAdminClient()
-  // Pinam ne tik 90d back ranges — albumai turi tik year/month/day be timestamp'o.
-  // Skirta filter'is — bent metai turi būti šių arba praeitų metų (current-1 ar
-  // current). Be šito „latest" rodytų visus kurie turi year != NULL.
   const currentYear = new Date().getFullYear()
   const { data, error } = await supabase
     .from('albums')
@@ -323,14 +323,14 @@ async function fetchLatestAlbumsRaw(): Promise<LatestAlbumRow[]> {
     .order('year', { ascending: false })
     .order('month', { ascending: false, nullsFirst: false })
     .order('day', { ascending: false, nullsFirst: false })
-    .limit(ALBUMS_CANDIDATE_FETCH_LIMIT)
+    .limit(800)
   if (error) throw error
   return (data || []) as unknown as LatestAlbumRow[]
 }
 
 const cachedFetchLatestAlbumsRaw = unstable_cache(
   async (_version: string) => fetchLatestAlbumsRaw(),
-  ['home-latest-albums-raw'],
+  ['home-latest-albums-raw-v2'],
   { tags: [HOME_TAGS.albums], revalidate: 300 }
 )
 
@@ -342,15 +342,18 @@ export async function getLatestAlbumsForHome(): Promise<{
   ltFull: LatestAlbumRow[]
   worldFull: LatestAlbumRow[]
 }> {
-  const rows = await cachedFetchLatestAlbumsRaw('v1')
+  const rows = await cachedFetchLatestAlbumsRaw('v2')
   const today = new Date()
   const isReleased = (a: LatestAlbumRow) => {
     if (a.is_upcoming) return false
     if (!a.year) return false
     if (a.year < today.getFullYear()) return true
     if (a.year > today.getFullYear()) return false
-    const m = a.month ?? 12
-    const d = a.day ?? 31
+    // month=NULL šių metų albumui → laikome išleistu (albumas jau egzistuoja,
+    // tiesiog neturi tikslios datos). Anksčiau default'ino į 12 → klaidingai
+    // filtruodavo kaip „neišleistą" kai dabartinis mėnuo < 12.
+    const m = a.month ?? 1
+    const d = a.day ?? 1
     const cm = today.getMonth() + 1
     const cd = today.getDate()
     if (m < cm) return true
@@ -358,11 +361,11 @@ export async function getLatestAlbumsForHome(): Promise<{
     return d <= cd
   }
   // Albumai BE jokio paveikslėlio (nei savo cover, nei atlikėjo nuotraukos)
-  // nerodomi — kitaip homepage'e atsiranda tušti 💿 placeholder'iai. Edvardo
+  // nerodomi — kitaip homepage'e atsiranda tušti placeholder'iai. Edvardo
   // prašymu 2026-06-09. (Atlikėjo nuotrauka kaip fallback'as leidžiama.)
   const hasCover = (r: LatestAlbumRow) => !!(r.cover_image_url || r.artists?.cover_image_url)
   const released = rows.filter(
-    r => r.artists && isReleased(r) && hasCover(r) && !isBlockedCountry(r.artists.country)
+    r => r.artists && isReleased(r) && hasCover(r) && !isBlockedCountry(r.artists!.country)
   )
   const ltAll = released.filter(r => isLT(r.artists!.country))
   const worldAll = released.filter(r => !isLT(r.artists!.country))
