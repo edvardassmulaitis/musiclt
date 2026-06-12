@@ -137,10 +137,17 @@ function feedHref(p: FeedPost) { return p.blog_slug ? `/blogas/${p.blog_slug}/${
 function trackImg(t: TrackLite | null): string | null {
   if (!t) return null
   const yt = extractYouTubeId(t.video_url)
-  return t.cover_url || (yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : null) || t.artists?.cover_image_url || null
+  return t.cover_url || (yt ? `https://img.youtube.com/vi/${yt}/maxresdefault.jpg` : null) || t.artists?.cover_image_url || null
 }
 function discThumb(a: Atradimas): string | null {
-  return a.embed_type === 'youtube' && a.embed_id ? `https://i.ytimg.com/vi/${a.embed_id}/hqdefault.jpg` : (a.artist_cover ? proxyImg(a.artist_cover) : null)
+  return a.embed_type === 'youtube' && a.embed_id ? `https://i.ytimg.com/vi/${a.embed_id}/maxresdefault.jpg` : (a.artist_cover ? proxyImg(a.artist_cover) : null)
+}
+/** maxresdefault 404 → hqdefault fallback */
+function ytFallback(e: React.SyntheticEvent<HTMLImageElement>) {
+  const img = e.currentTarget
+  if (img.src.includes('/maxresdefault.')) {
+    img.src = img.src.replace('/maxresdefault.', '/hqdefault.')
+  }
 }
 
 // Plokščias tipo raktas + spalvos (chips = badge'ai, ta pati paletė).
@@ -458,7 +465,6 @@ function FeaturedSlider() {
         href: feedHref(p),
         img: p.cover || (isTopas && entries[0]?.image) || null,
         chip: postKind(p),
-        chipBg: '#f97316',
         title: sani(p.title),
         author: uname(p.author),
         avatar: p.author?.avatar_url,
@@ -472,7 +478,6 @@ function FeaturedSlider() {
         href: `/diskusijos/${d.slug}`,
         img: d.artist_image,
         chip: 'diskusija',
-        chipBg: '#3b82f6',
         title: sani(d.title),
         author: d.artist_name || '',
         avatar: null,
@@ -502,34 +507,36 @@ function FeaturedSlider() {
         .atr-feat-track::-webkit-scrollbar{display:none}
         @media(pointer:fine){.atr-feat-arrow{opacity:0;transition:opacity .2s}}
         .atr-feat-wrap:hover .atr-feat-arrow{opacity:1}
-        @keyframes atr-fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-        .atr-feat-card{animation:atr-fade-in .35s ease-out both}
+        @keyframes atr-fade-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+        .atr-feat-loaded .atr-feat-card{animation:atr-fade-in .4s ease-out both}
+        .atr-feat-loaded .atr-feat-card:nth-child(2){animation-delay:.08s}
+        .atr-feat-loaded .atr-feat-card:nth-child(3){animation-delay:.16s}
+        @keyframes atr-skel-pulse{0%,100%{opacity:.6}50%{opacity:.35}}
+        .atr-skel-card{background:linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03));
+          border:1px solid var(--border-default);animation:atr-skel-pulse 2s ease-in-out infinite}
       `}</style>
       <div className="atr-feat-wrap relative">
-        <div ref={trackRef} className="atr-feat-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory" style={{ overflowX: 'auto', scrollbarWidth: 'none', scrollBehavior: 'smooth' }}>
+        <div ref={trackRef} className={`atr-feat-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory${items !== null ? ' atr-feat-loaded' : ''}`} style={{ overflowX: 'auto', scrollbarWidth: 'none', scrollBehavior: 'smooth' }}>
           {items === null ? (
             <>
-              <div className="atr-feat-card shrink-0"><div className="hp-skel h-full min-h-[200px] rounded-2xl" style={{ aspectRatio: '16/9' }} /></div>
-              <div className="atr-feat-card shrink-0"><div className="hp-skel h-full min-h-[200px] rounded-2xl" style={{ aspectRatio: '16/9' }} /></div>
+              <div className="atr-feat-card shrink-0"><div className="atr-skel-card h-full min-h-[200px] rounded-2xl" style={{ aspectRatio: '16/9' }} /></div>
+              <div className="atr-feat-card shrink-0"><div className="atr-skel-card h-full min-h-[200px] rounded-2xl" style={{ aspectRatio: '16/9' }} /></div>
+              <div className="atr-feat-card shrink-0"><div className="atr-skel-card h-full min-h-[200px] rounded-2xl" style={{ aspectRatio: '16/9' }} /></div>
             </>
           ) : items.map((it) => {
             const c = cardInfo(it)
             const inner = (
               <div className="group relative block aspect-[16/9] h-full w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[#0d1320] no-underline transition-all hover:-translate-y-0.5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_42px_rgba(0,0,0,0.35)]">
+                <KindBadge kind={c.chip} />
                 <div className="absolute inset-0 flex items-stretch justify-end overflow-hidden">
                   {c.img ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(c.img)} alt="" loading="lazy" className="h-full w-auto max-w-full object-cover"
+                    <img src={proxyImg(c.img)} alt="" loading="lazy" onError={ytFallback} className="h-full w-auto max-w-full object-cover"
                       style={{ objectPosition: 'center 25%', WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)', maskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)' }} />
                   ) : <div className="h-full w-full" style={{ background: `linear-gradient(135deg, hsl(${hue(c.title)},34%,22%), hsl(${(hue(c.title) + 40) % 360},30%,12%))` }} />}
                 </div>
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
                 <div className="absolute inset-0 flex flex-col justify-end p-4">
-                  <span className="mb-1.5 inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-black uppercase tracking-[0.1em] text-white"
-                    style={{ background: c.chipBg }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                    {c.chip}
-                  </span>
                   <h3 className="m-0 max-w-[420px] font-['Outfit',sans-serif] text-[19px] font-black leading-[1.15] tracking-tight text-white transition-opacity group-hover:opacity-90 sm:text-[21px]">
                     {c.title}
                   </h3>
@@ -710,7 +717,7 @@ function DienosDainaHero() {
   const leaderImg = leader ? trackImg(leader.tracks) : null
 
   if (loading) {
-    return <div className="hp-skel h-[420px] rounded-[20px]" />
+    return <div className="atr-skel-card h-[420px] rounded-[20px]" />
   }
 
   const CandRow = ({ n }: { n: Nomination }) => {
@@ -756,12 +763,12 @@ function DienosDainaHero() {
   }
 
   return (
-    <div id="dienos-daina" className="relative flex flex-col overflow-hidden rounded-[20px] border border-[var(--border-default)]" style={{ background: '#0a101c' }}>
+    <div id="dienos-daina" className="relative flex flex-col overflow-hidden rounded-[20px] border border-[var(--border-default)]" style={{ background: '#0a101c', animation: 'atr-fade-in .4s ease-out both' }}>
       {/* fonas iš lyderio cover */}
       <div className="absolute inset-0">
         {leaderImg && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(leaderImg)} alt="" className="h-full w-full object-cover opacity-30" style={{ filter: 'blur(40px) saturate(1.3)', transform: 'scale(1.3)' }} />
+          <img src={proxyImg(leaderImg)} alt="" onError={ytFallback} className="h-full w-full object-cover opacity-30" style={{ filter: 'blur(40px) saturate(1.3)', transform: 'scale(1.3)' }} />
         )}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(100deg, rgba(8,13,20,0.96) 0%, rgba(8,13,20,0.8) 60%, rgba(249,115,22,0.12) 100%)' }} />
       </div>
@@ -774,7 +781,7 @@ function DienosDainaHero() {
               <div className="relative h-[120px] w-[120px] overflow-hidden rounded-[14px] shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:h-[140px] sm:w-[140px]">
                 {leaderImg ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(leaderImg)} alt="" className="h-full w-full object-cover" />
+                  <img src={proxyImg(leaderImg)} alt="" onError={ytFallback} className="h-full w-full object-cover" />
                 ) : <div className="h-full w-full" style={{ background: `hsl(${hue(leader.tracks!.title)},30%,18%)` }} />}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity group-hover:opacity-100">
                   <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)]"><Ic d={I.play} size={18} filled /></span>
