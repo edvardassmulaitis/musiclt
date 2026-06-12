@@ -59,6 +59,24 @@ function timeAgo(iso: string) {
   return ''
 }
 
+// ── Poetry-style line breaks for creative excerpts ────────────────────────────
+// Kūryba/vertimas excerpt → eilutės po ~35 simb. žodžio riboje (lyg eilėraštis).
+function poetryBreak(text: string): string {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let cur = ''
+  for (const w of words) {
+    if (cur.length + w.length + 1 > 35 && cur) {
+      lines.push(cur)
+      cur = w
+    } else {
+      cur = cur ? cur + ' ' + w : w
+    }
+  }
+  if (cur) lines.push(cur)
+  return lines.join('\n')
+}
+
 // ── Placeholder SVG icons for cover fallback ──────────────────────────────────
 function PlaceholderIcon({ type }: { type: string }) {
   if (type === 'discussion') return (
@@ -97,7 +115,7 @@ function getTypeMeta(type: string, sub?: string | null, editorial?: string | nul
   if (sub === 'review') return { label: 'Muzikos apžvalga', color: '#ef4444' }
   if (sub === 'article') {
     if (editorial === 'recenzija') return { label: 'Muzikos apžvalga', color: '#ef4444' }
-    if (editorial === 'koncertai') return { label: 'Koncertų įspūdžiai', color: '#3b82f6' }
+    if (editorial === 'koncertai') return { label: 'Koncerto įspūdžiai', color: '#3b82f6' }
     return { label: 'Įrašas', color: '#94a3b8' }
   }
   return { label: 'Įrašas', color: '#94a3b8' }
@@ -208,21 +226,29 @@ function DDCard({ it }: { it: CommunityItem }) {
       <div className="mx-3.5 mt-3 flex flex-col gap-1.5 border-t border-[rgba(255,255,255,0.08)] pt-2.5">
         {candidates.length > 0 ? (
           <>
-            <p className="m-0 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.1em] text-[#8ea8c4]">Siūlomos dainos</p>
-            {candidates.map((c, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="w-3 shrink-0 text-center font-['Outfit',sans-serif] text-[10px] font-extrabold text-[#8ea8c4]">{c.rank ?? i + 2}</span>
-                {c.cover
-                  ? <img src={proxyImg(c.cover)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
-                      className="h-[24px] w-[24px] shrink-0 rounded object-cover" />
-                  : <div className="h-[24px] w-[24px] shrink-0 rounded" style={{ background: `hsl(${strHue(c.title)},30%,22%)` }} />
-                }
-                <div className="min-w-0 flex-1">
-                  <p className="m-0 truncate text-[11px] font-semibold leading-tight text-[#f0f4fc]" style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
-                  {c.artist && <p className="m-0 truncate text-[9.5px] leading-tight text-[#8ea8c4]">{c.artist}</p>}
+            <p className="m-0 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.1em] text-[#8ea8c4]">Kiti pasiūlymai</p>
+            {candidates.map((c, i) => {
+              // Popbar — proporcinga balsų juosta (lyginant su #1 laimėtoju)
+              const maxVotes = Math.max(...candidates.map(x => x.votes), 1)
+              const pct = Math.max(8, Math.round((c.votes / maxVotes) * 100))
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[12px] font-black text-[#8ea8c4]">{c.rank ?? i + 2}</span>
+                  {c.cover
+                    ? <img src={proxyImg(c.cover)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+                        className="h-[30px] w-[30px] shrink-0 rounded-md object-cover" />
+                    : <div className="h-[30px] w-[30px] shrink-0 rounded-md" style={{ background: `hsl(${strHue(c.title)},30%,22%)` }} />
+                  }
+                  <div className="min-w-0 flex-1">
+                    <p className="m-0 truncate text-[11.5px] font-bold leading-tight text-[#f0f4fc]" style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
+                    {c.artist && <p className="m-0 truncate text-[9.5px] leading-tight text-[#8ea8c4]">{c.artist}</p>}
+                    <div className="mt-1 h-[3px] rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'rgba(249,115,22,0.5)' }} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </>
         ) : (
           <a href="/dienos-daina?siulyti=1"
@@ -241,7 +267,7 @@ function DDCard({ it }: { it: CommunityItem }) {
         )}
       </div>
       <span className="mt-auto px-3.5 pb-3.5 pt-3 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)]">
-        {isToday ? 'Balsuoti dabar →' : 'Dienos daina →'}
+        {isToday ? 'Balsuoti →' : 'Dienos daina →'}
       </span>
     </Link>
   )
@@ -262,9 +288,9 @@ function BlogCard({ it }: { it: CommunityItem }) {
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {it.excerpt && (
           isCreative ? (
-            <p className="m-0 text-[12px] leading-[1.7] text-[var(--text-secondary)]"
-               style={{ fontStyle: 'italic', display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden', whiteSpace: 'pre-line' }}>
-              {it.excerpt.replace(/([.!?…]) /g, '$1\n')}
+            <p className="m-0 text-[12px] leading-[1.8] text-[var(--text-secondary)]"
+               style={{ fontStyle: 'italic', display: '-webkit-box', WebkitLineClamp: 7, WebkitBoxOrient: 'vertical', overflow: 'hidden', whiteSpace: 'pre-line' }}>
+              {poetryBreak(it.excerpt)}
             </p>
           ) : (
             <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-secondary)]"
@@ -332,7 +358,7 @@ function DiscCard({ it }: { it: CommunityItem }) {
       {it.cover ? (
         <>
           <Badge meta={meta} />
-          <div className="relative shrink-0 overflow-hidden" style={{ height: 100 }}>
+          <div className="relative shrink-0 overflow-hidden" style={{ height: 134 }}>
             <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" // eslint-disable-line @next/next/no-img-element
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
             <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to bottom,transparent 40%,rgba(13,19,32,0.8))' }} />
