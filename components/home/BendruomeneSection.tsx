@@ -311,7 +311,6 @@ function DiscCard({ it }: { it: CommunityItem }) {
             <p className="m-0 line-clamp-4 text-[11px] leading-relaxed text-[var(--text-secondary)]">{lc.text}</p>
           </div>
         )}
-        <span className="mt-auto pt-1 text-[11px] font-bold" style={{ color: '#b79df7' }}>atsakyk →</span>
       </div>
       <AuthorRow it={it} />
     </Link>
@@ -345,7 +344,6 @@ function AtradimasCard({ it }: { it: CommunityItem }) {
         {it.excerpt && (
           <p className="m-0 line-clamp-3 text-[11.5px] leading-relaxed text-[var(--text-secondary)]">{it.excerpt}</p>
         )}
-        <span className="mt-auto pt-1 text-[11px] font-bold text-[var(--accent-orange)]">Klausyti →</span>
       </div>
       <AuthorRow it={it} />
     </Link>

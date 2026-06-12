@@ -82,7 +82,7 @@ export async function GET() {
       // 5 — Muzikos atradimas (naujausias su embed'u).
       //   discoveries.author_id NETURI FK į profiles → autorių traukiam atskirai žemiau.
       sb.from('discoveries')
-        .select('id, artist_name, artist_id, track_name, track_id, embed_type, embed_id, created_at, author_id, tracks:track_id(cover_url), artists:artist_id(cover_image_url)')
+        .select('id, artist_name, artist_id, track_name, track_id, embed_type, embed_id, created_at, author_id, comment_id, tracks:track_id(cover_url), artists:artist_id(cover_image_url)')
         .not('embed_id', 'is', null)
         .order('created_at', { ascending: false })
         .limit(1),
@@ -370,10 +370,21 @@ export async function GET() {
         } catch {}
       }
       const title = dv.track_name ? `${dv.artist_name ? dv.artist_name + ' — ' : ''}${dv.track_name}` : (dv.artist_name || 'Atradimas')
+      // Atradimo body tekstas iš komentaro (comment_id FK → comments.body)
+      let atrExcerpt: string | null = null
+      if (dv.comment_id) {
+        try {
+          const { data: cmt } = await sb.from('comments').select('body').eq('id', dv.comment_id).maybeSingle()
+          if (cmt?.body) {
+            const clean = (cmt.body as string).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+            atrExcerpt = clean.length > 180 ? clean.slice(0, 180).trimEnd() + '…' : clean
+          }
+        } catch {}
+      }
       atrItem = {
         id: `atr-${dv.id}`, type: 'atradimas',
         title, href: `/muzikos-atradimai/${dv.id}`,
-        cover,
+        cover, excerpt: atrExcerpt,
         author_name: prof?.username || null,
         author_avatar: prof?.avatar_url || null,
         created_at: dv.created_at,
