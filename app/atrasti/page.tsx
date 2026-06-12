@@ -137,10 +137,10 @@ function feedHref(p: FeedPost) { return p.blog_slug ? `/blogas/${p.blog_slug}/${
 function trackImg(t: TrackLite | null): string | null {
   if (!t) return null
   const yt = extractYouTubeId(t.video_url)
-  return t.cover_url || (yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : null) || t.artists?.cover_image_url || null
+  return t.cover_url || (yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : null) || t.artists?.cover_image_url || null
 }
 function discThumb(a: Atradimas): string | null {
-  return a.embed_type === 'youtube' && a.embed_id ? `https://i.ytimg.com/vi/${a.embed_id}/mqdefault.jpg` : (a.artist_cover ? proxyImg(a.artist_cover) : null)
+  return a.embed_type === 'youtube' && a.embed_id ? `https://i.ytimg.com/vi/${a.embed_id}/hqdefault.jpg` : (a.artist_cover ? proxyImg(a.artist_cover) : null)
 }
 
 // Plokščias tipo raktas + spalvos (chips = badge'ai, ta pati paletė).
@@ -430,8 +430,8 @@ function FeaturedSlider() {
     return () => el.removeEventListener('scroll', onScroll)
   }, [items])
 
-  if (items === null || items.length === 0) return null
-  const many = items.length > 1
+  if (items !== null && items.length === 0) return null
+  const many = items !== null && items.length > 1
 
   const scrollTo = (i: number) => {
     const el = trackRef.current
@@ -502,10 +502,17 @@ function FeaturedSlider() {
         .atr-feat-track::-webkit-scrollbar{display:none}
         @media(pointer:fine){.atr-feat-arrow{opacity:0;transition:opacity .2s}}
         .atr-feat-wrap:hover .atr-feat-arrow{opacity:1}
+        @keyframes atr-fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+        .atr-feat-card{animation:atr-fade-in .35s ease-out both}
       `}</style>
       <div className="atr-feat-wrap relative">
         <div ref={trackRef} className="atr-feat-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory" style={{ overflowX: 'auto', scrollbarWidth: 'none', scrollBehavior: 'smooth' }}>
-          {items.map((it) => {
+          {items === null ? (
+            <>
+              <div className="atr-feat-card shrink-0"><div className="hp-skel h-full min-h-[200px] rounded-2xl" style={{ aspectRatio: '16/9' }} /></div>
+              <div className="atr-feat-card shrink-0"><div className="hp-skel h-full min-h-[200px] rounded-2xl" style={{ aspectRatio: '16/9' }} /></div>
+            </>
+          ) : items.map((it) => {
             const c = cardInfo(it)
             const inner = (
               <div className="group relative block aspect-[16/9] h-full w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[#0d1320] no-underline transition-all hover:-translate-y-0.5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_42px_rgba(0,0,0,0.35)]">
@@ -543,7 +550,7 @@ function FeaturedSlider() {
             )
           })}
         </div>
-        {many && (
+        {items !== null && many && (
           <>
             <button type="button" aria-label="Ankstesnis" onClick={() => scrollByDir(-1)}
               className="atr-feat-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
@@ -559,7 +566,7 @@ function FeaturedSlider() {
         )}
       </div>
       {/* Slider dots */}
-      {many && (
+      {items !== null && many && (
         <div className="mt-3 flex justify-center gap-1.5">
           {items.map((it, i) => (
             <button key={`dot-${it.key}`} type="button" aria-label={`Įrašas ${i + 1}`}
