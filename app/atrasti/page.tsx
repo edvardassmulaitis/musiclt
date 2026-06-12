@@ -736,7 +736,7 @@ function DienosDainaHero() {
   const leaderImg = leader ? trackImg(leader.tracks) : null
 
   if (loading) {
-    return <div className="atr-skel-card h-[420px] rounded-[20px]"><div className="atr-eq"><span /><span /><span /><span /><span /></div></div>
+    return <div className="atr-skel-card h-[420px] rounded-[20px] lg:h-[540px]"><div className="atr-eq"><span /><span /><span /><span /><span /></div></div>
   }
 
   const CandRow = ({ n }: { n: Nomination }) => {
@@ -747,6 +747,11 @@ function DienosDainaHero() {
     const voted = votedIds.has(n.id)
     return (
       <div className="flex items-center gap-2.5 rounded-[10px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-2.5 py-2 transition-colors hover:bg-[rgba(255,255,255,0.09)]">
+        {n.proposer && (
+          <span className="hidden shrink-0 items-center gap-1.5 text-[11px] text-[#8ea8c4] md:flex" title={uname(n.proposer)}>
+            <Avatar src={n.proposer.avatar_url} name={uname(n.proposer)} size={22} />
+          </span>
+        )}
         <button type="button" onClick={() => openTrack(t)} className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 border-0 bg-transparent p-0 text-left">
           {img ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -761,12 +766,6 @@ function DienosDainaHero() {
             {level > 0 && <div className="mt-1"><PopBar level={level} w={9} onDark /></div>}
           </div>
         </button>
-        {n.proposer && (
-          <span className="hidden shrink-0 items-center gap-1.5 text-[11px] text-[#aec4dd] md:flex">
-            <Avatar src={n.proposer.avatar_url} name={uname(n.proposer)} size={18} />
-            {uname(n.proposer)}
-          </span>
-        )}
         {n.own ? (
           <span className="shrink-0 rounded-lg border border-dashed border-[rgba(255,255,255,0.25)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[#8ea8c4]">Tavo</span>
         ) : (
@@ -782,7 +781,7 @@ function DienosDainaHero() {
   }
 
   return (
-    <div id="dienos-daina" className="relative flex flex-col overflow-hidden rounded-[20px] border border-[var(--border-default)]" style={{ background: '#0a101c', animation: 'atr-fade-in .4s ease-out both', minHeight: 480 }}>
+    <div id="dienos-daina" className="relative flex flex-col overflow-hidden rounded-[20px] border border-[var(--border-default)] lg:h-[540px]" style={{ background: '#0a101c', animation: 'atr-fade-in .4s ease-out both' }}>
       {/* fonas iš lyderio cover */}
       <div className="absolute inset-0">
         {leaderImg && (
@@ -822,8 +821,16 @@ function DienosDainaHero() {
                   siūlo <b className="font-semibold text-[#f0f4fc]">{uname(leader.proposer)}</b>
                 </div>
               )}
-              <div className="mt-3">
+              <div className="mt-3 flex items-center gap-3">
                 <PopBar level={Math.max(1, Math.round(((leader.weighted_votes || leader.votes || 0) / maxVotes) * 5))} onDark />
+                {!leader.own && (
+                  <button type="button" onClick={() => handleVote(leader.id)} disabled={votedIds.has(leader.id) || voting !== null}
+                    className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold transition-colors ${
+                      votedIds.has(leader.id) ? 'border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[#fdba74]' : 'border-[rgba(255,255,255,0.25)] text-[#aec4dd] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'
+                    }`}>
+                    <Ic d={I.heart} size={12} filled={votedIds.has(leader.id)} /> {voting === leader.id ? '…' : votedIds.has(leader.id) ? 'Balsuota' : 'Balsuok'}
+                  </button>
+                )}
               </div>
             </div>
           </>
@@ -861,48 +868,59 @@ function DienosDainaHero() {
 
       {/* vakar rezultatai — laimėtoja + runner-ups */}
       {winner?.tracks && (
-        <div className="relative border-t border-[rgba(251,191,36,0.22)] px-4 pb-3 pt-3 sm:px-5" style={{ background: 'linear-gradient(180deg, rgba(251,191,36,0.06), transparent 60%)' }}>
+        <div className="relative border-t border-[rgba(255,255,255,0.08)] px-4 pb-3 pt-3 sm:px-5">
           <div className="mb-2 flex items-center justify-between px-1">
-            <span className="flex items-center gap-1.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#fbbf24]"><Ic d={I.trophy} size={12} /> Vakar laimėjo</span>
+            <span className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#54749a]">Vakar laimėjo</span>
             <button type="button" onClick={() => setWinnersOpen(true)} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[#fbbf24] transition-opacity hover:opacity-70">Visos →</button>
           </div>
-          {/* laimėtoja */}
-          <button type="button" onClick={() => openTrack(winner.tracks!)} className="flex w-full cursor-pointer items-center gap-3 rounded-[10px] border border-[rgba(251,191,36,0.18)] bg-[rgba(251,191,36,0.06)] px-3 py-2 text-left transition-colors hover:bg-[rgba(251,191,36,0.12)]">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fbbf24] font-['Outfit',sans-serif] text-[10px] font-black text-[#0a101c]">1</span>
-            {trackImg(winner.tracks) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={proxyImg(trackImg(winner.tracks)!)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
-            ) : <div className="h-9 w-9 shrink-0 rounded-lg" style={{ background: `hsl(${hue(winner.tracks.title)},30%,18%)` }} />}
-            <div className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-bold text-[#f0f4fc]">{sani(winner.tracks.title)}</span>
-              <span className="block truncate text-[11px] text-[#aec4dd]">{winner.tracks.artists?.name}{winner.proposer ? ` · siūlė ${uname(winner.proposer)}` : ''}</span>
-            </div>
-          </button>
-          {/* runner-ups */}
-          {showYdayTop && (
-            <div className="mt-1.5 flex flex-col gap-[4px]">
-              {ydaySorted.slice(0, Math.max(2, 6 - sorted.length)).map((n, i) => {
-                const t = n.tracks!
-                const img = trackImg(t)
-                const votes = n.weighted_votes || n.votes || 0
-                const level = votes > 0 ? Math.max(1, Math.round((votes / ydayMax) * 5)) : 0
-                return (
-                  <button key={n.id} type="button" onClick={() => openTrack(t)} className="flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-transparent bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 text-left transition-colors hover:bg-[rgba(255,255,255,0.07)]">
-                    <span className="w-3.5 shrink-0 text-center font-['Outfit',sans-serif] text-[11px] font-extrabold text-[#54749a]">{i + 2}</span>
-                    {img ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={proxyImg(img)} alt="" loading="lazy" className="h-[28px] w-[28px] shrink-0 rounded-md object-cover" />
-                    ) : <div className="h-[28px] w-[28px] shrink-0 rounded-md" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
-                    <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
-                      <span className="truncate text-[12px] font-bold text-[#cfddef]">{sani(t.title)}</span>
+          <div className="flex flex-col gap-[5px]">
+            {/* laimėtoja — same format as CandRow */}
+            <button type="button" onClick={() => openTrack(winner.tracks!)} className="flex items-center gap-2.5 rounded-[10px] border border-[rgba(251,191,36,0.18)] bg-[rgba(251,191,36,0.06)] px-2.5 py-2 text-left transition-colors hover:bg-[rgba(251,191,36,0.12)]">
+              {winner.proposer && (
+                <span className="hidden shrink-0 items-center md:flex" title={uname(winner.proposer)}>
+                  <Avatar src={winner.proposer.avatar_url} name={uname(winner.proposer)} size={22} />
+                </span>
+              )}
+              {trackImg(winner.tracks) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={proxyImg(trackImg(winner.tracks)!)} alt="" loading="lazy" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
+              ) : <div className="h-[34px] w-[34px] shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(winner.tracks.title)},30%,18%)` }} />}
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-baseline gap-1.5">
+                  <span className="truncate text-[12.5px] font-bold text-[#f0f4fc]">{sani(winner.tracks.title)}</span>
+                  <span className="truncate text-[11px] text-[#aec4dd]">{winner.tracks.artists?.name}</span>
+                </div>
+                <div className="mt-1"><PopBar level={5} w={9} onDark /></div>
+              </div>
+            </button>
+            {/* runner-ups — same format */}
+            {showYdayTop && ydaySorted.slice(0, Math.max(2, 6 - sorted.length)).map((n, i) => {
+              const t = n.tracks!
+              const img = trackImg(t)
+              const votes = n.weighted_votes || n.votes || 0
+              const level = votes > 0 ? Math.max(1, Math.round((votes / ydayMax) * 5)) : 0
+              return (
+                <button key={n.id} type="button" onClick={() => openTrack(t)} className="flex items-center gap-2.5 rounded-[10px] border border-transparent bg-[rgba(255,255,255,0.03)] px-2.5 py-2 text-left transition-colors hover:bg-[rgba(255,255,255,0.07)]">
+                  {n.proposer && (
+                    <span className="hidden shrink-0 items-center md:flex" title={uname(n.proposer)}>
+                      <Avatar src={n.proposer.avatar_url} name={uname(n.proposer)} size={22} />
+                    </span>
+                  )}
+                  {img ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(img)} alt="" loading="lazy" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
+                  ) : <div className="h-[34px] w-[34px] shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-baseline gap-1.5">
+                      <span className="truncate text-[12.5px] font-bold text-[#cfddef]">{sani(t.title)}</span>
                       <span className="truncate text-[10.5px] text-[#7e9cbb]">{t.artists?.name}</span>
                     </div>
-                    {level > 0 && <PopBar level={level} w={8} onDark />}
-                  </button>
-                )
-              })}
-            </div>
-          )}
+                    {level > 0 && <div className="mt-1"><PopBar level={level} w={9} onDark /></div>}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
