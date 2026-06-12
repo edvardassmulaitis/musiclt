@@ -399,7 +399,7 @@ export function TrackInfoModal({
           <div className="h-1 w-10 rounded-full bg-[var(--border-default)]" />
         </div>
 
-        {/* Header — thumb + title + artist + external link + close. */}
+        {/* Header — thumb + title + artist + meta + actions + close. Compact. */}
         <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2">
           {artistThumbUrl && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -421,8 +421,41 @@ export function TrackInfoModal({
                 track.featuring || [],
               )}
             </div>
-            {/* Veiksmų eilutė — identiška track puslapio header'iui (LikePill
-                + Dalintis). Vienoda „dainos kortelės kalba" abiejuose. */}
+            {/* Meta row — data + albumas inline */}
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10.5px] text-[var(--text-muted)]">
+              {dateLabel && (
+                <span className="font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">
+                  {dateLabel}
+                </span>
+              )}
+              {dur && (
+                <>
+                  {dateLabel && <span className="text-[var(--text-faint)]">·</span>}
+                  <span className="font-['Outfit',sans-serif] font-bold tabular-nums text-[var(--text-muted)]">{dur}</span>
+                </>
+              )}
+              {(track.albums || []).slice(0, 1).map((al) => (
+                <span key={al.id} className="inline-flex min-w-0 items-center gap-1">
+                  <span className="text-[var(--text-faint)]">·</span>
+                  <Link
+                    href={`/albumai/${artistSlug}-${al.slug}-${al.id}`}
+                    target="_blank"
+                    rel="noopener"
+                    title={al.title}
+                    className="inline-flex min-w-0 items-center gap-1 no-underline transition-colors hover:text-[var(--text-primary)]"
+                  >
+                    {al.cover_image_url && (
+                      <span className="h-4 w-4 shrink-0 overflow-hidden rounded bg-[var(--cover-placeholder)]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={proxyImg(al.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                      </span>
+                    )}
+                    <span className="max-w-[140px] truncate font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">{al.title}</span>
+                  </Link>
+                </span>
+              ))}
+            </div>
+            {/* Veiksmų eilutė — like + share */}
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <LikePill
                 likes={likes}
@@ -458,23 +491,11 @@ export function TrackInfoModal({
           </button>
         </div>
 
-        {/* Row 2: 2-col split — video LEFT (60%), meta stack RIGHT (40%).
-            Video visada matomas (mažas), useris gali click'inti native play
-            arba YouTube fullscreen'inti. Meta — popbar (reactions) +
-            likes + data + albums vertikaliai dešinėj. */}
-        {/* Mobile: video per visą plotį viršuje, meta juosta apačioje. Desktop
-            (sm+): 2-stulpelių split (video 60% / meta 40%). 2026-05-29. */}
-        <div className="grid shrink-0 grid-cols-1 border-b border-[var(--border-subtle)] sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          {/* Left: video.
-              ARCHITEKTURA: iframe always-mounted (background) su enablejsapi=1.
-              Overlay (thumbnail + orange play button) covers iframe kol
-              user'is nepaspaudė. Click → postMessage('playVideo') → iframe
-              start'uoja groti + overlay fade out. User gesture preserved.
-              max-h apsaugo nuo per-tall video kai grid leidžia per-wide. */}
-          <div className="relative aspect-video max-h-[300px] w-full overflow-hidden bg-black sm:max-h-[340px]">
+        {/* Video — FULL WIDTH. Meta perkeltas į header. */}
+        <div className="shrink-0 border-b border-[var(--border-subtle)]">
+          <div className="relative aspect-video w-full overflow-hidden bg-black" style={{ maxHeight: '50vh' }}>
             {trackVid ? (
               <>
-                {/* Background iframe — always loaded so postMessage veiks be delay. */}
                 <iframe
                   ref={videoIframeRef}
                   key={`modal-video-${trackVid}`}
@@ -485,15 +506,11 @@ export function TrackInfoModal({
                   allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                   allowFullScreen
                 />
-                {/* Overlay — thumbnail + orange play button. Click → postMessage play. */}
                 {!videoStarted && (
                   <button
                     type="button"
                     onClick={() => {
                       setVideoStarted(true)
-                      // postMessage YouTube IFrame API: trigger play. Source/target
-                      // origin '*' yra OK čia, nes komandą siunčiam į mūsų pačių
-                      // embed'intą iframe'ą (saugumas iframe leidžia/blokuoja).
                       videoIframeRef.current?.contentWindow?.postMessage(
                         JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
                         '*',
@@ -510,7 +527,6 @@ export function TrackInfoModal({
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-black/25 transition-colors group-hover:bg-black/40" />
-                    {/* Site orange play button — matchina artist page hero stilių. */}
                     <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform group-hover:scale-110 sm:h-14 sm:w-14">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
                         <path d="M8 5v14l11-7z" />
@@ -524,45 +540,6 @@ export function TrackInfoModal({
                 Vaizdo įrašo nėra
               </div>
             )}
-          </div>
-
-          {/* Right: meta stack — data + albumai chip'ais (tas pats stilius
-              kaip track puslapio meta cluster'yje). LikePill perkeltas į
-              header'io veiksmų eilutę. */}
-          <div className="flex flex-row flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] px-3 py-2.5 text-[11px] sm:flex-col sm:items-start sm:border-l sm:border-t-0 sm:px-2.5 sm:py-2">
-            {dateLabel && (
-              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-primary)]">
-                {dateLabel}
-              </span>
-            )}
-            {dur && (
-              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold tabular-nums leading-tight text-[var(--text-muted)]">
-                {dur}
-              </span>
-            )}
-            {/* Albumo chip — KANONINIS /albumai/{artist}-{album}-{id} URL.
-                FIX 2026-06-11: anksčiau vedė į seną /lt/albumas/... kelią. */}
-            {(track.albums || []).slice(0, 2).map((al) => (
-              <Link
-                key={al.id}
-                href={`/albumai/${artistSlug}-${al.slug}-${al.id}`}
-                target="_blank"
-                rel="noopener"
-                title={al.title}
-                className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] py-0.5 pl-1 pr-2.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-              >
-                <span className="h-5 w-5 shrink-0 overflow-hidden rounded-full bg-[var(--cover-placeholder)]">
-                  {al.cover_image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(al.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                  ) : null}
-                </span>
-                <span className="truncate font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-primary)]">
-                  {al.title}
-                </span>
-                {al.year && <span className="shrink-0 text-[9.5px] font-bold text-[var(--text-faint)]">{al.year}</span>}
-              </Link>
-            ))}
           </div>
         </div>
 

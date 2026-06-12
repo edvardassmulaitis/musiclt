@@ -111,7 +111,7 @@ function CustomPlayOverlay({ vid, title, trackId }: { vid: string; title: string
     } catch {}
   }
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full" style={{ isolation: 'isolate' }}>
       {!started ? (
         <button
           type="button"
@@ -230,12 +230,6 @@ export default function TrackPageClient({
     } finally {
       setLikePending(false)
     }
-  }
-
-  const goToComments = () => {
-    // Mobile (<lg): tab perjungimas. Desktop: scroll į komentarų stulpelį.
-    setMobileTab('comments')
-    commentsColRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   // Likers modal — universal'us pop-over visiems entity types (comment / track /
@@ -412,8 +406,6 @@ export default function TrackPageClient({
     track.featuring,
   )
   const hasMobileTabs = hasLyrics  // tabs only matter when we have content for both
-  const trackTypeLabel = track.type === 'normal' ? 'Daina' : (track.type || 'Daina')
-  const releaseYear = track.release_date ? new Date(track.release_date).getFullYear() : null
 
   return (
     // route-enter: 280ms fade-in iš loading.tsx skeleton'o (žr. globals.css).
@@ -463,10 +455,7 @@ export default function TrackPageClient({
             struktūra kaip TrackInfoModal header'yje — vienoda „dainos
             kortelės kalba" puslapyje ir modale. */}
         <div className="min-w-0 flex-1">
-          <div className="mb-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--accent-orange)]">
-            {trackTypeLabel}
-            {releaseYear ? ` · ${releaseYear} m.` : ''}
-          </div>
+          {/* Kicker removed — date shown in meta area, was redundant */}
           <div className="flex flex-wrap items-baseline gap-2">
             <h1 className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[17px]">
               {track.title}
@@ -480,8 +469,38 @@ export default function TrackPageClient({
           <div className="mt-0.5 truncate text-[12px] sm:text-[12.5px]">
             {artistLine}
           </div>
-          {/* Veiksmų eilutė — like (persistinamas per /api/tracks/[id]/like) +
-              komentarų count + Dalintis. Identiška modal'o veiksmų eilutei. */}
+          {/* Meta row — data + albumas inline su artist name, matoma visuose viewport'uose */}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+            {dateStr && (
+              <span className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">
+                {dateStr}
+              </span>
+            )}
+            {primaryAlbum && (
+              <>
+                {dateStr && <span className="text-[var(--text-faint)]">·</span>}
+                <Link
+                  href={`/albumai/${artist.slug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
+                  title={primaryAlbum.title}
+                  className="inline-flex min-w-0 items-center gap-1.5 no-underline transition-colors hover:text-[var(--text-primary)]"
+                >
+                  {primaryAlbum.cover_image_url && (
+                    <span className="h-5 w-5 shrink-0 overflow-hidden rounded bg-[var(--cover-placeholder)]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={proxyImg(primaryAlbum.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    </span>
+                  )}
+                  <span className="max-w-[200px] truncate font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">{primaryAlbum.title}</span>
+                </Link>
+                {albums.length > 1 && (
+                  <span className="font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-faint)]" title={albums.slice(1).map(a => a.title).join(', ')}>
+                    +{albums.length - 1}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+          {/* Veiksmų eilutė — like + Dalintis + Spotify link */}
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <LikePill
               likes={likeCount}
@@ -491,54 +510,22 @@ export default function TrackPageClient({
               onOpenModal={() => setLikersModalEntity({ type: 'track', id: track.id, label: 'dainą' })}
               variant="surface"
             />
-            <button
-              type="button"
-              onClick={goToComments}
-              title="Peršokti į komentarus"
-              className="inline-flex h-[30px] items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              Komentarai
-              {commentTotal > 0 && (
-                <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
-                  {commentTotal}
-                </span>
-              )}
-            </button>
             <SharePill title={`${track.title} — ${artist.name}`} url={`/dainos/${artist.slug}-${track.slug}-${track.id}`} />
+            {track.spotify_id && (
+              <a
+                href={`https://open.spotify.com/track/${track.spotify_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Klausyti Spotify"
+                className="inline-flex h-[30px] items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 font-['Outfit',sans-serif] text-[12px] font-bold text-[#1DB954] transition-colors hover:border-[#1DB954] hover:bg-[rgba(29,185,84,0.08)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                </svg>
+                Spotify
+              </a>
+            )}
           </div>
-        </div>
-        {/* Meta cluster — data + albumai. Slepiasi siauresniam ekrane. */}
-        <div className="hidden shrink-0 items-center gap-2 lg:flex">
-          {dateStr && (
-            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
-              {dateStr}
-            </span>
-          )}
-          {albums.slice(0, 2).map(a => (
-            <Link
-              key={a.id}
-              href={`/albumai/${artist.slug}-${a.slug}-${a.id}`}
-              title={a.title}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] py-0.5 pl-1 pr-2.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-            >
-              <span className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[var(--cover-placeholder)]">
-                {a.cover_image_url
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                  : null}
-              </span>
-              <span className="max-w-[140px] truncate font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-primary)]">{a.title}</span>
-            </Link>
-          ))}
-          {albums.length > 2 && (
-            <span
-              title={albums.slice(2).map(a => a.title).join(', ')}
-              className="inline-flex h-9 shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-muted)]"
-            >+{albums.length - 2}</span>
-          )}
         </div>
         {/* Admin score — kai turim score, mažas chip'as šalia meta. Kiti
             useriai šito nemato (ScoreCard pats handle'ina admin gating). */}
@@ -685,14 +672,7 @@ export default function TrackPageClient({
               <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
                 <CustomPlayOverlay vid={vid} title={`${track.title} — ${artist.name}`} trackId={track.id} />
               </div>
-              {track.spotify_id && (
-                <iframe
-                  src={`https://open.spotify.com/embed/track/${track.spotify_id}?utm_source=generator&theme=0`}
-                  className="mt-2 block w-full"
-                  style={{ height: 80, border: 'none' }}
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                />
-              )}
+              {/* Spotify embed removed — link in header actions row instead */}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-10 text-center">
@@ -715,7 +695,7 @@ export default function TrackPageClient({
           {relatedTracks.length > 0 && (
             <div>
               <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                Daugiau
+                Daugiau iš {artist.name}
               </div>
               <div className="flex flex-col gap-1.5">
                 {relatedTracks.filter(t => ytId(t.video_url)).map(t => {
@@ -725,7 +705,7 @@ export default function TrackPageClient({
                     <Link
                       key={t.id}
                       href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                      title={t.title}
+                      title={`${t.title} — ${artist.name}`}
                       className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
                     >
                       <div className="aspect-video h-12 shrink-0 overflow-hidden rounded bg-black">
@@ -736,6 +716,7 @@ export default function TrackPageClient({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
+                        <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
                       </div>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)] transition-transform group-hover:translate-x-0.5">
                         <path d="M9 18l6-6-6-6" />
@@ -766,7 +747,7 @@ export default function TrackPageClient({
         {relatedTracks.length > 0 && (
           <div>
             <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Daugiau
+              Daugiau iš {artist.name}
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
               {relatedTracks.filter(t => ytId(t.video_url)).map(t => {
@@ -776,7 +757,7 @@ export default function TrackPageClient({
                   <Link
                     key={t.id}
                     href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                    title={t.title}
+                    title={`${t.title} — ${artist.name}`}
                     className="group flex w-[160px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
                   >
                     <div className="aspect-video w-full overflow-hidden rounded bg-black">
@@ -787,6 +768,7 @@ export default function TrackPageClient({
                     </div>
                     <div className="px-1">
                       <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
+                      <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
                     </div>
                   </Link>
                 )
