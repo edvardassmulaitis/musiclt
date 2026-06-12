@@ -27,6 +27,22 @@ export function normalizeForMatch(s: string): string {
     .trim()
 }
 
+/** Agresyvesnė normalizacija: pašalina VISUS skliaustus (...)  ir [...].
+ *  Naudojama kaip fallback kai standartinis match neranda — chart pavadinime
+ *  dažnai būna papildomos žymos: „(When You Gonna)", „[Deluxe]", „(Sped Up)" ir t.t.
+ *  kurios neegzistuoja DB track pavadinime. */
+export function normalizeAggressive(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .replace(/[ąčęėįšųūž]/g, c => LT_MAP[c] || c)
+    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .replace(/\bfeat\.?\b.*$/, '')            // feat ir viskas po jo
+    .replace(/\([^)]*\)/g, '')                // visi (...)
+    .replace(/\[[^\]]*\]/g, '')               // visi [...]
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
 /** Pirmas atlikėjas iš „Xcho, By Индия, МОТ" / „A feat. B" / „A & B". */
 export function primaryArtist(name: string): string {
   return (name || '').split(/,|&|\bfeat\.?\b|\bx\b|\bvs\.?\b|\bw\//i)[0].trim()
@@ -56,6 +72,7 @@ export async function findConfidentMatch(
 ): Promise<ConfidentMatch | null> {
   const aNorm = normalizeForMatch(primaryArtist(rawArtist))
   const tNorm = normalizeForMatch(rawTitle)
+  const tAggr = normalizeAggressive(rawTitle)   // fallback be skliaustų
   if (!aNorm || !tNorm) return null
 
   // Kandidatai atlikėjai pagal ilgiausią RAW žodį (platus), tada tikslus filtras.
@@ -76,7 +93,12 @@ export async function findConfidentMatch(
     .select('id, title, artist_id, artists:artist_id(name)')
     .in('artist_id', ids)
     .limit(800)
-  const hits = (tracks || []).filter((t: any) => normalizeForMatch(t.title) === tNorm)
+  // 1) Tikslus match (standartinė normalizacija)
+  let hits = (tracks || []).filter((t: any) => normalizeForMatch(t.title) === tNorm)
+  // 2) Fallback: agresyvi normalizacija (strip ALL parens/brackets) — abiem pusėm
+  if (hits.length === 0 && tAggr !== tNorm) {
+    hits = (tracks || []).filter((t: any) => normalizeAggressive(t.title) === tAggr)
+  }
   if (hits.length === 0) return null
 
   // Vienas → akivaizdu; keli (alt versijos) → kanoninis = mažiausias id, bet
@@ -142,6 +164,7 @@ export async function findConfidentAlbumMatch(
 ): Promise<ConfidentAlbumMatch | null> {
   const aNorm = normalizeForMatch(primaryArtist(rawArtist))
   const tNorm = normalizeForMatch(rawTitle)
+  const tAggr = normalizeAggressive(rawTitle)
   if (!aNorm || !tNorm) return null
 
   const aTok = rawLongestToken(primaryArtist(rawArtist))
@@ -157,7 +180,10 @@ export async function findConfidentAlbumMatch(
     .select('id, title, artist_id, artists:artist_id(name, slug)')
     .in('artist_id', ids)
     .limit(800)
-  const hits = (albums || []).filter((al: any) => normalizeForMatch(al.title) === tNorm)
+  let hits = (albums || []).filter((al: any) => normalizeForMatch(al.title) === tNorm)
+  if (hits.length === 0 && tAggr !== tNorm) {
+    hits = (albums || []).filter((al: any) => normalizeAggressive(al.title) === tAggr)
+  }
   if (hits.length === 0) return null
   hits.sort((a: any, b: any) => a.id - b.id)
   const al: any = hits.find((h: any) => (h.title || '').trim() === rawTitle.trim()) || hits[0]
