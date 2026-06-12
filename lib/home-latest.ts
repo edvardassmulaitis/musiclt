@@ -106,6 +106,7 @@ type LatestTrackArtist = {
   slug: string
   cover_image_url: string | null
   country: string | null
+  score: number | null
 }
 
 type LatestTrackRow = {
@@ -118,6 +119,7 @@ type LatestTrackRow = {
   video_uploaded_at: string | null
   release_year: number | null
   release_date: string | null
+  created_at: string | null
   artist_id: number
   artists: LatestTrackArtist | null
   album_tracks?: Array<{ albums: { id: number; year: number | null } | null }> | null
@@ -132,8 +134,9 @@ type LatestAlbumRow = {
   month: number | null
   day: number | null
   is_upcoming: boolean | null
+  created_at: string | null
   artist_id: number
-  artists: { id: number; name: string; slug: string; cover_image_url: string | null; country: string | null } | null
+  artists: { id: number; name: string; slug: string; cover_image_url: string | null; country: string | null; score: number | null } | null
 }
 
 /* ────────────────────────────── Helpers ────────────────────────────── */
@@ -147,12 +150,42 @@ function isLT(country: string | null | undefined): boolean {
   return LT_COUNTRIES.includes(country)
 }
 
+/** „Nauja" badge: ar įrašas pridėtas per paskutines N dienų. */
+export const NEW_BADGE_DAYS = 3
+
+/**
+ * Hibridinis rikiavimo balas: 70% šviežumas + 30% populiarumas.
+ *
+ * Šviežumas: 0–1, kur 1 = šiandien, 0 = seniausias lango kraštas.
+ * Populiarumas: 0–1, normalizuotas pagal artist.score (0–100 skalė DB).
+ * video_views naudojamas kaip papildomas boost (log skalė).
+ *
+ * Rezultatas: didesnis = aukščiau sąraše.
+ */
+function hybridScore(
+  dateMs: number,
+  windowMs: number,
+  nowMs: number,
+  artistScore: number,
+  videoViews: number,
+): number {
+  // Šviežumas: kuo naujesnė, tuo arčiau 1
+  const freshness = Math.max(0, Math.min(1, (dateMs - (nowMs - windowMs)) / windowMs))
+  // Populiarumas: artist score normalizuotas (max ~80 DB)
+  const popArtist = Math.min(1, (artistScore || 0) / 80)
+  // YT views boost (log skalė): 1M views = ~0.5, 10M = ~0.58, 100k = ~0.42
+  const popViews = videoViews > 0 ? Math.min(1, Math.log10(videoViews) / 8) : 0
+  // Sujungiame: artist score svarbiau nei views
+  const popularity = popArtist * 0.7 + popViews * 0.3
+  return freshness * 0.7 + popularity * 0.3
+}
+
 /* ────────────────────────────── Tracks ────────────────────────────── */
 
 const TRACK_SELECT =
   'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
-  'release_date, release_year, artist_id, ' +
-  'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country), ' +
+  'release_date, release_year, created_at, artist_id, ' +
+  'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country, score), ' +
   'album_tracks(albums(id, year))'
 
 async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
@@ -177,8 +210,8 @@ async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
       .from('tracks')
       .select(
         'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
-        'release_date, release_year, artist_id, ' +
-        'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country)'
+        'release_date, release_year, created_at, artist_id, ' +
+        'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
       )
       .is('video_uploaded_at', null)
       .not('release_year', 'is', null)
@@ -320,6 +353,20 @@ export async function getLatestTracksForHome(): Promise<{
   const worldRaw = songDedupe(valid.filter(r => !isLT(r.artists?.country)))
   const ltFull = dedupe(ltRaw)
   const worldFull = dedupe(worldRaw)
+
+  // Hibridinis rikiavimas: 70% šviežumas + 30% populiarumas.
+  // Taikomas tik ant galutinio sąrašo (po dedupe) — dedupe viduje
+  // vis dar naudoja datą/views pickBetter logiką.
+  const nowMs = Date.now()
+  const windowMs = LATEST_TRACK_WINDOW_DAYS * 86_400_000
+  const trackHybrid = (r: LatestTrackRow) =>
+    hybridScore(uploadMs(r), windowMs, nowMs, r.artists?.score ?? 0, r.video_views ?? 0)
+  ltFull.sort((a, b) => trackHybrid(b) - trackHybrid(a))
+  worldFull.sort((a, b) => trackHybrid(b) - trackHybrid(a))
+  // Raw irgi rikiuojam (modalas)
+  ltRaw.sort((a, b) => trackHybrid(b) - trackHybrid(a))
+  worldRaw.sort((a, b) => trackHybrid(b) - trackHybrid(a))
+
   return {
     lt: ltFull.slice(0, HOME_LANE_LIMIT),
     world: worldFull.slice(0, HOME_LANE_LIMIT),
@@ -343,8 +390,8 @@ async function fetchLatestAlbumsRaw(): Promise<LatestAlbumRow[]> {
   const { data, error } = await supabase
     .from('albums')
     .select(
-      'id, title, slug, cover_image_url, year, month, day, is_upcoming, artist_id, ' +
-        'artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country)'
+      'id, title, slug, cover_image_url, year, month, day, is_upcoming, created_at, artist_id, ' +
+        'artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
     )
     .not('year', 'is', null)
     .gte('year', currentYear - 1)
@@ -397,6 +444,20 @@ export async function getLatestAlbumsForHome(): Promise<{
   )
   const ltAll = released.filter(r => isLT(r.artists!.country))
   const worldAll = released.filter(r => !isLT(r.artists!.country))
+
+  // Hibridinis rikiavimas: 70% šviežumas + 30% populiarumas.
+  // Albumų „data" = year/month/day konvertuota į ms.
+  const nowMs = Date.now()
+  const windowMs = LATEST_ALBUM_WINDOW_DAYS * 86_400_000
+  const albumDateMs = (a: LatestAlbumRow) => {
+    if (!a.year) return 0
+    return new Date(a.year, (a.month ?? 1) - 1, a.day ?? 1).getTime()
+  }
+  const albumHybrid = (a: LatestAlbumRow) =>
+    hybridScore(albumDateMs(a), windowMs, nowMs, a.artists?.score ?? 0, 0)
+  ltAll.sort((a, b) => albumHybrid(b) - albumHybrid(a))
+  worldAll.sort((a, b) => albumHybrid(b) - albumHybrid(a))
+
   return {
     lt: ltAll.slice(0, HOME_LANE_LIMIT),
     world: worldAll.slice(0, HOME_LANE_LIMIT),
@@ -420,8 +481,8 @@ async function fetchUpcomingAlbumsRaw(): Promise<LatestAlbumRow[]> {
   const { data, error } = await supabase
     .from('albums')
     .select(
-      'id, title, slug, cover_image_url, year, month, day, is_upcoming, artist_id, ' +
-        'artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country)'
+      'id, title, slug, cover_image_url, year, month, day, is_upcoming, created_at, artist_id, ' +
+        'artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
     )
     .not('year', 'is', null)
     .gte('year', currentYear)
@@ -469,6 +530,22 @@ export async function getUpcomingAlbumsForHome(): Promise<{
   const filtered = rows.filter(
     r => r.artists && isFuture(r) && hasCover(r) && !isBlockedCountry(r.artists!.country)
   )
+
+  // Upcoming: artimiausia data pirma, bet boost'inam populiarius.
+  // Naudojam inverse šviežumą (arčiausiai = aukščiau) + artist score.
+  const nowMs = Date.now()
+  const upcomingHybrid = (a: LatestAlbumRow) => {
+    const dateMs = a.year && a.month
+      ? new Date(a.year, (a.month) - 1, a.day ?? 15).getTime()
+      : nowMs + 365 * 86_400_000 // is_upcoming be datos → toliausia
+    // Artimesni = didesnis šviežumas (inverse: kuo arčiau šiandien, tuo geriau)
+    const distDays = Math.max(0, (dateMs - nowMs) / 86_400_000)
+    const closeness = Math.max(0, 1 - distDays / 365) // 0–1
+    const popArtist = Math.min(1, ((a.artists?.score ?? 0) || 0) / 80)
+    return closeness * 0.7 + popArtist * 0.3
+  }
+  filtered.sort((a, b) => upcomingHybrid(b) - upcomingHybrid(a))
+
   return {
     items: filtered.slice(0, HOME_LANE_LIMIT * 2),
     total: filtered.length,
@@ -483,6 +560,9 @@ export async function getUpcomingAlbumsForHome(): Promise<{
 */
 
 export function mapTrackForHome(t: LatestTrackRow) {
+  const isNew = t.created_at
+    ? (Date.now() - Date.parse(t.created_at)) < NEW_BADGE_DAYS * 86_400_000
+    : false
   return {
     id: t.id,
     title: t.title,
@@ -497,6 +577,7 @@ export function mapTrackForHome(t: LatestTrackRow) {
     artists: t.artists,
     artist_name: t.artists?.name || '',
     artist_slug: t.artists?.slug || '',
+    is_new: isNew,
   }
 }
 
@@ -507,6 +588,9 @@ export function mapAlbumForHome(a: LatestAlbumRow) {
       : a.year && a.month
         ? `${a.year}-${String(a.month).padStart(2, '0')}-01`
         : null
+  const isNew = a.created_at
+    ? (Date.now() - Date.parse(a.created_at)) < NEW_BADGE_DAYS * 86_400_000
+    : false
   return {
     id: a.id,
     title: a.title,
@@ -517,6 +601,7 @@ export function mapAlbumForHome(a: LatestAlbumRow) {
     month: a.month,
     day: a.day,
     is_upcoming: a.is_upcoming,
+    is_new: isNew,
     release_date,
     artist_id: a.artist_id,
     artists: a.artists,

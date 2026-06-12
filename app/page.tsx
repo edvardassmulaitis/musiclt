@@ -3113,7 +3113,9 @@ export default function Home() {
                             >
                               {/* 16:9 (YouTube-style) — dainos vizualiai skiriasi nuo
                                   kvadratinių albumų cover'ių. */}
-                              <div className="relative aspect-video overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+                              <div className={`relative aspect-video overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)] ${
+                                (t as any).is_new ? 'border-[var(--accent-orange)]' : 'border-[var(--border-default)] group-hover:border-[rgba(249,115,22,0.5)]'
+                              }`}>
                                 {imgSrc ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -3125,6 +3127,9 @@ export default function Home() {
                                   />
                                 ) : (
                                   <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
+                                )}
+                                {(t as any).is_new && (
+                                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-orange)] shadow-[0_0_0_2px_rgba(0,0,0,0.45)]" />
                                 )}
                                 {/* Play overlay (hover) — atskiria dainą nuo albumo. */}
                                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
@@ -3211,7 +3216,9 @@ export default function Home() {
                             className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
                             style={{ width: 156 }}
                           >
-                            <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+                            <div className={`relative aspect-square overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)] ${
+                              (a as any).is_new ? 'border-[var(--accent-orange)]' : 'border-[var(--border-default)] group-hover:border-[rgba(249,115,22,0.5)]'
+                            }`}>
                               {a.cover_image_url || a.artists?.cover_image_url ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -3223,6 +3230,9 @@ export default function Home() {
                                 />
                               ) : (
                                 <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>
+                              )}
+                              {(a as any).is_new && (
+                                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-orange)] shadow-[0_0_0_2px_rgba(0,0,0,0.45)]" />
                               )}
                               {/* Hover orange tint nuo apačios */}
                               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
