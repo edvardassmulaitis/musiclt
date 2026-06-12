@@ -134,10 +134,15 @@ type Nomination = { id: number; votes: number; weighted_votes: number; comment?:
 type DainaWinner = { id: number; date: string; total_votes: number; weighted_votes: number; winning_comment?: string | null; proposer?: Proposer | null; tracks: TrackLite | null }
 
 function feedHref(p: FeedPost) { return p.blog_slug ? `/blogas/${p.blog_slug}/${p.slug}` : '/blogas' }
+/** Upgrade any YT thumbnail URL to maxresdefault (DB may store mqdefault) */
+function ytHQ(url: string | null): string | null {
+  if (!url) return null
+  return url.replace(/\/(mq|hq|sd)default\.jpg/, '/maxresdefault.jpg')
+}
 function trackImg(t: TrackLite | null): string | null {
   if (!t) return null
   const yt = extractYouTubeId(t.video_url)
-  return t.cover_url || (yt ? `https://img.youtube.com/vi/${yt}/maxresdefault.jpg` : null) || t.artists?.cover_image_url || null
+  return ytHQ(t.cover_url) || (yt ? `https://img.youtube.com/vi/${yt}/maxresdefault.jpg` : null) || t.artists?.cover_image_url || null
 }
 function discThumb(a: Atradimas): string | null {
   return a.embed_type === 'youtube' && a.embed_id ? `https://i.ytimg.com/vi/${a.embed_id}/maxresdefault.jpg` : (a.artist_cover ? proxyImg(a.artist_cover) : null)
@@ -513,15 +518,29 @@ function FeaturedSlider() {
         .atr-feat-loaded .atr-feat-card:nth-child(3){animation-delay:.16s}
         @keyframes atr-skel-pulse{0%,100%{opacity:1}50%{opacity:.45}}
         .atr-skel-card{background:var(--bg-surface);
-          border:1px solid var(--border-default);animation:atr-skel-pulse 2s ease-in-out infinite}
+          border:1px solid var(--border-default);animation:atr-skel-pulse 2s ease-in-out infinite;
+          display:flex;align-items:center;justify-content:center}
+        @keyframes eq-bar{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+        .atr-eq{display:flex;align-items:end;gap:3px;height:20px}
+        .atr-eq span{width:3px;border-radius:2px;background:var(--accent-orange);opacity:.45;
+          animation:eq-bar 1s ease-in-out infinite;transform-origin:bottom}
+        .atr-eq span:nth-child(1){height:20px;animation-delay:0s}
+        .atr-eq span:nth-child(2){height:14px;animation-delay:.15s}
+        .atr-eq span:nth-child(3){height:18px;animation-delay:.3s}
+        .atr-eq span:nth-child(4){height:10px;animation-delay:.45s}
+        .atr-eq span:nth-child(5){height:16px;animation-delay:.6s}
       `}</style>
       <div className="atr-feat-wrap relative">
         <div ref={trackRef} className={`atr-feat-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory${items !== null ? ' atr-feat-loaded' : ''}`} style={{ overflowX: 'auto', scrollbarWidth: 'none', scrollBehavior: 'smooth' }}>
           {items === null ? (
             <>
-              <div className="atr-feat-card shrink-0"><div className="atr-skel-card h-full min-h-[200px] rounded-2xl" style={{ aspectRatio: '16/9' }} /></div>
-              <div className="atr-feat-card shrink-0"><div className="atr-skel-card h-full min-h-[200px] rounded-2xl" style={{ aspectRatio: '16/9' }} /></div>
-              <div className="atr-feat-card shrink-0"><div className="atr-skel-card h-full min-h-[200px] rounded-2xl" style={{ aspectRatio: '16/9' }} /></div>
+              {[0, 1, 2].map(i => (
+                <div key={i} className="atr-feat-card shrink-0">
+                  <div className="atr-skel-card h-full min-h-[200px] rounded-2xl" style={{ aspectRatio: '16/9' }}>
+                    <div className="atr-eq"><span /><span /><span /><span /><span /></div>
+                  </div>
+                </div>
+              ))}
             </>
           ) : items.map((it) => {
             const c = cardInfo(it)
@@ -717,7 +736,7 @@ function DienosDainaHero() {
   const leaderImg = leader ? trackImg(leader.tracks) : null
 
   if (loading) {
-    return <div className="atr-skel-card h-[420px] rounded-[20px]" />
+    return <div className="atr-skel-card h-[420px] rounded-[20px]"><div className="atr-eq"><span /><span /><span /><span /><span /></div></div>
   }
 
   const CandRow = ({ n }: { n: Nomination }) => {
@@ -763,7 +782,7 @@ function DienosDainaHero() {
   }
 
   return (
-    <div id="dienos-daina" className="relative flex flex-col overflow-hidden rounded-[20px] border border-[var(--border-default)]" style={{ background: '#0a101c', animation: 'atr-fade-in .4s ease-out both' }}>
+    <div id="dienos-daina" className="relative flex flex-col overflow-hidden rounded-[20px] border border-[var(--border-default)]" style={{ background: '#0a101c', animation: 'atr-fade-in .4s ease-out both', minHeight: 480 }}>
       {/* fonas iš lyderio cover */}
       <div className="absolute inset-0">
         {leaderImg && (
@@ -792,6 +811,7 @@ function DienosDainaHero() {
             <div className="min-w-[220px] flex-1">
               <div className="flex items-center gap-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
+                <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-bold normal-case tracking-normal text-[#8ea8c4]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
               </div>
               <h2 className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[24px] font-black leading-[1.08] tracking-[-0.02em] text-[#f0f4fc] sm:text-[28px]">{sani(leader.tracks!.title)}</h2>
               <p className="m-0 mt-0.5 text-[14.5px] font-semibold text-[#aec4dd]">{leader.tracks!.artists?.name}</p>
@@ -802,16 +822,16 @@ function DienosDainaHero() {
                   siūlo <b className="font-semibold text-[#f0f4fc]">{uname(leader.proposer)}</b>
                 </div>
               )}
-              <div className="mt-3 flex items-center gap-3">
+              <div className="mt-3">
                 <PopBar level={Math.max(1, Math.round(((leader.weighted_votes || leader.votes || 0) / maxVotes) * 5))} onDark />
-                <span className="flex items-center gap-1.5 text-[11.5px] text-[#8ea8c4]"><Ic d={I.clock} size={12} /> liko <Countdown /></span>
               </div>
             </div>
           </>
         ) : (
           <div className="flex w-full flex-col items-start gap-2 py-4">
-            <div className="flex items-center gap-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
+            <div className="flex w-full items-center gap-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
+              <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-bold normal-case tracking-normal text-[#8ea8c4]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
             </div>
             <p className="m-0 text-[15px] font-bold text-[#f0f4fc]">Šiandien dar nėra pasiūlymų — tavo daina gali būti pirma.</p>
             <button type="button" onClick={() => setSuggestOpen(true)} className="mt-1 cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-5 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white shadow-[0_6px_20px_rgba(249,115,22,0.35)]">+ Pasiūlyti dainą</button>
@@ -839,49 +859,50 @@ function DienosDainaHero() {
         </div>
       )}
 
-      {/* vakar dienos topas — užpildo vietą, kai šiandien dar tuščia (#8) */}
-      {showYdayTop && (
-        <div className="relative border-t border-[rgba(255,255,255,0.08)] px-4 pb-4 pt-3 sm:px-5">
-          <span className="mb-2 block px-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#54749a]">Vakar geriausiai pasirodė</span>
-          <div className="flex flex-col gap-[5px]">
-            {ydaySorted.slice(0, Math.max(2, 6 - sorted.length)).map((n, i) => {
-              const t = n.tracks!
-              const img = trackImg(t)
-              const votes = n.weighted_votes || n.votes || 0
-              const level = votes > 0 ? Math.max(1, Math.round((votes / ydayMax) * 5)) : 0
-              return (
-                <button key={n.id} type="button" onClick={() => openTrack(t)} className="flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-transparent bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 text-left transition-colors hover:bg-[rgba(255,255,255,0.07)]">
-                  <span className="w-3.5 shrink-0 text-center font-['Outfit',sans-serif] text-[11px] font-extrabold text-[#54749a]">{i + 2}</span>
-                  {img ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(img)} alt="" loading="lazy" className="h-[28px] w-[28px] shrink-0 rounded-md object-cover" />
-                  ) : <div className="h-[28px] w-[28px] shrink-0 rounded-md" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
-                  <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
-                    <span className="truncate text-[12px] font-bold text-[#cfddef]">{sani(t.title)}</span>
-                    <span className="truncate text-[10.5px] text-[#7e9cbb]">{t.artists?.name}</span>
-                  </div>
-                  {level > 0 && <PopBar level={level} w={8} onDark />}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* vakar laimėjusi — integruota */}
+      {/* vakar rezultatai — laimėtoja + runner-ups */}
       {winner?.tracks && (
-        <div className="relative flex items-center gap-3 border-t border-[rgba(251,191,36,0.22)] px-4 py-2.5 sm:px-5" style={{ background: 'linear-gradient(90deg, rgba(251,191,36,0.08), transparent 65%)' }}>
-          <span className="flex shrink-0 items-center gap-1.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.13em] text-[#fbbf24]"><Ic d={I.trophy} size={12} /> Vakar laimėjo</span>
-          <button type="button" onClick={() => openTrack(winner.tracks!)} className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 border-0 bg-transparent p-0 text-left">
+        <div className="relative border-t border-[rgba(251,191,36,0.22)] px-4 pb-3 pt-3 sm:px-5" style={{ background: 'linear-gradient(180deg, rgba(251,191,36,0.06), transparent 60%)' }}>
+          <div className="mb-2 flex items-center justify-between px-1">
+            <span className="flex items-center gap-1.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#fbbf24]"><Ic d={I.trophy} size={12} /> Vakar laimėjo</span>
+            <button type="button" onClick={() => setWinnersOpen(true)} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[#fbbf24] transition-opacity hover:opacity-70">Visos →</button>
+          </div>
+          {/* laimėtoja */}
+          <button type="button" onClick={() => openTrack(winner.tracks!)} className="flex w-full cursor-pointer items-center gap-3 rounded-[10px] border border-[rgba(251,191,36,0.18)] bg-[rgba(251,191,36,0.06)] px-3 py-2 text-left transition-colors hover:bg-[rgba(251,191,36,0.12)]">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fbbf24] font-['Outfit',sans-serif] text-[10px] font-black text-[#0a101c]">1</span>
             {trackImg(winner.tracks) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={proxyImg(trackImg(winner.tracks)!)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
             ) : <div className="h-9 w-9 shrink-0 rounded-lg" style={{ background: `hsl(${hue(winner.tracks.title)},30%,18%)` }} />}
-            <span className="min-w-0 truncate text-[12.5px] text-[#aec4dd]">
-              <b className="font-bold text-[#f0f4fc]">{sani(winner.tracks.title)}</b> — {winner.tracks.artists?.name}{winner.proposer ? ` · siūlė ${uname(winner.proposer)}` : ''}
-            </span>
+            <div className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-bold text-[#f0f4fc]">{sani(winner.tracks.title)}</span>
+              <span className="block truncate text-[11px] text-[#aec4dd]">{winner.tracks.artists?.name}{winner.proposer ? ` · siūlė ${uname(winner.proposer)}` : ''}</span>
+            </div>
           </button>
-          <button type="button" onClick={() => setWinnersOpen(true)} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[#fbbf24] transition-opacity hover:opacity-70">Visos →</button>
+          {/* runner-ups */}
+          {showYdayTop && (
+            <div className="mt-1.5 flex flex-col gap-[4px]">
+              {ydaySorted.slice(0, Math.max(2, 6 - sorted.length)).map((n, i) => {
+                const t = n.tracks!
+                const img = trackImg(t)
+                const votes = n.weighted_votes || n.votes || 0
+                const level = votes > 0 ? Math.max(1, Math.round((votes / ydayMax) * 5)) : 0
+                return (
+                  <button key={n.id} type="button" onClick={() => openTrack(t)} className="flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-transparent bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 text-left transition-colors hover:bg-[rgba(255,255,255,0.07)]">
+                    <span className="w-3.5 shrink-0 text-center font-['Outfit',sans-serif] text-[11px] font-extrabold text-[#54749a]">{i + 2}</span>
+                    {img ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={proxyImg(img)} alt="" loading="lazy" className="h-[28px] w-[28px] shrink-0 rounded-md object-cover" />
+                    ) : <div className="h-[28px] w-[28px] shrink-0 rounded-md" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
+                    <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
+                      <span className="truncate text-[12px] font-bold text-[#cfddef]">{sani(t.title)}</span>
+                      <span className="truncate text-[10.5px] text-[#7e9cbb]">{t.artists?.name}</span>
+                    </div>
+                    {level > 0 && <PopBar level={level} w={8} onDark />}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
