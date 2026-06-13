@@ -27,7 +27,7 @@ export default async function GalleryPage() {
   const [hero, ...rest] = reportages
 
   return (
-    <div className="page-shell">
+    <div className="page-shell" data-gv="b8cf">
       <header className="page-head">
         <h1>Foto galerija</h1>
         <p>Koncertų ir festivalių foto reportažai — gyvų pasirodymų akimirkos, užfiksuotos mūsų fotografų.</p>
