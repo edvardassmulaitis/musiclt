@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
       .from('blog_posts')
       .select('id, slug, title, summary, cover_image_url, post_type, editorial_type, rating, like_count, comment_count, published_at, featured_until, blog_id, ' +
         'target_track_id, target_album_id, target_artist_id, target_event_id, list_items, ' +
-        'blogs:blog_id(slug, profiles:user_id(id, full_name, username, avatar_url))')
+        'blogs:blog_id(slug, profiles:user_id(id, full_name, username, avatar_url, hide_from_homepage))')
       .eq('status', 'published')
       .not('published_at', 'is', null)
       .lte('published_at', new Date().toISOString())
@@ -113,6 +113,24 @@ export async function GET(req: NextRequest) {
     //    kitose prominentiškose eilėse (topas/review/koncertai/recenzija ir kt.).
     if (excludeType.length) rows = rows.filter(r => !excludeType.includes(r.post_type))
     if (excludeEditorial.length) rows = rows.filter(r => !excludeEditorial.includes(r.editorial_type))
+
+    // ── Silpnesnis prioritetas „paslėptiems" nariams (hide_from_homepage). ──
+    //    NEblokuojam — tik nustumiam žemiau: flagged autoriaus įrašas rūšiuojant
+    //    elgiasi tarsi būtų ~10 d. senesnis (arba su perpus mažiau like'ų). Taip
+    //    jis natūraliai įsimaišo į srautą, bet švieži/populiarūs įrašai jį lenkia.
+    //    featuredOnly (admin kuruotas „Verta dėmesio") nepaliečiamas.
+    if (!featuredOnly) {
+      const DEMOTE_MS = 10 * 24 * 60 * 60 * 1000
+      const isFlagged = (r: any) => r.blogs?.profiles?.hide_from_homepage === true
+      const ts = (r: any) => { const t = Date.parse(r.published_at || ''); return Number.isNaN(t) ? 0 : t }
+      if (sort === 'liked') {
+        const eff = (r: any) => (r.like_count || 0) * (isFlagged(r) ? 0.5 : 1)
+        rows.sort((a, b) => (eff(b) - eff(a)) || (ts(b) - ts(a)))
+      } else {
+        const eff = (r: any) => ts(r) - (isFlagged(r) ? DEMOTE_MS : 0)
+        rows.sort((a, b) => eff(b) - eff(a))
+      }
+    }
 
     // ── Dedup per autorių (vienas naujausias įrašas per narį). Modaluose
     //    (nodedup) rodom visus, kad pilnas sąrašas būtų turtingesnis. ──

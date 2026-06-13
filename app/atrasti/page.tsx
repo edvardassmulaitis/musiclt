@@ -196,18 +196,6 @@ function Stats({ likes, comments }: { likes?: number | null; comments?: number |
   )
 }
 
-function AuthorMeta({ author, date, likes, comments }: { author?: { username?: string | null; full_name?: string | null; avatar_url?: string | null } | null; date?: string | null; likes?: number | null; comments?: number | null }) {
-  const ago = timeAgo(date)
-  return (
-    <div className="mt-auto flex items-center gap-2 border-t border-[var(--border-subtle)] px-3.5 py-2.5">
-      <Avatar src={author?.avatar_url} name={uname(author)} size={20} />
-      <span className="min-w-0 truncate text-[11.5px] font-semibold text-[var(--text-secondary)]">{uname(author)}</span>
-      {ago && <span className="shrink-0 text-[10px] text-[var(--text-faint)]">{ago}</span>}
-      <Stats likes={likes} comments={comments} />
-    </div>
-  )
-}
-
 // ───────────────────────── Atradimo modalas (#18) ─────────────────────────
 function DiscoveryModal({ a, onClose }: { a: Atradimas; onClose: () => void }) {
   const body = sani(a.body)
@@ -1119,66 +1107,72 @@ type MixItem =
   | { kind: 'atrad'; date: string; a: Atradimas }
 
 // Kortelių aukščiai: mobile — pagal turinį (#23), sm+ — vienodi (grid ritmas).
-const CARD_MINH = 'sm:min-h-[420px]'
+// ═══════════════ Srauto „eilutės" kortelės (viena per eilutę, horizontalios) ═══════════════
+// 2026-06-14: /atrasti Pulsas perdarytas iš 4-stulpelių masonry į vientisą srautą —
+// vienoda forma, kairysis spalvotas kraštas + etiketė koduoja tipą, viršelis kairėj.
+const ROW_BASE = 'group relative flex overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)]'
+const ROW_THUMB = 'relative w-[104px] shrink-0 self-stretch overflow-hidden bg-[var(--cover-placeholder)] sm:w-[168px]'
 
-function PostFeatureCard({ p }: { p: FeedPost }) {
+function kindColor(kind: string): string {
+  return (KIND_META[kind] || KIND_META.irasas).color
+}
+function AccentBar({ color }: { color: string }) {
+  return <span aria-hidden className="w-[3px] shrink-0" style={{ background: color }} />
+}
+// Bendra apatinė autoriaus eilutė (inline, be border-top — tinka horizontaliai kortelei).
+function RowMeta({ author, date, likes, comments }: { author?: { username?: string | null; full_name?: string | null; avatar_url?: string | null } | null; date?: string | null; likes?: number | null; comments?: number | null }) {
   return (
-    <Link href={feedHref(p)} className={`group relative col-span-1 flex flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-1 hover:border-[var(--border-strong)] sm:col-span-2 ${CARD_MINH}`}>
-      <KindBadge kind={postKind(p)} />
-      <div className="relative h-[170px] shrink-0 overflow-hidden bg-[var(--cover-placeholder)] sm:h-[210px]">
-        {p.cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(p.cover)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
-        ) : <div className="h-full w-full" style={{ background: `linear-gradient(135deg, hsl(${hue(p.title)},34%,22%), hsl(${(hue(p.title) + 40) % 360},30%,12%))` }} />}
-        <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 55%, rgba(13,19,32,0.85))' }} />
-        {p.rating != null && <span className="absolute right-2.5 top-2.5 rounded-lg bg-black/75 px-2 py-1 text-[13px] font-black text-amber-300">★ {p.rating}</span>}
+    <div className="mt-2.5 flex items-center gap-2">
+      <Avatar src={author?.avatar_url} name={uname(author)} size={18} />
+      <span className="min-w-0 truncate text-[11.5px] font-semibold text-[var(--text-secondary)]">{uname(author)}</span>
+      {timeAgo(date) && <span className="shrink-0 text-[10px] text-[var(--text-faint)]">{timeAgo(date)}</span>}
+      <Stats likes={likes} comments={comments} />
+    </div>
+  )
+}
+
+function PostRowCard({ p }: { p: FeedPost }) {
+  const kind = postKind(p)
+  return (
+    <Link href={feedHref(p)} className={`${ROW_BASE} min-h-[104px]`}>
+      <AccentBar color={kindColor(kind)} />
+      {p.cover && (
+        <div className={ROW_THUMB}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={proxyImg(p.cover)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          {p.rating != null && <span className="absolute right-1.5 top-1.5 rounded-md bg-black/75 px-1.5 py-0.5 text-[11px] font-black text-amber-300">★ {p.rating}</span>}
+        </div>
+      )}
+      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
+        <KindBadge kind={kind} abs={false} />
+        <h3 className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">{sani(p.title)}</h3>
+        {p.excerpt && <p className="m-0 mt-1 line-clamp-2 text-[12.5px] leading-relaxed text-[var(--text-secondary)]">{p.excerpt}</p>}
+        <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
       </div>
-      <div className="flex flex-1 flex-col px-4 pb-2 pt-3.5">
-        <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[18px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[19px]">{sani(p.title)}</h3>
-        {p.excerpt && <p className="m-0 mt-2 line-clamp-4 text-[13px] leading-relaxed text-[var(--text-secondary)]">{p.excerpt}</p>}
-      </div>
-      <AuthorMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
     </Link>
   )
 }
 
-function PostStdCard({ p }: { p: FeedPost }) {
+function PostTopasRowCard({ p }: { p: FeedPost }) {
+  const entries = (p.entries || []).slice(0, 6)
   return (
-    <Link href={feedHref(p)} className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-1 hover:border-[var(--border-strong)] ${CARD_MINH}`}>
-      <KindBadge kind={postKind(p)} />
-      <div className="relative h-[140px] shrink-0 overflow-hidden bg-[var(--cover-placeholder)] sm:h-[150px]">
-        {p.cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(p.cover)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
-        ) : <div className="h-full w-full" style={{ background: `linear-gradient(135deg, hsl(${hue(p.title)},34%,22%), hsl(${(hue(p.title) + 40) % 360},30%,12%))` }} />}
-        {p.rating != null && <span className="absolute right-2 top-2 rounded-md bg-black/75 px-1.5 py-0.5 text-[11.5px] font-black text-amber-300">★ {p.rating}</span>}
-      </div>
-      <div className="flex flex-1 flex-col px-3.5 pb-2 pt-3">
-        <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title)}</h3>
-        {p.excerpt && <p className="m-0 mt-1.5 line-clamp-[6] text-[12.5px] leading-relaxed text-[var(--text-secondary)]">{p.excerpt}</p>}
-      </div>
-      <AuthorMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
-    </Link>
-  )
-}
-
-function PostTopasCard({ p }: { p: FeedPost }) {
-  const entries = (p.entries || []).slice(0, 5)
-  return (
-    <Link href={feedHref(p)} className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-1 hover:border-[rgba(245,158,11,0.5)] ${CARD_MINH}`}>
-      <div className="flex px-3.5 pt-3.5"><KindBadge kind="topas" abs={false} /></div>
-      <div className="flex flex-1 flex-col px-3.5 pb-1 pt-2.5">
-        <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title)}</h3>
-        <div className="mt-2 flex flex-col">
+    <Link href={feedHref(p)} className={`${ROW_BASE} hover:border-[rgba(245,158,11,0.5)]`}>
+      <AccentBar color="#f59e0b" />
+      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <KindBadge kind="topas" abs={false} />
+          <h3 className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">{sani(p.title)}</h3>
+        </div>
+        <div className="mt-2 grid gap-x-6 gap-y-0.5 sm:grid-cols-2">
           {entries.length === 0 ? (
-            <p className="m-0 py-4 text-center text-[12px] text-[var(--text-muted)]">Tuščias topas</p>
+            <p className="m-0 py-3 text-[12px] text-[var(--text-muted)]">Tuščias topas</p>
           ) : entries.map(e => (
-            <div key={e.rank} className="flex items-center gap-2.5 border-b border-[var(--border-subtle)] py-[7px] last:border-b-0">
+            <div key={e.rank} className="flex items-center gap-2.5 py-[5px]">
               <span className={`w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[13px] font-black ${e.rank <= 3 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}>{e.rank}</span>
               {e.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(e.image)} alt="" loading="lazy" className="h-8 w-8 shrink-0 rounded-[7px] object-cover" />
-              ) : <div className="h-8 w-8 shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(e.title)},30%,20%)` }} />}
+                <img src={proxyImg(e.image)} alt="" loading="lazy" className="h-7 w-9 shrink-0 rounded-[6px] object-cover" />
+              ) : <div className="h-7 w-9 shrink-0 rounded-[6px]" style={{ background: `hsl(${hue(e.title)},30%,20%)` }} />}
               <div className="min-w-0 flex-1">
                 <p className="m-0 truncate text-[12.5px] font-bold text-[var(--text-primary)]">{sani(e.title)}</p>
                 {e.artist && <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{e.artist}</p>}
@@ -1186,81 +1180,72 @@ function PostTopasCard({ p }: { p: FeedPost }) {
             </div>
           ))}
         </div>
+        <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
       </div>
-      <AuthorMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
     </Link>
   )
 }
 
-// Diskusijos kortelė (#12): grupės foto, iki 2 komentarų (senesnis trumpiau),
-// apačioje — komentarų skaičius + aktyvumo laikas (be „narys" placeholder'io).
-function DiskusijaGridCard({ d }: { d: Diskusija }) {
-  const comments = (d.latest_comments && d.latest_comments.length ? d.latest_comments : (d.latest_comment ? [d.latest_comment] : [])).slice(0, 2)
-  // API grąžina naujausią pirmą — kortelėje rodom chronologiškai (senesnis viršuje).
-  const chrono = [...comments].reverse()
+// Diskusijos eilutė (#12): grupės foto kairėj, naujausias komentaras dešinėj.
+function DiskusijaRowCard({ d }: { d: Diskusija }) {
+  const comment = (d.latest_comments && d.latest_comments.length ? d.latest_comments[0] : d.latest_comment) || null
   return (
-    <Link href={`/diskusijos/${d.slug}`} className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline transition-all hover:-translate-y-1 hover:border-[rgba(139,92,246,0.5)] ${CARD_MINH}`}
-      style={{ background: 'linear-gradient(160deg, rgba(139,92,246,0.1), var(--bg-surface) 60%)' }}>
+    <Link href={`/diskusijos/${d.slug}`} className={`${ROW_BASE} min-h-[104px] hover:border-[rgba(139,92,246,0.5)]`}
+      style={{ background: 'linear-gradient(160deg, rgba(139,92,246,0.08), var(--bg-surface) 55%)' }}>
+      <AccentBar color="#8b5cf6" />
       <AdminStar kind="discussion" id={d.id} featuredUntil={d.featured_until} />
-      {d.artist_image ? (
-        <div className="relative h-[120px] shrink-0 overflow-hidden sm:h-[130px]">
+      {d.artist_image && (
+        <div className={ROW_THUMB}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={proxyImg(d.artist_image)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
-          <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 40%, rgba(13,19,32,0.85))' }} />
-          <KindBadge kind="diskusija" />
-          {d.artist_name && <span className="absolute bottom-2 left-3 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-white/90">{d.artist_name}</span>}
+          <img src={proxyImg(d.artist_image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 45%, rgba(13,19,32,0.85))' }} />
+          {d.artist_name && <span className="absolute bottom-1.5 left-2.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.06em] text-white/90">{d.artist_name}</span>}
         </div>
-      ) : (
-        <div className="flex px-3.5 pt-3.5"><KindBadge kind="diskusija" abs={false} /></div>
       )}
-      <div className="flex flex-1 flex-col gap-2 px-3.5 pb-2.5 pt-3">
-        <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(d.title)}</h3>
-        {chrono.map((c, i) => {
-          const isLast = i === chrono.length - 1
-          return (
-            <div key={i} className="rounded-[4px_14px_14px_14px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.06)] px-3 py-2">
-              <div className="mb-1 flex items-center gap-1.5">
-                <Avatar src={c.avatar} name={c.author} size={16} />
-                <b className="truncate text-[10.5px] font-bold text-[var(--text-primary)]">{c.author}</b>
-                {c.created_at && timeAgo(c.created_at) && <span className="ml-auto shrink-0 text-[9.5px] text-[var(--text-faint)]">{timeAgo(c.created_at)}</span>}
-              </div>
-              <p className={`m-0 text-[12.3px] leading-relaxed text-[var(--text-secondary)] ${isLast ? 'line-clamp-4' : 'line-clamp-2'}`}>{c.excerpt}</p>
+      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
+        <KindBadge kind="diskusija" abs={false} />
+        <h3 className="m-0 mt-1.5 line-clamp-1 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">{sani(d.title)}</h3>
+        {comment && (
+          <div className="mt-1.5 rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-3 py-1.5">
+            <div className="mb-0.5 flex items-center gap-1.5">
+              <Avatar src={comment.avatar} name={comment.author} size={15} />
+              <b className="truncate text-[10.5px] font-bold text-[var(--text-primary)]">{comment.author}</b>
             </div>
-          )
-        })}
-      </div>
-      <div className="mt-auto flex items-center gap-2 border-t border-[var(--border-subtle)] px-3.5 py-2.5">
-        <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-[#b79df7]"><Ic d={I.comment} size={12} /> {d.comment_count > 0 ? `${d.comment_count} koment.` : 'Nauja tema'}</span>
-        {timeAgo(d.latest_comment?.created_at || d.created_at) && <span className="ml-auto shrink-0 text-[10px] text-[var(--text-faint)]">{timeAgo(d.latest_comment?.created_at || d.created_at)}</span>}
+            <p className="m-0 line-clamp-2 text-[12.3px] leading-relaxed text-[var(--text-secondary)]">{comment.excerpt}</p>
+          </div>
+        )}
+        <div className="mt-2 flex items-center gap-2">
+          <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-[#b79df7]"><Ic d={I.comment} size={12} /> {d.comment_count > 0 ? `${d.comment_count} koment.` : 'Nauja tema'}</span>
+          {timeAgo(d.latest_comment?.created_at || d.created_at) && <span className="shrink-0 text-[10px] text-[var(--text-faint)]">{timeAgo(d.latest_comment?.created_at || d.created_at)}</span>}
+        </div>
       </div>
     </Link>
   )
 }
 
-// Atradimo kortelė (#18): click → modalas su embed'u (ne atskiras puslapis).
-function AtradimasGridCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) => void }) {
+// Atradimo eilutė (#18): click → modalas su embed'u.
+function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) => void }) {
   const thumb = discThumb(a)
   const quote = sani(a.body)
   return (
-    <button type="button" onClick={() => onOpen(a)} className={`group relative flex w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-0 text-left transition-all hover:-translate-y-1 hover:border-[rgba(249,115,22,0.5)] ${CARD_MINH}`}>
+    <button type="button" onClick={() => onOpen(a)} className={`${ROW_BASE} min-h-[104px] w-full cursor-pointer p-0 text-left hover:border-[rgba(249,115,22,0.5)]`}>
+      <AccentBar color="#f97316" />
       <AdminStar kind="discovery" id={a.id} featuredUntil={a.featured_until} />
-      <KindBadge kind="atradimas" />
-      <div className="relative h-[140px] w-full shrink-0 overflow-hidden bg-[var(--cover-placeholder)] sm:h-[150px]">
+      <div className={`${ROW_THUMB} flex items-center justify-center`}>
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
-        ) : <div className="h-full w-full" style={{ background: `linear-gradient(135deg, hsl(${hue(a.artist_name || 'x')},34%,22%), hsl(${(hue(a.artist_name || 'x') + 40) % 360},30%,12%))` }} />}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-90 transition-opacity group-hover:opacity-100">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.4)]"><Ic d={I.play} size={16} filled /></span>
-        </div>
+          <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+        ) : <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(a.artist_name || 'x')},34%,22%), hsl(${(hue(a.artist_name || 'x') + 40) % 360},30%,12%))` }} />}
+        <span className="relative z-[1] flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.4)] transition-transform group-hover:scale-105"><Ic d={I.play} size={15} filled /></span>
       </div>
-      <div className="flex w-full flex-1 flex-col px-3.5 pb-2 pt-3">
-        <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">
+      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
+        <KindBadge kind="atradimas" abs={false} />
+        <h3 className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` — ${a.track_name}` : ''}
         </h3>
-        {quote && <p className="m-0 mt-1.5 line-clamp-[6] text-[12.5px] italic leading-relaxed text-[var(--text-secondary)]">„{quote.length > 300 ? quote.slice(0, 300).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
+        {quote && <p className="m-0 mt-1 line-clamp-2 text-[12.5px] italic leading-relaxed text-[var(--text-secondary)]">„{quote.length > 240 ? quote.slice(0, 240).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
+        <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
       </div>
-      <div className="w-full"><AuthorMeta author={a.author} date={a.created_at} likes={a.like_count} /></div>
     </button>
   )
 }
@@ -1375,10 +1360,9 @@ function PulsasSection() {
     setShown(s => s + PAGE_SIZE)
   }
 
-  let featureUsed = false
-
   return (
     <section className="mb-10">
+      <div className="mx-auto max-w-[860px]">
       <div className="mb-3.5 flex items-end justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="h-[18px] w-1 rounded-[3px] bg-[var(--accent-orange)]" />
@@ -1403,8 +1387,8 @@ function PulsasSection() {
       </div>
 
       {posts === null ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array(8).fill(null).map((_, i) => <div key={i} className={`hp-skel h-[420px] rounded-2xl ${i === 0 ? 'sm:col-span-2' : ''}`} />)}
+        <div className="flex flex-col gap-3">
+          {Array(6).fill(null).map((_, i) => <div key={i} className="hp-skel h-[108px] rounded-2xl" />)}
         </div>
       ) : visible.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--border-default)] p-8 text-center text-[13px] text-[var(--text-muted)]">
@@ -1412,17 +1396,13 @@ function PulsasSection() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {visible.map((it, idx) => {
-              if (it.kind === 'disc') return <DiskusijaGridCard key={`d-${it.d.id}`} d={it.d} />
-              if (it.kind === 'atrad') return <AtradimasGridCard key={`a-${it.a.id}`} a={it.a} onOpen={setOpenDisc} />
+          <div className="flex flex-col gap-3">
+            {visible.map((it) => {
+              if (it.kind === 'disc') return <DiskusijaRowCard key={`d-${it.d.id}`} d={it.d} />
+              if (it.kind === 'atrad') return <AtradimasRowCard key={`a-${it.a.id}`} a={it.a} onOpen={setOpenDisc} />
               const p = it.post
-              if (p.post_type === 'topas') return <PostTopasCard key={`p-${p.id}`} p={p} />
-              if (!featureUsed && idx < 3 && p.cover && postKind(p) !== 'topas') {
-                featureUsed = true
-                return <PostFeatureCard key={`p-${p.id}`} p={p} />
-              }
-              return <PostStdCard key={`p-${p.id}`} p={p} />
+              if (p.post_type === 'topas') return <PostTopasRowCard key={`p-${p.id}`} p={p} />
+              return <PostRowCard key={`p-${p.id}`} p={p} />
             })}
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -1440,6 +1420,7 @@ function PulsasSection() {
           </div>
         </>
       )}
+      </div>
       {openDisc && <DiscoveryModal a={openDisc} onClose={() => setOpenDisc(null)} />}
     </section>
   )
