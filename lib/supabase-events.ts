@@ -129,6 +129,138 @@ export async function getEvents(opts: {
   return { events, total: count || 0 }
 }
 
+// ── Get festivals (public, /festivaliai) ─────────────────────────
+// Visi festivaliai (is_festival = true) su line-up'ais + žanrų sąjunga.
+// Grąžinam ir būsimus, ir praėjusius — klientas grupuoja (būsimi viršuje,
+// archyvas pagal metus). Jei `is_festival` stulpelio dar nėra — krentam į
+// euristiką, kad puslapis nelūžtų.
+export async function getFestivals(opts: { limit?: number } = {}) {
+  const supabase = createAdminClient()
+  const { limit = 400 } = opts
+
+  const sel = `
+    id, title, slug, description, start_date, end_date,
+    venue_name, venue_id, city, address, cover_image_url,
+    ticket_url, price_from, price_to, status, is_featured, created_at,
+    event_artists(
+      artist_id, is_headliner, sort_order,
+      artists(id, name, slug, cover_image_url, country)
+    )
+  `
+
+  let events: any[] = []
+  try {
+    const { data, error } = await supabase
+      .from('events')
+      .select(sel)
+      .eq('is_festival', true)
+      .order('start_date', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    events = (data || []) as any[]
+    for (const e of events) e.is_festival = true
+  } catch {
+    // Stulpelio dar nėra — euristika ant viso saraso.
+    const { data } = await supabase
+      .from('events')
+      .select(sel)
+      .order('start_date', { ascending: false })
+      .limit(limit)
+    events = ((data || []) as any[]).filter(festivalHeuristic)
+    for (const e of events) e.is_festival = true
+  }
+
+  // Žanrų praturtinimas (atskira užklausa) — leidžia stiliaus filtrą.
+  try {
+    const artistIds = Array.from(new Set(
+      events.flatMap(e => (e.event_artists || []).map((ea: any) => ea.artist_id).filter(Boolean)),
+    ))
+    if (artistIds.length) {
+      const genreByArtist = new Map<number, string[]>()
+      // Batch'as: PostgREST .in() ribotas — skaidom po 300 id.
+      for (let i = 0; i < artistIds.length; i += 300) {
+        const chunk = artistIds.slice(i, i + 300)
+        const { data: ag } = await supabase
+          .from('artist_genres')
+          .select('artist_id, genres(name)')
+          .in('artist_id', chunk)
+        for (const r of (ag || []) as any[]) {
+          const name = r.genres?.name
+          if (!name) continue
+          const list = genreByArtist.get(r.artist_id) || []
+          if (!list.includes(name)) list.push(name)
+          genreByArtist.set(r.artist_id, list)
+        }
+      }
+      for (const e of events) {
+        const gset = new Set<string>()
+        for (const ea of e.event_artists || []) for (const g of (genreByArtist.get(ea.artist_id) || [])) gset.add(g)
+        e.genres = Array.from(gset)
+      }
+    }
+  } catch { /* žanrai nebūtini */ }
+
+  return events
+}
+
+// ── Get single festival by slug (rich line-up) ───────────────────
+// Kaip getEventBySlug, bet praturtinam atlikėjus žanrais (lineup'ui) ir
+// patikrinam is_festival žymą.
+export async function getFestivalBySlug(slug: string) {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('events')
+    .select(`
+      id, title, slug, description, start_date, end_date,
+      venue_name, venue_id, city, address, cover_image_url,
+      ticket_url, price_from, price_to,
+      status, is_featured, created_at, updated_at, is_festival,
+      event_artists(
+        artist_id, is_headliner, sort_order,
+        artists(id, name, slug, cover_image_url, country)
+      )
+    `)
+    .eq('slug', slug)
+    .single()
+
+  if (error || !data) return null
+  const ev = data as any
+
+  // Atlikėjų žanrai (lineup'o kortelėms).
+  try {
+    const artistIds = Array.from(new Set((ev.event_artists || []).map((ea: any) => ea.artist_id).filter(Boolean)))
+    if (artistIds.length) {
+      const genreByArtist = new Map<number, string[]>()
+      const { data: ag } = await supabase
+        .from('artist_genres')
+        .select('artist_id, genres(name)')
+        .in('artist_id', artistIds as number[])
+      for (const r of (ag || []) as any[]) {
+        const name = r.genres?.name
+        if (!name) continue
+        const list = genreByArtist.get(r.artist_id) || []
+        if (!list.includes(name)) list.push(name)
+        genreByArtist.set(r.artist_id, list)
+      }
+      ev.artistGenres = Object.fromEntries(genreByArtist)
+    }
+  } catch { /* žanrai nebūtini */ }
+
+  // Attendees ("Eis"/"Patiks").
+  const { data: attendeesRaw } = await supabase
+    .from('event_attendees')
+    .select('user_username, user_id, created_at, profiles:user_id(avatar_url, rank)')
+    .eq('event_id', ev.id)
+    .order('created_at', { ascending: false })
+  ev.attendees = (attendeesRaw || []).map((a: any) => ({
+    user_username: a.user_username,
+    user_rank: a.profiles?.rank || null,
+    user_avatar_url: a.profiles?.avatar_url || null,
+  }))
+
+  return ev
+}
+
 // ── Get featured events ──────────────────────────────────────────
 export async function getFeaturedEvents(limit = 3) {
   const supabase = createAdminClient()

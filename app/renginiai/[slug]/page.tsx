@@ -80,7 +80,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
           {ev.cover_image_url && <EventCoverImage src={ev.cover_image_url} alt={ev.title} />}
 
           {/* Right: Info */}
-          <div className={`${ev.cover_image_url ? 'lg:w-[45%]' : 'w-full max-w-3xl'} flex flex-col justify-center`}>
+          <div className={`${ev.cover_image_url ? 'lg:flex-1 lg:min-w-0' : 'w-full max-w-3xl'} flex flex-col justify-center`}>
 
             {/* Badges */}
             <div className="flex items-center gap-2 mb-3">
