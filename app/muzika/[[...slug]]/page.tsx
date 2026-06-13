@@ -21,16 +21,14 @@ import { SITE_URL, ltSlugify } from '@/lib/artist-browse'
 import {
   type HubScope,
   getTrendingArtists, getPopularArtists,
-  getNewestTracks, getPopularTracks,
-  getLatestAlbums, getPopularAlbums,
-  getGenreCounts, getCountryCounts, getSongCollectionCounts,
+  getGenreCounts, getCountryCounts,
   genreHref,
 } from '@/lib/muzika-hub'
-import { muzikaStyles, SectionHead, ArtistRow, AlbumRow, TrackList } from '@/components/muzika-ui'
+import { muzikaStyles, SectionHead, ArtistRow } from '@/components/muzika-ui'
 import { hubHref, type HubMode } from '@/components/muzika/MuzikaFilterBar'
 import MuzikaTabs from '@/components/muzika/MuzikaTabs'
 import { GenreCards } from '@/components/muzika/GenreCards'
-import { CollectionLinks } from '@/components/muzika/CollectionLinks'
+import { SongCollectionShowcase, AlbumCollectionShowcase } from '@/components/muzika/CollectionShowcase'
 import { ALBUM_COLLECTIONS, albumCollectionHref } from '@/lib/collections'
 
 // ISR — kartą per parą (trending atsinaujina, bet head term'ui stabilumas OK).
@@ -73,8 +71,8 @@ export async function generateStaticParams() {
 function hubCopy(scope: HubScope, mode: HubMode): { h1: string; sub: string; title: string; description: string } {
   if (scope === 'all') {
     return {
-      h1: 'Muzikos katalogas',
-      sub: 'Visa muzika vienoje vietoje — populiarūs Lietuvos ir pasaulio atlikėjai, naujausi albumai ir dainos, naršymas pagal stilių.',
+      h1: 'Muzika',
+      sub: 'Visa muzika vienoje vietoje — populiarūs Lietuvos ir pasaulio atlikėjai, naujausi albumai ir dainos, teminės kolekcijos ir naršymas pagal stilių.',
       title: 'Muzika — atlikėjai, albumai, dainos ir stiliai | music.lt',
       description: 'Atrask muziką music.lt kataloge: populiarūs Lietuvos ir pasaulio atlikėjai, naujausi albumai ir dainos, naršymas pagal stilių, šalį ir teminius rinkinius.',
     }
@@ -145,22 +143,13 @@ export default async function MuzikaHubPage({ params }: Props) {
   const wantLt = scope === 'all' || scope === 'lt'
   const wantWorld = scope === 'all' || scope === 'world'
 
-  const [
-    trendLt, trendWorld, popLt, popWorld,
-    newTracks, popTracks, newAlbums, popAlbums,
-    genres, countries, songCounts,
-  ] = await Promise.all([
+  const [trendLt, trendWorld, popLt, popWorld, genres, countries] = await Promise.all([
     showTrending && wantLt ? getTrendingArtists('lt', artLimit) : Promise.resolve([]),
     showTrending && wantWorld ? getTrendingArtists('world', artLimit) : Promise.resolve([]),
     showAlltime && wantLt ? getPopularArtists('lt', artLimit) : Promise.resolve([]),
     showAlltime && wantWorld ? getPopularArtists('world', artLimit) : Promise.resolve([]),
-    showTrending ? getNewestTracks(scope, 16) : Promise.resolve([]),
-    showAlltime ? getPopularTracks(scope, 16) : Promise.resolve([]),
-    showTrending ? getLatestAlbums(scope, 12) : Promise.resolve([]),
-    showAlltime ? getPopularAlbums(scope, 12) : Promise.resolve([]),
     getGenreCounts(),
     getCountryCounts(),
-    getSongCollectionCounts(),
   ])
 
   const topGenres = [...genres].sort((a, b) => b.n - a.n)
@@ -205,40 +194,30 @@ export default async function MuzikaHubPage({ params }: Props) {
     </>
   )
 
-  /* Dainų blokai. */
+  /* Dainos tab = teminės dainų kolekcijos (ne „naujausi kūriniai"). */
   const tracksPanel = (
-    <>
-      {showTrending && newTracks.length > 0 && (
-        <section className="mz-sec">
-          <SectionHead title="Naujausios dainos" sub="Šviežiausi singlai ir vaizdo klipai" href="/dainos" hrefLabel="Visos dainos" />
-          <TrackList tracks={newTracks} />
-        </section>
-      )}
-      {showAlltime && popTracks.length > 0 && (
-        <section className="mz-sec">
-          <SectionHead title="Populiariausios dainos" sub="Daugiausiai klausomos dainos pagal peržiūras" href="/dainos" hrefLabel="Visos dainos" />
-          <TrackList tracks={popTracks} />
-        </section>
-      )}
-    </>
+    <section className="mz-sec">
+      <SectionHead
+        title="Dainų kolekcijos"
+        sub="Teminiai dainų rinkiniai progai, temai ir nuotaikai"
+        href="/dainos"
+        hrefLabel="Visos dainos"
+      />
+      <SongCollectionShowcase />
+    </section>
   )
 
-  /* Albumų blokai. */
+  /* Albumai tab = geriausių albumų kolekcijos pagal žanrą. */
   const albumsPanel = (
-    <>
-      {showTrending && newAlbums.length > 0 && (
-        <section className="mz-sec">
-          <SectionHead title="Naujausi albumai" sub="Šviežiausi išleidimai kataloge" href="/albumai" hrefLabel="Visi albumai" />
-          <AlbumRow albums={newAlbums} />
-        </section>
-      )}
-      {showAlltime && popAlbums.length > 0 && (
-        <section className="mz-sec">
-          <SectionHead title="Populiariausi albumai" sub="Populiariausių atlikėjų albumai" href="/albumai" hrefLabel="Visi albumai" />
-          <AlbumRow albums={popAlbums} />
-        </section>
-      )}
-    </>
+    <section className="mz-sec">
+      <SectionHead
+        title="Albumų kolekcijos"
+        sub="Geriausi albumai pagal žanrą — roko, pop, hip-hop, metalo ir kiti"
+        href="/albumai"
+        hrefLabel="Visi albumai"
+      />
+      <AlbumCollectionShowcase />
+    </section>
   )
 
   const canonical = `${SITE_URL}${hubHref(scope, mode)}`
@@ -291,12 +270,6 @@ export default async function MuzikaHubPage({ params }: Props) {
             <GenreCards genres={topGenres} />
           </section>
         )}
-
-        {/* Teminės kolekcijos */}
-        <section className="mz-sec">
-          <SectionHead title="Teminės kolekcijos" sub="Geriausi albumai pagal žanrą ir dainos pagal progą bei nuotaiką" />
-          <CollectionLinks songCounts={songCounts} />
-        </section>
 
         {/* SEO footer */}
         <section className="mz-seo">
