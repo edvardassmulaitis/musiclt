@@ -61,7 +61,7 @@ export default function NewsCard({
   accent = '#0ea5e9',
 }: {
   item: NewsFeedItem
-  variant?: 'hero' | 'default' | 'compact'
+  variant?: 'hero' | 'default' | 'compact' | 'feature'
   accent?: string
 }) {
   const catAccent = item.category ? TYPE_MAP.get(item.category as any)?.accent || accent : accent
