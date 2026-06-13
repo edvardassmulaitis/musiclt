@@ -483,25 +483,42 @@ export const getCollectionAlbums = cache(async (
       const genres = await getGenreCounts()
       const genreId = genres.find((g) => g.name === opts.genreName)?.genre_id
       if (genreId == null) return []
+      // 2 ŽINGSNIAI: gilus 3-lygių join'as (albums→artists→artist_genres)
+      // grąžina tuščia (plg. getStyleAlbums), o 2-lygių atlikėjų filtras VEIKIA.
+      // Todėl: (1) top žanro atlikėjų id, (2) jų albumai per .in().
+      const { data: arts } = await sb
+        .from('artists')
+        .select('id, artist_genres!inner(genre_id)')
+        .eq('artist_genres.genre_id', genreId)
+        .order('score', { ascending: false, nullsFirst: false })
+        .limit(150)
+      const ids = ((arts || []) as any[]).map((a) => a.id)
+      if (ids.length === 0) return []
       const { data } = await sb
         .from('albums')
-        .select('id, slug, title, year, cover_image_url, artist_id, artists!inner(name, slug, artist_genres!inner(genre_id))')
-        .eq('artists.artist_genres.genre_id', genreId)
+        .select('id, slug, title, year, cover_image_url, artist_id, artists!albums_artist_id_fkey(name, slug)')
+        .in('artist_id', ids)
         .not('cover_image_url', 'is', null)
         .not('year', 'is', null)
-        .eq('is_upcoming', false)
         .order('year', { ascending: false })
         .limit(limit)
       return ((data || []) as any[]).map(mapAlbumRow)
     }
     if (opts.substyleSlug) {
+      // (1) substilio albumų id per album_substyles, (2) albumai per .in().
+      const { data: links } = await sb
+        .from('album_substyles')
+        .select('album_id, substyles!inner(slug)')
+        .eq('substyles.slug', opts.substyleSlug)
+        .limit(400)
+      const ids = ((links || []) as any[]).map((l) => l.album_id).filter(Boolean)
+      if (ids.length === 0) return []
       const { data } = await sb
         .from('albums')
-        .select('id, slug, title, year, cover_image_url, artist_id, artists!inner(name, slug), album_substyles!inner(substyles!inner(slug))')
-        .eq('album_substyles.substyles.slug', opts.substyleSlug)
+        .select('id, slug, title, year, cover_image_url, artist_id, artists!albums_artist_id_fkey(name, slug)')
+        .in('id', ids)
         .not('cover_image_url', 'is', null)
         .not('year', 'is', null)
-        .eq('is_upcoming', false)
         .order('year', { ascending: false })
         .limit(limit)
       return ((data || []) as any[]).map(mapAlbumRow)
