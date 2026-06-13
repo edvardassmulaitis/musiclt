@@ -114,22 +114,23 @@ export async function GET(req: NextRequest) {
     if (excludeType.length) rows = rows.filter(r => !excludeType.includes(r.post_type))
     if (excludeEditorial.length) rows = rows.filter(r => !excludeEditorial.includes(r.editorial_type))
 
-    // ── Silpnesnis prioritetas „paslėptiems" nariams (hide_from_homepage). ──
-    //    NEblokuojam — tik nustumiam žemiau: flagged autoriaus įrašas rūšiuojant
-    //    elgiasi tarsi būtų ~10 d. senesnis (arba su perpus mažiau like'ų). Taip
-    //    jis natūraliai įsimaišo į srautą, bet švieži/populiarūs įrašai jį lenkia.
-    //    featuredOnly (admin kuruotas „Verta dėmesio") nepaliečiamas.
+    // ── „Paslėpti" nariai (hide_from_homepage) — į feed'o apačią. ──
+    //    NEblokuojam (įrašai pasiekiami per „Rodyti daugiau"), bet PARTITION:
+    //    visi nepažymėtų narių įrašai eina PIRMA, pažymėtų — po jų. Taip flagged
+    //    autorius (pvz. užfloodinantis senais įrašais) niekada nelipa į viršų,
+    //    nepriklausomai nuo to, kiek šviežaus turinio yra bendruomenėje.
+    //    Viduje kiekvienos grupės — įprastas rūšiavimas (data / ♥). featuredOnly
+    //    (admin kuruotas „Verta dėmesio") nepaliečiamas.
     if (!featuredOnly) {
-      const DEMOTE_MS = 10 * 24 * 60 * 60 * 1000
       const isFlagged = (r: any) => r.blogs?.profiles?.hide_from_homepage === true
       const ts = (r: any) => { const t = Date.parse(r.published_at || ''); return Number.isNaN(t) ? 0 : t }
-      if (sort === 'liked') {
-        const eff = (r: any) => (r.like_count || 0) * (isFlagged(r) ? 0.5 : 1)
-        rows.sort((a, b) => (eff(b) - eff(a)) || (ts(b) - ts(a)))
-      } else {
-        const eff = (r: any) => ts(r) - (isFlagged(r) ? DEMOTE_MS : 0)
-        rows.sort((a, b) => eff(b) - eff(a))
-      }
+      const within = sort === 'liked'
+        ? (a: any, b: any) => ((b.like_count || 0) - (a.like_count || 0)) || (ts(b) - ts(a))
+        : (a: any, b: any) => ts(b) - ts(a)
+      rows.sort((a, b) => {
+        const fa = isFlagged(a) ? 1 : 0, fb = isFlagged(b) ? 1 : 0
+        return fa !== fb ? fa - fb : within(a, b)
+      })
     }
 
     // ── Dedup per autorių (vienas naujausias įrašas per narį). Modaluose
