@@ -70,13 +70,7 @@ export function ArtistTile({ a, rank }: { a: HubArtist; rank?: number }) {
             style={{ objectPosition: `${pos.x}% ${pos.y}%`, transform: `scale(${pos.zoom})`, transformOrigin: `${pos.x}% ${pos.y}%` }}
           />
         ) : (
-          // Ryškus fallback (2026-06-11): hue gradient + matomas inicialas —
-          // anksčiau 8% opacity inicialas = „tuščios baltos kortelės" įspūdis.
-          (() => { const h = Array.from(a.name || '?').reduce((acc, c) => (acc * 31 + c.charCodeAt(0)) % 360, 0); return (
-            <div className="mz-tile-noimg" style={{ background: `linear-gradient(135deg, hsl(${h},34%,24%), hsl(${(h + 40) % 360},30%,13%))` }}>
-              <span style={{ color: `hsl(${h},45%,62%)`, opacity: 0.9 }}>{a.name?.[0] || '?'}</span>
-            </div>
-          ) })()
+          <div className="mz-tile-noimg"><span>{a.name?.[0] || '?'}</span></div>
         )}
         {typeof rank === 'number' && rank <= 3 && <span className="mz-tile-rank">#{rank}</span>}
         {a.is_verified && (
@@ -218,7 +212,7 @@ export const muzikaStyles = `
 .mz-acard-img { position:relative; aspect-ratio:1/1; border-radius:14px; overflow:hidden; background:var(--bg-elevated); }
 .mz-acard-img img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .4s ease; }
 .mz-acard:hover .mz-acard-img img { transform:scale(1.05); }
-.mz-acard-noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:34px; color:rgba(255,255,255,0.4); background:linear-gradient(135deg, #2a3550, #161d2e); }
+.mz-acard-noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:34px; color:rgba(255,255,255,0.12); }
 .mz-acard-title { font-family:'Outfit',sans-serif; font-weight:700; font-size:var(--card-title-size); margin-top:9px; line-height:1.2; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .mz-acard:hover .mz-acard-title { color:var(--accent-orange); }
 .mz-acard-sub { font-size:var(--card-sub-size); color:var(--text-muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -231,7 +225,7 @@ export const muzikaStyles = `
 .mz-trow-rank { width:20px; text-align:center; font-family:'Outfit',sans-serif; font-weight:800; font-size:13px; color:var(--text-faint); flex-shrink:0; }
 .mz-trow-cover { width:40px; height:40px; border-radius:7px; overflow:hidden; background:var(--bg-elevated); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
 .mz-trow-cover img { width:100%; height:100%; object-fit:cover; }
-.mz-trow-noimg { font-size:16px; color:rgba(255,255,255,0.45); }
+.mz-trow-noimg { font-size:16px; color:rgba(255,255,255,0.15); }
 .mz-trow-txt { flex:1; min-width:0; display:flex; flex-direction:column; }
 .mz-trow-title { font-family:'Outfit',sans-serif; font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .mz-trow:hover .mz-trow-title { color:var(--accent-orange); }
@@ -291,8 +285,40 @@ export const muzikaStyles = `
   .mz-acard-grid { grid-template-columns:repeat(auto-fill,minmax(108px,1fr)); gap:12px; }
   .mz-tile-name { font-size:13px; }
 }
+/* Hub filtro baras (path-segment SEO pills + interaktyvi 2-a eilutė) */
+.mz-hubbar { display:flex; flex-direction:column; gap:10px; margin:22px 0 6px; padding:14px 16px; background:var(--bg-elevated); border:1px solid var(--border-default,rgba(255,255,255,0.07)); border-radius:14px; }
+.mz-hubrow { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.mz-hubrow2 { justify-content:space-between; margin:6px 0 4px; padding-top:12px; border-top:1px solid var(--border-default,rgba(255,255,255,0.06)); }
+.mz-fchips { display:flex; flex-wrap:wrap; gap:7px; }
+.mz-fdrops { display:flex; flex-wrap:wrap; gap:8px; }
+.mz-fsel { appearance:none; -webkit-appearance:none; padding:7px 30px 7px 13px; border-radius:100px; font-size:12.5px; font-weight:600; font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.1)); color:var(--text-secondary); cursor:pointer; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>"); background-repeat:no-repeat; background-position:right 12px center; }
+.mz-fsel:hover { border-color:rgba(249,115,22,0.45); color:var(--text-primary); }
+.mz-ftabs { display:inline-flex; gap:3px; padding:3px; background:var(--bg-hover); border-radius:100px; border:1px solid var(--border-default,rgba(255,255,255,0.08)); }
+.mz-ftab { padding:6px 15px; border-radius:100px; font-size:12.5px; font-weight:700; font-family:'Outfit',sans-serif; color:var(--text-muted); background:transparent; border:none; cursor:pointer; transition:all .15s; }
+.mz-ftab:hover { color:var(--text-primary); }
+.mz-ftab.on { background:var(--accent-orange); color:#fff; }
+
+/* Žanrų kortelės (brand spalvos per --gc / --gcr) */
+.mz-gcards { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+.mz-gcard { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:16px 16px; border-radius:13px; background:linear-gradient(135deg, rgba(var(--gcr),0.20), rgba(var(--gcr),0.05)); border:1px solid rgba(var(--gcr),0.30); transition:all .18s; }
+.mz-gcard:hover { border-color:var(--gc); transform:translateY(-2px); }
+.mz-gcard-name { font-family:'Outfit',sans-serif; font-weight:800; font-size:14.5px; color:var(--text-primary); }
+.mz-gcard-n { font-size:11.5px; font-weight:700; color:var(--text-faint); }
+
+/* Kolekcijų nuorodos (2 stulpeliai) */
+.mz-coll-cols { display:grid; grid-template-columns:1fr 1fr; gap:30px; }
+@media(max-width:760px){ .mz-coll-cols { grid-template-columns:1fr; gap:22px; } }
+.mz-coll-list { display:flex; flex-direction:column; gap:6px; }
+.mz-coll-list-row { flex-direction:row; flex-wrap:wrap; }
+.mz-collrow { display:inline-flex; align-items:center; gap:10px; padding:10px 14px; border-radius:11px; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.07)); transition:all .15s; }
+.mz-collrow:hover { border-color:rgba(249,115,22,0.4); transform:translateX(2px); }
+.mz-collrow-emoji { font-size:17px; line-height:1; }
+.mz-collrow-name { font-family:'Outfit',sans-serif; font-weight:700; font-size:13.5px; color:var(--text-secondary); }
+.mz-collrow:hover .mz-collrow-name { color:var(--text-primary); }
+
 @media(max-width:640px){
   .mz-wrap { padding-left:var(--page-pad-x-sm); padding-right:var(--page-pad-x-sm); }
   .mz-hero { padding-left:var(--page-pad-x-sm); padding-right:var(--page-pad-x-sm); }
+  .mz-hubrow2 { flex-direction:column; align-items:flex-start; }
 }
 `

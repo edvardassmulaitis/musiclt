@@ -14,6 +14,11 @@ import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import TrackPageClient from '@/app/lt/daina/[slug]/[id]/track-page-client'
 import { PageLoader } from '@/components/PageLoader'
+// Teminių dainų kolekcijų interception: /dainos/{collection-slug} (be -{id} gale)
+// rodo kuruotą kolekciją, o ne dainą. Next.js neleidžia /dainos/[collection]
+// sibling'o šalia /dainos/[slugId], todėl branch'inam čia.
+import { isSongCollectionSlug } from '@/lib/collections'
+import SongCollectionView, { songCollectionMetadata } from '@/components/muzika/SongCollectionView'
 
 // Function-level cache (60s TTL) — žr. /atlikejai/[slug]/page.tsx
 // komentarą, kodėl naudojam unstable_cache vietoj revalidate config'o
@@ -31,7 +36,10 @@ function parseSlugId(slugId: string): { slug: string; id: number } | null {
 export async function generateMetadata({ params }: { params: Promise<{ slugId: string }> }) {
   const { slugId } = await params
   const parsed = parseSlugId(slugId)
-  if (!parsed) return { title: 'Daina – music.lt' }
+  if (!parsed) {
+    if (isSongCollectionSlug(slugId)) return songCollectionMetadata(slugId)
+    return { title: 'Daina – music.lt' }
+  }
 
   // PERF: reuse fetchTrackData (unstable_cache) vietoj atskiros DB query —
   // metadata + page render dalinasi vienu fetch'u (cache warm-up).
@@ -50,7 +58,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slugId: s
 export default async function DainaPage({ params }: { params: Promise<{ slugId: string }> }): Promise<React.ReactElement> {
   const { slugId } = await params
   const parsed = parseSlugId(slugId)
-  if (!parsed) notFound()
+  if (!parsed) {
+    if (isSongCollectionSlug(slugId)) return <SongCollectionView slug={slugId} />
+    notFound()
+  }
 
   return (
     <Suspense fallback={<PageLoader variant="track" />}>

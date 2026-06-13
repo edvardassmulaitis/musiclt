@@ -15,6 +15,11 @@ import { createAdminClient } from '@/lib/supabase'
 import { SITE_URL, ltSlugify, LT_COUNTRY } from '@/lib/artist-browse'
 import { NEWS_STYLES, NEWS_TYPES } from '@/lib/news-taxonomy'
 import { getNewsFacets } from '@/lib/news-feed'
+import {
+  ALBUM_COLLECTIONS, SONG_COLLECTIONS, SONG_COLLECTION_MIN_INDEX,
+  albumCollectionHref, songCollectionHref,
+} from '@/lib/collections'
+import { getSongCollectionCounts } from '@/lib/muzika-hub'
 
 export const revalidate = 86400
 
@@ -72,16 +77,16 @@ async function topCountries(): Promise<string[]> {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
-  const [artists, genres, countries, newsFacets] = await Promise.all([
+  const [artists, genres, countries, newsFacets, songCounts] = await Promise.all([
     allArtists(),
     genreSlugs(),
     topCountries(),
     getNewsFacets().catch(() => null),
+    getSongCollectionCounts().catch(() => ({} as Record<string, number>)),
   ])
 
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, lastModified: now, changeFrequency: 'daily', priority: 1.0 },
-    { url: `${SITE_URL}/muzika`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
     { url: `${SITE_URL}/atlikejai`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
     { url: `${SITE_URL}/albumai`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
     { url: `${SITE_URL}/dainos`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
@@ -137,5 +142,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }))
 
-  return [...staticPages, ...newsPages, ...genrePages, ...facetPages, ...artistPages]
+  // /muzika hub — 7 path-segment variantai (Šalis × Rikiavimas).
+  const hubPages: MetadataRoute.Sitemap = [
+    { url: `${SITE_URL}/muzika`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${SITE_URL}/muzika/lietuviska`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
+    { url: `${SITE_URL}/muzika/lietuviska/dabar`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${SITE_URL}/muzika/lietuviska/populiariausia`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${SITE_URL}/muzika/uzsienio`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
+    { url: `${SITE_URL}/muzika/uzsienio/dabar`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${SITE_URL}/muzika/uzsienio/populiariausia`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+  ]
+
+  // Teminės kolekcijos: geriausi albumai — visada (užklausomas turinys);
+  // dainų kolekcijos — tik kuruotos (>= MIN), kad neindeksuotume plonų puslapių.
+  const collectionPages: MetadataRoute.Sitemap = [
+    ...ALBUM_COLLECTIONS.map((c) => ({
+      url: `${SITE_URL}${albumCollectionHref(c.slug)}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.6,
+    })),
+    ...SONG_COLLECTIONS
+      .filter((c) => (songCounts[c.slug] || 0) >= SONG_COLLECTION_MIN_INDEX)
+      .map((c) => ({
+        url: `${SITE_URL}${songCollectionHref(c.slug)}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.6,
+      })),
+  ]
+
+  return [...staticPages, ...hubPages, ...newsPages, ...genrePages, ...collectionPages, ...facetPages, ...artistPages]
 }

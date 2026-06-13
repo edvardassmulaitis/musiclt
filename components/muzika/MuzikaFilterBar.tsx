@@ -1,0 +1,72 @@
+// components/muzika/MuzikaFilterBar.tsx
+//
+// PIRMA filtro eilutė — SEO-kritiška. Šalis (Visi/LT/Užsienio) ir Rikiavimas
+// (Viskas/Dabar/Visų laikų) yra TIKRI <Link> elementai → crawlable, kiekvienas
+// veda į atskirą path-segment SEO puslapį. Rikiavimo eilutė rodoma tik kai
+// pasirinkta konkreti šalis (scope != 'all'), nes /muzika (visi) variantas
+// neturi atskirų „dabar"/„visų laikų" URL'ų.
+//
+// Server component (be 'use client') — viskas statiška.
+
+import Link from 'next/link'
+import type { HubScope } from '@/lib/muzika-hub'
+
+export type HubMode = 'both' | 'trending' | 'alltime'
+
+/** scope+mode → kanoninis path-segment URL (7 variantai). */
+export function hubHref(scope: HubScope, mode: HubMode): string {
+  if (scope === 'all') return '/muzika'
+  const base = scope === 'lt' ? '/muzika/lietuviska' : '/muzika/uzsienio'
+  if (mode === 'trending') return `${base}/dabar`
+  if (mode === 'alltime') return `${base}/populiariausia`
+  return base
+}
+
+export function MuzikaFilterBar({ scope, mode }: { scope: HubScope; mode: HubMode }) {
+  const scopes: { key: HubScope; label: string }[] = [
+    { key: 'all', label: 'Visi' },
+    { key: 'lt', label: '🇱🇹 Lietuviška' },
+    { key: 'world', label: '🌍 Užsienio' },
+  ]
+  const modes: { key: HubMode; label: string }[] = [
+    { key: 'both', label: 'Viskas' },
+    { key: 'trending', label: 'Dabar populiaru' },
+    { key: 'alltime', label: 'Visų laikų' },
+  ]
+  return (
+    <div className="mz-hubbar">
+      <div className="mz-hubrow">
+        <span className="mz-flbl">Šalis</span>
+        <div className="mz-fchips">
+          {scopes.map((s) => (
+            <Link
+              key={s.key}
+              href={hubHref(s.key, s.key === 'all' ? 'both' : mode)}
+              className={`mz-fchip${scope === s.key ? ' on' : ''}`}
+              prefetch={false}
+            >
+              {s.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+      {scope !== 'all' && (
+        <div className="mz-hubrow">
+          <span className="mz-flbl">Rikiuoti</span>
+          <div className="mz-fchips">
+            {modes.map((m) => (
+              <Link
+                key={m.key}
+                href={hubHref(scope, m.key)}
+                className={`mz-fchip${mode === m.key ? ' on' : ''}`}
+                prefetch={false}
+              >
+                {m.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

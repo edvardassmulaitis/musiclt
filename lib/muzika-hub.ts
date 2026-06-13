@@ -60,6 +60,9 @@ export type GenreCount = { genre_id: number; name: string; n: number }
 export type SubstyleCount = { substyle_id: number; name: string; slug: string; n: number }
 export type CountryCount = { country: string; n: number }
 
+/** Hub apimtis: visa / tik Lietuva / tik užsienis. */
+export type HubScope = 'all' | 'lt' | 'world'
+
 const ARTIST_COLS =
   'id, slug, name, country, type, cover_image_url, cover_image_position, is_verified, score'
 
@@ -190,6 +193,15 @@ export const getTrendingArtists = cache(
   }
 )
 
+/** All-time populiariausi atlikėjai pagal score DESC (NE trending). Naudojam
+ *  „Populiariausi visų laikų" bloke — legendos, ne dabar populiarūs. */
+export const getPopularArtists = cache(
+  async (scope: 'lt' | 'world', limit = 12): Promise<HubArtist[]> => {
+    const ids = await topScoreArtistIds(scope, limit)
+    return fetchArtistsByIds(ids)
+  }
+)
+
 /* ──────────────────────────── Žanrai / stiliai / šalys ──────────────────────────── */
 
 export const getGenreCounts = cache(async (): Promise<GenreCount[]> => {
@@ -244,20 +256,66 @@ function mapAlbumRow(a: any): HubAlbum {
   }
 }
 
-/** Naujausi albumai (su viršeliu + metais). */
-export const getLatestAlbums = cache(async (limit = 12): Promise<HubAlbum[]> => {
+/** Naujausi albumai (su viršeliu + metais). scope → atlikėjo šalies filtras. */
+export const getLatestAlbums = cache(async (scope: HubScope = 'all', limit = 12): Promise<HubAlbum[]> => {
   try {
     const sb = createAdminClient()
-    const { data } = await sb
+    // scope filtravimui reikia atlikėjo country → inner join. 'all' → paliekam
+    // outer join (greičiau, neribojam).
+    const join = scope === 'all'
+      ? 'artists!albums_artist_id_fkey(name, slug)'
+      : 'artists!inner(name, slug, country)'
+    let q = sb
       .from('albums')
-      .select('id, slug, title, year, cover_image_url, artist_id, artists!albums_artist_id_fkey(name, slug)')
+      .select(`id, slug, title, year, cover_image_url, artist_id, ${join}`)
       .not('cover_image_url', 'is', null)
       .not('year', 'is', null)
       .eq('is_upcoming', false)
+    // Filtrai PRIEŠ .order/.range (žr. memory: supabase-js filter order).
+    if (scope === 'lt') q = q.eq('artists.country', LT_COUNTRY)
+    else if (scope === 'world') q = q.neq('artists.country', LT_COUNTRY)
+    const { data } = await q
       .order('year', { ascending: false })
       .order('month', { ascending: false, nullsFirst: false })
       .limit(limit)
     return ((data || []) as any[]).map(mapAlbumRow)
+  } catch {
+    return []
+  }
+})
+
+/** All-time populiariausi albumai: albumai daugiausiai klausomų (score) atlikėjų,
+ *  po 1 albumą atlikėjui (šviežiausias su viršeliu), atlikėjo populiarumo tvarka.
+ *  Albumai DB neturi atskiro popularumo metrikos, todėl naudojam atlikėjo score
+ *  kaip proxy — „populiariausių atlikėjų albumai". */
+export const getPopularAlbums = cache(async (scope: HubScope = 'all', limit = 12): Promise<HubAlbum[]> => {
+  try {
+    const sb = createAdminClient()
+    let aq = sb.from('artists').select('id')
+    if (scope === 'lt') aq = aq.eq('country', LT_COUNTRY)
+    else if (scope === 'world') aq = aq.neq('country', LT_COUNTRY)
+    const { data: arts } = await aq
+      .order('score', { ascending: false, nullsFirst: false })
+      .limit(limit * 3)
+    const ids = ((arts || []) as any[]).map((a) => a.id)
+    if (ids.length === 0) return []
+    const { data } = await sb
+      .from('albums')
+      .select('id, slug, title, year, cover_image_url, artist_id, artists!albums_artist_id_fkey(name, slug)')
+      .in('artist_id', ids)
+      .not('cover_image_url', 'is', null)
+      .not('year', 'is', null)
+      .eq('is_upcoming', false)
+      .order('year', { ascending: false })
+    const byArtist = new Map<number, any>()
+    for (const r of (data || []) as any[]) if (!byArtist.has(r.artist_id)) byArtist.set(r.artist_id, r)
+    const out: HubAlbum[] = []
+    for (const id of ids) {
+      const a = byArtist.get(id)
+      if (a) out.push(mapAlbumRow(a))
+      if (out.length >= limit) break
+    }
+    return out
   } catch {
     return []
   }
@@ -281,17 +339,55 @@ function mapTrackRow(t: any): HubTrack {
 /** Naujausi pasirodymai (video_uploaded_at DESC), dedup per atlikėją. Dinamiška
  *  — atsinaujina su kiekvienu nauju release'u (priešingai nei statiškas
  *  „daugiausiai klausomų" all-time sąrašas). */
-export const getNewestTracks = cache(async (limit = 12): Promise<HubTrack[]> => {
+export const getNewestTracks = cache(async (scope: HubScope = 'all', limit = 12): Promise<HubTrack[]> => {
   try {
     const sb = createAdminClient()
     const since = new Date(Date.now() - 180 * 86_400_000).toISOString()
-    const { data } = await sb
+    const join = scope === 'all'
+      ? 'artists!tracks_artist_id_fkey(name, slug)'
+      : 'artists!inner(name, slug, country)'
+    let q = sb
       .from('tracks')
-      .select('id, slug, title, cover_url, video_views, video_uploaded_at, artist_id, artists!tracks_artist_id_fkey(name, slug)')
+      .select(`id, slug, title, cover_url, video_views, video_uploaded_at, artist_id, ${join}`)
       .not('video_uploaded_at', 'is', null)
       .gte('video_uploaded_at', since)
+    if (scope === 'lt') q = q.eq('artists.country', LT_COUNTRY)
+    else if (scope === 'world') q = q.neq('artists.country', LT_COUNTRY)
+    const { data } = await q
       .order('video_uploaded_at', { ascending: false })
       .limit(limit * 4)
+    const rows = ((data || []) as any[]).filter((t) => t.artists && t.title && t.title !== t.artists.name)
+    const seen = new Set<number>()
+    const out: HubTrack[] = []
+    for (const r of rows) {
+      if (seen.has(r.artist_id)) continue
+      seen.add(r.artist_id)
+      out.push(mapTrackRow(r))
+      if (out.length >= limit) break
+    }
+    return out
+  } catch {
+    return []
+  }
+})
+
+/** All-time populiariausios dainos pagal video_views DESC, dedup per atlikėją.
+ *  scope → atlikėjo šalies filtras (DB lygyje per inner join). */
+export const getPopularTracks = cache(async (scope: HubScope = 'all', limit = 12): Promise<HubTrack[]> => {
+  try {
+    const sb = createAdminClient()
+    const join = scope === 'all'
+      ? 'artists!tracks_artist_id_fkey(name, slug)'
+      : 'artists!inner(name, slug, country)'
+    let q = sb
+      .from('tracks')
+      .select(`id, slug, title, cover_url, video_views, artist_id, ${join}`)
+      .not('video_views', 'is', null)
+    if (scope === 'lt') q = q.eq('artists.country', LT_COUNTRY)
+    else if (scope === 'world') q = q.neq('artists.country', LT_COUNTRY)
+    const { data } = await q
+      .order('video_views', { ascending: false, nullsFirst: false })
+      .limit(limit * 5)
     const rows = ((data || []) as any[]).filter((t) => t.artists && t.title && t.title !== t.artists.name)
     const seen = new Set<number>()
     const out: HubTrack[] = []
@@ -370,6 +466,89 @@ export const getStyleTracks = cache(async (genreId: number, limit = 10): Promise
     return out
   } catch {
     return []
+  }
+})
+
+/* ───────────────────────── Kolekcijos (data) ───────────────────────── */
+
+/** Geriausi albumai kolekcijai: pagal žanrą (artist_genres) ARBA substilį
+ *  (album_substyles) ARBA šalį (scope). Realus turinys — ne plonas puslapis. */
+export const getCollectionAlbums = cache(async (
+  opts: { genreName?: string; scope?: HubScope; substyleSlug?: string },
+  limit = 30,
+): Promise<HubAlbum[]> => {
+  try {
+    const sb = createAdminClient()
+    if (opts.genreName) {
+      const genres = await getGenreCounts()
+      const genreId = genres.find((g) => g.name === opts.genreName)?.genre_id
+      if (genreId == null) return []
+      const { data } = await sb
+        .from('albums')
+        .select('id, slug, title, year, cover_image_url, artist_id, artists!inner(name, slug, artist_genres!inner(genre_id))')
+        .eq('artists.artist_genres.genre_id', genreId)
+        .not('cover_image_url', 'is', null)
+        .not('year', 'is', null)
+        .eq('is_upcoming', false)
+        .order('year', { ascending: false })
+        .limit(limit)
+      return ((data || []) as any[]).map(mapAlbumRow)
+    }
+    if (opts.substyleSlug) {
+      const { data } = await sb
+        .from('albums')
+        .select('id, slug, title, year, cover_image_url, artist_id, artists!inner(name, slug), album_substyles!inner(substyles!inner(slug))')
+        .eq('album_substyles.substyles.slug', opts.substyleSlug)
+        .not('cover_image_url', 'is', null)
+        .not('year', 'is', null)
+        .eq('is_upcoming', false)
+        .order('year', { ascending: false })
+        .limit(limit)
+      return ((data || []) as any[]).map(mapAlbumRow)
+    }
+    // Tik šalies apimtis → „geriausi" = populiariausių atlikėjų albumai.
+    return getPopularAlbums(opts.scope ?? 'all', limit)
+  } catch {
+    return []
+  }
+})
+
+/** Kuruotos dainos kolekcijai (collection_tracks lentelė) rankine tvarka.
+ *  Jei lentelės nėra / tuščia → [] (puslapis pereina į noindex + browse). */
+export const getCollectionTracks = cache(async (slug: string, limit = 80): Promise<HubTrack[]> => {
+  try {
+    const sb = createAdminClient()
+    const { data: rows } = await sb
+      .from('collection_tracks')
+      .select('track_id, position')
+      .eq('collection_slug', slug)
+      .order('position', { ascending: true })
+      .limit(limit)
+    const ids = ((rows || []) as any[]).map((r) => r.track_id).filter(Boolean)
+    if (ids.length === 0) return []
+    const { data } = await sb
+      .from('tracks')
+      .select('id, slug, title, cover_url, video_views, artist_id, artists!tracks_artist_id_fkey(name, slug)')
+      .in('id', ids)
+    const byId = new Map<number, any>()
+    for (const t of (data || []) as any[]) byId.set(t.id, t)
+    return ids.map((id) => byId.get(id)).filter(Boolean).map(mapTrackRow)
+  } catch {
+    return []
+  }
+})
+
+/** collection_slug → kuruotų dainų skaičius. Hub'e rodom tik užpildytas
+ *  kolekcijas; sitemap'e indeksuojam tik tas, kurios turi turinio. */
+export const getSongCollectionCounts = cache(async (): Promise<Record<string, number>> => {
+  try {
+    const sb = createAdminClient()
+    const { data } = await sb.from('collection_tracks').select('collection_slug')
+    const out: Record<string, number> = {}
+    for (const r of (data || []) as any[]) out[r.collection_slug] = (out[r.collection_slug] || 0) + 1
+    return out
+  } catch {
+    return {}
   }
 })
 
