@@ -22,6 +22,8 @@ import AlbumInfoModal from '@/components/AlbumInfoModal'
 import EventInfoModal, { type EventPreview } from '@/components/EventInfoModal'
 import NewsInfoModal, { type NewsPreview } from '@/components/NewsInfoModal'
 import { TrackInfoModal } from '@/components/TrackInfoModal'
+import ArtistConcertRow from './ArtistConcertRow'
+import type { ConcertRecording } from '@/lib/concert-recordings-shared'
 
 /* ═══════════════════════════════════════════════════════════════════
    Artist profile — v10.
@@ -154,6 +156,9 @@ type Props = {
    *  Antras bar'as Hero zonoje, žalia spalva, kad būtų aiškus „trending"
    *  signal'as atskirai nuo cumulative score. */
   recentPopBarLevel?: number
+  /** Šio atlikėjo koncertų įrašai (live pasirodymai) — rodomi sekcijoje po
+   *  galerija. Server fetch per lib/concert-recordings.getArtistRecordings. */
+  concertRecordings?: ConcertRecording[]
 }
 /** Custom era — single period in an artist's career. */
 type Era = {
@@ -5034,6 +5039,7 @@ export default function ArtistProfileClient({
   events, similar, newTracks,
   legacyCommunity, legacyThreads = [], legacyNews = [], discoveries = [], ranks = [],
   linkedTrackIds = [], awards = [], eras = [], displayRoles = [], popBarLevel = 0, recentPopBarLevel = 0,
+  concertRecordings = [],
 }: Props) {
   const [pid, setPid] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -6338,6 +6344,11 @@ export default function ArtistProfileClient({
               onOpen={(i) => setLightboxIndex(i)}
             />
           </section>
+        )}
+
+        {/* Koncertų įrašai — live pasirodymų vaizdo įrašai (po galerija) */}
+        {concertRecordings.length > 0 && (
+          <ArtistConcertRow recordings={concertRecordings} artistName={artist.name} />
         )}
 
         {/* Diskusijos — preview grid'as (3-col desktop, 2-col tablet, 1-col

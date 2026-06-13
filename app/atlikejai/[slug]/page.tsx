@@ -4,6 +4,7 @@ import { Suspense, cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import { getDiscoveriesByArtist } from '@/lib/discoveries'
+import { getArtistRecordings } from '@/lib/concert-recordings'
 import ArtistProfileClient from './artist-profile-client'
 import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
@@ -1073,13 +1074,14 @@ const fetchArtistData = unstable_cache(
       ...(legacyThreads as any[]).map((t) => t.legacy_id),
       ...(legacyNews as any[]).map((t) => t.legacy_id),
     ]
-    const [similar, legacyCommunity, ranks, lastPosts, popBarLevel, recentPopBarLevel] = await Promise.all([
+    const [similar, legacyCommunity, ranks, lastPosts, popBarLevel, recentPopBarLevel, concertRecordings] = await Promise.all([
       getSimilar(artistId, genres.map((g: any) => g.id)),
       getLegacyCommunity(artistId, albumIds, allTrackIds),
       getArtistRanks(artistId, country, genres as { id: number; name: string }[], score),
       getLastPostsByThread(allThreadIds, 2),
       getScorePopBarLevel(score),
       getRecentPopBarLevel(artistId),
+      getArtistRecordings(artistId, 24),
     ])
     // Convert Map<number, PostInfo[]> to array for serialization
     const lastPostsArr = Array.from(lastPosts.entries()).map(([k, v]) => [k, v] as [number, typeof v])
@@ -1087,14 +1089,14 @@ const fetchArtistData = unstable_cache(
       genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount,
       news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards, eras,
       similar, legacyCommunity, ranks, lastPostsArr, displayRoles, popBarLevel, recentPopBarLevel,
-      discoveries,
+      discoveries, concertRecordings,
     }
   },
   // v10 — 2026-06-10 bump: +discoveries („Muzikos atradimai" kortelė Diskusijose).
   // v9 — 2026-05-24 bump: cached v8 nelaikė substyles/genres array'us
   // šviežiai INTL atlikėjams po backfill'o (cache hit grąžindavo stale empty
   // tuplus). v9 priverčia full refetch — visi artist'ai gauna fresh data.
-  ['artist-full-data-v10'],
+  ['artist-full-data-v11'],
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
@@ -1112,6 +1114,7 @@ async function ArtistContent({ artist }: { artist: any }) {
   } = data
   const memberOf = (data as any).memberOf || []
   const discoveries = (data as any).discoveries || []
+  const concertRecordings = (data as any).concertRecordings || []
   const links = buildSocialLinks(artist, tableLinks as { platform: string; url: string }[])
   const lastPosts = new Map(lastPostsArr)
 
@@ -1243,6 +1246,7 @@ async function ArtistContent({ artist }: { artist: any }) {
       displayRoles={displayRoles}
       popBarLevel={popBarLevel}
       recentPopBarLevel={recentPopBarLevel}
+      concertRecordings={concertRecordings}
     />
     </>
   )
