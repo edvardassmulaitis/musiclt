@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import TopChartView, { type TopData } from '@/components/TopChartView'
-import { TopaiTabs } from '@/components/topai/TopaiTabs'
+import { TopaiFilterBar } from '@/components/topai/TopaiFilterBar'
 import { resolveDisplayWeek, fetchLiveVoteSplit } from '@/lib/top-week'
 
 export const metadata: Metadata = {
@@ -61,7 +61,7 @@ export default async function Top30Page() {
   const data = await getTopData('lt_top30')
   return (
     <>
-      <div style={{ paddingTop: 14 }}><TopaiTabs /></div>
+      <div style={{ paddingTop: 14 }}><TopaiFilterBar view="community" /></div>
       <TopChartView
         data={data}
         topType="lt_top30"
