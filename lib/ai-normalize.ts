@@ -110,7 +110,8 @@ function isValidCategory(v: any): v is AIRelevanceCategory {
 // Priskiria news_category reikšmę = redakcinis tipas (žr. lib/news-taxonomy.ts
 // NEWS_TYPES). Naudojama /api/internal/news-classify šviežioms naujienoms.
 
-const NEWS_TYPE_VALUES = ['naujiena', 'interviu', 'recenzija', 'foto', 'topai', 'koncertai', 'klipas', 'kita'] as const
+// 'foto' pašalintas — foto reportažai dabar atskirai /galerija (ne naujienose).
+const NEWS_TYPE_VALUES = ['naujiena', 'interviu', 'recenzija', 'topai', 'koncertai', 'klipas', 'kita'] as const
 export type NewsTypeValue = typeof NEWS_TYPE_VALUES[number]
 
 export type NewsTypeResult = { idx: number; type: NewsTypeValue }
@@ -121,7 +122,6 @@ function buildNewsTypePrompt(items: Array<{ idx: number; title: string; summary?
 - "naujiena": bendros žinios, nauji išleidimai, pranešimai, scenos įvykiai (NUMATYTASIS)
 - "interviu": pokalbis su atlikėju ar asmeniu (klausimai–atsakymai, „interviu su")
 - "recenzija": albumo/singlo/koncerto apžvalga ar vertinimas („recenzija", „apžvalga")
-- "foto": foto reportažas ar nuotraukų galerija iš renginio („foto reportažas", „nuotraukos")
 - "topai": reitingai, geriausiųjų sąrašai, „TOP 10", chartai, „daugiausiai…"
 - "koncertai": koncerto/festivalio anonsas, turo datos, bilietai („skelbia koncertą", „turas", „bilietai")
 - "klipas": naujo vaizdo klipo pristatymas ar premjera („pristatė klipą", „vaizdo klipas", „premjera")
@@ -133,7 +133,7 @@ Straipsniai:
 ${items.map(it => `[${it.idx}] ${it.title}${it.summary ? `\n    ${it.summary.slice(0, 200)}` : ''}`).join('\n\n')}
 
 Grąžink TIK JSON array, jokio kito teksto:
-[{"idx": <number>, "type": "naujiena"|"interviu"|"recenzija"|"foto"|"topai"|"koncertai"|"klipas"|"kita"}]`
+[{"idx": <number>, "type": "naujiena"|"interviu"|"recenzija"|"topai"|"koncertai"|"klipas"|"kita"}]`
 }
 
 export async function classifyNewsType(

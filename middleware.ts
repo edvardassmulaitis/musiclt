@@ -19,6 +19,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(dest, 308)
   }
 
+  // Foto reportažai iškelti iš naujienų į atskirą /galerija (2026-06-14).
+  // Senas tipo landing'as → galerija.
+  if (pathname === '/naujienos/tipas/foto') {
+    const dest = url.clone()
+    dest.pathname = '/galerija'
+    return NextResponse.redirect(dest, 308)
+  }
+
   // Redirect /lt/daina/{slug}/{id}/ → /dainos/{slug}-{id}
   const trackMatch = pathname.match(/^\/lt\/daina\/(.+?)\/(\d+)\/?$/)
   if (trackMatch) {

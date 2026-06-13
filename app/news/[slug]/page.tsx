@@ -1,5 +1,5 @@
 // app/news/[slug]/page.tsx
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
 import NewsArticleClient from './news-article-client'
 import type { Metadata } from 'next'
@@ -261,6 +261,14 @@ export default async function NewsPage({ params }: Props) {
   const { slug } = await params
   const raw = await getNews(slug)
   if (!raw) notFound()
+
+  // Foto reportažai iškelti į atskirą /galerija (2026-06-14). Jei šis įrašas
+  // konvertuotas į reportažą — redirect į kanoninį /galerija/[slug].
+  if (/^FOTO\s+(REPORTA[ŽZ]AS|GALERIJA)/i.test(raw.title || '') || (raw as any).news_category === 'foto') {
+    const sb = createAdminClient()
+    const { data: rep } = await sb.from('reportages').select('slug').eq('legacy_discussion_id', raw.id).maybeSingle()
+    if (rep?.slug) redirect(`/galerija/${rep.slug}`)
+  }
 
   const artist = Array.isArray(raw.artist) ? raw.artist[0] : raw.artist
   const artist2 = Array.isArray(raw.artist2) ? raw.artist2[0] : raw.artist2

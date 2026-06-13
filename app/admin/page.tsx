@@ -265,6 +265,7 @@ export default function AdminDashboardPage() {
     },
     { href: '/admin/radaras', icon: '📡', label: 'Naujų atlikėjų radaras', hint: 'Featured / įtraukti / paslėpti — /nauji-atlikejai' },
     { href: '/admin/koncertu-irasai', icon: '🎬', label: 'Koncertų įrašai', hint: 'Pridėk live pasirodymą iš YouTube nuorodos — /koncertu-irasai' },
+    { href: '/admin/galerija', icon: '📸', label: 'Foto galerija', hint: 'Foto reportažai + fotografai — Flickr import / upload · /galerija' },
     { href: '/admin/atradimai', icon: '✨', label: 'Muzikos atradimai', hint: 'Trūkstami atlikėjai — susieti su DB arba sukurti · /muzikos-atradimai' },
     { href: '/admin/charts', icon: '🌍', label: 'Išoriniai topai', hint: 'AGATA, Spotify, Apple — susieti dainas' },
     { href: '/admin/irasai', icon: '🗂️', label: 'Narių įrašai', hint: 'Tipų priskyrimas homepage juostai + topų normalizavimas (legacy→entity)' },

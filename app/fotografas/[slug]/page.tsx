@@ -1,40 +1,27 @@
 // app/fotografas/[slug]/page.tsx
 //
-// Photographer showcase — a simple grid of every photo attributed to this
-// photographer across all artists, with a link back to the artist on each tile.
+// Fotografo profilis — header (avataras, bio, socialiniai tinklai), jo foto
+// reportažai (/galerija) ir nuotraukos, kredituotos jam per atlikėjus.
 //
-// Why this exists: we just promoted photographers from a caption string to a
-// first-class table (20260424c_photographers.sql). A `/fotografas/[slug]`
-// page lets us link from the lightbox author name to a portfolio — especially
-// valuable for LT photographers who contribute to multiple artists.
-//
-// Rendering is server-side only (no client interactions yet). Later we can
-// add filtering, bio, socials, but this bootstrap is intentionally minimal.
+// Curated fotografai (is_curated=true, mūsų komanda) indeksuojami; likę 515 —
+// Wikimedia auto-atribucijos — lieka noindex (žr. lib/galerija.ts komentarą).
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
+import { proxyImgResized } from '@/lib/img-proxy'
+import { getPhotographerBySlug } from '@/lib/galerija'
+import { ReportageCard } from '@/components/galerija/ReportageCard'
 
 type Props = { params: Promise<{ slug: string }> }
 
-async function getPhotographer(slug: string) {
-  const sb = createAdminClient()
-  const { data } = await sb
-    .from('photographers')
-    .select('id, slug, name, website_url, bio, avatar_url, external_url, source')
-    .eq('slug', slug)
-    .single()
-  return data
-}
-
-/** Pull every photo credited to this photographer, joined with its artist so
- *  we can link each tile back. Ordered newest-first by taken_at (null last). */
-async function getPhotos(photographerId: number) {
+/** Nuotraukos, kredituotos fotografui per atlikėjus (legacy artist_photos). */
+async function getArtistPhotos(photographerId: number) {
   const sb = createAdminClient()
   const { data } = await sb
     .from('artist_photos')
-    .select('id, url, caption, taken_at, source_url, license, artist_id, artists:artist_id(id, slug, name)')
+    .select('id, url, caption, taken_at, artist_id, artists:artist_id(id, slug, name)')
     .eq('photographer_id', photographerId)
     .order('taken_at', { ascending: false, nullsFirst: false })
     .limit(200)
@@ -43,137 +30,120 @@ async function getPhotos(photographerId: number) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const p = await getPhotographer(slug)
-  if (!p) return { title: 'Fotografas', robots: { index: false, follow: false } }
+  const res = await getPhotographerBySlug(slug)
+  if (!res) return { title: 'Fotografas', robots: { index: false, follow: false } }
+  const { photographer: p, isCurated } = res
   return {
     title: `${p.name} — fotografas · music.lt`,
-    description: p.bio || `${p.name} nuotraukos music.lt`,
-    // 2026-05-21: noindex — fotografų sąraše atsiranda daug auto-imported
-    // entry'jų su nevalidžiais URL'ais (pvz „distributed-by-elektra-records"),
-    // kurie nelabai naudingi public'iui. Hide'inam nuo Google index'o, kad
-    // nesusikurtų bereikalingų indexed page'ų. follow:true — link'ai į
-    // atlikėjus iš čia vis tiek crawler'iui leidžiami.
-    robots: { index: false, follow: true },
+    description: p.bio || `${p.name} — koncertų foto reportažai music.lt`,
+    alternates: { canonical: `/fotografas/${p.slug}` },
+    // Tik curated fotografus indeksuojam — likę = Wikimedia auto šiukšlės.
+    robots: isCurated ? undefined : { index: false, follow: true },
   }
 }
 
+const SOCIAL = (label: string, href: string) => (
+  <a key={href} href={href} target="_blank" rel="noopener" className="text-[13px] font-semibold text-[#ec4899] no-underline hover:underline">
+    {label}
+  </a>
+)
+
 export default async function Page({ params }: Props) {
   const { slug } = await params
-  const photographer = await getPhotographer(slug)
-  if (!photographer) notFound()
+  const res = await getPhotographerBySlug(slug)
+  if (!res) notFound()
+  const { photographer: p, reportages } = res
+  const photos = await getArtistPhotos(p.id)
 
-  const photos = await getPhotos(photographer.id)
+  const socials = [
+    p.websiteUrl && SOCIAL('Svetainė', p.websiteUrl),
+    p.instagramUrl && SOCIAL('Instagram', p.instagramUrl),
+    p.facebookUrl && SOCIAL('Facebook', p.facebookUrl),
+    p.flickrUrl && SOCIAL('Flickr', p.flickrUrl),
+  ].filter(Boolean)
 
   return (
-    <main className="mx-auto max-w-[1400px] px-4 pb-24 pt-8 sm:px-6 lg:px-10">
+    <div className="page-shell">
       {/* Header */}
-      <section className="mb-8 flex items-center gap-4 sm:gap-5">
-        {photographer.avatar_url ? (
-          <img
-            src={photographer.avatar_url}
-            alt={photographer.name}
-            className="h-16 w-16 rounded-full border border-[var(--border-default)] object-cover sm:h-20 sm:w-20"
-          />
+      <header className="mb-9 flex items-center gap-4 sm:gap-5">
+        {p.avatarUrl ? (
+          <img src={p.avatarUrl} alt={p.name} className="h-20 w-20 flex-none rounded-full border border-[var(--border-default)] object-cover sm:h-24 sm:w-24" />
         ) : (
-          <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] font-['Outfit',sans-serif] text-[24px] font-black text-[var(--text-muted)] sm:h-20 sm:w-20 sm:text-[28px]">
-            {photographer.name?.charAt(0)?.toUpperCase() || '?'}
+          <div className="flex h-20 w-20 flex-none items-center justify-center rounded-full bg-gradient-to-br from-[#ec4899] to-[#8b5cf6] font-['Outfit',sans-serif] text-[30px] font-black text-white sm:h-24 sm:w-24">
+            {p.name?.charAt(0)?.toUpperCase() || '?'}
           </div>
         )}
         <div className="min-w-0 flex-1">
           <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-            Fotografas
+            {p.roleTitle || 'Fotografas'}
           </div>
-          <h1 className="font-['Outfit',sans-serif] text-[28px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)] sm:text-[32px]">
-            {photographer.name}
+          <h1 className="font-['Outfit',sans-serif] text-[28px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)] sm:text-[34px]">
+            {p.name}
           </h1>
-          <div className="mt-1 flex flex-wrap items-center gap-3 text-[12px] text-[var(--text-muted)]">
-            <span>{photos.length} nuotraukos</span>
-            {photographer.website_url && (
-              <a
-                href={photographer.website_url}
-                target="_blank"
-                rel="noopener"
-                className="text-[var(--accent-orange)] hover:underline"
-              >
-                Svetainė
-              </a>
-            )}
-            {photographer.external_url && (() => {
-              // 2026-05-21: rodome external_url tik jei jis tikrai veda į
-              // wikipedia.org / commons.wikimedia.org / wikidata.org —
-              // anksciau auto-import sukurdavo path'us, kurie veda į 404
-              // („distributed by elektra records" pseudo-photographer →
-              // /wiki/Distributed_By_Elektra_Records, kuris neegzistuoja).
-              // Manual entries ir tikri Wikimedia link'ai vis tiek veikia.
-              let host = ''
-              try { host = new URL(photographer.external_url).host.toLowerCase() } catch { return null }
-              const isWiki = /(?:^|\.)wikipedia\.org$|(?:^|\.)wikimedia\.org$|(?:^|\.)wikidata\.org$/.test(host)
-              if (!isWiki) return null
-              return (
-                <a
-                  href={photographer.external_url}
-                  target="_blank"
-                  rel="noopener"
-                  className="text-[var(--accent-orange)] hover:underline"
-                >
-                  {photographer.source === 'wikimedia' ? 'Wikimedia profilis' : 'Profilis'}
-                </a>
-              )
-            })()}
+          <div className="mt-1 flex flex-wrap items-center gap-3 text-[12.5px] text-[var(--text-muted)]">
+            {reportages.length > 0 && <span>{reportages.length} reportažai</span>}
+            {photos.length > 0 && <span>{photos.length} nuotraukos</span>}
+            {socials}
           </div>
-          {photographer.bio && (
-            <p className="mt-3 max-w-3xl text-[14px] leading-[1.6] text-[var(--text-secondary)]">
-              {photographer.bio}
-            </p>
+          {p.bio && (
+            <p className="mt-3 max-w-2xl text-[14px] leading-[1.6] text-[var(--text-secondary)]">{p.bio}</p>
           )}
         </div>
-      </section>
+      </header>
 
-      {/* Photos grid */}
-      {photos.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-10 text-center text-[14px] text-[var(--text-muted)]">
-          Dar nėra nuotraukų.
-        </div>
-      ) : (
-        <div className="columns-2 gap-2 sm:columns-3 md:gap-3 lg:columns-4">
-          {photos.map((p) => {
-            const artist = (p as any).artists
-            const year = p.taken_at ? new Date(p.taken_at).getFullYear() : null
-            const href = artist?.slug ? `/atlikejai/${artist.slug}` : null
-            const content = (
-              <div className="mb-2 block w-full overflow-hidden rounded-xl md:mb-3" style={{ breakInside: 'avoid' }}>
-                <div className="relative">
-                  <img
-                    src={p.url}
-                    alt={artist?.name || ''}
-                    loading="lazy"
-                    className="block w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                  />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-2.5">
+      {/* Reportažai */}
+      {reportages.length > 0 && (
+        <section className="mb-12">
+          <h2 className="mb-3 font-['Outfit',sans-serif] text-[19px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
+            Foto reportažai
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {reportages.map((r) => (
+              <ReportageCard key={r.id} r={r} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Atlikėjų nuotraukos (legacy artist_photos) */}
+      {photos.length > 0 && (
+        <section>
+          <h2 className="mb-3 font-['Outfit',sans-serif] text-[19px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
+            Nuotraukos
+          </h2>
+          <div className="[column-gap:10px] columns-2 sm:columns-3 lg:columns-4">
+            {photos.map((ph) => {
+              const artist = ph.artists
+              const year = ph.taken_at ? new Date(ph.taken_at).getFullYear() : null
+              const href = artist?.slug ? `/atlikejai/${artist.slug}` : null
+              const content = (
+                <div className="mb-2.5 block w-full overflow-hidden rounded-xl" style={{ breakInside: 'avoid' }}>
+                  <div className="relative">
+                    <img src={proxyImgResized(ph.url, 500)} alt={artist?.name || ''} loading="lazy" className="block w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
                     {artist?.name && (
-                      <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-white drop-shadow">
-                        {artist.name}
-                      </div>
-                    )}
-                    {year && (
-                      <div className="font-['Outfit',sans-serif] text-[10px] font-bold text-white/70">
-                        {year}
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent p-2.5">
+                        <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-white drop-shadow">{artist.name}</div>
+                        {year && <div className="font-['Outfit',sans-serif] text-[10px] font-bold text-white/70">{year}</div>}
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
-            )
-            return href ? (
-              <Link key={p.id} href={href} className="group block no-underline">
-                {content}
-              </Link>
-            ) : (
-              <div key={p.id} className="group block">{content}</div>
-            )
-          })}
+              )
+              return href ? (
+                <Link key={ph.id} href={href} className="group block no-underline">{content}</Link>
+              ) : (
+                <div key={ph.id} className="group block">{content}</div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {reportages.length === 0 && photos.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-10 text-center text-[14px] text-[var(--text-muted)]">
+          Dar nėra reportažų.
         </div>
       )}
-    </main>
+    </div>
   )
 }

@@ -50,11 +50,8 @@ export const NEWS_TYPES: NewsType[] = [
     blurb: 'Albumų, singlų ir koncertų recenzijos bei apžvalgos.',
     icon: '⭐', accent: '#f59e0b',
   },
-  {
-    key: 'foto', slug: 'foto', label: 'Foto reportažas', labelPlural: 'Foto reportažai',
-    blurb: 'Koncertų ir renginių foto reportažai bei galerijos.',
-    icon: '📸', accent: '#ec4899',
-  },
+  // 'foto' tipas pašalintas iš naujienų — foto reportažai dabar gyvena atskirai
+  // /galerija (žr. lib/galerija.ts). /naujienos/tipas/foto → redirect middleware.ts.
   {
     key: 'topai', slug: 'topai', label: 'Topai', labelPlural: 'Topai ir sąrašai',
     blurb: 'Reitingai, geriausiųjų sąrašai ir muzikos topai.',
