@@ -27,11 +27,12 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(dest, 308)
   }
   // Seni foto reportažų straipsniai (/news/FOTO-REPORTAZAS-… arba /news/FOTO-GALERIJA-…)
-  // → /galerija. Konvertuotus į konkretų reportažą sutvarko /api/galerija/resolve.
+  // → /api/galerija/from (route handler patikimai resolvina į konkretų reportažą
+  // arba /galerija hub'ą).
   if (/^\/news\/foto-(reporta[zž]as|galerija)-/i.test(pathname)) {
     const dest = url.clone()
-    dest.pathname = '/galerija'
-    dest.search = `?from=${encodeURIComponent(pathname.slice('/news/'.length))}`
+    dest.pathname = '/api/galerija/from'
+    dest.search = `?slug=${encodeURIComponent(pathname.slice('/news/'.length))}`
     return NextResponse.redirect(dest, 308)
   }
 
