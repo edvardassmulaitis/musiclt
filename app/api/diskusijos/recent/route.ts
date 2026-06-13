@@ -49,7 +49,7 @@ export async function GET(req: Request) {
             .eq('discussion_id', d.id)
             .eq('is_deleted', false)
             .order('created_at', { ascending: false })
-            .limit(2)
+            .limit(3)
           return { id: d.id, cs: (r.data || []) as any[] }
         } catch {
           return { id: d.id, cs: [] as any[] }

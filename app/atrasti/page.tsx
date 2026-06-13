@@ -873,32 +873,37 @@ function PostTopasRowCard({ p }: { p: FeedPost }) {
           <KindBadge kind="topas" abs={false} />
           <h3 className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
         </div>
-        <div className="mt-2 grid gap-x-6 gap-y-0.5 sm:grid-cols-2">
-          {entries.length === 0 ? (
-            <p className="m-0 py-3 text-[12px] text-[var(--text-muted)]">Tuščias topas</p>
-          ) : entries.map(e => (
-            <div key={e.rank} className="flex items-center gap-2.5 py-[5px]">
-              <span className={`w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[13px] font-black ${e.rank <= 3 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}>{e.rank}</span>
-              {e.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(e.image)} alt="" loading="lazy" className="h-7 w-9 shrink-0 rounded-[6px] object-cover" />
-              ) : <div className="h-7 w-9 shrink-0 rounded-[6px]" style={{ background: `hsl(${hue(e.title)},30%,20%)` }} />}
-              <div className="min-w-0 flex-1">
-                <p className="m-0 truncate text-[12.5px] font-bold text-[var(--text-primary)]">{sani(e.title)}</p>
-                {e.artist && <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{e.artist}</p>}
+        {entries.length === 0 ? (
+          <p className="m-0 mt-2 py-3 text-[12px] text-[var(--text-muted)]">Tuščias topas</p>
+        ) : (
+          <div className="mt-2.5 flex flex-wrap gap-3">
+            {entries.map(e => (
+              <div key={e.rank} className="flex w-[104px] flex-col gap-1.5 sm:w-[112px]">
+                <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
+                  {e.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(e.image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+                  ) : <div className="absolute inset-0" style={{ background: `hsl(${hue(e.title)},30%,20%)` }} />}
+                  <span className={`absolute left-1.5 top-1.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] text-[12px] font-black ${e.rank <= 3 ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{e.rank}</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="m-0 truncate text-[12px] font-bold leading-tight text-[var(--text-primary)]">{sani(e.title)}</p>
+                  {e.artist && <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{e.artist}</p>}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
       </div>
     </Link>
   )
 }
 
-// Diskusijos eilutė (#12): grupės foto kairėj, naujausias komentaras dešinėj.
+// Diskusijos eilutė (#12): grupės foto kairėj, iki 3 naujausių komentarų horizontaliai.
 function DiskusijaRowCard({ d }: { d: Diskusija }) {
-  const comment = (d.latest_comments && d.latest_comments.length ? d.latest_comments[0] : d.latest_comment) || null
+  const comments = (d.latest_comments && d.latest_comments.length ? d.latest_comments : (d.latest_comment ? [d.latest_comment] : [])).slice(0, 3)
+  const cols = Math.min(comments.length || 1, 3)
   return (
     <Link href={`/diskusijos/${d.slug}`} className={`${ROW_BASE} ${ROW_MINH} hover:border-[rgba(139,92,246,0.5)]`}
       style={{ background: 'linear-gradient(160deg, rgba(139,92,246,0.08), var(--bg-surface) 55%)' }}>
@@ -915,13 +920,18 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
       <div className={ROW_PAD}>
         <KindBadge kind="diskusija" abs={false} />
         <h3 className="m-0 mt-2 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(d.title)}</h3>
-        {comment && (
-          <div className="mt-1.5 rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-3 py-1.5">
-            <div className="mb-0.5 flex items-center gap-1.5">
-              <Avatar src={comment.avatar} name={comment.author} size={15} />
-              <b className="truncate text-[10.5px] font-bold text-[var(--text-primary)]">{comment.author}</b>
-            </div>
-            <p className="m-0 line-clamp-2 text-[12.3px] leading-relaxed text-[var(--text-secondary)]">{comment.excerpt}</p>
+        {comments.length > 0 && (
+          <div className="mt-2 grid gap-2.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+            {comments.map((c, i) => (
+              <div key={i} className="rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-3 py-2">
+                <div className="mb-1 flex items-center gap-1.5">
+                  <Avatar src={c.avatar} name={c.author} size={15} />
+                  <b className="min-w-0 flex-1 truncate text-[10.5px] font-bold text-[var(--text-primary)]">{c.author}</b>
+                  {c.created_at && timeAgo(c.created_at) && <span className="shrink-0 text-[9.5px] text-[var(--text-faint)]">{timeAgo(c.created_at)}</span>}
+                </div>
+                <p className="m-0 line-clamp-3 text-[12px] leading-relaxed text-[var(--text-secondary)]">{c.excerpt}</p>
+              </div>
+            ))}
           </div>
         )}
         <div className="mt-2 flex items-center gap-2">
