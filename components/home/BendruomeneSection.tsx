@@ -37,6 +37,8 @@ type CommunityItem = {
   candidates?: Candidate[]
   engagement?: number
   excerpt?: string | null
+  // Kūryba/vertimas — tikros eilėraščio eilutės (server-side iš content).
+  poem_lines?: string[] | null
   entries?: Entry[] | null
   last_comment?: CommentBubble | null
   last_comments?: CommentBubble[] | null
@@ -166,7 +168,7 @@ function AuthorRow({ it }: { it: CommunityItem }) {
   const h = strHue(name || it.title)
   const ago = timeAgo(it.created_at)
   return (
-    <div className="flex items-center gap-1.5 border-t border-[var(--border-subtle)] px-3 py-2.5">
+    <div className="mt-auto flex items-center gap-1.5 border-t border-[var(--border-subtle)] px-3 py-2.5">
       {it.author_avatar
         ? <img src={proxyImg(it.author_avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
             className="h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
@@ -297,21 +299,27 @@ function BlogCard({ it }: { it: CommunityItem }) {
     <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
       <Badge meta={meta} />
       <Cover url={it.cover} alt={it.author_name || it.title} hue={h} iconType={isCreative ? it.subtype! : 'blog'} />
-      <div className="flex flex-col gap-1.5 px-3 pb-2 pt-2.5">
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 px-3 pb-2 pt-2.5">
         <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
-        {it.excerpt && (
-          isCreative ? (
-            <div className="overflow-hidden" style={{ maxHeight: '10.5em' }}>
-              {poetryLines(it.excerpt).map((line, i) => (
-                <span key={i} className="block text-[12px] leading-[1.8] text-[var(--text-secondary)]" style={{ fontStyle: 'italic' }}>{line}</span>
-              ))}
-            </div>
-          ) : (
-            <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-secondary)]"
-               style={{ display: '-webkit-box', WebkitLineClamp: isLong ? 6 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it.excerpt}</p>
-          )
-        )}
+        {isCreative ? (
+          // Eilėraštis — tikros eilutės (poem_lines), kiekviena atskiroje eilutėje.
+          // Fallback: senas char-wrap (poetryLines) jei content neturėjo lūžių.
+          (() => {
+            const lines = (it.poem_lines && it.poem_lines.length ? it.poem_lines : (it.excerpt ? poetryLines(it.excerpt) : [])).slice(0, 6)
+            if (!lines.length) return null
+            return (
+              <div className="min-h-0 flex-1 overflow-hidden">
+                {lines.map((line, i) => (
+                  <span key={i} className="block truncate text-[12px] leading-[1.7] text-[var(--text-secondary)]" style={{ fontStyle: 'italic' }}>{line}</span>
+                ))}
+              </div>
+            )
+          })()
+        ) : it.excerpt ? (
+          <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-secondary)]"
+             style={{ display: '-webkit-box', WebkitLineClamp: isLong ? 6 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it.excerpt}</p>
+        ) : null}
       </div>
       <AuthorRow it={it} />
     </Link>

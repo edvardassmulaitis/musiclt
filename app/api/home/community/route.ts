@@ -30,6 +30,33 @@ function first<T>(v: T | T[] | null | undefined): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
 }
 
+// ── Kūryba/vertimas → tikros eilėraščio eilutės ────────────────────────────
+// `summary` jau būna su sutrauktais newlines (eilutės susilieja į prozą), todėl
+// poezijos eilutes ištraukiam iš pilno `content` (Tiptap HTML arba legacy plain
+// text). Block tag'ai/<br> → \n; tag'ai nuvalomi; min. entity decode. Grąžinam
+// iki `maxLines` eilučių, kiekvieną iki ~48 simb. (UI vis tiek truncate'ina).
+function poemLinesFromContent(content: string | null | undefined, maxLines = 8): string[] {
+  if (!content) return []
+  let s = String(content)
+  // Block-level pabaigos / <br> → eilutės lūžis
+  s = s.replace(/<\s*br\s*\/?>/gi, '\n')
+       .replace(/<\/\s*(p|div|h[1-6]|li|blockquote)\s*>/gi, '\n')
+  // Likę tag'ai → pašalint
+  s = s.replace(/<[^>]+>/g, '')
+  // Minimalus HTML entity decode
+  s = s.replace(/&nbsp;/gi, ' ')
+       .replace(/&amp;/gi, '&')
+       .replace(/&lt;/gi, '<')
+       .replace(/&gt;/gi, '>')
+       .replace(/&quot;/gi, '"')
+       .replace(/&#39;|&apos;/gi, "'")
+  const lines = s.split('\n')
+    .map(l => l.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .map(l => l.length > 48 ? l.slice(0, 48).trimEnd() + '…' : l)
+  return lines.slice(0, maxLines)
+}
+
 export async function GET() {
   const sb = createAdminClient()
   const today = todayLT()
@@ -60,7 +87,7 @@ export async function GET() {
       //   !inner join + hide_from_homepage=not.is.true → paslėpti nariai išmetami DB lygyje.
       //   Be 60d floor: imam naujausią KIEKVIENO tipo įrašą, net jei tipas retas (pvz. topas).
       sb.from('blog_posts')
-        .select('id, slug, title, post_type, editorial_type, summary, cover_image_url, like_count, comment_count, published_at, list_items, target_track_id, target_album_id, target_artist_id, target_event_id, blogs:blog_id!inner(slug, profiles:user_id!inner(id, username, full_name, avatar_url, hide_from_homepage))')
+        .select('id, slug, title, post_type, editorial_type, summary, content, cover_image_url, like_count, comment_count, published_at, list_items, target_track_id, target_album_id, target_artist_id, target_event_id, blogs:blog_id!inner(slug, profiles:user_id!inner(id, username, full_name, avatar_url, hide_from_homepage))')
         .eq('status', 'published')
         .not('published_at', 'is', null)
         .not('blogs.profiles.hide_from_homepage', 'is', true)
@@ -283,16 +310,20 @@ export async function GET() {
       // Aukštesnės kortelės — daugiau teksto. Koncertai/apžvalgos/kūryba gauna ilgesnį excerpt.
       const wantLong = b.editorial_type === 'koncertai' || b.editorial_type === 'recenzija'
         || b.post_type === 'review' || b.post_type === 'creation' || b.post_type === 'translation'
+      const isCreative = b.post_type === 'creation' || b.post_type === 'translation'
       const maxLen = wantLong ? 360 : 240
       const excerpt = b.summary
         ? (b.summary.length > maxLen ? b.summary.slice(0, maxLen).trimEnd() + '…' : b.summary)
         : null
+      // Kūryba/vertimas — tikros eilėraščio eilutės iš pilno content (su realiais
+      // eilučių lūžiais), kad kortelė skaitytųsi kaip eilėraštis, ne sugrūsta proza.
+      const poem_lines = isCreative ? poemLinesFromContent(b.content, 8) : null
 
       blogItems.push({
         id: `blog-${b.id}`, type: 'blog', subtype: b.post_type || null,
         editorial_type: b.editorial_type || null,
         title: b.title, href: blogSlug ? `/blogas/${blogSlug}/${b.slug || b.id}` : '/blogas',
-        cover, excerpt, entries,
+        cover, excerpt, entries, poem_lines,
         // username pirmiau už full_name — bendruomenėje rodomi username'ai.
         author_name: author?.username || author?.full_name || null,
         author_slug: author?.username || null,
