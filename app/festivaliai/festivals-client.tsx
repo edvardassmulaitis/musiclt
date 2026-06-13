@@ -204,8 +204,8 @@ export default function FestivalsClient({ festivals }: { festivals: Festival[] }
 
       {/* ── Antraštė ── */}
       <div className="fs-head">
-        <h1>Muzikos festivaliai Lietuvoje</h1>
-        <p>Būsimi ir praėję festivaliai, pilni line-up'ai ir dalyvavę atlikėjai — Granatos, Karklė, Mėnuo Juodaragis, Positivus ir kiti vienoje vietoje.</p>
+        <h1>Muzikos festivaliai</h1>
+        <p>Būsimi ir praėję festivaliai, pilni line-up'ai ir dalyvavę atlikėjai — Granatos, Karklė, Mėnuo Juodaragis, Positivus, Tundra ir kiti vienoje vietoje.</p>
       </div>
 
       {/* ── Filtrai ── */}
@@ -408,10 +408,10 @@ const FS_CSS = `
 .fs-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600;
   font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08));
   color:var(--text-secondary); transition:all .15s; white-space:nowrap; cursor:pointer; line-height:1.3; }
-.fs-chip:hover { color:var(--text-primary); border-color:rgba(6,182,212,0.45); }
-.fs-chip.on { background:#06b6d4; border-color:#06b6d4; color:#04121a; }
+.fs-chip:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
+.fs-chip.on { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
 .fs-chip svg { display:block; }
-.fs-reset { padding:6px 11px; border-radius:100px; font-size:12px; font-weight:700; font-family:'Outfit',sans-serif; color:#06b6d4; background:transparent; border:none; cursor:pointer; white-space:nowrap; }
+.fs-reset { padding:6px 11px; border-radius:100px; font-size:12px; font-weight:700; font-family:'Outfit',sans-serif; color:var(--accent-orange); background:transparent; border:none; cursor:pointer; white-space:nowrap; }
 .fs-count { margin-left:auto; font-size:12px; font-weight:700; color:var(--text-faint); font-family:'Outfit',sans-serif; background:var(--bg-hover); border-radius:100px; padding:4px 11px; }
 
 /* Popover */
@@ -421,7 +421,7 @@ const FS_CSS = `
 .fs-opt { display:flex; align-items:center; gap:8px; text-align:left; width:100%; padding:8px 10px; border-radius:9px; font-size:13px; font-weight:600;
   font-family:'Outfit',sans-serif; cursor:pointer; background:transparent; border:none; color:var(--text-secondary); transition:all .12s; }
 .fs-opt:hover { background:var(--bg-hover); color:var(--text-primary); }
-.fs-opt.on { color:#06b6d4; }
+.fs-opt.on { color:var(--accent-orange); }
 .fs-check { width:16px; height:16px; border-radius:5px; border:1.5px solid; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; flex-shrink:0; }
 .fs-pop-clear { margin-top:9px; width:100%; padding:7px; border-radius:9px; font-size:12px; font-weight:700; font-family:'Outfit',sans-serif; cursor:pointer; background:var(--bg-hover); border:none; color:var(--text-secondary); }
 
@@ -430,7 +430,7 @@ const FS_CSS = `
 .fs-sec-head { display:flex; align-items:center; gap:10px; margin-bottom:16px; font-family:'Outfit',sans-serif; font-weight:800; font-size:13px;
   text-transform:uppercase; letter-spacing:.07em; color:var(--text-primary); }
 .fs-sec-head i { flex:1; height:1px; background:var(--border-default,rgba(255,255,255,0.08)); }
-.fs-sec-dot { width:8px; height:8px; border-radius:50%; background:#06b6d4; box-shadow:0 0 0 4px rgba(6,182,212,0.18); }
+.fs-sec-dot { width:8px; height:8px; border-radius:50%; background:var(--accent-orange); box-shadow:0 0 0 4px rgba(249,115,22,0.18); }
 .fs-year { margin-bottom:24px; }
 .fs-year-label { display:flex; align-items:center; gap:9px; margin-bottom:12px; font-family:'Outfit',sans-serif; font-weight:800; font-size:15px; color:var(--accent-orange,#f97316); }
 .fs-year-label span { font-size:10.5px; font-weight:700; color:var(--text-faint); background:var(--bg-hover); border-radius:100px; padding:2px 8px; }
@@ -442,7 +442,7 @@ const FS_CSS = `
 /* Kortelė */
 .fs-card { display:block; border-radius:16px; overflow:hidden; background:var(--bg-surface);
   border:1px solid var(--border-default,rgba(255,255,255,0.07)); transition:transform .18s, border-color .18s, box-shadow .18s; }
-.fs-card:hover { transform:translateY(-3px); border-color:rgba(6,182,212,0.45); box-shadow:0 14px 30px rgba(0,0,0,0.24); }
+.fs-card:hover { transform:translateY(-3px); border-color:rgba(249,115,22,0.4); box-shadow:0 14px 30px rgba(0,0,0,0.24); }
 .fs-card-img { position:relative; aspect-ratio:16/9; overflow:hidden; background:var(--bg-elevated); }
 .fs-card-bg { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(20px) brightness(.6); transform:scale(1.25); }
 .fs-card-fg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; transition:transform .45s ease; }
@@ -463,7 +463,7 @@ const FS_CSS = `
 .fs-card-body { padding:12px 14px 14px; display:flex; flex-direction:column; gap:7px; }
 .fs-card-title { font-family:'Outfit',sans-serif; font-weight:800; font-size:16px; line-height:1.2; color:var(--text-primary);
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.fs-card:hover .fs-card-title { color:#06b6d4; }
+.fs-card:hover .fs-card-title { color:var(--accent-orange); }
 .fs-card-city { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:var(--text-muted); }
 .fs-card-city svg { opacity:.7; flex-shrink:0; }
 .fs-card-lineup { display:flex; align-items:center; gap:9px; margin-top:2px; }
@@ -487,5 +487,5 @@ const FS_CSS = `
 .fs-empty-ic svg { width:46px; height:46px; }
 .fs-empty h3 { font-family:'Outfit',sans-serif; font-weight:800; font-size:19px; margin:10px 0 4px; color:var(--text-primary); }
 .fs-empty p { color:var(--text-muted); font-size:13px; }
-.fs-mini { margin-top:14px; padding:8px 16px; border-radius:100px; font-size:12.5px; font-weight:700; font-family:'Outfit',sans-serif; cursor:pointer; background:#06b6d4; color:#04121a; border:none; }
+.fs-mini { margin-top:14px; padding:8px 16px; border-radius:100px; font-size:12.5px; font-weight:700; font-family:'Outfit',sans-serif; cursor:pointer; background:var(--accent-orange); color:#fff; border:none; }
 `

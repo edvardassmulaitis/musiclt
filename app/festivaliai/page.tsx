@@ -3,13 +3,13 @@ import { getFestivals } from '@/lib/supabase-events'
 import FestivalsClient from './festivals-client'
 
 export const metadata: Metadata = {
-  title: 'Muzikos festivaliai Lietuvoje – line-up\'ai, datos, archyvas | music.lt',
+  title: 'Muzikos festivaliai – line-up\'ai, datos, archyvas | music.lt',
   description:
-    'Lietuvos muzikos festivaliai: būsimi ir praėję festivaliai, pilni line-up\'ai, dalyvavę atlikėjai, datos ir vietos. Granatos, Karklė, Mėnuo Juodaragis, Positivus ir kiti — vienoje vietoje.',
+    'Muzikos festivaliai: būsimi ir praėję festivaliai, pilni line-up\'ai, dalyvavę atlikėjai, datos ir vietos. Granatos, Karklė, Mėnuo Juodaragis, Positivus, Tundra ir kiti — vienoje vietoje.',
   alternates: { canonical: '/festivaliai' },
   openGraph: {
-    title: 'Muzikos festivaliai Lietuvoje | music.lt',
-    description: 'Būsimi ir praėję Lietuvos muzikos festivaliai su pilnais line-up\'ais ir dalyvavusiais atlikėjais.',
+    title: 'Muzikos festivaliai | music.lt',
+    description: 'Būsimi ir praėję muzikos festivaliai su pilnais line-up\'ais ir dalyvavusiais atlikėjais.',
     type: 'website',
   },
 }
@@ -30,7 +30,7 @@ export default async function FestivalsPage() {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: 'Muzikos festivaliai Lietuvoje',
+    name: 'Muzikos festivaliai',
     itemListElement: listSrc.map((f: any, i: number) => ({
       '@type': 'ListItem',
       position: i + 1,
