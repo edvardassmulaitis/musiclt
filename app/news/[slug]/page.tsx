@@ -268,12 +268,13 @@ export default async function NewsPage({ params }: Props) {
   if (/^foto-/i.test(slug) || /foto/i.test(raw.title || '') || (raw as any).news_category === 'foto') {
     const discId = (raw as any)._discussion_id ?? raw.id
     const sb = createAdminClient()
-    const { data: rep } = await sb
+    const { data: rep, error: repErr } = await sb
       .from('reportages')
       .select('slug')
       .eq('legacy_discussion_id', discId)
       .maybeSingle()
     if (rep?.slug) redirect(`/galerija/${rep.slug}`)
+    redirect(`/galerija?dbg=nomatch&did=${discId}&err=${encodeURIComponent(repErr?.message || 'none')}`)
   }
 
   const artist = Array.isArray(raw.artist) ? raw.artist[0] : raw.artist
