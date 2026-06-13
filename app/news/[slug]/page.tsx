@@ -264,7 +264,7 @@ export default async function NewsPage({ params }: Props) {
 
   // Foto reportažai iškelti į atskirą /galerija (2026-06-14). Jei šis įrašas
   // konvertuotas į reportažą — redirect į kanoninį /galerija/[slug].
-  if (/^FOTO\s+(REPORTA[ŽZ]AS|GALERIJA)/i.test(raw.title || '') || (raw as any).news_category === 'foto') {
+  if (/foto/i.test(raw.title || '') || (raw as any).news_category === 'foto') {
     const sb = createAdminClient()
     const { data: rep } = await sb.from('reportages').select('slug').eq('legacy_discussion_id', raw.id).maybeSingle()
     if (rep?.slug) redirect(`/galerija/${rep.slug}`)
