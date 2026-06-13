@@ -18,7 +18,7 @@ export type Destination = {
   countryCode: string        // ISO-2, vėliavėlei (emoji)
   reach: ReachMode
   // skrydžiui:
-  fromAirport?: string       // "VNO" | "KUN" | "RIX"
+  fromAirport?: string       // "VNO" | "KUN" (Ryga tik kaip car-destination)
   carrier?: string           // "Ryanair" | "Wizz Air" | "airBaltic"
   priceFrom?: number         // tipinė one-way kaina EUR
   // mašinai:
@@ -50,17 +50,17 @@ export const DESTINATIONS: Destination[] = [
   { key: 'warsaw', city: 'Varšuva',  country: 'Lenkija', countryCode: 'PL', reach: 'car', driveHours: 6.5, driveFrom: 'Kaunas' },
   { key: 'gdansk', city: 'Gdanskas', country: 'Lenkija', countryCode: 'PL', reach: 'car', driveHours: 7,   driveFrom: 'Kaunas' },
 
-  // — Pigus tiesioginis skrydis (VNO / KUN / RIX) —
+  // — Pigus tiesioginis skrydis (VNO / KUN) —
   { key: 'berlin',     city: 'Berlynas',   country: 'Vokietija', countryCode: 'DE', reach: 'flight', fromAirport: 'VNO', carrier: 'Ryanair',   priceFrom: 40 },
-  { key: 'stockholm',  city: 'Stokholmas', country: 'Švedija',   countryCode: 'SE', reach: 'flight', fromAirport: 'RIX', carrier: 'airBaltic', priceFrom: 45 },
+  { key: 'stockholm',  city: 'Stokholmas', country: 'Švedija',   countryCode: 'SE', reach: 'flight', fromAirport: 'KUN', carrier: 'Ryanair',   priceFrom: 45 },
   { key: 'copenhagen', city: 'Kopenhaga',  country: 'Danija',    countryCode: 'DK', reach: 'flight', fromAirport: 'KUN', carrier: 'Ryanair',   priceFrom: 40 },
   { key: 'vienna',     city: 'Viena',      country: 'Austrija',  countryCode: 'AT', reach: 'flight', fromAirport: 'VNO', carrier: 'Ryanair',   priceFrom: 45 },
   { key: 'barcelona',  city: 'Barselona',  country: 'Ispanija',  countryCode: 'ES', reach: 'flight', fromAirport: 'VNO', carrier: 'Wizz Air',  priceFrom: 50 },
   { key: 'milan',      city: 'Milanas',    country: 'Italija',   countryCode: 'IT', reach: 'flight', fromAirport: 'VNO', carrier: 'Ryanair',   priceFrom: 45 },
   { key: 'rome',       city: 'Roma',       country: 'Italija',   countryCode: 'IT', reach: 'flight', fromAirport: 'VNO', carrier: 'Ryanair',   priceFrom: 50 },
   { key: 'london',     city: 'Londonas',   country: 'Anglija',   countryCode: 'GB', reach: 'flight', fromAirport: 'KUN', carrier: 'Ryanair',   priceFrom: 40 },
-  { key: 'paris',      city: 'Paryžius',   country: 'Prancūzija',countryCode: 'FR', reach: 'flight', fromAirport: 'RIX', carrier: 'airBaltic', priceFrom: 55 },
-  { key: 'madrid',     city: 'Madridas',   country: 'Ispanija',  countryCode: 'ES', reach: 'flight', fromAirport: 'RIX', carrier: 'airBaltic', priceFrom: 70 },
+  { key: 'paris',      city: 'Paryžius',   country: 'Prancūzija',countryCode: 'FR', reach: 'flight', fromAirport: 'VNO', carrier: 'airBaltic', priceFrom: 55 },
+  { key: 'madrid',     city: 'Madridas',   country: 'Ispanija',  countryCode: 'ES', reach: 'flight', fromAirport: 'VNO', carrier: 'airBaltic', priceFrom: 70 },
   { key: 'budapest',   city: 'Budapeštas', country: 'Vengrija',  countryCode: 'HU', reach: 'flight', fromAirport: 'VNO', carrier: 'Wizz Air',  priceFrom: 45 },
   { key: 'amsterdam',  city: 'Amsterdamas',country: 'Nyderlandai',countryCode:'NL', reach: 'flight', fromAirport: 'VNO', carrier: 'Wizz Air',  priceFrom: 45 },
 ]

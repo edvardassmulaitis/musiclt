@@ -32,7 +32,7 @@ create table travel_destinations (
   airport_codes text[] default '{}',        -- {WAW, WMI}
   reach_mode    text not null,              -- 'flight' | 'car' | 'both'
   -- skrydžiui:
-  from_airports text[] default '{}',        -- {VNO, KUN, RIX}
+  from_airports text[] default '{}',        -- {VNO, KUN} (Ryga tik kaip car-destination, ne išvykimo hub)
   carriers      text[] default '{}',        -- {Ryanair, Wizz Air, airBaltic}
   price_from    int,                         -- tipinė one-way kaina EUR
   -- mašinai/autobusui:
@@ -104,9 +104,9 @@ Tu sakei: gan statinis, bet **nenoriu praleisti, jei atsiranda nauja kryptis arb
 Sprendimas — **periodinis scrape + diff prieš DB**, niekada automatiškai netrindamas:
 
 1. **Seed (vienkartinis):** užpildom `travel_destinations` iš žinomo Ryanair/Wizz Air/airBaltic
-   tinklo (VNO/KUN/RIX). Pradinis sąrašas faile `lib/verta-keliones-seed.ts` (jau yra).
+   tinklo (VNO/KUN — Ryga tik drivable kryptis, ne išvykimo hub). Pradinis sąrašas faile `lib/verta-keliones-seed.ts` (jau yra).
 2. **Atnaujinimas (mėnesinis cron):** workeris nuskaito esamus tiesioginius maršrutus iš
-   VNO/KUN/RIX (FlightConnections / oro uostų tvarkaraščiai / vežėjų route map'ai) ir lygina su DB:
+   VNO/KUN (FlightConnections / oro uostų tvarkaraščiai / vežėjų route map'ai) ir lygina su DB:
    - **naujas maršrutas** (yra scrape'e, nėra DB) → įrašom `is_active=true` + flag admin'ui
      („nauja kryptis — patikrink, ar verta įtraukti").
    - **dingęs maršrutas** (yra DB, nėra scrape'e 2 ciklus iš eilės) → **nepašalinam**, tik
@@ -245,5 +245,5 @@ Dizainas pagal `PAGE_LAYOUT_RULES.md`: `.page-shell`, CSS kintamieji, **inline S
 ---
 *Duomenų šaltiniai seed'ui: The Weeknd After Hours Til Dawn 2026 (Varšuva PGE Narodowy 08-04/05,
 Stokholmas Strawberry Arena 08-08..10 — ticketnews/NME/Pollstar); Lollapalooza Berlin 07-18/19;
-Open'er Gdynia 07-01..04; Roskilde 06-27..07-04; Ryanair/Wizz/airBaltic VNO/KUN/RIX maršrutai.
+Open'er Gdynia 07-01..04; Roskilde 06-27..07-04; Ryanair/Wizz/airBaltic VNO/KUN maršrutai.
 Kai kurios datos apytikslės — seed yra demonstracinis.*
