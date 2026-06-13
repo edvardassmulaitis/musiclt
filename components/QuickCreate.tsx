@@ -30,36 +30,46 @@ type Item = {
   label: string
   desc: string
   icon: React.ReactNode
-  accent?: string
+  /** Akcentinė ikonos chip'o spalva (tekstas) */
+  color: string
+  /** Ikonos chip'o fonas */
+  bg: string
 }
 
-type FeatItem = Item & { bg: string; color: string }
+type Group = { label: string; items: Item[] }
 
 const sv = (d: React.ReactNode) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
 )
 
-// ── Svarbiausi — tas pats turinys ir tvarka kaip /atrasti prompt'ai
-//    (koncertas → apžvalga → topas → atradimas), tos pačios akcentinės spalvos.
-const FEATURED: FeatItem[] = [
-  { href: '/blogas/rasyti?type=event', label: 'Koncerto įspūdžiai', desc: 'Buvai koncerte? Papasakok', bg: 'rgba(59,130,246,0.15)', color: '#60a5fa', icon: sv(<path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3zM19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8" />) },
-  { href: '/blogas/rasyti?type=review', label: 'Recenzija', desc: 'Įvertink dainą ar albumą', bg: 'rgba(239,68,68,0.15)', color: '#f87171', icon: sv(<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />) },
-  { href: '/blogas/rasyti?type=topas', label: 'Topas', desc: 'Sudaryk savo reitingą', bg: 'rgba(245,158,11,0.15)', color: '#fbbf24', icon: sv(<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 5M17 6h3a3 3 0 0 1-3 5" />) },
-  { href: '/muzikos-atradimai/pasidalink', label: 'Atradimas', desc: 'Pasidalink rasta muzika', bg: 'rgba(249,115,22,0.15)', color: '#fb923c', icon: sv(<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" />) },
-]
-
-// ── Kūrybos kampas — kaip /atrasti sekcija (eilėraščiai · vertimai · įrašai).
-const CREATE: Item[] = [
-  { href: '/blogas/rasyti?type=creation', label: 'Kūryba', desc: 'Eilėraštis, tavo kūrinys', icon: sv(<><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>) },
-  { href: '/blogas/rasyti?type=translation', label: 'Vertimas', desc: 'Dainos žodžiai', icon: sv(<><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></>) },
-  { href: '/blogas/rasyti?type=article', label: 'Įrašas', desc: 'Straipsnis, mintis', icon: sv(<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>) },
-]
-
-const PARTICIPATE: Item[] = [
-  { href: '/blogas/rasyti?type=daily', label: 'Dienos daina', desc: 'Pasiūlyk dainą', accent: 'var(--accent-orange)', icon: sv(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>) },
-  { href: '/diskusijos', label: 'Diskusija', desc: 'Įsitrauk į pokalbį', accent: 'var(--accent-orange)', icon: sv(<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />) },
-  { href: '/boombox', label: 'Boombox', desc: 'Atspėk, žaisk', accent: 'var(--accent-orange)', icon: sv(<><rect x="3" y="8" width="18" height="12" rx="2" /><circle cx="8" cy="14" r="2" /><circle cx="16" cy="14" r="2" /><path d="M7 8V5a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v3" /></>) },
-  { href: '/blogas/rasyti?type=mood', label: 'Nuotaikos daina', desc: 'Daina tavo profiliui', accent: 'var(--accent-orange)', icon: sv(<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />) },
+// Vieningas kortelės stilius visur — kiekviena kortelė turi savo akcentą,
+// kad sekcijos skaitytųsi ramiai ir aiškiai (vietoj 3 skirtingų tinklelių).
+const GROUPS: Group[] = [
+  {
+    label: 'Dalinkis muzika',
+    items: [
+      { href: '/blogas/rasyti?type=review', label: 'Recenzija', desc: 'Įvertink dainą ar albumą', bg: 'rgba(239,68,68,0.15)', color: '#f87171', icon: sv(<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />) },
+      { href: '/blogas/rasyti?type=event', label: 'Koncerto įspūdžiai', desc: 'Buvai koncerte? Papasakok', bg: 'rgba(59,130,246,0.15)', color: '#60a5fa', icon: sv(<path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3zM19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8" />) },
+      { href: '/blogas/rasyti?type=topas', label: 'Topas', desc: 'Sudaryk savo reitingą', bg: 'rgba(245,158,11,0.15)', color: '#fbbf24', icon: sv(<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 5M17 6h3a3 3 0 0 1-3 5" />) },
+      { href: '/muzikos-atradimai/pasidalink', label: 'Atradimas', desc: 'Pasidalink rasta muzika', bg: 'rgba(249,115,22,0.15)', color: '#fb923c', icon: sv(<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" />) },
+    ],
+  },
+  {
+    label: 'Kūryba',
+    items: [
+      { href: '/blogas/rasyti?type=creation', label: 'Kūryba', desc: 'Eilėraštis, tavo kūrinys', bg: 'rgba(139,92,246,0.15)', color: '#a78bfa', icon: sv(<><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>) },
+      { href: '/blogas/rasyti?type=translation', label: 'Vertimas', desc: 'Dainos žodžiai', bg: 'rgba(20,184,166,0.15)', color: '#2dd4bf', icon: sv(<><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></>) },
+      { href: '/blogas/rasyti?type=article', label: 'Įrašas', desc: 'Straipsnis, mintis', bg: 'rgba(100,116,139,0.18)', color: '#94a3b8', icon: sv(<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>) },
+    ],
+  },
+  {
+    label: 'Greiti veiksmai',
+    items: [
+      { href: '/blogas/rasyti?type=daily', label: 'Dienos daina', desc: 'Pasiūlyk dainą', bg: 'rgba(34,197,94,0.15)', color: '#4ade80', icon: sv(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>) },
+      { href: '/blogas/rasyti?type=mood', label: 'Nuotaikos daina', desc: 'Daina tavo profiliui', bg: 'rgba(236,72,153,0.15)', color: '#f472b6', icon: sv(<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />) },
+      { href: '/diskusijos', label: 'Diskusija', desc: 'Įsitrauk į pokalbį', bg: 'rgba(99,102,241,0.15)', color: '#818cf8', icon: sv(<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />) },
+    ],
+  },
 ]
 
 export function QuickCreate() {
@@ -106,28 +116,22 @@ export function QuickCreate() {
 
   const go = (href: string) => { setOpen(false); router.push(href) }
 
-  const Tile = ({ it, done }: { it: Item; done?: boolean }) => done ? (
-    <div className="qc-tile qc-tile--done">
-      <span className="qc-tile-icon" style={{ color: '#22c55e' }}>
+  const Card = ({ it, done }: { it: Item; done?: boolean }) => done ? (
+    <div className="qc-card qc-card--done">
+      <span className="qc-card-icon" style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
       </span>
-      <span className="qc-tile-label" style={{ color: '#22c55e' }}>{it.label}</span>
-      <span className="qc-tile-desc" style={{ color: '#22c55e', opacity: 0.7 }}>Pasiūlyta!</span>
+      <span className="qc-card-text">
+        <span className="qc-card-label">{it.label}</span>
+        <span className="qc-card-desc" style={{ color: '#4ade80' }}>Pasiūlyta!</span>
+      </span>
     </div>
   ) : (
-    <button type="button" className="qc-tile" onClick={() => go(it.href)}>
-      <span className="qc-tile-icon" style={it.accent ? { color: it.accent } : undefined}>{it.icon}</span>
-      <span className="qc-tile-label">{it.label}</span>
-      <span className="qc-tile-desc">{it.desc}</span>
-    </button>
-  )
-
-  const FeatCard = ({ it }: { it: FeatItem }) => (
-    <button type="button" className="qc-feat" onClick={() => go(it.href)}>
-      <span className="qc-feat-icon" style={{ background: it.bg, color: it.color }}>{it.icon}</span>
-      <span className="qc-feat-text">
-        <span className="qc-feat-label">{it.label}</span>
-        <span className="qc-feat-desc">{it.desc}</span>
+    <button type="button" className="qc-card" onClick={() => go(it.href)}>
+      <span className="qc-card-icon" style={{ background: it.bg, color: it.color }}>{it.icon}</span>
+      <span className="qc-card-text">
+        <span className="qc-card-label">{it.label}</span>
+        <span className="qc-card-desc">{it.desc}</span>
       </span>
     </button>
   )
@@ -175,45 +179,31 @@ export function QuickCreate() {
         }
         .qc-group-label {
           font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-          color: var(--text-muted); margin: 16px 4px 8px;
+          color: var(--text-muted); margin: 14px 4px 8px;
         }
-        .qc-featgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .qc-feat {
-          display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;
-          padding: 11px 12px; border-radius: 14px;
+        /* Vieningas kortelės stilius — visos sekcijos atrodo vienodai. */
+        .qc-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .qc-card {
+          display: flex; align-items: center; gap: 11px; text-align: left; cursor: pointer;
+          padding: 11px 12px; border-radius: 14px; width: 100%;
           background: var(--bg-elevated); border: 1px solid var(--border-subtle);
           transition: border-color .14s, background .14s, transform .1s;
         }
-        .qc-feat:hover { border-color: var(--accent-orange); background: rgba(249,115,22,0.07); }
-        .qc-feat:active { transform: scale(.97); }
-        .qc-feat-icon {
-          width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0;
+        .qc-card:not(.qc-card--done):hover { border-color: var(--border-strong); background: var(--bg-active); }
+        .qc-card:not(.qc-card--done):active { transform: scale(.97); }
+        .qc-card--done { cursor: default; border-color: rgba(34,197,94,0.25); background: rgba(34,197,94,0.06); }
+        .qc-card-icon {
+          width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
         }
-        .qc-feat-icon svg { width: 18px; height: 18px; }
-        .qc-feat-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-        .qc-feat-label { font-size: 13px; font-weight: 800; color: var(--text-primary); line-height: 1.25; }
-        .qc-feat-desc { font-size: 11px; color: var(--text-muted); line-height: 1.25; }
-        .qc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .qc-grid-4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-        .qc-tile {
-          display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px;
-          padding: 12px 6px; cursor: pointer;
-          background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 14px;
-          transition: border-color .14s, background .14s, transform .1s;
-        }
-        .qc-tile:not(.qc-tile--done):hover { border-color: var(--border-strong); background: var(--bg-active); }
-        .qc-tile:not(.qc-tile--done):active { transform: scale(.97); }
-        .qc-tile--done { cursor: default; border-color: rgba(34,197,94,0.25); background: rgba(34,197,94,0.06); }
-        .qc-tile-icon { color: var(--accent-link); }
-        .qc-tile-icon svg { width: 22px; height: 22px; }
-        .qc-tile-label { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
-        .qc-tile-desc { font-size: 10.5px; color: var(--text-muted); line-height: 1.2; }
+        .qc-card-icon svg { width: 19px; height: 19px; }
+        .qc-card-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+        .qc-card-label { font-size: 13px; font-weight: 800; color: var(--text-primary); line-height: 1.25; }
+        .qc-card-desc { font-size: 11px; color: var(--text-muted); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         @media (min-width: 720px) {
           .qc-overlay { align-items: center; }
           .qc-sheet { border-radius: 18px; border-bottom: 1px solid var(--border-default); animation: qc-fade .2s ease; }
           .qc-grab { display: none; }
-          .qc-grid-4 { grid-template-columns: repeat(4, 1fr); }
         }
       `}</style>
       <div className="qc-overlay" onClick={() => setOpen(false)}>
@@ -233,14 +223,16 @@ export function QuickCreate() {
             </div>
           )}
 
-          <div className="qc-group-label">Dalinkis muzika</div>
-          <div className="qc-featgrid">{FEATURED.map(it => <FeatCard key={it.href} it={it} />)}</div>
-
-          <div className="qc-group-label">Kūrybos kampas</div>
-          <div className="qc-grid">{CREATE.map(it => <Tile key={it.href} it={it} />)}</div>
-
-          <div className="qc-group-label">Dalyvauk</div>
-          <div className="qc-grid-4">{PARTICIPATE.map(it => <Tile key={it.href} it={it} done={it.label === 'Dienos daina' && dailyDone} />)}</div>
+          {GROUPS.map(g => (
+            <div key={g.label}>
+              <div className="qc-group-label">{g.label}</div>
+              <div className="qc-cards">
+                {g.items.map(it => (
+                  <Card key={it.href} it={it} done={it.href === '/blogas/rasyti?type=daily' && dailyDone} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </>,
