@@ -25,9 +25,8 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { proxyImg } from '@/lib/img-proxy'
 import { useActivity, ActivityModal } from '@/components/ActivityWidget'
-import { DainaSuggestModal } from '@/components/DienosDainaSection'
 import { HomeListModal } from '@/components/HomeListModal'
-import { HomeTrackModal } from '@/components/HomeTrackModal'
+import { DienosDainaHero } from '@/components/DienosDainaHero'
 
 // ───────────────────────── helpers ─────────────────────────
 function timeAgo(d?: string | null) {
@@ -602,298 +601,7 @@ function FeaturedSlider() {
   )
 }
 
-// ═════════════════════════ 2. DIENOS DAINA hero ═════════════════════════
-function Countdown() {
-  const [txt, setTxt] = useState('')
-  useEffect(() => {
-    const tick = () => {
-      const n = new Date(); const m = new Date(n); m.setHours(24, 0, 0, 0)
-      const totalSec = Math.max(0, Math.floor((m.getTime() - n.getTime()) / 1000))
-      const h = Math.floor(totalSec / 3600)
-      const min = Math.floor((totalSec % 3600) / 60)
-      const sec = totalSec % 60
-      if (h >= 1) {
-        setTxt(min > 0 ? `~${h} val. ${min} min.` : `~${h} val.`)
-      } else {
-        setTxt(`${min}:${String(sec).padStart(2, '0')}`)
-      }
-    }
-    tick()
-    const iv = setInterval(tick, 1000)
-    return () => clearInterval(iv)
-  }, [])
-  return <b className="font-bold text-[#fdba74]" style={{ fontVariantNumeric: 'tabular-nums' }}>{txt}</b>
-}
-
-function WinnersModal({ onClose, onOpenTrack }: { onClose: () => void; onOpenTrack: (t: any) => void }) {
-  const [list, setList] = useState<DainaWinner[] | null>(null)
-  useEffect(() => {
-    let on = true
-    fetch('/api/dienos-daina/winners?limit=30').then(r => r.json()).then(d => { if (on) setList(d.winners || []) }).catch(() => { if (on) setList([]) })
-    return () => { on = false }
-  }, [])
-  return (
-    <HomeListModal open onClose={onClose} title="Laimėjusios dainos" subtitle="Dienos dainų istorija">
-      {list === null ? (
-        <div className="py-8 text-center text-[12px] text-[var(--text-muted)]">Kraunama…</div>
-      ) : list.length === 0 ? (
-        <div className="py-8 text-center text-[12px] text-[var(--text-muted)]">Istorijos dar nėra.</div>
-      ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {list.filter(w => w.tracks).map(w => {
-            const t = w.tracks!
-            const img = trackImg(t)
-            return (
-              <button key={w.id} type="button" onClick={() => { onClose(); onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists }) }}
-                className="hp-card group flex items-center gap-3 p-3 text-left">
-                {img ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(img)} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
-                ) : <div className="h-12 w-12 shrink-0 rounded-lg" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
-                <div className="min-w-0 flex-1">
-                  <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(t.title)}</p>
-                  <p className="m-0 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
-                  <p className="m-0 mt-0.5 text-[10.5px] text-[var(--text-faint)]">{w.date}{w.proposer ? ` · siūlė ${uname(w.proposer)}` : ''}</p>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </HomeListModal>
-  )
-}
-
-function DienosDainaHero() {
-  const [noms, setNoms] = useState<Nomination[]>([])
-  const [winner, setWinner] = useState<DainaWinner | null>(null)
-  const [ydayNoms, setYdayNoms] = useState<Nomination[]>([])
-  const [loading, setLoading] = useState(true)
-  const [alreadyNominated, setAlreadyNominated] = useState(false)
-  const [suggestOpen, setSuggestOpen] = useState(false)
-  const [winnersOpen, setWinnersOpen] = useState(false)
-  const [votedIds, setVotedIds] = useState<Set<number>>(new Set())
-  const [voting, setVoting] = useState<number | null>(null)
-  const [voteErr, setVoteErr] = useState('')
-  const [track, setTrack] = useState<any | null>(null)
-
-  const load = useCallback(() => {
-    Promise.all([
-      fetch('/api/dienos-daina/nominations').then(r => r.json()).catch(() => ({})),
-      fetch('/api/dienos-daina/winners?limit=1').then(r => r.json()).catch(() => ({})),
-    ]).then(([n, w]) => {
-      setNoms(n.nominations || [])
-      setAlreadyNominated(!!n.already_nominated)
-      setWinner((w.winners && w.winners[0]) || null)
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [])
-  useEffect(() => { load() }, [load])
-  useEffect(() => {
-    fetch('/api/dienos-daina/votes').then(r => r.json()).then(d => setVotedIds(new Set<number>(d.voted_nomination_ids || []))).catch(() => {})
-  }, [])
-  // Vakar dienos topas — kai šiandien kandidatų mažai, užpildom vietą (#8).
-  useEffect(() => {
-    if (!winner?.date) return
-    let on = true
-    fetch(`/api/dienos-daina/nominations?date=${winner.date}`).then(r => r.json()).then(d => { if (on) setYdayNoms(d.nominations || []) }).catch(() => {})
-    return () => { on = false }
-  }, [winner?.date])
-
-  const handleVote = useCallback(async (id: number) => {
-    if (votedIds.has(id) || voting !== null) return
-    setVoting(id); setVoteErr('')
-    try {
-      const res = await fetch('/api/dienos-daina/votes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nomination_id: id }) })
-      const d = await res.json()
-      if (res.ok) {
-        const wt = d.weight || 1
-        setVotedIds(prev => { const next = new Set(prev); next.add(id); return next })
-        setNoms(prev => prev.map(n => n.id === id ? { ...n, votes: (n.votes || 0) + 1, weighted_votes: (n.weighted_votes || 0) + wt } : n))
-      } else { setVoteErr(d.error || 'Klaida'); setTimeout(() => setVoteErr(''), 3000) }
-    } catch { setVoteErr('Tinklo klaida'); setTimeout(() => setVoteErr(''), 3000) }
-    finally { setVoting(null) }
-  }, [votedIds, voting])
-
-  const sorted = useMemo(() => [...noms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0)), [noms])
-  const maxVotes = Math.max(1, ...sorted.map(n => n.weighted_votes || n.votes || 0))
-  const leader = sorted[0] || null
-  const rest = sorted.slice(1)
-  const openTrack = (t: TrackLite) => setTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })
-
-  // Vakar top (be laimėtojos — ji rodoma atskiroje juostelėje) — rodomas tik
-  // kai šiandien dar tuščia/mažai (#8).
-  const winnerTrackId = winner?.tracks?.id
-  const ydaySorted = useMemo(() => [...ydayNoms].filter(n => n.tracks && n.tracks.id !== winnerTrackId).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0)), [ydayNoms, winnerTrackId])
-  const ydayMax = Math.max(1, winner?.weighted_votes || winner?.total_votes || 0, ...ydaySorted.map(n => n.weighted_votes || n.votes || 0))
-  const showYdayTop = sorted.length < 6 && ydaySorted.length > 0
-
-  const leaderImg = leader ? trackImg(leader.tracks) : null
-
-  if (loading) {
-    return <div className="atr-skel-card h-[420px] rounded-[20px] lg:h-[540px]"><div className="atr-eq"><span /><span /><span /><span /><span /></div></div>
-  }
-
-  const CandRow = ({ n }: { n: Nomination }) => {
-    const t = n.tracks!
-    const img = trackImg(t)
-    const votes = n.weighted_votes || n.votes || 0
-    const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
-    const voted = votedIds.has(n.id)
-    return (
-      <div className="flex items-center gap-2.5 rounded-[10px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-2.5 py-2 transition-colors hover:bg-[rgba(255,255,255,0.09)]">
-        {n.proposer && (
-          <span className="flex shrink-0 items-center" title={uname(n.proposer)}>
-            <Avatar src={n.proposer.avatar_url} name={uname(n.proposer)} size={22} />
-          </span>
-        )}
-        <button type="button" onClick={() => openTrack(t)} className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 border-0 bg-transparent p-0 text-left">
-          {img ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(img)} alt="" loading="lazy" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
-          ) : <div className="h-[34px] w-[34px] shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
-          <div className="min-w-0 flex-1">
-            <span className="block truncate text-[12.5px] font-bold text-[#f0f4fc]">{sani(t.title)}</span>
-            <span className="block truncate text-[11px] text-[#8ea8c4]">{t.artists?.name}</span>
-            {level > 0 && <div className="mt-1"><PopBar level={level} w={9} onDark /></div>}
-          </div>
-        </button>
-        {n.comment && <span className="hidden shrink-0 truncate text-[11px] italic text-[#8ea8c4] sm:block sm:max-w-[140px]">{n.comment}</span>}
-        {n.own ? (
-          <span className="shrink-0 rounded-lg border border-dashed border-[rgba(255,255,255,0.25)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[#8ea8c4]">Tavo</span>
-        ) : (
-          <button type="button" onClick={() => handleVote(n.id)} disabled={voted || voting !== null}
-            className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold transition-colors ${
-              voted ? 'border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[#fdba74]' : 'border-[rgba(255,255,255,0.25)] text-[#aec4dd] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'
-            }`}>
-            <Ic d={I.heart} size={11} filled={voted} /> {voting === n.id ? '…' : voted ? 'Balsuota' : 'Balsuok'}
-          </button>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <div id="dienos-daina" className="relative flex flex-col overflow-hidden rounded-[20px] border border-[var(--border-default)] lg:h-[540px]" style={{ background: '#0a101c', animation: 'atr-fade-in .4s ease-out both' }}>
-      {/* fonas iš lyderio cover */}
-      <div className="absolute inset-0">
-        {leaderImg && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(leaderImg)} alt="" onError={ytFallback} className="h-full w-full object-cover opacity-30" style={{ filter: 'blur(40px) saturate(1.3)', transform: 'scale(1.3)' }} />
-        )}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(100deg, rgba(8,13,20,0.96) 0%, rgba(8,13,20,0.8) 60%, rgba(249,115,22,0.12) 100%)' }} />
-      </div>
-
-      {/* lyderis */}
-      <div className="relative flex flex-wrap items-center gap-5 px-5 pb-4 pt-5 sm:px-6">
-        {leader ? (
-          <>
-            <button type="button" onClick={() => openTrack(leader.tracks!)} className="group relative shrink-0 cursor-pointer border-0 bg-transparent p-0">
-              <div className="relative h-[120px] w-[120px] overflow-hidden rounded-[14px] shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:h-[140px] sm:w-[140px]">
-                {leaderImg ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(leaderImg)} alt="" onError={ytFallback} className="h-full w-full object-cover" />
-                ) : <div className="h-full w-full" style={{ background: `hsl(${hue(leader.tracks!.title)},30%,18%)` }} />}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity group-hover:opacity-100">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)]"><Ic d={I.play} size={18} filled /></span>
-                </div>
-              </div>
-              <span className="absolute -left-2 -top-2 rounded-[9px] bg-[var(--accent-orange)] px-2 py-1 font-['Outfit',sans-serif] text-[12px] font-black text-white shadow-[0_6px_16px_rgba(249,115,22,0.45)]">#1</span>
-            </button>
-            <div className="min-w-[220px] flex-1">
-              <div className="flex items-center gap-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
-                <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-bold normal-case tracking-normal text-[#8ea8c4]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
-              </div>
-              <h2 className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[24px] font-black leading-[1.08] tracking-[-0.02em] text-[#f0f4fc] sm:text-[28px]">{sani(leader.tracks!.title)}</h2>
-              <p className="m-0 mt-0.5 text-[14.5px] font-semibold text-[#aec4dd]">{leader.tracks!.artists?.name}</p>
-              {leader.comment && <p className="m-0 mt-2 line-clamp-2 text-[12.5px] italic leading-snug text-[#aec4dd]">„{leader.comment}"</p>}
-              {leader.proposer && (
-                <div className="mt-2 flex items-center gap-2 text-[12px] text-[#8ea8c4]">
-                  <Avatar src={leader.proposer.avatar_url} name={uname(leader.proposer)} size={20} />
-                  siūlo <b className="font-semibold text-[#f0f4fc]">{uname(leader.proposer)}</b>
-                </div>
-              )}
-              <div className="mt-3 flex items-center gap-3">
-                <PopBar level={Math.max(1, Math.round(((leader.weighted_votes || leader.votes || 0) / maxVotes) * 5))} onDark />
-                {!leader.own && (
-                  <button type="button" onClick={() => handleVote(leader.id)} disabled={votedIds.has(leader.id) || voting !== null}
-                    className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold transition-colors ${
-                      votedIds.has(leader.id) ? 'border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[#fdba74]' : 'border-[rgba(255,255,255,0.25)] text-[#aec4dd] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'
-                    }`}>
-                    <Ic d={I.heart} size={12} filled={votedIds.has(leader.id)} /> {voting === leader.id ? '…' : votedIds.has(leader.id) ? 'Balsuota' : 'Balsuok'}
-                  </button>
-                )}
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex w-full flex-col items-start gap-2 py-4">
-            <div className="flex w-full items-center gap-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
-              <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-bold normal-case tracking-normal text-[#8ea8c4]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
-            </div>
-            <p className="m-0 text-[15px] font-bold text-[#f0f4fc]">Šiandien dar nėra pasiūlymų — tavo daina gali būti pirma.</p>
-            <button type="button" onClick={() => setSuggestOpen(true)} className="mt-1 cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-5 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white shadow-[0_6px_20px_rgba(249,115,22,0.35)]">+ Pasiūlyti dainą</button>
-          </div>
-        )}
-      </div>
-
-      {/* kandidatai — flex-1 + min-h-0 leidžia scroll'ui veikti fixed-height hero viduje */}
-      {(rest.length > 0 || (leader && !alreadyNominated)) && (
-        <div className="relative flex min-h-0 flex-1 flex-col border-t border-[rgba(255,255,255,0.08)] px-4 pb-2 pt-3 sm:px-5 lg:pb-1">
-          <div className="mb-2 flex shrink-0 items-center justify-between px-1">
-            <span className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#8ea8c4]">Siūlomos dainos</span>
-            <div className="flex items-center gap-3">
-              {voteErr && <span className="text-[11px] font-bold text-[#f87171]">{voteErr}</span>}
-              {!alreadyNominated && (
-                <button type="button" onClick={() => setSuggestOpen(true)} className="cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">+ Pasiūlyk savo dainą</button>
-              )}
-            </div>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-[5px] overflow-y-auto pr-0.5 lg:pr-1.5 [&::-webkit-scrollbar-thumb]:rounded-[3px] [&::-webkit-scrollbar-thumb]:bg-[rgba(255,255,255,0.14)] [&::-webkit-scrollbar]:w-[6px]">
-            {rest.map(n => <CandRow key={n.id} n={n} />)}
-            {rest.length === 0 && <p className="m-0 px-1 py-2 text-[12px] text-[#8ea8c4]">Kol kas vienintelis kandidatas — pasiūlyk alternatyvą!</p>}
-          </div>
-        </div>
-      )}
-
-      {/* vakar laimėtoja — shrink-0 kad niekada nebūtų suglaudinta */}
-      {winner?.tracks && (
-        <div className="relative shrink-0 border-t border-[rgba(255,255,255,0.08)] px-4 pb-3 pt-3 sm:px-5">
-          <div className="mb-2 flex items-center justify-between px-1">
-            <span className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#54749a]">Vakar laimėjo</span>
-            <button type="button" onClick={() => setWinnersOpen(true)} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[#fbbf24] transition-opacity hover:opacity-70">Visos →</button>
-          </div>
-          <div className="flex flex-col gap-[5px]">
-            <button type="button" onClick={() => openTrack(winner.tracks!)} className="flex items-center gap-2.5 rounded-[10px] border border-[rgba(251,191,36,0.18)] bg-[rgba(251,191,36,0.06)] px-2.5 py-2 text-left transition-colors hover:bg-[rgba(251,191,36,0.12)]">
-              {winner.proposer && (
-                <span className="flex shrink-0 items-center" title={uname(winner.proposer)}>
-                  <Avatar src={winner.proposer.avatar_url} name={uname(winner.proposer)} size={22} />
-                </span>
-              )}
-              {trackImg(winner.tracks) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(trackImg(winner.tracks)!)} alt="" loading="lazy" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
-              ) : <div className="h-[34px] w-[34px] shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(winner.tracks.title)},30%,18%)` }} />}
-              <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-baseline gap-1.5">
-                  <span className="truncate text-[12.5px] font-bold text-[#f0f4fc]">{sani(winner.tracks.title)}</span>
-                  <span className="truncate text-[11px] text-[#aec4dd]">{winner.tracks.artists?.name}</span>
-                </div>
-                <div className="mt-1"><PopBar level={5} w={9} onDark /></div>
-              </div>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {suggestOpen && <DainaSuggestModal onClose={() => setSuggestOpen(false)} onDone={load} />}
-      {winnersOpen && <WinnersModal onClose={() => setWinnersOpen(false)} onOpenTrack={setTrack} />}
-      {track && <HomeTrackModal track={track} onClose={() => setTrack(null)} />}
-    </div>
-  )
-}
+// ═════════════════════════ 2. DIENOS DAINA hero — components/DienosDainaHero.tsx ═════════════════════════
 
 // ═════════════════════════ 2b. Kas vyksta / Pokalbiai ═════════════════════════
 type ShoutMsg = { id: string; user_id: string | null; author_name: string | null; author_avatar: string | null; body: string; created_at: string }
@@ -1111,7 +819,9 @@ type MixItem =
 // 2026-06-14: /atrasti Pulsas perdarytas iš 4-stulpelių masonry į vientisą srautą —
 // vienoda forma, kairysis spalvotas kraštas + etiketė koduoja tipą, viršelis kairėj.
 const ROW_BASE = 'group relative flex overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)]'
-const ROW_THUMB = 'relative w-[104px] shrink-0 self-stretch overflow-hidden bg-[var(--cover-placeholder)] sm:w-[168px]'
+const ROW_THUMB = 'relative w-[128px] shrink-0 self-stretch overflow-hidden bg-[var(--cover-placeholder)] sm:w-[248px]'
+const ROW_MINH = 'min-h-[150px]'
+const ROW_PAD = 'flex min-w-0 flex-1 flex-col px-5 py-4'
 
 function kindColor(kind: string): string {
   return (KIND_META[kind] || KIND_META.irasas).color
@@ -1134,19 +844,19 @@ function RowMeta({ author, date, likes, comments }: { author?: { username?: stri
 function PostRowCard({ p }: { p: FeedPost }) {
   const kind = postKind(p)
   return (
-    <Link href={feedHref(p)} className={`${ROW_BASE} min-h-[104px]`}>
+    <Link href={feedHref(p)} className={`${ROW_BASE} ${ROW_MINH}`}>
       <AccentBar color={kindColor(kind)} />
       {p.cover && (
         <div className={ROW_THUMB}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={proxyImg(p.cover)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
-          {p.rating != null && <span className="absolute right-1.5 top-1.5 rounded-md bg-black/75 px-1.5 py-0.5 text-[11px] font-black text-amber-300">★ {p.rating}</span>}
+          {p.rating != null && <span className="absolute right-2 top-2 rounded-md bg-black/75 px-2 py-0.5 text-[12px] font-black text-amber-300">★ {p.rating}</span>}
         </div>
       )}
-      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
+      <div className={ROW_PAD}>
         <KindBadge kind={kind} abs={false} />
-        <h3 className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">{sani(p.title)}</h3>
-        {p.excerpt && <p className="m-0 mt-1 line-clamp-2 text-[12.5px] leading-relaxed text-[var(--text-secondary)]">{p.excerpt}</p>}
+        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
+        {p.excerpt && <p className="m-0 mt-1.5 line-clamp-3 text-[13px] leading-relaxed text-[var(--text-secondary)]">{p.excerpt}</p>}
         <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
       </div>
     </Link>
@@ -1156,12 +866,12 @@ function PostRowCard({ p }: { p: FeedPost }) {
 function PostTopasRowCard({ p }: { p: FeedPost }) {
   const entries = (p.entries || []).slice(0, 6)
   return (
-    <Link href={feedHref(p)} className={`${ROW_BASE} hover:border-[rgba(245,158,11,0.5)]`}>
+    <Link href={feedHref(p)} className={`${ROW_BASE} ${ROW_MINH} hover:border-[rgba(245,158,11,0.5)]`}>
       <AccentBar color="#f59e0b" />
-      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
+      <div className={ROW_PAD}>
         <div className="flex flex-wrap items-center gap-2.5">
           <KindBadge kind="topas" abs={false} />
-          <h3 className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">{sani(p.title)}</h3>
+          <h3 className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
         </div>
         <div className="mt-2 grid gap-x-6 gap-y-0.5 sm:grid-cols-2">
           {entries.length === 0 ? (
@@ -1190,7 +900,7 @@ function PostTopasRowCard({ p }: { p: FeedPost }) {
 function DiskusijaRowCard({ d }: { d: Diskusija }) {
   const comment = (d.latest_comments && d.latest_comments.length ? d.latest_comments[0] : d.latest_comment) || null
   return (
-    <Link href={`/diskusijos/${d.slug}`} className={`${ROW_BASE} min-h-[104px] hover:border-[rgba(139,92,246,0.5)]`}
+    <Link href={`/diskusijos/${d.slug}`} className={`${ROW_BASE} ${ROW_MINH} hover:border-[rgba(139,92,246,0.5)]`}
       style={{ background: 'linear-gradient(160deg, rgba(139,92,246,0.08), var(--bg-surface) 55%)' }}>
       <AccentBar color="#8b5cf6" />
       <AdminStar kind="discussion" id={d.id} featuredUntil={d.featured_until} />
@@ -1199,12 +909,12 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={proxyImg(d.artist_image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
           <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 45%, rgba(13,19,32,0.85))' }} />
-          {d.artist_name && <span className="absolute bottom-1.5 left-2.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.06em] text-white/90">{d.artist_name}</span>}
+          {d.artist_name && <span className="absolute bottom-2 left-3 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-white/90">{d.artist_name}</span>}
         </div>
       )}
-      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
+      <div className={ROW_PAD}>
         <KindBadge kind="diskusija" abs={false} />
-        <h3 className="m-0 mt-1.5 line-clamp-1 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">{sani(d.title)}</h3>
+        <h3 className="m-0 mt-2 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(d.title)}</h3>
         {comment && (
           <div className="mt-1.5 rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-3 py-1.5">
             <div className="mb-0.5 flex items-center gap-1.5">
@@ -1228,7 +938,7 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
   const thumb = discThumb(a)
   const quote = sani(a.body)
   return (
-    <button type="button" onClick={() => onOpen(a)} className={`${ROW_BASE} min-h-[104px] w-full cursor-pointer p-0 text-left hover:border-[rgba(249,115,22,0.5)]`}>
+    <button type="button" onClick={() => onOpen(a)} className={`${ROW_BASE} ${ROW_MINH} w-full cursor-pointer p-0 text-left hover:border-[rgba(249,115,22,0.5)]`}>
       <AccentBar color="#f97316" />
       <AdminStar kind="discovery" id={a.id} featuredUntil={a.featured_until} />
       <div className={`${ROW_THUMB} flex items-center justify-center`}>
@@ -1236,14 +946,14 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
           // eslint-disable-next-line @next/next/no-img-element
           <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
         ) : <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(a.artist_name || 'x')},34%,22%), hsl(${(hue(a.artist_name || 'x') + 40) % 360},30%,12%))` }} />}
-        <span className="relative z-[1] flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.4)] transition-transform group-hover:scale-105"><Ic d={I.play} size={15} filled /></span>
+        <span className="relative z-[1] flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.4)] transition-transform group-hover:scale-105"><Ic d={I.play} size={17} filled /></span>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
+      <div className={ROW_PAD}>
         <KindBadge kind="atradimas" abs={false} />
-        <h3 className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">
+        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` — ${a.track_name}` : ''}
         </h3>
-        {quote && <p className="m-0 mt-1 line-clamp-2 text-[12.5px] italic leading-relaxed text-[var(--text-secondary)]">„{quote.length > 240 ? quote.slice(0, 240).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
+        {quote && <p className="m-0 mt-1.5 line-clamp-3 text-[13px] italic leading-relaxed text-[var(--text-secondary)]">„{quote.length > 280 ? quote.slice(0, 280).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
         <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
       </div>
     </button>
@@ -1362,7 +1072,6 @@ function PulsasSection() {
 
   return (
     <section className="mb-10">
-      <div className="mx-auto max-w-[860px]">
       <div className="mb-3.5 flex items-end justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="h-[18px] w-1 rounded-[3px] bg-[var(--accent-orange)]" />
@@ -1388,7 +1097,7 @@ function PulsasSection() {
 
       {posts === null ? (
         <div className="flex flex-col gap-3">
-          {Array(6).fill(null).map((_, i) => <div key={i} className="hp-skel h-[108px] rounded-2xl" />)}
+          {Array(6).fill(null).map((_, i) => <div key={i} className="hp-skel h-[150px] rounded-2xl" />)}
         </div>
       ) : visible.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--border-default)] p-8 text-center text-[13px] text-[var(--text-muted)]">
@@ -1420,7 +1129,6 @@ function PulsasSection() {
           </div>
         </>
       )}
-      </div>
       {openDisc && <DiscoveryModal a={openDisc} onClose={() => setOpenDisc(null)} />}
     </section>
   )
