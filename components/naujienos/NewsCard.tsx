@@ -74,7 +74,7 @@ export default function NewsCard({
         className="group relative flex min-h-[320px] flex-col justify-end overflow-hidden rounded-3xl border border-[var(--border-default)] sm:min-h-[420px]"
       >
         {item.image ? (
-          <img src={item.image} alt={item.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <img src={item.image} alt={item.title} loading="eager" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : (
           <div className="absolute inset-0"><Placeholder accent={catAccent} /></div>
         )}
@@ -103,7 +103,7 @@ export default function NewsCard({
       <Link href={item.href} className="group flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-[var(--bg-surface-hover,rgba(125,125,125,0.07))]">
         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[var(--border-default)]">
           {item.image ? (
-            <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+            <img src={item.image} alt={item.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           ) : (
             <Placeholder accent={catAccent} />
           )}
@@ -128,7 +128,7 @@ export default function NewsCard({
     >
       <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden bg-[var(--bg-hover)]">
         {item.image ? (
-          <img src={item.image} alt={item.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          <img src={item.image} alt={item.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
         ) : (
           <Placeholder accent={catAccent} />
         )}
@@ -137,7 +137,7 @@ export default function NewsCard({
         </div>
       </div>
       <div className="flex flex-col gap-2 p-3">
-        <h2 className="line-clamp-2 min-h-[2.55em] text-[14px] font-bold leading-[1.28] text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange,#f59e0b)]">
+        <h2 className="line-clamp-3 min-h-[3.85em] text-[14px] font-bold leading-[1.28] text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange,#f59e0b)]">
           {item.title}
         </h2>
         <div className="flex items-center justify-between gap-2 text-[11px] text-[var(--text-faint)]">
