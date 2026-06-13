@@ -1,5 +1,5 @@
 // app/news/[slug]/page.tsx
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
 import NewsArticleClient from './news-article-client'
 import type { Metadata } from 'next'
@@ -262,20 +262,8 @@ export default async function NewsPage({ params }: Props) {
   const raw = await getNews(slug)
   if (!raw) notFound()
 
-  // Foto reportažai iškelti į atskirą /galerija (2026-06-14). Jei šis įrašas
-  // konvertuotas į reportažą — redirect į kanoninį /galerija/[slug].
-  // Slug'as ASCII ("FOTO-REPORTAZAS-…" / "FOTO-GALERIJA-…") — patikimesnis už title.
-  if (/^foto-/i.test(slug) || /foto/i.test(raw.title || '') || (raw as any).news_category === 'foto') {
-    const discId = (raw as any)._discussion_id ?? raw.id
-    const sb = createAdminClient()
-    const { data: rep, error: repErr } = await sb
-      .from('reportages')
-      .select('slug')
-      .eq('legacy_discussion_id', discId)
-      .maybeSingle()
-    if (rep?.slug) redirect(`/galerija/${rep.slug}`)
-    redirect(`/galerija?dbg=nomatch&did=${discId}&err=${encodeURIComponent(repErr?.message || 'none')}`)
-  }
+  // Foto reportažai iškelti į /galerija (2026-06-14). Seni /news/FOTO-… URL'ai
+  // peradresuojami middleware.ts'e (+ /galerija ?from resolver konkrečiam reportažui).
 
   const artist = Array.isArray(raw.artist) ? raw.artist[0] : raw.artist
   const artist2 = Array.isArray(raw.artist2) ? raw.artist2[0] : raw.artist2

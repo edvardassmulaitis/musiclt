@@ -26,6 +26,14 @@ export function middleware(req: NextRequest) {
     dest.pathname = '/galerija'
     return NextResponse.redirect(dest, 308)
   }
+  // Seni foto reportažų straipsniai (/news/FOTO-REPORTAZAS-… arba /news/FOTO-GALERIJA-…)
+  // → /galerija. Konvertuotus į konkretų reportažą sutvarko /api/galerija/resolve.
+  if (/^\/news\/foto-(reporta[zž]as|galerija)-/i.test(pathname)) {
+    const dest = url.clone()
+    dest.pathname = '/galerija'
+    dest.search = `?from=${encodeURIComponent(pathname.slice('/news/'.length))}`
+    return NextResponse.redirect(dest, 308)
+  }
 
   // Redirect /lt/daina/{slug}/{id}/ → /dainos/{slug}-{id}
   const trackMatch = pathname.match(/^\/lt\/daina\/(.+?)\/(\d+)\/?$/)

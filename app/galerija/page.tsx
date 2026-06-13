@@ -5,6 +5,8 @@
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { createAdminClient } from '@/lib/supabase'
 import { getLatestReportages, getCuratedPhotographers, formatEventDate, reportagePlaceLine } from '@/lib/galerija'
 import { ReportageCard } from '@/components/galerija/ReportageCard'
 import { PhotographerCard } from '@/components/galerija/PhotographerCard'
@@ -18,7 +20,19 @@ export const metadata: Metadata = {
   alternates: { canonical: '/galerija' },
 }
 
-export default async function GalleryPage() {
+export default async function GalleryPage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
+  // Seni /news/FOTO-… straipsniai peradresuoti čia su ?from=<news-slug>. Jei tas
+  // įrašas konvertuotas į konkretų reportažą — nukreipiam į /galerija/[slug].
+  const sp = await searchParams
+  if (sp?.from) {
+    const sb = createAdminClient()
+    const { data: disc } = await sb.from('discussions').select('id').eq('slug', sp.from).maybeSingle()
+    if (disc?.id) {
+      const { data: rep } = await sb.from('reportages').select('slug').eq('legacy_discussion_id', disc.id).maybeSingle()
+      if (rep?.slug) redirect(`/galerija/${rep.slug}`)
+    }
+  }
+
   const [reportages, photographers] = await Promise.all([
     getLatestReportages(60),
     getCuratedPhotographers(),
@@ -27,7 +41,7 @@ export default async function GalleryPage() {
   const [hero, ...rest] = reportages
 
   return (
-    <div className="page-shell" data-gv="b8cf">
+    <div className="page-shell">
       <header className="page-head">
         <h1>Foto galerija</h1>
         <p>Koncertų ir festivalių foto reportažai — gyvų pasirodymų akimirkos, užfiksuotos mūsų fotografų.</p>
