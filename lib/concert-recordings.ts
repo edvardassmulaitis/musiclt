@@ -214,12 +214,16 @@ function iso8601ToSeconds(iso: string | null | undefined): number | null {
   return d * 86400 + h * 3600 + min * 60 + s
 }
 
-/** YT Data API: vienas video → snippet+contentDetails+statistics. */
-async function fetchYtMeta(videoId: string): Promise<{
+type YtMeta = {
   title: string; channel: string | null; uploadedAt: string | null;
   duration: number | null; views: number | null; thumb: string | null;
   description: string | null;
-} | null> {
+}
+
+const YT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+/** YT Data API (reikia YOUTUBE_API_KEY) — pilniausias šaltinis. */
+async function fetchViaDataApi(videoId: string): Promise<YtMeta | null> {
   const key = process.env.YOUTUBE_API_KEY
   if (!key) return null
   try {
@@ -244,6 +248,82 @@ async function fetchYtMeta(videoId: string): Promise<{
       description: sn.description || null,
     }
   } catch { return null }
+}
+
+/** InnerTube /player (BE API key) — title, trukmė (lengthSeconds), aprašymas,
+ *  įkėlimo data, peržiūros. Veikia serveryje be quotos (kaip lib/yt-innertube). */
+async function fetchViaInnerTube(videoId: string): Promise<YtMeta | null> {
+  try {
+    const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': YT_UA },
+      body: JSON.stringify({
+        context: { client: { clientName: 'WEB', clientVersion: '2.20241120.01.00', hl: 'en', gl: 'US' } },
+        videoId,
+      }),
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    const d = await res.json().catch(() => null)
+    const vd = d?.videoDetails
+    if (!vd) return null
+    const mf = d?.microformat?.playerMicroformatRenderer
+    const thumbs = vd.thumbnail?.thumbnails || []
+    let uploadedAt: string | null = mf?.uploadDate || mf?.publishDate || null
+    if (uploadedAt) { const dt = new Date(uploadedAt); if (!Number.isNaN(dt.getTime())) uploadedAt = dt.toISOString() }
+    return {
+      title: vd.title || '',
+      channel: vd.author || null,
+      uploadedAt,
+      duration: vd.lengthSeconds ? parseInt(vd.lengthSeconds, 10) : null,
+      views: vd.viewCount ? parseInt(vd.viewCount, 10) : null,
+      thumb: thumbs.length ? thumbs[thumbs.length - 1].url : `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+      description: vd.shortDescription || null,
+    }
+  } catch { return null }
+}
+
+/** oEmbed (BE key) — tik title + kanalas + thumb. Paskutinis fallback. */
+async function fetchViaOembed(videoId: string): Promise<YtMeta | null> {
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+      { signal: AbortSignal.timeout(6000) },
+    )
+    if (!res.ok) return null
+    const o = await res.json()
+    return {
+      title: o.title || '',
+      channel: o.author_name || null,
+      uploadedAt: null, duration: null, views: null,
+      thumb: o.thumbnail_url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+      description: null,
+    }
+  } catch { return null }
+}
+
+/** Metaduomenys su fallback grandine: Data API → InnerTube → oEmbed.
+ *  Jei Data API trūksta trukmės (nėra key / klaida), papildom iš InnerTube. */
+async function fetchYtMeta(videoId: string): Promise<YtMeta | null> {
+  const primary = await fetchViaDataApi(videoId)
+  if (primary && primary.duration != null) return primary
+
+  const inner = await fetchViaInnerTube(videoId)
+  if (primary && inner) {
+    // Data API pavyko, bet be trukmės — sujungiam
+    return {
+      title: primary.title || inner.title,
+      channel: primary.channel || inner.channel,
+      uploadedAt: primary.uploadedAt || inner.uploadedAt,
+      duration: primary.duration ?? inner.duration,
+      views: primary.views ?? inner.views,
+      thumb: primary.thumb || inner.thumb,
+      description: primary.description || inner.description,
+    }
+  }
+  if (inner) return inner
+  if (primary) return primary
+  return await fetchViaOembed(videoId)
 }
 
 const LT_MONTH_MAP: Record<string, number> = {
