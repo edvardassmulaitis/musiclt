@@ -819,9 +819,7 @@ type MixItem =
 // 2026-06-14: /atrasti Pulsas perdarytas iš 4-stulpelių masonry į vientisą srautą —
 // vienoda forma, kairysis spalvotas kraštas + etiketė koduoja tipą, viršelis kairėj.
 const ROW_BASE = 'group relative flex overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)]'
-const ROW_THUMB = 'relative w-[128px] shrink-0 self-stretch overflow-hidden bg-[var(--cover-placeholder)] sm:w-[248px]'
-const ROW_MINH = 'min-h-[150px]'
-const ROW_PAD = 'flex min-w-0 flex-1 flex-col px-5 py-4'
+const ROW_THUMB = 'relative w-[104px] shrink-0 self-stretch overflow-hidden bg-[var(--cover-placeholder)] sm:w-[168px]'
 
 function kindColor(kind: string): string {
   return (KIND_META[kind] || KIND_META.irasas).color
@@ -844,19 +842,19 @@ function RowMeta({ author, date, likes, comments }: { author?: { username?: stri
 function PostRowCard({ p }: { p: FeedPost }) {
   const kind = postKind(p)
   return (
-    <Link href={feedHref(p)} className={`${ROW_BASE} ${ROW_MINH}`}>
+    <Link href={feedHref(p)} className={`${ROW_BASE} min-h-[104px]`}>
       <AccentBar color={kindColor(kind)} />
       {p.cover && (
         <div className={ROW_THUMB}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={proxyImg(p.cover)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
-          {p.rating != null && <span className="absolute right-2 top-2 rounded-md bg-black/75 px-2 py-0.5 text-[12px] font-black text-amber-300">★ {p.rating}</span>}
+          {p.rating != null && <span className="absolute right-1.5 top-1.5 rounded-md bg-black/75 px-1.5 py-0.5 text-[11px] font-black text-amber-300">★ {p.rating}</span>}
         </div>
       )}
-      <div className={ROW_PAD}>
+      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
         <KindBadge kind={kind} abs={false} />
-        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
-        {p.excerpt && <p className="m-0 mt-1.5 line-clamp-3 text-[13px] leading-relaxed text-[var(--text-secondary)]">{p.excerpt}</p>}
+        <h3 className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">{sani(p.title)}</h3>
+        {p.excerpt && <p className="m-0 mt-1 line-clamp-2 text-[12.5px] leading-relaxed text-[var(--text-secondary)]">{p.excerpt}</p>}
         <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
       </div>
     </Link>
@@ -866,12 +864,12 @@ function PostRowCard({ p }: { p: FeedPost }) {
 function PostTopasRowCard({ p }: { p: FeedPost }) {
   const entries = (p.entries || []).slice(0, 6)
   return (
-    <Link href={feedHref(p)} className={`${ROW_BASE} ${ROW_MINH} hover:border-[rgba(245,158,11,0.5)]`}>
+    <Link href={feedHref(p)} className={`${ROW_BASE} hover:border-[rgba(245,158,11,0.5)]`}>
       <AccentBar color="#f59e0b" />
-      <div className={ROW_PAD}>
+      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
         <div className="flex flex-wrap items-center gap-2.5">
           <KindBadge kind="topas" abs={false} />
-          <h3 className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
+          <h3 className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">{sani(p.title)}</h3>
         </div>
         <div className="mt-2 grid gap-x-6 gap-y-0.5 sm:grid-cols-2">
           {entries.length === 0 ? (
@@ -900,7 +898,7 @@ function PostTopasRowCard({ p }: { p: FeedPost }) {
 function DiskusijaRowCard({ d }: { d: Diskusija }) {
   const comment = (d.latest_comments && d.latest_comments.length ? d.latest_comments[0] : d.latest_comment) || null
   return (
-    <Link href={`/diskusijos/${d.slug}`} className={`${ROW_BASE} ${ROW_MINH} hover:border-[rgba(139,92,246,0.5)]`}
+    <Link href={`/diskusijos/${d.slug}`} className={`${ROW_BASE} min-h-[104px] hover:border-[rgba(139,92,246,0.5)]`}
       style={{ background: 'linear-gradient(160deg, rgba(139,92,246,0.08), var(--bg-surface) 55%)' }}>
       <AccentBar color="#8b5cf6" />
       <AdminStar kind="discussion" id={d.id} featuredUntil={d.featured_until} />
@@ -909,12 +907,12 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={proxyImg(d.artist_image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
           <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 45%, rgba(13,19,32,0.85))' }} />
-          {d.artist_name && <span className="absolute bottom-2 left-3 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-white/90">{d.artist_name}</span>}
+          {d.artist_name && <span className="absolute bottom-1.5 left-2.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.06em] text-white/90">{d.artist_name}</span>}
         </div>
       )}
-      <div className={ROW_PAD}>
+      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
         <KindBadge kind="diskusija" abs={false} />
-        <h3 className="m-0 mt-2 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(d.title)}</h3>
+        <h3 className="m-0 mt-1.5 line-clamp-1 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">{sani(d.title)}</h3>
         {comment && (
           <div className="mt-1.5 rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-3 py-1.5">
             <div className="mb-0.5 flex items-center gap-1.5">
@@ -938,7 +936,7 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
   const thumb = discThumb(a)
   const quote = sani(a.body)
   return (
-    <button type="button" onClick={() => onOpen(a)} className={`${ROW_BASE} ${ROW_MINH} w-full cursor-pointer p-0 text-left hover:border-[rgba(249,115,22,0.5)]`}>
+    <button type="button" onClick={() => onOpen(a)} className={`${ROW_BASE} min-h-[104px] w-full cursor-pointer p-0 text-left hover:border-[rgba(249,115,22,0.5)]`}>
       <AccentBar color="#f97316" />
       <AdminStar kind="discovery" id={a.id} featuredUntil={a.featured_until} />
       <div className={`${ROW_THUMB} flex items-center justify-center`}>
@@ -946,14 +944,14 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
           // eslint-disable-next-line @next/next/no-img-element
           <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
         ) : <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(a.artist_name || 'x')},34%,22%), hsl(${(hue(a.artist_name || 'x') + 40) % 360},30%,12%))` }} />}
-        <span className="relative z-[1] flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.4)] transition-transform group-hover:scale-105"><Ic d={I.play} size={17} filled /></span>
+        <span className="relative z-[1] flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.4)] transition-transform group-hover:scale-105"><Ic d={I.play} size={15} filled /></span>
       </div>
-      <div className={ROW_PAD}>
+      <div className="flex min-w-0 flex-1 flex-col px-4 py-3">
         <KindBadge kind="atradimas" abs={false} />
-        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
+        <h3 className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[15.5px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16.5px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` — ${a.track_name}` : ''}
         </h3>
-        {quote && <p className="m-0 mt-1.5 line-clamp-3 text-[13px] italic leading-relaxed text-[var(--text-secondary)]">„{quote.length > 280 ? quote.slice(0, 280).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
+        {quote && <p className="m-0 mt-1 line-clamp-2 text-[12.5px] italic leading-relaxed text-[var(--text-secondary)]">„{quote.length > 240 ? quote.slice(0, 240).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
         <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
       </div>
     </button>
@@ -1072,6 +1070,7 @@ function PulsasSection() {
 
   return (
     <section className="mb-10">
+      <div className="mx-auto max-w-[860px]">
       <div className="mb-3.5 flex items-end justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="h-[18px] w-1 rounded-[3px] bg-[var(--accent-orange)]" />
@@ -1097,7 +1096,7 @@ function PulsasSection() {
 
       {posts === null ? (
         <div className="flex flex-col gap-3">
-          {Array(6).fill(null).map((_, i) => <div key={i} className="hp-skel h-[150px] rounded-2xl" />)}
+          {Array(6).fill(null).map((_, i) => <div key={i} className="hp-skel h-[108px] rounded-2xl" />)}
         </div>
       ) : visible.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--border-default)] p-8 text-center text-[13px] text-[var(--text-muted)]">
@@ -1129,6 +1128,7 @@ function PulsasSection() {
           </div>
         </>
       )}
+      </div>
       {openDisc && <DiscoveryModal a={openDisc} onClose={() => setOpenDisc(null)} />}
     </section>
   )
