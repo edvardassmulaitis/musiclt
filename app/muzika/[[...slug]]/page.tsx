@@ -27,7 +27,7 @@ import {
   genreHref,
 } from '@/lib/muzika-hub'
 import { muzikaStyles, SectionHead, ArtistRow, AlbumRow, TrackList } from '@/components/muzika-ui'
-import { MuzikaFilterBar, hubHref, type HubMode } from '@/components/muzika/MuzikaFilterBar'
+import { hubHref, type HubMode } from '@/components/muzika/MuzikaFilterBar'
 import MuzikaTabs from '@/components/muzika/MuzikaTabs'
 import { GenreCards } from '@/components/muzika/GenreCards'
 import { CollectionLinks } from '@/components/muzika/CollectionLinks'
@@ -274,9 +274,9 @@ export default async function MuzikaHubPage({ params }: Props) {
       </header>
 
       <div className="mz-wrap">
-        <MuzikaFilterBar scope={scope} mode={mode} />
-
         <MuzikaTabs
+          scope={scope}
+          mode={mode}
           artists={artistsPanel}
           tracks={tracksPanel}
           albums={albumsPanel}
