@@ -104,11 +104,10 @@ export default function NewsExplorer({
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
   }, [styleOpen])
 
-  // Featured (be filtrų): 1 hero + „Naujausios" sąrašas šalia (užpildo aukštį,
-  // be tarpo); likusios į grid.
-  const lead = showFeatured ? items[0] : null
-  const topList = showFeatured ? items.slice(1, 6) : []
-  const gridItems = showFeatured ? items.slice(6) : items
+  // Featured (be filtrų): 3 naujausios didesnės kortelės viršuje; likusios į
+  // grid (vienodas proporcingas dydis, be tiny/hero kontrasto).
+  const featured3 = showFeatured ? items.slice(0, 3) : []
+  const gridItems = showFeatured ? items.slice(3) : items
 
   return (
     <div className="nx">
@@ -160,18 +159,10 @@ export default function NewsExplorer({
       <div className={loading ? 'nx-fade' : ''}>
         {items.length === 0 && !loading ? (
           <div className="nx-empty">Pagal pasirinktus filtrus naujienų nerasta</div>
-        ) : showFeatured && lead ? (
+        ) : showFeatured && featured3.length > 0 ? (
           <>
-            <div className="nx-featured">
-              <div className="nx-lead"><NewsCard item={lead} variant="hero" /></div>
-              {topList.length > 0 && (
-                <aside className="nx-toplist">
-                  <div className="nx-toplist-head">Naujausios</div>
-                  <div className="nx-toplist-items">
-                    {topList.map((it) => <NewsCard key={it.uid} item={it} variant="compact" />)}
-                  </div>
-                </aside>
-              )}
+            <div className="nx-top3">
+              {featured3.map((it) => <NewsCard key={it.uid} item={it} variant="feature" />)}
             </div>
             <Grid items={gridItems} />
           </>
@@ -208,19 +199,10 @@ const NX_CSS = `
 .nx-loadmore:hover:not(:disabled) { background:var(--bg-hover); }
 .nx-loadmore:disabled { opacity:.6; cursor:default; }
 
-/* Featured: 1 hero + „Naujausios" sąrašas šalia (užpildo aukštį → be tarpo) */
-.nx-featured { display:grid; grid-template-columns:1fr; gap:16px; margin-bottom:24px; }
-.nx-lead { display:flex; }
-.nx-lead > a { width:100%; }
-@media(min-width:1024px){
-  .nx-featured { grid-template-columns:1.55fr 1fr; align-items:stretch; }
-  .nx-lead > a { min-height:0; }
-}
-.nx-toplist { display:flex; flex-direction:column; padding:12px 12px 8px; border-radius:18px;
-  background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.08)); }
-.nx-toplist-head { font-family:'Outfit',sans-serif; font-size:11.5px; font-weight:800; text-transform:uppercase;
-  letter-spacing:.05em; color:var(--text-faint); padding:2px 4px 8px; }
-.nx-toplist-items { display:flex; flex-direction:column; gap:3px; flex:1; justify-content:space-between; }
+/* Featured: 3 naujausios didesnės kortelės; proporcinga su grid'u žemiau */
+.nx-top3 { display:grid; grid-template-columns:1fr; gap:14px; margin-bottom:18px; }
+@media(min-width:640px){ .nx-top3 { grid-template-columns:repeat(3,1fr); gap:16px; } }
+@media(min-width:1024px){ .nx-top3 { gap:20px; margin-bottom:22px; } }
 
 /* ── Filtrų juosta — identiška /koncertai (ev-*) ── */
 .ev-fbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px;

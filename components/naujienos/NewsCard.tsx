@@ -97,6 +97,43 @@ export default function NewsCard({
     )
   }
 
+  /* ── FEATURE (top-3 didesnė kortelė) ─────────────────────── */
+  if (variant === 'feature') {
+    return (
+      <Link
+        href={item.href}
+        className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_2px_12px_rgba(0,0,0,0.20)] transition-all duration-200 hover:-translate-y-1 hover:border-[var(--border-strong)] hover:shadow-[0_10px_28px_rgba(0,0,0,0.30)]"
+      >
+        <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-[var(--bg-hover)]">
+          {item.image ? (
+            <img src={item.image} alt={item.title} loading="eager" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          ) : (
+            <Placeholder accent={catAccent} />
+          )}
+          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+            <CategoryBadge category={item.category} />
+            {item.isLT && (
+              <span className="rounded-md bg-black/55 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">🇱🇹 Lietuva</span>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col gap-2 p-4">
+          <h2 className="line-clamp-3 text-[16px] font-bold leading-[1.3] text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange,#f59e0b)]">
+            {item.title}
+          </h2>
+          <div className="mt-auto flex items-center justify-between gap-2 text-[12px] text-[var(--text-faint)]">
+            <span className="flex min-w-0 items-center gap-1.5">
+              {item.artistName && <span className="truncate font-semibold text-[var(--text-secondary)]">{item.artistName}</span>}
+              {item.artistName && item.date && <span className="shrink-0 opacity-50">·</span>}
+              {item.date && <span className="shrink-0">{relNewsDate(item.date)}</span>}
+            </span>
+            <Stats item={item} />
+          </div>
+        </div>
+      </Link>
+    )
+  }
+
   /* ── COMPACT (sąrašo eilutė) ─────────────────────────────── */
   if (variant === 'compact') {
     return (
