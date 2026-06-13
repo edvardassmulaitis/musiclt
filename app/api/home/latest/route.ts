@@ -35,6 +35,22 @@ export async function GET() {
     const albums = albumsResult.status === 'fulfilled' ? albumsResult.value : (() => { console.error('home/latest albums failed:', (albumsResult as any).reason?.message); return { lt: [], world: [], totalLt: 0, totalWorld: 0 } })()
     const upcoming = upcomingResult.status === 'fulfilled' ? upcomingResult.value : (() => { console.error('home/latest upcoming failed:', (upcomingResult as any).reason?.message); return { items: [], total: 0 } })()
 
+    // ── DEGRADED detekcija (2026-06-14 cache-poisoning fix) ──
+    // Iki šiol: jei DB transient'iškai fail'indavo, šis route grąžindavo 200 su
+    // TUŠČIAIS lane'ais IR 15 min CDN cache header'iais → vienas hiccup'as
+    // „užnuodydavo" edge cache 15-iai minučių ir VISI vartotojai matydavo
+    // tuščias „Naujos dainos / Nauji albumai" sekcijas (intermitentinis „kartais
+    // neužkrauna" bug'as). Fix: jei kuri nors esminė užklausa fail'ino, arba
+    // rezultatas tuščias, NEcache'inam atsakymo (no-store) — tegul kitas
+    // request'as bando iš naujo, o ne kabo ant užnuodyto edge'o.
+    const tracksFailed = tracksResult.status === 'rejected'
+    const albumsFailed = albumsResult.status === 'rejected'
+    const tracksEmpty = (tracks.lt.length + tracks.world.length) === 0
+    const albumsEmpty = (albums.lt.length + albums.world.length) === 0
+    // „degraded" = bent viena esminė (tracks/albums) užklausa fail'ino ARBA
+    // abi sekcijos tuščios (rodo galimą duomenų/DB problemą, ne realią tuštumą).
+    const degraded = tracksFailed || albumsFailed || (tracksEmpty && albumsEmpty)
+
     const payload = {
       tracks: {
         lt: tracks.lt.map(mapTrackForHome),
@@ -53,19 +69,26 @@ export async function GET() {
       // „Nauji albumai" (be lane split).
       upcoming: upcoming.items.map(mapAlbumForHome),
       upcomingTotal: upcoming.total,
+      degraded,
     }
 
-    // 15 min CDN cache. Tag invalidation (revalidateHomeTag) instant'iškai
-    // išvalo unstable_cache layer'į, o CDN edge'us pasipildys per `s-maxage`.
-    // Reali freshness — admin POST'ai ar /admin/settings mygtukai → iškart;
-    // antraip max 15 min lag'as (priimtina pagal user'io 2026-05-28 sprendimą).
-    return NextResponse.json(payload, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
-        'CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
-        'Vercel-CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
-      },
-    })
+    // Cache header'iai: SVEIKAS atsakymas — 15 min CDN cache (tag invalidation
+    // per revalidateHomeTag instant'iškai išvalo unstable_cache layer'į; CDN
+    // edge'ai pasipildo per s-maxage). DEGRADED atsakymas — no-store, kad
+    // tuščio/dalinio rezultato NEužcache'intume edge'e (žr. paaiškinimą aukščiau).
+    const cacheHeaders = degraded
+      ? {
+          'Cache-Control': 'no-store, must-revalidate',
+          'CDN-Cache-Control': 'no-store',
+          'Vercel-CDN-Cache-Control': 'no-store',
+        }
+      : {
+          'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
+          'CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
+          'Vercel-CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600',
+        }
+
+    return NextResponse.json(payload, { headers: cacheHeaders })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Server error' }, { status: 500 })
   }

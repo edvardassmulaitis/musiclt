@@ -33,6 +33,45 @@
   border-radius: 6px;
 }
 
+/* ── Equalizer skeleton card (2026-06-14) ──
+   Toks pat „muzikinis" placeholder'is kaip /atrasti hero (.atr-eq) — vietoj
+   plokščio pilko bloko rodom subtilų oranžinį equalizer'į cover'io vietoje.
+   Naudojama „Naujos dainos / Nauji albumai" sekcijų loading state'e. */
+@keyframes hp-eqbar { 0%, 100% { transform: scaleY(.35) } 50% { transform: scaleY(1) } }
+.hp-eq-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle, var(--border-default));
+  animation: hp-pulse-soft 2.4s ease-in-out infinite;
+  overflow: hidden;
+}
+.hp-eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 22px;
+}
+.hp-eq > span {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent-orange);
+  opacity: .5;
+  transform-origin: bottom;
+  animation: hp-eqbar 1s ease-in-out infinite;
+}
+.hp-eq > span:nth-child(1) { height: 22px; animation-delay: 0s }
+.hp-eq > span:nth-child(2) { height: 14px; animation-delay: .15s }
+.hp-eq > span:nth-child(3) { height: 19px; animation-delay: .30s }
+.hp-eq > span:nth-child(4) { height: 11px; animation-delay: .45s }
+.hp-eq > span:nth-child(5) { height: 16px; animation-delay: .60s }
+@media (prefers-reduced-motion: reduce) {
+  .hp-eq > span { animation: none }
+  .hp-eq-card { animation: none }
+}
+
 /* Equalizer loader — muzikiniam app'ui pritaikyta animacija.
    Du dydžiai: .eq-loader (small, ~32px tall) — naudojamas loading.tsx
    skeleton'uose. .eq-loader-big (44px tall) — naudojamas centriniame
@@ -822,11 +861,7 @@ main.has-bottom-nav {
   .hrow.at-end   .hrow-arrow.next { opacity: 0; pointer-events: none; }
   .hrow-arrow:hover { background: var(--accent-orange, #f2641a); color: #fff; border-color: transparent; }
 }
-@media (hover: none) { .hrow-arrow { display: none; } }  /* mobile: tik peek */
-/* Mobile/touch: NUIMAM krašto fade overlay'us — slenkant į šoną jie užsidėdavo
-   ant kortelių ir trukdė matyti itemus. Rodyklių mobile vis tiek nėra, tad
-   fade nieko nebepridėjo. Edvardo prašymu 2026-06-09. */
-@media (hover: none) { .hrow::before, .hrow::after { display: none !important; } }
+@media (hover: none) { .hrow-arrow { display: none; } }  /* mobile: tik peek+fade */
 
 /* ── „Karšta dabar" chip'ai ─────────────────────────────────────────────── */
 .pchip {

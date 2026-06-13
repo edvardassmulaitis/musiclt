@@ -17,7 +17,7 @@ import Scroller from '@/components/ui/Scroller'
 import BendruomeneSection from '@/components/home/BendruomeneSection'
 
 /* ────────────────────────────── Types ────────────────────────────── */
-type Track = { id: number; slug: string; title: string; cover_url: string | null; video_url?: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
+type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
 type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type EventArtist = { artists?: { id: number; name: string; slug: string; cover_image_url?: string | null; country?: string | null } | null; artist_id?: number; sort_order?: number; is_headliner?: boolean }
@@ -35,10 +35,6 @@ type HeroSlide = {
   songTitle?: string | null; songArtist?: string | null; songCover?: string | null
   artist?: { name: string; slug: string; image?: string | null } | null
   chartTops?: TopEntry[]
-  /** song/dd slide'ams — track id (♥ like POST /api/tracks/[id]/like) */
-  trackId?: number | null
-  /** news slide'ams — naujienos id (explore sheet pilnam tekstui) */
-  newsId?: number | null
 }
 
 /* ────────────────────────────── Helpers ────────────────────────────── */
@@ -159,6 +155,43 @@ function TrendIcon({ t }: { t: string }) {
 
 function Skel({ w, h, r = 6 }: { w: number | string; h: number; r?: number }) {
   return <div className="hp-skel" style={{ width: w, height: h, borderRadius: r, flexShrink: 0 }} />
+}
+
+/** Equalizer skeleton kortelė — „muzikinis" placeholder'is (toks pat vibe kaip
+ *  /atrasti hero `.atr-eq`). Cover'io vietoje pulsuoja oranžinis equalizer'is,
+ *  apačioje — dvi tekstos linijos (title/artist). Naudojama „Naujos dainos /
+ *  Nauji albumai" sekcijų loading state'e vietoj plokščių pilkų blokų. */
+function EqSkel({ w, h, r = 12 }: { w: number; h: number; r?: number }) {
+  return (
+    <div className="shrink-0" style={{ width: w }}>
+      <div className="hp-eq-card" style={{ width: w, height: h, borderRadius: r }}>
+        <span className="hp-eq" aria-hidden="true"><span /><span /><span /><span /><span /></span>
+      </div>
+      <div className="mt-2"><Skel w="80%" h={12} /></div>
+      <div className="mt-1"><Skel w="60%" h={10} /></div>
+    </div>
+  )
+}
+
+/** Užkrovimo klaidos kortelė su „Bandyti dar kartą" mygtuku. Rodoma kai
+ *  /api/home/latest fetch'as galutinai fail'ino (po retry) — kad vartotojas
+ *  nematytų amžinų skeletonų ir galėtų perpaleisti rankiniu būdu. */
+function LoadErrorCard({ onRetry, height = 112 }: { onRetry: () => void; height?: number }) {
+  return (
+    <div
+      className="flex shrink-0 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5"
+      style={{ height, minWidth: 220 }}
+    >
+      <span className="text-[12px] text-[var(--text-muted)]">Nepavyko užkrauti</span>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="rounded-full bg-[var(--accent-orange)] px-3.5 py-1 font-['Outfit',sans-serif] text-[12px] font-bold text-white transition-opacity hover:opacity-85"
+      >
+        Bandyti dar kartą
+      </button>
+    </div>
+  )
 }
 
 /** Tailwind versija SH'o — naudojam naujose sekcijose, kad font/letter-spacing
@@ -486,101 +519,16 @@ function DiscussionsWidget() {
 
 const REELS_DURATION = 8000
 
-/* ── Desktop hero (2026-06-12 v5) — 2 pilnos kortelės + trečia „peek"
-   (aiškus kvietimas slinkti). Po kortele slider taškai. Tekstai sumažinti
-   kad neuždengtų nuotraukos. Vieningas dizainas su /atrasti hero. ── */
-function HeroSliderDesktop({ slides, dk }: { slides: HeroSlide[]; dk: boolean }) {
-  const trackRef = useRef<HTMLDivElement>(null)
-  const [activeIdx, setActiveIdx] = useState(0)
-  const scrollBy = (dir: -1 | 1) => {
-    const el = trackRef.current
-    if (!el) return
-    const card = el.querySelector('.hp-hero-slot') as HTMLElement | null
-    const step = card ? card.offsetWidth + 16 : el.clientWidth * 0.9
-    el.scrollBy({ left: dir * step, behavior: 'smooth' })
-  }
-  /* Track scroll position for dot indicator */
-  useEffect(() => {
-    const el = trackRef.current
-    if (!el) return
-    const onScroll = () => {
-      const card = el.querySelector('.hp-hero-slot') as HTMLElement | null
-      if (!card) return
-      const step = card.offsetWidth + 16
-      const idx = Math.round(el.scrollLeft / step)
-      setActiveIdx(idx)
-    }
-    el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
-  }, [])
-  /* Keyboard arrows — left/right scrolls hero */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // Only handle when no modal/input is focused
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
-      if (e.key === 'ArrowLeft') { scrollBy(-1); e.preventDefault() }
-      else if (e.key === 'ArrowRight') { scrollBy(1); e.preventDefault() }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const arrowCls = 'hp-hero-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80'
-  const arrow = (dir: -1 | 1) => (
-    <button type="button" aria-label={dir < 0 ? 'Ankstesnis' : 'Kitas'} onClick={() => scrollBy(dir)}
-      className={arrowCls}
-      style={{ [dir < 0 ? 'left' : 'right']: -6 } as any}>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        {dir < 0 ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 6l6 6-6 6" />}
-      </svg>
-    </button>
-  )
-  const scrollTo = (i: number) => {
-    const el = trackRef.current
-    if (!el) return
-    const card = el.querySelector('.hp-hero-slot') as HTMLElement | null
-    if (!card) return
-    el.scrollTo({ left: i * (card.offsetWidth + 16), behavior: 'smooth' })
-  }
-  return (
-    <div style={{ position: 'relative' }}>
-      <div ref={trackRef} className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory" style={{ overflowX: 'auto' }}>
-        {slides.map((slide) => (
-          <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
-            <HeroV2Card slide={slide} dk={dk} />
-          </div>
-        ))}
-      </div>
-      {slides.length > 2 && arrow(-1)}
-      {slides.length > 2 && arrow(1)}
-      {/* Slider dots */}
-      {slides.length > 2 && (
-        <div className="mt-3 flex justify-center gap-1.5">
-          {slides.map((s, i) => (
-            <button key={`dot-${s.type}-${s.href}`} type="button" aria-label={`Naujiena ${i + 1}`}
-              onClick={() => scrollTo(i)}
-              className="cursor-pointer rounded-full border-0 p-0 transition-all"
-              style={{ width: i === activeIdx ? 20 : 7, height: 7, background: i === activeIdx ? 'var(--accent-orange)' : 'var(--border-strong)' }} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChartVote, onIdxChange, dk }: {
+function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChartVote, dk }: {
   slides: HeroSlide[]
   initialIdx: number
   seenSlides: Set<string>
   onSeen: (href: string) => void
   onClose: () => void
-  /** Optional — chart slides swipe-up ar Balsuok mygtukas atveria voting
-   *  sheet'ą per šitą callback'ą. Reels'ai LIEKA atviri fone — po balsavimo
+  /** Optional — chart slides swipe-down ar Balsuok mygtukas atveria voting
+   *  sheet'ą per šitą callback'ą. Reels'ai LIEKA atviri foną — po balsavimo
    *  user'is gali tęsti horizontalų navigavimą per news/event slides. */
   onChartVote?: (slide: HeroSlide) => void
-  /** Sinchronizuoja poziciją su tėvu — uždarius ir vėl atidarius reels,
-   *  user'is grįžta TEN, kur buvo (2026-06-11 fluent flow). */
-  onIdxChange?: (i: number) => void
   dk: boolean
 }) {
   const [idx, setIdx] = useState(initialIdx)
@@ -588,11 +536,6 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   const [progress, setProgress] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState(0)
-  // Explore sheet (swipe AUKŠTYN): song/dd → grotuvas+like; news → pilnas
-  // tekstas; event → detalės. Chart'ams — onChartVote (atskiras sheet'as).
-  const [sheet, setSheet] = useState<null | 'song' | 'news' | 'event'>(null)
-  const [newsBody, setNewsBody] = useState<{ id: number; html: string } | null>(null)
-  const [liked, setLiked] = useState<Set<number>>(new Set())
 
   const progressRef = useRef<number>(0)
   const startRef = useRef<number>(0)
@@ -625,41 +568,8 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   const goTo = useCallback((newIdx: number) => {
     if (newIdx < 0 || newIdx >= slides.length) { onClose(); return }
     setVideoOpen(false)
-    setSheet(null)
     setIdx(newIdx)
-    onIdxChange?.(newIdx)
-  }, [slides.length, onClose, onIdxChange])
-
-  /* ── Explore sheet (swipe AUKŠTYN / „Daugiau" gestas) ── */
-  const openExplore = useCallback((s: HeroSlide) => {
-    stopProgress()
-    if (s.type === 'chart_lt' || s.type === 'chart_world') { onChartVote?.(s); return }
-    if (s.type === 'song' || s.type === 'dd') { setSheet('song'); return }
-    if (s.type === 'news') {
-      setSheet('news')
-      if (s.newsId && newsBody?.id !== s.newsId) {
-        setNewsBody(null)
-        fetch(`/api/news/${s.newsId}`).then(r => r.json()).then(d => {
-          if (d?.body) setNewsBody({ id: s.newsId!, html: String(d.body) })
-        }).catch(() => {})
-      }
-      return
-    }
-    if (s.type === 'event') { setSheet('event'); return }
-    // promo — gesto „aukštyn" atitikmuo = atidaryti nuorodą
-    window.location.href = s.href
-  }, [onChartVote, newsBody, stopProgress]) // eslint-disable-line
-
-  const closeSheet = useCallback(() => {
-    setSheet(null)
-    startProgress()
-  }, [startProgress])
-
-  const toggleLike = useCallback(async (s: HeroSlide) => {
-    if (!s.trackId || liked.has(s.trackId)) return
-    setLiked(prev => { const n = new Set(prev); n.add(s.trackId!); return n })
-    try { await fetch(`/api/tracks/${s.trackId}/like`, { method: 'POST' }) } catch {}
-  }, [liked])
+  }, [slides.length, onClose])
 
   /* Mark seen + start progress on slide change */
   useEffect(() => {
@@ -671,33 +581,15 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     }
   }, [idx]) // eslint-disable-line
 
-  /* ── Fullscreen režimas (2026-06-11 v3): body scroll lock + header/bottom
-     nav paslėpimas (per body.reels-open CSS) + NE-passive touchmove ant
-     track'o, kad vertikalūs gestai nepradėtų puslapio/naršyklės scroll'o
-     („išlenda headeris ir reikia dar kartą swipint" bug fix). ── */
+  /* Pause/resume when video opens */
   useEffect(() => {
-    document.body.classList.add('reels-open')
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const el = trackRef.current
-    const blockScroll = (e: TouchEvent) => { e.preventDefault() }
-    el?.addEventListener('touchmove', blockScroll, { passive: false })
-    return () => {
-      document.body.classList.remove('reels-open')
-      document.body.style.overflow = prevOverflow
-      el?.removeEventListener('touchmove', blockScroll)
-    }
-  }, [])
-
-  /* Pause/resume when video/sheet opens */
-  useEffect(() => {
-    if (videoOpen || sheet) stopProgress()
+    if (videoOpen) stopProgress()
     else startProgress()
-  }, [videoOpen, sheet]) // eslint-disable-line
+  }, [videoOpen]) // eslint-disable-line
 
-  /* Auto-advance — ne kai atidarytas video/sheet. */
+  /* Auto-advance */
   useEffect(() => {
-    if (progress >= 1 && !videoOpen && !sheet) goTo(idx + 1)
+    if (progress >= 1 && !videoOpen) goTo(idx + 1)
   }, [progress]) // eslint-disable-line
 
   /* ── Touch swipe (horizontal) ── */
@@ -724,23 +616,22 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     setDragging(false)
     setDragOffset(0)
 
-    if (sheet) {
-      // Sheet'as atviras — žemyn jį uždaro (reels lieka!), kiti gestai ignoruojami
-      if (dy > 70 && Math.abs(dy) > Math.abs(dx)) closeSheet()
-      return
-    }
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
       // Horizontal swipe → navigate slides
       if (dx < 0) goTo(idx + 1)
       else goTo(idx - 1)
-    } else if (dy < -70 && Math.abs(dy) > Math.abs(dx)) {
-      // Swipe AUKŠTYN — explore (IG modelis): daina → grotuvas/like, naujiena →
-      // pilnas tekstas, topas → balsavimas, renginys → detalės.
-      openExplore(slides[idx])
-    } else if (dy > 90 && Math.abs(dy) > Math.abs(dx)) {
-      // Swipe ŽEMYN — uždaro reels; pozicija išsaugota per onIdxChange,
-      // tad atsidarius vėl grįžti ten pat.
-      onClose()
+    } else if (dy > 80 && Math.abs(dy) > Math.abs(dx)) {
+      // Swipe DOWN — chart slide'uose atveria voting sheet'ą; visur kitur
+      // uždaro reels (default Stories-style behavior).
+      const cur = slides[idx]
+      const isChart = cur && (cur.type === 'chart_lt' || cur.type === 'chart_world')
+      if (isChart && onChartVote) {
+        onChartVote(cur)
+        // Reels lieka atviri fone — pause progress kol sheet'as atviras
+        stopProgress()
+      } else {
+        onClose()
+      }
     } else {
       // No significant swipe — resume progress
       startProgress()
@@ -775,7 +666,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   /* ── Tap left/right halves to navigate (Instagram style) ── */
   const onTap = (e: React.MouseEvent) => {
     if (Math.abs(dragOffset) > 10) return // was a drag, not a tap
-    if (videoOpen || sheet) return
+    if (videoOpen) return
     const x = e.clientX
     const mid = window.innerWidth / 2
     if (x < mid) goTo(idx - 1)
@@ -784,10 +675,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
 
   const translateX = -idx * 100 + (dragOffset / window.innerWidth) * 100
 
-  // Portal į body — kad fixed overlay tikrai dengtų VISKĄ (header/bottom nav)
-  // nepriklausomai nuo tėvinių stacking context'ų (2026-06-11 v3).
-  if (typeof document === 'undefined') return null
-  return createPortal(
+  return (
     <div className="hp-reels" style={{ userSelect: 'none' }}>
       {/* Progress bars */}
       <div style={{
@@ -850,23 +738,6 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
                 ? <img src={proxyImg(s.bgImg)} alt="" draggable={false} />
                 : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
               }
-              {/* PLAY per vidurį (2026-06-11 v3) — autoplay fono atsisakyta
-                  (YT mute-autoplay nepatikimas mobile). Tap → on-top grotuvas,
-                  kuris paleidžia iškart. */}
-              {s.videoId && i === idx && !videoOpen && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }}
-                  aria-label="Klausyti"
-                  style={{
-                    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 5,
-                    width: 64, height: 64, borderRadius: '50%', cursor: 'pointer',
-                    background: 'rgba(249,115,22,0.94)', border: '2px solid rgba(255,255,255,0.35)',
-                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 10px 34px rgba(0,0,0,0.5)',
-                  }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 3 }}><path d="M8 5v14l11-7z"/></svg>
-                </button>
-              )}
               {/* Video popup — on top of image */}
               {s.videoId && videoOpen && i === idx && (
                 <div className="hp-reels-video-popup" onClick={e => e.stopPropagation()}>
@@ -917,18 +788,35 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
               <p
                 onClick={() => goTo(idx + 1)}
                 style={{
-                  fontFamily: 'Outfit,sans-serif', fontSize: 24, fontWeight: 900,
-                  color: '#fff', lineHeight: 1.14, margin: '0 0 8px',
+                  fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
+                  color: '#fff', lineHeight: 1.1, margin: '0 0 8px',
                   letterSpacing: '-0.02em', cursor: 'pointer',
-                  /* Pilnas title (2026-06-11 v3) — clamp tik ekstremaliais atvejais. */
-                  display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                  display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                 }}>{s.title}</p>
 
               {/* Subtitle/excerpt pašalintas — naudotojas paprašė rodyti tik
                   main title naujienoms (mobile + desktop). Subtitle dažnai
                   buvo nuvedamas (excerpt'as), todėl card'as atrodė užkrautas. */}
 
-              {/* Video trigger perkeltas į PLAY per vidurį (image zonoje). */}
+              {/* Video trigger */}
+              {s.videoId && !videoOpen && i === idx && (
+                <button onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 8px 8px',
+                  background: 'rgba(255,255,255,0.07)', borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', width: '100%',
+                }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                    <img src={`https://img.youtube.com/vi/${s.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
+                  </div>
+                  <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.songTitle || 'Klausyti'}</p>
+                    {s.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{s.songArtist}</p>}
+                  </div>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: 'rgba(255,255,255,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
+                  </div>
+                </button>
+              )}
 
               {/* Bottom action area — chart slide'ams 'Balsuok' (atveria sheet'ą,
                   reels lieka), kitiems standard 'Daugiau' link'as. */}
@@ -949,193 +837,32 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 19l-7-7 7-7" transform="rotate(90 12 12)"/></svg>
                   </button>
                   <p style={{ margin: 0, textAlign: 'center', fontSize: 10.5, color: 'rgba(255,255,255,0.5)', fontWeight: 600, letterSpacing: '0.04em' }}>
-                    arba braukk aukštyn ↑
+                    arba pertempk žemyn ↓
                   </p>
                 </div>
               ) : (
-                /* Vienas „braukk aukštyn" affordance vietoj didelio „Daugiau"
-                   mygtuko, konkuravusio su swipe (2026-06-11 v3): tap ant jo =
-                   tas pats explore. Dainoms šalia — ♥ Pamėgti. */
-                <div style={{ marginTop: 14, display: 'flex', gap: 8, alignItems: 'stretch' }}>
-                  {(s.type === 'song' || s.type === 'dd') && s.trackId && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleLike(s) }}
-                      aria-label="Pamėgti"
-                      style={{
-                        width: 52, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        borderRadius: 14, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer',
-                        background: liked.has(s.trackId) ? 'rgba(249,115,22,0.3)' : 'rgba(255,255,255,0.1)',
-                        color: '#fff', backdropFilter: 'blur(6px)', flexShrink: 0,
-                      }}>
-                      <svg width="17" height="17" viewBox="0 0 24 24" fill={liked.has(s.trackId) ? '#f97316' : 'none'} stroke={liked.has(s.trackId) ? '#f97316' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8z"/></svg>
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); openExplore(s) }}
+                <div style={{ marginTop: 14, paddingTop: 0, display: 'flex', alignItems: 'center' }}>
+                  <Link
+                    href={s.href}
+                    onClick={onClose}
                     style={{
-                      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-                      padding: '9px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.16)', cursor: 'pointer',
-                      background: 'rgba(255,255,255,0.08)', color: '#fff', backdropFilter: 'blur(6px)',
-                    }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: .85 }}><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-                    <span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 11.5, fontWeight: 800, letterSpacing: '0.05em', opacity: .9 }}>
-                      {s.type === 'dd' ? 'BALSUOK' : 'DAUGIAU'}
-                    </span>
-                  </button>
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                      padding: '13px 20px', borderRadius: 14,
+                      background: seenSlides.has(s.href) ? 'rgba(255,255,255,0.12)' : '#f97316',
+                      color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
+                      textDecoration: 'none', letterSpacing: '-0.01em',
+                      boxShadow: seenSlides.has(s.href) ? 'none' : '0 4px 20px rgba(249,115,22,0.35)',
+                      transition: 'all .2s',
+                    }}
+                  >
+                    Daugiau
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </Link>
                 </div>
               )}
             </div>
           </div>
         ))}
-      </div>
-
-      {/* ── EXPLORE SHEET (swipe aukštyn) — daina/naujiena/renginys.
-          Žemyn arba ✕ uždaro TIK sheet'ą — reels lieka toje pačioje vietoje. ── */}
-      {sheet && slide && (
-        <ExploreSheet
-          slide={slide}
-          kind={sheet}
-          newsBody={newsBody && newsBody.id === slide.newsId ? newsBody.html : null}
-          liked={!!(slide.trackId && liked.has(slide.trackId))}
-          onLike={() => toggleLike(slide)}
-          onClose={closeSheet}
-          onNavigate={onClose}
-          otherSongs={slides.map((s, i) => ({ s, i })).filter(x => (x.s.type === 'song' || x.s.type === 'dd') && x.i !== idx)}
-          onJump={(i) => { closeSheet(); goTo(i) }}
-        />
-      )}
-    </div>,
-    document.body,
-  )
-}
-
-/* ── Explore sheet — reels „aukštyn" panelė ── */
-function ExploreSheet({ slide, kind, newsBody, liked, onLike, onClose, onNavigate, otherSongs, onJump }: {
-  slide: HeroSlide
-  kind: 'song' | 'news' | 'event'
-  newsBody: string | null
-  liked: boolean
-  onLike: () => void
-  onClose: () => void
-  /** Uždaro VISUS reels (navigacija į puslapį) */
-  onNavigate: () => void
-  otherSongs: { s: HeroSlide; i: number }[]
-  onJump: (i: number) => void
-}) {
-  const startY = useRef(0)
-  return (
-    <div
-      className="hp-reels-sheet"
-      onClick={e => e.stopPropagation()}
-      onTouchStart={e => { startY.current = e.touches[0].clientY }}
-      onTouchEnd={e => { if (e.changedTouches[0].clientY - startY.current > 70) onClose() }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', paddingBottom: 8, flexShrink: 0 }}>
-        <span style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border-strong)' }} />
-        <button onClick={onClose} aria-label="Uždaryti" style={{ position: 'absolute', right: 0, top: -2, width: 30, height: 30, borderRadius: '50%', border: 'none', background: 'var(--bg-active)', color: 'var(--text-secondary)', cursor: 'pointer' }}>✕</button>
-      </div>
-      <div className="hp-reels-sheet-scroll">
-        {kind === 'song' && (
-          <>
-            {slide.videoId && (
-              <div style={{ borderRadius: 14, overflow: 'hidden', aspectRatio: '16/9', background: '#000', marginBottom: 12 }}>
-                <iframe
-                  src={`https://www.youtube.com/embed/${slide.videoId}?autoplay=1&rel=0&playsinline=1`}
-                  allow="autoplay; encrypted-media" allowFullScreen
-                  style={{ width: '100%', height: '100%', border: 0 }}
-                />
-              </div>
-            )}
-            <p style={{ margin: 0, fontFamily: 'Outfit,sans-serif', fontSize: 18, fontWeight: 900, color: 'var(--text-primary)' }}>{slide.songTitle || slide.title}</p>
-            {slide.songArtist && (
-              slide.artist?.slug
-                ? <Link href={`/atlikejai/${slide.artist.slug}`} onClick={onNavigate} style={{ display: 'inline-block', marginTop: 3, fontSize: 13.5, fontWeight: 700, color: 'var(--accent-orange)', textDecoration: 'none' }}>{slide.songArtist} →</Link>
-                : <p style={{ margin: '3px 0 0', fontSize: 13.5, color: 'var(--text-secondary)' }}>{slide.songArtist}</p>
-            )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-              <button onClick={onLike} style={{
-                flex: 1, padding: '11px 0', borderRadius: 12, cursor: 'pointer',
-                border: liked ? '1px solid rgba(249,115,22,0.5)' : '1px solid var(--border-default)',
-                background: liked ? 'rgba(249,115,22,0.14)' : 'var(--card-bg)',
-                color: liked ? 'var(--accent-orange)' : 'var(--text-secondary)',
-                fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800,
-              }}>{liked ? '♥ Pamėgta' : '♥ Pamėgti'}</button>
-              {slide.type === 'dd' ? (
-                <Link href="/atrasti#dienos-daina" onClick={onNavigate} style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '11px 0', borderRadius: 12, background: '#f59e0b', color: '#fff',
-                  fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800, textDecoration: 'none',
-                }}>Balsuoti dienos dainoje →</Link>
-              ) : (
-                <Link href={slide.href} onClick={onNavigate} style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '11px 0', borderRadius: 12, background: 'var(--accent-orange)', color: '#fff',
-                  fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800, textDecoration: 'none',
-                }}>Dainos puslapis →</Link>
-              )}
-            </div>
-            {otherSongs.length > 0 && (
-              <>
-                <p style={{ margin: '18px 0 6px', fontFamily: 'Outfit,sans-serif', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Daugiau naujos muzikos</p>
-                {otherSongs.slice(0, 5).map(({ s: os, i }) => {
-                  const thumb = os.songCover || os.bgImg || (os.videoId ? `https://img.youtube.com/vi/${os.videoId}/mqdefault.jpg` : null)
-                  return (
-                    <button key={os.href} onClick={() => onJump(i)} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-                      padding: '7px 0', background: 'transparent', border: 'none', cursor: 'pointer',
-                      borderBottom: '1px solid var(--border-subtle)',
-                    }}>
-                      {thumb
-                        ? <img src={proxyImg(thumb)} alt="" style={{ width: 38, height: 38, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} /> // eslint-disable-line @next/next/no-img-element
-                        : <span style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--bg-active)', flexShrink: 0 }} />}
-                      <span style={{ minWidth: 0, flex: 1 }}>
-                        <span style={{ display: 'block', fontFamily: 'Outfit,sans-serif', fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{os.songTitle || os.title}</span>
-                        <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>{os.songArtist || ''}</span>
-                      </span>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--accent-orange)" style={{ flexShrink: 0 }}><path d="M8 5v14l11-7z"/></svg>
-                    </button>
-                  )
-                })}
-              </>
-            )}
-          </>
-        )}
-        {kind === 'news' && (
-          <>
-            <p style={{ margin: 0, fontFamily: 'Outfit,sans-serif', fontSize: 19, fontWeight: 900, lineHeight: 1.2, color: 'var(--text-primary)' }}>{slide.title}</p>
-            {newsBody ? (
-              <div
-                style={{ marginTop: 12, fontSize: 14, lineHeight: 1.65, color: 'var(--text-secondary)' }}
-                className="hp-reels-newsbody"
-                dangerouslySetInnerHTML={{ __html: newsBody }}
-              />
-            ) : (
-              <>
-                {slide.subtitle && <p style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)' }}>{slide.subtitle}</p>}
-                <p style={{ margin: '14px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>Kraunama…</p>
-              </>
-            )}
-            <Link href={slide.href} onClick={onNavigate} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 16,
-              padding: '12px 0', borderRadius: 12, background: 'var(--accent-orange)', color: '#fff',
-              fontFamily: 'Outfit,sans-serif', fontSize: 13.5, fontWeight: 800, textDecoration: 'none',
-            }}>Atidaryti straipsnį →</Link>
-          </>
-        )}
-        {kind === 'event' && (
-          <>
-            <p style={{ margin: 0, fontFamily: 'Outfit,sans-serif', fontSize: 19, fontWeight: 900, lineHeight: 1.2, color: 'var(--text-primary)' }}>{slide.title}</p>
-            {slide.subtitle && <p style={{ margin: '8px 0 0', fontSize: 14, color: 'var(--text-secondary)' }}>{slide.subtitle}</p>}
-            {slide.artist?.slug && (
-              <Link href={`/atlikejai/${slide.artist.slug}`} onClick={onNavigate} style={{ display: 'inline-block', marginTop: 8, fontSize: 13, fontWeight: 700, color: 'var(--accent-orange)', textDecoration: 'none' }}>{slide.artist.name} →</Link>
-            )}
-            <Link href={slide.href} onClick={onNavigate} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 16,
-              padding: '12px 0', borderRadius: 12, background: 'var(--accent-orange)', color: '#fff',
-              fontFamily: 'Outfit,sans-serif', fontSize: 13.5, fontWeight: 800, textDecoration: 'none',
-            }}>Renginio puslapis →</Link>
-          </>
-        )}
       </div>
     </div>
   )
@@ -1560,9 +1287,6 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                       : it.type === 'birthday'
                         ? (it.age ? (it.deceased ? `${it.age} gimimo metinės` : `${it.age} m.`) : null)
                         : (it.year ? `${it.year} m.` : null)
-                    // Albumo „apvalus" jubiliejus (10, 20, 30 m. ir t.t.) → oranžinis
-                    // badge'as (pabrėžiam reikšmingas sukaktis). Edvardo prašymu 2026-06-09.
-                    const isJubilee = it.type === 'album_anniversary' && !!it.age && it.age % 10 === 0
                     // Miręs atlikėjas → grayscale nuotrauka. Edvardo prašymu 2026-06-01.
                     const gray = it.type === 'death_anniversary' || it.deceased
                     // Cover + badge — bendra abiem (button album'ui / Link kitiems).
@@ -1577,7 +1301,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                           </div>
                         )}
                         {badge && (
-                          <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm ${isJubilee ? 'bg-[var(--accent-orange)]' : 'bg-black/70'}`}>{badge}</span>
+                          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{badge}</span>
                         )}
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       </div>
@@ -1641,7 +1365,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                   ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>}
-                  {it.age ? <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm ${it.age % 10 === 0 ? 'bg-[var(--accent-orange)]' : 'bg-black/70'}`}>{it.age} m.</span> : null}
+                  {it.age ? <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{it.age} m.</span> : null}
                 </div>
                 <div className="mt-2 px-0.5">
                   {(it.pop ?? 0) > 0 && <span className="mb-1 flex"><IstPopBar level={it.pop} /></span>}
@@ -1707,13 +1431,7 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
   return (
     <Link
       href={slide.href}
-      className={`group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-0.5 ${
-        // Light mode'e stiprus juodas šešėlis atrodė prastai — sumažinam. Tamsoje
-        // paliekam gilesnį (gerai matosi ant tamsaus fono). Edvardo prašymu 2026-06-09.
-        dk
-          ? 'shadow-[0_8px_32px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_42px_rgba(0,0,0,0.35)]'
-          : 'shadow-[0_2px_10px_rgba(0,0,0,0.06)] hover:shadow-[0_6px_18px_rgba(0,0,0,0.10)]'
-      }`}
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_42px_rgba(0,0,0,0.35)]"
     >
       {/* BG image — height-driven, hugs right side for portrait covers */}
       <div className="absolute inset-0 flex items-stretch justify-end overflow-hidden">
@@ -1737,14 +1455,14 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
       {/* Bottom gradient for text readability */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
       {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-end p-4">
+      <div className="absolute inset-0 flex flex-col justify-end p-5">
         <span
-          className="mb-1.5 inline-flex w-fit rounded-full px-2.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-black uppercase tracking-[0.1em] text-white"
+          className="mb-2 inline-flex w-fit rounded-full px-3 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
           style={{ background: slide.chipBg }}
         >
           {slide.chip}
         </span>
-        <h3 className="m-0 max-w-[420px] font-['Outfit',sans-serif] text-[19px] font-black leading-[1.15] tracking-tight text-white transition-opacity group-hover:opacity-90 sm:text-[21px]">
+        <h3 className="m-0 max-w-[460px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">
           {slide.title}
         </h3>
         {/* Subtitle/excerpt naujienoms pašalintas — UI'as paprastesnis,
@@ -2404,10 +2122,12 @@ export default function Home() {
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
   const [worldTop, setWorldTop] = useState<TopEntry[]>([])
   const [tracks, setTracks] = useState<Track[]>([])
-  // Dienos dainos lyderis — hero/reels slide'ui (2026-06-11 music-first feed).
-  const [ddLeaderSlide, setDdLeaderSlide] = useState<any | null>(null)
-  // „Dėmesio centre" featured įrašai — vietoj statinių promo (admin approvina).
-  const [featuredPosts, setFeaturedPosts] = useState<any[]>([])
+  // Naujų dainų/albumų užkrovimo būsena. 'loading' → equalizer skeletonai;
+  // 'error' → retry kortelė (nebe „amžini" pilki skeletonai); 'ok' → turinys
+  // arba „netrukus" tuščiam lane'ui. Atskiriam realią tuštumą nuo fetch klaidos.
+  const [tracksStatus, setTracksStatus] = useState<'loading' | 'ok' | 'error'>('loading')
+  // bump'inam, kad retry mygtukas perpaleistų /api/home/latest fetch'ą.
+  const [latestReload, setLatestReload] = useState(0)
   const [albums, setAlbums] = useState<Album[]>([])
   // „Greitai pasirodys" — bendras (LT + INTL) sąrašas, dar neišleistų albumų
   // (is_upcoming=true arba release_date ateityje). Vienas lane'as, sortinta
@@ -2442,10 +2162,15 @@ export default function Home() {
     return () => clearTimeout(t)
   }, [])
   const mountTime = useRef(Date.now())
-  const readyBits = useRef({ hero: false, tops: false, tracks: false })
+  // 2026-06-14: `tracks` IŠIMTAS iš overlay gate'o. Anksčiau visa homepage
+  // kabėjo po fullscreen equalizer overlay'umi kol /api/home/latest atsakys —
+  // jei jis lėtas/fail'ino, vartotojas matydavo tik loaderį (arba 7s wait).
+  // Dabar overlay nukrenta vos hero+tops paruošti, o „Naujos dainos / Nauji
+  // albumai" sekcijos užsipildo savo equalizer skeletonais in-place.
+  const readyBits = useRef({ hero: false, tops: false })
   const tryReady = useRef(() => {
-    const { hero, tops, tracks } = readyBits.current
-    if (hero && tops && tracks) {
+    const { hero, tops } = readyBits.current
+    if (hero && tops) {
       // Anksčiau: setTimeout(..., Math.max(0, 600 - elapsed)) — 600ms
       // artificial minimum delay (sukėlė "ilgokai kraunasi" jausmą net
       // kai duomenys atvažiavo per 200ms). Dabar be delay'aus.
@@ -2455,6 +2180,66 @@ export default function Home() {
   const filtEvt = events
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
+
+  /* ── Naujos dainos + albumai loader (retry + degraded handling) ──
+     /api/home/latest dabar grąžina `degraded: true` kai DB užklausa fail'ino
+     arba abi sekcijos tuščios (galima problema, ne reali tuštuma). Retry'inam
+     iki 2 kartų su backoff'u; jei vis tiek degraded/klaida → tracksStatus
+     = 'error' → UI rodo „Bandyti dar kartą" kortelę vietoj amžinų skeletonų. */
+  const loadLatest = useCallback(async () => {
+    setTracksStatus('loading')
+    const attempt = async (signal: AbortSignal, fresh: boolean) => {
+      // Normaliai naudojam browser/CDN cache (greita repeat-visit). Retry'inant
+      // (fresh=true) priverstinai aplenkiam cache, kad negautume to paties bad
+      // atsakymo. Degraded atsakymai šiaip jau nešasi `no-store` → browser jų
+      // necache'ina, bet `fresh` papildomai apsaugo SWR stale atvejus.
+      const r = await fetch('/api/home/latest', { signal, cache: fresh ? 'reload' : 'default' })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return r.json()
+    }
+    const maxTries = 3
+    for (let i = 0; i < maxTries; i++) {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 8000)
+      try {
+        const d = await attempt(ctrl.signal, i > 0)
+        clearTimeout(timer)
+        const tLt = (d.tracks?.lt || []) as any[]
+        const tWorld = (d.tracks?.world || []) as any[]
+        const aLt = (d.albums?.lt || []) as any[]
+        const aWorld = (d.albums?.world || []) as any[]
+        // Server flag'as: degraded → traktuojam kaip nesėkmę ir retry'inam
+        // (paskutiniame bandyme paliekam ką gavom, kad bent dalinis turinys
+        // matytųsi, bet pažymim 'error' jei VISIŠKAI tuščia).
+        if (d.degraded && i < maxTries - 1) {
+          await new Promise(res => setTimeout(res, 600 * (i + 1)))
+          continue
+        }
+        setTracks([...tLt, ...tWorld])
+        setAlbums([...aLt, ...aWorld])
+        setUpcomingAlbums((d.upcoming || []) as any[])
+        setTotals({
+          tracksLt: d.tracks?.totalLt || 0,
+          tracksWorld: d.tracks?.totalWorld || 0,
+          albumsLt: d.albums?.totalLt || 0,
+          albumsWorld: d.albums?.totalWorld || 0,
+          upcoming: d.upcomingTotal || 0,
+        })
+        const totalItems = tLt.length + tWorld.length + aLt.length + aWorld.length
+        setTracksStatus(totalItems === 0 && d.degraded ? 'error' : 'ok')
+        return
+      } catch {
+        clearTimeout(timer)
+        if (i < maxTries - 1) {
+          await new Promise(res => setTimeout(res, 600 * (i + 1)))
+          continue
+        }
+        setTracksStatus('error')
+      }
+    }
+  }, [])
+
+  useEffect(() => { loadLatest() }, [loadLatest, latestReload])
 
   /* Horizontal scroll arrows — ant ne-touch įrenginių prie kiekvieno .hp-scroll
      parent'o pridedam ◄ ► mygtukus. Mygtukai scrollina 85% conteinerio pločio
@@ -2539,54 +2324,11 @@ export default function Home() {
     fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); readyBits.current.tops = true; tryReady.current() }).catch(() => { readyBits.current.tops = true; tryReady.current() })
     fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => setWorldTop(parseTop(d.entries || []))).catch(() => {})
 
-    // tracks + albums vienu fetch'u — { tracks: { lt, world }, albums: { lt, world } }
-    // Po Pro plan upgrade DB queries grįžo ~200ms; 8s AbortController saugiklis
-    // cold-start'o atvejui. pageReady fail-safe per 7s vis tiek suveikia jei
-    // network'as visiškai užkimba.
-    const tracksAbort = new AbortController()
-    const tracksTimer = setTimeout(() => tracksAbort.abort(), 8000)
-    fetch('/api/home/latest', { signal: tracksAbort.signal })
-      .then(r => r.json())
-      .then(d => {
-        clearTimeout(tracksTimer)
-        return d
-      })
-      .then(d => {
-        const tLt = (d.tracks?.lt || []) as any[]
-        const tWorld = (d.tracks?.world || []) as any[]
-        // Concat'inam į flat array — existing render skiria lane'us per client-side
-        // `isLT()` filtrą pagal `artists.country`. Backend jau pre-filtravo per
-        // lane'ą, tad client-side filtr'as veiks idempotentiškai (LT eis į LT
-        // lane'ą, World į World lane'ą).
-        setTracks([...tLt, ...tWorld])
-        readyBits.current.tracks = true
-        tryReady.current()
-        const aLt = (d.albums?.lt || []) as any[]
-        const aWorld = (d.albums?.world || []) as any[]
-        setAlbums([...aLt, ...aWorld])
-        setUpcomingAlbums((d.upcoming || []) as any[])
-        setTotals({
-          tracksLt: d.tracks?.totalLt || 0,
-          tracksWorld: d.tracks?.totalWorld || 0,
-          albumsLt: d.albums?.totalLt || 0,
-          albumsWorld: d.albums?.totalWorld || 0,
-          upcoming: d.upcomingTotal || 0,
-        })
-      })
-      .catch(() => { clearTimeout(tracksTimer); readyBits.current.tracks = true; tryReady.current() })
+    // tracks + albums — ekstrahuota į `loadLatest` (su retry + degraded
+    // handling) ir paleidžiama atskirame effect'e, kad „Bandyti dar kartą"
+    // mygtukas galėtų perpaleisti TIK šią užklausą (latestReload bump).
 
-    fetch('/api/events?limit=24&compact=1').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
-    // Dienos dainos lyderis — hero/reels „DIENOS DAINA" slide'ui (2026-06-11).
-    fetch('/api/dienos-daina/nominations').then(r => r.json()).then(d => {
-      const noms = (d.nominations || []).filter((n: any) => n.tracks)
-        .sort((a: any, b: any) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0))
-      setDdLeaderSlide(noms[0] || null)
-    }).catch(() => {})
-    // „Dėmesio centre" featured — realus admin'o pažymėtas turinys reels'e
-    // (vietoj statinių promo kortelių, 2026-06-11 v3).
-    fetch('/api/atradimai/feed?featured=1&nodedup=1&limit=4').then(r => r.json()).then(d => {
-      setFeaturedPosts(d.posts || [])
-    }).catch(() => {})
+    fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
     // News + songs vienu request'u. `since_days=30` apriboja į pastarąsias 30 d.
     // tiek modern, tiek legacy news. Limit 12 vietoj 30 — hero reels rodo
     // max ~10 slide'ų; daugiau payload tik teršia bandwidth'ą.
@@ -2609,46 +2351,12 @@ export default function Home() {
   /* ── Hero slides ── */
   useEffect(() => {
     const slides: HeroSlide[] = []
-    // TVARKA (2026-06-11 „music-first" feed, Edvardo kryptis): KURUOTOS NAUJOS
-    // DAINOS pirmos (mobile vartotojas iškart mato muzikos vertę, ne promo
-    // naujienas) → Dienos daina → naujienos (max 6, ne 30!) → topai → renginiai.
-    // Topo slide'o href gauna savaitės raktą — nauja savaitė = naujas „unseen"
-    // žiedas (kitaip topas kabo visą savaitę jau balsavusiems).
-
-    // 1) Dainos hero'e NEBERODOMOS (2026-06-11 v3) — dubliavo „Naujos dainos"
-    //    sekciją žemiau. Muzikos vertė mobile — per sekcijų tvarką.
-
-    // 2) Dienos daina — IŠJUNGTA hero'e (2026-06-12). Rodoma Bendruomenės sekcijoje.
-
-    // 3) Naujienos — max 6 (anksčiau 30 užgoždavo visą feed'ą).
-    news.slice(0, 6).forEach(n => {
-      const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
-      const songs = newsSongs[n.id] || []
-      const song = songs.find((s: any) => s.youtube_url)
-      slides.push({
-        type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
-        title: sanitizeTitle(n.title),
-        subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
-        bgImg: n.image_title_url || n.image_small_url,
-        href: `/news/${n.slug}`,
-        newsId: n.id,
-        videoId: extractYouTubeId(song?.youtube_url || null),
-        songTitle: song?.title || null,
-        songArtist: song?.artist_name || n.artist?.name || null,
-        songCover: null,
-        artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
-      })
-    })
-
-    // 4) Topai — href su savaitės raktu (nauja savaitė = unseen).
-    const now = new Date()
-    const wk = `${now.getFullYear()}w${Math.ceil(((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 864e5 + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)}`
     if (ltTop.length > 0) {
       slides.push({
         type: 'chart_lt', chip: 'LT TOP 30', chipBg: '#ea580c',
         title: 'LT TOP 30',
         subtitle: ltTop.slice(0, 3).map(t => `${t.pos}. ${t.title}`).join(' · '),
-        href: `/top30?s=${wk}`,
+        href: '/top30',
         bgImg: ltTop[0]?.artist_image || ltTop[0]?.cover_url || null,
         chartTops: ltTop.slice(0, 5),
       } as any)
@@ -2658,12 +2366,29 @@ export default function Home() {
         type: 'chart_world', chip: 'TOP 40', chipBg: '#1d4ed8',
         title: 'TOP 40',
         subtitle: worldTop.slice(0, 3).map(t => `${t.pos}. ${t.title}`).join(' · '),
-        href: `/top40?s=${wk}`,
+        href: '/top40',
         bgImg: worldTop[0]?.artist_image || worldTop[0]?.cover_url || null,
         chartTops: worldTop.slice(0, 5),
       } as any)
     }
-    events.slice(0, 2).forEach(ev => {
+    news.slice(0, 30).forEach(n => {
+      const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
+      const songs = newsSongs[n.id] || []
+      const song = songs.find((s: any) => s.youtube_url)
+      slides.push({
+        type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
+        title: sanitizeTitle(n.title),
+        subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
+        bgImg: n.image_title_url || n.image_small_url,
+        href: `/news/${n.slug}`,
+        videoId: extractYouTubeId(song?.youtube_url || null),
+        songTitle: song?.title || null,
+        songArtist: song?.artist_name || n.artist?.name || null,
+        songCover: null,
+        artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
+      })
+    })
+    events.slice(0, 3).forEach(ev => {
       const dateRaw = (ev as any).start_date || ev.event_date
       const d = dateRaw ? new Date(dateRaw) : null
       const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_FULL_LT[d.getMonth()]} ${d.getFullYear()} m.` : ''
@@ -2686,28 +2411,6 @@ export default function Home() {
         artist: firstArtist?.artists ? { name: firstArtist.artists.name, slug: firstArtist.artists.slug, image: firstArtist.artists.cover_image_url || null } : null,
       })
     })
-    // 5) „Dėmesio centre" featured įrašai — REALUS admin'o approvintas turinys
-    //    (apžvalga/topas/atradimas) vietoj statinių promo (2026-06-11 v3).
-    //    Nėra featured → jokių įterpimų.
-    const featSlides: HeroSlide[] = featuredPosts.slice(0, 2).map((p: any) => {
-      const kind = p.post_type === 'topas' ? 'TOPAS'
-        : (p.post_type === 'review' || p.editorial_type === 'recenzija') ? 'MUZIKOS APŽVALGA'
-        : p.editorial_type === 'koncertai' ? 'KONCERTŲ ĮSPŪDŽIAI'
-        : p.editorial_type === 'atradimas' ? 'ATRADIMAS' : 'ĮRAŠAS'
-      const color = kind === 'TOPAS' ? '#f59e0b' : kind === 'MUZIKOS APŽVALGA' ? '#ef4444' : kind === 'KONCERTŲ ĮSPŪDŽIAI' ? '#3b82f6' : '#f97316'
-      return {
-        type: 'featured', chip: kind, chipBg: color,
-        title: sanitizeTitle(p.title || ''),
-        subtitle: p.excerpt || '',
-        bgImg: p.cover || null,
-        href: p.blog_slug ? `/blogas/${p.blog_slug}/${p.slug}` : '/atrasti',
-      }
-    })
-    let featI = 0
-    for (let pos = 4; pos < slides.length && featI < featSlides.length; pos += 5) {
-      slides.splice(pos, 0, featSlides[featI++])
-    }
-
     if (!slides.length) slides.push({
       type: 'promo', chip: '🇱🇹 LIETUVIŠKA MUZIKA', chipBg: '#f97316',
       title: 'music.lt',
@@ -2718,7 +2421,7 @@ export default function Home() {
     setHeroIdx(0)
     readyBits.current.hero = true
     tryReady.current()
-  }, [news, events, newsSongs, ltTop, worldTop, ddLeaderSlide, featuredPosts])
+  }, [news, events, newsSongs, ltTop, worldTop])
 
   useEffect(() => {
     if (!heroSlides.length || heroVideoPlaying) return
@@ -2772,13 +2475,15 @@ export default function Home() {
         @keyframes hp-pulse{0%,100%{opacity:.05}50%{opacity:.08}}
         .hp-skel{background:var(--homepage-skeleton-bg);animation:hp-pulse 1.8s ease-in-out infinite}
         .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
-        /* v5: 2 pilnos kortelės + trečia „peek” (~35% matosi) */
-        .hp-hero-slot{width:calc((100% - 16px) / 2.35);min-width:360px;flex-shrink:0}
-        @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 16px) / 2.4)}}
+        .hp-hero-slot{width:580px;flex-shrink:0;min-width:0}
+        /* >=1400px: siauresnės kortelės, kad 3-čia naujiena aiškiau matytųsi
+           (peek ~38% vietoj ankstesnio ~10%). Edvardo prašymu 2026-05-31. */
+        @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 64px) / 2.3)}}
         @media(max-width:768px){.hp-hero-slot{width:calc(88vw)}}
-        @media(max-width:768px){.hp-hero-arrow{display:none}}
         .hp-scroll::-webkit-scrollbar{display:none}
-        /* Scroll-arrow hide for non-hero rows */
+        /* 2026-05-29: desktop side-scroll rodyklės pašalintos (Edvardo prašymu) —
+           native trackpad/shift-scroll + „Visi" modalas pakanka. display:none
+           paslepia injected ‹ › mygtukus visur (anksčiau tik coarse pointer'iuose). */
         .hp-scroll-arrow{display:none !important}
         .hp-scroll-arrow:hover{background:var(--accent-orange);color:#fff;border-color:var(--accent-orange);transform:translateY(-50%) scale(1.08)}
         .hp-scroll-arrow-l{left:-8px}
@@ -2800,13 +2505,7 @@ export default function Home() {
         @media(max-width:960px){.hp-feed-strip{display:flex}.hp-mobile-chart{display:block}}
 
         /* ── Reels overlay — horizontal Stories ── */
-        .hp-reels{position:fixed;inset:0;z-index:400;background:#000;overflow:hidden}
-        /* touch-action TIK track'ui — sheet'as (sibling) turi laisvai scrollintis */
-        .hp-reels-track{touch-action:none}
-        /* Reels atidaryti — slepiam site header + bottom nav (smooth fullscreen).
-           Plain <style> tag'as ir taip globalus. */
-        body.reels-open header{visibility:hidden}
-        body.reels-open .mbn{display:none!important}
+        .hp-reels{position:fixed;inset:0;z-index:300;background:#000;overflow:hidden;touch-action:pan-x}
         .hp-reels-track{height:100%;display:flex;flex-direction:row;will-change:transform;transition:transform .32s cubic-bezier(.4,0,.2,1)}
         .hp-reels-slide{height:100vh;width:100vw;flex-shrink:0;display:flex;flex-direction:column;background:#000;position:relative;overflow:hidden}
 
@@ -2814,15 +2513,6 @@ export default function Home() {
         .hp-reels-img{flex:0 0 55%;position:relative;overflow:hidden}
         .hp-reels-img img{width:100%;height:100%;object-fit:cover}
         .hp-reels-img::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40%;background:linear-gradient(to top,#000,transparent)}
-        /* Dainų mute-autoplay fonas — YT iframe „cover" režimu (16:9 ištemptas
-           per 55% aukščio zoną), be pointer events (gestai lieka track'ui). */
-        .hp-reels-autoplay{position:absolute;top:50%;left:50%;width:185%;height:115%;transform:translate(-50%,-50%);border:0;pointer-events:none;z-index:1}
-        /* Explore sheet — swipe aukštyn panelė */
-        .hp-reels-sheet{position:fixed;left:0;right:0;bottom:0;top:18%;z-index:320;background:var(--bg-surface);border-radius:20px 20px 0 0;border-top:1px solid var(--border-strong);display:flex;flex-direction:column;padding:10px 16px calc(14px + env(safe-area-inset-bottom));animation:hp-sheet-in .26s cubic-bezier(.3,.9,.4,1) both;box-shadow:0 -18px 50px rgba(0,0,0,.45)}
-        @keyframes hp-sheet-in{from{transform:translateY(35%);opacity:.5}to{transform:translateY(0);opacity:1}}
-        .hp-reels-sheet-scroll{flex:1;overflow-y:auto;min-height:0;overscroll-behavior:contain}
-        .hp-reels-newsbody img{max-width:100%;border-radius:10px}
-        .hp-reels-newsbody a{color:var(--accent-link)}
         .hp-reels-video-popup{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;background:rgba(0,0,0,0.92);animation:hp-in .2s ease both}
         .hp-reels-video-popup iframe{width:100%;flex:1;border:none}
 
@@ -2930,8 +2620,13 @@ export default function Home() {
         {pageReady && heroSlides.length > 0 && (
           <section className="hp-hero-v2" ref={heroRef}>
             <div className="mx-auto max-w-[1360px] px-5 pt-5">
-              {/* 2026-06-11 v4 — ~3 kortelių juosta su peek + rodyklėmis. */}
-              <HeroSliderDesktop slides={heroSlides} dk={dk} />
+              <div className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory">
+                {heroSlides.map((slide) => (
+                  <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
+                    <HeroV2Card slide={slide} dk={dk} />
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
         )}
@@ -2961,6 +2656,7 @@ export default function Home() {
                 }
                 // ── Default slide (news/event/promo) — opens reels ──
                 const isSeen = seenSlides.has(slide.href)
+                const artistName = slide.artist?.name || null
                 // showExcerpt — naujienoms NEBE rodom subtitle (excerpt'as).
                 // Card'as paprastesnis: chip + title (+ artist'as jei yra).
                 // Eventams paliekam subtitle (data/vieta) — jis kontekstinis.
@@ -2982,11 +2678,12 @@ export default function Home() {
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
                     {/* Bottom: title + excerpt + artist */}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
-                      {/* Pilnesnis title (clamp 4) + atlikėjo eilutės atsisakyta —
-                          jis beveik visada minimas pačiame title (2026-06-11 v3). */}
-                      <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
+                      <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
                       {showExcerpt && (
                         <p style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.78)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
+                      )}
+                      {artistName && (
+                        <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
                       )}
                     </div>
                     {/* Top: chip badge */}
@@ -3019,7 +2716,6 @@ export default function Home() {
               return next
             })}
             onClose={() => setReelsOpen(false)}
-            onIdxChange={setReelsIdx}
             onChartVote={(s) => setChartSheet({
               topType: s.type === 'chart_lt' ? 'lt_top30' : 'top40',
               title: s.title,
@@ -3082,13 +2778,11 @@ export default function Home() {
                     <div className="flex items-stretch gap-3">
                       <RowDivider icon={lane} />
                       <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Naujos dainos">
-                        {tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
-                          <div key={i} className="shrink-0" style={{ width: 200 }}>
-                            <Skel w={200} h={112} r={12} />
-                            <div className="mt-2"><Skel w="80%" h={12} /></div>
-                            <div className="mt-1"><Skel w="60%" h={10} /></div>
-                          </div>
-                        )) : items.length === 0 ? (
+                        {tracksStatus === 'loading' && tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
+                          <EqSkel key={i} w={200} h={112} r={12} />
+                        )) : tracksStatus === 'error' && tracks.length === 0 ? (
+                          <LoadErrorCard onRetry={() => setLatestReload(n => n + 1)} height={112} />
+                        ) : items.length === 0 ? (
                           <div className="flex h-[112px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
                             {lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}
                           </div>
@@ -3110,9 +2804,7 @@ export default function Home() {
                             >
                               {/* 16:9 (YouTube-style) — dainos vizualiai skiriasi nuo
                                   kvadratinių albumų cover'ių. */}
-                              <div className={`relative aspect-video overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)] ${
-                                (t as any).is_new ? 'border-[var(--accent-orange)]' : 'border-[var(--border-default)] group-hover:border-[rgba(249,115,22,0.5)]'
-                              }`}>
+                              <div className="relative aspect-video overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
                                 {imgSrc ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -3124,9 +2816,6 @@ export default function Home() {
                                   />
                                 ) : (
                                   <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
-                                )}
-                                {(t as any).is_new && (
-                                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-orange)] shadow-[0_0_0_2px_rgba(0,0,0,0.45)]" />
                                 )}
                                 {/* Play overlay (hover) — atskiria dainą nuo albumo. */}
                                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
@@ -3191,13 +2880,11 @@ export default function Home() {
                     <div className="flex items-stretch gap-3">
                       <RowDivider icon={lane} />
                       <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Nauji albumai">
-                        {albums.length === 0 ? Array(8).fill(null).map((_, i) => (
-                        <div key={i} className="shrink-0" style={{ width: 156 }}>
-                          <Skel w={156} h={156} r={12} />
-                          <div className="mt-2"><Skel w="80%" h={12} /></div>
-                          <div className="mt-1"><Skel w="60%" h={10} /></div>
-                        </div>
-                      )) : items.length === 0 ? (
+                        {tracksStatus === 'loading' && albums.length === 0 ? Array(8).fill(null).map((_, i) => (
+                          <EqSkel key={i} w={156} h={156} r={12} />
+                        )) : tracksStatus === 'error' && albums.length === 0 ? (
+                          <LoadErrorCard onRetry={() => setLatestReload(n => n + 1)} height={156} />
+                        ) : items.length === 0 ? (
                         <div className="flex h-[156px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
                           {lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}
                         </div>
@@ -3213,9 +2900,7 @@ export default function Home() {
                             className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
                             style={{ width: 156 }}
                           >
-                            <div className={`relative aspect-square overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)] ${
-                              (a as any).is_new ? 'border-[var(--accent-orange)]' : 'border-[var(--border-default)] group-hover:border-[rgba(249,115,22,0.5)]'
-                            }`}>
+                            <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
                               {a.cover_image_url || a.artists?.cover_image_url ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -3227,9 +2912,6 @@ export default function Home() {
                                 />
                               ) : (
                                 <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>
-                              )}
-                              {(a as any).is_new && (
-                                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-orange)] shadow-[0_0_0_2px_rgba(0,0,0,0.45)]" />
                               )}
                               {/* Hover orange tint nuo apačios */}
                               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
@@ -3244,13 +2926,7 @@ export default function Home() {
                                 const validRD = releaseD && !isNaN(releaseD.getTime())
                                 const diff = validRD ? Math.ceil((releaseD!.getTime() - Date.now()) / 86400000) : null
                                 const isUpcoming = (a as any).is_upcoming === true || (diff !== null && diff > 0)
-                                // hasContent = ar albumas turi paveikslėlį (savo
-                                // cover ARBA atlikėjo nuotrauką — kaip ir kortelės
-                                // vaizdas). Anksčiau tikrino TIK a.cover_image_url,
-                                // tad LT albumai be savo cover'io (rodomi per
-                                // atlikėjo nuotrauką) negaudavo „Greitai" badge'o,
-                                // o užsienio (su savo cover) gaudavo. 2026-06-09.
-                                const hasContent = !!(a.cover_image_url || a.artists?.cover_image_url)
+                                const hasContent = !!(a.cover_image_url)
                                 let label: string | null = null
                                 let highlight = false
                                 if (isUpcoming) {
