@@ -3,15 +3,17 @@
 /**
  * /srautas — ❤️ asmeninė muzikos zona. Du režimai, perjungiami filtrų juostoje
  * (kaip /renginiai, /naujienos), NE tabais:
- *   • Mėgstami  — turinys iš JAU pamėgtų atlikėjų (/api/srautas/feed).
+ *   • Mėgstami  — turinys iš JAU pamėgtų atlikėjų (/api/srautas/feed). DEFAULT.
  *   • Atradimai — atradimų rekomendacijos (/api/srautas/recommendations).
  *
- * Po režimo — turinio tipo filtrai (Viskas · Naujienos · Muzika · Įrašai ·
- * Koncertai / Atlikėjai · Temos), taikomi kliente jau užkrautam srautui.
+ * Filtrų juosta: segmentinis režimo perjungiklis (su ikonomis) + turinio tipo
+ * chip'ai, be tekstinių „Rodyti"/„Tipas" etikečių. Tipas taikomas kliente.
  *
- * Layout = pilno pločio žurnalo tinklelis (responsive grid) su vizualiomis
- * kortelėmis. Abu feed'ai cache'inami klientiškai (sessionStorage) + serveris
- * juos parallelina ir cache'ina → grįžus atsiranda iškart. Loading = equalizer.
+ * Layout = pilno pločio žurnalo tinklelis su vizualiomis kortelėmis.
+ *
+ * GREITAVEIKA: feed'as užkraunamas IŠKART (mount), nelaukiant useSession — API
+ * personalizaciją nuskaito iš cookie pats serveryje, tad nereikia waterfall'o
+ * (session → fetch). Serveris šaltinius parallelina + cache'ina (90s).
  */
 
 import { useEffect, useState, useCallback, useMemo, Suspense, type MouseEvent } from 'react'
@@ -47,6 +49,29 @@ const BADGE_COLOR: Record<Kind, string> = {
   event: '#ec4899',
   topic: '#0ea5e9',
 }
+
+// ── Ikonos (inline SVG — projektas neturi ikonų bibliotekos) ─────────────────
+const IconHeart = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z" />
+  </svg>
+)
+const IconCompass = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m15.5 8.5-2 5-5 2 2-5z" />
+  </svg>
+)
+const IconPlus = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+)
+const IconCheck = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="m20 6-11 11-5-5" />
+  </svg>
+)
 
 // Turinio tipo filtrai — priklauso nuo režimo (skirtingi šaltiniai).
 type TypeKey = 'all' | 'news' | 'music' | 'blog' | 'event' | 'artist' | 'topic'
@@ -138,7 +163,7 @@ function ContentCard({ it }: { it: FeedItem }) {
   )
 }
 
-/** Atlikėjo rekomendacijos kortelė su širdute (sekti) — viršuje ant viršelio. */
+/** Atlikėjo rekomendacijos kortelė su „sekti" mygtuku (+ → ✓) ant viršelio. */
 function ArtistCard({ it }: { it: FeedItem }) {
   const [following, setFollowing] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -174,15 +199,13 @@ function ArtistCard({ it }: { it: FeedItem }) {
         <span className="sr-badge" style={{ color: '#fff', background: BADGE_COLOR.artist }}>{it.badge}</span>
         <button
           type="button"
-          className={`sr-heart${following ? ' done' : ''}`}
+          className={`sr-follow${following ? ' done' : ''}`}
           onClick={follow}
           disabled={busy}
           aria-label={following ? 'Nebesekti' : 'Sekti atlikėją'}
           title={following ? 'Seki' : 'Sekti'}
         >
-          <svg viewBox="0 0 24 24" fill={following ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />
-          </svg>
+          {following ? IconCheck : IconPlus}
         </button>
       </div>
       <div className="sr-body">
@@ -203,8 +226,8 @@ function SrautasInner() {
   const { data: session } = useSession()
   const router = useRouter()
   const params = useSearchParams()
-  const uid = (session?.user as any)?.id || 'anon'
 
+  // DEFAULT = Mėgstami. Tik aiškus ?t=tau atidaro Atradimus (be localStorage restore).
   const initialMode: Mode = params.get('t') === 'tau' ? 'tau' : 'sekami'
   const [mode, setMode] = useState<Mode>(initialMode)
   const [type, setType] = useState<TypeKey>('all')
@@ -222,27 +245,17 @@ function SrautasInner() {
   const [recLoading, setRecLoading] = useState(false)
   const [recLoaded, setRecLoaded] = useState(false)
 
-  // Pirmas užkrovimas: jei URL be ?t= → atstatom režimą iš localStorage.
-  useEffect(() => {
-    if (params.get('t')) return
-    try {
-      const saved = localStorage.getItem('srautas_tab')
-      if (saved === 'tau' || saved === 'sekami') setMode(saved)
-    } catch { /* ignore */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const switchMode = (m: Mode) => {
     if (m === mode) return
     setMode(m)
     setType('all') // tipų rinkiniai skiriasi tarp režimų
-    try { localStorage.setItem('srautas_tab', m) } catch { /* ignore */ }
     const sp = new URLSearchParams(Array.from(params.entries()))
-    sp.set('t', m)
-    router.replace(`/srautas?${sp.toString()}`, { scroll: false })
+    if (m === 'sekami') sp.delete('t'); else sp.set('t', m)
+    const qs = sp.toString()
+    router.replace(`/srautas${qs ? `?${qs}` : ''}`, { scroll: false })
   }
 
-  // ── Sekami feed (su sessionStorage cache) ──
+  // ── Sekami feed — užkraunamas IŠKART, nelaukiant session (cookie užtenka). ──
   const loadFeed = useCallback(async (before?: string | null) => {
     const url = `/api/srautas/feed?limit=30${before ? `&before=${encodeURIComponent(before)}` : ''}`
     const res = await fetch(url)
@@ -251,7 +264,7 @@ function SrautasInner() {
 
   useEffect(() => {
     let alive = true
-    const cacheKey = `srautas_sekami_${uid}`
+    const cacheKey = 'srautas_sekami'
     try {
       const raw = sessionStorage.getItem(cacheKey)
       if (raw) {
@@ -272,7 +285,7 @@ function SrautasInner() {
       try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), items: d.items || [], personalized: !!d.personalized, nextBefore: d.nextBefore || null })) } catch { /* ignore */ }
     }).catch(() => alive && setLoading(false))
     return () => { alive = false }
-  }, [loadFeed, uid])
+  }, [loadFeed])
 
   const moreFeed = async () => {
     if (!nextBefore || loadingMore) return
@@ -284,11 +297,11 @@ function SrautasInner() {
     } finally { setLoadingMore(false) }
   }
 
-  // ── Tau feed (lazy + sessionStorage cache) ──
+  // ── Tau feed (lazy — kai perjungiama į Atradimus) ──
   useEffect(() => {
     if (mode !== 'tau' || recLoaded) return
     let alive = true
-    const cacheKey = `srautas_tau_${uid}`
+    const cacheKey = 'srautas_tau'
     try {
       const raw = sessionStorage.getItem(cacheKey)
       if (raw) {
@@ -309,7 +322,7 @@ function SrautasInner() {
       })
       .catch(() => { if (alive) { setRecLoading(false); setRecLoaded(true) } })
     return () => { alive = false }
-  }, [mode, recLoaded, uid])
+  }, [mode, recLoaded])
 
   // Aktyvaus režimo duomenys + tipo filtras (kliente).
   const sourceItems = mode === 'sekami' ? items : recs
@@ -325,17 +338,27 @@ function SrautasInner() {
       <style>{`
         .sr-wrap { max-width: 1180px; margin: 0 auto; padding: 18px 18px 40px; }
 
-        /* ── Filtrų juosta (kaip /renginiai) ── */
-        .srf-bar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px;
+        /* ── Filtrų juosta ── */
+        .srf-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 11px; border-radius:14px;
           background:var(--bg-surface); border:1px solid var(--border-default, rgba(255,255,255,0.08)); margin-bottom:8px; }
-        .srf-lbl { font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--text-faint); padding:0 2px; }
-        .srf-divider { width:1px; height:22px; background:var(--border-default, rgba(255,255,255,0.1)); margin:0 4px; }
-        .srf-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:100px; font-size:12.5px; font-weight:700;
+        .srf-divider { width:1px; height:24px; background:var(--border-default, rgba(255,255,255,0.12)); margin:0 3px; }
+
+        /* Segmentinis režimo perjungiklis */
+        .srf-seg { display:inline-flex; gap:3px; background:var(--bg-hover); border:1px solid var(--border-default, rgba(255,255,255,0.08));
+          border-radius:100px; padding:3px; }
+        .srf-seg button { display:inline-flex; align-items:center; gap:7px; padding:7px 16px; border-radius:100px; border:none;
+          background:transparent; color:var(--text-secondary); font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;
+          transition:all .15s; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
+        .srf-seg button svg { width:15px; height:15px; }
+        .srf-seg button:not(.on):hover { color:var(--text-primary); }
+        .srf-seg button.on { background:var(--accent-orange); color:#fff; box-shadow:0 1px 6px rgba(249,115,22,0.4); }
+
+        /* Tipo chip'ai */
+        .srf-chip { display:inline-flex; align-items:center; padding:7px 14px; border-radius:100px; font-size:12.5px; font-weight:700;
           font-family:inherit; background:var(--bg-hover); border:1px solid var(--border-default, rgba(255,255,255,0.08));
           color:var(--text-secondary); transition:all .15s; white-space:nowrap; cursor:pointer; line-height:1.3; -webkit-tap-highlight-color:transparent; }
         .srf-chip:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
-        .srf-chip.on { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
-        .srf-mode { font-size:13px; padding:7px 16px; }
+        .srf-chip.on { background:var(--text-primary); border-color:var(--text-primary); color:var(--bg-base, #0d0d0f); }
         .srf-count { margin-left:auto; font-size:12px; color:var(--text-faint); white-space:nowrap; padding-left:6px; }
         .sr-lead { font-size:13.5px; color:var(--text-muted); margin:12px 2px 16px; }
 
@@ -370,14 +393,15 @@ function SrautasInner() {
         .sr-because { font-size:12px; color:var(--accent-orange); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
         .sr-time { font-size:11.5px; color:var(--text-faint); margin-top:1px; }
 
-        /* ── Sekti širdutė (ant viršelio) ── */
-        .sr-heart { position:absolute; top:8px; right:8px; width:36px; height:36px; border-radius:50%; cursor:pointer; font-family:inherit;
-          border:none; background:rgba(0,0,0,0.45); backdrop-filter:blur(4px); color:#fff;
-          display:inline-flex; align-items:center; justify-content:center; transition:color .14s, background .14s; -webkit-tap-highlight-color:transparent; z-index:2; }
-        .sr-heart svg { width:18px; height:18px; }
-        .sr-heart:hover { background:rgba(0,0,0,0.6); }
-        .sr-heart:disabled { opacity:.7; }
-        .sr-heart.done { color:#f5466b; background:rgba(255,255,255,0.92); }
+        /* ── Sekti mygtukas (+ → ✓) ── */
+        .sr-follow { position:absolute; top:8px; right:8px; width:34px; height:34px; border-radius:50%; cursor:pointer; font-family:inherit;
+          border:none; background:rgba(255,255,255,0.92); color:#16161a;
+          display:inline-flex; align-items:center; justify-content:center; transition:transform .14s, background .14s, color .14s;
+          box-shadow:0 2px 8px rgba(0,0,0,0.28); z-index:2; }
+        .sr-follow svg { width:17px; height:17px; }
+        .sr-follow:hover { transform:scale(1.1); }
+        .sr-follow:disabled { opacity:.7; }
+        .sr-follow.done { background:var(--accent-orange); color:#fff; }
 
         /* ── Pagalbiniai ── */
         .sr-more { margin:26px auto 0; display:block; border:1px solid var(--border-default);
@@ -393,18 +417,23 @@ function SrautasInner() {
           .sr-body { padding:9px 10px 11px; gap:3px; }
           .sr-title { font-size:13px; }
           .sr-badge { font-size:9.5px; padding:3px 7px; }
-          .srf-bar { padding:9px 10px; gap:6px; }
+          .srf-bar { padding:9px; gap:7px; }
+          .srf-seg button { padding:7px 13px; }
           .srf-count { width:100%; margin-left:0; order:9; text-align:right; }
         }
       `}</style>
 
-      {/* Filtrų juosta: režimas + turinio tipas */}
+      {/* Filtrų juosta: režimas (segmentinis) + turinio tipas, be etikečių */}
       <div className="srf-bar">
-        <span className="srf-lbl">Rodyti</span>
-        <button type="button" className={`srf-chip srf-mode${mode === 'sekami' ? ' on' : ''}`} onClick={() => switchMode('sekami')}>❤️ Mėgstami</button>
-        <button type="button" className={`srf-chip srf-mode${mode === 'tau' ? ' on' : ''}`} onClick={() => switchMode('tau')}>✦ Atradimai</button>
+        <div className="srf-seg" role="tablist">
+          <button type="button" role="tab" aria-selected={mode === 'sekami'} className={mode === 'sekami' ? 'on' : ''} onClick={() => switchMode('sekami')}>
+            {IconHeart}<span>Mėgstami</span>
+          </button>
+          <button type="button" role="tab" aria-selected={mode === 'tau'} className={mode === 'tau' ? 'on' : ''} onClick={() => switchMode('tau')}>
+            {IconCompass}<span>Atradimai</span>
+          </button>
+        </div>
         <span className="srf-divider" />
-        <span className="srf-lbl">Tipas</span>
         {TYPE_FILTERS[mode].map(t => (
           <button key={t.key} type="button" className={`srf-chip${type === t.key ? ' on' : ''}`} onClick={() => setType(t.key)}>{t.label}</button>
         ))}
@@ -446,11 +475,9 @@ function SrautasInner() {
               ? <ArtistCard key={it.key} it={it} />
               : <ContentCard key={it.key} it={it} />)}
           </div>
-          {mode === 'sekami' && nextBefore && type === 'all'
-            ? <button className="sr-more" onClick={moreFeed} disabled={loadingMore}>{loadingMore ? 'Kraunama…' : 'Rodyti daugiau'}</button>
-            : mode === 'sekami' && nextBefore
-              ? <button className="sr-more" onClick={moreFeed} disabled={loadingMore}>{loadingMore ? 'Kraunama…' : 'Užkrauti daugiau įrašų'}</button>
-              : <div className="sr-end">Tai viskas kol kas ✦</div>}
+          {mode === 'sekami' && nextBefore
+            ? <button className="sr-more" onClick={moreFeed} disabled={loadingMore}>{loadingMore ? 'Kraunama…' : (type === 'all' ? 'Rodyti daugiau' : 'Užkrauti daugiau įrašų')}</button>
+            : <div className="sr-end">Tai viskas kol kas ✦</div>}
         </>
       )}
     </div>
