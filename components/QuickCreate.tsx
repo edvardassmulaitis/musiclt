@@ -36,7 +36,7 @@ type Item = {
   bg: string
 }
 
-type Group = { label: string; items: Item[] }
+type Group = { label: string; items: Item[]; compact?: boolean }
 
 const sv = (d: React.ReactNode) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
@@ -56,6 +56,7 @@ const GROUPS: Group[] = [
   },
   {
     label: 'Kūryba',
+    compact: true,
     items: [
       { href: '/blogas/rasyti?type=creation', label: 'Kūryba', desc: 'Eilėraštis, tavo kūrinys', bg: 'rgba(139,92,246,0.15)', color: '#a78bfa', icon: sv(<><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>) },
       { href: '/blogas/rasyti?type=translation', label: 'Vertimas', desc: 'Dainos žodžiai', bg: 'rgba(20,184,166,0.15)', color: '#2dd4bf', icon: sv(<><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></>) },
@@ -64,6 +65,7 @@ const GROUPS: Group[] = [
   },
   {
     label: 'Greiti veiksmai',
+    compact: true,
     items: [
       { href: '/blogas/rasyti?type=daily', label: 'Dienos daina', desc: 'Pasiūlyk dainą', bg: 'rgba(34,197,94,0.15)', color: '#4ade80', icon: sv(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>) },
       { href: '/blogas/rasyti?type=mood', label: 'Nuotaikos daina', desc: 'Daina tavo profiliui', bg: 'rgba(236,72,153,0.15)', color: '#f472b6', icon: sv(<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />) },
@@ -116,23 +118,24 @@ export function QuickCreate() {
 
   const go = (href: string) => { setOpen(false); router.push(href) }
 
-  const Card = ({ it, done }: { it: Item; done?: boolean }) => done ? (
-    <div className="qc-card qc-card--done">
-      <span className="qc-card-icon" style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}>
+  const Row = ({ it, compact, done }: { it: Item; compact?: boolean; done?: boolean }) => done ? (
+    <div className="qc-row qc-row--done">
+      <span className="qc-row-chip" style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
       </span>
-      <span className="qc-card-text">
-        <span className="qc-card-label">{it.label}</span>
-        <span className="qc-card-desc" style={{ color: '#4ade80' }}>Pasiūlyta!</span>
+      <span className="qc-row-text">
+        <span className="qc-row-label" style={{ color: '#4ade80' }}>{it.label}</span>
       </span>
+      <span className="qc-row-done-tag">Pasiūlyta</span>
     </div>
   ) : (
-    <button type="button" className="qc-card" onClick={() => go(it.href)}>
-      <span className="qc-card-icon" style={{ background: it.bg, color: it.color }}>{it.icon}</span>
-      <span className="qc-card-text">
-        <span className="qc-card-label">{it.label}</span>
-        <span className="qc-card-desc">{it.desc}</span>
+    <button type="button" className="qc-row" onClick={() => go(it.href)}>
+      <span className="qc-row-chip" style={{ background: it.bg, color: it.color }}>{it.icon}</span>
+      <span className="qc-row-text">
+        <span className="qc-row-label">{it.label}</span>
+        {!compact && <span className="qc-row-desc">{it.desc}</span>}
       </span>
+      <svg className="qc-row-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
     </button>
   )
 
@@ -179,30 +182,35 @@ export function QuickCreate() {
         }
         .qc-group-label {
           font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-          color: var(--text-muted); margin: 14px 4px 8px;
+          color: var(--text-muted); margin: 15px 6px 4px;
         }
-        /* Vieningas kortelės stilius — visos sekcijos atrodo vienodai. */
-        .qc-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .qc-card {
-          display: flex; align-items: center; gap: 11px; text-align: left; cursor: pointer;
-          padding: 11px 12px; border-radius: 14px; width: 100%;
-          background: var(--bg-elevated); border: 1px solid var(--border-subtle);
-          transition: border-color .14s, background .14s, transform .1s;
+        /* Vienas stulpelis — skaitosi iš viršaus į apačią, identiškai mobile. */
+        .qc-rows { display: flex; flex-direction: column; }
+        .qc-row {
+          display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer; width: 100%;
+          padding: 9px 8px; border-radius: 12px; border: none; background: transparent;
+          transition: background .13s, transform .1s;
         }
-        .qc-card:not(.qc-card--done):hover { border-color: var(--border-strong); background: var(--bg-active); }
-        .qc-card:not(.qc-card--done):active { transform: scale(.97); }
-        .qc-card--done { cursor: default; border-color: rgba(34,197,94,0.25); background: rgba(34,197,94,0.06); }
-        .qc-card-icon {
-          width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+        .qc-row:not(.qc-row--done):hover { background: var(--bg-hover); }
+        .qc-row:not(.qc-row--done):active { transform: scale(.985); }
+        .qc-row--done { cursor: default; }
+        .qc-row-chip {
+          width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
         }
-        .qc-card-icon svg { width: 19px; height: 19px; }
-        .qc-card-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-        .qc-card-label { font-size: 13px; font-weight: 800; color: var(--text-primary); line-height: 1.25; }
-        .qc-card-desc { font-size: 11px; color: var(--text-muted); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .qc-row-chip svg { width: 18px; height: 18px; }
+        .qc-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+        .qc-row-label { font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+        .qc-row-desc { font-size: 12px; color: var(--text-muted); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .qc-row-arrow { width: 17px; height: 17px; flex-shrink: 0; color: var(--text-muted); opacity: .45; transition: opacity .13s, transform .13s; }
+        .qc-row:hover .qc-row-arrow { opacity: .9; transform: translateX(2px); }
+        .qc-row-done-tag {
+          font-size: 11px; font-weight: 700; color: #4ade80; flex-shrink: 0;
+          background: rgba(34,197,94,0.12); padding: 3px 9px; border-radius: 999px;
+        }
         @media (min-width: 720px) {
           .qc-overlay { align-items: center; }
-          .qc-sheet { border-radius: 18px; border-bottom: 1px solid var(--border-default); animation: qc-fade .2s ease; }
+          .qc-sheet { max-width: 460px; border-radius: 18px; border-bottom: 1px solid var(--border-default); animation: qc-fade .2s ease; }
           .qc-grab { display: none; }
         }
       `}</style>
@@ -226,9 +234,9 @@ export function QuickCreate() {
           {GROUPS.map(g => (
             <div key={g.label}>
               <div className="qc-group-label">{g.label}</div>
-              <div className="qc-cards">
+              <div className="qc-rows">
                 {g.items.map(it => (
-                  <Card key={it.href} it={it} done={it.href === '/blogas/rasyti?type=daily' && dailyDone} />
+                  <Row key={it.href} it={it} compact={g.compact} done={it.href === '/blogas/rasyti?type=daily' && dailyDone} />
                 ))}
               </div>
             </div>
