@@ -51,6 +51,13 @@ const POST_TYPE_COLOR: Record<string, string> = {
   article: '#f97316', review: '#fbbf24', event: '#34d399', creation: '#f472b6',
   translation: '#a78bfa', topas: '#60a5fa', self: '#a3a3a3',
 }
+// Kortelės badge'as. „self" (paprastas asmeninis įrašas) — JOKIO badge
+// (user feedback 2026-06-14). „article" su muzika → „Muzikos apžvalga"
+// (ne generic „Straipsnis"). Tipas, kurio čia nėra → badge nerodomas.
+const CARD_TYPE_LABEL: Record<string, string> = {
+  article: 'Muzikos apžvalga', review: 'Recenzija', event: 'Koncertų įspūdžiai',
+  creation: 'Kūryba', topas: 'Topas', translation: 'Vertimas',
+}
 
 type SubstyleFilter = { kind: 'substyle'; legacyId: number; name: string }
 type GenreFilter = { kind: 'genre'; name: string }
@@ -316,13 +323,13 @@ export function ProfileClient(props: any) {
 
             {/* Mood (viduryje, tik jei moodTrack yra) */}
             {moodTrack && (
-              <div>
+              <div className="h-full">
                 <MoodSongHeroCard track={moodTrack} />
               </div>
             )}
 
             {/* Equalizer (dešinėj, span'ina 2 cols jei mood absent) */}
-            <div>
+            <div className="h-full">
               {hasMusicMeter ? (
                 <SideEqualizer
                   meter={profile.legacy_music_meter}
@@ -454,14 +461,36 @@ function MobileProfileView(props: any) {
 
   const hasFeed = feedItems.length > 0
 
-  const TABS: { key: MobileTabKey; label: string; show: boolean; icon: React.ReactNode }[] = [
-    { key: 'feed',  label: 'Naujienos',      show: hasFeed,  icon: <IconSparkle /> },
-    { key: 'likes', label: 'Mėgstama muzika', show: hasLikes, icon: <IconHeart /> },
-    { key: 'about', label: 'Apie mane',       show: true,     icon: <IconUser /> },
-  ]
-  const visibleTabs = TABS.filter((t) => t.show)
-  const defaultTab: MobileTabKey = hasFeed ? 'feed' : hasLikes ? 'likes' : 'about'
-  const [active, setActive] = useState<MobileTabKey>(defaultTab)
+  // V17: vietoj tab'ų — VIENA kompaktiška tagų juosta. Joje visi nario turimi
+  // tipai (apžvalgos, recenzijos, koncertai, topai, dienos dainos, kūryba,
+  // vertimai, komentarai) + ♥ Mėgstama muzika + Apie mane. Neaktyviam nariui
+  // be įrašų lieka tik „Mėgstama muzika" ir „Apie mane". Spalvoti taškeliai
+  // (ne ikonos) — ta pati kalba kaip desktop filtruose.
+  const feedTypeChips = useMemo(() => {
+    const present = new Set<string>()
+    for (const it of feedItems) {
+      if (it.kind === 'post' && it.laneType) present.add(it.laneType)
+      else if (it.kind === 'ddweek') present.add('dd')
+      else if (it.kind === 'comment') present.add('comment')
+    }
+    const out: { key: string; label: string; color: string }[] = []
+    if (hasFeed) out.push({ key: 'all', label: 'Visi', color: '#f97316' })
+    for (const t of ['article', 'review', 'event', 'topas']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+    if (present.has('dd')) out.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
+    for (const t of ['creation', 'translation']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+    if (present.has('comment')) out.push({ key: 'comment', label: 'Komentarai', color: '#60a5fa' })
+    return out
+  }, [feedItems, hasFeed])
+
+  const stripChips = useMemo(() => {
+    const out = [...feedTypeChips]
+    if (hasLikes) out.push({ key: 'likes', label: 'Mėgstama muzika', color: '#e11d48' })
+    out.push({ key: 'about', label: 'Apie mane', color: '#a3a3a3' })
+    return out
+  }, [feedTypeChips, hasLikes])
+
+  const [sel, setSel] = useState<string>(hasFeed ? 'all' : hasLikes ? 'likes' : 'about')
+  const isFeedFilter = sel !== 'likes' && sel !== 'about'
 
   const avatar = realPhotoUrl || profile.avatar_url || null
 
@@ -535,22 +564,26 @@ function MobileProfileView(props: any) {
         </header>
       </div>
 
-      {/* ── TABAI (sticky) ── */}
-      {visibleTabs.length > 0 && (
-        <div className="sticky top-0 z-20 -mb-px backdrop-blur-md"
-             style={{ background: 'color-mix(in srgb, var(--bg-body) 88%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="flex items-stretch gap-0.5 px-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {visibleTabs.map((t) => {
-              const isActive = active === t.key
+      {/* ── TAGŲ JUOSTA (sticky) — V17, pakeitė tab'us ── */}
+      {stripChips.length > 0 && (
+        <div className="sticky top-0 z-20 backdrop-blur-md"
+             style={{ background: 'color-mix(in srgb, var(--bg-body) 90%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-1.5 px-3 py-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {stripChips.map((c) => {
+              const isActive = sel === c.key
               return (
-                <button key={t.key} type="button" onClick={() => setActive(t.key)}
-                        className="relative flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-extrabold transition"
-                        style={{ fontFamily: "'Outfit', sans-serif", color: isActive ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                  <span style={{ color: isActive ? 'var(--accent-orange)' : 'var(--text-faint)' }}>{t.icon}</span>
-                  {t.label}
-                  {isActive && (
-                    <span className="absolute left-2 right-2 bottom-0 h-[2.5px] rounded-full" style={{ background: 'var(--accent-orange)' }} />
+                <button key={c.key} type="button" onClick={() => setSel(c.key)}
+                        className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-bold transition"
+                        style={{
+                          fontFamily: "'Outfit', sans-serif",
+                          background: isActive ? 'var(--text-primary)' : 'var(--card-bg)',
+                          color: isActive ? 'var(--bg-body)' : 'var(--text-secondary)',
+                          border: `1px solid ${isActive ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
+                        }}>
+                  {c.key !== 'all' && (
+                    <span aria-hidden className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: c.color }} />
                   )}
+                  {c.label}
                 </button>
               )
             })}
@@ -560,9 +593,10 @@ function MobileProfileView(props: any) {
 
       {/* ── TURINYS ── */}
       <div className="px-4 pt-3 pb-24">
-        {active === 'feed' && (
+        {isFeedFilter && (
           <MergedFeed
             items={feedItems}
+            filter={sel}
             blogSlug={blog?.slug || ''}
             username={profile.username}
             streak={stats?.daily_picks || 0}
@@ -576,7 +610,7 @@ function MobileProfileView(props: any) {
           />
         )}
 
-        {active === 'likes' && (
+        {sel === 'likes' && (
           <div>
             <RecentlyLiked albums={favoriteAlbums} tracks={favoriteTracks} />
             {favoriteArtists.length > 0 && (
@@ -606,7 +640,7 @@ function MobileProfileView(props: any) {
           </div>
         )}
 
-        {active === 'about' && (
+        {sel === 'about' && (
           <div className="mt-1">
             {moodTrack && (() => {
               const ma = Array.isArray(moodTrack.artists) ? moodTrack.artists[0] : moodTrack.artists
@@ -985,36 +1019,17 @@ function MoodCard({ track }: { track: any }) {
   )
 }
 
-// V16: sujungtas mobile feed — turtingos kortelės pagal tipą + tipo filtrai.
-// Mobile rodom max 3 pagrindinius chip'us + „Daugiau" (user feedback: ilgas
-// horizontal scroll slepia tab'us).
+// V16/V17: sujungtas mobile feed — turtingos kortelės pagal tipą. Filtras
+// (`filter`) valdomas iš bendros tagų juostos MobileProfileView (V17 nebėra
+// vidinės chip'ų eilės — viskas viename strip'e su Mėgstama muzika + Apie mane).
 function MergedFeed({
   items, blogSlug, username, streak, hasLikes,
   favoriteArtists, favoriteAlbums, favoriteTracks,
   albumResolvedTotal, trackResolvedTotal, onOpenMore,
+  filter = 'all',
 }: any) {
-  const [kindFilter, setKindFilter] = useState<string>('all')
-  const [chipsExpanded, setChipsExpanded] = useState(false)
-
-  // Chip'ai pagal realiai esamą turinį
-  const chips = useMemo(() => {
-    const present = new Set<string>()
-    for (const it of items) {
-      if (it.kind === 'post' && it.laneType) present.add(it.laneType)
-      else if (it.kind === 'ddweek') present.add('dd')
-      else if (it.kind === 'comment') present.add('comment')
-      else if (it.kind === 'likecluster') present.add('likeclusters')
-    }
-    const out: { key: string; label: string }[] = [{ key: 'all', label: 'Visi' }]
-    for (const t of ['article', 'review', 'event', 'topas']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t] })
-    if (present.has('dd')) out.push({ key: 'dd', label: 'Dienos dainos' })
-    for (const t of ['creation', 'translation']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t] })
-    if (present.has('comment')) out.push({ key: 'comment', label: 'Komentarai' })
-    return out
-  }, [items])
-
-  const visibleChips = chipsExpanded ? chips : chips.slice(0, 3)
-  const hiddenCount = chips.length - visibleChips.length
+  // V17: filtras valdomas iš viršaus (viena bendra tagų juosta MobileProfileView).
+  const kindFilter = filter
 
   const visible = useMemo(() => items.filter((it: any) => {
     if (kindFilter === 'all') return true
@@ -1046,35 +1061,6 @@ function MergedFeed({
 
   return (
     <div>
-      {chips.length > 2 && (
-        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-          {visibleChips.map((c: any) => {
-            const active = kindFilter === c.key
-            return (
-              <button key={c.key} type="button" onClick={() => setKindFilter(c.key)}
-                      className="flex-shrink-0 text-[11.5px] font-bold rounded-full px-3 py-1.5 transition"
-                      style={{
-                        fontFamily: "'Outfit', sans-serif",
-                        background: active ? 'var(--accent-orange)' : 'var(--card-bg)',
-                        color: active ? '#fff' : 'var(--text-muted)',
-                        border: active ? '1px solid var(--accent-orange)' : '1px solid var(--border-subtle)',
-                      }}>
-                {c.label}
-              </button>
-            )
-          })}
-          {hiddenCount > 0 && (
-            <button type="button" onClick={() => setChipsExpanded(true)}
-                    className="flex-shrink-0 text-[11.5px] font-bold rounded-full px-3 py-1.5 transition"
-                    style={{
-                      fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)',
-                      color: 'var(--accent-orange)', border: '1px dashed var(--border-default)',
-                    }}>
-              Daugiau ▾
-            </button>
-          )}
-        </div>
-      )}
       {visible.length === 0 ? (
         <p className="text-[13px] text-center py-8" style={{ color: 'var(--text-faint)' }}>Nėra įrašų</p>
       ) : (
@@ -1943,7 +1929,7 @@ function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
   const url = postUrl(post, blogSlug)
   const typeKey = post.display_post_type || post.post_type
   const typeColor = POST_TYPE_COLOR[typeKey] || '#f97316'
-  const typeLabel = POST_TYPE_LABEL[typeKey] || typeKey
+  const typeLabel = CARD_TYPE_LABEL[typeKey] || null  // self → null → be badge
   // V16: server'is siunčia tik list_items_preview (3) + list_items_count
   const items = Array.isArray(post.list_items_preview) && post.list_items_preview.length > 0 ? post.list_items_preview : null
   const itemsCount = post.list_items_count || (items ? items.length : 0)
@@ -1983,10 +1969,12 @@ function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
         )}
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
 
-        <div className="absolute top-3 left-3 px-2 py-1 rounded-full backdrop-blur-md text-[10px] font-extrabold uppercase tracking-wider"
-             style={{ background: `${typeColor}40`, color: typeColor, border: `1px solid ${typeColor}60` }}>
-          {typeLabel}{itemsCount ? ` · ${itemsCount}` : ''}
-        </div>
+        {typeLabel && (
+          <div className="absolute top-3 left-3 px-2 py-1 rounded-full backdrop-blur-md text-[10px] font-extrabold uppercase tracking-wider"
+               style={{ background: `${typeColor}40`, color: typeColor, border: `1px solid ${typeColor}60` }}>
+            {typeLabel}{itemsCount ? ` · ${itemsCount}` : ''}
+          </div>
+        )}
 
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
           <h3 className="text-lg sm:text-xl lg:text-2xl font-black leading-tight text-white drop-shadow group-hover:text-orange-200 transition line-clamp-2"
@@ -2499,11 +2487,8 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
   const url = postUrl(post, blogSlug)
   const typeKey = post.display_post_type || laneType
   const typeColor = POST_TYPE_COLOR[typeKey] || POST_TYPE_COLOR[laneType] || '#f97316'
-  const FEED_CARD_LABEL: Record<string, string> = {
-    self: 'Apie mane', article: 'Muzikos apžvalga', review: 'Recenzija',
-    event: 'Koncertų įspūdžiai', creation: 'Kūryba', topas: 'Topas', translation: 'Vertimas',
-  }
-  const typeLabel = FEED_CARD_LABEL[typeKey] || FEED_CARD_LABEL[laneType] || POST_TYPE_LABEL[typeKey] || 'Įrašas'
+  // self → null → paprastas įrašas be badge (user feedback 2026-06-14)
+  const typeLabel = CARD_TYPE_LABEL[typeKey] || CARD_TYPE_LABEL[laneType] || null
   const thumb = post.cover_image_url || post.fallback_thumb_url || null
   const listPreview: any[] | null = Array.isArray(post.list_items_preview) && post.list_items_preview.length > 0 ? post.list_items_preview : null
   const listCount = post.list_items_count || listPreview?.length || 0
@@ -2585,10 +2570,12 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
           <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
-          <span className="absolute top-3 left-3 px-2 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
-                style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>
-            {typeLabel}
-          </span>
+          {typeLabel && (
+            <span className="absolute top-3 left-3 px-2 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
+                  style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>
+              {typeLabel}
+            </span>
+          )}
         </div>
         <div className="px-5 pt-3.5 pb-1">
           <h3 className="text-[17.5px] font-extrabold leading-snug group-hover:text-[var(--accent-orange)] transition line-clamp-2"
@@ -2641,10 +2628,12 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
            style={{ background: `linear-gradient(125deg, ${typeColor}d8, ${typeColor}90)` }}>
         <span aria-hidden className="absolute top-1 left-4 text-[72px] leading-none font-bold text-white"
               style={{ fontFamily: "Georgia, serif", opacity: 0.2 }}>„</span>
-        <span className="relative inline-block px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider mb-2.5 text-white"
-              style={{ background: 'rgba(0,0,0,0.25)', fontFamily: "'Outfit', sans-serif" }}>
-          {typeLabel}
-        </span>
+        {typeLabel && (
+          <span className="relative inline-block px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider mb-2.5 text-white"
+                style={{ background: 'rgba(0,0,0,0.25)', fontFamily: "'Outfit', sans-serif" }}>
+            {typeLabel}
+          </span>
+        )}
         <p className="relative text-[16.5px] leading-relaxed text-white line-clamp-3 italic"
            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
           {post.summary || post.title}

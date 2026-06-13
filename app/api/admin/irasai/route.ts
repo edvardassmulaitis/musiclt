@@ -171,11 +171,14 @@ export async function GET(req: Request) {
   const includeHidden = url.searchParams.get('include_hidden') === '1'
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10) || 100, 300)
   const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10) || 0, 0)
+  const username = (url.searchParams.get('username') || '').trim()
 
-  // !inner kai slepiam paslėptus narius (filtras DB lygyje); kitaip paprastas join.
-  const join = includeHidden
-    ? 'blogs:blog_id(slug, profiles:user_id(username, full_name, hide_from_homepage))'
-    : 'blogs:blog_id!inner(slug, profiles:user_id!inner(username, full_name, hide_from_homepage))'
+  // !inner kai slepiam paslėptus narius arba filtruojam pagal username
+  // (filtras DB lygyje per nested profiles); kitaip paprastas join.
+  const needInner = !includeHidden || !!username
+  const join = needInner
+    ? 'blogs:blog_id!inner(slug, profiles:user_id!inner(username, full_name, hide_from_homepage))'
+    : 'blogs:blog_id(slug, profiles:user_id(username, full_name, hide_from_homepage))'
 
   // SVARBU (supabase-js): filtrai (.not/.is/.eq/.in) PRIEŠ transformacijas (.order/.range).
   let q = sb.from('blog_posts')
@@ -183,6 +186,7 @@ export async function GET(req: Request) {
     .eq('status', 'published')
     .in('post_type', ['article', 'topas', 'review', 'creation', 'translation', 'event'])
   if (!includeHidden) q = q.not('blogs.profiles.hide_from_homepage', 'is', true)
+  if (username) q = q.ilike('blogs.profiles.username', `%${username}%`)
   if (view === 'todo') q = q.is('homepage_reviewed_at', null)
 
   const { data, error } = await q

@@ -53,6 +53,7 @@ export default function IrasaiAdminClient() {
   const [hasMore, setHasMore] = useState(false)
   const [view, setView] = useState<'todo' | 'all'>('todo')
   const [showHidden, setShowHidden] = useState(false)
+  const [username, setUsername] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [enrichPanel, setEnrichPanel] = useState<string | null>(null)
@@ -61,10 +62,11 @@ export default function IrasaiAdminClient() {
 
   const fetchPage = useCallback(async (off: number) => {
     const p = new URLSearchParams({ view, include_hidden: showHidden ? '1' : '0', offset: String(off), limit: String(PAGE) })
+    if (username.trim()) p.set('username', username.trim())
     const r = await fetch(`/api/admin/irasai?${p}`, { cache: 'no-store' })
     const d = await r.json()
     return { items: (Array.isArray(d.items) ? d.items : []) as Item[], hasMore: !!d.hasMore }
-  }, [view, showHidden])
+  }, [view, showHidden, username])
 
   const load = useCallback(async () => {
     setLoading(true); offsetRef.current = 0
@@ -74,7 +76,8 @@ export default function IrasaiAdminClient() {
     } catch { setItems([]) }
     setLoading(false)
   }, [fetchPage])
-  useEffect(() => { load() }, [load])
+  // Debounce — kad rašant username nešaudytume užklausų kiekvienam simboliui.
+  useEffect(() => { const t = setTimeout(() => { load() }, 250); return () => clearTimeout(t) }, [load])
 
   const more = async () => {
     setLoadingMore(true)
@@ -188,7 +191,24 @@ export default function IrasaiAdminClient() {
           <input type="checkbox" checked={showHidden} onChange={e => setShowHidden(e.target.checked)} className="w-4 h-4" />
           Rodyti paslėptų narių įrašus
         </label>
+        <div className="relative ml-auto">
+          <input
+            type="text" value={username} onChange={e => setUsername(e.target.value)}
+            placeholder="Filtruoti pagal narį (username)…"
+            className="text-sm border border-gray-200 rounded-lg pl-8 pr-7 py-1.5 w-64 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-300"
+          />
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">@</span>
+          {username && (
+            <button onClick={() => setUsername('')} title="Išvalyti"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm leading-none">✕</button>
+          )}
+        </div>
       </div>
+      {username.trim() && (
+        <p className="-mt-2 mb-3 text-xs text-gray-500">
+          Rodomi nario <b>@{username.trim()}</b> įrašai{view === 'todo' ? ' (rodinys „Reikia tvarkyti" — perjunk į „Visi", kad matytum ir sutvarkytus)' : ''}.
+        </p>
+      )}
 
       {msg && <div className="mb-3 text-sm px-3 py-2 rounded-lg bg-blue-50 text-blue-800 border border-blue-100">{msg}</div>}
 
