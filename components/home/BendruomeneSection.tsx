@@ -452,7 +452,13 @@ function AtradimasCard({ it }: { it: CommunityItem }) {
 
 // ── Skeletonai ─────────────────────────────────────────────────────────────────
 function CardSkel() {
-  return <div className="hp-skel shrink-0 rounded-xl" style={{ width: CARD_W, height: CARD_MIN_H }} />
+  // Equalizer skeletonas — vienodas „muzikinis" loaderis kaip kitose homepage
+  // sekcijose (.hp-eq), ne plokščias pilkas blokas.
+  return (
+    <div className="hp-eq-card shrink-0 rounded-xl" style={{ width: CARD_W, height: CARD_MIN_H }}>
+      <span className="hp-eq" aria-hidden="true"><span /><span /><span /><span /><span /></span>
+    </div>
+  )
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────
