@@ -20,6 +20,7 @@ import { LikePill } from '@/components/LikePill'
 import { SharePill } from '@/components/SharePill'
 import LikesModal from '@/components/LikesModal'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
+import { ArtistOverviewCard } from '@/components/ArtistOverviewCard'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -399,7 +400,10 @@ export default function AlbumInfoModal({
         className={[
           'flex w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)]',
           'h-[90vh] rounded-t-2xl',
-          'sm:h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[720px]',
+          // max-w 960px — toks pat kaip dainos modale, kad player'is būtų to
+          // paties dydžio ir užtektų vietos tracklist'ui + atlikėjo overview.
+          // (Anksčiau 720px — viskas susispausdavo, sunkiai skaitoma.)
+          'sm:h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[960px]',
         ].join(' ')}
       >
         {/* Mobile handle bar */}
@@ -554,41 +558,16 @@ export default function AlbumInfoModal({
             </div>
             {/* Artist overview + comment CTA — below video, desktop only */}
             <div className="hidden md:flex flex-1 min-h-0 flex-col overflow-y-auto px-3 py-3">
-              {/* Artist overview card — photo + name + genres + description */}
               {artist && (
-                <div className="flex gap-3 mb-3">
-                  <Link href={`/atlikejai/${artist.slug}`} className="shrink-0">
-                    <div className="h-[88px] w-[88px] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--cover-placeholder)]">
-                      {artist.cover_image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={proxyImg(artist.cover_image_url)} alt={artist.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[28px]">🎤</div>
-                      )}
-                    </div>
-                  </Link>
-                  <div className="min-w-0 flex-1">
-                    <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">
-                      {artist.name}
-                    </Link>
-                    {artistGenres.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {artistGenres.map(g => (
-                          <span key={g} className="rounded-full bg-[var(--bg-hover)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-muted)]">
-                            {g}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {artistDesc && (
-                      <p className="mt-1.5 line-clamp-4 text-[12px] leading-[1.5] text-[var(--text-secondary)]">
-                        {artistDesc}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                <ArtistOverviewCard
+                  slug={artist.slug}
+                  name={artist.name}
+                  photoUrl={artist.cover_image_url}
+                  genres={artistGenres}
+                  description={artistDesc}
+                />
               )}
-              {/* Comment CTA */}
+              {/* Comment CTA — pinned bottom */}
               <button
                 type="button"
                 onClick={() => setMobileTab('comments')}

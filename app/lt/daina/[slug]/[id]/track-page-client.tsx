@@ -8,6 +8,7 @@ import { SharePill } from '@/components/SharePill'
 import { proxyImg } from '@/lib/img-proxy'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
+import { ArtistOverviewCard } from '@/components/ArtistOverviewCard'
 import { formatArtistList } from '@/lib/format-artists'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -746,45 +747,17 @@ export default function TrackPageClient({
                 )
               }
 
-              // ── No comments → artist overview card + CTA ──
+              // ── No comments → atlikėjo overview kortelė + CTA ──
               const artThumb = (artist as any).profile_thumb_url || artist.cover_image_url || null
               return (
                 <div>
-                  {/* Artist card — square photo + name + genres */}
-                  <Link
-                    href={`/atlikejai/${artist.slug}`}
-                    className="group mb-3 flex items-start gap-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3.5 no-underline transition-colors hover:border-[var(--border-strong)]"
-                  >
-                    {artThumb ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={proxyImg(artThumb)}
-                        alt=""
-                        style={{ objectPosition: 'center top' }}
-                        className="h-[100px] w-[100px] shrink-0 rounded-lg object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                      />
-                    ) : (
-                      <div className="flex h-[100px] w-[100px] shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--bg-elevated)] to-[var(--bg-surface)]">
-                        <span className="font-['Outfit',sans-serif] text-[36px] font-bold text-[var(--text-muted)] opacity-40">{artist.name.charAt(0)}</span>
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1 pt-0.5">
-                      <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)]">{artist.name}</div>
-                      {artistGenres.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {artistGenres.map(g => (
-                            <span key={g} className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-semibold text-[var(--text-muted)]">{g}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                  {/* Artist description */}
-                  {artist.description && (
-                    <p className="mb-3 line-clamp-4 font-['Outfit',sans-serif] text-[13px] leading-[1.6] text-[var(--text-secondary)]">
-                      {artist.description}
-                    </p>
-                  )}
+                  <ArtistOverviewCard
+                    slug={artist.slug}
+                    name={artist.name}
+                    photoUrl={artThumb}
+                    genres={artistGenres}
+                    description={artist.description}
+                  />
                   {/* Orange CTA */}
                   <button
                     type="button"

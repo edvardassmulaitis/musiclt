@@ -18,6 +18,7 @@ import { LikePill } from '@/components/LikePill'
 import { SharePill } from '@/components/SharePill'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
+import { ArtistOverviewCard } from '@/components/ArtistOverviewCard'
 import { proxyImg } from '@/lib/img-proxy'
 import { formatArtistList } from '@/lib/format-artists'
 
@@ -501,8 +502,11 @@ export function TrackInfoModal({
                 </span>
               ))}
             </div>
-            {/* Veiksmų eilutė — mobile only */}
-            <div className="mt-1 flex sm:hidden flex-wrap items-center gap-1.5">
+            {/* Veiksmų eilutė — LikePill + Dalintis PO title (visiems viewport'ams).
+                Anksčiau desktop'e like'as buvo nukeltas į dešinę header pusę,
+                atskirtas nuo dainos pavadinimo. Dabar — tiesiai po title, kaip
+                albumo modale ir puslapiuose (vienoda „dainos kortelės kalba"). */}
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <LikePill
                 likes={likes}
                 selfLiked={selfLiked}
@@ -540,12 +544,6 @@ export function TrackInfoModal({
                 </Link>
               </span>
             ))}
-          </div>
-          {/* Desktop actions */}
-          <div className="hidden sm:flex shrink-0 items-center gap-1.5">
-            <LikePill likes={likes} selfLiked={selfLiked} onToggle={onToggleLike} pending={likePending}
-              onOpenModal={() => setLikersOpen(true)} variant="surface" />
-            <SharePill title={`${track.title} — ${artistName}`} url={trackHref} size="sm" />
           </div>
           {track.spotify_id && (
             <a
@@ -722,47 +720,17 @@ export function TrackInfoModal({
                 )
               }
 
-              // ── No comments → artist overview card + CTA ──
+              // ── No comments → atlikėjo overview kortelė + CTA ──
               return (
                 <div className="hidden md:flex flex-1 min-h-0 flex-col overflow-y-auto px-3 py-3">
-                  {/* Artist card — square photo + name + genres */}
-                  <Link
-                    href={`/atlikejai/${artistSlug}`}
-                    target="_blank"
-                    rel="noopener"
-                    className="group mb-2.5 flex items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-colors hover:border-[var(--border-strong)]"
-                  >
-                    {artistThumbUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={proxyImg(artistThumbUrl)}
-                        alt=""
-                        style={{ objectPosition: 'center top' }}
-                        className="h-[88px] w-[88px] shrink-0 rounded-lg object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                      />
-                    ) : (
-                      <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--bg-elevated)] to-[var(--bg-surface)]">
-                        <span className="font-['Outfit',sans-serif] text-[32px] font-bold text-[var(--text-muted)] opacity-40">{artistName.charAt(0)}</span>
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1 pt-0.5">
-                      <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)]">{artistName}</div>
-                      {artistGenres.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {artistGenres.map(g => (
-                            <span key={g} className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-semibold text-[var(--text-muted)]">{g}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                  {/* Artist description */}
-                  {artistDesc && (
-                    <p className="mb-2.5 line-clamp-4 font-['Outfit',sans-serif] text-[12px] leading-[1.6] text-[var(--text-secondary)]">
-                      {artistDesc}
-                    </p>
-                  )}
-                  {/* Orange CTA */}
+                  <ArtistOverviewCard
+                    slug={artistSlug}
+                    name={artistName}
+                    photoUrl={artistThumbUrl}
+                    genres={artistGenres}
+                    description={artistDesc}
+                  />
+                  {/* Orange CTA — pinned bottom */}
                   <button
                     type="button"
                     onClick={() => setMobileTab('comments')}

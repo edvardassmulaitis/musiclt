@@ -30,6 +30,7 @@ import { LikePill } from '@/components/LikePill'
 import { SharePill } from '@/components/SharePill'
 import LikesModal from '@/components/LikesModal'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
+import { ArtistOverviewCard } from '@/components/ArtistOverviewCard'
 
 type Track = {
   id: number; slug: string; title: string; type: string
@@ -123,6 +124,23 @@ export default function AlbumPageClient({
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [likeUsers, setLikeUsers] = useState<any[]>([])
   const [likeUsersLoaded, setLikeUsersLoaded] = useState(false)
+
+  // Atlikėjo overview duomenys (žanrai + aprašymas) — fetch'inami client-side,
+  // kaip albumo modale. Server props artist neturi description/substyleNames.
+  const [artistGenres, setArtistGenres] = useState<string[]>([])
+  const [artistDesc, setArtistDesc] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/artists/${artist.id}`)
+      .then(r => r.json())
+      .then((d: any) => {
+        if (cancelled) return
+        setArtistGenres((d.substyleNames || []).slice(0, 4))
+        setArtistDesc(d.description || null)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [artist.id])
 
   // Like sync. Komentarai nebeloadina'mi čia — EntityCommentsBlock pats
   // fetch'ina /api/albums/[id]/comments savo viduje.
@@ -358,8 +376,9 @@ export default function AlbumPageClient({
   return (
     <div className="route-enter min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
 
-      {/* Content wrapper — centered, max-w-[1000px], song-modal-style layout. */}
-      <div className="mx-auto flex w-full max-w-[1000px] flex-col">
+      {/* Content wrapper — centered, max-w-[1400px] (toks pat kaip dainos
+          puslapyje, kad player'is būtų to paties dydžio), song-modal-style. */}
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col">
 
         {/* Header — compact: cover 40×40 (Link → artist), title, artist, external link. */}
         <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2 sm:px-5">
@@ -378,10 +397,12 @@ export default function AlbumPageClient({
             )}
           </Link>
           <div className="min-w-0 flex-1">
-            {/* Kicker — TIPAS · METAI, kaip track puslapio header'yje. */}
+            {/* Kicker — TIPAS · DATA · DAINŲ SK. · Greitai (kaip albumo modale). */}
             <div className="mb-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--accent-orange)]">
               {albumTypeLabel}
-              {album.year ? ` · ${album.year} m.` : ''}
+              {dateStr ? ` · ${dateStr}` : album.year ? ` · ${album.year} m.` : ''}
+              {tracks.length > 0 && ` · ${tracks.length} dain.`}
+              {album.is_upcoming && ' · Greitai'}
             </div>
             <h1 className="truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[16px]">
               {album.title}
@@ -489,29 +510,20 @@ export default function AlbumPageClient({
                 )}
               </div>
             </div>
-            {/* Meta chips + comment CTA — below video, desktop only */}
+            {/* Atlikėjo overview + komentarų CTA — po video, desktop only.
+                (Suvienodinta su albumo modalu; meta info nukelta į header kicker.) */}
             <div className="hidden md:flex flex-col px-4 py-3">
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {dateStr && (
-                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-primary)]">
-                    {dateStr}
-                  </span>
-                )}
-                {tracks.length > 0 && (
-                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold leading-tight text-[var(--text-muted)]">
-                    {tracks.length} dain{tracks.length % 10 === 1 && tracks.length % 100 !== 11 ? 'a' : (tracks.length % 10 >= 2 && tracks.length % 10 <= 9 && (tracks.length % 100 < 11 || tracks.length % 100 > 19) ? 'os' : 'ų')}
-                  </span>
-                )}
-                {album.is_upcoming && (
-                  <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
-                    Greitai
-                  </span>
-                )}
-              </div>
+              <ArtistOverviewCard
+                slug={artist.slug}
+                name={artist.name}
+                photoUrl={artist.cover_image_url}
+                genres={artistGenres}
+                description={artistDesc}
+              />
               <button
                 type="button"
                 onClick={() => setMobileTab('comments')}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 {commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Pasidalink nuomone'}
