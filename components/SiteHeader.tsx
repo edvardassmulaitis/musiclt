@@ -2714,24 +2714,9 @@ export function SiteHeader() {
             aria-label="Naujos muzikos radaras"
             title="Naujos muzikos radaras — kylantys LT atlikėjai"
             className="sh-radar"
-            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textDecoration: 'none', transition: 'color .15s' }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
+            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
           >
-            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden>
-              <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.45" />
-              <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
-              <circle cx="16" cy="16" r="3.4" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.32" />
-              <g>
-                <animateTransform attributeName="transform" type="rotate" from="0 16 16" to="360 16 16" dur="2.8s" repeatCount="indefinite" />
-                <path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="var(--accent-orange)" opacity="0.26" />
-                <line x1="16" y1="16" x2="16" y2="3" stroke="var(--accent-orange)" strokeWidth="1.6" strokeLinecap="round" />
-              </g>
-              <circle cx="20.5" cy="11" r="1.5" fill="var(--accent-green)">
-                <animate attributeName="opacity" values="0;0;1;1;0.15" keyTimes="0;0.25;0.42;0.78;1" dur="2.8s" repeatCount="indefinite" />
-              </circle>
-              <circle cx="16" cy="16" r="1.5" fill="var(--accent-orange)" />
-            </svg>
+            <RadarSweepMini size={28} />
           </Link>
 
           <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
