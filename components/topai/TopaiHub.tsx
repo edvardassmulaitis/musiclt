@@ -144,11 +144,10 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
     toCard(ext, 'agata-albums', 'lt', 'albums', { title: 'Lietuvos albumai', country: 'lt' }),
   ].filter(Boolean) as Card[]
 
-  const communityAll: Card[] = [
+  const communityCards: Card[] = [
     { key: 'top40', title: 'Music.lt TOP 40', href: '/top40', country: null, coverImageUrl: null, accent: null, noFlag: true, region: 'world', ctype: 'community', entries: top40, sources: [] },
     { key: 'top30', title: 'Music.lt LT TOP 30', href: '/top30', country: 'lt', coverImageUrl: null, accent: null, region: 'lt', ctype: 'community', entries: top30, sources: [] },
-  ]
-  const communityCards = communityAll.filter((c) => c.entries.length > 0)
+  ].filter((c) => c.entries.length > 0) as Card[]
 
   const allCards = [...songCards, ...albumCards, ...communityCards]
 
