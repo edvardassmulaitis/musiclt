@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { getDiscoveriesByArtist } from '@/lib/discoveries'
 import { getArtistRecordings } from '@/lib/concert-recordings'
 import ArtistProfileClient from './artist-profile-client'
+import ArtistSocialSection from '@/components/ArtistSocialSection'
 import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
 
@@ -1248,6 +1249,7 @@ async function ArtistContent({ artist }: { artist: any }) {
       recentPopBarLevel={recentPopBarLevel}
       concertRecordings={concertRecordings}
     />
+    <ArtistSocialSection artistId={artist.id} slug={artist.slug} name={artist.name} isClaimed={(artist as any).is_claimed} />
     </>
   )
 }

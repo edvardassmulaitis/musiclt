@@ -264,6 +264,8 @@ export default function AdminDashboardPage() {
         : undefined,
     },
     { href: '/admin/radaras', icon: '📡', label: 'Naujų atlikėjų radaras', hint: 'Featured / įtraukti / paslėpti — /nauji-atlikejai' },
+    { href: '/admin/claims', icon: '🎫', label: 'Atlikėjų prašymai', hint: '„Tai mano profilis" claim\'ai → studijos prieiga (/studija)' },
+
     { href: '/admin/koncertu-irasai', icon: '🎬', label: 'Koncertų įrašai', hint: 'Pridėk live pasirodymą iš YouTube nuorodos — /koncertu-irasai' },
     { href: '/admin/verta-keliones', icon: '✈️', label: 'Verta kelionės', hint: 'Scout 2026 turai → kandidatai · koncertai · kryptys — /verta-keliones' },
     { href: '/admin/kolekcijos', icon: '🎼', label: 'Kolekcijos', hint: 'Teminės dainų/albumų kolekcijos — kurti, redaguoti, AI pildyti dainomis · /muzika' },
