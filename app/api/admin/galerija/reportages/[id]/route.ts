@@ -30,13 +30,19 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const sb = createAdminClient()
     const { data: reportage } = await sb.from('reportages').select('*').eq('id', id).maybeSingle()
     if (!reportage) return NextResponse.json({ ok: false, error: 'Nerasta' }, { status: 404 })
-    const { data: photos } = await sb
-      .from('reportage_photos')
-      .select('id, url, thumb_url, caption, flickr_id, sort_order')
-      .eq('reportage_id', id)
-      .order('sort_order', { ascending: true })
-      .order('id', { ascending: true })
-    return NextResponse.json({ ok: true, reportage, photos: photos || [] })
+    const [{ data: photos }, { data: lineup }] = await Promise.all([
+      sb.from('reportage_photos')
+        .select('id, url, thumb_url, caption, flickr_id, artist_id, tag, sort_order')
+        .eq('reportage_id', id)
+        .order('sort_order', { ascending: true })
+        .order('id', { ascending: true }),
+      sb.from('reportage_artists')
+        .select('artist_id, role, sort_order, artists:artist_id(name)')
+        .eq('reportage_id', id)
+        .order('sort_order', { ascending: true }),
+    ])
+    const lineupOut = ((lineup || []) as any[]).map((r) => ({ artist_id: r.artist_id, name: r.artists?.name ?? null, role: r.role ?? null }))
+    return NextResponse.json({ ok: true, reportage, photos: photos || [], lineup: lineupOut })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Klaida' }, { status: 500 })
   }
@@ -56,10 +62,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     else patch[f] = body[f] === '' ? null : body[f]
   }
 
+  // Line-up (keli atlikėjai) — pakeičiam visą sąrašą. Pirmas tampa primary (artist_id).
+  const hasLineup = Array.isArray(body?.artists)
+  const lineup = hasLineup
+    ? (body.artists as any[])
+        .map((a, i) => ({ artist_id: Number(a?.artist_id) || null, role: a?.role?.toString().trim() || null, sort_order: i }))
+        .filter((a) => a.artist_id)
+    : []
+  if (hasLineup) patch.artist_id = lineup[0]?.artist_id ?? null
+
   try {
     const sb = createAdminClient()
     const { error } = await sb.from('reportages').update(patch).eq('id', id)
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+
+    if (hasLineup) {
+      await sb.from('reportage_artists').delete().eq('reportage_id', id)
+      if (lineup.length) {
+        await sb.from('reportage_artists').insert(lineup.map((a) => ({ reportage_id: Number(id), ...a })))
+      }
+    }
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Klaida' }, { status: 500 })

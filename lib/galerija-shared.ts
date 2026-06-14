@@ -10,7 +10,23 @@ export type ReportagePhoto = {
   caption: string | null
   width: number | null
   height: number | null
+  artistId: number | null
+  artistName: string | null
+  tag: string | null
+  groupKey: string     // 'a:<id>' | 't:<tag>' | 'all' — filtravimui
+  groupLabel: string   // atlikėjo vardas / tagas / „Bendros"
 }
+
+/** Reportažo line-up dalyvis (atlikėjas su vaidmeniu). */
+export type LineupArtist = {
+  id: number
+  name: string
+  slug: string | null
+  role: string | null   // 'headlineris' | 'apšildantis' | 'svečias' | null
+}
+
+/** Nuotraukų grupė galerijos filtrui. */
+export type PhotoGroup = { key: string; label: string; count: number }
 
 export type Reportage = {
   id: number
@@ -77,6 +93,29 @@ export function formatEventDate(iso: string | null | undefined): string | null {
 export function reportagePlaceLine(r: Pick<Reportage, 'venue' | 'city'>): string | null {
   const parts = [r.venue, r.city].filter(Boolean)
   return parts.length ? parts.join(' · ') : null
+}
+
+/** Nuotraukos grupės raktas + etiketė (pagal atlikėją arba tagą). */
+export function photoGroup(p: { artistId: number | null; artistName: string | null; tag: string | null }): { key: string; label: string } {
+  if (p.artistId) return { key: `a:${p.artistId}`, label: p.artistName || 'Atlikėjas' }
+  if (p.tag) return { key: `t:${p.tag}`, label: p.tag }
+  return { key: 'all', label: 'Bendros' }
+}
+
+/** Sudaro grupių sąrašą iš nuotraukų — atlikėjai (line-up tvarka) → tagai → bendros. */
+export function buildPhotoGroups(photos: ReportagePhoto[], lineupOrder: Map<number, number>): PhotoGroup[] {
+  const map = new Map<string, { label: string; count: number; sort: number }>()
+  for (const p of photos) {
+    let sort = 2000
+    if (p.artistId) sort = lineupOrder.get(p.artistId) ?? 500
+    else if (p.tag) sort = 1000
+    const e = map.get(p.groupKey)
+    if (e) e.count++
+    else map.set(p.groupKey, { label: p.groupLabel, count: 1, sort })
+  }
+  return [...map.entries()]
+    .sort((a, b) => a[1].sort - b[1].sort || a[1].label.localeCompare(b[1].label, 'lt'))
+    .map(([key, v]) => ({ key, label: v.label, count: v.count }))
 }
 
 /* ─────────────────────────── Flickr helper'iai ─────────────────────────── */

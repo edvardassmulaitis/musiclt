@@ -57,6 +57,12 @@ export async function POST(req: NextRequest) {
   const title = (body?.title || '').toString().trim()
   if (!title) return NextResponse.json({ ok: false, error: 'Trūksta pavadinimo' }, { status: 400 })
 
+  // Line-up (keli atlikėjai). Pirmas = primary (artist_id).
+  const lineup = (Array.isArray(body?.artists) ? body.artists : [])
+    .map((a: any, i: number) => ({ artist_id: Number(a?.artist_id) || null, role: a?.role?.toString().trim() || null, sort_order: i }))
+    .filter((a: any) => a.artist_id)
+  const primaryArtist = lineup[0]?.artist_id ?? (Number(body?.artist_id) || null)
+
   try {
     const sb = createAdminClient()
     const slug = await uniqueSlug(sb, title)
@@ -64,7 +70,7 @@ export async function POST(req: NextRequest) {
       slug,
       title,
       intro: body?.intro?.toString() || null,
-      artist_id: Number(body?.artist_id) || null,
+      artist_id: primaryArtist,
       photographer_id: Number(body?.photographer_id) || null,
       event_name: body?.event_name?.toString().trim() || null,
       venue: body?.venue?.toString().trim() || null,
@@ -80,6 +86,9 @@ export async function POST(req: NextRequest) {
     }
     const { data, error } = await sb.from('reportages').insert(row).select('id, slug').single()
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    if (lineup.length) {
+      await sb.from('reportage_artists').insert(lineup.map((a: any) => ({ reportage_id: data.id, ...a })))
+    }
     return NextResponse.json({ ok: true, id: data.id, slug: data.slug })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Klaida' }, { status: 500 })

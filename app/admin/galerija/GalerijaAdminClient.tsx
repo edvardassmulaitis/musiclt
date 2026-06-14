@@ -20,7 +20,8 @@ export type AdminPhotographer = {
   facebook_url: string | null; flickr_url: string | null; is_curated: boolean
   display_order: number; source: string | null
 }
-type Photo = { id: number; url: string; thumb_url: string | null; caption: string | null; flickr_id: string | null; sort_order: number }
+type Photo = { id: number; url: string; thumb_url: string | null; caption: string | null; flickr_id: string | null; sort_order: number; artist_id: number | null; tag: string | null }
+type LineupItem = { artist_id: number; name: string; role: string }
 
 const inputCls = 'w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)] placeholder:text-[var(--input-placeholder)] focus:border-blue-400 focus:outline-none'
 const labelCls = 'mb-1 block text-[12px] font-semibold text-[var(--text-muted)]'
@@ -117,7 +118,7 @@ function ReportageEditor({ id, photographers, onClose, onSaved }: {
   const [msg, setMsg] = useState('')
   const [photos, setPhotos] = useState<Photo[]>([])
   const [d, setD] = useState({
-    title: '', intro: '', artist_id: null as number | null, artist_name: '' as string | null,
+    title: '', intro: '', artists: [] as Array<{ artist_id: number; name: string; role: string }>,
     photographer_id: null as number | null, event_name: '', venue: '', city: '',
     event_date: '', flickr_album_url: '', source_url: '', is_featured: false, is_published: true,
   })
@@ -131,7 +132,8 @@ function ReportageEditor({ id, photographers, onClose, onSaved }: {
         if (r.ok) {
           const x = r.reportage
           setD({
-            title: x.title || '', intro: x.intro || '', artist_id: x.artist_id, artist_name: x.artists?.name || '',
+            title: x.title || '', intro: x.intro || '',
+            artists: ((r.lineup || []) as any[]).map((a) => ({ artist_id: a.artist_id, name: a.name || 'Atlikėjas', role: a.role || '' })),
             photographer_id: x.photographer_id, event_name: x.event_name || '', venue: x.venue || '', city: x.city || '',
             event_date: x.event_date || '', flickr_album_url: x.flickr_album_url || '', source_url: x.source_url || '',
             is_featured: !!x.is_featured, is_published: !!x.is_published,
@@ -147,7 +149,11 @@ function ReportageEditor({ id, photographers, onClose, onSaved }: {
     if (!d.title.trim()) { setMsg('Įvesk pavadinimą'); return }
     setSaving(true); setMsg('')
     try {
-      const payload = { ...d, artist_id: d.artist_id, photographer_id: d.photographer_id || null }
+      const payload = {
+        ...d,
+        artists: d.artists.map((a) => ({ artist_id: a.artist_id, role: a.role || null })),
+        photographer_id: d.photographer_id || null,
+      }
       if (realId) {
         await jpost(`/api/admin/galerija/reportages/${realId}`, payload, 'PATCH')
         setMsg('Išsaugota ✓')
@@ -186,10 +192,32 @@ function ReportageEditor({ id, photographers, onClose, onSaved }: {
           <label className={labelCls}>Pavadinimas *</label>
           <input className={inputCls} value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })} placeholder="Chet Faker debiutas Lietuvoje" />
         </div>
-        <div>
-          <label className={labelCls}>Atlikėjas {d.artist_name ? `· ${d.artist_name}` : ''}</label>
-          <ArtistSearchInput placeholder="Ieškoti atlikėjo…" onSelect={(aid, name) => setD({ ...d, artist_id: aid, artist_name: name })} />
-          {d.artist_id && <button className="mt-1 text-[11px] text-[var(--text-muted)] hover:underline" onClick={() => setD({ ...d, artist_id: null, artist_name: '' })}>× pašalinti atlikėją</button>}
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Atlikėjai (line-up) — pirmas = pagrindinis</label>
+          {d.artists.length > 0 && (
+            <div className="mb-2 space-y-1.5">
+              {d.artists.map((a, idx) => (
+                <div key={a.artist_id} className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-2.5 py-1.5">
+                  <span className="text-[11px] font-bold text-[var(--text-muted)]">{idx + 1}.</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">{a.name}</span>
+                  <select className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[12px] text-[var(--input-text)]"
+                    value={a.role}
+                    onChange={(e) => setD({ ...d, artists: d.artists.map((x, i) => i === idx ? { ...x, role: e.target.value } : x) })}>
+                    <option value="">— vaidmuo —</option>
+                    <option value="headlineris">Headlineris</option>
+                    <option value="apšildantis">Apšildantis</option>
+                    <option value="svečias">Svečias</option>
+                  </select>
+                  <button className="text-[var(--text-muted)] hover:text-red-500" title="Pašalinti"
+                    onClick={() => setD({ ...d, artists: d.artists.filter((_, i) => i !== idx) })}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <ArtistSearchInput placeholder="Pridėti atlikėją…" onSelect={(aid, name) => {
+            if (d.artists.some((x) => x.artist_id === aid)) return
+            setD({ ...d, artists: [...d.artists, { artist_id: aid, name, role: '' }] })
+          }} />
         </div>
         <div>
           <label className={labelCls}>Fotografas</label>
@@ -221,7 +249,7 @@ function ReportageEditor({ id, photographers, onClose, onSaved }: {
 
       {/* Nuotraukos — tik kai reportažas išsaugotas */}
       {realId ? (
-        <PhotoManager reportageId={realId} photos={photos} flickrUrl={d.flickr_album_url} onChange={reloadPhotos} setFlickrUrl={(u) => setD({ ...d, flickr_album_url: u })} />
+        <PhotoManager reportageId={realId} photos={photos} lineup={d.artists} flickrUrl={d.flickr_album_url} onChange={reloadPhotos} setFlickrUrl={(u) => setD({ ...d, flickr_album_url: u })} />
       ) : (
         <div className="mt-4 rounded-lg border border-dashed border-[var(--border-default)] p-4 text-center text-[13px] text-[var(--text-muted)]">
           Pirmiausia išsaugok reportažą — tada galėsi pridėti nuotraukas.
@@ -233,12 +261,43 @@ function ReportageEditor({ id, photographers, onClose, onSaved }: {
 
 /* ──────────────── Nuotraukų valdymas (Flickr / upload) ──────────────── */
 
-function PhotoManager({ reportageId, photos, flickrUrl, setFlickrUrl, onChange }: {
-  reportageId: number; photos: Photo[]; flickrUrl: string; setFlickrUrl: (u: string) => void; onChange: () => Promise<void>
+// Grupės pasirinkimas (atlikėjas iš line-up arba laisvas tagas). value:
+//   'a:<id>' | 't:<tag>' | '' (bendros)
+function groupControl(lineup: LineupItem[], value: string, onChange: (v: string) => void, tagValue: string, onTag: (v: string) => void) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <select className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[12px] text-[var(--input-text)]" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Bendros (be grupės)</option>
+        {lineup.map((a) => <option key={a.artist_id} value={`a:${a.artist_id}`}>{a.name}</option>)}
+        <option value="t:__custom">Tagas…</option>
+      </select>
+      {value === 't:__custom' && (
+        <input className="w-28 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[12px] text-[var(--input-text)]" placeholder="pvz. Žiūrovai" value={tagValue} onChange={(e) => onTag(e.target.value)} />
+      )}
+    </span>
+  )
+}
+// value+tag → API laukai
+function groupToFields(value: string, tag: string): { artist_id: number | null; tag: string | null } {
+  if (value.startsWith('a:')) return { artist_id: Number(value.slice(2)) || null, tag: null }
+  if (value === 't:__custom') return { artist_id: null, tag: tag.trim() || null }
+  if (value.startsWith('t:')) return { artist_id: null, tag: value.slice(2) || null }
+  return { artist_id: null, tag: null }
+}
+
+function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, onChange }: {
+  reportageId: number; photos: Photo[]; lineup: LineupItem[]; flickrUrl: string; setFlickrUrl: (u: string) => void; onChange: () => Promise<void>
 }) {
   const [importing, setImporting] = useState(false)
   const [found, setFound] = useState<{ flickrId: string; url: string }[]>([])
   const [progress, setProgress] = useState('')
+  // batch grupė importui/upload'ui
+  const [batchGroup, setBatchGroup] = useState(''); const [batchTag, setBatchTag] = useState('')
+  // pažymėtos esamos nuotraukos + priskyrimo grupė
+  const [sel, setSel] = useState<Set<number>>(new Set())
+  const [assignGroup, setAssignGroup] = useState(''); const [assignTag, setAssignTag] = useState('')
+  const nameById = (id: number | null) => (id ? lineup.find((a) => a.artist_id === id)?.name : null)
+  const toggleSel = (id: number) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   const findFlickr = async () => {
     if (!flickrUrl.trim()) return
@@ -257,9 +316,10 @@ function PhotoManager({ reportageId, photos, flickrUrl, setFlickrUrl, onChange }
     const CHUNK = 4
     let done = 0
     try {
+      const gf = groupToFields(batchGroup, batchTag)
       for (let i = 0; i < found.length; i += CHUNK) {
         const batch = found.slice(i, i + CHUNK).map((p) => ({ url: p.url, flickr_id: p.flickrId }))
-        const r = await jpost(`/api/admin/galerija/reportages/${reportageId}/photos`, { photos: batch, rehost: true })
+        const r = await jpost(`/api/admin/galerija/reportages/${reportageId}/photos`, { photos: batch, rehost: true, group_artist_id: gf.artist_id, group_tag: gf.tag })
         done += r.inserted
         setProgress(`Importuota ${done}/${found.length}…`)
       }
@@ -284,7 +344,8 @@ function PhotoManager({ reportageId, photos, flickrUrl, setFlickrUrl, onChange }
         if (res.ok && data.url) urls.push({ url: data.url })
       }
       if (urls.length) {
-        await jpost(`/api/admin/galerija/reportages/${reportageId}/photos`, { photos: urls, rehost: false })
+        const gf = groupToFields(batchGroup, batchTag)
+        await jpost(`/api/admin/galerija/reportages/${reportageId}/photos`, { photos: urls, rehost: false, group_artist_id: gf.artist_id, group_tag: gf.tag })
         setProgress(`Įkelta ${urls.length}.`)
         await onChange()
       }
@@ -295,11 +356,30 @@ function PhotoManager({ reportageId, photos, flickrUrl, setFlickrUrl, onChange }
     try { await jpost(`/api/admin/galerija/reportages/${reportageId}/photos?photoId=${pid}`, {}, 'DELETE'); await onChange() } catch {}
   }
 
+  const assignSelected = async () => {
+    if (!sel.size) return
+    const gf = groupToFields(assignGroup, assignTag)
+    setImporting(true); setProgress('')
+    try {
+      await jpost(`/api/admin/galerija/reportages/${reportageId}/photos`, { photoIds: [...sel], artist_id: gf.artist_id, tag: gf.tag }, 'PATCH')
+      setSel(new Set()); setProgress('Grupė priskirta.')
+      await onChange()
+    } catch (e: any) { setProgress(`Klaida: ${e.message}`) } finally { setImporting(false) }
+  }
+
+  const photoGroupLabel = (p: Photo) => p.artist_id ? nameById(p.artist_id) : p.tag || null
+
   return (
     <div className="mt-5 border-t border-[var(--border-default)] pt-4">
       <div className="mb-2 flex items-center justify-between">
         <h4 className="font-['Outfit',sans-serif] text-sm font-bold text-[var(--text-primary)]">Nuotraukos ({photos.length})</h4>
         {importing && <span className="text-[12px] text-[#ec4899]">{progress || 'Dirbama…'}</span>}
+      </div>
+
+      {/* Batch grupė importui/upload'ui */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-[var(--bg-elevated)] px-3 py-2">
+        <span className="text-[12px] font-semibold text-[var(--text-muted)]">Pridedamas naujas nuotraukas priskirti:</span>
+        {groupControl(lineup, batchGroup, setBatchGroup, batchTag, setBatchTag)}
       </div>
 
       {/* Flickr import */}
@@ -323,18 +403,34 @@ function PhotoManager({ reportageId, photos, flickrUrl, setFlickrUrl, onChange }
         <input type="file" accept="image/*" multiple onChange={(e) => uploadFiles(e.target.files)} className="text-sm text-[var(--text-secondary)]" />
       </div>
 
+      {/* Pažymėtų priskyrimas grupei */}
+      {sel.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[#ec4899]/40 bg-[#ec4899]/5 px-3 py-2">
+          <span className="text-[12px] font-semibold text-[var(--text-primary)]">Pažymėta {sel.size} — priskirti grupei:</span>
+          {groupControl(lineup, assignGroup, setAssignGroup, assignTag, setAssignTag)}
+          <button className={btnPrimary} onClick={assignSelected} disabled={importing}>Priskirti</button>
+          <button className={btnGhost} onClick={() => setSel(new Set())}>Išvalyti</button>
+        </div>
+      )}
+
       {/* Esamos */}
       {photos.length > 0 && (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-          {photos.map((p) => (
-            <div key={p.id} className="group relative overflow-hidden rounded-lg border border-[var(--border-default)]">
-              <img src={p.thumb_url || p.url} alt="" className="aspect-square w-full object-cover" />
-              <button onClick={() => delPhoto(p.id)} className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white group-hover:flex" title="Pašalinti">✕</button>
-            </div>
-          ))}
+          {photos.map((p) => {
+            const gl = photoGroupLabel(p)
+            const selected = sel.has(p.id)
+            return (
+              <div key={p.id} className={`group relative overflow-hidden rounded-lg border-2 ${selected ? 'border-[#ec4899]' : 'border-[var(--border-default)]'}`}>
+                <img src={p.thumb_url || p.url} alt="" className="aspect-square w-full cursor-pointer object-cover" onClick={() => toggleSel(p.id)} />
+                <input type="checkbox" checked={selected} onChange={() => toggleSel(p.id)} className="absolute left-1.5 top-1.5 h-4 w-4 accent-[#ec4899]" />
+                {gl && <span className="absolute inset-x-0 bottom-0 truncate bg-black/65 px-1.5 py-0.5 text-[10px] font-semibold text-white">{gl}</span>}
+                <button onClick={() => delPhoto(p.id)} className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white group-hover:flex" title="Pašalinti">✕</button>
+              </div>
+            )
+          })}
         </div>
       )}
-      {!progress && !importing && <p className="mt-2 text-[11px] text-[var(--text-muted)]">Flickr nuotraukos re-host'inamos į mūsų serverį (durable). Pirma nuotrauka tampa viršeliu.</p>}
+      {!progress && !importing && <p className="mt-2 text-[11px] text-[var(--text-muted)]">Flickr nuotraukos re-host'inamos į mūsų serverį (durable). Spausk nuotrauką → pažymėti → priskirti atlikėjui ar tagui (pvz. „Žiūrovai"). Pirma tampa viršeliu.</p>}
     </div>
   )
 }

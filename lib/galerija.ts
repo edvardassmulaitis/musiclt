@@ -7,13 +7,13 @@
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase'
 import { proxyImgResized } from '@/lib/img-proxy'
-import type { Reportage, ReportagePhoto, Photographer } from '@/lib/galerija-shared'
-import { reportageHref, photographerHref } from '@/lib/galerija-shared'
+import type { Reportage, ReportagePhoto, Photographer, LineupArtist, PhotoGroup } from '@/lib/galerija-shared'
+import { reportageHref, photographerHref, photoGroup, buildPhotoGroups } from '@/lib/galerija-shared'
 
-export type { Reportage, ReportagePhoto, Photographer } from '@/lib/galerija-shared'
+export type { Reportage, ReportagePhoto, Photographer, LineupArtist, PhotoGroup } from '@/lib/galerija-shared'
 export {
   reportageHref, photographerHref, formatEventDate, reportagePlaceLine,
-  flickrPhotoUrl, parseFlickrAlbumId,
+  flickrPhotoUrl, parseFlickrAlbumId, buildPhotoGroups,
 } from '@/lib/galerija-shared'
 
 const REPORTAGE_COLS =
@@ -50,6 +50,10 @@ function mapReportage(r: any): Reportage {
 }
 
 function mapPhoto(r: any): ReportagePhoto {
+  const artistId = r.artist_id ?? null
+  const artistName = r.artists?.name ?? null
+  const tag = r.tag ?? null
+  const g = photoGroup({ artistId, artistName, tag })
   return {
     id: r.id,
     url: r.url,
@@ -57,6 +61,11 @@ function mapPhoto(r: any): ReportagePhoto {
     caption: r.caption ?? null,
     width: r.width ?? null,
     height: r.height ?? null,
+    artistId,
+    artistName,
+    tag,
+    groupKey: g.key,
+    groupLabel: g.label,
   }
 }
 
@@ -77,9 +86,25 @@ export const getLatestReportages = cache(async (limit = 60): Promise<Reportage[]
   } catch { return [] }
 })
 
-/** Vienas reportažas pagal slug + jo nuotraukos. */
+/** Reportažo line-up — atlikėjai su vaidmenimis (sort_order tvarka). */
+async function loadLineup(sb: ReturnType<typeof createAdminClient>, reportageId: number): Promise<LineupArtist[]> {
+  const { data } = await sb
+    .from('reportage_artists')
+    .select('artist_id, role, sort_order, artists:artist_id(name, slug)')
+    .eq('reportage_id', reportageId)
+    .order('sort_order', { ascending: true })
+    .order('id', { ascending: true })
+  return ((data || []) as any[]).map((r) => ({
+    id: r.artist_id,
+    name: r.artists?.name ?? 'Atlikėjas',
+    slug: r.artists?.slug ?? null,
+    role: r.role ?? null,
+  }))
+}
+
+/** Vienas reportažas pagal slug + nuotraukos + line-up + grupės. */
 export const getReportageBySlug = cache(
-  async (slug: string): Promise<{ reportage: Reportage; photos: ReportagePhoto[] } | null> => {
+  async (slug: string): Promise<{ reportage: Reportage; photos: ReportagePhoto[]; lineup: LineupArtist[]; groups: PhotoGroup[] } | null> => {
     try {
       const sb = createAdminClient()
       const { data } = await sb
@@ -89,26 +114,36 @@ export const getReportageBySlug = cache(
         .maybeSingle()
       if (!data) return null
       const reportage = mapReportage(data)
-      const { data: ph } = await sb
-        .from('reportage_photos')
-        .select('id, url, thumb_url, caption, width, height, sort_order')
-        .eq('reportage_id', reportage.id)
-        .order('sort_order', { ascending: true })
-        .order('id', { ascending: true })
-      return { reportage, photos: ((ph || []) as any[]).map(mapPhoto) }
+      const [{ data: ph }, lineup] = await Promise.all([
+        sb.from('reportage_photos')
+          .select('id, url, thumb_url, caption, width, height, sort_order, artist_id, tag, artists:artist_id(name)')
+          .eq('reportage_id', reportage.id)
+          .order('sort_order', { ascending: true })
+          .order('id', { ascending: true }),
+        loadLineup(sb, reportage.id),
+      ])
+      const photos = ((ph || []) as any[]).map(mapPhoto)
+      const lineupOrder = new Map(lineup.map((a, i) => [a.id, i]))
+      const groups = buildPhotoGroups(photos, lineupOrder)
+      return { reportage, photos, lineup, groups }
     } catch { return null }
   }
 )
 
-/** Reportažai konkretaus atlikėjo puslapiui. */
+/** Reportažai konkretaus atlikėjo puslapiui — visi, kuriuose jis dalyvauja (line-up). */
 export const getReportagesForArtist = cache(async (artistId: number, limit = 8): Promise<Reportage[]> => {
   try {
     const sb = createAdminClient()
+    // Reportažų ID iš line-up (apima ir primary, nes backfill'inta) + primary fallback.
+    const { data: la } = await sb.from('reportage_artists').select('reportage_id').eq('artist_id', artistId)
+    const ids = Array.from(new Set(((la || []) as any[]).map((r) => r.reportage_id)))
+    const orParts = [`artist_id.eq.${artistId}`]
+    if (ids.length) orParts.push(`id.in.(${ids.join(',')})`)
     const { data } = await sb
       .from('reportages')
       .select(REPORTAGE_COLS)
       .eq('is_published', true)
-      .eq('artist_id', artistId)
+      .or(orParts.join(','))
       .order('published_at', { ascending: false })
       .limit(limit)
     return ((data || []) as any[]).map(mapReportage)

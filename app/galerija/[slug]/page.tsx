@@ -41,7 +41,7 @@ export default async function ReportagePage({ params }: Props) {
   const { slug } = await params
   const res = await getReportageBySlug(slug)
   if (!res) notFound()
-  const { reportage: r, photos } = res
+  const { reportage: r, photos, lineup, groups } = res
   const place = reportagePlaceLine(r)
   const date = formatEventDate(r.eventDate)
 
@@ -59,17 +59,34 @@ export default async function ReportagePage({ params }: Props) {
         </div>
         <h1>{cleanTitle(r.title)}</h1>
         <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px] text-[var(--text-muted)]">
-          {r.artistName && (
-            r.artistSlug ? (
-              <Link href={`/atlikejai/${r.artistSlug}`} className="font-semibold text-[var(--text-secondary)] no-underline hover:text-[#ec4899]">
-                {r.artistName}
-              </Link>
-            ) : <span className="font-semibold text-[var(--text-secondary)]">{r.artistName}</span>
-          )}
+          {r.eventName && <span className="font-semibold text-[var(--text-secondary)]">{r.eventName}</span>}
           {place && <span>{place}</span>}
           {date && <span>{date}</span>}
           {photos.length > 0 && <span>📸 {photos.length} nuotraukos</span>}
         </div>
+
+        {/* Line-up — atlikėjai su vaidmenimis */}
+        {lineup.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {lineup.map((a) => {
+              const inner = (
+                <>
+                  {a.name}
+                  {a.role && <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-[#ec4899]">{a.role}</span>}
+                </>
+              )
+              return a.slug ? (
+                <Link key={a.id} href={`/atlikejai/${a.slug}`} className="inline-flex items-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1 text-[13px] font-semibold text-[var(--text-primary)] no-underline transition-colors hover:border-[#ec4899]/50">
+                  {inner}
+                </Link>
+              ) : (
+                <span key={a.id} className="inline-flex items-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1 text-[13px] font-semibold text-[var(--text-primary)]">
+                  {inner}
+                </span>
+              )
+            })}
+          </div>
+        )}
       </header>
 
       {/* Editorial įžanga */}
@@ -99,7 +116,7 @@ export default async function ReportagePage({ params }: Props) {
 
       {/* Galerija */}
       {photos.length > 0 ? (
-        <ReportageGallery photos={photos} photographerName={r.photographerName} />
+        <ReportageGallery photos={photos} groups={groups} photographerName={r.photographerName} />
       ) : (
         <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-10 text-center text-[14px] text-[var(--text-muted)]">
           Nuotraukos netrukus.

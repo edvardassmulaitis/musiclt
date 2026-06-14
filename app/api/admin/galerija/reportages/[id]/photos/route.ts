@@ -49,6 +49,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const photos: any[] = Array.isArray(body?.photos) ? body.photos : []
   if (!photos.length) return NextResponse.json({ ok: false, error: 'Nėra nuotraukų' }, { status: 400 })
   const rehost = body?.rehost !== false
+  // Visam batch'ui priskiriama grupė (atlikėjas arba tagas) — neprivaloma.
+  const groupArtistId = Number(body?.group_artist_id) || null
+  const groupTag = !groupArtistId && body?.group_tag ? body.group_tag.toString().trim() || null : null
 
   try {
     const sb = createAdminClient()
@@ -73,6 +76,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         width: Number.isFinite(Number(p?.width)) ? Number(p.width) : null,
         height: Number.isFinite(Number(p?.height)) ? Number(p.height) : null,
         flickr_id: p?.flickr_id?.toString() || null,
+        artist_id: groupArtistId,
+        tag: groupTag,
         sort_order: order++,
       })
     }
@@ -85,6 +90,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     const count = await resync(sb, id)
     return NextResponse.json({ ok: true, inserted, total: count, errors })
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || 'Klaida' }, { status: 500 })
+  }
+}
+
+// PATCH — priskirti grupę pasirinktoms nuotraukoms. Body: { photoIds:number[],
+// artist_id?:number|null, tag?:string|null }. artist_id IR tag null = nuimti grupę.
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await requireAdmin())) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  const { id } = await params
+  let body: any
+  try { body = await req.json() } catch { return NextResponse.json({ ok: false, error: 'Neteisingas body' }, { status: 400 }) }
+  const ids = (Array.isArray(body?.photoIds) ? body.photoIds : []).map(Number).filter(Boolean)
+  if (!ids.length) return NextResponse.json({ ok: false, error: 'Nepasirinkta nuotraukų' }, { status: 400 })
+
+  const artistId = Number(body?.artist_id) || null
+  const tag = !artistId && body?.tag ? body.tag.toString().trim() || null : null
+  try {
+    const sb = createAdminClient()
+    const { error } = await sb
+      .from('reportage_photos')
+      .update({ artist_id: artistId, tag })
+      .in('id', ids)
+      .eq('reportage_id', id)
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, updated: ids.length })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Klaida' }, { status: 500 })
   }
