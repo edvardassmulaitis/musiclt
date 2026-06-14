@@ -186,8 +186,10 @@ function Card({ c }: { c: Concert }) {
   const posterStyle = c.image
     ? { backgroundImage: `url(${c.image})` }
     : { background: gradFor(c.artist) }
+  const ticket = c.ticketUrl ||
+    `https://www.google.com/search?q=${encodeURIComponent(`${c.artist} ${d?.city || ''} 2026 tickets`)}`
   return (
-    <a href={c.ticketUrl || '#'} target="_blank" rel="noopener noreferrer" className="vk-card">
+    <a href={ticket} target="_blank" rel="noopener noreferrer" className="vk-card">
       {/* Plakatas — grupės vizualas dominuoja */}
       <div className={`vk-poster${c.image ? ' has-img' : ''}`} style={posterStyle}>
         <div className="vk-poster-grad" />
