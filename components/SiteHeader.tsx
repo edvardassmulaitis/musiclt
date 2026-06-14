@@ -178,7 +178,7 @@ const NAV: NavItem[] = [
 
 /* Mobile flat-meniu sub-nuorodos — visada matomi chip'ai po kiekvienu skyriumi.
    Tik patvirtinti route'ai (kad nebūtų 404). */
-const NAV_SUBLINKS: Record<NavItem['key'], { href: string; label: string }[]> = {
+const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string }[]>> = {
   muzika: [
     { href: '/atlikejai', label: 'Atlikėjai' },
     { href: '/albumai', label: 'Albumai' },
