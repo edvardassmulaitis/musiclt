@@ -10,8 +10,9 @@ import { SITE_URL } from '@/lib/artist-browse'
 import { getLatestRecordings, getRecordingStyles, recordingHref } from '@/lib/concert-recordings'
 import KoncertuIrasaiClient from './KoncertuIrasaiClient'
 
-// ISR — atsinaujina pridėjus naujų įrašų; perskaičiuojam kas 15 min.
-export const revalidate = 900
+// ISR — atsinaujina pridėjus naujų įrašų (admin save'as iškart revalidatePath'ina
+// šį kelią); kaip atsarginis tinklas perskaičiuojam kas 2 min.
+export const revalidate = 120
 
 const TITLE = 'Koncertų įrašai — live pasirodymų vaizdo įrašai | music.lt'
 const DESCRIPTION =

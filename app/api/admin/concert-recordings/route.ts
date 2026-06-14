@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
@@ -117,6 +118,13 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await sb.from('concert_recordings').insert(row).select('id, slug').single()
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+
+    // Iškart matomas /koncertu-irasai + atlikėjo puslapyje (ISR cache purge)
+    try {
+      revalidatePath('/koncertu-irasai')
+      revalidatePath(`/koncertu-irasai/${data.slug}`)
+      revalidateTag('artist')
+    } catch { /* revalidate best-effort */ }
 
     return NextResponse.json({ ok: true, id: data.id, slug: data.slug })
   } catch (e: any) {

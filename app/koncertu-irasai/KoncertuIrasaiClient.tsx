@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import {
   type ConcertRecording, type RecordingType, type RecordingStyle,
@@ -152,7 +153,8 @@ function PlayerModal({ rec, onClose }: { rec: ConcertRecording; onClose: () => v
   }, [onClose])
 
   const place = recordingPlaceLine(rec)
-  return (
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 sm:p-6" onClick={onClose}>
       <div className="w-full max-w-4xl overflow-hidden rounded-2xl bg-[var(--bg-surface)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="relative aspect-video w-full bg-black">
@@ -190,6 +192,7 @@ function PlayerModal({ rec, onClose }: { rec: ConcertRecording; onClose: () => v
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -8,10 +8,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { stylesForArtist } from '@/lib/concert-recordings'
+
+function revalidateRecordings() {
+  try { revalidatePath('/koncertu-irasai'); revalidateTag('artist') } catch { /* best-effort */ }
+}
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -70,6 +75,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const { error } = await sb.from('concert_recordings').update(patch).eq('id', recId)
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    revalidateRecordings()
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Klaida' }, { status: 500 })
@@ -85,6 +91,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const sb = createAdminClient()
     const { error } = await sb.from('concert_recordings').delete().eq('id', recId)
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    revalidateRecordings()
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Klaida' }, { status: 500 })
