@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { getReportageBySlug, formatEventDate, reportagePlaceLine } from '@/lib/galerija'
-import { photographerHref } from '@/lib/galerija-shared'
+import { photographerHref, ltCount } from '@/lib/galerija-shared'
 import ReportageGallery from '@/components/galerija/ReportageGallery'
 
 export const revalidate = 300
@@ -45,24 +45,42 @@ export default async function ReportagePage({ params }: Props) {
   const place = reportagePlaceLine(r)
   const date = formatEventDate(r.eventDate)
 
+  const photoCount = photos.length ? ltCount(photos.length, ['nuotrauka', 'nuotraukos', 'nuotraukų']) : null
+
   return (
-    <div className="page-shell">
+    <div className="mx-auto max-w-[1600px] px-4 pb-24 pt-6 sm:px-6 lg:px-8">
       {/* Atgal */}
       <Link href="/galerija" className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--text-muted)] no-underline hover:text-[#ec4899]">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
         Foto galerija
       </Link>
 
-      <header className="page-head">
+      {/* Antraštė — kompaktiška, kad vizualams liktų dėmesys */}
+      <header className="mb-6 max-w-4xl">
         <div className="mb-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#ec4899]">
           Foto reportažas
         </div>
-        <h1>{cleanTitle(r.title)}</h1>
-        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px] text-[var(--text-muted)]">
-          {r.eventName && <span className="font-semibold text-[var(--text-secondary)]">{r.eventName}</span>}
-          {place && <span>{place}</span>}
+        <h1 className="font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-[-0.02em] text-[var(--text-primary)] sm:text-[36px]">
+          {cleanTitle(r.title)}
+        </h1>
+
+        {/* Viena meta eilutė: vieta · data · kiekis · fotografas */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13.5px] text-[var(--text-muted)]">
+          {r.eventName && <><span className="font-semibold text-[var(--text-secondary)]">{r.eventName}</span><span className="opacity-40">·</span></>}
+          {place && <><span>{place}</span><span className="opacity-40">·</span></>}
           {date && <span>{date}</span>}
-          {photos.length > 0 && <span>📸 {photos.length} nuotraukos</span>}
+          {photoCount && <><span className="opacity-40">·</span><span>{photoCount}</span></>}
+          {r.photographerName && (
+            <>
+              <span className="opacity-40">·</span>
+              <span className="inline-flex items-center gap-1">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>
+                {r.photographerSlug ? (
+                  <Link href={photographerHref(r.photographerSlug)} className="font-semibold text-[var(--text-secondary)] no-underline hover:text-[#ec4899]">{r.photographerName}</Link>
+                ) : <span className="font-semibold text-[var(--text-secondary)]">{r.photographerName}</span>}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Line-up — atlikėjai su vaidmenimis */}
@@ -87,34 +105,17 @@ export default async function ReportagePage({ params }: Props) {
             })}
           </div>
         )}
+
+        {/* Editorial įžanga — kuklesnė, kad neužgožtų vizualų */}
+        {r.intro && (
+          <div
+            className="mt-4 text-[14.5px] leading-[1.65] text-[var(--text-secondary)] [&_a]:text-[#ec4899] [&_a:hover]:underline [&_p]:mb-2.5"
+            dangerouslySetInnerHTML={{ __html: r.intro }}
+          />
+        )}
       </header>
 
-      {/* Editorial įžanga */}
-      {r.intro && (
-        <div
-          className="mb-7 max-w-3xl text-[15.5px] leading-[1.7] text-[var(--text-secondary)] [&_a]:text-[#ec4899] [&_a:hover]:underline [&_p]:mb-3.5"
-          dangerouslySetInnerHTML={{ __html: r.intro }}
-        />
-      )}
-
-      {/* Fotografo kreditas */}
-      {r.photographerName && (
-        <div className="mb-7 flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-3">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>
-          <span className="text-[13.5px] text-[var(--text-secondary)]">
-            Nuotraukos:{' '}
-            {r.photographerSlug ? (
-              <Link href={photographerHref(r.photographerSlug)} className="font-bold text-[var(--text-primary)] no-underline hover:text-[#ec4899]">
-                {r.photographerName}
-              </Link>
-            ) : (
-              <span className="font-bold text-[var(--text-primary)]">{r.photographerName}</span>
-            )}
-          </span>
-        </div>
-      )}
-
-      {/* Galerija */}
+      {/* Galerija — pilno pločio, didelės nuotraukos */}
       {photos.length > 0 ? (
         <ReportageGallery photos={photos} groups={groups} photographerName={r.photographerName} />
       ) : (

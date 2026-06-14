@@ -2,9 +2,9 @@
 
 // components/galerija/ReportageGallery.tsx
 //
-// Reportažo nuotraukų tinklelis + lightbox + grupių filtras. Naudojamas
-// /galerija/[slug]. Festivaliams: nuotraukos suskaidytos pagal atlikėją arba
-// tagą (pvz. „Žiūrovai") — filtruojama chip'ais. Lightbox veikia filtruotame sete.
+// Reportažo nuotraukų galerija — „justified" eilutės (vienodo aukščio, užpildo
+// plotį, be apkarpymo, sulygiuotos eilutės — kaip Google Photos / Flickr) +
+// grupių filtras (festivaliams: pagal atlikėją arba tagą) + pilno ekrano lightbox.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReportagePhoto, PhotoGroup } from '@/lib/galerija-shared'
@@ -18,7 +18,7 @@ export default function ReportageGallery({
   groups?: PhotoGroup[]
   photographerName?: string | null
 }) {
-  const [active, setActive] = useState<string>('all') // 'all' arba group.key
+  const [active, setActive] = useState<string>('all')
   const [open, setOpen] = useState<number | null>(null)
 
   const showFilter = groups.length > 1
@@ -53,7 +53,7 @@ export default function ReportageGallery({
       key={key}
       type="button"
       onClick={() => { setActive(key); setOpen(null) }}
-      className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors ${
+      className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
         active === key
           ? 'bg-[#ec4899] text-white'
           : 'border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[#ec4899]/50'
@@ -66,24 +66,38 @@ export default function ReportageGallery({
   return (
     <>
       {showFilter && (
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-5 flex flex-wrap gap-2">
           {chip('all', 'Visi', photos.length)}
           {groups.map((g) => chip(g.key, g.label, g.count))}
         </div>
       )}
 
-      <div className="[column-gap:10px] columns-2 sm:columns-3 lg:columns-4">
+      {/* Justified eilutės: kiekvienas elementas auga proporcingai proporcijai (ar),
+          flex-basis = ar × bazinis aukštis → vienoje eilutėje vienodas aukštis. */}
+      <div className="flex flex-wrap gap-2.5">
         {visible.map((p, i) => (
           <button
             key={p.id}
             type="button"
             onClick={() => setOpen(i)}
-            className="mb-2.5 block w-full cursor-zoom-in overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)]"
-            style={{ breakInside: 'avoid' }}
+            className="relative h-[200px] cursor-zoom-in overflow-hidden rounded-xl bg-[var(--bg-elevated)] sm:h-[260px] lg:h-[320px]"
+            style={{ flexGrow: p.aspectRatio, flexBasis: `${Math.round(p.aspectRatio * 300)}px` }}
           >
-            <img src={p.thumbUrl} alt={p.caption || ''} loading="lazy" className="block w-full object-cover transition-transform duration-500 hover:scale-[1.03]" />
+            <img
+              src={p.thumbUrl}
+              alt={p.caption || p.artistName || ''}
+              loading={i < 6 ? 'eager' : 'lazy'}
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 hover:scale-[1.04]"
+            />
+            {p.groupLabel && p.groupKey !== 'all' && (
+              <span className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
+                {p.groupLabel}
+              </span>
+            )}
           </button>
         ))}
+        {/* spacer — sugeria likutį paskutinėje eilutėje, kad nuotraukos neišsitemptų */}
+        <span aria-hidden className="h-0 grow-[999]" style={{ flexBasis: '0px' }} />
       </div>
 
       {activePhoto && (
@@ -102,7 +116,7 @@ export default function ReportageGallery({
             </button>
           )}
           <figure className="flex max-h-full max-w-full flex-col items-center" onClick={(e) => e.stopPropagation()}>
-            <img src={activePhoto.url} alt={activePhoto.caption || ''} className="max-h-[82vh] max-w-full rounded-lg object-contain" />
+            <img src={activePhoto.url} alt={activePhoto.caption || ''} className="max-h-[86vh] max-w-full rounded-lg object-contain" />
             <figcaption className="mt-3 text-center text-[12px] text-white/70">
               {open! + 1} / {visible.length}
               {activePhoto.artistName ? ` · ${activePhoto.artistName}` : activePhoto.tag ? ` · ${activePhoto.tag}` : ''}

@@ -11,7 +11,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import { proxyImgResized } from '@/lib/img-proxy'
-import { getPhotographerBySlug } from '@/lib/galerija'
+import { getPhotographerBySlug, formatEventDate, reportagePlaceLine, ltCount } from '@/lib/galerija'
 import { ReportageCard } from '@/components/galerija/ReportageCard'
 
 type Props = { params: Promise<{ slug: string }> }
@@ -62,8 +62,10 @@ export default async function Page({ params }: Props) {
     p.flickrUrl && SOCIAL('Flickr', p.flickrUrl),
   ].filter(Boolean)
 
+  const [featured, ...restReportages] = reportages
+
   return (
-    <div className="page-shell">
+    <div className="mx-auto max-w-[1400px] px-4 pb-24 pt-8 sm:px-6 lg:px-8">
       {/* Header */}
       <header className="mb-9 flex items-center gap-4 sm:gap-5">
         {p.avatarUrl ? (
@@ -75,14 +77,14 @@ export default async function Page({ params }: Props) {
         )}
         <div className="min-w-0 flex-1">
           <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-            {p.roleTitle || 'Fotografas'}
+            Fotografas
           </div>
           <h1 className="font-['Outfit',sans-serif] text-[28px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)] sm:text-[34px]">
             {p.name}
           </h1>
           <div className="mt-1 flex flex-wrap items-center gap-3 text-[12.5px] text-[var(--text-muted)]">
-            {reportages.length > 0 && <span>{reportages.length} reportažai</span>}
-            {photos.length > 0 && <span>{photos.length} nuotraukos</span>}
+            {reportages.length > 0 && <span>{ltCount(reportages.length, ['reportažas', 'reportažai', 'reportažų'])}</span>}
+            {photos.length > 0 && <span>{ltCount(photos.length, ['nuotrauka', 'nuotraukos', 'nuotraukų'])}</span>}
             {socials}
           </div>
           {p.bio && (
@@ -91,17 +93,42 @@ export default async function Page({ params }: Props) {
         </div>
       </header>
 
-      {/* Reportažai */}
+      {/* Reportažai — naujausias didelis, likę tinklelyje */}
       {reportages.length > 0 && (
         <section className="mb-12">
-          <h2 className="mb-3 font-['Outfit',sans-serif] text-[19px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
+          <h2 className="mb-4 font-['Outfit',sans-serif] text-[19px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
             Foto reportažai
           </h2>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {reportages.map((r) => (
-              <ReportageCard key={r.id} r={r} />
-            ))}
-          </div>
+
+          {featured && (
+            <Link href={featured.href} className="group mb-4 block overflow-hidden rounded-3xl border border-[var(--border-default)] bg-[var(--card-bg)] no-underline transition-shadow hover:shadow-xl">
+              <div className="relative aspect-[16/8] overflow-hidden bg-[var(--bg-elevated)]">
+                {featured.coverUrl && <img src={featured.coverUrl} alt={featured.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                {featured.photoCount > 0 && (
+                  <span className="absolute right-4 top-4 rounded-full bg-black/55 px-3 py-1 text-[12px] font-bold text-white backdrop-blur">📸 {featured.photoCount}</span>
+                )}
+                <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
+                  {featured.artistName && <div className="mb-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#ec4899]">{featured.artistName}</div>}
+                  <h3 className="font-['Outfit',sans-serif] text-[22px] font-black leading-tight text-white drop-shadow sm:text-[26px]">
+                    {featured.title.replace(/^FOTO\s+(REPORTA[ŽZ]AS|GALERIJA)\s*\|\s*/i, '')}
+                  </h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2.5 text-[12.5px] text-white/80">
+                    {reportagePlaceLine(featured) && <span>{reportagePlaceLine(featured)}</span>}
+                    {formatEventDate(featured.eventDate) && <><span className="opacity-50">·</span><span>{formatEventDate(featured.eventDate)}</span></>}
+                  </div>
+                </div>
+              </div>
+            </Link>
+          )}
+
+          {restReportages.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+              {restReportages.map((r) => (
+                <ReportageCard key={r.id} r={r} />
+              ))}
+            </div>
+          )}
         </section>
       )}
 

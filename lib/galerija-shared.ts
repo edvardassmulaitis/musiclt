@@ -15,6 +15,7 @@ export type ReportagePhoto = {
   tag: string | null
   groupKey: string     // 'a:<id>' | 't:<tag>' | 'all' — filtravimui
   groupLabel: string   // atlikėjo vardas / tagas / „Bendros"
+  aspectRatio: number  // plotis/aukštis (justified layout'ui; default 1.5)
 }
 
 /** Reportažo line-up dalyvis (atlikėjas su vaidmeniu). */
@@ -80,6 +81,18 @@ const LT_MONTHS = [
   'sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio',
   'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio',
 ]
+
+/** Lietuviška daiktavardžio forma pagal skaičių: [vienaskaita, dauginė, kilmininkas].
+ *  Pvz. ltCount(1,['reportažas','reportažai','reportažų']) → „1 reportažas". */
+export function ltCount(n: number, forms: [string, string, string]): string {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  let form: string
+  if (mod10 === 1 && mod100 !== 11) form = forms[0]
+  else if (mod10 >= 2 && mod10 <= 9 && (mod100 < 11 || mod100 > 19)) form = forms[1]
+  else form = forms[2]
+  return `${n} ${form}`
+}
 
 /** „2025 m. spalio 9 d." — renginio data lietuviškai. */
 export function formatEventDate(iso: string | null | undefined): string | null {

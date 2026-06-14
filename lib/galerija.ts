@@ -13,7 +13,7 @@ import { reportageHref, photographerHref, photoGroup, buildPhotoGroups } from '@
 export type { Reportage, ReportagePhoto, Photographer, LineupArtist, PhotoGroup } from '@/lib/galerija-shared'
 export {
   reportageHref, photographerHref, formatEventDate, reportagePlaceLine,
-  flickrPhotoUrl, parseFlickrAlbumId, buildPhotoGroups,
+  flickrPhotoUrl, parseFlickrAlbumId, buildPhotoGroups, ltCount,
 } from '@/lib/galerija-shared'
 
 const REPORTAGE_COLS =
@@ -54,18 +54,21 @@ function mapPhoto(r: any): ReportagePhoto {
   const artistName = r.artists?.name ?? null
   const tag = r.tag ?? null
   const g = photoGroup({ artistId, artistName, tag })
+  const w = r.width ?? null
+  const h = r.height ?? null
   return {
     id: r.id,
     url: r.url,
-    thumbUrl: r.thumb_url ? proxyImgResized(r.thumb_url, 500) : proxyImgResized(r.url, 500),
+    thumbUrl: r.thumb_url ? proxyImgResized(r.thumb_url, 700) : proxyImgResized(r.url, 700),
     caption: r.caption ?? null,
-    width: r.width ?? null,
-    height: r.height ?? null,
+    width: w,
+    height: h,
     artistId,
     artistName,
     tag,
     groupKey: g.key,
     groupLabel: g.label,
+    aspectRatio: w && h ? w / h : 1.5,
   }
 }
 

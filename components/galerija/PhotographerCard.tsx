@@ -4,6 +4,7 @@
 
 import Link from 'next/link'
 import type { Photographer } from '@/lib/galerija-shared'
+import { ltCount } from '@/lib/galerija-shared'
 
 export function PhotographerCard({ p }: { p: Photographer }) {
   return (
@@ -28,8 +29,8 @@ export function PhotographerCard({ p }: { p: Photographer }) {
           {p.name}
         </div>
         <div className="truncate text-[12px] text-[var(--text-muted)]">
-          {p.roleTitle || 'Fotografas'}
-          {p.reportageCount > 0 ? ` · ${p.reportageCount} reportažai` : ''}
+          Fotografas
+          {p.reportageCount > 0 ? ` · ${ltCount(p.reportageCount, ['reportažas', 'reportažai', 'reportažų'])}` : ''}
         </div>
       </div>
     </Link>
