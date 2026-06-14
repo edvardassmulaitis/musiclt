@@ -77,6 +77,55 @@ export async function GET(req: Request) {
       matched_type: mtype, matched_id: mid, matched_cover: cover, ...links(mtype, mid, mslug, mArtistSlug),
     }
   })
+  // ── Tuščių atlikėjų KONTEKSTAS + PRIORITETAS ────────────────────────────
+  // Kodėl atlikėjas svarbus? Pagal tai, kuriuose renginiuose/festivaliuose jis
+  // dalyvauja: būsimo festivalio headlineris = aukščiausias prioritetas.
+  const emptyItems = items.filter((it: any) => it.source === 'empty' && it.artist_id)
+  if (emptyItems.length) {
+    const eIds = emptyItems.map((it: any) => it.artist_id)
+    const evByArtist = new Map<number, any[]>()
+    for (let i = 0; i < eIds.length; i += 200) {
+      const { data: ea } = await sb
+        .from('event_artists')
+        .select('artist_id, is_headliner, events(title, slug, start_date, end_date, is_festival, status)')
+        .in('artist_id', eIds.slice(i, i + 200))
+      for (const r of (ea || []) as any[]) {
+        const ev = Array.isArray(r.events) ? r.events[0] : r.events
+        if (!ev) continue
+        const list = evByArtist.get(r.artist_id) || []
+        list.push({ ...ev, is_headliner: r.is_headliner })
+        evByArtist.set(r.artist_id, list)
+      }
+    }
+    const today = new Date().toISOString().slice(0, 10)
+    const isUpcoming = (ev: any) => (ev.end_date || ev.start_date || '').slice(0, 10) >= today
+    for (const it of emptyItems) {
+      const evs = (evByArtist.get(it.artist_id) || []).sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
+      let prio = 0
+      const events = evs.map(ev => {
+        const up = isUpcoming(ev)
+        const w = (ev.is_festival ? (up ? (ev.is_headliner ? 100 : 60) : (ev.is_headliner ? 22 : 12))
+                                  : (up ? 40 : 5))
+        prio = Math.max(prio, w)
+        return { title: ev.title, slug: ev.slug, is_festival: !!ev.is_festival, is_headliner: !!ev.is_headliner, upcoming: up }
+      })
+      // +bonus už dalyvavimų skaičių
+      prio += Math.min(15, Math.max(0, events.length - 1) * 3)
+      it.events = events
+      it.priority = prio
+      it.priorityLabel = prio >= 70 ? 'Aukštas' : prio >= 35 ? 'Vidutinis' : 'Žemas'
+    }
+  }
+  // Rikiavimas: tušti atlikėjai pagal prioritetą (svarbiausi viršuje), tada
+  // kiti šaltiniai pagal created_at (jau atėjo desc iš užklausos).
+  items.sort((a: any, b: any) => {
+    const ae = a.source === 'empty', be = b.source === 'empty'
+    if (ae && be) return (b.priority || 0) - (a.priority || 0)
+    if (ae) return -1
+    if (be) return 1
+    return 0
+  })
+
   // Šaltinių santrauka
   const { data: counts } = await sb.from('music_requests').select('source').eq('status', 'pending')
   const bySource: Record<string, number> = {}

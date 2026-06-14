@@ -6,11 +6,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
 
+type EvCtx = { title: string; slug: string | null; is_festival: boolean; is_headliner: boolean; upcoming: boolean }
 type Item = {
   id: string; source: string; raw_artist: string | null; raw_title: string | null
   kind_hint: string | null; status: string; context: string | null
   artist_ok: boolean; artist_name: string | null; artist_web: string | null; artist_admin: string | null
   matched_type: string | null; matched_id: number | null; matched_cover: string | null; web: string | null; admin: string | null
+  events?: EvCtx[]; priority?: number; priorityLabel?: string
 }
 
 const SRC_LABEL: Record<string, string> = { topas: 'Topai', radaras: 'Radaras', top40: 'Top 40/30', discovery: 'Atradimai', post: 'Įrašai', empty: 'Tušti atlikėjai' }
@@ -98,20 +100,42 @@ export default function TrukstaMuzikosClient() {
             const empty = it.source === 'empty'
             // ── Tuščio atlikėjo eilutė: raudona, kol nepažymėta „Sutvarkyta" ──
             if (empty) {
+              const evs = it.events || []
+              const pl = it.priorityLabel
+              const plCls = pl === 'Aukštas' ? 'bg-red-600 text-white' : pl === 'Vidutinis' ? 'bg-amber-500 text-white' : 'bg-gray-300 text-gray-700'
+              // Kraštinė pagal prioritetą (svarbumą)
+              const border = resolved ? 'bg-gray-50 border-gray-200'
+                : pl === 'Aukštas' ? 'bg-red-50 border-red-400 shadow-[0_0_0_1px_rgba(239,68,68,0.35)]'
+                : pl === 'Vidutinis' ? 'bg-amber-50 border-amber-300'
+                : 'bg-white border-gray-200'
               return (
-                <div key={it.id} className={`rounded-xl p-3 border ${resolved ? 'bg-gray-50 border-gray-200' : 'bg-red-50 border-red-300 shadow-[0_0_0_1px_rgba(239,68,68,0.25)]'}`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-base ${resolved ? 'bg-gray-200 text-gray-400' : 'bg-red-100 text-red-500'}`}>{resolved ? '✓' : '⚠'}</div>
+                <div key={it.id} className={`rounded-xl p-3 border ${border}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-base ${resolved ? 'bg-gray-200 text-gray-400' : pl === 'Aukštas' ? 'bg-red-100 text-red-500' : pl === 'Vidutinis' ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}>{resolved ? '✓' : '♪'}</div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold text-gray-900">{it.raw_artist}</span>
-                        {!resolved
-                          ? <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">TUŠČIAS — be muzikos / nuotraukos</span>
-                          : <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">✓ Sutvarkyta</span>}
+                        {!resolved && pl && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${plCls}`}>{pl} prioritetas</span>}
+                        {resolved && <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">✓ Sutvarkyta</span>}
                         {it.admin && <Ext href={it.admin} kind="admin" />}
                         {it.artist_web && <Ext href={it.artist_web} kind="web" />}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">Atlikėjas DB yra, bet jam reikia pridėti muzikos ir/ar nuotrauką.</div>
+                      {/* Kodėl trūksta — kuriuose renginiuose/festivaliuose dalyvauja */}
+                      {evs.length > 0 ? (
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                          {evs.slice(0, 4).map((ev, i) => (
+                            <span key={i} className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border ${ev.upcoming ? 'bg-cyan-50 border-cyan-200 text-cyan-800' : 'bg-gray-50 border-gray-200 text-gray-500'}`} title={ev.upcoming ? 'Būsimas' : 'Praėjęs'}>
+                              {ev.is_festival ? '🎪' : '🎫'}
+                              {ev.is_headliner && <span className="text-orange-500" title="Headlineris">★</span>}
+                              <span className="font-medium">{ev.title}</span>
+                              {ev.upcoming && <span className="text-cyan-600 font-bold">· būsimas</span>}
+                            </span>
+                          ))}
+                          {evs.length > 4 && <span className="text-[11px] text-gray-400">+{evs.length - 4}</span>}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-400 mt-1">Be muzikos ir nuotraukos · nesusietas su renginiais</div>
+                      )}
                     </div>
                     {!resolved && (
                       <div className="shrink-0 flex items-center gap-1">
