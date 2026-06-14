@@ -135,9 +135,8 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     const [tracksRes, albumsRes] = await Promise.all([
       sb.from('tracks')
         .select('id, title, slug, cover_url, video_url, video_uploaded_at, release_date, release_year, release_month, release_day, artist_id, artists!tracks_artist_id_fkey(name, slug, cover_image_url)')
-        .in('artist_id', topRecIds)
-        .order('video_uploaded_at', { ascending: false, nullsFirst: false })
-        .order('release_year', { ascending: false, nullsFirst: false }).limit(12),
+        .in('artist_id', topRecIds).not('video_uploaded_at', 'is', null)
+        .order('video_uploaded_at', { ascending: false }).limit(12),
       sb.from('albums')
         .select('id, title, slug, cover_image_url, year, month, day, artist_id, artists!albums_artist_id_fkey(name, slug, cover_image_url)')
         .in('artist_id', topRecIds).not('year', 'is', null)
@@ -253,7 +252,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v2'],
+  ['srautas-recs-v3'],
   { revalidate: 300 },
 )
 
