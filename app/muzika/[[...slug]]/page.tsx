@@ -239,14 +239,8 @@ export default async function MuzikaHubPage({ params }: Props) {
       <style>{muzikaStyles}</style>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <header className="mz-hero">
+      <header className="mz-hero" style={{ paddingTop: 18, paddingBottom: 12 }}>
         <div className="mz-hero-inner">
-          <nav className="mz-crumbs" aria-label="Breadcrumb">
-            <Link href="/">Pradžia</Link>
-            <span aria-hidden>›</span>
-            {scope === 'all' ? <span>Muzika</span> : <Link href="/muzika">Muzika</Link>}
-            {scope !== 'all' && (<><span aria-hidden>›</span><span>{copy.h1}</span></>)}
-          </nav>
           <h1>{copy.h1}</h1>
           <p className="mz-hero-lead">{copy.sub}</p>
         </div>
