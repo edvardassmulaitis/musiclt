@@ -118,9 +118,9 @@ export function flagEmoji(code: string): string {
 }
 
 /** Apytikslė kelionės kaina „nuo" (skrydis roundtrip + bilietas + 1 naktis,
- *  arba kuras/autobusas mašinos atveju). Grąžina EUR sveiką skaičių. */
-export function tripCostFrom(c: Concert): number {
-  const d = DEST_BY_KEY[c.destKey]
+ *  arba kuras/autobusas mašinos atveju). Grąžina EUR sveiką skaičių.
+ *  `d` perduodama iš DB; jei nėra — krentam į statinį DEST_BY_KEY. */
+export function tripCostFrom(c: Concert, d: Destination | undefined = DEST_BY_KEY[c.destKey]): number {
   const ticket = c.isFestival ? 120 : 70   // apytikslis bilietas „nuo"
   if (!d) return ticket
   if (d.reach === 'flight') {
@@ -135,8 +135,7 @@ export function tripCostFrom(c: Concert): number {
 }
 
 /** Pasiekiamumo žyma kortelei. */
-export function reachLabel(c: Concert): string {
-  const d = DEST_BY_KEY[c.destKey]
+export function reachLabel(c: Concert, d: Destination | undefined = DEST_BY_KEY[c.destKey]): string {
   if (!d) return ''
   if (d.reach === 'flight')
     return `Pigus skrydis nuo €${d.priceFrom} · ${d.carrier} ${d.fromAirport}`

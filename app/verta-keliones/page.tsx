@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import RadarClient from './radar-client'
+import { getVertaKelionesData } from '@/lib/verta-keliones-db'
 
 export const metadata: Metadata = {
   title: 'Verta kelionės — koncertai užsienyje, pasiekiami iš Lietuvos | music.lt',
@@ -7,6 +8,10 @@ export const metadata: Metadata = {
   alternates: { canonical: '/verta-keliones' },
 }
 
-export default function VertaKelionesPage() {
-  return <RadarClient />
+// ISR 5 min — duomenys iš DB (travel_destinations + abroad_events), fallback į seed.
+export const revalidate = 300
+
+export default async function VertaKelionesPage() {
+  const { concerts, destinations } = await getVertaKelionesData()
+  return <RadarClient concerts={concerts} destinations={destinations} />
 }

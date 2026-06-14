@@ -2,9 +2,8 @@
 
 import { useMemo, useState, useRef, useEffect, type ReactNode } from 'react'
 import {
-  CONCERTS, DESTINATIONS, DEST_BY_KEY,
   flagEmoji, tripCostFrom, fmtDate,
-  type Concert, type ReachMode,
+  type Concert, type Destination, type ReachMode,
 } from '@/lib/verta-keliones-seed'
 
 type ModeFilter = 'all' | ReachMode
@@ -63,25 +62,30 @@ function Dropdown({ id, openId, setOpenId, label, icon, children, width }: {
   )
 }
 
-export default function RadarClient() {
+export default function RadarClient({ concerts, destinations }: { concerts: Concert[]; destinations: Destination[] }) {
   const [mode, setMode] = useState<ModeFilter>('all')
   const [dest, setDest] = useState<string>('all')
   const [month, setMonth] = useState<number | 'all'>('all')
   const [sort, setSort] = useState<Sort>('soon')
   const [openId, setOpenId] = useState<string | null>(null)
 
+  const destMap = useMemo(
+    () => Object.fromEntries(destinations.map(d => [d.key, d])) as Record<string, Destination>,
+    [destinations],
+  )
+
   const monthsPresent = useMemo(() => {
     const s = new Set<number>()
-    CONCERTS.forEach(c => s.add(new Date(c.date).getMonth()))
+    concerts.forEach(c => s.add(new Date(c.date).getMonth()))
     return Array.from(s).sort((a, b) => a - b)
-  }, [])
+  }, [concerts])
 
-  const flightDests = DESTINATIONS.filter(d => d.reach === 'flight')
-  const carDests = DESTINATIONS.filter(d => d.reach === 'car')
+  const flightDests = destinations.filter(d => d.reach === 'flight')
+  const carDests = destinations.filter(d => d.reach === 'car')
 
   const list = useMemo(() => {
-    const r = CONCERTS.filter(c => {
-      const d = DEST_BY_KEY[c.destKey]
+    const r = concerts.filter(c => {
+      const d = destMap[c.destKey]
       if (!d) return false
       if (mode !== 'all' && d.reach !== mode) return false
       if (dest !== 'all' && c.destKey !== dest) return false
@@ -89,14 +93,14 @@ export default function RadarClient() {
       return true
     })
     return r.sort((a, b) => {
-      if (sort === 'cheap') return tripCostFrom(a) - tripCostFrom(b)
+      if (sort === 'cheap') return tripCostFrom(a, destMap[a.destKey]) - tripCostFrom(b, destMap[b.destKey])
       if (sort === 'popular') return b.popularity - a.popularity
       return +new Date(a.date) - +new Date(b.date)
     })
-  }, [mode, dest, month, sort])
+  }, [concerts, destMap, mode, dest, month, sort])
 
   const anyFilter = mode !== 'all' || dest !== 'all' || month !== 'all'
-  const destLabel = dest === 'all' ? 'Kryptis' : DEST_BY_KEY[dest]?.city || 'Kryptis'
+  const destLabel = dest === 'all' ? 'Kryptis' : destMap[dest]?.city || 'Kryptis'
   const sortLabel = sort === 'soon' ? 'Artimiausi' : sort === 'cheap' ? 'Pigiausia kelionė' : 'Populiariausi'
 
   function reset() { setMode('all'); setDest('all'); setMonth('all') }
@@ -170,7 +174,7 @@ export default function RadarClient() {
         <div className="vk-empty"><p className="vk-empty-ic">{I.plane}</p><h3>Nieko nerasta</h3><p>Pakeisk filtrus.</p></div>
       ) : (
         <div className="vk-grid">
-          {list.map(c => <Card key={c.id} c={c} />)}
+          {list.map(c => <Card key={c.id} c={c} d={destMap[c.destKey]} />)}
         </div>
       )}
 
@@ -179,9 +183,8 @@ export default function RadarClient() {
   )
 }
 
-function Card({ c }: { c: Concert }) {
-  const d = DEST_BY_KEY[c.destKey]
-  const cost = tripCostFrom(c)
+function Card({ c, d }: { c: Concert; d?: Destination }) {
+  const cost = tripCostFrom(c, d)
   const flight = d?.reach === 'flight'
   const posterStyle = c.image
     ? { backgroundImage: `url(${c.image})` }
