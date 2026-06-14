@@ -183,25 +183,28 @@ function Card({ c }: { c: Concert }) {
   const d = DEST_BY_KEY[c.destKey]
   const cost = tripCostFrom(c)
   const flight = d?.reach === 'flight'
+  const posterStyle = c.image
+    ? { backgroundImage: `url(${c.image})` }
+    : { background: gradFor(c.artist) }
   return (
     <a href={c.ticketUrl || '#'} target="_blank" rel="noopener noreferrer" className="vk-card">
-      {/* Plakatas — atlikėjo vizualas dominuoja */}
-      <div className="vk-poster" style={{ background: gradFor(c.artist) }}>
+      {/* Plakatas — grupės vizualas dominuoja */}
+      <div className={`vk-poster${c.image ? ' has-img' : ''}`} style={posterStyle}>
+        <div className="vk-poster-grad" />
         <div className="vk-poster-top">
           <span className="vk-reach">{flight ? I.plane : I.car}<span>{flagEmoji(d?.countryCode || '')} {d?.city}</span></span>
           {c.isFestival && <span className="vk-fest">FESTIVALIS</span>}
         </div>
-        <div className="vk-poster-name">{c.artist}</div>
-        <div className="vk-poster-bot">
-          <span className="vk-price">nuo €{cost}</span>
+        <div className="vk-poster-foot">
+          <span className="vk-poster-name">{c.artist}</span>
+          <span className="vk-price">Kelionė nuo €{cost}</span>
         </div>
       </div>
 
       {/* Miesto info po plakatu */}
       <div className="vk-body">
         <span className="vk-when">{fmtDate(c.date, c.endDate)}{c.verified && <i className="vk-ok" title="Data patvirtinta">✓</i>}</span>
-        <span className="vk-place">{d?.city}, {d?.country}</span>
-        <span className="vk-venue">{c.venue}</span>
+        <span className="vk-place">{d?.city}, {d?.country} · {c.venue}</span>
         <span className="vk-reach-line">{reachLabel(c)}</span>
         <span className="vk-cta">Bilietai {I.arrowR}</span>
       </div>
@@ -248,36 +251,42 @@ const CSS = `
 .vk-opt.on { color:var(--accent-orange); }
 .vk-opt-meta { font-size:11px; font-weight:700; color:var(--text-faint); }
 
-/* Tinklelis — plakatas dominuoja */
-.vk-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; }
-@media(max-width:640px){ .vk-grid { grid-template-columns:repeat(auto-fill,minmax(155px,1fr)); gap:11px; } }
+/* Tinklelis — platus, plakatas dominuoja (mažiau kortelių eilėje) */
+.vk-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:20px; }
+@media(max-width:980px){ .vk-grid { grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; } }
+@media(max-width:640px){ .vk-grid { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; } }
 
-.vk-card { display:block; border-radius:15px; overflow:hidden; background:var(--bg-surface); text-decoration:none;
+.vk-card { display:block; border-radius:18px; overflow:hidden; background:var(--bg-surface); text-decoration:none;
   border:1px solid var(--border-default,rgba(255,255,255,0.07)); transition:transform .18s, border-color .18s, box-shadow .18s; }
-.vk-card:hover { transform:translateY(-3px); border-color:rgba(249,115,22,0.4); box-shadow:0 12px 28px rgba(0,0,0,0.22); }
+.vk-card:hover { transform:translateY(-4px); border-color:rgba(249,115,22,0.45); box-shadow:0 18px 40px rgba(0,0,0,0.30); }
 
-.vk-poster { position:relative; aspect-ratio:4/5; padding:11px; display:flex; flex-direction:column; overflow:hidden; }
-.vk-poster::after { content:''; position:absolute; inset:0; background:radial-gradient(120% 80% at 50% 0%, transparent 40%, rgba(0,0,0,.35)); pointer-events:none; }
-.vk-poster-top { position:relative; z-index:1; display:flex; align-items:flex-start; justify-content:space-between; gap:6px; }
-.vk-reach { display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border-radius:100px; font-family:'Outfit',sans-serif; font-size:11px; font-weight:700;
-  color:#fff; background:rgba(0,0,0,0.34); backdrop-filter:blur(4px); }
+.vk-poster { position:relative; aspect-ratio:3/4; display:flex; flex-direction:column;
+  background-size:cover; background-position:center 18%; overflow:hidden; }
+.vk-poster-grad { position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:linear-gradient(to top, rgba(6,9,15,0.92) 2%, rgba(6,9,15,0.45) 34%, rgba(6,9,15,0.05) 62%, rgba(6,9,15,0.18) 100%); }
+.vk-poster.has-img .vk-poster-name { font-size:clamp(17px,2.1vw,22px); }
+.vk-card:hover .vk-poster { background-position:center 14%; }
+
+.vk-poster-top { position:relative; z-index:2; padding:11px; display:flex; align-items:flex-start; justify-content:space-between; gap:6px; }
+.vk-reach { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:100px; font-family:'Outfit',sans-serif; font-size:11px; font-weight:700;
+  color:#fff; background:rgba(0,0,0,0.42); backdrop-filter:blur(5px); }
 .vk-reach svg { width:12px; height:12px; }
-.vk-fest { font-family:'Outfit',sans-serif; font-weight:800; font-size:9px; letter-spacing:.05em; padding:4px 8px; border-radius:100px; color:#0c2a44; background:#67e8f9; box-shadow:0 2px 8px rgba(0,0,0,.25); }
-.vk-poster-name { position:relative; z-index:1; margin-top:auto; font-family:'Outfit',sans-serif; font-weight:900; letter-spacing:-.02em;
-  font-size:clamp(19px,2.6vw,26px); line-height:1.05; color:#fff; text-shadow:0 2px 18px rgba(0,0,0,.45);
+.vk-fest { font-family:'Outfit',sans-serif; font-weight:800; font-size:9px; letter-spacing:.05em; padding:5px 9px; border-radius:100px; color:#0c2a44; background:#67e8f9; box-shadow:0 2px 8px rgba(0,0,0,.3); }
+
+.vk-poster-foot { position:relative; z-index:2; margin-top:auto; padding:13px; display:flex; flex-direction:column; align-items:flex-start; gap:8px; }
+.vk-poster-name { font-family:'Outfit',sans-serif; font-weight:900; letter-spacing:-.02em;
+  font-size:clamp(20px,2.7vw,27px); line-height:1.04; color:#fff; text-shadow:0 2px 20px rgba(0,0,0,.6);
   display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-.vk-poster-bot { position:relative; z-index:1; margin-top:9px; }
-.vk-price { display:inline-block; font-family:'Outfit',sans-serif; font-weight:800; font-size:12px; color:#fff; padding:4px 10px; border-radius:100px; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); }
+.vk-price { font-family:'Outfit',sans-serif; font-weight:800; font-size:12px; color:#fff; padding:5px 11px; border-radius:100px;
+  background:rgba(249,115,22,0.92); box-shadow:0 4px 12px rgba(249,115,22,0.35); }
 
 /* Info po plakatu */
-.vk-body { padding:11px 13px 13px; display:flex; flex-direction:column; gap:2px; }
-.vk-when { font-family:'Outfit',sans-serif; font-weight:700; font-size:11.5px; color:var(--accent-orange); }
+.vk-body { padding:12px 14px 14px; display:flex; flex-direction:column; gap:3px; }
+.vk-when { font-family:'Outfit',sans-serif; font-weight:700; font-size:12px; color:var(--accent-orange); }
 .vk-ok { font-style:normal; margin-left:5px; }
-.vk-place { font-family:'Outfit',sans-serif; font-weight:800; font-size:14px; line-height:1.2; color:var(--text-primary); margin-top:1px; }
-.vk-card:hover .vk-place { color:var(--accent-orange); }
-.vk-venue { font-size:12px; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.vk-reach-line { font-size:11.5px; color:var(--text-muted); margin-top:3px; }
-.vk-cta { display:inline-flex; align-items:center; gap:5px; margin-top:9px; font-family:'Outfit',sans-serif; font-weight:700; font-size:12px; color:var(--accent-orange); }
+.vk-place { font-size:12.5px; color:var(--text-secondary); line-height:1.35; }
+.vk-reach-line { font-size:11.5px; color:var(--text-muted); margin-top:1px; }
+.vk-cta { display:inline-flex; align-items:center; gap:5px; margin-top:10px; font-family:'Outfit',sans-serif; font-weight:800; font-size:12.5px; color:var(--accent-orange); }
 .vk-cta svg { transition:transform .15s; }
 .vk-card:hover .vk-cta svg { transform:translateX(3px); }
 
