@@ -176,6 +176,52 @@ const NAV: NavItem[] = [
   },
 ]
 
+/* Mobile flat-meniu sub-nuorodos — visada matomi chip'ai po kiekvienu skyriumi.
+   Tik patvirtinti route'ai (kad nebūtų 404). */
+const NAV_SUBLINKS: Record<NavItem['key'], { href: string; label: string }[]> = {
+  muzika: [
+    { href: '/atlikejai', label: 'Atlikėjai' },
+    { href: '/albumai', label: 'Albumai' },
+    { href: '/dainos', label: 'Dainos' },
+    { href: '/zanrai', label: 'Stiliai' },
+    { href: '/nauji-atlikejai', label: 'Radaras' },
+  ],
+  topai: [
+    { href: '/top30', label: 'LT TOP 30' },
+    { href: '/top40', label: 'LT TOP 40' },
+    { href: '/topai/pasaulis', label: 'Pasaulis' },
+    { href: '/balsavimai', label: 'Balsavimai' },
+    { href: '/apdovanojimai', label: 'Apdovanojimai' },
+  ],
+  naujienos: [
+    { href: '/naujienos/lietuva', label: 'Lietuva' },
+    { href: '/naujienos/pasaulis', label: 'Pasaulis' },
+    { href: '/naujienos/tipas/interviu', label: 'Interviu' },
+    { href: '/naujienos/tipas/recenzijos', label: 'Recenzijos' },
+    { href: '/naujienos/tipas/klipai', label: 'Klipai' },
+  ],
+  renginiai: [
+    { href: '/festivaliai', label: 'Festivaliai' },
+    { href: '/galerija', label: 'Foto reportažai' },
+    { href: '/verta-keliones', label: 'Verta kelionės' },
+    { href: '/koncertu-irasai', label: 'Koncertų įrašai' },
+  ],
+  skelbimai: [
+    { href: '/skelbimai/irasai', label: 'Įrašai' },
+    { href: '/skelbimai/instrumentai', label: 'Instrumentai' },
+    { href: '/skelbimai/paslaugos', label: 'Paslaugos' },
+    { href: '/skelbimai/muzikantai', label: 'Muzikantai' },
+  ],
+  bendruomene: [
+    { href: '/vartotojai', label: 'Nariai' },
+    { href: '/diskusijos', label: 'Diskusijos' },
+    { href: '/blogas', label: 'Narių įrašai' },
+    { href: '/dienos-daina', label: 'Dienos daina' },
+    { href: '/pokalbiai', label: 'Pokalbiai' },
+    { href: '/boombox', label: 'Boombox' },
+  ],
+}
+
 /* ── Header chrome icons ── */
 const SunIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -1253,9 +1299,6 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [preview, setPreview] = useState<NavPreview | null>(null)
-  // Mobile drill-in state — 'main' = pradinė kortelių sąrašo view,
-  // arba konkretus key (muzika/topai/...) = sekcijos turinio full-screen view.
-  const [drawerView, setDrawerView] = useState<'main' | NavItem['key']>('main')
   // Desktop dropdown'o "closing" state — paspaudus link'ą uždaro
   // panel'ą iškart. SVARBU: suppress'as laikomas KOL pelė fiziškai
   // nepalieka grupės (onMouseLeave). Jei resetintume per pathname ar
@@ -1272,9 +1315,6 @@ export function SiteHeader() {
       return () => { document.body.style.overflow = orig }
     }
   }, [menuOpen])
-
-  // Kai drawer'is užsidaro — atstatom į main view'ą kitam atidarymui
-  useEffect(() => { if (!menuOpen) setDrawerView('main') }, [menuOpen])
 
   // Fetch nav preview data once on mount (cached aggressively)
   useEffect(() => {
@@ -2453,78 +2493,55 @@ export function SiteHeader() {
           display: flex; flex-direction: column;
           padding: 4px 0;
         }
-        /* Split eilutė — kairė (Link → puslapis) + dešinė rodyklė (drill-in) */
-        .sh-mrow-split {
-          display: flex; align-items: stretch;
-          width: 100%;
+        /* Flat blokas — skyriaus antraštė (nuoroda) + sub-nuorodų chip'ai */
+        .sh-mblock {
           position: relative;
+          padding: 6px 0 12px;
           border-bottom: 1px solid var(--border-default);
         }
-        .sh-mrow-split:last-child { border-bottom: none; }
-        .sh-mrow-main {
-          display: flex; align-items: center; gap: 14px;
-          flex: 1; min-width: 0;
-          padding: 14px 12px 14px 16px;
-          text-decoration: none;
-          transition: background .12s;
-        }
-        .sh-mrow-main:hover, .sh-mrow-main:active { background: var(--bg-hover); }
-        .sh-mrow-expand {
-          flex-shrink: 0;
-          width: 56px;
-          border: none; background: transparent;
-          border-left: 1px solid var(--border-default);
-          color: var(--text-muted);
-          display: flex; align-items: center; justify-content: center;
-          cursor: pointer;
-          transition: background .12s, color .12s;
-        }
-        .sh-mrow-expand:hover, .sh-mrow-expand:active {
-          background: var(--bg-hover);
-          color: var(--text-primary);
-        }
-        .sh-mrow-split.active::before {
-          content: '';
+        .sh-mblock:last-child { border-bottom: none; }
+        .sh-mblock-acc {
           position: absolute;
-          left: 0; top: 12px; bottom: 12px;
+          left: 0; top: 14px; height: 38px;
           width: 3px;
           border-radius: 0 3px 3px 0;
           background: var(--accent-orange);
-          z-index: 1;
         }
-
-        /* Hub CTA drill-in viršuje — tiesioginis kelias į skyriaus puslapį */
-        .sh-mhub-cta {
-          display: flex; align-items: center; gap: 12px;
-          padding: 12px 14px;
-          margin-bottom: 12px;
-          border-radius: 12px;
-          background: var(--bg-hover);
-          border: 1px solid var(--border-default);
+        /* Antraštė — visa eilutė tiesioginė nuoroda į skyriaus puslapį */
+        .sh-mblock-head {
+          display: flex; align-items: center; gap: 14px;
+          padding: 10px 16px;
           text-decoration: none;
-          transition: background .12s, border-color .12s;
+          border-radius: 10px;
+          transition: background .12s;
         }
-        .sh-mhub-cta:hover, .sh-mhub-cta:active {
+        .sh-mblock-head:hover, .sh-mblock-head:active { background: var(--bg-hover); }
+        .sh-mblock-go {
+          flex-shrink: 0;
+          color: var(--text-muted);
+          opacity: 0.55;
+          display: flex;
+        }
+        /* Sub-nuorodos — visada matomi chip'ai (wrap), kiekvienas tiesioginis link'as */
+        .sh-mchips {
+          display: flex; flex-wrap: wrap; gap: 7px;
+          padding: 2px 16px 0 62px;
+        }
+        .sh-mchip {
+          font-size: 12.5px; font-weight: 600;
+          padding: 6px 12px;
+          border-radius: 99px;
+          border: 1px solid var(--border-default);
+          background: var(--bg-hover);
+          color: var(--text-secondary);
+          text-decoration: none;
+          white-space: nowrap;
+          transition: background .12s, color .12s, border-color .12s;
+        }
+        .sh-mchip:hover, .sh-mchip:active {
           background: rgba(249, 115, 22, 0.08);
           border-color: var(--accent-orange);
-        }
-        .sh-mhub-cta-icon {
-          flex-shrink: 0;
-          width: 30px; height: 30px;
-          display: flex; align-items: center; justify-content: center;
-          color: var(--accent-orange);
-        }
-        .sh-mhub-cta-icon svg { width: 18px; height: 18px; }
-        .sh-mhub-cta-text {
-          flex: 1; min-width: 0;
-          font-size: 14.5px; font-weight: 700;
           color: var(--text-primary);
-          letter-spacing: -0.01em;
-        }
-        .sh-mhub-cta-arrow {
-          flex-shrink: 0;
-          color: var(--accent-orange);
-          display: flex;
         }
 
         /* Mobile row ikona — monochrome solid look (be per-section spalvų).
@@ -2541,7 +2558,7 @@ export function SiteHeader() {
         }
         .sh-mrow-icon svg { width: 19px; height: 19px; stroke-width: 2; }
         /* Active row — accent ring around icon (orange brand color) */
-        .sh-mrow-split.active .sh-mrow-icon {
+        .sh-mblock.active .sh-mrow-icon {
           color: var(--accent-orange);
           border-color: var(--accent-orange);
           background: rgba(249, 115, 22, 0.08);
@@ -2913,107 +2930,63 @@ export function SiteHeader() {
 
       <div className={`sh-drawer${menuOpen ? ' open' : ''}`} style={{ background: drawerBg }}>
 
-        {/* TOP BAR — kontekstinis */}
+        {/* TOP BAR — logo + uždarymas (flat meniu, be drill-in) */}
         <div className="sh-mtop">
-          {drawerView === 'main' ? (
-            <>
-              <Link href="/" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
-                <span style={{ fontWeight: 900, fontSize: 20, color: logoColor }}>music</span>
-                <span style={{ fontWeight: 900, fontSize: 20, color: 'var(--accent-orange)' }}>.lt</span>
-              </Link>
-              <button onClick={() => setMenuOpen(false)} aria-label="Uždaryti" className="sh-mtop-btn" style={{ marginLeft: 'auto' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => setDrawerView('main')} aria-label="Atgal" className="sh-mtop-btn">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="15 18 9 12 15 6"/>
-                </svg>
-              </button>
-              <span className="sh-mtop-title">
-                {NAV.find(n => n.key === drawerView)?.label}
-              </span>
-              <button onClick={() => setMenuOpen(false)} aria-label="Uždaryti" className="sh-mtop-btn" style={{ marginLeft: 'auto' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </>
-          )}
+          <Link href="/" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
+            <span style={{ fontWeight: 900, fontSize: 20, color: logoColor }}>music</span>
+            <span style={{ fontWeight: 900, fontSize: 20, color: 'var(--accent-orange)' }}>.lt</span>
+          </Link>
+          <button onClick={() => setMenuOpen(false)} aria-label="Uždaryti" className="sh-mtop-btn" style={{ marginLeft: 'auto' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
         </div>
 
-        {/* CONTENT */}
+        {/* CONTENT — flat meniu: skyrius = tiesioginė nuoroda, po juo sub-nuorodų chip'ai */}
         <div className="sh-mbody">
-          {drawerView === 'main' ? (
-            <nav className="sh-mlist">
-              {NAV.map(n => {
-                const active = isActive(n)
-                return (
-                  <div key={n.label} className={`sh-mrow-split${active ? ' active' : ''}`}>
-                    {/* Pagrindinė dalis — tiesioginė nuoroda į skyriaus puslapį */}
-                    <Link
-                      href={n.href}
-                      onClick={() => setMenuOpen(false)}
-                      className="sh-mrow-main"
-                    >
-                      <span className="sh-mrow-icon">{n.icon}</span>
-                      <span className="sh-mrow-text">
-                        <span className="sh-mrow-title">{n.label}</span>
-                        <span className="sh-mrow-desc">{n.desc}</span>
-                      </span>
-                    </Link>
-                    {/* Atskira rodyklė — atveria peržiūras (drill-in) */}
-                    <button
-                      type="button"
-                      onClick={() => setDrawerView(n.key)}
-                      className="sh-mrow-expand"
-                      aria-label={`${n.label} — naršyti`}
-                      title="Naršyti"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="9 18 15 12 9 6"/>
-                      </svg>
-                    </button>
-                  </div>
-                )
-              })}
-            </nav>
-          ) : (
-            <div className="sh-msection">
-              {/* Hub nuoroda visada viršuje — tiesioginis kelias į skyriaus puslapį */}
-              {(() => {
-                const cur = NAV.find(n => n.key === drawerView)
-                if (!cur) return null
-                return (
-                  <Link href={cur.href} onClick={() => setMenuOpen(false)} className="sh-mhub-cta">
-                    <span className="sh-mhub-cta-icon">{cur.icon}</span>
-                    <span className="sh-mhub-cta-text">Atidaryti „{cur.label}"</span>
-                    <span className="sh-mhub-cta-arrow"><ArrowRight size={15} /></span>
+          <nav className="sh-mlist">
+            {NAV.map(n => {
+              const active = isActive(n)
+              const subs = NAV_SUBLINKS[n.key] || []
+              return (
+                <div key={n.label} className={`sh-mblock${active ? ' active' : ''}`}>
+                  {active && <span className="sh-mblock-acc" />}
+                  <Link
+                    href={n.href}
+                    onClick={() => setMenuOpen(false)}
+                    className="sh-mblock-head"
+                  >
+                    <span className="sh-mrow-icon">{n.icon}</span>
+                    <span className="sh-mrow-text">
+                      <span className="sh-mrow-title">{n.label}</span>
+                      <span className="sh-mrow-desc">{n.desc}</span>
+                    </span>
+                    <span className="sh-mblock-go" aria-hidden>
+                      <ArrowRight size={15} />
+                    </span>
                   </Link>
-                )
-              })()}
-              <MobileExpansion
-                navKey={drawerView}
-                data={preview}
-                accent={NAV.find(n => n.key === drawerView)?.accent || '#f59e0b'}
-                onLink={() => setMenuOpen(false)}
-              />
-            </div>
-          )}
+                  {subs.length > 0 && (
+                    <div className="sh-mchips">
+                      {subs.map(s => (
+                        <Link key={s.href} href={s.href} onClick={() => setMenuOpen(false)} className="sh-mchip">
+                          {s.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </nav>
         </div>
 
-        {/* Theme toggle — fixed footer (rodom tik main view'e) */}
-        {drawerView === 'main' && (
-          <div className="sh-mfoot">
-            <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="sh-mfoot-btn">
-              {dk ? <><SunIcon /> Šviesi tema</> : <><MoonIcon /> Tamsi tema</>}
-            </button>
-          </div>
-        )}
+        {/* Theme toggle — fixed footer */}
+        <div className="sh-mfoot">
+          <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="sh-mfoot-btn">
+            {dk ? <><SunIcon /> Šviesi tema</> : <><MoonIcon /> Tamsi tema</>}
+          </button>
+        </div>
       </div>
 
       <MasterSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
