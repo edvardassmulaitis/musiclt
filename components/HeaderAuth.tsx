@@ -188,6 +188,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
 function UserMenu() {
   const { data: session } = useSession()
   const [open, setOpen] = useState(false)
+  const [username, setUsername] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -197,6 +198,12 @@ function UserMenu() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  // Username vieso profilio nuorodai - uzkraunam pirma karta atidarius meniu.
+  useEffect(() => {
+    if (!open || username) return
+    fetch('/api/profile').then(r => r.json()).then(d => { if (d?.username) setUsername(d.username) }).catch(() => {})
+  }, [open, username])
 
   if (!session?.user) return null
   const isAdmin = session.user.role === 'admin' || session.user.role === 'super_admin'
@@ -268,9 +275,11 @@ function UserMenu() {
 
           {/* Main links */}
           <div className="py-1">
-            {menuItem('/auth/profile', '👤', 'Mano profilis')}
+            {menuItem(username ? `/vartotojas/${username}` : '/auth/profile', '👤', 'Mano profilis')}
+            {menuItem('/mano-muzika', '🎵', 'Mano muzika', 'var(--accent-orange)')}
             {menuItem('/blogas/mano', '✍️', 'Mano blogas')}
             {menuItem('/blogas/rasyti', '📝', 'Rašyti straipsnį')}
+            {menuItem('/auth/profile', '⚙️', 'Paskyra ir nustatymai')}
           </div>
 
           {/* Admin section */}

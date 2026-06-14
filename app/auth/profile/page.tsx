@@ -1,138 +1,131 @@
 'use client'
 
+// app/auth/profile/page.tsx
+// Modernus paskyros centras (account hub). Pakeitė seną „kortelės" dizainą.
+// Centrinė ašis — „Mano muzika" valdymas + greitos nuorodos į profilį, blogą,
+// pranešimus. Profilio username gaunamas iš /api/profile.
+
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+import { proxyImg } from '@/lib/img-proxy'
+
+type Profile = { id: string; username: string | null; full_name: string | null; avatar_url: string | null; music_setup_completed_at?: string | null }
 
 export default function ProfilePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const [profile, setProfile] = useState<Profile | null>(null)
+
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/auth/signin')
   }, [status, router])
 
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    fetch('/api/profile').then(r => r.json()).then(d => { if (d && !d.error) setProfile(d) }).catch(() => {})
+  }, [status])
 
+  if (status === 'loading') {
+    return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-music-blue border-t-transparent rounded-full animate-spin" /></div>
+  }
   if (!session) return null
 
+  const user = session.user
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin'
+  const username = profile?.username || null
+  const avatar = profile?.avatar_url || user.image || null
+  const name = profile?.full_name || user.name || 'Vartotojas'
+
+  const roleLabel = user.role === 'super_admin' ? '★ Super administratorius'
+    : user.role === 'admin' ? '⭐ Administratorius'
+    : user.role === 'moderator' ? '🛡️ Moderatorius' : '👤 Narys'
+
   return (
-    <div className="min-h-screen p-4">
-      {/* Header */}
-      <header className="max-w-4xl mx-auto flex items-center justify-between py-4 mb-8">
-        <Link href="/" className="text-2xl font-black">
-          <span className="text-music-blue">music</span>
-          <span className="text-music-orange">.lt</span>
-        </Link>
-        {session.user.role === 'admin' && (
-          <Link
-            href="/admin/dashboard"
-            className="text-sm bg-white/10 px-4 py-2 rounded-lg hover:bg-white/20 transition-colors"
-          >
-            Admin panelė →
+    <div className="page-shell" style={{ color: 'var(--text-primary)' }}>
+      {/* HEADER CARD */}
+      <div className="rounded-2xl p-5 sm:p-6 flex items-center gap-4 sm:gap-5"
+        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+        {avatar ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={proxyImg(avatar)} alt={name} referrerPolicy="no-referrer" className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl object-cover" />
+        ) : (
+          <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl flex items-center justify-center text-2xl font-black text-white"
+            style={{ background: 'linear-gradient(135deg, #2563eb, var(--accent-orange))' }}>
+            {name[0]?.toUpperCase() || '?'}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[22px] sm:text-[26px] font-black tracking-tight leading-none truncate">{name}</h1>
+          {username && <div className="text-[13px] mt-1" style={{ color: 'var(--text-muted)' }}>@{username}</div>}
+          <span className="inline-block mt-2 text-[11px] px-2.5 py-0.5 rounded-full font-bold"
+            style={{ background: isAdmin ? 'rgba(249,115,22,0.15)' : 'var(--bg-elevated)', color: isAdmin ? 'var(--accent-orange)' : 'var(--text-muted)' }}>
+            {roleLabel}
+          </span>
+        </div>
+        {username && (
+          <Link href={`/vartotojas/${username}`} className="hidden sm:inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-bold"
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
+            👁 Mano profilis
           </Link>
         )}
-      </header>
+      </div>
 
-      <div className="max-w-2xl mx-auto">
-        {/* Profile card */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
-          <div className="flex items-center gap-6 mb-8">
-            {session.user.image ? (
-              <Image
-                src={session.user.image}
-                alt={session.user.name || 'Avatar'}
-                width={80}
-                height={80}
-                className="rounded-full"
-              />
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-music-blue to-music-orange flex items-center justify-center text-2xl font-bold">
-                {session.user.name?.[0]?.toUpperCase() || '?'}
-              </div>
-            )}
-            <div>
-              <h1 className="text-2xl font-bold">{session.user.name || 'Vartotojas'}</h1>
-              <p className="text-gray-400">{session.user.email}</p>
-              <span className={`inline-block mt-2 text-xs px-3 py-1 rounded-full font-medium ${
-                session.user.role === 'admin'
-                  ? 'bg-music-orange/20 text-music-orange'
-                  : session.user.role === 'moderator'
-                  ? 'bg-purple-500/20 text-purple-400'
-                  : 'bg-white/10 text-gray-400'
-              }`}>
-                {session.user.role === 'admin' ? '⭐ Administratorius' :
-                 session.user.role === 'moderator' ? '🛡️ Moderatorius' : '👤 Narys'}
-              </span>
+      {/* MANO MUZIKA — pagrindinė CTA kortelė */}
+      <Link href="/mano-muzika"
+        className="mt-4 block rounded-2xl p-5 sm:p-6 transition-transform hover:scale-[1.005]"
+        style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(167,139,250,0.13))', border: '1px solid var(--border-default)' }}>
+        <div className="flex items-center gap-4">
+          <div className="text-3xl sm:text-4xl">🎵</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[16px] sm:text-[18px] font-black">Mano muzika</div>
+            <div className="text-[12.5px] sm:text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              Tvarkyk mėgstamus atlikėjus, albumus, dainas, nuotaikos dainas ir stilius.
             </div>
           </div>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </Link>
 
-          <div className="border-t border-white/10 pt-6">
-            <h2 className="text-lg font-semibold mb-4">Paskyros informacija</h2>
-            <dl className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-gray-400">El. paštas</dt>
-                <dd>{session.user.email}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-400">Rolė</dt>
-                <dd className="capitalize">{session.user.role}</dd>
-              </div>
-            </dl>
-          </div>
+      {/* GREITOS NUORODOS */}
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <HubCard href={username ? `/vartotojas/${username}` : '/mano-muzika'} icon="👤" title="Mano profilis" sub="Vieša peržiūra" />
+        <HubCard href="/blogas/mano" icon="✍️" title="Mano blogas" sub="Straipsniai, įrašai" />
+        <HubCard href="/blogas/rasyti" icon="📝" title="Rašyti" sub="Naujas įrašas" />
+        <HubCard href="/auth/profile/pranesimai" icon="🔔" title="Pranešimai" sub="Nustatymai" />
+        <HubCard href="/srautas" icon="🌊" title="Mano srautas" sub="Sekami atlikėjai" />
+        {isAdmin && <HubCard href="/admin" icon="⚙️" title="Admin panelė" sub="Valdymas" accent />}
+      </div>
 
-          {/* Settings shortcuts */}
-          <div className="border-t border-white/10 pt-6 mt-6">
-            <h2 className="text-lg font-semibold mb-4">Nustatymai</h2>
-            <div className="space-y-2">
-
-              <Link
-                href="/auth/profile/pranesimai"
-                className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors group"
-              >
-                <div
-                  className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange, #f97316)' }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-white">Pranešimai</div>
-                  <div className="text-xs text-gray-400 mt-0.5">Push, komentarai, patiktukai, mėgstami atlikėjai</div>
-                </div>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 group-hover:text-white transition-colors">
-                  <polyline points="9 18 15 12 9 6"/>
-                </svg>
-              </Link>
-            </div>
-          </div>
-
-          <div className="mt-8 flex gap-3">
-            <Link
-              href="/"
-              className="flex-1 text-center bg-white/5 border border-white/10 py-2.5 rounded-xl hover:bg-white/10 transition-colors text-sm font-medium"
-            >
-              ← Pradžia
-            </Link>
-            <button
-              onClick={() => signOut({ callbackUrl: '/' })}
-              className="flex-1 bg-red-500/10 border border-red-500/30 text-red-400 py-2.5 rounded-xl hover:bg-red-500/20 transition-colors text-sm font-medium"
-            >
-              Atsijungti
-            </button>
-          </div>
+      {/* PASKYRA */}
+      <div className="mt-5 rounded-2xl p-5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+        <h2 className="text-[13px] font-black uppercase tracking-wider mb-3" style={{ color: 'var(--text-faint)' }}>Paskyra</h2>
+        <div className="flex items-center justify-between text-[13px] py-1.5">
+          <span style={{ color: 'var(--text-muted)' }}>El. paštas</span>
+          <span>{user.email}</span>
+        </div>
+        <div className="mt-4 flex gap-3">
+          <Link href="/" className="flex-1 text-center rounded-xl py-2.5 text-[13px] font-bold"
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>← Pradžia</Link>
+          <button onClick={() => signOut({ callbackUrl: '/' })}
+            className="flex-1 rounded-xl py-2.5 text-[13px] font-bold"
+            style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.30)', color: '#f43f5e' }}>
+            Atsijungti
+          </button>
         </div>
       </div>
     </div>
+  )
+}
+
+function HubCard({ href, icon, title, sub, accent }: { href: string; icon: string; title: string; sub: string; accent?: boolean }) {
+  return (
+    <Link href={href} className="rounded-2xl p-4 transition-colors group"
+      style={{ background: 'var(--bg-surface)', border: `1px solid ${accent ? 'rgba(249,115,22,0.35)' : 'var(--border-default)'}` }}>
+      <div className="text-2xl mb-2">{icon}</div>
+      <div className="text-[13.5px] font-black" style={{ color: accent ? 'var(--accent-orange)' : 'var(--text-primary)' }}>{title}</div>
+      <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</div>
+    </Link>
   )
 }

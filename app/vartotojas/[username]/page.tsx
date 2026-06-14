@@ -26,6 +26,7 @@ import {
 import { createAdminClient } from '@/lib/supabase'
 import type { Metadata } from 'next'
 import { ProfileClient } from './profile-client'
+import EditMyMusicFab from '@/components/profile/EditMyMusicFab'
 
 type Props = { params: Promise<{ username: string }> }
 
@@ -146,6 +147,8 @@ export default async function UserProfilePage({ params }: Props) {
   const memberSinceYear = memberSinceDate.getFullYear()
 
   return (
+    <>
+    <EditMyMusicFab profileId={profile.id} />
     <ProfileClient
       profile={profile}
       favoriteArtists={enrichedArtists}
@@ -164,6 +167,7 @@ export default async function UserProfilePage({ params }: Props) {
       translations={translations}
       recentComments={recentComments}
     />
+    </>
   )
 }
 
