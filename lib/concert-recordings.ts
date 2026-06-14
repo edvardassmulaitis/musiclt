@@ -17,7 +17,7 @@ export type { ConcertRecording, RecordingStyle, RecordingType } from '@/lib/conc
 export {
   inferRecordingType, recordingTypeLabel, RECORDING_TYPE_LABELS, RECORDING_TYPE_ORDER,
   formatDuration, formatRecordedDate, recordingPlaceLine, recordingHref,
-  extractYouTubeId, ytThumbFromId, ytEmbedUrl,
+  extractYouTubeId, ytThumbFromId, ytEmbedUrl, formatViews,
 } from '@/lib/concert-recordings-shared'
 
 /* ─────────────────────── Row → ConcertRecording ─────────────────────── */

@@ -93,6 +93,14 @@ export function recordingPlaceLine(r: Pick<ConcertRecording, 'venue' | 'city' | 
   return [place, date].filter(Boolean).join(' · ')
 }
 
+/** Peržiūrų skaičius → trumpas LT formatas: 345149 → „345 tūkst.", 1.2M → „1,2 mln." */
+export function formatViews(n: number | null | undefined): string {
+  if (n == null || n <= 0) return ''
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace('.', ',')} mln.`
+  if (n >= 1_000) return `${Math.round(n / 1_000)} tūkst.`
+  return String(n)
+}
+
 /* ───────────────────────── YouTube helper'iai ───────────────────────── */
 
 const YT_ID_RE = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([\w-]{11})/
