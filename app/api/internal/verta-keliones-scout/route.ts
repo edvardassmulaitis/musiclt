@@ -9,10 +9,12 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 async function handle(req: NextRequest) {
-  const expected = process.env.INTERNAL_CRON_TOKEN
-  if (!expected) return NextResponse.json({ error: 'INTERNAL_CRON_TOKEN not configured' }, { status: 503 })
+  // Priimam: Vercel cron (Bearer CRON_SECRET) ARBA rankinis (Bearer INTERNAL_CRON_TOKEN).
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
-  if (token !== expected) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const cronSecret = process.env.CRON_SECRET
+  const internal = process.env.INTERNAL_CRON_TOKEN
+  const ok = (cronSecret && token === cronSecret) || (internal && token === internal)
+  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const res = await runScout({})
   return NextResponse.json({ ok: true, ...res })
 }
