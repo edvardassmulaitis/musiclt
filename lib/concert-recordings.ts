@@ -283,6 +283,40 @@ async function fetchViaInnerTube(videoId: string): Promise<YtMeta | null> {
   } catch { return null }
 }
 
+/** Watch puslapis (BE key) — trukmė (lengthSeconds) + uploadDate + aprašymas
+ *  iš įterpto JSON. Vercel'yje kartais bot-blocked, bet verta bandyti. */
+function decodeJsonFragment(raw: string): string {
+  try { return JSON.parse('"' + raw + '"') } catch { return raw }
+}
+async function fetchViaWatchPage(videoId: string): Promise<YtMeta | null> {
+  try {
+    const res = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: { 'User-Agent': YT_UA, 'Accept-Language': 'en-US,en;q=0.9' },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    const html = await res.text()
+    const len = html.match(/"lengthSeconds":"(\d+)"/)
+    if (!len) return null
+    const up = html.match(/"uploadDate":"([^"]+)"/) || html.match(/itemprop="datePublished"\s+content="([^"]+)"/)
+    const titleM = html.match(/<meta name="title" content="([^"]*)"/)
+    const author = html.match(/"author":"((?:[^"\\]|\\.)*)"/)
+    const desc = html.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/)
+    const views = html.match(/"viewCount":"(\d+)"/)
+    let uploadedAt: string | null = up?.[1] || null
+    if (uploadedAt) { const dt = new Date(uploadedAt); if (!Number.isNaN(dt.getTime())) uploadedAt = dt.toISOString() }
+    return {
+      title: titleM?.[1] ? titleM[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"') : '',
+      channel: author ? decodeJsonFragment(author[1]) : null,
+      uploadedAt,
+      duration: parseInt(len[1], 10),
+      views: views ? parseInt(views[1], 10) : null,
+      thumb: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+      description: desc ? decodeJsonFragment(desc[1]) : null,
+    }
+  } catch { return null }
+}
+
 /** oEmbed (BE key) — tik title + kanalas + thumb. Paskutinis fallback. */
 async function fetchViaOembed(videoId: string): Promise<YtMeta | null> {
   try {
@@ -302,28 +336,35 @@ async function fetchViaOembed(videoId: string): Promise<YtMeta | null> {
   } catch { return null }
 }
 
-/** Metaduomenys su fallback grandine: Data API → InnerTube → oEmbed.
- *  Jei Data API trūksta trukmės (nėra key / klaida), papildom iš InnerTube. */
-async function fetchYtMeta(videoId: string): Promise<YtMeta | null> {
-  const primary = await fetchViaDataApi(videoId)
-  if (primary && primary.duration != null) return primary
-
-  const inner = await fetchViaInnerTube(videoId)
-  if (primary && inner) {
-    // Data API pavyko, bet be trukmės — sujungiam
-    return {
-      title: primary.title || inner.title,
-      channel: primary.channel || inner.channel,
-      uploadedAt: primary.uploadedAt || inner.uploadedAt,
-      duration: primary.duration ?? inner.duration,
-      views: primary.views ?? inner.views,
-      thumb: primary.thumb || inner.thumb,
-      description: primary.description || inner.description,
-    }
+function mergeMeta(base: YtMeta | null, extra: YtMeta | null): YtMeta | null {
+  if (!base) return extra
+  if (!extra) return base
+  return {
+    title: base.title || extra.title,
+    channel: base.channel || extra.channel,
+    uploadedAt: base.uploadedAt || extra.uploadedAt,
+    duration: base.duration ?? extra.duration,
+    views: base.views ?? extra.views,
+    thumb: base.thumb || extra.thumb,
+    description: base.description || extra.description,
   }
-  if (inner) return inner
-  if (primary) return primary
-  return await fetchViaOembed(videoId)
+}
+
+/** Metaduomenys su fallback grandine (svarbiausia — TRUKMĖ):
+ *  Data API (su key) → InnerTube /player → watch puslapis → oEmbed.
+ *  Grąžinam pirmą šaltinį su trukme; jei nė vienas trukmės neturi —
+ *  geriausią title-only (oEmbed). Trūkstamus laukus pasipildom iš kitų. */
+async function fetchYtMeta(videoId: string): Promise<YtMeta | null> {
+  let acc: YtMeta | null = null
+  const sources = [fetchViaDataApi, fetchViaInnerTube, fetchViaWatchPage]
+  for (const src of sources) {
+    const r = await src(videoId).catch(() => null)
+    acc = mergeMeta(acc, r)
+    if (acc && acc.duration != null && acc.title) return acc  // turim esmę — gana
+  }
+  // Trukmės niekur negavom — bent title/thumb iš oEmbed
+  const oe = await fetchViaOembed(videoId)
+  return mergeMeta(acc, oe)
 }
 
 const LT_MONTH_MAP: Record<string, number> = {
@@ -429,8 +470,19 @@ export async function parseConcertUrl(rawUrl: string): Promise<ParsedConcert> {
   const ai = await aiParse(meta.title, meta.description || '', meta.duration)
   const heur = heuristicDate(fullText)
 
-  const recorded_on = ai?.recorded_on || heur.iso || null
-  const recorded_year = ai?.recorded_year || heur.year || (recorded_on ? new Date(recorded_on).getFullYear() : null)
+  let recorded_on = ai?.recorded_on || heur.iso || null
+  let recorded_year = ai?.recorded_year || heur.year || (recorded_on ? new Date(recorded_on).getFullYear() : null)
+  // Sanity: koncertas negali būti VĖLIAU nei įkėlimas į YouTube (AI kartais
+  // grąžina dabarties datą). Tokiu atveju atmetam spėtą datą.
+  const upMs = meta.uploadedAt ? Date.parse(meta.uploadedAt) : NaN
+  if (recorded_on && !Number.isNaN(upMs) && Date.parse(recorded_on) > upMs + 86_400_000) {
+    recorded_on = null; recorded_year = null
+  }
+  if (recorded_year && recorded_year > new Date().getFullYear()) recorded_year = null
+  // Jei datos visai neturim — numatytai imam įkėlimo metus (artimiausias spėjimas).
+  if (!recorded_on && recorded_year == null && !Number.isNaN(upMs)) {
+    recorded_year = new Date(upMs).getFullYear()
+  }
 
   return {
     ok: true,
