@@ -8,7 +8,7 @@ import { runScout } from '@/lib/verta-keliones-scout'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-async function run(req: NextRequest) {
+async function handle(req: NextRequest) {
   const expected = process.env.INTERNAL_CRON_TOKEN
   if (!expected) return NextResponse.json({ error: 'INTERNAL_CRON_TOKEN not configured' }, { status: 503 })
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
@@ -17,5 +17,10 @@ async function run(req: NextRequest) {
   return NextResponse.json({ ok: true, ...res })
 }
 
-export const GET = run
-export const POST = run
+export async function GET(req: NextRequest) {
+  return handle(req)
+}
+
+export async function POST(req: NextRequest) {
+  return handle(req)
+}
