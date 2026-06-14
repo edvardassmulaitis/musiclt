@@ -92,11 +92,12 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
       (async () => {
         try {
           let q = sb.from('tracks')
-            .select('id, title, slug, cover_url, video_url, release_date, release_year, release_month, release_day, artist_id, artists!tracks_artist_id_fkey(name, slug, cover_image_url)')
+            .select('id, title, slug, cover_url, video_url, video_uploaded_at, release_date, release_year, release_month, release_day, artist_id, artists!tracks_artist_id_fkey(name, slug, cover_image_url)')
           if (personalized) q = q.in('artist_id', artistIds)
-          // dauguma neturi release_date → rikiuojam pagal release_year (yra ~77%)
-          q = q.order('release_year', { ascending: false, nullsFirst: false })
-               .order('release_date', { ascending: false, nullsFirst: false })
+          // YouTube įkėlimo data = patikimiausias „kas naujo" signalas (release_date
+          // beveik niekada neužpildytas). Rikiuojam pagal ją; atsarga = release_year.
+          q = q.order('video_uploaded_at', { ascending: false, nullsFirst: false })
+               .order('release_year', { ascending: false, nullsFirst: false })
                .limit(60)
           return (await q).data || []
         } catch { return [] }
@@ -114,7 +115,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
     ])
     for (const t of tracksRes as any[]) {
       const a = one(t.artists)
-      const date = t.release_date || ymd(t.release_year, t.release_month, t.release_day)
+      const date = t.video_uploaded_at || t.release_date || ymd(t.release_year, t.release_month, t.release_day)
       if (!dateOk(date)) continue
       out.push({
         key: `track-${t.id}`, kind: 'track', title: t.title || '', subtitle: a?.name || null,
@@ -257,7 +258,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], limit: number, before: string | null) =>
     buildFeed(artistIds, limit, before),
-  ['srautas-feed-v4'],
+  ['srautas-feed-v5'],
   { revalidate: 90 },
 )
 

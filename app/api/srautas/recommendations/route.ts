@@ -134,9 +134,10 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     if (!topRecIds.length) return
     const [tracksRes, albumsRes] = await Promise.all([
       sb.from('tracks')
-        .select('id, title, slug, cover_url, video_url, release_date, artist_id, artists!tracks_artist_id_fkey(name, slug, cover_image_url)')
-        .in('artist_id', topRecIds).not('release_date', 'is', null)
-        .order('release_date', { ascending: false }).limit(12),
+        .select('id, title, slug, cover_url, video_url, video_uploaded_at, release_date, release_year, release_month, release_day, artist_id, artists!tracks_artist_id_fkey(name, slug, cover_image_url)')
+        .in('artist_id', topRecIds)
+        .order('video_uploaded_at', { ascending: false, nullsFirst: false })
+        .order('release_year', { ascending: false, nullsFirst: false }).limit(12),
       sb.from('albums')
         .select('id, title, slug, cover_image_url, year, month, day, artist_id, artists!albums_artist_id_fkey(name, slug, cover_image_url)')
         .in('artist_id', topRecIds).not('year', 'is', null)
@@ -147,7 +148,9 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
       queues.release.push({
         key: `track-${t.id}`, kind: 'track', title: t.title || '', subtitle: a?.name || null,
         image: t.cover_url || ytThumb(t.video_url) || a?.cover_image_url || null,
-        href: `/dainos/${t.slug || t.id}`, date: t.release_date, badge: 'Nauja daina',
+        href: `/dainos/${t.slug || t.id}`,
+        date: t.video_uploaded_at || t.release_date || albumDate(t.release_year, t.release_month, t.release_day),
+        badge: 'Nauja daina',
         artist: a ? { id: t.artist_id, name: a.name, slug: a.slug } : null,
       })
     }
@@ -250,7 +253,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v1'],
+  ['srautas-recs-v2'],
   { revalidate: 300 },
 )
 
