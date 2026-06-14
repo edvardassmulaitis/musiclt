@@ -2453,27 +2453,78 @@ export function SiteHeader() {
           display: flex; flex-direction: column;
           padding: 4px 0;
         }
-        .sh-mrow {
-          display: flex; align-items: center; gap: 14px;
-          padding: 14px 16px;
+        /* Split eilutė — kairė (Link → puslapis) + dešinė rodyklė (drill-in) */
+        .sh-mrow-split {
+          display: flex; align-items: stretch;
           width: 100%;
-          border: none; background: transparent;
-          text-align: left;
-          font-family: inherit;
-          cursor: pointer;
-          transition: background .12s;
-          border-bottom: 1px solid var(--border-default);
           position: relative;
+          border-bottom: 1px solid var(--border-default);
         }
-        .sh-mrow:last-child { border-bottom: none; }
-        .sh-mrow:hover, .sh-mrow:active { background: var(--bg-hover); }
-        .sh-mrow.active::before {
+        .sh-mrow-split:last-child { border-bottom: none; }
+        .sh-mrow-main {
+          display: flex; align-items: center; gap: 14px;
+          flex: 1; min-width: 0;
+          padding: 14px 12px 14px 16px;
+          text-decoration: none;
+          transition: background .12s;
+        }
+        .sh-mrow-main:hover, .sh-mrow-main:active { background: var(--bg-hover); }
+        .sh-mrow-expand {
+          flex-shrink: 0;
+          width: 56px;
+          border: none; background: transparent;
+          border-left: 1px solid var(--border-default);
+          color: var(--text-muted);
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer;
+          transition: background .12s, color .12s;
+        }
+        .sh-mrow-expand:hover, .sh-mrow-expand:active {
+          background: var(--bg-hover);
+          color: var(--text-primary);
+        }
+        .sh-mrow-split.active::before {
           content: '';
           position: absolute;
           left: 0; top: 12px; bottom: 12px;
           width: 3px;
           border-radius: 0 3px 3px 0;
           background: var(--accent-orange);
+          z-index: 1;
+        }
+
+        /* Hub CTA drill-in viršuje — tiesioginis kelias į skyriaus puslapį */
+        .sh-mhub-cta {
+          display: flex; align-items: center; gap: 12px;
+          padding: 12px 14px;
+          margin-bottom: 12px;
+          border-radius: 12px;
+          background: var(--bg-hover);
+          border: 1px solid var(--border-default);
+          text-decoration: none;
+          transition: background .12s, border-color .12s;
+        }
+        .sh-mhub-cta:hover, .sh-mhub-cta:active {
+          background: rgba(249, 115, 22, 0.08);
+          border-color: var(--accent-orange);
+        }
+        .sh-mhub-cta-icon {
+          flex-shrink: 0;
+          width: 30px; height: 30px;
+          display: flex; align-items: center; justify-content: center;
+          color: var(--accent-orange);
+        }
+        .sh-mhub-cta-icon svg { width: 18px; height: 18px; }
+        .sh-mhub-cta-text {
+          flex: 1; min-width: 0;
+          font-size: 14.5px; font-weight: 700;
+          color: var(--text-primary);
+          letter-spacing: -0.01em;
+        }
+        .sh-mhub-cta-arrow {
+          flex-shrink: 0;
+          color: var(--accent-orange);
+          display: flex;
         }
 
         /* Mobile row ikona — monochrome solid look (be per-section spalvų).
@@ -2490,7 +2541,7 @@ export function SiteHeader() {
         }
         .sh-mrow-icon svg { width: 19px; height: 19px; stroke-width: 2; }
         /* Active row — accent ring around icon (orange brand color) */
-        .sh-mrow.active .sh-mrow-icon {
+        .sh-mrow-split.active .sh-mrow-icon {
           color: var(--accent-orange);
           border-color: var(--accent-orange);
           background: rgba(249, 115, 22, 0.08);
@@ -2511,13 +2562,6 @@ export function SiteHeader() {
           color: var(--text-muted);
           line-height: 1.3;
         }
-        .sh-mrow-arrow {
-          flex-shrink: 0;
-          color: var(--text-muted);
-          opacity: 0.4;
-          display: flex;
-        }
-
         /* DRILLED-IN section view — scrollable */
         .sh-msection {
           padding: 10px 12px 14px;
@@ -2909,28 +2953,49 @@ export function SiteHeader() {
               {NAV.map(n => {
                 const active = isActive(n)
                 return (
-                  <button
-                    key={n.label}
-                    type="button"
-                    onClick={() => setDrawerView(n.key)}
-                    className={`sh-mrow${active ? ' active' : ''}`}
-                  >
-                    <span className="sh-mrow-icon">{n.icon}</span>
-                    <span className="sh-mrow-text">
-                      <span className="sh-mrow-title">{n.label}</span>
-                      <span className="sh-mrow-desc">{n.desc}</span>
-                    </span>
-                    <span className="sh-mrow-arrow">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <div key={n.label} className={`sh-mrow-split${active ? ' active' : ''}`}>
+                    {/* Pagrindinė dalis — tiesioginė nuoroda į skyriaus puslapį */}
+                    <Link
+                      href={n.href}
+                      onClick={() => setMenuOpen(false)}
+                      className="sh-mrow-main"
+                    >
+                      <span className="sh-mrow-icon">{n.icon}</span>
+                      <span className="sh-mrow-text">
+                        <span className="sh-mrow-title">{n.label}</span>
+                        <span className="sh-mrow-desc">{n.desc}</span>
+                      </span>
+                    </Link>
+                    {/* Atskira rodyklė — atveria peržiūras (drill-in) */}
+                    <button
+                      type="button"
+                      onClick={() => setDrawerView(n.key)}
+                      className="sh-mrow-expand"
+                      aria-label={`${n.label} — naršyti`}
+                      title="Naršyti"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="9 18 15 12 9 6"/>
                       </svg>
-                    </span>
-                  </button>
+                    </button>
+                  </div>
                 )
               })}
             </nav>
           ) : (
             <div className="sh-msection">
+              {/* Hub nuoroda visada viršuje — tiesioginis kelias į skyriaus puslapį */}
+              {(() => {
+                const cur = NAV.find(n => n.key === drawerView)
+                if (!cur) return null
+                return (
+                  <Link href={cur.href} onClick={() => setMenuOpen(false)} className="sh-mhub-cta">
+                    <span className="sh-mhub-cta-icon">{cur.icon}</span>
+                    <span className="sh-mhub-cta-text">Atidaryti „{cur.label}"</span>
+                    <span className="sh-mhub-cta-arrow"><ArrowRight size={15} /></span>
+                  </Link>
+                )
+              })()}
               <MobileExpansion
                 navKey={drawerView}
                 data={preview}
