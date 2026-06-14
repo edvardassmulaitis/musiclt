@@ -65,7 +65,7 @@ export default function EmbedManager({ artistId, initial }: { artistId: number; 
         {embeds.map((e) => (
           <div key={e.id} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-medium text-[var(--text-muted)]">{PLATFORM_LABEL[e.platform as any] || e.platform}</span>
+              <span className="text-xs font-medium text-[var(--text-muted)]">{PLATFORM_LABEL[e.platform as keyof typeof PLATFORM_LABEL] || e.platform}</span>
               <button onClick={() => remove(e.id)} className="text-xs text-[var(--accent-red)]">Pašalinti</button>
             </div>
             <SocialEmbed url={e.url} caption={e.caption} />
