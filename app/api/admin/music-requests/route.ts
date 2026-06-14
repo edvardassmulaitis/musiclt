@@ -63,7 +63,7 @@ export async function GET(req: Request) {
   if (trkIds.length) { const { data: d } = await sb.from('tracks').select('id, slug, cover_url').in('id', trkIds); for (const t of d || []) trkMap.set(t.id, t) }
   if (artIds.length) { const { data: d } = await sb.from('artists').select('id, slug, name').in('id', [...new Set(artIds)]); for (const a of d || []) artMap.set(a.id, a) }
 
-  const items = rows.map(r => {
+  const items: any[] = rows.map(r => {
     const art = r.artist_id ? artMap.get(r.artist_id) : null
     let mtype = r.matched_type, mid = r.matched_id, mslug: string | null = null, mArtistSlug: string | null = null, cover: string | null = null
     if (mtype === 'album' && albMap.has(mid)) { const a = albMap.get(mid); mslug = a.slug; mArtistSlug = Array.isArray(a.artist) ? a.artist[0]?.slug : a.artist?.slug; cover = a.cover_image_url }
@@ -71,7 +71,7 @@ export async function GET(req: Request) {
     else if (mtype === 'artist' && artMap.has(mid)) { mslug = artMap.get(mid).slug }
     return {
       id: r.id, source: r.source, raw_artist: r.raw_artist, raw_title: r.raw_title,
-      kind_hint: r.kind_hint, status: r.status, context: r.context,
+      kind_hint: r.kind_hint, status: r.status, context: r.context, artist_id: r.artist_id ?? null,
       artist_ok: r.artist_id != null, artist_name: art?.name || r.raw_artist,
       artist_web: art?.slug ? `/atlikejai/${art.slug}` : null, artist_admin: r.artist_id ? `/admin/artists/${r.artist_id}` : null,
       matched_type: mtype, matched_id: mid, matched_cover: cover, ...links(mtype, mid, mslug, mArtistSlug),
