@@ -53,11 +53,13 @@ const ymd = (y?: number | null, m?: number | null, d?: number | null) =>
 
 const one = (v: any) => (Array.isArray(v) ? v[0] : v)
 
-// Supina kelis tipus į vieną srautą su variacija. Muzika dominuoja (jos daugiausia),
-// bet naujienos / įrašai / koncertai reguliariai įsiterpia, kad nebūtų vien albumai.
+// Supina tipus į vieną srautą su variacija. Dainos (YT įkėlimai) — pirmiausia
+// (tikriausias „kas naujo"), albumai antra, o naujienos / įrašai / koncertai
+// reguliariai įsiterpia. Tracks IR albums atskiros eilės — kitaip albumai su
+// ATEITIES leidimo datomis (year+month priekyje) nuskandina dainas.
 function weave(q: Record<string, FeedItem[]>, limit: number): FeedItem[] {
-  const template = ['music', 'music', 'news', 'music', 'blog', 'music', 'event', 'music', 'news', 'music', 'blog', 'music', 'event']
-  const order = ['music', 'news', 'blog', 'event']
+  const template = ['track', 'album', 'track', 'news', 'track', 'album', 'blog', 'track', 'event', 'track', 'album', 'blog', 'track', 'news']
+  const order = ['track', 'album', 'news', 'blog', 'event']
   const out: FeedItem[] = []
   let ti = 0
   while (out.length < limit) {
@@ -85,9 +87,10 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
     return Number.isFinite(t) && t < beforeMs
   }
 
-  // ── MUZIKA: tracks + albums (didžiausias šaltinis) ──────────────────────────
-  const musicTask = async (): Promise<FeedItem[]> => {
-    const out: FeedItem[] = []
+  // ── MUZIKA: tracks + albums (atskiros eilės — žr. weave komentarą) ──────────
+  const musicTask = async (): Promise<{ tracks: FeedItem[]; albums: FeedItem[] }> => {
+    const tracks: FeedItem[] = []
+    const albums: FeedItem[] = []
     const [tracksRes, albumsRes] = await Promise.all([
       (async () => {
         try {
@@ -117,7 +120,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
       const a = one(t.artists)
       const date = t.video_uploaded_at || t.release_date || ymd(t.release_year, t.release_month, t.release_day)
       if (!dateOk(date)) continue
-      out.push({
+      tracks.push({
         key: `track-${t.id}`, kind: 'track', title: t.title || '', subtitle: a?.name || null,
         image: t.cover_url || ytThumb(t.video_url) || a?.cover_image_url || null,
         href: `/dainos/${t.slug || t.id}`, date, badge: 'Nauja daina',
@@ -128,7 +131,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
       const a = one(al.artists)
       const date = ymd(al.year, al.month, al.day)
       if (!dateOk(date)) continue
-      out.push({
+      albums.push({
         key: `album-${al.id}`, kind: 'album', title: al.title || '', subtitle: a?.name || null,
         image: al.cover_image_url || a?.cover_image_url || null,
         href: a?.slug ? `/albumai/${a.slug}-${al.slug}-${al.id}` : `/albumai/${al.slug || ''}-${al.id}`,
@@ -136,8 +139,9 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
         artist: a ? { name: a.name, slug: a.slug } : null,
       })
     }
-    out.sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
-    return out
+    tracks.sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
+    albums.sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
+    return { tracks, albums }
   }
 
   // ── NAUJIENOS (tik 1-am psl) ────────────────────────────────────────────────
@@ -232,13 +236,14 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
 
   const [music, news, blog, events] = await Promise.all([musicTask(), newsTask(), blogTask(), eventsTask()])
 
-  // Pirmas psl → koncertai viršuje + supinti tipai; tolesni → tik muzika.
+  // Pirmas psl → tipai supinti (dainos priekyje); tolesni → tik muzika chronologiškai.
   let out: FeedItem[]
   if (before) {
-    out = music.slice(0, limit)
+    out = [...music.tracks, ...music.albums]
+      .sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
+      .slice(0, limit)
   } else {
-    const woven = weave({ music: [...music], news, blog, event: [...events] }, limit)
-    out = woven
+    out = weave({ track: [...music.tracks], album: [...music.albums], news, blog, event: [...events] }, limit)
   }
 
   // Dedupe
@@ -246,11 +251,13 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
   const deduped: FeedItem[] = []
   for (const it of out) { if (!seen.has(it.key)) { seen.add(it.key); deduped.push(it) } }
 
-  // nextBefore = seniausia grąžinto MUZIKOS item'o data (muzika = gilus šaltinis)
+  // nextBefore = seniausia grąžinta MUZIKOS data (muzika = gilus šaltinis). Ateities
+  // albumai (date > now) nelieka cursor'iu, nes imam MIN datą (visada praeity).
   const musicReturned = deduped.filter(it => it.kind === 'track' || it.kind === 'album')
-  const oldestMusic = musicReturned.length ? musicReturned[musicReturned.length - 1].date : null
-  const moreMusicAvail = music.length >= 60 || (musicReturned.length > 0 && music.length > musicReturned.length)
-  const nextBefore = oldestMusic && moreMusicAvail ? oldestMusic : null
+  let oldestMs = Infinity
+  for (const it of musicReturned) { const t = Date.parse(it.date || ''); if (Number.isFinite(t) && t < oldestMs) oldestMs = t }
+  const moreMusicAvail = music.tracks.length >= 60 || music.albums.length >= 40
+  const nextBefore = musicReturned.length && oldestMs !== Infinity && moreMusicAvail ? new Date(oldestMs).toISOString() : null
 
   return { items: deduped, personalized, nextBefore }
 }
@@ -258,7 +265,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], limit: number, before: string | null) =>
     buildFeed(artistIds, limit, before),
-  ['srautas-feed-v5'],
+  ['srautas-feed-v6'],
   { revalidate: 90 },
 )
 
