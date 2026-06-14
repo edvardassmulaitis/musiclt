@@ -124,6 +124,44 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, scanned: cands.length, inserted })
   }
 
+  // ── Surinkti TUŠČIUS atlikėjus (DB yra, bet be muzikos ir nuotraukos) ──
+  // Scope: atlikėjai, dalyvaujantys renginiuose (event_artists) — pvz. festivalių
+  // line-up'ai — kurie neturi nei cover_image_url, nei dainų. Šitie „stub'ai"
+  // šviečia raudonai, kol adminas jų nesutvarko ir nepažymi „Sutvarkyta".
+  if (action === 'collect_empty_artists') {
+    const { data: ea } = await sb.from('event_artists').select('artist_id')
+    const ids = [...new Set(((ea || []) as any[]).map(r => r.artist_id).filter(Boolean))]
+    if (!ids.length) return NextResponse.json({ ok: true, scanned: 0, inserted: 0 })
+    // atlikėjai be cover'io
+    const noCover: any[] = []
+    for (let i = 0; i < ids.length; i += 300) {
+      const { data } = await sb.from('artists').select('id, name, slug, cover_image_url').in('id', ids.slice(i, i + 300))
+      for (const a of (data || []) as any[]) if (!a.cover_image_url) noCover.push(a)
+    }
+    // kurie neturi dainų
+    const haveTracks = new Set<number>()
+    const ncIds = noCover.map(a => a.id)
+    for (let i = 0; i < ncIds.length; i += 300) {
+      const { data } = await sb.from('tracks').select('artist_id').in('artist_id', ncIds.slice(i, i + 300))
+      for (const t of (data || []) as any[]) haveTracks.add(t.artist_id)
+    }
+    const empty = noCover.filter(a => !haveTracks.has(a.id))
+    // dedup vs esami (bet kokio statuso — kad sutvarkytų/atmestų nebegrąžintume)
+    const { data: existing } = await sb.from('music_requests').select('artist_id').eq('source', 'empty')
+    const have = new Set<number>(((existing || []) as any[]).map(x => x.artist_id))
+    const toInsert = empty.filter(a => !have.has(a.id)).map(a => ({
+      source: 'empty', artist_id: a.id, artist_slug: a.slug, raw_artist: a.name, raw_title: null,
+      kind_hint: 'empty', context: 'Atlikėjas be muzikos ir nuotraukos',
+      matched_type: 'artist', matched_id: a.id, status: 'pending', norm_key: `empty|${a.id}`,
+    }))
+    let inserted = 0
+    for (let i = 0; i < toInsert.length; i += 200) {
+      const { error } = await sb.from('music_requests').insert(toInsert.slice(i, i + 200))
+      if (!error) inserted += Math.min(200, toInsert.length - i)
+    }
+    return NextResponse.json({ ok: true, scanned: empty.length, inserted })
+  }
+
   // ── Bulk automatch ──
   if (action === 'automatch_all') {
     const { data: pend } = await sb.from('music_requests').select('id, raw_artist, raw_title, kind_hint').eq('status', 'pending').limit(300)
@@ -145,6 +183,12 @@ export async function POST(req: Request) {
 
   if (action === 'reject') {
     await sb.from('music_requests').update({ status: 'rejected', resolved_at: new Date().toISOString() }).eq('id', id)
+    return NextResponse.json({ ok: true })
+  }
+  // Pažymėti „Sutvarkyta" — naudojam tuščių atlikėjų eilei (DB jau yra, adminas
+  // pridėjo muziką/nuotrauką ir pažymi, kad išspręsta).
+  if (action === 'mark_fixed') {
+    await sb.from('music_requests').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', id)
     return NextResponse.json({ ok: true })
   }
   if (action === 'automatch') {

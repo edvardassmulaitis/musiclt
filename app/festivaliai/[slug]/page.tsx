@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getFestivalBySlug } from '@/lib/supabase-events'
+import FestivalLineup, { type LineupArtist } from './festival-lineup'
 
 type Artist = { id: number; name: string; slug: string; cover_image_url: string | null; country?: string | null }
+// (country praturtinamas iš event_artists.artists embed'o)
 
 const MONTHS_GEN = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio', 'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio']
 
@@ -59,6 +61,18 @@ export default async function FestivalPage({ params }: { params: Promise<{ slug:
   const headliners = sorted.filter((ea: any) => ea.is_headliner).map(getArtist).filter(Boolean) as Artist[]
   const others = sorted.filter((ea: any) => !ea.is_headliner).map(getArtist).filter(Boolean) as Artist[]
   const allArtists = [...headliners, ...others]
+
+  // Praturtintas line-up (vizualiam komponentui): žanrai + top daina.
+  const topTrackByArtist: Record<number, any> = ev.artistTopTrack || {}
+  const lineupArtists: LineupArtist[] = sorted.map((ea: any) => {
+    const a = getArtist(ea)
+    if (!a) return null
+    return {
+      id: a.id, name: a.name, slug: a.slug, country: a.country ?? null,
+      cover_image_url: a.cover_image_url, headliner: !!ea.is_headliner,
+      genres: genresByArtist[a.id], topTrack: topTrackByArtist[a.id] || null,
+    }
+  }).filter(Boolean) as LineupArtist[]
 
   const today = new Date().toISOString().slice(0, 10)
   const isUpcoming = (ev.end_date || ev.start_date || '').slice(0, 10) >= today
@@ -143,24 +157,7 @@ export default async function FestivalPage({ params }: { params: Promise<{ slug:
             {allArtists.length > 0 && (
               <section className="fp-block">
                 <h2 className="fp-h2">Line-up <span className="fp-h2-count">{allArtists.length}</span></h2>
-
-                {headliners.length > 0 && (
-                  <>
-                    <p className="fp-sub">Headlineriai</p>
-                    <div className="fp-head-grid">
-                      {headliners.map(a => <ArtistCard key={a.id} a={a} genres={genresByArtist[a.id]} big />)}
-                    </div>
-                  </>
-                )}
-
-                {others.length > 0 && (
-                  <>
-                    {headliners.length > 0 && <p className="fp-sub">Kiti atlikėjai</p>}
-                    <div className="fp-art-grid">
-                      {others.map(a => <ArtistCard key={a.id} a={a} genres={genresByArtist[a.id]} />)}
-                    </div>
-                  </>
-                )}
+                <FestivalLineup artists={lineupArtists} />
               </section>
             )}
           </div>
@@ -209,22 +206,6 @@ export default async function FestivalPage({ params }: { params: Promise<{ slug:
         </div>
       </div>
     </>
-  )
-}
-
-/* ── Atlikėjo kortelė ── */
-function ArtistCard({ a, genres, big }: { a: Artist; genres?: string[]; big?: boolean }) {
-  const isLt = a.country === 'Lietuva'
-  return (
-    <Link href={`/atlikejai/${a.slug || a.id}`} className={`fp-artist${big ? ' big' : ''}`}>
-      <span className="fp-artist-av" style={{ background: `hsl(${(a.name.charCodeAt(0) || 65) * 17 % 360},32%,17%)` }}>
-        {a.cover_image_url ? <img src={a.cover_image_url} alt={a.name} loading="lazy" /> : <span className="fp-artist-i">{a.name[0]?.toUpperCase()}</span>}
-      </span>
-      <span className="fp-artist-info">
-        <span className="fp-artist-name">{isLt && <span className="fp-flag">🇱🇹</span>}{a.name}</span>
-        {big && genres && genres.length > 0 && <span className="fp-artist-gen">{genres.slice(0, 2).join(' · ')}</span>}
-      </span>
-    </Link>
   )
 }
 
@@ -280,11 +261,16 @@ const FP_CSS = `
   border:1px solid var(--border-default,rgba(255,255,255,0.07)); transition:all .15s; }
 .fp-artist:hover { border-color:rgba(6,182,212,0.45); background:var(--bg-hover); transform:translateY(-2px); }
 .fp-artist.big { padding:12px 14px; }
-.fp-artist-av { width:42px; height:42px; border-radius:50%; overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
-.fp-artist.big .fp-artist-av { width:54px; height:54px; }
+.fp-artist-av { position:relative; width:46px; height:46px; border-radius:50%; overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.fp-artist.big .fp-artist-av { width:58px; height:58px; }
 .fp-artist-av img { width:100%; height:100%; object-fit:cover; }
 .fp-artist-i { font-family:'Outfit',sans-serif; font-weight:800; font-size:16px; color:rgba(255,255,255,0.5); }
-.fp-artist-info { display:flex; flex-direction:column; gap:2px; min-width:0; }
+/* Play overlay ant nuotraukos (kai yra top daina su video) */
+.fp-artist-play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; border:none; cursor:pointer;
+  background:rgba(6,12,20,0.45); color:#fff; opacity:0; transition:opacity .15s; }
+.fp-artist-av:hover .fp-artist-play { opacity:1; }
+.fp-artist-play svg { filter:drop-shadow(0 1px 3px rgba(0,0,0,.5)); transform:translateX(1px); }
+.fp-artist-info { display:flex; flex-direction:column; gap:2px; min-width:0; text-decoration:none; }
 .fp-artist-name { display:flex; align-items:center; gap:5px; font-family:'Outfit',sans-serif; font-weight:700; font-size:13.5px; color:var(--text-primary);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fp-artist.big .fp-artist-name { font-size:15px; font-weight:800; }

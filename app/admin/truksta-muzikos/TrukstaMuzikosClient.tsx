@@ -13,7 +13,7 @@ type Item = {
   matched_type: string | null; matched_id: number | null; matched_cover: string | null; web: string | null; admin: string | null
 }
 
-const SRC_LABEL: Record<string, string> = { topas: 'Topai', radaras: 'Radaras', top40: 'Top 40/30', discovery: 'Atradimai', post: 'Įrašai' }
+const SRC_LABEL: Record<string, string> = { topas: 'Topai', radaras: 'Radaras', top40: 'Top 40/30', discovery: 'Atradimai', post: 'Įrašai', empty: 'Tušti atlikėjai' }
 
 function Ext({ href, kind }: { href: string; kind: 'admin' | 'web' }) {
   return <a href={href} target="_blank" rel="noreferrer" className={`shrink-0 text-xs px-1 ${kind === 'admin' ? 'text-gray-400 hover:text-violet-700' : 'text-gray-400 hover:text-orange-600'}`} title={kind === 'admin' ? 'Admin' : 'Vieša'}>{kind === 'admin' ? '✎' : '↗'}</a>
@@ -51,6 +51,7 @@ export default function TrukstaMuzikosClient() {
     finally { setBusy(null) }
   }
   const collect = async () => { const d = await act('collect_topas'); if (d) { setMsg(`✓ Surinkta iš topų: +${d.inserted} naujų (skenuota ${d.scanned})`); load() } }
+  const collectEmpty = async () => { const d = await act('collect_empty_artists'); if (d) { setMsg(`✓ Tušti atlikėjai: +${d.inserted} naujų (rasta ${d.scanned} be muzikos/nuotraukos)`); load() } }
   const automatchAll = async () => { const d = await act('automatch_all'); if (d) { setMsg(`✓ Automatch: ${d.matched} sutvarkyta`); load() } }
   const rowAct = async (id: string, action: string, extra: any = {}) => {
     const d = await act(action, { id, ...extra }); if (d) { if (status === 'pending') setItems(prev => prev.filter(i => i.id !== id)); else load(); setLinkOpen(null) }
@@ -62,6 +63,7 @@ export default function TrukstaMuzikosClient() {
         <h1 className="text-2xl font-black text-gray-900 m-0">Trūkstama muzika</h1>
         <div className="flex gap-2">
           <button onClick={collect} disabled={!!busy} className="text-sm px-3 py-1.5 rounded-lg bg-gray-900 hover:bg-black text-white disabled:opacity-50">↺ Surinkti iš topų</button>
+          <button onClick={collectEmpty} disabled={!!busy} className="text-sm px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white disabled:opacity-50" title="Atlikėjai, kurie DB jau yra, bet be muzikos ir nuotraukos (pvz. festivalių line-up'ai)">⚠ Surinkti tuščius atlikėjus</button>
           <button onClick={automatchAll} disabled={!!busy} className="text-sm px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50">Automatch visus</button>
           <button onClick={load} className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">↻</button>
         </div>
@@ -93,6 +95,34 @@ export default function TrukstaMuzikosClient() {
         <div className="space-y-1.5">
           {items.map(it => {
             const resolved = it.status !== 'pending'
+            const empty = it.source === 'empty'
+            // ── Tuščio atlikėjo eilutė: raudona, kol nepažymėta „Sutvarkyta" ──
+            if (empty) {
+              return (
+                <div key={it.id} className={`rounded-xl p-3 border ${resolved ? 'bg-gray-50 border-gray-200' : 'bg-red-50 border-red-300 shadow-[0_0_0_1px_rgba(239,68,68,0.25)]'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-base ${resolved ? 'bg-gray-200 text-gray-400' : 'bg-red-100 text-red-500'}`}>{resolved ? '✓' : '⚠'}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-gray-900">{it.raw_artist}</span>
+                        {!resolved
+                          ? <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">TUŠČIAS — be muzikos / nuotraukos</span>
+                          : <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">✓ Sutvarkyta</span>}
+                        {it.admin && <Ext href={it.admin} kind="admin" />}
+                        {it.artist_web && <Ext href={it.artist_web} kind="web" />}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">Atlikėjas DB yra, bet jam reikia pridėti muzikos ir/ar nuotrauką.</div>
+                    </div>
+                    {!resolved && (
+                      <div className="shrink-0 flex items-center gap-1">
+                        <button onClick={() => rowAct(it.id, 'mark_fixed')} disabled={busy === it.id} className="text-xs font-semibold px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">✓ Sutvarkyta</button>
+                        <button onClick={() => rowAct(it.id, 'reject')} disabled={busy === it.id} title="atmesti" className="text-xs px-1.5 py-1 rounded bg-white border border-gray-200 text-gray-400 hover:text-red-500">✕</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            }
             return (
               <div key={it.id} className="bg-white border border-gray-200 rounded-xl p-3">
                 <div className="flex items-start gap-3">

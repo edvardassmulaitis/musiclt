@@ -246,6 +246,28 @@ export async function getFestivalBySlug(slug: string) {
     }
   } catch { /* žanrai nebūtini */ }
 
+  // Top daina kiekvienam lineup atlikėjui — naudojam (a) kaip nuotraukos
+  // fallback'ą, kai atlikėjas neturi cover_image_url (imam dainos thumbnail'ą),
+  // (b) „play" mygtukui. Imam pagal video_views (proxy populiarumui).
+  try {
+    const artistIds = Array.from(new Set((ev.event_artists || []).map((ea: any) => ea.artist_id).filter(Boolean)))
+    if (artistIds.length) {
+      const { data: trks } = await supabase
+        .from('tracks')
+        .select('id, title, slug, cover_url, video_url, artist_id, video_views, score, release_year')
+        .in('artist_id', artistIds as number[])
+        .not('video_url', 'is', null)
+        .order('video_views', { ascending: false, nullsFirst: false })
+        .limit(600)
+      const top: Record<number, any> = {}
+      for (const t of (trks || []) as any[]) {
+        if (top[t.artist_id]) continue // pirmas = daugiausiai views
+        top[t.artist_id] = { id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url }
+      }
+      ev.artistTopTrack = top
+    }
+  } catch { /* nebūtina */ }
+
   // Attendees ("Eis"/"Patiks").
   const { data: attendeesRaw } = await supabase
     .from('event_attendees')
