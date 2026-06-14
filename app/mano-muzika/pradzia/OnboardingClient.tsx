@@ -127,7 +127,7 @@ export default function OnboardingClient({ styles, initialArtists, username }: P
         {/* STEP 1 — STYLES */}
         {step === 1 && (
           <div>
-            <StepHead emoji="🎚️" title="Kokia muzika tave traukia?" sub="Pasirink bent porą stilių — jie formuos tavo „muzikos identitetą"." />
+            <StepHead emoji="🎚️" title="Kokia muzika tave traukia?" sub="Pasirink bent porą stilių — jie formuos tavo muzikos identitetą." />
             <div className="flex flex-wrap gap-2.5">
               {styles.map(s => {
                 const on = pickedStyles.some(x => x.legacy_style_id === s.legacy_style_id)
