@@ -15,10 +15,8 @@ import { createAdminClient } from '@/lib/supabase'
 import { SITE_URL, ltSlugify, LT_COUNTRY } from '@/lib/artist-browse'
 import { NEWS_STYLES, NEWS_TYPES } from '@/lib/news-taxonomy'
 import { getNewsFacets } from '@/lib/news-feed'
-import {
-  ALBUM_COLLECTIONS, SONG_COLLECTIONS, SONG_COLLECTION_MIN_INDEX,
-  albumCollectionHref, songCollectionHref,
-} from '@/lib/collections'
+import { SONG_COLLECTION_MIN_INDEX, albumCollectionHref, songCollectionHref } from '@/lib/collections'
+import { getSongCollections, getAlbumCollections } from '@/lib/collections-db'
 import { getSongCollectionCounts } from '@/lib/muzika-hub'
 
 export const revalidate = 86400
@@ -77,12 +75,14 @@ async function topCountries(): Promise<string[]> {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
-  const [artists, genres, countries, newsFacets, songCounts] = await Promise.all([
+  const [artists, genres, countries, newsFacets, songCounts, songColls, albumColls] = await Promise.all([
     allArtists(),
     genreSlugs(),
     topCountries(),
     getNewsFacets().catch(() => null),
     getSongCollectionCounts().catch(() => ({} as Record<string, number>)),
+    getSongCollections().catch(() => []),
+    getAlbumCollections().catch(() => []),
   ])
 
   const staticPages: MetadataRoute.Sitemap = [
@@ -163,10 +163,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Teminės kolekcijos: geriausi albumai — visada (užklausomas turinys);
   // dainų kolekcijos — tik kuruotos (>= MIN), kad neindeksuotume plonų puslapių.
   const collectionPages: MetadataRoute.Sitemap = [
-    ...ALBUM_COLLECTIONS.map((c) => ({
+    ...albumColls.map((c) => ({
       url: `${SITE_URL}${albumCollectionHref(c.slug)}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.6,
     })),
-    ...SONG_COLLECTIONS
+    ...songColls
       .filter((c) => (songCounts[c.slug] || 0) >= SONG_COLLECTION_MIN_INDEX)
       .map((c) => ({
         url: `${SITE_URL}${songCollectionHref(c.slug)}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.6,

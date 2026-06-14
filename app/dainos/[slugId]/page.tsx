@@ -17,7 +17,7 @@ import { PageLoader } from '@/components/PageLoader'
 // Teminių dainų kolekcijų interception: /dainos/{collection-slug} (be -{id} gale)
 // rodo kuruotą kolekciją, o ne dainą. Next.js neleidžia /dainos/[collection]
 // sibling'o šalia /dainos/[slugId], todėl branch'inam čia.
-import { isSongCollectionSlug } from '@/lib/collections'
+import { isSongCollectionSlug } from '@/lib/collections-db'
 import SongCollectionView, { songCollectionMetadata } from '@/components/muzika/SongCollectionView'
 
 // Function-level cache (60s TTL) — žr. /atlikejai/[slug]/page.tsx
@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slugId: s
   const { slugId } = await params
   const parsed = parseSlugId(slugId)
   if (!parsed) {
-    if (isSongCollectionSlug(slugId)) return songCollectionMetadata(slugId)
+    if (await isSongCollectionSlug(slugId)) return songCollectionMetadata(slugId)
     return { title: 'Daina – music.lt' }
   }
 
@@ -59,7 +59,7 @@ export default async function DainaPage({ params }: { params: Promise<{ slugId: 
   const { slugId } = await params
   const parsed = parseSlugId(slugId)
   if (!parsed) {
-    if (isSongCollectionSlug(slugId)) return <SongCollectionView slug={slugId} />
+    if (await isSongCollectionSlug(slugId)) return <SongCollectionView slug={slugId} />
     notFound()
   }
 

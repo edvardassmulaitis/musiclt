@@ -29,7 +29,8 @@ import { hubHref, type HubMode } from '@/components/muzika/MuzikaFilterBar'
 import MuzikaTabs from '@/components/muzika/MuzikaTabs'
 import { GenreCards } from '@/components/muzika/GenreCards'
 import { SongCollectionShowcase, AlbumCollectionShowcase } from '@/components/muzika/CollectionShowcase'
-import { ALBUM_COLLECTIONS, albumCollectionHref } from '@/lib/collections'
+import { albumCollectionHref } from '@/lib/collections'
+import { getAlbumCollections } from '@/lib/collections-db'
 
 // ISR — kartą per parą (trending atsinaujina, bet head term'ui stabilumas OK).
 export const revalidate = 86400
@@ -221,6 +222,7 @@ export default async function MuzikaHubPage({ params }: Props) {
   )
 
   const canonical = `${SITE_URL}${hubHref(scope, mode)}`
+  const ALBUM_COLLECTIONS = await getAlbumCollections()
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',

@@ -7,9 +7,8 @@
 // Server component, tikri <Link>'ai (SEO link juice į spoke puslapius).
 
 import Link from 'next/link'
-import {
-  SONG_COLLECTIONS, ALBUM_COLLECTIONS, songCollectionHref, albumCollectionHref,
-} from '@/lib/collections'
+import { songCollectionHref, albumCollectionHref } from '@/lib/collections'
+import { getSongCollections, getAlbumCollections } from '@/lib/collections-db'
 
 // Trumpas aprašas kortelei = pirmas meta description sakinys.
 function shortDesc(d: string): string {
@@ -26,9 +25,10 @@ function CollCard({ href, emoji, title, desc }: { href: string; emoji: string; t
   )
 }
 
-export function SongCollectionShowcase() {
-  const tema = SONG_COLLECTIONS.filter((c) => c.group === 'tema')
-  const nuotaika = SONG_COLLECTIONS.filter((c) => c.group === 'nuotaika')
+export async function SongCollectionShowcase() {
+  const all = await getSongCollections()
+  const tema = all.filter((c) => c.group === 'tema')
+  const nuotaika = all.filter((c) => c.group === 'nuotaika')
   return (
     <>
       <div className="mz-subhead">Pagal progą ir temą</div>
@@ -47,7 +47,8 @@ export function SongCollectionShowcase() {
   )
 }
 
-export function AlbumCollectionShowcase() {
+export async function AlbumCollectionShowcase() {
+  const ALBUM_COLLECTIONS = await getAlbumCollections()
   return (
     <div className="mz-coll-grid">
       {ALBUM_COLLECTIONS.map((c) => (

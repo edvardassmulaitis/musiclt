@@ -12,23 +12,24 @@ import { notFound } from 'next/navigation'
 import { SITE_URL } from '@/lib/artist-browse'
 import { getCollectionAlbums } from '@/lib/muzika-hub'
 import { muzikaStyles, SectionHead, AlbumRow } from '@/components/muzika-ui'
-import {
-  ALBUM_COLLECTIONS, findAlbumCollection, albumCollectionHref,
-} from '@/lib/collections'
+import { albumCollectionHref } from '@/lib/collections'
+import { getAlbumCollections, findAlbumCollection } from '@/lib/collections-db'
 
 export const revalidate = 86400
-export const dynamicParams = false
+// dynamicParams=true: admin'e pridėtos naujos kolekcijos render'inamos on-demand
+// (ISR), o nežinomi slug'ai → notFound() per findAlbumCollection.
+export const dynamicParams = true
 
 // Mažiausiai albumų, kad puslapis būtų vertas indeksavimo (kitaip noindex).
 const MIN_INDEX = 4
 
 export async function generateStaticParams() {
-  return ALBUM_COLLECTIONS.map((c) => ({ genre: c.slug }))
+  return (await getAlbumCollections()).map((c) => ({ genre: c.slug }))
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ genre: string }> }): Promise<Metadata> {
   const { genre } = await params
-  const c = findAlbumCollection(genre)
+  const c = await findAlbumCollection(genre)
   if (!c) return { title: 'Kolekcija nerasta | music.lt' }
   const url = `${SITE_URL}${albumCollectionHref(c.slug)}`
   const albums = await getCollectionAlbums({ genreName: c.genreName, scope: c.scope, substyleSlug: c.substyleSlug }, MIN_INDEX)
@@ -45,12 +46,12 @@ export async function generateMetadata({ params }: { params: Promise<{ genre: st
 
 export default async function AlbumCollectionPage({ params }: { params: Promise<{ genre: string }> }) {
   const { genre } = await params
-  const c = findAlbumCollection(genre)
+  const c = await findAlbumCollection(genre)
   if (!c) notFound()
 
   const albums = await getCollectionAlbums({ genreName: c.genreName, scope: c.scope, substyleSlug: c.substyleSlug }, 36)
   const url = `${SITE_URL}${albumCollectionHref(c.slug)}`
-  const others = ALBUM_COLLECTIONS.filter((x) => x.slug !== c.slug)
+  const others = (await getAlbumCollections()).filter((x) => x.slug !== c.slug)
 
   const jsonLd = {
     '@context': 'https://schema.org',

@@ -6,15 +6,14 @@
 // plonus/tuščius puslapius.
 
 import Link from 'next/link'
-import {
-  SONG_COLLECTIONS, ALBUM_COLLECTIONS, SONG_COLLECTION_MIN_INDEX,
-  songCollectionHref, albumCollectionHref,
-} from '@/lib/collections'
+import { SONG_COLLECTION_MIN_INDEX, songCollectionHref, albumCollectionHref } from '@/lib/collections'
+import { getSongCollections, getAlbumCollections } from '@/lib/collections-db'
 
-export function CollectionLinks({ songCounts }: { songCounts: Record<string, number> }) {
+export async function CollectionLinks({ songCounts }: { songCounts: Record<string, number> }) {
+  const [songs, ALBUM_COLLECTIONS] = await Promise.all([getSongCollections(), getAlbumCollections()])
   const populated = (slug: string) => (songCounts[slug] || 0) >= SONG_COLLECTION_MIN_INDEX
-  const tema = SONG_COLLECTIONS.filter((c) => c.group === 'tema' && populated(c.slug))
-  const nuotaika = SONG_COLLECTIONS.filter((c) => c.group === 'nuotaika' && populated(c.slug))
+  const tema = songs.filter((c) => c.group === 'tema' && populated(c.slug))
+  const nuotaika = songs.filter((c) => c.group === 'nuotaika' && populated(c.slug))
   const hasSongs = tema.length + nuotaika.length > 0
 
   return (

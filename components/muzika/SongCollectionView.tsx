@@ -14,13 +14,12 @@ import { notFound } from 'next/navigation'
 import { SITE_URL } from '@/lib/artist-browse'
 import { getCollectionTracks, trackHref } from '@/lib/muzika-hub'
 import { muzikaStyles, SectionHead, TrackList } from '@/components/muzika-ui'
-import {
-  SONG_COLLECTIONS, findSongCollection, songCollectionHref, SONG_COLLECTION_MIN_INDEX,
-} from '@/lib/collections'
+import { songCollectionHref, SONG_COLLECTION_MIN_INDEX } from '@/lib/collections'
+import { findSongCollection, getSongCollections } from '@/lib/collections-db'
 
 /** Metadata kolekcijos puslapiui (kviečiama iš /dainos/[slugId] generateMetadata). */
 export async function songCollectionMetadata(slug: string): Promise<Metadata> {
-  const c = findSongCollection(slug)
+  const c = await findSongCollection(slug)
   if (!c) return { title: 'Kolekcija nerasta | music.lt' }
   const url = `${SITE_URL}${songCollectionHref(c.slug)}`
   const tracks = await getCollectionTracks(c.slug, SONG_COLLECTION_MIN_INDEX)
@@ -35,12 +34,12 @@ export async function songCollectionMetadata(slug: string): Promise<Metadata> {
 }
 
 export default async function SongCollectionView({ slug }: { slug: string }) {
-  const c = findSongCollection(slug)
+  const c = await findSongCollection(slug)
   if (!c) notFound()
 
   const tracks = await getCollectionTracks(c.slug, 80)
   const url = `${SITE_URL}${songCollectionHref(c.slug)}`
-  const others = SONG_COLLECTIONS.filter((x) => x.slug !== c.slug).slice(0, 8)
+  const others = (await getSongCollections()).filter((x) => x.slug !== c.slug).slice(0, 8)
   const enough = tracks.length >= SONG_COLLECTION_MIN_INDEX
 
   const jsonLd = {
