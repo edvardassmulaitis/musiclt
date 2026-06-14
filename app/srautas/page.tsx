@@ -9,11 +9,12 @@
  * Filtrų juosta: segmentinis režimo perjungiklis (su ikonomis) + turinio tipo
  * chip'ai, be tekstinių „Rodyti"/„Tipas" etikečių. Tipas taikomas kliente.
  *
- * Layout = pilno pločio žurnalo tinklelis su vizualiomis kortelėmis.
+ * Layout = žurnalo tinklelis (desktop) / vientisas vienas-per-eilę sąrašas su
+ * horizontaliomis kortelėmis (mobile — daugiau erdvės). Atlikėjų, dainų ir
+ * albumų kortelėse — širdutė: paspaudus iškart sekamas atlikėjas / mėgstama
+ * daina ar albumas (POST /api/{artists|tracks|albums}/[id]/like).
  *
- * GREITAVEIKA: feed'as užkraunamas IŠKART (mount), nelaukiant useSession — API
- * personalizaciją nuskaito iš cookie pats serveryje, tad nereikia waterfall'o
- * (session → fetch). Serveris šaltinius parallelina + cache'ina (90s).
+ * GREITAVEIKA: feed'as užkraunamas IŠKART (mount), nelaukiant useSession.
  */
 
 import { useEffect, useState, useCallback, useMemo, Suspense, type MouseEvent } from 'react'
@@ -24,6 +25,7 @@ import { proxyImg } from '@/lib/img-proxy'
 
 type Kind = 'news' | 'blog' | 'track' | 'album' | 'artist' | 'event' | 'topic'
 type Mode = 'sekami' | 'tau'
+type LikeEntity = 'artist' | 'track' | 'album'
 
 type FeedItem = {
   key: string
@@ -51,25 +53,16 @@ const BADGE_COLOR: Record<Kind, string> = {
 }
 
 // ── Ikonos (inline SVG — projektas neturi ikonų bibliotekos) ─────────────────
+const HEART_PATH = 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z'
 const IconHeart = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z" />
+    <path d={HEART_PATH} />
   </svg>
 )
 const IconCompass = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <circle cx="12" cy="12" r="9" />
     <path d="m15.5 8.5-2 5-5 2 2-5z" />
-  </svg>
-)
-const IconPlus = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M12 5v14M5 12h14" />
-  </svg>
-)
-const IconCheck = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="m20 6-11 11-5-5" />
   </svg>
 )
 
@@ -133,10 +126,68 @@ function Equalizer() {
   )
 }
 
+/**
+ * Širdutės mygtukas — sekti atlikėją / mėgti dainą ar albumą. Optimistinis
+ * toggle, atspari klaidoms. Endpoint pagal entity tipą.
+ */
+function LikeButton({ entity, id, initial = false }: { entity: LikeEntity; id: number; initial?: boolean }) {
+  const [liked, setLiked] = useState(initial)
+  const [busy, setBusy] = useState(false)
+  const endpoint =
+    entity === 'artist' ? `/api/artists/${id}/like`
+    : entity === 'track' ? `/api/tracks/${id}/like`
+    : `/api/albums/${id}/like`
+
+  const toggle = async (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (busy || !id) return
+    setBusy(true)
+    const next = !liked
+    setLiked(next) // optimistic
+    try {
+      const res = await fetch(endpoint, { method: 'POST' })
+      const data = await res.json().catch(() => null)
+      if (data && typeof data.liked === 'boolean') setLiked(data.liked)
+      else if (!res.ok) setLiked(!next)
+    } catch {
+      setLiked(!next)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const label = entity === 'artist'
+    ? (liked ? 'Sekama' : 'Sekti atlikėją')
+    : (liked ? 'Patinka' : 'Pamėgti')
+
+  return (
+    <button
+      type="button"
+      className={`sr-like${liked ? ' done' : ''}`}
+      onClick={toggle}
+      disabled={busy}
+      aria-label={label}
+      title={label}
+    >
+      <svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d={HEART_PATH} />
+      </svg>
+    </button>
+  )
+}
+
+/** Iš feed key (pvz. "track-123") ištraukia skaitinį id. */
+function idFromKey(key: string): number {
+  const n = Number(key.split('-').pop())
+  return Number.isFinite(n) ? n : 0
+}
+
 /** Vertikali žurnalo kortelė — naujienoms, įrašams, leidiniams, koncertams, temoms. */
 function ContentCard({ it }: { it: FeedItem }) {
   const initial = (it.title || '?').trim()[0]?.toUpperCase() || '?'
   const when = it.kind === 'event' ? eventWhen(it.date) : timeAgo(it.date)
+  const likeable = it.kind === 'track' || it.kind === 'album'
   return (
     <Link href={it.href} className="sr-card">
       <div className="sr-cover">
@@ -149,6 +200,7 @@ function ContentCard({ it }: { it: FeedItem }) {
         <span className="sr-badge" style={{ color: '#fff', background: BADGE_COLOR[it.kind] }}>
           {it.badge}{it.kind === 'blog' && it.meta?.rating ? ` · ${it.meta.rating}/10` : ''}
         </span>
+        {likeable && <LikeButton entity={it.kind as LikeEntity} id={idFromKey(it.key)} />}
       </div>
       <div className="sr-body">
         <span className="sr-title">{it.title}</span>
@@ -163,30 +215,9 @@ function ContentCard({ it }: { it: FeedItem }) {
   )
 }
 
-/** Atlikėjo rekomendacijos kortelė su „sekti" mygtuku (+ → ✓) ant viršelio. */
+/** Atlikėjo rekomendacijos kortelė su „sekti" širdute ant viršelio. */
 function ArtistCard({ it }: { it: FeedItem }) {
-  const [following, setFollowing] = useState(false)
-  const [busy, setBusy] = useState(false)
   const initial = (it.title || '?').trim()[0]?.toUpperCase() || '?'
-
-  const follow = async (e: MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (busy || !it.artist) return
-    setBusy(true)
-    const next = !following
-    setFollowing(next) // optimistic
-    try {
-      const res = await fetch(`/api/artists/${it.artist.id}/like`, { method: 'POST' })
-      const data = await res.json().catch(() => null)
-      if (data && typeof data.liked === 'boolean') setFollowing(data.liked)
-    } catch {
-      setFollowing(!next)
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return (
     <Link href={it.href} className="sr-card sr-card--artist">
       <div className="sr-cover sr-cover--artist">
@@ -197,16 +228,7 @@ function ArtistCard({ it }: { it: FeedItem }) {
           <span className="sr-cover-ph">{initial}</span>
         )}
         <span className="sr-badge" style={{ color: '#fff', background: BADGE_COLOR.artist }}>{it.badge}</span>
-        <button
-          type="button"
-          className={`sr-follow${following ? ' done' : ''}`}
-          onClick={follow}
-          disabled={busy}
-          aria-label={following ? 'Nebesekti' : 'Sekti atlikėją'}
-          title={following ? 'Seki' : 'Sekti'}
-        >
-          {following ? IconCheck : IconPlus}
-        </button>
+        {it.artist?.id ? <LikeButton entity="artist" id={it.artist.id} /> : null}
       </div>
       <div className="sr-body">
         <span className="sr-title sr-title--artist">{it.title}</span>
@@ -369,7 +391,7 @@ function SrautasInner() {
         .sr-cta a, .sr-cta button { margin-left:auto; text-decoration:none; border:none; cursor:pointer;
           background:var(--accent-orange); color:#fff; font-weight:700; font-size:13px; padding:8px 16px; border-radius:9px; font-family:inherit; }
 
-        /* ── Žurnalo tinklelis ── */
+        /* ── Žurnalo tinklelis (desktop) ── */
         .sr-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(228px, 1fr)); gap:16px; }
         .sr-card { display:flex; flex-direction:column; text-decoration:none; overflow:hidden;
           background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:16px;
@@ -393,15 +415,15 @@ function SrautasInner() {
         .sr-because { font-size:12px; color:var(--accent-orange); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
         .sr-time { font-size:11.5px; color:var(--text-faint); margin-top:1px; }
 
-        /* ── Sekti mygtukas (+ → ✓) ── */
-        .sr-follow { position:absolute; top:8px; right:8px; width:34px; height:34px; border-radius:50%; cursor:pointer; font-family:inherit;
-          border:none; background:rgba(255,255,255,0.92); color:#16161a;
+        /* ── Širdutė (sekti / pamėgti) ── */
+        .sr-like { position:absolute; top:8px; right:8px; width:36px; height:36px; border-radius:50%; cursor:pointer; font-family:inherit;
+          border:none; background:rgba(0,0,0,0.42); backdrop-filter:blur(4px); color:#fff;
           display:inline-flex; align-items:center; justify-content:center; transition:transform .14s, background .14s, color .14s;
           box-shadow:0 2px 8px rgba(0,0,0,0.28); z-index:2; }
-        .sr-follow svg { width:17px; height:17px; }
-        .sr-follow:hover { transform:scale(1.1); }
-        .sr-follow:disabled { opacity:.7; }
-        .sr-follow.done { background:var(--accent-orange); color:#fff; }
+        .sr-like svg { width:19px; height:19px; }
+        .sr-like:hover { transform:scale(1.1); background:rgba(0,0,0,0.6); }
+        .sr-like:disabled { opacity:.7; }
+        .sr-like.done { background:#fff; color:#f5466b; }
 
         /* ── Pagalbiniai ── */
         .sr-more { margin:26px auto 0; display:block; border:1px solid var(--border-default);
@@ -411,12 +433,19 @@ function SrautasInner() {
         .sr-empty { text-align:center; padding:56px 16px; color:var(--text-muted); }
         .sr-loading { display:flex; justify-content:center; padding:64px 0; }
 
+        /* ── MOBILE: vienas įrašas per eilę, horizontali kortelė (daugiau erdvės) ── */
         @media (max-width:680px) {
           .sr-wrap { padding:12px 12px 32px; }
-          .sr-grid { grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:11px; }
-          .sr-body { padding:9px 10px 11px; gap:3px; }
-          .sr-title { font-size:13px; }
-          .sr-badge { font-size:9.5px; padding:3px 7px; }
+          .sr-grid { grid-template-columns:1fr; gap:10px; }
+          .sr-card { flex-direction:row; align-items:stretch; }
+          .sr-cover { aspect-ratio:auto; width:128px; flex:0 0 128px; min-height:100px; }
+          .sr-cover--artist { width:104px; flex-basis:104px; }
+          .sr-body { flex:1; justify-content:center; padding:11px 13px; gap:3px; }
+          .sr-title { font-size:14px; }
+          .sr-sub, .sr-because { white-space:normal; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; }
+          .sr-badge { font-size:9.5px; padding:3px 7px; top:7px; left:7px; }
+          .sr-like { width:32px; height:32px; top:6px; right:6px; }
+          .sr-like svg { width:17px; height:17px; }
           .srf-bar { padding:9px; gap:7px; }
           .srf-seg button { padding:7px 13px; }
           .srf-count { width:100%; margin-left:0; order:9; text-align:right; }
