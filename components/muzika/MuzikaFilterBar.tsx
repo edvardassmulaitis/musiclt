@@ -22,6 +22,22 @@ export function hubHref(scope: HubScope, mode: HubMode): string {
   return base
 }
 
+export type HubTipas = 'atlikejai' | 'dainos' | 'albumai'
+
+/** Sudedamasis hub URL: path (scope+mode) + ?stilius&?tipas query.
+ *  Leidžia filtrams SUSIDĖTI (užsienio + roko + dainos = vienas URL). */
+export function hubUrl(
+  scope: HubScope, mode: HubMode,
+  opts: { stilius?: string | null; tipas?: HubTipas | null } = {},
+): string {
+  const path = hubHref(scope, mode)
+  const qs = new URLSearchParams()
+  if (opts.stilius) qs.set('stilius', opts.stilius)
+  if (opts.tipas && opts.tipas !== 'atlikejai') qs.set('tipas', opts.tipas)
+  const s = qs.toString()
+  return s ? `${path}?${s}` : path
+}
+
 export function MuzikaFilterBar({ scope, mode }: { scope: HubScope; mode: HubMode }) {
   const scopes: { key: HubScope; label: string }[] = [
     { key: 'all', label: 'Visi' },

@@ -67,8 +67,8 @@ export default async function GenreLandingPage({ params }: Props) {
   const [ltArtists, worldArtists, albums, tracks] = await Promise.all([
     getStyleArtists(g.genre_id, 'lt', 12),
     getStyleArtists(g.genre_id, 'world', 12),
-    getStyleAlbums(g.genre_id, 8),
-    getStyleTracks(g.genre_id, 10),
+    getStyleAlbums(g.genre_id, 'all', 8),
+    getStyleTracks(g.genre_id, 'all', 10),
   ])
 
   const browseAll = `/atlikejai?genre=${ltSlugify(g.name)}`

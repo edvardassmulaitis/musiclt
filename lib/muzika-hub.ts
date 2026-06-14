@@ -426,15 +426,31 @@ export const getStyleArtists = cache(
   }
 )
 
-export const getStyleAlbums = cache(async (genreId: number, limit = 8): Promise<HubAlbum[]> => {
+/** Žanro atlikėjų id (+scope) — 2-lygių join (VEIKIA prod, plg. getStyleArtists).
+ *  Naudojam kaip 1-ą žingsnį getStyleAlbums/getStyleTracks (gilus 3-lygių
+ *  albums/tracks→artists→artist_genres join PROD grąžina TUŠČIA). */
+async function genreArtistIds(
+  sb: ReturnType<typeof createAdminClient>, genreId: number, scope: HubScope, cap = 400,
+): Promise<number[]> {
+  let q = sb.from('artists').select('id, artist_genres!inner(genre_id)').eq('artist_genres.genre_id', genreId)
+  if (scope === 'lt') q = q.eq('country', LT_COUNTRY)
+  else if (scope === 'world') q = q.neq('country', LT_COUNTRY)
+  const { data } = await q.order('score', { ascending: false, nullsFirst: false }).limit(cap)
+  return ((data || []) as any[]).map((a) => a.id)
+}
+
+export const getStyleAlbums = cache(async (genreId: number, scope: HubScope = 'all', limit = 8): Promise<HubAlbum[]> => {
   try {
     const sb = createAdminClient()
+    const ids = await genreArtistIds(sb, genreId, scope)
+    if (ids.length === 0) return []
     const { data } = await sb
       .from('albums')
-      .select('id, slug, title, year, cover_image_url, artist_id, artists!inner(name, slug, artist_genres!inner(genre_id))')
-      .eq('artists.artist_genres.genre_id', genreId)
+      .select('id, slug, title, year, cover_image_url, artist_id, artists!albums_artist_id_fkey(name, slug)')
+      .in('artist_id', ids)
       .not('cover_image_url', 'is', null)
       .not('year', 'is', null)
+      .eq('is_upcoming', false)
       .order('year', { ascending: false })
       .limit(limit)
     return ((data || []) as any[]).map(mapAlbumRow)
@@ -443,18 +459,20 @@ export const getStyleAlbums = cache(async (genreId: number, limit = 8): Promise<
   }
 })
 
-export const getStyleTracks = cache(async (genreId: number, limit = 10): Promise<HubTrack[]> => {
+export const getStyleTracks = cache(async (genreId: number, scope: HubScope = 'all', limit = 10): Promise<HubTrack[]> => {
   try {
     const sb = createAdminClient()
+    const ids = await genreArtistIds(sb, genreId, scope)
+    if (ids.length === 0) return []
     const { data } = await sb
       .from('tracks')
-      .select('id, slug, title, cover_url, video_views, artist_id, artists!inner(name, slug, artist_genres!inner(genre_id))')
-      .eq('artists.artist_genres.genre_id', genreId)
+      .select('id, slug, title, cover_url, video_views, artist_id, artists!tracks_artist_id_fkey(name, slug)')
+      .in('artist_id', ids)
       .not('video_url', 'is', null)
       .not('video_views', 'is', null)
       .order('video_views', { ascending: false, nullsFirst: false })
-      .limit(limit * 3)
-    const rows = ((data || []) as any[]).filter((t) => t.artists && t.title)
+      .limit(limit * 4)
+    const rows = ((data || []) as any[]).filter((t) => t.artists && t.title && t.title !== t.artists.name)
     const seen = new Set<number>()
     const out: HubTrack[] = []
     for (const r of rows) {

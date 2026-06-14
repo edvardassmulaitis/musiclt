@@ -15,17 +15,20 @@
 // — plonas klientinis sluoksnis (MuzikaTabs), kuris tik perjungia matomumą.
 
 import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SITE_URL, ltSlugify } from '@/lib/artist-browse'
 import {
   type HubScope,
   getTrendingArtists, getPopularArtists,
-  getGenreCounts, getCountryCounts,
+  getPopularTracks, getPopularAlbums,
+  getStyleArtists, getStyleAlbums, getStyleTracks,
+  getGenreCounts, findGenreBySlug,
   genreHref,
 } from '@/lib/muzika-hub'
-import { muzikaStyles, SectionHead, ArtistRow } from '@/components/muzika-ui'
-import { hubHref, type HubMode } from '@/components/muzika/MuzikaFilterBar'
+import { muzikaStyles, SectionHead, ArtistRow, TrackList, AlbumRow } from '@/components/muzika-ui'
+import { hubHref, hubUrl, type HubMode, type HubTipas } from '@/components/muzika/MuzikaFilterBar'
 import MuzikaTabs from '@/components/muzika/MuzikaTabs'
 import { GenreCards } from '@/components/muzika/GenreCards'
 import { SongCollectionShowcase, AlbumCollectionShowcase } from '@/components/muzika/CollectionShowcase'
@@ -112,7 +115,23 @@ function hubCopy(scope: HubScope, mode: HubMode): { h1: string; sub: string; tit
   }
 }
 
-type Props = { params: Promise<{ slug?: string[] }> }
+type Props = {
+  params: Promise<{ slug?: string[] }>
+  searchParams?: Promise<{ [k: string]: string | string[] | undefined }>
+}
+
+/** „Užsienio roko dainos" tipo antraštė pagal scope + žanrą. */
+function listTitle(kind: 'atlikėjai' | 'dainos' | 'albumai', scope: HubScope, genre: string | null): string {
+  const parts: string[] = []
+  if (scope === 'lt') parts.push(kind === 'dainos' ? 'Lietuviškos' : 'Lietuviški')
+  else if (scope === 'world') parts.push('Užsienio')
+  if (genre) parts.push(genre.toLowerCase())
+  if (parts.length === 0) {
+    return kind === 'dainos' ? 'Populiariausios dainos' : kind === 'albumai' ? 'Populiariausi albumai' : 'Populiarūs atlikėjai'
+  }
+  const s = `${parts.join(' ')} ${kind}`
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
@@ -130,96 +149,107 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 /* ───────────────────────── Page ───────────────────────── */
 
-export default async function MuzikaHubPage({ params }: Props) {
+export default async function MuzikaHubPage({ params, searchParams }: Props) {
   const { slug } = await params
   const v = parseSlug(slug)
   if (!v) notFound()
   const { scope, mode } = v
   const copy = hubCopy(scope, mode)
 
-  const showTrending = mode === 'both' || mode === 'trending'
-  const showAlltime = mode === 'both' || mode === 'alltime'
-  // Vienam blokui rodom daugiau atlikėjų; abiem — kuklesni rinkiniai.
-  const artLimit = mode === 'both' ? 12 : 18
+  // Sudedami filtrai iš query: ?tipas (atlikejai|dainos|albumai), ?stilius (žanro slug).
+  const sp = (await searchParams) || {}
+  const rawTipas = Array.isArray(sp.tipas) ? sp.tipas[0] : sp.tipas
+  const tipas: HubTipas = rawTipas === 'dainos' || rawTipas === 'albumai' ? rawTipas : 'atlikejai'
+  const rawStilius = Array.isArray(sp.stilius) ? sp.stilius[0] : sp.stilius
+  const reqGenreSlug = rawStilius ? String(rawStilius) : null
+
   const wantLt = scope === 'all' || scope === 'lt'
   const wantWorld = scope === 'all' || scope === 'world'
 
-  const [trendLt, trendWorld, popLt, popWorld, genres, countries] = await Promise.all([
-    showTrending && wantLt ? getTrendingArtists('lt', artLimit) : Promise.resolve([]),
-    showTrending && wantWorld ? getTrendingArtists('world', artLimit) : Promise.resolve([]),
-    showAlltime && wantLt ? getPopularArtists('lt', artLimit) : Promise.resolve([]),
-    showAlltime && wantWorld ? getPopularArtists('world', artLimit) : Promise.resolve([]),
-    getGenreCounts(),
-    getCountryCounts(),
-  ])
-
+  const genres = await getGenreCounts()
   const topGenres = [...genres].sort((a, b) => b.n - a.n)
-  const topCountries = [...countries].sort((a, b) => b.n - a.n)
+  const genre = reqGenreSlug ? await findGenreBySlug(reqGenreSlug) : null
+  const genreId = genre?.genre_id ?? null
+  const genreSlug = genre ? reqGenreSlug : null // tik jei išspręstas
+  const genreClean = genre ? genre.name.replace(/\s*muzika$/i, '').trim() : null
+  const genreLabel = genreClean ? `${genreClean} muzika` : null
 
-  // Dropdown'ų opcijos (klientinė navigacija į esamus landing'us).
-  const styleOptions = topGenres.slice(0, 14).map((g) => ({
+  const genreOptions = topGenres.slice(0, 14).map((g) => ({
+    slug: ltSlugify(g.name),
     label: `${g.name.replace(/\s*muzika$/i, '')} muzika`,
-    href: genreHref(g),
   }))
-  const countryOptions = scope === 'world' || scope === 'all'
-    ? topCountries.slice(0, 20).map((c) => ({ label: c.country, href: `/atlikejai?country=${ltSlugify(c.country)}` }))
-    : []
 
-  /* Atlikėjų blokai (server-rendered). */
-  const artistsPanel = (
-    <>
-      {showTrending && (trendLt.length > 0 || trendWorld.length > 0) && (
-        <section className="mz-sec">
-          <SectionHead
-            title={mode === 'trending' ? copy.h1 : 'Dabar populiarūs'}
-            sub="Iš dabartinių topų ir naujausių pasirodymų"
-            href="/atlikejai"
-            hrefLabel="Visi atlikėjai"
-          />
-          {wantLt && trendLt.length > 0 && (<><div className="mz-subhead">🇱🇹 Lietuva</div><ArtistRow artists={trendLt} ranked /></>)}
-          {wantWorld && trendWorld.length > 0 && (<><div className="mz-subhead">🌍 Pasaulis</div><ArtistRow artists={trendWorld} ranked /></>)}
-        </section>
-      )}
-      {showAlltime && (popLt.length > 0 || popWorld.length > 0) && (
-        <section className="mz-sec">
-          <SectionHead
-            title={mode === 'alltime' ? copy.h1 : 'Populiariausi visų laikų'}
-            sub="Daugiausiai klausomi atlikėjai per visą laiką"
-            href="/atlikejai"
-            hrefLabel="Visi atlikėjai"
-          />
-          {wantLt && popLt.length > 0 && (<><div className="mz-subhead">🇱🇹 Lietuva</div><ArtistRow artists={popLt} ranked /></>)}
-          {wantWorld && popWorld.length > 0 && (<><div className="mz-subhead">🌍 Pasaulis</div><ArtistRow artists={popWorld} ranked /></>)}
-        </section>
-      )}
-    </>
-  )
-
-  /* Dainos tab = teminės dainų kolekcijos (ne „naujausi kūriniai"). */
-  const tracksPanel = (
-    <section className="mz-sec">
-      <SectionHead
-        title="Dainų kolekcijos"
-        sub="Teminiai dainų rinkiniai progai, temai ir nuotaikai"
-        href="/dainos"
-        hrefLabel="Visos dainos"
-      />
-      <SongCollectionShowcase />
+  const emptyNode = (what: string) => (
+    <section className="mz-empty">
+      <div className="mz-empty-ic" aria-hidden>🔍</div>
+      <h3>Nieko nerasta</h3>
+      <p>Pabandyk kitą stilių ar šalį, arba naršyk <Link href={`/${what === 'dainų' ? 'dainos' : what === 'albumų' ? 'albumai' : 'atlikejai'}`}>visus {what}</Link>.</p>
     </section>
   )
 
-  /* Albumai tab = geriausių albumų kolekcijos pagal žanrą. */
-  const albumsPanel = (
-    <section className="mz-sec">
-      <SectionHead
-        title="Albumų kolekcijos"
-        sub="Geriausi albumai pagal žanrą — roko, pop, hip-hop, metalo ir kiti"
-        href="/albumai"
-        hrefLabel="Visi albumai"
-      />
-      <AlbumCollectionShowcase />
-    </section>
-  )
+  /* ── Rezultatas pagal sudėtą filtrą {scope, žanras, tipas} ── */
+  let resultNode: ReactNode = null
+  let resultTitle = ''
+  let resultHref = '/atlikejai'
+  let resultHrefLabel = 'Visi'
+
+  if (tipas === 'dainos') {
+    const tracks = genreId ? await getStyleTracks(genreId, scope, 48) : await getPopularTracks(scope, 48)
+    resultTitle = listTitle('dainos', scope, genreClean)
+    resultHref = genreSlug ? `/muzikos-stilius/${genreSlug}` : '/dainos'
+    resultHrefLabel = genreSlug ? 'Daugiau' : 'Visos dainos'
+    resultNode = tracks.length ? <TrackList tracks={tracks} /> : emptyNode('dainų')
+  } else if (tipas === 'albumai') {
+    const albums = genreId ? await getStyleAlbums(genreId, scope, 36) : await getPopularAlbums(scope, 36)
+    resultTitle = listTitle('albumai', scope, genreClean)
+    resultHref = genreSlug ? `/muzikos-stilius/${genreSlug}` : '/albumai'
+    resultHrefLabel = genreSlug ? 'Daugiau' : 'Visi albumai'
+    resultNode = albums.length ? <AlbumRow albums={albums} /> : emptyNode('albumų')
+  } else if (genreId) {
+    // Atlikėjai pagal žanrą (+scope)
+    const [la, wa] = await Promise.all([
+      wantLt ? getStyleArtists(genreId, 'lt', 18) : Promise.resolve([]),
+      wantWorld ? getStyleArtists(genreId, 'world', 18) : Promise.resolve([]),
+    ])
+    resultTitle = listTitle('atlikėjai', scope, genreClean)
+    resultHref = `/muzikos-stilius/${genreSlug}`
+    resultHrefLabel = 'Daugiau'
+    resultNode = la.length + wa.length > 0 ? (
+      <>
+        {wantLt && la.length > 0 && (<><div className="mz-subhead">🇱🇹 Lietuva</div><ArtistRow artists={la} ranked /></>)}
+        {wantWorld && wa.length > 0 && (<><div className="mz-subhead">🌍 Pasaulis</div><ArtistRow artists={wa} ranked /></>)}
+      </>
+    ) : emptyNode('atlikėjų')
+  } else {
+    // Numatytas turtingas atlikėjų vaizdas (trending + visų laikų), kaip anksčiau.
+    const showTrending = mode === 'both' || mode === 'trending'
+    const showAlltime = mode === 'both' || mode === 'alltime'
+    const artLimit = mode === 'both' ? 12 : 18
+    const [trendLt, trendWorld, popLt, popWorld] = await Promise.all([
+      showTrending && wantLt ? getTrendingArtists('lt', artLimit) : Promise.resolve([]),
+      showTrending && wantWorld ? getTrendingArtists('world', artLimit) : Promise.resolve([]),
+      showAlltime && wantLt ? getPopularArtists('lt', artLimit) : Promise.resolve([]),
+      showAlltime && wantWorld ? getPopularArtists('world', artLimit) : Promise.resolve([]),
+    ])
+    resultNode = (
+      <>
+        {showTrending && (trendLt.length > 0 || trendWorld.length > 0) && (
+          <section className="mz-sec">
+            <SectionHead title={mode === 'trending' ? copy.h1 : 'Dabar populiarūs'} sub="Iš dabartinių topų ir naujausių pasirodymų" href="/atlikejai" hrefLabel="Visi atlikėjai" />
+            {wantLt && trendLt.length > 0 && (<><div className="mz-subhead">🇱🇹 Lietuva</div><ArtistRow artists={trendLt} ranked /></>)}
+            {wantWorld && trendWorld.length > 0 && (<><div className="mz-subhead">🌍 Pasaulis</div><ArtistRow artists={trendWorld} ranked /></>)}
+          </section>
+        )}
+        {showAlltime && (popLt.length > 0 || popWorld.length > 0) && (
+          <section className="mz-sec">
+            <SectionHead title={mode === 'alltime' ? copy.h1 : 'Populiariausi visų laikų'} sub="Daugiausiai klausomi atlikėjai per visą laiką" href="/atlikejai" hrefLabel="Visi atlikėjai" />
+            {wantLt && popLt.length > 0 && (<><div className="mz-subhead">🇱🇹 Lietuva</div><ArtistRow artists={popLt} ranked /></>)}
+            {wantWorld && popWorld.length > 0 && (<><div className="mz-subhead">🌍 Pasaulis</div><ArtistRow artists={popWorld} ranked /></>)}
+          </section>
+        )}
+      </>
+    )
+  }
 
   const canonical = `${SITE_URL}${hubHref(scope, mode)}`
   const ALBUM_COLLECTIONS = await getAlbumCollections()
@@ -252,20 +282,34 @@ export default async function MuzikaHubPage({ params }: Props) {
         <MuzikaTabs
           scope={scope}
           mode={mode}
-          artists={artistsPanel}
-          tracks={tracksPanel}
-          albums={albumsPanel}
-          styleOptions={styleOptions}
-          countryOptions={countryOptions}
+          tipas={tipas}
+          genreSlug={genreSlug}
+          genreLabel={genreLabel}
+          genreOptions={genreOptions}
         />
 
-        {/* Stiliai */}
+        {/* Filtruotas rezultatas (sudėtas scope × stilius × tipas) */}
+        {resultTitle ? (
+          <section className="mz-sec">
+            <SectionHead title={resultTitle} href={resultHref} hrefLabel={resultHrefLabel} />
+            {resultNode}
+          </section>
+        ) : resultNode}
+
+        {/* Stiliai — kortelės FILTRUOJA vietoje (?stilius), išlaiko scope+tipą */}
         {topGenres.length > 0 && (
           <section className="mz-sec">
-            <SectionHead title="Naršyk pagal stilių" sub="Rokas, popsas, hip-hopas, elektronika, klasika ir kiti" href="/muzikos-stilius" hrefLabel="Visi stiliai" />
-            <GenreCards genres={topGenres} />
+            <SectionHead title="Naršyk pagal stilių" sub="Spustelėk stilių — filtras pritaikomas čia pat" />
+            <GenreCards genres={topGenres} buildHref={(s) => hubUrl(scope, scope === 'all' ? 'both' : mode, { stilius: s, tipas })} />
           </section>
         )}
+
+        {/* Teminiai rinkiniai (kuruotos dainų + albumų kolekcijos) */}
+        <section className="mz-sec">
+          <SectionHead title="Teminiai rinkiniai" sub="Dainų kolekcijos progai ir nuotaikai + geriausi albumai pagal žanrą" href="/dainos" hrefLabel="Visos dainos" />
+          <SongCollectionShowcase />
+          <div style={{ marginTop: 18 }}><AlbumCollectionShowcase /></div>
+        </section>
 
         {/* SEO footer */}
         <section className="mz-seo">
