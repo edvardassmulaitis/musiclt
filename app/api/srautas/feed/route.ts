@@ -3,20 +3,21 @@
 // GET /api/srautas/feed?limit=30&before=<ISO>
 //
 // Asmeninis „Srautas" — turinys pritaikytas nariui pagal jo pamėgtus atlikėjus
-// (likes entity_type='artist'). Agreguoja kelis šaltinius į vieną chronologinį
-// srautą: naujienos (news_artists), narių įrašai (blog_post_artists), naujos
-// dainos ir albumai (artist_id), artėjantys koncertai (event_artists). Jei narys
-// neprisijungęs arba dar nieko nepamėgo → fallback į „trending" (naujausias
-// turinys visiems), su personalized=false.
+// (likes entity_type='artist'). Agreguoja kelis šaltinius: naujienos
+// (news_artists), narių įrašai (blog_post_artists), nauja muzika (tracks +
+// albums pagal artist_id), artėjantys koncertai (event_artists). Jei narys
+// neprisijungęs arba dar nieko nepamėgo → fallback į „trending" visiems.
 //
-// GREITAVEIKA (2026-06-14 rebuild):
-//   • VISI šaltiniai leidžiami LYGIAGREČIAI (Promise.all) — anksčiau buvo
-//     nuoseklūs await'ai (5 round-trip'ai vienas po kito = lėta).
-//   • Rezultatas cache'inamas per narį (unstable_cache, 90s TTL), keyed pagal
-//     uid + pamėgtų atlikėjų rinkinį + cursor — grįžus atsakymas momentinis.
+// SVARBU (2026-06-14 v4): dauguma tracks NEturi release_date (tik ~1/3868
+// užpildyta), todėl muzikos datą imam su atsarga: release_date → sukomponuota
+// iš release_year/month/day. Be to, kad srautas nebūtų vien albumai, tipus
+// SUPINAME (weave) su variacija — muzika dominuoja, bet naujienos / įrašai /
+// koncertai reguliariai įsiterpia (anksčiau 348 albumai nuskandindavo visa kita).
 //
-// Resilient: kiekvienas šaltinis savo try/catch — jei lentelės/kolonos nėra,
-// grąžinam ką turim, o ne 500.
+// Pirmas puslapis (be cursor): visi tipai, supinti. Tolesni (su before): tik
+// muzika (naujienos/įrašai/koncertai baigtiniai → rodomi 1-ame psl).
+//
+// Resilient: kiekvienas šaltinis savo try/catch.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { unstable_cache } from 'next/cache'
@@ -28,9 +29,10 @@ export const dynamic = 'force-dynamic'
 
 const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
 
+type Kind = 'news' | 'blog' | 'track' | 'album' | 'event'
 type FeedItem = {
   key: string
-  kind: 'news' | 'blog' | 'track' | 'album' | 'event'
+  kind: Kind
   title: string
   subtitle: string | null
   image: string | null
@@ -46,42 +48,118 @@ const ytThumb = (url?: string | null) => {
   return m ? `https://img.youtube.com/vi/${m}/mqdefault.jpg` : null
 }
 
-const albumDate = (y?: number | null, m?: number | null, d?: number | null) =>
+const ymd = (y?: number | null, m?: number | null, d?: number | null) =>
   y ? `${y}-${String(m || 1).padStart(2, '0')}-${String(d || 1).padStart(2, '0')}T00:00:00.000Z` : null
 
 const one = (v: any) => (Array.isArray(v) ? v[0] : v)
 
-// ── Pagrindinė feed'o logika — cache'inama (žr. getCachedFeed žemiau). ────────
+// Supina kelis tipus į vieną srautą su variacija. Muzika dominuoja (jos daugiausia),
+// bet naujienos / įrašai / koncertai reguliariai įsiterpia, kad nebūtų vien albumai.
+function weave(q: Record<string, FeedItem[]>, limit: number): FeedItem[] {
+  const template = ['music', 'music', 'news', 'music', 'blog', 'music', 'event', 'music', 'news', 'music', 'blog', 'music', 'event']
+  const order = ['music', 'news', 'blog', 'event']
+  const out: FeedItem[] = []
+  let ti = 0
+  while (out.length < limit) {
+    const want = template[ti % template.length]; ti++
+    let pick = q[want]?.shift()
+    if (!pick) {
+      const fb = order.find(k => q[k]?.length)
+      if (!fb) break
+      pick = q[fb].shift()
+    }
+    if (pick) out.push(pick)
+  }
+  return out
+}
+
 async function buildFeed(artistIds: number[], limit: number, before: string | null) {
   const sb = createAdminClient()
   const beforeMs = before ? Date.parse(before) : null
   const personalized = artistIds.length > 0
   const nowIso = new Date().toISOString()
+  const dateOk = (iso: string | null) => {
+    if (!iso) return false
+    if (beforeMs == null) return true
+    const t = Date.parse(iso)
+    return Number.isFinite(t) && t < beforeMs
+  }
 
-  // ── Naujienos ──────────────────────────────────────────────────────────────
+  // ── MUZIKA: tracks + albums (didžiausias šaltinis) ──────────────────────────
+  const musicTask = async (): Promise<FeedItem[]> => {
+    const out: FeedItem[] = []
+    const [tracksRes, albumsRes] = await Promise.all([
+      (async () => {
+        try {
+          let q = sb.from('tracks')
+            .select('id, title, slug, cover_url, video_url, release_date, release_year, release_month, release_day, artist_id, artists!tracks_artist_id_fkey(name, slug, cover_image_url)')
+          if (personalized) q = q.in('artist_id', artistIds)
+          // dauguma neturi release_date → rikiuojam pagal release_year (yra ~77%)
+          q = q.order('release_year', { ascending: false, nullsFirst: false })
+               .order('release_date', { ascending: false, nullsFirst: false })
+               .limit(60)
+          return (await q).data || []
+        } catch { return [] }
+      })(),
+      (async () => {
+        try {
+          let q = sb.from('albums')
+            .select('id, title, slug, cover_image_url, year, month, day, artist_id, artists!albums_artist_id_fkey(name, slug, cover_image_url)')
+            .not('year', 'is', null)
+          if (personalized) q = q.in('artist_id', artistIds)
+          q = q.order('year', { ascending: false }).order('month', { ascending: false, nullsFirst: false }).limit(40)
+          return (await q).data || []
+        } catch { return [] }
+      })(),
+    ])
+    for (const t of tracksRes as any[]) {
+      const a = one(t.artists)
+      const date = t.release_date || ymd(t.release_year, t.release_month, t.release_day)
+      if (!dateOk(date)) continue
+      out.push({
+        key: `track-${t.id}`, kind: 'track', title: t.title || '', subtitle: a?.name || null,
+        image: t.cover_url || ytThumb(t.video_url) || a?.cover_image_url || null,
+        href: `/dainos/${t.slug || t.id}`, date, badge: 'Nauja daina',
+        artist: a ? { name: a.name, slug: a.slug } : null,
+      })
+    }
+    for (const al of albumsRes as any[]) {
+      const a = one(al.artists)
+      const date = ymd(al.year, al.month, al.day)
+      if (!dateOk(date)) continue
+      out.push({
+        key: `album-${al.id}`, kind: 'album', title: al.title || '', subtitle: a?.name || null,
+        image: al.cover_image_url || a?.cover_image_url || null,
+        href: a?.slug ? `/albumai/${a.slug}-${al.slug}-${al.id}` : `/albumai/${al.slug || ''}-${al.id}`,
+        date, badge: 'Naujas albumas',
+        artist: a ? { name: a.name, slug: a.slug } : null,
+      })
+    }
+    out.sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
+    return out
+  }
+
+  // ── NAUJIENOS (tik 1-am psl) ────────────────────────────────────────────────
   const newsTask = async (): Promise<FeedItem[]> => {
+    if (before) return []
     const out: FeedItem[] = []
     try {
       let newsIds: number[] | null = null
       if (personalized) {
-        const { data: na } = await sb
-          .from('news_artists').select('news_id').in('artist_id', artistIds).limit(400)
+        const { data: na } = await sb.from('news_artists').select('news_id').in('artist_id', artistIds).limit(400)
         newsIds = Array.from(new Set((na || []).map((r: any) => Number(r.news_id)).filter(Boolean)))
         if (!newsIds.length) return out
       }
-      let q = sb
-        .from('news')
+      let q = sb.from('news')
         .select('id, slug, title, image_small_url, image_title_url, published_at')
-        .not('published_at', 'is', null)
-        .lte('published_at', nowIso)
+        .not('published_at', 'is', null).lte('published_at', nowIso)
       if (newsIds) q = q.in('id', newsIds)
-      if (before) q = q.lt('published_at', before)
-      q = q.order('published_at', { ascending: false }).limit(40)
+      q = q.order('published_at', { ascending: false }).limit(16)
       const { data } = await q
       for (const n of (data || []) as any[]) {
         out.push({
-          key: `news-${n.id}`, kind: 'news', title: n.title || '',
-          subtitle: null, image: n.image_title_url || n.image_small_url || null,
+          key: `news-${n.id}`, kind: 'news', title: n.title || '', subtitle: null,
+          image: n.image_title_url || n.image_small_url || null,
           href: `/news/${n.slug}`, date: n.published_at, badge: 'Naujiena',
         })
       }
@@ -89,31 +167,25 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
     return out
   }
 
-  // ── Narių įrašai (blog) ──────────────────────────────────────────────────────
+  // ── NARIŲ ĮRAŠAI (tik 1-am psl) ─────────────────────────────────────────────
   const blogTask = async (): Promise<FeedItem[]> => {
+    if (before) return []
     const out: FeedItem[] = []
     try {
       let postIds: number[] | null = null
       if (personalized) {
-        const { data: ba } = await sb
-          .from('blog_post_artists').select('post_id').in('artist_id', artistIds).limit(400)
+        const { data: ba } = await sb.from('blog_post_artists').select('post_id').in('artist_id', artistIds).limit(400)
         postIds = Array.from(new Set((ba || []).map((r: any) => Number(r.post_id)).filter(Boolean)))
         if (!postIds.length) return out
       }
-      let q = sb
-        .from('blog_posts')
-        .select('id, slug, title, cover_image_url, post_type, rating, published_at, ' +
-          'blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
-        .eq('status', 'published')
-        .not('published_at', 'is', null)
-        .lte('published_at', nowIso)
+      let q = sb.from('blog_posts')
+        .select('id, slug, title, cover_image_url, post_type, rating, published_at, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
+        .eq('status', 'published').not('published_at', 'is', null).lte('published_at', nowIso)
       if (postIds) q = q.in('id', postIds)
-      if (before) q = q.lt('published_at', before)
-      q = q.order('published_at', { ascending: false }).limit(40)
+      q = q.order('published_at', { ascending: false }).limit(16)
       const { data } = await q
       for (const p of (data || []) as any[]) {
-        const blog = one(p.blogs)
-        const prof = one(blog?.profiles)
+        const blog = one(p.blogs); const prof = one(blog?.profiles)
         const blogSlug = blog?.slug || prof?.username
         out.push({
           key: `blog-${p.id}`, kind: 'blog', title: p.title || '',
@@ -128,75 +200,18 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
     return out
   }
 
-  // ── Naujos dainos ─────────────────────────────────────────────────────────────
-  const tracksTask = async (): Promise<FeedItem[]> => {
-    const out: FeedItem[] = []
-    try {
-      let q = sb
-        .from('tracks')
-        .select('id, title, slug, cover_url, video_url, release_date, artist_id, ' +
-          'artists!tracks_artist_id_fkey(name, slug, cover_image_url)')
-        .not('release_date', 'is', null)
-      if (personalized) q = q.in('artist_id', artistIds)
-      if (before) q = q.lt('release_date', before)
-      q = q.order('release_date', { ascending: false }).limit(40)
-      const { data } = await q
-      for (const t of (data || []) as any[]) {
-        const a = one(t.artists)
-        out.push({
-          key: `track-${t.id}`, kind: 'track', title: t.title || '',
-          subtitle: a?.name || null,
-          image: t.cover_url || ytThumb(t.video_url) || a?.cover_image_url || null,
-          href: `/dainos/${t.slug || t.id}`,
-          date: t.release_date, badge: 'Nauja daina',
-          artist: a ? { name: a.name, slug: a.slug } : null,
-        })
-      }
-    } catch { /* ignore */ }
-    return out
-  }
-
-  // ── Nauji albumai ─────────────────────────────────────────────────────────────
-  const albumsTask = async (): Promise<FeedItem[]> => {
-    const out: FeedItem[] = []
-    try {
-      let q = sb
-        .from('albums')
-        .select('id, title, slug, cover_image_url, year, month, day, artist_id, ' +
-          'artists!albums_artist_id_fkey(name, slug, cover_image_url)')
-        .not('year', 'is', null)
-      if (personalized) q = q.in('artist_id', artistIds)
-      q = q.order('year', { ascending: false }).order('month', { ascending: false, nullsFirst: false }).limit(40)
-      const { data } = await q
-      for (const al of (data || []) as any[]) {
-        const a = one(al.artists)
-        out.push({
-          key: `album-${al.id}`, kind: 'album', title: al.title || '',
-          subtitle: a?.name || null,
-          image: al.cover_image_url || a?.cover_image_url || null,
-          href: a?.slug ? `/albumai/${a.slug}-${al.slug}-${al.id}` : `/albumai/${al.slug || ''}-${al.id}`,
-          date: albumDate(al.year, al.month, al.day), badge: 'Naujas albumas',
-          artist: a ? { name: a.name, slug: a.slug } : null,
-        })
-      }
-    } catch { /* ignore */ }
-    return out
-  }
-
-  // ── Artėjantys koncertai (tik 1-am puslapyje — be cursor'io) ───────────────────
+  // ── ARTĖJANTYS KONCERTAI (tik 1-am psl) ─────────────────────────────────────
   const eventsTask = async (): Promise<FeedItem[]> => {
+    if (before) return []
     const out: FeedItem[] = []
-    if (before) return out // koncertai (ateities datos) rodomi tik 1-ame puslapyje
     try {
       let eventIds: number[] | null = null
       if (personalized) {
-        const { data: ea } = await sb
-          .from('event_artists').select('event_id').in('artist_id', artistIds).limit(400)
+        const { data: ea } = await sb.from('event_artists').select('event_id').in('artist_id', artistIds).limit(400)
         eventIds = Array.from(new Set((ea || []).map((r: any) => Number(r.event_id)).filter(Boolean)))
         if (!eventIds.length) return out
       }
-      let q = sb
-        .from('events')
+      let q = sb.from('events')
         .select('id, title, slug, cover_image_url, start_date, city, venue_name')
         .gte('start_date', nowIso)
       if (eventIds) q = q.in('id', eventIds)
@@ -206,55 +221,43 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
         out.push({
           key: `event-${ev.id}`, kind: 'event', title: ev.title || '',
           subtitle: [ev.city, ev.venue_name].filter(Boolean).join(' · ') || null,
-          image: ev.cover_image_url || null,
-          href: `/renginiai/${ev.slug}`, date: ev.start_date, badge: 'Koncertas',
+          image: ev.cover_image_url || null, href: `/renginiai/${ev.slug}`,
+          date: ev.start_date, badge: 'Koncertas',
         })
       }
     } catch { /* ignore */ }
     return out
   }
 
-  // ── VISI šaltiniai LYGIAGREČIAI ──────────────────────────────────────────────
-  const groups = await Promise.all([
-    newsTask(), blogTask(), tracksTask(), albumsTask(), eventsTask(),
-  ])
-  const items = groups.flat()
+  const [music, news, blog, events] = await Promise.all([musicTask(), newsTask(), blogTask(), eventsTask()])
 
-  // ── Merge: events (ateities) viršuje; likę chronologiškai; cursor; dedupe ────
-  const events = items.filter(it => it.kind === 'event')
-  const rest = items
-    .filter(it => it.kind !== 'event')
-    .filter(it => {
-      if (!it.date) return false
-      if (beforeMs == null) return true
-      const t = Date.parse(it.date)
-      return Number.isFinite(t) && t < beforeMs
-    })
-    .sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
-
-  const ordered = [...events, ...rest]
-  const seen = new Set<string>()
-  const out: FeedItem[] = []
-  for (const it of ordered) {
-    if (seen.has(it.key)) continue
-    seen.add(it.key)
-    out.push(it)
-    if (out.length >= limit) break
+  // Pirmas psl → koncertai viršuje + supinti tipai; tolesni → tik muzika.
+  let out: FeedItem[]
+  if (before) {
+    out = music.slice(0, limit)
+  } else {
+    const woven = weave({ music: [...music], news, blog, event: [...events] }, limit)
+    out = woven
   }
 
-  // nextBefore = paskutinio NE-event item'o data (events neturi praeities cursor'io)
-  const lastDated = [...out].reverse().find(it => it.kind !== 'event' && it.date)
-  const nextBefore = out.length >= limit && lastDated ? lastDated.date : null
+  // Dedupe
+  const seen = new Set<string>()
+  const deduped: FeedItem[] = []
+  for (const it of out) { if (!seen.has(it.key)) { seen.add(it.key); deduped.push(it) } }
 
-  return { items: out, personalized, nextBefore }
+  // nextBefore = seniausia grąžinto MUZIKOS item'o data (muzika = gilus šaltinis)
+  const musicReturned = deduped.filter(it => it.kind === 'track' || it.kind === 'album')
+  const oldestMusic = musicReturned.length ? musicReturned[musicReturned.length - 1].date : null
+  const moreMusicAvail = music.length >= 60 || (musicReturned.length > 0 && music.length > musicReturned.length)
+  const nextBefore = oldestMusic && moreMusicAvail ? oldestMusic : null
+
+  return { items: deduped, personalized, nextBefore }
 }
 
-// Server-side cache — keyed pagal uid + pamėgtų atlikėjų rinkinį + cursor + limit.
-// 90s TTL: turinys nesikeičia kas sekundę, o cache duoda momentinį atsakymą grįžus.
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], limit: number, before: string | null) =>
     buildFeed(artistIds, limit, before),
-  ['srautas-feed-v2'],
+  ['srautas-feed-v4'],
   { revalidate: 90 },
 )
 
@@ -262,7 +265,6 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '30'), 1), 50)
   const before = req.nextUrl.searchParams.get('before')
 
-  // Sesija + pamėgti atlikėjai (NEcache'inama — priklauso nuo cookies).
   let uid = ''
   let artistIds: number[] = []
   try {
@@ -272,8 +274,7 @@ export async function GET(req: NextRequest) {
       const sb = createAdminClient()
       const { data } = await sb.from('likes').select('entity_id')
         .eq('entity_type', 'artist').eq('user_id', uid).limit(2000)
-      artistIds = Array.from(new Set((data || []).map((r: any) => Number(r.entity_id)).filter(Boolean)))
-        .sort((a, b) => a - b)
+      artistIds = Array.from(new Set((data || []).map((r: any) => Number(r.entity_id)).filter(Boolean))).sort((a, b) => a - b)
     }
   } catch { /* anon */ }
 

@@ -391,8 +391,8 @@ function SrautasInner() {
         .sr-cta a, .sr-cta button { margin-left:auto; text-decoration:none; border:none; cursor:pointer;
           background:var(--accent-orange); color:#fff; font-weight:700; font-size:13px; padding:8px 16px; border-radius:9px; font-family:inherit; }
 
-        /* ── Žurnalo tinklelis (desktop) ── */
-        .sr-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(228px, 1fr)); gap:16px; }
+        /* ── Žurnalo tinklelis (desktop) — 3 stulpeliai, daugiau oro ── */
+        .sr-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:20px; }
         .sr-card { display:flex; flex-direction:column; text-decoration:none; overflow:hidden;
           background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:16px;
           transition:border-color .15s, transform .12s, box-shadow .15s; }
