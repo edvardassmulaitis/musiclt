@@ -80,7 +80,7 @@ export async function GET(req: Request) {
   // ── Tuščių atlikėjų KONTEKSTAS + PRIORITETAS ────────────────────────────
   // Kodėl atlikėjas svarbus? Pagal tai, kuriuose renginiuose/festivaliuose jis
   // dalyvauja: būsimo festivalio headlineris = aukščiausias prioritetas.
-  const emptyItems = items.filter((it: any) => it.source === 'empty' && it.artist_id)
+  const emptyItems: any[] = items.filter((it: any) => it.source === 'empty' && it.artist_id)
   if (emptyItems.length) {
     const eIds = emptyItems.map((it: any) => it.artist_id)
     const evByArtist = new Map<number, any[]>()
