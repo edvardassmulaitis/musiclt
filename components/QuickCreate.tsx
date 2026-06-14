@@ -36,7 +36,7 @@ type Item = {
   bg: string
 }
 
-type Group = { label: string; items: Item[]; compact?: boolean }
+type Group = { label: string; items: Item[] }
 
 const sv = (d: React.ReactNode) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
@@ -56,7 +56,6 @@ const GROUPS: Group[] = [
   },
   {
     label: 'Kūryba',
-    compact: true,
     items: [
       { href: '/blogas/rasyti?type=creation', label: 'Kūryba', desc: 'Eilėraštis, tavo kūrinys', bg: 'rgba(139,92,246,0.15)', color: '#a78bfa', icon: sv(<><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>) },
       { href: '/blogas/rasyti?type=translation', label: 'Vertimas', desc: 'Dainos žodžiai', bg: 'rgba(20,184,166,0.15)', color: '#2dd4bf', icon: sv(<><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></>) },
@@ -65,10 +64,9 @@ const GROUPS: Group[] = [
   },
   {
     label: 'Greiti veiksmai',
-    compact: true,
     items: [
       { href: '/blogas/rasyti?type=daily', label: 'Dienos daina', desc: 'Pasiūlyk dainą', bg: 'rgba(34,197,94,0.15)', color: '#4ade80', icon: sv(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>) },
-      { href: '/blogas/rasyti?type=mood', label: 'Nuotaikos daina', desc: 'Daina tavo profiliui', bg: 'rgba(236,72,153,0.15)', color: '#f472b6', icon: sv(<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />) },
+      { href: '/blogas/rasyti?type=mood', label: 'Nuotaikos dainos', desc: 'Daina tavo profiliui', bg: 'rgba(236,72,153,0.15)', color: '#f472b6', icon: sv(<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />) },
       { href: '/diskusijos', label: 'Diskusija', desc: 'Įsitrauk į pokalbį', bg: 'rgba(99,102,241,0.15)', color: '#818cf8', icon: sv(<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />) },
     ],
   },
@@ -77,7 +75,8 @@ const GROUPS: Group[] = [
 export function QuickCreate() {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [dailyDone, setDailyDone] = useState(false)
+  // Ką PRISIJUNGĘS vartotojas pasiūlė dienos daina ŠIANDIEN (jei pasiūlė).
+  const [myDaily, setMyDaily] = useState<{ title: string; artist?: string } | null>(null)
   const router = useRouter()
   const pathname = usePathname()
   const { data: session } = useSession()
@@ -93,13 +92,19 @@ export function QuickCreate() {
   // Užsidaro pasikeitus maršrutui (kad nelikt' kabantis po navigacijos).
   useEffect(() => { setOpen(false) }, [pathname])
 
-  // Kai atidaromas — patikrinam ar jau pasiūlė dienos dainą šiandien.
+  // Kai atidaromas — pasiimam, KĄ vartotojas pasiūlė dienos daina šiandien
+  // (kad rodytume tikrą dainą, ne tik „pasiūlyta" žymę).
   useEffect(() => {
-    if (!open || !session?.user) return
+    if (!open || !session?.user) { setMyDaily(null); return }
     let on = true
     fetch('/api/dienos-daina/nominations')
       .then(r => r.json())
-      .then(d => { if (on) setDailyDone(!!d.already_nominated) })
+      .then(d => {
+        if (!on) return
+        const mine = (d.nominations || []).find((n: any) => n.own)
+        const t = mine?.tracks
+        setMyDaily(t ? { title: t.title, artist: t.artists?.name } : null)
+      })
       .catch(() => {})
     return () => { on = false }
   }, [open, session?.user])
@@ -118,26 +123,33 @@ export function QuickCreate() {
 
   const go = (href: string) => { setOpen(false); router.push(href) }
 
-  const Row = ({ it, compact, done }: { it: Item; compact?: boolean; done?: boolean }) => done ? (
-    <div className="qc-row qc-row--done">
-      <span className="qc-row-chip" style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-      </span>
-      <span className="qc-row-text">
-        <span className="qc-row-label" style={{ color: '#4ade80' }}>{it.label}</span>
-      </span>
-      <span className="qc-row-done-tag">Pasiūlyta</span>
-    </div>
-  ) : (
-    <button type="button" className="qc-row" onClick={() => go(it.href)}>
+  const Row = ({ it, done }: { it: Item; done?: boolean }) => (
+    <button type="button" className={`qc-row${done ? ' qc-row--done' : ''}`} onClick={() => go(it.href)}>
       <span className="qc-row-chip" style={{ background: it.bg, color: it.color }}>{it.icon}</span>
       <span className="qc-row-text">
         <span className="qc-row-label">{it.label}</span>
-        {!compact && <span className="qc-row-desc">{it.desc}</span>}
+        <span className="qc-row-desc">{it.desc}</span>
       </span>
+      {done && <span className="qc-row-done-tag">Pasiūlyta</span>}
       <svg className="qc-row-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
     </button>
   )
+
+  // „Dienos daina" eilutė priklauso nuo to, ar jau pasiūlyta šiandien:
+  //  - dar nepasiūlyta → veda į siūlymo formą, „Pasiūlyk dainą";
+  //  - pasiūlyta → žalias ✓ + tikra daina, veda į dienos dainos puslapį.
+  const dailyItem = (it: Item): Item => {
+    if (it.href !== '/blogas/rasyti?type=daily' || !myDaily) return it
+    const sub = myDaily.artist ? `${myDaily.title} — ${myDaily.artist}` : myDaily.title
+    return {
+      ...it,
+      href: '/dienos-daina',
+      desc: `Pasiūlei: ${sub}`,
+      bg: 'rgba(34,197,94,0.15)',
+      color: '#4ade80',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>,
+    }
+  }
 
   return createPortal(
     <>
@@ -191,9 +203,8 @@ export function QuickCreate() {
           padding: 9px 8px; border-radius: 12px; border: none; background: transparent;
           transition: background .13s, transform .1s;
         }
-        .qc-row:not(.qc-row--done):hover { background: var(--bg-hover); }
-        .qc-row:not(.qc-row--done):active { transform: scale(.985); }
-        .qc-row--done { cursor: default; }
+        .qc-row:hover { background: var(--bg-hover); }
+        .qc-row:active { transform: scale(.985); }
         .qc-row-chip {
           width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
@@ -218,7 +229,7 @@ export function QuickCreate() {
         <div className="qc-sheet" onClick={e => e.stopPropagation()}>
           <div className="qc-grab" />
           <div className="qc-head">
-            <span className="qc-title">Pridėti</span>
+            <span className="qc-title">Kurti</span>
             <button className="qc-close" aria-label="Uždaryti" onClick={() => setOpen(false)}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
@@ -235,9 +246,11 @@ export function QuickCreate() {
             <div key={g.label}>
               <div className="qc-group-label">{g.label}</div>
               <div className="qc-rows">
-                {g.items.map(it => (
-                  <Row key={it.href} it={it} compact={g.compact} done={it.href === '/blogas/rasyti?type=daily' && dailyDone} />
-                ))}
+                {g.items.map(it => {
+                  const item = dailyItem(it)
+                  const done = item.href === '/dienos-daina'
+                  return <Row key={it.href} it={item} done={done} />
+                })}
               </div>
             </div>
           ))}
