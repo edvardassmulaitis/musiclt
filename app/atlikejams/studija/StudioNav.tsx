@@ -63,13 +63,13 @@ export default function StudioNav({ artists }: { artists: NavArtist[] }) {
             <Link
               key={t.href}
               href={withArtist(t.href)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold font-['Outfit',sans-serif] transition ${
                 isActive
-                  ? 'bg-[var(--accent-orange)] text-white'
-                  : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white'
+                  : 'border-[var(--border-default)] bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[rgba(249,115,22,0.4)]'
               }`}
             >
-              <span className="mr-1">{t.icon}</span>{t.label}
+              <span>{t.icon}</span>{t.label}
             </Link>
           )
         })}

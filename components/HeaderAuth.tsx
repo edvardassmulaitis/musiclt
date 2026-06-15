@@ -192,6 +192,7 @@ function UserMenu() {
   const { data: session } = useSession()
   const [open, setOpen] = useState(false)
   const [username, setUsername] = useState<string | null>(null)
+  const [studioId, setStudioId] = useState<number | null>(null)  // -1 = nėra valdomų atlikėjų
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -207,6 +208,14 @@ function UserMenu() {
     if (!open || username) return
     fetch('/api/profile').then(r => r.json()).then(d => { if (d?.username) setUsername(d.username) }).catch(() => {})
   }, [open, username])
+
+  // Ar vartotojas valdo bent vieną atlikėją → rodom „Atlikėjo studija".
+  useEffect(() => {
+    if (!open || studioId !== null) return
+    fetch('/api/studija/mine').then(r => r.json())
+      .then(d => setStudioId(Array.isArray(d?.artists) && d.artists.length ? d.artists[0].id : -1))
+      .catch(() => {})
+  }, [open, studioId])
 
   if (!session?.user) return null
   const isAdmin = session.user.role === 'admin' || session.user.role === 'super_admin'
@@ -343,6 +352,9 @@ function UserMenu() {
             {menuItem('/mano-muzika', (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
             ), 'Mano muzika', true)}
+            {studioId && studioId > 0 ? menuItem(`/atlikejams/studija?a=${studioId}`, (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+            ), 'Atlikėjo studija', true) : null}
             {menuItem('/blogas/mano', (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             ), 'Mano blogas')}

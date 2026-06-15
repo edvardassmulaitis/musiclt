@@ -29,13 +29,19 @@ export default async function StudioDashboard({ searchParams }: { searchParams: 
 
   const sb = createAdminClient()
   const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString()
-  const [followersRes, weekRes, artistRow, updatesRes] = await Promise.all([
+  const [likesRes, followersRes, weekRes, artistRow, updatesRes] = await Promise.all([
+    sb.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'artist').eq('entity_id', active.id),
     sb.from('artist_follows').select('*', { count: 'exact', head: true }).eq('artist_id', active.id),
     sb.from('artist_follows').select('*', { count: 'exact', head: true }).eq('artist_id', active.id).gte('created_at', weekAgo),
-    sb.from('artists').select('page_view_count').eq('id', active.id).maybeSingle(),
+    sb.from('artists').select('page_view_count, legacy_likes').eq('id', active.id).maybeSingle(),
     sb.from('artist_updates').select('id, kind, title, recipients, created_at').eq('artist_id', active.id).order('created_at', { ascending: false }).limit(5),
   ])
 
+  // „Fanai" = patiktukai (tikra auditorija). „Sekėjai" = artist_follows
+  // (kas gauna tavo žinutes — naujesnė funkcija, gali būti mažiau).
+  const likeRows = likesRes.count || 0
+  const legacyLikes = (artistRow.data as any)?.legacy_likes || 0
+  const fans = Math.max(likeRows, legacyLikes)
   const followers = followersRes.count || 0
   const weekFollowers = weekRes.count || 0
   const views = (artistRow.data as any)?.page_view_count || 0
@@ -44,10 +50,10 @@ export default async function StudioDashboard({ searchParams }: { searchParams: 
   return (
     <div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Fanai" value={followers} hint={weekFollowers > 0 ? `+${weekFollowers} per savaitę` : 'per savaitę be pokyčių'} />
+        <Stat label="Fanai (patinka)" value={fans} />
+        <Stat label="Sekėjai" value={followers} hint={weekFollowers > 0 ? `+${weekFollowers} (7 d.)` : 'gauna tavo žinutes'} />
         <Stat label="Profilio peržiūros" value={views} />
         <Stat label="Žinutės fanams" value={updates.length} />
-        <Stat label="Nauji fanai (7 d.)" value={weekFollowers} />
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
