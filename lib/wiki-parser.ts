@@ -1685,6 +1685,7 @@ export function extractFieldNested(wikitext: string, field: string): string {
 export function parseBandMembers(wikitext: string): BandMember[] {
   const members: BandMember[] = []
   const seen = new Set<string>()
+  const seenNames = new Set<string>()
   const extractField = (field: string, isCurrent: boolean) => {
     const block = extractFieldNested(wikitext, field)
     if (!block) return
@@ -1722,6 +1723,36 @@ export function parseBandMembers(wikitext: string): BandMember[] {
       const yearFrom = yearMatch ? yearMatch[1] : ''
       const yearTo = yearMatch && yearMatch[2] && !/present|dabar|now/i.test(yearMatch[2]) ? yearMatch[2] : ''
       members.push({ name: cleanedName, wikiTitle, isCurrent, yearFrom, yearTo })
+      seenNames.add(cleanedName.toLowerCase())
+    }
+    // 2026-06-15: Plain-text fallback — daug grupių (pvz Kings of Leon) nariams
+    // NEturi atskirų Wikipedia straipsnių, todėl current_members yra paprastas
+    // bullet'ų sąrašas BE [[wikilink]]'ų:
+    //   | current_members = * Caleb Followill\n* Jared Followill ...
+    // Tokiems atvejams linkRe nieko neranda. Čia ištraukiam vardus iš
+    // paprasto teksto (bullet eilutės, hlist/ubl/plainlist template'ai, <br>).
+    let plain = block
+      .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+      .replace(/<ref[^>]*\/>/gi, '')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/\[\[[^\]]*\]\]/g, '')            // pašalinti jau apdorotus link'us
+      .replace(/\{\{\s*(?:hlist|flatlist|plain ?list|ubl|unbulleted list|bulleted list|nowrap)\s*\|/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+    for (let item of plain.split(/\n|\|/)) {
+      item = item
+        .replace(/\{\{[^{}]*\}\}/g, '')          // likę template'ai
+        .replace(/^[\s*#:;•\-–—]+/, '')          // bullet'ai / dash'ai eilutės pradžioj
+        .replace(/'{2,}/g, '')                   // bold/italic markup
+        .split(/\s+[–—]\s+|\s*\(|,|:/)[0]        // nupjauti rolę/metus po „– vocals", „(...)", „, ..."
+        .trim()
+      if (!item) continue
+      const cleaned = cleanArtistName(item)
+      if (!cleaned || seenNames.has(cleaned.toLowerCase())) continue
+      if (!isValidArtistName(cleaned)) continue
+      // Reikalaujam bent vieno tarpo ARBA didžiosios raidės — atmesti šiukšles
+      if (!/\s/.test(cleaned) && !/^[A-ZÀ-Þ]/.test(cleaned)) continue
+      seenNames.add(cleaned.toLowerCase())
+      members.push({ name: cleaned, wikiTitle: cleaned.replace(/\s+/g, '_'), isCurrent, yearFrom: '', yearTo: '' })
     }
   }
   extractField('current_members', true)
