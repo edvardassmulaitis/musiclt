@@ -425,7 +425,7 @@ export async function getProfileFavoriteAlbums(username: string, limit = 12, use
   if (!ids.length) return []
   const { data } = await sb
     .from('albums')
-    .select('id, slug, title, cover_url, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .select('id, slug, title, cover_url:cover_image_url, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
     .in('id', ids)
   const order = new Map(ids.map((id, i) => [id, i]))
   const imported = await importedIdSet(sb, 'album', userId, ids)

@@ -489,7 +489,8 @@ function MobileProfileView(props: any) {
     return out
   }, [feedTypeChips, hasLikes])
 
-  const [sel, setSel] = useState<string>(hasFeed ? 'all' : hasLikes ? 'likes' : 'about')
+  // Numatytasis = Megstama muzika (kolekcija atrodo pilna is karto).
+  const [sel, setSel] = useState<string>(hasLikes ? 'likes' : hasFeed ? 'all' : 'about')
   const isFeedFilter = sel !== 'likes' && sel !== 'about'
 
   const avatar = realPhotoUrl || profile.avatar_url || null
@@ -617,7 +618,7 @@ function MobileProfileView(props: any) {
               <section className="mt-7">
                 <SectionHeader title="Visi atlikėjai"
                   meta={`${favoriteArtists.length} atlikėjų · tavo pasirinkta eilė`} />
-                <FavoriteArtistsCollage artists={favoriteArtists} maxShown={11}
+                <FavoriteArtistsCollage artists={favoriteArtists} maxShown={20}
                   totalCount={favoriteArtists.length} onOpenMore={() => onOpenMore('artist')} />
               </section>
             )}
@@ -625,7 +626,7 @@ function MobileProfileView(props: any) {
               <section className="mt-7">
                 <SectionHeader title="Visi albumai"
                   meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0, profile.legacy_liked_albums_count)} />
-                <AlbumsFullWidth albums={favoriteAlbums} maxShown={12}
+                <AlbumsFullWidth albums={favoriteAlbums} maxShown={20}
                   onOpenMore={() => onOpenMore('album')} totalCount={albumResolvedTotal} />
               </section>
             )}
@@ -633,7 +634,7 @@ function MobileProfileView(props: any) {
               <section className="mt-7">
                 <SectionHeader title="Visos dainos"
                   meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0, profile.legacy_liked_tracks_count)} />
-                <TracksFullWidth tracks={favoriteTracks} maxShown={12}
+                <TracksFullWidth tracks={favoriteTracks} maxShown={20}
                   onOpenMore={() => onOpenMore('track')} totalCount={trackResolvedTotal} />
               </section>
             )}
@@ -1589,10 +1590,8 @@ function AlbumsFullWidth({
   albums: any[]; maxShown: number; onOpenMore: () => void; totalCount: number
 }) {
   // Default sort'as: pagal liked_track_count desc, kad „turtingiausi" albumai būtų priekyje
-  const sorted = useMemo(() => {
-    return [...albums].sort((a: any, b: any) => (b.liked_track_count || 0) - (a.liked_track_count || 0))
-  }, [albums])
-  const shown = sorted.slice(0, maxShown)
+  // Rodom nario pasirinkta tvarka (sort_order), nebe re-sort'inam pagal liked count.
+  const shown = albums.slice(0, maxShown)
   const remaining = Math.max(totalCount - shown.length, 0)
 
   return (
@@ -1600,7 +1599,7 @@ function AlbumsFullWidth({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {shown.map((al: any) => {
           const artist = Array.isArray(al.artists) ? al.artists[0] : al.artists
-          const href = artist ? `/atlikejai/${artist.slug}/${al.slug || al.id}` : `/lt/albumas/${al.slug || ''}/${al.id}`
+          const href = `/albumai/${al.slug || 'albumas'}-${al.id}`
           const lc = al.liked_track_count || 0
           return (
             <Link key={al.id} href={href}
@@ -1664,7 +1663,7 @@ function TracksFullWidth({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {shown.map((t: any) => {
           const artist = Array.isArray(t.artists) ? t.artists[0] : t.artists
-          const href = artist ? `/atlikejai/${artist.slug}/${t.slug || t.id}` : `/lt/daina/${t.slug || ''}/${t.id}`
+          const href = `/dainos/${t.slug || 'daina'}-${t.id}`
           const thumb = ytThumbProfile(t.video_url) || t.cover_url || artist?.cover_image_url || null
           return (
             <Link key={t.id} href={href}
@@ -2457,7 +2456,7 @@ function LikesSections(props: any) {
         <section>
           <SectionHeader title="Mėgstami atlikėjai"
             meta={`${favoriteArtists.length} atlikėjų · tavo pasirinkta eilė`} />
-          <FavoriteArtistsCollage artists={favoriteArtists} maxShown={11}
+          <FavoriteArtistsCollage artists={favoriteArtists} maxShown={20}
             totalCount={favoriteArtists.length} onOpenMore={() => onOpenMore('artist')} />
         </section>
       )}
@@ -2465,7 +2464,7 @@ function LikesSections(props: any) {
         <section className="mt-8 sm:mt-10">
           <SectionHeader title="Mėgstami albumai"
             meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0, profile.legacy_liked_albums_count)} />
-          <AlbumsFullWidth albums={favoriteAlbums} maxShown={12}
+          <AlbumsFullWidth albums={favoriteAlbums} maxShown={20}
             onOpenMore={() => onOpenMore('album')} totalCount={albumResolvedTotal} />
         </section>
       )}
@@ -2473,7 +2472,7 @@ function LikesSections(props: any) {
         <section className="mt-8 sm:mt-10">
           <SectionHeader title="Mėgstamos dainos"
             meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0, profile.legacy_liked_tracks_count)} />
-          <TracksFullWidth tracks={favoriteTracks} maxShown={12}
+          <TracksFullWidth tracks={favoriteTracks} maxShown={20}
             onOpenMore={() => onOpenMore('track')} totalCount={trackResolvedTotal} />
         </section>
       )}
