@@ -74,6 +74,9 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
         {playable && (
           <aside className="cfv-aside">
             <div className="cfv-player">
+              {/* Topo pavadinimas — header juosta VIRŠ player'io (ne overlay ant
+                  video, kad gerai skaitytųsi). */}
+              <div className="cfv-phead"><h1 className="cfv-h1">{chart.title}</h1></div>
               <div className="cfv-video">
                 <div className="cfv-slot" ref={slotRef} />
                 {!playing && (
@@ -84,15 +87,7 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
                     <span className="cfv-bigplay">▶</span>
                   </button>
                 )}
-                <div className="cfv-vtitle"><h1 className="cfv-h1">{chart.title}</h1></div>
               </div>
-              {current && (
-                <div className="cfv-now">
-                  <span className="cfv-now-song">{current.title}</span>
-                  <span className="cfv-now-artist">{current.artistName}</span>
-                </div>
-              )}
-              {chart.periodLabel && <div className="cfv-period">{chart.periodLabel}</div>}
             </div>
           </aside>
         )}
@@ -101,7 +96,6 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
         {!playable && (
           <div className="cfv-albumhead">
             <h1 className="cfv-h1 cfv-h1-dark">{chart.title}</h1>
-            {chart.periodLabel && <span className="cfv-period">{chart.periodLabel}</span>}
           </div>
         )}
 
@@ -141,6 +135,9 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
           </div>
         </div>
       )}
+
+      {/* Atnaujinimo data — apačioje prie info apie topą (perkelta nuo player'io). */}
+      {chart.periodLabel && <p className="cfv-foot">Atnaujinta {chart.periodLabel}</p>}
     </div>
   )
 }
@@ -192,15 +189,12 @@ const styles = `
   .cfv-poster img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.85; }
   .cfv-video-ph { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: #555; font-size: 30px; }
   .cfv-bigplay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 58px; height: 58px; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; padding-left: 4px; }
-  /* Topo pavadinimas uždėtas ant player'io (overlay viršuje). */
-  .cfv-vtitle { position: absolute; top: 0; left: 0; right: 0; padding: 10px 12px 22px; background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0)); pointer-events: none; z-index: 3; }
-  .cfv-h1 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,0.5); }
-  .cfv-h1-dark { color: var(--text-primary); text-shadow: none; font-size: 24px; font-weight: 900; }
-  .cfv-now { padding: 11px 14px 4px; }
-  .cfv-now-song { display: block; font-size: 14px; font-weight: 700; color: var(--text-primary); }
-  .cfv-now-artist { display: block; font-size: 12.5px; color: var(--text-muted); }
-  .cfv-period { padding: 2px 14px 13px; font-size: 11.5px; color: var(--text-muted); }
-  .cfv-albumhead .cfv-period { padding: 0; }
+  /* Topo pavadinimas — header juosta VIRŠ video (gerai skaitosi, ne overlay). */
+  .cfv-phead { padding: 11px 15px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); }
+  .cfv-h1 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cfv-h1-dark { font-size: 24px; font-weight: 900; white-space: normal; }
+  /* Atnaujinimo data — page footer'is. */
+  .cfv-foot { margin: 18px 0 0; font-size: 12px; color: var(--text-muted); }
 
   /* Šaltiniai */
   .cfv-sources { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border-subtle); }
