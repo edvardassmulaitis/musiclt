@@ -1,8 +1,9 @@
 'use client'
 // app/mano-muzika/MyMusicClient.tsx
 // ───────────────────────────────────────────────────────────────────────────
-// „Mano muzika" — vienas rikiuojamas „Mėgstami" sąrašas (pirmi 20 → profilyje)
-// + Biblioteka (visi patiktukai, paieška/rikiavimas/puslapiavimas). Mood/stiliai.
+// „Mano muzika" — VIENAS sąrašas: viršuje rikiuoti „Mėgstami" (pirmi 20 →
+// profilyje), apačioje sulankstoma „Biblioteka" (likę patiktukai). Iš
+// bibliotekos vienu paspaudimu kelti į Top 20 arba įvesti konkrečią vietą.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { useState, useCallback, useRef, useMemo, type ReactNode } from 'react'
@@ -19,7 +20,6 @@ const TABS: { key: Tab; label: string; icon: IcoName }[] = [
   { key: 'artist', label: 'Atlikėjai', icon: 'person' }, { key: 'album', label: 'Albumai', icon: 'disc' },
   { key: 'track', label: 'Dainos', icon: 'note' }, { key: 'mood', label: 'Nuotaika', icon: 'moon' }, { key: 'styles', label: 'Stiliai', icon: 'sliders' },
 ]
-// Užpildymo tikslai (pilnam bar'ui)
 const TARGETS = { artists: 100, albums: 100, tracks: 500, styles: 5 }
 
 async function api(path: string, method: string, body?: any) {
@@ -28,7 +28,6 @@ async function api(path: string, method: string, body?: any) {
   if (!res.ok) throw new Error(data.error || 'Klaida')
   return data
 }
-
 type Colls = Record<EntityTab, KindCollection>
 
 export default function MyMusicClient({ initial, username, suggestOnboarding }: { initial: MyMusic; username: string | null; avatarUrl: string | null; suggestOnboarding: boolean }) {
@@ -48,18 +47,28 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
     mood: moodSongs.length, styles: styles.length,
   }
   const pct = Math.round(100 * (
-    Math.min(counts.artist, TARGETS.artists) / TARGETS.artists +
-    Math.min(counts.album, TARGETS.albums) / TARGETS.albums +
-    Math.min(counts.track, TARGETS.tracks) / TARGETS.tracks +
-    Math.min(counts.styles, TARGETS.styles) / TARGETS.styles
+    Math.min(counts.artist, TARGETS.artists) / TARGETS.artists + Math.min(counts.album, TARGETS.albums) / TARGETS.albums +
+    Math.min(counts.track, TARGETS.tracks) / TARGETS.tracks + Math.min(counts.styles, TARGETS.styles) / TARGETS.styles
   ) / 4)
 
   const update = useCallback((kind: EntityTab, fn: (c: KindCollection) => KindCollection) => { setColl(prev => ({ ...prev, [kind]: fn(prev[kind]) })) }, [])
 
-  function toRanked(kind: EntityTab, item: MusicItem) {
-    const prev = coll[kind]
-    update(kind, c => ({ ranked: [...c.ranked, { ...item, ranked: true }], library: c.library.filter(x => x.id !== item.id) }))
-    api('/tier', 'POST', { kind, entity_id: item.id }).catch(e => { update(kind, () => prev); flash(e.message) })
+  // Įkelti / perkelti į rikiuotą sąrašą į konkrečią vietą (1-based). Veikia ir
+  // bibliotekos įrašui (tampa rikiuotu), ir jau rikiuoto perdėliojimui.
+  function moveToPosition(kind: EntityTab, item: MusicItem, pos: number) {
+    const c = coll[kind]
+    const rankedIds = c.ranked.map(i => i.id).filter(id => id !== item.id)
+    const idx = Math.max(0, Math.min(rankedIds.length, Math.floor(pos) - 1))
+    rankedIds.splice(idx, 0, item.id)
+    const map = new Map<number, MusicItem>([...c.ranked, ...c.library].map(x => [x.id, x]))
+    const newRanked = rankedIds.map(id => ({ ...(map.get(id) as MusicItem), ranked: true }))
+    update(kind, cc => ({ ranked: newRanked, library: cc.library.filter(x => x.id !== item.id) }))
+    api('/tier', 'PUT', { kind, ordered_ids: rankedIds }).catch(e => { update(kind, () => c); flash(e.message) })
+  }
+  function toTop20(kind: EntityTab, item: MusicItem) { moveToPosition(kind, item, 20) }
+  function reorder(kind: EntityTab, orderedIds: number[]) {
+    update(kind, c => { const map = new Map(c.ranked.map(x => [x.id, x])); return { ...c, ranked: orderedIds.map(id => map.get(id)).filter(Boolean) as MusicItem[] } })
+    api('/tier', 'PUT', { kind, ordered_ids: orderedIds }).catch(() => {})
   }
   function toLibrary(kind: EntityTab, item: MusicItem) {
     const prev = coll[kind]
@@ -77,10 +86,6 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
     update(kind, c => ({ ...c, library: [item, ...c.library] }))
     api('/favorites', 'POST', { kind, entity_id: hit.id }).catch(e => flash(e.message))
   }
-  function reorder(kind: EntityTab, orderedIds: number[]) {
-    update(kind, c => { const map = new Map(c.ranked.map(x => [x.id, x])); return { ...c, ranked: orderedIds.map(id => map.get(id)).filter(Boolean) as MusicItem[] } })
-    api('/tier', 'PUT', { kind, ordered_ids: orderedIds }).catch(() => {})
-  }
 
   return (
     <div className="page-shell" style={{ color: 'var(--text-primary)' }}>
@@ -90,28 +95,22 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1>Mano muzika</h1>
-            <p>Vienas rikiuojamas mėgstamų sąrašas (viršutiniai 20 rodomi profilyje) ir biblioteka su visa kolekcija.</p>
+            <p>Vienas sąrašas: viršuje rikiuoti mėgstamiausi (pirmi 20 rodomi profilyje), apačioje — visa biblioteka.</p>
           </div>
           <div className="shrink-0 flex items-center gap-2">
             <Link href="/perkelti" className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-bold text-white transition-transform hover:scale-[1.03]" style={{ background: 'var(--accent-orange)' }}><Ico name="download" size={14} /> Importuoti</Link>
             {username && <Link href={`/vartotojas/${username}`} className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}><Ico name="eye" size={14} /> Profilis</Link>}
           </div>
         </div>
-
-        {/* GENERIC FILL BAR */}
         <div className="mt-4 rounded-2xl p-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
           <div className="flex items-center justify-between gap-3 mb-2">
             <div className="text-[13.5px] font-black">Kolekcijos užpildymas</div>
             <div className="text-[13px] font-black" style={{ color: 'var(--accent-orange)' }}>{pct}%</div>
           </div>
-          <div className="h-2.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
-            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #f97316, #a78bfa)' }} />
-          </div>
+          <div className="h-2.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #f97316, #a78bfa)' }} /></div>
           <div className="mt-2.5 flex flex-wrap gap-1.5">
-            <Goal label="Atlikėjai" n={counts.artist} t={TARGETS.artists} />
-            <Goal label="Albumai" n={counts.album} t={TARGETS.albums} />
-            <Goal label="Dainos" n={counts.track} t={TARGETS.tracks} />
-            <Goal label="Stiliai" n={counts.styles} t={TARGETS.styles} />
+            <Goal label="Atlikėjai" n={counts.artist} t={TARGETS.artists} /><Goal label="Albumai" n={counts.album} t={TARGETS.albums} />
+            <Goal label="Dainos" n={counts.track} t={TARGETS.tracks} /><Goal label="Stiliai" n={counts.styles} t={TARGETS.styles} />
           </div>
         </div>
       </div>
@@ -119,14 +118,8 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
       {showOnboard && (
         <div className="mb-5 rounded-2xl p-4 sm:p-5 flex items-center gap-4 flex-wrap" style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.14), rgba(167,139,250,0.12))', border: '1px solid var(--border-default)' }}>
           <Ico name="sparkle" size={26} />
-          <div className="flex-1 min-w-[200px]">
-            <div className="text-[15px] font-black">Susidėk savo muziką per minutę</div>
-            <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Greitas žaidimas — pasirink mėgstamus atlikėjus ir stilius.</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/mano-muzika/pradzia" className="rounded-full px-5 py-2.5 text-[13px] font-black text-white" style={{ background: 'var(--accent-orange)' }}>Pradėti →</Link>
-            <button onClick={() => { setShowOnboard(false); api('/setup', 'POST', { action: 'skip' }).catch(() => {}) }} className="rounded-full px-3 py-2.5 text-[12px] font-bold" style={{ color: 'var(--text-muted)' }}>Vėliau</button>
-          </div>
+          <div className="flex-1 min-w-[200px]"><div className="text-[15px] font-black">Susidėk savo muziką per minutę</div><div className="text-[12.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Greitas žaidimas — pasirink mėgstamus atlikėjus ir stilius.</div></div>
+          <div className="flex items-center gap-2"><Link href="/mano-muzika/pradzia" className="rounded-full px-5 py-2.5 text-[13px] font-black text-white" style={{ background: 'var(--accent-orange)' }}>Pradėti →</Link><button onClick={() => { setShowOnboard(false); api('/setup', 'POST', { action: 'skip' }).catch(() => {}) }} className="rounded-full px-3 py-2.5 text-[12px] font-bold" style={{ color: 'var(--text-muted)' }}>Vėliau</button></div>
         </div>
       )}
 
@@ -145,9 +138,8 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
       </div>
 
       {(tab === 'artist' || tab === 'album' || tab === 'track') && (
-        <CollectionPanel kind={tab} data={coll[tab]}
-          onReorder={(ids) => reorder(tab, ids)} onToLibrary={(it) => toLibrary(tab, it)}
-          onToRanked={(it) => toRanked(tab, it)} onUnlike={(it) => unlike(tab, it)} onAdd={(hit) => addLib(tab, hit)} />
+        <CollectionPanel kind={tab} data={coll[tab]} onReorder={(ids) => reorder(tab, ids)} onMoveToPosition={(it, pos) => moveToPosition(tab, it, pos)}
+          onToTop20={(it) => toTop20(tab, it)} onToLibrary={(it) => toLibrary(tab, it)} onUnlike={(it) => unlike(tab, it)} onAdd={(hit) => addLib(tab, hit)} />
       )}
       {tab === 'mood' && <MoodSection moodSongs={moodSongs} setMoodSongs={setMoodSongs} />}
       {tab === 'styles' && <StyleSection styles={styles} setStyles={setStyles} meter={initial.musicMeter} />}
@@ -161,30 +153,32 @@ function Goal({ label, n, t }: { label: string; n: number; t: number }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-function CollectionPanel({ kind, data, onReorder, onToLibrary, onToRanked, onUnlike, onAdd }: {
+function CollectionPanel({ kind, data, onReorder, onMoveToPosition, onToTop20, onToLibrary, onUnlike, onAdd }: {
   kind: EntityTab; data: KindCollection
-  onReorder: (ids: number[]) => void; onToLibrary: (it: MusicItem) => void; onToRanked: (it: MusicItem) => void; onUnlike: (it: MusicItem) => void; onAdd: (hit: AttachmentHit) => void
+  onReorder: (ids: number[]) => void; onMoveToPosition: (it: MusicItem, pos: number) => void; onToTop20: (it: MusicItem) => void
+  onToLibrary: (it: MusicItem) => void; onUnlike: (it: MusicItem) => void; onAdd: (hit: AttachmentHit) => void
 }) {
   const attached: AttachmentHit[] = [...data.ranked, ...data.library].map(i => ({ type: TYPEFILTER[kind], id: i.id, legacy_id: null, slug: '', title: i.title, artist: null, image_url: i.cover }))
+  const noun = kind === 'artist' ? 'atlikėją' : kind === 'album' ? 'albumą' : 'dainą'
   return (
-    <div className="flex flex-col gap-6">
-      <RankedSection kind={kind} items={data.ranked} onReorder={onReorder} onRemove={onToLibrary} />
-      <LibrarySection kind={kind} items={data.library} attached={attached} onAdd={onAdd} onToRanked={onToRanked} onUnlike={onUnlike} />
-    </div>
+    <section>
+      <RankedList kind={kind} items={data.ranked} onReorder={onReorder} onJump={onMoveToPosition} onRemove={onToLibrary} />
+      {/* Pridėjimas */}
+      <div className="mt-4 mb-2 max-w-[560px]"><MusicSearchPicker attached={attached} onAdd={onAdd} typeFilter={TYPEFILTER[kind]} placeholder={`Pridėk ${noun} į biblioteką...`} /></div>
+      <LibrarySection kind={kind} items={data.library} rankedLen={data.ranked.length} onToTop20={onToTop20} onMoveToPosition={onMoveToPosition} onUnlike={onUnlike} />
+    </section>
   )
 }
 
-// ── Mėgstami (vienas rikiuojamas sąrašas + riba ties 20) ───────────────────
-function RankedSection({ kind, items, onReorder, onRemove }: { kind: EntityTab; items: MusicItem[]; onReorder: (ids: number[]) => void; onRemove: (it: MusicItem) => void }) {
+// ── RIKIUOTAS sąrašas (Mėgstami) — drag + ▲▼ + spustelėk numerį (į vietą) ───
+function RankedList({ kind, items, onReorder, onJump, onRemove }: { kind: EntityTab; items: MusicItem[]; onReorder: (ids: number[]) => void; onJump: (it: MusicItem, pos: number) => void; onRemove: (it: MusicItem) => void }) {
   const dragId = useRef<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
   const [editPos, setEditPos] = useState<number | null>(null)
   function drop(targetId: number) { const from = dragId.current; setDragOver(null); dragId.current = null; if (from == null || from === targetId) return; const ids = items.map(i => i.id); const f = ids.indexOf(from), t = ids.indexOf(targetId); if (f < 0 || t < 0) return; ids.splice(t, 0, ids.splice(f, 1)[0]); onReorder(ids) }
   function move(id: number, dir: -1 | 1) { const ids = items.map(i => i.id); const idx = ids.indexOf(id), to = idx + dir; if (to < 0 || to >= ids.length) return; ids.splice(to, 0, ids.splice(idx, 1)[0]); onReorder(ids) }
-  function jump(id: number, pos: number) { setEditPos(null); const ids = items.map(i => i.id); const idx = ids.indexOf(id); const to = Math.max(1, Math.min(items.length, Math.floor(pos))) - 1; if (idx < 0 || to === idx) return; ids.splice(to, 0, ids.splice(idx, 1)[0]); onReorder(ids) }
-
   return (
-    <section>
+    <>
       <div className="flex items-baseline gap-2 mb-2">
         <h2 className="text-[15px] font-black flex items-center gap-1.5"><Ico name="star" size={16} /> Mėgstami</h2>
         <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span>
@@ -192,18 +186,14 @@ function RankedSection({ kind, items, onReorder, onRemove }: { kind: EntityTab; 
       </div>
       {items.length === 0 ? (
         <div className="rounded-xl px-4 py-5 text-[12px]" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>
-          Iš bibliotekos pažymėk mėgstamiausius — pirmi {PROFILE_CUTOFF} bus rodomi tavo profilyje. Tempk, rodyklėmis arba spustelėk numerį, kad keistum eilę.
+          Iš bibliotekos (žemiau) kelk mėgstamiausius į šį sąrašą — pirmi {PROFILE_CUTOFF} rodomi tavo profilyje.
         </div>
       ) : (
         <div className="flex flex-col gap-2">
           {items.map((it, idx) => (
             <div key={it.id}>
               {idx === PROFILE_CUTOFF && (
-                <div className="flex items-center gap-2 my-2 px-1">
-                  <div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} />
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>↑ Top {PROFILE_CUTOFF} rodoma profilyje</span>
-                  <div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} />
-                </div>
+                <div className="flex items-center gap-2 my-2 px-1"><div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} /><span className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>↑ Top {PROFILE_CUTOFF} rodoma profilyje</span><div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} /></div>
               )}
               <div draggable onDragStart={() => { dragId.current = it.id }} onDragOver={e => { e.preventDefault(); setDragOver(it.id) }} onDragLeave={() => setDragOver(o => o === it.id ? null : o)} onDrop={() => drop(it.id)}
                 className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors"
@@ -211,7 +201,7 @@ function RankedSection({ kind, items, onReorder, onRemove }: { kind: EntityTab; 
                 <span className="hidden sm:inline cursor-grab active:cursor-grabbing select-none text-[var(--text-faint)]" title="Tempk"><Ico name="grip" size={13} /></span>
                 {editPos === it.id ? (
                   <input autoFocus type="number" min={1} max={items.length} defaultValue={idx + 1}
-                    onKeyDown={e => { if (e.key === 'Enter') jump(it.id, Number((e.target as HTMLInputElement).value)); if (e.key === 'Escape') setEditPos(null) }} onBlur={e => jump(it.id, Number(e.target.value))}
+                    onKeyDown={e => { if (e.key === 'Enter') { setEditPos(null); onJump(it, Number((e.target as HTMLInputElement).value)) } if (e.key === 'Escape') setEditPos(null) }} onBlur={e => { setEditPos(null); onJump(it, Number(e.target.value)) }}
                     className="w-9 h-7 text-center text-[12px] font-black rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--accent-orange)', color: 'var(--text-primary)' }} />
                 ) : (
                   <button onClick={() => setEditPos(it.id)} title="Spustelėk ir įrašyk vietą" className="w-7 h-7 shrink-0 rounded-md text-[12px] font-black tabular-nums" style={{ background: 'var(--bg-elevated)', color: idx < PROFILE_CUTOFF ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{idx + 1}</button>
@@ -221,26 +211,26 @@ function RankedSection({ kind, items, onReorder, onRemove }: { kind: EntityTab; 
                   <button onClick={() => move(it.id, 1)} disabled={idx === items.length - 1} aria-label="Žemyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="down" size={11} /></button>
                 </div>
                 <Cover kind={kind} cover={it.cover} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div>
-                  <div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>{it.subtitle}</div>
-                </div>
-                <button onClick={() => onRemove(it)} title="Pašalinti iš mėgstamų (lieka bibliotekoje)" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg" style={{ color: 'var(--text-faint)' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
+                <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>{it.subtitle}</div></div>
+                <button onClick={() => onRemove(it)} title="Pašalinti iš mėgstamų (lieka bibliotekoje)" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
               </div>
             </div>
           ))}
         </div>
       )}
-    </section>
+    </>
   )
 }
 
-// ── Biblioteka (paieška + rikiavimas + puslapiavimas + style-sort) ─────────
-function LibrarySection({ kind, items, attached, onAdd, onToRanked, onUnlike }: { kind: EntityTab; items: MusicItem[]; attached: AttachmentHit[]; onAdd: (hit: AttachmentHit) => void; onToRanked: (it: MusicItem) => void; onUnlike: (it: MusicItem) => void }) {
+// ── BIBLIOTEKA — sulankstoma to paties sąrašo tąsa; paieška + kėlimas į vietą ─
+function LibrarySection({ kind, items, rankedLen, onToTop20, onMoveToPosition, onUnlike }: {
+  kind: EntityTab; items: MusicItem[]; rankedLen: number; onToTop20: (it: MusicItem) => void; onMoveToPosition: (it: MusicItem, pos: number) => void; onUnlike: (it: MusicItem) => void
+}) {
+  const [openLib, setOpenLib] = useState(rankedLen === 0)
   const [q, setQ] = useState('')
   const [sort, setSort] = useState<'recent' | 'az' | 'style'>('recent')
   const [limit, setLimit] = useState(40)
+  const [jumpId, setJumpId] = useState<number | null>(null)
   const hasStyles = useMemo(() => items.some(i => i.style), [items])
 
   const filtered = useMemo(() => {
@@ -255,59 +245,60 @@ function LibrarySection({ kind, items, attached, onAdd, onToRanked, onUnlike }: 
   const nextSort = () => setSort(s => s === 'recent' ? 'az' : s === 'az' ? (hasStyles ? 'style' : 'recent') : 'recent')
   const sortLabel = sort === 'recent' ? 'Naujausi' : sort === 'az' ? 'A–Ž' : 'Pagal stilių'
 
-  return (
-    <section>
-      <div className="flex items-baseline gap-2 mb-2">
-        <h2 className="text-[15px] font-black flex items-center gap-1.5"><Ico name="books" size={15} /> Biblioteka</h2>
-        <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span>
-        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>· visi tavo patiktukai</span>
-      </div>
-      <div className="mb-3 max-w-[560px]"><MusicSearchPicker attached={attached} onAdd={onAdd} typeFilter={TYPEFILTER[kind]} placeholder={`Pridėk ${kind === 'artist' ? 'atlikėją' : kind === 'album' ? 'albumą' : 'dainą'}...`} /></div>
+  if (items.length === 0) return (
+    <div className="mt-2 rounded-xl px-4 py-4 text-center text-[12px]" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>
+      Biblioteka tuščia — pridėk per paiešką (viršuje) arba <Link href="/perkelti" className="underline" style={{ color: 'var(--accent-orange)' }}>importuok</Link>.
+    </div>
+  )
 
-      {items.length === 0 ? (
-        <div className="rounded-2xl px-6 py-8 text-center" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)' }}>
-          <div className="text-[12.5px]" style={{ color: 'var(--text-muted)' }}>Bibliotekoje tuščia. Pridėk per paiešką arba <Link href="/perkelti" className="underline" style={{ color: 'var(--accent-orange)' }}>importuok</Link>.</div>
-        </div>
-      ) : (
-        <>
+  return (
+    <div className="mt-2">
+      <button onClick={() => setOpenLib(o => !o)} className="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
+        <span className="inline-flex items-center gap-2 text-[13.5px] font-black"><Ico name="books" size={15} /> Biblioteka <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></span>
+        <span className="inline-flex items-center gap-1 text-[11.5px] font-bold" style={{ color: 'var(--text-muted)' }}>{openLib ? 'Suskleisti' : 'Surask ir kelk į viršų'} <Ico name={openLib ? 'up' : 'down'} size={13} /></span>
+      </button>
+
+      {openLib && (
+        <div className="mt-2.5">
           <div className="flex items-center gap-2 mb-2.5">
-            <input value={q} onChange={e => { setQ(e.target.value); setLimit(40) }} placeholder="Ieškoti bibliotekoje..." className="flex-1 max-w-[320px] rounded-lg px-3 py-2 text-[12.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+            <input value={q} onChange={e => { setQ(e.target.value); setLimit(40) }} placeholder="Ieškoti bibliotekoje..." className="flex-1 max-w-[340px] rounded-lg px-3 py-2 text-[12.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
             <button onClick={nextSort} className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-[12px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>{sortLabel} <Ico name="sort" size={12} /></button>
           </div>
-          <ul className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             {shown.map(it => (
-              <li key={it.id} className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+              <div key={it.id} className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
                 <Cover kind={kind} cover={it.cover} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div>
-                  <div className="truncate text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>{it.subtitle}{it.style && <span className="rounded px-1.5 py-0.5 text-[9.5px] font-bold" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{it.style}</span>}</div>
-                </div>
-                <button onClick={() => onToRanked(it)} title="Į mėgstamus" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-bold" style={{ background: 'rgba(249,115,22,0.12)', color: '#f97316' }}><Ico name="star" size={12} /> Mėgstami</button>
-                <button onClick={() => onUnlike(it)} title="Pašalinti visai" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
-              </li>
+                <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>{it.subtitle}{it.style && <span className="rounded px-1.5 py-0.5 text-[9.5px] font-bold" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{it.style}</span>}</div></div>
+                {jumpId === it.id ? (
+                  <input autoFocus type="number" min={1} placeholder="vieta" onKeyDown={e => { if (e.key === 'Enter') { setJumpId(null); onMoveToPosition(it, Number((e.target as HTMLInputElement).value) || 1) } if (e.key === 'Escape') setJumpId(null) }} onBlur={() => setJumpId(null)}
+                    className="w-16 h-7 text-center text-[12px] font-bold rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--accent-orange)', color: 'var(--text-primary)' }} />
+                ) : (
+                  <>
+                    <button onClick={() => onToTop20(it)} title="Įkelti į Top 20" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-bold" style={{ background: 'rgba(249,115,22,0.12)', color: '#f97316' }}><Ico name="star" size={12} /> Top 20</button>
+                    <button onClick={() => setJumpId(it.id)} title="Įkelti į konkrečią vietą" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}><Ico name="target" size={12} /> Į vietą</button>
+                  </>
+                )}
+                <button onClick={() => onUnlike(it)} title="Pašalinti visai" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
+              </div>
             ))}
-          </ul>
+          </div>
           {filtered.length > limit && <div className="mt-3 text-center"><button onClick={() => setLimit(l => l + 40)} className="rounded-full px-5 py-2 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({filtered.length - limit})</button></div>}
-        </>
+          {filtered.length === 0 && <div className="text-center text-[12px] py-4" style={{ color: 'var(--text-faint)' }}>Nieko nerasta.</div>}
+        </div>
       )}
-    </section>
+    </div>
   )
 }
 
 function Cover({ kind, cover }: { kind: EntityTab; cover: string | null }) {
   return (
     <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg flex items-center justify-center" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>
-      {cover ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-      ) : <Ico name={kind === 'artist' ? 'person' : kind === 'album' ? 'disc' : 'note'} size={16} />}
+      {cover ? (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImg(cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />) : <Ico name={kind === 'artist' ? 'person' : kind === 'album' ? 'disc' : 'note'} size={16} />}
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MOOD
 function MoodSection({ moodSongs, setMoodSongs }: { moodSongs: MoodSong[]; setMoodSongs: (v: MoodSong[]) => void }) {
   function add(hit: AttachmentHit) {
     if (moodSongs.some(m => m.track_id === hit.id)) return
@@ -340,8 +331,6 @@ function MoodSection({ moodSongs, setMoodSongs }: { moodSongs: MoodSong[]; setMo
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// STYLES — barų vizualas (muzikometras) + redaguojami mėgstami stiliai
 const METER_COLORS = ['#f97316', '#a78bfa', '#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#22d3ee', '#fb7185']
 function StyleSection({ styles, setStyles, meter }: { styles: FavStyle[]; setStyles: (v: FavStyle[]) => void; meter: MeterEntry[] }) {
   const [catalog, setCatalog] = useState<{ legacy_style_id: number; style_slug: string; style_name: string }[] | null>(null)
@@ -354,7 +343,6 @@ function StyleSection({ styles, setStyles, meter }: { styles: FavStyle[]; setSty
   function drop(targetId: number) { const from = dragId.current; setDragOver(null); dragId.current = null; if (from == null || from === targetId) return; const ids = styles.map(s => s.legacy_style_id); const f = ids.indexOf(from), t = ids.indexOf(targetId); if (f < 0 || t < 0) return; ids.splice(t, 0, ids.splice(f, 1)[0]); persistOrder(ids) }
   const filtered = (catalog || []).filter(c => !styles.some(s => s.legacy_style_id === c.legacy_style_id)).filter(c => q.trim().length < 2 || c.style_name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40)
   const maxPct = meter.length ? Math.max(...meter.map(m => m.percent)) : 0
-
   return (
     <div>
       {meter.length > 0 && (
@@ -364,9 +352,7 @@ function StyleSection({ styles, setStyles, meter }: { styles: FavStyle[]; setSty
             {[...meter].sort((a, b) => b.percent - a.percent).map((m, i) => (
               <div key={m.name} className="flex items-center gap-2.5">
                 <div className="w-24 shrink-0 text-[11.5px] font-bold truncate" style={{ color: 'var(--text-secondary)' }}>{m.name}</div>
-                <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
-                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${maxPct ? Math.round((m.percent / maxPct) * 100) : 0}%`, background: METER_COLORS[i % METER_COLORS.length] }} />
-                </div>
+                <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${maxPct ? Math.round((m.percent / maxPct) * 100) : 0}%`, background: METER_COLORS[i % METER_COLORS.length] }} /></div>
                 <div className="w-9 text-right text-[11px] font-bold tabular-nums" style={{ color: 'var(--text-faint)' }}>{Math.round(m.percent)}%</div>
               </div>
             ))}
@@ -389,9 +375,7 @@ function StyleSection({ styles, setStyles, meter }: { styles: FavStyle[]; setSty
               className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 cursor-grab active:cursor-grabbing" style={{ background: 'var(--bg-surface)', border: `1px solid ${dragOver === s.legacy_style_id ? 'var(--accent-orange)' : 'var(--border-default)'}` }}>
               <span className="hidden sm:inline text-[var(--text-faint)]"><Ico name="grip" size={13} /></span>
               <span className="w-6 text-center text-[11px] font-black tabular-nums" style={{ color: 'var(--text-faint)' }}>{idx + 1}</span>
-              <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
-                <div className="h-full rounded-full" style={{ width: `${Math.max(12, 100 - idx * 7)}%`, background: METER_COLORS[idx % METER_COLORS.length] }} />
-              </div>
+              <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full" style={{ width: `${Math.max(12, 100 - idx * 7)}%`, background: METER_COLORS[idx % METER_COLORS.length] }} /></div>
               <span className="text-[12.5px] font-bold w-32 truncate text-right">{s.style_name}</span>
               <button onClick={() => remove(s.legacy_style_id)} title="Pašalinti" className="h-6 w-6 inline-flex items-center justify-center rounded-full" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={11} /></button>
             </div>
@@ -402,13 +386,10 @@ function StyleSection({ styles, setStyles, meter }: { styles: FavStyle[]; setSty
   )
 }
 
-function Empty({ hint }: { hint: string }) {
-  return <div className="rounded-2xl px-6 py-10 text-center" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)' }}><div className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{hint}</div></div>
-}
+function Empty({ hint }: { hint: string }) { return <div className="rounded-2xl px-6 py-10 text-center" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)' }}><div className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{hint}</div></div> }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ICONS (inline SVG — be emoji)
-type IcoName = 'person' | 'disc' | 'note' | 'moon' | 'sliders' | 'star' | 'books' | 'download' | 'eye' | 'x' | 'up' | 'down' | 'grip' | 'sort' | 'sparkle'
+// ── ICONS (inline SVG) ─────────────────────────────────────────────────────
+type IcoName = 'person' | 'disc' | 'note' | 'moon' | 'sliders' | 'star' | 'books' | 'download' | 'eye' | 'x' | 'up' | 'down' | 'grip' | 'sort' | 'sparkle' | 'target'
 function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
   const p: Record<IcoName, ReactNode> = {
     person: <><circle cx="12" cy="8" r="4" /><path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" /></>,
@@ -421,11 +402,11 @@ function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
     download: <><path d="M12 3v12M7 11l5 4 5-4" /><path d="M5 20h14" /></>,
     eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="2.5" /></>,
     x: <path d="M5 5l14 14M19 5L5 19" />,
-    up: <path d="M6 15l6-6 6 6" />,
-    down: <path d="M6 9l6 6 6-6" />,
+    up: <path d="M6 15l6-6 6 6" />, down: <path d="M6 9l6 6 6-6" />,
     grip: <><circle cx="9" cy="6" r="1.3" /><circle cx="9" cy="12" r="1.3" /><circle cx="9" cy="18" r="1.3" /><circle cx="15" cy="6" r="1.3" /><circle cx="15" cy="12" r="1.3" /><circle cx="15" cy="18" r="1.3" /></>,
     sort: <path d="M7 4v16M7 20l-3-3M7 4l3 3M17 20V4M17 4l3 3M17 20l-3-3" />,
     sparkle: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />,
+    target: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /></>,
   }
   const filled = name === 'star' || name === 'grip' || name === 'sparkle'
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={name === 'x' || name === 'up' || name === 'down' ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>{p[name]}</svg>
