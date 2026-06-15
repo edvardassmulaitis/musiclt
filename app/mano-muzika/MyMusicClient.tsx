@@ -180,7 +180,7 @@ function CollectionPanel({ kind, data, onMove, onUnlike, onAdd }: {
   const noun = kind === 'artist' ? 'atlikėją' : kind === 'album' ? 'albumą' : 'dainą'
   const main = (
     <>
-      <div className="mb-3 max-w-[560px]"><MusicSearchPicker attached={attached} onAdd={onAdd} typeFilter={TYPEFILTER[kind]} placeholder={`Surask ir pridėk ${noun}...`} /></div>
+      <div className="mb-4"><MusicSearchPicker attached={attached} onAdd={onAdd} typeFilter={TYPEFILTER[kind]} placeholder={`Surask ir pridėk ${noun}...`} /></div>
       <OneList kind={kind} items={items} onMove={onMove} onUnlike={onUnlike} />
     </>
   )
@@ -234,8 +234,8 @@ function SuggestionsPanel({ kind, ownedIds, onAdd }: { kind: EntityTab; ownedIds
             <li key={t.id} className="group flex items-center gap-2 rounded-xl px-2 py-1.5" style={{ background: 'var(--bg-elevated)' }}>
               <Cover kind={kind} cover={t.cover_url} />
               <div className="min-w-0 flex-1"><div className="truncate text-[12.5px] font-bold">{t.title}</div><div className="truncate text-[10.5px]" style={{ color: 'var(--text-muted)' }}>{t.artist?.name || fallbackLabel}</div></div>
-              <button onClick={() => pick(t)} title="Pridėti į mėgstamus" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-full transition-colors hover:brightness-110" style={{ border: '1px solid #ef4444', color: '#ef4444' }}><Ico name="heart" size={13} /></button>
-              <button onClick={() => dismiss(t)} title="Paslėpti — daugiau nesiūlyti" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-full opacity-50 group-hover:opacity-100 transition" style={{ color: 'var(--text-faint)' }}><Ico name="x" size={13} /></button>
+              <button onClick={() => pick(t)} title="Pridėti į mėgstamus" className="shrink-0 h-7 w-7 inline-flex items-center justify-center transition hover:scale-110" style={{ color: 'var(--accent-orange)' }}><Ico name="heart" size={16} /></button>
+              <button onClick={() => dismiss(t)} title="Paslėpti — daugiau nesiūlyti" className="shrink-0 h-7 w-7 inline-flex items-center justify-center opacity-45 group-hover:opacity-100 transition" style={{ color: 'var(--text-faint)' }}><Ico name="x" size={14} /></button>
             </li>
           ))}
         </ul>
@@ -272,7 +272,7 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
   return (
     <div>
       <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-        <h2 className="text-[15px] font-black flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><span style={{ color: '#ef4444' }}><Ico name="heartFull" size={15} /></span> Mėgstami <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></h2>
+        <h2 className="text-[15px] font-black flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><span style={{ color: 'var(--accent-orange)' }}><Ico name="heartFull" size={15} /></span> Mėgstami <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></h2>
         {items.length > 0 && (
           <div className="flex items-center gap-2">
             <input value={q} onChange={e => { setQ(e.target.value); setLimit(60) }} placeholder="Ieškoti sąraše..." className="w-[200px] sm:w-[240px] rounded-lg px-3 py-1.5 text-[12.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
