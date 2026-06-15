@@ -19,10 +19,15 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(dest, 308)
   }
 
-  // Atlikėjo studija perkelta /studija → /atlikejams/studija (2026-06-15).
+  // Atlikėjo zona: seni keliai → /atlikejams/zona (2026-06-15).
   if (pathname === '/studija' || pathname.startsWith('/studija/')) {
     const dest = url.clone()
-    dest.pathname = pathname.replace(/^\/studija/, '/atlikejams/studija')
+    dest.pathname = pathname.replace(/^\/studija/, '/atlikejams/zona')
+    return NextResponse.redirect(dest, 308)
+  }
+  if (pathname === '/atlikejams/studija' || pathname.startsWith('/atlikejams/studija/')) {
+    const dest = url.clone()
+    dest.pathname = pathname.replace(/^\/atlikejams\/studija/, '/atlikejams/zona')
     return NextResponse.redirect(dest, 308)
   }
 

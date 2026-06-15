@@ -8,12 +8,12 @@ import { getTeamArtists } from '@/lib/artist-studio'
 import StudioNav from './StudioNav'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'Atlikėjo studija | music.lt' }
+export const metadata = { title: 'Atlikėjo zona | music.lt' }
 
 export default async function StudioLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions)
   const profile = await resolveProfile(session)
-  if (!profile?.id) redirect('/auth/signin?callbackUrl=/atlikejams/studija')
+  if (!profile?.id) redirect('/auth/signin?callbackUrl=/atlikejams/zona')
 
   const artists = await getTeamArtists(profile.id)
 

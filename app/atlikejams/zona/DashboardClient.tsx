@@ -139,6 +139,9 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
               <div key={p.id} className="group relative h-[92px] w-[124px] shrink-0 overflow-hidden rounded-[10px] border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
                 <img src={p.url} alt="" className="h-full w-full object-cover" />
                 {(isHero || isProf) && <span className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white ${isHero ? 'bg-[var(--accent-orange)]' : 'bg-black/60'}`}>{isHero ? 'Hero' : 'Profilis'}</span>}
+                <button onClick={() => { if (confirm('Pašalinti nuotrauką?')) photoAct('delete', p.url, p.id) }} title="Pašalinti" className="absolute right-1.5 top-1.5 z-10 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                </button>
                 <div className="absolute inset-0 flex flex-col justify-end gap-1 bg-gradient-to-t from-black/85 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100">
                   <button onClick={() => photoAct('hero', p.url)} className="rounded-md bg-[var(--accent-orange)] py-1 text-[10px] font-semibold text-white">Hero</button>
                   <button onClick={() => photoAct('profile', p.url)} className="rounded-md border border-white/20 bg-white/10 py-1 text-[10px] font-semibold text-white">Profilis</button>
@@ -213,10 +216,10 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
       {/* MORE */}
       <div className={gt}>Daugiau</div>
       <div className="grid gap-2.5 sm:grid-cols-4">
-        <More href={`/atlikejams/studija/profilis?a=${artist.id}`} title="Profilio info" sub="Aprašymas, metai, nariai" />
-        <More href={`/atlikejams/studija/fanai?a=${artist.id}`} title="Fanai ir žinutės" sub={`${stats.likes} patinka · rašyk`} />
-        <More href={`/atlikejams/studija/profilis?a=${artist.id}`} title="Soc. nuorodos" sub="Spotify, svetainė…" />
-        <More href={`/atlikejams/studija/socialiniai?a=${artist.id}`} title="Soc. įrašai / YouTube" sub="Auto-feed, embed" />
+        <More href={`/atlikejams/zona/profilis?a=${artist.id}`} title="Profilio info" sub="Aprašymas, metai, nariai" />
+        <More href={`/atlikejams/zona/fanai?a=${artist.id}`} title="Fanai ir žinutės" sub={`${stats.likes} patinka · rašyk`} />
+        <More href={`/atlikejams/zona/profilis?a=${artist.id}`} title="Soc. nuorodos" sub="Spotify, svetainė…" />
+        <More href={`/atlikejams/zona/socialiniai?a=${artist.id}`} title="Soc. įrašai / YouTube" sub="Auto-feed, embed" />
       </div>
 
       {/* COMPLETENESS */}

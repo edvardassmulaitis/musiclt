@@ -1218,7 +1218,8 @@ async function ArtistContent({ artist }: { artist: any }) {
   // Score breakdown — public artist puslapis NIEKADA jo nerodo, net jei
   // žiūri admin'as. Score'ą redaguoji per /admin/artists/[id] (atskiras puslapis,
   // ten yra full Reitingas modalas). Public — tik catalog metadata.
-  return (
+  const _accent = (artist as any).accent_color
+  const inner = (
     <>
       <script
         type="application/ld+json"
@@ -1252,4 +1253,5 @@ async function ArtistContent({ artist }: { artist: any }) {
     <ArtistSocialSection artistId={artist.id} slug={artist.slug} name={artist.name} isClaimed={(artist as any).is_claimed} />
     </>
   )
+  return _accent ? <div style={{ ['--accent-orange' as any]: _accent, ['--accent-link' as any]: _accent }}>{inner}</div> : inner
 }

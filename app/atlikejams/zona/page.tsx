@@ -22,8 +22,8 @@ export default async function StudioDashboard({ searchParams }: { searchParams: 
   const [artistRow, genresRes, tracksRes, photosRes, likesRes, followRes, embedsRes, evRes] = await Promise.all([
     sb.from('artists').select('id, slug, name, cover_image_url, cover_image_wide_url, description, profile_theme, accent_color, hidden_sections, page_view_count, legacy_likes').eq('id', active.id).maybeSingle(),
     sb.from('artist_genres').select('genres(id, name)').eq('artist_id', active.id),
-    sb.from('tracks').select('id, title, slug, video_url, video_uploaded_at, video_views, is_pinned').eq('artist_id', active.id).order('is_pinned', { ascending: false }).order('video_uploaded_at', { ascending: false, nullsFirst: false }).limit(12),
-    sb.from('artist_photos').select('id, url, caption, is_active').eq('artist_id', active.id).eq('is_active', true).order('sort_order').limit(16),
+    sb.from('tracks').select('id, title, slug, video_url, video_uploaded_at, video_views, is_pinned').eq('artist_id', active.id).order('is_pinned', { ascending: false }).order('video_uploaded_at', { ascending: false, nullsFirst: false }).limit(5),
+    sb.from('artist_photos').select('id, url, caption, is_active, sort_order').eq('artist_id', active.id).eq('is_active', true).order('sort_order').limit(16),
     sb.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'artist').eq('entity_id', active.id),
     sb.from('artist_follows').select('*', { count: 'exact', head: true }).eq('artist_id', active.id),
     sb.from('artist_social_embeds').select('*', { count: 'exact', head: true }).eq('artist_id', active.id).eq('is_active', true),
@@ -34,8 +34,9 @@ export default async function StudioDashboard({ searchParams }: { searchParams: 
   const genres = (genresRes.data || []).map((g: any) => g.genres).filter(Boolean)
   const tracks = (tracksRes.data || []) as any[]
 
-  // Top 40 būsenos
-  const trackIds = tracks.map((t) => t.id)
+  // Top 40 būsenos — skaičiuojam pagal VISAS atlikėjo dainas (ne tik rodomas 5)
+  const { data: allIdRows } = await sb.from('tracks').select('id').eq('artist_id', active.id)
+  const trackIds = (allIdRows || []).map((t: any) => t.id)
   let topEntries: Record<number, { weeks: number; pos: number }> = {}
   let pendingIds = new Set<number>()
   if (trackIds.length) {

@@ -12,7 +12,7 @@ export default function EmptyStudio() {
         siųsk jiems naujienas ir matyk, kas tave klauso.
       </p>
       <Link
-        href="/atlikejams/studija/prisijungti"
+        href="/atlikejams/zona/prisijungti"
         className="mt-4 inline-block rounded-full bg-[var(--accent-orange)] px-5 py-2.5 text-sm font-semibold text-white"
       >
         Pasiimti profilį

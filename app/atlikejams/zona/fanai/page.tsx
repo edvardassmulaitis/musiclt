@@ -49,7 +49,7 @@ export default async function StudioFans({ searchParams }: { searchParams: Promi
       </p>
 
       <div className="mt-4">
-        <Link href={`/atlikejams/studija/zinutes?a=${active.id}`} className="rounded-full bg-[var(--accent-orange)] px-4 py-2 text-sm font-semibold text-white">✉️ Parašyti fanams</Link>
+        <Link href={`/atlikejams/zona/zinutes?a=${active.id}`} className="rounded-full bg-[var(--accent-orange)] px-4 py-2 text-sm font-semibold text-white">✉️ Parašyti fanams</Link>
       </div>
 
       <h2 className="mt-7 font-['Outfit',sans-serif] text-lg font-bold text-[var(--text-primary)]">Naujausi fanai</h2>
