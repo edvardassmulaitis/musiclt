@@ -1043,6 +1043,29 @@ export default function TopChartView({
         }
         .tcv-thumb:hover .tcv-play-btn { transform: scale(1.08); }
 
+        /* Topo pavadinimas + veiksmai uždėti ANT player'io (consistent su
+           /topai pilno topo vaizdu — nebėra atskiro bulky header'io). */
+        .tcv-player-shell { position: relative; }
+        .tcv-vtitle {
+          position: absolute; top: 0; left: 0; right: 0;
+          padding: 11px 14px 26px;
+          background: linear-gradient(rgba(0,0,0,0.72), rgba(0,0,0,0));
+          pointer-events: none; z-index: 3; border-radius: 16px 16px 0 0;
+        }
+        .tcv-vtitle-h1 {
+          margin: 0; font-family: 'Outfit', sans-serif;
+          font-size: 17px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.15;
+          color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,0.55);
+        }
+        .tcv-vactions {
+          position: absolute; top: 8px; right: 8px; z-index: 4;
+          display: flex; gap: 6px; align-items: flex-start;
+        }
+        @media (max-width: 880px) {
+          .tcv-vtitle { border-radius: 12px 12px 0 0; padding: 9px 12px 22px; }
+          .tcv-vtitle-h1 { font-size: 15px; }
+        }
+
         .tcv-player-info { padding: 16px 18px; }
         .tcv-player-pos { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
         .tcv-pos-num { font-size: 14px; font-weight: 900; }
@@ -1298,50 +1321,6 @@ export default function TopChartView({
         {backHref && (
           <Link href={backHref} className="tcv-back-link">← Visas archyvas</Link>
         )}
-        {/* Hero — title + + + ⋮. Countdown perkeltas į info popover'į. */}
-        <div className="tcv-hero">
-          <h1 className="tcv-title">{title}</h1>
-          <div className="tcv-hero-actions">
-            <button
-              className="tcv-suggest-btn"
-              onClick={() => setShowSuggest(true)}
-              aria-label="Siūlyti dainą"
-              title="Siūlyti dainą"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-              <span className="tcv-suggest-label">Siūlyti dainą</span>
-            </button>
-
-            <div className="tcv-info-wrap" ref={infoRef}>
-              <button
-                className="tcv-info-btn"
-                onClick={() => setShowInfo(s => !s)}
-                aria-label="Apie topą"
-                title="Apie topą"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
-              </button>
-              {showInfo && (
-                <div className="tcv-info-popover">
-                  <h4>Apie {title}</h4>
-                  <p>{subtitle}</p>
-                  {data.week?.vote_close && (
-                    <div className="tcv-info-countdown">
-                      <div className="tcv-info-countdown-label">Iki šios savaitės pabaigos</div>
-                      <div className="tcv-info-countdown-value">
-                        <Countdown targetDate={data.week.vote_close} />
-                      </div>
-                    </div>
-                  )}
-                  <p className="tcv-info-link-hint">
-                    Pilnas balsavimo reglamentas — žemiau, „Topo taisyklės" sekcijoje.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* Anon hint — TIK kai jau prabalsavo. Be ikonos ir be Prisijungti button'o. */}
         {!session && Object.values(votesPerTrack).reduce((s, v) => s + v, 0) > 0 && (
           <div className="tcv-anon-hint">
@@ -1409,7 +1388,50 @@ export default function TopChartView({
                 Tvarka: Player → Naujienos → Iškritę → Siūlyk dainą → Topo archyvas */}
             <div className="tcv-right-col">
               <div className="tcv-sticky">
-                <Player entry={activeEntry} accent={accent} />
+                <div className="tcv-player-shell">
+                  <Player entry={activeEntry} accent={accent} />
+                  {/* Topo pavadinimas — uždėtas ant player'io (vietoj header'io). */}
+                  <div className="tcv-vtitle"><h1 className="tcv-vtitle-h1">{title}</h1></div>
+                  {/* Veiksmai — Siūlyti dainą + ⋮ info (su countdown popover'iu). */}
+                  <div className="tcv-vactions">
+                    <button
+                      className="tcv-suggest-btn"
+                      onClick={() => setShowSuggest(true)}
+                      aria-label="Siūlyti dainą"
+                      title="Siūlyti dainą"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                      <span className="tcv-suggest-label">Siūlyti dainą</span>
+                    </button>
+                    <div className="tcv-info-wrap" ref={infoRef}>
+                      <button
+                        className="tcv-info-btn"
+                        onClick={() => setShowInfo(s => !s)}
+                        aria-label="Apie topą"
+                        title="Apie topą"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
+                      </button>
+                      {showInfo && (
+                        <div className="tcv-info-popover">
+                          <h4>Apie {title}</h4>
+                          <p>{subtitle}</p>
+                          {data.week?.vote_close && (
+                            <div className="tcv-info-countdown">
+                              <div className="tcv-info-countdown-label">Iki šios savaitės pabaigos</div>
+                              <div className="tcv-info-countdown-value">
+                                <Countdown targetDate={data.week.vote_close} />
+                              </div>
+                            </div>
+                          )}
+                          <p className="tcv-info-link-hint">
+                            Pilnas balsavimo reglamentas — žemiau, „Topo taisyklės" sekcijoje.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
               {newcomers.length > 0 && (
                 <div className="tcv-newcomers-panel">
