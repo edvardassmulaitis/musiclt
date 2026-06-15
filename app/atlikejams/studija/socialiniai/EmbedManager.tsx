@@ -13,19 +13,27 @@ export default function EmbedManager({ artistId, initial }: { artistId: number; 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
-  const platform = url.trim() ? detectPlatform(url.trim()) : null
+  const lines = url.split(/[\n\s]+/).map((l) => l.trim()).filter(Boolean)
+  const platform = lines[0] ? detectPlatform(lines[0]) : null
 
   async function add() {
+    if (!lines.length) return
     setBusy(true); setErr(null)
-    try {
-      const r = await fetch('/api/studija/embeds', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ artistId, url, caption }),
-      })
-      const d = await r.json()
-      if (d.ok && d.embed) { setEmbeds((p) => [d.embed, ...p]); setUrl(''); setCaption('') }
-      else setErr(d.error || 'Nepavyko pridėti')
-    } catch { setErr('Klaida') }
+    let added = 0; const fails: string[] = []
+    for (const u of lines) {
+      try {
+        const r = await fetch('/api/studija/embeds', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          // Pavadinimą taikom tik kai dedama viena nuoroda.
+          body: JSON.stringify({ artistId, url: u, caption: lines.length === 1 ? caption : '' }),
+        })
+        const d = await r.json()
+        if (d.ok && d.embed) { setEmbeds((p) => [d.embed, ...p]); added++ }
+        else fails.push(d.error || u)
+      } catch { fails.push(u) }
+    }
+    if (added > 0) { setUrl(''); setCaption('') }
+    if (fails.length) setErr(`Pridėta ${added}, nepavyko ${fails.length}: ${fails[0]}`)
     setBusy(false)
   }
 
@@ -44,16 +52,21 @@ export default function EmbedManager({ artistId, initial }: { artistId: number; 
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5">
         <div className="font-['Outfit',sans-serif] text-base font-bold text-[var(--text-primary)]">Pridėti socialinį postą</div>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Įklijuok Instagram, Facebook, TikTok, YouTube ar X posto nuorodą — jis atsiras tavo anketoje.
+          Įklijuok Instagram, Facebook, TikTok, YouTube ar X posto nuorodą — ji atsiras tavo anketoje.
+          Gali dėti <b>kelias iš karto</b> — po vieną nuorodą kiekvienoje eilutėje.
         </p>
         <div className="mt-3 space-y-2">
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://instagram.com/p/..." className={inputCls} />
-          {platform && <div className="text-xs text-[var(--text-muted)]">Atpažinta: {PLATFORM_LABEL[platform]}</div>}
-          <input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Pavadinimas (nebūtina)" className={inputCls} />
+          <textarea value={url} onChange={(e) => setUrl(e.target.value)} rows={3}
+            placeholder={"https://instagram.com/p/...\nhttps://instagram.com/p/...\nhttps://youtu.be/..."}
+            className={`${inputCls} resize-y`} />
+          {lines.length > 1
+            ? <div className="text-xs text-[var(--text-muted)]">{lines.length} nuorodos bus pridėtos</div>
+            : platform && <div className="text-xs text-[var(--text-muted)]">Atpažinta: {PLATFORM_LABEL[platform]}</div>}
+          {lines.length <= 1 && <input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Pavadinimas (nebūtina)" className={inputCls} />}
           <div className="flex items-center gap-3">
-            <button onClick={add} disabled={busy || !url.trim()}
+            <button onClick={add} disabled={busy || !lines.length}
               className="rounded-full bg-[var(--accent-orange)] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60">
-              {busy ? 'Pridedama…' : 'Pridėti'}
+              {busy ? 'Pridedama…' : (lines.length > 1 ? `Pridėti ${lines.length}` : 'Pridėti')}
             </button>
             {err && <span className="text-sm text-[var(--accent-red)]">{err}</span>}
           </div>
