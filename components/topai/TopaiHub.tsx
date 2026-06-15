@@ -38,6 +38,41 @@ const SOURCE_LINKS: Record<string, { label: string; slug: string }[]> = {
   ],
 }
 
+// Individualūs šaltinių chart'ai, iš kurių sudaromi „consensus" topai —
+// rodomi kaip atskiros kortelės po pagrindiniais (Edvardo prašymu: kad
+// pvz. JAV nerodytų tik vieno topo). Tik is_current chart'ai turės įrašų;
+// kiti automatiškai iškrenta (toCard → null). country=null + globe rodo
+// pasaulio ikoną.
+const SOURCE_CARDS: { slug: string; region: Region; ctype: Ctype; country?: string | null; globe?: boolean }[] = [
+  // LT dainos
+  { slug: 'agata-singles', region: 'lt', ctype: 'songs', country: 'lt' },
+  { slug: 'apple-lt_songs', region: 'lt', ctype: 'songs', country: 'lt' },
+  { slug: 'spotify-lt', region: 'lt', ctype: 'songs', country: 'lt' },
+  { slug: 'mama-top40', region: 'lt', ctype: 'songs', country: 'lt' },
+  // Pasaulis
+  { slug: 'spotify-global', region: 'world', ctype: 'songs', globe: true },
+  { slug: 'billboard-global200', region: 'world', ctype: 'songs', globe: true },
+  // JAV
+  { slug: 'apple-us_songs', region: 'us', ctype: 'songs', country: 'us' },
+  { slug: 'spotify-us', region: 'us', ctype: 'songs', country: 'us' },
+  { slug: 'billboard-hot100', region: 'us', ctype: 'songs', country: 'us' },
+  { slug: 'shazam-us', region: 'us', ctype: 'songs', country: 'us' },
+  // UK
+  { slug: 'apple-gb_songs', region: 'uk', ctype: 'songs', country: 'gb' },
+  { slug: 'spotify-uk', region: 'uk', ctype: 'songs', country: 'gb' },
+  { slug: 'official_uk-singles', region: 'uk', ctype: 'songs', country: 'gb' },
+  { slug: 'shazam-uk', region: 'uk', ctype: 'songs', country: 'gb' },
+  // Kitos Shazam šalys → po Pasaulis
+  { slug: 'shazam-de', region: 'world', ctype: 'songs', country: 'de' },
+  { slug: 'shazam-fr', region: 'world', ctype: 'songs', country: 'fr' },
+  { slug: 'shazam-br', region: 'world', ctype: 'songs', country: 'br' },
+  { slug: 'shazam-es', region: 'world', ctype: 'songs', country: 'es' },
+  { slug: 'shazam-mx', region: 'world', ctype: 'songs', country: 'mx' },
+  // Albumai (šaltiniai)
+  { slug: 'billboard-albums', region: 'world', ctype: 'albums', country: 'us' },
+  { slug: 'official_uk-albums', region: 'world', ctype: 'albums', country: 'gb' },
+]
+
 function ytThumb(url: string | null | undefined): string | null {
   if (!url) return null
   const m = String(url).match(/(?:v=|youtu\.be\/|embed\/|shorts\/|\/vi\/)([\w-]{11})/)
@@ -146,7 +181,15 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
   ]
   const communityCards = communityAll.filter((c) => c.entries.length > 0)
 
-  const allCards = [...songCards, ...albumCards, ...communityCards]
+  // Prisidedantys šaltinių topai (rodomi po consensus kortelėmis).
+  const sourceCards: Card[] = SOURCE_CARDS
+    .map((s) => toCard(ext, s.slug, s.region, s.ctype,
+      s.globe ? { globe: true, country: null } : { country: s.country }))
+    .filter(Boolean) as Card[]
+
+  // Tvarka: consensus (song+album) → šaltiniai. Community atskiriamas
+  // renderyje (rodomas pirmas).
+  const allCards = [...songCards, ...albumCards, ...sourceCards, ...communityCards]
 
   // ── Filtravimas pagal view ──
   const isRegion = (['lt', 'world', 'us', 'uk'] as TopaiView[]).includes(view)
@@ -157,22 +200,13 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
     return true
   })
 
-  // ── Grupavimas į sekcijas (tik netuščios) ──
-  // 1) Music.lt bendruomenės topai VIRŠUJE (by default).
-  // 2) Dainos + albumai sulieti į vieną bendrą sąrašą (be atskiro albumų
-  //    filtro/sekcijos — Edvardo prašymu). songCards eina prieš albumCards,
-  //    tad albumai natūraliai prikabinami sąrašo gale.
-  const communityVisible = visible.filter((c) => c.ctype === 'community')
-  const chartVisible = visible.filter((c) => c.ctype !== 'community')
-  // Bendro sąrašo antraštė pagal aktyvų tipą (landing'ams /topai/dainos, /albumai).
-  const chartTitle = view === 'songs' ? 'Dainų topai'
-    : view === 'albums' ? 'Albumų topai'
-    : 'Dainų ir albumų topai'
-  const sections: { key: string; title: string; cards: Card[] }[] = []
-  if (communityVisible.length > 0)
-    sections.push({ key: 'community', title: 'Music.lt topai', cards: communityVisible })
-  if (chartVisible.length > 0)
-    sections.push({ key: 'charts', title: chartTitle, cards: chartVisible })
+  // ── Vienas bendras tinklelis, be sekcijų antraščių (Edvardo prašymu:
+  // mažiau dubliuojančio teksto, fokusas į muziką). Music.lt bendruomenės
+  // kortelės rodomos pirmos; toliau consensus + šaltinių topai. ──
+  const orderedCards = [
+    ...visible.filter((c) => c.ctype === 'community'),
+    ...visible.filter((c) => c.ctype !== 'community'),
+  ]
 
   const info = VIEW_INFO[view]
   const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://music.lt'
@@ -220,24 +254,11 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
         {info.h1}
       </h1>
 
-      {sections.length === 0 ? (
+      {orderedCards.length === 0 ? (
         <div className="tp-none">Šios kategorijos topai šiuo metu formuojasi.</div>
       ) : (
-        sections.map((s) => (
-          <section key={s.key} className="tp-section">
-            <h2 className="tp-sec-title">{s.title}</h2>
-            <div className="tp-grid">{s.cards.map((c) => <ChartCard key={c.key} card={c} cta="Pilnas →" />)}</div>
-          </section>
-        ))
+        <div className="tp-grid">{orderedCards.map((c) => <ChartCard key={c.key} card={c} />)}</div>
       )}
-
-      {/* Archyvas — apačioje. */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
-        <Link href="/topai/archyvas" className="tp-archive-link">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-          Praėjusių savaičių archyvas →
-        </Link>
-      </div>
     </div>
   )
 }
@@ -252,13 +273,13 @@ function Flag({ country, image }: { country: string | null; image: string | null
   if (image) return <span className="tc-flag" style={{ backgroundImage: `url(${proxyImg(image, 120)})` }} aria-hidden />
   return (
     <span className="tc-flag tc-flag-globe" aria-hidden>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3.5 9.5h17M3.5 14.5h17" /><path d="M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18" /></svg>
     </span>
   )
 }
 
 /* ───────────────────────────── ChartCard ───────────────────────────── */
-function ChartCard({ card, cta }: { card: Card; cta: string }) {
+function ChartCard({ card }: { card: Card }) {
   const accent = card.accent
   const entries = card.entries.slice(0, 5)
   const top = entries[0]
@@ -269,7 +290,6 @@ function ChartCard({ card, cta }: { card: Card; cta: string }) {
         <div className="tc-head">
           {!card.noFlag && <Flag country={card.country} image={card.coverImageUrl} />}
           <span className="tc-title">{card.title}</span>
-          <span className="tc-cta">{cta}</span>
         </div>
         {entries.length === 0 ? (
           <div className="tc-empty">Sąrašas formuojasi</div>
@@ -302,15 +322,17 @@ function ChartCard({ card, cta }: { card: Card; cta: string }) {
           </>
         )}
       </Link>
-      <Link href={card.href} className="tc-cta-btn">Visas topas →</Link>
       {card.sources.length > 0 && (
-        <div className="tc-srcs">
-          <span className="tc-srcs-label">Šaltiniai:</span>
-          {card.sources.map((s, i) => (
-            <span key={s.slug}>{i > 0 && <span className="tc-sep">·</span>}<Link href={`/topai/${s.slug}`} className="tc-src">{s.label}</Link></span>
+        <div className="tc-srcs" aria-label="Šaltiniai">
+          <span className="tc-srcs-ico" aria-hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </span>
+          {card.sources.map((s) => (
+            <Link key={s.slug} href={`/topai/${s.slug}`} className="tc-src">{s.label}</Link>
           ))}
         </div>
       )}
+      <Link href={card.href} className="tc-cta-btn">Daugiau →</Link>
     </div>
   )
 }
@@ -318,32 +340,24 @@ function ChartCard({ card, cta }: { card: Card; cta: string }) {
 /* ───────────────────────────── Styles ───────────────────────────── */
 const styles = `
   .tp { max-width: var(--page-max); margin: 0 auto; padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); color: var(--text-primary); font-family: 'DM Sans', sans-serif; }
-  .tp-archive-link { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--text-secondary); text-decoration: none; background: var(--bg-surface); border: 1px solid var(--border-subtle); transition: color .15s, border-color .15s, background .15s; }
-  .tp-archive-link:hover { color: var(--text-primary); border-color: var(--border-default); background: var(--bg-elevated); }
-  .tp-archive-link svg { flex-shrink: 0; }
   @media (max-width: 640px) { .tp { padding-left: var(--page-pad-x-sm); padding-right: var(--page-pad-x-sm); } }
 
   .tp-none { padding: 60px 0; text-align: center; color: var(--text-muted); font-size: 14px; }
-  .tp-section { margin-top: 30px; }
-  .tp-section:first-of-type { margin-top: 4px; }
-  .tp-sec-title { margin: 0 0 14px; font-family: 'Outfit', sans-serif; font-size: var(--section-title-size); font-weight: var(--section-title-weight); letter-spacing: var(--section-title-tracking); }
 
-  .tp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .tp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px; }
   @media (max-width: 760px) { .tp-grid { grid-template-columns: 1fr; } }
 
   .tc { display: flex; flex-direction: column; border-radius: 16px; background: var(--bg-surface); border: 1px solid var(--border-subtle); overflow: hidden; transition: transform .16s, box-shadow .16s, border-color .16s; }
   .tc:hover { transform: translateY(-2px); box-shadow: 0 18px 38px rgba(0,0,0,0.10); border-color: var(--border-default); }
   .tc-brand { --c: #6366f1; }
   .tc-brand:hover { border-color: var(--c); }
-  .tc-main { display: flex; flex-direction: column; padding: 16px 16px 8px; text-decoration: none; color: inherit; }
+  .tc-main { display: flex; flex-direction: column; flex: 1 1 auto; padding: 16px 16px 8px; text-decoration: none; color: inherit; }
 
   .tc-head { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
   .tc-flag { width: 40px; height: 28px; flex-shrink: 0; border-radius: 6px; background-size: cover; background-position: center; box-shadow: 0 0 0 1px var(--border-subtle); display: inline-block; }
   .tc-flag-globe { display: inline-flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); }
   .tc-title { flex: 1; min-width: 0; font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tc-brand .tc-title { color: var(--c); }
-  .tc-cta { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--text-muted); }
-  .tc:hover .tc-cta { color: var(--text-secondary); }
   .tc-cta-btn { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 4px 16px 14px; padding: 9px 12px; border-radius: 10px; font-size: 13px; font-weight: 800; color: var(--accent-orange); text-decoration: none; background: var(--bg-elevated); border: 1px solid var(--border-subtle); transition: background .14s, border-color .14s; }
   .tc-cta-btn:hover { background: var(--bg-surface); border-color: var(--accent-orange); }
 
@@ -369,9 +383,10 @@ const styles = `
 
   .tc-empty { padding: 30px 0; text-align: center; color: var(--text-muted); font-size: 13px; }
 
-  .tc-srcs { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 10px 16px; margin-top: auto; border-top: 1px solid var(--border-subtle); background: var(--bg-elevated); }
-  .tc-srcs-label { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-right: 2px; }
-  .tc-src { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); text-decoration: none; }
-  .tc-src:hover { color: var(--text-primary); text-decoration: underline; }
+  .tc-srcs { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; padding: 9px 16px; border-top: 1px solid var(--border-subtle); background: var(--bg-elevated); overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+  .tc-srcs::-webkit-scrollbar { display: none; }
+  .tc-srcs-ico { flex-shrink: 0; display: inline-flex; align-items: center; color: var(--text-muted); }
+  .tc-src { flex-shrink: 0; font-size: 11.5px; font-weight: 600; color: var(--text-secondary); text-decoration: none; padding: 3px 8px; border-radius: 100px; background: var(--bg-surface); border: 1px solid var(--border-subtle); white-space: nowrap; }
+  .tc-src:hover { color: var(--text-primary); border-color: var(--border-default); }
   .tc-sep { font-size: 11px; color: var(--text-muted); margin-right: 5px; }
 `
