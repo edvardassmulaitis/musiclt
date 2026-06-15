@@ -12,10 +12,10 @@ type Item = {
   kind_hint: string | null; status: string; context: string | null
   artist_ok: boolean; artist_name: string | null; artist_web: string | null; artist_admin: string | null
   matched_type: string | null; matched_id: number | null; matched_cover: string | null; web: string | null; admin: string | null
-  events?: EvCtx[]; priority?: number; priorityLabel?: string
+  events?: EvCtx[]; priority?: number; priorityLabel?: string; followers?: number
 }
 
-const SRC_LABEL: Record<string, string> = { topas: 'Topai', radaras: 'Radaras', top40: 'Top 40/30', discovery: 'Atradimai', post: 'Įrašai', empty: 'Tušti atlikėjai' }
+const SRC_LABEL: Record<string, string> = { topas: 'Topai', radaras: 'Radaras', top40: 'Top 40/30', discovery: 'Atradimai', post: 'Įrašai', empty: 'Tušti atlikėjai', import: 'Importas' }
 
 function Ext({ href, kind }: { href: string; kind: 'admin' | 'web' }) {
   return <a href={href} target="_blank" rel="noreferrer" className={`shrink-0 text-xs px-1 ${kind === 'admin' ? 'text-gray-400 hover:text-violet-700' : 'text-gray-400 hover:text-orange-600'}`} title={kind === 'admin' ? 'Admin' : 'Vieša'}>{kind === 'admin' ? '✎' : '↗'}</a>
@@ -158,6 +158,9 @@ export default function TrukstaMuzikosClient() {
                       <span className="text-sm font-medium text-gray-800">{it.raw_title || it.raw_artist}</span>
                       <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{SRC_LABEL[it.source] || it.source}</span>
                       {it.kind_hint && <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-400">{it.kind_hint}</span>}
+                      {it.source === 'import' && !!it.followers && it.followers > 0 && (
+                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700" title="Tiek narių laukia šios muzikos — sutvarkius automatiškai atsiras jų profilyje">👤 {it.followers} laukia</span>
+                      )}
                       {resolved && it.matched_type && (
                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">✓ {it.matched_type}</span>
                       )}

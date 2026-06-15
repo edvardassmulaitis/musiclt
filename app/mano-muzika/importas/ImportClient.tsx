@@ -13,7 +13,7 @@ type Hit = {
   raw: string; rawArtist?: string; matched: boolean; confidence: 'high' | 'low'
   id?: number; name?: string; slug?: string; cover?: string | null; artist?: string | null
 }
-type Staged = { artists: Hit[]; tracks: Hit[]; albums: Hit[]; counts: { matched: number; unmatched: number; total: number } }
+type Staged = { artists: Hit[]; tracks: Hit[]; albums: Hit[]; counts: { matched: number; unmatched: number; total: number }; reported?: number }
 type Source = 'lastfm' | 'spotify' | 'youtube'
 
 const SOURCES: { key: Source; label: string; emoji: string; blurb: string }[] = [
@@ -32,6 +32,7 @@ async function postJSON(path: string, body: any) {
 export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { lastfmOk: boolean; youtubeOk: boolean; initialSource: string | null }) {
   const [source, setSource] = useState<Source | null>((initialSource as Source) || null)
   const [lastfmUser, setLastfmUser] = useState('')
+  const [lastfmFull, setLastfmFull] = useState(false)
   const [ytUrl, setYtUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -52,7 +53,7 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
 
   async function runLastfm() {
     setLoading(true); setError(null); setResult(null); setDone(null)
-    try { onResult(await postJSON('/import/lastfm', { username: lastfmUser })) }
+    try { onResult(await postJSON('/import/lastfm', { username: lastfmUser, mode: lastfmFull ? 'full' : 'best' })) }
     catch (e: any) { setError(e.message) } finally { setLoading(false) }
   }
   async function runYoutube() {
@@ -127,7 +128,13 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
               placeholder="Last.fm vartotojo vardas" className={inputCls} />
             <RunBtn onClick={runLastfm} loading={loading} disabled={!lastfmUser.trim()} />
           </div>
-          <Hint>Profilis turi būti viešas. Rasi vardą savo Last.fm puslapio adrese: last.fm/user/<b>vardas</b>.</Hint>
+          <label className="mt-3 flex items-start gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" checked={lastfmFull} onChange={e => setLastfmFull(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-orange-500" />
+            <span className="text-[12px] leading-snug" style={{ color: 'var(--text-muted)' }}>
+              <b style={{ color: 'var(--text-primary)' }}>Importuoti visą biblioteką</b> — be mėgstamiausių ir dažniausiai klausomų, įtraukti ir naujausią klausymų istoriją. Daugiau įrašų, bet užtruks ilgiau.
+            </span>
+          </label>
+          <Hint>Profilis turi būti viešas. Numatytai imame tavo <b>mėgstamiausius ir dažniausiai klausomus</b> atlikėjus, dainas ir albumus. Vardą rasi savo Last.fm adrese: last.fm/user/<b>vardas</b>.</Hint>
         </InputPanel>
       )}
       {source === 'spotify' && (
@@ -175,6 +182,11 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
       {/* PREVIEW */}
       {result && !done && (
         <div>
+          {!!result.reported && result.reported > 0 && (
+            <div className="mb-4 rounded-xl px-4 py-3 text-[12.5px] leading-relaxed" style={{ background: 'rgba(167,139,250,0.10)', border: '1px solid rgba(167,139,250,0.32)', color: 'var(--text-secondary)' }}>
+              🔎 <b style={{ color: 'var(--text-primary)' }}>{result.reported}</b> neatpažintų įrašų persiuntėme į music.lt trūkstamos muzikos sąrašą. Kai tik jie bus įkelti, <b>automatiškai atsiras tavo „Mano muzikoje"</b> — nieko daryti nereikia.
+            </div>
+          )}
           <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
             <div className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
               Rasta atitikčių: <b style={{ color: 'var(--text-primary)' }}>{result.counts.matched}</b> iš {result.counts.total}

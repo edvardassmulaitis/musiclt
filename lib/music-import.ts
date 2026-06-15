@@ -14,7 +14,8 @@
 
 import { createAdminClient } from '@/lib/supabase'
 import { searchArtistsCore, searchTracksCore, searchAlbumsCore, normLt } from '@/lib/search-core'
-import { addToLibrary } from '@/lib/mano-muzika'
+import { addToLibrary, type FavKind } from '@/lib/mano-muzika'
+import { normalizeForMatch, primaryArtist } from '@/lib/chart-resolve'
 
 // ── Raw / staged tipai ─────────────────────────────────────────────────────
 export type RawArtist = { name: string; meta?: any }
@@ -63,7 +64,7 @@ function nameMatches(query: string, result: string): boolean {
 // ── MATCHER ────────────────────────────────────────────────────────────────
 export async function matchItems(items: RawItems, opts: { perKindLimit?: number } = {}): Promise<StagedResult> {
   const sb = createAdminClient()
-  const cap = opts.perKindLimit ?? 100
+  const cap = opts.perKindLimit ?? 500
 
   const artists = (items.artists || []).slice(0, cap)
   const tracks = (items.tracks || []).slice(0, cap)
@@ -137,12 +138,24 @@ export async function commitInto(userId: string, sel: { artists?: number[]; albu
 // ── Last.fm ────────────────────────────────────────────────────────────────
 export function lastfmConfigured(): boolean { return !!process.env.LASTFM_API_KEY }
 
-export async function fetchLastfm(username: string): Promise<RawItems> {
+export type ImportMode = 'best' | 'full'
+
+// Kiek maksimaliai imti kiekvieno tipo. „best" = mėgstamiausi/dažniausi (švarus
+// signalas), „full" = papildomai naujausia klausymų istorija (recent tracks).
+const LASTFM_CAPS: Record<ImportMode, { artists: number; albums: number; loved: number; top: number; recent: number }> = {
+  best: { artists: 300, albums: 250, loved: 600, top: 400, recent: 0 },
+  full: { artists: 500, albums: 400, loved: 1000, top: 500, recent: 1500 },
+}
+
+export async function fetchLastfm(username: string, opts: { mode?: ImportMode } = {}): Promise<RawItems> {
   const key = process.env.LASTFM_API_KEY
   if (!key) throw new Error('Last.fm importas nesukonfigūruotas (trūksta LASTFM_API_KEY)')
   const user = username.trim().replace(/^@/, '')
   if (!user) throw new Error('Įvesk Last.fm vartotojo vardą')
+  const mode: ImportMode = opts.mode === 'full' ? 'full' : 'best'
+  const CAP = LASTFM_CAPS[mode]
   const base = 'https://ws.audioscrobbler.com/2.0/'
+
   const call = async (method: string, extra: string) => {
     const url = `${base}?method=${method}&user=${encodeURIComponent(user)}&api_key=${key}&format=json&${extra}`
     const r = await fetch(url, { headers: { 'User-Agent': 'music.lt-import/1.0' } })
@@ -152,24 +165,157 @@ export async function fetchLastfm(username: string): Promise<RawItems> {
     }
     return r.json()
   }
-  const [topArt, lovedT, topT] = await Promise.all([
-    call('user.gettopartists', 'limit=60&period=overall').catch(() => null),
-    call('user.getlovedtracks', 'limit=80').catch(() => null),
-    call('user.gettoptracks', 'limit=60&period=overall').catch(() => null),
+
+  // Paginuotas rinkėjas — eina per puslapius kol surenka iki `cap` arba baigiasi.
+  const paged = async (method: string, root: string, listKey: string, cap: number, extra = '', perPage = 200): Promise<any[]> => {
+    if (cap <= 0) return []
+    const out: any[] = []
+    const maxPages = Math.ceil(cap / perPage) + 1
+    for (let page = 1; out.length < cap && page <= maxPages; page++) {
+      const data = await call(method, `limit=${perPage}&page=${page}${extra ? `&${extra}` : ''}`).catch(() => null)
+      const container = data?.[root]
+      const items = container?.[listKey]
+      const arr = Array.isArray(items) ? items : (items ? [items] : [])
+      if (!arr.length) break
+      out.push(...arr)
+      const totalPages = Number(container?.['@attr']?.totalPages || 0)
+      if (totalPages && page >= totalPages) break
+    }
+    return out.slice(0, cap)
+  }
+
+  const [topArt, topAlb, lovedT, topT] = await Promise.all([
+    paged('user.gettopartists', 'topartists', 'artist', CAP.artists, 'period=overall'),
+    paged('user.gettopalbums', 'topalbums', 'album', CAP.albums, 'period=overall'),
+    paged('user.getlovedtracks', 'lovedtracks', 'track', CAP.loved),
+    paged('user.gettoptracks', 'toptracks', 'track', CAP.top, 'period=overall'),
   ])
 
-  const artists: RawArtist[] = (topArt?.topartists?.artist || []).map((a: any) => ({ name: a.name, meta: { playcount: Number(a.playcount) || 0 } }))
+  const artists: RawArtist[] = topArt
+    .map((a: any) => ({ name: a.name, meta: { playcount: Number(a.playcount) || 0 } }))
+    .filter((a: RawArtist) => a.name)
+
+  const albumMap = new Map<string, RawTrackish>()
+  for (const a of topAlb) {
+    const artist = a.artist?.name || a.artist?.['#text'] || ''
+    if (a.name && artist) albumMap.set(`${artist}|${a.name}`.toLowerCase(), { artist, title: a.name, meta: { playcount: Number(a.playcount) || 0 } })
+  }
+
   const trackMap = new Map<string, RawTrackish>()
-  for (const t of (lovedT?.lovedtracks?.track || [])) {
+  for (const t of lovedT) {
     const artist = t.artist?.name || t.artist?.['#text'] || ''
     if (t.name && artist) trackMap.set(`${artist}|${t.name}`.toLowerCase(), { artist, title: t.name, meta: { loved: true } })
   }
-  for (const t of (topT?.toptracks?.track || [])) {
+  for (const t of topT) {
     const artist = t.artist?.name || t.artist?.['#text'] || ''
     const k = `${artist}|${t.name}`.toLowerCase()
     if (t.name && artist && !trackMap.has(k)) trackMap.set(k, { artist, title: t.name, meta: { playcount: Number(t.playcount) || 0 } })
   }
-  return { artists, tracks: [...trackMap.values()] }
+
+  // FULL — pridedam naujausią klausymų istoriją (recent tracks), dedup pagal raktą.
+  if (CAP.recent > 0) {
+    const recent = await paged('user.getrecenttracks', 'recenttracks', 'track', CAP.recent)
+    for (const t of recent) {
+      if (t['@attr']?.nowplaying) continue
+      const artist = t.artist?.name || t.artist?.['#text'] || ''
+      if (!t.name || !artist) continue
+      const k = `${artist}|${t.name}`.toLowerCase()
+      if (!trackMap.has(k)) trackMap.set(k, { artist, title: t.name, meta: { recent: true } })
+      const alb = t.album?.['#text'] || t.album?.name || ''
+      if (alb) {
+        const ak = `${artist}|${alb}`.toLowerCase()
+        if (!albumMap.has(ak)) albumMap.set(ak, { artist, title: alb, meta: { recent: true } })
+      }
+    }
+  }
+
+  return { artists, tracks: [...trackMap.values()], albums: [...albumMap.values()] }
+}
+
+// ── NEATPAŽINTŲ auto-reportas → „trūkstama muzika" (music_requests) ──────────
+// Importo metu neatpažintus įrašus sudedam į bendrą trūkstamos muzikos eilę su
+// source='import' ir prisegam narį prie kiekvieno requesto per
+// music_request_followers. Kai adminas requestą išspręs (sukurs/susies entity),
+// jis automatiškai bus pridėtas į šito nario „Mano muziką" (žr. admin route).
+const importNormKey = (artist: string, title: string | null) =>
+  `${normalizeForMatch(primaryArtist(artist || ''))}|${normalizeForMatch(title || '')}`
+
+export async function reportMissingImport(
+  userId: string,
+  staged: StagedResult,
+  source = 'import',
+): Promise<{ reported: number }> {
+  const sb = createAdminClient()
+  type Pending = { raw_artist: string; raw_title: string | null; kind_hint: FavKind; norm_key: string }
+  const pend: Pending[] = []
+  const collect = (hits: StagedHit[], kind: FavKind) => {
+    for (const h of hits) {
+      if (h.matched) continue
+      const artist = (h.rawArtist || (kind === 'artist' ? h.raw : '') || '').trim()
+      const title = kind === 'artist' ? null : (h.raw || '').trim()
+      if (!artist) continue
+      pend.push({ raw_artist: artist, raw_title: title, kind_hint: kind, norm_key: importNormKey(artist, title) })
+    }
+  }
+  collect(staged.artists, 'artist')
+  collect(staged.albums, 'album')
+  collect(staged.tracks, 'track')
+  if (!pend.length) return { reported: 0 }
+
+  // dedup per batch
+  const seen = new Set<string>()
+  const uniq = pend.filter(p => { if (seen.has(p.norm_key)) return false; seen.add(p.norm_key); return true })
+  const keys = uniq.map(u => u.norm_key)
+
+  // jau esami requestai pagal norm_key (bet kokio statuso) — nedubliuojam
+  const existing = new Map<string, { id: string; status: string; matched_type: string | null; matched_id: number | null }>()
+  for (let i = 0; i < keys.length; i += 200) {
+    const { data } = await sb.from('music_requests')
+      .select('id, norm_key, status, matched_type, matched_id')
+      .in('norm_key', keys.slice(i, i + 200))
+    for (const r of (data || []) as any[]) if (!existing.has(r.norm_key)) existing.set(r.norm_key, r)
+  }
+
+  // naujus įterpiam
+  const toInsert = uniq.filter(u => !existing.has(u.norm_key)).map(u => ({
+    source, raw_artist: u.raw_artist, raw_title: u.raw_title, kind_hint: u.kind_hint,
+    context: 'Importas (Last.fm)', norm_key: u.norm_key, status: 'pending',
+  }))
+  const newIds: string[] = []
+  for (let i = 0; i < toInsert.length; i += 200) {
+    const { data } = await sb.from('music_requests').insert(toInsert.slice(i, i + 200)).select('id')
+    for (const r of (data || []) as any[]) newIds.push(r.id)
+  }
+
+  // followerį prisegam: prie naujų + prie esamų
+  const followerRows = newIds.map(id => ({ request_id: id, user_id: userId }))
+  for (const r of existing.values()) followerRows.push({ request_id: r.id, user_id: userId })
+  for (let i = 0; i < followerRows.length; i += 200) {
+    await sb.from('music_request_followers')
+      .upsert(followerRows.slice(i, i + 200), { onConflict: 'request_id,user_id', ignoreDuplicates: true })
+  }
+
+  // jei esamas requestas JAU išspręstas — entity pridedam į biblioteką iškart
+  for (const r of existing.values()) {
+    if (r.status === 'resolved' && r.matched_id && ['artist', 'album', 'track'].includes(r.matched_type || '')) {
+      try { await addToLibrary(userId, r.matched_type as FavKind, [r.matched_id]) } catch {}
+    }
+  }
+  return { reported: uniq.length }
+}
+
+// Suderinta pora: match + auto-report neatpažintų (jei userId yra).
+export async function stageAndReport(
+  userId: string | null,
+  raw: RawItems,
+  opts: { source?: string; perKindLimit?: number } = {},
+): Promise<StagedResult & { reported: number }> {
+  const staged = await matchItems(raw, opts.perKindLimit ? { perKindLimit: opts.perKindLimit } : {})
+  let reported = 0
+  if (userId) {
+    try { reported = (await reportMissingImport(userId, staged, opts.source || 'import')).reported } catch {}
+  }
+  return { ...staged, reported }
 }
 
 // ── Spotify „Download your data" (YourLibrary.json) ────────────────────────

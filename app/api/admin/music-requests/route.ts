@@ -21,6 +21,7 @@ import {
   createTrackForArtist, createAlbumForArtist, normalizeForMatch, primaryArtist,
 } from '@/lib/chart-resolve'
 import { findArtistByName } from '@/lib/topas-resolve'
+import { addToLibrary, type FavKind } from '@/lib/mano-muzika'
 
 export const maxDuration = 60
 
@@ -31,6 +32,18 @@ async function requireAdmin() {
 }
 const isNew = (e: any) => !!e && ('rank' in e || 'entity_id' in e)
 const normKey = (artist: string, title: string | null) => `${normalizeForMatch(primaryArtist(artist || ''))}|${normalizeForMatch(title || '')}`
+
+// Kai requestas išsprendžiamas, sukurtą/susietą entity pridedam į VISŲ narių,
+// kurie šitą requestą užregistravo (importas), „Mano muziką" — kad importuota
+// muzika galiausiai atsirastų jų profilyje.
+async function addResolvedToFollowers(sb: any, requestId: string, type: string | null, entityId: number | null) {
+  if (!entityId || !type || !['artist', 'album', 'track'].includes(type)) return
+  const { data } = await sb.from('music_request_followers').select('user_id').eq('request_id', requestId)
+  const users = [...new Set(((data || []) as any[]).map(r => r.user_id).filter(Boolean))]
+  for (const uid of users) {
+    try { await addToLibrary(uid as string, type as FavKind, [entityId]) } catch {}
+  }
+}
 
 // Viešos / admin nuorodos
 function links(type: string | null, id: number | null, slug: string | null, artistSlug: string | null) {
@@ -80,7 +93,7 @@ export async function GET(req: Request) {
   // ── Tuščių atlikėjų KONTEKSTAS + PRIORITETAS ────────────────────────────
   // Kodėl atlikėjas svarbus? Pagal tai, kuriuose renginiuose/festivaliuose jis
   // dalyvauja: būsimo festivalio headlineris = aukščiausias prioritetas.
-  const emptyItems: any[] = items.filter((it: any) => it.source === 'empty' && it.artist_id)
+  const emptyItems = items.filter((it: any) => it.source === 'empty' && it.artist_id)
   if (emptyItems.length) {
     const eIds = emptyItems.map((it: any) => it.artist_id)
     const evByArtist = new Map<number, any[]>()
@@ -125,6 +138,17 @@ export async function GET(req: Request) {
     if (be) return 1
     return 0
   })
+
+  // Importo requestų followeriai (kiek narių laukia) — rodom admine
+  const importIds = items.filter((it: any) => it.source === 'import').map((it: any) => it.id)
+  if (importIds.length) {
+    const followerCount = new Map<string, number>()
+    for (let i = 0; i < importIds.length; i += 200) {
+      const { data: f } = await sb.from('music_request_followers').select('request_id').in('request_id', importIds.slice(i, i + 200))
+      for (const row of (f || []) as any[]) followerCount.set(row.request_id, (followerCount.get(row.request_id) || 0) + 1)
+    }
+    for (const it of items) if (it.source === 'import') it.followers = followerCount.get(it.id) || 0
+  }
 
   // Šaltinių santrauka
   const { data: counts } = await sb.from('music_requests').select('source').eq('status', 'pending')
@@ -250,6 +274,7 @@ export async function POST(req: Request) {
     const aid = await findOrCreateArtist(sb, r.raw_artist, null)
     const { data: a } = await sb.from('artists').select('slug').eq('id', aid).maybeSingle()
     await sb.from('music_requests').update({ artist_id: aid, artist_slug: a?.slug || null, matched_type: 'artist', matched_id: aid, status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', id)
+    await addResolvedToFollowers(sb, id, 'artist', aid)
     return NextResponse.json({ ok: true })
   }
   if (action === 'create_album') {
@@ -257,6 +282,7 @@ export async function POST(req: Request) {
     const albId = await createAlbumForArtist(sb, aid, r.raw_title || r.raw_artist)
     const { data: a } = await sb.from('artists').select('slug').eq('id', aid).maybeSingle()
     await sb.from('music_requests').update({ artist_id: aid, artist_slug: a?.slug || null, matched_type: 'album', matched_id: albId, status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', id)
+    await addResolvedToFollowers(sb, id, 'album', albId)
     return NextResponse.json({ ok: true })
   }
   if (action === 'create_track') {
@@ -264,6 +290,7 @@ export async function POST(req: Request) {
     const tId = await createTrackForArtist(sb, aid, r.raw_title || r.raw_artist)
     const { data: a } = await sb.from('artists').select('slug').eq('id', aid).maybeSingle()
     await sb.from('music_requests').update({ artist_id: aid, artist_slug: a?.slug || null, matched_type: 'track', matched_id: tId, status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', id)
+    await addResolvedToFollowers(sb, id, 'track', tId)
     return NextResponse.json({ ok: true })
   }
   if (action === 'link') {
@@ -272,6 +299,7 @@ export async function POST(req: Request) {
     const map: Record<string, string> = { daina: 'track', grupe: 'artist', albumas: 'album', track: 'track', artist: 'artist', album: 'album' }
     const mt = map[h.type] || 'track'
     await sb.from('music_requests').update({ matched_type: mt, matched_id: h.id, status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', id)
+    await addResolvedToFollowers(sb, id, mt, h.id)
     return NextResponse.json({ ok: true })
   }
   return NextResponse.json({ error: 'bad action' }, { status: 400 })
@@ -294,4 +322,5 @@ async function resolve(sb: any, id: string, res: { type: string; id: number; art
   if (res.type === 'artist') { upd.artist_id = res.id }
   else if (res.artistId) { upd.artist_id = res.artistId }
   await sb.from('music_requests').update(upd).eq('id', id)
+  await addResolvedToFollowers(sb, id, res.type, res.id)
 }

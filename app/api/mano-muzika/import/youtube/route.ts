@@ -2,10 +2,10 @@
 // POST { url } → fetch viešo playlisto įrašus + match → staged preview
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserId } from '../../_auth'
-import { fetchYoutubePlaylist, matchItems } from '@/lib/music-import'
+import { fetchYoutubePlaylist, stageAndReport } from '@/lib/music-import'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 30
+export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   const userId = await getUserId()
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (!url) return NextResponse.json({ error: 'Įklijuok playlisto nuorodą' }, { status: 400 })
   try {
     const raw = await fetchYoutubePlaylist(url)
-    const staged = await matchItems(raw)
+    const staged = await stageAndReport(userId, raw, { source: 'import' })
     return NextResponse.json({ ok: true, ...staged })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 400 })
