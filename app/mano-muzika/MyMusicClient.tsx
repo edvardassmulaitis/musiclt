@@ -10,7 +10,7 @@ import { useState, useCallback, useRef, useMemo, type ReactNode } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
-import type { MyMusic, KindCollection, MusicItem, MoodSong, FavStyle, MeterEntry } from '@/lib/mano-muzika'
+import type { MyMusic, KindCollection, MusicItem, MoodSong, FavStyle } from '@/lib/mano-muzika'
 
 const PROFILE_CUTOFF = 20
 type EntityTab = 'artist' | 'album' | 'track'
@@ -135,7 +135,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
         <CollectionPanel key={tab} kind={tab} data={coll[tab]} onMove={(it, pos) => moveToPosition(tab, it, pos)} onUnlike={(it) => unlike(tab, it)} onAdd={(hit) => addLib(tab, hit)} />
       )}
       {tab === 'mood' && <MoodSection moodSongs={moodSongs} setMoodSongs={setMoodSongs} />}
-      {tab === 'styles' && <StyleSection styles={styles} setStyles={setStyles} meter={initial.musicMeter} />}
+      {tab === 'styles' && <StyleSection coll={coll} styles={styles} setStyles={setStyles} onMove={(kind, it, pos) => moveToPosition(kind, it, pos)} onUnlike={(kind, it) => unlike(kind, it)} />}
     </div>
   )
 }
@@ -283,61 +283,140 @@ function MoodSection({ moodSongs, setMoodSongs }: { moodSongs: MoodSong[]; setMo
   )
 }
 
-const METER_COLORS = ['#f97316', '#a78bfa', '#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#22d3ee', '#fb7185']
-function StyleSection({ styles, setStyles, meter }: { styles: FavStyle[]; setStyles: (v: FavStyle[]) => void; meter: MeterEntry[] }) {
-  const [catalog, setCatalog] = useState<{ legacy_style_id: number; style_slug: string; style_name: string }[] | null>(null)
-  const [q, setQ] = useState(''); const [open, setOpen] = useState(false)
-  const dragId = useRef<number | null>(null); const [dragOver, setDragOver] = useState<number | null>(null)
-  async function ensureCatalog() { if (catalog) return; try { const r = await api('/styles?catalog=1', 'GET'); setCatalog(r.catalog || []) } catch { setCatalog([]) } }
-  function add(s: { legacy_style_id: number; style_slug: string; style_name: string }) { if (styles.some(x => x.legacy_style_id === s.legacy_style_id)) return; setStyles([...styles, { ...s, sort_order: 9999 }]); setQ(''); setOpen(false); api('/styles', 'POST', s).catch(() => setStyles(styles)) }
-  function remove(id: number) { setStyles(styles.filter(x => x.legacy_style_id !== id)); api('/styles', 'DELETE', { legacy_style_id: id }).catch(() => setStyles(styles)) }
-  function persistOrder(ids: number[]) { const map = new Map(styles.map(s => [s.legacy_style_id, s])); setStyles(ids.map(id => map.get(id)).filter(Boolean) as FavStyle[]); api('/styles', 'PUT', { ordered_ids: ids }).catch(() => {}) }
-  function drop(targetId: number) { const from = dragId.current; setDragOver(null); dragId.current = null; if (from == null || from === targetId) return; const ids = styles.map(s => s.legacy_style_id); const f = ids.indexOf(from), t = ids.indexOf(targetId); if (f < 0 || t < 0) return; ids.splice(t, 0, ids.splice(f, 1)[0]); persistOrder(ids) }
-  const filtered = (catalog || []).filter(c => !styles.some(s => s.legacy_style_id === c.legacy_style_id)).filter(c => q.trim().length < 2 || c.style_name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40)
-  const maxPct = meter.length ? Math.max(...meter.map(m => m.percent)) : 0
+const METER_COLORS = ['#f97316', '#a78bfa', '#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#22d3ee', '#fb7185', '#fb923c', '#4ade80']
+
+// Stilių sąrašas pagal konkretų stilių — globalios pozicijos, valdymas kaip pagrindiniame sąraše.
+function StyleKindList({ kind, all, styled, onMove, onUnlike }: { kind: EntityTab; all: MusicItem[]; styled: MusicItem[]; onMove: (it: MusicItem, pos: number) => void; onUnlike: (it: MusicItem) => void }) {
+  const [jumpId, setJumpId] = useState<number | null>(null)
+  const realIdx = useMemo(() => new Map(all.map((it, i) => [it.id, i])), [all])
+  const label = kind === 'artist' ? 'Atlikėjai' : kind === 'album' ? 'Albumai' : 'Dainos'
   return (
-    <div>
-      {meter.length > 0 && (
-        <div className="mb-5 rounded-2xl p-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-          <div className="text-[13px] font-black mb-3">Muzikometras</div>
-          <div className="flex flex-col gap-2">
-            {[...meter].sort((a, b) => b.percent - a.percent).map((m, i) => (
-              <div key={m.name} className="flex items-center gap-2.5">
-                <div className="w-24 shrink-0 text-[11.5px] font-bold truncate" style={{ color: 'var(--text-secondary)' }}>{m.name}</div>
-                <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${maxPct ? Math.round((m.percent / maxPct) * 100) : 0}%`, background: METER_COLORS[i % METER_COLORS.length] }} /></div>
-                <div className="w-9 text-right text-[11px] font-bold tabular-nums" style={{ color: 'var(--text-faint)' }}>{Math.round(m.percent)}%</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      <p className="mb-3 text-[12.5px]" style={{ color: 'var(--text-muted)' }}>Mėgstami stiliai formuoja tavo muzikos identitetą. Tempk, kad pakeistum eilę.</p>
-      <div className="relative mb-4 max-w-[520px]">
-        <input value={q} onFocus={() => { ensureCatalog(); setOpen(true) }} onChange={e => { setQ(e.target.value); setOpen(true) }} placeholder="Pridėk stilių..." className="w-full rounded-lg px-3 py-2 text-[13px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
-        {open && (
-          <div className="absolute left-0 right-0 z-40 mt-1.5 max-h-[300px] overflow-y-auto rounded-lg shadow-xl" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }} onMouseLeave={() => setOpen(false)}>
-            {!catalog ? <div className="px-3 py-4 text-center text-[12px]" style={{ color: 'var(--text-faint)' }}>Kraunama…</div> : filtered.length === 0 ? <div className="px-3 py-4 text-center text-[12px]" style={{ color: 'var(--text-faint)' }}>Nieko nerasta.</div> : <ul>{filtered.map(c => (<li key={c.legacy_style_id}><button onClick={() => add(c)} className="w-full text-left px-3 py-2 text-[13px] font-medium" style={{ color: 'var(--text-primary)' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>{c.style_name}</button></li>))}</ul>}
-          </div>
-        )}
-      </div>
-      {styles.length === 0 ? <Empty hint="Dar nepasirinkai mėgstamų stilių." /> : (
-        <div className="flex flex-col gap-2">
-          {styles.map((s, idx) => (
-            <div key={s.legacy_style_id} draggable onDragStart={() => { dragId.current = s.legacy_style_id }} onDragOver={e => { e.preventDefault(); setDragOver(s.legacy_style_id) }} onDragLeave={() => setDragOver(o => o === s.legacy_style_id ? null : o)} onDrop={() => drop(s.legacy_style_id)}
-              className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 cursor-grab active:cursor-grabbing" style={{ background: 'var(--bg-surface)', border: `1px solid ${dragOver === s.legacy_style_id ? 'var(--accent-orange)' : 'var(--border-default)'}` }}>
-              <span className="hidden sm:inline text-[var(--text-faint)]"><Ico name="grip" size={13} /></span>
-              <span className="w-6 text-center text-[11px] font-black tabular-nums" style={{ color: 'var(--text-faint)' }}>{idx + 1}</span>
-              <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full" style={{ width: `${Math.max(12, 100 - idx * 7)}%`, background: METER_COLORS[idx % METER_COLORS.length] }} /></div>
-              <span className="text-[12.5px] font-bold w-32 truncate text-right">{s.style_name}</span>
-              <button onClick={() => remove(s.legacy_style_id)} title="Pašalinti" className="h-6 w-6 inline-flex items-center justify-center rounded-full" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={11} /></button>
+    <div className="mb-3">
+      <div className="text-[12px] font-black mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}><Ico name={kind === 'artist' ? 'person' : kind === 'album' ? 'disc' : 'note'} size={13} /> {label} <span style={{ color: 'var(--text-faint)' }}>{styled.length}</span></div>
+      <div className="flex flex-col gap-1.5">
+        {styled.map(it => {
+          const pos = realIdx.get(it.id) ?? 0
+          const inProfile = pos < PROFILE_CUTOFF
+          return (
+            <div key={it.id} className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2" style={{ background: inProfile ? 'linear-gradient(90deg, rgba(249,115,22,0.06), var(--bg-surface) 60%)' : 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+              {jumpId === it.id ? (
+                <input autoFocus type="number" min={1} max={all.length} defaultValue={pos + 1}
+                  onKeyDown={e => { if (e.key === 'Enter') { setJumpId(null); onMove(it, Number((e.target as HTMLInputElement).value) || 1) } if (e.key === 'Escape') setJumpId(null) }} onBlur={e => { setJumpId(null); onMove(it, Number(e.target.value) || pos + 1) }}
+                  className="w-11 h-7 text-center text-[12px] font-black rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--accent-orange)', color: 'var(--text-primary)' }} />
+              ) : (
+                <button onClick={() => setJumpId(it.id)} title="Įrašyk vietą bendrame sąraše" className="min-w-[28px] h-7 px-1 shrink-0 rounded-md text-[12px] font-black tabular-nums" style={{ background: 'var(--bg-elevated)', color: inProfile ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{pos + 1}</button>
+              )}
+              <Cover kind={kind} cover={it.cover} />
+              <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>{it.subtitle}</div></div>
+              {!inProfile && <button onClick={() => onMove(it, PROFILE_CUTOFF)} title="Įkelti į Top 20" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-bold" style={{ background: 'rgba(249,115,22,0.12)', color: '#f97316' }}><Ico name="star" size={12} /> Top 20</button>}
+              <button onClick={() => onUnlike(it)} title="Pašalinti iš mėgstamų" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
             </div>
-          ))}
-        </div>
-      )}
+          )
+        })}
+      </div>
     </div>
   )
 }
 
+function StyleSection({ coll, styles, setStyles, onMove, onUnlike }: {
+  coll: Record<EntityTab, KindCollection>; styles: FavStyle[]; setStyles: (v: FavStyle[]) => void
+  onMove: (kind: EntityTab, it: MusicItem, pos: number) => void; onUnlike: (kind: EntityTab, it: MusicItem) => void
+}) {
+  const [sel, setSel] = useState<string | null>(null)
+  const [catalog, setCatalog] = useState<{ legacy_style_id: number; style_slug: string; style_name: string }[] | null>(null)
+  const [q, setQ] = useState(''); const [open, setOpen] = useState(false)
+
+  const dist = useMemo(() => {
+    const m = new Map<string, number>()
+    ;(['artist', 'album', 'track'] as const).forEach(kind => {
+      for (const it of [...coll[kind].ranked, ...coll[kind].library]) if (it.style) m.set(it.style, (m.get(it.style) || 0) + 1)
+    })
+    return [...m.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count)
+  }, [coll])
+  const maxCount = dist.length ? Math.max(...dist.map(d => d.count)) : 0
+  const top = dist.slice(0, 10)
+  const colorIdx = useMemo(() => new Map(dist.map((d, i) => [d.name, i])), [dist])
+  const colorOf = (name: string) => METER_COLORS[(colorIdx.get(name) ?? 0) % METER_COLORS.length]
+
+  async function ensureCatalog() { if (catalog) return; try { const r = await api('/styles?catalog=1', 'GET'); setCatalog(r.catalog || []) } catch { setCatalog([]) } }
+  function addStyle(s: { legacy_style_id: number; style_slug: string; style_name: string }) { if (styles.some(x => x.legacy_style_id === s.legacy_style_id)) return; setStyles([...styles, { ...s, sort_order: 9999 }]); setQ(''); setOpen(false); api('/styles', 'POST', s).catch(() => setStyles(styles)) }
+  function removeStyle(id: number) { setStyles(styles.filter(x => x.legacy_style_id !== id)); api('/styles', 'DELETE', { legacy_style_id: id }).catch(() => setStyles(styles)) }
+  const filteredCatalog = (catalog || []).filter(c => !styles.some(s => s.legacy_style_id === c.legacy_style_id)).filter(c => q.trim().length < 2 || c.style_name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40)
+
+  return (
+    <div>
+      {dist.length > 0 ? (
+        <div className="mb-5 rounded-2xl p-4 sm:p-5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+          <div className="text-[13px] font-black mb-3">Tavo muzikos stiliai <span className="font-medium" style={{ color: 'var(--text-muted)' }}>· spustelėk ir tvarkyk to stiliaus topą</span></div>
+          <div className="hidden md:flex items-end justify-start gap-2.5" style={{ height: 176 }}>
+            {top.map(d => {
+              const active = sel === d.name
+              return (
+                <button key={d.name} onClick={() => setSel(active ? null : d.name)} title={d.name} className="group flex flex-col items-center justify-end gap-1.5 flex-1 min-w-0" style={{ height: '100%' }}>
+                  <span className="text-[11px] font-black tabular-nums" style={{ color: active ? 'var(--text-primary)' : 'var(--text-faint)' }}>{d.count}</span>
+                  <div className="w-full rounded-t-md transition-all" style={{ maxWidth: 44, height: `${maxCount ? Math.max(6, (d.count / maxCount) * 100) : 0}%`, background: colorOf(d.name), opacity: active ? 1 : 0.8, outline: active ? '2px solid var(--accent-orange)' : 'none', outlineOffset: 2 }} />
+                  <span className="text-[9.5px] font-bold text-center leading-tight overflow-hidden" style={{ height: 26, color: active ? 'var(--text-primary)' : 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{d.name}</span>
+                </button>
+              )
+            })}
+          </div>
+          <div className="md:hidden flex flex-col gap-2">
+            {top.map(d => {
+              const active = sel === d.name
+              return (
+                <button key={d.name} onClick={() => setSel(active ? null : d.name)} className="flex items-center gap-2.5 w-full">
+                  <span className="w-24 shrink-0 text-[11.5px] font-bold truncate text-left" style={{ color: active ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{d.name}</span>
+                  <span className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)', outline: active ? '1.5px solid var(--accent-orange)' : 'none' }}><span className="block h-full rounded-full" style={{ width: `${maxCount ? Math.max(8, (d.count / maxCount) * 100) : 0}%`, background: colorOf(d.name) }} /></span>
+                  <span className="w-7 text-right text-[11px] font-bold tabular-nums" style={{ color: 'var(--text-faint)' }}>{d.count}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        <p className="mb-5 text-[12.5px]" style={{ color: 'var(--text-muted)' }}>Pridėk atlikėjų, albumų ar dainų — iš jų žanrų susiformuos tavo stilių pasiskirstymas.</p>
+      )}
+
+      {sel && (
+        <div className="mb-6 rounded-2xl p-4" style={{ background: 'var(--bg-surface)', border: `1px solid ${colorOf(sel)}55` }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[14px] font-black flex items-center gap-2"><span className="inline-block h-3 w-3 rounded-full" style={{ background: colorOf(sel) }} /> {sel}</h3>
+            <button onClick={() => setSel(null)} className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: 'var(--text-muted)' }}>Uždaryti <Ico name="x" size={12} /></button>
+          </div>
+          {(['artist', 'album', 'track'] as const).map(kind => {
+            const all = [...coll[kind].ranked, ...coll[kind].library]
+            const styled = all.filter(i => i.style === sel)
+            if (!styled.length) return null
+            return <StyleKindList key={kind} kind={kind} all={all} styled={styled} onMove={(it, pos) => onMove(kind, it, pos)} onUnlike={(it) => onUnlike(kind, it)} />
+          })}
+        </div>
+      )}
+
+      <div>
+        <h3 className="text-[14px] font-black mb-2">Mėgstami stiliai <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{styles.length}</span></h3>
+        <p className="mb-2.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>Žymos tavo profiliui — pasirink mėgstamiausius žanrus.</p>
+        <div className="flex flex-wrap gap-2 items-center">
+          {styles.map((s, idx) => (
+            <span key={s.legacy_style_id} className="group inline-flex items-center gap-1.5 rounded-full pl-2.5 pr-1.5 py-1.5" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
+              <span className="inline-block h-2 w-2 rounded-full" style={{ background: METER_COLORS[idx % METER_COLORS.length] }} />
+              <span className="text-[12.5px] font-bold">{s.style_name}</span>
+              <button onClick={() => removeStyle(s.legacy_style_id)} title="Pašalinti" className="h-4 w-4 inline-flex items-center justify-center rounded-full" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={9} /></button>
+            </span>
+          ))}
+          <div className="relative">
+            <button onClick={() => { ensureCatalog(); setOpen(o => !o) }} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: 'transparent', border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>+ Pridėk stilių</button>
+            {open && (
+              <div className="absolute left-0 z-40 mt-1.5 w-[260px] max-h-[300px] overflow-y-auto rounded-lg shadow-xl" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+                <div className="p-2 sticky top-0" style={{ background: 'var(--bg-surface)' }}><input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Ieškoti stiliaus..." className="w-full rounded-md px-2.5 py-1.5 text-[12.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} /></div>
+                {!catalog ? <div className="px-3 py-3 text-center text-[12px]" style={{ color: 'var(--text-faint)' }}>Kraunama…</div> : filteredCatalog.length === 0 ? <div className="px-3 py-3 text-center text-[12px]" style={{ color: 'var(--text-faint)' }}>Nieko nerasta.</div> : <ul className="pb-1">{filteredCatalog.map(c => (<li key={c.legacy_style_id}><button onClick={() => addStyle(c)} className="w-full text-left px-3 py-1.5 text-[12.5px] font-medium" style={{ color: 'var(--text-primary)' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>{c.style_name}</button></li>))}</ul>}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 function Empty({ hint }: { hint: string }) { return <div className="rounded-2xl px-6 py-10 text-center" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)' }}><div className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{hint}</div></div> }
 
 // ── ICONS (inline SVG) ─────────────────────────────────────────────────────
