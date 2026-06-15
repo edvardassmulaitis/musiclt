@@ -86,6 +86,20 @@ export async function getChannelInfo(channelId: string): Promise<{ uploads: stri
   }
 }
 
+/** Vieno video metaduomenys (pavadinimas, įkėlimo data, peržiūros). */
+export async function fetchVideoMeta(videoId: string): Promise<{ title: string; publishedAt: string | null; views: number; thumb: string | null } | null> {
+  const d = await ytGet(`${API}/videos?part=snippet,statistics&id=${encodeURIComponent(videoId)}&key=${key()}`)
+  const it = d?.items?.[0]
+  if (!it) return null
+  const th = it?.snippet?.thumbnails || {}
+  return {
+    title: it?.snippet?.title || '',
+    publishedAt: it?.snippet?.publishedAt || null,
+    views: Number(it?.statistics?.viewCount || 0),
+    thumb: th.maxres?.url || th.high?.url || th.medium?.url || th.default?.url || null,
+  }
+}
+
 /** Naujausi kanalo įkėlimai → normalizuoti įrašai. */
 export async function fetchYouTubeUploads(channelId: string, max = 12): Promise<NormalizedItem[]> {
   // Be papildomos channels.list užklausos — playlist ID išvedam iš kanalo ID.
