@@ -76,7 +76,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
   }
   function addLib(kind: EntityTab, hit: AttachmentHit) {
     if ([...coll[kind].ranked, ...coll[kind].library].some(x => x.id === hit.id)) return
-    const item: MusicItem = { kind, id: hit.id, title: hit.title, subtitle: hit.artist || TABS.find(t => t.key === kind)!.label, cover: hit.image_url, href: null, ranked: false, sort_order: 0, style: null }
+    const item: MusicItem = { kind, id: hit.id, title: hit.title, subtitle: hit.artist || TABS.find(t => t.key === kind)!.label, cover: hit.image_url, href: null, ranked: false, sort_order: 0, style: null, styleRank: null }
     update(kind, c => ({ ...c, library: [item, ...c.library] }))
     api('/favorites', 'POST', { kind, entity_id: hit.id }).catch(e => flash(e.message))
   }
