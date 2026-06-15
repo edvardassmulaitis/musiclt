@@ -156,8 +156,8 @@ const styles = `
   .cfv-albumhead { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
   /* Mobile: player viršuje + prilimpa prie viršaus, iškart po jo — sąrašas. */
   @media (max-width: 860px) {
-    .cfv-body { display: flex; flex-direction: column; gap: 14px; }
-    .cfv-aside { position: sticky; top: 56px; z-index: 5; margin: 0 -16px; }
+    .cfv-body { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
+    .cfv-aside { grid-column: auto; grid-row: auto; position: sticky; top: 56px; z-index: 5; margin: 0 -16px; width: auto; }
     .cfv-player { border-radius: 0; border-left: 0; border-right: 0; }
   }
 
