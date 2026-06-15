@@ -25,6 +25,7 @@ export type MusicItem = {
   ranked: boolean
   sort_order: number
   style: string | null   // pagrindinis žanras (rikiavimui/filtravimui)
+  styleRank: number | null // pozicija to stiliaus „top'e" (atskira nuo bendro)
 }
 export type KindCollection = { ranked: MusicItem[]; library: MusicItem[] }
 
@@ -103,10 +104,13 @@ async function hydrateItems(sb: any, kind: FavKind, ids: number[]): Promise<Map<
 
 async function collectKind(sb: any, kind: FavKind, userId: string): Promise<KindCollection> {
   const idCol = ID_COL[kind]
-  const [curRes, likeRes] = await Promise.all([
+  const [curRes, likeRes, srRes] = await Promise.all([
     sb.from(TABLE[kind]).select(`${idCol}, sort_order`).eq('user_id', userId).eq('bucket', 1).order('sort_order'),
     sb.from('likes').select('entity_id, created_at').eq('entity_type', kind).eq('user_id', userId).not('entity_id', 'is', null).limit(3000),
+    sb.from('profile_style_ranks').select('entity_id, sort_order').eq('user_id', userId).eq('kind', kind),
   ])
+  const styleRankMap = new Map<number, number>()
+  for (const r of (srRes.data || []) as any[]) styleRankMap.set(r.entity_id, r.sort_order)
   const rankedIds: number[] = (curRes.data || []).map((r: any) => r[idCol])
   const rankedSet = new Set(rankedIds)
   const likedAt = new Map<number, string>()
@@ -124,7 +128,7 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
   const genres = await mainGenreMap(sb, artistIds)
   const mk = (id: number, ranked: boolean, sort_order: number): MusicItem | null => {
     const h = hy.get(id); if (!h) return null
-    return { kind, id, title: h.title, subtitle: h.subtitle, cover: h.cover, href: h.slug ? hrefFor(kind, h.slug, id) : null, ranked, sort_order, style: h.artist_id ? (genres.get(h.artist_id) || null) : null }
+    return { kind, id, title: h.title, subtitle: h.subtitle, cover: h.cover, href: h.slug ? hrefFor(kind, h.slug, id) : null, ranked, sort_order, style: h.artist_id ? (genres.get(h.artist_id) || null) : null, styleRank: styleRankMap.has(id) ? styleRankMap.get(id)! : null }
   }
   return {
     ranked: rankedIds.map((id, i) => mk(id, true, i)).filter(Boolean) as MusicItem[],
@@ -237,6 +241,17 @@ export async function reorderRanked(userId: string, kind: FavKind, orderedIds: n
   const rows = orderedIds.map((id, idx) => ({ user_id: userId, [idCol]: id, sort_order: idx, bucket: 1 }))
   if (!rows.length) return { ok: true }
   const { error } = await sb.from(TABLE[kind]).upsert(rows, { onConflict: `user_id,${idCol}` })
+  if (error) throw error
+  return { ok: true }
+}
+
+// ── PER-STILIAUS rikiavimas (atskiri stilių topai) ─────────────────────────
+// orderedIds = vieno stiliaus įrašai nauja tvarka. sort_order = index.
+export async function setStyleRank(userId: string, kind: FavKind, orderedIds: number[]) {
+  const sb = createAdminClient()
+  const rows = orderedIds.map((id, idx) => ({ user_id: userId, kind, entity_id: id, sort_order: idx }))
+  if (!rows.length) return { ok: true }
+  const { error } = await sb.from('profile_style_ranks').upsert(rows, { onConflict: 'user_id,kind,entity_id' })
   if (error) throw error
   return { ok: true }
 }
