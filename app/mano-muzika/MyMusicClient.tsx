@@ -2,7 +2,7 @@
 // app/mano-muzika/MyMusicClient.tsx
 // ───────────────────────────────────────────────────────────────────────────
 // „Mano muzika" — VIENAS sąrašas: viršuje rikiuoti „Mėgstami" (pirmi 20 →
-// profilyje), apačioje sulankstoma „Biblioteka" (likę patiktukai). Iš
+// profilyje). Likę patiktukai tęsia tą patį sąrašą žemiau (be atskiros
 // bibliotekos vienu paspaudimu kelti į Top 20 arba įvesti konkrečią vietą.
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ const TABS: { key: Tab; label: string; icon: IcoName }[] = [
   { key: 'artist', label: 'Atlikėjai', icon: 'person' }, { key: 'album', label: 'Albumai', icon: 'disc' },
   { key: 'track', label: 'Dainos', icon: 'note' }, { key: 'mood', label: 'Nuotaika', icon: 'moon' }, { key: 'styles', label: 'Stiliai', icon: 'sliders' },
 ]
-const TARGETS = { artists: 100, albums: 100, tracks: 500, styles: 5 }
+const TARGETS = { artists: 50, albums: 100, tracks: 500, styles: 5 }
 
 async function api(path: string, method: string, body?: any) {
   const res = await fetch(`/api/mano-muzika${path}`, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
@@ -53,27 +53,21 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
 
   const update = useCallback((kind: EntityTab, fn: (c: KindCollection) => KindCollection) => { setColl(prev => ({ ...prev, [kind]: fn(prev[kind]) })) }, [])
 
-  // Įkelti / perkelti į rikiuotą sąrašą į konkrečią vietą (1-based). Veikia ir
-  // bibliotekos įrašui (tampa rikiuotu), ir jau rikiuoto perdėliojimui.
+  // Perkelti įrašą į konkrečią vietą bendrame sąraše (1-based). Bendras sąrašas =
+  // rikiuoti (sort_order) + likę patiktukai (pagal datą). Perkėlimas „surikiuoja"
+  // viską iki tikslinės vietos (jie gauna aiškų sort_order), žemiau lieka „laisvi".
   function moveToPosition(kind: EntityTab, item: MusicItem, pos: number) {
     const c = coll[kind]
-    const rankedIds = c.ranked.map(i => i.id).filter(id => id !== item.id)
-    const idx = Math.max(0, Math.min(rankedIds.length, Math.floor(pos) - 1))
-    rankedIds.splice(idx, 0, item.id)
-    const map = new Map<number, MusicItem>([...c.ranked, ...c.library].map(x => [x.id, x]))
-    const newRanked = rankedIds.map(id => ({ ...(map.get(id) as MusicItem), ranked: true }))
-    update(kind, cc => ({ ranked: newRanked, library: cc.library.filter(x => x.id !== item.id) }))
-    api('/tier', 'PUT', { kind, ordered_ids: rankedIds }).catch(e => { update(kind, () => c); flash(e.message) })
-  }
-  function toTop20(kind: EntityTab, item: MusicItem) { moveToPosition(kind, item, 20) }
-  function reorder(kind: EntityTab, orderedIds: number[]) {
-    update(kind, c => { const map = new Map(c.ranked.map(x => [x.id, x])); return { ...c, ranked: orderedIds.map(id => map.get(id)).filter(Boolean) as MusicItem[] } })
-    api('/tier', 'PUT', { kind, ordered_ids: orderedIds }).catch(() => {})
-  }
-  function toLibrary(kind: EntityTab, item: MusicItem) {
-    const prev = coll[kind]
-    update(kind, c => ({ ranked: c.ranked.filter(x => x.id !== item.id), library: [{ ...item, ranked: false }, ...c.library] }))
-    api('/tier', 'DELETE', { kind, entity_id: item.id }).catch(e => { update(kind, () => prev); flash(e.message) })
+    const combined = [...c.ranked, ...c.library]
+    const wasRanked = c.ranked.some(x => x.id === item.id)
+    const without = combined.filter(x => x.id !== item.id)
+    const idx = Math.max(0, Math.min(without.length, Math.floor(pos) - 1))
+    without.splice(idx, 0, item)
+    const rankedCount = Math.min(without.length, Math.max(c.ranked.length + (wasRanked ? 0 : 1), idx + 1))
+    const newRanked = without.slice(0, rankedCount).map(x => ({ ...x, ranked: true }))
+    const newLibrary = without.slice(rankedCount).map(x => ({ ...x, ranked: false }))
+    update(kind, () => ({ ranked: newRanked, library: newLibrary }))
+    api('/tier', 'PUT', { kind, ordered_ids: newRanked.map(x => x.id) }).catch(e => { update(kind, () => c); flash(e.message) })
   }
   function unlike(kind: EntityTab, item: MusicItem) {
     const prev = coll[kind]
@@ -95,7 +89,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1>Mano muzika</h1>
-            <p>Vienas sąrašas: viršuje rikiuoti mėgstamiausi (pirmi 20 rodomi profilyje), apačioje — visa biblioteka.</p>
+            <p>Vienas mėgstamiausių sąrašas — pirmi 20 rodomi tavo profilyje. Surask ir kelk svarbiausius į viršų.</p>
           </div>
           <div className="shrink-0 flex items-center gap-2">
             <Link href="/perkelti" className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-bold text-white transition-transform hover:scale-[1.03]" style={{ background: 'var(--accent-orange)' }}><Ico name="download" size={14} /> Importuoti</Link>
@@ -138,8 +132,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
       </div>
 
       {(tab === 'artist' || tab === 'album' || tab === 'track') && (
-        <CollectionPanel key={tab} kind={tab} data={coll[tab]} onReorder={(ids) => reorder(tab, ids)} onMoveToPosition={(it, pos) => moveToPosition(tab, it, pos)}
-          onToTop20={(it) => toTop20(tab, it)} onToLibrary={(it) => toLibrary(tab, it)} onUnlike={(it) => unlike(tab, it)} onAdd={(hit) => addLib(tab, hit)} />
+        <CollectionPanel key={tab} kind={tab} data={coll[tab]} onMove={(it, pos) => moveToPosition(tab, it, pos)} onUnlike={(it) => unlike(tab, it)} onAdd={(hit) => addLib(tab, hit)} />
       )}
       {tab === 'mood' && <MoodSection moodSongs={moodSongs} setMoodSongs={setMoodSongs} />}
       {tab === 'styles' && <StyleSection styles={styles} setStyles={setStyles} meter={initial.musicMeter} />}
@@ -153,137 +146,96 @@ function Goal({ label, n, t }: { label: string; n: number; t: number }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-function CollectionPanel({ kind, data, onReorder, onMoveToPosition, onToTop20, onToLibrary, onUnlike, onAdd }: {
-  kind: EntityTab; data: KindCollection
-  onReorder: (ids: number[]) => void; onMoveToPosition: (it: MusicItem, pos: number) => void; onToTop20: (it: MusicItem) => void
-  onToLibrary: (it: MusicItem) => void; onUnlike: (it: MusicItem) => void; onAdd: (hit: AttachmentHit) => void
+function CollectionPanel({ kind, data, onMove, onUnlike, onAdd }: {
+  kind: EntityTab; data: KindCollection; onMove: (it: MusicItem, pos: number) => void; onUnlike: (it: MusicItem) => void; onAdd: (hit: AttachmentHit) => void
 }) {
-  const attached: AttachmentHit[] = [...data.ranked, ...data.library].map(i => ({ type: TYPEFILTER[kind], id: i.id, legacy_id: null, slug: '', title: i.title, artist: null, image_url: i.cover }))
+  const items = useMemo(() => [...data.ranked, ...data.library], [data])
+  const attached: AttachmentHit[] = items.map(i => ({ type: TYPEFILTER[kind], id: i.id, legacy_id: null, slug: '', title: i.title, artist: null, image_url: i.cover }))
   const noun = kind === 'artist' ? 'atlikėją' : kind === 'album' ? 'albumą' : 'dainą'
   return (
     <section>
-      <RankedList kind={kind} items={data.ranked} onReorder={onReorder} onJump={onMoveToPosition} onRemove={onToLibrary} />
-      {/* Pridėjimas */}
-      <div className="mt-4 mb-2 max-w-[560px]"><MusicSearchPicker attached={attached} onAdd={onAdd} typeFilter={TYPEFILTER[kind]} placeholder={`Pridėk ${noun} į biblioteką...`} /></div>
-      <LibrarySection kind={kind} items={data.library} rankedLen={data.ranked.length} onToTop20={onToTop20} onMoveToPosition={onMoveToPosition} onUnlike={onUnlike} />
+      <OneList kind={kind} items={items} onMove={onMove} onUnlike={onUnlike} />
+      <div className="mt-4 max-w-[560px]"><MusicSearchPicker attached={attached} onAdd={onAdd} typeFilter={TYPEFILTER[kind]} placeholder={`Pridėk ${noun}...`} /></div>
     </section>
   )
 }
 
-// ── RIKIUOTAS sąrašas (Mėgstami) — drag + ▲▼ + spustelėk numerį (į vietą) ───
-function RankedList({ kind, items, onReorder, onJump, onRemove }: { kind: EntityTab; items: MusicItem[]; onReorder: (ids: number[]) => void; onJump: (it: MusicItem, pos: number) => void; onRemove: (it: MusicItem) => void }) {
+// VIENAS sąrašas: rikiuoti + likę patiktukai, ištisinė numeracija; pirmi 20 → profilyje.
+function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: MusicItem[]; onMove: (it: MusicItem, pos: number) => void; onUnlike: (it: MusicItem) => void }) {
+  const [q, setQ] = useState('')
+  const [sort, setSort] = useState<'order' | 'az' | 'style'>('order')
+  const [limit, setLimit] = useState(60)
+  const [jumpId, setJumpId] = useState<number | null>(null)
   const dragId = useRef<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
-  const [editPos, setEditPos] = useState<number | null>(null)
-  function drop(targetId: number) { const from = dragId.current; setDragOver(null); dragId.current = null; if (from == null || from === targetId) return; const ids = items.map(i => i.id); const f = ids.indexOf(from), t = ids.indexOf(targetId); if (f < 0 || t < 0) return; ids.splice(t, 0, ids.splice(f, 1)[0]); onReorder(ids) }
-  function move(id: number, dir: -1 | 1) { const ids = items.map(i => i.id); const idx = ids.indexOf(id), to = idx + dir; if (to < 0 || to >= ids.length) return; ids.splice(to, 0, ids.splice(idx, 1)[0]); onReorder(ids) }
+  const hasStyles = useMemo(() => items.some(i => i.style), [items])
+  const realIdx = useMemo(() => new Map(items.map((it, i) => [it.id, i])), [items])
+
+  const term = q.trim().toLowerCase()
+  const browsing = term.length > 0 || sort !== 'order'
+  let view = items
+  if (term) view = view.filter(i => i.title.toLowerCase().includes(term) || i.subtitle.toLowerCase().includes(term))
+  if (sort === 'az') view = [...view].sort((a, b) => a.title.localeCompare(b.title, 'lt'))
+  else if (sort === 'style') view = [...view].sort((a, b) => (a.style || 'žžž').localeCompare(b.style || 'žžž', 'lt') || a.title.localeCompare(b.title, 'lt'))
+  const shown = view.slice(0, limit)
+  const nextSort = () => setSort(s => s === 'order' ? 'az' : s === 'az' ? (hasStyles ? 'style' : 'order') : 'order')
+  const sortLabel = sort === 'order' ? 'Eilė' : sort === 'az' ? 'A–Ž' : 'Pagal stilių'
+
+  function move(id: number, dir: -1 | 1) { const i = realIdx.get(id); if (i == null) return; const it = items[i]; onMove(it, i + 1 + dir) }
+  function drop(targetId: number) { const from = dragId.current; setDragOver(null); dragId.current = null; if (from == null || from === targetId) return; const it = items.find(x => x.id === from); const ti = realIdx.get(targetId); if (it && ti != null) onMove(it, ti + 1) }
+
   return (
-    <>
-      <div className="flex items-baseline gap-2 mb-2">
-        <h2 className="text-[15px] font-black flex items-center gap-1.5"><Ico name="star" size={16} /> Mėgstami</h2>
-        <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span>
-        {items.length > 0 && items.length <= PROFILE_CUTOFF && <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>· visi rodomi profilyje</span>}
+    <div>
+      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <h2 className="text-[15px] font-black flex items-center gap-1.5"><Ico name="star" size={16} /> Mėgstami <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></h2>
+        {items.length > 0 && (
+          <div className="flex items-center gap-2">
+            <input value={q} onChange={e => { setQ(e.target.value); setLimit(60) }} placeholder="Ieškoti sąraše..." className="w-[200px] sm:w-[240px] rounded-lg px-3 py-1.5 text-[12.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+            <button onClick={nextSort} className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>{sortLabel} <Ico name="sort" size={12} /></button>
+          </div>
+        )}
       </div>
       {items.length === 0 ? (
-        <div className="rounded-xl px-4 py-5 text-[12px]" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>
-          Iš bibliotekos (žemiau) kelk mėgstamiausius į šį sąrašą — pirmi {PROFILE_CUTOFF} rodomi tavo profilyje.
+        <div className="rounded-xl px-4 py-6 text-[12.5px] text-center" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>
+          Tuščia. Pridėk per paiešką (žemiau) arba <Link href="/perkelti" className="underline" style={{ color: 'var(--accent-orange)' }}>importuok</Link>. Pirmi {PROFILE_CUTOFF} rodomi tavo profilyje.
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {items.map((it, idx) => (
-            <div key={it.id}>
-              {idx === PROFILE_CUTOFF && (
-                <div className="flex items-center gap-2 my-2 px-1"><div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} /><span className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>↑ Top {PROFILE_CUTOFF} rodoma profilyje</span><div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} /></div>
-              )}
-              <div draggable onDragStart={() => { dragId.current = it.id }} onDragOver={e => { e.preventDefault(); setDragOver(it.id) }} onDragLeave={() => setDragOver(o => o === it.id ? null : o)} onDrop={() => drop(it.id)}
-                className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors"
-                style={{ background: idx < PROFILE_CUTOFF ? 'linear-gradient(90deg, rgba(249,115,22,0.06), var(--bg-surface) 60%)' : 'var(--bg-surface)', border: `1px solid ${dragOver === it.id ? 'var(--accent-orange)' : 'var(--border-default)'}` }}>
-                <span className="hidden sm:inline cursor-grab active:cursor-grabbing select-none text-[var(--text-faint)]" title="Tempk"><Ico name="grip" size={13} /></span>
-                {editPos === it.id ? (
-                  <input autoFocus type="number" min={1} max={items.length} defaultValue={idx + 1}
-                    onKeyDown={e => { if (e.key === 'Enter') { setEditPos(null); onJump(it, Number((e.target as HTMLInputElement).value)) } if (e.key === 'Escape') setEditPos(null) }} onBlur={e => { setEditPos(null); onJump(it, Number(e.target.value)) }}
-                    className="w-9 h-7 text-center text-[12px] font-black rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--accent-orange)', color: 'var(--text-primary)' }} />
-                ) : (
-                  <button onClick={() => setEditPos(it.id)} title="Spustelėk ir įrašyk vietą" className="w-7 h-7 shrink-0 rounded-md text-[12px] font-black tabular-nums" style={{ background: 'var(--bg-elevated)', color: idx < PROFILE_CUTOFF ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{idx + 1}</button>
+          {shown.map(it => {
+            const pos = realIdx.get(it.id) ?? 0
+            const inProfile = pos < PROFILE_CUTOFF
+            return (
+              <div key={it.id}>
+                {!browsing && pos === PROFILE_CUTOFF && (
+                  <div className="flex items-center gap-2 my-2 px-1"><div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} /><span className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>↑ Top {PROFILE_CUTOFF} rodoma profilyje</span><div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} /></div>
                 )}
-                <div className="flex flex-col gap-0.5">
-                  <button onClick={() => move(it.id, -1)} disabled={idx === 0} aria-label="Aukštyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="up" size={11} /></button>
-                  <button onClick={() => move(it.id, 1)} disabled={idx === items.length - 1} aria-label="Žemyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="down" size={11} /></button>
+                <div draggable={!browsing} onDragStart={() => { if (!browsing) dragId.current = it.id }} onDragOver={e => { if (!browsing) { e.preventDefault(); setDragOver(it.id) } }} onDragLeave={() => setDragOver(o => o === it.id ? null : o)} onDrop={() => { if (!browsing) drop(it.id) }}
+                  className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors"
+                  style={{ background: inProfile ? 'linear-gradient(90deg, rgba(249,115,22,0.06), var(--bg-surface) 60%)' : 'var(--bg-surface)', border: `1px solid ${dragOver === it.id ? 'var(--accent-orange)' : 'var(--border-default)'}` }}>
+                  {!browsing && <span className="hidden sm:inline cursor-grab active:cursor-grabbing select-none text-[var(--text-faint)]" title="Tempk"><Ico name="grip" size={13} /></span>}
+                  {jumpId === it.id ? (
+                    <input autoFocus type="number" min={1} max={items.length} defaultValue={pos + 1}
+                      onKeyDown={e => { if (e.key === 'Enter') { setJumpId(null); onMove(it, Number((e.target as HTMLInputElement).value) || 1) } if (e.key === 'Escape') setJumpId(null) }} onBlur={e => { setJumpId(null); onMove(it, Number(e.target.value) || pos + 1) }}
+                      className="w-11 h-7 text-center text-[12px] font-black rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--accent-orange)', color: 'var(--text-primary)' }} />
+                  ) : (
+                    <button onClick={() => setJumpId(it.id)} title="Spustelėk ir įrašyk vietą" className="min-w-[28px] h-7 px-1 shrink-0 rounded-md text-[12px] font-black tabular-nums" style={{ background: 'var(--bg-elevated)', color: inProfile ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{pos + 1}</button>
+                  )}
+                  {!browsing && (
+                    <div className="flex flex-col gap-0.5">
+                      <button onClick={() => move(it.id, -1)} disabled={pos === 0} aria-label="Aukštyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="up" size={11} /></button>
+                      <button onClick={() => move(it.id, 1)} disabled={pos === items.length - 1} aria-label="Žemyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="down" size={11} /></button>
+                    </div>
+                  )}
+                  <Cover kind={kind} cover={it.cover} />
+                  <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>{it.subtitle}{it.style && <span className="rounded px-1.5 py-0.5 text-[9.5px] font-bold" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{it.style}</span>}</div></div>
+                  {!inProfile && <button onClick={() => onMove(it, PROFILE_CUTOFF)} title="Įkelti į Top 20" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-bold" style={{ background: 'rgba(249,115,22,0.12)', color: '#f97316' }}><Ico name="star" size={12} /> Top 20</button>}
+                  <button onClick={() => onUnlike(it)} title="Pašalinti iš mėgstamų" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
                 </div>
-                <Cover kind={kind} cover={it.cover} />
-                <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>{it.subtitle}</div></div>
-                <button onClick={() => onRemove(it)} title="Pašalinti iš mėgstamų (lieka bibliotekoje)" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
-  )
-}
-
-// ── BIBLIOTEKA — sulankstoma to paties sąrašo tąsa; paieška + kėlimas į vietą ─
-function LibrarySection({ kind, items, rankedLen, onToTop20, onMoveToPosition, onUnlike }: {
-  kind: EntityTab; items: MusicItem[]; rankedLen: number; onToTop20: (it: MusicItem) => void; onMoveToPosition: (it: MusicItem, pos: number) => void; onUnlike: (it: MusicItem) => void
-}) {
-  const [openLib, setOpenLib] = useState(rankedLen === 0)
-  const [q, setQ] = useState('')
-  const [sort, setSort] = useState<'recent' | 'az' | 'style'>('recent')
-  const [limit, setLimit] = useState(40)
-  const [jumpId, setJumpId] = useState<number | null>(null)
-  const hasStyles = useMemo(() => items.some(i => i.style), [items])
-
-  const filtered = useMemo(() => {
-    let arr = items
-    const term = q.trim().toLowerCase()
-    if (term) arr = arr.filter(i => i.title.toLowerCase().includes(term) || i.subtitle.toLowerCase().includes(term))
-    if (sort === 'az') arr = [...arr].sort((a, b) => a.title.localeCompare(b.title, 'lt'))
-    else if (sort === 'style') arr = [...arr].sort((a, b) => (a.style || 'žžž').localeCompare(b.style || 'žžž', 'lt') || a.title.localeCompare(b.title, 'lt'))
-    return arr
-  }, [items, q, sort])
-  const shown = filtered.slice(0, limit)
-  const nextSort = () => setSort(s => s === 'recent' ? 'az' : s === 'az' ? (hasStyles ? 'style' : 'recent') : 'recent')
-  const sortLabel = sort === 'recent' ? 'Naujausi' : sort === 'az' ? 'A–Ž' : 'Pagal stilių'
-
-  if (items.length === 0) return (
-    <div className="mt-2 rounded-xl px-4 py-4 text-center text-[12px]" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>
-      Biblioteka tuščia — pridėk per paiešką (viršuje) arba <Link href="/perkelti" className="underline" style={{ color: 'var(--accent-orange)' }}>importuok</Link>.
-    </div>
-  )
-
-  return (
-    <div className="mt-2">
-      <button onClick={() => setOpenLib(o => !o)} className="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
-        <span className="inline-flex items-center gap-2 text-[13.5px] font-black"><Ico name="books" size={15} /> Biblioteka <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></span>
-        <span className="inline-flex items-center gap-1 text-[11.5px] font-bold" style={{ color: 'var(--text-muted)' }}>{openLib ? 'Suskleisti' : 'Surask ir kelk į viršų'} <Ico name={openLib ? 'up' : 'down'} size={13} /></span>
-      </button>
-
-      {openLib && (
-        <div className="mt-2.5">
-          <div className="flex items-center gap-2 mb-2.5">
-            <input value={q} onChange={e => { setQ(e.target.value); setLimit(40) }} placeholder="Ieškoti bibliotekoje..." className="flex-1 max-w-[340px] rounded-lg px-3 py-2 text-[12.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
-            <button onClick={nextSort} className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-[12px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>{sortLabel} <Ico name="sort" size={12} /></button>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            {shown.map(it => (
-              <div key={it.id} className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-                <Cover kind={kind} cover={it.cover} />
-                <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>{it.subtitle}{it.style && <span className="rounded px-1.5 py-0.5 text-[9.5px] font-bold" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{it.style}</span>}</div></div>
-                {jumpId === it.id ? (
-                  <input autoFocus type="number" min={1} placeholder="vieta" onKeyDown={e => { if (e.key === 'Enter') { setJumpId(null); onMoveToPosition(it, Number((e.target as HTMLInputElement).value) || 1) } if (e.key === 'Escape') setJumpId(null) }} onBlur={() => setJumpId(null)}
-                    className="w-16 h-7 text-center text-[12px] font-bold rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--accent-orange)', color: 'var(--text-primary)' }} />
-                ) : (
-                  <>
-                    <button onClick={() => onToTop20(it)} title="Įkelti į Top 20" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-bold" style={{ background: 'rgba(249,115,22,0.12)', color: '#f97316' }}><Ico name="star" size={12} /> Top 20</button>
-                    <button onClick={() => setJumpId(it.id)} title="Įkelti į konkrečią vietą" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}><Ico name="target" size={12} /> Į vietą</button>
-                  </>
-                )}
-                <button onClick={() => onUnlike(it)} title="Pašalinti visai" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
-              </div>
-            ))}
-          </div>
-          {filtered.length > limit && <div className="mt-3 text-center"><button onClick={() => setLimit(l => l + 40)} className="rounded-full px-5 py-2 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({filtered.length - limit})</button></div>}
-          {filtered.length === 0 && <div className="text-center text-[12px] py-4" style={{ color: 'var(--text-faint)' }}>Nieko nerasta.</div>}
+            )
+          })}
+          {view.length > limit && <div className="mt-1 text-center"><button onClick={() => setLimit(l => l + 60)} className="rounded-full px-5 py-2 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({view.length - limit})</button></div>}
+          {view.length === 0 && <div className="text-center text-[12px] py-4" style={{ color: 'var(--text-faint)' }}>Nieko nerasta.</div>}
         </div>
       )}
     </div>
