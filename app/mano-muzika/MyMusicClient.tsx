@@ -10,7 +10,11 @@ import { useState, useCallback, useRef, useMemo, type ReactNode } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
+import { SideEqualizer } from '@/components/profile/SideEqualizer'
 import type { MyMusic, KindCollection, MusicItem, MoodSong, FavStyle } from '@/lib/mano-muzika'
+
+// Vieno stiliaus/substiliaus selektorius — bendras equalizeriui ir pill'ams.
+type StyleSel = { key: string; label: string; color: string; match: (it: MusicItem) => boolean }
 
 const PROFILE_CUTOFF = 20
 type EntityTab = 'artist' | 'album' | 'track'
@@ -76,18 +80,18 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
   }
   function addLib(kind: EntityTab, hit: AttachmentHit) {
     if ([...coll[kind].ranked, ...coll[kind].library].some(x => x.id === hit.id)) return
-    const item: MusicItem = { kind, id: hit.id, title: hit.title, subtitle: hit.artist || TABS.find(t => t.key === kind)!.label, cover: hit.image_url, href: null, ranked: false, sort_order: 0, style: null, styleRank: null }
+    const item: MusicItem = { kind, id: hit.id, title: hit.title, subtitle: hit.artist || TABS.find(t => t.key === kind)!.label, cover: hit.image_url, href: null, ranked: false, sort_order: 0, style: null, substyleIds: [], styleRanks: {} }
     update(kind, c => ({ ...c, library: [item, ...c.library] }))
     api('/favorites', 'POST', { kind, entity_id: hit.id }).catch(e => flash(e.message))
   }
   // Per-stiliaus topo perrikiavimas (atskira nuo bendro sąrašo).
-  function styleReorder(kind: EntityTab, orderedIds: number[]) {
+  function styleReorder(kind: EntityTab, styleKey: string, orderedIds: number[]) {
     const rankMap = new Map(orderedIds.map((id, i) => [id, i]))
     update(kind, c => {
-      const apply = (arr: MusicItem[]) => arr.map(x => rankMap.has(x.id) ? { ...x, styleRank: rankMap.get(x.id)! } : x)
+      const apply = (arr: MusicItem[]) => arr.map(x => rankMap.has(x.id) ? { ...x, styleRanks: { ...x.styleRanks, [styleKey]: rankMap.get(x.id)! } } : x)
       return { ranked: apply(c.ranked), library: apply(c.library) }
     })
-    api('/style-rank', 'PUT', { kind, ordered_ids: orderedIds }).catch(() => {})
+    api('/style-rank', 'PUT', { kind, style_key: styleKey, ordered_ids: orderedIds }).catch(() => {})
   }
 
   return (
@@ -145,7 +149,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
         <CollectionPanel key={tab} kind={tab} data={coll[tab]} onMove={(it, pos) => moveToPosition(tab, it, pos)} onUnlike={(it) => unlike(tab, it)} onAdd={(hit) => addLib(tab, hit)} />
       )}
       {tab === 'mood' && <MoodSection moodSongs={moodSongs} setMoodSongs={setMoodSongs} />}
-      {tab === 'styles' && <StyleSection coll={coll} styles={styles} setStyles={setStyles} onStyleReorder={(kind, ids) => styleReorder(kind, ids)} onUnlike={(kind, it) => unlike(kind, it)} />}
+      {tab === 'styles' && <StyleSection coll={coll} styles={styles} setStyles={setStyles} meterRaw={initial.meterRaw || []} onStyleReorder={(kind, styleKey, ids) => styleReorder(kind, styleKey, ids)} onUnlike={(kind, it) => unlike(kind, it)} />}
     </div>
   )
 }
@@ -176,8 +180,8 @@ function CollectionPanel({ kind, data, onMove, onUnlike, onAdd }: {
   const noun = kind === 'artist' ? 'atlikėją' : kind === 'album' ? 'albumą' : 'dainą'
   const main = (
     <>
+      <div className="mb-3 max-w-[560px]"><MusicSearchPicker attached={attached} onAdd={onAdd} typeFilter={TYPEFILTER[kind]} placeholder={`Surask ir pridėk ${noun}...`} /></div>
       <OneList kind={kind} items={items} onMove={onMove} onUnlike={onUnlike} />
-      <div className="mt-4 max-w-[560px]"><MusicSearchPicker attached={attached} onAdd={onAdd} typeFilter={TYPEFILTER[kind]} placeholder={`Pridėk ${noun}...`} /></div>
     </>
   )
   // Visiems tipams — sąrašas + pasiūlymai šalia (desktop), mobiliame apačioje.
@@ -199,22 +203,27 @@ const SUG_SUB: Record<EntityTab, string> = {
 function SuggestionsPanel({ kind, ownedIds, onAdd }: { kind: EntityTab; ownedIds: Set<number>; onAdd: (hit: AttachmentHit) => void }) {
   const [items, setItems] = useState<TrackSug[] | null>(null)
   const [added, setAdded] = useState<Set<number>>(new Set())
+  const [dismissed, setDismissed] = useState<Set<number>>(new Set())
   const loadRef = useRef<EntityTab | null>(null)
   if (loadRef.current !== kind) {
     loadRef.current = kind
-    setItems(null); setAdded(new Set())
+    setItems(null); setAdded(new Set()); setDismissed(new Set())
     api(`/suggestions?kind=${kind}&limit=30`, 'GET').then(r => setItems((r.items || r.tracks || []) as TrackSug[])).catch(() => setItems([]))
   }
   const fallbackLabel = kind === 'artist' ? 'Atlikėjas' : kind === 'album' ? 'Albumas' : 'Daina'
-  const visible = (items || []).filter(t => !ownedIds.has(t.id) && !added.has(t.id)).slice(0, 14)
+  const visible = (items || []).filter(t => !ownedIds.has(t.id) && !added.has(t.id) && !dismissed.has(t.id)).slice(0, 14)
   function pick(t: TrackSug) {
     setAdded(s => new Set(s).add(t.id))
     onAdd({ type: TYPEFILTER[kind], id: t.id, legacy_id: null, slug: t.slug, title: t.title, artist: t.artist?.name || null, image_url: t.cover_url })
   }
+  function dismiss(t: TrackSug) {
+    setDismissed(s => new Set(s).add(t.id))
+    api('/suggestions', 'POST', { kind, entity_id: t.id }).catch(() => {})
+  }
   return (
     <aside className="rounded-2xl p-3.5 lg:sticky lg:top-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
       <div className="flex items-center gap-1.5 mb-1"><span style={{ color: '#f97316' }}><Ico name="sparkle" size={15} /></span><h3 className="text-[13.5px] font-black">Galbūt patiks</h3></div>
-      <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-muted)' }}>{SUG_SUB[kind]}</p>
+      <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-muted)' }}>{SUG_SUB[kind]} <span style={{ color: 'var(--text-faint)' }}>Širdelė — pridėti, ✕ — paslėpti (daugiau nesiūlysim).</span></p>
       {items === null ? (
         <div className="text-[12px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>Kraunama…</div>
       ) : visible.length === 0 ? (
@@ -222,10 +231,11 @@ function SuggestionsPanel({ kind, ownedIds, onAdd }: { kind: EntityTab; ownedIds
       ) : (
         <ul className="flex flex-col gap-1.5">
           {visible.map(t => (
-            <li key={t.id} className="group flex items-center gap-2.5 rounded-xl px-2 py-1.5" style={{ background: 'var(--bg-elevated)' }}>
+            <li key={t.id} className="group flex items-center gap-2 rounded-xl px-2 py-1.5" style={{ background: 'var(--bg-elevated)' }}>
               <Cover kind={kind} cover={t.cover_url} />
               <div className="min-w-0 flex-1"><div className="truncate text-[12.5px] font-bold">{t.title}</div><div className="truncate text-[10.5px]" style={{ color: 'var(--text-muted)' }}>{t.artist?.name || fallbackLabel}</div></div>
-              <button onClick={() => pick(t)} title="Pridėti į mėgstamus" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-full transition-colors" style={{ background: 'rgba(244,63,94,0.12)', color: '#f43f5e' }}><Ico name="heart" size={14} /></button>
+              <button onClick={() => pick(t)} title="Pridėti į mėgstamus" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-full transition-colors hover:brightness-110" style={{ border: '1px solid #ef4444', color: '#ef4444' }}><Ico name="heart" size={13} /></button>
+              <button onClick={() => dismiss(t)} title="Paslėpti — daugiau nesiūlyti" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-full opacity-50 group-hover:opacity-100 transition" style={{ color: 'var(--text-faint)' }}><Ico name="x" size={13} /></button>
             </li>
           ))}
         </ul>
@@ -262,7 +272,7 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
   return (
     <div>
       <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-        <h2 className="text-[15px] font-black flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><span style={{ color: '#f43f5e' }}><Ico name="heart" size={15} /></span> Mėgstami <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></h2>
+        <h2 className="text-[15px] font-black flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><span style={{ color: '#ef4444' }}><Ico name="heartFull" size={15} /></span> Mėgstami <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></h2>
         {items.length > 0 && (
           <div className="flex items-center gap-2">
             <input value={q} onChange={e => { setQ(e.target.value); setLimit(60) }} placeholder="Ieškoti sąraše..." className="w-[200px] sm:w-[240px] rounded-lg px-3 py-1.5 text-[12.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
@@ -402,10 +412,11 @@ function hexToRgb(hex: string): string {
 
 // LED segmentinis bar'as (toks pat dizainas kaip profilio „Muzikinis skonis").
 const LED_SEGMENTS = 14
-function StyleLedBars({ top, maxCount, sel, setSel, colorOf }: {
-  top: { name: string; count: number }[]; maxCount: number; sel: string | null
-  setSel: (s: string | null) => void; colorOf: (name: string) => string
+function StyleLedBars({ top, maxCount, selName, onPick, colorOf }: {
+  top: { name: string; count: number }[]; maxCount: number; selName: string | null
+  onPick: (s: string) => void; colorOf: (name: string) => string
 }) {
+  const sel = selName
   return (
     <>
       {/* Desktop — vertikalūs LED stulpeliai */}
@@ -415,7 +426,7 @@ function StyleLedBars({ top, maxCount, sel, setSel, colorOf }: {
           const hex = colorOf(d.name); const rgb = hexToRgb(hex)
           const lit = Math.max(Math.round((d.count / (maxCount || 1)) * LED_SEGMENTS), d.count > 0 ? 1 : 0)
           return (
-            <button key={d.name} onClick={() => setSel(active ? null : d.name)} title={`${d.name} — ${d.count}`} className={`group flex-1 min-w-0 flex flex-col items-center transition hover:-translate-y-0.5 ${sel && !active ? 'opacity-45' : ''}`}>
+            <button key={d.name} onClick={() => onPick(d.name)} title={`${d.name} — ${d.count}`} className={`group flex-1 min-w-0 flex flex-col items-center transition hover:-translate-y-0.5 ${sel && !active ? 'opacity-45' : ''}`}>
               <span className="text-[11px] font-black tabular-nums mb-1" style={{ color: active ? hex : 'var(--text-faint)' }}>{d.count}</span>
               <div className="flex flex-col-reverse gap-[2px] w-full px-[3px]" style={{ maxWidth: 46, margin: '0 auto' }}>
                 {Array.from({ length: LED_SEGMENTS }).map((_, s) => {
@@ -438,7 +449,7 @@ function StyleLedBars({ top, maxCount, sel, setSel, colorOf }: {
           const hex = colorOf(d.name); const rgb = hexToRgb(hex)
           const pct = (d.count / (maxCount || 1)) * 100
           return (
-            <button key={d.name} onClick={() => setSel(active ? null : d.name)} className={`group flex items-center gap-3 w-full text-left transition ${sel && !active ? 'opacity-45' : ''}`}>
+            <button key={d.name} onClick={() => onPick(d.name)} className={`group flex items-center gap-3 w-full text-left transition ${sel && !active ? 'opacity-45' : ''}`}>
               <span className="font-extrabold truncate" style={{ width: 96, flexShrink: 0, fontSize: 12.5, color: active ? hex : 'var(--text-primary)' }}>{d.name}</span>
               <span className="flex-1 relative h-3.5 rounded-md overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
                 <span className="absolute inset-y-0 left-0 rounded-md" style={{ width: `${Math.max(6, pct)}%`, background: `linear-gradient(to right, rgba(${rgb}, 0.55), rgba(${rgb}, 0.95))`, boxShadow: active ? `0 0 14px rgba(${rgb}, 0.6)` : `0 0 6px rgba(${rgb}, 0.3)` }} />
@@ -454,16 +465,17 @@ function StyleLedBars({ top, maxCount, sel, setSel, colorOf }: {
 
 // Stilių sąrašas pagal konkretų stilių — globalios pozicijos, valdymas kaip pagrindiniame sąraše.
 // Atskiras vieno stiliaus topas — sub-tabai (Atlikėjai/Albumai/Dainos), stiliaus-vietinės pozicijos.
-function StyleManager({ styleName, color, coll, onReorder, onUnlike }: {
-  styleName: string; color: string; coll: Record<EntityTab, KindCollection>
-  onReorder: (kind: EntityTab, orderedIds: number[]) => void; onUnlike: (kind: EntityTab, it: MusicItem) => void
+function StyleManager({ sel, coll, onReorder, onUnlike }: {
+  sel: StyleSel; coll: Record<EntityTab, KindCollection>
+  onReorder: (kind: EntityTab, styleKey: string, orderedIds: number[]) => void; onUnlike: (kind: EntityTab, it: MusicItem) => void
 }) {
+  const color = sel.color
   const byKind = useMemo(() => {
     const out = { artist: [] as MusicItem[], album: [] as MusicItem[], track: [] as MusicItem[] }
     ;(['artist', 'album', 'track'] as const).forEach(kind => {
-      const items = [...coll[kind].ranked, ...coll[kind].library].filter(i => i.style === styleName)
+      const items = [...coll[kind].ranked, ...coll[kind].library].filter(i => sel.match(i))
       items.sort((a, b) => {
-        const ra = a.styleRank, rb = b.styleRank
+        const ra = a.styleRanks?.[sel.key], rb = b.styleRanks?.[sel.key]
         if (ra != null && rb != null) return ra - rb
         if (ra != null) return -1
         if (rb != null) return 1
@@ -472,7 +484,7 @@ function StyleManager({ styleName, color, coll, onReorder, onUnlike }: {
       out[kind] = items
     })
     return out
-  }, [coll, styleName])
+  }, [coll, sel])
   const kinds = (['artist', 'album', 'track'] as const).filter(k => byKind[k].length)
   const [sub, setSub] = useState<EntityTab>('artist')
   const active: EntityTab = kinds.includes(sub) ? sub : (kinds[0] || 'artist')
@@ -480,7 +492,7 @@ function StyleManager({ styleName, color, coll, onReorder, onUnlike }: {
   const dragId = useRef<number | null>(null); const [dragOver, setDragOver] = useState<number | null>(null)
   const [jumpId, setJumpId] = useState<number | null>(null)
   const ids = items.map(i => i.id)
-  const commit = (a: number[]) => onReorder(active, a)
+  const commit = (a: number[]) => onReorder(active, sel.key, a)
   const move = (id: number, dir: -1 | 1) => { const i = ids.indexOf(id), to = i + dir; if (to < 0 || to >= ids.length) return; const a = [...ids]; a.splice(to, 0, a.splice(i, 1)[0]); commit(a) }
   const jump = (id: number, pos: number) => { const i = ids.indexOf(id), to = Math.max(0, Math.min(ids.length - 1, Math.floor(pos) - 1)); if (i < 0 || to === i) return; const a = [...ids]; a.splice(to, 0, a.splice(i, 1)[0]); commit(a) }
   const drop = (targetId: number) => { const from = dragId.current; setDragOver(null); dragId.current = null; if (from == null || from === targetId) return; const f = ids.indexOf(from), t = ids.indexOf(targetId); if (f < 0 || t < 0) return; const a = [...ids]; a.splice(t, 0, a.splice(f, 1)[0]); commit(a) }
@@ -498,6 +510,9 @@ function StyleManager({ styleName, color, coll, onReorder, onUnlike }: {
           )
         })}
       </div>
+      {items.length === 0 && (
+        <div className="rounded-xl px-4 py-5 text-center text-[12.5px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Dar neturi šio stiliaus įrašų. Pridėk atlikėjų/albumų/dainų — atsiras čia.</div>
+      )}
       <div className="flex flex-col gap-1.5">
         {items.map((it, idx) => (
           <div key={it.id} draggable onDragStart={() => { dragId.current = it.id }} onDragOver={e => { e.preventDefault(); setDragOver(it.id) }} onDragLeave={() => setDragOver(o => o === it.id ? null : o)} onDrop={() => drop(it.id)}
@@ -524,11 +539,11 @@ function StyleManager({ styleName, color, coll, onReorder, onUnlike }: {
   )
 }
 
-function StyleSection({ coll, styles, setStyles, onStyleReorder, onUnlike }: {
-  coll: Record<EntityTab, KindCollection>; styles: FavStyle[]; setStyles: (v: FavStyle[]) => void
-  onStyleReorder: (kind: EntityTab, orderedIds: number[]) => void; onUnlike: (kind: EntityTab, it: MusicItem) => void
+function StyleSection({ coll, styles, setStyles, meterRaw, onStyleReorder, onUnlike }: {
+  coll: Record<EntityTab, KindCollection>; styles: FavStyle[]; setStyles: (v: FavStyle[]) => void; meterRaw: any[]
+  onStyleReorder: (kind: EntityTab, styleKey: string, orderedIds: number[]) => void; onUnlike: (kind: EntityTab, it: MusicItem) => void
 }) {
-  const [sel, setSel] = useState<string | null>(null)
+  const [sel, setSel] = useState<StyleSel | null>(null)
   const [catalog, setCatalog] = useState<{ legacy_style_id: number; style_slug: string; style_name: string }[] | null>(null)
   const [q, setQ] = useState(''); const [open, setOpen] = useState(false)
 
@@ -543,30 +558,55 @@ function StyleSection({ coll, styles, setStyles, onStyleReorder, onUnlike }: {
   const top = dist.slice(0, 10)
   const colorIdx = useMemo(() => new Map(dist.map((d, i) => [d.name, i])), [dist])
   const colorOf = (name: string) => METER_COLORS[(colorIdx.get(name) ?? 0) % METER_COLORS.length]
+  const hasMeter = Array.isArray(meterRaw) && meterRaw.length > 0
+
+  // Selektoriai: equalizerio platus stilius (pagal žanro pavadinimą) / pill substilius.
+  const makeBroad = (full: string): StyleSel => ({ key: full, label: full, color: colorOf(full) || '#f97316', match: it => it.style === full })
+  const makePill = (s: FavStyle, idx: number): StyleSel => ({ key: `sub:${s.legacy_style_id}`, label: s.style_name, color: METER_COLORS[idx % METER_COLORS.length], match: it => (it.substyleIds?.includes(s.legacy_style_id)) || it.style === s.style_name })
+  const broadSelName = sel && !sel.key.startsWith('sub:') ? sel.key : null
 
   async function ensureCatalog() { if (catalog) return; try { const r = await api('/styles?catalog=1', 'GET'); setCatalog(r.catalog || []) } catch { setCatalog([]) } }
   function addStyle(s: { legacy_style_id: number; style_slug: string; style_name: string }) { if (styles.some(x => x.legacy_style_id === s.legacy_style_id)) return; setStyles([...styles, { ...s, sort_order: 9999 }]); setQ(''); api('/styles', 'POST', s).catch(() => setStyles(styles)) }
-  function removeStyle(id: number) { setStyles(styles.filter(x => x.legacy_style_id !== id)); api('/styles', 'DELETE', { legacy_style_id: id }).catch(() => setStyles(styles)) }
+  function removeStyle(id: number) { if (sel?.key === `sub:${id}`) setSel(null); setStyles(styles.filter(x => x.legacy_style_id !== id)); api('/styles', 'DELETE', { legacy_style_id: id }).catch(() => setStyles(styles)) }
   const filteredCatalog = (catalog || []).filter(c => !styles.some(s => s.legacy_style_id === c.legacy_style_id)).filter(c => q.trim().length < 2 || c.style_name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40)
 
   return (
     <div>
-      {/* Mėgstami stiliai — pills (viršuje, kad dropdown turėtų vietos) */}
+      {/* Muzikinis skonis — IDENTIŠKAS profilio equalizeris (legacy_music_meter). */}
+      {hasMeter ? (
+        <div className="mb-5">
+          <SideEqualizer meter={meterRaw} variant="led-large" topN={8} ledSelectedGenre={broadSelName} onSelect={(full) => setSel(full ? makeBroad(full) : null)} />
+          <p className="mt-1.5 text-[11.5px]" style={{ color: 'var(--text-faint)' }}>Spustelėk stilių juostą — susidėliosi to stiliaus topą žemiau.</p>
+        </div>
+      ) : dist.length > 0 ? (
+        <div className="mb-5 rounded-2xl p-4 sm:p-5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+          <div className="text-[11px] font-extrabold uppercase tracking-[0.2em] mb-3" style={{ color: 'var(--accent-orange)' }}>Muzikinis skonis <span className="font-medium normal-case tracking-normal" style={{ color: 'var(--text-muted)' }}>· spustelėk ir tvarkyk to stiliaus topą</span></div>
+          <StyleLedBars top={top} maxCount={maxCount} selName={broadSelName} onPick={(name) => setSel(broadSelName === name ? null : makeBroad(name))} colorOf={colorOf} />
+        </div>
+      ) : (
+        <p className="mb-5 text-[12.5px]" style={{ color: 'var(--text-muted)' }}>Pridėk atlikėjų, albumų ar dainų — iš jų žanrų susiformuos tavo stilių pasiskirstymas.</p>
+      )}
+
+      {/* Mėgstami stiliai — pills PO equalizer, spustelimi → substiliaus topas */}
       <div className="mb-5">
         <h3 className="text-[14px] font-black mb-1.5">Mėgstami stiliai <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{styles.length}</span></h3>
-        <p className="mb-2.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>Žymos tavo profiliui — pasirink mėgstamiausius žanrus.</p>
+        <p className="mb-2.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>Žymos tavo profiliui. Spustelėk stilių — susidėliosi jo topą; ✕ pašalina žymą.</p>
         <div className="flex flex-wrap gap-2 items-center">
-          {styles.map((s, idx) => (
-            <span key={s.legacy_style_id} className="group inline-flex items-center gap-1.5 rounded-full pl-2.5 pr-1.5 py-1.5" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
-              <span className="inline-block h-2 w-2 rounded-full" style={{ background: METER_COLORS[idx % METER_COLORS.length] }} />
-              <span className="text-[12.5px] font-bold">{s.style_name}</span>
-              <button onClick={() => removeStyle(s.legacy_style_id)} title="Pašalinti" className="h-4 w-4 inline-flex items-center justify-center rounded-full" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={9} /></button>
-            </span>
-          ))}
+          {styles.map((s, idx) => {
+            const active = sel?.key === `sub:${s.legacy_style_id}`
+            const col = METER_COLORS[idx % METER_COLORS.length]
+            return (
+              <button key={s.legacy_style_id} onClick={() => setSel(active ? null : makePill(s, idx))} className="group inline-flex items-center gap-1.5 rounded-full pl-2.5 pr-1.5 py-1.5 transition-colors" style={{ background: active ? `${col}22` : 'var(--bg-elevated)', border: `1px solid ${active ? col : 'var(--border-default)'}` }}>
+                <span className="inline-block h-2 w-2 rounded-full" style={{ background: col }} />
+                <span className="text-[12.5px] font-bold">{s.style_name}</span>
+                <span role="button" tabIndex={0} onClick={e => { e.stopPropagation(); removeStyle(s.legacy_style_id) }} title="Pašalinti žymą" className="h-4 w-4 inline-flex items-center justify-center rounded-full" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={9} /></span>
+              </button>
+            )
+          })}
           <div className="relative">
             <button onClick={() => { ensureCatalog(); setOpen(o => !o) }} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: 'transparent', border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>+ Pridėk stilių</button>
             {open && (
-              <div className="absolute left-0 top-full z-40 mt-1.5 w-[260px] max-h-[280px] overflow-y-auto rounded-lg shadow-xl" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+              <div className="absolute left-0 bottom-full z-40 mb-1.5 w-[260px] max-h-[280px] overflow-y-auto rounded-lg shadow-xl" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
                 <div className="p-2 sticky top-0" style={{ background: 'var(--bg-surface)' }}><input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Ieškoti stiliaus..." className="w-full rounded-md px-2.5 py-1.5 text-[12.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} /></div>
                 {!catalog ? <div className="px-3 py-3 text-center text-[12px]" style={{ color: 'var(--text-faint)' }}>Kraunama…</div> : filteredCatalog.length === 0 ? <div className="px-3 py-3 text-center text-[12px]" style={{ color: 'var(--text-faint)' }}>Nieko nerasta.</div> : <ul className="pb-1">{filteredCatalog.map(c => (<li key={c.legacy_style_id}><button onClick={() => addStyle(c)} className="w-full text-left px-3 py-1.5 text-[12.5px] font-medium" style={{ color: 'var(--text-primary)' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>{c.style_name}</button></li>))}</ul>}
               </div>
@@ -575,23 +615,13 @@ function StyleSection({ coll, styles, setStyles, onStyleReorder, onUnlike }: {
         </div>
       </div>
 
-      {/* Stilių pasiskirstymas (barai iš kolekcijos) */}
-      {dist.length > 0 ? (
-        <div className="mb-5 rounded-2xl p-4 sm:p-5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-          <div className="text-[11px] font-extrabold uppercase tracking-[0.2em] mb-3" style={{ color: 'var(--accent-orange)' }}>Muzikinis skonis <span className="font-medium normal-case tracking-normal" style={{ color: 'var(--text-muted)' }}>· spustelėk ir tvarkyk to stiliaus topą</span></div>
-          <StyleLedBars top={top} maxCount={maxCount} sel={sel} setSel={setSel} colorOf={colorOf} />
-        </div>
-      ) : (
-        <p className="mb-5 text-[12.5px]" style={{ color: 'var(--text-muted)' }}>Pridėk atlikėjų, albumų ar dainų — iš jų žanrų susiformuos tavo stilių pasiskirstymas.</p>
-      )}
-
       {sel && (
-        <div className="mb-2 rounded-2xl p-4" style={{ background: 'var(--bg-surface)', border: `1px solid ${colorOf(sel)}55` }}>
+        <div className="mb-2 rounded-2xl p-4" style={{ background: 'var(--bg-surface)', border: `1px solid ${sel.color}55` }}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[14px] font-black flex items-center gap-2"><span className="inline-block h-3 w-3 rounded-full" style={{ background: colorOf(sel) }} /> {sel} <span className="text-[11.5px] font-medium" style={{ color: 'var(--text-muted)' }}>· tavo {sel.toLowerCase()} topas</span></h3>
+            <h3 className="text-[14px] font-black flex items-center gap-2"><span className="inline-block h-3 w-3 rounded-full" style={{ background: sel.color }} /> {sel.label} <span className="text-[11.5px] font-medium" style={{ color: 'var(--text-muted)' }}>· susidėliok savo topą šiame stiliuje</span></h3>
             <button onClick={() => setSel(null)} className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: 'var(--text-muted)' }}>Uždaryti <Ico name="x" size={12} /></button>
           </div>
-          <StyleManager key={sel} styleName={sel} color={colorOf(sel)} coll={coll} onReorder={onStyleReorder} onUnlike={onUnlike} />
+          <StyleManager key={sel.key} sel={sel} coll={coll} onReorder={onStyleReorder} onUnlike={onUnlike} />
         </div>
       )}
     </div>
@@ -600,7 +630,7 @@ function StyleSection({ coll, styles, setStyles, onStyleReorder, onUnlike }: {
 function Empty({ hint }: { hint: string }) { return <div className="rounded-2xl px-6 py-10 text-center" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)' }}><div className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{hint}</div></div> }
 
 // ── ICONS (inline SVG) ─────────────────────────────────────────────────────
-type IcoName = 'person' | 'disc' | 'note' | 'moon' | 'sliders' | 'star' | 'heart' | 'repeat' | 'play' | 'books' | 'download' | 'eye' | 'x' | 'up' | 'down' | 'grip' | 'sort' | 'sparkle' | 'target' | 'plus'
+type IcoName = 'person' | 'disc' | 'note' | 'moon' | 'sliders' | 'star' | 'heart' | 'heartFull' | 'repeat' | 'play' | 'books' | 'download' | 'eye' | 'x' | 'up' | 'down' | 'grip' | 'sort' | 'sparkle' | 'target' | 'plus'
 function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
   const p: Record<IcoName, ReactNode> = {
     person: <><circle cx="12" cy="8" r="4" /><path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" /></>,
@@ -610,6 +640,7 @@ function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
     sliders: <><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h7M15 18h5" /><circle cx="16" cy="6" r="2" /><circle cx="8" cy="12" r="2" /><circle cx="13" cy="18" r="2" /></>,
     star: <polygon points="12 2 15 9 22 9.3 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9.3 9 9" />,
     heart: <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />,
+    heartFull: <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />,
     repeat: <><path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></>,
     play: <polygon points="6 4 20 12 6 20 6 4" />,
     plus: <path d="M12 5v14M5 12h14" />,
@@ -623,6 +654,6 @@ function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
     sparkle: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />,
     target: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /></>,
   }
-  const filled = name === 'star' || name === 'grip' || name === 'sparkle' || name === 'play'
+  const filled = name === 'star' || name === 'grip' || name === 'sparkle' || name === 'play' || name === 'heartFull'
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={name === 'x' || name === 'up' || name === 'down' ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>{p[name]}</svg>
 }

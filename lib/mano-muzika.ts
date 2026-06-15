@@ -26,7 +26,8 @@ export type MusicItem = {
   ranked: boolean
   sort_order: number
   style: string | null   // pagrindinis žanras (rikiavimui/filtravimui)
-  styleRank: number | null // pozicija to stiliaus „top'e" (atskira nuo bendro)
+  substyleIds: number[]   // legacy_style_id sąrašas (substilių pill'ams)
+  styleRanks: Record<string, number> // pozicija PER stilių (style_key → rangas)
 }
 export type KindCollection = { ranked: MusicItem[]; library: MusicItem[] }
 
@@ -48,6 +49,7 @@ export type MyMusic = {
   moodSongs: MoodSong[]
   styles: FavStyle[]
   musicMeter: MeterEntry[]
+  meterRaw: any[]   // RAW legacy_music_meter (profilio equalizeriui, identiškas vaizdas)
   counts: { artists: number; albums: number; tracks: number; moodSongs: number; styles: number }
   setup: { completed: boolean; skipped: boolean; completedAt: string | null }
 }
@@ -80,6 +82,20 @@ async function mainGenreMap(sb: any, artistIds: number[]): Promise<Map<number, s
       if (!g || g.parent_id !== null) continue
       if (!m.has(r.artist_id)) m.set(r.artist_id, g.name)
     }
+  }
+  return m
+}
+
+// artist_id → legacy_style_id[] (substiliai, substilių pill'ams).
+async function artistSubstyleMap(sb: any, artistIds: number[]): Promise<Map<number, number[]>> {
+  const m = new Map<number, number[]>()
+  if (!artistIds.length) return m
+  const ids = [...new Set(artistIds)]
+  for (let i = 0; i < ids.length; i += 300) {
+    try {
+      const { data } = await sb.from('artist_substyles').select('artist_id, legacy_style_id').in('artist_id', ids.slice(i, i + 300))
+      for (const r of (data || []) as any[]) { const a = m.get(r.artist_id) || []; a.push(r.legacy_style_id); m.set(r.artist_id, a) }
+    } catch { /* substyles optional */ }
   }
   return m
 }
@@ -118,10 +134,13 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
   const [curRes, likeRes, srRes] = await Promise.all([
     sb.from(TABLE[kind]).select(`${idCol}, sort_order`).eq('user_id', userId).eq('bucket', 1).order('sort_order'),
     sb.from('likes').select('entity_id, created_at').eq('entity_type', kind).eq('user_id', userId).not('entity_id', 'is', null).limit(3000),
-    sb.from('profile_style_ranks').select('entity_id, sort_order').eq('user_id', userId).eq('kind', kind),
+    sb.from('profile_style_ranks').select('entity_id, style_key, sort_order').eq('user_id', userId).eq('kind', kind),
   ])
-  const styleRankMap = new Map<number, number>()
-  for (const r of (srRes.data || []) as any[]) styleRankMap.set(r.entity_id, r.sort_order)
+  // Per-stilių rangai: entity_id → { style_key → rangas }.
+  const styleRanksMap = new Map<number, Record<string, number>>()
+  for (const r of (srRes.data || []) as any[]) {
+    const m = styleRanksMap.get(r.entity_id) || {}; m[r.style_key] = r.sort_order; styleRanksMap.set(r.entity_id, m)
+  }
   const rankedIds: number[] = (curRes.data || []).map((r: any) => r[idCol])
   const rankedSet = new Set(rankedIds)
   const likedAt = new Map<number, string>()
@@ -141,13 +160,13 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
     .filter(id => hy.has(id))
     .sort((a, b) => ((hy.get(b)!.pop) - (hy.get(a)!.pop)) || ((likedAt.get(a) || '') < (likedAt.get(b) || '') ? 1 : -1))
     .slice(0, 1500)
-  // stilius — pagal pagrindinį atlikėjo žanrą
+  // stilius — pagal pagrindinį atlikėjo žanrą; substiliai — iš artist_substyles.
   const artistIds: number[] = []
   for (const id of allIds) { const h = hy.get(id); if (h?.artist_id) artistIds.push(h.artist_id) }
-  const genres = await mainGenreMap(sb, artistIds)
+  const [genres, substyleMap] = await Promise.all([mainGenreMap(sb, artistIds), artistSubstyleMap(sb, artistIds)])
   const mk = (id: number, ranked: boolean, sort_order: number): MusicItem | null => {
     const h = hy.get(id); if (!h) return null
-    return { kind, id, title: h.title, subtitle: h.subtitle, cover: h.cover, href: h.slug ? hrefFor(kind, h.slug, id) : null, ranked, sort_order, style: h.artist_id ? (genres.get(h.artist_id) || null) : null, styleRank: styleRankMap.has(id) ? styleRankMap.get(id)! : null }
+    return { kind, id, title: h.title, subtitle: h.subtitle, cover: h.cover, href: h.slug ? hrefFor(kind, h.slug, id) : null, ranked, sort_order, style: h.artist_id ? (genres.get(h.artist_id) || null) : null, substyleIds: h.artist_id ? (substyleMap.get(h.artist_id) || []) : [], styleRanks: styleRanksMap.get(id) || {} }
   }
   return {
     ranked: rankedIds.map((id, i) => mk(id, true, i)).filter(Boolean) as MusicItem[],
@@ -196,6 +215,7 @@ export async function getMyMusic(userId: string): Promise<MyMusic> {
 
   return {
     artist, album, track, moodSongs, styles, musicMeter,
+    meterRaw: Array.isArray(mm) ? mm : [],
     counts: {
       artists: artist.ranked.length + artist.library.length,
       albums: album.ranked.length + album.library.length,
@@ -264,15 +284,30 @@ export async function reorderRanked(userId: string, kind: FavKind, orderedIds: n
   return { ok: true }
 }
 
-// ── PER-STILIAUS rikiavimas (atskiri stilių topai) ─────────────────────────
-// orderedIds = vieno stiliaus įrašai nauja tvarka. sort_order = index.
-export async function setStyleRank(userId: string, kind: FavKind, orderedIds: number[]) {
+// ── PER-STILIAUS rikiavimas (NEPRIKLAUSOMI stilių/substilių topai) ─────────
+// styleKey = stiliaus raktas (žanro pavadinimas arba `sub:<legacy_style_id>`).
+// orderedIds = to stiliaus įrašai nauja tvarka. sort_order = index.
+export async function setStyleRank(userId: string, kind: FavKind, styleKey: string, orderedIds: number[]) {
   const sb = createAdminClient()
-  const rows = orderedIds.map((id, idx) => ({ user_id: userId, kind, entity_id: id, sort_order: idx }))
+  const key = (styleKey || '').slice(0, 120)
+  const rows = orderedIds.map((id, idx) => ({ user_id: userId, kind, style_key: key, entity_id: id, sort_order: idx }))
   if (!rows.length) return { ok: true }
-  const { error } = await sb.from('profile_style_ranks').upsert(rows, { onConflict: 'user_id,kind,entity_id' })
+  const { error } = await sb.from('profile_style_ranks').upsert(rows, { onConflict: 'user_id,kind,style_key,entity_id' })
   if (error) throw error
   return { ok: true }
+}
+
+// ── PASIŪLYMŲ ATMETIMAS (neigiamas signalas — ko nesiūlyti) ────────────────
+export async function dismissSuggestion(userId: string, kind: FavKind, entityId: number) {
+  const sb = createAdminClient()
+  const { error } = await sb.from('profile_suggestion_dismissals')
+    .upsert({ user_id: userId, kind, entity_id: entityId }, { onConflict: 'user_id,kind,entity_id', ignoreDuplicates: true })
+  if (error) throw error
+  return { ok: true }
+}
+async function dismissedIds(sb: any, userId: string, kind: FavKind): Promise<Set<number>> {
+  const { data } = await sb.from('profile_suggestion_dismissals').select('entity_id').eq('user_id', userId).eq('kind', kind).limit(5000)
+  return new Set(((data || []) as any[]).map(r => r.entity_id))
 }
 
 // ── MOOD SONGS (top 20, rikiuojamos — #1 = aktyvi, rodoma profilyje) ────────
@@ -409,9 +444,11 @@ export async function getTrackSuggestions(userId: string, limit = 24): Promise<T
     ...((favArtCur.data || []) as any[]).map(r => r.artist_id),
     ...((favArtLikes.data || []) as any[]).map(r => r.entity_id),
   ].filter(Boolean))]
+  const dism = await dismissedIds(sb, userId, 'track')
   const ownedTrackIds = new Set<number>([
     ...((ownTrkCur.data || []) as any[]).map(r => r.track_id),
     ...((ownTrkLikes.data || []) as any[]).map(r => r.entity_id),
+    ...dism,
   ].filter(Boolean))
 
   const seenArtist = new Map<number, number>()  // dedup: maks. 3 per atlikėją
@@ -460,7 +497,8 @@ export async function getSuggestions(userId: string, kind: FavKind, limit = 24):
       sb.from('profile_favorite_artists').select('artist_id').eq('user_id', userId),
       sb.from('likes').select('entity_id').eq('entity_type', 'artist').eq('user_id', userId).not('entity_id', 'is', null).limit(2000),
     ])
-    const owned = new Set<number>([...((curRes.data || []) as any[]).map(r => r.artist_id), ...((likeRes.data || []) as any[]).map(r => r.entity_id)].filter(Boolean))
+    const dism = await dismissedIds(sb, userId, 'artist')
+    const owned = new Set<number>([...((curRes.data || []) as any[]).map(r => r.artist_id), ...((likeRes.data || []) as any[]).map(r => r.entity_id), ...dism].filter(Boolean))
     const { data } = await sb.from('artists')
       .select('id, slug, name, cover_image_url, score, country')
       .not('cover_image_url', 'is', null)
@@ -482,7 +520,8 @@ export async function getSuggestions(userId: string, kind: FavKind, limit = 24):
     sb.from('likes').select('entity_id').eq('entity_type', 'album').eq('user_id', userId).not('entity_id', 'is', null).limit(3000),
   ])
   const artistIds = [...new Set([...((favArtCur.data || []) as any[]).map(r => r.artist_id), ...((favArtLikes.data || []) as any[]).map(r => r.entity_id)].filter(Boolean))]
-  const owned = new Set<number>([...((ownCur.data || []) as any[]).map(r => r.album_id), ...((ownLikes.data || []) as any[]).map(r => r.entity_id)].filter(Boolean))
+  const dismAlb = await dismissedIds(sb, userId, 'album')
+  const owned = new Set<number>([...((ownCur.data || []) as any[]).map(r => r.album_id), ...((ownLikes.data || []) as any[]).map(r => r.entity_id), ...dismAlb].filter(Boolean))
   const seenArtist = new Map<number, number>()
   const out: TrackSuggestion[] = []
   const push = (rows: any[], reason: string) => {
