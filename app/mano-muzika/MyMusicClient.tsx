@@ -80,15 +80,24 @@ export default function MyMusicClient({ initial, username, avatarUrl, suggestOnb
             <h1>Mano muzika</h1>
             <p>Tvarkyk mėgstamus atlikėjus, albumus, dainas, nuotaikos dainas ir stilius. Tempk, kad pakeistum eilę, „iškelk" mėgstamiausius.</p>
           </div>
-          {username && (
+          <div className="shrink-0 flex items-center gap-2">
             <Link
-              href={`/vartotojas/${username}`}
-              className="shrink-0 inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-bold transition-colors"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}
+              href="/perkelti"
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-bold text-white transition-transform hover:scale-[1.03]"
+              style={{ background: 'var(--accent-orange)' }}
             >
-              👁 Peržiūrėti profilį
+              ↧ Importuoti
             </Link>
-          )}
+            {username && (
+              <Link
+                href={`/vartotojas/${username}`}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-bold transition-colors"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}
+              >
+                👁 Peržiūrėti profilį
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* GAMIFIED LEVEL BAR */}

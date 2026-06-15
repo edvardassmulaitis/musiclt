@@ -91,7 +91,7 @@ export async function getMyMusic(userId: string): Promise<MyMusic> {
       .select('artist_id, sort_order, is_featured, weight, note, artists:artist_id(id, slug, name, cover_image_url)')
       .eq('user_id', userId).order('sort_order'),
     sb.from('profile_favorite_albums')
-      .select('album_id, sort_order, is_featured, weight, note, albums:album_id(id, slug, title, cover_url, artists:artist_id(slug, name))')
+      .select('album_id, sort_order, is_featured, weight, note, albums:album_id(id, slug, title, cover_url:cover_image_url, artists:artist_id(slug, name))')
       .eq('user_id', userId).order('sort_order'),
     sb.from('profile_favorite_tracks')
       .select('track_id, sort_order, is_featured, weight, note, tracks:track_id(id, slug, title, cover_url, artists:artist_id(slug, name))')
