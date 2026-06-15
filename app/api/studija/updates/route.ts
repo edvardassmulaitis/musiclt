@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { requireStudioAccess } from '@/lib/artist-studio'
 import { createNotification, type NotificationType } from '@/lib/notifications'
+import { sendEmail, emailLayout, unsubscribeUrl } from '@/lib/email'
 
 const KINDS = ['release', 'concert', 'message', 'milestone'] as const
 const MAX_RECIPIENTS = 5000
@@ -85,7 +86,31 @@ export async function POST(req: NextRequest) {
       })))
     }
 
-    return NextResponse.json({ ok: true, id: row.id, recipients: recipientIds.length })
+    // El. paštas sekėjams, kurie davė sutikimą (artist_follows.email_consent).
+    let emailsSent = 0
+    if (channels.includes('email')) {
+      const { data: subs } = await sb.from('artist_follows')
+        .select('user_id, profiles!artist_follows_user_id_fkey(email)')
+        .eq('artist_id', artistId).eq('email_consent', true).limit(MAX_RECIPIENTS)
+      const targets = (subs || [])
+        .map((s: any) => ({ id: s.user_id, email: s.profiles?.email }))
+        .filter((t: any) => t.email)
+      const pageUrl = `${process.env.NEXTAUTH_URL || 'https://music.lt'}/atlikejai/${artist.slug}`
+      const results = await Promise.allSettled(targets.map((t: any) => sendEmail({
+        to: t.email,
+        subject: `${artist.name}: ${title}`,
+        html: emailLayout({
+          heading: title,
+          bodyHtml: (text ? text.replace(/\n/g, '<br>') : '') ,
+          ctaUrl: pageUrl,
+          ctaLabel: `Atidaryti ${artist.name}`,
+          footerHtml: `Gauni šį laišką, nes seki ${artist.name} music.lt. <a href="${unsubscribeUrl(artistId, t.id)}" style="color:#888;">Atsisakyti šių laiškų</a>.`,
+        }),
+      })))
+      emailsSent = results.filter((r) => r.status === 'fulfilled' && (r.value as any)?.ok).length
+    }
+
+    return NextResponse.json({ ok: true, id: row.id, recipients: recipientIds.length, emailsSent })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Serverio klaida' }, { status: 500 })
   }

@@ -18,18 +18,20 @@ export default function MessageComposer({ artistId, followerCount, initial }: { 
   const [updates, setUpdates] = useState<Update[]>(initial)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [emailOn, setEmailOn] = useState(false)
 
   async function send() {
     if (!title.trim()) { setMsg({ ok: false, text: 'Įrašyk antraštę' }); return }
     setBusy(true); setMsg(null)
     try {
+      const channels = emailOn ? ['push', 'feed', 'email'] : ['push', 'feed']
       const r = await fetch('/api/studija/updates', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ artistId, kind, title, body, channels: ['push', 'feed'] }),
+        body: JSON.stringify({ artistId, kind, title, body, channels }),
       })
       const d = await r.json()
       if (d.ok) {
-        setMsg({ ok: true, text: `Išsiųsta ${d.recipients} fanams ✓` })
+        setMsg({ ok: true, text: `Išsiųsta ${d.recipients} fanams${d.emailsSent ? ` (+${d.emailsSent} el. laiškai)` : ''} ✓` })
         setUpdates((p) => [{ id: d.id, kind, title, body, recipients: d.recipients, created_at: new Date().toISOString() }, ...p])
         setTitle(''); setBody('')
       } else setMsg({ ok: false, text: d.error || 'Nepavyko' })
@@ -59,6 +61,11 @@ export default function MessageComposer({ artistId, followerCount, initial }: { 
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Antraštė (pvz. „Naujas singlas jau išėjo!“)" className={`mt-3 ${inputCls}`} />
         <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} placeholder="Tekstas (nebūtina)" className={`mt-2 ${inputCls} resize-y`} />
 
+        <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-[var(--text-secondary)]">
+          <input type="checkbox" checked={emailOn} onChange={(e) => setEmailOn(e.target.checked)} className="h-4 w-4 accent-[var(--accent-orange)]" />
+          Siųsti ir el. paštu (tik tiems, kas davė sutikimą)
+        </label>
+
         <div className="mt-3 flex items-center gap-3">
           <button onClick={send} disabled={busy}
             className="rounded-full bg-[var(--accent-orange)] px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
@@ -66,7 +73,7 @@ export default function MessageComposer({ artistId, followerCount, initial }: { 
           </button>
           {msg && <span className={`text-sm ${msg.ok ? 'text-[var(--accent-green)]' : 'text-[var(--accent-red)]'}`}>{msg.text}</span>}
         </div>
-        <p className="mt-2 text-xs text-[var(--text-muted)]">Gauna in-app pranešimą + push. El. laiškai — netrukus.</p>
+        <p className="mt-2 text-xs text-[var(--text-muted)]">Visi sekėjai gauna pranešimą svetainėje + push. Pažymėjus „el. paštu" — laišką gauna tik davusieji sutikimą.</p>
       </div>
 
       <h2 className="mt-7 font-['Outfit',sans-serif] text-lg font-bold text-[var(--text-primary)]">Išsiųstos žinutės</h2>

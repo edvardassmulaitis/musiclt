@@ -13,6 +13,7 @@ export default function ArtistSocialSection({ artistId, slug, name, isClaimed }:
   const [count, setCount] = useState(0)
   const [busy, setBusy] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [emailConsent, setEmailConsent] = useState(false)
 
   useEffect(() => {
     let dead = false
@@ -24,6 +25,7 @@ export default function ArtistSocialSection({ artistId, slug, name, isClaimed }:
       setEmbeds(e.embeds || [])
       setFollowing(!!f.following)
       setCount(f.count || 0)
+      setEmailConsent(!!f.emailConsent)
       setLoaded(true)
     })
     return () => { dead = true }
@@ -38,8 +40,18 @@ export default function ArtistSocialSection({ artistId, slug, name, isClaimed }:
       })
       if (r.status === 401) { window.location.href = `/auth/signin?callbackUrl=/atlikejai/${slug}`; return }
       const d = await r.json()
-      if (d.ok) { setFollowing(d.following); setCount(d.count) }
+      if (d.ok) { setFollowing(d.following); setCount(d.count); if (!d.following) setEmailConsent(false) }
     } finally { setBusy(false) }
+  }
+
+  async function toggleEmail(next: boolean) {
+    setEmailConsent(next)
+    try {
+      await fetch('/api/studija/follow', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artistId, follow: true, emailConsent: next }),
+      })
+    } catch { setEmailConsent(!next) }
   }
 
   // Nieko nerodom, kol neužsikrovė ir nėra ką rodyti (švaru neclaim'intiems).
@@ -62,6 +74,12 @@ export default function ArtistSocialSection({ artistId, slug, name, isClaimed }:
       <p className="mt-1 text-sm text-[var(--text-muted)]">
         Sekdamas gausi pranešimą apie naujus leidinius ir koncertus.
       </p>
+      {following && (
+        <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-[var(--text-secondary)]">
+          <input type="checkbox" checked={emailConsent} onChange={(e) => toggleEmail(e.target.checked)} className="h-4 w-4 accent-[var(--accent-orange)]" />
+          Gauti naujienas ir el. paštu
+        </label>
+      )}
 
       {hasContent && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">

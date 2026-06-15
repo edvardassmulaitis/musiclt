@@ -12,6 +12,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { resolveProfile } from '@/lib/profile-resolve'
 import { createNotification } from '@/lib/notifications'
+import { sendEmail, emailLayout } from '@/lib/email'
 
 export type TeamArtist = {
   id: number
@@ -132,6 +133,22 @@ export async function approveClaim(claimId: string, reviewerId: string | null): 
         snippet: 'Dabar gali valdyti savo profilį, fanus ir žinutes savo studijoje.',
         data: { kind: 'claim_approved' },
       })
+      // El. laiškas (Resend) — jei turim profilio paštą.
+      const { data: prof } = await sb.from('profiles').select('email, full_name').eq('id', claim.profile_id).maybeSingle()
+      if (prof?.email) {
+        const base = process.env.NEXTAUTH_URL || 'https://music.lt'
+        await sendEmail({
+          to: prof.email,
+          subject: `Tavo profilis „${art?.name || ''}" patvirtintas — music.lt`,
+          html: emailLayout({
+            heading: 'Sveikiname! Profilis patvirtintas 🎉',
+            bodyHtml: `Patvirtinome, kad <b>${art?.name || 'tavo atlikėjas'}</b> profilis priklauso tau. Nuo dabar gali jį valdyti: redaguoti bio ir nuotraukas, pridėti socialinius postus, auginti fanų ratą ir siųsti jiems naujienas.`,
+            ctaUrl: `${base}/atlikejams/studija`,
+            ctaLabel: 'Atidaryti studiją',
+            footerHtml: 'Gavai šį laišką, nes pateikei „Tai mano profilis" prašymą music.lt.',
+          }),
+        })
+      }
     } catch {}
 
     return { ok: true }
