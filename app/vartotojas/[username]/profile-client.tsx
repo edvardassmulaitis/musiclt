@@ -2285,12 +2285,12 @@ const FEED_PILL_LABEL: Record<string, string> = {
 const FEED_PILL_ORDER = ['article', 'review', 'event', 'topas']
 const FEED_PILL_TAIL = ['creation', 'translation']
 
-function buildFeedPills(postTypeCounts: Record<string, number>, ddTotal: number, hasLikes: boolean) {
+function buildFeedPills(postTypeCounts: Record<string, number>, hasDd: boolean, hasLikes: boolean) {
   const pills: { key: string; label: string; color: string }[] = [{ key: 'all', label: 'Visi', color: '#f97316' }]
   for (const t of FEED_PILL_ORDER) {
     if ((postTypeCounts?.[t] || 0) > 0) pills.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
   }
-  if (ddTotal > 0) pills.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
+  if (hasDd) pills.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
   if (hasLikes) pills.push({ key: 'likes', label: '♥ Mėgstama muzika', color: '#e11d48' })
   for (const t of FEED_PILL_TAIL) {
     if ((postTypeCounts?.[t] || 0) > 0) pills.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
@@ -2343,15 +2343,20 @@ function ProfileBodyDesktop(props: any) {
   } = props
 
   const hasLikes = (favoriteArtists?.length || 0) > 0 || (favoriteAlbums?.length || 0) > 0 || (favoriteTracks?.length || 0) > 0
-  const [filter, setFilter] = useState<string>('all')
 
   const feedItems = useMemo(
     () => buildFeedItems({ contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks }),
     [contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks],
   )
+  // Dienos dainų pill'a rodom TIK kai is tikro yra resolvintu savaiciu (ne pagal stats skaiciu).
+  const hasDdWeeks = feedItems.some((it) => it.kind === 'ddweek')
+  // Realus srauto turinys = postai arba dienos dainos. Jei nieko nera -> atidarom Megstama muzika.
+  const hasFeedContent = feedItems.some((it) => it.kind === 'post' || it.kind === 'ddweek')
+  const [filter, setFilter] = useState<string>(hasFeedContent ? 'all' : hasLikes ? 'likes' : 'all')
+
   const pills = useMemo(
-    () => buildFeedPills(postTypeCounts || {}, stats?.daily_picks || 0, hasLikes),
-    [postTypeCounts, stats?.daily_picks, hasLikes],
+    () => buildFeedPills(postTypeCounts || {}, hasDdWeeks, hasLikes),
+    [postTypeCounts, hasDdWeeks, hasLikes],
   )
 
   // Featured — naujausias postas su vizualu (tik „Visi" rodinyje)
