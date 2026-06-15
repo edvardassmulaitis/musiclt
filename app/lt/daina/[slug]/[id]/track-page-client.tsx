@@ -451,8 +451,11 @@ export default function TrackPageClient({
     // route-enter: 280ms fade-in iš loading.tsx skeleton'o (žr. globals.css).
     <div className="route-enter min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
 
-      {/* ── TOP BAR — pilnu viewport pločio, modal-style ─────────────────── */}
-      <div className="flex items-center gap-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
+      {/* ── TOP BAR — centruotas konteineris (max-w 1360, kaip nav), thumbnail
+          pastumtas iki logotipo lygio desktop'e (lg:pl-[62px] = nav padding 20
+          + radaro ikona 28 + gap 14), kad nesijaustų prilipęs prie krašto. ─── */}
+      <div className="border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
+       <div className="mx-auto flex w-full max-w-[1360px] items-center gap-4 px-4 py-3 sm:px-5 lg:pl-[62px]">
         {/* Artist thumb — paveikslėlio click'as = grįžti į atlikėjo page'ą.
             Anksčiau buvo atskira ← rodyklė + thumb, bet rodyklė atrodė kaip
             confusing nav element'as. Dabar: vienas natūralus signal'as —
@@ -574,6 +577,7 @@ export default function TrackPageClient({
             <ScoreCard entityType="track" score={track.score} breakdown={track.score_breakdown} compact />
           </div>
         )}
+       </div>
       </div>
 
       {/* ── Body — player left, content right on lg+ ─────────── */}

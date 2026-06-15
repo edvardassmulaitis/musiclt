@@ -438,15 +438,6 @@ export default function AlbumInfoModal({
             </div>
           )}
           <div className="min-w-0 flex-1">
-            {/* Kicker — TIPAS · DATA · DAINŲ SK. */}
-            {album && (
-              <div className="mb-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--accent-orange)]">
-                {albumTypeLabel}
-                {album.dateFormatted ? ` · ${album.dateFormatted}` : album.year ? ` · ${album.year} m.` : ''}
-                {tracks.length > 0 && ` · ${tracks.length} dain.`}
-                {album.is_upcoming && ' · Greitai'}
-              </div>
-            )}
             <div className="truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">
               {titleNow || 'Kraunama…'}
             </div>
@@ -455,6 +446,32 @@ export default function AlbumInfoModal({
                 <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
                   {artist.name}
                 </Link>
+              </div>
+            )}
+            {/* Meta eilutė — data · tipas · dainų sk. Švarus stilius kaip
+                dainos puslapyje (vietoj garsaus oranžinio uppercase kicker'io). */}
+            {album && (
+              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+                {(album.dateFormatted || album.year) && (
+                  <span className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">
+                    {album.dateFormatted || `${album.year} m.`}
+                  </span>
+                )}
+                {albumTypeLabel && (
+                  <>
+                    <span className="text-[var(--text-faint)]">·</span>
+                    <span className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">{albumTypeLabel}</span>
+                  </>
+                )}
+                {tracks.length > 0 && (
+                  <>
+                    <span className="text-[var(--text-faint)]">·</span>
+                    <span className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">{tracks.length} dain.</span>
+                  </>
+                )}
+                {album.is_upcoming && (
+                  <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">Greitai</span>
+                )}
               </div>
             )}
             {/* Veiksmų eilutė — LikePill + Dalintis (kaip albumo puslapyje). */}
