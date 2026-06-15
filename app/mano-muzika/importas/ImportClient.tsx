@@ -5,9 +5,11 @@
 // match preview (matched/unmatched, checkbox'ai) → importuoti pasirinktus.
 // ───────────────────────────────────────────────────────────────────────────
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
+
+type Job = { id: string; status: string; phase: string; total: number; processed: number; matched: number; reported: number; error: string | null; finished_at: string | null }
 
 type Hit = {
   raw: string; rawArtist?: string; matched: boolean; confidence: 'high' | 'low'
@@ -40,7 +42,25 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [committing, setCommitting] = useState(false)
   const [done, setDone] = useState<{ artists: number; albums: number; tracks: number } | null>(null)
+  const [enqueued, setEnqueued] = useState<'new' | 'existing' | null>(null)
+  const [job, setJob] = useState<Job | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Foninio importo job'o būsena — kad pamatytume „vyksta / baigta" be progress baro.
+  const refreshJob = useCallback(async () => {
+    try {
+      const res = await fetch('/api/mano-muzika/import/job')
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) setJob(data.job || null)
+    } catch {}
+  }, [])
+  useEffect(() => { refreshJob() }, [refreshJob])
+  useEffect(() => {
+    if (job && (job.status === 'queued' || job.status === 'running')) {
+      const t = setInterval(refreshJob, 15000)
+      return () => clearInterval(t)
+    }
+  }, [job, refreshJob])
 
   function onResult(staged: Staged) {
     setResult(staged)
@@ -52,9 +72,19 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
   }
 
   async function runLastfm() {
-    setLoading(true); setError(null); setResult(null); setDone(null)
-    try { onResult(await postJSON('/import/lastfm', { username: lastfmUser, mode: lastfmFull ? 'full' : 'best' })) }
+    if (lastfmFull) return enqueueFull()
+    setLoading(true); setError(null); setResult(null); setDone(null); setEnqueued(null)
+    try { onResult(await postJSON('/import/lastfm', { username: lastfmUser, mode: 'best' })) }
     catch (e: any) { setError(e.message) } finally { setLoading(false) }
+  }
+  // „Visa biblioteka" — deep importas vykdomas FONE (gali būti tūkstančiai įrašų).
+  async function enqueueFull() {
+    setLoading(true); setError(null); setResult(null); setDone(null); setEnqueued(null)
+    try {
+      const d = await postJSON('/import/job', { source: 'lastfm', username: lastfmUser, mode: 'full' })
+      setEnqueued(d.existing ? 'existing' : 'new')
+      await refreshJob()
+    } catch (e: any) { setError(e.message) } finally { setLoading(false) }
   }
   async function runYoutube() {
     setLoading(true); setError(null); setResult(null); setDone(null)
@@ -126,12 +156,12 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
           <div className="flex gap-2">
             <input value={lastfmUser} onChange={e => setLastfmUser(e.target.value)} onKeyDown={e => e.key === 'Enter' && runLastfm()}
               placeholder="Last.fm vartotojo vardas" className={inputCls} />
-            <RunBtn onClick={runLastfm} loading={loading} disabled={!lastfmUser.trim()} />
+            <RunBtn onClick={runLastfm} loading={loading} disabled={!lastfmUser.trim()} label={lastfmFull ? 'Importuoti fone' : 'Ieškoti'} />
           </div>
           <label className="mt-3 flex items-start gap-2.5 cursor-pointer select-none">
             <input type="checkbox" checked={lastfmFull} onChange={e => setLastfmFull(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-orange-500" />
             <span className="text-[12px] leading-snug" style={{ color: 'var(--text-muted)' }}>
-              <b style={{ color: 'var(--text-primary)' }}>Importuoti visą biblioteką</b> — be mėgstamiausių ir dažniausiai klausomų, įtraukti ir naujausią klausymų istoriją. Daugiau įrašų, bet užtruks ilgiau.
+              <b style={{ color: 'var(--text-primary)' }}>Importuoti visą biblioteką</b> — įtraukti ir visą klausymų istoriją (gali būti tūkstančiai įrašų). Vyksta <b>fone</b>: patvirtini ir gali eiti — kai baigsim, atsiųsim pranešimą, o muzika atsiras tavo profilyje.
             </span>
           </label>
           <Hint>Profilis turi būti viešas. Numatytai imame tavo <b>mėgstamiausius ir dažniausiai klausomus</b> atlikėjus, dainas ir albumus. Vardą rasi savo Last.fm adrese: last.fm/user/<b>vardas</b>.</Hint>
@@ -164,6 +194,35 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
       )}
 
       {error && <div className="mb-4 rounded-xl px-4 py-3 text-[13px]" style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.3)', color: '#f43f5e' }}>{error}</div>}
+
+      {/* FONINIO IMPORTO BŪSENA */}
+      {(enqueued || (job && (job.status === 'queued' || job.status === 'running'))) && (
+        <div className="mb-4 rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.14), transparent)', border: '1px solid rgba(167,139,250,0.4)' }}>
+          <div className="flex items-center gap-2 text-[15px] font-black">
+            <span className="inline-block h-2 w-2 rounded-full animate-pulse" style={{ background: '#a78bfa' }} />
+            {enqueued === 'existing' ? 'Importas jau vyksta' : 'Pradėjome pilną importą'}
+          </div>
+          <p className="text-[12.5px] mt-1.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            Apdorojame visą tavo Last.fm biblioteką <b>fone</b> — tau nieko daryti nereikia ir lango uždaryti gali.
+            Atpažinta muzika po truputį atsiranda tavo „Mano muzikoje", o ko dar nėra music.lt bazėje — užregistruosim ir pridėsim vėliau.
+            Kai baigsim, <b>atsiųsim pranešimą</b>.
+          </p>
+          {job && (job.status === 'running' || job.status === 'queued') && job.processed > 0 && (
+            <div className="text-[11.5px] mt-2" style={{ color: 'var(--text-faint)' }}>
+              Apdorota {job.processed}{job.total ? ` iš ${job.total}` : ''} · pridėta {job.matched} · laukia įkėlimo {job.reported}
+            </div>
+          )}
+        </div>
+      )}
+      {job && job.status === 'done' && !enqueued && (
+        <div className="mb-4 rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, rgba(52,211,153,0.14), transparent)', border: '1px solid rgba(52,211,153,0.4)' }}>
+          <div className="text-[15px] font-black">✅ Pilnas importas baigtas</div>
+          <p className="text-[12.5px] mt-1" style={{ color: 'var(--text-muted)' }}>
+            Į tavo muziką pridėjome <b>{job.matched}</b> įrašų{job.reported > 0 ? <>, dar <b>{job.reported}</b> laukia įkėlimo ir atsiras vėliau</> : null}.{' '}
+            <Link href="/mano-muzika" className="underline" style={{ color: 'var(--accent-orange)' }}>Eiti į Mano muziką →</Link>
+          </p>
+        </div>
+      )}
 
       {/* DONE */}
       {done && (
@@ -222,11 +281,11 @@ function InputPanel({ children, disabled, notConfigured }: { children: React.Rea
 function Hint({ children }: { children: React.ReactNode }) {
   return <p className="mt-2.5 text-[11.5px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>{children}</p>
 }
-function RunBtn({ onClick, loading, disabled }: { onClick: () => void; loading: boolean; disabled: boolean }) {
+function RunBtn({ onClick, loading, disabled, label }: { onClick: () => void; loading: boolean; disabled: boolean; label?: string }) {
   return (
     <button onClick={onClick} disabled={loading || disabled}
       className="shrink-0 rounded-lg px-5 py-2.5 text-[13px] font-black text-white transition-opacity disabled:opacity-40" style={{ background: 'var(--accent-orange)' }}>
-      {loading ? '…' : 'Ieškoti'}
+      {loading ? '…' : (label || 'Ieškoti')}
     </button>
   )
 }
