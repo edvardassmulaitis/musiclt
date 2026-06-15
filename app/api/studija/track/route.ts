@@ -1,5 +1,7 @@
-// POST /api/studija/track — atlikėjas prideda naują dainą iš YouTube nuorodos.
-// Body: { artistId, url }
+// /api/studija/track — atlikėjas valdo savo dainas.
+//   POST   { artistId, url }                                  → prideda dainą iš YouTube
+//   PATCH  { artistId, trackId, title?, year?, month?, day? }  → redaguoja
+//   DELETE { artistId, trackId }                              → ištrina (tik atlikėjo pridėtą, be legacy_id)
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
@@ -43,4 +45,67 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   try { revalidateTag('artist') } catch {}
   return NextResponse.json({ ok: true, track: data })
+}
+
+export async function PATCH(req: NextRequest) {
+  let body: any
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'Blogas body' }, { status: 400 }) }
+  const artistId = Number(body?.artistId), trackId = Number(body?.trackId)
+  if (!Number.isFinite(artistId) || !Number.isFinite(trackId)) return NextResponse.json({ error: 'Trūksta laukų' }, { status: 400 })
+  const { ok, reason } = await requireStudioAccess(artistId)
+  if (!ok) return NextResponse.json({ error: reason }, { status: reason === 'unauthenticated' ? 401 : 403 })
+
+  const sb = createAdminClient()
+  const { data: tr } = await sb.from('tracks').select('id, artist_id').eq('id', trackId).maybeSingle()
+  if (!tr || tr.artist_id !== artistId) return NextResponse.json({ error: 'Daina nerasta' }, { status: 404 })
+
+  const patch: any = {}
+  // Pavadinimas — slug NEKEIČIAM (vieša nuoroda / SEO stabilumas).
+  if (typeof body.title === 'string') {
+    const t = body.title.trim()
+    if (!t) return NextResponse.json({ error: 'Pavadinimas tuščias' }, { status: 400 })
+    patch.title = t.slice(0, 300)
+  }
+  // Išleidimo data — atskira nuo video_uploaded_at (jo NELIEČIAM: pagal jį
+  // filtruojamos „Naujausios" + skaičiuojamas Top 40 tinkamumas).
+  if ('year' in body || 'month' in body || 'day' in body) {
+    const y = body.year != null && body.year !== '' ? Number(body.year) : null
+    const m = body.month != null && body.month !== '' ? Number(body.month) : null
+    const d = body.day != null && body.day !== '' ? Number(body.day) : null
+    if (y != null && (!Number.isFinite(y) || y < 1900 || y > 2100)) return NextResponse.json({ error: 'Blogi metai' }, { status: 400 })
+    patch.release_year = y
+    patch.release_month = m && m >= 1 && m <= 12 ? m : null
+    patch.release_day = d && d >= 1 && d <= 31 ? d : null
+    patch.release_date = (y && patch.release_month && patch.release_day)
+      ? `${y}-${String(patch.release_month).padStart(2, '0')}-${String(patch.release_day).padStart(2, '0')}`
+      : null
+  }
+  if (!Object.keys(patch).length) return NextResponse.json({ error: 'Nėra ką keisti' }, { status: 400 })
+  patch.updated_at = new Date().toISOString()
+
+  const { error } = await sb.from('tracks').update(patch).eq('id', trackId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  try { revalidateTag('artist') } catch {}
+  return NextResponse.json({ ok: true })
+}
+
+export async function DELETE(req: NextRequest) {
+  let body: any
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'Blogas body' }, { status: 400 }) }
+  const artistId = Number(body?.artistId), trackId = Number(body?.trackId)
+  if (!Number.isFinite(artistId) || !Number.isFinite(trackId)) return NextResponse.json({ error: 'Trūksta laukų' }, { status: 400 })
+  const { ok, reason } = await requireStudioAccess(artistId)
+  if (!ok) return NextResponse.json({ error: reason }, { status: reason === 'unauthenticated' ? 401 : 403 })
+
+  const sb = createAdminClient()
+  const { data: tr } = await sb.from('tracks').select('id, artist_id, legacy_id').eq('id', trackId).maybeSingle()
+  if (!tr || tr.artist_id !== artistId) return NextResponse.json({ error: 'Daina nerasta' }, { status: 404 })
+  // Apsauga: legacy (importuotos) dainos NETRINAMOS — tik atlikėjo per zoną pridėtos.
+  if (tr.legacy_id != null) return NextResponse.json({ error: 'Šios dainos trinti negalima (importuota iš senojo music.lt).' }, { status: 400 })
+
+  await sb.from('album_tracks').delete().eq('track_id', trackId)
+  const { error } = await sb.from('tracks').delete().eq('id', trackId).is('legacy_id', null)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  try { revalidateTag('artist') } catch {}
+  return NextResponse.json({ ok: true })
 }

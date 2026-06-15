@@ -156,7 +156,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
       {/* SONGS + EVENTS */}
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <div>
-          <div className={gt}>Naujausios dainos <a href={`/atlikejai/${artist.slug}`} className="ml-auto text-[12px] font-semibold normal-case tracking-normal text-[var(--accent-link)]">Visa muzika →</a></div>
+          <div className={gt}>Naujausios dainos <a href={`/atlikejams/zona/muzika?a=${artist.id}`} className="ml-auto text-[12px] font-semibold normal-case tracking-normal text-[var(--accent-link)]">Visa muzika →</a></div>
           {songs.length === 0 && <p className="text-sm text-[var(--text-muted)]">Pridėk pirmą dainą iš YouTube ↑</p>}
           {songs.map((s) => (
             <div key={s.id} className={`mb-2 flex items-center gap-3 rounded-xl border p-2.5 ${s.is_pinned ? 'border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.05)]' : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]'}`}>
