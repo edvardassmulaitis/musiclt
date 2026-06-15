@@ -95,23 +95,24 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
       {toast && <div className="fixed left-1/2 -translate-x-1/2 top-4 z-[200] rounded-full px-4 py-2 text-[12.5px] font-bold shadow-lg" style={{ background: '#f43f5e', color: '#fff' }}>{toast}</div>}
 
       <div className="page-head">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
             <h1>Mano muzika</h1>
-            <p>Vienas mėgstamiausių sąrašas — pirmi 20 rodomi tavo profilyje. Surask ir kelk svarbiausius į viršų.</p>
+            <p className="!mt-0.5">Vienas mėgstamiausių sąrašas — pirmi 20 rodomi tavo profilyje.</p>
           </div>
           <div className="shrink-0 flex items-center gap-2">
-            <Link href="/perkelti" className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-bold text-white transition-transform hover:scale-[1.03]" style={{ background: 'var(--accent-orange)' }}><Ico name="download" size={14} /> Importuoti</Link>
-            {username && <Link href={`/vartotojas/${username}`} className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}><Ico name="eye" size={14} /> Profilis</Link>}
+            <Link href="/perkelti" className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold text-white transition-transform hover:scale-[1.03]" style={{ background: 'var(--accent-orange)' }}><Ico name="download" size={13} /> Importuoti <BrandIcons /></Link>
+            {username && <Link href={`/vartotojas/${username}`} className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}><Ico name="eye" size={13} /> Profilis</Link>}
           </div>
         </div>
-        <div className="mt-4 rounded-2xl p-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <div className="text-[13.5px] font-black">Kolekcijos užpildymas</div>
-            <div className="text-[13px] font-black" style={{ color: 'var(--accent-orange)' }}>{pct}%</div>
+        {/* Kompaktiška progreso juosta — vienoje eilutėje su tikslų chip'ais. */}
+        <div className="mt-3 rounded-xl px-3 py-2 flex items-center gap-3 flex-wrap" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[12px] font-black" style={{ color: 'var(--accent-orange)' }}>{pct}%</span>
+            <span className="text-[11.5px] font-bold" style={{ color: 'var(--text-muted)' }}>užpildyta</span>
           </div>
-          <div className="h-2.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #f97316, #a78bfa)' }} /></div>
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <div className="h-1.5 flex-1 min-w-[120px] rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #f97316, #a78bfa)' }} /></div>
+          <div className="flex flex-wrap gap-1.5 shrink-0">
             <Goal label="Atlikėjai" n={counts.artist} t={TARGETS.artists} /><Goal label="Albumai" n={counts.album} t={TARGETS.albums} />
             <Goal label="Dainos" n={counts.track} t={TARGETS.tracks} /><Goal label="Stiliai" n={counts.styles} t={TARGETS.styles} />
           </div>
@@ -149,6 +150,17 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
   )
 }
 
+// Importo platformų ženkliukai (Spotify / Last.fm / YouTube) — patikimumui.
+function BrandIcons() {
+  return (
+    <span className="inline-flex items-center gap-1 ml-1 pl-1.5" style={{ borderLeft: '1px solid rgba(255,255,255,0.35)' }} aria-hidden>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.586 14.424a.622.622 0 0 1-.857.207c-2.348-1.435-5.304-1.76-8.785-.964a.622.622 0 1 1-.277-1.215c3.809-.87 7.077-.496 9.713 1.115a.623.623 0 0 1 .206.857zm1.223-2.722a.78.78 0 0 1-1.072.257c-2.687-1.652-6.785-2.131-9.965-1.166a.779.779 0 1 1-.452-1.491c3.632-1.102 8.147-.568 11.234 1.328a.78.78 0 0 1 .255 1.072zm.105-2.835C14.692 8.95 9.375 8.775 6.297 9.71a.935.935 0 1 1-.542-1.79c3.532-1.072 9.404-.865 13.115 1.338a.936.936 0 1 1-.956 1.609z"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M10.584 17.21l-.88-2.392s-1.43 1.595-3.573 1.595c-1.897 0-3.244-1.649-3.244-4.288 0-3.382 1.704-4.591 3.381-4.591 2.42 0 3.188 1.567 3.847 3.574l.66 2.063c.88 2.749 2.529 4.948 7.285 4.948 3.409 0 5.722-1.044 5.722-3.793 0-2.227-1.265-3.381-3.628-3.936l-1.76-.385c-1.21-.275-1.567-.77-1.567-1.595 0-.935.742-1.485 1.952-1.485 1.32 0 2.034.495 2.144 1.677l2.749-.33c-.22-2.474-1.924-3.492-4.729-3.492-2.474 0-4.893.935-4.893 3.932 0 1.87.907 3.051 3.188 3.601l1.87.44c1.402.33 1.869.907 1.869 1.704 0 1.017-.99 1.43-2.86 1.43-2.776 0-3.929-1.456-4.591-3.464l-.907-2.749c-1.155-3.574-3-4.893-6.655-4.893C2.144 5.333 0 7.89 0 12.233c0 4.18 2.144 6.434 5.997 6.434 3.106 0 4.591-1.457 4.591-1.457z"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+    </span>
+  )
+}
+
 function Goal({ label, n, t }: { label: string; n: number; t: number }) {
   const done = n >= t
   return <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold" style={{ background: 'var(--bg-elevated)', color: done ? '#34d399' : 'var(--text-muted)' }}>{label} {Math.min(n, t)}/{t}{done ? ' ✓' : ''}</span>
@@ -168,45 +180,52 @@ function CollectionPanel({ kind, data, onMove, onUnlike, onAdd }: {
       <div className="mt-4 max-w-[560px]"><MusicSearchPicker attached={attached} onAdd={onAdd} typeFilter={TYPEFILTER[kind]} placeholder={`Pridėk ${noun}...`} /></div>
     </>
   )
-  // Dainoms — sąrašas + pasiūlymai šalia (desktop), mobiliame pasiūlymai apačioje.
-  if (kind !== 'track') return <section>{main}</section>
+  // Visiems tipams — sąrašas + pasiūlymai šalia (desktop), mobiliame apačioje.
   return (
     <section className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-5 lg:gap-7 items-start">
       <div className="min-w-0">{main}</div>
-      <SuggestionsPanel ownedIds={ownedIds} onAdd={onAdd} />
+      <SuggestionsPanel kind={kind} ownedIds={ownedIds} onAdd={onAdd} />
     </section>
   )
 }
 
-// Dainų pasiūlymai — populiarios dainos iš mėgstamų atlikėjų, kurių dar neturi.
-function SuggestionsPanel({ ownedIds, onAdd }: { ownedIds: Set<number>; onAdd: (hit: AttachmentHit) => void }) {
+// Pasiūlymai — populiarūs atlikėjai/albumai/dainos (iš mėgstamų atlikėjų / music.lt),
+// kurių narys dar neturi. Pridėjimas = širdelė (kaip visur).
+const SUG_SUB: Record<EntityTab, string> = {
+  artist: 'Atlikėjai, kurie galėtų patikti — pridėk į savo sąrašą.',
+  album: 'Albumai iš tavo mėgstamų atlikėjų — pridėk į savo sąrašą.',
+  track: 'Dainos iš tavo mėgstamų atlikėjų — pridėk į savo sąrašą.',
+}
+function SuggestionsPanel({ kind, ownedIds, onAdd }: { kind: EntityTab; ownedIds: Set<number>; onAdd: (hit: AttachmentHit) => void }) {
   const [items, setItems] = useState<TrackSug[] | null>(null)
   const [added, setAdded] = useState<Set<number>>(new Set())
-  const loadRef = useRef(false)
-  if (!loadRef.current) {
-    loadRef.current = true
-    api('/suggestions?kind=track&limit=30', 'GET').then(r => setItems((r.tracks || []) as TrackSug[])).catch(() => setItems([]))
+  const loadRef = useRef<EntityTab | null>(null)
+  if (loadRef.current !== kind) {
+    loadRef.current = kind
+    setItems(null); setAdded(new Set())
+    api(`/suggestions?kind=${kind}&limit=30`, 'GET').then(r => setItems((r.items || r.tracks || []) as TrackSug[])).catch(() => setItems([]))
   }
+  const fallbackLabel = kind === 'artist' ? 'Atlikėjas' : kind === 'album' ? 'Albumas' : 'Daina'
   const visible = (items || []).filter(t => !ownedIds.has(t.id) && !added.has(t.id)).slice(0, 14)
   function pick(t: TrackSug) {
     setAdded(s => new Set(s).add(t.id))
-    onAdd({ type: 'daina', id: t.id, legacy_id: null, slug: t.slug, title: t.title, artist: t.artist?.name || null, image_url: t.cover_url })
+    onAdd({ type: TYPEFILTER[kind], id: t.id, legacy_id: null, slug: t.slug, title: t.title, artist: t.artist?.name || null, image_url: t.cover_url })
   }
   return (
     <aside className="rounded-2xl p-3.5 lg:sticky lg:top-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
       <div className="flex items-center gap-1.5 mb-1"><span style={{ color: '#f97316' }}><Ico name="sparkle" size={15} /></span><h3 className="text-[13.5px] font-black">Galbūt patiks</h3></div>
-      <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-muted)' }}>Dainos iš tavo mėgstamų atlikėjų — pridėk į savo sąrašą.</p>
+      <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-muted)' }}>{SUG_SUB[kind]}</p>
       {items === null ? (
         <div className="text-[12px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>Kraunama…</div>
       ) : visible.length === 0 ? (
-        <div className="text-[12px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>Pridėk daugiau atlikėjų — atsiras pasiūlymų.</div>
+        <div className="text-[12px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>{kind === 'artist' ? 'Šiuo metu pasiūlymų nėra.' : 'Pridėk daugiau atlikėjų — atsiras pasiūlymų.'}</div>
       ) : (
         <ul className="flex flex-col gap-1.5">
           {visible.map(t => (
             <li key={t.id} className="group flex items-center gap-2.5 rounded-xl px-2 py-1.5" style={{ background: 'var(--bg-elevated)' }}>
-              <Cover kind="track" cover={t.cover_url} />
-              <div className="min-w-0 flex-1"><div className="truncate text-[12.5px] font-bold">{t.title}</div><div className="truncate text-[10.5px]" style={{ color: 'var(--text-muted)' }}>{t.artist?.name || 'Daina'}</div></div>
-              <button onClick={() => pick(t)} title="Pridėti į mėgstamus" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-full" style={{ background: 'rgba(249,115,22,0.14)', color: '#f97316' }}><Ico name="plus" size={14} /></button>
+              <Cover kind={kind} cover={t.cover_url} />
+              <div className="min-w-0 flex-1"><div className="truncate text-[12.5px] font-bold">{t.title}</div><div className="truncate text-[10.5px]" style={{ color: 'var(--text-muted)' }}>{t.artist?.name || fallbackLabel}</div></div>
+              <button onClick={() => pick(t)} title="Pridėti į mėgstamus" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-full transition-colors" style={{ background: 'rgba(244,63,94,0.12)', color: '#f43f5e' }}><Ico name="heart" size={14} /></button>
             </li>
           ))}
         </ul>
@@ -590,7 +609,7 @@ function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
     moon: <path d="M21 12.8A8 8 0 1 1 11.2 3 6.5 6.5 0 0 0 21 12.8z" />,
     sliders: <><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h7M15 18h5" /><circle cx="16" cy="6" r="2" /><circle cx="8" cy="12" r="2" /><circle cx="13" cy="18" r="2" /></>,
     star: <polygon points="12 2 15 9 22 9.3 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9.3 9 9" />,
-    heart: <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />,
+    heart: <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />,
     repeat: <><path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></>,
     play: <polygon points="6 4 20 12 6 20 6 4" />,
     plus: <path d="M12 5v14M5 12h14" />,
@@ -604,6 +623,6 @@ function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
     sparkle: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />,
     target: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /></>,
   }
-  const filled = name === 'star' || name === 'grip' || name === 'sparkle' || name === 'heart' || name === 'play'
+  const filled = name === 'star' || name === 'grip' || name === 'sparkle' || name === 'play'
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={name === 'x' || name === 'up' || name === 'down' ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>{p[name]}</svg>
 }
