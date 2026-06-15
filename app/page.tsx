@@ -8,6 +8,16 @@
 // patikimai. ISR (revalidate 300) regeneruoja puslapį kas 5 min, todėl sunki
 // užklausa vykdoma daugiausiai kartą per 5 min (ne kiekvienam vartotojui).
 //
+// 2026-06-15 STABILUMO SAUGIKLIS: jei seed'as nepavyksta (gilus transient —
+// query retry IR in-memory last-known-good abu nesuveikė), NErender'inam
+// unseeded puslapio. Antraip Next ISR jį užcache'intų 300s ir VISI vartotojai
+// 5 min matytų skeletonus → „nepavyko užkrauti" → rankinis „Bandyti dar kartą".
+// Vietoj to THROW'inam: Next ISR išlaiko paskutinį GERĄ (seeded) cache'intą
+// puslapį (stale-while-revalidate) ir perbando regeneraciją kitam request'ui.
+// Background regeneracijos klaida vartotojui NEMATOMA — jis gauna stale gerą
+// puslapį. Vienintelė rizika — pats pirmas generavimas po deploy be jokio
+// stale; tą dengia app/error.tsx (loop-safe auto-reload).
+//
 // Visa interaktyvi logika lieka HomeClient.tsx ('use client').
 
 import {
@@ -24,50 +34,43 @@ import HomeClient, { type InitialLatest } from './HomeClient'
 export const revalidate = 300
 
 export default async function HomePage() {
-  let initialLatest: InitialLatest | undefined
+  // Server-side fetch — paralelinis. Kiekvienas getLatest* viduje jau daro
+  // query retry + grąžina in-memory last-known-good, jei DB transient'iškai krenta.
+  const [tracksR, albumsR, upcomingR] = await Promise.allSettled([
+    getLatestTracksForHome(),
+    getLatestAlbumsForHome(),
+    getUpcomingAlbumsForHome(),
+  ])
+  const tracks = tracksR.status === 'fulfilled' ? tracksR.value : { lt: [], world: [], totalLt: 0, totalWorld: 0 }
+  const albums = albumsR.status === 'fulfilled' ? albumsR.value : { lt: [], world: [], totalLt: 0, totalWorld: 0 }
+  const upcoming = upcomingR.status === 'fulfilled' ? upcomingR.value : { items: [], total: 0 }
 
-  // Server-side fetch — paralelinis, atsparus klaidoms. Jei VISKAS fail'ina,
-  // initialLatest lieka undefined → HomeClient grįžta prie client-fetch +
-  // equalizer skeletonų (graceful fallback, ne white screen).
-  try {
-    const [tracksR, albumsR, upcomingR] = await Promise.allSettled([
-      getLatestTracksForHome(),
-      getLatestAlbumsForHome(),
-      getUpcomingAlbumsForHome(),
-    ])
-    const tracks = tracksR.status === 'fulfilled' ? tracksR.value : { lt: [], world: [], totalLt: 0, totalWorld: 0 }
-    const albums = albumsR.status === 'fulfilled' ? albumsR.value : { lt: [], world: [], totalLt: 0, totalWorld: 0 }
-    const upcoming = upcomingR.status === 'fulfilled' ? upcomingR.value : { items: [], total: 0 }
+  const tracksOk = (tracks.lt.length + tracks.world.length) > 0
+  const albumsOk = (albums.lt.length + albums.world.length) > 0
 
-    // 2026-06-15: seed'inam TIK kai ABI esminės sekcijos (dainos IR albumai)
-    // turi turinio. Anksčiau užteko bet kurios → jei dainos transient'iškai
-    // grįždavo tuščios, bet albumai ne, SSR užfiksuodavo TUŠČIAS dainų juostas
-    // į 300s ISR cache'ą BE client retry (seeded=true praleidžia fetch'ą) →
-    // „Lietuviškų dainų netrukus" 5 min. Dabar jei kuri sekcija tuščia,
-    // paliekam initialLatest=undefined → client'as fetch'ina su retry +
-    // last-known-good, ir tuščia būsena niekada neužrakinama.
-    const tracksOk = (tracks.lt.length + tracks.world.length) > 0
-    const albumsOk = (albums.lt.length + albums.world.length) > 0
-    if (tracksOk && albumsOk) {
-      initialLatest = {
-        tracks: {
-          lt: tracks.lt.map(mapTrackForHome),
-          world: tracks.world.map(mapTrackForHome),
-          totalLt: tracks.totalLt,
-          totalWorld: tracks.totalWorld,
-        },
-        albums: {
-          lt: albums.lt.map(mapAlbumForHome),
-          world: albums.world.map(mapAlbumForHome),
-          totalLt: albums.totalLt,
-          totalWorld: albums.totalWorld,
-        },
-        upcoming: upcoming.items.map(mapAlbumForHome),
-        upcomingTotal: upcoming.total,
-      }
-    }
-  } catch {
-    initialLatest = undefined
+  // Seed'as nepavyko → throw (NEcache'inam unseeded puslapio). Žr. header'į.
+  if (!tracksOk || !albumsOk) {
+    throw new Error(
+      `Homepage seed unavailable (tracksOk=${tracksOk} albumsOk=${albumsOk}) — ` +
+        'preserving last-good ISR page instead of caching an empty one'
+    )
+  }
+
+  const initialLatest: InitialLatest = {
+    tracks: {
+      lt: tracks.lt.map(mapTrackForHome),
+      world: tracks.world.map(mapTrackForHome),
+      totalLt: tracks.totalLt,
+      totalWorld: tracks.totalWorld,
+    },
+    albums: {
+      lt: albums.lt.map(mapAlbumForHome),
+      world: albums.world.map(mapAlbumForHome),
+      totalLt: albums.totalLt,
+      totalWorld: albums.totalWorld,
+    },
+    upcoming: upcoming.items.map(mapAlbumForHome),
+    upcomingTotal: upcoming.total,
   }
 
   return <HomeClient initialLatest={initialLatest} />
