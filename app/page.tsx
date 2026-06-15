@@ -39,10 +39,16 @@ export default async function HomePage() {
     const albums = albumsR.status === 'fulfilled' ? albumsR.value : { lt: [], world: [], totalLt: 0, totalWorld: 0 }
     const upcoming = upcomingR.status === 'fulfilled' ? upcomingR.value : { items: [], total: 0 }
 
-    const hasAny = (tracks.lt.length + tracks.world.length + albums.lt.length + albums.world.length) > 0
-    // Tik jei realiai turim turinio — antraip paliekam undefined ir tegul
-    // client'as bando (su retry + skeletonais), kad neužfiksuotume tuščio SSR.
-    if (hasAny) {
+    // 2026-06-15: seed'inam TIK kai ABI esminės sekcijos (dainos IR albumai)
+    // turi turinio. Anksčiau užteko bet kurios → jei dainos transient'iškai
+    // grįždavo tuščios, bet albumai ne, SSR užfiksuodavo TUŠČIAS dainų juostas
+    // į 300s ISR cache'ą BE client retry (seeded=true praleidžia fetch'ą) →
+    // „Lietuviškų dainų netrukus" 5 min. Dabar jei kuri sekcija tuščia,
+    // paliekam initialLatest=undefined → client'as fetch'ina su retry +
+    // last-known-good, ir tuščia būsena niekada neužrakinama.
+    const tracksOk = (tracks.lt.length + tracks.world.length) > 0
+    const albumsOk = (albums.lt.length + albums.world.length) > 0
+    if (tracksOk && albumsOk) {
       initialLatest = {
         tracks: {
           lt: tracks.lt.map(mapTrackForHome),
