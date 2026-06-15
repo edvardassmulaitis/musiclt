@@ -68,23 +68,50 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
     <div className="cfv" style={{ ['--c' as any]: chart.accent || '#6366f1' }}>
       <style>{styles}</style>
 
-      <div className="cfv-head">
-        <Link href="/topai" className="cfv-back">← Visi topai</Link>
-        <h1 className="cfv-title">{chart.title}</h1>
-        <div className="cfv-meta">
-          <span className="cfv-size">TOP {chart.size}</span>
-          {chart.periodLabel && <span className="cfv-attr">{chart.periodLabel}</span>}
-        </div>
-      </div>
-
       <div className={`cfv-body${playable ? '' : ' is-album'}`}>
+        {/* Player — viršuje (mobile) / dešinėje (desktop), prilimpa prie viršaus.
+            Topo pavadinimas uždėtas ant player'io (nebėra atskiro bulky header'io). */}
+        {playable && (
+          <aside className="cfv-aside">
+            <div className="cfv-player">
+              <div className="cfv-video">
+                <div className="cfv-slot" ref={slotRef} />
+                {!playing && (
+                  <button className="cfv-poster" onClick={() => play(sel)} type="button" aria-label="Groti">
+                    {current?.coverUrl
+                      ? <img src={proxyImg(current.coverUrl, 320)} alt="" />
+                      : <span className="cfv-video-ph">♪</span>}
+                    <span className="cfv-bigplay">▶</span>
+                  </button>
+                )}
+                <div className="cfv-vtitle"><h1 className="cfv-h1">{chart.title}</h1></div>
+              </div>
+              {current && (
+                <div className="cfv-now">
+                  <span className="cfv-now-song">{current.title}</span>
+                  <span className="cfv-now-artist">{current.artistName}</span>
+                </div>
+              )}
+              {chart.periodLabel && <div className="cfv-period">{chart.periodLabel}</div>}
+            </div>
+          </aside>
+        )}
+
+        {/* Albumų topai — be player'io; pavadinimas atskirame bloke (SEO h1). */}
+        {!playable && (
+          <div className="cfv-albumhead">
+            <h1 className="cfv-h1 cfv-h1-dark">{chart.title}</h1>
+            {chart.periodLabel && <span className="cfv-period">{chart.periodLabel}</span>}
+          </div>
+        )}
+
         {/* Sąrašas */}
         <ol className="cfv-list">
           {entries.map((e, i) => {
             const t = trendGlyph(e.position, e.prevPosition)
             return (
               <li key={e.position} className={`cfv-row${i === sel && playable ? ' is-active' : ''}`}>
-                <button className="cfv-rowmain" onClick={() => play(i)} type="button">
+                <button className="cfv-rowmain" onClick={() => play(i)} type="button" title={playable ? 'Groti' : undefined}>
                   <span className="cfv-pos">{e.position}</span>
                   <span className="cfv-cover">
                     {e.coverUrl ? <img src={proxyImg(e.coverUrl, 120)} alt="" /> : <span className="cfv-ph">♪</span>}
@@ -104,32 +131,6 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
             )
           })}
         </ol>
-
-        {/* Sticky player (tik dainų topams) */}
-        {playable && (
-          <aside className="cfv-aside">
-            <div className="cfv-player">
-              <div className="cfv-video">
-                <div className="cfv-slot" ref={slotRef} />
-                {!playing && (
-                  <button className="cfv-poster" onClick={() => play(sel)} type="button" aria-label="Groti">
-                    {current?.coverUrl
-                      ? <img src={proxyImg(current.coverUrl, 320)} alt="" />
-                      : <span className="cfv-video-ph">♪</span>}
-                    <span className="cfv-bigplay">▶</span>
-                  </button>
-                )}
-              </div>
-              {current && (
-                <div className="cfv-now">
-                  <span className="cfv-now-song">{current.title}</span>
-                  <span className="cfv-now-artist">{current.artistName}</span>
-                </div>
-              )}
-              <p className="cfv-hint">Paspausk dainą sąraše — grojama čia.</p>
-            </div>
-          </aside>
-        )}
       </div>
 
       {chart.isConsensus && chart.sourceCharts.length > 0 && (
@@ -145,16 +146,20 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
 }
 
 const styles = `
-  .cfv { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
-  .cfv-back { display: inline-block; font-size: 13px; font-weight: 600; color: var(--text-muted); text-decoration: none; margin-bottom: 12px; }
-  .cfv-back:hover { color: var(--c); }
-  .cfv-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); }
-  .cfv-meta { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
-  .cfv-size { font-weight: 800; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); padding: 3px 9px; border-radius: 999px; }
+  .cfv { max-width: 1080px; margin: 0 auto; padding: 16px 16px 64px; }
 
-  .cfv-body { margin-top: 18px; display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+  /* Desktop: sąrašas kairėje, player dešinėje (nors DOM'e player pirmas). */
+  .cfv-body { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+  .cfv-aside { grid-column: 2; grid-row: 1; position: sticky; top: 64px; }
+  .cfv-list { grid-column: 1; grid-row: 1; }
   .cfv-body.is-album { grid-template-columns: 1fr; max-width: 720px; }
-  @media (max-width: 860px) { .cfv-body { grid-template-columns: 1fr; } }
+  .cfv-albumhead { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+  /* Mobile: player viršuje + prilimpa prie viršaus, iškart po jo — sąrašas. */
+  @media (max-width: 860px) {
+    .cfv-body { display: flex; flex-direction: column; gap: 14px; }
+    .cfv-aside { position: sticky; top: 56px; z-index: 5; margin: 0 -16px; }
+    .cfv-player { border-radius: 0; border-left: 0; border-right: 0; }
+  }
 
   .cfv-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
   .cfv-row { display: flex; align-items: center; gap: 8px; border-radius: 12px; padding-right: 6px; }
@@ -178,20 +183,24 @@ const styles = `
   .cfv-go { flex-shrink: 0; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: var(--text-muted); text-decoration: none; border-radius: 8px; }
   .cfv-go:hover { color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); }
 
-  /* Sticky player */
-  .cfv-aside { position: sticky; top: 76px; }
-  .cfv-player { border: 1px solid var(--border-subtle); border-radius: 16px; overflow: hidden; background: var(--bg-surface); }
+  /* Player */
+  .cfv-player { border: 1px solid var(--border-subtle); border-radius: 16px; overflow: hidden; background: var(--bg-surface); box-shadow: 0 10px 30px rgba(0,0,0,0.10); }
   .cfv-video { position: relative; aspect-ratio: 16/9; background: #000; }
   .cfv-slot { position: absolute; inset: 0; }
   .cfv-slot iframe { width: 100%; height: 100%; border: 0; display: block; }
   .cfv-poster { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; padding: 0; cursor: pointer; background: #000; }
-  .cfv-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cfv-poster img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.85; }
   .cfv-video-ph { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: #555; font-size: 30px; }
   .cfv-bigplay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 58px; height: 58px; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; padding-left: 4px; }
-  .cfv-now { padding: 12px 14px 4px; }
+  /* Topo pavadinimas uždėtas ant player'io (overlay viršuje). */
+  .cfv-vtitle { position: absolute; top: 0; left: 0; right: 0; padding: 10px 12px 22px; background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0)); pointer-events: none; z-index: 3; }
+  .cfv-h1 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,0.5); }
+  .cfv-h1-dark { color: var(--text-primary); text-shadow: none; font-size: 24px; font-weight: 900; }
+  .cfv-now { padding: 11px 14px 4px; }
   .cfv-now-song { display: block; font-size: 14px; font-weight: 700; color: var(--text-primary); }
   .cfv-now-artist { display: block; font-size: 12.5px; color: var(--text-muted); }
-  .cfv-hint { margin: 6px 14px 14px; font-size: 11px; color: var(--text-muted); }
+  .cfv-period { padding: 2px 14px 13px; font-size: 11.5px; color: var(--text-muted); }
+  .cfv-albumhead .cfv-period { padding: 0; }
 
   /* Šaltiniai */
   .cfv-sources { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border-subtle); }

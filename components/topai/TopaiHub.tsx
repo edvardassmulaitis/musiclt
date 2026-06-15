@@ -322,6 +322,7 @@ function ChartCard({ card }: { card: Card }) {
           </>
         )}
       </Link>
+      <Link href={card.href} className="tc-cta-btn">Daugiau →</Link>
       {card.sources.length > 0 && (
         <div className="tc-srcs" aria-label="Šaltiniai">
           <span className="tc-srcs-ico" aria-hidden>
@@ -332,7 +333,6 @@ function ChartCard({ card }: { card: Card }) {
           ))}
         </div>
       )}
-      <Link href={card.href} className="tc-cta-btn">Daugiau →</Link>
     </div>
   )
 }
