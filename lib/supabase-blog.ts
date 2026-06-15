@@ -318,6 +318,7 @@ export async function getProfileFavoriteArtists(userId: string) {
     .from('profile_favorite_artists')
     .select('artist_id, sort_order, artists:artist_id(id, slug, name, cover_image_url)')
     .eq('user_id', userId)
+    .eq('bucket', 1)
     .order('sort_order')
   const artists = (data || []).map((r: any) => r.artists).filter(Boolean) as any[]
   if (!artists.length) return artists
@@ -401,10 +402,19 @@ async function getProfileFavoriteEntities(
   return { ids, likedAt }
 }
 
-export async function getProfileFavoriteAlbums(username: string, limit = 12) {
-  const { ids, likedAt } = await getProfileFavoriteEntities(username, 'album', limit)
-  if (!ids.length) return []
+async function rankedProfileIds(sb: any, kind: 'album' | 'track', userId: string, limit: number): Promise<number[]> {
+  const table = kind === 'album' ? 'profile_favorite_albums' : 'profile_favorite_tracks'
+  const idCol = kind === 'album' ? 'album_id' : 'track_id'
+  const { data } = await sb.from(table).select(idCol).eq('user_id', userId).eq('bucket', 1).order('sort_order').limit(limit)
+  return (data || []).map((r: any) => r[idCol]).filter(Boolean)
+}
+
+export async function getProfileFavoriteAlbums(username: string, limit = 12, userId?: string) {
   const sb = createAdminClient()
+  const rankedIds = userId ? await rankedProfileIds(sb, 'album', userId, limit) : []
+  const { ids: likedIds, likedAt } = await getProfileFavoriteEntities(username, 'album', limit)
+  const ids = [...new Set([...rankedIds, ...likedIds])].slice(0, limit)
+  if (!ids.length) return []
   const { data } = await sb
     .from('albums')
     .select('id, slug, title, cover_url, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
@@ -415,10 +425,12 @@ export async function getProfileFavoriteAlbums(username: string, limit = 12) {
     .sort((x: any, y: any) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0)) as any[]
 }
 
-export async function getProfileFavoriteTracks(username: string, limit = 12) {
-  const { ids, likedAt } = await getProfileFavoriteEntities(username, 'track', limit)
-  if (!ids.length) return []
+export async function getProfileFavoriteTracks(username: string, limit = 12, userId?: string) {
   const sb = createAdminClient()
+  const rankedIds = userId ? await rankedProfileIds(sb, 'track', userId, limit) : []
+  const { ids: likedIds, likedAt } = await getProfileFavoriteEntities(username, 'track', limit)
+  const ids = [...new Set([...rankedIds, ...likedIds])].slice(0, limit)
+  if (!ids.length) return []
   const { data } = await sb
     .from('tracks')
     .select('id, slug, title, cover_url, video_url, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
@@ -428,6 +440,7 @@ export async function getProfileFavoriteTracks(username: string, limit = 12) {
     .map((t: any) => ({ ...t, liked_at: likedAt.get(t.id) ?? null }))
     .sort((x: any, y: any) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0)) as any[]
 }
+
 
 // Pending count'ai — kiek dar nemigravotų likes (UI gali rodyti „dar X laukia").
 // Vienas grupuotas RPC vietoj 6 atskirų ILIKE COUNT seq-scan'ų. Case-insensitive

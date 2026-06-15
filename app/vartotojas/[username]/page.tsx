@@ -71,8 +71,8 @@ export default async function UserProfilePage({ params }: Props) {
     // PERF V16 (2026-06-11): 100→48. Klientas rodo max 12 grid'e + 5 sidebar
     // „Neseniai pamėgta"; likusius atidaro MoreItemsModal iš to paties masyvo.
     // 48 pakanka modalui, o serialized payload'as perpus mažesnis.
-    getProfileFavoriteAlbums(profile.username, 48),
-    getProfileFavoriteTracks(profile.username, 48),
+    getProfileFavoriteAlbums(profile.username, 48, profile.id),
+    getProfileFavoriteTracks(profile.username, 48, profile.id),
     getProfileLikesCounts(profile.username),
     getProfileFriends(profile.id, 24),
     getBlogByUserId(profile.id),
