@@ -18,6 +18,8 @@ export {
   inferRecordingType, recordingTypeLabel, RECORDING_TYPE_LABELS, RECORDING_TYPE_ORDER,
   formatDuration, formatRecordedDate, recordingPlaceLine, recordingHref,
   extractYouTubeId, ytThumbFromId, ytEmbedUrl, formatViews,
+  formatDurationRough, durationBucket, recordingRegion, viewsPopLevel,
+  isFreshRecording, relativeAppeared, DURATION_BUCKETS,
 } from '@/lib/concert-recordings-shared'
 
 /* ─────────────────────── Row → ConcertRecording ─────────────────────── */
@@ -25,8 +27,8 @@ export {
 const SELECT_COLS =
   'id, slug, youtube_id, youtube_url, title, artist_id, artist_name_cached, ' +
   'duration_seconds, recording_type, venue, city, country, recorded_on, recorded_year, ' +
-  'uploaded_at, channel, description, thumbnail_url, view_count, styles, is_featured, ' +
-  'artists:artist_id(name, slug)'
+  'uploaded_at, channel, description, thumbnail_url, view_count, styles, is_featured, created_at, ' +
+  'artists:artist_id(name, slug, country)'
 
 function mapRow(r: any): ConcertRecording {
   const a = r.artists || null
@@ -53,6 +55,8 @@ function mapRow(r: any): ConcertRecording {
     view_count: r.view_count ?? null,
     styles: Array.isArray(r.styles) ? r.styles : [],
     is_featured: !!r.is_featured,
+    artist_country: a?.country ?? null,
+    created_at: r.created_at ?? null,
   }
 }
 
