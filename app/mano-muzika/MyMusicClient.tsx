@@ -138,7 +138,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
       </div>
 
       {(tab === 'artist' || tab === 'album' || tab === 'track') && (
-        <CollectionPanel kind={tab} data={coll[tab]} onReorder={(ids) => reorder(tab, ids)} onMoveToPosition={(it, pos) => moveToPosition(tab, it, pos)}
+        <CollectionPanel key={tab} kind={tab} data={coll[tab]} onReorder={(ids) => reorder(tab, ids)} onMoveToPosition={(it, pos) => moveToPosition(tab, it, pos)}
           onToTop20={(it) => toTop20(tab, it)} onToLibrary={(it) => toLibrary(tab, it)} onUnlike={(it) => unlike(tab, it)} onAdd={(hit) => addLib(tab, hit)} />
       )}
       {tab === 'mood' && <MoodSection moodSongs={moodSongs} setMoodSongs={setMoodSongs} />}
