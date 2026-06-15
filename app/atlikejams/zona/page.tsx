@@ -22,7 +22,7 @@ export default async function StudioDashboard({ searchParams }: { searchParams: 
   const [artistRow, genresRes, tracksRes, photosRes, likesRes, followRes, embedsRes, evRes] = await Promise.all([
     sb.from('artists').select('id, slug, name, cover_image_url, cover_image_wide_url, description, profile_theme, accent_color, hidden_sections, page_view_count, legacy_likes').eq('id', active.id).maybeSingle(),
     sb.from('artist_genres').select('genres(id, name)').eq('artist_id', active.id),
-    sb.from('tracks').select('id, title, slug, video_url, video_uploaded_at, video_views, is_pinned').eq('artist_id', active.id).order('is_pinned', { ascending: false }).order('video_uploaded_at', { ascending: false, nullsFirst: false }).limit(5),
+    sb.from('tracks').select('id, title, slug, video_url, video_uploaded_at, video_views, is_pinned').eq('artist_id', active.id).not('video_uploaded_at', 'is', null).order('is_pinned', { ascending: false }).order('video_uploaded_at', { ascending: false }).limit(5),
     sb.from('artist_photos').select('id, url, caption, is_active, sort_order').eq('artist_id', active.id).eq('is_active', true).order('sort_order').limit(16),
     sb.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'artist').eq('entity_id', active.id),
     sb.from('artist_follows').select('*', { count: 'exact', head: true }).eq('artist_id', active.id),

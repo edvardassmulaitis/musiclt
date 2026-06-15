@@ -1,6 +1,7 @@
 // POST /api/studija/track — atlikėjas prideda naują dainą iš YouTube nuorodos.
 // Body: { artistId, url }
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import { requireStudioAccess } from '@/lib/artist-studio'
 import { youtubeId } from '@/lib/social-embed'
@@ -40,5 +41,6 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await sb.from('tracks').insert(row).select('id, slug, title').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  try { revalidateTag('artist') } catch {}
   return NextResponse.json({ ok: true, track: data })
 }

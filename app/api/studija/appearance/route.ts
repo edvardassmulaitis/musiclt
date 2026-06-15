@@ -1,5 +1,6 @@
 // POST /api/studija/appearance — viešos anketos išvaizda (tema, akcentas, sekcijos).
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import { requireStudioAccess } from '@/lib/artist-studio'
 
@@ -21,5 +22,6 @@ export async function POST(req: NextRequest) {
   const sb = createAdminClient()
   const { error } = await sb.from('artists').update(patch).eq('id', artistId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  try { revalidateTag('artist') } catch {}
   return NextResponse.json({ ok: true })
 }

@@ -1219,6 +1219,7 @@ async function ArtistContent({ artist }: { artist: any }) {
   // žiūri admin'as. Score'ą redaguoji per /admin/artists/[id] (atskiras puslapis,
   // ten yra full Reitingas modalas). Public — tik catalog metadata.
   const _accent = (artist as any).accent_color
+  const _theme = (artist as any).profile_theme === 'light' ? 'light' : null
   const inner = (
     <>
       <script
@@ -1253,5 +1254,9 @@ async function ArtistContent({ artist }: { artist: any }) {
     <ArtistSocialSection artistId={artist.id} slug={artist.slug} name={artist.name} isClaimed={(artist as any).is_claimed} />
     </>
   )
-  return _accent ? <div style={{ ['--accent-orange' as any]: _accent, ['--accent-link' as any]: _accent }}>{inner}</div> : inner
+  if (!_accent && !_theme) return inner
+  const _wrapStyle: any = { minHeight: '100vh' }
+  if (_theme) _wrapStyle.background = 'var(--bg-body)'
+  if (_accent) { _wrapStyle['--accent-orange'] = _accent; _wrapStyle['--accent-link'] = _accent }
+  return <div data-theme={_theme || undefined} style={_wrapStyle}>{inner}</div>
 }

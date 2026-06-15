@@ -1,5 +1,6 @@
 // POST /api/studija/pin — prisegti/atsegti dainą (rodoma viršuje playeryje).
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import { requireStudioAccess } from '@/lib/artist-studio'
 
@@ -15,5 +16,6 @@ export async function POST(req: NextRequest) {
   const { data: tr } = await sb.from('tracks').select('id, artist_id').eq('id', trackId).maybeSingle()
   if (!tr || tr.artist_id !== artistId) return NextResponse.json({ error: 'Daina nerasta' }, { status: 404 })
   await sb.from('tracks').update({ is_pinned: pinned, pinned_at: pinned ? new Date().toISOString() : null }).eq('id', trackId)
+  try { revalidateTag('artist') } catch {}
   return NextResponse.json({ ok: true, pinned })
 }
