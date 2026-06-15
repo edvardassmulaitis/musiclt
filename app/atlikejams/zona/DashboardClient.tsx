@@ -6,7 +6,7 @@ import { youtubeId } from '@/lib/social-embed'
 
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null; cover_image_wide_url: string | null; profile_theme: string; accent_color: string | null; hidden_sections: string[] }
 type Genre = { id: number; name: string }
-type Song = { id: number; title: string; slug: string | null; video_url: string | null; video_uploaded_at: string | null; is_pinned: boolean; state: string; weeks: number }
+type Song = { id: number; title: string; slug: string | null; video_url: string | null; video_uploaded_at: string | null; release_year: number | null; is_pinned: boolean; state: string; weeks: number }
 type Photo = { id: number; url: string; caption: string | null }
 type Ev = { id: number; slug: string | null; title: string; start_date: string; venue_name: string | null; city: string | null }
 type Stats = { views: number; likes: number; followers: number; temp: number; topPos: { pos: number; title: string } | null; complete: number }
@@ -162,7 +162,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
             <div key={s.id} className={`mb-2 flex items-center gap-3 rounded-xl border p-2.5 ${s.is_pinned ? 'border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.05)]' : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]'}`}>
               <button onClick={() => togglePin(s)} title="Prisegti" className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${s.is_pinned ? 'text-[var(--accent-orange)]' : 'text-[var(--text-muted)] bg-[var(--bg-hover)]'}`}>{I.pin}</button>
               <div className="h-[34px] w-[54px] shrink-0 overflow-hidden rounded-md bg-[var(--bg-surface)]">{thumb(s.video_url) ? <img src={thumb(s.video_url)!} alt="" className="h-full w-full object-cover" /> : null}</div>
-              <div className="min-w-0 flex-1"><b className="block truncate text-[13px] font-semibold text-[var(--text-primary)]">{s.title}</b><small className="text-[10.5px] text-[var(--text-muted)]">{s.is_pinned ? 'Prisegta · ' : ''}{s.video_uploaded_at ? new Date(s.video_uploaded_at).toLocaleDateString('lt-LT') : '—'}</small></div>
+              <div className="min-w-0 flex-1"><b className="block truncate text-[13px] font-semibold text-[var(--text-primary)]">{s.title}</b><small className="text-[10.5px] text-[var(--text-muted)]">{s.is_pinned ? 'Prisegta · ' : ''}{s.video_uploaded_at ? new Date(s.video_uploaded_at).toLocaleDateString('lt-LT') : (s.release_year || '—')}</small></div>
               {s.state === 'eligible' && <button onClick={() => suggest(s)} disabled={busy === 's' + s.id} className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-3 py-1.5 text-[10.5px] font-bold text-white font-[Outfit,sans-serif]">{I.trophy} Top 40</button>}
               {s.state === 'in' && <span className="rounded-full bg-[rgba(34,197,94,.14)] px-3 py-1.5 text-[10.5px] font-bold text-[var(--accent-green)]">Topе · {s.weeks} sav.</span>}
               {s.state === 'pending' && <span className="rounded-full bg-[rgba(251,191,36,.13)] px-3 py-1.5 text-[10.5px] font-bold text-[#fbbf24]">Pasiūlyta</span>}
