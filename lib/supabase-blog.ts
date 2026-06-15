@@ -314,6 +314,8 @@ export async function isUsernameTaken(username: string, excludeUserId?: string) 
 // equalizer'io click'us (Rokas → favorite rock artists etc).
 export async function getProfileFavoriteArtists(userId: string) {
   const sb = createAdminClient()
+  // V18 (mano-muzika): rodom „Mėgstami" rikiuojamą sąrašą (bucket=1) ta pačia
+  // tvarka kaip /mano-muzika; pirmi rodomi kaip top.
   const { data } = await sb
     .from('profile_favorite_artists')
     .select('artist_id, sort_order, artists:artist_id(id, slug, name, cover_image_url)')
@@ -402,6 +404,8 @@ async function getProfileFavoriteEntities(
   return { ids, likedAt }
 }
 
+// Rikiuoti („Mėgstami", bucket=1) album/track id iš /mano-muzika — kad profilis
+// rodytų tą pačią kuruotą tvarką, o tada papildytų patiktukais.
 async function rankedProfileIds(sb: any, kind: 'album' | 'track', userId: string, limit: number): Promise<number[]> {
   const table = kind === 'album' ? 'profile_favorite_albums' : 'profile_favorite_tracks'
   const idCol = kind === 'album' ? 'album_id' : 'track_id'
@@ -409,7 +413,8 @@ async function rankedProfileIds(sb: any, kind: 'album' | 'track', userId: string
   return (data || []).map((r: any) => r[idCol]).filter(Boolean)
 }
 
-// Kurie iš `ids` yra IMPORTUOTI patiktukai (entity_legacy_id iš senos sistemos).
+// Kurie iš `ids` yra IMPORTUOTI patiktukai (entity_legacy_id iš senos sistemos),
+// o ne realiai paspausti naujoje. Naudojama feed'ui — rodom tik tikrus naujus.
 async function importedIdSet(sb: any, kind: 'album' | 'track', userId: string | undefined, ids: number[]): Promise<Set<number>> {
   if (!userId || !ids.length) return new Set()
   const { data } = await sb.from('likes').select('entity_id')
@@ -417,40 +422,56 @@ async function importedIdSet(sb: any, kind: 'album' | 'track', userId: string | 
   return new Set((data || []).map((r: any) => r.entity_id))
 }
 
+// Rikiavimas: rikiuoti („Mėgstami", bucket=1) pirma jų tvarka; tada patiktukai
+// pagal music.lt populiarumą (score) DESC — kol narys nesusidėjo savo tvarkos,
+// rodom populiariausius pirma (ne pagal datą).
+function favSort(rankIdx: Map<number, number>) {
+  return (x: any, y: any) => {
+    const rx = rankIdx.has(x.id), ry = rankIdx.has(y.id)
+    if (rx && ry) return (rankIdx.get(x.id)! - rankIdx.get(y.id)!)
+    if (rx) return -1
+    if (ry) return 1
+    return (Number(y.score || 0) - Number(x.score || 0))
+  }
+}
+
 export async function getProfileFavoriteAlbums(username: string, limit = 12, userId?: string) {
   const sb = createAdminClient()
+  const pool = Math.max(limit * 4, 240)
   const rankedIds = userId ? await rankedProfileIds(sb, 'album', userId, limit) : []
-  const { ids: likedIds, likedAt } = await getProfileFavoriteEntities(username, 'album', limit)
-  const ids = [...new Set([...rankedIds, ...likedIds])].slice(0, limit)
+  const { ids: likedIds, likedAt } = await getProfileFavoriteEntities(username, 'album', pool)
+  const ids = [...new Set([...rankedIds, ...likedIds])]
   if (!ids.length) return []
   const { data } = await sb
     .from('albums')
-    .select('id, slug, title, cover_url:cover_image_url, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .select('id, slug, title, cover_url:cover_image_url, score, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
     .in('id', ids)
-  const order = new Map(ids.map((id, i) => [id, i]))
+  const rankIdx = new Map(rankedIds.map((id, i) => [id, i]))
   const imported = await importedIdSet(sb, 'album', userId, ids)
   return (data || [])
     .map((a: any) => ({ ...a, liked_at: likedAt.get(a.id) ?? null, is_imported: imported.has(a.id) }))
-    .sort((x: any, y: any) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0)) as any[]
+    .sort(favSort(rankIdx))
+    .slice(0, limit) as any[]
 }
 
 export async function getProfileFavoriteTracks(username: string, limit = 12, userId?: string) {
   const sb = createAdminClient()
+  const pool = Math.max(limit * 4, 240)
   const rankedIds = userId ? await rankedProfileIds(sb, 'track', userId, limit) : []
-  const { ids: likedIds, likedAt } = await getProfileFavoriteEntities(username, 'track', limit)
-  const ids = [...new Set([...rankedIds, ...likedIds])].slice(0, limit)
+  const { ids: likedIds, likedAt } = await getProfileFavoriteEntities(username, 'track', pool)
+  const ids = [...new Set([...rankedIds, ...likedIds])]
   if (!ids.length) return []
   const { data } = await sb
     .from('tracks')
-    .select('id, slug, title, cover_url, video_url, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .select('id, slug, title, cover_url, video_url, score, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
     .in('id', ids)
-  const order = new Map(ids.map((id, i) => [id, i]))
+  const rankIdx = new Map(rankedIds.map((id, i) => [id, i]))
   const imported = await importedIdSet(sb, 'track', userId, ids)
   return (data || [])
     .map((t: any) => ({ ...t, liked_at: likedAt.get(t.id) ?? null, is_imported: imported.has(t.id) }))
-    .sort((x: any, y: any) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0)) as any[]
+    .sort(favSort(rankIdx))
+    .slice(0, limit) as any[]
 }
-
 
 // Pending count'ai — kiek dar nemigravotų likes (UI gali rodyti „dar X laukia").
 // Vienas grupuotas RPC vietoj 6 atskirų ILIKE COUNT seq-scan'ų. Case-insensitive

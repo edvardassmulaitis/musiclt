@@ -18,7 +18,7 @@ type Tab = EntityTab | 'mood' | 'styles'
 const TYPEFILTER: Record<EntityTab, AttachmentHit['type']> = { artist: 'grupe', album: 'albumas', track: 'daina' }
 const TABS: { key: Tab; label: string; icon: IcoName }[] = [
   { key: 'artist', label: 'Atlikėjai', icon: 'person' }, { key: 'album', label: 'Albumai', icon: 'disc' },
-  { key: 'track', label: 'Dainos', icon: 'note' }, { key: 'mood', label: 'Nuotaika', icon: 'moon' }, { key: 'styles', label: 'Stiliai', icon: 'sliders' },
+  { key: 'track', label: 'Dainos', icon: 'note' }, { key: 'mood', label: 'Nuotaikos dainos', icon: 'repeat' }, { key: 'styles', label: 'Stiliai', icon: 'sliders' },
 ]
 const TARGETS = { artists: 50, albums: 100, tracks: 500, styles: 5 }
 
@@ -160,14 +160,61 @@ function CollectionPanel({ kind, data, onMove, onUnlike, onAdd }: {
 }) {
   const items = useMemo(() => [...data.ranked, ...data.library], [data])
   const attached: AttachmentHit[] = items.map(i => ({ type: TYPEFILTER[kind], id: i.id, legacy_id: null, slug: '', title: i.title, artist: null, image_url: i.cover }))
+  const ownedIds = useMemo(() => new Set(items.map(i => i.id)), [items])
   const noun = kind === 'artist' ? 'atlikėją' : kind === 'album' ? 'albumą' : 'dainą'
-  return (
-    <section>
+  const main = (
+    <>
       <OneList kind={kind} items={items} onMove={onMove} onUnlike={onUnlike} />
       <div className="mt-4 max-w-[560px]"><MusicSearchPicker attached={attached} onAdd={onAdd} typeFilter={TYPEFILTER[kind]} placeholder={`Pridėk ${noun}...`} /></div>
+    </>
+  )
+  // Dainoms — sąrašas + pasiūlymai šalia (desktop), mobiliame pasiūlymai apačioje.
+  if (kind !== 'track') return <section>{main}</section>
+  return (
+    <section className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-5 lg:gap-7 items-start">
+      <div className="min-w-0">{main}</div>
+      <SuggestionsPanel ownedIds={ownedIds} onAdd={onAdd} />
     </section>
   )
 }
+
+// Dainų pasiūlymai — populiarios dainos iš mėgstamų atlikėjų, kurių dar neturi.
+function SuggestionsPanel({ ownedIds, onAdd }: { ownedIds: Set<number>; onAdd: (hit: AttachmentHit) => void }) {
+  const [items, setItems] = useState<TrackSug[] | null>(null)
+  const [added, setAdded] = useState<Set<number>>(new Set())
+  const loadRef = useRef(false)
+  if (!loadRef.current) {
+    loadRef.current = true
+    api('/suggestions?kind=track&limit=30', 'GET').then(r => setItems((r.tracks || []) as TrackSug[])).catch(() => setItems([]))
+  }
+  const visible = (items || []).filter(t => !ownedIds.has(t.id) && !added.has(t.id)).slice(0, 14)
+  function pick(t: TrackSug) {
+    setAdded(s => new Set(s).add(t.id))
+    onAdd({ type: 'daina', id: t.id, legacy_id: null, slug: t.slug, title: t.title, artist: t.artist?.name || null, image_url: t.cover_url })
+  }
+  return (
+    <aside className="rounded-2xl p-3.5 lg:sticky lg:top-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+      <div className="flex items-center gap-1.5 mb-1"><span style={{ color: '#f97316' }}><Ico name="sparkle" size={15} /></span><h3 className="text-[13.5px] font-black">Galbūt patiks</h3></div>
+      <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-muted)' }}>Dainos iš tavo mėgstamų atlikėjų — pridėk į savo sąrašą.</p>
+      {items === null ? (
+        <div className="text-[12px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>Kraunama…</div>
+      ) : visible.length === 0 ? (
+        <div className="text-[12px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>Pridėk daugiau atlikėjų — atsiras pasiūlymų.</div>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {visible.map(t => (
+            <li key={t.id} className="group flex items-center gap-2.5 rounded-xl px-2 py-1.5" style={{ background: 'var(--bg-elevated)' }}>
+              <Cover kind="track" cover={t.cover_url} />
+              <div className="min-w-0 flex-1"><div className="truncate text-[12.5px] font-bold">{t.title}</div><div className="truncate text-[10.5px]" style={{ color: 'var(--text-muted)' }}>{t.artist?.name || 'Daina'}</div></div>
+              <button onClick={() => pick(t)} title="Pridėti į mėgstamus" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-full" style={{ background: 'rgba(249,115,22,0.14)', color: '#f97316' }}><Ico name="plus" size={14} /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </aside>
+  )
+}
+type TrackSug = { id: number; slug: string; title: string; cover_url: string | null; artist: { slug: string; name: string } | null; reason: string }
 
 // VIENAS sąrašas: rikiuoti + likę patiktukai, ištisinė numeracija; pirmi 20 → profilyje.
 function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: MusicItem[]; onMove: (it: MusicItem, pos: number) => void; onUnlike: (it: MusicItem) => void }) {
@@ -196,7 +243,7 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
   return (
     <div>
       <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-        <h2 className="text-[15px] font-black flex items-center gap-1.5"><Ico name="star" size={16} /> Mėgstami <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></h2>
+        <h2 className="text-[15px] font-black flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><span style={{ color: '#f43f5e' }}><Ico name="heart" size={15} /></span> Mėgstami <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></h2>
         {items.length > 0 && (
           <div className="flex items-center gap-2">
             <input value={q} onChange={e => { setQ(e.target.value); setLimit(60) }} placeholder="Ieškoti sąraše..." className="w-[200px] sm:w-[240px] rounded-lg px-3 py-1.5 text-[12.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
@@ -260,39 +307,131 @@ function Cover({ kind, cover }: { kind: EntityTab; cover: string | null }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Nuotaikos dainos — rikiuojamas top 20. #1 = aktyvi (rodoma profilio viršuje;
+// paspaudus profilyje atsidaro grotuvas su visomis). Valdymas kaip pagrindiniame
+// sąraše: tempk, ↑/↓ arba įrašyk poziciją.
+const MOOD_MAX = 20
 function MoodSection({ moodSongs, setMoodSongs }: { moodSongs: MoodSong[]; setMoodSongs: (v: MoodSong[]) => void }) {
-  function add(hit: AttachmentHit) {
-    if (moodSongs.some(m => m.track_id === hit.id)) return
-    const makeActive = moodSongs.length === 0
-    const row: MoodSong = { id: -Date.now(), track_id: hit.id, mood_label: null, is_active: makeActive, sort_order: 9999, track: { id: hit.id, slug: hit.slug, title: hit.title, cover_url: hit.image_url, artist: hit.artist ? { slug: '', name: hit.artist } : null } }
-    setMoodSongs(makeActive ? moodSongs.map(m => ({ ...m, is_active: false })).concat(row) : [...moodSongs, row])
-    api('/mood', 'POST', { track_id: hit.id, make_active: makeActive }).catch(() => setMoodSongs(moodSongs))
+  const dragId = useRef<number | null>(null)
+  const [dragOver, setDragOver] = useState<number | null>(null)
+  const [jumpId, setJumpId] = useState<number | null>(null)
+  const items = moodSongs
+  const full = items.length >= MOOD_MAX
+
+  function commit(ordered: MoodSong[]) {
+    setMoodSongs(ordered.map((m, i) => ({ ...m, sort_order: i, is_active: i === 0 })))
+    api('/mood', 'PUT', { ordered_ids: ordered.map(m => m.id) }).catch(() => {})
   }
-  function remove(trackId: number) { setMoodSongs(moodSongs.filter(m => m.track_id !== trackId)); api('/mood', 'DELETE', { track_id: trackId }).catch(() => setMoodSongs(moodSongs)) }
-  function setActive(trackId: number) { setMoodSongs(moodSongs.map(m => ({ ...m, is_active: m.track_id === trackId }))); api('/mood', 'PATCH', { track_id: trackId, active: true }).catch(() => setMoodSongs(moodSongs)) }
-  const attached: AttachmentHit[] = moodSongs.map(m => ({ type: 'daina', id: m.track_id, legacy_id: null, slug: '', title: m.track?.title || '', artist: null, image_url: m.track?.cover_url || null }))
+  function move(idx: number, dir: -1 | 1) { const to = idx + dir; if (to < 0 || to >= items.length) return; const a = [...items]; a.splice(to, 0, a.splice(idx, 1)[0]); commit(a) }
+  function jump(idx: number, pos: number) { const to = Math.max(0, Math.min(items.length - 1, Math.floor(pos) - 1)); if (to === idx) return; const a = [...items]; a.splice(to, 0, a.splice(idx, 1)[0]); commit(a) }
+  function drop(targetIdx: number) { const from = dragId.current; setDragOver(null); dragId.current = null; if (from == null) return; const fi = items.findIndex(m => m.id === from); if (fi < 0 || fi === targetIdx) return; const a = [...items]; a.splice(targetIdx, 0, a.splice(fi, 1)[0]); commit(a) }
+  function add(hit: AttachmentHit) {
+    if (items.some(m => m.track_id === hit.id) || full) return
+    const makeActive = items.length === 0
+    const row: MoodSong = { id: -Date.now(), track_id: hit.id, mood_label: null, is_active: makeActive, sort_order: items.length, track: { id: hit.id, slug: hit.slug, title: hit.title, cover_url: hit.image_url, artist: hit.artist ? { slug: '', name: hit.artist } : null } }
+    setMoodSongs([...items, row])
+    api('/mood', 'POST', { track_id: hit.id, make_active: makeActive }).catch(() => setMoodSongs(items))
+  }
+  function remove(trackId: number) { const next = items.filter(m => m.track_id !== trackId).map((m, i) => ({ ...m, is_active: i === 0 })); setMoodSongs(next); api('/mood', 'DELETE', { track_id: trackId }).catch(() => setMoodSongs(items)) }
+  const attached: AttachmentHit[] = items.map(m => ({ type: 'daina', id: m.track_id, legacy_id: null, slug: '', title: m.track?.title || '', artist: null, image_url: m.track?.cover_url || null }))
+
   return (
     <div>
-      <p className="mb-3 text-[12.5px]" style={{ color: 'var(--text-muted)' }}>Nuotaikos daina rodoma profilio viršuje. Susidėk kelias ir perjunk aktyvią.</p>
-      <div className="mb-4 max-w-[520px]"><MusicSearchPicker attached={attached} onAdd={add} typeFilter="daina" placeholder="Surask nuotaikos dainą..." /></div>
-      {moodSongs.length === 0 ? <Empty hint="Dar nepridėjai nuotaikos dainų." /> : (
-        <ul className="flex flex-col gap-2">
-          {moodSongs.map(m => (
-            <li key={m.id} className="group flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ background: m.is_active ? 'linear-gradient(90deg, rgba(167,139,250,0.14), transparent)' : 'var(--bg-surface)', border: `1px solid ${m.is_active ? 'rgba(167,139,250,0.5)' : 'var(--border-default)'}` }}>
-              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg flex items-center justify-center" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{m.track?.cover_url ? (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImg(m.track.cover_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />) : <Ico name="note" size={18} />}</div>
-              <div className="min-w-0 flex-1"><div className="truncate text-[13.5px] font-bold">{m.track?.title || '—'}</div><div className="truncate text-[11.5px]" style={{ color: 'var(--text-muted)' }}>{m.track?.artist?.name || 'Daina'}</div></div>
-              {m.is_active ? <span className="shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-black" style={{ background: 'rgba(167,139,250,0.18)', color: '#a78bfa' }}><Ico name="moon" size={11} /> Aktyvi</span>
-                : <button onClick={() => setActive(m.track_id)} className="shrink-0 rounded-full px-3 py-1 text-[11px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Nustatyti aktyvia</button>}
-              <button onClick={() => remove(m.track_id)} title="Pašalinti" className="shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
-            </li>
-          ))}
-        </ul>
+      <p className="mb-3 text-[12.5px]" style={{ color: 'var(--text-muted)' }}>Top {MOOD_MAX} nuotaikos dainų. <b style={{ color: 'var(--text-secondary)' }}>#1</b> rodoma profilio viršuje; profilyje paspaudus atsidaro grotuvas su visomis. Stumdyk tvarką kaip nori.</p>
+      <div className="mb-4 max-w-[520px]">
+        <MusicSearchPicker attached={attached} onAdd={add} typeFilter="daina" placeholder={full ? `Pasiektas maks. (${MOOD_MAX})` : 'Surask nuotaikos dainą...'} />
+        {full && <div className="mt-1.5 text-[11.5px]" style={{ color: 'var(--text-faint)' }}>Sąrašas pilnas — pašalink dainą, kad pridėtum naują.</div>}
+      </div>
+      {items.length === 0 ? <Empty hint="Dar nepridėjai nuotaikos dainų." /> : (
+        <div className="flex flex-col gap-2">
+          {items.map((m, idx) => {
+            const isFirst = idx === 0
+            return (
+              <div key={m.id} draggable onDragStart={() => { dragId.current = m.id }} onDragOver={e => { e.preventDefault(); setDragOver(m.id) }} onDragLeave={() => setDragOver(o => o === m.id ? null : o)} onDrop={() => drop(idx)}
+                className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2" style={{ background: isFirst ? 'linear-gradient(90deg, rgba(167,139,250,0.14), var(--bg-surface) 60%)' : 'var(--bg-surface)', border: `1px solid ${dragOver === m.id ? '#a78bfa' : isFirst ? 'rgba(167,139,250,0.5)' : 'var(--border-default)'}` }}>
+                <span className="hidden sm:inline cursor-grab active:cursor-grabbing select-none text-[var(--text-faint)]"><Ico name="grip" size={13} /></span>
+                {jumpId === m.id ? (
+                  <input autoFocus type="number" min={1} max={items.length} defaultValue={idx + 1}
+                    onKeyDown={e => { if (e.key === 'Enter') { setJumpId(null); jump(idx, Number((e.target as HTMLInputElement).value) || 1) } if (e.key === 'Escape') setJumpId(null) }} onBlur={e => { setJumpId(null); jump(idx, Number(e.target.value) || idx + 1) }}
+                    className="w-10 h-7 text-center text-[12px] font-black rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid #a78bfa', color: 'var(--text-primary)' }} />
+                ) : (
+                  <button onClick={() => setJumpId(m.id)} title="Įrašyk vietą" className="w-7 h-7 shrink-0 rounded-md text-[12px] font-black tabular-nums" style={{ background: 'var(--bg-elevated)', color: isFirst ? '#a78bfa' : 'var(--text-muted)' }}>{idx + 1}</button>
+                )}
+                <div className="flex flex-col gap-0.5">
+                  <button onClick={() => move(idx, -1)} disabled={idx === 0} aria-label="Aukštyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="up" size={11} /></button>
+                  <button onClick={() => move(idx, 1)} disabled={idx === items.length - 1} aria-label="Žemyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="down" size={11} /></button>
+                </div>
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg flex items-center justify-center" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{m.track?.cover_url ? (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImg(m.track.cover_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />) : <Ico name="note" size={16} />}</div>
+                <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold">{m.track?.title || '—'}</div><div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>{m.track?.artist?.name || 'Daina'}</div></div>
+                {isFirst && <span className="shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-black" style={{ background: 'rgba(167,139,250,0.18)', color: '#a78bfa' }}><Ico name="play" size={10} /> Profilyje</span>}
+                <button onClick={() => remove(m.track_id)} title="Pašalinti" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )
 }
 
 const METER_COLORS = ['#f97316', '#a78bfa', '#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#22d3ee', '#fb7185', '#fb923c', '#4ade80']
+function hexToRgb(hex: string): string {
+  const h = hex.replace('#', '')
+  const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`
+}
+
+// LED segmentinis bar'as (toks pat dizainas kaip profilio „Muzikinis skonis").
+const LED_SEGMENTS = 14
+function StyleLedBars({ top, maxCount, sel, setSel, colorOf }: {
+  top: { name: string; count: number }[]; maxCount: number; sel: string | null
+  setSel: (s: string | null) => void; colorOf: (name: string) => string
+}) {
+  return (
+    <>
+      {/* Desktop — vertikalūs LED stulpeliai */}
+      <div className="hidden md:flex items-stretch justify-start gap-2.5">
+        {top.map(d => {
+          const active = sel === d.name
+          const hex = colorOf(d.name); const rgb = hexToRgb(hex)
+          const lit = Math.max(Math.round((d.count / (maxCount || 1)) * LED_SEGMENTS), d.count > 0 ? 1 : 0)
+          return (
+            <button key={d.name} onClick={() => setSel(active ? null : d.name)} title={`${d.name} — ${d.count}`} className={`group flex-1 min-w-0 flex flex-col items-center transition hover:-translate-y-0.5 ${sel && !active ? 'opacity-45' : ''}`}>
+              <span className="text-[11px] font-black tabular-nums mb-1" style={{ color: active ? hex : 'var(--text-faint)' }}>{d.count}</span>
+              <div className="flex flex-col-reverse gap-[2px] w-full px-[3px]" style={{ maxWidth: 46, margin: '0 auto' }}>
+                {Array.from({ length: LED_SEGMENTS }).map((_, s) => {
+                  const on = s < lit
+                  const ratio = s / (LED_SEGMENTS - 1)
+                  const alpha = on ? 0.5 + ratio * 0.5 : 0.06
+                  const glow = on && s >= lit - 2
+                  return <div key={s} style={{ height: 8, borderRadius: 2, background: on ? `rgba(${rgb}, ${active ? Math.min(alpha + 0.15, 1) : alpha})` : 'rgba(255,255,255,0.05)', boxShadow: glow ? `0 0 ${active ? 9 : 6}px rgba(${rgb}, ${active ? 0.9 : 0.6})` : 'none' }} />
+                })}
+              </div>
+              <span className="mt-1.5 text-[9.5px] font-bold text-center leading-tight overflow-hidden" style={{ height: 26, color: active ? 'var(--text-primary)' : 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{d.name}</span>
+            </button>
+          )
+        })}
+      </div>
+      {/* Mobile — horizontalūs LED segmentai */}
+      <div className="md:hidden flex flex-col gap-2.5">
+        {top.map(d => {
+          const active = sel === d.name
+          const hex = colorOf(d.name); const rgb = hexToRgb(hex)
+          const pct = (d.count / (maxCount || 1)) * 100
+          return (
+            <button key={d.name} onClick={() => setSel(active ? null : d.name)} className={`group flex items-center gap-3 w-full text-left transition ${sel && !active ? 'opacity-45' : ''}`}>
+              <span className="font-extrabold truncate" style={{ width: 96, flexShrink: 0, fontSize: 12.5, color: active ? hex : 'var(--text-primary)' }}>{d.name}</span>
+              <span className="flex-1 relative h-3.5 rounded-md overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <span className="absolute inset-y-0 left-0 rounded-md" style={{ width: `${Math.max(6, pct)}%`, background: `linear-gradient(to right, rgba(${rgb}, 0.55), rgba(${rgb}, 0.95))`, boxShadow: active ? `0 0 14px rgba(${rgb}, 0.6)` : `0 0 6px rgba(${rgb}, 0.3)` }} />
+              </span>
+              <span className="font-mono tabular-nums text-right" style={{ width: 28, fontSize: 11, color: active ? hex : 'var(--text-faint)' }}>{d.count}</span>
+            </button>
+          )
+        })}
+      </div>
+    </>
+  )
+}
 
 // Stilių sąrašas pagal konkretų stilių — globalios pozicijos, valdymas kaip pagrindiniame sąraše.
 // Atskiras vieno stiliaus topas — sub-tabai (Atlikėjai/Albumai/Dainos), stiliaus-vietinės pozicijos.
@@ -420,31 +559,8 @@ function StyleSection({ coll, styles, setStyles, onStyleReorder, onUnlike }: {
       {/* Stilių pasiskirstymas (barai iš kolekcijos) */}
       {dist.length > 0 ? (
         <div className="mb-5 rounded-2xl p-4 sm:p-5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-          <div className="text-[13px] font-black mb-3">Tavo muzikos stiliai <span className="font-medium" style={{ color: 'var(--text-muted)' }}>· spustelėk ir tvarkyk to stiliaus topą</span></div>
-          <div className="hidden md:flex items-end justify-start gap-2.5" style={{ height: 176 }}>
-            {top.map(d => {
-              const active = sel === d.name
-              return (
-                <button key={d.name} onClick={() => setSel(active ? null : d.name)} title={d.name} className="group flex flex-col items-center justify-end gap-1.5 flex-1 min-w-0" style={{ height: '100%' }}>
-                  <span className="text-[11px] font-black tabular-nums" style={{ color: active ? 'var(--text-primary)' : 'var(--text-faint)' }}>{d.count}</span>
-                  <div className="w-full rounded-t-md transition-all" style={{ maxWidth: 44, height: `${maxCount ? Math.max(6, (d.count / maxCount) * 100) : 0}%`, background: colorOf(d.name), opacity: active ? 1 : 0.8, outline: active ? '2px solid var(--accent-orange)' : 'none', outlineOffset: 2 }} />
-                  <span className="text-[9.5px] font-bold text-center leading-tight overflow-hidden" style={{ height: 26, color: active ? 'var(--text-primary)' : 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{d.name}</span>
-                </button>
-              )
-            })}
-          </div>
-          <div className="md:hidden flex flex-col gap-2">
-            {top.map(d => {
-              const active = sel === d.name
-              return (
-                <button key={d.name} onClick={() => setSel(active ? null : d.name)} className="flex items-center gap-2.5 w-full">
-                  <span className="w-24 shrink-0 text-[11.5px] font-bold truncate text-left" style={{ color: active ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{d.name}</span>
-                  <span className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)', outline: active ? '1.5px solid var(--accent-orange)' : 'none' }}><span className="block h-full rounded-full" style={{ width: `${maxCount ? Math.max(8, (d.count / maxCount) * 100) : 0}%`, background: colorOf(d.name) }} /></span>
-                  <span className="w-7 text-right text-[11px] font-bold tabular-nums" style={{ color: 'var(--text-faint)' }}>{d.count}</span>
-                </button>
-              )
-            })}
-          </div>
+          <div className="text-[11px] font-extrabold uppercase tracking-[0.2em] mb-3" style={{ color: 'var(--accent-orange)' }}>Muzikinis skonis <span className="font-medium normal-case tracking-normal" style={{ color: 'var(--text-muted)' }}>· spustelėk ir tvarkyk to stiliaus topą</span></div>
+          <StyleLedBars top={top} maxCount={maxCount} sel={sel} setSel={setSel} colorOf={colorOf} />
         </div>
       ) : (
         <p className="mb-5 text-[12.5px]" style={{ color: 'var(--text-muted)' }}>Pridėk atlikėjų, albumų ar dainų — iš jų žanrų susiformuos tavo stilių pasiskirstymas.</p>
@@ -465,7 +581,7 @@ function StyleSection({ coll, styles, setStyles, onStyleReorder, onUnlike }: {
 function Empty({ hint }: { hint: string }) { return <div className="rounded-2xl px-6 py-10 text-center" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)' }}><div className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{hint}</div></div> }
 
 // ── ICONS (inline SVG) ─────────────────────────────────────────────────────
-type IcoName = 'person' | 'disc' | 'note' | 'moon' | 'sliders' | 'star' | 'books' | 'download' | 'eye' | 'x' | 'up' | 'down' | 'grip' | 'sort' | 'sparkle' | 'target'
+type IcoName = 'person' | 'disc' | 'note' | 'moon' | 'sliders' | 'star' | 'heart' | 'repeat' | 'play' | 'books' | 'download' | 'eye' | 'x' | 'up' | 'down' | 'grip' | 'sort' | 'sparkle' | 'target' | 'plus'
 function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
   const p: Record<IcoName, ReactNode> = {
     person: <><circle cx="12" cy="8" r="4" /><path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" /></>,
@@ -474,6 +590,10 @@ function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
     moon: <path d="M21 12.8A8 8 0 1 1 11.2 3 6.5 6.5 0 0 0 21 12.8z" />,
     sliders: <><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h7M15 18h5" /><circle cx="16" cy="6" r="2" /><circle cx="8" cy="12" r="2" /><circle cx="13" cy="18" r="2" /></>,
     star: <polygon points="12 2 15 9 22 9.3 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9.3 9 9" />,
+    heart: <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />,
+    repeat: <><path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></>,
+    play: <polygon points="6 4 20 12 6 20 6 4" />,
+    plus: <path d="M12 5v14M5 12h14" />,
     books: <><path d="M4 5v15h16V5" /><path d="M4 9h16M9 5v15" /></>,
     download: <><path d="M12 3v12M7 11l5 4 5-4" /><path d="M5 20h14" /></>,
     eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="2.5" /></>,
@@ -484,6 +604,6 @@ function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
     sparkle: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />,
     target: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /></>,
   }
-  const filled = name === 'star' || name === 'grip' || name === 'sparkle'
+  const filled = name === 'star' || name === 'grip' || name === 'sparkle' || name === 'heart' || name === 'play'
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={name === 'x' || name === 'up' || name === 'down' ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>{p[name]}</svg>
 }

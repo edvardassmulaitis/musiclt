@@ -42,6 +42,7 @@ import { GenreFilterModal } from '@/components/profile/GenreFilterModal'
 import { MoreItemsModal } from '@/components/profile/MoreItemsModal'
 import { FavoriteArtistsCollage } from '@/components/profile/FavoriteArtistsCollage'
 import { FollowButton } from '@/components/profile/FollowButton'
+import { MoodPlaylistModal } from '@/components/profile/MoodPlaylistModal'
 
 const POST_TYPE_LABEL: Record<string, string> = {
   article: 'Straipsnis', review: 'Recenzija', event: 'Renginys', creation: 'Kūriniai',
@@ -67,7 +68,7 @@ export function ProfileClient(props: any) {
   const {
     profile, favoriteArtists, favoriteStyles, favoriteAlbums, favoriteTracks, likesCounts,
     blog,
-    postLanes, postTypeCounts, memberSinceYear, stats, moodTrack, dailyPicks, translations,
+    postLanes, postTypeCounts, memberSinceYear, stats, moodTrack, moodSongs, dailyPicks, translations,
     recentComments,
   } = props
 
@@ -75,6 +76,18 @@ export function ProfileClient(props: any) {
   const [tasteOpen, setTasteOpen] = useState(false)
   const [tasteInitial, setTasteInitial] = useState<AnyFilter | null>(null)
   const [moreOpen, setMoreOpen] = useState<'artist' | 'album' | 'track' | null>(null)
+  const [moodOpen, setMoodOpen] = useState(false)
+
+  // Nuotaikos dainų grotuvo sąrašas (top 20). Jei nėra pilno sąrašo — bent
+  // aktyvi daina (moodTrack) kaip vienetinis elementas.
+  const moodList = useMemo(() => {
+    if (Array.isArray(moodSongs) && moodSongs.length) return moodSongs
+    if (moodTrack) {
+      const a = Array.isArray(moodTrack.artists) ? moodTrack.artists[0] : moodTrack.artists
+      return [{ id: moodTrack.id, slug: moodTrack.slug, title: moodTrack.title, cover_url: moodTrack.cover_url ?? null, video_url: moodTrack.video_url ?? null, artist: a ? { slug: a.slug, name: a.name, cover_image_url: a.cover_image_url } : null }]
+    }
+    return []
+  }, [moodSongs, moodTrack])
 
   const openTaste = (preGenre?: string | null) => {
     setTasteInitial(preGenre ? { kind: 'genre', name: preGenre } : null)
@@ -201,6 +214,8 @@ export function ProfileClient(props: any) {
           albumResolvedTotal={albumResolvedTotal}
           trackResolvedTotal={trackResolvedTotal}
           recentComments={recentComments}
+          moodCount={moodList.length}
+          onOpenMood={() => setMoodOpen(true)}
           onOpenInfo={() => setInfoOpen(true)}
           onOpenTaste={openTaste}
           onOpenMore={setMoreOpen}
@@ -324,7 +339,7 @@ export function ProfileClient(props: any) {
             {/* Mood (viduryje, tik jei moodTrack yra) */}
             {moodTrack && (
               <div className="h-full">
-                <MoodSongHeroCard track={moodTrack} />
+                <MoodSongHeroCard track={moodTrack} count={moodList.length} onOpen={() => setMoodOpen(true)} />
               </div>
             )}
 
@@ -386,6 +401,10 @@ export function ProfileClient(props: any) {
         />
       )}
 
+      {moodOpen && moodList.length > 0 && (
+        <MoodPlaylistModal songs={moodList} onClose={() => setMoodOpen(false)} />
+      )}
+
       {moreOpen && (
         <MoreItemsModal
           kind={moreOpen}
@@ -426,7 +445,7 @@ function MobileProfileView(props: any) {
     profile, activityLevel, bioSnippet, realPhotoUrl, hasMusicMeter,
     moodTrack, blog, contentLanes, stats, memberSinceYear, dailyPicks, favoriteArtists,
     favoriteAlbums, favoriteTracks, likesCounts, albumResolvedTotal,
-    trackResolvedTotal, recentComments, onOpenTaste, onOpenMore,
+    trackResolvedTotal, recentComments, moodCount, onOpenMood, onOpenTaste, onOpenMore,
   } = props
 
   const hasLikes = (favoriteArtists?.length || 0) > 0
@@ -489,7 +508,8 @@ function MobileProfileView(props: any) {
     return out
   }, [feedTypeChips, hasLikes])
 
-  // Numatytasis = Megstama muzika (kolekcija atrodo pilna is karto).
+  // Numatytasis = „Mėgstama muzika" (kolekcija atrodo pilna iškart). Feed'as
+  // („Visi") lieka chip'as, jei yra. Be likes — feed'as, paskui „Apie mane".
   const [sel, setSel] = useState<string>(hasLikes ? 'likes' : hasFeed ? 'all' : 'about')
   const isFeedFilter = sel !== 'likes' && sel !== 'about'
 
@@ -646,12 +666,9 @@ function MobileProfileView(props: any) {
             {moodTrack && (() => {
               const ma = Array.isArray(moodTrack.artists) ? moodTrack.artists[0] : moodTrack.artists
               const mc = moodTrack.cover_url || ma?.cover_image_url || null
-              const mh = ma
-                ? `/dainos/${ma.slug}-${moodTrack.slug || moodTrack.id}-${moodTrack.id}`
-                : `/dainos/${moodTrack.slug || ''}-${moodTrack.id}`
               return (
-                <Link href={mh}
-                  className="flex items-center gap-3 rounded-xl px-3 py-2 mb-4 transition hover:opacity-85"
+                <button type="button" onClick={onOpenMood}
+                  className="w-full text-left flex items-center gap-3 rounded-xl px-3 py-2 mb-4 transition hover:opacity-85"
                   style={{ background: 'rgba(249,115,22,0.10)', border: '1px solid rgba(249,115,22,0.22)' }}>
                   {mc ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -672,9 +689,9 @@ function MobileProfileView(props: any) {
                   </div>
                   <span className="flex-shrink-0 text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
                         style={{ background: 'rgba(249,115,22,0.15)', color: 'rgba(249,115,22,0.9)', fontFamily: "'Outfit', sans-serif" }}>
-                    Nuotaika
+                    {moodCount > 1 ? `Nuotaikos dainos · ${moodCount}` : 'Nuotaikos dainos'}
                   </span>
-                </Link>
+                </button>
               )
             })()}
             <ProfileAboutContent profile={profile} stats={stats} memberSinceYear={memberSinceYear} compact />
@@ -1211,30 +1228,26 @@ function MobileMoodPill({ track, fill = false }: { track: any; fill?: boolean })
   )
 }
 
-function MoodSongHeroCard({ track }: { track: any }) {
-  // V11.6: cover priority — track YT thumb pirma (jei video_url), tada
-  // track.cover_url, tada artist'o cover (fallback). Play ikonos kampe
-  // nebėra (user feedback'as: per daug vizualinio triukšmo). Click → modern
-  // /dainos/{slug-id} URL'as (ne /atlikejai/ kuris 404'ina).
+function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: number; onOpen?: () => void }) {
+  // V19: kortelė atidaro nuotaikos dainų grotuvą (top 20). Rodom #1 dainą +
+  // play overlay; paspaudus → MoodPlaylistModal su visomis dainomis.
   const artist = Array.isArray(track.artists) ? track.artists[0] : track.artists
   const ytThumb = ytThumbProfile(track.video_url)
   const cover = ytThumb || track.cover_url || artist?.cover_image_url || null
-  const href = artist
-    ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}`
-    : `/dainos/${track.slug || ''}-${track.id}`
 
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
+      onClick={onOpen}
       className="group relative w-full h-full rounded-2xl border overflow-hidden flex flex-col text-left transition hover:-translate-y-0.5"
       style={{
         background: 'linear-gradient(135deg, var(--card-bg), transparent 80%)',
         borderColor: 'var(--border-subtle)',
         minHeight: '180px',
       }}
-      title={`${track.title}${artist ? ' — ' + artist.name : ''} · atidaryti dainos puslapį`}
+      title={`${track.title}${artist ? ' — ' + artist.name : ''} · klausyti nuotaikos dainų`}
     >
-      <div className="p-3 sm:p-4 pb-1">
+      <div className="p-3 sm:p-4 pb-1 flex items-center justify-between">
         <div
           className="font-extrabold uppercase"
           style={{
@@ -1244,8 +1257,11 @@ function MoodSongHeroCard({ track }: { track: any }) {
             color: 'var(--accent-orange)',
           }}
         >
-          Nuotaikos daina
+          Nuotaikos dainos
         </div>
+        {count > 1 && (
+          <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(249,115,22,0.14)', color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>{count}</span>
+        )}
       </div>
 
       <div className="flex-1 flex items-center gap-3.5 px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-1.5">
@@ -1264,8 +1280,10 @@ function MoodSongHeroCard({ track }: { track: any }) {
             <div className="relative w-[78px] h-[78px] rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-2xl"
                  style={{ color: 'rgba(255,255,255,0.7)' }}>♬</div>
           )}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
-               style={{ background: 'var(--bg-body)' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+               style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff" aria-hidden><polygon points="6 4 20 12 6 20 6 4" /></svg>
+          </div>
         </div>
 
         <div className="min-w-0 flex-1">
@@ -1287,7 +1305,7 @@ function MoodSongHeroCard({ track }: { track: any }) {
       </div>
 
       <style>{`@keyframes moodSpinV11 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </Link>
+    </button>
   )
 }
 
@@ -2285,12 +2303,12 @@ const FEED_PILL_LABEL: Record<string, string> = {
 const FEED_PILL_ORDER = ['article', 'review', 'event', 'topas']
 const FEED_PILL_TAIL = ['creation', 'translation']
 
-function buildFeedPills(postTypeCounts: Record<string, number>, hasDd: boolean, hasLikes: boolean) {
+function buildFeedPills(postTypeCounts: Record<string, number>, ddTotal: number, hasLikes: boolean) {
   const pills: { key: string; label: string; color: string }[] = [{ key: 'all', label: 'Visi', color: '#f97316' }]
   for (const t of FEED_PILL_ORDER) {
     if ((postTypeCounts?.[t] || 0) > 0) pills.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
   }
-  if (hasDd) pills.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
+  if (ddTotal > 0) pills.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
   if (hasLikes) pills.push({ key: 'likes', label: '♥ Mėgstama muzika', color: '#e11d48' })
   for (const t of FEED_PILL_TAIL) {
     if ((postTypeCounts?.[t] || 0) > 0) pills.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
@@ -2343,20 +2361,15 @@ function ProfileBodyDesktop(props: any) {
   } = props
 
   const hasLikes = (favoriteArtists?.length || 0) > 0 || (favoriteAlbums?.length || 0) > 0 || (favoriteTracks?.length || 0) > 0
+  const [filter, setFilter] = useState<string>('all')
 
   const feedItems = useMemo(
     () => buildFeedItems({ contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks }),
     [contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks],
   )
-  // Dienos dainų pill'a rodom TIK kai is tikro yra resolvintu savaiciu (ne pagal stats skaiciu).
-  const hasDdWeeks = feedItems.some((it) => it.kind === 'ddweek')
-  // Realus srauto turinys = postai arba dienos dainos. Jei nieko nera -> atidarom Megstama muzika.
-  const hasFeedContent = feedItems.some((it) => it.kind === 'post' || it.kind === 'ddweek')
-  const [filter, setFilter] = useState<string>(hasFeedContent ? 'all' : hasLikes ? 'likes' : 'all')
-
   const pills = useMemo(
-    () => buildFeedPills(postTypeCounts || {}, hasDdWeeks, hasLikes),
-    [postTypeCounts, hasDdWeeks, hasLikes],
+    () => buildFeedPills(postTypeCounts || {}, stats?.daily_picks || 0, hasLikes),
+    [postTypeCounts, stats?.daily_picks, hasLikes],
   )
 
   // Featured — naujausias postas su vizualu (tik „Visi" rodinyje)

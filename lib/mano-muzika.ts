@@ -14,6 +14,7 @@ export type FavKind = 'artist' | 'album' | 'track'
 
 export const PROFILE_CUTOFF = 20  // kiek viršutinių rodoma profilyje
 export const RANKED_CAP = 500     // maks. rikiuojamų įrašų vienoje rūšyje
+export const MOOD_CAP = 20        // maks. nuotaikos dainų (top 20)
 
 export type MusicItem = {
   kind: FavKind
@@ -78,24 +79,28 @@ async function mainGenreMap(sb: any, artistIds: number[]): Promise<Map<number, s
   return m
 }
 
-// Hidratuoja id → {title, subtitle, cover, slug, artist_id}
-async function hydrateItems(sb: any, kind: FavKind, ids: number[]): Promise<Map<number, { title: string; subtitle: string; cover: string | null; slug: string; artist_id: number | null }>> {
-  const m = new Map<number, { title: string; subtitle: string; cover: string | null; slug: string; artist_id: number | null }>()
+// Hidratuoja id → {title, subtitle, cover, slug, artist_id, pop}
+// `pop` = globalus music.lt populiarumas (atlikėjams legacy_likes = music.lt
+// patiktukai, albumams/dainoms score) — naudojamas numatytajam rikiavimui.
+type HydrItem = { title: string; subtitle: string; cover: string | null; slug: string; artist_id: number | null; pop: number }
+async function hydrateItems(sb: any, kind: FavKind, ids: number[]): Promise<Map<number, HydrItem>> {
+  const m = new Map<number, HydrItem>()
   if (!ids.length) return m
   const sel = kind === 'artist'
-    ? 'id, slug, name, cover_image_url'
+    ? 'id, slug, name, cover_image_url, legacy_likes, score'
     : kind === 'album'
-      ? 'id, slug, title, cover_image_url, artist_id, artists:artist_id(name)'
-      : 'id, slug, title, cover_url, artist_id, artists:artist_id(name)'
+      ? 'id, slug, title, cover_image_url, score, artist_id, artists:artist_id(name)'
+      : 'id, slug, title, cover_url, score, artist_id, artists:artist_id(name)'
   const table = kind === 'artist' ? 'artists' : kind === 'album' ? 'albums' : 'tracks'
   for (let i = 0; i < ids.length; i += 300) {
     const { data } = await sb.from(table).select(sel).in('id', ids.slice(i, i + 300))
     for (const r of (data || []) as any[]) {
       if (kind === 'artist') {
-        m.set(r.id, { title: r.name, subtitle: 'Atlikėjas', cover: r.cover_image_url ?? null, slug: r.slug, artist_id: r.id })
+        const pop = Number(r.legacy_likes ?? 0) || Number(r.score ?? 0) || 0
+        m.set(r.id, { title: r.name, subtitle: 'Atlikėjas', cover: r.cover_image_url ?? null, slug: r.slug, artist_id: r.id, pop })
       } else {
         const artist = one<any>(r.artists)?.name || null
-        m.set(r.id, { title: r.title, subtitle: artist || (kind === 'album' ? 'Albumas' : 'Daina'), cover: (kind === 'album' ? r.cover_image_url : r.cover_url) ?? null, slug: r.slug, artist_id: r.artist_id ?? null })
+        m.set(r.id, { title: r.title, subtitle: artist || (kind === 'album' ? 'Albumas' : 'Daina'), cover: (kind === 'album' ? r.cover_image_url : r.cover_url) ?? null, slug: r.slug, artist_id: r.artist_id ?? null, pop: Number(r.score ?? 0) || 0 })
       }
     }
   }
@@ -118,10 +123,18 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
     const id = r.entity_id; if (id == null || rankedSet.has(id)) continue
     const p = likedAt.get(id); if (!p || (r.created_at && r.created_at > p)) likedAt.set(id, r.created_at || '')
   }
-  const libraryIds = [...likedAt.entries()].sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : 0)).map(e => e[0]).slice(0, 1500)
+  // Kandidatai bibliotekai (visi patiktukai, kurie nėra rikiuoti). Hidratuojam
+  // kartu su rikiuotais, tada biblioteką rikiuojam pagal music.lt populiarumą.
+  const likedCandidates = [...likedAt.keys()].slice(0, 2000)
 
-  const allIds = [...new Set([...rankedIds, ...libraryIds])]
+  const allIds = [...new Set([...rankedIds, ...likedCandidates])]
   const hy = await hydrateItems(sb, kind, allIds)
+  // Biblioteka — numatytasis rikiavimas pagal music.lt patiktukus/populiarumą
+  // (kol nario nesurikiuota). Lygiosioms — naujesnis patiktukas pirma.
+  const libraryIds = likedCandidates
+    .filter(id => hy.has(id))
+    .sort((a, b) => ((hy.get(b)!.pop) - (hy.get(a)!.pop)) || ((likedAt.get(a) || '') < (likedAt.get(b) || '') ? 1 : -1))
+    .slice(0, 1500)
   // stilius — pagal pagrindinį atlikėjo žanrą
   const artistIds: number[] = []
   for (const id of allIds) { const h = hy.get(id); if (h?.artist_id) artistIds.push(h.artist_id) }
@@ -256,9 +269,12 @@ export async function setStyleRank(userId: string, kind: FavKind, orderedIds: nu
   return { ok: true }
 }
 
-// ── MOOD SONGS ─────────────────────────────────────────────────────────────
+// ── MOOD SONGS (top 20, rikiuojamos — #1 = aktyvi, rodoma profilyje) ────────
 export async function addMoodSong(userId: string, trackId: number, label?: string, makeActive = false) {
   const sb = createAdminClient()
+  const { count } = await sb.from('profile_mood_songs').select('*', { count: 'exact', head: true }).eq('user_id', userId)
+  const { data: existing } = await sb.from('profile_mood_songs').select('track_id').eq('user_id', userId).eq('track_id', trackId).maybeSingle()
+  if (!existing && (count || 0) >= MOOD_CAP) throw new Error(`Nuotaikos dainų sąrašas pilnas (maks. ${MOOD_CAP})`)
   const { data: maxRow } = await sb.from('profile_mood_songs').select('sort_order').eq('user_id', userId).order('sort_order', { ascending: false }).limit(1).maybeSingle()
   const nextOrder = ((maxRow as any)?.sort_order ?? -1) + 1
   const { error } = await sb.from('profile_mood_songs').upsert({ user_id: userId, track_id: trackId, mood_label: label || null, sort_order: nextOrder }, { onConflict: 'user_id,track_id', ignoreDuplicates: false })
@@ -282,7 +298,28 @@ export async function setActiveMoodSong(userId: string, trackId: number | null) 
 export async function reorderMoodSongs(userId: string, orderedIds: number[]) {
   const sb = createAdminClient()
   await Promise.all(orderedIds.map((id, idx) => sb.from('profile_mood_songs').update({ sort_order: idx }).eq('user_id', userId).eq('id', id)))
+  // #1 pozicija = aktyvi nuotaikos daina (rodoma profilio viršuje).
+  const firstId = orderedIds[0]
+  if (firstId != null) {
+    const { data: first } = await sb.from('profile_mood_songs').select('track_id').eq('user_id', userId).eq('id', firstId).maybeSingle()
+    const tid = (first as any)?.track_id
+    if (tid) { try { await setActiveMoodSong(userId, tid) } catch {} }
+  }
   return { ok: true }
+}
+
+// Top-20 nuotaikos dainos profiliui (rikiuotos; #1 pirma). Su video_url grotuvui.
+export async function getProfileMoodSongs(userId: string, limit = MOOD_CAP): Promise<{ id: number; slug: string; title: string; cover_url: string | null; video_url: string | null; artist: { slug: string; name: string; cover_image_url: string | null } | null }[]> {
+  const sb = createAdminClient()
+  const { data } = await sb.from('profile_mood_songs')
+    .select('track_id, sort_order, tracks:track_id(id, slug, title, cover_url, video_url, artists:artist_id(slug, name, cover_image_url))')
+    .eq('user_id', userId).order('sort_order').limit(limit)
+  const out: any[] = []
+  for (const r of (data || []) as any[]) {
+    const t = one<any>(r.tracks); if (!t) continue
+    out.push({ id: t.id, slug: t.slug, title: t.title, cover_url: t.cover_url ?? null, video_url: t.video_url ?? null, artist: one<any>(t.artists) || null })
+  }
+  return out
 }
 
 // ── STYLES ─────────────────────────────────────────────────────────────────
@@ -344,4 +381,65 @@ export async function getArtistSuggestions(opts: { limit?: number; excludeIds?: 
   rows = rows.filter(r => r.country !== 'Rusija')
   if (opts.excludeIds?.length) { const ex = new Set(opts.excludeIds); rows = rows.filter(r => !ex.has(r.id)) }
   return rows.slice(0, limit).map(r => ({ id: r.id, slug: r.slug, name: r.name, cover_image_url: r.cover_image_url }))
+}
+
+// ── TRACK SUGGESTIONS — dainos, kurios galėtų sudominti ─────────────────────
+// Populiarios dainos iš nario mėgstamų atlikėjų (kurių jis dar neturi), tada
+// fallback — bendrai populiarios dainos. Naudojama /mano-muzika dainų šone.
+export type TrackSuggestion = { id: number; slug: string; title: string; cover_url: string | null; artist: { slug: string; name: string } | null; reason: string }
+export async function getTrackSuggestions(userId: string, limit = 24): Promise<TrackSuggestion[]> {
+  const sb = createAdminClient()
+  const { data: prof } = await sb.from('profiles').select('username').eq('id', userId).maybeSingle() as { data: any }
+  const username = prof?.username || null
+
+  // Mėgstami atlikėjai (curated bucket=1 + patiktukai).
+  const [favArtCur, favArtLikes, ownTrkCur, ownTrkLikes] = await Promise.all([
+    sb.from('profile_favorite_artists').select('artist_id').eq('user_id', userId),
+    sb.from('likes').select('entity_id').eq('entity_type', 'artist').eq('user_id', userId).not('entity_id', 'is', null).limit(2000),
+    sb.from('profile_favorite_tracks').select('track_id').eq('user_id', userId),
+    sb.from('likes').select('entity_id').eq('entity_type', 'track').eq('user_id', userId).not('entity_id', 'is', null).limit(3000),
+  ])
+  const artistIds = [...new Set([
+    ...((favArtCur.data || []) as any[]).map(r => r.artist_id),
+    ...((favArtLikes.data || []) as any[]).map(r => r.entity_id),
+  ].filter(Boolean))]
+  const ownedTrackIds = new Set<number>([
+    ...((ownTrkCur.data || []) as any[]).map(r => r.track_id),
+    ...((ownTrkLikes.data || []) as any[]).map(r => r.entity_id),
+  ].filter(Boolean))
+
+  const seenArtist = new Map<number, number>()  // dedup: maks. 3 per atlikėją
+  const out: TrackSuggestion[] = []
+  const pushRows = (rows: any[], reason: string) => {
+    for (const r of rows) {
+      if (out.length >= limit) break
+      if (ownedTrackIds.has(r.id) || out.some(o => o.id === r.id)) continue
+      const aid = r.artist_id ?? 0
+      if ((seenArtist.get(aid) || 0) >= 3) continue
+      seenArtist.set(aid, (seenArtist.get(aid) || 0) + 1)
+      out.push({ id: r.id, slug: r.slug, title: r.title, cover_url: r.cover_url ?? null, artist: one<any>(r.artists) || null, reason })
+    }
+  }
+
+  // 1) Populiariausios dainos iš mėgstamų atlikėjų.
+  if (artistIds.length) {
+    for (let i = 0; i < artistIds.length && out.length < limit; i += 200) {
+      const { data } = await sb.from('tracks')
+        .select('id, slug, title, cover_url, artist_id, score, artists:artist_id(slug, name)')
+        .in('artist_id', artistIds.slice(i, i + 200))
+        .order('score', { ascending: false, nullsFirst: false })
+        .limit(400)
+      pushRows((data || []) as any[], 'Iš tavo mėgstamo atlikėjo')
+    }
+  }
+  // 2) Fallback — bendrai populiarios dainos (ne Rusija).
+  if (out.length < limit) {
+    const { data } = await sb.from('tracks')
+      .select('id, slug, title, cover_url, artist_id, score, artists:artist_id(slug, name, country)')
+      .order('score', { ascending: false, nullsFirst: false })
+      .limit(limit * 4 + ownedTrackIds.size)
+    const rows = ((data || []) as any[]).filter(r => one<any>(r.artists)?.country !== 'Rusija')
+    pushRows(rows, 'Populiaru music.lt')
+  }
+  return out.slice(0, limit)
 }

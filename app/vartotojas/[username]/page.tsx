@@ -24,6 +24,7 @@ import {
   getUserRecentComments,
 } from '@/lib/supabase-blog'
 import { createAdminClient } from '@/lib/supabase'
+import { getProfileMoodSongs } from '@/lib/mano-muzika'
 import type { Metadata } from 'next'
 import { ProfileClient } from './profile-client'
 import EditMyMusicFab from '@/components/profile/EditMyMusicFab'
@@ -62,7 +63,7 @@ export default async function UserProfilePage({ params }: Props) {
   const profile: any = await getProfileByUsername(username)
   if (!profile || !profile.is_public) notFound()
 
-  const [favoriteArtists, favoriteStyles, favoriteAlbumsRaw, favoriteTracksRaw, likesCounts, friends, blog, stats, moodTrack, dailyPicks, translations, recentComments] = await Promise.all([
+  const [favoriteArtists, favoriteStyles, favoriteAlbumsRaw, favoriteTracksRaw, likesCounts, friends, blog, stats, moodTrack, moodSongs, dailyPicks, translations, recentComments] = await Promise.all([
     // V11: bump favorites iki 100, kad sekcijos turėtų ką rodyti pilnam
     // grid'e + sort'avimui. Power user'iams (>100) papildomas filtravimas
     // per +Daugiau modal'ą.
@@ -78,6 +79,8 @@ export default async function UserProfilePage({ params }: Props) {
     getBlogByUserId(profile.id),
     getUserContentStats(profile.id),
     getMoodSongTrack(profile.mood_song_track_id ?? null),
+    // Nuotaikos dainos top 20 — grotuvui profilyje.
+    getProfileMoodSongs(profile.id, 20),
     // 21 = ~3 savaitės dienos dainų klasteriams feed'e
     getDailySongPicks(profile.id, 21),
     getUserTranslations(profile.id, 12),
@@ -163,6 +166,7 @@ export default async function UserProfilePage({ params }: Props) {
       memberSinceYear={memberSinceYear}
       stats={stats}
       moodTrack={moodTrack}
+      moodSongs={moodSongs}
       dailyPicks={dailyPicks}
       translations={translations}
       recentComments={recentComments}
