@@ -145,6 +145,50 @@ function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString()
 }
 
+/* ────────────────────────────── Reliability ──────────────────────────────
+   „kartais neužkrauna dainos/albumai" saugikliai (2026-06-15).
+
+   Pamoka: `unstable_cache` cache'ina BET KOKĮ grąžintą reikšmę — įskaitant
+   tuščią masyvą `[]`. Jei DB transient'iškai grąžindavo 0 eilučių (cold conn,
+   statement timeout be error'o, pool hiccup), tas tuščias rezultatas būdavo
+   užcache'inamas 300s ir VISI vartotojai 5 min matydavo „...netrukus" tuščią
+   būseną. Ankstesnis `degraded → no-store` fix'as saugojo tik CDN/browser
+   cache'ą, NE Next data cache'o (`unstable_cache`) sluoksnį — todėl bug'as
+   kartodavosi. Šie trys saugikliai uždaro skylę source'e:
+     1) withRetry — transient blip'as pats pasigydo prieš bubble-up;
+     2) throw-on-empty cached fetcher'iuose — tuščias rezultatas NIEKADA
+        nepatenka į `unstable_cache` (throw nėra cache'inamas);
+     3) last-known-good — jei viskas vis tiek fail'ina, serve'inam paskutinį
+        gerą rezultatą (ne tuščią) iš in-memory (warm instance). */
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  { tries = 3, baseDelayMs = 250, label = 'query' }: { tries?: number; baseDelayMs?: number; label?: string } = {},
+): Promise<T> {
+  let lastErr: unknown
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn()
+    } catch (e) {
+      lastErr = e
+      if (i < tries - 1) {
+        await new Promise(res => setTimeout(res, baseDelayMs * (i + 1)))
+      }
+    }
+  }
+  console.error(`[home-latest] ${label} failed after ${tries} tries:`, (lastErr as any)?.message || lastErr)
+  throw lastErr
+}
+
+// Last-known-good in-memory store (per serverless instance, ephemeral). Užpildomas
+// tik su NETUŠČIU rezultatu. Naudojamas kaip paskutinė gynybos linija, kad
+// homepage'as rodytų ankstesnį turinį, o ne „...netrukus", kai DB trumpam krenta.
+const lastGood: { tracks: any | null; albums: any | null; upcoming: any | null } = {
+  tracks: null,
+  albums: null,
+  upcoming: null,
+}
+
 function isLT(country: string | null | undefined): boolean {
   if (!country) return true
   return LT_COUNTRIES.includes(country)
@@ -198,37 +242,56 @@ async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
   // 2) Dainos BE video_uploaded_at, bet su release_year >= currentYear-1
   //    (admin'o suvestos dainos, kurioms YT data nenustatyta)
   // Sujungiam ir dedupliuojam pagal id.
+  // Kiekviena užklausa su retry (transient blip → self-heal). Jei query grąžina
+  // error'ą, withRetry perbando; po visų bandymų — throw (NEcache'inama).
   const [r1, r2] = await Promise.all([
-    supabase
-      .from('tracks')
-      .select(TRACK_SELECT)
-      .not('video_uploaded_at', 'is', null)
-      .gte('video_uploaded_at', since)
-      .order('video_uploaded_at', { ascending: false })
-      .limit(TRACKS_CANDIDATE_FETCH_LIMIT),
-    supabase
-      .from('tracks')
-      .select(
-        'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
-        'release_date, release_year, created_at, artist_id, ' +
-        'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
-      )
-      .is('video_uploaded_at', null)
-      .not('release_year', 'is', null)
-      .gte('release_year', currentYear - 1)
-      .not('video_url', 'is', null)
-      .order('id', { ascending: false })
-      .limit(200),
+    withRetry(async () => {
+      const res = await supabase
+        .from('tracks')
+        .select(TRACK_SELECT)
+        .not('video_uploaded_at', 'is', null)
+        .gte('video_uploaded_at', since)
+        .order('video_uploaded_at', { ascending: false })
+        .limit(TRACKS_CANDIDATE_FETCH_LIMIT)
+      if (res.error) throw res.error
+      return res
+    }, { label: 'tracks.primary' }),
+    withRetry(async () => {
+      const res = await supabase
+        .from('tracks')
+        .select(
+          'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
+          'release_date, release_year, created_at, artist_id, ' +
+          'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
+        )
+        .is('video_uploaded_at', null)
+        .not('release_year', 'is', null)
+        .gte('release_year', currentYear - 1)
+        .not('video_url', 'is', null)
+        .order('id', { ascending: false })
+        .limit(200)
+      if (res.error) throw res.error
+      return res
+    }, { label: 'tracks.fallback' }),
   ])
-  if (r1.error) throw r1.error
-  if (r2.error) throw r2.error
 
   // Dedupe pagal id (jei kažkodėl dubliuotųsi)
   const byId = new Map<number, LatestTrackRow>()
   for (const row of [...(r1.data || []), ...(r2.data || [])] as unknown as LatestTrackRow[]) {
     if (!byId.has(row.id)) byId.set(row.id, row)
   }
-  return Array.from(byId.values())
+  const out = Array.from(byId.values())
+
+  // ── Empty-guard (cache-poisoning saugiklis) ──
+  // Sveikoje DB visada yra šviežių dainų per 90d langą (+ release_year fallback).
+  // 0 eilučių ≈ transient DB problema, NE reali tuštuma. Throw'inam, kad
+  // `unstable_cache` NEUŽCACHE'INTŲ tuščio rezultato 300s (būtent tai sukeldavo
+  // „kartais neužkrauna" bug'ą). Throw → cache praleidžiamas → kitas request
+  // bando iš naujo su švariu cache'u.
+  if (out.length === 0) {
+    throw new Error('fetchLatestTracksRaw returned 0 rows — treating as transient failure (not caching)')
+  }
+  return out
 }
 
 /** Cache'inta raw fetch'inimo funkcija. Vidinis arg pirmiausia veikia kaip
@@ -260,7 +323,20 @@ export async function getLatestTracksForHome(): Promise<{
   ltRaw: LatestTrackRow[]
   worldRaw: LatestTrackRow[]
 }> {
-  const rows = await cachedFetchLatestTracksRaw('v5-pro-200')
+  let rows: LatestTrackRow[]
+  try {
+    // v6: cache-key bump'as — naujas deploy startuoja su ŠVARIU cache'u
+    // (neserve'inam jokio anksčiau užnuodyto tuščio entry po deploy).
+    rows = await cachedFetchLatestTracksRaw('v6-saugiklis')
+  } catch (e) {
+    // Empty-guard arba DB klaida → jei turim paskutinį gerą rezultatą warm
+    // instance'e, serve'inam jį (ne tuščią „...netrukus"). Antraip propaguojam.
+    if (lastGood.tracks) {
+      console.error('[home-latest] tracks fetch failed — serving last-known-good:', (e as any)?.message)
+      return lastGood.tracks
+    }
+    throw e
+  }
 
   // Filtruojam mojibake / placeholder titles, kur title == artist name.
   // + block-list: Rusijos atlikėjai niekada nerodomi homepage'e.
@@ -367,7 +443,7 @@ export async function getLatestTracksForHome(): Promise<{
   ltRaw.sort((a, b) => trackHybrid(b) - trackHybrid(a))
   worldRaw.sort((a, b) => trackHybrid(b) - trackHybrid(a))
 
-  return {
+  const result = {
     lt: ltFull.slice(0, HOME_LANE_LIMIT),
     world: worldFull.slice(0, HOME_LANE_LIMIT),
     totalLt: ltFull.length,
@@ -377,6 +453,9 @@ export async function getLatestTracksForHome(): Promise<{
     ltRaw,
     worldRaw,
   }
+  // Įsimenam kaip last-known-good tik jei realiai turim turinio.
+  if (result.lt.length + result.world.length > 0) lastGood.tracks = result
+  return result
 }
 
 /* ────────────────────────────── Albums ────────────────────────────── */
@@ -387,20 +466,30 @@ export async function getLatestTracksForHome(): Promise<{
 async function fetchLatestAlbumsRaw(): Promise<LatestAlbumRow[]> {
   const supabase = createAdminClient()
   const currentYear = new Date().getFullYear()
-  const { data, error } = await supabase
-    .from('albums')
-    .select(
-      'id, title, slug, cover_image_url, year, month, day, is_upcoming, created_at, artist_id, ' +
-        'artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
-    )
-    .not('year', 'is', null)
-    .gte('year', currentYear - 1)
-    .order('year', { ascending: false })
-    .order('month', { ascending: false, nullsFirst: false })
-    .order('day', { ascending: false, nullsFirst: false })
-    .limit(800)
+  const { data, error } = await withRetry(async () => {
+    const res = await supabase
+      .from('albums')
+      .select(
+        'id, title, slug, cover_image_url, year, month, day, is_upcoming, created_at, artist_id, ' +
+          'artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
+      )
+      .not('year', 'is', null)
+      .gte('year', currentYear - 1)
+      .order('year', { ascending: false })
+      .order('month', { ascending: false, nullsFirst: false })
+      .order('day', { ascending: false, nullsFirst: false })
+      .limit(800)
+    if (res.error) throw res.error
+    return res
+  }, { label: 'albums.latest' })
   if (error) throw error
-  return (data || []) as unknown as LatestAlbumRow[]
+  const out = (data || []) as unknown as LatestAlbumRow[]
+  // Empty-guard — žr. fetchLatestTracksRaw. year>=currentYear-1 albumų sveikoje
+  // DB visada yra; 0 eilučių = transient → throw (necache'inam tuščio).
+  if (out.length === 0) {
+    throw new Error('fetchLatestAlbumsRaw returned 0 rows — treating as transient failure (not caching)')
+  }
+  return out
 }
 
 const cachedFetchLatestAlbumsRaw = unstable_cache(
@@ -417,7 +506,16 @@ export async function getLatestAlbumsForHome(): Promise<{
   ltFull: LatestAlbumRow[]
   worldFull: LatestAlbumRow[]
 }> {
-  const rows = await cachedFetchLatestAlbumsRaw('v2')
+  let rows: LatestAlbumRow[]
+  try {
+    rows = await cachedFetchLatestAlbumsRaw('v3-saugiklis')
+  } catch (e) {
+    if (lastGood.albums) {
+      console.error('[home-latest] albums fetch failed — serving last-known-good:', (e as any)?.message)
+      return lastGood.albums
+    }
+    throw e
+  }
   const today = new Date()
   const isReleased = (a: LatestAlbumRow) => {
     if (a.is_upcoming) return false
@@ -458,7 +556,7 @@ export async function getLatestAlbumsForHome(): Promise<{
   ltAll.sort((a, b) => albumHybrid(b) - albumHybrid(a))
   worldAll.sort((a, b) => albumHybrid(b) - albumHybrid(a))
 
-  return {
+  const result = {
     lt: ltAll.slice(0, HOME_LANE_LIMIT),
     world: worldAll.slice(0, HOME_LANE_LIMIT),
     totalLt: ltAll.length,
@@ -466,6 +564,8 @@ export async function getLatestAlbumsForHome(): Promise<{
     ltFull: ltAll,
     worldFull: worldAll,
   }
+  if (result.lt.length + result.world.length > 0) lastGood.albums = result
+  return result
 }
 
 /* ────────────────────────────── Upcoming Albums ──────────────────────────────
@@ -478,18 +578,24 @@ async function fetchUpcomingAlbumsRaw(): Promise<LatestAlbumRow[]> {
   const currentYear = new Date().getFullYear()
   // Plati selection: is_upcoming=true ARBA year >= currentYear (po-filter'inam
   // future dates inline). NULL year'us praleidžiam (be info — neaiški data).
-  const { data, error } = await supabase
-    .from('albums')
-    .select(
-      'id, title, slug, cover_image_url, year, month, day, is_upcoming, created_at, artist_id, ' +
-        'artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
-    )
-    .not('year', 'is', null)
-    .gte('year', currentYear)
-    .order('year', { ascending: true })
-    .order('month', { ascending: true, nullsFirst: true })
-    .order('day', { ascending: true, nullsFirst: true })
-    .limit(ALBUMS_CANDIDATE_FETCH_LIMIT)
+  // Retry kaip ir kitur. PASTABA: upcoming gali būti realiai tuščias (gali
+  // nebūti būsimų albumų) — todėl ČIA NĖRA empty-guard throw'o.
+  const { data, error } = await withRetry(async () => {
+    const res = await supabase
+      .from('albums')
+      .select(
+        'id, title, slug, cover_image_url, year, month, day, is_upcoming, created_at, artist_id, ' +
+          'artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
+      )
+      .not('year', 'is', null)
+      .gte('year', currentYear)
+      .order('year', { ascending: true })
+      .order('month', { ascending: true, nullsFirst: true })
+      .order('day', { ascending: true, nullsFirst: true })
+      .limit(ALBUMS_CANDIDATE_FETCH_LIMIT)
+    if (res.error) throw res.error
+    return res
+  }, { label: 'albums.upcoming' })
   if (error) throw error
   return (data || []) as unknown as LatestAlbumRow[]
 }
@@ -505,7 +611,16 @@ export async function getUpcomingAlbumsForHome(): Promise<{
   total: number
   full: LatestAlbumRow[]
 }> {
-  const rows = await cachedFetchUpcomingAlbumsRaw('v1')
+  let rows: LatestAlbumRow[]
+  try {
+    rows = await cachedFetchUpcomingAlbumsRaw('v2-saugiklis')
+  } catch (e) {
+    if (lastGood.upcoming) {
+      console.error('[home-latest] upcoming fetch failed — serving last-known-good:', (e as any)?.message)
+      return lastGood.upcoming
+    }
+    throw e
+  }
   const today = new Date()
   const isFuture = (a: LatestAlbumRow) => {
     if (a.is_upcoming) return true
@@ -546,11 +661,14 @@ export async function getUpcomingAlbumsForHome(): Promise<{
   }
   filtered.sort((a, b) => upcomingHybrid(b) - upcomingHybrid(a))
 
-  return {
+  const result = {
     items: filtered.slice(0, HOME_LANE_LIMIT * 2),
     total: filtered.length,
     full: filtered,
   }
+  // Upcoming gali būti realiai tuščias — last-good tik kai turim turinio.
+  if (result.items.length > 0) lastGood.upcoming = result
+  return result
 }
 
 /* ────────────────────────────── Map helpers ──────────────────────────────
