@@ -11,6 +11,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { resolveProfile } from '@/lib/profile-resolve'
+import { createNotification } from '@/lib/notifications'
 
 export type TeamArtist = {
   id: number
@@ -117,6 +118,22 @@ export async function approveClaim(claimId: string, reviewerId: string | null): 
       reviewed_by: reviewerId,
       reviewed_at: new Date().toISOString(),
     }).eq('id', claimId)
+
+    // Pranešam vartotojui, kad patvirtinta (in-app + push). El. laiškas — F1.
+    try {
+      const { data: art } = await sb.from('artists').select('slug, name').eq('id', claim.artist_id).maybeSingle()
+      await createNotification({
+        user_id: claim.profile_id,
+        type: 'system',
+        entity_type: 'artist',
+        entity_id: claim.artist_id,
+        url: '/atlikejams/studija',
+        title: `Sveikiname! Profilis „${art?.name || ''}" patvirtintas`,
+        snippet: 'Dabar gali valdyti savo profilį, fanus ir žinutes savo studijoje.',
+        data: { kind: 'claim_approved' },
+      })
+    } catch {}
+
     return { ok: true }
   } catch (e: any) {
     return { ok: false, error: e?.message || 'error' }
