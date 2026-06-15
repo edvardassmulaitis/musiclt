@@ -17,9 +17,17 @@ export type NormalizedItem = {
 }
 
 function key(): string {
-  const k = process.env.YOUTUBE_API_KEY
+  // Dedikuotas studijos raktas (kad nekonkuruotų su scrape/koncertų YT kvota),
+  // su atsarga į bendrą YOUTUBE_API_KEY.
+  const k = process.env.YOUTUBE_API_KEY_STUDIO || process.env.YOUTUBE_API_KEY
   if (!k) throw new Error('YOUTUBE_API_KEY nesukonfigūruotas')
   return k
+}
+
+// „uploads" playlisto ID išvedamas iš kanalo ID be API užklausos:
+// UC... → UU... (Google konvencija). Taupo kvotą (sync = 1 vnt.).
+function uploadsPlaylistId(channelId: string): string | null {
+  return /^UC[\w-]{20,}$/.test(channelId) ? 'UU' + channelId.slice(2) : null
 }
 
 // fetch + klaidos iškėlimas (kitaip API 403/quota grįžta kaip JSON be throw,
@@ -80,7 +88,8 @@ export async function getChannelInfo(channelId: string): Promise<{ uploads: stri
 
 /** Naujausi kanalo įkėlimai → normalizuoti įrašai. */
 export async function fetchYouTubeUploads(channelId: string, max = 12): Promise<NormalizedItem[]> {
-  const { uploads } = await getChannelInfo(channelId)
+  // Be papildomos channels.list užklausos — playlist ID išvedam iš kanalo ID.
+  const uploads = uploadsPlaylistId(channelId) || (await getChannelInfo(channelId)).uploads
   if (!uploads) return []
   const d = await ytGet(`${API}/playlistItems?part=snippet,contentDetails&maxResults=${Math.min(max, 50)}&playlistId=${encodeURIComponent(uploads)}&key=${key()}`)
   const items: NormalizedItem[] = []
