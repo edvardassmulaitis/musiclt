@@ -76,7 +76,10 @@ function AuthModal({ onClose }: { onClose: () => void }) {
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
         >✕</button>
 
-        <div className="px-7 pt-7 pb-5">
+        <div
+          className="px-7 pt-7 pb-5"
+          style={{ background: 'linear-gradient(180deg, rgba(249,115,22,0.08), transparent)' }}
+        >
           <div className="font-black text-2xl mb-1">
             <span style={{ color: 'var(--text-primary)' }}>music</span>
             <span style={{ color: 'var(--accent-orange)' }}>.lt</span>
@@ -156,7 +159,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
                 required
                 className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
                 style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.7)')}
+                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(249,115,22,0.7)')}
                 onBlur={e => (e.currentTarget.style.borderColor = 'var(--input-border)')}
               />
               <button
@@ -199,7 +202,7 @@ function UserMenu() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  // Username vieso profilio nuorodai - uzkraunam pirma karta atidarius meniu.
+  // Username viešo profilio nuorodai — užkraunam pirmą kartą atidarius meniu.
   useEffect(() => {
     if (!open || username) return
     fetch('/api/profile').then(r => r.json()).then(d => { if (d?.username) setUsername(d.username) }).catch(() => {})
@@ -208,24 +211,47 @@ function UserMenu() {
   if (!session?.user) return null
   const isAdmin = session.user.role === 'admin' || session.user.role === 'super_admin'
 
-  const menuItem = (href: string, icon: string, label: string, color?: string) => (
-    <Link
-      href={href}
-      onClick={() => setOpen(false)}
-      className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
-      style={{ color: color || 'var(--text-secondary)' }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = color || 'var(--text-primary)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = color || 'var(--text-secondary)'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-    >
-      {icon} {label}
-    </Link>
-  )
+  const menuItem = (href: string, icon: React.ReactNode, label: string, accent?: boolean) => {
+    const fg = accent ? 'var(--accent-orange)' : 'var(--text-secondary)'
+    return (
+      <Link
+        href={href}
+        onClick={() => setOpen(false)}
+        className="group/mi flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-all"
+        style={{ color: fg }}
+        onMouseEnter={e => {
+          const el = e.currentTarget as HTMLElement
+          el.style.color = accent ? 'var(--accent-orange)' : 'var(--text-primary)'
+          el.style.background = 'var(--bg-hover)'
+        }}
+        onMouseLeave={e => {
+          const el = e.currentTarget as HTMLElement
+          el.style.color = fg
+          el.style.background = 'transparent'
+        }}
+      >
+        <span
+          className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors flex-shrink-0"
+          style={{
+            background: accent ? 'rgba(249,115,22,0.13)' : 'var(--bg-hover)',
+            color: accent ? 'var(--accent-orange)' : 'var(--text-muted)',
+          }}
+        >
+          {icon}
+        </span>
+        {label}
+      </Link>
+    )
+  }
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        className="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full transition-all"
+        style={{ background: open ? 'var(--bg-hover)' : 'transparent' }}
+        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)')}
+        onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = open ? 'var(--bg-hover)' : 'transparent')}
       >
         {session.user.image ? (
           // Paprastas <img> + proxyImg: next/image reikalauja domeno
@@ -238,15 +264,19 @@ function UserMenu() {
             alt={session.user.name || ''}
             width={32} height={32}
             referrerPolicy="no-referrer"
-            className="w-8 h-8 rounded-full object-cover ring-2 ring-white/20"
+            className="w-8 h-8 rounded-full object-cover"
+            style={{ boxShadow: open ? '0 0 0 2px var(--accent-orange)' : '0 0 0 2px rgba(255,255,255,0.18)' }}
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-orange-500 flex items-center justify-center text-xs font-black text-white">
+          <div
+            className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-orange-500 flex items-center justify-center text-xs font-black text-white"
+            style={{ boxShadow: open ? '0 0 0 2px var(--accent-orange)' : '0 0 0 2px rgba(255,255,255,0.18)' }}
+          >
             {session.user.name?.[0]?.toUpperCase() || '?'}
           </div>
         )}
         <svg
-          className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           style={{ color: 'var(--text-muted)' }}
           fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
@@ -256,51 +286,107 @@ function UserMenu() {
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 w-56 rounded-xl overflow-hidden shadow-2xl z-50"
-          style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)' }}
+          className="absolute right-0 top-full mt-2 w-64 rounded-2xl overflow-hidden z-50"
+          style={{
+            background: 'var(--modal-bg)',
+            border: '1px solid var(--modal-border)',
+            boxShadow: '0 16px 48px -12px rgba(0,0,0,0.55), 0 4px 12px -4px rgba(0,0,0,0.4)',
+          }}
         >
           {/* User info */}
-          <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-            <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{session.user.name}</div>
-            <div className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{session.user.email}</div>
-            {isAdmin && (
-              <span
-                className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-bold"
-                style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)' }}
+          <div
+            className="flex items-center gap-3 px-4 pt-4 pb-3.5"
+            style={{
+              borderBottom: '1px solid var(--border-subtle)',
+              background: 'linear-gradient(180deg, rgba(249,115,22,0.06), transparent)',
+            }}
+          >
+            {session.user.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={proxyImg(session.user.image)}
+                alt={session.user.name || ''}
+                width={42} height={42}
+                referrerPolicy="no-referrer"
+                className="w-[42px] h-[42px] rounded-full object-cover flex-shrink-0"
+                style={{ boxShadow: '0 0 0 2px var(--modal-bg), 0 0 0 3px rgba(249,115,22,0.5)' }}
+              />
+            ) : (
+              <div
+                className="w-[42px] h-[42px] rounded-full bg-gradient-to-br from-blue-600 to-orange-500 flex items-center justify-center text-sm font-black text-white flex-shrink-0"
+                style={{ boxShadow: '0 0 0 2px var(--modal-bg), 0 0 0 3px rgba(249,115,22,0.5)' }}
               >
-                {session.user.role === 'super_admin' ? '★ Super Admin' : '★ Admin'}
-              </span>
+                {session.user.name?.[0]?.toUpperCase() || '?'}
+              </div>
             )}
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{session.user.name}</div>
+              {isAdmin ? (
+                <span
+                  className="inline-flex items-center gap-1 mt-1 text-[10px] px-2 py-0.5 rounded-full font-bold"
+                  style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)' }}
+                >
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 7.1-1.01z"/></svg>
+                  {session.user.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                </span>
+              ) : (
+                <div className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{session.user.email}</div>
+              )}
+            </div>
           </div>
 
           {/* Main links */}
-          <div className="py-1">
-            {menuItem(username ? `/vartotojas/${username}` : '/auth/profile', '👤', 'Mano profilis')}
-            {menuItem('/mano-muzika', '🎵', 'Mano muzika', 'var(--accent-orange)')}
-            {menuItem('/blogas/mano', '✍️', 'Mano blogas')}
-            {menuItem('/blogas/rasyti', '📝', 'Rašyti straipsnį')}
-            {menuItem('/auth/profile', '⚙️', 'Paskyra ir nustatymai')}
+          <div className="py-1.5">
+            {menuItem(username ? `/vartotojas/${username}` : '/auth/profile', (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            ), 'Mano profilis')}
+            {menuItem('/mano-muzika', (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            ), 'Mano muzika', true)}
+            {menuItem('/blogas/mano', (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            ), 'Mano blogas')}
+            {menuItem('/blogas/rasyti', (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            ), 'Rašyti straipsnį')}
+            {menuItem('/auth/profile', (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            ), 'Paskyra ir nustatymai')}
           </div>
 
           {/* Admin section */}
           {isAdmin && (
-            <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
-              <div className="py-1">
-                {menuItem('/admin', '⚙️', 'Admin panelė', 'var(--accent-orange)')}
-              </div>
+            <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1.5">
+              {menuItem('/admin', (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              ), 'Admin panelė', true)}
             </div>
           )}
 
           {/* Logout */}
-          <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1">
+          <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1.5">
             <button
               onClick={() => { setOpen(false); signOut({ callbackUrl: '/' }) }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left"
-              style={{ color: 'var(--accent-orange)' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+              className="w-full flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-all text-left"
+              style={{ width: 'calc(100% - 0.75rem)', color: 'var(--text-secondary)' }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.background = 'rgba(239,68,68,0.1)'
+                el.style.color = '#f87171'
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.background = 'transparent'
+                el.style.color = 'var(--text-secondary)'
+              }}
             >
-              🚪 Atsijungti
+              <span
+                className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0"
+                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </span>
+              Atsijungti
             </button>
           </div>
         </div>
