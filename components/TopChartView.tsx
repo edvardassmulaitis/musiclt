@@ -72,6 +72,19 @@ function TrackCover({ track, size = 36 }: { track: Track | null; size?: number }
   return <span style={{ fontSize: size > 30 ? 14 : 12, color: 'var(--text-muted)' }}>♪</span>
 }
 
+// Vėliava header'yje (consistent su /topai). LT TOP 30 → LT vėliava;
+// Music.lt TOP 40 (pasaulinis) → švari linijinė pasaulio ikona.
+function Flag({ country }: { country: string | null }) {
+  const cc = (country || '').toLowerCase()
+  if (/^[a-z]{2}$/.test(cc))
+    return <span className="tcv-pflag" style={{ backgroundImage: `url(https://flagcdn.com/w40/${cc}.png)` }} aria-hidden />
+  return (
+    <span className="tcv-pflag tcv-pflag-globe" aria-hidden>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3.5 9.5h17M3.5 14.5h17" /><path d="M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18" /></svg>
+    </span>
+  )
+}
+
 function Countdown({ targetDate }: { targetDate: string }) {
   const [t, setT] = useState('')
   useEffect(() => {
@@ -860,6 +873,8 @@ export default function TopChartView({
           .tcv-sticky .tcv-player-video { max-height: 200px; }
 
           /* Player: pilnas 16:9 thumbnail, jokios info sekcijos po juo */
+          .tcv-player-card { border: 0; border-radius: 0; }
+          .tcv-phead { padding: 8px 12px; }
           .tcv-player { border-radius: 12px; }
           .tcv-player-video { aspect-ratio: 16/9; max-height: 240px; border-radius: 12px; }
           .tcv-play-btn { width: 48px; height: 48px; }
@@ -1043,28 +1058,15 @@ export default function TopChartView({
         }
         .tcv-thumb:hover .tcv-play-btn { transform: scale(1.08); }
 
-        /* Topo pavadinimas + veiksmai uždėti ANT player'io (consistent su
-           /topai pilno topo vaizdu — nebėra atskiro bulky header'io). */
-        .tcv-player-shell { position: relative; }
-        .tcv-vtitle {
-          position: absolute; top: 0; left: 0; right: 0;
-          padding: 11px 14px 26px;
-          background: linear-gradient(rgba(0,0,0,0.72), rgba(0,0,0,0));
-          pointer-events: none; z-index: 3; border-radius: 16px 16px 0 0;
-        }
-        .tcv-vtitle-h1 {
-          margin: 0; font-family: 'Outfit', sans-serif;
-          font-size: 17px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.15;
-          color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,0.55);
-        }
-        .tcv-vactions {
-          position: absolute; top: 8px; right: 8px; z-index: 4;
-          display: flex; gap: 6px; align-items: flex-start;
-        }
-        @media (max-width: 880px) {
-          .tcv-vtitle { border-radius: 12px 12px 0 0; padding: 9px 12px 22px; }
-          .tcv-vtitle-h1 { font-size: 15px; }
-        }
+        /* Player kortelė: švarus header'is (vėliava + title + veiksmai) VIRŠ
+           video — consistent su /topai pilnu topu (ne overlay ant video). */
+        .tcv-player-card { border: 1px solid var(--border-subtle); border-radius: 16px; overflow: hidden; background: var(--bg-surface); }
+        .tcv-player-card .tcv-player { border: 0; border-radius: 0; }
+        .tcv-phead { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); }
+        .tcv-pflag { width: 24px; height: 16px; flex-shrink: 0; border-radius: 4px; background-size: cover; background-position: center; box-shadow: 0 0 0 1px var(--border-subtle); display: inline-block; }
+        .tcv-pflag-globe { display: inline-flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); }
+        .tcv-h1 { margin: 0; flex: 1; min-width: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tcv-phead-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
         .tcv-player-info { padding: 16px 18px; }
         .tcv-player-pos { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
@@ -1388,49 +1390,52 @@ export default function TopChartView({
                 Tvarka: Player → Naujienos → Iškritę → Siūlyk dainą → Topo archyvas */}
             <div className="tcv-right-col">
               <div className="tcv-sticky">
-                <div className="tcv-player-shell">
-                  <Player entry={activeEntry} accent={accent} />
-                  {/* Topo pavadinimas — uždėtas ant player'io (vietoj header'io). */}
-                  <div className="tcv-vtitle"><h1 className="tcv-vtitle-h1">{title}</h1></div>
-                  {/* Veiksmai — Siūlyti dainą + ⋮ info (su countdown popover'iu). */}
-                  <div className="tcv-vactions">
-                    <button
-                      className="tcv-suggest-btn"
-                      onClick={() => setShowSuggest(true)}
-                      aria-label="Siūlyti dainą"
-                      title="Siūlyti dainą"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                      <span className="tcv-suggest-label">Siūlyti dainą</span>
-                    </button>
-                    <div className="tcv-info-wrap" ref={infoRef}>
+                <div className="tcv-player-card">
+                  {/* Švarus header'is VIRŠ player'io: vėliava + title + veiksmai
+                      (consistent su /topai pilnu topu — ne overlay ant video). */}
+                  <div className="tcv-phead">
+                    <Flag country={topType === 'lt_top30' ? 'lt' : null} />
+                    <h1 className="tcv-h1">{title}</h1>
+                    <div className="tcv-phead-actions">
                       <button
-                        className="tcv-info-btn"
-                        onClick={() => setShowInfo(s => !s)}
-                        aria-label="Apie topą"
-                        title="Apie topą"
+                        className="tcv-suggest-btn"
+                        onClick={() => setShowSuggest(true)}
+                        aria-label="Siūlyti dainą"
+                        title="Siūlyti dainą"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                        <span className="tcv-suggest-label">Siūlyti</span>
                       </button>
-                      {showInfo && (
-                        <div className="tcv-info-popover">
-                          <h4>Apie {title}</h4>
-                          <p>{subtitle}</p>
-                          {data.week?.vote_close && (
-                            <div className="tcv-info-countdown">
-                              <div className="tcv-info-countdown-label">Iki šios savaitės pabaigos</div>
-                              <div className="tcv-info-countdown-value">
-                                <Countdown targetDate={data.week.vote_close} />
+                      <div className="tcv-info-wrap" ref={infoRef}>
+                        <button
+                          className="tcv-info-btn"
+                          onClick={() => setShowInfo(s => !s)}
+                          aria-label="Apie topą"
+                          title="Apie topą"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
+                        </button>
+                        {showInfo && (
+                          <div className="tcv-info-popover">
+                            <h4>Apie {title}</h4>
+                            <p>{subtitle}</p>
+                            {data.week?.vote_close && (
+                              <div className="tcv-info-countdown">
+                                <div className="tcv-info-countdown-label">Iki šios savaitės pabaigos</div>
+                                <div className="tcv-info-countdown-value">
+                                  <Countdown targetDate={data.week.vote_close} />
+                                </div>
                               </div>
-                            </div>
-                          )}
-                          <p className="tcv-info-link-hint">
-                            Pilnas balsavimo reglamentas — žemiau, „Topo taisyklės" sekcijoje.
-                          </p>
-                        </div>
-                      )}
+                            )}
+                            <p className="tcv-info-link-hint">
+                              Pilnas balsavimo reglamentas — žemiau, „Topo taisyklės" sekcijoje.
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  <Player entry={activeEntry} accent={accent} />
                 </div>
               </div>
               {newcomers.length > 0 && (
