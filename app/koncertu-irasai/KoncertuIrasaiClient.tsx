@@ -110,14 +110,17 @@ function StyleDropdown({ styles, value, onChange }: { styles: RecordingStyle[]; 
   )
 }
 
-/* ── Popbar (peržiūros → 5 stulpeliai) ── */
+/* ── Popbar (peržiūros → 5 dashai, kaip visur kitur) ── */
 function PopBar({ views }: { views: number | null }) {
   const lvl = viewsPopLevel(views)
   if (lvl <= 0) return null
   return (
-    <span className="inline-flex items-end gap-[2px]" title={`${formatViews(views)} peržiūrų`} aria-label={`Populiarumas ${lvl}/5`}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className="w-[3px] rounded-sm" style={{ height: `${4 + i * 2}px`, background: i <= lvl ? 'var(--accent-orange)' : 'var(--border-default)' }} />
+    <span className="flex shrink-0 items-center gap-[3px]" title={`${formatViews(views)} peržiūrų`} aria-label={`Populiarumas ${lvl}/5`}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span key={i} className="h-[3px] w-[14px] rounded-[2px]"
+          style={i < lvl
+            ? { background: 'var(--accent-orange)', opacity: 0.55 + 0.45 * (i + 1) / 5 }
+            : { background: 'var(--border-default)', opacity: 0.5 }} />
       ))}
     </span>
   )
