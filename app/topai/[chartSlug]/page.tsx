@@ -22,12 +22,23 @@ const SOURCE_LABEL: Record<string, string> = {
   official_uk: 'Official UK', mama: 'M.A.M.A', shazam: 'Shazam', youtube: 'YouTube',
 }
 
+/* slug → šalies kodas vėliavai (mirror'as /topai hub'o logikos). null = pasaulis. */
+const CHART_COUNTRY: Record<string, string | null> = {
+  'consensus-lt': 'lt', 'consensus-us': 'us', 'consensus-uk': 'gb',
+  'consensus-world': null, 'consensus-shazam_world': null, 'consensus-albums': null,
+  'agata-singles': 'lt', 'apple-lt_songs': 'lt', 'spotify-lt': 'lt', 'mama-top40': 'lt', 'shazam-lt': 'lt', 'agata-albums': 'lt',
+  'spotify-global': null, 'billboard-global200': null,
+  'apple-us_songs': 'us', 'spotify-us': 'us', 'billboard-hot100': 'us', 'shazam-us': 'us', 'billboard-albums': 'us',
+  'apple-gb_songs': 'gb', 'spotify-uk': 'gb', 'official_uk-singles': 'gb', 'shazam-uk': 'gb', 'official_uk-albums': 'gb',
+  'shazam-de': 'de', 'shazam-fr': 'fr', 'shazam-br': 'br', 'shazam-es': 'es', 'shazam-mx': 'mx',
+}
+
 /* slug = `${source}-${chart_key}` (pvz. „agata-singles", „consensus-us"). */
 async function loadChart(slug: string) {
   const sb = createAdminClient()
   const { data: charts } = await sb
     .from('external_charts')
-    .select('id, source, chart_key, title, subtitle, accent, scope, size, source_url, attribution, period_label')
+    .select('id, source, chart_key, title, subtitle, accent, scope, size, source_url, attribution, period_label, country')
     .eq('is_current', true)
   const chart = (charts || []).find((c: any) => `${c.source}-${c.chart_key}` === slug)
   if (!chart) return null
@@ -93,11 +104,15 @@ async function loadChart(slug: string) {
     }
   }
 
+  // Vėliavai: pirma slug map'as (mirror'as hub'o), tada DB country (2 raidės), kitaip null.
+  const dbCc = typeof chart.country === 'string' && /^[a-z]{2}$/i.test(chart.country) ? chart.country.toLowerCase() : null
+  const flagCountry = slug in CHART_COUNTRY ? CHART_COUNTRY[slug] : dbCc
+
   const full: FullChart = {
     title: chart.title, subtitle: chart.subtitle ?? null, accent: chart.accent || '#6366f1',
     size: chart.size ?? entries.length, attribution: chart.attribution ?? null,
     periodLabel: chart.period_label ?? null, sourceUrl: chart.source_url ?? null,
-    isConsensus: chart.source === 'consensus', isAlbum, sourceCharts,
+    isConsensus: chart.source === 'consensus', isAlbum, country: flagCountry, sourceCharts,
   }
   return { full, entries }
 }

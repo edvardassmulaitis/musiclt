@@ -25,7 +25,23 @@ export type FullChart = {
   sourceUrl: string | null
   isConsensus: boolean
   isAlbum: boolean
+  country: string | null   // šalies kodas vėliavai (null → pasaulio ikona)
   sourceCharts: { title: string; slug: string }[]
+}
+
+/* Vėliava header'yje — kaip /topai kortelėse. 2 raidžių kodas → flagcdn,
+   kitaip (pasaulis/global) → švari linijinė ikona. */
+const FLAG_ALIAS: Record<string, string> = { uk: 'gb', en: 'gb' }
+function Flag({ country }: { country: string | null }) {
+  let cc = (country || '').toLowerCase()
+  cc = FLAG_ALIAS[cc] || cc
+  if (/^[a-z]{2}$/.test(cc))
+    return <span className="cfv-pflag" style={{ backgroundImage: `url(https://flagcdn.com/w40/${cc}.png)` }} aria-hidden />
+  return (
+    <span className="cfv-pflag cfv-pflag-globe" aria-hidden>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3.5 9.5h17M3.5 14.5h17" /><path d="M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18" /></svg>
+    </span>
+  )
 }
 
 function trendGlyph(pos: number, prev: number | null): { ch: string; cls: string } | null {
@@ -52,9 +68,12 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
     setPlaying(true)
     if (!playable || !slotRef.current) return
     const e = entries[idx]
+    const origin = typeof window !== 'undefined' ? `&origin=${encodeURIComponent(window.location.origin)}` : ''
+    // enablejsapi=1 → galim postMessage'inti playVideo komandą (nudge), kad
+    // grojimas startuotų ten, kur naršyklės autoplay politika leidžia.
     const src = e.videoId
-      ? `https://www.youtube.com/embed/${e.videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`
-      : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(e.query)}&autoplay=1&playsinline=1&rel=0&modestbranding=1`
+      ? `https://www.youtube.com/embed/${e.videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin}`
+      : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(e.query)}&autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin}`
     slotRef.current.innerHTML = ''
     const f = document.createElement('iframe')
     f.src = src
@@ -62,6 +81,10 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
     f.allowFullscreen = true
     f.title = e.title
     slotRef.current.appendChild(f)
+    // Pakartotinis „playVideo" stūmis po load — kai kurios naršyklės reikalauja
+    // komandos po embed paruošimo (autoplay=1 vien per URL nepakanka).
+    const nudge = () => { try { f.contentWindow?.postMessage('{"event":"command","func":"playVideo","args":""}', '*') } catch {} }
+    f.addEventListener('load', () => { nudge(); setTimeout(nudge, 300); setTimeout(nudge, 800) })
   }
 
   return (
@@ -76,7 +99,7 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
             <div className="cfv-player">
               {/* Topo pavadinimas — header juosta VIRŠ player'io (ne overlay ant
                   video, kad gerai skaitytųsi). */}
-              <div className="cfv-phead"><h1 className="cfv-h1">{chart.title}</h1></div>
+              <div className="cfv-phead"><Flag country={chart.country} /><h1 className="cfv-h1">{chart.title}</h1></div>
               <div className="cfv-video">
                 <div className="cfv-slot" ref={slotRef} />
                 {!playing && (
@@ -95,7 +118,7 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
         {/* Albumų topai — be player'io; pavadinimas atskirame bloke (SEO h1). */}
         {!playable && (
           <div className="cfv-albumhead">
-            <h1 className="cfv-h1 cfv-h1-dark">{chart.title}</h1>
+            <Flag country={chart.country} /><h1 className="cfv-h1 cfv-h1-dark">{chart.title}</h1>
           </div>
         )}
 
@@ -114,9 +137,6 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
                   <span className="cfv-info">
                     <span className="cfv-song">{e.title}</span>
                     <span className="cfv-artist">{e.artistName}</span>
-                    {chart.isConsensus && e.sources.length > 0 && (
-                      <span className="cfv-srcs">{e.sources.map(s => <span key={s} className="cfv-srcbadge">{s}</span>)}</span>
-                    )}
                   </span>
                 </button>
                 {!chart.isConsensus && t && <span className={`cfv-trend ${t.cls}`}>{t.ch}</span>}
@@ -150,7 +170,7 @@ const styles = `
   .cfv-aside { grid-column: 2; grid-row: 1; position: sticky; top: 64px; }
   .cfv-list { grid-column: 1; grid-row: 1; }
   .cfv-body.is-album { grid-template-columns: 1fr; max-width: 720px; }
-  .cfv-albumhead { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+  .cfv-albumhead { display: flex; flex-direction: row; align-items: center; gap: 12px; margin-bottom: 6px; }
   /* Mobile: player viršuje + prilimpa prie viršaus, iškart po jo — sąrašas. */
   @media (max-width: 860px) {
     .cfv-body { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
@@ -190,8 +210,12 @@ const styles = `
   .cfv-video-ph { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: #555; font-size: 30px; }
   .cfv-bigplay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 58px; height: 58px; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; padding-left: 4px; }
   /* Topo pavadinimas — header juosta VIRŠ video (gerai skaitosi, ne overlay). */
-  .cfv-phead { padding: 11px 15px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); }
-  .cfv-h1 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cfv-phead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); }
+  .cfv-pflag { width: 26px; height: 18px; flex-shrink: 0; border-radius: 4px; background-size: cover; background-position: center; box-shadow: 0 0 0 1px var(--border-subtle); display: inline-block; }
+  .cfv-pflag-globe { display: inline-flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); }
+  .cfv-h1 { margin: 0; flex: 1; min-width: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cfv-albumhead .cfv-pflag { width: 34px; height: 23px; }
+  .cfv-albumhead .cfv-h1 { flex: 0 1 auto; }
   .cfv-h1-dark { font-size: 24px; font-weight: 900; white-space: normal; }
   /* Atnaujinimo data — page footer'is. */
   .cfv-foot { margin: 18px 0 0; font-size: 12px; color: var(--text-muted); }
