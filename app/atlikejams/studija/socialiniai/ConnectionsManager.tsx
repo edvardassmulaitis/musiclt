@@ -97,7 +97,7 @@ export default function ConnectionsManager({ artistId, initial, defaultYoutube }
       </div>
 
       <div className="mt-3 rounded-2xl border border-dashed border-[var(--border-default)] p-4 text-sm text-[var(--text-muted)]">
-        🎵 Spotify naujausi leidiniai, 📷 Instagram ir 📘 Facebook auto-feed'ai — netrukus.
+        📷 Instagram · 📘 Facebook · 🎵 TikTok įrašus kol kas dėk <b>rankiniu būdu žemiau</b> (automatinė jungtis šiems tinklams negalima be Meta verifikacijos). Spotify naujausi leidiniai — planuose.
       </div>
     </div>
   )

@@ -16,7 +16,7 @@ export function SiteFooter() {
           {[
             { t: 'Platforma', l: [['Topai', '/topai'], ['Nauja muzika', '/muzika'], ['Koncertai', '/koncertai'], ['Atlikėjai', '/atlikejai'], ['Albumai', '/albumai'], ['Skelbimai', '/skelbimai']] },
             { t: 'Bendruomenė', l: [['Atrasti', '/atrasti'], ['Diskusijos', '/diskusijos'], ['Muzikos atradimai', '/muzikos-atradimai'], ['Narių įrašai', '/blogas'], ['Dienos daina', '/dienos-daina'], ['Pokalbiai', '/pokalbiai']] },
-            { t: 'Informacija', l: [['Naujienos', '/naujienos'], ['Atlikėjams', '/nauji-atlikejai'], ['Muzikos stiliai', '/muzikos-stilius'], ['Balsavimai', '/balsavimai']] },
+            { t: 'Informacija', l: [['Naujienos', '/naujienos'], ['Music.lt atlikėjams', '/atlikejams'], ['Naujų atlikėjų radaras', '/nauji-atlikejai'], ['Muzikos stiliai', '/muzikos-stilius'], ['Balsavimai', '/balsavimai']] },
           ].map(col => (
             <div key={col.t}>
               <h4 className="text-[10px] font-black uppercase tracking-[0.12em] mb-4" style={{ color: 'var(--text-faint)' }}>{col.t}</h4>
