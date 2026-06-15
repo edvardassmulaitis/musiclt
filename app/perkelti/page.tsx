@@ -9,7 +9,7 @@ export const metadata = {
 }
 
 type Step = { n: number; text: string }
-const METHODS: { id: string; emoji: string; title: string; tagline: string; time: string; steps: Step[]; cta: string; src: string; accent: string }[] = [
+const METHODS: { id: string; emoji: string; title: string; tagline: string; time: string; steps: Step[]; cta: string; accent: string }[] = [
   {
     id: 'lastfm', emoji: '🎧', title: 'Last.fm', tagline: 'Greičiausias būdas — vos vartotojo vardas.', time: '~30 sek.',
     accent: '#d51007',
