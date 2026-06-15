@@ -53,7 +53,7 @@ export default function ClaimClient() {
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-6 text-center">
         <div className="text-3xl">✅</div>
         <p className="mx-auto mt-2 max-w-sm text-sm text-[var(--text-secondary)]">{done}</p>
-        <a href="/studija" className="mt-4 inline-block rounded-full bg-[var(--accent-orange)] px-5 py-2 text-sm font-semibold text-white">Į apžvalgą</a>
+        <a href="/atlikejams/studija" className="mt-4 inline-block rounded-full bg-[var(--accent-orange)] px-5 py-2 text-sm font-semibold text-white">Į apžvalgą</a>
       </div>
     )
   }

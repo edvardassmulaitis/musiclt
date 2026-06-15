@@ -51,9 +51,9 @@ export default async function StudioDashboard({ searchParams }: { searchParams: 
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <Link href={`/studija/zinutes?a=${active.id}`} className="rounded-full bg-[var(--accent-orange)] px-4 py-2 text-sm font-semibold text-white">✉️ Parašyti fanams</Link>
-        <Link href={`/studija/profilis?a=${active.id}`} className="rounded-full bg-[var(--bg-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)]">✏️ Redaguoti profilį</Link>
-        <Link href={`/studija/socialiniai?a=${active.id}`} className="rounded-full bg-[var(--bg-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)]">📷 Pridėti soc. postą</Link>
+        <Link href={`/atlikejams/studija/zinutes?a=${active.id}`} className="rounded-full bg-[var(--accent-orange)] px-4 py-2 text-sm font-semibold text-white">✉️ Parašyti fanams</Link>
+        <Link href={`/atlikejams/studija/profilis?a=${active.id}`} className="rounded-full bg-[var(--bg-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)]">✏️ Redaguoti profilį</Link>
+        <Link href={`/atlikejams/studija/socialiniai?a=${active.id}`} className="rounded-full bg-[var(--bg-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)]">📷 Pridėti soc. postą</Link>
         <Link href={`/atlikejai/${active.slug}`} className="rounded-full bg-[var(--bg-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)]">👁 Mano vieša anketa</Link>
       </div>
 

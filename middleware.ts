@@ -19,6 +19,13 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(dest, 308)
   }
 
+  // Atlikėjo studija perkelta /studija → /atlikejams/studija (2026-06-15).
+  if (pathname === '/studija' || pathname.startsWith('/studija/')) {
+    const dest = url.clone()
+    dest.pathname = pathname.replace(/^\/studija/, '/atlikejams/studija')
+    return NextResponse.redirect(dest, 308)
+  }
+
   // Foto reportažai iškelti iš naujienų į atskirą /galerija (2026-06-14).
   // Senas tipo landing'as → galerija.
   if (pathname === '/naujienos/tipas/foto') {

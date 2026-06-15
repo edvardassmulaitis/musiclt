@@ -13,7 +13,7 @@ export const metadata = { title: 'Atlikėjo studija | music.lt' }
 export default async function StudioLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions)
   const profile = await resolveProfile(session)
-  if (!profile?.id) redirect('/auth/signin?callbackUrl=/studija')
+  if (!profile?.id) redirect('/auth/signin?callbackUrl=/atlikejams/studija')
 
   const artists = await getTeamArtists(profile.id)
 

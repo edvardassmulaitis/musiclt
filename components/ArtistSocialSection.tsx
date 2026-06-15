@@ -75,7 +75,7 @@ export default function ArtistSocialSection({ artistId, slug, name, isClaimed }:
 
       {!isClaimed && (
         <div className="mt-4 rounded-xl border border-dashed border-[var(--border-default)] p-3 text-center text-sm text-[var(--text-muted)]">
-          Čia tavo profilis? <a href="/studija/prisijungti" className="text-[var(--accent-link)] font-medium">Pasiimk jį</a> ir valdyk pats.
+          Čia tavo profilis? <a href="/atlikejams" className="text-[var(--accent-link)] font-medium">Pasiimk jį</a> ir valdyk pats.
         </div>
       )}
     </section>

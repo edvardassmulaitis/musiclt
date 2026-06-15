@@ -6,11 +6,11 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 export type NavArtist = { id: number; slug: string; name: string; cover_image_url: string | null }
 
 const TABS = [
-  { href: '/studija', label: 'Apžvalga', icon: '📊' },
-  { href: '/studija/profilis', label: 'Profilis', icon: '✏️' },
-  { href: '/studija/socialiniai', label: 'Socialiniai', icon: '📷' },
-  { href: '/studija/fanai', label: 'Fanai', icon: '❤️' },
-  { href: '/studija/zinutes', label: 'Žinutės', icon: '✉️' },
+  { href: '/atlikejams/studija', label: 'Apžvalga', icon: '📊' },
+  { href: '/atlikejams/studija/profilis', label: 'Profilis', icon: '✏️' },
+  { href: '/atlikejams/studija/socialiniai', label: 'Socialiniai', icon: '📷' },
+  { href: '/atlikejams/studija/fanai', label: 'Fanai', icon: '❤️' },
+  { href: '/atlikejams/studija/zinutes', label: 'Žinutės', icon: '✉️' },
 ]
 
 export default function StudioNav({ artists }: { artists: NavArtist[] }) {
