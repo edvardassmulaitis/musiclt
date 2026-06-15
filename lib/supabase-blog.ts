@@ -409,6 +409,14 @@ async function rankedProfileIds(sb: any, kind: 'album' | 'track', userId: string
   return (data || []).map((r: any) => r[idCol]).filter(Boolean)
 }
 
+// Kurie iš `ids` yra IMPORTUOTI patiktukai (entity_legacy_id iš senos sistemos).
+async function importedIdSet(sb: any, kind: 'album' | 'track', userId: string | undefined, ids: number[]): Promise<Set<number>> {
+  if (!userId || !ids.length) return new Set()
+  const { data } = await sb.from('likes').select('entity_id')
+    .eq('user_id', userId).eq('entity_type', kind).not('entity_legacy_id', 'is', null).in('entity_id', ids)
+  return new Set((data || []).map((r: any) => r.entity_id))
+}
+
 export async function getProfileFavoriteAlbums(username: string, limit = 12, userId?: string) {
   const sb = createAdminClient()
   const rankedIds = userId ? await rankedProfileIds(sb, 'album', userId, limit) : []
@@ -420,8 +428,9 @@ export async function getProfileFavoriteAlbums(username: string, limit = 12, use
     .select('id, slug, title, cover_url, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
     .in('id', ids)
   const order = new Map(ids.map((id, i) => [id, i]))
+  const imported = await importedIdSet(sb, 'album', userId, ids)
   return (data || [])
-    .map((a: any) => ({ ...a, liked_at: likedAt.get(a.id) ?? null }))
+    .map((a: any) => ({ ...a, liked_at: likedAt.get(a.id) ?? null, is_imported: imported.has(a.id) }))
     .sort((x: any, y: any) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0)) as any[]
 }
 
@@ -436,8 +445,9 @@ export async function getProfileFavoriteTracks(username: string, limit = 12, use
     .select('id, slug, title, cover_url, video_url, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
     .in('id', ids)
   const order = new Map(ids.map((id, i) => [id, i]))
+  const imported = await importedIdSet(sb, 'track', userId, ids)
   return (data || [])
-    .map((t: any) => ({ ...t, liked_at: likedAt.get(t.id) ?? null }))
+    .map((t: any) => ({ ...t, liked_at: likedAt.get(t.id) ?? null, is_imported: imported.has(t.id) }))
     .sort((x: any, y: any) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0)) as any[]
 }
 

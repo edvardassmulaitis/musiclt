@@ -34,9 +34,9 @@ export function FavoriteArtistsCollage({
   totalCount: number
   onOpenMore: () => void
 }) {
-  // Sort pagal affinity desc; top 1 — big tile.
-  const sorted = [...artists].sort((a, b) => (b.affinity_score || 0) - (a.affinity_score || 0))
-  const shown = sorted.slice(0, maxShown)
+  // V18: rodom nario PASIRINKTA tvarka (sort_order iš „Mano muzika" topo) —
+  // #1 = didelis hero tile. NEBE re-sort'inam pagal affinity (anksčiau rodė ne tuos).
+  const shown = artists.slice(0, maxShown)
   const remaining = Math.max(totalCount - shown.length, 0)
 
   return (

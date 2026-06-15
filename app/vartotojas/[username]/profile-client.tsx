@@ -616,7 +616,7 @@ function MobileProfileView(props: any) {
             {favoriteArtists.length > 0 && (
               <section className="mt-7">
                 <SectionHeader title="Visi atlikėjai"
-                  meta={`${favoriteArtists.length} atlikėjų${favoriteArtists.some((a: any) => (a.affinity_score || 0) > 0) ? ' · dydis pagal pamėgtų albumų + dainų' : ''}`} />
+                  meta={`${favoriteArtists.length} atlikėjų · tavo pasirinkta eilė`} />
                 <FavoriteArtistsCollage artists={favoriteArtists} maxShown={11}
                   totalCount={favoriteArtists.length} onOpenMore={() => onOpenMore('artist')} />
               </section>
@@ -782,8 +782,9 @@ function PostFeedRow({ post, blogSlug }: { post: any; blogSlug: string }) {
 // ── „Neseniai pamėgta" — albumai + dainos pagal liked_at desc ──
 function RecentlyLiked({ albums, tracks }: { albums: any[]; tracks: any[] }) {
   const items = useMemo(() => {
-    const a = (albums || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'album' }))
-    const t = (tracks || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'track' }))
+    // Tik TIKRI nauji patiktukai (ne importuoti iš senos sistemos su scrape data).
+    const a = (albums || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'album' }))
+    const t = (tracks || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'track' }))
     return [...a, ...t].sort((x, y) => new Date(y.liked_at).getTime() - new Date(x.liked_at).getTime()).slice(0, 6)
   }, [albums, tracks])
 
@@ -2247,9 +2248,9 @@ function buildFeedItems({
   const hasPosts = items.some((it) => it.kind === 'post')
   if (!hasPosts) {
     const likes: any[] = [
-      ...(favoriteArtists || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'artist' })),
-      ...(favoriteAlbums || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'album' })),
-      ...(favoriteTracks || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'track' })),
+      ...(favoriteArtists || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'artist' })),
+      ...(favoriteAlbums || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'album' })),
+      ...(favoriteTracks || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'track' })),
     ]
     const lByWeek = new Map<string, any[]>()
     for (const l of likes) {
@@ -2455,7 +2456,7 @@ function LikesSections(props: any) {
       {favoriteArtists.length > 0 && (
         <section>
           <SectionHeader title="Mėgstami atlikėjai"
-            meta={`${favoriteArtists.length} atlikėjų${favoriteArtists.some((a: any) => (a.affinity_score || 0) > 0) ? ' · dydis pagal pamėgtų albumų + dainų' : ''}`} />
+            meta={`${favoriteArtists.length} atlikėjų · tavo pasirinkta eilė`} />
           <FavoriteArtistsCollage artists={favoriteArtists} maxShown={11}
             totalCount={favoriteArtists.length} onOpenMore={() => onOpenMore('artist')} />
         </section>
@@ -2788,9 +2789,9 @@ function RecentLikesCard({
 }: any) {
   const items = useMemo(() => {
     const arr: any[] = [
-      ...(favoriteArtists || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'artist' })),
-      ...(favoriteAlbums || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'album' })),
-      ...(favoriteTracks || []).filter((x: any) => x.liked_at).map((x: any) => ({ ...x, _kind: 'track' })),
+      ...(favoriteArtists || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'artist' })),
+      ...(favoriteAlbums || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'album' })),
+      ...(favoriteTracks || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'track' })),
     ]
     return arr.sort((a, b) => new Date(b.liked_at).getTime() - new Date(a.liked_at).getTime()).slice(0, 5)
   }, [favoriteArtists, favoriteAlbums, favoriteTracks])
