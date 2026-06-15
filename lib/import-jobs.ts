@@ -47,7 +47,15 @@ async function lastfmCall(method: string, user: string, extra: string): Promise<
     if (r.status === 404) throw new Error('Last.fm vartotojas nerastas')
     throw new Error(`Last.fm klaida (${r.status})`)
   }
-  return r.json()
+  const json = await r.json().catch(() => null)
+  if (json && typeof json === 'object' && 'error' in json) {
+    const code = Number((json as any).error)
+    if (code === 6 || code === 7) throw new Error('Last.fm vartotojas nerastas arba profilis privatus')
+    if (code === 10 || code === 26) throw new Error('Last.fm netinkamas API raktas')
+    if (code === 29) throw new Error('Last.fm užklausų limitas — vėliau')
+    throw new Error(`Last.fm klaida: ${(json as any).message || code}`)
+  }
+  return json
 }
 
 function toItem(kind: Kind, it: any): { kind: Kind; artist: string; title: string | null } | null {
@@ -132,6 +140,9 @@ async function fetchTick(sb: any, job: any): Promise<void> {
   let got = cursor.got ?? 0
   let pages = 0
   const rows: any[] = []
+
+  // Pirmo tick'o pradžioje — validuojam raktą/vartotoją (klaida → job 'error').
+  if (si === 0 && page === 1 && got === 0) await lastfmCall('user.getinfo', user, '')
 
   while (si < FULL_STREAMS.length && pages < FETCH_PAGES_PER_TICK) {
     const st = FULL_STREAMS[si]

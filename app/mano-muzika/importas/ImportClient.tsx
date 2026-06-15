@@ -62,7 +62,15 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
     }
   }, [job, refreshJob])
 
-  function onResult(staged: Staged) {
+  function onResult(raw: Staged) {
+    // Apsauga: jei atsakymas neturi masyvų (timeout/klaida) — nemeskim render klaidos.
+    const staged: Staged = {
+      artists: Array.isArray(raw?.artists) ? raw.artists : [],
+      albums: Array.isArray(raw?.albums) ? raw.albums : [],
+      tracks: Array.isArray(raw?.tracks) ? raw.tracks : [],
+      counts: raw?.counts || { matched: 0, unmatched: 0, total: 0 },
+      reported: raw?.reported || 0,
+    }
     setResult(staged)
     // default — pažymim visas atitiktis
     const sel = new Set<string>()
@@ -212,6 +220,12 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
               Apdorota {job.processed}{job.total ? ` iš ${job.total}` : ''} · pridėta {job.matched} · laukia įkėlimo {job.reported}
             </div>
           )}
+        </div>
+      )}
+      {job && job.status === 'error' && (
+        <div className="mb-4 rounded-2xl p-5" style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.3)' }}>
+          <div className="text-[15px] font-black" style={{ color: '#f43f5e' }}>Importas nepavyko</div>
+          <p className="text-[12.5px] mt-1" style={{ color: 'var(--text-muted)' }}>{job.error || 'Nežinoma klaida.'} Pabandyk dar kartą arba pranešk administratoriui.</p>
         </div>
       )}
       {job && job.status === 'done' && !enqueued && (

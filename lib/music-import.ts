@@ -142,8 +142,11 @@ export type ImportMode = 'best' | 'full'
 
 // Kiek maksimaliai imti kiekvieno tipo. „best" = mėgstamiausi/dažniausi (švarus
 // signalas), „full" = papildomai naujausia klausymų istorija (recent tracks).
+// „best" turi būti GREITAS ir patikimas (sinchroninis — telpa į 60s funkcijos
+// limitą). Gilus importas vyksta fone (žr. lib/import-jobs.ts), tad čia laikom
+// kuklius limitus, kad atpažinimas spėtų užbaigti per vieną užklausą.
 const LASTFM_CAPS: Record<ImportMode, { artists: number; albums: number; loved: number; top: number; recent: number }> = {
-  best: { artists: 300, albums: 250, loved: 600, top: 400, recent: 0 },
+  best: { artists: 120, albums: 100, loved: 150, top: 120, recent: 0 },
   full: { artists: 500, albums: 400, loved: 1000, top: 500, recent: 1500 },
 }
 
@@ -163,7 +166,18 @@ export async function fetchLastfm(username: string, opts: { mode?: ImportMode } 
       if (r.status === 404) throw new Error('Last.fm vartotojas nerastas')
       throw new Error(`Last.fm klaida (${r.status})`)
     }
-    return r.json()
+    const json = await r.json().catch(() => null)
+    // SVARBU: Last.fm dažnai grąžina HTTP 200 su klaidos kūnu ({error, message}) —
+    // pvz. netinkamas API raktas (10), privatus/nerastas vartotojas (6), limitas (29).
+    // Be šito patikrinimo klaida „pradingsta" ir importas tyliai grąžina 0 įrašų.
+    if (json && typeof json === 'object' && 'error' in json) {
+      const code = Number((json as any).error)
+      if (code === 6 || code === 7) throw new Error('Last.fm vartotojas nerastas arba profilis privatus')
+      if (code === 10 || code === 26) throw new Error('Last.fm importas nesukonfigūruotas (netinkamas API raktas)')
+      if (code === 29) throw new Error('Last.fm laikinai apribojo užklausas — pabandyk po kelių minučių')
+      throw new Error(`Last.fm klaida: ${(json as any).message || code}`)
+    }
+    return json
   }
 
   // Paginuotas rinkėjas — eina per puslapius kol surenka iki `cap` arba baigiasi.
@@ -183,6 +197,10 @@ export async function fetchLastfm(username: string, opts: { mode?: ImportMode } 
     }
     return out.slice(0, cap)
   }
+
+  // Validacija PIRMIAUSIA — patikrinam API raktą ir ar vartotojas pasiekiamas.
+  // Jei kažkas blogai, mesim aiškią klaidą (vietoj tylaus 0 rezultatų).
+  await call('user.getinfo', '')
 
   const [topArt, topAlb, lovedT, topT] = await Promise.all([
     paged('user.gettopartists', 'topartists', 'artist', CAP.artists, 'period=overall'),
