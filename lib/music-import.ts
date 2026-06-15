@@ -14,7 +14,7 @@
 
 import { createAdminClient } from '@/lib/supabase'
 import { searchArtistsCore, searchTracksCore, searchAlbumsCore, normLt } from '@/lib/search-core'
-import { addFavorite, type FavKind } from '@/lib/mano-muzika'
+import { addToLibrary } from '@/lib/mano-muzika'
 
 // ── Raw / staged tipai ─────────────────────────────────────────────────────
 export type RawArtist = { name: string; meta?: any }
@@ -121,14 +121,12 @@ async function matchTrackish(sb: any, items: RawTrackish[], kind: 'track' | 'alb
 
 // ── COMMIT — masinis įdėjimas į „Mano muziką" ──────────────────────────────
 export async function commitInto(userId: string, sel: { artists?: number[]; albums?: number[]; tracks?: number[] }) {
-  const jobs: Promise<any>[] = []
-  const push = (kind: FavKind, ids?: number[]) => {
-    for (const id of (ids || [])) jobs.push(addFavorite(userId, kind, id).catch(() => null))
-  }
-  push('artist', sel.artists)
-  push('album', sel.albums)
-  push('track', sel.tracks)
-  await Promise.all(jobs)
+  // Importas → biblioteka (patiktukai). Bulk, kad nedarytume po užklausą kiekvienam.
+  await Promise.all([
+    addToLibrary(userId, 'artist', (sel.artists || []).filter(Number.isFinite)),
+    addToLibrary(userId, 'album', (sel.albums || []).filter(Number.isFinite)),
+    addToLibrary(userId, 'track', (sel.tracks || []).filter(Number.isFinite)),
+  ])
   return { ok: true, added: { artists: sel.artists?.length || 0, albums: sel.albums?.length || 0, tracks: sel.tracks?.length || 0 } }
 }
 

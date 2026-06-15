@@ -1,45 +1,37 @@
 // lib/mano-muzika.ts
 // ───────────────────────────────────────────────────────────────────────────
-// „Mano muzika" — nario kuruojamos mėgstamos muzikos valdymo data layer.
+// „Mano muzika" — nario kuruojamos mėgstamos muzikos data layer (pakopomis).
 //
-// Visa logika rašoma per service-role (createAdminClient). Auth gating vyksta
-// API route'uose (getServerSession + resolveProfile). sort_order = rodymo eilė
-// (drag reorder), is_featured = prisegtas/paryškintas, weight = populiarumo
-// svoris (rankinis).
+// Pakopos (bucket):
+//   • Topas      (bucket=1, max 20)  — rodomas profilyje, rankinis rikiavimas
+//   • Mėgstami   (bucket=2, max 100) — kuruotas rinkinys, rankinis rikiavimas
+//   • Biblioteka (bucket=0)          — VISI patiktukai (likes), auto-sort/paieška
 //
-// Lentelės: profile_favorite_artists / _albums / _tracks, profile_mood_songs,
-// profile_favorite_styles, profiles.mood_song_track_id (active mood) +
-// music_setup_* onboarding vėliavos.
+// „Biblioteka" = `likes` lentelė (user_id). Topas/Mėgstami = profile_favorite_*
+// įrašai su bucket overlay (sort_order). Pridėjimas = patiktukas (likes), todėl
+// importas/onboarding krenta į biblioteką, o iš ten keliama į pakopas.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { createAdminClient } from '@/lib/supabase'
 
 export type FavKind = 'artist' | 'album' | 'track'
+export type Tier = 0 | 1 | 2 // 0=biblioteka, 1=Topas, 2=Mėgstami
 
-export type FavArtist = {
-  artist_id: number
+export const TOP_CAP = 20
+export const BUCKET_CAP = 100
+
+export type MusicItem = {
+  kind: FavKind
+  id: number
+  title: string
+  subtitle: string
+  cover: string | null
+  href: string | null
+  tier: Tier
   sort_order: number
-  is_featured: boolean
-  weight: number
-  note: string | null
-  artist: { id: number; slug: string; name: string; cover_image_url: string | null } | null
 }
-export type FavAlbum = {
-  album_id: number
-  sort_order: number
-  is_featured: boolean
-  weight: number
-  note: string | null
-  album: { id: number; slug: string; title: string; cover_url: string | null; artist: { slug: string; name: string } | null } | null
-}
-export type FavTrack = {
-  track_id: number
-  sort_order: number
-  is_featured: boolean
-  weight: number
-  note: string | null
-  track: { id: number; slug: string; title: string; cover_url: string | null; artist: { slug: string; name: string } | null } | null
-}
+export type KindCollection = { top: MusicItem[]; bucket: MusicItem[]; library: MusicItem[] }
+
 export type MoodSong = {
   id: number
   track_id: number
@@ -48,22 +40,20 @@ export type MoodSong = {
   sort_order: number
   track: { id: number; slug: string; title: string; cover_url: string | null; artist: { slug: string; name: string } | null } | null
 }
-export type FavStyle = {
-  legacy_style_id: number
-  style_slug: string
-  style_name: string
-  sort_order: number
-}
+export type FavStyle = { legacy_style_id: number; style_slug: string; style_name: string; sort_order: number }
 
 export type MyMusic = {
-  artists: FavArtist[]
-  albums: FavAlbum[]
-  tracks: FavTrack[]
+  artist: KindCollection
+  album: KindCollection
+  track: KindCollection
   moodSongs: MoodSong[]
   styles: FavStyle[]
-  counts: { artists: number; albums: number; tracks: number; moodSongs: number; styles: number }
+  counts: { artists: number; albums: number; tracks: number; moodSongs: number; styles: number; top: number }
   setup: { completed: boolean; skipped: boolean; completedAt: string | null }
 }
+
+const TABLE: Record<FavKind, string> = { artist: 'profile_favorite_artists', album: 'profile_favorite_albums', track: 'profile_favorite_tracks' }
+const ID_COL: Record<FavKind, string> = { artist: 'artist_id', album: 'album_id', track: 'track_id' }
 
 // Supabase embedded to-one ryšiai kartais grąžinami kaip masyvas — normalizuojam.
 function one<T>(v: T | T[] | null | undefined): T | null {
@@ -71,68 +61,93 @@ function one<T>(v: T | T[] | null | undefined): T | null {
   return (v ?? null) as T | null
 }
 
-const TABLE: Record<FavKind, string> = {
-  artist: 'profile_favorite_artists',
-  album: 'profile_favorite_albums',
-  track: 'profile_favorite_tracks',
+function hrefFor(kind: FavKind, slug: string, id: number): string {
+  return kind === 'artist' ? `/atlikejai/${slug}` : kind === 'album' ? `/albumai/${slug}-${id}` : `/dainos/${slug}-${id}`
 }
-const ID_COL: Record<FavKind, string> = {
-  artist: 'artist_id',
-  album: 'album_id',
-  track: 'track_id',
+
+// ── Hidratuoja id → {title, subtitle, cover, slug} ─────────────────────────
+async function hydrateItems(sb: any, kind: FavKind, ids: number[]): Promise<Map<number, { title: string; subtitle: string; cover: string | null; slug: string }>> {
+  const m = new Map<number, { title: string; subtitle: string; cover: string | null; slug: string }>()
+  if (!ids.length) return m
+  const sel = kind === 'artist'
+    ? 'id, slug, name, cover_image_url'
+    : kind === 'album'
+      ? 'id, slug, title, cover_image_url, artists:artist_id(name)'
+      : 'id, slug, title, cover_url, artists:artist_id(name)'
+  const table = kind === 'artist' ? 'artists' : kind === 'album' ? 'albums' : 'tracks'
+  for (let i = 0; i < ids.length; i += 300) {
+    const { data } = await sb.from(table).select(sel).in('id', ids.slice(i, i + 300))
+    for (const r of (data || []) as any[]) {
+      if (kind === 'artist') {
+        m.set(r.id, { title: r.name, subtitle: 'Atlikėjas', cover: r.cover_image_url ?? null, slug: r.slug })
+      } else {
+        const artist = one<any>(r.artists)?.name || null
+        m.set(r.id, { title: r.title, subtitle: artist || (kind === 'album' ? 'Albumas' : 'Daina'),
+          cover: (kind === 'album' ? r.cover_image_url : r.cover_url) ?? null, slug: r.slug })
+      }
+    }
+  }
+  return m
+}
+
+// ── Surenka vienos rūšies kolekciją (top / bucket / library) ────────────────
+async function collectKind(sb: any, kind: FavKind, userId: string): Promise<KindCollection> {
+  const idCol = ID_COL[kind]
+  const [curRes, likeRes] = await Promise.all([
+    sb.from(TABLE[kind]).select(`${idCol}, bucket, sort_order`).eq('user_id', userId).in('bucket', [1, 2]),
+    sb.from('likes').select('entity_id, created_at').eq('entity_type', kind).eq('user_id', userId).not('entity_id', 'is', null).limit(3000),
+  ])
+  const curated = new Map<number, { bucket: number; sort_order: number }>()
+  for (const r of (curRes.data || []) as any[]) curated.set(r[idCol], { bucket: r.bucket, sort_order: r.sort_order ?? 0 })
+  const likedAt = new Map<number, string>()
+  for (const r of (likeRes.data || []) as any[]) {
+    const id = r.entity_id; if (id == null) continue
+    const p = likedAt.get(id); if (!p || (r.created_at && r.created_at > p)) likedAt.set(id, r.created_at || '')
+  }
+
+  const topIds = [...curated.entries()].filter(([, m]) => m.bucket === 1).sort((a, b) => a[1].sort_order - b[1].sort_order).map(e => e[0])
+  const bucketIds = [...curated.entries()].filter(([, m]) => m.bucket === 2).sort((a, b) => a[1].sort_order - b[1].sort_order).map(e => e[0])
+  const libraryIds = [...likedAt.entries()].filter(([id]) => !curated.has(id))
+    .sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : 0)).map(e => e[0]).slice(0, 1500)
+
+  const allIds = [...new Set([...topIds, ...bucketIds, ...libraryIds])]
+  const hy = await hydrateItems(sb, kind, allIds)
+  const mk = (id: number, tier: Tier, sort_order: number): MusicItem | null => {
+    const h = hy.get(id); if (!h) return null
+    return { kind, id, title: h.title, subtitle: h.subtitle, cover: h.cover, href: h.slug ? hrefFor(kind, h.slug, id) : null, tier, sort_order }
+  }
+  return {
+    top: topIds.map((id, i) => mk(id, 1, i)).filter(Boolean) as MusicItem[],
+    bucket: bucketIds.map((id, i) => mk(id, 2, i)).filter(Boolean) as MusicItem[],
+    library: libraryIds.map((id, i) => mk(id, 0, i)).filter(Boolean) as MusicItem[],
+  }
 }
 
 // ── READ: visa nario kolekcija ─────────────────────────────────────────────
 export async function getMyMusic(userId: string): Promise<MyMusic> {
   const sb = createAdminClient()
-
-  // Profilis (username reikalingas „likes" sąsajai — daug legacy patiktukų
-  // turi tik user_username, be user_id).
   const { data: prof } = await sb.from('profiles')
-    .select('username, music_setup_completed_at, music_setup_skipped')
-    .eq('id', userId).maybeSingle() as { data: any }
+    .select('username, music_setup_completed_at, music_setup_skipped').eq('id', userId).maybeSingle() as { data: any }
   const username: string | null = prof?.username || null
 
-  const [artistIds, albumIds, trackIds, moodRes, styleRes] = await Promise.all([
-    collectFavIds(sb, 'artist', userId, username),
-    collectFavIds(sb, 'album', userId, username),
-    collectFavIds(sb, 'track', userId, username),
+  // Susiejam senus „ghost" patiktukus su user_id (greita per indeksą, no-op po 1 k.)
+  if (username) { try { await sb.rpc('link_user_likes', { p_user_id: userId, p_username: username }) } catch {} }
+
+  const [artist, album, track, moodRes, styleRes] = await Promise.all([
+    collectKind(sb, 'artist', userId),
+    collectKind(sb, 'album', userId),
+    collectKind(sb, 'track', userId),
     sb.from('profile_mood_songs')
       .select('id, track_id, mood_label, is_active, sort_order, tracks:track_id(id, slug, title, cover_url, artists:artist_id(slug, name))')
       .eq('user_id', userId).order('sort_order'),
     sb.from('profile_favorite_styles')
-      .select('legacy_style_id, style_slug, style_name, sort_order')
-      .eq('profile_id', userId).order('sort_order'),
+      .select('legacy_style_id, style_slug, style_name, sort_order').eq('profile_id', userId).order('sort_order'),
   ])
 
   const mapTrackLike = (rel: any) => {
     const t = one<any>(rel)
     return t ? { id: t.id, slug: t.slug, title: t.title, cover_url: t.cover_url, artist: one(t.artists) } : null
   }
-
-  // ── Hidratuojam pavadinimus/viršelius pagal surinktus id ──────────────────
-  const [artHydra, albHydra, trkHydra] = await Promise.all([
-    hydrateIn(sb, 'artists', 'id, slug, name, cover_image_url', artistIds.ids),
-    hydrateIn(sb, 'albums', 'id, slug, title, cover_url:cover_image_url, artists:artist_id(slug, name)', albumIds.ids),
-    hydrateIn(sb, 'tracks', 'id, slug, title, cover_url, artists:artist_id(slug, name)', trackIds.ids),
-  ])
-
-  const artists: FavArtist[] = artistIds.ids.map((id, idx) => {
-    const m = artistIds.meta.get(id); const a = artHydra.get(id)
-    return { artist_id: id, sort_order: m?.sort_order ?? idx, is_featured: !!m?.is_featured, weight: m?.weight || 0, note: m?.note || null,
-      artist: a ? { id: a.id, slug: a.slug, name: a.name, cover_image_url: a.cover_image_url ?? null } : null }
-  }).filter(x => x.artist)
-  const albums: FavAlbum[] = albumIds.ids.map((id, idx) => {
-    const m = albumIds.meta.get(id); const al = albHydra.get(id)
-    return { album_id: id, sort_order: m?.sort_order ?? idx, is_featured: !!m?.is_featured, weight: m?.weight || 0, note: m?.note || null,
-      album: al ? { id: al.id, slug: al.slug, title: al.title, cover_url: al.cover_url ?? null, artist: one(al.artists) } : null }
-  }).filter(x => x.album)
-  const tracks: FavTrack[] = trackIds.ids.map((id, idx) => {
-    const m = trackIds.meta.get(id); const t = trkHydra.get(id)
-    return { track_id: id, sort_order: m?.sort_order ?? idx, is_featured: !!m?.is_featured, weight: m?.weight || 0, note: m?.note || null,
-      track: t ? { id: t.id, slug: t.slug, title: t.title, cover_url: t.cover_url ?? null, artist: one(t.artists) } : null }
-  }).filter(x => x.track)
-
   const moodSongs: MoodSong[] = (moodRes.data || []).map((r: any) => ({
     id: r.id, track_id: r.track_id, mood_label: r.mood_label || null,
     is_active: !!r.is_active, sort_order: r.sort_order, track: mapTrackLike(r.tracks),
@@ -140,10 +155,13 @@ export async function getMyMusic(userId: string): Promise<MyMusic> {
   const styles: FavStyle[] = (styleRes.data || []) as FavStyle[]
 
   return {
-    artists, albums, tracks, moodSongs, styles,
+    artist, album, track, moodSongs, styles,
     counts: {
-      artists: artists.length, albums: albums.length, tracks: tracks.length,
+      artists: artist.top.length + artist.bucket.length + artist.library.length,
+      albums: album.top.length + album.bucket.length + album.library.length,
+      tracks: track.top.length + track.bucket.length + track.library.length,
       moodSongs: moodSongs.length, styles: styles.length,
+      top: artist.top.length + album.top.length + track.top.length,
     },
     setup: {
       completed: !!prof?.music_setup_completed_at,
@@ -153,73 +171,22 @@ export async function getMyMusic(userId: string): Promise<MyMusic> {
   }
 }
 
-// ── Surenka entity id sąrašą = kuruoti (profile_favorite_*) ∪ patiktukai (likes) ──
-// Tvarka: featured pirma, tada kuruoti pagal sort_order, tada patikti-bet-nekuruoti
-// pagal patiktuko datą (naujausi viršuj). meta — kuruoto įrašo overlay.
-type FavMeta = { sort_order: number; is_featured: boolean; weight: number; note: string | null }
-async function collectFavIds(sb: any, kind: FavKind, userId: string, username: string | null): Promise<{ ids: number[]; meta: Map<number, FavMeta> }> {
-  const idCol = ID_COL[kind]
-  const [curRes, likeRes] = await Promise.all([
-    sb.from(TABLE[kind]).select(`${idCol}, sort_order, is_featured, weight, note`).eq('user_id', userId),
-    (() => {
-      let qy = sb.from('likes').select('entity_id, created_at').eq('entity_type', kind).not('entity_id', 'is', null)
-      qy = username ? qy.or(`user_id.eq.${userId},user_username.ilike.${username}`) : qy.eq('user_id', userId)
-      return qy.limit(2000)
-    })(),
-  ])
-  const meta = new Map<number, FavMeta>()
-  for (const r of (curRes.data || []) as any[]) {
-    meta.set(r[idCol], { sort_order: r.sort_order ?? 0, is_featured: !!r.is_featured, weight: r.weight || 0, note: r.note || null })
-  }
-  const likedAt = new Map<number, string>()
-  for (const r of (likeRes.data || []) as any[]) {
-    const id = r.entity_id; if (id == null) continue
-    const prev = likedAt.get(id)
-    if (!prev || (r.created_at && r.created_at > prev)) likedAt.set(id, r.created_at || '')
-  }
-  const curatedOrdered = [...meta.entries()]
-    .sort((a, b) => (Number(b[1].is_featured) - Number(a[1].is_featured)) || (a[1].sort_order - b[1].sort_order))
-    .map(e => e[0])
-  const likedOnly = [...likedAt.entries()]
-    .filter(([id]) => !meta.has(id))
-    .sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : 0))
-    .map(e => e[0])
-  const ids = [...curatedOrdered, ...likedOnly].slice(0, 800)
-  return { ids, meta }
-}
-
-async function hydrateIn(sb: any, table: string, select: string, ids: number[]): Promise<Map<number, any>> {
-  if (!ids.length) return new Map()
-  const m = new Map<number, any>()
-  // batch po 300, kad .in() neperaugtų
-  for (let i = 0; i < ids.length; i += 300) {
-    const { data } = await sb.from(table).select(select).in('id', ids.slice(i, i + 300))
-    for (const r of (data || []) as any[]) m.set(r.id, r)
-  }
-  return m
-}
-
-// ── ADD favorite (artist/album/track) ──────────────────────────────────────
-// Įdedam į galą (max sort_order + 1). Idempotentiška (ON CONFLICT skip).
-export async function addFavorite(userId: string, kind: FavKind, entityId: number) {
+// ── ADD į biblioteką = patiktukas (likes). Idempotentiška. ─────────────────
+export async function addToLibrary(userId: string, kind: FavKind, ids: number[]) {
+  if (!ids.length) return { ok: true }
   const sb = createAdminClient()
-  const table = TABLE[kind]
-  const idCol = ID_COL[kind]
-
-  const { data: maxRow } = await sb
-    .from(table).select('sort_order')
-    .eq('user_id', userId).order('sort_order', { ascending: false }).limit(1).maybeSingle()
-  const nextOrder = ((maxRow as any)?.sort_order ?? -1) + 1
-
-  const { error } = await sb
-    .from(table)
-    .upsert({ user_id: userId, [idCol]: entityId, sort_order: nextOrder }, { onConflict: `user_id,${idCol}`, ignoreDuplicates: true })
+  const { data: prof } = await sb.from('profiles').select('username').eq('id', userId).maybeSingle() as { data: any }
+  const username = prof?.username || `user_${userId.slice(0, 8)}`
+  const rows = ids.map(id => ({ entity_type: kind, entity_id: id, user_id: userId, user_username: username, source: 'auth' }))
+  const { error } = await sb.from('likes').upsert(rows, { onConflict: 'entity_type,entity_id,user_username', ignoreDuplicates: true })
   if (error) throw error
   return { ok: true }
 }
+export async function addFavorite(userId: string, kind: FavKind, entityId: number) {
+  return addToLibrary(userId, kind, [entityId])
+}
 
-// ── REMOVE favorite ────────────────────────────────────────────────────────
-// Pašalinam kuruotą įrašą IR patiktuką (kitaip likes sąsaja vėl jį parodytų).
+// ── UNLIKE — visiškai pašalina (kuruotą įrašą + patiktuką) ─────────────────
 export async function removeFavorite(userId: string, kind: FavKind, entityId: number) {
   const sb = createAdminClient()
   await sb.from(TABLE[kind]).delete().eq('user_id', userId).eq(ID_COL[kind], entityId)
@@ -230,33 +197,42 @@ export async function removeFavorite(userId: string, kind: FavKind, entityId: nu
   return { ok: true }
 }
 
-// ── REORDER — bulk upsert sort_order (įrašai gali būti tik „liked", be kuruoto
-// įrašo, todėl upsert, ne update). onConflict atnaujina tik sort_order, palieka
-// is_featured/weight/note.
-export async function reorderFavorites(userId: string, kind: FavKind, orderedIds: number[]) {
+// ── MOVE į pakopą (Topas/Mėgstami) su limitu ───────────────────────────────
+export async function moveToTier(userId: string, kind: FavKind, entityId: number, tier: 1 | 2) {
   const sb = createAdminClient()
   const idCol = ID_COL[kind]
-  const rows = orderedIds.map((id, idx) => ({ user_id: userId, [idCol]: id, sort_order: idx }))
-  if (!rows.length) return { ok: true }
-  const { error } = await sb.from(TABLE[kind]).upsert(rows, { onConflict: `user_id,${idCol}` })
+  const cap = tier === 1 ? TOP_CAP : BUCKET_CAP
+  const { data: existing } = await sb.from(TABLE[kind]).select('bucket').eq('user_id', userId).eq(idCol, entityId).maybeSingle() as { data: any }
+  if (!existing || existing.bucket !== tier) {
+    const { count } = await sb.from(TABLE[kind]).select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('bucket', tier)
+    if ((count || 0) >= cap) throw new Error(tier === 1 ? `Topas pilnas (maks. ${TOP_CAP})` : `„Mėgstami" pilnas (maks. ${BUCKET_CAP})`)
+  }
+  await addToLibrary(userId, kind, [entityId]) // užtikrinam, kad yra ir bibliotekoje
+  const { data: maxRow } = await sb.from(TABLE[kind]).select('sort_order').eq('user_id', userId).eq('bucket', tier)
+    .order('sort_order', { ascending: false }).limit(1).maybeSingle() as { data: any }
+  const nextOrder = ((maxRow?.sort_order) ?? -1) + 1
+  const { error } = await sb.from(TABLE[kind]).upsert(
+    { user_id: userId, [idCol]: entityId, bucket: tier, sort_order: nextOrder, is_featured: tier === 1 },
+    { onConflict: `user_id,${idCol}` })
   if (error) throw error
   return { ok: true }
 }
 
-// ── PATCH — is_featured / weight / note (upsert, nes gali nebūti kuruoto įrašo)
-export async function patchFavorite(
-  userId: string, kind: FavKind, entityId: number,
-  patch: { is_featured?: boolean; weight?: number; note?: string | null },
-) {
+// ── REMOVE iš pakopos → grįžta į biblioteką (lieka patiktuku) ──────────────
+export async function removeFromTier(userId: string, kind: FavKind, entityId: number) {
   const sb = createAdminClient()
-  const updates: Record<string, any> = {}
-  if (patch.is_featured !== undefined) updates.is_featured = !!patch.is_featured
-  if (patch.weight !== undefined) updates.weight = Math.max(0, Math.min(100, Math.round(patch.weight)))
-  if (patch.note !== undefined) updates.note = patch.note ? String(patch.note).slice(0, 280) : null
-  if (Object.keys(updates).length === 0) return { ok: true }
+  const { error } = await sb.from(TABLE[kind]).delete().eq('user_id', userId).eq(ID_COL[kind], entityId)
+  if (error) throw error
+  return { ok: true }
+}
+
+// ── REORDER pakopoje (drag / „šokti į vietą") — bulk upsert ────────────────
+export async function reorderTier(userId: string, kind: FavKind, tier: 1 | 2, orderedIds: number[]) {
+  const sb = createAdminClient()
   const idCol = ID_COL[kind]
-  const { error } = await sb
-    .from(TABLE[kind]).upsert({ user_id: userId, [idCol]: entityId, ...updates }, { onConflict: `user_id,${idCol}` })
+  const rows = orderedIds.map((id, idx) => ({ user_id: userId, [idCol]: id, sort_order: idx, bucket: tier }))
+  if (!rows.length) return { ok: true }
+  const { error } = await sb.from(TABLE[kind]).upsert(rows, { onConflict: `user_id,${idCol}` })
   if (error) throw error
   return { ok: true }
 }
@@ -279,7 +255,6 @@ export async function addMoodSong(userId: string, trackId: number, label?: strin
 
 export async function removeMoodSong(userId: string, trackId: number) {
   const sb = createAdminClient()
-  // Jei trinam aktyvią — išvalom profiles.mood_song_track_id
   const { data: row } = await sb.from('profile_mood_songs')
     .select('is_active').eq('user_id', userId).eq('track_id', trackId).maybeSingle()
   await sb.from('profile_mood_songs').delete().eq('user_id', userId).eq('track_id', trackId)
@@ -305,9 +280,6 @@ export async function reorderMoodSongs(userId: string, orderedIds: number[]) {
 }
 
 // ── STYLES ─────────────────────────────────────────────────────────────────
-// Katalogas — distinct music.lt stiliai iš esamų profile_favorite_styles.
-// Pakanka realaus pasirinkimo sąrašo be priklausomybės nuo genres/substyles
-// taksonomijos neatitikimų.
 export async function getStyleCatalog(): Promise<{ legacy_style_id: number; style_slug: string; style_name: string }[]> {
   const sb = createAdminClient()
   const { data } = await sb
@@ -323,7 +295,6 @@ export async function getStyleCatalog(): Promise<{ legacy_style_id: number; styl
   return [...seen.values()].sort((a, b) => a.style_name.localeCompare(b.style_name, 'lt'))
 }
 
-// Populiariausi stiliai (pagal narių pasirinkimų dažnumą) — onboarding chips.
 export async function getPopularStyles(limit = 14): Promise<{ legacy_style_id: number; style_slug: string; style_name: string }[]> {
   const sb = createAdminClient()
   const { data } = await sb
@@ -382,8 +353,6 @@ export async function markSetupSkipped(userId: string) {
 }
 
 // ── SUGGESTIONS (onboarding) ───────────────────────────────────────────────
-// Populiariausi LT atlikėjai pagal score (be Rusijos), su pasirinktinai
-// pradine stiliaus seed. Naudojama gamified susidėjimo flow.
 export async function getArtistSuggestions(opts: { limit?: number; excludeIds?: number[]; genre?: string | null } = {}) {
   const sb = createAdminClient()
   const limit = opts.limit ?? 24
@@ -393,7 +362,6 @@ export async function getArtistSuggestions(opts: { limit?: number; excludeIds?: 
     .order('score', { ascending: false, nullsFirst: false })
     .limit(limit + (opts.excludeIds?.length || 0) + 20)
   let rows = (data || []) as any[]
-  // Filtruojam Rusiją + exclude + be score
   rows = rows.filter(r => r.country !== 'Rusija')
   if (opts.excludeIds?.length) {
     const ex = new Set(opts.excludeIds)
