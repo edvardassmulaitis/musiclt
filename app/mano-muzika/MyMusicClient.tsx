@@ -320,7 +320,7 @@ function FavSection({
                 background: it.is_featured ? 'linear-gradient(90deg, rgba(249,115,22,0.10), transparent)' : 'var(--bg-surface)',
                 border: `1px solid ${dragOver === it.id ? 'var(--accent-orange)' : it.is_featured ? 'rgba(249,115,22,0.4)' : 'var(--border-default)'}`,
               }}>
-              <span className="cursor-grab active:cursor-grabbing select-none text-[var(--text-faint)] hover:text-[var(--text-primary)] px-0.5" title="Tempk">⠿</span>
+              <span className="hidden sm:inline cursor-grab active:cursor-grabbing select-none text-[var(--text-faint)] hover:text-[var(--text-primary)] px-0.5" title="Tempk">⠿</span>
               <span className="w-6 text-center text-[12px] font-black tabular-nums" style={{ color: it.is_featured ? 'var(--accent-orange)' : 'var(--text-faint)' }}>{idx + 1}</span>
               <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--cover-placeholder, var(--bg-elevated))' }}>
                 {it.cover ? (
@@ -334,10 +334,14 @@ function FavSection({
                 </div>
                 <div className="truncate text-[11.5px]" style={{ color: 'var(--text-muted)' }}>{it.sub}</div>
               </div>
-              {/* reorder arrows (mobile) */}
-              <div className="hidden sm:flex flex-col">
-                <button onClick={() => move(it.id, -1)} disabled={idx === 0} className="h-4 leading-none text-[10px] disabled:opacity-25" style={{ color: 'var(--text-faint)' }} title="Aukštyn">▲</button>
-                <button onClick={() => move(it.id, 1)} disabled={idx === items.length - 1} className="h-4 leading-none text-[10px] disabled:opacity-25" style={{ color: 'var(--text-faint)' }} title="Žemyn">▼</button>
+              {/* reorder arrows — visada matomos (vienintelis būdas mobile) */}
+              <div className="flex flex-col gap-0.5">
+                <button onClick={() => move(it.id, -1)} disabled={idx === 0} aria-label="Aukštyn"
+                  className="h-6 w-7 inline-flex items-center justify-center rounded-md text-[11px] disabled:opacity-20"
+                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }} title="Aukštyn">▲</button>
+                <button onClick={() => move(it.id, 1)} disabled={idx === items.length - 1} aria-label="Žemyn"
+                  className="h-6 w-7 inline-flex items-center justify-center rounded-md text-[11px] disabled:opacity-20"
+                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }} title="Žemyn">▼</button>
               </div>
               <button onClick={() => onFeatured(it.id, !it.is_featured)} title={it.is_featured ? 'Nuimti iškėlimą' : 'Iškelti'}
                 className="shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-lg transition-colors"
