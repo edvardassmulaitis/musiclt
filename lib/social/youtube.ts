@@ -22,6 +22,18 @@ function key(): string {
   return k
 }
 
+// fetch + klaidos iškėlimas (kitaip API 403/quota grįžta kaip JSON be throw,
+// ir feed'as tyliai lieka tuščias).
+async function ytGet(url: string): Promise<any> {
+  const res = await fetch(url)
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || data?.error) {
+    const m = data?.error?.message || `${res.status} ${res.statusText}`
+    throw new Error(`YouTube API: ${m}`)
+  }
+  return data
+}
+
 /** Iš kanalo URL / handle / ID išgauna kanalo ID (UC...). */
 export async function resolveChannelId(input: string): Promise<string | null> {
   const s = (input || '').trim()
@@ -37,23 +49,20 @@ export async function resolveChannelId(input: string): Promise<string | null> {
   if (hUrl) handle = hUrl[1]
   else if (/^@[\w.\-]+$/.test(s)) handle = s.slice(1)
   if (handle) {
-    const r = await fetch(`${API}/channels?part=id&forHandle=@${encodeURIComponent(handle)}&key=${key()}`)
-    const d = await r.json()
+    const d = await ytGet(`${API}/channels?part=id&forHandle=@${encodeURIComponent(handle)}&key=${key()}`)
     if (d?.items?.[0]?.id) return d.items[0].id
   }
   // /user/NAME (legacy)
   const user = s.match(/youtube\.com\/user\/([\w.\-]+)/)
   if (user) {
-    const r = await fetch(`${API}/channels?part=id&forUsername=${encodeURIComponent(user[1])}&key=${key()}`)
-    const d = await r.json()
+    const d = await ytGet(`${API}/channels?part=id&forUsername=${encodeURIComponent(user[1])}&key=${key()}`)
     if (d?.items?.[0]?.id) return d.items[0].id
   }
   // Paskutinė išeitis — paieška pagal /c/NAME ar tekstą (brangu: 100 vnt.)
   const cName = s.match(/youtube\.com\/c\/([\w.\-]+)/)
   const q = cName ? cName[1] : (/^https?:/.test(s) ? null : s)
   if (q) {
-    const r = await fetch(`${API}/search?part=id&type=channel&maxResults=1&q=${encodeURIComponent(q)}&key=${key()}`)
-    const d = await r.json()
+    const d = await ytGet(`${API}/search?part=id&type=channel&maxResults=1&q=${encodeURIComponent(q)}&key=${key()}`)
     if (d?.items?.[0]?.id?.channelId) return d.items[0].id.channelId
   }
   return null
@@ -61,8 +70,7 @@ export async function resolveChannelId(input: string): Promise<string | null> {
 
 /** Kanalo „uploads" playlisto ID + kanalo pavadinimas. */
 export async function getChannelInfo(channelId: string): Promise<{ uploads: string | null; title: string | null }> {
-  const r = await fetch(`${API}/channels?part=contentDetails,snippet&id=${encodeURIComponent(channelId)}&key=${key()}`)
-  const d = await r.json()
+  const d = await ytGet(`${API}/channels?part=contentDetails,snippet&id=${encodeURIComponent(channelId)}&key=${key()}`)
   const item = d?.items?.[0]
   return {
     uploads: item?.contentDetails?.relatedPlaylists?.uploads || null,
@@ -74,8 +82,7 @@ export async function getChannelInfo(channelId: string): Promise<{ uploads: stri
 export async function fetchYouTubeUploads(channelId: string, max = 12): Promise<NormalizedItem[]> {
   const { uploads } = await getChannelInfo(channelId)
   if (!uploads) return []
-  const r = await fetch(`${API}/playlistItems?part=snippet,contentDetails&maxResults=${Math.min(max, 50)}&playlistId=${encodeURIComponent(uploads)}&key=${key()}`)
-  const d = await r.json()
+  const d = await ytGet(`${API}/playlistItems?part=snippet,contentDetails&maxResults=${Math.min(max, 50)}&playlistId=${encodeURIComponent(uploads)}&key=${key()}`)
   const items: NormalizedItem[] = []
   for (const it of (d?.items || [])) {
     const vid = it?.contentDetails?.videoId || it?.snippet?.resourceId?.videoId
