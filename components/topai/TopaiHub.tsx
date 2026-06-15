@@ -113,12 +113,6 @@ const VIEW_INFO: Record<TopaiView, { h1: string; desc: string; crumb: string | n
   community: { h1: 'Music.lt bendruomenės topai', desc: 'Music.lt TOP 40 ir LT TOP 30 — bendruomenės balsavimu sudaromi savaitės topai.', crumb: 'Bendruomenė' },
 }
 
-/* Sekcijų (tipų) tvarka ir antraštės. */
-const GROUPS: { ctype: Ctype; title: string }[] = [
-  { ctype: 'songs', title: 'Dainų topai' },
-  { ctype: 'albums', title: 'Albumų topai' },
-  { ctype: 'community', title: 'Music.lt bendruomenės topai' },
-]
 
 /* ───────────────────────────── Hub ───────────────────────────── */
 export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
@@ -144,10 +138,13 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
     toCard(ext, 'agata-albums', 'lt', 'albums', { title: 'Lietuvos albumai', country: 'lt' }),
   ].filter(Boolean) as Card[]
 
-  const communityCards: Card[] = [
-    { key: 'top40', title: 'Music.lt TOP 40', href: '/top40', country: null, coverImageUrl: null, accent: null, noFlag: true, region: 'world', ctype: 'community', entries: top40, sources: [] },
+  // Music.lt bendruomenės topai priskirti LT regionui (Edvardo prašymu:
+  // Music.lt eina po Lietuva, nebe atskiras tipas) ir rodomi pirmi.
+  const communityAll: Card[] = [
+    { key: 'top40', title: 'Music.lt TOP 40', href: '/top40', country: null, coverImageUrl: null, accent: null, noFlag: true, region: 'lt', ctype: 'community', entries: top40, sources: [] },
     { key: 'top30', title: 'Music.lt LT TOP 30', href: '/top30', country: 'lt', coverImageUrl: null, accent: null, region: 'lt', ctype: 'community', entries: top30, sources: [] },
-  ].filter((c) => c.entries.length > 0) as Card[]
+  ]
+  const communityCards = communityAll.filter((c) => c.entries.length > 0)
 
   const allCards = [...songCards, ...albumCards, ...communityCards]
 
@@ -161,9 +158,21 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
   })
 
   // ── Grupavimas į sekcijas (tik netuščios) ──
-  const sections = GROUPS
-    .map((g) => ({ ...g, cards: visible.filter((c) => c.ctype === g.ctype) }))
-    .filter((g) => g.cards.length > 0)
+  // 1) Music.lt bendruomenės topai VIRŠUJE (by default).
+  // 2) Dainos + albumai sulieti į vieną bendrą sąrašą (be atskiro albumų
+  //    filtro/sekcijos — Edvardo prašymu). songCards eina prieš albumCards,
+  //    tad albumai natūraliai prikabinami sąrašo gale.
+  const communityVisible = visible.filter((c) => c.ctype === 'community')
+  const chartVisible = visible.filter((c) => c.ctype !== 'community')
+  // Bendro sąrašo antraštė pagal aktyvų tipą (landing'ams /topai/dainos, /albumai).
+  const chartTitle = view === 'songs' ? 'Dainų topai'
+    : view === 'albums' ? 'Albumų topai'
+    : 'Dainų ir albumų topai'
+  const sections: { key: string; title: string; cards: Card[] }[] = []
+  if (communityVisible.length > 0)
+    sections.push({ key: 'community', title: 'Music.lt topai', cards: communityVisible })
+  if (chartVisible.length > 0)
+    sections.push({ key: 'charts', title: chartTitle, cards: chartVisible })
 
   const info = VIEW_INFO[view]
   const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://music.lt'
@@ -215,7 +224,7 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
         <div className="tp-none">Šios kategorijos topai šiuo metu formuojasi.</div>
       ) : (
         sections.map((s) => (
-          <section key={s.ctype} className="tp-section">
+          <section key={s.key} className="tp-section">
             <h2 className="tp-sec-title">{s.title}</h2>
             <div className="tp-grid">{s.cards.map((c) => <ChartCard key={c.key} card={c} cta="Pilnas →" />)}</div>
           </section>
