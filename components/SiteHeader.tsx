@@ -176,41 +176,16 @@ const NAV: NavItem[] = [
   },
 ]
 
-/* Mobile flat-meniu sub-nuorodos — visada matomi chip'ai po kiekvienu skyriumi.
+/* Mobile flat-meniu sub-nuorodos — chip'ai TIK ten, kur yra atskiros sritys,
+   kurių nepamatai iš skyriaus pagrindinio puslapio (Koncertai, Bendruomenė).
+   Muzika/Topai/Naujienos/Skelbimai hub'ai patys viską parodo → be pills.
    Tik patvirtinti route'ai (kad nebūtų 404). */
 const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string }[]>> = {
-  muzika: [
-    { href: '/atlikejai', label: 'Atlikėjai' },
-    { href: '/albumai', label: 'Albumai' },
-    { href: '/dainos', label: 'Dainos' },
-    { href: '/zanrai', label: 'Stiliai' },
-    { href: '/nauji-atlikejai', label: 'Radaras' },
-  ],
-  topai: [
-    { href: '/top30', label: 'LT TOP 30' },
-    { href: '/top40', label: 'LT TOP 40' },
-    { href: '/topai/pasaulis', label: 'Pasaulis' },
-    { href: '/balsavimai', label: 'Balsavimai' },
-    { href: '/apdovanojimai', label: 'Apdovanojimai' },
-  ],
-  naujienos: [
-    { href: '/naujienos/lietuva', label: 'Lietuva' },
-    { href: '/naujienos/pasaulis', label: 'Pasaulis' },
-    { href: '/naujienos/tipas/interviu', label: 'Interviu' },
-    { href: '/naujienos/tipas/recenzijos', label: 'Recenzijos' },
-    { href: '/naujienos/tipas/klipai', label: 'Klipai' },
-  ],
   renginiai: [
     { href: '/festivaliai', label: 'Festivaliai' },
     { href: '/galerija', label: 'Foto reportažai' },
     { href: '/verta-keliones', label: 'Verta kelionės' },
     { href: '/koncertu-irasai', label: 'Koncertų įrašai' },
-  ],
-  skelbimai: [
-    { href: '/skelbimai/irasai', label: 'Įrašai' },
-    { href: '/skelbimai/instrumentai', label: 'Instrumentai' },
-    { href: '/skelbimai/paslaugos', label: 'Paslaugos' },
-    { href: '/skelbimai/muzikantai', label: 'Muzikantai' },
   ],
   bendruomene: [
     { href: '/vartotojai', label: 'Nariai' },
@@ -2496,13 +2471,13 @@ export function SiteHeader() {
         /* Flat blokas — skyriaus antraštė (nuoroda) + sub-nuorodų chip'ai */
         .sh-mblock {
           position: relative;
-          padding: 6px 0 12px;
+          padding: 4px 0;
           border-bottom: 1px solid var(--border-default);
         }
         .sh-mblock:last-child { border-bottom: none; }
         .sh-mblock-acc {
           position: absolute;
-          left: 0; top: 14px; height: 38px;
+          left: 0; top: 12px; height: 38px;
           width: 3px;
           border-radius: 0 3px 3px 0;
           background: var(--accent-orange);
@@ -2525,7 +2500,7 @@ export function SiteHeader() {
         /* Sub-nuorodos — visada matomi chip'ai (wrap), kiekvienas tiesioginis link'as */
         .sh-mchips {
           display: flex; flex-wrap: wrap; gap: 7px;
-          padding: 2px 16px 0 62px;
+          padding: 2px 16px 8px 62px;
         }
         .sh-mchip {
           font-size: 12.5px; font-weight: 600;
