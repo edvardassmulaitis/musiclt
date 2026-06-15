@@ -177,7 +177,7 @@ export async function addToLibrary(userId: string, kind: FavKind, ids: number[])
   const sb = createAdminClient()
   const { data: prof } = await sb.from('profiles').select('username').eq('id', userId).maybeSingle() as { data: any }
   const username = prof?.username || `user_${userId.slice(0, 8)}`
-  const rows = ids.map(id => ({ entity_type: kind, entity_id: id, user_id: userId, user_username: username, source: 'auth' }))
+  const rows = ids.map(id => ({ entity_type: kind, entity_id: id, user_id: userId, user_username: username }))
   const { error } = await sb.from('likes').upsert(rows, { onConflict: 'entity_type,entity_id,user_username', ignoreDuplicates: true })
   if (error) throw error
   return { ok: true }
