@@ -50,6 +50,7 @@ export function normalizeForMatch(s: string): string {
     .replace(/\([^)]*\bfeat[^)]*\)|\([^)]*remix[^)]*\)|\([^)]*version[^)]*\)|\([^)]*w\/[^)]*\)|\bfeat\.?\b.*$/g, '')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')   // keep ALL unicode raidžiai/skaičiai (kirilica ir kt.)
     .trim()
+    .replace(/^the\s+/, '')   // nuimam vedantį „the " (CHEMICAL BROTHERS == The Chemical Brothers)
 }
 
 /** Agresyvesnė normalizacija: pašalina VISUS skliaustus (...)  ir [...].
@@ -68,6 +69,7 @@ export function normalizeAggressive(s: string): string {
     .replace(/\[[^\]]*\]/g, '')               // visi [...]
     .replace(/[^\p{L}\p{N}]+/gu, ' ')   // keep ALL unicode raidžiai/skaičiai (kirilica ir kt.)
     .trim()
+    .replace(/^the\s+/, '')   // nuimam vedantį „the " (CHEMICAL BROTHERS == The Chemical Brothers)
 }
 
 /** Pirmas atlikėjas iš „Xcho, By Индия, МОТ" / „A feat. B" / „A & B". */
