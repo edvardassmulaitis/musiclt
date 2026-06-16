@@ -77,14 +77,20 @@ async function loadChart(slug: string) {
     const metaSrcs: string[] = Array.isArray(e.meta?.sources)
       ? Array.from(new Set(e.meta.sources.map((s: any) => SOURCE_LABEL[s.source] || s.source)))
       : []
+    // SVARBU: jei įrašas SUTVARKYTAS (priskirtas katalogo entity) — rodom
+    // katalogo title/atlikėją (švarų, kaip dainos puslapyje), NE scrape'intą
+    // tekstą („(w/ Jennie)", VISKAS DIDŽIOSIOMIS ir pan.). Fallback į raw tik
+    // kai įrašas dar nepriskirtas.
+    const cleanTitle = ent?.title || e.title
+    const cleanArtist = ar?.name || e.artist_name
     return {
       position: e.position, prevPosition: e.prev_position ?? null,
-      artistName: e.artist_name, title: e.title,
+      artistName: cleanArtist, title: cleanTitle,
       coverUrl: ent?.cover_url || ent?.cover_image_url || ytThumb(ent?.video_url) || e.cover_url || null,
       href,
       sources: metaSrcs,
       videoId: isAlbum ? null : ytId(ent?.video_url),
-      query: `${e.artist_name} ${e.title}`,
+      query: `${cleanArtist} ${cleanTitle}`,
     }
   })
 

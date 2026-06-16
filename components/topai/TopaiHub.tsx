@@ -104,14 +104,18 @@ async function getExternalCharts(sb: any) {
   const ids = charts.map((c: any) => c.id)
   const { data: entries } = await sb.from('external_chart_entries')
     .select(`chart_id, position, artist_name, title, cover_url,
-      tracks:track_id ( cover_url, video_url ), albums:album_id ( cover_image_url )`)
+      tracks:track_id ( title, cover_url, video_url, artists:artist_id ( name ) ),
+      albums:album_id ( title, cover_image_url, artists:artist_id ( name ) )`)
     .in('chart_id', ids).lte('position', 5).order('position', { ascending: true })
   const byChart = new Map<number, Entry[]>()
   for (const e of (entries || []) as any[]) {
     const tr = Array.isArray(e.tracks) ? e.tracks[0] : e.tracks
     const al = Array.isArray(e.albums) ? e.albums[0] : e.albums
+    const ent = tr || al
+    const ar = ent ? (Array.isArray(ent.artists) ? ent.artists[0] : ent.artists) : null
     const arr = byChart.get(e.chart_id) || []
-    arr.push({ position: e.position, title: e.title, artistName: e.artist_name, coverUrl: tr?.cover_url || al?.cover_image_url || ytThumb(tr?.video_url) || e.cover_url || null })
+    // Sutvarkytas (priskirtas katalogui) → rodom katalogo title/atlikėją, ne scrape'intą.
+    arr.push({ position: e.position, title: ent?.title || e.title, artistName: ar?.name || e.artist_name, coverUrl: tr?.cover_url || al?.cover_image_url || ytThumb(tr?.video_url) || e.cover_url || null })
     byChart.set(e.chart_id, arr)
   }
   const map = new Map<string, any>()
