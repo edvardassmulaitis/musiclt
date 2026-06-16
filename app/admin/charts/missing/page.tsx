@@ -94,27 +94,37 @@ function MissingRow({ m, onDone }: { m: Missing; onDone: () => void }) {
             className="rounded bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 disabled:opacity-50">Sukurti</button>
         </div>
       </div>
-      {searching && <LinkSearch defaultQuery={`${simpleArtist(m.artist)} ${cleanTitle(m.title)}`} onPick={(h) => { setSearching(false); act('link', { trackId: h.id }) }} />}
+      {searching && <LinkSearch defaultQuery={`${simpleArtist(m.artist)} ${cleanTitle(m.title)}`} fallbackQuery={cleanTitle(m.title)} onPick={(h) => { setSearching(false); act('link', { trackId: h.id }) }} />}
     </div>
   )
 }
 
-function LinkSearch({ defaultQuery, onPick }: { defaultQuery: string; onPick: (h: Hit) => void }) {
+function LinkSearch({ defaultQuery, fallbackQuery, onPick }: { defaultQuery: string; fallbackQuery?: string; onPick: (h: Hit) => void }) {
   const [q, setQ] = useState(defaultQuery)
   const [hits, setHits] = useState<Hit[]>([])
   const [loading, setLoading] = useState(false)
   const t = useRef<any>(null)
-  const run = useCallback((query: string) => {
+  // fallback: jei „atlikėjas + pavadinimas" nieko neranda (pvz. chart primary
+  // artist ≠ katalogo artist — „Шадэ" yra po Xcho, ne „Индия"), bandom dar kartą
+  // TIK su pavadinimu, kad daina vis tiek išnirtų pasirinkimui.
+  const run = useCallback((query: string, fallback?: string) => {
     if (t.current) clearTimeout(t.current)
     t.current = setTimeout(async () => {
       if (query.trim().length < 2) { setHits([]); return }
       setLoading(true)
-      const r = await fetch(`/api/search-entities?q=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => ({ results: [] }))
-      setHits((r.results || []).filter((h: Hit) => h.type === 'daina').slice(0, 6))
+      const fetchHits = async (qq: string): Promise<Hit[]> => {
+        const r = await fetch(`/api/search-entities?q=${encodeURIComponent(qq)}`).then(r => r.json()).catch(() => ({ results: [] }))
+        return (r.results || []).filter((h: Hit) => h.type === 'daina').slice(0, 6)
+      }
+      let res = await fetchHits(query)
+      if (res.length === 0 && fallback && fallback.trim() && fallback.trim() !== query.trim()) {
+        res = await fetchHits(fallback)
+      }
+      setHits(res)
       setLoading(false)
     }, 250)
   }, [])
-  useEffect(() => { run(defaultQuery) }, [defaultQuery, run])
+  useEffect(() => { run(defaultQuery, fallbackQuery) }, [defaultQuery, fallbackQuery, run])
   return (
     <div className="ml-12 mt-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
       <input autoFocus value={q} onChange={e => { setQ(e.target.value); run(e.target.value) }}
