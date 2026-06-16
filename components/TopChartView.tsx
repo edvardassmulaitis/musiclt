@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
+import { ChartYtPlayer } from '@/components/ChartYtPlayer'
 
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type Track = {
@@ -117,51 +118,6 @@ function TrendIndicator({ curr, prev, isNew, weeksInTop }: {
   if (curr < prev) return <span className="tcv-up">↑{prev - curr}</span>
   if (curr > prev) return <span className="tcv-down">↓{curr - prev}</span>
   return <span className="tcv-same">—</span>
-}
-
-/**
- * PlayerView — VIZUALUS player'is (poster + tuščias „slot"). Grojimą valdo
- * tėvas (TopChartView): paspaudus dainos eilutę, iframe kuriamas SINKRONIŠKAI
- * tame pačiame click handler'yje (user-gesture išsaugomas → autoplay iOS/Chrome).
- * Tai panaikina tarpinį „paspausk poster play" žingsnį — viena paspaudimas ant
- * dainos iškart bando groti (kaip /topai pilnuose topuose).
- *
- * `slotRef` ir `playing` valdomi tėvo; čia tik atvaizdavimas.
- */
-function PlayerView({ entry, accent, playing, slotRef, onPlay }: {
-  entry: Entry | null; accent: ThemeAccent; playing: boolean;
-  slotRef: React.RefObject<HTMLDivElement | null>; onPlay: () => void;
-}) {
-  const [imgErr, setImgErr] = useState(false)
-  useEffect(() => { setImgErr(false) }, [entry?.id])
-
-  const vid = entry?.tracks ? getYouTubeId(entry.tracks.video_url) : null
-  const cover = entry?.tracks?.cover_url
-
-  return (
-    <div className={`tcv-player${!entry?.tracks ? ' tcv-player-empty' : ''}`}>
-      <div className="tcv-player-video">
-        {/* slotRef visada montuotas — playing=true tik perjungia matomumą */}
-        <div ref={slotRef} style={{ width: '100%', height: '100%', display: playing ? 'block' : 'none' }} />
-        {!playing && (
-          <div className="tcv-thumb" onClick={onPlay} style={{ cursor: vid ? 'pointer' : 'default' }}>
-            {vid && !imgErr ? (
-              <img src={`https://img.youtube.com/vi/${vid}/maxresdefault.jpg`} alt="" className="tcv-thumb-img" onError={() => setImgErr(true)} />
-            ) : cover ? (
-              <img src={cover} alt="" className="tcv-thumb-img" />
-            ) : (
-              <div className="tcv-thumb-empty" />
-            )}
-            {vid && (
-              <div className="tcv-play-btn" style={{ background: accent.hex }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
 }
 
 function SuggestModal({ onClose, topType }: { onClose: () => void; topType: string }) {
@@ -553,29 +509,14 @@ export default function TopChartView({
   const [votesRemaining, setVotesRemaining] = useState(weeklyLimit)
   const [showSuggest, setShowSuggest] = useState(false)
   const [activeEntry, setActiveEntry] = useState<Entry | null>(data.entries[0] ?? null)
-  // Player'is valdomas tėvo lygyje, kad paspaudus dainos eilutę iframe būtų
-  // sukurtas SINKRONIŠKAI tame pačiame click'e (autoplay user-gesture).
+  // Player'is — bendras ChartYtPlayer (YT IFrame API; logika iš atlikėjo psl.).
+  // Paspaudus dainą: parenkam ją + playing=true; ChartYtPlayer kuria YT.Player
+  // (desktop) / muted-autoplay+unmute (mobile) ir perjungia per loadVideoById.
   const [playing, setPlaying] = useState(false)
-  const playerSlotRef = useRef<HTMLDivElement | null>(null)
 
   const play = useCallback((entry: Entry) => {
     setActiveEntry(entry)
-    const vid = entry.tracks ? getYouTubeId(entry.tracks.video_url) : null
-    if (!vid || !playerSlotRef.current) { setPlaying(false); return }
-    const origin = typeof window !== 'undefined' ? `&origin=${encodeURIComponent(window.location.origin)}` : ''
-    const iframe = document.createElement('iframe')
-    iframe.src = `https://www.youtube.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin}`
-    iframe.allow = 'autoplay; encrypted-media; picture-in-picture'
-    iframe.allowFullscreen = true
-    iframe.style.cssText = 'width:100%;height:100%;border:0;display:block;'
-    iframe.title = entry.tracks?.title || ''
-    playerSlotRef.current.innerHTML = ''
-    playerSlotRef.current.appendChild(iframe)
     setPlaying(true)
-    // „playVideo" stūmis po load — kur naršyklės politika leidžia (autoplay=1
-    // vien per URL kartais nepakanka).
-    const nudge = () => { try { iframe.contentWindow?.postMessage('{"event":"command","func":"playVideo","args":""}', '*') } catch {} }
-    iframe.addEventListener('load', () => { nudge(); setTimeout(nudge, 300); setTimeout(nudge, 900) })
   }, [])
 
   // Padalinam entries pagal state'ą. weeks_in_top yra primary skirstymo
@@ -607,7 +548,6 @@ export default function TopChartView({
   useEffect(() => {
     setActiveEntry(data.entries[0] ?? null)
     setPlaying(false)
-    if (playerSlotRef.current) playerSlotRef.current.innerHTML = ''
   }, [data])
 
   const loadVoteStatus = useCallback(async () => {
@@ -1382,12 +1322,22 @@ export default function TopChartView({
                       </button>
                     )}
                   </div>
-                  <PlayerView
-                    entry={activeEntry}
-                    accent={accent}
+                  <ChartYtPlayer
+                    videoId={activeEntry?.tracks ? getYouTubeId(activeEntry.tracks.video_url) : null}
                     playing={playing}
-                    slotRef={playerSlotRef}
-                    onPlay={() => activeEntry && play(activeEntry)}
+                    posterUrl={getCoverUrl(activeEntry?.tracks ?? null)}
+                    accentHex={accent.hex}
+                    title={activeEntry?.tracks?.title}
+                    onActivate={() => activeEntry && setPlaying(true)}
+                    onEnded={() => {
+                      const all = data.entries
+                      const idx = all.findIndex(e => e.id === activeEntry?.id)
+                      if (idx < 0) return
+                      for (let i = 1; i <= all.length; i++) {
+                        const cand = all[(idx + i) % all.length]
+                        if (cand?.tracks && getYouTubeId(cand.tracks.video_url)) { play(cand); return }
+                      }
+                    }}
                   />
                 </div>
               </div>

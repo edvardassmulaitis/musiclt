@@ -1,8 +1,9 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
+import { ChartYtPlayer } from '@/components/ChartYtPlayer'
 
 export type FullEntry = {
   position: number
@@ -57,34 +58,21 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
     return i >= 0 ? i : 0
   })
   const [playing, setPlaying] = useState(false)
-  const slotRef = useRef<HTMLDivElement>(null)   // JS-owned; JSX NIEKADA neranderina vaikų
   const playable = !chart.isAlbum
   const current = entries[sel]
 
-  // Iframe kuriamas SINKRONIŠKAI click handler'yje (iOS autoplay patikimumui).
-  // Slotas JSX'e tuščias → React nereconcilina iframe'o (stable wrapper pattern).
+  // Grojimą valdo bendras ChartYtPlayer (YT IFrame API). Čia tik parenkam
+  // dainą + playing=true; track switch'ai per loadVideoById player'io viduje.
   const play = (idx: number) => {
     setSel(idx)
     setPlaying(true)
-    if (!playable || !slotRef.current) return
-    const e = entries[idx]
-    const origin = typeof window !== 'undefined' ? `&origin=${encodeURIComponent(window.location.origin)}` : ''
-    // enablejsapi=1 → galim postMessage'inti playVideo komandą (nudge), kad
-    // grojimas startuotų ten, kur naršyklės autoplay politika leidžia.
-    const src = e.videoId
-      ? `https://www.youtube.com/embed/${e.videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin}`
-      : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(e.query)}&autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin}`
-    slotRef.current.innerHTML = ''
-    const f = document.createElement('iframe')
-    f.src = src
-    f.allow = 'autoplay; encrypted-media; picture-in-picture'
-    f.allowFullscreen = true
-    f.title = e.title
-    slotRef.current.appendChild(f)
-    // Pakartotinis „playVideo" stūmis po load — kai kurios naršyklės reikalauja
-    // komandos po embed paruošimo (autoplay=1 vien per URL nepakanka).
-    const nudge = () => { try { f.contentWindow?.postMessage('{"event":"command","func":"playVideo","args":""}', '*') } catch {} }
-    f.addEventListener('load', () => { nudge(); setTimeout(nudge, 300); setTimeout(nudge, 800) })
+  }
+  // Pasibaigus dainai — kita su video/užklausa (rollover).
+  const advanceNext = () => {
+    for (let i = 1; i <= entries.length; i++) {
+      const cand = entries[(sel + i) % entries.length]
+      if (cand && (cand.videoId || cand.query)) { play((sel + i) % entries.length); return }
+    }
   }
 
   return (
@@ -100,17 +88,16 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
               {/* Topo pavadinimas — header juosta VIRŠ player'io (ne overlay ant
                   video, kad gerai skaitytųsi). */}
               <div className="cfv-phead"><Flag country={chart.country} /><h1 className="cfv-h1">{chart.title}</h1></div>
-              <div className="cfv-video">
-                <div className="cfv-slot" ref={slotRef} />
-                {!playing && (
-                  <button className="cfv-poster" onClick={() => play(sel)} type="button" aria-label="Groti">
-                    {current?.coverUrl
-                      ? <img src={proxyImg(current.coverUrl, 320)} alt="" />
-                      : <span className="cfv-video-ph">♪</span>}
-                    <span className="cfv-bigplay">▶</span>
-                  </button>
-                )}
-              </div>
+              <ChartYtPlayer
+                videoId={current?.videoId ?? null}
+                query={current?.query}
+                playing={playing}
+                posterUrl={current?.coverUrl ? proxyImg(current.coverUrl, 320) : null}
+                accentHex={chart.accent || '#f97316'}
+                title={current?.title}
+                onActivate={() => setPlaying(true)}
+                onEnded={advanceNext}
+              />
             </div>
           </aside>
         )}
