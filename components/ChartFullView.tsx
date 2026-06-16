@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
-import { ChartYtPlayer } from '@/components/ChartYtPlayer'
+import { ChartYtPlayer, type ChartYtPlayerHandle } from '@/components/ChartYtPlayer'
 
 export type FullEntry = {
   position: number
@@ -58,14 +58,17 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
     return i >= 0 ? i : 0
   })
   const [playing, setPlaying] = useState(false)
+  const ytRef = useRef<ChartYtPlayerHandle>(null)
   const playable = !chart.isAlbum
   const current = entries[sel]
 
-  // Grojimą valdo bendras ChartYtPlayer (YT IFrame API). Čia tik parenkam
-  // dainą + playing=true; track switch'ai per loadVideoById player'io viduje.
+  // Grojimą valdo bendras ChartYtPlayer (YT IFrame API). playNow kviečiamas
+  // SINKRONIŠKAI šiame click handler'yje (gesture → autoplay su garsu, 1 tap).
   const play = (idx: number) => {
     setSel(idx)
     setPlaying(true)
+    const v = entries[idx]?.videoId
+    if (v) ytRef.current?.playNow(v)
   }
   // Pasibaigus dainai — kita su video/užklausa (rollover).
   const advanceNext = () => {
@@ -89,13 +92,14 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
                   video, kad gerai skaitytųsi). */}
               <div className="cfv-phead"><Flag country={chart.country} /><h1 className="cfv-h1">{chart.title}</h1></div>
               <ChartYtPlayer
+                ref={ytRef}
                 videoId={current?.videoId ?? null}
                 query={current?.query}
                 playing={playing}
                 posterUrl={current?.coverUrl ? proxyImg(current.coverUrl, 320) : null}
                 accentHex={chart.accent || '#f97316'}
                 title={current?.title}
-                onActivate={() => setPlaying(true)}
+                onActivate={() => { setPlaying(true); if (current?.videoId) ytRef.current?.playNow(current.videoId) }}
                 onEnded={advanceNext}
               />
             </div>

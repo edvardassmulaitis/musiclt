@@ -567,12 +567,6 @@ function PlayerCard({
   const [embedDisabled, setEmbedDisabled] = useState<Set<string>>(new Set())
   const isEmbedDisabled = !!displayVid && embedDisabled.has(displayVid)
 
-  // Mobile mute hint state — kai mobile'e iframe paleidziamas su mute=1,
-  // rodom small badge "🔊 Garsui". Paspaudus → playerRef.current.unMute().
-  // YT.Player JS API tvarko visa unmute logika natively, jokio postMessage
-  // hack'o ne reik.
-  const [needsUnmute, setNeedsUnmute] = useState(false)
-
   // Pre-flight embeddable check — apsisaugom mobile case'e (kur YT.Player
   // onError negaunamas, plain iframe'e tik juodas langas su YouTube error
   // tekstu) ir greitesnis fallback'as desktop'e (nelaukiam YT.Player onError).
@@ -596,26 +590,6 @@ function PlayerCard({
     return () => { cancelled = true }
   }, [displayVid])
   // Mobile detection — Safari iOS / Android Chrome turi griežtas autoplay
-  // taisykles: YT.Player(target) sukuriamas useEffect'e (po setState/render),
-  // ne tap handler'yje, todėl gesture context prarastas → autoplay blokuojamas.
-  // Mobile'e renderinam plain `<iframe>` su autoplay=1 — iframe mount'inamas
-  // tame pačiame React render'yje kaip ir click event, Safari leidžia.
-  const [isMobileVP, setIsMobileVP] = useState(false)
-  useEffect(() => {
-    const m = window.matchMedia('(max-width: 1023px)')
-    setIsMobileVP(m.matches)
-    const h = (e: MediaQueryListEvent) => setIsMobileVP(e.matches)
-    m.addEventListener('change', h)
-    return () => m.removeEventListener('change', h)
-  }, [])
-
-  // Mobile needsUnmute initialization — tik kai pradedame playback su mute=1.
-  // YT.Player onReady auto-bandys unmute'inti per 800/1600/3000ms timer'ius;
-  // jei pavyks, badge dings (žr. CREATE useEffect onReady).
-  useEffect(() => {
-    setNeedsUnmute(isMobileVP && playing && !isEmbedDisabled && !!displayVid)
-  }, [isMobileVP, playing, displayVid, isEmbedDisabled])
-
   // Load the IFrame API script once per session.
   useEffect(() => {
     const W = window as any
@@ -680,9 +654,16 @@ function PlayerCard({
   useEffect(() => { tracksAllTimeRef.current = tracksAllTime }, [tracksAllTime])
   useEffect(() => { tracksTrendingRef.current = tracksTrending }, [tracksTrending])
   useEffect(() => { onSelectTrackRef.current = onSelectTrack }, [onSelectTrack])
+  // Ar vartotojas jau nori groti — kad cued player'is per onReady paleistų
+  // tik tada (pre-create vyksta dar prieš pirmą tap'ą).
+  const playingRef = useRef(playing)
+  useEffect(() => { playingRef.current = playing }, [playing])
 
   useEffect(() => {
-    if (!apiReady || !playing || !displayVid || !containerRef.current) return
+    // PRE-CREATE cued (autoplay=0) kai tik turim displayVid → player'is READY
+    // dar prieš pirmą tap'ą. Grojimas paleidžiamas SINKRONIŠKAI tap handler'yje
+    // (handleSelect / overlay) → playVideo gesture → 1 tap su garsu (įsk. iOS).
+    if (!apiReady || !displayVid || !containerRef.current) return
     if (isEmbedDisabled) return
     if (playerRef.current) return  // jau sukurta — track switch'ai per loadVideoById
 
@@ -705,8 +686,7 @@ function PlayerCard({
       width: '100%',
       height: '100%',
       playerVars: {
-        autoplay: 1,
-        mute: isMobileVP ? 1 : 0,  // Mobile'e visada mute=1 (iOS strict)
+        autoplay: 0,   // cued; grojam per gesture playVideo (su garsu, be mute)
         controls: 1,
         modestbranding: 1,
         rel: 0,
@@ -717,14 +697,8 @@ function PlayerCard({
       },
       events: {
         onReady: (e: any) => {
-          try { e.target.playVideo() } catch {}
-          // Mobile auto-unmute attempts po start'o.
-          if (isMobileVP) {
-            const tryUnmute = () => { try { e.target.unMute() } catch {} }
-            setTimeout(tryUnmute, 800)
-            setTimeout(tryUnmute, 1600)
-            setTimeout(tryUnmute, 3000)
-          }
+          // Jei vartotojas jau paspaudė (dar player'iui kuriantis) — paleidžiam.
+          if (playingRef.current) { try { e.target.playVideo() } catch {} }
         },
         onStateChange: (e: any) => {
           // YT player states: -1=unstarted, 0=ended, 1=playing,
@@ -776,7 +750,7 @@ function PlayerCard({
     // Po stale closure fix'o deps mažesni — vidiniai callback'ai naudoja
     // ref'us, todėl track sąrašas / activeTrackId nereikalingi triggerinti
     // re-creation. Player'is sukuriamas tik vieną kartą per session.
-  }, [apiReady, playing, displayVid, isEmbedDisabled, isMobileVP])
+  }, [apiReady, displayVid, isEmbedDisabled])
 
   // VIDEO CHANGE — kai displayVid pasikeičia, naudojam loadVideoById vietoj
   // destroy+recreate. Iframe lieka tas pats, gesture context tarp track'ų
@@ -823,11 +797,27 @@ function PlayerCard({
   //   - Jei kitas track ARBA dar nepradėjus → start playback (set state
   //     activeTrackId + playing=true, ping play count)
   // Iframe'as pakeičia src per `key` rebuild → autoplay=1 paleidžia.
+  // Gesture playback — paleidžiam SINKRONIŠKAI tame pačiame tap'e (1 click,
+  // su garsu). playVideo/loadVideoById ant READY player'io per user-gesture
+  // leidžiamas visur (įsk. iOS).
+  const playInGesture = (id: number) => {
+    const tr = [...tracksAllTime, ...tracksTrending].find(t => t.id === id)
+    const vid = yt(tr?.video_url)
+    const p = playerRef.current
+    if (p && vid) {
+      try {
+        if ((p as any)._vid !== vid) { p.loadVideoById(vid); (p as any)._vid = vid }
+        else p.playVideo()
+      } catch {}
+    }
+  }
+
   const handleSelect = (id: number) => {
     if (id === activeTrackId && playing) return  // already playing this track
     onSelectTrack(id)
     onRequestPlay()
     pingPlay(id)
+    playInGesture(id)
   }
 
   return (
@@ -884,26 +874,6 @@ function PlayerCard({
               ref={containerRef}
               className={`absolute inset-0 h-full w-full ${isEmbedDisabled || !playing ? 'hidden' : ''}`}
             />
-            {/* Mobile unmute hint — kai mobile'e paleidžiam su mute=1,
-                rodom mažą semi-transparent badge top-right kampe.
-                Paspaudus — kvieci YT.Player.unMute() (gesture preserved)
-                + skipped per session po pirmo unmute'o. */}
-            {playing && !isEmbedDisabled && isMobileVP && needsUnmute && (
-              <button
-                type="button"
-                onClick={() => {
-                  try { playerRef.current?.unMute?.() } catch {}
-                  setNeedsUnmute(false)
-                }}
-                className="absolute right-2 top-2 z-20 flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur-sm px-3 py-1.5 text-white text-xs font-bold shadow-lg ring-1 ring-white/20 hover:bg-black/85 transition-colors"
-                title="Įjungti garsą"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                </svg>
-                Garsui
-              </button>
-            )}
             {/* Fallback kai embed'as išjungtas (Klaida 153 / kodai 101, 150).
                 Rodom thumbnail + "Žiūrėti YouTube'e" CTA. Veikia tiek desktop
                 (po YT.Player onError), tiek mobile (po pre-flight check'o
@@ -951,7 +921,7 @@ function PlayerCard({
                 const target = activeTrackId ?? firstWithVideo?.id
                 if (target != null && target !== activeTrackId) onSelectTrack(target)
                 onRequestPlay()
-                if (target != null) pingPlay(target)
+                if (target != null) { pingPlay(target); playInGesture(target) }
               }}
               aria-label="Paleisti"
               className="group absolute inset-0 z-10 block cursor-pointer overflow-hidden border-0 p-0"

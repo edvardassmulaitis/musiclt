@@ -13,7 +13,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { ChartYtPlayer } from '@/components/ChartYtPlayer'
+import { ChartYtPlayer, type ChartYtPlayerHandle } from '@/components/ChartYtPlayer'
 
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type Track = {
@@ -513,10 +513,13 @@ export default function TopChartView({
   // Paspaudus dainą: parenkam ją + playing=true; ChartYtPlayer kuria YT.Player
   // (desktop) / muted-autoplay+unmute (mobile) ir perjungia per loadVideoById.
   const [playing, setPlaying] = useState(false)
+  const ytRef = useRef<ChartYtPlayerHandle>(null)
 
   const play = useCallback((entry: Entry) => {
     setActiveEntry(entry)
     setPlaying(true)
+    const vid = entry.tracks ? getYouTubeId(entry.tracks.video_url) : null
+    if (vid) ytRef.current?.playNow(vid)
   }, [])
 
   // Padalinam entries pagal state'ą. weeks_in_top yra primary skirstymo
@@ -1323,12 +1326,13 @@ export default function TopChartView({
                     )}
                   </div>
                   <ChartYtPlayer
+                    ref={ytRef}
                     videoId={activeEntry?.tracks ? getYouTubeId(activeEntry.tracks.video_url) : null}
                     playing={playing}
                     posterUrl={getCoverUrl(activeEntry?.tracks ?? null)}
                     accentHex={accent.hex}
                     title={activeEntry?.tracks?.title}
-                    onActivate={() => activeEntry && setPlaying(true)}
+                    onActivate={() => { if (!activeEntry) return; setPlaying(true); const v = activeEntry.tracks ? getYouTubeId(activeEntry.tracks.video_url) : null; if (v) ytRef.current?.playNow(v) }}
                     onEnded={() => {
                       const all = data.entries
                       const idx = all.findIndex(e => e.id === activeEntry?.id)
