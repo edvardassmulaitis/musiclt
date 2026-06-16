@@ -133,7 +133,7 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
   const idCol = ID_COL[kind]
   const [curRes, likeRes, srRes] = await Promise.all([
     sb.from(TABLE[kind]).select(`${idCol}, sort_order`).eq('user_id', userId).eq('bucket', 1).order('sort_order'),
-    sb.from('likes').select('entity_id, created_at, weight').eq('entity_type', kind).eq('user_id', userId).not('entity_id', 'is', null).limit(3000),
+    sb.from('likes').select('entity_id, created_at, weight').eq('entity_type', kind).eq('user_id', userId).not('entity_id', 'is', null).limit(5000),
     sb.from('profile_style_ranks').select('entity_id, style_key, sort_order').eq('user_id', userId).eq('kind', kind),
   ])
   // Per-stilių rangai: entity_id → { style_key → rangas }.
@@ -152,7 +152,7 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
   }
   // Kandidatai bibliotekai (visi patiktukai, kurie nėra rikiuoti). Hidratuojam
   // kartu su rikiuotais, tada biblioteką rikiuojam pagal music.lt populiarumą.
-  const likedCandidates = [...likedAt.keys()].slice(0, 2000)
+  const likedCandidates = [...likedAt.keys()].slice(0, 3500)
 
   const allIds = [...new Set([...rankedIds, ...likedCandidates])]
   const hy = await hydrateItems(sb, kind, allIds)
@@ -169,7 +169,7 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
       else if (wb != null) return 1
       return ((hy.get(b)!.pop) - (hy.get(a)!.pop)) || ((likedAt.get(a) || '') < (likedAt.get(b) || '') ? 1 : -1)
     })
-    .slice(0, 1500)
+    .slice(0, 3000)
   // stilius — pagal pagrindinį atlikėjo žanrą; substiliai — iš artist_substyles.
   const artistIds: number[] = []
   for (const id of allIds) { const h = hy.get(id); if (h?.artist_id) artistIds.push(h.artist_id) }

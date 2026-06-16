@@ -31,8 +31,13 @@ const FULL_STREAMS: Stream[] = [
   { kind: 'track',  method: 'user.getrecenttracks', root: 'recenttracks', listKey: 'track',  extra: '',               cap: 5000 },
 ]
 const PER_PAGE = 200
-const FETCH_PAGES_PER_TICK = 20   // kiek Last.fm puslapių vienam fetch žingsniui
-const MATCH_BATCH = 150           // kiek įrašų atpažįstame per batch'ą
+// THROTTLE: laikom DB apkrovą žemą (importas neturi trukdyti svetainei).
+const FETCH_PAGES_PER_TICK = 8    // kiek Last.fm puslapių vienam fetch žingsniui
+const MATCH_BATCH = 60            // kiek įrašų atpažįstame per batch'ą
+const MATCH_CONCURRENCY = 3       // DB paieškų lygiagretumas (buvo 6)
+const MAX_BATCHES_PER_TICK = 3    // daugiausia batch'ų per cron tick'ą (~180 įrašų/min)
+const BATCH_PAUSE_MS = 500        // pauzė tarp batch'ų — atokvėpis DB
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 function normKey(kind: string, artist: string, title: string | null): string {
   return `${kind}|${(artist || '').toLowerCase().trim()}|${(title || '').toLowerCase().trim()}`
@@ -117,12 +122,16 @@ export async function processJobs(budgetMs = 45000): Promise<{ ok: boolean; idle
   const t0 = Date.now()
   try {
     let cur: any = job
+    let matchBatches = 0
     while (Date.now() - t0 < budgetMs) {
       if (cur.phase === 'fetch') {
         await fetchTick(sb, cur)
       } else if (cur.phase === 'match') {
         const more = await matchTick(sb, cur)
         if (!more) break
+        // THROTTLE: ribojam batch'ų skaičių + pauzė, kad neapkrautume DB.
+        if (++matchBatches >= MAX_BATCHES_PER_TICK) break
+        await sleep(BATCH_PAUSE_MS)
       } else break
       const { data: fresh } = await sb.from('music_import_jobs').select('*').eq('id', job.id).maybeSingle()
       if (!fresh) break
@@ -202,7 +211,7 @@ async function matchTick(sb: any, job: any): Promise<boolean> {
     else raw.tracks!.push({ artist: it.raw_artist, title: it.raw_title })
   }
 
-  const staged = await matchItems(raw, { perKindLimit: MATCH_BATCH })
+  const staged = await matchItems(raw, { perKindLimit: MATCH_BATCH, concurrency: MATCH_CONCURRENCY })
   const mArtists = staged.artists.filter(h => h.matched && h.id).map(h => h.id!)
   const mAlbums = staged.albums.filter(h => h.matched && h.id).map(h => h.id!)
   const mTracks = staged.tracks.filter(h => h.matched && h.id).map(h => h.id!)

@@ -64,16 +64,17 @@ function nameMatches(query: string, result: string): boolean {
 }
 
 // ── MATCHER ────────────────────────────────────────────────────────────────
-export async function matchItems(items: RawItems, opts: { perKindLimit?: number } = {}): Promise<StagedResult> {
+export async function matchItems(items: RawItems, opts: { perKindLimit?: number; concurrency?: number } = {}): Promise<StagedResult> {
   const sb = createAdminClient()
   const cap = opts.perKindLimit ?? 500
+  const cc = opts.concurrency ?? 6   // foniniam importui mažinam, kad neapkrautume DB
 
   const artists = (items.artists || []).slice(0, cap)
   const tracks = (items.tracks || []).slice(0, cap)
   const albums = (items.albums || []).slice(0, cap)
 
-  // ARTISTS — top-1 per searchArtistsCore (concurrency 6)
-  const artistHits: StagedHit[] = await mapLimit(artists, 6, async (a) => {
+  // ARTISTS — top-1 per searchArtistsCore
+  const artistHits: StagedHit[] = await mapLimit(artists, cc, async (a) => {
     const res = await searchArtistsCore(sb, a.name, { limit: 1, select: 'id, name, slug, cover_image_url, score' })
     const top = res[0]
     const pop = Number(a.meta?.playcount) || 0
@@ -85,9 +86,9 @@ export async function matchItems(items: RawItems, opts: { perKindLimit?: number 
   })
 
   // TRACKS — compound „artist title" → searchTracksCore → hydrate
-  const trackHits = await matchTrackish(sb, tracks, 'track')
+  const trackHits = await matchTrackish(sb, tracks, 'track', cc)
   // ALBUMS
-  const albumHits = await matchTrackish(sb, albums, 'album')
+  const albumHits = await matchTrackish(sb, albums, 'album', cc)
 
   const all = [...artistHits, ...trackHits, ...albumHits]
   const matched = all.filter(h => h.matched).length
@@ -97,8 +98,8 @@ export async function matchItems(items: RawItems, opts: { perKindLimit?: number 
   }
 }
 
-async function matchTrackish(sb: any, items: RawTrackish[], kind: 'track' | 'album'): Promise<StagedHit[]> {
-  return mapLimit(items, 6, async (it) => {
+async function matchTrackish(sb: any, items: RawTrackish[], kind: 'track' | 'album', cc = 6): Promise<StagedHit[]> {
+  return mapLimit(items, cc, async (it) => {
     const q = `${it.artist} ${it.title}`.trim()
     const raw = it.title
     const ids = kind === 'track'
@@ -179,20 +180,14 @@ export async function revertImportBatch(userId: string, opts: { batchId?: string
     await sb.from('music_import_jobs').update({ status: 'canceled', locked_at: null }).eq('id', (batch as any).job_id).in('status', ['queued', 'running'])
   }
 
-  const { data: added } = await sb.from('music_import_added').select('kind, entity_id').eq('batch_id', (batch as any).id)
-  const byKind: Record<string, number[]> = { artist: [], album: [], track: [] }
-  for (const r of ((added || []) as any[])) if (byKind[r.kind]) byKind[r.kind].push(r.entity_id)
-  let removed = 0
-  for (const kind of ['artist', 'album', 'track']) {
-    const ids = byKind[kind]
-    for (let i = 0; i < ids.length; i += 200) {
-      const chunk = ids.slice(i, i + 200)
-      await sb.from('likes').delete().eq('user_id', userId).eq('entity_type', kind).in('entity_id', chunk)
-      removed += chunk.length
-    }
-  }
+  // Vienas serverinis DELETE (RPC) — atsparu statement_timeout'ui ant didelės
+  // likes lentelės (anksčiau chunked JS deletes likdavo nepilni).
+  const { data: removedCount, error: rpcErr } = await sb.rpc('revert_import_batch', {
+    p_batch_id: (batch as any).id, p_user_id: userId,
+  })
+  if (rpcErr) return { ok: false, removed: 0, error: rpcErr.message }
   await sb.from('music_import_batches').update({ status: 'reverted', reverted_at: new Date().toISOString() }).eq('id', (batch as any).id)
-  return { ok: true, removed }
+  return { ok: true, removed: Number(removedCount) || 0 }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

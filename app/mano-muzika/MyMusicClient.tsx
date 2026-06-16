@@ -249,7 +249,7 @@ type TrackSug = { id: number; slug: string; title: string; cover_url: string | n
 function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: MusicItem[]; onMove: (it: MusicItem, pos: number) => void; onUnlike: (it: MusicItem) => void }) {
   const [q, setQ] = useState('')
   const [sort, setSort] = useState<'order' | 'az' | 'style'>('order')
-  const [limit, setLimit] = useState(60)
+  const [limit, setLimit] = useState(200)
   const [jumpId, setJumpId] = useState<number | null>(null)
   const dragId = useRef<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
@@ -275,7 +275,7 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
         <h2 className="text-[15px] font-black flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><span style={{ color: 'var(--accent-orange)' }}><Ico name="heartFull" size={15} /></span> Mėgstami <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></h2>
         {items.length > 0 && (
           <div className="flex items-center gap-2">
-            <input value={q} onChange={e => { setQ(e.target.value); setLimit(60) }} placeholder="Ieškoti sąraše..." className="w-[200px] sm:w-[240px] rounded-lg px-3 py-1.5 text-[12.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+            <input value={q} onChange={e => { setQ(e.target.value); setLimit(200) }} placeholder="Ieškoti sąraše..." className="w-[200px] sm:w-[240px] rounded-lg px-3 py-1.5 text-[12.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
             <button onClick={nextSort} className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>{sortLabel} <Ico name="sort" size={12} /></button>
           </div>
         )}
@@ -319,7 +319,7 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
               </div>
             )
           })}
-          {view.length > limit && <div className="mt-1 text-center"><button onClick={() => setLimit(l => l + 60)} className="rounded-full px-5 py-2 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({view.length - limit})</button></div>}
+          {view.length > limit && <div className="mt-1 flex items-center justify-center gap-2"><button onClick={() => setLimit(l => l + 200)} className="rounded-full px-5 py-2 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({view.length - limit})</button><button onClick={() => setLimit(view.length)} className="rounded-full px-4 py-2 text-[12.5px] font-bold" style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>Rodyti visus</button></div>}
           {view.length === 0 && <div className="text-center text-[12px] py-4" style={{ color: 'var(--text-faint)' }}>Nieko nerasta.</div>}
         </div>
       )}

@@ -5,7 +5,7 @@ import { getUserId } from '../../_auth'
 import { revertImportBatch } from '@/lib/music-import'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 30
+export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   const userId = await getUserId()
