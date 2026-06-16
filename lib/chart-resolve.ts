@@ -16,13 +16,38 @@ const LT_MAP: Record<string, string> = {
   ą: 'a', č: 'c', ę: 'e', ė: 'e', į: 'i', š: 's', ų: 'u', ū: 'u', ž: 'z',
 }
 
-/** Normalizuoja palyginimui: lower, LT diakritika, feat/() nuėmimas, alnum. */
+/** Spotify-stiliaus versijų/leidimų raktažodžiai. Naudojami nuimti priesagas
+ *  po „ - " (be skliaustų): „- 2011 Remaster", „- Single Version", „- Radio Edit",
+ *  „- Live", „- Mono" ir t.t. DB kataloge laikomas ŠVARUS pavadinimas, todėl be
+ *  šių priesagų „Dreams - 2001 Remaster" sutampa su „Dreams". */
+const VERSION_KW =
+  'remaster|remastered|re-?master(?:ed)?|version|edit|mix|remix|mono|stereo|live|' +
+  'acoustic|unplugged|demo|single|radio|instrumental|karaoke|bonus|expanded|deluxe|' +
+  'anniversary|re-?recorded|reprise|explicit|clean|extended|club|dub|session|' +
+  "sped\\s*up|slowed|soundtrack|ost|taylor['’]s version"
+
+/** Nuima trailing „ - <… su versijos raktažodžiu …>" priesagą (gali kartotis).
+ *  `[^-–—]*` neleidžia peršokti per ankstesnį brūkšnį → tikras pavadinimas su
+ *  „ - " (pvz. „A - B") nenukenčia, jei jame nėra versijos raktažodžio. */
+function stripVersionSuffix(s: string): string {
+  const re = new RegExp(`\\s[-–—]\\s[^-–—]*\\b(?:${VERSION_KW})\\b.*$`, 'i')
+  let out = s, prev: string
+  do { prev = out; out = out.replace(re, '') } while (out !== prev)
+  return out.trim()
+}
+
+/** Normalizuoja palyginimui: lower, LT diakritika, versijų priesaga, feat/() nuėmimas, alnum. */
 export function normalizeForMatch(s: string): string {
-  return (s || '')
-    .toLowerCase()
-    .replace(/[ąčęėįšųūž]/g, c => LT_MAP[c] || c)
-    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
-    .replace(/\(feat[^)]*\)|\bfeat\.?\b.*$|\(.*?remix.*?\)|\(.*?version.*?\)|\(.*?w\/.*?\)/g, '')
+  return stripVersionSuffix(
+    (s || '')
+      .toLowerCase()
+      .replace(/[ąčęėįšųūž]/g, c => LT_MAP[c] || c)
+      .normalize('NFKD').replace(/[̀-ͯ]/g, ''),
+  )
+    // SVARBU: skliaustų raktažodžiai tikrinami PER VIENĄ grupę ([^)]*), kad
+    // „(When You Gonna) … (w/ X)" nesusinaikintų visas (anksčiau .*? peršokdavo
+    // per „)" ir nuvalydavo visą pavadinimą).
+    .replace(/\([^)]*\bfeat[^)]*\)|\([^)]*remix[^)]*\)|\([^)]*version[^)]*\)|\([^)]*w\/[^)]*\)|\bfeat\.?\b.*$/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 }
@@ -32,10 +57,12 @@ export function normalizeForMatch(s: string): string {
  *  dažnai būna papildomos žymos: „(When You Gonna)", „[Deluxe]", „(Sped Up)" ir t.t.
  *  kurios neegzistuoja DB track pavadinime. */
 export function normalizeAggressive(s: string): string {
-  return (s || '')
-    .toLowerCase()
-    .replace(/[ąčęėįšųūž]/g, c => LT_MAP[c] || c)
-    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+  return stripVersionSuffix(
+    (s || '')
+      .toLowerCase()
+      .replace(/[ąčęėįšųūž]/g, c => LT_MAP[c] || c)
+      .normalize('NFKD').replace(/[̀-ͯ]/g, ''),
+  )
     .replace(/\bfeat\.?\b.*$/, '')            // feat ir viskas po jo
     .replace(/\([^)]*\)/g, '')                // visi (...)
     .replace(/\[[^\]]*\]/g, '')               // visi [...]
