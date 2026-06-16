@@ -31,7 +31,7 @@ const VERSION_KW =
  *  „ - " (pvz. „A - B") nenukenčia, jei jame nėra versijos raktažodžio. */
 function stripVersionSuffix(s: string): string {
   const re = new RegExp(`\\s[-–—]\\s[^-–—]*\\b(?:${VERSION_KW})\\b.*$`, 'i')
-  let out = s, prev: string
+  let out = s, prev = ''
   do { prev = out; out = out.replace(re, '') } while (out !== prev)
   return out.trim()
 }
