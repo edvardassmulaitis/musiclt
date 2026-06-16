@@ -520,6 +520,7 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
     if (line.toLowerCase().includes('main article') || line.toLowerCase().includes('see also')) continue
 
     let title = '', wikiTitle = ''
+    let titleFromLink = false
     // 2026-06-11: italic PIRMA, wikilink tik fallback. Wikipedia konvencija:
     // albumo pavadinimas VISADA italic ''...''. Anksčiau [[wikilink]] buvo pirmas,
     // todėl `''Modern Times'' with [[Mike Mainieri]]` gaudavo „Mike Mainieri"
@@ -529,12 +530,12 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
       const inner = im[1]
       // Italic viduje gali būti wikilink: ''[[Album (dis)|Album]]''
       const innerWm = inner.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-      if (innerWm) { wikiTitle = innerWm[1].trim(); title = cleanWikiText(innerWm[2] || innerWm[1]) }
+      if (innerWm) { wikiTitle = innerWm[1].trim(); title = cleanWikiText(innerWm[2] || innerWm[1]); titleFromLink = true }
       else { title = cleanWikiText(inner); wikiTitle = title.replace(/ /g, '_') }
     } else {
       // Fallback: bare [[wikilink]] be italic (retesnis formatas)
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-      if (wm) { wikiTitle = wm[1].trim(); title = cleanWikiText(wm[2] || wm[1]) }
+      if (wm) { wikiTitle = wm[1].trim(); title = cleanWikiText(wm[2] || wm[1]); titleFromLink = true }
     }
     // 2026-06-15: plain-text albumai BE italic IR BE wikilink (pvz Sam Garrett:
     // `* Forward to Zion (2023)`, `* One Family (2025)` — nauji leidimai dažnai
@@ -548,7 +549,8 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
         if (cand && cand.length >= 2) { title = cand; wikiTitle = cand.replace(/ /g, '_') }
       }
     }
-    if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle) || /^[A-Z]{2,3}$/.test(title)) continue
+    // 2026-06-16: leisti 1-simbolio/numeric pavadinimus (Aitch „4", Ed Sheeran „÷") jei iš tikro [[wikilink]] į albumo straipsnį (titleFromLink).
+    if (!title || (title.length < 2 && !titleFromLink) || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle) || (/^[A-Z]{2,3}$/.test(title) && !titleFromLink)) continue
     const bad = ['discography', 'songs', 'videography', 'filmography', 'certification', 'chart']
     if (bad.some(b => title.toLowerCase().includes(b) || wikiTitle.toLowerCase().includes(b))) continue
     // Year extraction — bandom kelis pattern'us:
@@ -724,7 +726,8 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
         const im = cell.match(/'{2,3}([^']+)'{2,3}/) || cell.match(/^"([^"]+)"/)
         if (im) { title = cleanWikiText(im[1]); wikiTitle = title.replace(/ /g, '_') }
       }
-      if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle)) continue
+      // 2026-06-16: leisti 1-simbolio pavadinimus (Aitch albumas „4") jei iš tikro [[wikilink]] (wm) į albumo straipsnį.
+      if (!title || (title.length < 2 && !wm) || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle)) continue
       if (['discography','videography','certification','singles','chart'].some(b => title.toLowerCase().includes(b))) continue
 
       const rowLines: string[] = [line]
