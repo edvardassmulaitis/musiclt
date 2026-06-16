@@ -110,6 +110,8 @@ export default function AdminChartsPage() {
   const [titleEdit, setTitleEdit] = useState('')
   const [countryEdit, setCountryEdit] = useState('')
   const [savingMeta, setSavingMeta] = useState(false)
+  const [matchingAll, setMatchingAll] = useState(false)
+  const [matchAllMsg, setMatchAllMsg] = useState<string | null>(null)
   const detailRef = useRef<HTMLDivElement>(null)
 
   // Refs in-place counts skaičiavimui (be reload'o, atsparu StrictMode double-invoke).
@@ -166,6 +168,26 @@ export default function AdminChartsPage() {
     setResolving(false)
     if (r) { await loadEntries(selected.id); await loadCharts() }
     if (r?.matched != null) alert(`Automatiškai susieta: ${r.matched} iš ${r.processed} neapdorotų.`)
+  }
+
+  // „Re-match visus topus" — bulk auto-match per VISUS current chart'us (pvz.
+  // po chart-resolve normalizacijos pakeitimų). Serveris dirba time-budget'e ir
+  // grąžina {matched}; kartojam kol pasas neranda naujų atitikmenų (matched=0).
+  const resolveAllCharts = async () => {
+    if (matchingAll) return
+    setMatchingAll(true); setMatchAllMsg('Tikrinama…')
+    let total = 0
+    for (let guard = 0; guard < 50; guard++) {
+      const r = await fetch('/api/admin/charts/resolve-all', { method: 'POST' }).then(r => r.json()).catch(() => null)
+      if (!r) break
+      total += r.matched || 0
+      setMatchAllMsg(`Susieta ${total}…`)
+      if (!r.matched || r.matched <= 0) break
+    }
+    setMatchingAll(false); setMatchAllMsg(null)
+    await loadCharts()
+    if (selected) await loadEntries(selected.id)
+    alert(`Re-match baigta: automatiškai susieta ${total} įrašų per visus topus.`)
   }
 
   // „Sukurti likusius" — bulk; po jo pilnas reload (daug įrašų keičiasi).
@@ -231,6 +253,11 @@ export default function AdminChartsPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button onClick={resolveAllCharts} disabled={matchingAll}
+            title="Paleisti Auto-match per VISUS topus (po katalogo / normalizacijos pakeitimų)"
+            className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+            {matchingAll ? (matchAllMsg || 'Tikrinama…') : '↻ Re-match visus topus'}
+          </button>
           <a href="/admin/charts/missing" className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100">Trūkstamos dainos →</a>
           <a href="/admin/topai" className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100">Topų vizualai →</a>
         </div>
