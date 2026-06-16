@@ -12,7 +12,7 @@
  *     user-gesture play ant READY player'io leidžiamas SU GARSU visur (įsk. iOS),
  *     todėl autoplay suveikia jau pirmu paspaudimu (nebereikia mute / „Garsui").
  *   • Track switch'ai per loadVideoById (player vienas, gesture perduodamas).
- *   • youtube-nocookie.com (Safari ITP). onError 101/150/153 → fallback.
+ *   • youtube.com host (nocookie+IFrame API → Error 153 kai kuriems video). onError/watchdog → fallback.
  * ────────────────────────────────────────────────────────────────── */
 
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react'
@@ -94,7 +94,11 @@ export const ChartYtPlayer = forwardRef<ChartYtPlayerHandle, {
     curVidRef.current = videoId
     readyRef.current = false
     playerRef.current = new W.YT.Player(inner, {
-      host: 'https://www.youtube-nocookie.com',
+      // youtube.com (NE nocookie) — IFrame API + nocookie host meta kai kuriems
+      // video Error 153 „player configuration error" (atlikėjo psl. plain iframe
+      // tą patį video groja; chart per IFrame API nocookie krito). youtube.com =
+      // kanoninis, veikia kaip visur kitur svetainėje.
+      host: 'https://www.youtube.com',
       videoId, width: '100%', height: '100%',
       playerVars: {
         autoplay: 0, controls: 1, modestbranding: 1, rel: 0, playsinline: 1,
