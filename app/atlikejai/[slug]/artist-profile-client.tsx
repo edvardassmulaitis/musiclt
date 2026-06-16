@@ -752,14 +752,16 @@ function PlayerCard({
     // re-creation. Player'is sukuriamas tik vieną kartą per session.
   }, [apiReady, displayVid, isEmbedDisabled])
 
-  // VIDEO CHANGE — kai displayVid pasikeičia, naudojam loadVideoById vietoj
-  // destroy+recreate. Iframe lieka tas pats, gesture context tarp track'ų
-  // perduodamas, autoplay veikia natively.
+  // VIDEO CHANGE — kai displayVid pasikeičia (pvz. perjungus tab'ą, kuris
+  // pakeičia firstWithVideo), iframe lieka tas pats. SVARBU: jei vartotojas
+  // dar NEGROJA — naudojam cueVideoById (TYLIAI, be autoplay), kad tab'ų
+  // perjungimas nepradėtų groti. Jei jau groja — loadVideoById tęsia.
   useEffect(() => {
     if (!playerRef.current || !displayVid) return
     if ((playerRef.current as any)._vid === displayVid) return
     try {
-      playerRef.current.loadVideoById?.(displayVid)
+      if (playingRef.current) playerRef.current.loadVideoById?.(displayVid)
+      else playerRef.current.cueVideoById?.(displayVid)
       ;(playerRef.current as any)._vid = displayVid
     } catch {}
   }, [displayVid])
