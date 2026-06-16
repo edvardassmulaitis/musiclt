@@ -125,7 +125,7 @@ export async function findConfidentMatch(
   // 1) Tikslus match (standartinė normalizacija)
   let hits = (tracks || []).filter((t: any) => normalizeForMatch(t.title) === tNorm)
   // 2) Fallback: agresyvi normalizacija (strip ALL parens/brackets) — abiem pusėm
-  if (hits.length === 0 && tAggr !== tNorm) {
+  if (hits.length === 0) {   // VISADA bandyk agresyvią (strip visus skliaustus) — DB pusė gali turėti „(su …)"/„(with …)" kurių primary nenuima
     hits = (tracks || []).filter((t: any) => normalizeAggressive(t.title) === tAggr)
   }
   if (hits.length === 0) return null
@@ -210,7 +210,7 @@ export async function findConfidentAlbumMatch(
     .in('artist_id', ids)
     .limit(800)
   let hits = (albums || []).filter((al: any) => normalizeForMatch(al.title) === tNorm)
-  if (hits.length === 0 && tAggr !== tNorm) {
+  if (hits.length === 0) {   // VISADA bandyk agresyvią (strip visus skliaustus) — DB pusė gali turėti „(su …)"/„(with …)" kurių primary nenuima
     hits = (albums || []).filter((al: any) => normalizeAggressive(al.title) === tAggr)
   }
   if (hits.length === 0) return null
