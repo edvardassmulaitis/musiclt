@@ -532,6 +532,18 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
       if (wm) { wikiTitle = wm[1].trim(); title = cleanWikiText(wm[2] || wm[1]) }
     }
+    // 2026-06-15: plain-text albumai BE italic IR BE wikilink (pvz Sam Garrett:
+    // `* Forward to Zion (2023)`, `* One Family (2025)` — nauji leidimai dažnai
+    // dar neturi atskiro straipsnio nei italic markup'o). Imam tekstą tarp
+    // bullet'o ir metų `(YYYY)`. Gate'inam ant metų `(....YYYY...)` buvimo, kad
+    // nepagautume „main article", komentarų ar kitų ne-albuminių bullet'ų.
+    if (!title) {
+      const ym = line.match(/^[*#]\s*(.+?)\s*\([^)]*?\d{4}[^)]*\)/)
+      if (ym) {
+        const cand = cleanWikiText(ym[1]).replace(/'{2,}/g, '').trim()
+        if (cand && cand.length >= 2) { title = cand; wikiTitle = cand.replace(/ /g, '_') }
+      }
+    }
     if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle) || /^[A-Z]{2,3}$/.test(title)) continue
     const bad = ['discography', 'songs', 'videography', 'filmography', 'certification', 'chart']
     if (bad.some(b => title.toLowerCase().includes(b) || wikiTitle.toLowerCase().includes(b))) continue
