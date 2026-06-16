@@ -120,73 +120,33 @@ function TrendIndicator({ curr, prev, isNew, weeksInTop }: {
 }
 
 /**
- * Player — iOS Safari autoplay reliability:
+ * PlayerView — VIZUALUS player'is (poster + tuščias „slot"). Grojimą valdo
+ * tėvas (TopChartView): paspaudus dainos eilutę, iframe kuriamas SINKRONIŠKAI
+ * tame pačiame click handler'yje (user-gesture išsaugomas → autoplay iOS/Chrome).
+ * Tai panaikina tarpinį „paspausk poster play" žingsnį — viena paspaudimas ant
+ * dainos iškart bando groti (kaip /topai pilnuose topuose).
  *
- * Vietoj useEffect+state+iframe-swap pattern'o (kuris "praranda" user-gesture
- * kontekstą tarp click'o ir iframe creation'o), sukuriam iframe SINKRONIŠKAI
- * pačiame click handler'yje. iOS Safari leidžia autoplay tik jei iframe
- * sukurtas TAME PAČIAME synchronous click event tick'e. Re-render'ai per
- * setState susiploja iki kelių mikrosekundžių, bet užtenka, kad Safari
- * pažymėtų video kaip "user-initiated".
- *
- * Tech: tiesiog įkrauname iframe su `?autoplay=1&playsinline=1` query'ais.
- * YT IFrame API nereikia (jis pridėjo įvairius race condition'us).
+ * `slotRef` ir `playing` valdomi tėvo; čia tik atvaizdavimas.
  */
-function Player({ entry, accent }: { entry: Entry | null; accent: ThemeAccent }) {
-  const [playing, setPlaying] = useState(false)
+function PlayerView({ entry, accent, playing, slotRef, onPlay }: {
+  entry: Entry | null; accent: ThemeAccent; playing: boolean;
+  slotRef: React.RefObject<HTMLDivElement | null>; onPlay: () => void;
+}) {
   const [imgErr, setImgErr] = useState(false)
-  const slotRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => { setImgErr(false) }, [entry?.id])
 
-  // Reset playing kai keičiasi entry
-  useEffect(() => { setPlaying(false); setImgErr(false) }, [entry?.id])
-
-  if (!entry || !entry.tracks) return (
-    <div className="tcv-player tcv-player-empty">
-      <div className="tcv-player-video">
-        <div className="tcv-thumb">
-          <div className="tcv-thumb-empty" />
-        </div>
-      </div>
-    </div>
-  )
-
-  const vid = getYouTubeId(entry.tracks.video_url)
-  const cover = entry.tracks.cover_url
-
-  // Inline click handler — sukuriam iframe SINKRONIŠKAI (ne per useEffect),
-  // kad Safari'ui užtikrinti user-gesture context'ą.
-  const startPlay = () => {
-    if (!vid || !slotRef.current) return
-    const iframe = document.createElement('iframe')
-    iframe.src = `https://www.youtube.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1`
-    iframe.allow = 'autoplay; encrypted-media; picture-in-picture'
-    iframe.allowFullscreen = true
-    iframe.style.width = '100%'
-    iframe.style.height = '100%'
-    iframe.style.border = '0'
-    iframe.title = entry.tracks?.title || ''
-    slotRef.current.innerHTML = ''
-    slotRef.current.appendChild(iframe)
-    setPlaying(true)
-  }
+  const vid = entry?.tracks ? getYouTubeId(entry.tracks.video_url) : null
+  const cover = entry?.tracks?.cover_url
 
   return (
-    <div className="tcv-player">
+    <div className={`tcv-player${!entry?.tracks ? ' tcv-player-empty' : ''}`}>
       <div className="tcv-player-video">
-        {/* slotRef visada montuotas — playing=true tik perjungia z-stack visibility */}
-        <div
-          ref={slotRef}
-          style={{ width: '100%', height: '100%', display: playing ? 'block' : 'none' }}
-        />
+        {/* slotRef visada montuotas — playing=true tik perjungia matomumą */}
+        <div ref={slotRef} style={{ width: '100%', height: '100%', display: playing ? 'block' : 'none' }} />
         {!playing && (
-          <div className="tcv-thumb" onClick={startPlay} style={{ cursor: vid ? 'pointer' : 'default' }}>
+          <div className="tcv-thumb" onClick={onPlay} style={{ cursor: vid ? 'pointer' : 'default' }}>
             {vid && !imgErr ? (
-              <img
-                src={`https://img.youtube.com/vi/${vid}/maxresdefault.jpg`}
-                alt=""
-                className="tcv-thumb-img"
-                onError={() => setImgErr(true)}
-              />
+              <img src={`https://img.youtube.com/vi/${vid}/maxresdefault.jpg`} alt="" className="tcv-thumb-img" onError={() => setImgErr(true)} />
             ) : cover ? (
               <img src={cover} alt="" className="tcv-thumb-img" />
             ) : (
@@ -593,6 +553,30 @@ export default function TopChartView({
   const [votesRemaining, setVotesRemaining] = useState(weeklyLimit)
   const [showSuggest, setShowSuggest] = useState(false)
   const [activeEntry, setActiveEntry] = useState<Entry | null>(data.entries[0] ?? null)
+  // Player'is valdomas tėvo lygyje, kad paspaudus dainos eilutę iframe būtų
+  // sukurtas SINKRONIŠKAI tame pačiame click'e (autoplay user-gesture).
+  const [playing, setPlaying] = useState(false)
+  const playerSlotRef = useRef<HTMLDivElement | null>(null)
+
+  const play = useCallback((entry: Entry) => {
+    setActiveEntry(entry)
+    const vid = entry.tracks ? getYouTubeId(entry.tracks.video_url) : null
+    if (!vid || !playerSlotRef.current) { setPlaying(false); return }
+    const origin = typeof window !== 'undefined' ? `&origin=${encodeURIComponent(window.location.origin)}` : ''
+    const iframe = document.createElement('iframe')
+    iframe.src = `https://www.youtube.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin}`
+    iframe.allow = 'autoplay; encrypted-media; picture-in-picture'
+    iframe.allowFullscreen = true
+    iframe.style.cssText = 'width:100%;height:100%;border:0;display:block;'
+    iframe.title = entry.tracks?.title || ''
+    playerSlotRef.current.innerHTML = ''
+    playerSlotRef.current.appendChild(iframe)
+    setPlaying(true)
+    // „playVideo" stūmis po load — kur naršyklės politika leidžia (autoplay=1
+    // vien per URL kartais nepakanka).
+    const nudge = () => { try { iframe.contentWindow?.postMessage('{"event":"command","func":"playVideo","args":""}', '*') } catch {} }
+    iframe.addEventListener('load', () => { nudge(); setTimeout(nudge, 300); setTimeout(nudge, 900) })
+  }, [])
 
   // Padalinam entries pagal state'ą. weeks_in_top yra primary skirstymo
   // kriterijus — semantika svarbesnė nei pozicija:
@@ -620,7 +604,11 @@ export default function TopChartView({
     (e.weeks_in_top || 0) >= 1 && (e.position || 0) > TOP_SIZE
   )
 
-  useEffect(() => { setActiveEntry(data.entries[0] ?? null) }, [data])
+  useEffect(() => {
+    setActiveEntry(data.entries[0] ?? null)
+    setPlaying(false)
+    if (playerSlotRef.current) playerSlotRef.current.innerHTML = ''
+  }, [data])
 
   const loadVoteStatus = useCallback(async () => {
     if (!data.week) return
@@ -1357,7 +1345,7 @@ export default function TopChartView({
                     isActive={activeEntry?.id === entry.id}
                     weekId={voteWeekId}
                     accent={accent}
-                    onClick={() => setActiveEntry(entry)}
+                    onClick={() => play(entry)}
                     onVoted={handleVoted}
                     onVoteFailed={handleVoteFailed}
                     votesPerTrack={votesPerTrack}
@@ -1394,7 +1382,13 @@ export default function TopChartView({
                       </button>
                     )}
                   </div>
-                  <Player entry={activeEntry} accent={accent} />
+                  <PlayerView
+                    entry={activeEntry}
+                    accent={accent}
+                    playing={playing}
+                    slotRef={playerSlotRef}
+                    onPlay={() => activeEntry && play(activeEntry)}
+                  />
                 </div>
               </div>
               {newcomers.length > 0 && (
@@ -1415,7 +1409,7 @@ export default function TopChartView({
                         votesPerTrack={votesPerTrack}
                         votesRemaining={votesRemaining}
                         weeklyLimit={weeklyLimit}
-                        onClick={() => setActiveEntry(entry)}
+                        onClick={() => play(entry)}
                         isActive={activeEntry?.id === entry.id}
                       />
                     ))}
@@ -1441,7 +1435,7 @@ export default function TopChartView({
                         votesPerTrack={votesPerTrack}
                         votesRemaining={votesRemaining}
                         weeklyLimit={weeklyLimit}
-                        onClick={() => setActiveEntry(entry)}
+                        onClick={() => play(entry)}
                         isActive={activeEntry?.id === entry.id}
                       />
                     ))}
