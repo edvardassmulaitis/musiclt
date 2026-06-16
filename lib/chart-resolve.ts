@@ -48,7 +48,7 @@ export function normalizeForMatch(s: string): string {
     // „(When You Gonna) … (w/ X)" nesusinaikintų visas (anksčiau .*? peršokdavo
     // per „)" ir nuvalydavo visą pavadinimą).
     .replace(/\([^)]*\bfeat[^)]*\)|\([^)]*remix[^)]*\)|\([^)]*version[^)]*\)|\([^)]*w\/[^)]*\)|\bfeat\.?\b.*$/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')   // keep ALL unicode raidžiai/skaičiai (kirilica ir kt.)
     .trim()
 }
 
@@ -66,7 +66,7 @@ export function normalizeAggressive(s: string): string {
     .replace(/\bfeat\.?\b.*$/, '')            // feat ir viskas po jo
     .replace(/\([^)]*\)/g, '')                // visi (...)
     .replace(/\[[^\]]*\]/g, '')               // visi [...]
-    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')   // keep ALL unicode raidžiai/skaičiai (kirilica ir kt.)
     .trim()
 }
 
