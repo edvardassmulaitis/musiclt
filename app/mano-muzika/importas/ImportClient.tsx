@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 
 type Job = { id: string; status: string; phase: string; total: number; processed: number; matched: number; reported: number; error: string | null; finished_at: string | null; batch_id?: string | null; batch_status?: string | null }
+type ReviewHit = { itemId: number; id: number; name: string; slug: string | null; cover: string | null; artist: string | null; artistSlug: string | null; pop: number }
 
 type Hit = {
   raw: string; rawArtist?: string; matched: boolean; confidence: 'high' | 'low'
@@ -41,13 +42,23 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
   const [result, setResult] = useState<Staged | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [committing, setCommitting] = useState(false)
-  const [done, setDone] = useState<{ artists: number; albums: number; tracks: number } | null>(null)
+  const [done, setDone] = useState<{ artists: number; albums: number; tracks: number; total?: number } | null>(null)
   const [batchId, setBatchId] = useState<string | null>(null)
   const [reverting, setReverting] = useState(false)
   const [reverted, setReverted] = useState(false)
   const [enqueued, setEnqueued] = useState<'new' | 'existing' | null>(null)
   const [job, setJob] = useState<Job | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Full importo apimtis (scope) — po greito skenavimo
+  const [scan, setScan] = useState<{ artists: number; albums: number; lovedTracks: number; topTracks: number; recentTracks: number } | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [scKinds, setScKinds] = useState<Set<string>>(new Set(['artist', 'album', 'track']))
+  const [scHistory, setScHistory] = useState<'best' | 'all'>('best')
+  const [scMin, setScMin] = useState(0)
+  // Peržiūra po importo (status='ready')
+  const [review, setReview] = useState<{ matched: number; missing: number; items: { artists: ReviewHit[]; albums: ReviewHit[]; tracks: ReviewHit[] } } | null>(null)
+  const [deselected, setDeselected] = useState<Set<number>>(new Set())
+  const [confirming, setConfirming] = useState(false)
 
   // Foninio importo job'o būsena — kad pamatytume „vyksta / baigta" be progress baro.
   const refreshJob = useCallback(async () => {
@@ -83,19 +94,35 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
   }
 
   async function runLastfm() {
-    if (lastfmFull) return enqueueFull()
+    if (lastfmFull) return doScan()
     setLoading(true); setError(null); setResult(null); setDone(null); setEnqueued(null)
     try { onResult(await postJSON('/import/lastfm', { username: lastfmUser, mode: 'best' })) }
     catch (e: any) { setError(e.message) } finally { setLoading(false) }
   }
-  // „Visa biblioteka" — deep importas vykdomas FONE (gali būti tūkstančiai įrašų).
-  async function enqueueFull() {
-    setLoading(true); setError(null); setResult(null); setDone(null); setEnqueued(null)
+  // „Visa biblioteka": 1) greitas skenavimas → 2) apimties pasirinkimas → 3) fonas → 4) peržiūra.
+  async function doScan() {
+    setScanning(true); setError(null); setScan(null); setResult(null); setDone(null); setEnqueued(null)
+    try { const d = await postJSON('/import/lastfm/scan', { username: lastfmUser }); setScan(d.counts) }
+    catch (e: any) { setError(e.message) } finally { setScanning(false) }
+  }
+  async function startFull() {
+    setLoading(true); setError(null)
     try {
-      const d = await postJSON('/import/job', { source: 'lastfm', username: lastfmUser, mode: 'full' })
-      setEnqueued(d.existing ? 'existing' : 'new')
-      await refreshJob()
+      const d = await postJSON('/import/job', { source: 'lastfm', username: lastfmUser, scope: { kinds: [...scKinds], historyMode: scHistory, minPlaycount: scMin } })
+      setEnqueued(d.existing ? 'existing' : 'new'); setScan(null); await refreshJob()
     } catch (e: any) { setError(e.message) } finally { setLoading(false) }
+  }
+  const loadReview = useCallback(async (jobId: string) => {
+    try { const res = await fetch(`/api/mano-muzika/import/job/review?jobId=${jobId}`); const d = await res.json().catch(() => ({})); if (res.ok) { setReview({ matched: d.matched, missing: d.missing, items: d.items }); setDeselected(new Set()) } } catch {}
+  }, [])
+  useEffect(() => { if (job?.status === 'ready' && job.id && !review) loadReview(job.id) }, [job, review, loadReview])
+  function toggleReview(itemId: number) { setDeselected(s => { const n = new Set(s); n.has(itemId) ? n.delete(itemId) : n.add(itemId); return n }) }
+  function toggleReviewGroup(hits: ReviewHit[], on: boolean) { setDeselected(s => { const n = new Set(s); for (const h of hits) { on ? n.delete(h.itemId) : n.add(h.itemId) } return n }) }
+  async function confirmReview() {
+    if (!job?.id) return
+    setConfirming(true); setError(null)
+    try { const r = await postJSON('/import/job/confirm', { jobId: job.id, deselect: [...deselected] }); setDone({ artists: 0, albums: 0, tracks: 0, total: r.added }); setReview(null); await refreshJob() }
+    catch (e: any) { setError(e.message) } finally { setConfirming(false) }
   }
   async function runYoutube() {
     setLoading(true); setError(null); setResult(null); setDone(null)
@@ -181,16 +208,50 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
           <div className="flex gap-2">
             <input value={lastfmUser} onChange={e => setLastfmUser(e.target.value)} onKeyDown={e => e.key === 'Enter' && runLastfm()}
               placeholder="Last.fm vartotojo vardas" className={inputCls} />
-            <RunBtn onClick={runLastfm} loading={loading} disabled={!lastfmUser.trim()} label={lastfmFull ? 'Importuoti fone' : 'Ieškoti populiariausių'} />
+            <RunBtn onClick={runLastfm} loading={loading || scanning} disabled={!lastfmUser.trim()} label={lastfmFull ? 'Peržiūrėti biblioteką' : 'Ieškoti populiariausių'} />
           </div>
           {loading && !lastfmFull && <LoadingBar label="Ieškome tavo populiariausios muzikos ir lyginame su music.lt baze…" />}
+          {scanning && <LoadingBar label="Skaitome tavo Last.fm biblioteką…" />}
           <label className="mt-3 flex items-start gap-2.5 cursor-pointer select-none">
-            <input type="checkbox" checked={lastfmFull} onChange={e => setLastfmFull(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-orange-500" />
+            <input type="checkbox" checked={lastfmFull} onChange={e => { setLastfmFull(e.target.checked); setScan(null) }} className="mt-0.5 h-4 w-4 shrink-0 accent-orange-500" />
             <span className="text-[12px] leading-snug" style={{ color: 'var(--text-muted)' }}>
-              <b style={{ color: 'var(--text-primary)' }}>Importuoti visą biblioteką</b> — įtraukti ir visą klausymų istoriją (gali būti tūkstančiai įrašų). Vyksta <b>fone</b>: patvirtini ir gali eiti — kai baigsim, atsiųsim pranešimą, o muzika atsiras tavo profilyje.
+              <b style={{ color: 'var(--text-primary)' }}>Importuoti visą biblioteką</b> — pirma parodysim, kiek ko turi, leisim pasirinkti apimtį, o tada fone surinksim ir <b>duosim peržiūrėti prieš pridedant</b> (nieko nepridėsim be tavo patvirtinimo).
             </span>
           </label>
           <Hint>Profilis turi būti viešas. Numatytai imame tavo <b>mėgstamiausius ir dažniausiai klausomus</b> atlikėjus, dainas ir albumus. Vardą rasi savo Last.fm adrese: last.fm/user/<b>vardas</b>.</Hint>
+
+          {/* APIMTIES PASIRINKIMAS (po skenavimo) */}
+          {scan && lastfmFull && (
+            <div className="mt-4 rounded-xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
+              <div className="text-[13px] font-black mb-1">Tavo Last.fm bibliotekoje:</div>
+              <div className="text-[12px] mb-3" style={{ color: 'var(--text-muted)' }}>
+                {scan.artists} atlikėjų · {scan.albums} albumų · {scan.topTracks} dažniausių dainų · {scan.lovedTracks} pamėgtų · {scan.recentTracks.toLocaleString('lt')} scrobble istorijoje
+              </div>
+              <div className="text-[12px] font-bold mb-1.5">Ką kelti?</div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {([['artist', 'Atlikėjai'], ['album', 'Albumai'], ['track', 'Dainos']] as const).map(([k, lbl]) => {
+                  const on = scKinds.has(k)
+                  return <button key={k} onClick={() => setScKinds(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n })}
+                    className="rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: on ? 'rgba(249,115,22,0.15)' : 'var(--bg-surface)', border: `1px solid ${on ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, color: on ? '#f97316' : 'var(--text-muted)' }}>{on ? '✓ ' : ''}{lbl}</button>
+                })}
+              </div>
+              <div className="text-[12px] font-bold mb-1.5">Kiek giliai?</div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {([['best', 'Tik mėgstami ir dažni'], ['all', 'Visa klausymų istorija']] as const).map(([k, lbl]) => (
+                  <button key={k} onClick={() => setScHistory(k)} className="rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: scHistory === k ? 'rgba(249,115,22,0.15)' : 'var(--bg-surface)', border: `1px solid ${scHistory === k ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, color: scHistory === k ? '#f97316' : 'var(--text-muted)' }}>{lbl}</button>
+                ))}
+              </div>
+              <label className="flex items-center gap-2 text-[12px] mb-3" style={{ color: 'var(--text-muted)' }}>
+                Min. klausymų skaičius:
+                <input type="number" min={0} value={scMin} onChange={e => setScMin(Math.max(0, Number(e.target.value) || 0))} className="w-20 rounded-lg px-2 py-1 text-[12px] outline-none" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                <span style={{ color: 'var(--text-faint)' }}>(0 = visi)</span>
+              </label>
+              <button onClick={startFull} disabled={loading || scKinds.size === 0}
+                className="rounded-full px-6 py-2.5 text-[13px] font-black text-white disabled:opacity-40" style={{ background: 'var(--accent-orange)' }}>
+                {loading ? 'Pradedama…' : 'Pradėti importą fone'}
+              </button>
+            </div>
+          )}
         </InputPanel>
       )}
       {source === 'spotify' && (
@@ -223,20 +284,20 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
       {error && <div className="mb-4 rounded-xl px-4 py-3 text-[13px]" style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.3)', color: '#f43f5e' }}>{error}</div>}
 
       {/* FONINIO IMPORTO BŪSENA */}
-      {(enqueued || (job && (job.status === 'queued' || job.status === 'running'))) && (
+      {(job ? (job.status === 'queued' || job.status === 'running') : !!enqueued) && (
         <div className="mb-4 rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.14), transparent)', border: '1px solid rgba(167,139,250,0.4)' }}>
           <div className="flex items-center gap-2 text-[15px] font-black">
             <span className="inline-block h-2 w-2 rounded-full animate-pulse" style={{ background: '#a78bfa' }} />
             {enqueued === 'existing' ? 'Importas jau vyksta' : 'Pradėjome pilną importą'}
           </div>
           <p className="text-[12.5px] mt-1.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-            Apdorojame visą tavo Last.fm biblioteką <b>fone</b> — tau nieko daryti nereikia ir lango uždaryti gali.
-            Atpažinta muzika po truputį atsiranda tavo „Mano muzikoje", o ko dar nėra music.lt bazėje — užregistruosim ir pridėsim vėliau.
-            Kai baigsim, <b>atsiųsim pranešimą</b>.
+            Apdorojame tavo Last.fm biblioteką <b>fone</b> — tau nieko daryti nereikia ir langą uždaryti gali.
+            Kai baigsim, <b>duosim peržiūrėti</b> rastas atitiktis ir patvirtinsi, ką pridėti — nieko nepridėsim be tavo sutikimo.
+            Atsiųsim pranešimą.
           </p>
           {job && (job.status === 'running' || job.status === 'queued') && job.processed > 0 && (
             <div className="text-[11.5px] mt-2" style={{ color: 'var(--text-faint)' }}>
-              Apdorota {job.processed}{job.total ? ` iš ${job.total}` : ''} · pridėta {job.matched} · laukia įkėlimo {job.reported}
+              Apdorota {job.processed}{job.total ? ` iš ${job.total}` : ''} · rasta atitikčių {job.matched}
             </div>
           )}
           {job && (job.status === 'running' || job.status === 'queued') && job.batch_status !== 'reverted' && (
@@ -269,13 +330,38 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
         </div>
       )}
 
+      {/* PERŽIŪRA — full importas paruoštas, laukiam patvirtinimo */}
+      {job && job.status === 'ready' && review && !done && (
+        <div className="mb-4">
+          <div className="rounded-2xl p-5 mb-4" style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.14), transparent)', border: '1px solid rgba(167,139,250,0.4)' }}>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <div className="text-[15px] font-black">Peržiūrėk importą prieš pridedant</div>
+                <p className="text-[12.5px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Radome <b>{review.matched}</b> atitikčių{review.missing > 0 ? <>, dar <b>{review.missing}</b> neatpažinta (jas persiųsim į trūkstamą muziką)</> : null}. Viskas pažymėta — atžymėk, ko nenori, ir patvirtink.
+                </p>
+              </div>
+              <button onClick={confirmReview} disabled={confirming || review.matched - deselected.size === 0}
+                className="rounded-full px-6 py-2.5 text-[13px] font-black text-white disabled:opacity-40" style={{ background: 'var(--accent-orange)' }}>
+                {confirming ? 'Pridedama…' : `Pridėti pasirinktus (${review.matched - deselected.size})`}
+              </button>
+            </div>
+          </div>
+          <ReviewGroup title="Atlikėjai" kind="artists" hits={review.items.artists} deselected={deselected} toggle={toggleReview} toggleGroup={toggleReviewGroup} />
+          <ReviewGroup title="Dainos" kind="tracks" hits={review.items.tracks} deselected={deselected} toggle={toggleReview} toggleGroup={toggleReviewGroup} />
+          <ReviewGroup title="Albumai" kind="albums" hits={review.items.albums} deselected={deselected} toggle={toggleReview} toggleGroup={toggleReviewGroup} />
+        </div>
+      )}
+
       {/* DONE */}
       {done && (
         <div className="rounded-2xl p-6 text-center" style={{ background: 'linear-gradient(135deg, rgba(52,211,153,0.14), transparent)', border: '1px solid rgba(52,211,153,0.4)' }}>
           <div className="text-4xl mb-2">✅</div>
           <div className="text-[16px] font-black">Perkelta!</div>
           <div className="text-[13px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            Pridėta: {done.artists} atlikėjai · {done.albums} albumai · {done.tracks} dainos
+            {done.total != null
+              ? <>Į tavo muziką pridėta <b>{done.total}</b> įrašų</>
+              : <>Pridėta: {done.artists} atlikėjai · {done.albums} albumai · {done.tracks} dainos</>}
           </div>
           <div className="mt-4 flex items-center justify-center gap-4">
             <Link href="/mano-muzika" className="inline-block rounded-full px-6 py-2.5 text-[13px] font-black text-white" style={{ background: 'var(--accent-orange)' }}>
@@ -357,7 +443,7 @@ function LoadingBar({ label }: { label: string }) {
 }
 
 // Vieša nuoroda į entity (open-in-new-tab).
-function hrefForHit(kind: 'artists' | 'albums' | 'tracks', h: Hit): string | null {
+function hrefForHit(kind: 'artists' | 'albums' | 'tracks', h: { id?: number; slug?: string | null; artistSlug?: string | null }): string | null {
   if (!h.id) return null
   if (kind === 'artists') return h.slug ? `/atlikejai/${h.slug}` : null
   if (kind === 'tracks') return h.slug ? `/dainos/${h.slug}-${h.id}` : null
@@ -375,6 +461,61 @@ function OpenExt({ href, overlay }: { href: string; overlay?: boolean }) {
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
       </svg>
     </a>
+  )
+}
+
+// Peržiūros grupė — kaip Group, bet pažymėjimas per „deselected" (viskas iš pradžių pažymėta).
+function ReviewGroup({ title, kind, hits, deselected, toggle, toggleGroup }: {
+  title: string; kind: 'artists' | 'albums' | 'tracks'; hits: ReviewHit[]
+  deselected: Set<number>; toggle: (itemId: number) => void; toggleGroup: (hits: ReviewHit[], on: boolean) => void
+}) {
+  const [limit, setLimit] = useState(120)
+  if (!hits.length) return null
+  const selectedCount = hits.filter(h => !deselected.has(h.itemId)).length
+  const allSel = selectedCount === hits.length
+  const emoji = kind === 'artists' ? '👤' : kind === 'albums' ? '💿' : '🎵'
+  const isGrid = kind !== 'tracks'
+  const shown = hits.slice(0, limit)
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-2.5">
+        <h2 className="text-[15px] font-black">{title} <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>· {selectedCount}/{hits.length}</span></h2>
+        <button onClick={() => toggleGroup(hits, !allSel)} className="text-[12px] font-bold" style={{ color: 'var(--accent-orange)' }}>{allSel ? 'Atžymėti visus' : 'Pažymėti visus'}</button>
+      </div>
+      <div className={isGrid ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2' : 'grid grid-cols-1 lg:grid-cols-2 gap-1.5'}>
+        {shown.map(h => {
+          const on = !deselected.has(h.itemId); const href = hrefForHit(kind, h)
+          return isGrid ? (
+            <button key={h.itemId} onClick={() => toggle(h.itemId)} className="text-left rounded-xl overflow-hidden transition-colors"
+              style={{ background: on ? 'var(--bg-elevated)' : 'var(--bg-surface)', border: `1px solid ${on ? 'rgba(249,115,22,0.55)' : 'var(--border-default)'}`, opacity: on ? 1 : 0.55 }}>
+              <div className="relative aspect-square w-full" style={{ background: 'var(--bg-elevated)' }}>
+                {h.cover
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  : <div className="flex h-full w-full items-center justify-center text-2xl opacity-40">{emoji}</div>}
+                <span className="absolute top-1.5 left-1.5 h-5 w-5 rounded-md flex items-center justify-center text-[11px] font-black" style={{ background: on ? 'var(--accent-orange)' : 'rgba(0,0,0,0.45)', color: '#fff', border: on ? 'none' : '1px solid rgba(255,255,255,0.5)' }}>{on ? '✓' : ''}</span>
+                {href && <OpenExt href={href} overlay />}
+              </div>
+              <div className="px-2 py-1.5"><div className="truncate text-[12.5px] font-bold">{h.name}</div>{h.artist && <div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}</div>
+            </button>
+          ) : (
+            <button key={h.itemId} onClick={() => toggle(h.itemId)} className="w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors"
+              style={{ background: on ? 'var(--bg-elevated)' : 'var(--bg-surface)', border: `1px solid ${on ? 'rgba(249,115,22,0.4)' : 'var(--border-default)'}`, opacity: on ? 1 : 0.55 }}>
+              <span className="shrink-0 h-5 w-5 rounded-md flex items-center justify-center text-[11px] font-black" style={{ background: on ? 'var(--accent-orange)' : 'transparent', border: on ? 'none' : '1.5px solid var(--border-default)', color: '#fff' }}>{on ? '✓' : ''}</span>
+              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md" style={{ background: 'var(--bg-elevated)' }}>
+                {h.cover
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  : <div className="flex h-full w-full items-center justify-center text-[13px] opacity-50">{emoji}</div>}
+              </div>
+              <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold">{h.name}</div>{h.artist && <div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}</div>
+              {href && <OpenExt href={href} />}
+            </button>
+          )
+        })}
+      </div>
+      {hits.length > limit && <div className="mt-2 flex justify-center gap-2"><button onClick={() => setLimit(l => l + 200)} className="rounded-full px-5 py-2 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({hits.length - limit})</button><button onClick={() => setLimit(hits.length)} className="rounded-full px-4 py-2 text-[12.5px] font-bold" style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>Visus</button></div>}
+    </div>
   )
 }
 

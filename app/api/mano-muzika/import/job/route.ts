@@ -28,9 +28,17 @@ export async function POST(req: NextRequest) {
   if (source === 'lastfm' && !username) {
     return NextResponse.json({ error: 'Įvesk Last.fm vartotojo vardą' }, { status: 400 })
   }
-  const mode = body.mode === 'full' ? 'full' : 'full' // background = visada pilnas
+  // Apimtis (scope) — ką ir kiek kelti. Numatytai viskas + tik mėgstami/dažni.
+  const KINDS = ['artist', 'album', 'track']
+  const s = body.scope && typeof body.scope === 'object' ? body.scope : {}
+  const kinds = Array.isArray(s.kinds) ? s.kinds.filter((k: any) => KINDS.includes(k)) : KINDS
+  const scope = {
+    kinds: kinds.length ? kinds : KINDS,
+    historyMode: s.historyMode === 'all' ? 'all' : 'best',
+    minPlaycount: Math.max(0, Number(s.minPlaycount) || 0),
+  }
   try {
-    const res = await enqueueImportJob(userId, source, { username, mode })
+    const res = await enqueueImportJob(userId, source, { username, mode: 'full', scope })
     return NextResponse.json({ ok: true, jobId: res.id, existing: res.existing })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

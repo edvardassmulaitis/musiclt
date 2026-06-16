@@ -15,8 +15,8 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { createAdminClient } from '@/lib/supabase'
-import { matchItems, reportMissingImport, type RawItems } from '@/lib/music-import'
-import { addToLibrary } from '@/lib/mano-muzika'
+import { matchItems, reportMissingImport, type RawItems, type StagedResult, type StagedHit } from '@/lib/music-import'
+import { addToLibrary, type FavKind } from '@/lib/mano-muzika'
 import { createNotification } from '@/lib/notifications'
 
 type Kind = 'artist' | 'album' | 'track'
@@ -63,12 +63,39 @@ async function lastfmCall(method: string, user: string, extra: string): Promise<
   return json
 }
 
-function toItem(kind: Kind, it: any): { kind: Kind; artist: string; title: string | null } | null {
-  if (kind === 'artist') return it?.name ? { kind, artist: it.name, title: null } : null
+function toItem(kind: Kind, it: any): { kind: Kind; artist: string; title: string | null; pop: number } | null {
+  const pop = Number(it?.playcount) || 0
+  if (kind === 'artist') return it?.name ? { kind, artist: it.name, title: null, pop } : null
   if (it?.['@attr']?.nowplaying) return null
   const artist = it?.artist?.name || it?.artist?.['#text'] || ''
   const title = it?.name || ''
-  return artist && title ? { kind, artist, title } : null
+  return artist && title ? { kind, artist, title, pop } : null
+}
+
+// ── Greitas „skenavimas" — kiek ko yra Last.fm (kad naudotojas pasirinktų apimtį)
+export async function scanLastfm(username: string): Promise<{ artists: number; albums: number; lovedTracks: number; topTracks: number; recentTracks: number }> {
+  const user = username.trim().replace(/^@/, '')
+  if (!user) throw new Error('Įvesk Last.fm vartotojo vardą')
+  const total = async (method: string, root: string) => {
+    const d = await lastfmCall(method, user, 'limit=1&page=1').catch(() => null)
+    return Number(d?.[root]?.['@attr']?.total || 0)
+  }
+  const [artists, albums, lovedTracks, topTracks, recentTracks] = await Promise.all([
+    total('user.gettopartists', 'topartists'),
+    total('user.gettopalbums', 'topalbums'),
+    total('user.getlovedtracks', 'lovedtracks'),
+    total('user.gettoptracks', 'toptracks'),
+    total('user.getrecenttracks', 'recenttracks'),
+  ])
+  return { artists, albums, lovedTracks, topTracks, recentTracks }
+}
+
+// Apimties parinktys (iš job.params.scope).
+type Scope = { kinds: Kind[]; historyMode: 'best' | 'all'; minPlaycount: number }
+function getScope(job: any): Scope {
+  const s = job?.params?.scope || {}
+  const kinds: Kind[] = Array.isArray(s.kinds) && s.kinds.length ? s.kinds : ['artist', 'album', 'track']
+  return { kinds, historyMode: s.historyMode === 'all' ? 'all' : 'best', minPlaycount: Number(s.minPlaycount) || 0 }
 }
 
 // ── Enqueue / status ───────────────────────────────────────────────────────
@@ -147,9 +174,18 @@ export async function processJobs(budgetMs = 45000): Promise<{ ok: boolean; idle
   }
 }
 
+// Pagal apimtį — kuriuos srautus traukti.
+function activeStreams(scope: Scope): Stream[] {
+  return FULL_STREAMS.filter(st =>
+    scope.kinds.includes(st.kind) &&
+    (scope.historyMode === 'all' || st.method !== 'user.getrecenttracks'))
+}
+
 async function fetchTick(sb: any, job: any): Promise<void> {
   const user = String(job.params?.username || '').trim().replace(/^@/, '')
   if (!user) throw new Error('Job be Last.fm username')
+  const scope = getScope(job)
+  const streams = activeStreams(scope)
   const cursor = job.fetch_cursor || {}
   let si = cursor.si ?? 0
   let page = cursor.page ?? 1
@@ -160,8 +196,8 @@ async function fetchTick(sb: any, job: any): Promise<void> {
   // Pirmo tick'o pradžioje — validuojam raktą/vartotoją (klaida → job 'error').
   if (si === 0 && page === 1 && got === 0) await lastfmCall('user.getinfo', user, '')
 
-  while (si < FULL_STREAMS.length && pages < FETCH_PAGES_PER_TICK) {
-    const st = FULL_STREAMS[si]
+  while (si < streams.length && pages < FETCH_PAGES_PER_TICK) {
+    const st = streams[si]
     const data = await lastfmCall(st.method, user, `limit=${PER_PAGE}&page=${page}&${st.extra}`).catch(() => null)
     pages++
     const container = data?.[st.root]
@@ -171,6 +207,8 @@ async function fetchTick(sb: any, job: any): Promise<void> {
       if (got >= st.cap) break
       const rec = toItem(st.kind, it)
       if (!rec) continue
+      // minimalaus klausymų skaičiaus slenkstis (tik įrašams su playcount)
+      if (scope.minPlaycount > 0 && rec.pop > 0 && rec.pop < scope.minPlaycount) continue
       rows.push(rec)
       got++
     }
@@ -183,14 +221,14 @@ async function fetchTick(sb: any, job: any): Promise<void> {
     for (let i = 0; i < rows.length; i += 200) {
       await sb.from('music_import_job_items').upsert(
         rows.slice(i, i + 200).map(r => ({
-          job_id: job.id, kind: r.kind, raw_artist: r.artist, raw_title: r.title, norm: normKey(r.kind, r.artist, r.title),
+          job_id: job.id, kind: r.kind, raw_artist: r.artist, raw_title: r.title, pop: r.pop || 0, norm: normKey(r.kind, r.artist, r.title),
         })),
         { onConflict: 'job_id,norm', ignoreDuplicates: true },
       )
     }
   }
 
-  if (si >= FULL_STREAMS.length) {
+  if (si >= streams.length) {
     const { count } = await sb.from('music_import_job_items').select('*', { count: 'exact', head: true }).eq('job_id', job.id)
     await sb.from('music_import_jobs').update({ phase: 'match', total: count || 0, fetch_cursor: { si, page, got } }).eq('id', job.id)
   } else {
@@ -199,9 +237,8 @@ async function fetchTick(sb: any, job: any): Promise<void> {
 }
 
 async function matchTick(sb: any, job: any): Promise<boolean> {
-  const userId = job.user_id
   const { data: items } = await sb.from('music_import_job_items')
-    .select('id, kind, raw_artist, raw_title').eq('job_id', job.id).eq('status', 'pending').limit(MATCH_BATCH)
+    .select('id, kind, raw_artist, raw_title, pop').eq('job_id', job.id).eq('status', 'pending').limit(MATCH_BATCH)
   if (!items || !items.length) { await finishJob(sb, job); return false }
 
   const raw: RawItems = { artists: [], tracks: [], albums: [] }
@@ -212,62 +249,129 @@ async function matchTick(sb: any, job: any): Promise<boolean> {
   }
 
   const staged = await matchItems(raw, { perKindLimit: MATCH_BATCH, concurrency: MATCH_CONCURRENCY })
-  const mArtists = staged.artists.filter(h => h.matched && h.id).map(h => h.id!)
-  const mAlbums = staged.albums.filter(h => h.matched && h.id).map(h => h.id!)
-  const mTracks = staged.tracks.filter(h => h.matched && h.id).map(h => h.id!)
-  // Revert-tracking: prieš pridedant, įsidedam kurie NAUJI; po to surašom į partiją.
-  const { data: batchRow } = await sb.from('music_import_batches').select('id').eq('job_id', job.id).maybeSingle()
-  const batchId: string | null = (batchRow as any)?.id ?? null
-  const recordAdded = async (kind: Kind, ids: number[]) => {
-    if (!batchId || !ids.length) return
-    const { data: ex } = await sb.from('likes').select('entity_id').eq('user_id', userId).eq('entity_type', kind).in('entity_id', ids)
-    const have = new Set<number>(((ex || []) as any[]).map(x => x.entity_id))
-    const fresh = ids.filter(id => !have.has(id))
-    for (let i = 0; i < fresh.length; i += 200) {
-      await sb.from('music_import_added').upsert(fresh.slice(i, i + 200).map(id => ({ batch_id: batchId, kind, entity_id: id })), { ignoreDuplicates: true })
-    }
+  // Sukuriam raw→matchId žemėlapį pagal eilę (matchItems grąžina ta pačia tvarka).
+  const mapByKind: Record<string, Map<string, number>> = { artist: new Map(), album: new Map(), track: new Map() }
+  for (const h of staged.artists) if (h.matched && h.id) mapByKind.artist.set((h.raw || '').toLowerCase(), h.id)
+  for (const h of staged.albums) if (h.matched && h.id) mapByKind.album.set(`${(h.rawArtist || '').toLowerCase()}|${(h.raw || '').toLowerCase()}`, h.id)
+  for (const h of staged.tracks) if (h.matched && h.id) mapByKind.track.set(`${(h.rawArtist || '').toLowerCase()}|${(h.raw || '').toLowerCase()}`, h.id)
+
+  // Saugom rezultatus į job_items (NEpridedam į biblioteką — laukiam patvirtinimo).
+  let matchedCount = 0
+  for (const it of items as any[]) {
+    const k = it.kind === 'artist' ? (it.raw_artist || '').toLowerCase() : `${(it.raw_artist || '').toLowerCase()}|${(it.raw_title || '').toLowerCase()}`
+    const mid = mapByKind[it.kind]?.get(k) ?? null
+    if (mid) matchedCount++
+    await sb.from('music_import_job_items').update({ status: 'processed', matched_type: mid ? it.kind : null, matched_id: mid }).eq('id', it.id)
   }
-  await recordAdded('artist', mArtists)
-  await recordAdded('album', mAlbums)
-  await recordAdded('track', mTracks)
-  await addToLibrary(userId, 'artist', mArtists)
-  await addToLibrary(userId, 'album', mAlbums)
-  await addToLibrary(userId, 'track', mTracks)
-
-  let reported = 0
-  try { reported = (await reportMissingImport(userId, staged, 'import')).reported } catch {}
-  const matchedCount = mArtists.length + mAlbums.length + mTracks.length
-
-  const ids = (items as any[]).map(x => x.id)
-  await sb.from('music_import_job_items').update({ status: 'done' }).in('id', ids)
   await sb.from('music_import_jobs').update({
     processed: (job.processed || 0) + items.length,
     matched: (job.matched || 0) + matchedCount,
-    reported: (job.reported || 0) + reported,
   }).eq('id', job.id)
   return true
 }
 
 async function finishJob(sb: any, job: any): Promise<void> {
+  // Importas paruoštas PERŽIŪRAI (nieko dar nepridėta į biblioteką).
   const { data: fresh } = await sb.from('music_import_jobs')
-    .select('matched, reported, notified, user_id').eq('id', job.id).maybeSingle()
+    .select('matched, processed, notified, user_id').eq('id', job.id).maybeSingle()
   const f: any = fresh || job
   await sb.from('music_import_jobs')
-    .update({ status: 'done', phase: 'done', finished_at: new Date().toISOString(), locked_at: null }).eq('id', job.id)
+    .update({ status: 'ready', phase: 'done', finished_at: new Date().toISOString(), locked_at: null }).eq('id', job.id)
   if (f.notified) return
   await sb.from('music_import_jobs').update({ notified: true }).eq('id', job.id)
   try {
     const { data: prof } = await sb.from('profiles').select('email').eq('id', f.user_id).maybeSingle()
     const matched = f.matched || 0
-    const reported = f.reported || 0
     await createNotification({
       user_id: f.user_id,
       recipient_email: (prof as any)?.email || null,
       type: 'system',
-      title: 'Muzikos importas baigtas',
-      snippet: `Į tavo muziką pridėjome ${matched} įrašų` + (reported > 0 ? `, dar ${reported} laukia įkėlimo ir atsiras vėliau` : ''),
-      url: '/mano-muzika',
-      data: { kind: 'music_import', matched, reported },
+      title: 'Importas paruoštas peržiūrai',
+      snippet: `Radome ${matched} atitikčių iš tavo Last.fm — peržiūrėk ir patvirtink, ką pridėti į savo muziką.`,
+      url: '/mano-muzika/importas',
+      data: { kind: 'music_import_review', matched },
     })
   } catch {}
+}
+
+// ── PERŽIŪRA — paruošto (status='ready') job'o atitiktys, hidratuotos UI'ui ──
+export type ReviewHit = { itemId: number; id: number; name: string; slug: string | null; cover: string | null; artist: string | null; artistSlug: string | null; pop: number }
+export async function getReviewItems(userId: string, jobId: string): Promise<{ status: string; matched: number; missing: number; items: { artists: ReviewHit[]; albums: ReviewHit[]; tracks: ReviewHit[] } } | null> {
+  const sb = createAdminClient()
+  const { data: job } = await sb.from('music_import_jobs').select('id, user_id, status, matched, processed').eq('id', jobId).maybeSingle()
+  if (!job || (job as any).user_id !== userId) return null
+  const { data: rows } = await sb.from('music_import_job_items')
+    .select('id, kind, matched_id, pop').eq('job_id', jobId).not('matched_id', 'is', null).limit(6000)
+  const r = (rows || []) as any[]
+  const idsByKind: Record<string, number[]> = { artist: [], album: [], track: [] }
+  for (const x of r) idsByKind[x.kind]?.push(x.matched_id)
+  const artMap = new Map<number, any>(), albMap = new Map<number, any>(), trkMap = new Map<number, any>()
+  const chunk = (a: number[]) => { const out: number[][] = []; for (let i = 0; i < a.length; i += 300) out.push(a.slice(i, i + 300)); return out }
+  for (const c of chunk(idsByKind.artist)) { const { data } = await sb.from('artists').select('id, name, slug, cover_image_url').in('id', c); for (const a of data || []) artMap.set(a.id, a) }
+  for (const c of chunk(idsByKind.album)) { const { data } = await sb.from('albums').select('id, title, slug, cover_image_url, artists:artist_id(name, slug)').in('id', c); for (const a of data || []) albMap.set(a.id, a) }
+  for (const c of chunk(idsByKind.track)) { const { data } = await sb.from('tracks').select('id, title, slug, cover_url, artists:artist_id(name, slug)').in('id', c); for (const t of data || []) trkMap.set(t.id, t) }
+  const items = { artists: [] as ReviewHit[], albums: [] as ReviewHit[], tracks: [] as ReviewHit[] }
+  for (const x of r) {
+    if (x.kind === 'artist') { const a = artMap.get(x.matched_id); if (a) items.artists.push({ itemId: x.id, id: a.id, name: a.name, slug: a.slug, cover: a.cover_image_url ?? null, artist: null, artistSlug: null, pop: x.pop || 0 }) }
+    else if (x.kind === 'album') { const a = albMap.get(x.matched_id); if (a) { const ar = Array.isArray(a.artists) ? a.artists[0] : a.artists; items.albums.push({ itemId: x.id, id: a.id, name: a.title, slug: a.slug, cover: a.cover_image_url ?? null, artist: ar?.name ?? null, artistSlug: ar?.slug ?? null, pop: x.pop || 0 }) } }
+    else { const t = trkMap.get(x.matched_id); if (t) { const ar = Array.isArray(t.artists) ? t.artists[0] : t.artists; items.tracks.push({ itemId: x.id, id: t.id, name: t.title, slug: t.slug, cover: t.cover_url ?? null, artist: ar?.name ?? null, artistSlug: ar?.slug ?? null, pop: x.pop || 0 }) } }
+  }
+  // rikiuojam pagal populiarumą (kad svarbiausi viršuje)
+  for (const k of ['artists', 'albums', 'tracks'] as const) items[k].sort((a, b) => b.pop - a.pop)
+  const missing = ((job as any).processed || 0) - r.length
+  return { status: (job as any).status, matched: r.length, missing: missing > 0 ? missing : 0, items }
+}
+
+// ── PATVIRTINIMAS — keliam pasirinktus į biblioteką + neatpažintus į trūkstamus
+export async function confirmImportJob(userId: string, jobId: string, deselect: number[] = []): Promise<{ ok: boolean; added: number; reported: number; batchId: string | null; error?: string }> {
+  const sb = createAdminClient()
+  const { data: job } = await sb.from('music_import_jobs').select('id, user_id, status').eq('id', jobId).maybeSingle()
+  if (!job || (job as any).user_id !== userId) return { ok: false, added: 0, reported: 0, batchId: null, error: 'Importas nerastas' }
+  if ((job as any).status === 'done') return { ok: true, added: 0, reported: 0, batchId: null }
+  const deselectSet = new Set<number>(deselect)
+  const { data: batchRow } = await sb.from('music_import_batches').select('id').eq('job_id', jobId).maybeSingle()
+  const batchId: string | null = (batchRow as any)?.id ?? null
+
+  const { data: rows } = await sb.from('music_import_job_items')
+    .select('id, kind, matched_id, pop, raw_artist, raw_title').eq('job_id', jobId).limit(8000)
+  const byKind: Record<FavKind, number[]> = { artist: [], album: [], track: [] }
+  const weights: Record<FavKind, Record<number, number>> = { artist: {}, album: {}, track: {} }
+  const missing: any[] = []
+  for (const x of (rows || []) as any[]) {
+    if (x.matched_id) {
+      if (deselectSet.has(x.id)) continue
+      const k = x.kind as FavKind
+      byKind[k].push(x.matched_id)
+      if (x.pop) weights[k][x.matched_id] = x.pop
+    } else { missing.push(x) }
+  }
+
+  let added = 0
+  for (const kind of ['artist', 'album', 'track'] as FavKind[]) {
+    const idsK = byKind[kind]
+    if (!idsK.length) continue
+    const { data: ex } = await sb.from('likes').select('entity_id').eq('user_id', userId).eq('entity_type', kind).in('entity_id', idsK)
+    const have = new Set<number>(((ex || []) as any[]).map(y => y.entity_id))
+    const fresh = idsK.filter(id => !have.has(id))
+    if (batchId && fresh.length) for (let i = 0; i < fresh.length; i += 200) await sb.from('music_import_added').upsert(fresh.slice(i, i + 200).map(id => ({ batch_id: batchId, kind, entity_id: id })), { ignoreDuplicates: true })
+    await addToLibrary(userId, kind, idsK, weights[kind])
+    added += idsK.length
+  }
+
+  // neatpažintus — į „trūkstamą muziką" (su naudotojo ryšiu)
+  let reported = 0
+  if (missing.length) {
+    const mk = (x: any): StagedHit => ({ raw: x.kind === 'artist' ? x.raw_artist : x.raw_title, rawArtist: x.raw_artist, matched: false, confidence: 'low' })
+    const staged: StagedResult = {
+      artists: missing.filter(x => x.kind === 'artist').map(mk),
+      albums: missing.filter(x => x.kind === 'album').map(mk),
+      tracks: missing.filter(x => x.kind === 'track').map(mk),
+      counts: { matched: 0, unmatched: missing.length, total: missing.length },
+    }
+    try { reported = (await reportMissingImport(userId, staged, 'import')).reported } catch {}
+  }
+
+  if (batchId) await sb.from('music_import_batches').update({ added }).eq('id', batchId)
+  await sb.from('music_import_jobs').update({ status: 'done', reported }).eq('id', jobId)
+  return { ok: true, added, reported, batchId }
 }
