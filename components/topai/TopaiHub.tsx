@@ -349,7 +349,7 @@ const styles = `
 
   .tc { display: flex; flex-direction: column; border-radius: 16px; background: var(--bg-surface); border: 1px solid var(--border-subtle); overflow: hidden; transition: transform .16s, box-shadow .16s, border-color .16s; }
   .tc:hover { transform: translateY(-2px); box-shadow: 0 18px 38px rgba(0,0,0,0.10); border-color: var(--border-default); }
-  .tc-brand { --c: #6366f1; }
+  .tc-brand { --c: var(--accent-orange); }
   .tc-brand:hover { border-color: var(--c); }
   .tc-main { display: flex; flex-direction: column; flex: 1 1 auto; padding: 16px 16px 8px; text-decoration: none; color: inherit; }
 
@@ -366,7 +366,7 @@ const styles = `
   .tc-feat { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 14px; background: var(--bg-elevated); margin-bottom: 8px; }
   .tc-feat-cv { position: relative; width: 92px; height: 92px; flex-shrink: 0; border-radius: 12px; overflow: hidden; background: var(--bg-surface); box-shadow: 0 6px 18px rgba(0,0,0,0.16); }
   .tc-feat-cv img { width: 100%; height: 100%; object-fit: cover; }
-  .tc-feat-badge { position: absolute; top: 6px; left: 6px; min-width: 20px; height: 20px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--c, #6366f1); color: #fff; font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 900; }
+  .tc-feat-badge { position: absolute; top: 6px; left: 6px; min-width: 20px; height: 20px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--c, var(--accent-orange)); color: #fff; font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 900; }
   .tc-feat-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
   .tc-feat-song { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; color: var(--text-primary); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .tc-feat-artist { font-size: 13.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

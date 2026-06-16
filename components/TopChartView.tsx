@@ -73,6 +73,13 @@ function TrackCover({ track, size = 36 }: { track: Track | null; size?: number }
   return <span style={{ fontSize: size > 30 ? 14 : 12, color: 'var(--text-muted)' }}>♪</span>
 }
 
+// ALL-CAPS → Title Case (consistency su consensus topais). Jei jau yra mažųjų — paliekam.
+function displayCase(s?: string | null): string {
+  if (!s) return s || ''
+  if (/[a-z]/.test(s)) return s
+  return s.replace(/\S+/g, (w) => (w.length <= 3 ? w : w[0] + w.slice(1).toLowerCase()))
+}
+
 // Vėliava header'yje (consistent su /topai). LT TOP 30 → LT vėliava;
 // Music.lt TOP 40 (pasaulinis) → švari linijinė pasaulio ikona.
 function Flag({ country }: { country: string | null }) {
@@ -1000,7 +1007,9 @@ export default function TopChartView({
         .tcv-phead { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); }
         .tcv-pflag { width: 24px; height: 16px; flex-shrink: 0; border-radius: 4px; background-size: cover; background-position: center; box-shadow: 0 0 0 1px var(--border-subtle); display: inline-block; }
         .tcv-pflag-globe { display: inline-flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); }
-        .tcv-h1 { margin: 0; flex: 1; min-width: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tcv-phead-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+        .tcv-h1 { margin: 0; min-width: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tcv-now { font-size: 11.5px; font-weight: 600; color: ${accent.hex}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tcv-phead-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
         .tcv-player-info { padding: 16px 18px; }
@@ -1313,7 +1322,12 @@ export default function TopChartView({
                       (consistent su /topai pilnu topu — ne overlay ant video). */}
                   <div className="tcv-phead">
                     <Flag country={topType === 'lt_top30' ? 'lt' : null} />
-                    <h1 className="tcv-h1">{title}</h1>
+                    <div className="tcv-phead-txt">
+                      <h1 className="tcv-h1">{title}</h1>
+                      {activeEntry && (
+                        <span className="tcv-now">#{activeEntry.position} {displayCase(activeEntry.tracks?.title ?? activeEntry.title)} — {displayCase(activeEntry.tracks?.artists?.name ?? activeEntry.artist_name)}</span>
+                      )}
+                    </div>
                     {voteWeekId > 0 && (
                       <button
                         className="tcv-vote-cta"

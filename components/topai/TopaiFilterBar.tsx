@@ -19,7 +19,7 @@ import Link from 'next/link'
 export type TopaiView = 'all' | 'lt' | 'world' | 'us' | 'uk' | 'songs' | 'albums' | 'community'
 
 const FILTERS: { key: TopaiView; href: string; cc: string; label: string }[] = [
-  { key: 'lt', href: '/topai/lietuva', cc: 'lt', label: 'Lietuva' },
+  { key: 'lt', href: '/topai/lietuva', cc: 'lt', label: 'LT' },
   { key: 'us', href: '/topai/jav', cc: 'us', label: 'JAV' },
   { key: 'uk', href: '/topai/uk', cc: 'gb', label: 'UK' },
 ]
@@ -76,5 +76,6 @@ const tpfStyles = `
   .tpf-chip.on { background: var(--accent-orange); border-color: var(--accent-orange); color: #fff; }
   @media (max-width: 640px) {
     .tpf { padding: 0 var(--page-pad-x-sm, 14px); }
+    .tpf-chips { justify-content: center; }
   }
 `

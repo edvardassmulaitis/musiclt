@@ -52,6 +52,15 @@ function trendGlyph(pos: number, prev: number | null): { ch: string; cls: string
   return { ch: '–', cls: 'is-same' }
 }
 
+// Kai šaltinis pateikia VISKĄ DIDŽIOSIOMIS (pvz. Official UK) — paverčiam į
+// Title Case, kad tarp topų būtų vienoda. Trumpus žodžius (≤3, akronimai)
+// paliekam. Jei jau yra mažųjų — nieko nekeičiam.
+function displayCase(s?: string | null): string {
+  if (!s) return s || ''
+  if (/[a-z]/.test(s)) return s
+  return s.replace(/\S+/g, (w) => (w.length <= 3 ? w : w[0] + w.slice(1).toLowerCase()))
+}
+
 export default function ChartFullView({ chart, entries }: { chart: FullChart; entries: FullEntry[] }) {
   const [sel, setSel] = useState<number>(() => {
     const i = entries.findIndex(e => e.videoId)
@@ -79,7 +88,7 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
   }
 
   return (
-    <div className="cfv" style={{ ['--c' as any]: chart.accent || '#6366f1' }}>
+    <div className="cfv" style={{ ['--c' as any]: 'var(--accent-orange)' }}>
       <style>{styles}</style>
 
       <div className={`cfv-body${playable ? '' : ' is-album'}`}>
@@ -90,14 +99,22 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
             <div className="cfv-player">
               {/* Topo pavadinimas — header juosta VIRŠ player'io (ne overlay ant
                   video, kad gerai skaitytųsi). */}
-              <div className="cfv-phead"><Flag country={chart.country} /><h1 className="cfv-h1">{chart.title}</h1></div>
+              <div className="cfv-phead">
+                <Flag country={chart.country} />
+                <div className="cfv-phead-txt">
+                  <h1 className="cfv-h1">{chart.title}</h1>
+                  {current && (
+                    <span className="cfv-now">#{current.position} {displayCase(current.title)} — {displayCase(current.artistName)}</span>
+                  )}
+                </div>
+              </div>
               <ChartYtPlayer
                 ref={ytRef}
                 videoId={current?.videoId ?? null}
                 query={current?.query}
                 playing={playing}
                 posterUrl={current?.coverUrl ? proxyImg(current.coverUrl, 320) : null}
-                accentHex={chart.accent || '#f97316'}
+                accentHex="var(--accent-orange)"
                 title={current?.title}
                 onActivate={() => { setPlaying(true); if (current?.videoId) ytRef.current?.playNow(current.videoId) }}
                 onEnded={advanceNext}
@@ -126,8 +143,8 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
                     {playable && <span className="cfv-play" aria-hidden>▶</span>}
                   </span>
                   <span className="cfv-info">
-                    <span className="cfv-song">{e.title}</span>
-                    <span className="cfv-artist">{e.artistName}</span>
+                    <span className="cfv-song">{displayCase(e.title)}</span>
+                    <span className="cfv-artist">{displayCase(e.artistName)}</span>
                   </span>
                 </button>
                 {!chart.isConsensus && t && <span className={`cfv-trend ${t.cls}`}>{t.ch}</span>}
@@ -204,6 +221,8 @@ const styles = `
   .cfv-phead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); }
   .cfv-pflag { width: 26px; height: 18px; flex-shrink: 0; border-radius: 4px; background-size: cover; background-position: center; box-shadow: 0 0 0 1px var(--border-subtle); display: inline-block; }
   .cfv-pflag-globe { display: inline-flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); }
+  .cfv-phead-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .cfv-now { font-size: 11.5px; font-weight: 600; color: var(--accent-orange); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cfv-h1 { margin: 0; flex: 1; min-width: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cfv-albumhead .cfv-pflag { width: 34px; height: 23px; }
   .cfv-albumhead .cfv-h1 { flex: 0 1 auto; }
