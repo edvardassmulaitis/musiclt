@@ -15,7 +15,7 @@
  *   • youtube-nocookie.com (Safari ITP). onError 101/150/153 → fallback.
  * ────────────────────────────────────────────────────────────────── */
 
-import { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react'
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react'
 
 export type ChartYtPlayerHandle = { playNow: (videoId: string) => void }
 
@@ -38,6 +38,31 @@ export const ChartYtPlayer = forwardRef<ChartYtPlayerHandle, {
   const [embedDisabled, setEmbedDisabled] = useState(false)
   const onEndedRef = useRef(onEnded)
   useEffect(() => { onEndedRef.current = onEnded }, [onEnded])
+
+  // Watchdog: kai kurie embed-restricted video (YT Error 153 „player config")
+  // parodo YT klaidą BET NEiškviečia onError → app'as nesusigaudo. Todėl po
+  // play paleidžiam laikmatį; jei per 5s nepasiekia PLAYING/BUFFERING būsenos,
+  // laikom embed nepavykusiu → fallback + auto-skip į kitą.
+  const failTimerRef = useRef<any>(null)
+  const clearFail = useCallback(() => {
+    if (failTimerRef.current) { clearTimeout(failTimerRef.current); failTimerRef.current = null }
+  }, [])
+  const markFailed = useCallback(() => {
+    clearFail()
+    setEmbedDisabled(true)
+    try { playerRef.current?.destroy() } catch {}
+    playerRef.current = null; readyRef.current = false
+    // trumpa pauzė kad spėtų matytis „Žiūrėti YouTube", tada kitas trekas
+    window.setTimeout(() => onEndedRef.current?.(), 2500)
+  }, [clearFail])
+  const armWatchdog = useCallback(() => {
+    clearFail()
+    failTimerRef.current = window.setTimeout(() => markFailed(), 5000)
+  }, [clearFail, markFailed])
+
+  // Trekui pasikeitus — reset embedDisabled, kad naujas video gautų šviežią player'į
+  // (kitaip po vieno fail'o embedDisabled liktų true ir niekas nebegrotų).
+  useEffect(() => { setEmbedDisabled(false); clearFail() }, [videoId, clearFail])
 
   // Load IFrame API once per session
   useEffect(() => {
@@ -82,18 +107,12 @@ export const ChartYtPlayer = forwardRef<ChartYtPlayerHandle, {
             try {
               if (v !== curVidRef.current) { e.target.loadVideoById(v); curVidRef.current = v }
               else e.target.playVideo()
+              armWatchdog()
             } catch {}
           }
         },
-        onStateChange: (e: any) => { if (e.data === 0) onEndedRef.current?.() },
-        onError: (e: any) => {
-          const c = e?.data
-          if (c === 101 || c === 150 || c === 153) {
-            setEmbedDisabled(true)
-            try { playerRef.current?.destroy() } catch {}
-            playerRef.current = null; readyRef.current = false
-          }
-        },
+        onStateChange: (e: any) => { if (e.data === 1 || e.data === 3) clearFail(); if (e.data === 0) onEndedRef.current?.() },
+        onError: () => { markFailed() },
       },
     })
   }, [apiReady, videoId, embedDisabled])
@@ -113,15 +132,16 @@ export const ChartYtPlayer = forwardRef<ChartYtPlayerHandle, {
         try {
           if (curVidRef.current !== vid) { p.loadVideoById(vid); curVidRef.current = vid }
           else p.playVideo()
+          armWatchdog()
         } catch {}
       } else {
         pendingRef.current = vid  // dar neparuoštas — paleisim per onReady
       }
     },
-  }), [])
+  }), [armWatchdog])
 
   // Unmount cleanup
-  useEffect(() => () => { try { playerRef.current?.destroy() } catch {}; playerRef.current = null }, [])
+  useEffect(() => () => { try { playerRef.current?.destroy() } catch {}; playerRef.current = null; if (failTimerRef.current) clearTimeout(failTimerRef.current) }, [])
 
   // No-videoId fallback: YT paieškos iframe (best-effort), kai grojam be videoId.
   const showSearchIframe = playing && !videoId && !!query && !embedDisabled
