@@ -1,10 +1,15 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
 import { useSite } from '@/components/SiteContext'
 
 export function SiteFooter() {
+  // Bendruomenės hub'e mobiliajame footeris nereikalingas — puslapis baigiasi
+  // ties „Aktyvūs nariai" (2026-06-17). Desktop'e footeris lieka.
+  const pathname = usePathname()
+  const hideOnMobile = !!pathname && (pathname === '/bendruomene' || pathname.startsWith('/bendruomene/'))
   return (
-    <footer style={{ borderTop: '1px solid var(--border-default)', background: 'var(--bg-body)' }}>
+    <footer className={hideOnMobile ? 'hidden lg:block' : undefined} style={{ borderTop: '1px solid var(--border-default)', background: 'var(--bg-body)' }}>
       <div className="max-w-[1360px] mx-auto px-5 lg:px-8 py-12">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
           <div>
@@ -15,7 +20,7 @@ export function SiteFooter() {
               „Reklama"/„Kontaktai" (vedę į /) pašalinti, kol nėra puslapių. */}
           {[
             { t: 'Platforma', l: [['Topai', '/topai'], ['Nauja muzika', '/muzika'], ['Koncertai', '/koncertai'], ['Atlikėjai', '/atlikejai'], ['Albumai', '/albumai'], ['Skelbimai', '/skelbimai']] },
-            { t: 'Bendruomenė', l: [['Atrasti', '/atrasti'], ['Diskusijos', '/diskusijos'], ['Muzikos atradimai', '/muzikos-atradimai'], ['Narių įrašai', '/blogas'], ['Dienos daina', '/dienos-daina'], ['Pokalbiai', '/pokalbiai']] },
+            { t: 'Bendruomenė', l: [['Atrasti', '/bendruomene'], ['Diskusijos', '/diskusijos'], ['Muzikos atradimai', '/muzikos-atradimai'], ['Narių įrašai', '/blogas'], ['Dienos daina', '/dienos-daina'], ['Pokalbiai', '/pokalbiai']] },
             { t: 'Informacija', l: [['Naujienos', '/naujienos'], ['Music.lt atlikėjams', '/atlikejams'], ['Naujų atlikėjų radaras', '/nauji-atlikejai'], ['Muzikos stiliai', '/muzikos-stilius'], ['Balsavimai', '/balsavimai']] },
           ].map(col => (
             <div key={col.t}>

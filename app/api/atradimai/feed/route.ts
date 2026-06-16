@@ -44,6 +44,7 @@ type OutPost = {
   cover: string | null
   collage: string[] | null
   entries: ListEntry[] | null
+  entry_count: number | null
   blog_slug: string | null
   author: { id: string | null; full_name: string | null; username: string | null; avatar_url: string | null } | null
 }
@@ -307,6 +308,7 @@ export async function GET(req: NextRequest) {
         cover: r.cover_image_url || thumb.get(r.id) || topasCover || null,
         collage: collage && collage.length ? collage : null,
         entries,
+        entry_count: r.post_type === 'topas' && Array.isArray(r.list_items) ? r.list_items.length : null,
         blog_slug: r.blogs?.slug || prof?.username || null,
         author: prof ? { id: prof.id || null, full_name: prof.full_name || null, username: prof.username || null, avatar_url: prof.avatar_url || null } : null,
       }

@@ -85,6 +85,20 @@ function ptsWord(v: number): string {
   if (last >= 2 && last <= 9 && !(lastTwo >= 11 && lastTwo <= 19)) return 'taškai'
   return 'taškų'
 }
+// „Vakar laimėjo" tik kai laimėtojo data tikrai vakar; kitaip nemeluojam —
+// laimėtojas grąžinamas naujausias, bet jis gali būti senesnis (kai praeitą
+// dieną nebuvo dalyvių / laimėtojo). 2026-06-17.
+function ymdLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function winnerDayLabel(date?: string | null): string {
+  if (!date) return 'Paskutinė laimėjusi'
+  const today = new Date()
+  const yest = new Date(today); yest.setDate(today.getDate() - 1)
+  if (date === ymdLocal(today)) return 'Šiandien laimėjo'
+  if (date === ymdLocal(yest)) return 'Vakar laimėjo'
+  return 'Paskutinį kartą laimėjo'
+}
 
 // ───────────────────────── types ─────────────────────────
 type Proposer = { username: string | null; full_name: string | null; avatar_url: string | null }
@@ -416,7 +430,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
       {winner?.tracks && (
         <div className="relative shrink-0 border-t border-[rgba(255,255,255,0.08)] px-4 pb-3 pt-3 sm:px-5">
           <div className="mb-2 flex items-center justify-between px-1">
-            <span className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#54749a]">Vakar laimėjo{fullPage && ydaySorted.length > 0 ? ' · visi dalyviai' : ''}</span>
+            <span className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#54749a]">{winnerDayLabel(winner.date)}{fullPage && ydaySorted.length > 0 ? ' · visi dalyviai' : ''}</span>
             <button type="button" onClick={() => setWinnersOpen(true)} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[#fbbf24] transition-opacity hover:opacity-70">Visos →</button>
           </div>
           <div className="flex flex-col gap-[5px]">

@@ -4,18 +4,23 @@ export function middleware(req: NextRequest) {
   const url = req.nextUrl
   const { pathname } = url
 
-  // Seni bendruomenės hub URL'ai → /atrasti (308). Hub'as: /atradimai (V1) →
-  // /feed (2026-06-05) → /atrasti (2026-06-05 v2). Middleware'e, kad apeitų
-  // Vercel edge cache'uotą seną statinį puslapį (page-lygio permanentRedirect
-  // to nepadaro, nes serveris atiduoda cache HIT).
+  // Seni bendruomenės hub URL'ai → /bendruomene (308). Hub'as: /atradimai (V1) →
+  // /feed (2026-06-05) → /atrasti (2026-06-05 v2) → /bendruomene (2026-06-17).
+  // Middleware'e, kad apeitų Vercel edge cache'uotą seną statinį puslapį
+  // (page-lygio permanentRedirect to nepadaro, nes serveris atiduoda cache HIT).
   if (pathname === '/atradimai' || pathname.startsWith('/atradimai/')) {
     const dest = url.clone()
-    dest.pathname = pathname.replace(/^\/atradimai/, '/atrasti')
+    dest.pathname = pathname.replace(/^\/atradimai/, '/bendruomene')
     return NextResponse.redirect(dest, 308)
   }
   if (pathname === '/feed' || pathname.startsWith('/feed/')) {
     const dest = url.clone()
-    dest.pathname = pathname.replace(/^\/feed/, '/atrasti')
+    dest.pathname = pathname.replace(/^\/feed/, '/bendruomene')
+    return NextResponse.redirect(dest, 308)
+  }
+  if (pathname === '/atrasti' || pathname.startsWith('/atrasti/')) {
+    const dest = url.clone()
+    dest.pathname = pathname.replace(/^\/atrasti/, '/bendruomene')
     return NextResponse.redirect(dest, 308)
   }
 

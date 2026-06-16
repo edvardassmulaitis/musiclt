@@ -168,8 +168,8 @@ const NAV: NavItem[] = [
   {
     key: 'bendruomene',
     label: 'Bendruomenė',
-    href: '/atrasti',
-    match: ['/atrasti', '/vartotojai', '/diskusijos', '/pokalbiai', '/boombox', '/dienos-daina', '/blogas', '/feed', '/srautas'],
+    href: '/bendruomene',
+    match: ['/bendruomene', '/atrasti', '/vartotojai', '/diskusijos', '/pokalbiai', '/boombox', '/dienos-daina', '/blogas', '/feed', '/srautas'],
     desc: 'Nariai, diskusijos, kūryba',
     accent: '#8b5cf6',
     icon: I.users,
@@ -699,7 +699,7 @@ function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: s
     <div className="sh-panel">
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Bendruomenė</span>
-        <Link href="/atrasti" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
+        <Link href="/bendruomene" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
       </div>
 
       {/* Dienos dainos — nugalėtojų juosta */}
