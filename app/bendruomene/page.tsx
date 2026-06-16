@@ -1,8 +1,8 @@
 'use client'
 
-// app/atrasti/page.tsx
+// app/bendruomene/page.tsx (buvęs /atrasti — pervardyta 2026-06-17)
 //
-// „Atrasti" — bendruomenės hub'as (2026-06-10 redesign, fix iteracija v2).
+// „Bendruomenė" — bendruomenės hub'as (2026-06-10 redesign, fix iteracija v3).
 //
 // Struktūra:
 //   1. „DĖMESIO CENTRE" — kuruotas slider'is (admin featured_until su pasirenkama
