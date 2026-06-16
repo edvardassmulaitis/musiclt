@@ -44,6 +44,10 @@ const SOURCE_LINKS: Record<string, { label: string; slug: string }[]> = {
 // kiti automatiškai iškrenta (toCard → null). country=null + globe rodo
 // pasaulio ikoną.
 const SOURCE_CARDS: { slug: string; region: Region; ctype: Ctype; country?: string | null; globe?: boolean }[] = [
+  // Albumai (šaltiniai) — keliami aukščiau (Edvardo prašymu), kad albumų
+  // topai būtų matomesni, sugrupuoti su consensus albumų kortelėmis.
+  { slug: 'billboard-albums', region: 'world', ctype: 'albums', country: 'us' },
+  { slug: 'official_uk-albums', region: 'world', ctype: 'albums', country: 'gb' },
   // LT dainos
   { slug: 'agata-singles', region: 'lt', ctype: 'songs', country: 'lt' },
   { slug: 'apple-lt_songs', region: 'lt', ctype: 'songs', country: 'lt' },
@@ -68,9 +72,6 @@ const SOURCE_CARDS: { slug: string; region: Region; ctype: Ctype; country?: stri
   { slug: 'shazam-br', region: 'world', ctype: 'songs', country: 'br' },
   { slug: 'shazam-es', region: 'world', ctype: 'songs', country: 'es' },
   { slug: 'shazam-mx', region: 'world', ctype: 'songs', country: 'mx' },
-  // Albumai (šaltiniai)
-  { slug: 'billboard-albums', region: 'world', ctype: 'albums', country: 'us' },
-  { slug: 'official_uk-albums', region: 'world', ctype: 'albums', country: 'gb' },
 ]
 
 function ytThumb(url: string | null | undefined): string | null {

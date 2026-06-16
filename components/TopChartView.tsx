@@ -73,6 +73,14 @@ function TrackCover({ track, size = 36 }: { track: Track | null; size?: number }
   return <span style={{ fontSize: size > 30 ? 14 : 12, color: 'var(--text-muted)' }}>♪</span>
 }
 
+// Dainos puslapio nuoroda (rodyklė atidaryti — consistent su consensus topais).
+function trackHref(e: Entry): string | null {
+  const t = e.tracks
+  if (!t?.slug || !t.id) return null
+  const a = t.artists?.slug
+  return a ? `/dainos/${a}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`
+}
+
 // ALL-CAPS → Title Case (consistency su consensus topais). Jei jau yra mažųjų — paliekam.
 function displayCase(s?: string | null): string {
   if (!s) return s || ''
@@ -120,7 +128,7 @@ function TrendIndicator({ curr, prev, isNew, weeksInTop }: {
   // newcomers'ių). Be to fallback'o net ir kai is_new flag'as nesutvarkytas
   // legacy duomenys atvaizduos teisingai.
   if (isNew || prev === null || weeksInTop === 1) {
-    return <span className="tcv-new">NEW</span>
+    return <span className="tcv-new" aria-label="Naujas" title="Naujiena" />
   }
   if (curr < prev) return <span className="tcv-up">↑{prev - curr}</span>
   if (curr > prev) return <span className="tcv-down">↓{curr - prev}</span>
@@ -291,6 +299,9 @@ function ChartRow({
           votesRemaining={votesRemaining} weeklyLimit={weeklyLimit}
         />
       )}
+      {trackHref(entry) && (
+        <Link href={trackHref(entry)!} className="tcv-go" title="Atidaryti dainos puslapį" onClick={e => e.stopPropagation()}>›</Link>
+      )}
     </div>
   )
 }
@@ -351,6 +362,9 @@ function NewcomerRow({
           onVoted={onVoted} onVoteFailed={onVoteFailed} votesPerTrack={votesPerTrack}
           votesRemaining={votesRemaining} weeklyLimit={weeklyLimit}
         />
+      )}
+      {trackHref(entry) && (
+        <Link href={trackHref(entry)!} className="tcv-go" title="Atidaryti dainos puslapį" onClick={e => e.stopPropagation()}>›</Link>
       )}
     </div>
   )
@@ -823,7 +837,7 @@ export default function TopChartView({
           .tcv-pos.top { font-size: 15px; }
           .tcv-trend { width: 22px; }
           .tcv-up, .tcv-down { font-size: 10px; }
-          .tcv-new { font-size: 8px; padding: 2px 4px; }
+          .tcv-new { width: 7px; height: 7px; }
           .tcv-track-title { font-size: 12px; }
           .tcv-artist { font-size: 10px; }
           .tcv-weeks-progress { gap: 1px; }
@@ -879,7 +893,8 @@ export default function TopChartView({
         .tcv-trend {
           display: flex; justify-content: center; line-height: 1;
         }
-        .tcv-new { font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 4px; background: ${accent.rgb}; color: ${accent.hex}; letter-spacing: 0.06em; }
+        /* NEW → žalias taškas (consistent su radaro feature). */
+        .tcv-new { display: inline-block; width: 8px; height: 8px; padding: 0; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-green) 22%, transparent); }
         .tcv-up { font-size: 11px; font-weight: 800; color: #10b981; }
         .tcv-down { font-size: 11px; font-weight: 800; color: #ef4444; }
         .tcv-same { font-size: 13px; color: var(--text-muted); }
@@ -897,6 +912,10 @@ export default function TopChartView({
         .tcv-row-artist { font-size: 11px; color: var(--text-muted); font-weight: 500; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
         .tcv-row-artist:hover { color: ${accent.hex}; }
         .tcv-row-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
+
+        /* Rodyklė atidaryti dainos puslapį (consistent su consensus topais). */
+        .tcv-go { flex-shrink: 0; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: var(--text-muted); text-decoration: none; border-radius: 8px; }
+        .tcv-go:hover { color: ${accent.hex}; background: ${accent.rgb}; }
 
         .tcv-spotify-icon { color: #1db954; opacity: 0.55; flex-shrink: 0; transition: opacity 0.15s; }
         .tcv-spotify-icon:hover { opacity: 1; }

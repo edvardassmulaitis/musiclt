@@ -147,7 +147,11 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
                     <span className="cfv-artist">{displayCase(e.artistName)}</span>
                   </span>
                 </button>
-                {!chart.isConsensus && t && <span className={`cfv-trend ${t.cls}`}>{t.ch}</span>}
+                {!chart.isConsensus && t && (
+                  <span className={`cfv-trend ${t.cls}`}>
+                    {t.cls === 'is-new' ? <span className="cfv-newdot" aria-label="Naujas" /> : t.ch}
+                  </span>
+                )}
                 {e.href && <Link href={e.href} className="cfv-go" title="Atidaryti puslapį">›</Link>}
               </li>
             )
@@ -204,7 +208,9 @@ const styles = `
   .cfv-srcbadge { font-size: 9px; font-weight: 700; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--border-subtle); padding: 1px 6px; border-radius: 999px; }
   .cfv-trend { flex-shrink: 0; font-size: 11px; font-weight: 800; width: 30px; text-align: center; }
   .cfv-trend.is-up { color: #16a34a; } .cfv-trend.is-down { color: #dc2626; }
-  .cfv-trend.is-same { color: var(--text-muted); } .cfv-trend.is-new { color: var(--c); font-size: 9px; }
+  .cfv-trend.is-same { color: var(--text-muted); }
+  /* NEW → žalias taškas (consistent su radaro feature). */
+  .cfv-newdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-green) 22%, transparent); }
   .cfv-go { flex-shrink: 0; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: var(--text-muted); text-decoration: none; border-radius: 8px; }
   .cfv-go:hover { color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); }
 
