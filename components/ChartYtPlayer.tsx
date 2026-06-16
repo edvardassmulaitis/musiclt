@@ -34,11 +34,12 @@ export const ChartYtPlayer = forwardRef<ChartYtPlayerHandle, {
   useImperativeHandle(ref, () => ({ playNow() { /* state-driven */ } }), [])
 
   const origin = typeof window !== 'undefined' ? `&origin=${encodeURIComponent(window.location.origin)}` : ''
+  // TIK konkretus videoId. listType=search embed'as YouTube'e DEPRECATED
+  // (rodo „Šis vaizdo įrašas nepasiekiamas") — todėl be videoId nieko negrojam,
+  // rodom posterį. Neprilinkinti įrašai = posteris, ne lūžęs error.
   const src = videoId
     ? `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3${origin}`
-    : query
-      ? `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=1&rel=0&modestbranding=1&playsinline=1`
-      : ''
+    : ''
 
   return (
     <div className="cyt-video">
@@ -55,7 +56,7 @@ export const ChartYtPlayer = forwardRef<ChartYtPlayerHandle, {
         />
       )}
 
-      {!playing && (
+      {(!playing || !videoId) && (
         <button className="cyt-poster" onClick={onActivate} type="button" aria-label="Groti">
           {posterUrl ? <img src={posterUrl} alt="" referrerPolicy="no-referrer" /> : <span className="cyt-ph">♪</span>}
           <span className="cyt-playbtn" style={{ background: accentHex }}>

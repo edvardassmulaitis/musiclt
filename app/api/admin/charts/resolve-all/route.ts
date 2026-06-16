@@ -22,7 +22,7 @@ export async function POST() {
   const { data: charts } = await sb
     .from('external_charts')
     .select('id, chart_key')
-    .eq('is_current', true).neq('source', 'consensus')
+    .eq('is_current', true)   // ĮSKAITANT consensus topus (jie irgi turi pending entries; anksčiau buvo praleisti)
   const isAlbumById = new Map<number, boolean>()
   for (const c of (charts || []) as any[]) isAlbumById.set(c.id, c.chart_key === 'albums')
   const ids = Array.from(isAlbumById.keys())
