@@ -622,18 +622,6 @@ export default function TopChartView({
 
   useEffect(() => { setActiveEntry(data.entries[0] ?? null) }, [data])
 
-  // 3-dots info popover state
-  const [showInfo, setShowInfo] = useState(false)
-  const infoRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    if (!showInfo) return
-    const onClick = (e: MouseEvent) => {
-      if (infoRef.current && !infoRef.current.contains(e.target as Node)) setShowInfo(false)
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [showInfo])
-
   const loadVoteStatus = useCallback(async () => {
     if (!data.week) return
     const res = await fetch(`/api/top/vote?week_id=${data.week.id}`)
@@ -858,7 +846,7 @@ export default function TopChartView({
             z-index: 10;
             display: block;
             order: 1;
-            background: var(--bg-page, #0a0a0a);
+            background: var(--bg-body);
             margin: 0 -12px 4px;   /* ištempt'i edge-to-edge mobile */
             padding: 6px 12px;
             border-bottom: 1px solid var(--border-subtle);
@@ -1051,12 +1039,28 @@ export default function TopChartView({
         .tcv-thumb-img { width: 100%; height: 100%; object-fit: cover; }
         .tcv-thumb-empty { width: 100%; height: 100%; background: var(--bg-elevated); }
         .tcv-play-btn {
-          position: absolute; width: 56px; height: 56px; border-radius: 50%;
+          position: absolute; right: 12px; bottom: 12px; width: 48px; height: 48px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
           box-shadow: 0 8px 26px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.3);
           transition: transform 0.15s;
         }
         .tcv-thumb:hover .tcv-play-btn { transform: scale(1.08); }
+
+        /* Balsuoti CTA header'yje */
+        .tcv-vote-cta {
+          flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
+          padding: 7px 14px; border-radius: 999px; border: none; cursor: pointer;
+          background: ${accent.hex}; color: #fff;
+          font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 800;
+          box-shadow: 0 4px 12px ${accent.rgb}; transition: transform 0.12s, filter 0.15s;
+        }
+        .tcv-vote-cta:hover { transform: translateY(-1px); filter: brightness(1.06); }
+        .tcv-vote-cta svg { flex-shrink: 0; }
+
+        /* Apatinis info pranešimas + taisyklių countdown */
+        .tcv-fallback-bottom { margin: 22px 0 0; }
+        .tcv-rules-countdown { margin: -8px 0 16px; font-size: 13px; color: var(--text-secondary); }
+        .tcv-rules-countdown strong { color: ${accent.hex}; font-variant-numeric: tabular-nums; }
 
         /* Player kortelė: švarus header'is (vėliava + title + veiksmai) VIRŠ
            video — consistent su /topai pilnu topu (ne overlay ant video). */
@@ -1330,23 +1334,6 @@ export default function TopChartView({
           </div>
         )}
 
-        {/* Archyvo žyma: konkrečios praėjusios savaitės peržiūra (read-only). */}
-        {archiveMode && weekLabel && (
-          <div className="tcv-fallback-note">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            <span>Archyvinis topas — <strong>{weekLabel}</strong> savaitės rezultatai.</span>
-          </div>
-        )}
-
-        {/* Fallback žyma: rodom paskutinę užbaigtą (legacy) savaitę, nes einamoji
-            dar neturi balsų. Balsavimas išjungtas. */}
-        {!archiveMode && data.isFallback && data.entries.length > 0 && weekLabel && (
-          <div className="tcv-fallback-note">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            <span>Rodomas paskutinės užbaigtos savaitės topas (<strong>{weekLabel}</strong>). Naujos savaitės balsavimas dar prasidės.</span>
-          </div>
-        )}
-
         {data.entries.length === 0 ? (
           <div className="tcv-empty">
             <p className="tcv-empty-title">Sąrašas dar tuščias</p>
@@ -1361,7 +1348,7 @@ export default function TopChartView({
                 vaiko, kad gauti player → list → newcomers eiliškumą. */}
 
             {/* MAIN LIST + BELOW — desktop kairė kolona, mobile order: 2 */}
-            <div className="tcv-list-wrap">
+            <div className="tcv-list-wrap" id="tcv-list-anchor">
               <div className="tcv-list">
                 {mainTop.map(entry => (
                   <ChartRow
@@ -1396,44 +1383,16 @@ export default function TopChartView({
                   <div className="tcv-phead">
                     <Flag country={topType === 'lt_top30' ? 'lt' : null} />
                     <h1 className="tcv-h1">{title}</h1>
-                    <div className="tcv-phead-actions">
+                    {voteWeekId > 0 && (
                       <button
-                        className="tcv-suggest-btn"
-                        onClick={() => setShowSuggest(true)}
-                        aria-label="Siūlyti dainą"
-                        title="Siūlyti dainą"
+                        className="tcv-vote-cta"
+                        onClick={() => document.getElementById('tcv-list-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                        title="Balsuoti už dainas"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                        <span className="tcv-suggest-label">Siūlyti</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+                        Balsuoti
                       </button>
-                      <div className="tcv-info-wrap" ref={infoRef}>
-                        <button
-                          className="tcv-info-btn"
-                          onClick={() => setShowInfo(s => !s)}
-                          aria-label="Apie topą"
-                          title="Apie topą"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
-                        </button>
-                        {showInfo && (
-                          <div className="tcv-info-popover">
-                            <h4>Apie {title}</h4>
-                            <p>{subtitle}</p>
-                            {data.week?.vote_close && (
-                              <div className="tcv-info-countdown">
-                                <div className="tcv-info-countdown-label">Iki šios savaitės pabaigos</div>
-                                <div className="tcv-info-countdown-value">
-                                  <Countdown targetDate={data.week.vote_close} />
-                                </div>
-                              </div>
-                            )}
-                            <p className="tcv-info-link-hint">
-                              Pilnas balsavimo reglamentas — žemiau, „Topo taisyklės" sekcijoje.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    )}
                   </div>
                   <Player entry={activeEntry} accent={accent} />
                 </div>
@@ -1516,10 +1475,27 @@ export default function TopChartView({
           </div>
         )}
 
+        {/* Informacinis pranešimas — perkeltas į apačią (Edvardo prašymu). */}
+        {archiveMode && weekLabel && (
+          <div className="tcv-fallback-note tcv-fallback-bottom">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <span>Archyvinis topas — <strong>{weekLabel}</strong> savaitės rezultatai.</span>
+          </div>
+        )}
+        {!archiveMode && data.isFallback && data.entries.length > 0 && weekLabel && (
+          <div className="tcv-fallback-note tcv-fallback-bottom">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <span>Rodomas paskutinės užbaigtos savaitės topas (<strong>{weekLabel}</strong>). Naujos savaitės balsavimas dar prasidės.</span>
+          </div>
+        )}
+
         {/* Topo taisyklės — sekcija žemiau pagrindinio body, pilnas reglamentas. */}
         {data.entries.length > 0 && (
           <section className="tcv-rules">
             <h2 className="tcv-rules-title">Topo taisyklės</h2>
+            {data.week?.vote_close && voteWeekId > 0 && (
+              <p className="tcv-rules-countdown">Iki šios savaitės pabaigos: <strong><Countdown targetDate={data.week.vote_close} /></strong></p>
+            )}
             <div className="tcv-rules-grid">
               <div className="tcv-rule-card">
                 <div className="tcv-rule-num" style={{ background: accent.hex }}>1</div>
