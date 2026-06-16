@@ -131,11 +131,25 @@ async function hydrateItems(sb: any, kind: FavKind, ids: number[]): Promise<Map<
 
 async function collectKind(sb: any, kind: FavKind, userId: string): Promise<KindCollection> {
   const idCol = ID_COL[kind]
-  const [curRes, likeRes, srRes] = await Promise.all([
+  const [curRes, likeRows, srRes] = await Promise.all([
     sb.from(TABLE[kind]).select(`${idCol}, sort_order`).eq('user_id', userId).eq('bucket', 1).order('sort_order'),
-    sb.from('likes').select('entity_id, created_at, weight').eq('entity_type', kind).eq('user_id', userId).not('entity_id', 'is', null).limit(5000),
+    // VISI patiktukai — PostgREST riboja ~1000/užklausą, tad imam puslapiais (be dirbtinio limito).
+    (async () => {
+      const out: any[] = []
+      const LIB_MAX = 20000   // saugiklis nuo patologinių atvejų; realiems vartotojams = „be limito"
+      for (let from = 0; from < LIB_MAX; from += 1000) {
+        const { data } = await sb.from('likes').select('entity_id, created_at, weight')
+          .eq('entity_type', kind).eq('user_id', userId).not('entity_id', 'is', null)
+          .order('created_at', { ascending: false }).range(from, from + 999)
+        if (!data || !data.length) break
+        out.push(...data)
+        if (data.length < 1000) break
+      }
+      return out
+    })(),
     sb.from('profile_style_ranks').select('entity_id, style_key, sort_order').eq('user_id', userId).eq('kind', kind),
   ])
+  const likeRes = { data: likeRows }
   // Per-stilių rangai: entity_id → { style_key → rangas }.
   const styleRanksMap = new Map<number, Record<string, number>>()
   for (const r of (srRes.data || []) as any[]) {
@@ -150,9 +164,8 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
     const p = likedAt.get(id); if (!p || (r.created_at && r.created_at > p)) likedAt.set(id, r.created_at || '')
     if (r.weight != null && !weightMap.has(id)) weightMap.set(id, Number(r.weight))
   }
-  // Kandidatai bibliotekai (visi patiktukai, kurie nėra rikiuoti). Hidratuojam
-  // kartu su rikiuotais, tada biblioteką rikiuojam pagal music.lt populiarumą.
-  const likedCandidates = [...likedAt.keys()].slice(0, 3500)
+  // Kandidatai bibliotekai (visi patiktukai, kurie nėra rikiuoti). Be limito.
+  const likedCandidates = [...likedAt.keys()]
 
   const allIds = [...new Set([...rankedIds, ...likedCandidates])]
   const hy = await hydrateItems(sb, kind, allIds)
@@ -169,7 +182,6 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
       else if (wb != null) return 1
       return ((hy.get(b)!.pop) - (hy.get(a)!.pop)) || ((likedAt.get(a) || '') < (likedAt.get(b) || '') ? 1 : -1)
     })
-    .slice(0, 3000)
   // stilius — pagal pagrindinį atlikėjo žanrą; substiliai — iš artist_substyles.
   const artistIds: number[] = []
   for (const id of allIds) { const h = hy.get(id); if (h?.artist_id) artistIds.push(h.artist_id) }
