@@ -98,6 +98,51 @@ export const SUBSTYLES: Record<string, string[]> = {
   ],
 }
 
+// ── 2026-06-16 — papildomi standartiniai (pasauliniai) stiliai ────────────────
+// Promoted iš artist-import „pending" eilės: globaliai pripažinti žanrai, kurių
+// dar nebuvo taksonomijoje. Laikomi atskirai, kad būtų aišku kas pridėta, bet
+// merge'inami į SUBSTYLES (visi consumer'iai mato vientisą sąrašą).
+// Naujus stilius pridėk ČIA (ne į viršų), tada paleisk substyle review migrate.
+export const SUBSTYLE_ADDITIONS: Record<string, string[]> = {
+  'Alternatyvioji muzika': [
+    'Avant-pop', 'Singer-songwriter', 'Experimental pop', 'Experimental electronic',
+  ],
+  'Elektroninė, šokių muzika': [
+    'Synthwave', 'EDM', 'Electro-disco', 'Coldwave', 'Minimal synth', 'Progressive electronic',
+  ],
+  "Hip-hop'o muzika": [
+    'Trap', 'Latin trap', 'Trap-pop',
+  ],
+  'Kitų stilių muzika': [
+    'Afrobeats', 'Regional Mexican', 'Corridos tumbados', 'Film music',
+  ],
+  'Pop, R&B muzika': [
+    'Hyperpop', 'Alternative R&B', 'Bedroom pop', 'Pop-soul', 'Folk-pop', 'Acoustic pop',
+  ],
+  'Rimtoji muzika': [
+    'Dark jazz', 'Fusion jazz', 'Progressive jazz',
+  ],
+  'Roko muzika': [
+    'Heavy rock', 'Orchestral rock', 'Groove rock',
+  ],
+  'Sunkioji muzika': [
+    'Progressive death metal', 'Atmospheric black metal', 'Experimental metal',
+  ],
+}
+for (const [g, arr] of Object.entries(SUBSTYLE_ADDITIONS)) {
+  const existing = new Set((SUBSTYLES[g] || []).map(s => s.toLowerCase()))
+  SUBSTYLES[g] = [...(SUBSTYLES[g] || []), ...arr.filter(s => !existing.has(s.toLowerCase()))]
+}
+
+// Canonical substyle (lowercase) → main genre. Derived from SUBSTYLES po merge.
+export const SUBSTYLE_GENRE: Record<string, string> = (() => {
+  const m: Record<string, string> = {}
+  for (const [g, arr] of Object.entries(SUBSTYLES)) for (const n of arr) {
+    if (!(n.toLowerCase() in m)) m[n.toLowerCase()] = g
+  }
+  return m
+})()
+
 export const MONTHS = [
   'Sausio','Vasario','Kovo','Balandžio','Gegužės','Birželio',
   'Liepos','Rugpjūčio','Rugsėjo','Spalio','Lapkričio','Gruodžio',

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { loadSubstyleRows, resolveSubstyle } from '@/lib/substyle-resolve'
 
 function slugify(text: string): string {
   return text.toLowerCase()
@@ -358,31 +359,42 @@ export async function PATCH(
   }
 
   // Žanras
+  let artistGenreId: number | null = null
   if (d.genres !== undefined || d.genre !== undefined) {
     await supabase.from('artist_genres').delete().eq('artist_id', id)
     if (Array.isArray(d.genres) && d.genres.length > 0) {
+      artistGenreId = (d.genres as number[])[0] ?? null
       await supabase.from('artist_genres').insert(
         (d.genres as number[]).map((genre_id: number) => ({ artist_id: parseInt(id), genre_id }))
       )
     } else if (d.genre) {
       const { data: genreRow } = await supabase.from('genres').select('id').ilike('name', d.genre).maybeSingle()
-      if (genreRow?.id) await supabase.from('artist_genres').insert({ artist_id: parseInt(id), genre_id: genreRow.id })
+      if (genreRow?.id) {
+        artistGenreId = genreRow.id
+        await supabase.from('artist_genres').insert({ artist_id: parseInt(id), genre_id: genreRow.id })
+      }
     }
   }
 
-  // Stiliai
+  // Stiliai — per resolver (fuzzy match arba 'pending', jokių dublikatų)
   if (d.substyles !== undefined || d.substyleNames !== undefined) {
     const names: string[] = d.substyles || d.substyleNames || []
     try {
       await supabase.from('artist_substyles').delete().eq('artist_id', id)
+      // Jei žanras nekeistas šiame PATCH'e — paimam esamą main genre naujiems pending
+      if (artistGenreId === null) {
+        const { data: gr } = await supabase.from('artist_genres').select('genre_id').eq('artist_id', id).limit(1).maybeSingle()
+        artistGenreId = gr?.genre_id ?? null
+      }
+      const subRows = await loadSubstyleRows(supabase)
+      const seen = new Set<number>()
       for (const name of names) {
         if (!name?.trim()) continue
-        let { data: sr } = await supabase.from('substyles').select('id').eq('name', name).maybeSingle()
-        if (!sr) {
-          const { data: ns } = await supabase.from('substyles').insert({ name, slug: slugify(name) }).select('id').single()
-          sr = ns
+        const r = await resolveSubstyle(supabase, name, subRows, { artistGenreId, source: 'admin_edit' })
+        if (r.id && !seen.has(r.id)) {
+          seen.add(r.id)
+          await supabase.from('artist_substyles').insert({ artist_id: parseInt(id), substyle_id: r.id })
         }
-        if (sr?.id) await supabase.from('artist_substyles').insert({ artist_id: parseInt(id), substyle_id: sr.id })
       }
     } catch {}
   }

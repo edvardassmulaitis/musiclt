@@ -14,6 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { slugify } from './slugify'
 import { findOrCreateArtist } from './featuring-utils'
+import { loadSubstyleRows, resolveSubstyle } from './substyle-resolve'
 
 // ── Tipai ─────────────────────────────────────────────────────────────────────
 export interface ImportLink { platform: string; url: string }
@@ -584,20 +585,26 @@ export async function applyImport(
     warnings.push(`genre_group "${p.genre_group}" neteisinga — praleista.`)
   }
 
-  // ── Sub-stiliai (artist_substyles) — union ──
-  for (const name of p.genres || []) {
-    if (!name?.trim()) continue
-    try {
-      let { data: sr } = await sb.from('substyles').select('id').eq('name', name).maybeSingle()
-      if (!sr) {
-        const { data: ns } = await sb.from('substyles').insert({ name, slug: slugify(name) }).select('id').single()
-        sr = ns
-      }
-      if (sr?.id) {
-        const { data: existsLink } = await sb.from('artist_substyles').select('artist_id').eq('artist_id', artistId).eq('substyle_id', sr.id).maybeSingle()
-        if (!existsLink) await sb.from('artist_substyles').insert({ artist_id: artistId, substyle_id: sr.id })
-      }
-    } catch (e: any) { warnings.push(`Sub-stilius "${name}" nepavyko: ${e.message}`) }
+  // ── Sub-stiliai (artist_substyles) — per resolver (match arba pending) ──
+  // NEBEKURIA šiukšlinių/dublikatinių substilių: fuzzy match prieš taksonomiją,
+  // nerasti → 'pending' priskirti atlikėjo žanrui (review /admin/substiliai).
+  {
+    const artistGenreId = (p.genre_group && GENRE_GROUPS.includes(p.genre_group as any))
+      ? GENRE_IDS[p.genre_group] : null
+    const subRows = await loadSubstyleRows(sb)
+    for (const name of p.genres || []) {
+      if (!name?.trim()) continue
+      try {
+        const r = await resolveSubstyle(sb, name, subRows, { artistGenreId, source: 'json_import' })
+        if (!r.id) {
+          if (r.reason === 'garbage') warnings.push(`Sub-stilius "${name}" atmestas (panašu į parse klaidą).`)
+          continue
+        }
+        if (r.created) warnings.push(`Naujas sub-stilius "${name}" → laukia peržiūros (/admin/substiliai).`)
+        const { data: existsLink } = await sb.from('artist_substyles').select('artist_id').eq('artist_id', artistId).eq('substyle_id', r.id).maybeSingle()
+        if (!existsLink) await sb.from('artist_substyles').insert({ artist_id: artistId, substyle_id: r.id })
+      } catch (e: any) { warnings.push(`Sub-stilius "${name}" nepavyko: ${e.message}`) }
+    }
   }
 
   // ── Kontaktai ── (tik LT atlikėjams — vadybininkų bazė)

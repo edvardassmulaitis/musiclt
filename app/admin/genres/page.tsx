@@ -91,6 +91,14 @@ export default function AdminGenresPage() {
               Kiekvienam main žanrui sukelk realų vizualą — naudojamas nav Stiliai sekcijoje ir žanro page'e.
             </p>
           </div>
+          <div className="flex items-center gap-2">
+          <Link
+            href="/admin/substiliai"
+            className="text-xs px-3 py-1.5 rounded-lg border"
+            style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-default)', background: 'var(--bg-surface)' }}
+          >
+            Substilių peržiūra →
+          </Link>
           <Link
             href="/admin"
             className="text-xs px-3 py-1.5 rounded-lg border"
@@ -98,6 +106,7 @@ export default function AdminGenresPage() {
           >
             ← Admin
           </Link>
+          </div>
         </div>
 
         {/* Genre cards grid */}

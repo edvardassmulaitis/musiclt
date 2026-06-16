@@ -3,6 +3,31 @@ import { createAdminClient } from '@/lib/supabase'
 import { getArtists } from '@/lib/supabase-artists'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { loadSubstyleRows, resolveSubstyle, type SubstyleRowFull } from '@/lib/substyle-resolve'
+
+/** Bendras substilių priskyrimo helper'is (fuzzy match arba 'pending').
+ *  Pakeičia seną „eq(name)→insert if missing" logiką visuose 3 kūrimo keliuose. */
+async function linkSubstyles(
+  sb: ReturnType<typeof createAdminClient>,
+  artistId: number,
+  names: string[],
+  artistGenreId: number | null,
+  rows?: SubstyleRowFull[],
+) {
+  if (!names?.length) return
+  const subRows = rows || await loadSubstyleRows(sb)
+  const seen = new Set<number>()
+  for (const name of names) {
+    if (!name?.trim()) continue
+    try {
+      const r = await resolveSubstyle(sb, name, subRows, { artistGenreId, source: 'artist_create' })
+      if (r.id && !seen.has(r.id)) {
+        seen.add(r.id)
+        await sb.from('artist_substyles').insert({ artist_id: artistId, substyle_id: r.id })
+      }
+    } catch {}
+  }
+}
 
 function slugify(text: string): string {
   return text.toLowerCase()
@@ -151,28 +176,17 @@ export async function POST(req: NextRequest) {
 
     // ── Žanras ────────────────────────────────────────────────────────────────
     const genreName: string = d.genre || ''
+    let mainGenreId: number | null = null
     if (genreName) {
       const { data: genreRow } = await supabase.from('genres').select('id').ilike('name', genreName).maybeSingle()
       if (genreRow?.id) {
+        mainGenreId = genreRow.id
         await supabase.from('artist_genres').insert({ artist_id: artistId, genre_id: genreRow.id })
       }
     }
 
-    // ── Stiliai ───────────────────────────────────────────────────────────────
-    const styleNames: string[] = d.substyles || d.substyleNames || []
-    for (const name of styleNames) {
-      if (!name?.trim()) continue
-      try {
-        let { data: styleRow } = await supabase.from('substyles').select('id').eq('name', name).maybeSingle()
-        if (!styleRow) {
-          const { data: ns } = await supabase.from('substyles').insert({ name, slug: slugify(name) }).select('id').single()
-          styleRow = ns
-        }
-        if (styleRow?.id) {
-          await supabase.from('artist_substyles').insert({ artist_id: artistId, substyle_id: styleRow.id }).throwOnError()
-        }
-      } catch {}
-    }
+    // ── Stiliai — per resolver (fuzzy match arba 'pending', jokių dublikatų) ──
+    await linkSubstyles(supabase, artistId, d.substyles || d.substyleNames || [], mainGenreId)
 
     // ── Nariai ────────────────────────────────────────────────────────────────
     const members: any[] = d.members || []
@@ -237,20 +251,13 @@ export async function POST(req: NextRequest) {
           if (newMember?.id) {
             memberId = newMember.id
             // Žanras
+            let memberGenreId: number | null = null
             if (m.genre) {
               const { data: gr } = await supabase.from('genres').select('id').ilike('name', m.genre).maybeSingle()
-              if (gr?.id) { try { await supabase.from('artist_genres').insert({ artist_id: memberId, genre_id: gr.id }) } catch {} }
+              if (gr?.id) { memberGenreId = gr.id; try { await supabase.from('artist_genres').insert({ artist_id: memberId, genre_id: gr.id }) } catch {} }
             }
-            // Stiliai
-            const mStyles: string[] = m.substyles || []
-            for (const sname of mStyles) {
-              if (!sname?.trim()) continue
-              try {
-                let { data: sr } = await supabase.from('substyles').select('id').eq('name', sname).maybeSingle()
-                if (!sr) { const { data: ns } = await supabase.from('substyles').insert({ name: sname, slug: slugify(sname) }).select('id').single(); sr = ns }
-                if (sr?.id) await supabase.from('artist_substyles').insert({ artist_id: memberId, substyle_id: sr.id })
-              } catch {}
-            }
+            // Stiliai — per resolver
+            await linkSubstyles(supabase, memberId, m.substyles || [], memberGenreId)
           }
           } // close else (not existing)
         } catch (e: any) { console.error('[POST /api/artists] create member error:', (e as any).message) }
@@ -308,21 +315,14 @@ export async function POST(req: NextRequest) {
               type_music: true, type_film: false, type_dance: false, type_books: false,
             }).select('id').single()
             // Žanras
+            let groupGenreId: number | null = null
             if (newGroup?.id && g.genre) {
               const { data: gr } = await supabase.from('genres').select('id').ilike('name', g.genre).maybeSingle()
-              if (gr?.id) { try { await supabase.from('artist_genres').insert({ artist_id: newGroup.id, genre_id: gr.id }) } catch {} }
+              if (gr?.id) { groupGenreId = gr.id; try { await supabase.from('artist_genres').insert({ artist_id: newGroup.id, genre_id: gr.id }) } catch {} }
             }
-            // Stiliai
+            // Stiliai — per resolver
             if (newGroup?.id) {
-              const gStyles: string[] = g.substyles || []
-              for (const sname of gStyles) {
-                if (!sname?.trim()) continue
-                try {
-                  let { data: sr } = await supabase.from('substyles').select('id').eq('name', sname).maybeSingle()
-                  if (!sr) { const { data: ns } = await supabase.from('substyles').insert({ name: sname, slug: slugify(sname) }).select('id').single(); sr = ns }
-                  if (sr?.id) await supabase.from('artist_substyles').insert({ artist_id: newGroup.id, substyle_id: sr.id })
-                } catch {}
-              }
+              await linkSubstyles(supabase, newGroup.id, g.substyles || [], groupGenreId)
             }
             if (newGroup?.id) groupId = newGroup.id
           }

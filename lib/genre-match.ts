@@ -29,6 +29,28 @@ const GENRE_ALIASES: Record<string, string> = {
   'r n b': 'R&B',
 }
 
+/** Aliases keyed by `normalizeGenreKey` (diakritikai/tarpai/brūkšniai jau
+ *  sunormuoti) → canonical substyle name. Naudojama importų LT formoms ir
+ *  dažnoms angliškoms variacijoms, kurių grynas norm-match nepasiekia.
+ *  Pridėk čia high-confidence sutapimus; abejotinus palik review eilei. */
+const GENRE_ALIASES_NORM: Record<string, string> = {
+  altpop: 'Alternative pop',
+  electronic: 'Electronica',
+  electronicpop: 'Electro pop',
+  alternatyvusrokas: 'Alternative rock',
+  alternatyvusisrokas: 'Alternative rock',
+  lietuviskasrokas: 'Alternative rock',
+  lithuanianrock: 'Alternative rock',
+  rokas: 'Rock',
+  eksperimentinemuzika: 'Experimental',
+  eksperimentinisrokas: 'Experimental rock',
+  improvizacinemuzika: 'Free improvisation',
+  improvised: 'Free improvisation', // „Improvised music" → suffix strip → „improvised"
+  estrada: 'LT estrada',
+  filmsongs: 'Film music',
+  filmumuzika: 'Film music',
+}
+
 /** Normalizuojam vardą iki matching key'o: ASCII lowercase be specifinių
  *  separator'ių. „Synth-pop" → „synthpop"; „Pop rock" → „poprock";
  *  „rock'n'roll" → „rocknroll"; „rock and roll" → „rocknroll".
@@ -79,6 +101,12 @@ export function matchGenreToSubstyle(
   // Normalize'intas
   const norm = normalizeGenreKey(rawName)
   if (!norm) return null
+  // Normalized alias (LT formos / variacijos) PRIEŠ fuzzy norm-match
+  const normAlias = GENRE_ALIASES_NORM[norm]
+  if (normAlias) {
+    const m = substyles.find(s => s.name.toLowerCase() === normAlias.toLowerCase())
+    if (m) return m
+  }
   for (const s of substyles) {
     if (normalizeGenreKey(s.name) === norm) return s
   }

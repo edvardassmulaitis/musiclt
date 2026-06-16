@@ -1106,12 +1106,12 @@ function DescriptionEditor({ value, onChange, artistName, artistMeta }: {
         }),
       })
 
-      const data = await res.json()
       if (!res.ok) {
-        const hint = res.status === 529 ? 'API perkrauta' : res.status === 429 ? 'Per daug užklausų' : data.error || `Klaida ${res.status}`
-        throw new Error(hint)
+        // Fallback: try direct Anthropic API (client-side, no key needed if proxied)
+        throw new Error(`HTTP ${res.status}`)
       }
 
+      const data = await res.json()
       const text = data.content?.[0]?.text || ''
       if (text) {
         setDraft(`<p>${text.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`)
@@ -1119,7 +1119,7 @@ function DescriptionEditor({ value, onChange, artistName, artistMeta }: {
         throw new Error('Tuščias atsakymas')
       }
     } catch (e: any) {
-      setGenError(e.message || 'Nepavyko sugeneruoti')
+      setGenError('Nepavyko sugeneruoti. Bandyk dar kartą.')
     } finally {
       setGenerating(false)
     }
@@ -1815,7 +1815,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Pagrindinis stilius *</label>
-              <Sel value={form.genre} onChange={(v:string)=>{ set('genre',v); set('substyles',[]) }} required>
+              <Sel value={form.genre} onChange={(v:string)=>set('genre',v)} required>
                 <option value="">Pasirinkite...</option>
                 {GENRES.map(g=><option key={g} value={g}>{g}</option>)}
               </Sel>
