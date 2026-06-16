@@ -10,8 +10,10 @@
  * pranešimų), kad „+" Kurti liktų tiksliai per vidurį (3-ia iš 5). „+" pažymėtas
  * oranžine chip'u kaip pagrindinis kūrimo veiksmas.
  *
- * Ikonos: plonesnės (strokeWidth 1.8, 24px), TIK kontūras (be fill) — aktyvus
- * žymimas tik oranžine spalva, kad pasirinkus ikonos nesusilietų į blob'ą.
+ * Ikonos: vienoda Lucide kontūrų serija su top header'iu (home/users/heart/
+ * equalizer), strokeWidth 1.6 — 24px ikonos rendina ~1.5px brūkšnį, atitinka
+ * top nav vizualinį svorį (be storų „blob'ų"). TIK kontūras (be fill) — aktyvus
+ * žymimas tik oranžine spalva.
  */
 
 import Link from 'next/link'
@@ -58,17 +60,18 @@ export function MobileBottomNav() {
         .mbn-item:active .mbn-create-chip { transform: scale(.9); }
       `}</style>
       <nav className="mbn" aria-label="Apatinė navigacija">
-        {/* Pradžia (Home) — stroke 2, viena serija su top header ikonomis (I.*) */}
+        {/* Pradžia (Home) — Lucide „home" kontūras, stroke 1.6 = ta pati vizualinė
+            svoris kaip top header ikonų (24px ikona, plonesnis brūkšnys). */}
         <Link href="/" className={`mbn-item${isHome ? ' active' : ''}`} aria-label="Pradžia">
           <span className="mbn-ico">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.8 12 3.5l9 6.3V20a1 1 0 0 1-1 1h-4.5v-6.5h-7V21H4a1 1 0 0 1-1-1V9.8Z" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
           </span>
         </Link>
 
-        {/* Topai — ekvalaizeris (music charts / levels), stroke 2 = ta pati serija */}
+        {/* Topai — ekvalaizeris (music charts / levels), stroke 1.6 = ta pati serija */}
         <Link href="/topai" className={`mbn-item${isTopai ? ' active' : ''}`} aria-label="Topai">
           <span className="mbn-ico">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="20" x2="4" y2="12"/><line x1="9.3" y1="20" x2="9.3" y2="6"/><line x1="14.6" y1="20" x2="14.6" y2="14"/><line x1="20" y1="20" x2="20" y2="9"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="20" x2="4" y2="12"/><line x1="9.3" y1="20" x2="9.3" y2="6"/><line x1="14.6" y1="20" x2="14.6" y2="14"/><line x1="20" y1="20" x2="20" y2="9"/></svg>
           </span>
         </Link>
 
@@ -79,17 +82,18 @@ export function MobileBottomNav() {
           </span>
         </button>
 
-        {/* 👥 Bendruomenė (Community) → /atrasti — ta pati ikona kaip top header „Atrasti" */}
+        {/* 👥 Bendruomenė (Community) → /atrasti — TIKSLIAI ta pati Lucide „users"
+            ikona kaip top header (components/SiteHeader users/community), stroke 1.6 */}
         <Link href="/atrasti" className={`mbn-item${isActive('/atrasti') ? ' active' : ''}`} aria-label="Bendruomenė">
           <span className="mbn-ico">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="6.5" r="2.8"/><circle cx="5.5" cy="8.5" r="2.1"/><circle cx="18.5" cy="8.5" r="2.1"/><path d="M12 11c-2.8 0-4.7 1.8-4.7 4.3V17h9.4v-1.7c0-2.5-1.9-4.3-4.7-4.3Z"/><path d="M5.5 12.9c-2.1 0-3.5 1.3-3.5 3.2V17h3.3"/><path d="M18.5 12.9c2.1 0 3.5 1.3 3.5 3.2V17h-3.3"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </span>
         </Link>
 
-        {/* Sekami (❤️ Heart) → /srautas — ta pati širdis kaip top header „Srautas" */}
+        {/* Sekami (❤️ Heart) → /srautas — ta pati širdis kaip top header „Srautas", stroke 1.6 */}
         <Link href="/srautas" className={`mbn-item${isActive('/srautas') ? ' active' : ''}`} aria-label="Sekami">
           <span className="mbn-ico">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" /></svg>
           </span>
         </Link>
       </nav>

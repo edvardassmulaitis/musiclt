@@ -1431,7 +1431,7 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
   return (
     <Link
       href={slide.href}
-      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_42px_rgba(0,0,0,0.35)]"
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
     >
       {/* BG image — height-driven, hugs right side for portrait covers */}
       <div className="absolute inset-0 flex items-stretch justify-end overflow-hidden">
@@ -1542,7 +1542,7 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
   return (
     <Link
       href={slide.href}
-      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_42px_rgba(0,0,0,0.4)]"
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
       style={{
         background: isLT
           ? `radial-gradient(ellipse at top left, ${accentSoft}, rgba(10,14,26,0.98) 60%), linear-gradient(135deg, #1a1426 0%, #0a0e1a 100%)`

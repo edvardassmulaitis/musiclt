@@ -194,6 +194,9 @@ select:focus-visible {
 
 :root,
 [data-theme="dark"] {
+  /* Hero v2 kortelių šešėlis — tamsus ant tamsaus fono OK */
+  --hero-card-shadow:       0 8px 32px rgba(0,0,0,0.25);
+  --hero-card-shadow-hover: 0 14px 42px rgba(0,0,0,0.35);
   --bg-body:         #080d14;
   --bg-body-rgb:     8, 13, 20;
   --bg-surface:      #0d1320;
@@ -336,6 +339,10 @@ select:focus-visible {
 }
 
 [data-theme="light"] {
+  /* Light mode: jokio pilko šešėlio po hero kortelėmis (Edvardo prašymu).
+     Hover'iui paliekam labai švelnų pakilimą. */
+  --hero-card-shadow:       none;
+  --hero-card-shadow-hover: 0 8px 24px rgba(15,23,42,0.10);
   --bg-body:         #f0f4fa;
   --bg-body-rgb:     240, 244, 250;
   --bg-surface:      #ffffff;
@@ -825,19 +832,9 @@ main.has-bottom-nav {
 .hrow-track::-webkit-scrollbar { display: none; }   /* Chrome/Safari */
 .hrow-track > * { flex: 0 0 auto; scroll-snap-align: start; }
 
-/* krašto fade — gradient OVERLAY, NE mask-image.
-   iOS/WebKit turi seną bug'ą: mask/filter bet kur puslapyje laužo
-   position:fixed elementų piešimą (apatinis mobilus meniu „nuvažiuodavo" į
-   vidurį). Overlay to nedaro. Rodom tik tose pusėse, kur dar yra ką slinkti. */
-.hrow::before,
-.hrow::after {
-  content: ''; position: absolute; top: 6px; bottom: 8px; width: 46px;
-  z-index: 4; pointer-events: none; opacity: 0; transition: opacity .18s;
-}
-.hrow::before { left: 0;  background: linear-gradient(to right, var(--bg-body), transparent); }
-.hrow::after  { right: 0; background: linear-gradient(to left,  var(--bg-body), transparent); }
-.hrow:not(.at-start)::before { opacity: 1; }
-.hrow:not(.at-end)::after   { opacity: 1; }
+/* Krašto fade IŠJUNGTAS (Edvardo prašymu 2026-06-17): slenkant kortelių
+   pavadinimai kraštuose „nublukdavo" po gradientu — trukdė matyti titles.
+   Slinkimo užuominą duoda peek (pusiau matoma kortelė) + desktop ◀ ▶ rodyklės. */
 
 /* rodyklės — TIK įrenginiuose su pele; atsiranda ant hover; dingsta kraštuose */
 .hrow-arrow {
