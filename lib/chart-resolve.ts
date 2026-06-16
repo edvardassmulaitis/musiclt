@@ -72,7 +72,9 @@ export function normalizeAggressive(s: string): string {
 
 /** Pirmas atlikėjas iš „Xcho, By Индия, МОТ" / „A feat. B" / „A & B". */
 export function primaryArtist(name: string): string {
-  return (name || '').split(/,|&|\bfeat\.?\b|\bx\b|\bvs\.?\b|\bw\//i)[0].trim()
+  // „A, B" / „A & B" / „A feat. B" / „A x B" (su TARPAIS — kad „HUNTR/X" nelūžtų
+  // ties X) / „A vs B" / „A w/ B" / „Grupė: nariai" (K-pop kreditai) → 1-as atlikėjas.
+  return (name || '').split(/,|&|\bfeat\.?\b| x |\bvs\.?\b|\bw\/|:/i)[0].trim()
 }
 
 /** Ilgiausias RAW žodis (su diakritika) ilike prefiltrui.
