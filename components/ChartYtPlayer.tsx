@@ -49,12 +49,15 @@ export const ChartYtPlayer = forwardRef<ChartYtPlayerHandle, {
   }, [])
   const markFailed = useCallback(() => {
     clearFail()
+    // Embed neveikia (pvz. YT Error 153 owner-block). Vietoj lūžusio iframe'o
+    // → embedDisabled=true; render'as parodys YouTube SEARCH embed pagal query
+    // (groja embeddable tos pačios dainos versiją). Jei query nėra — „Žiūrėti
+    // YouTube" nuoroda + auto-skip po pauzės.
     setEmbedDisabled(true)
     try { playerRef.current?.destroy() } catch {}
     playerRef.current = null; readyRef.current = false
-    // trumpa pauzė kad spėtų matytis „Žiūrėti YouTube", tada kitas trekas
-    window.setTimeout(() => onEndedRef.current?.(), 2500)
-  }, [clearFail])
+    if (!query) window.setTimeout(() => onEndedRef.current?.(), 2500)
+  }, [clearFail, query])
   const armWatchdog = useCallback(() => {
     clearFail()
     failTimerRef.current = window.setTimeout(() => markFailed(), 5000)
@@ -144,7 +147,9 @@ export const ChartYtPlayer = forwardRef<ChartYtPlayerHandle, {
   useEffect(() => () => { try { playerRef.current?.destroy() } catch {}; playerRef.current = null; if (failTimerRef.current) clearTimeout(failTimerRef.current) }, [])
 
   // No-videoId fallback: YT paieškos iframe (best-effort), kai grojam be videoId.
-  const showSearchIframe = playing && !videoId && !!query && !embedDisabled
+  // Search embed: kai nėra konkretaus videoId, ARBA kai konkretus embed lūžo
+  // (embedDisabled) bet turim query — paleidžiam dainą per YT paiešką.
+  const showSearchIframe = playing && !!query && (!videoId || embedDisabled)
   const searchSrc = query
     ? `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=1&playsinline=1&rel=0&modestbranding=1`
     : ''
@@ -169,7 +174,7 @@ export const ChartYtPlayer = forwardRef<ChartYtPlayerHandle, {
         </button>
       )}
 
-      {embedDisabled && videoId && (
+      {embedDisabled && videoId && !query && (
         <a className="cyt-fallback" href={`https://www.youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer">
           <img src={`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`} alt="" referrerPolicy="no-referrer" />
           <span className="cyt-fallback-cta">Žiūrėti „YouTube" →</span>
