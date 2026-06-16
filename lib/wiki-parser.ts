@@ -625,8 +625,12 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
         // „Collaborations and other appearances"), ne primary-artist'o
         // collaborations. Skip'inam, kad neimport'intume Sucker Punch /
         // Symphony of British Music / Beside Bowie ir kt. kaip „Queen studio".
-        // True „Collaboration albums" (be 'appearance') vis dar parse'inami.
-        if (isAppearanceSection) { skipSection = true; matched = true }
+        // 2026-06-16: bare „Collaborations" (be žodžio 'album') YRA guest/feature
+        // SINGLŲ lentelė su „Other artist(s)"/"Album" stulpeliais (Tito el
+        // Bambino) — NE atlikėjo albumai. Parser'is imdavo „Other artist(s)"
+        // (Pharrell Williams, Olga Tañón) ir „Album" cell'us kaip studio albumus.
+        // Parse'inam TIK tikrus „Collaboration ALBUMS" / „Collaborative albums".
+        if (isAppearanceSection || !h.includes('album')) { skipSection = true; matched = true }
         else { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
       }
       else if (h.includes('extended play') || h.includes(' ep') || h === 'eps') { currentType = 'ep'; skipSection = false; matched = true }
