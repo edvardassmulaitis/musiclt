@@ -12,7 +12,16 @@ type Hit = { type: string; id: number; slug: string; title: string; artist: stri
  * (mirror lib/chart-resolve primaryArtist): „HUNTR/X: EJAE, Audrey Nuna & REI AMI"
  * → „HUNTR/X". Taip picker'io default query randa dainą be rankinio trynimo. */
 function simpleArtist(name: string): string {
-  return (name || '').split(/,|&|\bfeat\.?\b| x |\bvs\.?\b|\bw\/|:/i)[0].trim()
+  return (name || '').split(/,|&|\bfeaturing\b|\bfeat\.?\b|\bft\.?\b| x |\bvs\.?\b|\bw\/|:/i)[0].trim()
+}
+
+/* Nuvalo title paieškai: nuima (...), [...], „ - versija" priesagą ir „feat…"
+ * uodegą — „Starboy (w/ Daft Punk)" → „Starboy". Taip picker'is randa be junk'o. */
+function cleanTitle(t: string): string {
+  return (t || '')
+    .replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '')
+    .replace(/\s[-–—]\s.*$/, '').replace(/\bfeat(uring)?\.?\b.*$/i, '')
+    .replace(/\s+/g, ' ').trim()
 }
 
 export default function AdminMissingPage() {
@@ -85,7 +94,7 @@ function MissingRow({ m, onDone }: { m: Missing; onDone: () => void }) {
             className="rounded bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 disabled:opacity-50">Sukurti</button>
         </div>
       </div>
-      {searching && <LinkSearch defaultQuery={`${simpleArtist(m.artist)} ${m.title}`} onPick={(h) => { setSearching(false); act('link', { trackId: h.id }) }} />}
+      {searching && <LinkSearch defaultQuery={`${simpleArtist(m.artist)} ${cleanTitle(m.title)}`} onPick={(h) => { setSearching(false); act('link', { trackId: h.id }) }} />}
     </div>
   )
 }
