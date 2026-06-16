@@ -36,7 +36,7 @@ const one = (v: any) => (Array.isArray(v) ? v[0] : v)
 
 type RecItem = {
   key: string
-  kind: 'artist' | 'track' | 'album' | 'event' | 'topic'
+  kind: 'artist' | 'track' | 'album' | 'event' | 'topic' | 'chart'
   title: string
   subtitle: string | null
   image: string | null
@@ -59,10 +59,10 @@ const REASON_BADGE: Record<string, string> = {
 // Supina kelias tipų eiles į vieną feed'ą: atlikėjai dominuoja, o leidiniai /
 // koncertai / temos juos punktuoja — kad būtų gyvas, ne monotoniškas srautas.
 function weave(queues: Record<string, RecItem[]>, limit: number): RecItem[] {
-  const template = ['artist', 'artist', 'release', 'artist', 'topic', 'artist', 'release', 'artist', 'event']
+  const template = ['artist', 'artist', 'release', 'artist', 'chart', 'artist', 'topic', 'artist', 'release', 'artist', 'event']
   const out: RecItem[] = []
   let ti = 0
-  const order = ['artist', 'release', 'event', 'topic']
+  const order = ['artist', 'release', 'chart', 'event', 'topic']
   while (out.length < limit) {
     const want = template[ti % template.length]
     ti++
@@ -74,6 +74,22 @@ function weave(queues: Record<string, RecItem[]>, limit: number): RecItem[] {
       pick = queues[fb].shift()
     }
     if (pick) out.push(pick)
+  }
+  return out
+}
+
+// Diversity reorder: dvi gretimos kortelės niekada ne iš to paties atlikėjo —
+// kad rekomendacijų nedominuotų viena pamėgta grupė (pvz. visi „panašūs į RHCP").
+function spreadByArtist(items: RecItem[]): RecItem[] {
+  const out: RecItem[] = []
+  const pool = [...items]
+  let lastAid: number | null | undefined = undefined
+  while (pool.length) {
+    let idx = pool.findIndex(it => !it.artist?.id || it.artist.id !== lastAid)
+    if (idx === -1) idx = 0
+    const [pick] = pool.splice(idx, 1)
+    out.push(pick)
+    lastAid = pick.artist?.id
   }
   return out
 }
@@ -116,7 +132,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
   const matchIds = Array.from(new Set([...likedIds, ...recIds]))
   const topRecIds = recIds.slice(0, 16)
 
-  const queues: Record<string, RecItem[]> = { artist: [], release: [], event: [], topic: [] }
+  const queues: Record<string, RecItem[]> = { artist: [], release: [], chart: [], event: [], topic: [] }
 
   // ── 2a. Atlikėjų kortelės (sync) ───────────────────────────────────────────
   for (const r of recs) {
@@ -163,7 +179,51 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         artist: a ? { id: al.artist_id, name: a.name, slug: a.slug } : null,
       })
     }
-    queues.release.sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
+    // Per-artist cap: ne daugiau 1 leidinio kiekvienam rekomenduojamam atlikėjui,
+    // kad srauto nedominuotų vienas atlikėjas su daug naujų dainų.
+    const perArtist = new Map<number, number>()
+    const capped = queues.release
+      .sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
+      .filter(it => {
+        const aid = it.artist?.id
+        if (!aid) return true
+        const n = perArtist.get(aid) || 0
+        if (n >= 1) return false
+        perArtist.set(aid, n + 1)
+        return true
+      })
+    queues.release = capped
+  }
+
+  // ── Topai, kuriuose figūruoja pamėgti / rekomenduojami atlikėjai ─────────────
+  const chartsTask = async () => {
+    if (!matchIds.length) return
+    const { data: currentCharts } = await sb.from('external_charts')
+      .select('id, source, chart_key, title, period_label').eq('is_current', true)
+    const charts = (currentCharts || []) as any[]
+    if (!charts.length) return
+    const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
+    const { data: entries } = await sb.from('external_chart_entries')
+      .select('chart_id, artist_id, position, title, artist_name, cover_url')
+      .in('artist_id', matchIds).in('chart_id', charts.map(c => Number(c.id)))
+      .order('position', { ascending: true }).limit(30)
+    const seen = new Set<string>()
+    for (const e of (entries || []) as any[]) {
+      const c = chartById.get(Number(e.chart_id)); if (!c) continue
+      const aid = Number(e.artist_id)
+      const dk = `${aid}-${c.id}`
+      if (seen.has(dk)) continue
+      seen.add(dk)
+      const rec = recById.get(aid)
+      queues.chart.push({
+        key: `chart-${e.chart_id}-${aid}`, kind: 'chart',
+        title: e.title || e.artist_name || c.title || 'Topas',
+        subtitle: `#${e.position} · ${c.title}${c.period_label ? ` · ${c.period_label}` : ''}`,
+        image: e.cover_url || rec?.cover_image_url || null,
+        href: `/topai/${c.source}-${c.chart_key}`, date: null, badge: 'Topuose',
+        artist: rec ? { id: aid, name: rec.name, slug: rec.slug } : (e.artist_name ? { id: aid, name: e.artist_name, slug: null } : null),
+      })
+    }
   }
 
   const eventsTask = async () => {
@@ -236,7 +296,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     }
   }
 
-  await Promise.all([releasesTask(), eventsTask(), topicsTask(), becauseTask()].map(p => p.catch(() => {})))
+  await Promise.all([releasesTask(), chartsTask(), eventsTask(), topicsTask(), becauseTask()].map(p => p.catch(() => {})))
 
   // Prikabinam „Nes tau patinka X" prie atlikėjų kortelių.
   for (const a of queues.artist) {
@@ -244,7 +304,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     if (rid && becauseMap.has(rid)) a.because = becauseMap.get(rid) || null
   }
 
-  return { items: weave(queues, limit), personalized, recommendedCount: recs.length }
+  return { items: spreadByArtist(weave(queues, limit)), personalized, recommendedCount: recs.length }
 }
 
 // Server-side cache — per narį (uid + likedIds + limit auto-keyed). 5 min TTL:
@@ -252,7 +312,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v3'],
+  ['srautas-recs-v4'],
   { revalidate: 300 },
 )
 
