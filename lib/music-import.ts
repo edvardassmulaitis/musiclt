@@ -32,6 +32,8 @@ export type StagedHit = {
   slug?: string
   cover?: string | null
   artist?: string | null      // dainoms/albumams
+  artistSlug?: string | null  // open-in-new-tab nuorodai (albumams)
+  pop?: number                // nario populiarumas šaltinyje (Last.fm playcount)
 }
 export type StagedResult = {
   artists: StagedHit[]
@@ -74,10 +76,11 @@ export async function matchItems(items: RawItems, opts: { perKindLimit?: number 
   const artistHits: StagedHit[] = await mapLimit(artists, 6, async (a) => {
     const res = await searchArtistsCore(sb, a.name, { limit: 1, select: 'id, name, slug, cover_image_url, score' })
     const top = res[0]
-    if (!top) return { raw: a.name, matched: false, confidence: 'low' as const }
+    const pop = Number(a.meta?.playcount) || 0
+    if (!top) return { raw: a.name, matched: false, confidence: 'low' as const, pop }
     return {
       raw: a.name, matched: true, confidence: nameMatches(a.name, top.name) ? 'high' : 'low',
-      id: top.id, name: top.name, slug: top.slug, cover: top.cover_image_url ?? null,
+      id: top.id, name: top.name, slug: top.slug, cover: top.cover_image_url ?? null, pop,
     }
   })
 
@@ -109,26 +112,87 @@ async function matchTrackish(sb: any, items: RawTrackish[], kind: 'track' | 'alb
     const { data } = await sb.from(table)
       .select(`id, slug, title, ${coverCol}, artists:artist_id(name, slug)`)
       .eq('id', id).maybeSingle()
-    if (!data) return { raw, rawArtist: it.artist, matched: false, confidence: 'low' as const }
+    const pop = Number(it.meta?.playcount) || 0
+    if (!data) return { raw, rawArtist: it.artist, matched: false, confidence: 'low' as const, pop }
     const artistObj = Array.isArray(data.artists) ? data.artists[0] : data.artists
     return {
       raw, rawArtist: it.artist, matched: true,
       confidence: nameMatches(it.title, data.title) ? 'high' : 'low',
       id: data.id, name: data.title, slug: data.slug, cover: data[coverCol] ?? null,
-      artist: artistObj?.name ?? null,
+      artist: artistObj?.name ?? null, artistSlug: artistObj?.slug ?? null, pop,
     }
   })
 }
 
-// ── COMMIT — masinis įdėjimas į „Mano muziką" ──────────────────────────────
-export async function commitInto(userId: string, sel: { artists?: number[]; albums?: number[]; tracks?: number[] }) {
-  // Importas → biblioteka (patiktukai). Bulk, kad nedarytume po užklausą kiekvienam.
-  await Promise.all([
-    addToLibrary(userId, 'artist', (sel.artists || []).filter(Number.isFinite)),
-    addToLibrary(userId, 'album', (sel.albums || []).filter(Number.isFinite)),
-    addToLibrary(userId, 'track', (sel.tracks || []).filter(Number.isFinite)),
-  ])
-  return { ok: true, added: { artists: sel.artists?.length || 0, albums: sel.albums?.length || 0, tracks: sel.tracks?.length || 0 } }
+// ── COMMIT — masinis įdėjimas į „Mano muziką" + revert-batch registravimas ──
+export async function commitInto(
+  userId: string,
+  sel: { artists?: number[]; albums?: number[]; tracks?: number[]; weights?: Record<string, number> },
+) {
+  const sb = createAdminClient()
+  // Importo „partija" — kad būtų galima atšaukti vienu mygtuku.
+  const { data: batch } = await sb.from('music_import_batches')
+    .insert({ user_id: userId, source: 'import' }).select('id').single()
+  const batchId: string | null = (batch as any)?.id ?? null
+
+  const kinds: [FavKind, number[]][] = [
+    ['artist', (sel.artists || []).filter(Number.isFinite)],
+    ['album', (sel.albums || []).filter(Number.isFinite)],
+    ['track', (sel.tracks || []).filter(Number.isFinite)],
+  ]
+  let totalNew = 0
+  for (const [kind, ids] of kinds) {
+    if (!ids.length) continue
+    const w: Record<number, number> = {}
+    if (sel.weights) for (const id of ids) { const v = sel.weights[`${kind}:${id}`]; if (v != null) w[id] = v }
+    // kurie įrašai NAUJI (nario dar nebuvo) — tik juos registruojam revertui
+    const { data: existing } = await sb.from('likes').select('entity_id').eq('user_id', userId).eq('entity_type', kind).in('entity_id', ids)
+    const have = new Set<number>(((existing || []) as any[]).map(x => x.entity_id))
+    const newIds = ids.filter(id => !have.has(id))
+    await addToLibrary(userId, kind, ids, w)
+    if (batchId && newIds.length) {
+      for (let i = 0; i < newIds.length; i += 200) {
+        await sb.from('music_import_added')
+          .upsert(newIds.slice(i, i + 200).map(id => ({ batch_id: batchId, kind, entity_id: id })), { ignoreDuplicates: true })
+      }
+      totalNew += newIds.length
+    }
+  }
+  if (batchId) await sb.from('music_import_batches').update({ added: totalNew }).eq('id', batchId)
+  return { ok: true, batchId, added: { artists: sel.artists?.length || 0, albums: sel.albums?.length || 0, tracks: sel.tracks?.length || 0 }, newAdded: totalNew }
+}
+
+// ── REVERT — atšaukti importo partiją (pašalinti tik tai, ką ji ĮDĖJO) ──────
+export async function revertImportBatch(userId: string, opts: { batchId?: string; jobId?: string }): Promise<{ ok: boolean; removed: number; error?: string }> {
+  const sb = createAdminClient()
+  let q = sb.from('music_import_batches').select('*')
+  if (opts.batchId) q = q.eq('id', opts.batchId)
+  else if (opts.jobId) q = q.eq('job_id', opts.jobId)
+  else return { ok: false, removed: 0, error: 'batchId arba jobId privalomas' }
+  const { data: batch } = await q.maybeSingle()
+  if (!batch) return { ok: false, removed: 0, error: 'Importas nerastas' }
+  if ((batch as any).user_id !== userId) return { ok: false, removed: 0, error: 'Ne tavo importas' }
+  if ((batch as any).status === 'reverted') return { ok: true, removed: 0 }
+
+  // Jei susietas foninis job'as ir dar vyksta — sustabdom, kad nedėtų daugiau.
+  if ((batch as any).job_id) {
+    await sb.from('music_import_jobs').update({ status: 'canceled', locked_at: null }).eq('id', (batch as any).job_id).in('status', ['queued', 'running'])
+  }
+
+  const { data: added } = await sb.from('music_import_added').select('kind, entity_id').eq('batch_id', (batch as any).id)
+  const byKind: Record<string, number[]> = { artist: [], album: [], track: [] }
+  for (const r of ((added || []) as any[])) if (byKind[r.kind]) byKind[r.kind].push(r.entity_id)
+  let removed = 0
+  for (const kind of ['artist', 'album', 'track']) {
+    const ids = byKind[kind]
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200)
+      await sb.from('likes').delete().eq('user_id', userId).eq('entity_type', kind).in('entity_id', chunk)
+      removed += chunk.length
+    }
+  }
+  await sb.from('music_import_batches').update({ status: 'reverted', reverted_at: new Date().toISOString() }).eq('id', (batch as any).id)
+  return { ok: true, removed }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

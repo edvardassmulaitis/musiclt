@@ -133,7 +133,7 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
   const idCol = ID_COL[kind]
   const [curRes, likeRes, srRes] = await Promise.all([
     sb.from(TABLE[kind]).select(`${idCol}, sort_order`).eq('user_id', userId).eq('bucket', 1).order('sort_order'),
-    sb.from('likes').select('entity_id, created_at').eq('entity_type', kind).eq('user_id', userId).not('entity_id', 'is', null).limit(3000),
+    sb.from('likes').select('entity_id, created_at, weight').eq('entity_type', kind).eq('user_id', userId).not('entity_id', 'is', null).limit(3000),
     sb.from('profile_style_ranks').select('entity_id, style_key, sort_order').eq('user_id', userId).eq('kind', kind),
   ])
   // Per-stilių rangai: entity_id → { style_key → rangas }.
@@ -144,9 +144,11 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
   const rankedIds: number[] = (curRes.data || []).map((r: any) => r[idCol])
   const rankedSet = new Set(rankedIds)
   const likedAt = new Map<number, string>()
+  const weightMap = new Map<number, number>()   // nario importuotas populiarumas (Last.fm playcount)
   for (const r of (likeRes.data || []) as any[]) {
     const id = r.entity_id; if (id == null || rankedSet.has(id)) continue
     const p = likedAt.get(id); if (!p || (r.created_at && r.created_at > p)) likedAt.set(id, r.created_at || '')
+    if (r.weight != null && !weightMap.has(id)) weightMap.set(id, Number(r.weight))
   }
   // Kandidatai bibliotekai (visi patiktukai, kurie nėra rikiuoti). Hidratuojam
   // kartu su rikiuotais, tada biblioteką rikiuojam pagal music.lt populiarumą.
@@ -156,9 +158,17 @@ async function collectKind(sb: any, kind: FavKind, userId: string): Promise<Kind
   const hy = await hydrateItems(sb, kind, allIds)
   // Biblioteka — numatytasis rikiavimas pagal music.lt patiktukus/populiarumą
   // (kol nario nesurikiuota). Lygiosioms — naujesnis patiktukas pirma.
+  // Rikiavimas: PIRMIAUSIA nario importuotas populiarumas (weight = Last.fm
+  // playcount, kad nereiktų rankiniu stumdyti), tada — music.lt populiarumas.
   const libraryIds = likedCandidates
     .filter(id => hy.has(id))
-    .sort((a, b) => ((hy.get(b)!.pop) - (hy.get(a)!.pop)) || ((likedAt.get(a) || '') < (likedAt.get(b) || '') ? 1 : -1))
+    .sort((a, b) => {
+      const wa = weightMap.get(a), wb = weightMap.get(b)
+      if (wa != null && wb != null) { if (wa !== wb) return wb - wa }
+      else if (wa != null) return -1
+      else if (wb != null) return 1
+      return ((hy.get(b)!.pop) - (hy.get(a)!.pop)) || ((likedAt.get(a) || '') < (likedAt.get(b) || '') ? 1 : -1)
+    })
     .slice(0, 1500)
   // stilius — pagal pagrindinį atlikėjo žanrą; substiliai — iš artist_substyles.
   const artistIds: number[] = []
@@ -227,12 +237,16 @@ export async function getMyMusic(userId: string): Promise<MyMusic> {
 }
 
 // ── ADD į biblioteką = patiktukas (likes) ──────────────────────────────────
-export async function addToLibrary(userId: string, kind: FavKind, ids: number[]) {
+export async function addToLibrary(userId: string, kind: FavKind, ids: number[], weights?: Record<number, number>) {
   if (!ids.length) return { ok: true }
   const sb = createAdminClient()
   const { data: prof } = await sb.from('profiles').select('username').eq('id', userId).maybeSingle() as { data: any }
   const username = prof?.username || `user_${userId.slice(0, 8)}`
-  const rows = ids.map(id => ({ entity_type: kind, entity_id: id, user_id: userId, user_username: username }))
+  const rows = ids.map(id => {
+    const row: any = { entity_type: kind, entity_id: id, user_id: userId, user_username: username }
+    if (weights && weights[id] != null) row.weight = weights[id]   // nario populiarumas (Last.fm playcount)
+    return row
+  })
   const { error } = await sb.from('likes').upsert(rows, { onConflict: 'entity_type,entity_id,user_username', ignoreDuplicates: true })
   if (error) throw error
   return { ok: true }

@@ -76,7 +76,10 @@ export async function enqueueImportJob(userId: string, source: string, params: a
   const { data, error } = await sb.from('music_import_jobs')
     .insert({ user_id: userId, source, params, status: 'queued', phase: 'fetch' }).select('id').single()
   if (error) throw error
-  return { id: (data as any).id, existing: false }
+  const jobId = (data as any).id
+  // Revert-partija šitam job'ui (kad būtų galima atšaukti foninį importą).
+  try { await sb.from('music_import_batches').insert({ user_id: userId, source, job_id: jobId }) } catch {}
+  return { id: jobId, existing: false }
 }
 
 export async function getLatestJob(userId: string) {
@@ -84,7 +87,11 @@ export async function getLatestJob(userId: string) {
   const { data } = await sb.from('music_import_jobs')
     .select('id, status, phase, total, processed, matched, reported, error, created_at, finished_at')
     .eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()
-  return data || null
+  if (!data) return null
+  // Pridedam revert-partijos būseną (kad UI rodytų „Atšaukti importą").
+  const { data: batch } = await sb.from('music_import_batches')
+    .select('id, status').eq('job_id', (data as any).id).maybeSingle()
+  return { ...(data as any), batch_id: (batch as any)?.id ?? null, batch_status: (batch as any)?.status ?? null }
 }
 
 // ── Worker ───────────────────────────────────────────────────────────────--
@@ -120,7 +127,7 @@ export async function processJobs(budgetMs = 45000): Promise<{ ok: boolean; idle
       const { data: fresh } = await sb.from('music_import_jobs').select('*').eq('id', job.id).maybeSingle()
       if (!fresh) break
       cur = fresh
-      if (cur.status === 'done') break
+      if (cur.status !== 'running') break   // done / canceled (revert) / error
     }
     const { data: f } = await sb.from('music_import_jobs').select('status').eq('id', job.id).maybeSingle()
     if (f && (f as any).status !== 'done') await sb.from('music_import_jobs').update({ locked_at: null }).eq('id', job.id)
@@ -199,6 +206,21 @@ async function matchTick(sb: any, job: any): Promise<boolean> {
   const mArtists = staged.artists.filter(h => h.matched && h.id).map(h => h.id!)
   const mAlbums = staged.albums.filter(h => h.matched && h.id).map(h => h.id!)
   const mTracks = staged.tracks.filter(h => h.matched && h.id).map(h => h.id!)
+  // Revert-tracking: prieš pridedant, įsidedam kurie NAUJI; po to surašom į partiją.
+  const { data: batchRow } = await sb.from('music_import_batches').select('id').eq('job_id', job.id).maybeSingle()
+  const batchId: string | null = (batchRow as any)?.id ?? null
+  const recordAdded = async (kind: Kind, ids: number[]) => {
+    if (!batchId || !ids.length) return
+    const { data: ex } = await sb.from('likes').select('entity_id').eq('user_id', userId).eq('entity_type', kind).in('entity_id', ids)
+    const have = new Set<number>(((ex || []) as any[]).map(x => x.entity_id))
+    const fresh = ids.filter(id => !have.has(id))
+    for (let i = 0; i < fresh.length; i += 200) {
+      await sb.from('music_import_added').upsert(fresh.slice(i, i + 200).map(id => ({ batch_id: batchId, kind, entity_id: id })), { ignoreDuplicates: true })
+    }
+  }
+  await recordAdded('artist', mArtists)
+  await recordAdded('album', mAlbums)
+  await recordAdded('track', mTracks)
   await addToLibrary(userId, 'artist', mArtists)
   await addToLibrary(userId, 'album', mAlbums)
   await addToLibrary(userId, 'track', mTracks)

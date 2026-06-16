@@ -13,8 +13,9 @@ export async function POST(req: NextRequest) {
   const userId = await getUserId()
   if (!userId) return NextResponse.json({ error: 'Prisijunk' }, { status: 401 })
   const body = await req.json().catch(() => ({}))
+  const weights = (body.weights && typeof body.weights === 'object') ? body.weights as Record<string, number> : undefined
   try {
-    const res = await commitInto(userId, { artists: ids(body.artists), albums: ids(body.albums), tracks: ids(body.tracks) })
+    const res = await commitInto(userId, { artists: ids(body.artists), albums: ids(body.albums), tracks: ids(body.tracks), weights })
     return NextResponse.json(res)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
