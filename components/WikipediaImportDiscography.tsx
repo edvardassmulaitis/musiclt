@@ -340,7 +340,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       // Singles sekcija gali būti depth 2 (==Singles==) ARBA depth 3
       // (===Singles=== po ==Discography==, pvz. Gigi Perez). Anksčiau tik
       // depth===2 → nested singles visiškai praleidžiami (0 singlų rasta).
-      if (/^singles\s*$/i.test(h) && (depth === 2 || depth === 3)) {
+      if (/^singles?\s*$/i.test(h) && (depth === 2 || depth === 3)) {
         inSingles = true; singlesDepth = depth; skipSubSection = false; hasYearCol = false
         currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false
         continue
@@ -377,12 +377,31 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
     //   * "Title" (YYYY)
     // Anksčiau `if (!inTable) continue` praleidžia visas ne-table eilutes →
     // bullet-list singlai niekada nebuvo parse'inami.
-    if (!inTable && line.startsWith('*')) {
+    if (!inTable && (line.startsWith('*') || line.startsWith('#'))) {
       // Match: * "Title" ... (YYYY ...)
-      const bm = line.match(/^\*\s*"([^"]+)"/)
+      let title: string | null = null
+      const bm = line.match(/^[*#]\s*"([^"]+)"/)
       if (bm) {
-        let title = bm[1].trim()
-        const yearM = line.match(/\((\d{4})\b/)
+        title = bm[1].trim()
+      } else {
+        // 2026-06-15: italic formatas `* ''Title'' (YYYY)` (pvz Sam Garrett
+        // singlai: `* ''I Am Loving You'' (2018)`). Anksčiau tik double-quote
+        // `"Title"` buvo atpažįstamas → italic-only singlai dingdavo.
+        const im = line.match(/^[*#]\s*''+\s*(.+?)\s*''+/)
+        if (im) {
+          title = cleanWikiText(im[1]).trim()
+        } else {
+          // Plain-text fallback `* Title (YYYY)` — TIK jei yra metai, kad
+          // nepagautume „main article" ar kitų ne-singlinių bullet'ų.
+          const pm = line.match(/^[*#]\s*(.+?)\s*\([^)]*?\d{4}[^)]*\)/)
+          if (pm) {
+            const cand = cleanWikiText(pm[1]).replace(/'{2,}/g, '').trim()
+            if (cand && cand.length >= 2 && !/^(see |main article)/i.test(cand)) title = cand
+          }
+        }
+      }
+      if (title) {
+        const yearM = line.match(/\((?:[^)]*?)(\d{4})\b/)
         const year = yearM ? parseInt(yearM[1]) : null
         singles.push({ title, year, month: null, day: null, source: 'wikipedia', selected: true })
       }
