@@ -460,7 +460,11 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
             // parseDiscographyPage(main) kuris paimdavo Awards table wikitable'ą.
             // Naujas check: skipGroup TIK kai sekcija yra "group-context" tipo
             // (su [Band Name], "with X", "as part of Y") IR ne standartinis album-type.
-            const isAlbumTypeSection = /\b(studio|album|single|ep|extended\s*play|compilation|live|remix|cover|tribute|soundtrack|score|holiday|christmas|demo|mixtape|reissue|greatest|best\s*of|collection|video|dvd|box|chart|discograph)\b/i.test(hRaw)
+            // 2026-06-15: plural-tolerant. Anksčiau `\balbum\b` NEatpažino bare
+            // "Albums"/"EPs"/"Singles" headerių (trailing `s` laužo word-boundary)
+            // → solo artistų (pvz Sam Garrett, kurio sekcija tik "Albums", ne
+            // "Studio albums") albumų sekcija buvo skip'inama → 0 albumų.
+            const isAlbumTypeSection = /\b(studio|albums?|singles?|eps?|extended\s*plays?|compilations?|live|remix(?:es)?|covers?|tributes?|soundtracks?|scores?|holiday|christmas|demos?|mixtapes?|reissues?|greatest|best\s*of|collections?|videos?|dvds?|box(?:es)?|charts?|discograph)\b/i.test(hRaw)
             const isSoloMarker = /\bsolo\b|as\s+lead|as\s+artist|as\s+performer/i.test(hRaw)
             skipGroup = soloOnly && !isAlbumTypeSection && !isSoloMarker && hRaw.trim().length > 0
           }
