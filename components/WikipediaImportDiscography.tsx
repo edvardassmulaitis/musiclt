@@ -1425,12 +1425,27 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         .flatMap(m => m[1].split('|').map(l => l.trim()))
         .filter(l => /singles?\s*discography/i.test(l) || /albums?\s*discography/i.test(l))
 
+      // 2026-06-15: bendras „X discography" puslapis iš {{Main}} šablono
+      // (TEISINGAS raidžių dydis). Iš atlikėjo vardo sukonstruotas `discTitle`
+      // gali neegzistuoti — pvz „Tito_el_Bambino_discography" (mažoji „el")
+      // Wikipedia'oje NĖRA, realus puslapis = „Tito El Bambino discography".
+      const mainDiscPageTitle = [...mainWikitext.matchAll(/\{\{Main\|([^}]+)\}\}/gi)]
+        .flatMap(m => m[1].split('|').map(l => l.trim()))
+        .find(l => /\bdiscography\b/i.test(l)) || null
+
       // Bandyti kraut diskografijos puslapį
       const fetchDiscographyPages = async (): Promise<{ albumsWt: string | null; singlesWt: string | null }> => {
-        if (!hasDiscPage) return { albumsWt: null, singlesWt: null }
+        if (!hasDiscPage && !mainDiscPageTitle) return { albumsWt: null, singlesWt: null }
 
-        addLog(`→ ${discTitle}`)
-        const dw = await fetchWikitext(discTitle)
+        // Pirmenybė {{Main}} nuorodai (teisingas case), tada vardo-konstruotas.
+        const candidates = [mainDiscPageTitle, hasDiscPage ? discTitle : null]
+          .filter((x): x is string => !!x)
+        let dw: string | null = null
+        for (const cand of candidates) {
+          addLog(`→ ${cand}`)
+          dw = await fetchWikitext(cand.replace(/ /g, '_'))
+          if (dw) break
+        }
         if (!dw) return { albumsWt: null, singlesWt: null }
 
         // Patikrinti ar tai disambiguation puslapis
