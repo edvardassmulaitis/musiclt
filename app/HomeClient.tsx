@@ -1424,7 +1424,8 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
    - default (news/event/promo) — bg image + chip + title + subtitle */
 
 /* Hero v2 karuselė su rodyklėmis (hover) + oranžiniais taškais — tas pats
-   patternas kaip /bendruomene „DĖMESIO CENTRE" FeaturedSlider. */
+   patternas kaip /bendruomene „DĖMESIO CENTRE" FeaturedSlider.
+   (redeploy trigger 2026-06-17) */
 function HeroV2Slider({ slides, dk }: { slides: HeroSlide[]; dk: boolean }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [activeIdx, setActiveIdx] = useState(0)
