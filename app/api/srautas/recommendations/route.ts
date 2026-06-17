@@ -158,12 +158,16 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         .in('artist_id', topRecIds).not('year', 'is', null)
         .order('year', { ascending: false }).order('month', { ascending: false, nullsFirst: false }).limit(8),
     ])
+    const curYear = new Date().getFullYear()
     for (const t of (tracksRes.data || []) as any[]) {
       const a = one(t.artists)
+      // Seno katalogo filtras (žr. feed/route.ts): 1987 m. daina ≠ naujiena.
+      const ry = t.release_year || (t.release_date ? new Date(t.release_date).getFullYear() : null)
+      if (ry && ry < curYear - 1) continue
       queues.release.push({
         key: `track-${t.id}`, kind: 'track', title: t.title || '', subtitle: a?.name || null,
         image: t.cover_url || ytThumb(t.video_url) || a?.cover_image_url || null,
-        href: `/dainos/${t.slug || t.id}`,
+        href: `/dainos/${a?.slug ? a.slug + '-' : ''}${t.slug || 'daina'}-${t.id}`,
         date: t.video_uploaded_at || t.release_date || albumDate(t.release_year, t.release_month, t.release_day),
         badge: 'Nauja daina',
         artist: a ? { id: t.artist_id, name: a.name, slug: a.slug } : null,
@@ -312,7 +316,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v4'],
+  ['srautas-recs-v5'],
   { revalidate: 300 },
 )
 

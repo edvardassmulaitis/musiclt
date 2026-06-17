@@ -31,7 +31,7 @@ export const dynamic = 'force-dynamic'
 
 const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
 
-type Kind = 'news' | 'blog' | 'track' | 'album' | 'event' | 'topic' | 'chart'
+type Kind = 'news' | 'blog' | 'track' | 'album' | 'event' | 'topic' | 'chart' | 'recording'
 type FeedItem = {
   key: string
   kind: Kind
@@ -60,8 +60,8 @@ const one = (v: any) => (Array.isArray(v) ? v[0] : v)
 // (tikriausias „kas naujo"), albumai antra, o naujienos / įrašai / topai /
 // diskusijos / koncertai reguliariai įsiterpia.
 function weave(q: Record<string, FeedItem[]>, limit: number): FeedItem[] {
-  const template = ['track', 'album', 'track', 'news', 'chart', 'track', 'album', 'blog', 'track', 'topic', 'event', 'track', 'album', 'news', 'blog']
-  const order = ['track', 'album', 'news', 'chart', 'blog', 'topic', 'event']
+  const template = ['track', 'album', 'track', 'news', 'chart', 'track', 'recording', 'album', 'blog', 'track', 'topic', 'event', 'track', 'album', 'news', 'blog']
+  const order = ['track', 'album', 'news', 'chart', 'recording', 'blog', 'topic', 'event']
   const out: FeedItem[] = []
   let ti = 0
   while (out.length < limit) {
@@ -119,6 +119,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
   const beforeMs = before ? Date.parse(before) : null
   const personalized = artistIds.length > 0
   const nowIso = new Date().toISOString()
+  const curYear = new Date().getFullYear()
   const dateOk = (iso: string | null) => {
     if (!iso) return false
     if (beforeMs == null) return true
@@ -161,10 +162,14 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
       const a = one(t.artists)
       const date = t.video_uploaded_at || t.release_date || ymd(t.release_year, t.release_month, t.release_day)
       if (!dateOk(date)) continue
+      // SENO KATALOGO filtras: jei daina išleista seniai (pvz. 1987 m.) bet jos
+      // YouTube įkėlimas šviežias — tai NĖRA naujiena, praleidžiam.
+      const ry = t.release_year || (t.release_date ? new Date(t.release_date).getFullYear() : null)
+      if (ry && ry < curYear - 1) continue
       tracks.push({
         key: `track-${t.id}`, kind: 'track', title: t.title || '', subtitle: a?.name || null,
         image: t.cover_url || ytThumb(t.video_url) || a?.cover_image_url || null,
-        href: `/dainos/${t.slug || t.id}`, date, badge: 'Nauja daina',
+        href: `/dainos/${a?.slug ? a.slug + '-' : ''}${t.slug || 'daina'}-${t.id}`, date, badge: 'Nauja daina',
         artistId: t.artist_id || null,
         artist: a ? { name: a.name, slug: a.slug } : null,
         meta: { views: Number(t.video_views) || 0 },
@@ -343,8 +348,35 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
     return out
   }
 
-  const [music, news, blog, charts, topics, events] = await Promise.all([
-    musicTask(), newsTask(), blogTask(), chartsTask(), topicsTask(), eventsTask(),
+  // ── KONCERTŲ ĮRAŠAI (live archyvas, tik 1-am psl) ───────────────────────────
+  const recordingsTask = async (): Promise<FeedItem[]> => {
+    if (before) return []
+    const out: FeedItem[] = []
+    try {
+      let q = sb.from('concert_recordings')
+        .select('id, slug, title, artist_id, thumbnail_url, recording_type, uploaded_at, created_at, artists:artist_id(name, slug, cover_image_url)')
+        .eq('is_published', true)
+      if (personalized) q = q.in('artist_id', artistIds)
+      q = q.order('uploaded_at', { ascending: false, nullsFirst: false }).limit(personalized ? 12 : 6)
+      const { data } = await q
+      const TYPE_LABEL: Record<string, string> = { full: 'Pilnas koncertas', special: 'Koncerto įrašas', session: 'Gyvas pasirodymas' }
+      for (const r of (data || []) as any[]) {
+        const a = one(r.artists)
+        out.push({
+          key: `recording-${r.id}`, kind: 'recording', title: r.title || '',
+          subtitle: a?.name || null, image: r.thumbnail_url || a?.cover_image_url || null,
+          href: `/koncertu-irasai/${r.slug}`, date: r.uploaded_at || r.created_at,
+          badge: TYPE_LABEL[r.recording_type] || 'Koncerto įrašas',
+          artistId: r.artist_id || null,
+          artist: a ? { name: a.name, slug: a.slug } : null,
+        })
+      }
+    } catch { /* ignore */ }
+    return out
+  }
+
+  const [music, news, blog, charts, topics, events, recordings] = await Promise.all([
+    musicTask(), newsTask(), blogTask(), chartsTask(), topicsTask(), eventsTask(), recordingsTask(),
   ])
 
   // Pirmas psl → tipai supinti (dainos priekyje); tolesni → tik muzika chronologiškai.
@@ -356,7 +388,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
   } else {
     out = weave({
       track: [...music.tracks], album: [...music.albums],
-      news, blog, chart: charts, topic: topics, event: [...events],
+      news, blog, chart: charts, topic: topics, event: [...events], recording: recordings,
     }, limit)
   }
 
@@ -381,7 +413,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], limit: number, before: string | null) =>
     buildFeed(artistIds, limit, before),
-  ['srautas-feed-v8'],
+  ['srautas-feed-v9'],
   { revalidate: 90 },
 )
 
