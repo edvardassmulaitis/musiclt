@@ -2561,7 +2561,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     for (const ev of heroEvents) { if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
     for (const ev of events) { if (evList.length >= 4) break; if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
     evList.forEach(ev => {
-      // Renginys be vizualo NEPATENKA į feed'ą (kad nebūtų tuščių tamsių kortelių).
+      // Renginys be vizualo NEPATENKA (rebuild) į feed'ą (kad nebūtų tuščių tamsių kortelių).
       const evImg = ev.image_small_url || ev.cover_image_url || null
       if (!evImg) return
       const dateRaw = (ev as any).start_date || ev.event_date
