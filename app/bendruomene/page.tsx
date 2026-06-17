@@ -770,7 +770,21 @@ const PROMPTS = [
   { href: '/muzikos-atradimai/pasidalink', icon: I.spark, bg: 'rgba(249,115,22,0.15)', color: '#fb923c', title: 'Atradai kažką įdomaus?', sub: 'Pasidalink atradimu' },
 ]
 
-function PromptsRow() {
+// compact (#7): mobile versija rodoma puslapio apačioje po „Aktyvūs nariai" —
+// maksimaliai kompaktiški mygtukai (ikona + trumpas pavadinimas).
+function PromptsRow({ compact = false }: { compact?: boolean }) {
+  if (compact) {
+    return (
+      <div className="mb-8 grid grid-cols-2 gap-2 sm:hidden">
+        {PROMPTS.map(p => (
+          <Link key={p.title} href={p.href} className="flex items-center gap-2 rounded-[11px] border border-dashed border-[var(--border-strong)] bg-[var(--card-bg)] px-2.5 py-2 no-underline transition-colors hover:border-[var(--accent-orange)]">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg" style={{ background: p.bg, color: p.color }}><Ic d={p.icon} size={13} /></span>
+            <b className="min-w-0 truncate text-[11px] font-bold leading-tight text-[var(--text-primary)]">{p.title}</b>
+          </Link>
+        ))}
+      </div>
+    )
+  }
   return (
     <div className="mb-9 mt-4 hidden grid-cols-2 gap-2.5 sm:grid sm:gap-3 lg:grid-cols-4">
       {PROMPTS.map(p => (
@@ -868,7 +882,7 @@ function PostTopasRowCard({ p }: { p: FeedPost }) {
       <div className={ROW_PAD}>
         <div className="flex flex-wrap items-center gap-2.5">
           <KindBadge kind="topas" abs={false} label={topLabel(p)} />
-          <h3 className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
+          <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
         </div>
         {entries.length === 0 ? (
           <p className="m-0 mt-2 py-3 text-[12px] text-[var(--text-muted)]">Tuščias topas</p>
@@ -978,10 +992,10 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
       </div>
       <div className={ROW_PAD}>
         <KindBadge kind="atradimas" abs={false} />
-        <h3 className="m-0 mt-2 line-clamp-3 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:line-clamp-2 sm:text-[17.5px]">
+        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` — ${a.track_name}` : ''}
         </h3>
-        {quote && <p className="m-0 mt-1.5 line-clamp-2 text-[13px] italic leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">„{quote.length > 280 ? quote.slice(0, 280).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
+        {quote && <p className="m-0 mt-1.5 line-clamp-4 text-[13px] italic leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">„{quote.length > 360 ? quote.slice(0, 360).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
         <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
       </div>
     </button>
@@ -1067,7 +1081,8 @@ function PulsasSection() {
   // Mišrus srautas: postai pagal datą (su per-autoriaus cap'u) + diskusijos/
   // atradimai įterpiami kas kelias korteles.
   const mixed: MixItem[] = useMemo(() => {
-    const rawP = (posts || []).map(post => ({ kind: 'post' as const, date: post.published_at || '', post }))
+    // „Įrašai" (irasas) Pulse nerodom — jie gyvena Kūrybos kampe (#3).
+    const rawP = (posts || []).filter(post => postKind(post) !== 'irasas').map(post => ({ kind: 'post' as const, date: post.published_at || '', post }))
     // Flood limitas: autorius pirmame sraute — max PER_AUTHOR_CAP; perteklius
     // keliauja į uodegą (matomas išskleidus).
     const seen = new Map<string, number>()
@@ -1237,33 +1252,38 @@ function KornerCard({ p, wide = false }: { p: FeedPost; wide?: boolean }) {
 }
 
 function KornerSection() {
-  const [posts, setPosts] = useState<FeedPost[] | null>(null)
+  // Kiekvieną tipą imam ATSKIRAI — kūryba (eilėraščiai) dažnai sena, tad bendrame
+  // pagal-datą sąraše nepatekdavo (#5). Po to interleave: įrašas → kūryba → vertimas.
+  const [buckets, setBuckets] = useState<{ irasas: FeedPost[]; kuryba: FeedPost[]; vertimas: FeedPost[] } | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   useEffect(() => {
     let on = true
-    fetch(`/api/atradimai/feed?${KORNER_QUERY}&limit=15`).then(r => r.json()).then(d => { if (on) setPosts(d.posts || []) }).catch(() => { if (on) setPosts([]) })
+    Promise.all([
+      fetch(`/api/atradimai/feed?exclude_type=topas,review,creation,translation,quick&exclude_editorial=recenzija,koncertai,atradimas&limit=8`).then(r => r.json()).catch(() => ({})),
+      fetch(`/api/atradimai/feed?type=creation&limit=6`).then(r => r.json()).catch(() => ({})),
+      fetch(`/api/atradimai/feed?type=translation&limit=6`).then(r => r.json()).catch(() => ({})),
+    ]).then(([ir, kr, vr]) => {
+      if (!on) return
+      setBuckets({ irasas: ir.posts || [], kuryba: kr.posts || [], vertimas: vr.posts || [] })
+    }).catch(() => { if (on) setBuckets({ irasas: [], kuryba: [], vertimas: [] }) })
     return () => { on = false }
   }, [])
   // Tvarka (#13): įrašas → kūryba → vertimas → ir taip kartojam (round-robin).
   const ordered = useMemo(() => {
-    if (!posts) return null
-    const buckets: Record<string, FeedPost[]> = { irasas: [], kuryba: [], vertimas: [] }
-    for (const p of posts) {
-      const k = postKind(p)
-      ;(buckets[k] || buckets.irasas).push(p)
-    }
-    const order = ['irasas', 'kuryba', 'vertimas']
+    if (!buckets) return null
+    const b = { irasas: [...buckets.irasas], kuryba: [...buckets.kuryba], vertimas: [...buckets.vertimas] }
+    const order: (keyof typeof b)[] = ['irasas', 'kuryba', 'vertimas']
     const out: FeedPost[] = []
     let added = true
     while (added) {
       added = false
       for (const k of order) {
-        const next = buckets[k].shift()
+        const next = b[k].shift()
         if (next) { out.push(next); added = true }
       }
     }
     return out
-  }, [posts])
+  }, [buckets])
   return (
     <section className="mb-10 border-t border-[var(--border-default)] pt-7">
       <div className="mb-3.5 flex items-end justify-between gap-3">
@@ -1356,7 +1376,7 @@ export default function BendruomenePage() {
 
       {/* ŠIANDIEN: DD hero + Kas vyksta/Pokalbiai. items-start — hero netempiamas;
           dešinė kolona ribojama fiksuotu aukščiu (desktop). */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_350px]">
+      <div className="mb-8 grid grid-cols-1 items-start gap-4 sm:mb-0 lg:grid-cols-[1fr_350px]">
         <DienosDainaHero />
         <div className="lg:h-[540px]"><HappeningArea /></div>
       </div>
@@ -1368,6 +1388,9 @@ export default function BendruomenePage() {
       <KornerSection />
 
       <NariaiSection />
+
+      {/* CTA mygtukai — mobile apačioje (#7), kompaktiški. */}
+      <PromptsRow compact />
     </div>
   )
 }

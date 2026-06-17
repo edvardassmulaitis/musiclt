@@ -91,13 +91,20 @@ function ptsWord(v: number): string {
 function ymdLocal(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+const LT_MONTHS = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio', 'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio']
+function formatLtDate(date: string): string {
+  const m = date.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return date
+  return `${LT_MONTHS[parseInt(m[2]) - 1]} ${parseInt(m[3])} d.`
+}
 function winnerDayLabel(date?: string | null): string {
   if (!date) return 'Paskutinė laimėjusi'
   const today = new Date()
   const yest = new Date(today); yest.setDate(today.getDate() - 1)
   if (date === ymdLocal(today)) return 'Šiandien laimėjo'
   if (date === ymdLocal(yest)) return 'Vakar laimėjo'
-  return 'Paskutinį kartą laimėjo'
+  // Senesnis laimėtojas (vakar nebuvo dalyvių) — rodom tikslią datą, kad neklaidintų.
+  return `Laimėjo ${formatLtDate(date)}`
 }
 
 // ───────────────────────── types ─────────────────────────
