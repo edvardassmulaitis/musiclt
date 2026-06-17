@@ -1423,6 +1423,82 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
    - 'chart_lt' / 'chart_world' — koliažas su top atlikėjais ir top 3 dainomis
    - default (news/event/promo) — bg image + chip + title + subtitle */
 
+/* Hero v2 karuselė su rodyklėmis (hover) + oranžiniais taškais — tas pats
+   patternas kaip /bendruomene „DĖMESIO CENTRE" FeaturedSlider. */
+function HeroV2Slider({ slides, dk }: { slides: HeroSlide[]; dk: boolean }) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [activeIdx, setActiveIdx] = useState(0)
+  useEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+    const onScroll = () => {
+      const card = el.querySelector('.hp-hero-slot') as HTMLElement | null
+      if (!card) return
+      const step = card.offsetWidth + 16
+      setActiveIdx(Math.round(el.scrollLeft / step))
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [slides])
+  const many = slides.length > 1
+  const stepEl = () => trackRef.current?.querySelector('.hp-hero-slot') as HTMLElement | null
+  const scrollTo = (i: number) => {
+    const el = trackRef.current, card = stepEl()
+    if (!el || !card) return
+    el.scrollTo({ left: i * (card.offsetWidth + 16), behavior: 'smooth' })
+  }
+  const scrollByDir = (dir: -1 | 1) => {
+    const el = trackRef.current
+    if (!el) return
+    const card = stepEl()
+    const step = card ? card.offsetWidth + 16 : el.clientWidth * 0.9
+    el.scrollBy({ left: dir * step, behavior: 'smooth' })
+  }
+  return (
+    <section className="hp-hero-v2">
+      <style>{`
+        @media(pointer:fine){.hp-hero-arrow{opacity:0;transition:opacity .2s}}
+        .hp-hero-wrap:hover .hp-hero-arrow{opacity:1}
+      `}</style>
+      <div className="mx-auto max-w-[1360px] px-5 pt-5">
+        <div className="hp-hero-wrap relative">
+          <div ref={trackRef} className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory">
+            {slides.map((slide) => (
+              <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
+                <HeroV2Card slide={slide} dk={dk} />
+              </div>
+            ))}
+          </div>
+          {many && (
+            <>
+              <button type="button" aria-label="Ankstesnis" onClick={() => scrollByDir(-1)}
+                className="hp-hero-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+                style={{ left: -6 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+              </button>
+              <button type="button" aria-label="Kitas" onClick={() => scrollByDir(1)}
+                className="hp-hero-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+                style={{ right: -6 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+              </button>
+            </>
+          )}
+        </div>
+        {many && (
+          <div className="mt-3 flex justify-center gap-1.5">
+            {slides.map((s, i) => (
+              <button key={`hdot-${s.type}-${s.href}`} type="button" aria-label={`Slaidas ${i + 1}`}
+                onClick={() => scrollTo(i)}
+                className="cursor-pointer rounded-full border-0 p-0 transition-all"
+                style={{ width: i === activeIdx ? 20 : 7, height: 7, background: i === activeIdx ? 'var(--accent-orange)' : 'var(--border-strong)' }} />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
   if (slide.type === 'chart_lt' || slide.type === 'chart_world') {
     return <HeroChartCard slide={slide} />
@@ -1452,16 +1528,17 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
           <div className="h-full w-full" style={{ background: 'var(--homepage-hero-gradient)' }} />
         )}
       </div>
+      {/* Badge — viršuj kairėj (kaip /bendruomene feed KindBadge) */}
+      <span
+        className="absolute left-3 top-3 z-[2] inline-flex rounded-[7px] px-2.5 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
+        style={{ background: slide.chipBg }}
+      >
+        {slide.chip}
+      </span>
       {/* Bottom gradient for text readability */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
       {/* Content */}
       <div className="absolute inset-0 flex flex-col justify-end p-5">
-        <span
-          className="mb-2 inline-flex w-fit rounded-full px-3 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
-          style={{ background: slide.chipBg }}
-        >
-          {slide.chip}
-        </span>
         <h3 className="m-0 max-w-[460px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">
           {slide.title}
         </h3>
@@ -2133,6 +2210,10 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
   /* ── Hero state ── */
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
   const [worldTop, setWorldTop] = useState<TopEntry[]>([])
+  // Topo „atsinaujinimo data" (savaitės created_at/week_start) — naudojama
+  // hero feed'o rikiavimui: naujesnės naujienos nei topas → topas krenta žemyn.
+  const [ltTopDate, setLtTopDate] = useState<string>('')
+  const [worldTopDate, setWorldTopDate] = useState<string>('')
   const [tracks, setTracks] = useState<Track[]>(initialLatest ? [...initialLatest.tracks.lt, ...initialLatest.tracks.world] : [])
   // Naujų dainų/albumų užkrovimo būsena. 'loading' → equalizer skeletonai;
   // 'error' → retry kortelė (nebe „amžini" pilki skeletonai); 'ok' → turinys
@@ -2332,7 +2413,6 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
   const [heroVideoPlaying, setHeroVideoPlaying] = useState(false)
   const [newsSongs, setNewsSongs] = useState<Record<number, { youtube_url: string; title: string | null; artist_name: string | null }[]>>({})
   const timerRef = useRef<any>(null)
-  const heroRef = useRef<HTMLElement>(null)
 
   const parseTop = (entries: any[]): TopEntry[] => entries.slice(0, 7).map(e => {
     const prev = e.prev_position; const cur = e.position
@@ -2348,8 +2428,8 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     //   - /api/news apriboja į 30 d. ir 12 įrašų (anksčiau 30 modern + 30 legacy).
     //   - /api/artists fetch'as PAŠALINTAS — "Atrask atlikėjus" UI yra po
     //     `{false &&` toggle'u (kol kas paslėpta). Brangus reverse'as DB nieko.
-    fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); readyBits.current.tops = true; tryReady.current() }).catch(() => { readyBits.current.tops = true; tryReady.current() })
-    fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => setWorldTop(parseTop(d.entries || []))).catch(() => {})
+    fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); setLtTopDate(d.week?.created_at || d.week?.week_start || ''); readyBits.current.tops = true; tryReady.current() }).catch(() => { readyBits.current.tops = true; tryReady.current() })
+    fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => { setWorldTop(parseTop(d.entries || [])); setWorldTopDate(d.week?.created_at || d.week?.week_start || '') }).catch(() => {})
 
     // tracks + albums — ekstrahuota į `loadLatest` (su retry + degraded
     // handling) ir paleidžiama atskirame effect'e, kad „Bandyti dar kartą"
@@ -2375,34 +2455,42 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
       .catch(() => {})
   }, [])
 
-  /* ── Hero slides ── */
+  /* ── Hero slides ──
+     Topai (LT TOP 30 / TOP 40) NEBE visada pirmi: kiekvienas hero slide gauna
+     „sortMs" datą (topas → savaitės atsinaujinimo data; naujiena → published_at)
+     ir news+topai surikiuojami pagal šviežumą (naujausi pirmi). Taip naujiena,
+     naujesnė nei topo atsinaujinimas, atsiduria PRIEŠ topą. Renginiai lieka
+     gale (jie ateities datų — nerikiuojam su feed'u). */
   useEffect(() => {
     const slides: HeroSlide[] = []
+    const dated: { sortMs: number; slide: HeroSlide }[] = []
+    const ms = (s: string | null | undefined) => { const t = s ? new Date(s).getTime() : NaN; return isNaN(t) ? 0 : t }
+
     if (ltTop.length > 0) {
-      slides.push({
+      dated.push({ sortMs: ms(ltTopDate), slide: {
         type: 'chart_lt', chip: 'LT TOP 30', chipBg: '#ea580c',
         title: 'LT TOP 30',
         subtitle: ltTop.slice(0, 3).map(t => `${t.pos}. ${t.title}`).join(' · '),
         href: '/top30',
         bgImg: ltTop[0]?.artist_image || ltTop[0]?.cover_url || null,
         chartTops: ltTop.slice(0, 5),
-      } as any)
+      } as any })
     }
     if (worldTop.length > 0) {
-      slides.push({
+      dated.push({ sortMs: ms(worldTopDate), slide: {
         type: 'chart_world', chip: 'TOP 40', chipBg: '#1d4ed8',
         title: 'TOP 40',
         subtitle: worldTop.slice(0, 3).map(t => `${t.pos}. ${t.title}`).join(' · '),
         href: '/top40',
         bgImg: worldTop[0]?.artist_image || worldTop[0]?.cover_url || null,
         chartTops: worldTop.slice(0, 5),
-      } as any)
+      } as any })
     }
     news.slice(0, 30).forEach(n => {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
       const songs = newsSongs[n.id] || []
       const song = songs.find((s: any) => s.youtube_url)
-      slides.push({
+      dated.push({ sortMs: ms(n.published_at), slide: {
         type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
         title: sanitizeTitle(n.title),
         subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
@@ -2413,8 +2501,12 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         songArtist: song?.artist_name || n.artist?.name || null,
         songCover: null,
         artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
-      })
+      } })
     })
+    // Naujausi pirmi (topai įsiterpia pagal savo atsinaujinimo datą)
+    dated.sort((a, b) => b.sortMs - a.sortMs)
+    for (const x of dated) slides.push(x.slide)
+
     events.slice(0, 3).forEach(ev => {
       const dateRaw = (ev as any).start_date || ev.event_date
       const d = dateRaw ? new Date(dateRaw) : null
@@ -2448,7 +2540,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     setHeroIdx(0)
     readyBits.current.hero = true
     tryReady.current()
-  }, [news, events, newsSongs, ltTop, worldTop])
+  }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate])
 
   useEffect(() => {
     if (!heroSlides.length || heroVideoPlaying) return
@@ -2645,17 +2737,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
           </div>
         ), document.body)}
         {pageReady && heroSlides.length > 0 && (
-          <section className="hp-hero-v2" ref={heroRef}>
-            <div className="mx-auto max-w-[1360px] px-5 pt-5">
-              <div className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory">
-                {heroSlides.map((slide) => (
-                  <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
-                    <HeroV2Card slide={slide} dk={dk} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
+          <HeroV2Slider slides={heroSlides} dk={dk} />
         )}
 
 
