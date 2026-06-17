@@ -18,6 +18,7 @@ type Item = {
   reviewed: boolean
   featured: boolean
   featured_until: string | null
+  home_hero: boolean
   published_at: string | null
   author: string | null
   hidden: boolean
@@ -98,6 +99,17 @@ export default function IrasaiAdminClient() {
       const d = await r.json(); if (!r.ok) throw new Error(d.error || 'klaida')
       setItems(prev => prev.map(it => it.id === id ? { ...it, kind, reviewed: true } : it))
       dropIfTodo(id)
+    } catch (e: any) { setMsg('Klaida: ' + e.message) }
+    setBusy(null)
+  }
+
+  // „Homepage hero" — įrašas rodomas pradžios hero feede tarp naujienų.
+  const setHomeHero = async (id: string, home_hero: boolean) => {
+    setBusy(id); setMsg(null)
+    try {
+      const r = await fetch('/api/admin/irasai', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, home_hero }) })
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || 'klaida')
+      setItems(prev => prev.map(it => it.id === id ? { ...it, home_hero } : it))
     } catch (e: any) { setMsg('Klaida: ' + e.message) }
     setBusy(null)
   }
@@ -233,6 +245,7 @@ export default function IrasaiAdminClient() {
                         {it.hidden && <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-semibold">narys paslėptas</span>}
                         {it.reviewed && <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">sutvarkyta</span>}
                         {it.featured && <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title={it.featured_until ? `iki ${new Date(it.featured_until).toLocaleString('lt-LT')}` : ''}>★ verta dėmesio</span>}
+                        {it.home_hero && <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-semibold">🏠 hero</span>}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
                         {it.author || 'be autoriaus'} · {it.published_at ? new Date(it.published_at).toLocaleDateString('lt-LT') : 'nepublikuotas'}
@@ -293,6 +306,11 @@ export default function IrasaiAdminClient() {
                       <button onClick={() => openEnrich(it.id)} disabled={busy === it.id} title="Peržiūrėti / pridėti nuorodas tekste"
                         className={`text-sm px-3 py-1 rounded-lg disabled:opacity-50 ${enrichPanel === it.id ? 'bg-violet-600 text-white' : 'bg-violet-50 hover:bg-violet-100 text-violet-700'}`}>✨ Nuorodos</button>
                     )}
+                    <button onClick={() => setHomeHero(it.id, !it.home_hero)} disabled={busy === it.id}
+                      title="Rodyti pradžios hero feede tarp naujienų"
+                      className={`text-sm px-3 py-1 rounded-lg disabled:opacity-50 ${it.home_hero ? 'bg-orange-600 text-white hover:bg-orange-700' : 'bg-orange-50 hover:bg-orange-100 text-orange-700'}`}>
+                      {it.home_hero ? '🏠 Hero (išjungti)' : '🏠 Į hero'}
+                    </button>
                     <div className="ml-auto">
                       {it.reviewed
                         ? <button onClick={() => markReviewed(it.id, false)} disabled={busy === it.id}

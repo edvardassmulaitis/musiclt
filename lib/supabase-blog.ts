@@ -883,6 +883,20 @@ export async function getLatestBlogPosts(limit = 6) {
   return data || []
 }
 
+/** Admine pažymėti įrašai (home_hero=true) — rodomi pradžios hero feede tarp naujienų. */
+export async function getHomeHeroPosts(limit = 8) {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('blog_posts')
+    .select('id, slug, title, summary, cover_image_url, post_type, editorial_type, published_at, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
+    .eq('status', 'published')
+    .eq('home_hero', true)
+    .lte('published_at', new Date().toISOString())
+    .order('published_at', { ascending: false })
+    .limit(limit)
+  return data || []
+}
+
 // ── GLOBAL FEED (su filtravimu) ─────────────────────────────
 // Kviečiamas /blogas index'o (placeholder pakeitimas) ir kitur, kur reikia
 // matyti visų autorių įrašus. Priimame post_type ir tag filtrus.

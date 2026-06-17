@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
       period: (sp.get('period') as 'week' | 'month' | 'all') || undefined,
       showPast: sp.get('showPast') === 'true',
       order: (sp.get('order') as 'asc' | 'desc') || undefined,
+      homeHero: sp.get('home_hero') === '1',
       limit: parseInt(sp.get('limit') || '20'),
       offset: parseInt(sp.get('offset') || '0'),
     })

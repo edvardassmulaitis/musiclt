@@ -2255,6 +2255,9 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
   const [artists, setArtists] = useState<Artist[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [news, setNews] = useState<NewsItem[]>([])
+  // Admine pažymėti homepage hero: vartotojų įrašai + renginiai.
+  const [heroPosts, setHeroPosts] = useState<{ id: number; title: string; href: string; cover: string | null; chip: string; chipBg: string; published_at: string | null; author: string | null }[]>([])
+  const [heroEvents, setHeroEvents] = useState<Event[]>([])
   // SSR seed'as → pageReady iškart true (overlay neblokuoja jau HTML'e esančio
   // turinio), overlay iš viso nerodomas. Be seed'o — senas elgesys (overlay kol
   // hero+tops paruošti).
@@ -2456,6 +2459,9 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     // mygtukas galėtų perpaleisti TIK šią užklausą (latestReload bump).
 
     fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
+    // Admine pažymėti hero renginiai (home_hero=1) + vartotojų įrašai.
+    fetch('/api/events?home_hero=1&limit=8&compact=1').then(r => r.json()).then(d => setHeroEvents(d.events || [])).catch(() => {})
+    fetch('/api/blog/home-hero').then(r => r.json()).then(d => setHeroPosts(d.posts || [])).catch(() => {})
     // News + songs vienu request'u. `since_days=7` (redeploy) — hero rodo tik šviežias
     // (≤1 sav.) naujienas, kad nekabėtų seni įrašai. Jei nieko naujo — heroSlides
     // vis tiek turės topus (suksis topai blogiausiu atveju). Limit 12 — hero
@@ -2524,11 +2530,29 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
       } })
     })
+    // Admine pažymėti vartotojų įrašai (home_hero) — įsiterpia į feed'ą tarp
+    // naujienų pagal publikavimo datą (badge pagal įrašo tipą).
+    heroPosts.forEach(p => {
+      dated.push({ sortMs: ms(p.published_at), slide: {
+        type: 'news', chip: (p.chip || 'Įrašas').toUpperCase(), chipBg: p.chipBg || '#94a3b8',
+        title: sanitizeTitle(p.title),
+        subtitle: '',
+        bgImg: p.cover,
+        href: p.href,
+        artist: p.author ? { name: p.author, slug: '', image: null } : null,
+      } })
+    })
     // Naujausi pirmi (topai įsiterpia pagal savo atsinaujinimo datą)
     dated.sort((a, b) => b.sortMs - a.sortMs)
     for (const x of dated) slides.push(x.slide)
 
-    events.slice(0, 3).forEach(ev => {
+    // Renginiai: admine pažymėti (home_hero) pirmi, likusią vietą užpildo
+    // naujausi renginiai automatiškai (dedup pagal id, max 4).
+    const evSeen = new Set<number>()
+    const evList: Event[] = []
+    for (const ev of heroEvents) { if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
+    for (const ev of events) { if (evList.length >= 4) break; if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
+    evList.forEach(ev => {
       const dateRaw = (ev as any).start_date || ev.event_date
       const d = dateRaw ? new Date(dateRaw) : null
       const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_FULL_LT[d.getMonth()]} ${d.getFullYear()} m.` : ''
@@ -2561,7 +2585,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     setHeroIdx(0)
     readyBits.current.hero = true
     tryReady.current()
-  }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate])
+  }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents])
 
   useEffect(() => {
     if (!heroSlides.length || heroVideoPlaying) return

@@ -31,9 +31,11 @@ export async function getEvents(opts: {
   /** start_date rikiavimas. 'asc' (default) — soonest first (homepage).
    *  'desc' — newest first (admin'ui, kad scrape'inti 2026 renginiai būtų viršuje). */
   order?: 'asc' | 'desc'
+  /** Tik admine pažymėti homepage hero renginiai (home_hero=true). */
+  homeHero?: boolean
 } = {}) {
   const supabase = createAdminClient()
-  const { city, venueId, status, period, showPast = false, limit = 20, offset = 0, order = 'asc' } = opts
+  const { city, venueId, status, period, showPast = false, limit = 20, offset = 0, order = 'asc', homeHero = false } = opts
 
   let q = supabase
     .from('events')
@@ -41,7 +43,7 @@ export async function getEvents(opts: {
       id, title, slug, description, start_date, end_date,
       venue_name, venue_id, city, city_id, address, cover_image_url,
       ticket_url, price_from, price_to,
-      status, is_featured, created_at,
+      status, is_featured, home_hero, created_at,
       venues:venue_id(id, name, slug, city, address),
       event_artists(
         artist_id, is_headliner, sort_order,
@@ -66,6 +68,7 @@ export async function getEvents(opts: {
   if (status) q = q.eq('status', status)
   if (city && city !== 'Visi') q = q.eq('city', city)
   if (venueId) q = q.eq('venue_id', venueId)
+  if (homeHero) q = q.eq('home_hero', true)
 
   if (period === 'week') {
     const end = new Date()
@@ -315,7 +318,7 @@ export async function getEventBySlug(slug: string) {
       id, title, slug, description, start_date, end_date,
       venue_name, venue_id, city, address, cover_image_url,
       ticket_url, price_from, price_to,
-      status, is_featured, created_at, updated_at,
+      status, is_featured, home_hero, created_at, updated_at,
       event_artists(
         artist_id, is_headliner, sort_order,
         artists(id, name, slug, cover_image_url)
@@ -353,7 +356,7 @@ export async function getEventById(id: string) {
       id, title, slug, description, start_date, end_date,
       venue_name, venue_id, city, address, cover_image_url,
       ticket_url, price_from, price_to,
-      status, is_featured, created_at, updated_at,
+      status, is_featured, home_hero, created_at, updated_at,
       event_artists(
         artist_id, is_headliner, sort_order,
         artists(id, name, slug, cover_image_url)

@@ -28,6 +28,7 @@ export default function AdminEventEditPage() {
   const [priceFrom, setPriceFrom] = useState('')
   const [priceTo, setPriceTo] = useState('')
   const [isFeatured, setIsFeatured] = useState(false)
+  const [homeHero, setHomeHero] = useState(false)
   const [isFestival, setIsFestival] = useState(false)
   const [artists, setArtists] = useState<ArtistRow[]>([])
   const [artistSearch, setArtistSearch] = useState('')
@@ -80,6 +81,7 @@ export default function AdminEventEditPage() {
         setPriceFrom(ev.price_from?.toString() || '')
         setPriceTo(ev.price_to?.toString() || '')
         setIsFeatured(ev.is_featured || false)
+        setHomeHero(ev.home_hero || false)
         setIsFestival(ev.is_festival || false)
         if (ev.event_artists) {
           setArtists(ev.event_artists.map((ea: any) => {
@@ -131,6 +133,7 @@ export default function AdminEventEditPage() {
       price_from: priceFrom ? parseFloat(priceFrom) : null,
       price_to: priceTo ? parseFloat(priceTo) : null,
       is_featured: isFeatured,
+      home_hero: homeHero,
       is_festival: isFestival,
       artists: artists.map(a => ({ artist_id: a.artist_id, is_headliner: a.is_headliner })),
     }
@@ -392,6 +395,10 @@ export default function AdminEventEditPage() {
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} className="accent-blue-600 w-4 h-4" />
             <span className="text-sm font-medium text-[var(--text-primary)]">Featured renginys</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={homeHero} onChange={e => setHomeHero(e.target.checked)} className="accent-orange-600 w-4 h-4" />
+            <span className="text-sm font-medium text-[var(--text-primary)]">🏠 Į pradžios hero</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={isFestival} onChange={e => setIsFestival(e.target.checked)} className="accent-cyan-600 w-4 h-4" />
