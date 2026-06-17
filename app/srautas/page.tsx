@@ -22,6 +22,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession, signIn } from 'next-auth/react'
 import { proxyImg } from '@/lib/img-proxy'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
+import { PageLoader } from '@/components/PageLoader'
 
 type Kind = 'news' | 'blog' | 'track' | 'album' | 'artist' | 'event' | 'topic' | 'chart' | 'recording'
 type Mode = 'sekami' | 'tau'
@@ -38,6 +39,7 @@ type FeedItem = {
   badge: string
   reason?: string
   because?: string | null
+  avatar?: string | null
   artist?: { id?: number; name: string; slug: string | null } | null
   meta?: { post_type?: string; rating?: number | null; avatar?: string | null; comments?: number; likes?: number }
 }
@@ -73,12 +75,6 @@ const IconGear = (
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
 )
-const IconSparkle = (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-    <path d="M12 2l1.6 5.2L19 9l-5.4 1.8L12 16l-1.6-5.2L5 9l5.4-1.8z" />
-  </svg>
-)
-
 // Lietuviška „prieš N …" forma (pilni žodžiai).
 function ltUnit(n: number, forms: [string, string, string]): string {
   const m10 = n % 10, m100 = n % 100
@@ -231,19 +227,25 @@ function FeedCard({ it, onDismiss, onOpenTrack }: { it: FeedItem; onDismiss: (ke
         ) : (
           <span className="sr-cover-ph">{initial}</span>
         )}
-        <span className="sr-badge" style={{ color: '#fff', background: BADGE_COLOR[it.kind] }}>
-          {it.badge}{it.kind === 'blog' && it.meta?.rating ? ` · ${it.meta.rating}/10` : ''}
-        </span>
       </div>
 
       <div className="sr-body">
+        <span className="sr-kicker" style={{ color: BADGE_COLOR[it.kind] }}>
+          {it.badge}{it.kind === 'blog' && it.meta?.rating ? ` · ${it.meta.rating}/10` : ''}
+        </span>
         <span className={`sr-title${isArtist ? ' sr-title--artist' : ''}`}>{it.title}</span>
-        {it.subtitle && <span className="sr-sub">{it.subtitle}</span>}
+        {(it.subtitle || (!isArtist && it.avatar)) && (
+          <span className="sr-sub-row">
+            {!isArtist && it.avatar && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="sr-avatar" src={proxyImg(it.avatar)} alt="" loading="lazy" />
+            )}
+            {it.subtitle && <span className="sr-sub">{it.subtitle}</span>}
+          </span>
+        )}
         <span className="sr-meta">
           {when && <span className="sr-time">{when}</span>}
-          {it.because && (
-            <span className="sr-why" title={`Nes tau patinka ${it.because}`} aria-label={`Nes tau patinka ${it.because}`}>{IconSparkle}</span>
-          )}
+          {it.because && <span className="sr-because">nes mėgsti {it.because}</span>}
         </span>
       </div>
 
@@ -433,33 +435,32 @@ function SrautasInner() {
         .sr-cover img { width:100%; height:100%; object-fit:cover; transition:transform .35s ease; }
         .sr-card:hover .sr-cover img { transform:scale(1.04); }
         .sr-cover-ph { font-size:42px; font-weight:900; color:var(--text-faint); }
-        .sr-badge { position:absolute; top:9px; left:9px; padding:4px 9px; border-radius:8px;
-          font-size:10.5px; font-weight:800; letter-spacing:.02em; text-transform:uppercase; line-height:1;
-          box-shadow:0 2px 6px rgba(0,0,0,0.25); }
         .sr-body { display:flex; flex-direction:column; gap:4px; padding:11px 13px 13px; min-width:0; }
+        .sr-kicker { font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; line-height:1; margin-bottom:1px; }
         .sr-title { font-size:14.5px; font-weight:700; color:var(--text-primary); line-height:1.32;
           display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
         .sr-title--artist { -webkit-line-clamp:1; font-weight:800; font-size:15px; }
+        .sr-sub-row { display:flex; align-items:center; gap:6px; min-width:0; }
+        .sr-avatar { width:18px; height:18px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
         .sr-sub { font-size:12.5px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .sr-meta { display:flex; align-items:center; gap:8px; margin-top:1px; }
-        .sr-time { font-size:11.5px; color:var(--text-faint); }
-        .sr-why { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%;
-          background:rgba(249,115,22,0.14); color:var(--accent-orange); flex:0 0 auto; }
-        .sr-why svg { width:11px; height:11px; }
+        .sr-meta { display:flex; align-items:center; gap:8px; margin-top:1px; min-width:0; }
+        .sr-time { font-size:11.5px; color:var(--text-faint); white-space:nowrap; }
+        .sr-because { font-size:11.5px; color:var(--accent-orange); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-        /* ── Veiksmų ikonos: švarios, neryškios (drop-shadow, ne bulky) ── */
-        .sr-act { position:absolute; border:none; background:transparent; cursor:pointer; color:#fff; padding:0;
-          display:inline-flex; align-items:center; justify-content:center; z-index:3; border-radius:50%;
-          filter:drop-shadow(0 1px 3px rgba(0,0,0,0.65)); transition:transform .14s, background .14s, color .14s, opacity .14s; -webkit-tap-highlight-color:transparent; }
-        .sr-like { bottom:8px; right:8px; width:32px; height:32px; }
-        .sr-like svg { width:21px; height:21px; }
-        .sr-like:hover { transform:scale(1.12); background:rgba(0,0,0,0.32); }
-        .sr-like.done { color:#ff4d6d; }
+        /* ── Veiksmų ikonos: vientisos, temai pritaikytos (matomos light/dark) ── */
+        .sr-act { position:absolute; cursor:pointer; padding:0; z-index:3; border-radius:50%;
+          display:inline-flex; align-items:center; justify-content:center;
+          background:var(--bg-elevated); border:1px solid var(--border-default, var(--border-subtle));
+          box-shadow:0 2px 8px rgba(0,0,0,0.16); transition:transform .14s, background .14s, color .14s, border-color .14s, opacity .14s; -webkit-tap-highlight-color:transparent; }
+        .sr-like { bottom:8px; right:8px; width:34px; height:34px; color:var(--accent-orange); }
+        .sr-like svg { width:18px; height:18px; }
+        .sr-like:hover { transform:scale(1.08); }
+        .sr-like.done { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
         .sr-like:disabled { opacity:.7; }
-        .sr-dismiss { top:8px; right:8px; width:26px; height:26px; opacity:0; }
-        .sr-dismiss svg { width:16px; height:16px; }
-        .sr-dismiss:hover { transform:scale(1.12); background:rgba(0,0,0,0.32); }
-        .sr-card:hover .sr-dismiss, .sr-dismiss:focus-visible { opacity:.92; }
+        .sr-dismiss { top:8px; right:8px; width:28px; height:28px; color:var(--text-muted); opacity:0; }
+        .sr-dismiss svg { width:15px; height:15px; }
+        .sr-dismiss:hover { transform:scale(1.08); color:var(--text-primary); }
+        .sr-card:hover .sr-dismiss, .sr-dismiss:focus-visible { opacity:1; }
 
         /* ── Pagalbiniai ── */
         .sr-end { text-align:center; padding:30px 16px 6px; }
@@ -482,7 +483,6 @@ function SrautasInner() {
           .sr-body { flex:1; justify-content:center; padding:11px 46px 11px 13px; gap:4px; }
           .sr-title { font-size:14px; -webkit-line-clamp:3; }
           .sr-sub { white-space:normal; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; }
-          .sr-badge { font-size:9.5px; padding:3px 7px; top:7px; left:7px; }
           .sr-like { top:50%; bottom:auto; right:10px; transform:translateY(-50%); }
           .sr-like:hover { transform:translateY(-50%) scale(1.1); }
           .sr-dismiss { opacity:.85; top:8px; right:9px; }
@@ -503,7 +503,7 @@ function SrautasInner() {
       </div>
 
       {isLoading ? (
-        <Equalizer />
+        <PageLoader />
       ) : filtered.length === 0 ? (
         <div className="sr-empty">
           {mode === 'sekami'

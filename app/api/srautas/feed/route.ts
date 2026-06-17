@@ -26,6 +26,7 @@ import { unstable_cache } from 'next/cache'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { getVertaKelionesData } from '@/lib/verta-keliones-db'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +43,7 @@ type FeedItem = {
   date: string | null
   badge: string
   artistId?: number | null
+  avatar?: string | null
   artist?: { name: string; slug: string | null } | null
   meta?: Record<string, any>
 }
@@ -114,10 +116,10 @@ function capPerArtist(items: FeedItem[], perArtist: number, score: (it: FeedItem
   return out
 }
 
-async function buildFeed(artistIds: number[], limit: number, before: string | null) {
+async function buildFeed(artistIds: number[], followedIds: string[], limit: number, before: string | null) {
   const sb = createAdminClient()
   const beforeMs = before ? Date.parse(before) : null
-  const personalized = artistIds.length > 0
+  const personalized = artistIds.length > 0 || followedIds.length > 0
   const nowIso = new Date().toISOString()
   const curYear = new Date().getFullYear()
   const dateOk = (iso: string | null) => {
@@ -170,7 +172,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
         key: `track-${t.id}`, kind: 'track', title: t.title || '', subtitle: a?.name || null,
         image: t.cover_url || ytThumb(t.video_url) || a?.cover_image_url || null,
         href: `/dainos/${a?.slug ? a.slug + '-' : ''}${t.slug || 'daina'}-${t.id}`, date, badge: 'Nauja daina',
-        artistId: t.artist_id || null,
+        artistId: t.artist_id || null, avatar: a?.cover_image_url || null,
         artist: a ? { name: a.name, slug: a.slug } : null,
         meta: { views: Number(t.video_views) || 0 },
       })
@@ -184,7 +186,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
         image: al.cover_image_url || a?.cover_image_url || null,
         href: a?.slug ? `/albumai/${a.slug}-${al.slug}-${al.id}` : `/albumai/${al.slug || ''}-${al.id}`,
         date, badge: 'Naujas albumas',
-        artistId: al.artist_id || null,
+        artistId: al.artist_id || null, avatar: a?.cover_image_url || null,
         artist: a ? { name: a.name, slug: a.slug } : null,
       })
     }
@@ -288,7 +290,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
           subtitle: `#${e.position} · ${c.title}${c.period_label ? ` · ${c.period_label}` : ''}`,
           image: e.cover_url || tr?.cover_url || ar?.cover_image_url || null,
           href: `/topai/${c.source}-${c.chart_key}`,
-          date: nowIso, badge: 'Topuose', artistId: aid,
+          date: nowIso, badge: 'Topas', artistId: aid, avatar: ar?.cover_image_url || null,
           artist: artistName ? { name: artistName, slug: null } : null,
         })
       }
@@ -302,16 +304,17 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
     const out: FeedItem[] = []
     try {
       const { data } = await sb.from('discussions')
-        .select('id, title, slug, artist_id, comment_count, like_count, last_comment_at, created_at')
+        .select('id, title, slug, artist_id, comment_count, like_count, last_comment_at, created_at, artists:artist_id(name, cover_image_url)')
         .in('artist_id', artistIds).eq('is_deleted', false)
         .order('last_comment_at', { ascending: false, nullsFirst: false }).limit(10)
       for (const d of (data || []) as any[]) {
+        const a = one(d.artists)
         out.push({
           key: `topic-${d.id}`, kind: 'topic', title: d.title || '',
-          subtitle: d.comment_count ? `${d.comment_count} komentarų` : 'Diskusija',
-          image: null, href: `/diskusijos/${d.slug}`,
+          subtitle: a?.name || (d.comment_count ? `${d.comment_count} komentarų` : 'Diskusija'),
+          image: a?.cover_image_url || null, href: `/diskusijos/${d.slug}`,
           date: d.last_comment_at || d.created_at, badge: 'Diskusija',
-          artistId: d.artist_id ? Number(d.artist_id) : null,
+          artistId: d.artist_id ? Number(d.artist_id) : null, avatar: a?.cover_image_url || null,
           meta: { comments: d.comment_count, likes: d.like_count },
         })
       }
@@ -367,7 +370,7 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
           subtitle: a?.name || null, image: r.thumbnail_url || a?.cover_image_url || null,
           href: `/koncertu-irasai/${r.slug}`, date: r.uploaded_at || r.created_at,
           badge: TYPE_LABEL[r.recording_type] || 'Koncerto įrašas',
-          artistId: r.artist_id || null,
+          artistId: r.artist_id || null, avatar: a?.cover_image_url || null,
           artist: a ? { name: a.name, slug: a.slug } : null,
         })
       }
@@ -375,8 +378,65 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
     return out
   }
 
-  const [music, news, blog, charts, topics, events, recordings] = await Promise.all([
-    musicTask(), newsTask(), blogTask(), chartsTask(), topicsTask(), eventsTask(), recordingsTask(),
+  // ── SEKAMŲ NARIŲ ĮRAŠAI (user_follows → jų blog_posts) ──────────────────────
+  const followedPostsTask = async (): Promise<FeedItem[]> => {
+    if (before || !followedIds.length) return []
+    const out: FeedItem[] = []
+    try {
+      const { data } = await sb.from('blog_posts')
+        .select('id, slug, title, cover_image_url, post_type, rating, published_at, user_id, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
+        .eq('status', 'published').not('published_at', 'is', null).lte('published_at', nowIso)
+        .in('user_id', followedIds)
+        .order('published_at', { ascending: false }).limit(20)
+      for (const p of (data || []) as any[]) {
+        const blog = one(p.blogs); const prof = one(blog?.profiles)
+        const blogSlug = blog?.slug || prof?.username
+        const isReview = p.post_type === 'review' || p.rating != null
+        out.push({
+          key: `blog-${p.id}`, kind: 'blog', title: p.title || '',
+          subtitle: prof?.full_name || prof?.username || null,
+          image: p.cover_image_url || null,
+          href: blogSlug ? `/blogas/${blogSlug}/${p.slug}` : '/blogas',
+          date: p.published_at, badge: isReview ? 'Recenzija' : 'Įrašas',
+          avatar: prof?.avatar_url || null,
+          meta: { post_type: p.post_type, rating: p.rating, avatar: prof?.avatar_url || null },
+        })
+      }
+    } catch { /* ignore */ }
+    return out
+  }
+
+  // ── VERTA KELIONĖS — pamėgtų atlikėjų koncertai užsienyje (tik 1-am psl) ─────
+  const vertaTask = async (): Promise<FeedItem[]> => {
+    if (before || !artistIds.length) return []
+    const out: FeedItem[] = []
+    try {
+      const { data: arts } = await sb.from('artists').select('slug, cover_image_url').in('id', artistIds)
+      const likedSlugs = new Set<string>()
+      const coverBySlug = new Map<string, string>()
+      for (const a of (arts || []) as any[]) { if (a.slug) { likedSlugs.add(a.slug); if (a.cover_image_url) coverBySlug.set(a.slug, a.cover_image_url) } }
+      if (!likedSlugs.size) return out
+      const { concerts } = await getVertaKelionesData()
+      const now = Date.now()
+      for (const c of concerts as any[]) {
+        if (!c.artistSlug || !likedSlugs.has(c.artistSlug)) continue
+        const t = Date.parse(c.date)
+        if (!Number.isFinite(t) || t < now) continue
+        out.push({
+          key: `trip-${c.id}`, kind: 'event',
+          title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
+          subtitle: c.venue || null, image: c.image || coverBySlug.get(c.artistSlug) || null,
+          href: '/verta-keliones', date: c.date, badge: 'Verta kelionės',
+          avatar: coverBySlug.get(c.artistSlug) || c.image || null,
+        })
+      }
+      out.sort((a, b) => Date.parse(a.date || '') - Date.parse(b.date || ''))
+    } catch { /* ignore */ }
+    return out.slice(0, 6)
+  }
+
+  const [music, news, blog, charts, topics, events, recordings, followedPosts, verta] = await Promise.all([
+    musicTask(), newsTask(), blogTask(), chartsTask(), topicsTask(), eventsTask(), recordingsTask(), followedPostsTask(), vertaTask(),
   ])
 
   // Pirmas psl → tipai supinti (dainos priekyje); tolesni → tik muzika chronologiškai.
@@ -388,7 +448,8 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
   } else {
     out = weave({
       track: [...music.tracks], album: [...music.albums],
-      news, blog, chart: charts, topic: topics, event: [...events], recording: recordings,
+      news, blog: [...blog, ...followedPosts], chart: charts, topic: topics,
+      event: [...verta, ...events], recording: recordings,
     }, limit)
   }
 
@@ -411,9 +472,9 @@ async function buildFeed(artistIds: number[], limit: number, before: string | nu
 }
 
 const getCachedFeed = unstable_cache(
-  async (_uid: string, artistIds: number[], limit: number, before: string | null) =>
-    buildFeed(artistIds, limit, before),
-  ['srautas-feed-v9'],
+  async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
+    buildFeed(artistIds, followedIds, limit, before),
+  ['srautas-feed-v10'],
   { revalidate: 90 },
 )
 
@@ -423,17 +484,23 @@ export async function GET(req: NextRequest) {
 
   let uid = ''
   let artistIds: number[] = []
+  let followedIds: string[] = []
   try {
     const session = await getServerSession(authOptions)
     uid = ((session?.user as any)?.id as string | undefined) || ''
     if (uid) {
       const sb = createAdminClient()
-      const { data } = await sb.from('likes').select('entity_id')
+      const { data: likesData } = await sb.from('likes').select('entity_id')
         .eq('entity_type', 'artist').eq('user_id', uid).limit(2000)
-      artistIds = Array.from(new Set((data || []).map((r: any) => Number(r.entity_id)).filter(Boolean))).sort((a, b) => a - b)
+      artistIds = Array.from(new Set((likesData || []).map((r: any) => Number(r.entity_id)).filter(Boolean))).sort((a, b) => a - b)
+      // Sekami nariai — atskirai (jei user_follows migracija dar neaplikuota, nenugriūna likes).
+      try {
+        const { data: followsData } = await sb.from('user_follows').select('following_id').eq('follower_id', uid).limit(2000)
+        followedIds = Array.from(new Set((followsData || []).map((r: any) => String(r.following_id)).filter(Boolean))).sort()
+      } catch { /* table missing */ }
     }
   } catch { /* anon */ }
 
-  const result = await getCachedFeed(uid || 'anon', artistIds, limit, before)
+  const result = await getCachedFeed(uid || 'anon', artistIds, followedIds, limit, before)
   return NextResponse.json(result)
 }

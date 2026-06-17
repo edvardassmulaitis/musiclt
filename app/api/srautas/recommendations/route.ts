@@ -22,6 +22,7 @@ import { unstable_cache } from 'next/cache'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { getVertaKelionesData } from '@/lib/verta-keliones-db'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,24 +46,25 @@ type RecItem = {
   badge: string
   reason?: string
   because?: string | null
+  avatar?: string | null
   artist?: { id: number; name: string; slug: string | null } | null
   meta?: Record<string, any>
 }
 
 const REASON_BADGE: Record<string, string> = {
-  fans: 'Fanai mėgsta',
+  fans: 'Patinka panašiems',
   rising: 'Kylantis vardas',
-  similar: 'Panašus atlikėjas',
+  similar: 'Panašus stilius',
   popular: 'Vertas dėmesio',
 }
 
 // Supina kelias tipų eiles į vieną feed'ą: atlikėjai dominuoja, o leidiniai /
 // koncertai / temos juos punktuoja — kad būtų gyvas, ne monotoniškas srautas.
 function weave(queues: Record<string, RecItem[]>, limit: number): RecItem[] {
-  const template = ['artist', 'artist', 'release', 'artist', 'chart', 'artist', 'topic', 'artist', 'release', 'artist', 'event']
+  const template = ['artist', 'artist', 'release', 'artist', 'chart', 'artist', 'trip', 'artist', 'topic', 'artist', 'release', 'artist', 'event']
   const out: RecItem[] = []
   let ti = 0
-  const order = ['artist', 'release', 'chart', 'event', 'topic']
+  const order = ['artist', 'release', 'chart', 'trip', 'event', 'topic']
   while (out.length < limit) {
     const want = template[ti % template.length]
     ti++
@@ -132,7 +134,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
   const matchIds = Array.from(new Set([...likedIds, ...recIds]))
   const topRecIds = recIds.slice(0, 16)
 
-  const queues: Record<string, RecItem[]> = { artist: [], release: [], chart: [], event: [], topic: [] }
+  const queues: Record<string, RecItem[]> = { artist: [], release: [], chart: [], event: [], topic: [], trip: [] }
 
   // ── 2a. Atlikėjų kortelės (sync) ───────────────────────────────────────────
   for (const r of recs) {
@@ -169,7 +171,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         image: t.cover_url || ytThumb(t.video_url) || a?.cover_image_url || null,
         href: `/dainos/${a?.slug ? a.slug + '-' : ''}${t.slug || 'daina'}-${t.id}`,
         date: t.video_uploaded_at || t.release_date || albumDate(t.release_year, t.release_month, t.release_day),
-        badge: 'Nauja daina',
+        badge: 'Nauja daina', avatar: a?.cover_image_url || null,
         artist: a ? { id: t.artist_id, name: a.name, slug: a.slug } : null,
       })
     }
@@ -179,7 +181,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         key: `album-${al.id}`, kind: 'album', title: al.title || '', subtitle: a?.name || null,
         image: al.cover_image_url || a?.cover_image_url || null,
         href: a?.slug ? `/albumai/${a.slug}-${al.slug}-${al.id}` : `/albumai/${al.slug || ''}-${al.id}`,
-        date: albumDate(al.year, al.month, al.day), badge: 'Naujas albumas',
+        date: albumDate(al.year, al.month, al.day), badge: 'Naujas albumas', avatar: a?.cover_image_url || null,
         artist: a ? { id: al.artist_id, name: a.name, slug: a.slug } : null,
       })
     }
@@ -224,7 +226,8 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         title: e.title || e.artist_name || c.title || 'Topas',
         subtitle: `#${e.position} · ${c.title}${c.period_label ? ` · ${c.period_label}` : ''}`,
         image: e.cover_url || rec?.cover_image_url || null,
-        href: `/topai/${c.source}-${c.chart_key}`, date: null, badge: 'Topuose',
+        href: `/topai/${c.source}-${c.chart_key}`, date: null, badge: 'Topas',
+        avatar: rec?.cover_image_url || null,
         artist: rec ? { id: aid, name: rec.name, slug: rec.slug } : (e.artist_name ? { id: aid, name: e.artist_name, slug: null } : null),
       })
     }
@@ -243,9 +246,33 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
       queues.event.push({
         key: `event-${ev.id}`, kind: 'event', title: ev.title || '',
         subtitle: [ev.city, ev.venue_name].filter(Boolean).join(' · ') || null,
-        image: ev.cover_image_url || null, href: `/renginiai/${ev.slug}`, date: ev.start_date, badge: 'Koncertas tau',
+        image: ev.cover_image_url || null, href: `/renginiai/${ev.slug}`, date: ev.start_date, badge: 'Koncertas',
       })
     }
+  }
+
+  // ── Verta kelionės — dideli koncertai užsienyje (discovery, top pagal populiarumą) ──
+  const vertaTask = async () => {
+    try {
+      const { concerts } = await getVertaKelionesData()
+      const now = Date.now()
+      const fut = (concerts as any[])
+        .filter(c => { const t = Date.parse(c.date); return Number.isFinite(t) && t >= now })
+        .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+      const seenArtist = new Set<string>()
+      for (const c of fut) {
+        const aslug = c.artistSlug || c.artist
+        if (seenArtist.has(aslug)) continue
+        seenArtist.add(aslug)
+        queues.trip.push({
+          key: `trip-${c.id}`, kind: 'event',
+          title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
+          subtitle: c.venue || null, image: c.image || null,
+          href: '/verta-keliones', date: c.date, badge: 'Verta kelionės',
+        })
+        if (queues.trip.length >= 6) break
+      }
+    } catch { /* ignore */ }
   }
 
   // „Nes tau patinka X" — kiekvienam rekomenduojamam atlikėjui surandam pamėgtą
@@ -294,18 +321,21 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         key: `topic-${d.id}`, kind: 'topic', title: d.title || '',
         subtitle: a?.name || (d.comment_count ? `${d.comment_count} komentarų` : null),
         image: a?.cover_image_url || null, href: `/diskusijos/${d.slug}`,
-        date: d.last_comment_at || d.created_at, badge: 'Tema tau',
+        date: d.last_comment_at || d.created_at, badge: 'Diskusija',
+        avatar: a?.cover_image_url || null,
         meta: { comments: d.comment_count, likes: d.like_count },
       })
     }
   }
 
-  await Promise.all([releasesTask(), chartsTask(), eventsTask(), topicsTask(), becauseTask()].map(p => p.catch(() => {})))
+  await Promise.all([releasesTask(), chartsTask(), eventsTask(), topicsTask(), vertaTask(), becauseTask()].map(p => p.catch(() => {})))
 
-  // Prikabinam „Nes tau patinka X" prie atlikėjų kortelių.
-  for (const a of queues.artist) {
-    const rid = a.artist?.id
-    if (rid && becauseMap.has(rid)) a.because = becauseMap.get(rid) || null
+  // Prikabinam „Nes tau patinka X" prie atlikėjų IR jų leidinių/topų/temų kortelių.
+  for (const arr of [queues.artist, queues.release, queues.chart, queues.topic]) {
+    for (const a of arr) {
+      const rid = a.artist?.id
+      if (rid && becauseMap.has(rid)) a.because = becauseMap.get(rid) || null
+    }
   }
 
   return { items: spreadByArtist(weave(queues, limit)), personalized, recommendedCount: recs.length }
@@ -316,7 +346,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v5'],
+  ['srautas-recs-v6'],
   { revalidate: 300 },
 )
 
