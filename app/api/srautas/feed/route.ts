@@ -328,7 +328,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
     const out: FeedItem[] = []
     try {
       const { data } = await sb.from('discussions')
-        .select('id, title, slug, artist_id, comment_count, like_count, last_comment_at, created_at, artists:artist_id(name, cover_image_url)')
+        .select('id, title, slug, artist_id, comment_count, like_count, last_comment_at, created_at, artist:artists!discussions_artist_id_fkey(name, cover_image_url)')
         .in('artist_id', artistIds).eq('is_deleted', false)
         .or('legacy_kind.is.null,legacy_kind.eq.discussion') // tik tikros diskusijos (ne migruotos recenzijos/naujienos)
         .order('last_comment_at', { ascending: false, nullsFirst: false }).limit(10)
@@ -350,7 +350,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         } catch { /* ignore */ }
       }
       for (const d of rows) {
-        const a = one(d.artists)
+        const a = one(d.artist)
         const cmt = lastComment.get(d.id)
         out.push({
           key: `topic-${d.id}`, kind: 'topic', title: d.title || '',
@@ -454,23 +454,31 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
     if (before || !artistIds.length) return []
     const out: FeedItem[] = []
     try {
-      const { data: arts } = await sb.from('artists').select('slug, cover_image_url').in('id', artistIds)
+      const { data: arts } = await sb.from('artists').select('slug, name, cover_image_url').in('id', artistIds)
       const likedSlugs = new Set<string>()
+      const likedNames = new Set<string>()
       const coverBySlug = new Map<string, string>()
-      for (const a of (arts || []) as any[]) { if (a.slug) { likedSlugs.add(a.slug); if (a.cover_image_url) coverBySlug.set(a.slug, a.cover_image_url) } }
-      if (!likedSlugs.size) return out
+      const coverByName = new Map<string, string>()
+      for (const a of (arts || []) as any[]) {
+        if (a.slug) { likedSlugs.add(a.slug); if (a.cover_image_url) coverBySlug.set(a.slug, a.cover_image_url) }
+        if (a.name) { const n = String(a.name).trim().toLowerCase(); likedNames.add(n); if (a.cover_image_url) coverByName.set(n, a.cover_image_url) }
+      }
+      if (!likedSlugs.size && !likedNames.size) return out
       const { concerts } = await getVertaKelionesData()
       const now = Date.now()
       for (const c of concerts as any[]) {
-        if (!c.artistSlug || !likedSlugs.has(c.artistSlug)) continue
+        const nm = (c.artist || '').trim().toLowerCase()
+        // Slug ARBA vardas — kad Coldplay (kt. slug DB) irgi pataikytų.
+        if (!((c.artistSlug && likedSlugs.has(c.artistSlug)) || (nm && likedNames.has(nm)))) continue
         const t = Date.parse(c.date)
         if (!Number.isFinite(t) || t < now) continue
+        const cover = (c.artistSlug && coverBySlug.get(c.artistSlug)) || coverByName.get(nm) || c.image || null
         out.push({
           key: `trip-${c.id}`, kind: 'event',
           title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
-          subtitle: tripSubtitle(c.destKey, c.venue), image: c.image || coverBySlug.get(c.artistSlug) || null,
-          href: '/verta-keliones', date: c.date, badge: 'Koncertas, vertas kelionės',
-          avatar: coverBySlug.get(c.artistSlug) || c.image || null,
+          subtitle: tripSubtitle(c.destKey, c.venue), image: c.image || cover || null,
+          href: `/verta-keliones#vk-${c.id}`, date: c.date, badge: 'Koncertas, vertas kelionės',
+          avatar: cover,
         })
       }
       out.sort((a, b) => Date.parse(a.date || '') - Date.parse(b.date || ''))
@@ -502,7 +510,19 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
   for (const it of out) { if (!seen.has(it.key)) { seen.add(it.key); deduped.push(it) } }
 
   // Diversity: jokių dviejų gretimų to paties atlikėjo.
-  const ordered = spreadByArtist(deduped)
+  let ordered = spreadByArtist(deduped)
+
+  // Pirmas psl: būsimi koncertai (įprasti + „verta kelionės") — į VIRŠŲ (artimiausi
+  // pirmi), kad nebūtų įstrigę tarp senesnių įrašų. Iki 4; likę lieka sraute.
+  if (!before) {
+    const topEvs = ordered.filter(it => it.kind === 'event')
+      .sort((a, b) => Date.parse(a.date || '') - Date.parse(b.date || ''))
+      .slice(0, 4)
+    if (topEvs.length) {
+      const topKeys = new Set(topEvs.map(e => e.key))
+      ordered = [...topEvs, ...ordered.filter(it => !topKeys.has(it.key))]
+    }
+  }
 
   // nextBefore = seniausia grąžinta MUZIKOS data (muzika = gilus šaltinis).
   const musicReturned = ordered.filter(it => it.kind === 'track' || it.kind === 'album')
@@ -517,7 +537,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v11'],
+  ['srautas-feed-v12'],
   { revalidate: 90 },
 )
 

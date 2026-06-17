@@ -68,6 +68,20 @@ export default function RadarClient({ concerts, destinations }: { concerts: Conc
   const [month, setMonth] = useState<number | 'all'>('all')
   const [sort, setSort] = useState<Sort>('soon')
   const [openId, setOpenId] = useState<string | null>(null)
+  const [focusId, setFocusId] = useState<string | null>(null)
+
+  // Deep-link iš /srautas: /verta-keliones#vk-<id> → nuscroll'inam + pažymim kortelę.
+  useEffect(() => {
+    const h = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : ''
+    if (!h || !h.startsWith('vk-')) return
+    setFocusId(h)
+    const t1 = setTimeout(() => {
+      const el = document.getElementById(h)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 250)
+    const t2 = setTimeout(() => setFocusId(null), 3200)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [])
 
   const destMap = useMemo(
     () => Object.fromEntries(destinations.map(d => [d.key, d])) as Record<string, Destination>,
@@ -174,7 +188,7 @@ export default function RadarClient({ concerts, destinations }: { concerts: Conc
         <div className="vk-empty"><p className="vk-empty-ic">{I.plane}</p><h3>Nieko nerasta</h3><p>Pakeisk filtrus.</p></div>
       ) : (
         <div className="vk-grid">
-          {list.map(c => <Card key={c.id} c={c} d={destMap[c.destKey]} />)}
+          {list.map(c => <Card key={c.id} c={c} d={destMap[c.destKey]} focused={focusId === `vk-${c.id}`} />)}
         </div>
       )}
 
@@ -183,7 +197,7 @@ export default function RadarClient({ concerts, destinations }: { concerts: Conc
   )
 }
 
-function Card({ c, d }: { c: Concert; d?: Destination }) {
+function Card({ c, d, focused }: { c: Concert; d?: Destination; focused?: boolean }) {
   const cost = tripCostFrom(c, d)
   const flight = d?.reach === 'flight'
   const posterStyle = c.image
@@ -192,7 +206,7 @@ function Card({ c, d }: { c: Concert; d?: Destination }) {
   const ticket = c.ticketUrl ||
     `https://www.google.com/search?q=${encodeURIComponent(`${c.artist} ${d?.city || ''} 2026 tickets`)}`
   return (
-    <a href={ticket} target="_blank" rel="noopener noreferrer" className="vk-card">
+    <a id={`vk-${c.id}`} href={ticket} target="_blank" rel="noopener noreferrer" className={`vk-card${focused ? ' vk-card-focus' : ''}`}>
       <div className={`vk-thumb${c.image ? ' has-img' : ''}`} style={posterStyle}>
         {!c.image && <span className="vk-thumb-name">{c.artist}</span>}
       </div>
@@ -259,6 +273,8 @@ const CSS = `
 .vk-card { display:flex; flex-direction:row; border-radius:16px; overflow:hidden; background:var(--bg-surface); text-decoration:none;
   border:1px solid var(--border-default,rgba(255,255,255,0.07)); transition:transform .16s, border-color .16s, box-shadow .16s; }
 .vk-card:hover { transform:translateY(-3px); border-color:rgba(249,115,22,0.45); box-shadow:0 14px 32px rgba(0,0,0,0.28); }
+.vk-card { scroll-margin-top:90px; }
+.vk-card-focus { border-color:var(--accent-orange)!important; box-shadow:0 0 0 3px rgba(249,115,22,0.45), 0 14px 32px rgba(0,0,0,0.28); }
 
 .vk-thumb { position:relative; flex-shrink:0; width:172px; align-self:stretch; min-height:176px;
   background-size:cover; background-position:center 20%; display:flex; align-items:center; justify-content:center; padding:12px; }

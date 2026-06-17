@@ -54,6 +54,7 @@ type RecItem = {
   badge: string
   reason?: string
   because?: string | null
+  becauseArtists?: { name: string; image: string | null }[] | null
   avatar?: string | null
   badgeColor?: string | null
   artist?: { id: number; name: string; slug: string | null } | null
@@ -242,9 +243,11 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     }
   }
 
+  // Tau = ATRADIMAI: koncertai TIK rekomenduojamų (ne pamėgtų) atlikėjų —
+  // pamėgtų atlikėjų koncertai rodomi „Mėgstami" sraute (atskyrimas).
   const eventsTask = async () => {
-    if (!matchIds.length) return
-    const { data: ea } = await sb.from('event_artists').select('event_id, artist_id').in('artist_id', matchIds).limit(400)
+    if (!recIds.length) return
+    const { data: ea } = await sb.from('event_artists').select('event_id, artist_id').in('artist_id', recIds).limit(400)
     const eventIds = Array.from(new Set((ea || []).map((r: any) => Number(r.event_id)).filter(Boolean)))
     if (!eventIds.length) return
     const { data } = await sb.from('events')
@@ -263,6 +266,12 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
   // ── Verta kelionės — dideli koncertai užsienyje (discovery, top pagal populiarumą) ──
   const vertaTask = async () => {
     try {
+      // Pamėgtų atlikėjų koncertus PRALEIDŽIAM — jie rodomi „Mėgstami" sraute.
+      const likedSlugs = new Set<string>(); const likedNames = new Set<string>()
+      if (likedIds.length) {
+        const { data: la } = await sb.from('artists').select('slug, name').in('id', likedIds.slice(0, 500))
+        for (const a of (la || []) as any[]) { if (a.slug) likedSlugs.add(a.slug); if (a.name) likedNames.add(String(a.name).trim().toLowerCase()) }
+      }
       const { concerts } = await getVertaKelionesData()
       const now = Date.now()
       const fut = (concerts as any[])
@@ -270,6 +279,8 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
       const seenArtist = new Set<string>()
       for (const c of fut) {
+        const nm = (c.artist || '').trim().toLowerCase()
+        if ((c.artistSlug && likedSlugs.has(c.artistSlug)) || (nm && likedNames.has(nm))) continue // pamėgtas → Mėgstami
         const aslug = c.artistSlug || c.artist
         if (seenArtist.has(aslug)) continue
         seenArtist.add(aslug)
@@ -277,51 +288,98 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
           key: `trip-${c.id}`, kind: 'event',
           title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
           subtitle: tripSubtitle(c.destKey, c.venue), image: c.image || null,
-          href: '/verta-keliones', date: c.date, badge: 'Koncertas, vertas kelionės',
+          href: `/verta-keliones#vk-${c.id}`, date: c.date, badge: 'Koncertas, vertas kelionės',
         })
         if (queues.trip.length >= 6) break
       }
     } catch { /* ignore */ }
   }
 
-  // „Nes tau patinka X" — kiekvienam rekomenduojamam atlikėjui surandam pamėgtą
-  // atlikėją, dalijantį tą patį žanrą. 3 pigios indeksuotos užklausos (paralelės).
+  // Atlikėjų kortelėms — žanrai/stiliai (vietoj šalies).
+  const artistGenres = new Map<number, string[]>()
+  const genresTask = async () => {
+    if (!recIds.length) return
+    try {
+      const { data } = await sb.from('artist_genres').select('artist_id, genres:genre_id(name)').in('artist_id', recIds)
+      for (const r of (data || []) as any[]) {
+        const nm = one(r.genres)?.name
+        if (!nm) continue
+        const arr = artistGenres.get(Number(r.artist_id)) || []
+        if (arr.length < 3 && !arr.includes(nm)) { arr.push(nm); artistGenres.set(Number(r.artist_id), arr) }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // „Nes mėgsti X" — TIKRAS co-like: pamėgti atlikėjai, kuriuos dažniausiai mėgsta
+  // tie patys žmonės, kaip ir rekomenduojamą atlikėją (bendri „like'ai" likes lentelėj).
+  // Jei co-like nieko negrąžina (mažai duomenų) — fallback į žanrų persidengimą.
+  // Skaičiuojama RETAI (recs cache 5 min), todėl kaina priimtina.
   const becauseMap = new Map<number, string>()
+  const becauseArtistsMap = new Map<number, { name: string; image: string | null }[]>()
   const becauseTask = async () => {
     if (!personalized || !recIds.length || !likedIds.length) return
-    const likedSample = likedIds.slice(0, 500)
-    const [lg, ln, rg] = await Promise.all([
+    const likedSample = likedIds.slice(0, 300)
+    const [ln, lg, rg, recLk, likedLk] = await Promise.all([
+      sb.from('artists').select('id, name, cover_image_url').in('id', likedSample),
       sb.from('artist_genres').select('genre_id, artist_id').in('artist_id', likedSample),
-      sb.from('artists').select('id, name').in('id', likedSample),
       sb.from('artist_genres').select('genre_id, artist_id').in('artist_id', recIds),
+      sb.from('likes').select('user_id, entity_id').eq('entity_type', 'artist').in('entity_id', recIds).limit(6000),
+      sb.from('likes').select('user_id, entity_id').eq('entity_type', 'artist').in('entity_id', likedSample).limit(8000),
     ])
     const nameById = new Map<number, string>(((ln.data || []) as any[]).map(r => [Number(r.id), r.name as string]))
-    // Žanras → keli pamėgti atlikėjai (kad rodytume NE vieną, o kelis susijusius).
+    const imgById = new Map<number, string | null>(((ln.data || []) as any[]).map(r => [Number(r.id), r.cover_image_url as string | null]))
+    const nameToId = new Map<string, number>(((ln.data || []) as any[]).map(r => [r.name as string, Number(r.id)]))
+
+    // Co-like: kas mėgsta atlikėją → user_id aibės.
+    const recLikers = new Map<number, Set<string>>()
+    for (const r of (recLk.data || []) as any[]) {
+      const e = Number(r.entity_id); let s = recLikers.get(e); if (!s) { s = new Set(); recLikers.set(e, s) }
+      if (s.size < 2500) s.add(String(r.user_id))
+    }
+    const likedLikers = new Map<number, Set<string>>()
+    for (const r of (likedLk.data || []) as any[]) {
+      const e = Number(r.entity_id); let s = likedLikers.get(e); if (!s) { s = new Set(); likedLikers.set(e, s) }
+      if (s.size < 2500) s.add(String(r.user_id))
+    }
+
+    // Žanrų fallback (kaip anksčiau).
     const genreToLiked = new Map<number, string[]>()
     for (const r of (lg.data || []) as any[]) {
-      const gid = Number(r.genre_id)
-      const nm = nameById.get(Number(r.artist_id))
-      if (!nm) continue
+      const gid = Number(r.genre_id); const nm = nameById.get(Number(r.artist_id)); if (!nm) continue
       const arr = genreToLiked.get(gid) || []
       if (arr.length < 6 && !arr.includes(nm)) { arr.push(nm); genreToLiked.set(gid, arr) }
     }
     const recGenres = new Map<number, number[]>()
     for (const r of (rg.data || []) as any[]) {
-      const aid = Number(r.artist_id)
-      const arr = recGenres.get(aid) || []
-      arr.push(Number(r.genre_id))
-      recGenres.set(aid, arr)
+      const aid = Number(r.artist_id); const arr = recGenres.get(aid) || []; arr.push(Number(r.genre_id)); recGenres.set(aid, arr)
     }
+
     for (const rid of recIds) {
-      const names: string[] = []
-      for (const g of recGenres.get(rid) || []) {
-        for (const nm of genreToLiked.get(g) || []) {
-          if (!names.includes(nm)) names.push(nm)
+      let names: string[] = []
+      // 1) co-like kaimynai
+      const rset = recLikers.get(rid)
+      if (rset && rset.size >= 3) {
+        const scored: [number, number][] = []
+        for (const L of likedSample) {
+          const lset = likedLikers.get(L); if (!lset) continue
+          const [small, big] = rset.size < lset.size ? [rset, lset] : [lset, rset]
+          let inter = 0; for (const u of small) if (big.has(u)) inter++
+          if (inter > 0) scored.push([L, inter])
+        }
+        scored.sort((a, b) => b[1] - a[1])
+        names = scored.slice(0, 3).map(([L]) => nameById.get(L)).filter(Boolean) as string[]
+      }
+      // 2) fallback — žanrų persidengimas
+      if (!names.length) {
+        for (const g of recGenres.get(rid) || []) {
+          for (const nm of genreToLiked.get(g) || []) { if (!names.includes(nm)) names.push(nm); if (names.length >= 3) break }
           if (names.length >= 3) break
         }
-        if (names.length >= 3) break
       }
-      if (names.length) becauseMap.set(rid, names.join(' · '))
+      if (names.length) {
+        becauseMap.set(rid, names.join(' · '))
+        becauseArtistsMap.set(rid, names.slice(0, 3).map(n => ({ name: n, image: imgById.get(nameToId.get(n) ?? -1) ?? null })))
+      }
     }
   }
 
@@ -362,14 +420,20 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     }
   }
 
-  await Promise.all([releasesTask(), chartsTask(), eventsTask(), topicsTask(), vertaTask(), becauseTask()].map(p => p.catch(() => {})))
+  await Promise.all([releasesTask(), chartsTask(), eventsTask(), topicsTask(), vertaTask(), genresTask(), becauseTask()].map(p => p.catch(() => {})))
 
-  // Prikabinam „Nes tau patinka X" prie atlikėjų IR jų leidinių/topų/temų kortelių.
+  // Prikabinam „Nes mėgsti X" prie atlikėjų IR jų leidinių/topų/temų kortelių.
   for (const arr of [queues.artist, queues.release, queues.chart, queues.topic]) {
     for (const a of arr) {
       const rid = a.artist?.id
-      if (rid && becauseMap.has(rid)) a.because = becauseMap.get(rid) || null
+      if (rid && becauseMap.has(rid)) { a.because = becauseMap.get(rid) || null; a.becauseArtists = becauseArtistsMap.get(rid) || null }
     }
+  }
+
+  // Atlikėjų kortelėms — vietoj šalies rodom stilius/žanrus (jei yra).
+  for (const a of queues.artist) {
+    const rid = a.artist?.id
+    if (rid && artistGenres.has(rid)) a.subtitle = (artistGenres.get(rid) || []).join(' · ')
   }
 
   return { items: spreadByArtist(weave(queues, limit)), personalized, recommendedCount: recs.length }
@@ -380,7 +444,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v7'],
+  ['srautas-recs-v8'],
   { revalidate: 300 },
 )
 
