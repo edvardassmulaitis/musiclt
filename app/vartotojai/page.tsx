@@ -1,6 +1,6 @@
 'use client'
 
-// app/vartotojai/page.tsx
+// app/vartotojai/page.tsx (2026-06-17)
 //
 // „Bendruomenės nariai" — pilnas narių sąrašas (į jį veda „Daugiau narių"
 // kortelė iš /bendruomene „Aktyvūs nariai" sekcijos). v1: aktyviausi + nauji
