@@ -2456,7 +2456,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     // mygtukas galėtų perpaleisti TIK šią užklausą (latestReload bump).
 
     fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
-    // News + songs vienu request'u. `since_days=7` — hero rodo tik šviežias
+    // News + songs vienu request'u. `since_days=7` (redeploy) — hero rodo tik šviežias
     // (≤1 sav.) naujienas, kad nekabėtų seni įrašai. Jei nieko naujo — heroSlides
     // vis tiek turės topus (suksis topai blogiausiu atveju). Limit 12 — hero
     // reels rodo max ~10 slide'ų; daugiau payload tik teršia bandwidth'ą.
