@@ -1469,15 +1469,16 @@ function HeroV2Slider({ slides, dk }: { slides: HeroSlide[]; dk: boolean }) {
                 <HeroV2Card slide={slide} dk={dk} />
               </div>
             ))}
-            {/* Paskutinė kortelė — „Daugiau naujienų" → /naujienos */}
+            {/* Paskutinė kortelė — „Daugiau naujienų" → /naujienos.
+                Be hover -translate (hp-scroll overflow-y:auto nukirpdavo viršutinį
+                dashed borderį); tik border spalvos kaita. Vienas tekstas. */}
             <div className="hp-hero-slot shrink-0 snap-start">
               <Link href="/naujienos"
-                className="group relative flex aspect-[16/9] h-full w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--accent-orange)]">
+                className="group relative flex aspect-[16/9] h-full w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--bg-surface)] no-underline transition-colors hover:border-[var(--accent-orange)]">
                 <span className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-strong)] text-[var(--text-muted)] transition-colors group-hover:border-[var(--accent-orange)] group-hover:text-[var(--accent-orange)]">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
                 </span>
-                <span className="font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--text-primary)]">Daugiau naujienų</span>
-                <span className="font-['Outfit',sans-serif] text-[12px] font-semibold text-[var(--accent-orange)]">Visos naujienos →</span>
+                <span className="font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">Daugiau naujienų</span>
               </Link>
             </div>
           </div>
@@ -1562,8 +1563,13 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
         <h3 className="m-0 max-w-[460px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">
           {slide.title}
         </h3>
-        {/* Subtitle/excerpt naujienoms pašalintas — UI'as paprastesnis,
-            tik main title (žr. naudotojo paaiškinimą 2026-05-28). */}
+        {/* Renginiams po pavadinimu — miestas · data (naujienoms subtitle slepiam). */}
+        {slide.type === 'event' && slide.subtitle && (
+          <p className="m-0 mt-2 flex items-center gap-1.5 font-['Outfit',sans-serif] text-[13.5px] font-semibold text-white/85">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
+            {slide.subtitle}
+          </p>
+        )}
       </div>
     </Link>
   )
@@ -1646,9 +1652,11 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
           : `radial-gradient(ellipse at top left, ${accentSoft}, rgba(8,13,20,0.98) 60%), linear-gradient(135deg, #14182a 0%, #080d14 100%)`,
       }}
     >
-      {/* ── LEFT side: chip + value stat + CTA (38% width) ── */}
+      {/* ── LEFT side: chip + value stat + CTA (38% width) ──
+          pt-3: chip viršus sulygiuotas su news badge (top-3=12px), kad visi
+          hero badge'ai būtų vienodame aukštyje. */}
       <div
-        className="relative z-[1] flex h-full flex-col justify-between p-6"
+        className="relative z-[1] flex h-full flex-col justify-between p-6 pt-3"
         style={{ width: '38%' }}
       >
         {/* Top: TOP chip — vienoda badge forma kaip news kortelėse (KindBadge):
@@ -2553,12 +2561,13 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     for (const ev of heroEvents) { if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
     for (const ev of events) { if (evList.length >= 4) break; if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
     evList.forEach(ev => {
+      // Renginys be vizualo NEPATENKA į feed'ą (kad nebūtų tuščių tamsių kortelių).
+      const evImg = ev.image_small_url || ev.cover_image_url || null
+      if (!evImg) return
       const dateRaw = (ev as any).start_date || ev.event_date
       const d = dateRaw ? new Date(dateRaw) : null
-      const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_FULL_LT[d.getMonth()]} ${d.getFullYear()} m.` : ''
-      const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
+      const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_FULL_LT[d.getMonth()]} ${d.getFullYear()}` : ''
       const city = ev.city || ev.venues?.city || ''
-      const cityVenue = [city, venue].filter(Boolean).join(', ')
       const artistList = (ev.event_artists || [])
         .filter(ea => ea.artists?.name)
         .map(ea => ea.artists!.name)
@@ -2569,8 +2578,8 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
       slides.push({
         type: 'event', chip: 'RENGINYS', chipBg: '#047857',
         title: artistText,  // ARTISTS as primary text
-        subtitle: [dateStr, cityVenue].filter(Boolean).join(' · '),
-        bgImg: ev.image_small_url || ev.cover_image_url || null,
+        subtitle: [city, dateStr].filter(Boolean).join(' · '),  // miestas · data
+        bgImg: evImg,
         href: `/renginiai/${ev.slug}`,
         artist: firstArtist?.artists ? { name: firstArtist.artists.name, slug: firstArtist.artists.slug, image: firstArtist.artists.cover_image_url || null } : null,
       })
