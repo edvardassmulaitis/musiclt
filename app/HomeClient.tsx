@@ -2023,7 +2023,7 @@ function MobileChartSlide({
         background: '#000', cursor: 'pointer', padding: 0, width: 188, height: 290,
         scrollSnapAlign: 'start',
         transition: 'border-color 0.15s, transform 0.15s',
-        boxShadow: '0 8px 22px rgba(0,0,0,0.45)',
+        boxShadow: 'var(--hero-card-shadow)',
         textAlign: 'left',
         WebkitTapHighlightColor: 'transparent',
         touchAction: 'manipulation',
@@ -2695,7 +2695,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                       background: '#000', cursor: 'pointer', padding: 0, width: 188, height: 290,
                       scrollSnapAlign: 'start',
                       transition: 'opacity .15s, border-color .15s, transform .15s',
-                      boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
+                      boxShadow: 'var(--hero-card-shadow)',
                     }}
                   >
                     {slide.bgImg
