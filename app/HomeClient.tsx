@@ -2459,7 +2459,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     // mygtukas galėtų perpaleisti TIK šią užklausą (latestReload bump).
 
     fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
-    // Admine pažymėti hero renginiai (home_hero=1) + vartotojų įrašai.
+    // Admine pažymėti hero renginiai (home_hero=1) + vartotojų įrašai. (rebuild)
     fetch('/api/events?home_hero=1&limit=8&compact=1').then(r => r.json()).then(d => setHeroEvents(d.events || [])).catch(() => {})
     fetch('/api/blog/home-hero').then(r => r.json()).then(d => setHeroPosts(d.posts || [])).catch(() => {})
     // News + songs vienu request'u. `since_days=7` (redeploy) — hero rodo tik šviežias
