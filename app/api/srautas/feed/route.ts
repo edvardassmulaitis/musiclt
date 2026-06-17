@@ -27,8 +27,30 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { getVertaKelionesData } from '@/lib/verta-keliones-db'
+import { DEST_BY_KEY, flagEmoji } from '@/lib/verta-keliones-seed'
 
 export const dynamic = 'force-dynamic'
+
+// /bendruomene-stiliaus etiketė nario įrašui (pagal post_type + editorial_type).
+function blogBadge(postType?: string | null, editorial?: string | null): { label: string; color: string } {
+  if (postType === 'topas') return { label: 'Topas', color: '#f59e0b' }
+  if (postType === 'creation') return { label: 'Kūryba', color: '#ec4899' }
+  if (postType === 'translation') return { label: 'Vertimas', color: '#10b981' }
+  if (postType === 'review') return { label: 'Muzikos apžvalga', color: '#ef4444' }
+  if (postType === 'article') {
+    if (editorial === 'recenzija') return { label: 'Muzikos apžvalga', color: '#ef4444' }
+    if (editorial === 'koncertai') return { label: 'Koncerto įspūdžiai', color: '#3b82f6' }
+  }
+  return { label: 'Įrašas', color: '#8b5cf6' }
+}
+
+// Verta kelionės — paskirties subtitras: 🇵🇱 Lenkija · Varšuva (šalis pirma, miestas papildomai).
+function tripSubtitle(destKey: string, fallbackVenue?: string | null): string | null {
+  const d = DEST_BY_KEY[destKey]
+  if (!d) return fallbackVenue || null
+  const flag = d.countryCode ? flagEmoji(d.countryCode) : ''
+  return `${flag ? flag + ' ' : ''}${d.country} · ${d.city}`
+}
 
 const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
 
@@ -42,6 +64,7 @@ type FeedItem = {
   href: string
   date: string | null
   badge: string
+  badgeColor?: string | null
   artistId?: number | null
   avatar?: string | null
   artist?: { name: string; slug: string | null } | null
@@ -238,7 +261,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         if (!postIds.length) return out
       }
       let q = sb.from('blog_posts')
-        .select('id, slug, title, cover_image_url, post_type, rating, published_at, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
+        .select('id, slug, title, cover_image_url, post_type, editorial_type, rating, published_at, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
         .eq('status', 'published').not('published_at', 'is', null).lte('published_at', nowIso)
       if (postIds) q = q.in('id', postIds)
       q = q.order('published_at', { ascending: false }).limit(16)
@@ -246,13 +269,14 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       for (const p of (data || []) as any[]) {
         const blog = one(p.blogs); const prof = one(blog?.profiles)
         const blogSlug = blog?.slug || prof?.username
-        const isReview = p.post_type === 'review' || p.rating != null
+        const bb = blogBadge(p.post_type, p.editorial_type)
         out.push({
           key: `blog-${p.id}`, kind: 'blog', title: p.title || '',
           subtitle: prof?.full_name || prof?.username || null,
-          image: p.cover_image_url || null,
+          image: p.cover_image_url || prof?.avatar_url || null,
           href: blogSlug ? `/blogas/${blogSlug}/${p.slug}` : '/blogas',
-          date: p.published_at, badge: isReview ? 'Recenzija' : 'Įrašas',
+          date: p.published_at, badge: bb.label, badgeColor: bb.color,
+          avatar: prof?.avatar_url || null,
           meta: { post_type: p.post_type, rating: p.rating, avatar: prof?.avatar_url || null },
         })
       }
@@ -306,12 +330,31 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       const { data } = await sb.from('discussions')
         .select('id, title, slug, artist_id, comment_count, like_count, last_comment_at, created_at, artists:artist_id(name, cover_image_url)')
         .in('artist_id', artistIds).eq('is_deleted', false)
+        .or('legacy_kind.is.null,legacy_kind.eq.discussion') // tik tikros diskusijos (ne migruotos recenzijos/naujienos)
         .order('last_comment_at', { ascending: false, nullsFirst: false }).limit(10)
-      for (const d of (data || []) as any[]) {
+      const rows = (data || []) as any[]
+      // Naujausias komentaras kiekvienai diskusijai (kaip /bendruomene).
+      const lastComment = new Map<number, string>()
+      const ids = rows.map(d => d.id)
+      if (ids.length) {
+        try {
+          const { data: cmts } = await sb.from('comments')
+            .select('discussion_id, body, created_at')
+            .in('discussion_id', ids).eq('is_deleted', false).not('body', 'is', null)
+            .order('created_at', { ascending: false }).limit(60)
+          for (const c of (cmts || []) as any[]) {
+            if (lastComment.has(c.discussion_id)) continue
+            const t = (c.body || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+            if (t) lastComment.set(c.discussion_id, t.length > 110 ? t.slice(0, 110).trimEnd() + '…' : t)
+          }
+        } catch { /* ignore */ }
+      }
+      for (const d of rows) {
         const a = one(d.artists)
+        const cmt = lastComment.get(d.id)
         out.push({
           key: `topic-${d.id}`, kind: 'topic', title: d.title || '',
-          subtitle: a?.name || (d.comment_count ? `${d.comment_count} komentarų` : 'Diskusija'),
+          subtitle: cmt ? `„${cmt}"` : (a?.name || (d.comment_count ? `${d.comment_count} komentarų` : 'Diskusija')),
           image: a?.cover_image_url || null, href: `/diskusijos/${d.slug}`,
           date: d.last_comment_at || d.created_at, badge: 'Diskusija',
           artistId: d.artist_id ? Number(d.artist_id) : null, avatar: a?.cover_image_url || null,
@@ -384,20 +427,20 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
     const out: FeedItem[] = []
     try {
       const { data } = await sb.from('blog_posts')
-        .select('id, slug, title, cover_image_url, post_type, rating, published_at, user_id, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
+        .select('id, slug, title, cover_image_url, post_type, editorial_type, rating, published_at, user_id, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
         .eq('status', 'published').not('published_at', 'is', null).lte('published_at', nowIso)
         .in('user_id', followedIds)
         .order('published_at', { ascending: false }).limit(20)
       for (const p of (data || []) as any[]) {
         const blog = one(p.blogs); const prof = one(blog?.profiles)
         const blogSlug = blog?.slug || prof?.username
-        const isReview = p.post_type === 'review' || p.rating != null
+        const bb = blogBadge(p.post_type, p.editorial_type)
         out.push({
           key: `blog-${p.id}`, kind: 'blog', title: p.title || '',
           subtitle: prof?.full_name || prof?.username || null,
-          image: p.cover_image_url || null,
+          image: p.cover_image_url || prof?.avatar_url || null,
           href: blogSlug ? `/blogas/${blogSlug}/${p.slug}` : '/blogas',
-          date: p.published_at, badge: isReview ? 'Recenzija' : 'Įrašas',
+          date: p.published_at, badge: bb.label, badgeColor: bb.color,
           avatar: prof?.avatar_url || null,
           meta: { post_type: p.post_type, rating: p.rating, avatar: prof?.avatar_url || null },
         })
@@ -425,8 +468,8 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         out.push({
           key: `trip-${c.id}`, kind: 'event',
           title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
-          subtitle: c.venue || null, image: c.image || coverBySlug.get(c.artistSlug) || null,
-          href: '/verta-keliones', date: c.date, badge: 'Verta kelionės',
+          subtitle: tripSubtitle(c.destKey, c.venue), image: c.image || coverBySlug.get(c.artistSlug) || null,
+          href: '/verta-keliones', date: c.date, badge: 'Koncertas, vertas kelionės',
           avatar: coverBySlug.get(c.artistSlug) || c.image || null,
         })
       }
@@ -474,7 +517,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v10'],
+  ['srautas-feed-v11'],
   { revalidate: 90 },
 )
 

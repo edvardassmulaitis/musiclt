@@ -23,8 +23,16 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { getVertaKelionesData } from '@/lib/verta-keliones-db'
+import { DEST_BY_KEY, flagEmoji } from '@/lib/verta-keliones-seed'
 
 export const dynamic = 'force-dynamic'
+
+function tripSubtitle(destKey: string, fallbackVenue?: string | null): string | null {
+  const d = DEST_BY_KEY[destKey]
+  if (!d) return fallbackVenue || null
+  const flag = d.countryCode ? flagEmoji(d.countryCode) : ''
+  return `${flag ? flag + ' ' : ''}${d.country} · ${d.city}`
+}
 
 const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
 const ytThumb = (url?: string | null) => {
@@ -47,6 +55,7 @@ type RecItem = {
   reason?: string
   because?: string | null
   avatar?: string | null
+  badgeColor?: string | null
   artist?: { id: number; name: string; slug: string | null } | null
   meta?: Record<string, any>
 }
@@ -267,8 +276,8 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         queues.trip.push({
           key: `trip-${c.id}`, kind: 'event',
           title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
-          subtitle: c.venue || null, image: c.image || null,
-          href: '/verta-keliones', date: c.date, badge: 'Verta kelionės',
+          subtitle: tripSubtitle(c.destKey, c.venue), image: c.image || null,
+          href: '/verta-keliones', date: c.date, badge: 'Koncertas, vertas kelionės',
         })
         if (queues.trip.length >= 6) break
       }
@@ -287,12 +296,14 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
       sb.from('artist_genres').select('genre_id, artist_id').in('artist_id', recIds),
     ])
     const nameById = new Map<number, string>(((ln.data || []) as any[]).map(r => [Number(r.id), r.name as string]))
-    const genreToLiked = new Map<number, string>()
+    // Žanras → keli pamėgti atlikėjai (kad rodytume NE vieną, o kelis susijusius).
+    const genreToLiked = new Map<number, string[]>()
     for (const r of (lg.data || []) as any[]) {
       const gid = Number(r.genre_id)
-      if (genreToLiked.has(gid)) continue
       const nm = nameById.get(Number(r.artist_id))
-      if (nm) genreToLiked.set(gid, nm)
+      if (!nm) continue
+      const arr = genreToLiked.get(gid) || []
+      if (arr.length < 6 && !arr.includes(nm)) { arr.push(nm); genreToLiked.set(gid, arr) }
     }
     const recGenres = new Map<number, number[]>()
     for (const r of (rg.data || []) as any[]) {
@@ -302,10 +313,15 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
       recGenres.set(aid, arr)
     }
     for (const rid of recIds) {
+      const names: string[] = []
       for (const g of recGenres.get(rid) || []) {
-        const nm = genreToLiked.get(g)
-        if (nm) { becauseMap.set(rid, nm); break }
+        for (const nm of genreToLiked.get(g) || []) {
+          if (!names.includes(nm)) names.push(nm)
+          if (names.length >= 3) break
+        }
+        if (names.length >= 3) break
       }
+      if (names.length) becauseMap.set(rid, names.join(' · '))
     }
   }
 
@@ -314,12 +330,30 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     const { data } = await sb.from('discussions')
       .select('id, title, slug, artist_id, comment_count, like_count, last_comment_at, created_at')
       .in('artist_id', matchIds).eq('is_deleted', false)
+      .or('legacy_kind.is.null,legacy_kind.eq.discussion')
       .order('last_comment_at', { ascending: false, nullsFirst: false }).limit(6)
-    for (const d of (data || []) as any[]) {
+    const rows = (data || []) as any[]
+    const lastComment = new Map<number, string>()
+    const ids = rows.map(d => d.id)
+    if (ids.length) {
+      try {
+        const { data: cmts } = await sb.from('comments')
+          .select('discussion_id, body, created_at')
+          .in('discussion_id', ids).eq('is_deleted', false).not('body', 'is', null)
+          .order('created_at', { ascending: false }).limit(40)
+        for (const c of (cmts || []) as any[]) {
+          if (lastComment.has(c.discussion_id)) continue
+          const t = (c.body || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+          if (t) lastComment.set(c.discussion_id, t.length > 110 ? t.slice(0, 110).trimEnd() + '…' : t)
+        }
+      } catch { /* ignore */ }
+    }
+    for (const d of rows) {
       const a = d.artist_id ? recById.get(Number(d.artist_id)) : null
+      const cmt = lastComment.get(d.id)
       queues.topic.push({
         key: `topic-${d.id}`, kind: 'topic', title: d.title || '',
-        subtitle: a?.name || (d.comment_count ? `${d.comment_count} komentarų` : null),
+        subtitle: cmt ? `„${cmt}"` : (a?.name || (d.comment_count ? `${d.comment_count} komentarų` : null)),
         image: a?.cover_image_url || null, href: `/diskusijos/${d.slug}`,
         date: d.last_comment_at || d.created_at, badge: 'Diskusija',
         avatar: a?.cover_image_url || null,
@@ -346,7 +380,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v6'],
+  ['srautas-recs-v7'],
   { revalidate: 300 },
 )
 

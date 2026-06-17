@@ -40,6 +40,7 @@ type FeedItem = {
   reason?: string
   because?: string | null
   avatar?: string | null
+  badgeColor?: string | null
   artist?: { id?: number; name: string; slug: string | null } | null
   meta?: { post_type?: string; rating?: number | null; avatar?: string | null; comments?: number; likes?: number }
 }
@@ -67,6 +68,13 @@ const IconCompass = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <circle cx="12" cy="12" r="9" />
     <path d="m15.5 8.5-2 5-5 2 2-5z" />
+  </svg>
+)
+const IconLink = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M9 12h6" />
+    <path d="M10.5 8.5H8a3.5 3.5 0 1 0 0 7h2.5" />
+    <path d="M13.5 8.5H16a3.5 3.5 0 1 1 0 7h-2.5" />
   </svg>
 )
 const IconGear = (
@@ -108,7 +116,11 @@ function eventWhen(iso: string | null): string {
   if (!iso) return ''
   const t = Date.parse(iso)
   if (!Number.isFinite(t)) return ''
-  return new Date(t).toLocaleDateString('lt-LT', { day: 'numeric', month: 'long' })
+  const dt = new Date(t)
+  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' }
+  // Tolimi koncertai (kiti metai) — pridedam metus.
+  if (dt.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric'
+  return dt.toLocaleDateString('lt-LT', opts)
 }
 
 function Equalizer() {
@@ -230,9 +242,11 @@ function FeedCard({ it, onDismiss, onOpenTrack }: { it: FeedItem; onDismiss: (ke
       </div>
 
       <div className="sr-body">
-        <span className="sr-kicker" style={{ color: BADGE_COLOR[it.kind] }}>
-          {it.badge}{it.kind === 'blog' && it.meta?.rating ? ` · ${it.meta.rating}/10` : ''}
-        </span>
+        {!isArtist && (
+          <span className="sr-kicker" style={{ color: it.badgeColor || BADGE_COLOR[it.kind] }}>
+            {it.badge}{it.kind === 'blog' && it.meta?.rating ? ` · ${it.meta.rating}/10` : ''}
+          </span>
+        )}
         <span className={`sr-title${isArtist ? ' sr-title--artist' : ''}`}>{it.title}</span>
         {(it.subtitle || (!isArtist && it.avatar)) && (
           <span className="sr-sub-row">
@@ -243,10 +257,16 @@ function FeedCard({ it, onDismiss, onOpenTrack }: { it: FeedItem; onDismiss: (ke
             {it.subtitle && <span className="sr-sub">{it.subtitle}</span>}
           </span>
         )}
-        <span className="sr-meta">
-          {when && <span className="sr-time">{when}</span>}
-          {it.because && <span className="sr-because">nes mėgsti {it.because}</span>}
-        </span>
+        {(when || it.because) && (
+          <span className="sr-meta">
+            {when && <span className="sr-time">{when}</span>}
+            {it.because && (
+              <span className="sr-because" title={`Panašu į tavo mėgstamus: ${it.because}`}>
+                {IconLink}<span className="sr-because-tx">{it.because}</span>
+              </span>
+            )}
+          </span>
+        )}
       </div>
 
       {likeEntity && likeId ? <LikeButton entity={likeEntity} id={likeId} /> : null}
@@ -444,22 +464,24 @@ function SrautasInner() {
         .sr-avatar { width:18px; height:18px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
         .sr-sub { font-size:12.5px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .sr-meta { display:flex; align-items:center; gap:8px; margin-top:1px; min-width:0; }
-        .sr-time { font-size:11.5px; color:var(--text-faint); white-space:nowrap; }
-        .sr-because { font-size:11.5px; color:var(--accent-orange); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sr-time { font-size:11.5px; color:var(--text-faint); white-space:nowrap; flex:0 0 auto; }
+        .sr-because { display:inline-flex; align-items:center; gap:4px; min-width:0; font-size:11.5px; color:var(--accent-orange); font-weight:600; }
+        .sr-because svg { width:12px; height:12px; flex:0 0 auto; }
+        .sr-because-tx { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
         /* ── Veiksmų ikonos: vientisos, temai pritaikytos (matomos light/dark) ── */
         .sr-act { position:absolute; cursor:pointer; padding:0; z-index:3; border-radius:50%;
           display:inline-flex; align-items:center; justify-content:center;
           background:var(--bg-elevated); border:1px solid var(--border-default, var(--border-subtle));
           box-shadow:0 2px 8px rgba(0,0,0,0.16); transition:transform .14s, background .14s, color .14s, border-color .14s, opacity .14s; -webkit-tap-highlight-color:transparent; }
-        .sr-like { bottom:8px; right:8px; width:34px; height:34px; color:var(--accent-orange); }
-        .sr-like svg { width:18px; height:18px; }
-        .sr-like:hover { transform:scale(1.08); }
+        .sr-like { bottom:6px; right:6px; width:29px; height:29px; color:var(--accent-orange); }
+        .sr-like svg { width:16px; height:16px; }
+        .sr-like:hover { transform:scale(1.1); }
         .sr-like.done { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
         .sr-like:disabled { opacity:.7; }
-        .sr-dismiss { top:8px; right:8px; width:28px; height:28px; color:var(--text-muted); opacity:0; }
-        .sr-dismiss svg { width:15px; height:15px; }
-        .sr-dismiss:hover { transform:scale(1.08); color:var(--text-primary); }
+        .sr-dismiss { top:6px; right:6px; width:27px; height:27px; color:var(--text-muted); opacity:0; }
+        .sr-dismiss svg { width:14px; height:14px; }
+        .sr-dismiss:hover { transform:scale(1.1); color:var(--text-primary); }
         .sr-card:hover .sr-dismiss, .sr-dismiss:focus-visible { opacity:1; }
 
         /* ── Pagalbiniai ── */
@@ -483,9 +505,8 @@ function SrautasInner() {
           .sr-body { flex:1; justify-content:center; padding:11px 46px 11px 13px; gap:4px; }
           .sr-title { font-size:14px; -webkit-line-clamp:3; }
           .sr-sub { white-space:normal; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; }
-          .sr-like { top:50%; bottom:auto; right:10px; transform:translateY(-50%); }
-          .sr-like:hover { transform:translateY(-50%) scale(1.1); }
-          .sr-dismiss { opacity:.85; top:8px; right:9px; }
+          .sr-like { bottom:7px; right:7px; }
+          .sr-dismiss { opacity:.9; top:7px; right:7px; }
           .srf-gear { position:static; transform:none; margin-left:2px; }
           .srf { gap:8px; }
         }
