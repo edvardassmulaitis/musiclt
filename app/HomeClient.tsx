@@ -1469,6 +1469,17 @@ function HeroV2Slider({ slides, dk }: { slides: HeroSlide[]; dk: boolean }) {
                 <HeroV2Card slide={slide} dk={dk} />
               </div>
             ))}
+            {/* Paskutinė kortelė — „Daugiau naujienų" → /naujienos */}
+            <div className="hp-hero-slot shrink-0 snap-start">
+              <Link href="/naujienos"
+                className="group relative flex aspect-[16/9] h-full w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--accent-orange)]">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-strong)] text-[var(--text-muted)] transition-colors group-hover:border-[var(--accent-orange)] group-hover:text-[var(--accent-orange)]">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                </span>
+                <span className="font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--text-primary)]">Daugiau naujienų</span>
+                <span className="font-['Outfit',sans-serif] text-[12px] font-semibold text-[var(--accent-orange)]">Visos naujienos →</span>
+              </Link>
+            </div>
           </div>
           {many && (
             <>
@@ -1486,12 +1497,15 @@ function HeroV2Slider({ slides, dk }: { slides: HeroSlide[]; dk: boolean }) {
           )}
         </div>
         {many && (
-          <div className="mt-3 flex justify-center gap-1.5">
+          <div className="mt-2 flex justify-center">
             {slides.map((s, i) => (
               <button key={`hdot-${s.type}-${s.href}`} type="button" aria-label={`Slaidas ${i + 1}`}
                 onClick={() => scrollTo(i)}
-                className="cursor-pointer rounded-full border-0 p-0 transition-all"
-                style={{ width: i === activeIdx ? 20 : 7, height: 7, background: i === activeIdx ? 'var(--accent-orange)' : 'var(--border-strong)' }} />
+                className="group cursor-pointer border-0 bg-transparent transition-all"
+                style={{ padding: '8px 4px' }}>
+                <span className="block rounded-full transition-all"
+                  style={{ width: i === activeIdx ? 22 : 11, height: 4, background: i === activeIdx ? 'var(--accent-orange)' : 'var(--border-strong)' }} />
+              </button>
             ))}
           </div>
         )}
@@ -1529,13 +1543,18 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
           <div className="h-full w-full" style={{ background: 'var(--homepage-hero-gradient)' }} />
         )}
       </div>
-      {/* Badge — viršuj kairėj (kaip /bendruomene feed KindBadge) */}
-      <span
-        className="absolute left-3 top-3 z-[2] inline-flex rounded-[7px] px-2.5 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
-        style={{ background: slide.chipBg }}
-      >
-        {slide.chip}
-      </span>
+      {/* Badge — viršuj kairėj (kaip /bendruomene feed KindBadge).
+          Paprastoms „NAUJIENA" NErodom (jų daugiausia, badge tik kartotųsi);
+          paliekam tik prominentiniams tipams (Recenzija, Interviu, Reportažas,
+          Renginys, promo ir t.t.). */}
+      {slide.chip !== 'NAUJIENA' && (
+        <span
+          className="absolute left-3 top-3 z-[2] inline-flex rounded-[7px] px-2.5 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
+          style={{ background: slide.chipBg }}
+        >
+          {slide.chip}
+        </span>
+      )}
       {/* Bottom gradient for text readability */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
       {/* Content */}
@@ -1632,12 +1651,12 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
         className="relative z-[1] flex h-full flex-col justify-between p-6"
         style={{ width: '38%' }}
       >
-        {/* Top: TOP chip — vienintelis chart name'o atvaizdavimas */}
+        {/* Top: TOP chip — vienoda badge forma kaip news kortelėse (KindBadge):
+            rounded-[7px], be ikonos/šešėlio, kad visi hero badge'ai atrodytų vienodai. */}
         <span
-          className="inline-flex w-fit items-center gap-1.5 rounded-full px-3.5 py-1.5 font-['Outfit',sans-serif] text-[11px] font-black uppercase tracking-[0.08em] text-white"
-          style={{ background: accent, boxShadow: `0 2px 14px ${accentSoft}`, alignSelf: 'flex-start' }}
+          className="inline-flex w-fit items-center rounded-[7px] px-2.5 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
+          style={{ background: accent, alignSelf: 'flex-start' }}
         >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2v-9h-2v9zm4-13v13h2V4h-2z"/></svg>
           {isLT ? 'LT TOP 30' : 'TOP 40'}
         </span>
 
@@ -2437,10 +2456,11 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     // mygtukas galėtų perpaleisti TIK šią užklausą (latestReload bump).
 
     fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
-    // News + songs vienu request'u. `since_days=30` apriboja į pastarąsias 30 d.
-    // tiek modern, tiek legacy news. Limit 12 vietoj 30 — hero reels rodo
-    // max ~10 slide'ų; daugiau payload tik teršia bandwidth'ą.
-    fetch('/api/news?limit=12&include=songs&since_days=30')
+    // News + songs vienu request'u. `since_days=7` — hero rodo tik šviežias
+    // (≤1 sav.) naujienas, kad nekabėtų seni įrašai. Jei nieko naujo — heroSlides
+    // vis tiek turės topus (suksis topai blogiausiu atveju). Limit 12 — hero
+    // reels rodo max ~10 slide'ų; daugiau payload tik teršia bandwidth'ą.
+    fetch('/api/news?limit=12&include=songs&since_days=7')
       .then(r => r.json())
       .then(d => {
         const newsList = d.news || []
@@ -2796,12 +2816,14 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                         <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
                       )}
                     </div>
-                    {/* Top: chip badge */}
-                    <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', alignItems: 'center', gap: 4, zIndex: 2 }}>
-                      <span style={{ padding: '4px 9px', borderRadius: 12, fontSize: 9, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
-                        {slide.chip}
-                      </span>
-                    </div>
+                    {/* Top: chip badge — „NAUJIENA" nerodom (kartotųsi), tik prominentiniai */}
+                    {slide.chip !== 'NAUJIENA' && (
+                      <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', alignItems: 'center', gap: 4, zIndex: 2 }}>
+                        <span style={{ padding: '4px 9px', borderRadius: 7, fontSize: 9, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
+                          {slide.chip}
+                        </span>
+                      </div>
+                    )}
                     {!isSeen && (
                       <div style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 0 2px #000', zIndex: 2 }} />
                     )}

@@ -563,14 +563,17 @@ function FeaturedSlider() {
           </>
         )}
       </div>
-      {/* Slider dots */}
+      {/* Slider dashes — didesnis paspaudimo plotas (8px padding), brūkšneliai */}
       {items !== null && many && (
-        <div className="mt-3 flex justify-center gap-1.5">
+        <div className="mt-2 flex justify-center">
           {items.map((it, i) => (
             <button key={`dot-${it.key}`} type="button" aria-label={`Įrašas ${i + 1}`}
               onClick={() => scrollTo(i)}
-              className="cursor-pointer rounded-full border-0 p-0 transition-all"
-              style={{ width: i === activeIdx ? 20 : 7, height: 7, background: i === activeIdx ? 'var(--accent-orange)' : 'var(--border-strong)' }} />
+              className="cursor-pointer border-0 bg-transparent transition-all"
+              style={{ padding: '8px 4px' }}>
+              <span className="block rounded-full transition-all"
+                style={{ width: i === activeIdx ? 22 : 11, height: 4, background: i === activeIdx ? 'var(--accent-orange)' : 'var(--border-strong)' }} />
+            </button>
           ))}
         </div>
       )}
