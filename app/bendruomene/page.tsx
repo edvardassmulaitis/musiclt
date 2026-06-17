@@ -126,7 +126,8 @@ type Atradimas = {
   like_count: number | null; created_at: string | null; featured_until?: string | null
   author: { username: string | null; full_name: string | null; avatar_url: string | null } | null
 }
-type ActiveMember = { user_id?: string; username: string | null; name: string | null; avatar: string | null; tastes?: string[]; isNew?: boolean; joined_legacy_at?: string | null; created_at?: string }
+type FavArtist = { name: string; image: string | null; slug: string | null }
+type ActiveMember = { user_id?: string; username: string | null; name: string | null; avatar: string | null; tastes?: string[]; favArtists?: FavArtist[]; isNew?: boolean; joined_legacy_at?: string | null; created_at?: string }
 type Proposer = { username: string | null; full_name: string | null; avatar_url: string | null }
 type TrackLite = { id: number; title: string; cover_url: string | null; slug?: string | null; video_url?: string | null; artists: { name: string; slug?: string | null; cover_image_url?: string | null } | null }
 type Nomination = { id: number; votes: number; weighted_votes: number; comment?: string | null; tracks: TrackLite | null; proposer?: Proposer | null; own?: boolean }
@@ -563,17 +564,14 @@ function FeaturedSlider() {
           </>
         )}
       </div>
-      {/* Slider dashes — didesnis paspaudimo plotas (8px padding), brūkšneliai */}
+      {/* Slider dots */}
       {items !== null && many && (
-        <div className="mt-2 flex justify-center">
+        <div className="mt-3 flex justify-center gap-1.5">
           {items.map((it, i) => (
             <button key={`dot-${it.key}`} type="button" aria-label={`Įrašas ${i + 1}`}
               onClick={() => scrollTo(i)}
-              className="cursor-pointer border-0 bg-transparent transition-all"
-              style={{ padding: '8px 4px' }}>
-              <span className="block rounded-full transition-all"
-                style={{ width: i === activeIdx ? 22 : 11, height: 4, background: i === activeIdx ? 'var(--accent-orange)' : 'var(--border-strong)' }} />
-            </button>
+              className="cursor-pointer rounded-full border-0 p-0 transition-all"
+              style={{ width: i === activeIdx ? 20 : 7, height: 7, background: i === activeIdx ? 'var(--accent-orange)' : 'var(--border-strong)' }} />
           ))}
         </div>
       )}
@@ -778,7 +776,7 @@ const PROMPTS = [
 function PromptsRow({ compact = false }: { compact?: boolean }) {
   if (compact) {
     return (
-      <div className="mb-8 grid grid-cols-2 gap-2 sm:hidden">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:hidden">
         {PROMPTS.map(p => (
           <Link key={p.title} href={p.href} className="flex items-center gap-2 rounded-[11px] border border-dashed border-[var(--border-strong)] bg-[var(--card-bg)] px-2.5 py-2 no-underline transition-colors hover:border-[var(--accent-orange)]">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg" style={{ background: p.bg, color: p.color }}><Ic d={p.icon} size={13} /></span>
@@ -850,8 +848,8 @@ function PostRowCard({ p }: { p: FeedPost }) {
       )}
       <div className={ROW_PAD}>
         <KindBadge kind={kind} abs={false} />
-        <h3 className="m-0 mt-2 line-clamp-3 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:line-clamp-2 sm:text-[17.5px]">{sani(p.title)}</h3>
-        {p.excerpt && <p className="m-0 mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">{p.excerpt}</p>}
+        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
+        {p.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">{p.excerpt}</p>}
         <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
       </div>
     </Link>
@@ -1205,7 +1203,12 @@ function KornerModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     let on = true
     setPosts(null)
-    const q = activeType ? `type=${activeType}&nodedup=1&limit=40` : `${KORNER_QUERY}&nodedup=1&limit=40`
+    // „Įvairūs įrašai" = tik paprasti įrašai (be recenzijų/koncertų/atradimų), ne visi article tipai (#3).
+    const q = !activeType
+      ? `${KORNER_QUERY}&nodedup=1&limit=40`
+      : activeType === 'article'
+        ? `exclude_type=topas,review,creation,translation,quick&exclude_editorial=recenzija,koncertai,atradimas&nodedup=1&limit=40`
+        : `type=${activeType}&nodedup=1&limit=40`
     fetch(`/api/atradimai/feed?${q}`).then(r => r.json()).then(d => { if (on) setPosts(d.posts || []) }).catch(() => { if (on) setPosts([]) })
     return () => { on = false }
   }, [activeType])
@@ -1226,11 +1229,11 @@ function KornerModal({ onClose }: { onClose: () => void }) {
         ))}
       </div>
       {posts === null ? (
-        <div className="flex flex-wrap gap-3">{Array(8).fill(null).map((_, i) => <div key={i} className="hp-skel h-[150px] w-[210px] rounded-xl" />)}</div>
+        <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">{Array(8).fill(null).map((_, i) => <div key={i} className="hp-skel h-[120px] w-full rounded-xl sm:h-[150px] sm:w-[210px]" />)}</div>
       ) : posts.length === 0 ? (
         <div className="py-12 text-center text-[13px] text-[var(--text-muted)]">Įrašų dar nėra.</div>
       ) : (
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">
           {posts.map(p => <KornerCard key={p.id} p={p} wide />)}
         </div>
       )}
@@ -1241,10 +1244,10 @@ function KornerModal({ onClose }: { onClose: () => void }) {
 function KornerCard({ p, wide = false }: { p: FeedPost; wide?: boolean }) {
   const kind = postKind(p)
   return (
-    <Link href={feedHref(p)} className={`group flex shrink-0 snap-start flex-col rounded-[13px] border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3.5 no-underline transition-colors hover:bg-[var(--card-hover)] ${wide ? 'w-[210px]' : 'w-[200px]'}`}>
+    <Link href={feedHref(p)} className={`group flex snap-start flex-col rounded-[13px] border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3.5 no-underline transition-colors hover:bg-[var(--card-hover)] ${wide ? 'w-full shrink sm:w-[210px] sm:shrink-0' : 'w-[200px] shrink-0'}`}>
       <KindBadge kind={kind} abs={false} />
       <h4 className="m-0 mt-2.5 line-clamp-2 font-['Outfit',sans-serif] text-[13.5px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title) || '(be pavadinimo)'}</h4>
-      {p.excerpt && <p className="m-0 mt-1 line-clamp-2 text-[11.5px] leading-snug text-[var(--text-muted)]">{p.excerpt}</p>}
+      {p.excerpt && <p className={`m-0 mt-1 text-[11.5px] leading-snug text-[var(--text-muted)] ${wide ? 'line-clamp-3 sm:line-clamp-2' : 'line-clamp-2'}`}>{p.excerpt}</p>}
       <div className="mt-auto flex items-center gap-1.5 pt-2.5">
         <Avatar src={p.author?.avatar_url} name={uname(p.author)} size={16} />
         <span className="min-w-0 truncate text-[11px] text-[var(--text-muted)]">{uname(p.author)}</span>
@@ -1323,12 +1326,12 @@ function NariaiSection() {
     let on = true
     fetch('/api/atradimai/active-members?days=30&limit=10').then(r => r.json()).then(d => {
       if (!on) return
-      const actives: ActiveMember[] = (d.members || []).map((m: any) => ({ user_id: m.user_id, username: m.username, name: m.name, avatar: m.avatar, tastes: m.tastes || [], isNew: false }))
+      const actives: ActiveMember[] = (d.members || []).map((m: any) => ({ user_id: m.user_id, username: m.username, name: m.name, avatar: m.avatar, tastes: m.tastes || [], favArtists: m.fav_artists || [], isNew: false }))
       const seen = new Set(actives.map(m => m.username))
       const news: ActiveMember[] = (d.new_members || [])
         .filter((m: any) => !seen.has(m.username) && !m.joined_legacy_at) // tikrai nauji (realios registracijos)
         .slice(0, 4)
-        .map((m: any) => ({ username: m.username, name: m.name, avatar: m.avatar, tastes: m.tastes || [], isNew: true }))
+        .map((m: any) => ({ username: m.username, name: m.name, avatar: m.avatar, tastes: m.tastes || [], favArtists: m.fav_artists || [], isNew: true }))
       setList([...news, ...actives].slice(0, 14))
     }).catch(() => { if (on) setList([]) })
     return () => { on = false }
@@ -1339,7 +1342,7 @@ function NariaiSection() {
       <div className="mb-3.5 flex items-center gap-2.5">
         <span className="h-[18px] w-1 rounded-[3px] bg-[#3b82f6]" />
         <h2 className="m-0 font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Aktyvūs nariai</h2>
-        <span className="hidden text-[12px] text-[var(--text-muted)] sm:inline">ir jų muzikos skonis</span>
+        <span className="hidden text-[12px] text-[var(--text-muted)] sm:inline">ir jų mėgstamiausi atlikėjai</span>
       </div>
       <div className="hp-scroll flex snap-x gap-3.5 overflow-x-auto pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {list === null ? (
@@ -1352,15 +1355,62 @@ function NariaiSection() {
             </div>
             <p className="m-0 mt-2.5 w-full truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{m.username}</p>
             {m.isNew && <p className="m-0 mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#22c55e]">naujas narys</p>}
-            {m.tastes && m.tastes.length > 0 && (
-              <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
-                {m.tastes.slice(0, 3).map(t => (
-                  <span key={t} className="max-w-full truncate rounded-full border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.06)] px-2.5 py-[3px] text-[10.5px] font-semibold text-[var(--text-secondary)]">{t}</span>
-                ))}
-              </div>
-            )}
+            {m.favArtists && m.favArtists.length > 0 ? (
+              <>
+                <span className="mt-2 text-[9.5px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">mėgsta</span>
+                {/* Koliažas — #1 didžiausias (svoris pagal „Mano muzika" rangą). */}
+                <div className="mt-1.5 flex items-end justify-center gap-1">
+                  {m.favArtists.slice(0, 4).map((a, i) => {
+                    const sz = i === 0 ? 40 : i === 1 ? 32 : 28
+                    return (
+                      <span key={`${a.name}-${i}`} title={a.name} className="block shrink-0 overflow-hidden rounded-[8px] border border-[var(--border-subtle)]" style={{ width: sz, height: sz }}>
+                        {a.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={proxyImg(a.image)} alt={a.name} loading="lazy" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center font-extrabold" style={{ fontSize: sz * 0.42, background: `hsl(${hue(a.name)},32%,22%)`, color: `hsl(${hue(a.name)},52%,64%)` }}>{a.name.charAt(0).toUpperCase()}</span>
+                        )}
+                      </span>
+                    )
+                  })}
+                </div>
+              </>
+            ) : null}
           </Link>
         ))}
+      </div>
+    </section>
+  )
+}
+
+// ═════════════════════════ 7. Pakviesk draugus (#5) ═════════════════════════
+function InviteCTA() {
+  const [copied, setCopied] = useState(false)
+  const share = async () => {
+    const url = typeof window !== 'undefined' ? window.location.origin : 'https://www.music.lt'
+    const data = { title: 'Music.lt', text: 'Prisijunk prie Music.lt bendruomenės 🎶', url }
+    if (typeof navigator !== 'undefined' && (navigator as any).share) {
+      try { await (navigator as any).share(data); return } catch { /* user cancelled — bandom clipboard */ }
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch { /* noop */ }
+  }
+  return (
+    <section className="mb-8">
+      <div className="relative overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.3)] px-5 py-6 sm:px-8 sm:py-7" style={{ background: 'linear-gradient(120deg, rgba(249,115,22,0.13), rgba(249,115,22,0.03) 70%)' }}>
+        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:gap-6 sm:text-left">
+          <div className="min-w-0">
+            <h3 className="m-0 font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">Patinka Music.lt? Pakviesk draugus 🎶</h3>
+            <p className="m-0 mt-1 text-[13px] leading-relaxed text-[var(--text-secondary)]">Pasidalink nuoroda ir auginkim bendruomenę kartu.</p>
+          </div>
+          <button type="button" onClick={share}
+            className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border-0 px-6 py-3 font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-white shadow-[0_6px_20px_rgba(249,115,22,0.35)] transition-transform hover:scale-[1.02] ${copied ? 'bg-[#22c55e]' : 'bg-[var(--accent-orange)]'}`}>
+            {copied ? <><Ic d="M20 6L9 17l-5-5" size={15} /> Nukopijuota!</> : <><Ic d="M16 6l-4-4-4 4M12 2v13M20 17v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2" size={15} /> Kopijuoti nuorodą</>}
+          </button>
+        </div>
       </div>
     </section>
   )
@@ -1394,6 +1444,9 @@ export default function BendruomenePage() {
 
       {/* CTA mygtukai — mobile apačioje (#7), kompaktiški. */}
       <PromptsRow compact />
+
+      {/* Pakviesk draugus (#5) — copy-to-clipboard / native share. */}
+      <InviteCTA />
     </div>
   )
 }

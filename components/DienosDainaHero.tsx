@@ -360,7 +360,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
       </div>
 
       {/* lyderis */}
-      <div className="relative flex flex-wrap items-center gap-5 px-5 pb-4 pt-5 sm:px-6">
+      <div className="relative flex flex-wrap items-center gap-5 px-5 pb-4 pt-3 sm:px-6 sm:pt-5">
         {leader ? (
           <>
             <button type="button" onClick={() => openTrack(leader.tracks!)} className="group relative shrink-0 cursor-pointer border-0 bg-transparent p-0">
@@ -403,7 +403,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
             </div>
           </>
         ) : (
-          <div className="flex w-full flex-col items-start gap-2 py-4">
+          <div className="flex w-full flex-col items-start gap-2 py-1 sm:py-4">
             <div className="flex w-full items-center gap-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
               <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-bold normal-case tracking-normal text-[#8ea8c4]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>

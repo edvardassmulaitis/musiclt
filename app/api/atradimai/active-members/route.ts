@@ -24,6 +24,7 @@ type Member = {
   last_active: string
   headline: string
   tastes?: string[]
+  fav_artists?: { name: string; image: string | null; slug: string | null }[]
 }
 
 // Veiksmų grupavimas „antraštei". Raktas → žmogiškas daiktavardis (daugiskaita).
@@ -117,7 +118,7 @@ export async function GET(req: NextRequest) {
     // (ne „Naujokas" placeholder'io), kad sekcija atrodytų gyvai, o ne tuščiai.
     // Realios naujos registracijos (provider) natūraliai pakliūna į priekį, nes
     // jų joined_legacy_at = NULL → atskirai prepend'inam jas, jei yra. ──
-    let new_members: { username: string; name: string | null; avatar: string | null; created_at: string; joined_legacy_at: string | null; tastes: string[] }[] = []
+    let new_members: { username: string; name: string | null; avatar: string | null; created_at: string; joined_legacy_at: string | null; tastes: string[]; fav_artists: { name: string; image: string | null; slug: string | null }[] }[] = []
     try {
       const { data: real } = await sb
         .from('profiles')
@@ -149,14 +150,31 @@ export async function GET(req: NextRequest) {
         if (picked.length >= limit) break
       }
 
-      // Muzikos skonis — iki 3 mėgstamų atlikėjų per narį (ir aktyviems, ir
-      // naujiems — „Aktyvūs nariai" kortelėms).
-      const tasteByUser = new Map<string, string[]>()
+      // Mėgstamiausi atlikėjai SU NUOTRAUKOMIS — pirmiausia „Mano muzika"
+      // kuruotas rangas (profile_favorite_artists.sort_order), tada like'ai
+      // (papildo / fallback). Rodom „Aktyvūs nariai" kortelėse kaip koliažą.
+      type FavArt = { name: string; image: string | null; slug: string | null }
+      const favArtByUser = new Map<string, FavArt[]>()
       try {
         const uids = [...new Set([...picked.map(m => m.id), ...members.map(m => m.user_id)])].filter(Boolean)
         if (uids.length) {
-          // likes.entity_id — generinis (be FK į artists), tad jokio embedded
-          // join'o: pirmiausia like'ai, tada batch'u atlikėjų vardai.
+          const idsByUser = new Map<string, number[]>()
+          const pushId = (uid: string, aid: number) => {
+            if (!uid || !aid) return
+            const arr = idsByUser.get(uid) || []
+            if (arr.length >= 6 || arr.includes(aid)) return
+            arr.push(aid); idsByUser.set(uid, arr)
+          }
+          // 1) „Mano muzika" kuruoti favoritai (rangas = sort_order).
+          const { data: favs } = await sb
+            .from('profile_favorite_artists')
+            .select('user_id, artist_id, sort_order')
+            .eq('bucket', 1)
+            .in('user_id', uids)
+            .order('sort_order', { ascending: true })
+            .limit(uids.length * 10)
+          for (const r of (favs || []) as any[]) pushId(r.user_id, r.artist_id)
+          // 2) like'ai (naujausi) — papildo / fallback.
           const { data: lk } = await sb
             .from('likes')
             .select('user_id, entity_id, created_at')
@@ -164,27 +182,24 @@ export async function GET(req: NextRequest) {
             .in('user_id', uids)
             .order('created_at', { ascending: false })
             .limit(uids.length * 12)
-          const likeRows = (lk || []) as any[]
-          const artIds = [...new Set(likeRows.map(r => r.entity_id).filter(Boolean))]
-          const nameById = new Map<number, string>()
-          if (artIds.length) {
-            const { data: arts } = await sb.from('artists').select('id, name').in('id', artIds)
-            for (const a of (arts || []) as any[]) if (a.name) nameById.set(a.id, a.name)
+          for (const r of (lk || []) as any[]) pushId(r.user_id, r.entity_id)
+          // 3) atlikėjų info (vardas + nuotrauka + slug) batch'u.
+          const allIds = [...new Set([...idsByUser.values()].flat())]
+          const infoById = new Map<number, FavArt>()
+          if (allIds.length) {
+            const { data: arts } = await sb.from('artists').select('id, name, slug, cover_image_url').in('id', allIds)
+            for (const a of (arts || []) as any[]) if (a.name) infoById.set(a.id, { name: a.name, image: a.cover_image_url || null, slug: a.slug || null })
           }
-          for (const row of likeRows) {
-            const nm = nameById.get(row.entity_id)
-            if (!nm) continue
-            const arr = tasteByUser.get(row.user_id) || []
-            if (arr.length >= 3 || arr.includes(nm)) continue
-            arr.push(nm)
-            tasteByUser.set(row.user_id, arr)
+          for (const [uid, aids] of idsByUser) {
+            favArtByUser.set(uid, aids.map(id => infoById.get(id)).filter((x): x is FavArt => !!x))
           }
         }
       } catch {}
 
-      new_members = picked.map(m => ({ username: m.username, name: m.name, avatar: m.avatar, created_at: m.created_at, joined_legacy_at: m.joined_legacy_at, tastes: tasteByUser.get(m.id) || [] }))
-      // Aktyviems nariams — tas pats skonis.
-      for (const m of members as any[]) m.tastes = tasteByUser.get(m.user_id) || []
+      const tastesOf = (uid: string) => (favArtByUser.get(uid) || []).map(a => a.name).slice(0, 3)
+      new_members = picked.map(m => ({ username: m.username, name: m.name, avatar: m.avatar, created_at: m.created_at, joined_legacy_at: m.joined_legacy_at, tastes: tastesOf(m.id), fav_artists: favArtByUser.get(m.id) || [] }))
+      // Aktyviems nariams — tas pats.
+      for (const m of members as any[]) { m.fav_artists = favArtByUser.get(m.user_id) || []; m.tastes = tastesOf(m.user_id) }
     } catch {}
 
     // total_active — kiek SKIRTINGŲ narių apskritai turėjo viešų veiksmų per langą
