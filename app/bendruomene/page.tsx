@@ -127,7 +127,7 @@ type Atradimas = {
   author: { username: string | null; full_name: string | null; avatar_url: string | null } | null
 }
 type FavArtist = { name: string; image: string | null; slug: string | null }
-type ActiveMember = { user_id?: string; username: string | null; name: string | null; avatar: string | null; tastes?: string[]; favArtists?: FavArtist[]; isNew?: boolean; joined_legacy_at?: string | null; created_at?: string }
+type ActiveMember = { user_id?: string; username: string | null; name: string | null; avatar: string | null; tastes?: string[]; favArtists?: FavArtist[]; headline?: string | null; isNew?: boolean; joined_legacy_at?: string | null; created_at?: string }
 type Proposer = { username: string | null; full_name: string | null; avatar_url: string | null }
 type TrackLite = { id: number; title: string; cover_url: string | null; slug?: string | null; video_url?: string | null; artists: { name: string; slug?: string | null; cover_image_url?: string | null } | null }
 type Nomination = { id: number; votes: number; weighted_votes: number; comment?: string | null; tracks: TrackLite | null; proposer?: Proposer | null; own?: boolean }
@@ -738,29 +738,37 @@ function HappeningArea() {
         </div>
       </div>
 
-      {/* ── Mobile: 2 kompaktiški mygtukai → modalai (be scroll-in-scroll) ── */}
+      {/* ── Mobile: 2 kompaktiški „quick check" mygtukai → pilni modalai ── */}
       <div className="grid grid-cols-2 gap-3 lg:hidden">
         <button type="button" onClick={() => setActModal(true)}
-          className="flex cursor-pointer flex-col items-start gap-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 text-left">
+          className="relative flex cursor-pointer flex-col items-start gap-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 text-left">
+          <span className="absolute right-2.5 top-2.5 text-[var(--text-faint)]"><Ic d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" size={13} /></span>
           <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#22c55e]" /> Kas vyksta
           </span>
           {ev0 ? (
-            <span className="flex w-full items-center gap-1.5">
-              <Avatar src={ev0.actor_avatar} name={ev0.actor_name || 'narys'} size={20} />
-              <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-muted)]"><b className="font-semibold text-[var(--text-secondary)]">{ev0.actor_name || 'narys'}</b> {ACT_VERB[ev0.event_type] || 'atnaujino'}</span>
+            <span className="flex w-full flex-col gap-0.5">
+              <span className="flex w-full items-center gap-1.5">
+                <Avatar src={ev0.actor_avatar} name={ev0.actor_name || 'narys'} size={18} />
+                <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-muted)]"><b className="font-semibold text-[var(--text-secondary)]">{ev0.actor_name || 'narys'}</b> {ACT_VERB[ev0.event_type] || 'atnaujino'}</span>
+              </span>
+              <span className="pl-[26px] text-[10px] text-[var(--text-faint)]">{timeAgo(ev0.created_at) || 'ką tik'}</span>
             </span>
           ) : <span className="text-[11px] text-[var(--text-muted)]">narių veiksmų srautas</span>}
         </button>
         <button type="button" onClick={() => setShoutModal(true)}
-          className="flex cursor-pointer flex-col items-start gap-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 text-left">
+          className="relative flex cursor-pointer flex-col items-start gap-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 text-left">
+          <span className="absolute right-2.5 top-2.5 text-[var(--text-faint)]"><Ic d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" size={13} /></span>
           <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">
             <Ic d={I.comment} size={14} /> Pokalbiai
           </span>
           {lastShoutMsg ? (
-            <span className="flex w-full items-center gap-1.5">
-              <Avatar src={lastShoutMsg.author_avatar} name={lastShoutMsg.author_name || 'narys'} size={20} />
-              <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-muted)]"><b className="font-semibold text-[var(--text-secondary)]">{lastShoutMsg.author_name || 'narys'}</b>: {lastShoutMsg.body}</span>
+            <span className="flex w-full flex-col gap-0.5">
+              <span className="flex w-full items-center gap-1.5">
+                <Avatar src={lastShoutMsg.author_avatar} name={lastShoutMsg.author_name || 'narys'} size={18} />
+                <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-muted)]"><b className="font-semibold text-[var(--text-secondary)]">{lastShoutMsg.author_name || 'narys'}</b>: {lastShoutMsg.body}</span>
+              </span>
+              <span className="pl-[26px] text-[10px] text-[var(--text-faint)]">{timeAgo(lastShoutMsg.created_at) || 'ką tik'}</span>
             </span>
           ) : <span className="text-[11px] text-[var(--text-muted)]">bendras pokalbis</span>}
         </button>
@@ -786,11 +794,16 @@ const PROMPTS = [
 function PromptsRow({ compact = false }: { compact?: boolean }) {
   if (compact) {
     return (
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:hidden">
+      <div className="mb-4 flex flex-col gap-2 sm:hidden">
+        <span className="px-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">Pasidalink ir tu</span>
         {PROMPTS.map(p => (
-          <Link key={p.title} href={p.href} className="flex items-center gap-2 rounded-[11px] border border-dashed border-[var(--border-strong)] bg-[var(--card-bg)] px-2.5 py-2 no-underline transition-colors hover:border-[var(--accent-orange)]">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg" style={{ background: p.bg, color: p.color }}><Ic d={p.icon} size={13} /></span>
-            <b className="min-w-0 truncate text-[11px] font-bold leading-tight text-[var(--text-primary)]">{p.title}</b>
+          <Link key={p.title} href={p.href} className="flex items-center gap-3 rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--card-bg)] px-3.5 py-2.5 no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.05)]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]" style={{ background: p.bg, color: p.color }}><Ic d={p.icon} size={16} /></span>
+            <span className="min-w-0 flex-1">
+              <b className="block truncate text-[12.5px] font-bold leading-snug text-[var(--text-primary)]">{p.title}</b>
+              <span className="block truncate text-[10.5px] leading-snug text-[var(--text-muted)]">{p.sub}</span>
+            </span>
+            <span className="shrink-0 text-[var(--text-faint)]"><Ic d="M9 6l6 6-6 6" size={14} /></span>
           </Link>
         ))}
       </div>
@@ -1014,8 +1027,8 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
 }
 
 const PULSE_CHIPS: { key: string; label: string; color?: string }[] = [
-  { key: 'apzvalga', label: 'Muzikos apžvalgos', color: '#ef4444' },
   { key: 'koncertai', label: 'Koncertų įspūdžiai', color: '#3b82f6' },
+  { key: 'apzvalga', label: 'Muzikos apžvalgos', color: '#ef4444' },
   { key: 'topas', label: 'Topai', color: '#f59e0b' },
   { key: 'atradimas', label: 'Atradimai', color: '#f97316' },
   { key: 'diskusija', label: 'Diskusijos', color: '#8b5cf6' },
@@ -1334,15 +1347,15 @@ function NariaiSection() {
   const [list, setList] = useState<ActiveMember[] | null>(null)
   useEffect(() => {
     let on = true
-    fetch('/api/atradimai/active-members?days=30&limit=10').then(r => r.json()).then(d => {
+    fetch('/api/atradimai/active-members?days=30&limit=20').then(r => r.json()).then(d => {
       if (!on) return
-      const actives: ActiveMember[] = (d.members || []).map((m: any) => ({ user_id: m.user_id, username: m.username, name: m.name, avatar: m.avatar, tastes: m.tastes || [], favArtists: m.fav_artists || [], isNew: false }))
+      const actives: ActiveMember[] = (d.members || []).map((m: any) => ({ user_id: m.user_id, username: m.username, name: m.name, avatar: m.avatar, tastes: m.tastes || [], favArtists: m.fav_artists || [], headline: m.headline || null, isNew: false }))
       const seen = new Set(actives.map(m => m.username))
       const news: ActiveMember[] = (d.new_members || [])
         .filter((m: any) => !seen.has(m.username) && !m.joined_legacy_at) // tikrai nauji (realios registracijos)
         .slice(0, 4)
         .map((m: any) => ({ username: m.username, name: m.name, avatar: m.avatar, tastes: m.tastes || [], favArtists: m.fav_artists || [], isNew: true }))
-      setList([...news, ...actives].slice(0, 14))
+      setList([...news, ...actives].slice(0, 20))
     }).catch(() => { if (on) setList([]) })
     return () => { on = false }
   }, [])
@@ -1357,7 +1370,7 @@ function NariaiSection() {
       <div className="hp-scroll flex snap-x gap-3.5 overflow-x-auto pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {list === null ? (
           Array(6).fill(null).map((_, i) => <div key={i} className="hp-skel h-[188px] w-[200px] shrink-0 rounded-[15px]" />)
-        ) : list.map(m => (
+        ) : (<>{list.map(m => (
           <Link key={m.username} href={`/@${m.username}`} className="group flex w-[200px] shrink-0 snap-start flex-col rounded-[15px] border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3.5 no-underline transition-colors hover:bg-[var(--card-hover)]">
             {/* Header: nario nuotrauka + vardas + būsena (kompaktiška eilutė). */}
             <div className="flex items-center gap-2.5">
@@ -1367,9 +1380,11 @@ function NariaiSection() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{m.username}</p>
-                <p className="m-0 text-[9.5px] font-bold uppercase tracking-[0.08em] text-[var(--text-faint)]">
-                  {m.isNew ? <span className="text-[#22c55e]">naujas narys</span> : (m.favArtists && m.favArtists.length ? 'mėgsta' : 'aktyvus narys')}
-                </p>
+                {m.isNew ? (
+                  <p className="m-0 text-[9.5px] font-bold uppercase tracking-[0.08em] text-[#22c55e]">naujas narys</p>
+                ) : m.headline ? (
+                  <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{m.headline}</p>
+                ) : null}
               </div>
             </div>
             {/* Mėgstamiausi atlikėjai — vienodo dydžio 3 stulpelių tinklelis (iki 6). */}
@@ -1389,6 +1404,13 @@ function NariaiSection() {
             )}
           </Link>
         ))}
+        {/* „Daugiau" — į pilną narių sąrašą. */}
+        <Link href="/vartotojai" className="group flex w-[150px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[15px] border border-dashed border-[var(--border-strong)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.05)]">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(59,130,246,0.14)] text-[#3b82f6]"><Ic d="M9 6l6 6-6 6" size={18} /></span>
+          <b className="font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">Daugiau narių</b>
+          <span className="text-[10.5px] text-[var(--text-muted)]">visi bendruomenės nariai</span>
+        </Link>
+        </>)}
       </div>
     </section>
   )
@@ -1410,7 +1432,7 @@ function InviteCTA() {
     } catch { /* noop */ }
   }
   return (
-    <section className="mb-8">
+    <section className="mb-1">
       <div className="flex flex-col items-center gap-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-5 sm:flex-row sm:justify-between sm:px-7">
         <h3 className="m-0 text-center font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-left sm:text-[17px]">Pakviesk draugus į Music.lt</h3>
         <button type="button" onClick={share}
@@ -1435,7 +1457,7 @@ function InviteCTA() {
 // ═════════════════════════ Page ═════════════════════════
 export default function BendruomenePage() {
   return (
-    <div className="page-shell">
+    <div className="page-shell lg:!pb-12">
       <div className="page-head">
         <h1>Bendruomenė</h1>
         <p>Žmonės, kurie gyvena muzika</p>
