@@ -698,13 +698,13 @@ function HappeningArea() {
   const [tab, setTab] = useState<'act' | 'shout'>('act')
   const [actModal, setActModal] = useState(false)
   const [shoutModal, setShoutModal] = useState(false)
-  const [lastShout, setLastShout] = useState<string | null>(null)
+  const [lastShoutMsg, setLastShoutMsg] = useState<ShoutMsg | null>(null)
   useEffect(() => {
     let on = true
-    fetch('/api/live/shoutbox?limit=1', { cache: 'no-store' }).then(r => r.json()).then(d => { if (on) setLastShout(d.messages?.[0]?.created_at || null) }).catch(() => {})
+    fetch('/api/live/shoutbox?limit=1', { cache: 'no-store' }).then(r => r.json()).then(d => { if (on) setLastShoutMsg(d.messages?.[0] || null) }).catch(() => {})
     return () => { on = false }
   }, [])
-  const lastAct = events[0]?.created_at || null
+  const ev0 = events[0] as any
 
   return (
     <>
@@ -741,18 +741,28 @@ function HappeningArea() {
       {/* ── Mobile: 2 kompaktiški mygtukai → modalai (be scroll-in-scroll) ── */}
       <div className="grid grid-cols-2 gap-3 lg:hidden">
         <button type="button" onClick={() => setActModal(true)}
-          className="flex cursor-pointer flex-col items-start gap-1.5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3.5 text-left">
+          className="flex cursor-pointer flex-col items-start gap-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 text-left">
           <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#22c55e]" /> Kas vyksta
           </span>
-          <span className="text-[11px] text-[var(--text-muted)]">{lastAct ? `paskutinis veiksmas ${timeAgo(lastAct)}` : 'narių veiksmų srautas'}</span>
+          {ev0 ? (
+            <span className="flex w-full items-center gap-1.5">
+              <Avatar src={ev0.actor_avatar} name={ev0.actor_name || 'narys'} size={20} />
+              <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-muted)]"><b className="font-semibold text-[var(--text-secondary)]">{ev0.actor_name || 'narys'}</b> {ACT_VERB[ev0.event_type] || 'atnaujino'}</span>
+            </span>
+          ) : <span className="text-[11px] text-[var(--text-muted)]">narių veiksmų srautas</span>}
         </button>
         <button type="button" onClick={() => setShoutModal(true)}
-          className="flex cursor-pointer flex-col items-start gap-1.5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3.5 text-left">
+          className="flex cursor-pointer flex-col items-start gap-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 text-left">
           <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">
             <Ic d={I.comment} size={14} /> Pokalbiai
           </span>
-          <span className="text-[11px] text-[var(--text-muted)]">{lastShout ? `paskutinė žinutė ${timeAgo(lastShout)}` : 'bendras pokalbis'}</span>
+          {lastShoutMsg ? (
+            <span className="flex w-full items-center gap-1.5">
+              <Avatar src={lastShoutMsg.author_avatar} name={lastShoutMsg.author_name || 'narys'} size={20} />
+              <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-muted)]"><b className="font-semibold text-[var(--text-secondary)]">{lastShoutMsg.author_name || 'narys'}</b>: {lastShoutMsg.body}</span>
+            </span>
+          ) : <span className="text-[11px] text-[var(--text-muted)]">bendras pokalbis</span>}
         </button>
       </div>
 
@@ -1054,8 +1064,8 @@ function PulsasSection() {
     let on = true
     Promise.all([
       fetch(`/api/atradimai/feed?nodedup=1&exclude_type=creation,translation,quick&limit=30`).then(r => r.json()).catch(() => ({})),
-      fetch('/api/diskusijos/recent?limit=12').then(r => r.json()).catch(() => ({})),
-      fetch('/api/muzikos-atradimai?limit=14').then(r => r.json()).catch(() => ({})),
+      fetch('/api/diskusijos/recent?limit=40').then(r => r.json()).catch(() => ({})),
+      fetch('/api/muzikos-atradimai?limit=40').then(r => r.json()).catch(() => ({})),
     ]).then(([f, d, a]) => {
       if (!on) return
       setPosts(f.posts || [])
@@ -1346,36 +1356,37 @@ function NariaiSection() {
       </div>
       <div className="hp-scroll flex snap-x gap-3.5 overflow-x-auto pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {list === null ? (
-          Array(6).fill(null).map((_, i) => <div key={i} className="hp-skel h-[170px] w-[180px] shrink-0 rounded-[15px]" />)
+          Array(6).fill(null).map((_, i) => <div key={i} className="hp-skel h-[188px] w-[200px] shrink-0 rounded-[15px]" />)
         ) : list.map(m => (
-          <Link key={m.username} href={`/@${m.username}`} className="group flex w-[180px] shrink-0 snap-start flex-col items-center rounded-[15px] border border-[var(--border-subtle)] bg-[var(--card-bg)] px-4 pb-4 pt-5 text-center no-underline transition-colors hover:bg-[var(--card-hover)]">
-            <div className="relative">
-              <Avatar src={m.avatar} name={m.username} size={60} />
-              {m.isNew && <span title="Naujas narys" className="absolute -right-0.5 bottom-0.5 h-3.5 w-3.5 rounded-full border-2 border-[var(--bg-body)] bg-[#22c55e]" />}
+          <Link key={m.username} href={`/@${m.username}`} className="group flex w-[200px] shrink-0 snap-start flex-col rounded-[15px] border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3.5 no-underline transition-colors hover:bg-[var(--card-hover)]">
+            {/* Header: nario nuotrauka + vardas + būsena (kompaktiška eilutė). */}
+            <div className="flex items-center gap-2.5">
+              <div className="relative shrink-0">
+                <Avatar src={m.avatar} name={m.username} size={42} />
+                {m.isNew && <span title="Naujas narys" className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--card-bg)] bg-[#22c55e]" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{m.username}</p>
+                <p className="m-0 text-[9.5px] font-bold uppercase tracking-[0.08em] text-[var(--text-faint)]">
+                  {m.isNew ? <span className="text-[#22c55e]">naujas narys</span> : (m.favArtists && m.favArtists.length ? 'mėgsta' : 'aktyvus narys')}
+                </p>
+              </div>
             </div>
-            <p className="m-0 mt-2.5 w-full truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{m.username}</p>
-            {m.isNew && <p className="m-0 mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#22c55e]">naujas narys</p>}
-            {m.favArtists && m.favArtists.length > 0 ? (
-              <>
-                <span className="mt-2 text-[9.5px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">mėgsta</span>
-                {/* Koliažas — #1 didžiausias (svoris pagal „Mano muzika" rangą). */}
-                <div className="mt-1.5 flex items-end justify-center gap-1">
-                  {m.favArtists.slice(0, 4).map((a, i) => {
-                    const sz = i === 0 ? 40 : i === 1 ? 32 : 28
-                    return (
-                      <span key={`${a.name}-${i}`} title={a.name} className="block shrink-0 overflow-hidden rounded-[8px] border border-[var(--border-subtle)]" style={{ width: sz, height: sz }}>
-                        {a.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={proxyImg(a.image)} alt={a.name} loading="lazy" className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="flex h-full w-full items-center justify-center font-extrabold" style={{ fontSize: sz * 0.42, background: `hsl(${hue(a.name)},32%,22%)`, color: `hsl(${hue(a.name)},52%,64%)` }}>{a.name.charAt(0).toUpperCase()}</span>
-                        )}
-                      </span>
-                    )
-                  })}
-                </div>
-              </>
-            ) : null}
+            {/* Mėgstamiausi atlikėjai — vienodo dydžio 3 stulpelių tinklelis (iki 6). */}
+            {m.favArtists && m.favArtists.length > 0 && (
+              <div className="mt-3 grid grid-cols-3 gap-1.5">
+                {m.favArtists.slice(0, 6).map((a, i) => (
+                  <span key={`${a.name}-${i}`} title={a.name} className="relative block aspect-square overflow-hidden rounded-[8px] border border-[var(--border-subtle)] bg-[var(--cover-placeholder)] transition-transform group-hover:scale-[1.02]">
+                    {a.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={proxyImg(a.image)} alt={a.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-[18px] font-extrabold" style={{ background: `hsl(${hue(a.name)},32%,22%)`, color: `hsl(${hue(a.name)},52%,64%)` }}>{a.name.charAt(0).toUpperCase()}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
           </Link>
         ))}
       </div>
@@ -1388,7 +1399,7 @@ function InviteCTA() {
   const [copied, setCopied] = useState(false)
   const share = async () => {
     const url = typeof window !== 'undefined' ? window.location.origin : 'https://www.music.lt'
-    const data = { title: 'Music.lt', text: 'Prisijunk prie Music.lt bendruomenės 🎶', url }
+    const data = { title: 'Music.lt', text: 'Prisijunk prie Music.lt bendruomenės', url }
     if (typeof navigator !== 'undefined' && (navigator as any).share) {
       try { await (navigator as any).share(data); return } catch { /* user cancelled — bandom clipboard */ }
     }
@@ -1400,17 +1411,22 @@ function InviteCTA() {
   }
   return (
     <section className="mb-8">
-      <div className="relative overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.3)] px-5 py-6 sm:px-8 sm:py-7" style={{ background: 'linear-gradient(120deg, rgba(249,115,22,0.13), rgba(249,115,22,0.03) 70%)' }}>
-        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:gap-6 sm:text-left">
-          <div className="min-w-0">
-            <h3 className="m-0 font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">Patinka Music.lt? Pakviesk draugus 🎶</h3>
-            <p className="m-0 mt-1 text-[13px] leading-relaxed text-[var(--text-secondary)]">Pasidalink nuoroda ir auginkim bendruomenę kartu.</p>
-          </div>
-          <button type="button" onClick={share}
-            className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border-0 px-6 py-3 font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-white shadow-[0_6px_20px_rgba(249,115,22,0.35)] transition-transform hover:scale-[1.02] ${copied ? 'bg-[#22c55e]' : 'bg-[var(--accent-orange)]'}`}>
-            {copied ? <><Ic d="M20 6L9 17l-5-5" size={15} /> Nukopijuota!</> : <><Ic d="M16 6l-4-4-4 4M12 2v13M20 17v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2" size={15} /> Kopijuoti nuorodą</>}
-          </button>
-        </div>
+      <div className="flex flex-col items-center gap-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-5 sm:flex-row sm:justify-between sm:px-7">
+        <h3 className="m-0 text-center font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-left sm:text-[17px]">Pakviesk draugus į Music.lt</h3>
+        <button type="button" onClick={share}
+          className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border-0 px-5 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white transition-transform hover:scale-[1.02] ${copied ? 'bg-[#22c55e]' : 'bg-[var(--accent-orange)]'}`}>
+          {copied ? (
+            <><Ic d="M20 6L9 17l-5-5" size={15} /> Nukopijuota!</>
+          ) : (
+            <>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+              Dalintis nuoroda
+            </>
+          )}
+        </button>
       </div>
     </section>
   )

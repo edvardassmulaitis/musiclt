@@ -403,12 +403,12 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
             </div>
           </>
         ) : (
-          <div className="flex w-full flex-col items-start gap-2 py-1 sm:py-4">
+          <div className="flex w-full flex-col items-start gap-3.5 py-4 sm:py-5">
             <div className="flex w-full items-center gap-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
               <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-bold normal-case tracking-normal text-[#8ea8c4]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
             </div>
-            <p className="m-0 text-[15px] font-bold text-[#f0f4fc]">Šiandien dar nėra pasiūlymų — tavo daina gali būti pirma.</p>
+            <p className="m-0 text-[15px] font-bold leading-snug text-[#f0f4fc]">Šiandien dar nėra pasiūlymų — tavo daina gali būti pirma.</p>
             <button type="button" onClick={() => setSuggestOpen(true)} className="mt-1 cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-5 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white shadow-[0_6px_20px_rgba(249,115,22,0.35)]">+ Pasiūlyti dainą</button>
           </div>
         )}

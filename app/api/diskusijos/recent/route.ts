@@ -18,7 +18,7 @@ export const revalidate = 60
 export async function GET(req: Request) {
   const sb = createAdminClient()
   const sp = new URL(req.url).searchParams
-  const limit = Math.min(parseInt(sp.get('limit') || '6'), 20)
+  const limit = Math.min(parseInt(sp.get('limit') || '6'), 40)
   const featuredOnly = sp.get('featured') === '1'
   try {
     // SVARBU (supabase-js): filtrai PRIEŠ .order/.limit.
