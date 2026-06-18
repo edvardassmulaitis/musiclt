@@ -2,7 +2,7 @@
 
 // app/bendruomene/page.tsx (buvęs /atrasti — pervardyta 2026-06-17)
 //
-// „Bendruomenė" — bendruomenės hub'as (2026-06-10 redesign, fix iteracija v9).
+// „Bendruomenė" — bendruomenės hub'as (2026-06-10 redesign, fix iteracija v8).
 //
 // Struktūra:
 //   1. „DĖMESIO CENTRE" — kuruotas slider'is (admin featured_until su pasirenkama
@@ -747,8 +747,8 @@ function HappeningArea() {
         </div>
       </div>
 
-      {/* ── Mobile: 2 kompaktiški „quick check" mygtukai → pilni modalai ── */}
-      <div className="grid grid-cols-2 gap-3 lg:hidden">
+      {/* ── Mobile: 2 „quick check" mygtukai (per visą plotį) → pilni modalai ── */}
+      <div className="flex flex-col gap-3 lg:hidden">
         <button type="button" onClick={() => setActModal(true)}
           className="relative flex cursor-pointer flex-col items-start gap-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 text-left">
           <span className="absolute right-2.5 top-2.5 text-[var(--text-faint)]"><Ic d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" size={13} /></span>
@@ -759,7 +759,7 @@ function HappeningArea() {
             <span className="flex w-full items-start gap-2">
               <Avatar src={ev0.actor_avatar} name={ev0.actor_name || 'narys'} size={26} />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="line-clamp-[6] text-[11.5px] leading-snug text-[var(--text-secondary)]">
+                <span className="line-clamp-3 text-[12px] leading-snug text-[var(--text-secondary)]">
                   {ACT_VERB[ev0.event_type] || 'atnaujino'}{ev0.entity_title ? <> <b className="font-semibold text-[var(--text-primary)]">{sani(ev0.entity_title)}</b></> : null}
                 </span>
                 <span className="text-[10px] text-[var(--text-faint)]">{timeAgo(ev0.created_at) || 'ką tik'}</span>
@@ -777,7 +777,7 @@ function HappeningArea() {
             <span className="flex w-full items-start gap-2">
               <Avatar src={lastShoutMsg.author_avatar} name={lastShoutMsg.author_name || 'narys'} size={26} />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="line-clamp-[6] text-[11.5px] leading-snug text-[var(--text-secondary)]">{lastShoutMsg.body}</span>
+                <span className="line-clamp-3 text-[12px] leading-snug text-[var(--text-secondary)]">{lastShoutMsg.body}</span>
                 <span className="text-[10px] text-[var(--text-faint)]">{timeAgo(lastShoutMsg.created_at) || 'ką tik'}</span>
               </span>
             </span>
@@ -953,10 +953,11 @@ function PostTopasRowCard({ p }: { p: FeedPost }) {
   )
 }
 
-// Diskusijos eilutė (#12): grupės foto kairėj, iki 3 naujausių komentarų horizontaliai.
+// Diskusijos eilutė — suvienodinta su kitų įrašų kortele (#2): naujausias
+// komentaras kaip excerpt, apačioje komentatoriaus username + komentarų skaičius
+// (kaip RowMeta, be „prieš X" laiko).
 function DiskusijaRowCard({ d }: { d: Diskusija }) {
-  const comments = (d.latest_comments && d.latest_comments.length ? d.latest_comments : (d.latest_comment ? [d.latest_comment] : [])).slice(0, 3)
-  const cols = Math.min(comments.length || 1, 3)
+  const lc = (d.latest_comments && d.latest_comments[0]) || d.latest_comment || null
   return (
     <Link href={`/diskusijos/${d.slug}`} className={`${ROW_BASE} ${ROW_MINH} hover:border-[rgba(139,92,246,0.5)]`}
       style={{ background: 'linear-gradient(160deg, rgba(139,92,246,0.08), var(--bg-surface) 55%)' }}>
@@ -971,39 +972,9 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
       )}
       <div className={ROW_PAD}>
         <KindBadge kind="diskusija" abs={false} />
-        <h3 className="m-0 mt-2 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(d.title)}</h3>
-        {comments.length > 0 && (
-          <>
-            {/* Mobile: tik vienas naujausias komentaras (kad nesusiplaktų). */}
-            <div className="mt-2 sm:hidden">
-              {(() => { const c = comments[0]; return (
-                <div className="rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-3 py-2">
-                  <div className="mb-1 flex items-center gap-1.5">
-                    <Avatar src={c.avatar} name={c.author} size={15} />
-                    <b className="min-w-0 flex-1 truncate text-[10.5px] font-bold text-[var(--text-primary)]">{c.author}</b>
-                  </div>
-                  <p className="m-0 line-clamp-[6] text-[12px] leading-relaxed text-[var(--text-secondary)]">{c.excerpt}</p>
-                </div>
-              ) })()}
-            </div>
-            {/* Desktop: iki 3 naujausių komentarų greta. */}
-            <div className="mt-2 hidden gap-2.5 sm:grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-              {comments.map((c, i) => (
-                <div key={i} className="rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-3 py-2">
-                  <div className="mb-1 flex items-center gap-1.5">
-                    <Avatar src={c.avatar} name={c.author} size={15} />
-                    <b className="min-w-0 flex-1 truncate text-[10.5px] font-bold text-[var(--text-primary)]">{c.author}</b>
-                  </div>
-                  <p className="m-0 line-clamp-3 text-[12px] leading-relaxed text-[var(--text-secondary)]">{c.excerpt}</p>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-        <div className="mt-2 flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-[var(--text-muted)]"><Ic d={I.comment} size={12} /> {d.comment_count > 0 ? `${d.comment_count} koment.` : 'Nauja tema'}</span>
-          {timeAgo(d.latest_comment?.created_at || d.created_at) && <span className="shrink-0 text-[10px] text-[var(--text-faint)]">· {timeAgo(d.latest_comment?.created_at || d.created_at)}</span>}
-        </div>
+        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(d.title)}</h3>
+        {lc?.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">{lc.excerpt}</p>}
+        <RowMeta author={{ username: lc?.author || d.author_name, avatar_url: lc?.avatar }} date={null} comments={d.comment_count} />
       </div>
     </Link>
   )
