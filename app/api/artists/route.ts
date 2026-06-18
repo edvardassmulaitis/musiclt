@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
               if (gr?.id) { memberGenreId = gr.id; try { await supabase.from('artist_genres').insert({ artist_id: memberId, genre_id: gr.id }) } catch {} }
             }
             // Stiliai — per resolver
-            await linkSubstyles(supabase, memberId, m.substyles || [], memberGenreId)
+            await linkSubstyles(supabase, memberId!, m.substyles || [], memberGenreId)
           }
           } // close else (not existing)
         } catch (e: any) { console.error('[POST /api/artists] create member error:', (e as any).message) }
