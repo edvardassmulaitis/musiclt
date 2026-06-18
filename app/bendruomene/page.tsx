@@ -2,7 +2,7 @@
 
 // app/bendruomene/page.tsx (buvęs /atrasti — pervardyta 2026-06-17)
 //
-// „Bendruomenė" — bendruomenės hub'as (2026-06-10 redesign, fix iteracija v5).
+// „Bendruomenė" — bendruomenės hub'as (2026-06-10 redesign, fix iteracija v6).
 //
 // Struktūra:
 //   1. „DĖMESIO CENTRE" — kuruotas slider'is (admin featured_until su pasirenkama
