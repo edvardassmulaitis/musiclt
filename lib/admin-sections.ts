@@ -36,7 +36,8 @@ export function roleRank(role: Role): number {
 
 /** Ar `role` pasiekia bent `min` lygį. */
 export function hasMinRole(role: Role, min: MinRole): boolean {
-  return roleRank(role) >= ROLE_RANK[min]
+  const need = ROLE_RANK[min] ?? 0
+  return roleRank(role) >= need
 }
 
 /** Bet kokia admin-tier rolė (editor ir aukščiau). */
