@@ -24,47 +24,22 @@ import { enrichTrack } from '@/lib/yt-enrich'
 
 type Phase = 'A' | 'B' | 'C'
 
-type PhaseSel = { phase: Phase | null; ids: number[] }
-
-async function selectPhase(
+/**
+ * Partijos parinkimas su PRIORITETU daromas DB pusėje (RPC pick_yt_backfill_batch,
+ * SQL funkcija). Tvarka: A fazė (trūksta views — svarbiausia) chart→top-atlikėjas
+ * →bendra, tada B (be video→paieška), tada C (tik data). Grąžina { t_id, t_phase }.
+ * Kiekviena eilutė neša savo fazę → enrich opts parenkamos PER eilutę. */
+async function pickBatch(
   supabase: ReturnType<typeof createAdminClient>,
   batch: number,
   forcePhase?: Phase | null,
-): Promise<PhaseSel> {
-  const wantA = !forcePhase || forcePhase === 'A'
-  const wantB = !forcePhase || forcePhase === 'B'
-  const wantC = !forcePhase || forcePhase === 'C'
-
-  if (wantA) {
-    const { data } = await supabase
-      .from('tracks').select('id')
-      .not('video_url', 'is', null)
-      .is('video_views_checked_at', null)
-      .is('yt_backfill_at', null)
-      .limit(batch)
-    if (data && data.length) return { phase: 'A', ids: data.map((r: any) => r.id) }
-  }
-  if (wantB) {
-    const { data } = await supabase
-      .from('tracks').select('id')
-      .is('video_url', null)
-      .is('youtube_searched_at', null)
-      .is('yt_backfill_at', null)
-      .not('title', 'is', null)
-      .not('artist_id', 'is', null)
-      .limit(batch)
-    if (data && data.length) return { phase: 'B', ids: data.map((r: any) => r.id) }
-  }
-  if (wantC) {
-    const { data } = await supabase
-      .from('tracks').select('id')
-      .not('video_url', 'is', null)
-      .is('video_uploaded_at', null)
-      .is('yt_backfill_at', null)
-      .limit(batch)
-    if (data && data.length) return { phase: 'C', ids: data.map((r: any) => r.id) }
-  }
-  return { phase: null, ids: [] }
+): Promise<Array<{ id: number; phase: Phase }>> {
+  const { data, error } = await supabase.rpc('pick_yt_backfill_batch', {
+    p_batch: batch,
+    p_phase: forcePhase ?? null,
+  })
+  if (error || !data) return []
+  return (data as any[]).map((r) => ({ id: r.t_id as number, phase: r.t_phase as Phase }))
 }
 
 export type BackfillRun = {
@@ -94,22 +69,23 @@ export async function runYtBackfill(opts: {
   const start = Date.now()
   const supabase = createAdminClient()
 
-  const sel = await selectPhase(supabase, batch, opts.phase ?? null)
-  if (!sel.phase) {
+  const rows = await pickBatch(supabase, batch, opts.phase ?? null)
+  if (!rows.length) {
     return { ok: true, phase: null, processed: 0, found: 0, errors: 0, ms: Date.now() - start, done: true, samples: [] }
   }
 
-  // Fazė C — tik datos backfill: praleidžiam Data API IR neperrašom views.
-  // A/B — irgi skipDataApi (taupom kvotą), bet views rašom (jų dar nėra).
-  const enrichOpts = sel.phase === 'C'
-    ? { skipDataApi: true, preserveViews: true }
-    : { skipDataApi: true }
-
   let processed = 0, found = 0, errors = 0
   const samples: BackfillRun['samples'] = []
+  const phasesSeen = new Set<Phase>()
 
-  for (const id of sel.ids) {
+  for (const { id, phase } of rows) {
     if (Date.now() - start > budgetMs) break
+    phasesSeen.add(phase)
+    // Fazė C — tik datos backfill: praleidžiam Data API IR neperrašom views.
+    // A/B — irgi skipDataApi (taupom kvotą), bet views rašom (jų dar nėra).
+    const enrichOpts = phase === 'C'
+      ? { skipDataApi: true, preserveViews: true }
+      : { skipDataApi: true }
     try {
       const r = await enrichTrack(id, true, enrichOpts)
       if (r.ok) {
@@ -133,18 +109,35 @@ export async function runYtBackfill(opts: {
     }
   }
 
-  return { ok: true, phase: sel.phase, processed, found, errors, ms: Date.now() - start, done: false, samples }
+  const phase = phasesSeen.size === 1 ? [...phasesSeen][0] : null
+  return { ok: true, phase, processed, found, errors, ms: Date.now() - start, done: false, samples }
 }
 
-/** Likučiai pagal fazes (rankiniam stebėjimui ?stats=1). */
-export async function backfillStats(): Promise<{ ok: true; remaining: { A: number | null; B: number | null; C: number | null } }> {
+/** Likučiai + progresas (stebėjimui ?stats=1 / admin puslapiui). */
+export async function backfillStats(): Promise<{
+  ok: true
+  remaining: { A: number | null; B: number | null; C: number | null }
+  processed: { total: number | null; recovered: number | null; dead: number | null }
+}> {
   const supabase = createAdminClient()
-  const a = await supabase.from('tracks').select('id', { count: 'exact', head: true })
-    .not('video_url', 'is', null).is('video_views_checked_at', null).is('yt_backfill_at', null)
-  const b = await supabase.from('tracks').select('id', { count: 'exact', head: true })
-    .is('video_url', null).is('youtube_searched_at', null).is('yt_backfill_at', null)
-    .not('title', 'is', null).not('artist_id', 'is', null)
-  const c = await supabase.from('tracks').select('id', { count: 'exact', head: true })
-    .not('video_url', 'is', null).is('video_uploaded_at', null).is('yt_backfill_at', null)
-  return { ok: true, remaining: { A: a.count ?? null, B: b.count ?? null, C: c.count ?? null } }
+  const cnt = (q: any) => q as Promise<{ count: number | null }>
+  const head = () => supabase.from('tracks').select('id', { count: 'exact', head: true })
+
+  const [a, b, c, total, recovered, dead] = await Promise.all([
+    cnt(head().not('video_url', 'is', null).is('video_views_checked_at', null).is('yt_backfill_at', null)),
+    cnt(head().is('video_url', null).is('youtube_searched_at', null).is('yt_backfill_at', null)
+      .not('title', 'is', null).not('artist_id', 'is', null)),
+    cnt(head().not('video_url', 'is', null).is('video_uploaded_at', null).is('yt_backfill_at', null)),
+    // Apdorota viso (turi backfill žymą)
+    cnt(head().not('yt_backfill_at', 'is', null)),
+    // Atkurta: apdorota IR turi views
+    cnt(head().not('yt_backfill_at', 'is', null).not('video_views', 'is', null)),
+    // Negyvi: apdorota, turi video_url, bet views taip ir liko tušti
+    cnt(head().not('yt_backfill_at', 'is', null).not('video_url', 'is', null).is('video_views', null)),
+  ])
+  return {
+    ok: true,
+    remaining: { A: a.count ?? null, B: b.count ?? null, C: c.count ?? null },
+    processed: { total: total.count ?? null, recovered: recovered.count ?? null, dead: dead.count ?? null },
+  }
 }

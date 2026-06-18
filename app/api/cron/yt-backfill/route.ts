@@ -13,15 +13,22 @@
  *   ?phase=A|B|C    — priverstinai konkreti fazė (default — auto prioritetas A→B→C)
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { runYtBackfill, backfillStats, type BackfillRun } from '@/lib/yt-backfill'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
+  // Auth: Bearer token (Vercel cron / rankinis) ARBA admin sesija (admin puslapis).
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
-  const ok = (process.env.CRON_SECRET && token === process.env.CRON_SECRET) ||
-             (process.env.INTERNAL_CRON_TOKEN && token === process.env.INTERNAL_CRON_TOKEN)
+  let ok = (process.env.CRON_SECRET && token === process.env.CRON_SECRET) ||
+           (process.env.INTERNAL_CRON_TOKEN && token === process.env.INTERNAL_CRON_TOKEN)
+  if (!ok) {
+    const session = await getServerSession(authOptions)
+    ok = !!session?.user && ['admin', 'super_admin'].includes((session.user.role as string) || '')
+  }
   if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const sp = req.nextUrl.searchParams

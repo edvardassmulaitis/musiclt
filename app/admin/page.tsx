@@ -286,6 +286,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/users', icon: '👥', label: 'Vartotojai' },
     { href: '/admin/settings', icon: '⚙️', label: 'Nustatymai' },
     { href: '/admin/db-stats', icon: '💾', label: 'DB stats', hint: 'Lentelių dydžiai, dead indexes, bloat' },
+    { href: '/admin/yt-backfill', icon: '🎞️', label: 'YouTube backfill', hint: 'Foninis YT info pildymas (views/data/embed) — progresas + prioritetai' },
   ]
 
   return (
