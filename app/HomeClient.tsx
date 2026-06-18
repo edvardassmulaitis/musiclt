@@ -2583,7 +2583,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
       const artistList = (ev.event_artists || [])
         .filter(ea => ea.artists?.name)
         .map(ea => ea.artists!.name)
-      // Festivaliams rodom festivalio pavadinimą (NE atlikėjų sąrašą); kitiems —
+      // Festivaliams rodom festivalio pavadinimą (rebuild) (NE atlikėjų sąrašą); kitiems —
       // atlikėjai (arba renginio title kaip fallback).
       const artistText = ev.is_festival
         ? sanitizeTitle(ev.title)
