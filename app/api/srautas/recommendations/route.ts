@@ -43,9 +43,15 @@ const albumDate = (y?: number | null, m?: number | null, d?: number | null) =>
   y ? `${y}-${String(m || 1).padStart(2, '0')}-${String(d || 1).padStart(2, '0')}T00:00:00.000Z` : null
 const one = (v: any) => (Array.isArray(v) ? v[0] : v)
 
-// Išvalo legacy diskusijų pavadinimų šiukšles: „R E M |232112" → „R E M".
+// Išvalo legacy diskusijų pavadinimų šiukšles iš seno forumo importo:
+// „R E M |232112" → „R E M"; „232112| Title" → „Title"; likę pavieniai „|".
 function cleanTitle(t?: string | null): string {
-  return (t || '').replace(/\s*\|\s*\d+\s*$/, '').replace(/\s{2,}/g, ' ').trim()
+  return (t || '')
+    .replace(/\s*\|\s*\d{3,}\s*$/g, '')
+    .replace(/^\s*\d{3,}\s*\|\s*/g, '')
+    .replace(/\s*\|\s*\d{3,}(?=\s|\|)/g, '')
+    .replace(/\s*\|\s*$/,'')
+    .replace(/\s{2,}/g, ' ').trim()
 }
 
 type RecItem = {

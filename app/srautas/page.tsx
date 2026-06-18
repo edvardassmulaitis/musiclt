@@ -20,7 +20,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, Suspense, type Mouse
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession, signIn } from 'next-auth/react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
 import { PageLoader } from '@/components/PageLoader'
 
@@ -176,7 +176,7 @@ function LikeButton({ entity, id, initial = false }: { entity: LikeEntity; id: n
 function FeedCard({ it, onDismiss, onOpenTrack, onWhy }: { it: FeedItem; onDismiss: (key: string) => void; onOpenTrack: (it: FeedItem) => void; onWhy: (it: FeedItem) => void }) {
   const isArtist = it.kind === 'artist'
   const initial = (it.title || '?').trim()[0]?.toUpperCase() || '?'
-  const when = it.kind === 'event' ? eventWhen(it.date) : timeAgo(it.date)
+  const when = it.kind === 'event' ? eventWhen(it.date) : it.kind === 'chart' ? '' : timeAgo(it.date)
   const likeEntity: LikeEntity | null =
     it.kind === 'artist' ? 'artist' : it.kind === 'track' ? 'track' : it.kind === 'album' ? 'album' : null
   const likeId = it.kind === 'artist' ? (it.artist?.id || 0) : idFromKey(it.key)
@@ -238,7 +238,7 @@ function FeedCard({ it, onDismiss, onOpenTrack, onWhy }: { it: FeedItem; onDismi
       <div className={`sr-cover${isArtist ? ' sr-cover--artist' : ''}`}>
         {it.image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(it.image)} alt="" loading="lazy" />
+          <img src={proxyImgResized(it.image, 480)} alt="" loading="lazy" />
         ) : (
           <span className="sr-cover-ph">{initial}</span>
         )}
@@ -255,7 +255,7 @@ function FeedCard({ it, onDismiss, onOpenTrack, onWhy }: { it: FeedItem; onDismi
           <span className="sr-sub-row">
             {!isArtist && it.avatar && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img className="sr-avatar" src={proxyImg(it.avatar)} alt="" loading="lazy" />
+              <img className="sr-avatar" src={proxyImgResized(it.avatar, 64)} alt="" loading="lazy" />
             )}
             {it.subtitle && <span className="sr-sub">{it.subtitle}</span>}
           </span>
@@ -607,7 +607,7 @@ function WhyModal({ it, onClose }: { it: FeedItem; onClose: () => void }) {
               <span className="sr-wm-art" key={i}>
                 {a.image
                   ? // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(a.image)} alt="" loading="lazy" />
+                    <img src={proxyImgResized(a.image, 96)} alt="" loading="lazy" />
                   : <span className="sr-wm-ph">{a.name.trim()[0]?.toUpperCase() || '?'}</span>}
                 <span>{a.name}</span>
               </span>

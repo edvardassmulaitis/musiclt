@@ -29,13 +29,26 @@ async function readAnonCookie(): Promise<string | null> {
   return isValidUuid(v) ? v : null
 }
 
+// SVARBU: pirmiausia naudojam session.user.id (== profiles.id), nes el. pašto
+// paieška `.eq('email')` buvo case-sensitive IR lūždavo (maybeSingle) esant
+// dublikatams → grąžindavo null → POST 500 → „like" atsispausdavo. ID paieška
+// patikima; email lieka tik fallback (ilike + limit 1).
 async function resolveProfile(
   sb: ReturnType<typeof createAdminClient>,
-  email: string,
+  session: any,
 ): Promise<{ id: string; username: string } | null> {
-  const { data } = await sb.from('profiles').select('id, username').eq('email', email).maybeSingle()
-  if (!data?.id) return null
-  return { id: data.id, username: data.username || `user_${String(data.id).slice(0, 8)}` }
+  const uid = session?.user?.id as string | undefined
+  if (uid) {
+    const { data } = await sb.from('profiles').select('id, username').eq('id', uid).maybeSingle()
+    if (data?.id) return { id: data.id, username: data.username || `user_${String(data.id).slice(0, 8)}` }
+  }
+  const email = session?.user?.email as string | undefined
+  if (email) {
+    const { data } = await sb.from('profiles').select('id, username')
+      .ilike('email', email.trim().toLowerCase()).order('created_at', { ascending: true }).limit(1).maybeSingle()
+    if (data?.id) return { id: data.id, username: data.username || `user_${String(data.id).slice(0, 8)}` }
+  }
+  return null
 }
 
 async function getTotalCount(
@@ -64,7 +77,7 @@ export async function GET(
   let anonymous = false
 
   if (session?.user?.email) {
-    const profile = await resolveProfile(sb, session.user.email)
+    const profile = await resolveProfile(sb, session)
     if (profile) {
       const { data } = await sb
         .from('likes')
@@ -108,7 +121,7 @@ export async function POST(
   const session = await getServerSession(authOptions)
 
   if (session?.user?.email) {
-    const profile = await resolveProfile(sb, session.user.email)
+    const profile = await resolveProfile(sb, session)
     if (!profile) {
       return jsonErr('Tavo profilis dar nesukurtas — atsijunk ir prisijunk iš naujo', 500)
     }

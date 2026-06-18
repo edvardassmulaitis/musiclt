@@ -82,9 +82,15 @@ const ymd = (y?: number | null, m?: number | null, d?: number | null) =>
 
 const one = (v: any) => (Array.isArray(v) ? v[0] : v)
 
-// Išvalo legacy diskusijų pavadinimų šiukšles: „R E M |232112" → „R E M".
+// Išvalo legacy diskusijų pavadinimų šiukšles iš seno forumo importo:
+// „R E M |232112" → „R E M"; „232112| Title" → „Title"; likę pavieniai „|".
 function cleanTitle(t?: string | null): string {
-  return (t || '').replace(/\s*\|\s*\d+\s*$/, '').replace(/\s{2,}/g, ' ').trim()
+  return (t || '')
+    .replace(/\s*\|\s*\d{3,}\s*$/g, '')   // trailing  | <legacy_id>
+    .replace(/^\s*\d{3,}\s*\|\s*/g, '')    // leading   <legacy_id> |
+    .replace(/\s*\|\s*\d{3,}(?=\s|\|)/g, '') // viduryje
+    .replace(/\s*\|\s*$/,'')                // likęs vienišas |
+    .replace(/\s{2,}/g, ' ').trim()
 }
 
 // Nario įrašo „vizualas" — kaip /bendruomene feede: jei nėra cover_image_url,
@@ -313,12 +319,13 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
           subtitle: `${artistName ? artistName + ' · ' : ''}#${e.position} · ${c.title}`,
           image: tr?.cover_url || ytThumb(tr?.video_url) || ar?.cover_image_url || e.cover_url || null,
           href: `/topai/${c.source}-${c.chart_key}`,
-          date: null, badge: 'Topas', artistId: aid, avatar: ar?.cover_image_url || null,
+          // nowIso → topai matomi srauto viršuje (current topai = švieži), ne nukišti į galą
+          date: nowIso, badge: 'Topas', artistId: aid, avatar: ar?.cover_image_url || null,
           artist: artistName ? { name: artistName, slug: null } : null,
         })
       }
     } catch { /* ignore */ }
-    return out
+    return out.slice(0, 6) // neapkraunam srauto viršaus topais
   }
 
   // ── DISKUSIJOS susietos su pamėgtais atlikėjais (tik 1-am psl, personalized) ──
@@ -539,7 +546,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v14'],
+  ['srautas-feed-v15'],
   { revalidate: 90 },
 )
 
