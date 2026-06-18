@@ -739,7 +739,20 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       let year: number | null = currentYear
       let month: number | null = null
       let day: number | null = null
-      const yrInLine = line.match(/\b((?:19|20)\d{2})\b/)
+      // 2026-06-18: metų extraction TIK iš title cell'o dalies PO pavadinimo.
+      // Anksčiau `line.match(/\b(19|20)\d{2}\b/)` imdavo BET KOKĮ metų skaičių
+      // eilutėje — įskaitant metų diapazoną PAČIAME pavadinime, pvz.
+      // „Papercuts (Singles Collection 2000–2023)" → 2000, „Studio Collection
+      // 2000–2012" → 2000. Tada `if (!year || year === currentYear)` sąlyga žemiau
+      // (release-date parse) prasprūsdavo (year=2000 ≠ currentYear=null), todėl
+      // tikroji „Released: April 12, 2024" data niekada nebūdavo nuskaitoma →
+      // 2024 m. rinktinė atsidurdavo 2000 m. tarp senų albumų (atrodė „neimportuota").
+      // Fix: nuvalom [[wikilink]] ir ''italic'' pavadinimą prieš ieškant metų —
+      // taip lieka tik realūs year-cell'ai (jei tokie yra toje pat eilutėje).
+      const lineSansTitle = line
+        .replace(/\[\[[^\]]*\]\]/g, '')
+        .replace(/'{2,3}[^']*'{2,3}/g, '')
+      const yrInLine = lineSansTitle.match(/\b((?:19|20)\d{2})\b/)
       if (yrInLine) {
         year = parseInt(yrInLine[1])
       }
