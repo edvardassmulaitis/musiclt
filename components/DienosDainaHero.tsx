@@ -30,7 +30,8 @@ function extractYouTubeId(url?: string | null): string | null {
   return m?.[1] || null
 }
 function uname(a?: { username?: string | null; full_name?: string | null } | null): string {
-  return a?.username || a?.full_name || 'narys'
+  const n = (a?.username || a?.full_name || 'narys').trim()
+  return n ? n.charAt(0).toUpperCase() + n.slice(1) : 'narys'
 }
 function Ic({ d, size = 14, filled = false }: { d: string; size?: number; filled?: boolean }) {
   return (
@@ -360,45 +361,48 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
       </div>
 
       {/* lyderis */}
-      <div className="relative flex flex-wrap items-center gap-5 px-5 pb-4 pt-3 sm:px-6 sm:pt-5">
+      <div className="relative px-5 pb-4 pt-3 sm:px-6 sm:pt-5">
         {leader ? (
           <>
-            <button type="button" onClick={() => openTrack(leader.tracks!)} className="group relative shrink-0 cursor-pointer border-0 bg-transparent p-0">
-              <div className="relative h-[120px] w-[120px] overflow-hidden rounded-[14px] shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:h-[140px] sm:w-[140px]">
-                {leaderImg ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(leaderImg)} alt="" onError={ytFallback} className="h-full w-full object-cover" />
-                ) : <div className="h-full w-full" style={{ background: `hsl(${hue(leader.tracks!.title)},30%,18%)` }} />}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity group-hover:opacity-100">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)]"><Ic d={I.play} size={18} filled /></span>
+            {/* „DIENOS DAINA" + countdown — visada VIRŠ #1 vizualo (#1) */}
+            <div className="flex items-center gap-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
+              <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-bold normal-case tracking-normal text-[#8ea8c4]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-5">
+              <button type="button" onClick={() => openTrack(leader.tracks!)} className="group relative shrink-0 cursor-pointer border-0 bg-transparent p-0">
+                <div className="relative h-[120px] w-[120px] overflow-hidden rounded-[14px] shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:h-[140px] sm:w-[140px]">
+                  {leaderImg ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(leaderImg)} alt="" onError={ytFallback} className="h-full w-full object-cover" />
+                  ) : <div className="h-full w-full" style={{ background: `hsl(${hue(leader.tracks!.title)},30%,18%)` }} />}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)]"><Ic d={I.play} size={18} filled /></span>
+                  </div>
                 </div>
-              </div>
-              <span className="absolute -left-2 -top-2 rounded-[9px] bg-[var(--accent-orange)] px-2 py-1 font-['Outfit',sans-serif] text-[12px] font-black text-white shadow-[0_6px_16px_rgba(249,115,22,0.45)]">#1</span>
-            </button>
-            <div className="min-w-[220px] flex-1">
-              <div className="flex items-center gap-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
-                <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-bold normal-case tracking-normal text-[#8ea8c4]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
-              </div>
-              <h2 className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[24px] font-black leading-[1.08] tracking-[-0.02em] text-[#f0f4fc] sm:text-[28px]">{sani(leader.tracks!.title)}</h2>
-              <p className="m-0 mt-0.5 text-[14.5px] font-semibold text-[#aec4dd]">{leader.tracks!.artists?.name}</p>
-              {leader.comment && <p className="m-0 mt-2 line-clamp-2 text-[12.5px] italic leading-snug text-[#aec4dd]">„{leader.comment}"</p>}
-              {leader.proposer && (
-                <div className="mt-2 flex items-center gap-2 text-[12px] text-[#8ea8c4]">
-                  <Avatar src={leader.proposer.avatar_url} name={uname(leader.proposer)} size={20} />
-                  siūlo <b className="font-semibold text-[#f0f4fc]">{uname(leader.proposer)}</b>
-                </div>
-              )}
-              <div className="mt-3 flex items-center gap-3">
-                <PopBar level={Math.max(1, Math.round(((leader.weighted_votes || leader.votes || 0) / maxVotes) * 5))} onDark />
-                {!leader.own && (
-                  <button type="button" onClick={() => handleVote(leader.id)} disabled={votedIds.has(leader.id) || voting !== null}
-                    className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold transition-colors ${
-                      votedIds.has(leader.id) ? 'border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[#fdba74]' : 'border-[rgba(255,255,255,0.25)] text-[#aec4dd] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'
-                    }`}>
-                    <Ic d={I.heart} size={12} filled={votedIds.has(leader.id)} /> {voting === leader.id ? '…' : votedIds.has(leader.id) ? 'Balsuota' : 'Balsuok'}
-                  </button>
+                <span className="absolute -left-2 -top-2 rounded-[9px] bg-[var(--accent-orange)] px-2 py-1 font-['Outfit',sans-serif] text-[12px] font-black text-white shadow-[0_6px_16px_rgba(249,115,22,0.45)]">#1</span>
+              </button>
+              <div className="min-w-[220px] flex-1">
+                <h2 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[24px] font-black leading-[1.08] tracking-[-0.02em] text-[#f0f4fc] sm:text-[28px]">{sani(leader.tracks!.title)}</h2>
+                <p className="m-0 mt-0.5 text-[14.5px] font-semibold text-[#aec4dd]">{leader.tracks!.artists?.name}</p>
+                {leader.comment && <p className="m-0 mt-2 line-clamp-2 text-[12.5px] italic leading-snug text-[#aec4dd]">„{leader.comment}"</p>}
+                {leader.proposer && (
+                  <div className="mt-2 flex items-center gap-2 text-[12px] text-[#8ea8c4]">
+                    <Avatar src={leader.proposer.avatar_url} name={uname(leader.proposer)} size={20} />
+                    <b className="font-semibold text-[#f0f4fc]">{uname(leader.proposer)}</b>
+                  </div>
                 )}
+                <div className="mt-3 flex items-center gap-3">
+                  <PopBar level={Math.max(1, Math.round(((leader.weighted_votes || leader.votes || 0) / maxVotes) * 5))} onDark />
+                  {!leader.own && (
+                    <button type="button" onClick={() => handleVote(leader.id)} disabled={votedIds.has(leader.id) || voting !== null}
+                      className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold transition-colors ${
+                        votedIds.has(leader.id) ? 'border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[#fdba74]' : 'border-[rgba(255,255,255,0.25)] text-[#aec4dd] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'
+                      }`}>
+                      <Ic d={I.heart} size={12} filled={votedIds.has(leader.id)} /> {voting === leader.id ? '…' : votedIds.has(leader.id) ? 'Balsuota' : 'Balsuok'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </>

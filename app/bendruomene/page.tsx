@@ -50,8 +50,13 @@ function extractYouTubeId(url?: string | null): string | null {
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?\s]{11})/)
   return m?.[1] || null
 }
+// Pirmąją raidę į didžiąją (username DB'e dažnai mažosiomis: edas → Edas).
+function capName(s?: string | null): string {
+  const n = (s || '').trim()
+  return n ? n.charAt(0).toUpperCase() + n.slice(1) : ''
+}
 function uname(a?: { username?: string | null; full_name?: string | null } | null): string {
-  return a?.username || a?.full_name || 'narys'
+  return capName(a?.username || a?.full_name || 'narys')
 }
 
 // ───────────────────────── inline ikonos (be lucide!) ─────────────────────────
@@ -121,7 +126,7 @@ type Diskusija = {
   featured_until?: string | null
 }
 type Atradimas = {
-  id: number; artist_name: string | null; track_name: string | null; body: string | null
+  id: number; comment_id?: number | null; artist_name: string | null; track_name: string | null; body: string | null
   embed_type: string | null; embed_id: string | null; artist_cover: string | null
   like_count: number | null; created_at: string | null; featured_until?: string | null
   author: { username: string | null; full_name: string | null; avatar_url: string | null } | null
@@ -205,8 +210,31 @@ function Stats({ likes, comments }: { likes?: number | null; comments?: number |
 // ───────────────────────── Atradimo modalas (#18) ─────────────────────────
 function DiscoveryModal({ a, onClose }: { a: Atradimas; onClose: () => void }) {
   const body = sani(a.body)
+  const title = `${a.artist_name || 'Atradimas'}${a.track_name ? ` - ${a.track_name}` : ''}`
+  const [liked, setLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(a.like_count || 0)
+  const [busy, setBusy] = useState(false)
+  const toggleLike = async () => {
+    if (busy || !a.comment_id) return
+    setBusy(true)
+    try {
+      const r = await fetch('/api/comments/likes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comment_id: a.comment_id }) })
+      const d = await r.json().catch(() => ({}))
+      if (r.ok) { setLiked(!!d.liked); setLikeCount(c => (d.liked ? c + 1 : Math.max(0, c - 1))) }
+      else if (r.status === 401) window.location.href = '/auth/signin'
+    } catch {}
+    setBusy(false)
+  }
   return (
-    <HomeListModal open onClose={onClose} title={`${a.artist_name || 'Atradimas'}${a.track_name ? ` — ${a.track_name}` : ''}`} subtitle={a.author ? `dalinasi ${uname(a.author)}` : null}>
+    <HomeListModal open onClose={onClose} title="Muzikos atradimas" subtitle={null}>
+      {/* autorius viršuje (avataras + username) */}
+      <div className="mb-3 flex items-center gap-2">
+        <Avatar src={a.author?.avatar_url} name={uname(a.author)} size={28} />
+        <span className="text-[12.5px] font-bold text-[var(--text-secondary)]">{uname(a.author)}</span>
+        {timeAgo(a.created_at) && <span className="text-[11px] text-[var(--text-faint)]">· {timeAgo(a.created_at)}</span>}
+      </div>
+      {/* pilnas pavadinimas (nenukerpamas) */}
+      <h2 className="m-0 mb-3 font-['Outfit',sans-serif] text-[19px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)]">{title}</h2>
       {a.embed_type === 'youtube' && a.embed_id ? (
         <div className="overflow-hidden rounded-xl border border-[var(--border-default)]" style={{ aspectRatio: '16/9' }}>
           <iframe src={`https://www.youtube.com/embed/${a.embed_id}`} title="YouTube" className="h-full w-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
@@ -218,12 +246,13 @@ function DiscoveryModal({ a, onClose }: { a: Atradimas; onClose: () => void }) {
         <img src={discThumb(a)!} alt="" className="w-full rounded-xl object-cover" style={{ maxHeight: 280 }} />
       ) : null}
       {body && <p className="m-0 mt-4 whitespace-pre-line text-[13.5px] leading-relaxed text-[var(--text-secondary)]">{body}</p>}
-      <div className="mt-4 flex items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
-        <Avatar src={a.author?.avatar_url} name={uname(a.author)} size={24} />
-        <span className="text-[12.5px] font-semibold text-[var(--text-secondary)]">{uname(a.author)}</span>
-        {timeAgo(a.created_at) && <span className="text-[11px] text-[var(--text-faint)]">· {timeAgo(a.created_at)}</span>}
-        {(a.like_count ?? 0) > 0 && <span className="flex items-center gap-1 text-[11.5px] text-[var(--text-muted)]"><Ic d={I.heart} size={12} /> {a.like_count}</span>}
-        <Link href={`/muzikos-atradimai/${a.id}`} className="ml-auto shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline">Atsakymai ir daugiau →</Link>
+      {/* apačia: tik patinka + Daugiau */}
+      <div className="mt-4 flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3">
+        <button type="button" onClick={toggleLike} disabled={busy || !a.comment_id}
+          className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 font-['Outfit',sans-serif] text-[12.5px] font-bold transition-colors disabled:opacity-50 ${liked ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.12)] text-[var(--accent-orange)]' : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'}`}>
+          <Ic d={I.heart} size={14} filled={liked} /> {likeCount > 0 ? likeCount : 'Patinka'}
+        </button>
+        <Link href={`/muzikos-atradimai/${a.id}`} className="ml-auto shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline">Daugiau →</Link>
       </div>
     </HomeListModal>
   )
@@ -353,7 +382,7 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
       <FeatTextPanel>
         <FeatLabel />
         <h2 className="relative m-0 mt-3 line-clamp-2 font-['Outfit',sans-serif] text-[21px] font-black leading-[1.15] tracking-[-0.02em] text-[#f0f4fc] sm:text-[24px]">
-          {a.artist_name || 'Atradimas'}{a.track_name ? ` — ${a.track_name}` : ''}
+          {a.artist_name || 'Atradimas'}{a.track_name ? ` - ${a.track_name}` : ''}
         </h2>
         {quote && <p className="relative m-0 mt-2.5 line-clamp-3 text-[13.5px] italic leading-relaxed text-[#aec4dd]">„{quote.length > 240 ? quote.slice(0, 240).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
         <div className="relative mt-4 flex items-center gap-2.5">
@@ -474,7 +503,7 @@ function FeaturedSlider() {
       chip: 'atradimas',
       chipBg: '#f97316',
       chipLabel: undefined as string | undefined,
-      title: a.artist_name ? `${a.artist_name}${a.track_name ? ` — ${a.track_name}` : ''}` : 'Atradimas',
+      title: a.artist_name ? `${a.artist_name}${a.track_name ? ` - ${a.track_name}` : ''}` : 'Atradimas',
       author: uname(a.author),
       avatar: a.author?.avatar_url,
       time: timeAgo(a.created_at),
@@ -670,7 +699,7 @@ const ACT_VERB: Record<string, string> = {
 
 // Veiklos eilutė su entity mini vizualu (#9).
 function ActRow({ e }: { e: any }) {
-  const name = e.actor_name || 'narys'
+  const name = capName(e.actor_username || e.actor_name) || 'narys'
   return (
     <div className="flex items-start gap-2.5 border-b border-[var(--border-subtle)] py-2 last:border-b-0">
       <Avatar src={e.actor_avatar} name={name} size={26} />
@@ -679,8 +708,8 @@ function ActRow({ e }: { e: any }) {
           <b className="font-semibold text-[var(--text-primary)]">{name}</b> {ACT_VERB[e.event_type] || 'atnaujino'}
           {e.entity_title ? (
             e.entity_url
-              ? <> <Link href={e.entity_url} className="font-semibold text-[#e8913d] no-underline hover:underline">{sani(e.entity_title)}</Link></>
-              : <> <span className="font-semibold text-[#e8913d]">{sani(e.entity_title)}</span></>
+              ? <> <Link href={e.entity_url} className="font-semibold text-[#e8913d] no-underline hover:underline">{sani(e.entity_title).replace(/\s*—\s*/g, ' - ')}</Link></>
+              : <> <span className="font-semibold text-[#e8913d]">{sani(e.entity_title).replace(/\s*—\s*/g, ' - ')}</span></>
           ) : null}
         </p>
         <span className="text-[10px] text-[var(--text-faint)]">{timeAgo(e.created_at)}</span>
@@ -760,7 +789,7 @@ function HappeningArea() {
               <Avatar src={ev0.actor_avatar} name={ev0.actor_name || 'narys'} size={26} />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="line-clamp-3 text-[12px] leading-snug text-[var(--text-secondary)]">
-                  <b className="font-semibold text-[var(--text-primary)]">{ev0.actor_name || 'narys'}</b> {ACT_VERB[ev0.event_type] || 'atnaujino'}{ev0.entity_title ? <> <span className="font-semibold text-[var(--text-secondary)]">{sani(ev0.entity_title)}</span></> : null}
+                  <b className="font-semibold text-[var(--text-primary)]">{capName(ev0.actor_username || ev0.actor_name) || 'narys'}</b> {ACT_VERB[ev0.event_type] || 'atnaujino'}{ev0.entity_title ? <> <span className="font-semibold text-[var(--text-secondary)]">{sani(ev0.entity_title).replace(/\s*—\s*/g, ' - ')}</span></> : null}
                 </span>
                 <span className="text-[10px] text-[var(--text-faint)]">{timeAgo(ev0.created_at) || 'ką tik'}</span>
               </span>
@@ -1002,7 +1031,7 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
       <div className={ROW_PAD}>
         <KindBadge kind="atradimas" abs={false} />
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
-          {a.artist_name || 'Atradimas'}{a.track_name ? ` — ${a.track_name}` : ''}
+          {a.artist_name || 'Atradimas'}{a.track_name ? ` - ${a.track_name}` : ''}
         </h3>
         {quote && <p className="m-0 mt-1.5 line-clamp-[7] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">{quote.length > 520 ? quote.slice(0, 520).replace(/\s+\S*$/, '') + '…' : quote}</p>}
         <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
@@ -1095,7 +1124,11 @@ function PulsasSection() {
       setPostsHasMore(!!f.hasMore)
       offsetRef.current = (f.posts || []).length
       // #5: nerodom diskusijų be jokio teksto (be komentaro turinio).
-      setDiscs((d.items || []).filter((x: Diskusija) => !!(x.latest_comment?.excerpt || (x.latest_comments && x.latest_comments[0]?.excerpt))))
+      // #6: nerodom „Šviežiausi muzikiniai atradimai" gijos — perkelta į atskirą Atradimų skiltį.
+      setDiscs((d.items || []).filter((x: Diskusija) =>
+        !!(x.latest_comment?.excerpt || (x.latest_comments && x.latest_comments[0]?.excerpt)) &&
+        !/švie[žz]iausi.*atradim|muzikini[ai].*atradim/i.test(x.title || '')
+      ))
       setAtrads(a.items || [])
     })
     return () => { on = false }
@@ -1107,7 +1140,8 @@ function PulsasSection() {
       const r = await fetch(`/api/atradimai/feed?nodedup=1&exclude_type=creation,translation,quick&limit=30&offset=${offsetRef.current}`).then(res => res.json())
       const next: FeedPost[] = r.posts || []
       setPosts(prev => [...(prev || []), ...next])
-      setPostsHasMore(!!r.hasMore)
+      // #8: jei API nieko negrąžino — tikrai pabaiga, slepiam „Rodyti daugiau".
+      setPostsHasMore(next.length > 0 && !!r.hasMore)
       offsetRef.current += next.length
     } catch {}
     setLoadingMore(false)
@@ -1390,12 +1424,8 @@ function NariaiSection() {
                 {m.isNew && <span title="Naujas narys" className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--card-bg)] bg-[#22c55e]" />}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{m.username}</p>
-                {m.isNew ? (
-                  <p className="m-0 text-[9.5px] font-bold uppercase tracking-[0.08em] text-[#22c55e]">naujas narys</p>
-                ) : m.headline ? (
-                  <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{m.headline}</p>
-                ) : null}
+                <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{capName(m.username)}</p>
+                {m.isNew && <p className="m-0 text-[9.5px] font-bold uppercase tracking-[0.08em] text-[#22c55e]">naujas narys</p>}
               </div>
             </div>
             {/* Mėgstamiausi atlikėjai — vienodo dydžio 3 stulpelių tinklelis (iki 6). */}

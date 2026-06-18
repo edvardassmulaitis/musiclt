@@ -12,10 +12,17 @@ import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 
 type Ev = {
-  id: string; event_type: string; actor_name: string | null; actor_avatar: string | null
+  id: string; event_type: string; actor_name: string | null; actor_username?: string | null; actor_avatar: string | null
   entity_type: string | null; entity_title: string | null; entity_url: string | null
   entity_image?: string | null; created_at: string; metadata?: any
 }
+
+// username pirmenybė (ne pilnas vardas) + pirmoji raidė didžioji (edas → Edas).
+function actorName(e: Ev): string {
+  const n = (e.actor_username || e.actor_name || 'Narys').trim()
+  return n ? n.charAt(0).toUpperCase() + n.slice(1) : 'Narys'
+}
+function dashFix(s: string): string { return s.replace(/\s*—\s*/g, ' - ') }
 
 function timeAgoShort(d: string): string {
   const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000)
@@ -52,7 +59,7 @@ const VERB: Record<string, string> = {
 function verbFor(t: string): string { return VERB[t] || 'atnaujino' }
 
 function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
-  const name = e.actor_name || 'Vartotojas'
+  const name = actorName(e)
   const verb = verbFor(e.event_type)
   // top_vote — rodom konkretų topą („LT TOP 30" / „TOP 40") su nuoroda į jį,
   // o NE dainos pavadinimą. Anksčiau buvo „balsavo topų balsavime už <daina>"
@@ -79,8 +86,8 @@ function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
             <> <Link href={topUrl} className="font-bold text-[var(--accent-link)] no-underline hover:underline">{topLabel}</Link></>
           ) : e.entity_title ? (
             e.entity_url
-              ? <> <Link href={e.entity_url} className="font-bold text-[var(--accent-link)] no-underline hover:underline">{e.entity_title}</Link></>
-              : <> <span className="font-bold text-[var(--text-primary)]">{e.entity_title}</span></>
+              ? <> <Link href={e.entity_url} className="font-bold text-[var(--accent-link)] no-underline hover:underline">{dashFix(e.entity_title)}</Link></>
+              : <> <span className="font-bold text-[var(--text-primary)]">{dashFix(e.entity_title)}</span></>
           ) : null}
         </p>
         <p className="m-0 mt-0.5 text-[9.5px] text-[var(--text-faint)]">{timeAgoShort(e.created_at)}</p>
@@ -149,7 +156,7 @@ export function ActivityModal({ events, onClose }: { events: Ev[]; onClose: () =
 // Tas pats „Kas vyksta" srautas, bet horizontalia kortele — vientisas stilius su
 // kitomis /atrasti eilėmis. h=86px (= ScrollRow/StickyMoreButton aukštis).
 export function ActivityCard({ e }: { e: Ev }) {
-  const name = e.actor_name || 'Vartotojas'
+  const name = actorName(e)
   const verb = verbFor(e.event_type)
   const isTopVote = e.event_type === 'top_vote'
   const topIsLt = e.metadata?.top_type === 'lt_top30'
@@ -178,7 +185,7 @@ export function ActivityCard({ e }: { e: Ev }) {
         )}
       </div>
       <p className="m-0 mt-2 line-clamp-3 text-[12.5px] leading-snug text-[var(--text-muted)]">
-        {verb}{entityTitle ? <> <span className="font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[#22c55e]">{entityTitle}</span></> : null}
+        {verb}{entityTitle ? <> <span className="font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[#22c55e]">{dashFix(entityTitle)}</span></> : null}
       </p>
     </>
   )

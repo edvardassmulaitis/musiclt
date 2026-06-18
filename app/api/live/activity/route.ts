@@ -124,5 +124,17 @@ export async function GET(req: Request) {
     } catch {}
   }
 
+  // ── Username resolve: „Kas vyksta" visada rodom username (ne pilną vardą iš
+  //    Google login'o). actor_name liekam kaip fallback. ──
+  try {
+    const uids = [...new Set(rows.map(r => r.user_id).filter(Boolean))]
+    if (uids.length) {
+      const { data: profs } = await supabase.from('profiles').select('id, username').in('id', uids)
+      const unameById = new Map<string, string>()
+      for (const p of (profs || []) as any[]) if (p.username) unameById.set(p.id, p.username)
+      for (const r of rows) r.actor_username = (r.user_id && unameById.get(r.user_id)) || null
+    }
+  } catch {}
+
   return NextResponse.json({ events: rows })
 }

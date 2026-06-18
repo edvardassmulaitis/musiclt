@@ -56,7 +56,7 @@ const SELECT =
   'id, comment_id, created_at, author_id, artist_name, artist_id, track_name, track_id, ' +
   'album_name, album_id, embed_type, embed_id, resolve_state, is_lt, source, body, featured_until, ' +
   'comments:comment_id(body, like_count), ' +
-  'artists:artist_id(slug, name, cover_image_url), tracks:track_id(slug, title), albums:album_id(slug, title)'
+  'artists:artist_id(slug, name, cover_image_url), tracks:track_id(slug, title, artists:artist_id(name, slug, cover_image_url)), albums:album_id(slug, title)'
 
 async function attachTagsAndAuthors(sb: any, rows: any[]): Promise<Discovery[]> {
   if (rows.length === 0) return []
@@ -103,10 +103,11 @@ async function attachTagsAndAuthors(sb: any, rows: any[]): Promise<Discovery[]> 
       body: r.comments?.body ?? r.body ?? null,
       like_count: Math.max(r.comments?.like_count ?? 0, r.comment_id ? (likeCountMap.get(r.comment_id) || 0) : 0),
       author: prof ? { username: prof.username, full_name: prof.full_name, avatar_url: prof.avatar_url } : null,
-      artist_name: r.artist_name ?? r.artists?.name ?? null,
+      // Jei tiesioginio artist_id nėra, bet priskirtas realus track — imam to track'o atlikėją (#7).
+      artist_name: r.artist_name ?? r.artists?.name ?? r.tracks?.artists?.name ?? null,
       artist_id: r.artist_id,
-      artist_slug: r.artists?.slug ?? null,
-      artist_cover: r.artists?.cover_image_url ?? null,
+      artist_slug: r.artists?.slug ?? r.tracks?.artists?.slug ?? null,
+      artist_cover: r.artists?.cover_image_url ?? r.tracks?.artists?.cover_image_url ?? null,
       artist_styles: r.artist_id ? (styleMap.get(r.artist_id) || []) : [],
       track_name: r.track_name ?? r.tracks?.title ?? null,
       track_id: r.track_id,
