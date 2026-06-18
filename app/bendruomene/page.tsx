@@ -27,6 +27,8 @@ import { proxyImg } from '@/lib/img-proxy'
 import { useActivity, ActivityModal } from '@/components/ActivityWidget'
 import { HomeListModal } from '@/components/HomeListModal'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
+import { LikePill } from '@/components/LikePill'
+import LikesModal, { type LikeUser } from '@/components/LikesModal'
 
 // ───────────────────────── helpers ─────────────────────────
 function timeAgo(d?: string | null) {
@@ -214,47 +216,67 @@ function DiscoveryModal({ a, onClose }: { a: Atradimas; onClose: () => void }) {
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(a.like_count || 0)
   const [busy, setBusy] = useState(false)
+  const [likersOpen, setLikersOpen] = useState(false)
+  const [likers, setLikers] = useState<LikeUser[]>([])
+  const [likersLoading, setLikersLoading] = useState(false)
+
+  // pradinis „ar aš jau pamėgau" — kad širdis rodytų realią būseną (kaip dainos psl.)
+  useEffect(() => {
+    if (!a.comment_id) return
+    let on = true
+    fetch(`/api/comments/likes?ids=${a.comment_id}`).then(r => r.json()).then(d => {
+      if (on && Array.isArray(d.liked_ids)) setLiked(d.liked_ids.includes(a.comment_id))
+    }).catch(() => {})
+    return () => { on = false }
+  }, [a.comment_id])
+
   const toggleLike = async () => {
     if (busy || !a.comment_id) return
     setBusy(true)
     try {
       const r = await fetch('/api/comments/likes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comment_id: a.comment_id }) })
       const d = await r.json().catch(() => ({}))
-      if (r.ok) { setLiked(!!d.liked); setLikeCount(c => (d.liked ? c + 1 : Math.max(0, c - 1))) }
+      if (r.ok) { setLiked(!!d.liked); setLikeCount(c => Math.max(0, c + (d.liked ? 1 : -1))) }
       else if (r.status === 401) window.location.href = '/auth/signin'
     } catch {}
     setBusy(false)
   }
+
+  const openLikers = async () => {
+    if (!a.comment_id) return
+    setLikersOpen(true); setLikersLoading(true)
+    try {
+      const d = await fetch(`/api/comments/likes?likers=${a.comment_id}`).then(r => r.json())
+      setLikers(d.users || [])
+    } catch {}
+    setLikersLoading(false)
+  }
+
   return (
-    <HomeListModal open onClose={onClose} title="Muzikos atradimas" subtitle={null}>
-      {/* autorius viršuje (avataras + username) */}
-      <div className="mb-3 flex items-center gap-2">
-        <Avatar src={a.author?.avatar_url} name={uname(a.author)} size={28} />
-        <span className="text-[12.5px] font-bold text-[var(--text-secondary)]">{uname(a.author)}</span>
-        {timeAgo(a.created_at) && <span className="text-[11px] text-[var(--text-faint)]">· {timeAgo(a.created_at)}</span>}
-      </div>
-      {/* pilnas pavadinimas (nenukerpamas) */}
-      <h2 className="m-0 mb-3 font-['Outfit',sans-serif] text-[19px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)]">{title}</h2>
-      {a.embed_type === 'youtube' && a.embed_id ? (
-        <div className="overflow-hidden rounded-xl border border-[var(--border-default)]" style={{ aspectRatio: '16/9' }}>
-          <iframe src={`https://www.youtube.com/embed/${a.embed_id}`} title="YouTube" className="h-full w-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+    <>
+      <HomeListModal open onClose={onClose} title={title} subtitle={a.author ? `dalinasi ${uname(a.author)}` : null}>
+        {a.embed_type === 'youtube' && a.embed_id ? (
+          <div className="overflow-hidden rounded-xl border border-[var(--border-default)]" style={{ aspectRatio: '16/9' }}>
+            <iframe src={`https://www.youtube.com/embed/${a.embed_id}`} title="YouTube" className="h-full w-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+          </div>
+        ) : a.embed_type === 'spotify' && a.embed_id ? (
+          <iframe src={`https://open.spotify.com/embed/track/${a.embed_id}`} title="Spotify" className="w-full rounded-xl border-0" height={152} allow="encrypted-media" />
+        ) : discThumb(a) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={discThumb(a)!} alt="" className="w-full rounded-xl object-cover" style={{ maxHeight: 280 }} />
+        ) : null}
+        {body && <p className="m-0 mt-4 whitespace-pre-line text-[13.5px] leading-relaxed text-[var(--text-secondary)]">{body}</p>}
+        {/* apačia: dviejų zonų „patinka" (širdis + skaičius → kas pamėgo) + Daugiau */}
+        <div className="mt-4 flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3">
+          <LikePill likes={likeCount} selfLiked={liked} onToggle={toggleLike} onOpenModal={openLikers} pending={busy} variant="surface" />
+          <Link href={`/muzikos-atradimai/${a.id}`} className="ml-auto shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline">Daugiau →</Link>
         </div>
-      ) : a.embed_type === 'spotify' && a.embed_id ? (
-        <iframe src={`https://open.spotify.com/embed/track/${a.embed_id}`} title="Spotify" className="w-full rounded-xl border-0" height={152} allow="encrypted-media" />
-      ) : discThumb(a) ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={discThumb(a)!} alt="" className="w-full rounded-xl object-cover" style={{ maxHeight: 280 }} />
-      ) : null}
-      {body && <p className="m-0 mt-4 whitespace-pre-line text-[13.5px] leading-relaxed text-[var(--text-secondary)]">{body}</p>}
-      {/* apačia: tik patinka + Daugiau */}
-      <div className="mt-4 flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3">
-        <button type="button" onClick={toggleLike} disabled={busy || !a.comment_id}
-          className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 font-['Outfit',sans-serif] text-[12.5px] font-bold transition-colors disabled:opacity-50 ${liked ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.12)] text-[var(--accent-orange)]' : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'}`}>
-          <Ic d={I.heart} size={14} filled={liked} /> {likeCount > 0 ? likeCount : 'Patinka'}
-        </button>
-        <Link href={`/muzikos-atradimai/${a.id}`} className="ml-auto shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline">Daugiau →</Link>
-      </div>
-    </HomeListModal>
+      </HomeListModal>
+      {likersOpen && (
+        <LikesModal open onClose={() => setLikersOpen(false)} title={title} count={likeCount} users={likers} loading={likersLoading}
+          subjectName={title} selfLiked={liked} onToggleSelfLike={toggleLike} selfLikePending={busy} />
+      )}
+    </>
   )
 }
 
@@ -932,9 +954,7 @@ function TopEntryTile({ e, big = false }: { e: ListEntry; big?: boolean }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={proxyImg(e.image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
       ) : <div className="absolute inset-0" style={{ background: `hsl(${hue(e.title)},30%,20%)` }} />}
-      {/* #1 oranžinis, kiti VIENODAS pilkas (opaque — kad neprasišviestų viršelio
-          spalva, anksčiau pusiau permatomas juodas „nusispalvindavo" pagal kortelę). */}
-      <span className={`absolute left-1.5 top-1.5 flex items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] font-black text-white ${big ? 'h-[26px] min-w-[26px] text-[15px]' : 'h-[20px] min-w-[20px] text-[11px]'}`} style={{ background: e.rank === 1 ? 'var(--accent-orange)' : 'rgba(51,57,68,0.96)' }}>{e.rank}</span>
+      <span className={`absolute left-1.5 top-1.5 flex items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] font-black ${big ? 'h-[26px] min-w-[26px] text-[15px]' : 'h-[20px] min-w-[20px] text-[11px]'} ${e.rank === 1 ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/65 text-white'}`}>{e.rank}</span>
       {big && (
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-5">
           <p className="m-0 truncate text-[12.5px] font-bold leading-tight text-white">{sani(e.title)}</p>
@@ -967,16 +987,16 @@ function PostTopasRowCard({ p }: { p: FeedPost }) {
                 </div>
               ))}
             </div>
-            {/* Desktop: eilė tilių su pavadinimais; #1 šiek tiek didesnis. */}
-            <div className="mt-2.5 hidden flex-wrap items-start gap-3 sm:flex">
-              {entries.map((e, i) => (
-                <div key={e.rank} className={`flex flex-col gap-1.5 ${i === 0 ? 'w-[148px]' : 'w-[112px]'}`}>
+            {/* Desktop: eilė tilių su pavadinimais. */}
+            <div className="mt-2.5 hidden flex-wrap gap-3 sm:flex">
+              {entries.map(e => (
+                <div key={e.rank} className="flex w-[112px] flex-col gap-1.5">
                   <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
                     <TopEntryTile e={e} />
                   </div>
                   <div className="min-w-0">
-                    <p className={`m-0 truncate font-bold leading-tight text-[var(--text-primary)] ${i === 0 ? 'text-[13.5px]' : 'text-[12px]'}`}>{sani(e.title)}</p>
-                    {e.artist && <p className={`m-0 truncate text-[var(--text-muted)] ${i === 0 ? 'text-[11.5px]' : 'text-[10.5px]'}`}>{e.artist}</p>}
+                    <p className="m-0 truncate text-[12px] font-bold leading-tight text-[var(--text-primary)]">{sani(e.title)}</p>
+                    {e.artist && <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{e.artist}</p>}
                   </div>
                 </div>
               ))}
@@ -1035,9 +1055,7 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` - ${a.track_name}` : ''}
         </h3>
-        {/* Tekstas užpildo visą kortelės aukštį (flex-1), kerpamas tik jei netelpa
-            (overflow), kad nebūtų didelio tarpo / per ankstyvo nutrūkimo. */}
-        {quote && <p className="m-0 mt-1.5 flex-1 overflow-hidden text-[13px] leading-relaxed text-[var(--text-secondary)]">{quote.length > 1200 ? quote.slice(0, 1200).replace(/\s+\S*$/, '') + '…' : quote}</p>}
+        {quote && <p className="m-0 mt-1.5 line-clamp-4 text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">{quote.length > 340 ? quote.slice(0, 340).replace(/\s+\S*$/, '') + '…' : quote}</p>}
         <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
       </div>
     </button>
@@ -1138,17 +1156,17 @@ function PulsasSection() {
     return () => { on = false }
   }, [])
 
-  const loadMorePosts = async () => {
-    setLoadingMore(true)
+  const loadMorePosts = async (): Promise<{ added: FeedPost[]; hasMore: boolean }> => {
     try {
       const r = await fetch(`/api/atradimai/feed?nodedup=1&exclude_type=creation,translation,quick&limit=30&offset=${offsetRef.current}`).then(res => res.json())
       const next: FeedPost[] = r.posts || []
       setPosts(prev => [...(prev || []), ...next])
-      // #8: jei API nieko negrąžino — tikrai pabaiga, slepiam „Rodyti daugiau".
-      setPostsHasMore(next.length > 0 && !!r.hasMore)
+      // #8: jei API nieko negrąžino — tikrai pabaiga.
+      const hm = next.length > 0 && !!r.hasMore
+      setPostsHasMore(hm)
       offsetRef.current += next.length
-    } catch {}
-    setLoadingMore(false)
+      return { added: next, hasMore: hm }
+    } catch { return { added: [], hasMore: false } }
   }
 
   // Mišrus srautas: postai pagal datą (su per-autoriaus cap'u) + diskusijos/
@@ -1198,8 +1216,26 @@ function PulsasSection() {
   const fullList = CHIP_FULL_LIST[chip]
 
   const more = async () => {
-    if (mixed.length <= shown + 3 && postsHasMore) await loadMorePosts()
+    setLoadingMore(true)
+    try {
+      const isPostChip = chip !== '' && chip !== 'diskusija' && chip !== 'atradimas'
+      if (isPostChip) {
+        // Filtruotam tipui (koncertai/apžvalgos/topai) kraunam kol atsiras bent
+        // vienas naujas to tipo įrašas arba baigsis postai — kad „Rodyti daugiau"
+        // neliktų be turinio (#8).
+        let guard = 0, gotMatch = false, hm = postsHasMore
+        while (!gotMatch && hm && guard < 6) {
+          const r = await loadMorePosts()
+          hm = r.hasMore
+          gotMatch = r.added.some(p => postKind(p) === chip)
+          guard++
+        }
+      } else if (mixed.length <= shown + 3 && postsHasMore) {
+        await loadMorePosts()
+      }
+    } catch {}
     setShown(s => s + PAGE_SIZE)
+    setLoadingMore(false)
   }
 
   return (

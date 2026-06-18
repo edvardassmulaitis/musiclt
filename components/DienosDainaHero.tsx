@@ -369,9 +369,9 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
               <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-bold normal-case tracking-normal text-[#8ea8c4]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-5">
+            <div className="mt-3 flex items-center gap-4 sm:gap-5">
               <button type="button" onClick={() => openTrack(leader.tracks!)} className="group relative shrink-0 cursor-pointer border-0 bg-transparent p-0">
-                <div className="relative h-[120px] w-[120px] overflow-hidden rounded-[14px] shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:h-[140px] sm:w-[140px]">
+                <div className="relative h-[96px] w-[96px] overflow-hidden rounded-[14px] shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:h-[140px] sm:w-[140px]">
                   {leaderImg ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(leaderImg)} alt="" onError={ytFallback} className="h-full w-full object-cover" />
@@ -382,9 +382,9 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
                 </div>
                 <span className="absolute -left-2 -top-2 rounded-[9px] bg-[var(--accent-orange)] px-2 py-1 font-['Outfit',sans-serif] text-[12px] font-black text-white shadow-[0_6px_16px_rgba(249,115,22,0.45)]">#1</span>
               </button>
-              <div className="min-w-[220px] flex-1">
-                <h2 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[24px] font-black leading-[1.08] tracking-[-0.02em] text-[#f0f4fc] sm:text-[28px]">{sani(leader.tracks!.title)}</h2>
-                <p className="m-0 mt-0.5 text-[14.5px] font-semibold text-[#aec4dd]">{leader.tracks!.artists?.name}</p>
+              <div className="min-w-0 flex-1">
+                <h2 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[19px] font-black leading-[1.1] tracking-[-0.02em] text-[#f0f4fc] sm:text-[28px]">{sani(leader.tracks!.title)}</h2>
+                <p className="m-0 mt-0.5 line-clamp-1 text-[13px] font-semibold text-[#aec4dd] sm:text-[14.5px]">{leader.tracks!.artists?.name}</p>
                 {leader.comment && <p className="m-0 mt-2 line-clamp-2 text-[12.5px] italic leading-snug text-[#aec4dd]">„{leader.comment}"</p>}
                 {leader.proposer && (
                   <div className="mt-2 flex items-center gap-2 text-[12px] text-[#8ea8c4]">
