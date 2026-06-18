@@ -1025,11 +1025,15 @@ export default function EntityCommentsBlock({
         >
           {title}
         </h3>
-        <div className="flex items-center gap-1.5">
-          <SortChip k="newest" label="Naujausi" />
-          <SortChip k="oldest" label="Seniausi" />
-          <SortChip k="popular" label="Populiariausi" />
-        </div>
+        {/* Sort chip'ai rodomi tik kai yra ką rikiuoti (≥1 komentaras).
+            Tuščiame state'e jie tik klaidina. */}
+        {modern !== null && legacy !== null && sortedAll.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <SortChip k="newest" label="Naujausi" />
+            <SortChip k="oldest" label="Seniausi" />
+            <SortChip k="popular" label="Populiariausi" />
+          </div>
+        )}
       </div>
 
       {/* Composer — TOP. Encourages writing before reading. */}
