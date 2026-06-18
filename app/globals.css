@@ -917,3 +917,5 @@ main.has-bottom-nav {
 [data-theme="light"] .pf-hero-bio { color: var(--text-secondary); }
 .pf-hero-chip { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.10); }
 [data-theme="light"] .pf-hero-chip { border-color: var(--border-default); background: var(--bg-surface); }
+
+/* redeploy: flaky prerender retry (V18b) */
