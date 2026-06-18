@@ -21,7 +21,7 @@ type Track = { id: number; slug: string; title: string; cover_url: string | null
 type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type EventArtist = { artists?: { id: number; name: string; slug: string; cover_image_url?: string | null; country?: string | null } | null; artist_id?: number; sort_order?: number; is_headliner?: boolean }
-type Event = { id: number; slug: string; title: string; event_date?: string; start_date?: string; end_date?: string; venue_custom?: string | null; venue_name?: string | null; venue_id?: number | null; image_small_url?: string | null; cover_image_url?: string | null; image_url?: string | null; city?: string | null; address?: string | null; created_at?: string; is_festival?: boolean; venues?: { name: string; city: string } | null; event_artists?: EventArtist[] | null }
+type Event = { id: number; slug: string; title: string; event_date?: string; start_date?: string; end_date?: string; venue_custom?: string | null; venue_name?: string | null; venue_id?: number | null; image_small_url?: string | null; cover_image_url?: string | null; image_url?: string | null; city?: string | null; address?: string | null; created_at?: string; is_festival?: boolean; ticket_url?: string | null; price_from?: number | null; venues?: { name: string; city: string } | null; event_artists?: EventArtist[] | null }
 type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
@@ -35,6 +35,16 @@ type HeroSlide = {
   songTitle?: string | null; songArtist?: string | null; songCover?: string | null
   artist?: { name: string; slug: string; image?: string | null } | null
   chartTops?: TopEntry[]
+  // ── Reader v3 papildomi laukai ──
+  newsId?: number | null            // pilno body lazy-fetch'ui (/api/news/[id])
+  body?: string | null              // jau turimas pilnas/preview HTML (be fetch'o)
+  excerpt?: string | null           // ilgesnis preview tekstas (verta/discovery/recording)
+  metaLine?: string | null          // vieta · data / trukmė ir pan.
+  ctaLabel?: string | null          // pirminis veiksmas: „Skaityti" / „Žiūrėti" / „Žemėlapis"
+  ticketUrl?: string | null         // renginiams — „Pirkti bilietą"
+  authorName?: string | null        // user content — autorius
+  authorAvatar?: string | null
+  likeable?: boolean                // ar rodyti ♥ (news kol kas)
 }
 
 /* ────────────────────────────── Helpers ────────────────────────────── */
@@ -517,7 +527,192 @@ function DiscussionsWidget() {
                          REELS OVERLAY COMPONENT
    ════════════════════════════════════════════════════════════════════ */
 
-const REELS_DURATION = 8000
+const REELS_DURATION = 9000
+
+/** Pilno news straipsnio body cache — modulio lygyje, kad keičiant slide'us
+ *  nereiktų perkrauti to paties straipsnio iš naujo. */
+const newsBodyCache = new Map<number, string>()
+
+/** Viena istorija reader'yje. Pati valdo savo VERTIKALŲ scroll'ą (pauzina
+ *  auto-advance kai nuscrollinta žemyn — „skaitymo režimas"), video iframe'o
+ *  mount'ą (tik aktyvi kortelė groja), news pilno body lazy-fetch'ą, ♥ ir
+ *  apatinę veiksmų juostą. */
+function ReaderSlide({ slide, active, seen, onScrolledChange, onClose, onChartVote, onNavLink }: {
+  slide: HeroSlide
+  active: boolean
+  seen: boolean
+  onScrolledChange: (scrolled: boolean) => void
+  onClose: () => void
+  onChartVote?: (slide: HeroSlide) => void
+  onNavLink: () => void
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [videoOn, setVideoOn] = useState(false)
+  const [body, setBody] = useState<string | null>(
+    slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null)
+  )
+  const [bodyLoading, setBodyLoading] = useState(false)
+  const [liked, setLiked] = useState(false)
+  const [likeBusy, setLikeBusy] = useState(false)
+
+  const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
+  const hasVideo = !!slide.videoId
+
+  /* Auto-play video tik aktyviai kortelei; išeinant — sustabdom + grįžtam į viršų. */
+  useEffect(() => {
+    if (active && hasVideo) setVideoOn(true)
+    if (!active) {
+      setVideoOn(false)
+      if (scrollRef.current) scrollRef.current.scrollTop = 0
+    }
+  }, [active, hasVideo])
+
+  /* Pilno news body lazy-fetch — tik kai kortelė tampa aktyvi. */
+  useEffect(() => {
+    if (!active || !slide.newsId || body || bodyLoading) return
+    setBodyLoading(true)
+    fetch(`/api/news/${slide.newsId}`)
+      .then(r => r.json())
+      .then(d => {
+        const html: string = d?.body || d?.news?.body || ''
+        if (html) { newsBodyCache.set(slide.newsId!, html); setBody(html) }
+      })
+      .catch(() => {})
+      .finally(() => setBodyLoading(false))
+  }, [active, slide.newsId]) // eslint-disable-line
+
+  const onScroll = () => {
+    const el = scrollRef.current
+    if (el) onScrolledChange(el.scrollTop > 24)
+  }
+
+  const toggleLike = async () => {
+    if (!slide.newsId || likeBusy) return
+    setLikeBusy(true)
+    const prev = liked
+    setLiked(!prev)
+    try {
+      const r = await fetch(`/api/news/${slide.newsId}/like`, { method: 'POST' })
+      if (r.status === 401) { setLiked(prev); window.location.href = '/auth/signin'; return }
+      const d = await r.json()
+      if (typeof d.liked === 'boolean') setLiked(d.liked)
+    } catch { setLiked(prev) } finally { setLikeBusy(false) }
+  }
+
+  const place = slide.metaLine || (isChart ? '' : slide.subtitle) || ''
+  const artistName = slide.artist?.name || null
+  // Renginiams/festivaliams title JAU yra atlikėjas — nerodom dar kartą.
+  const showArtistRow = !!artistName && slide.type !== 'event' && !isChart
+
+  return (
+    <div ref={scrollRef} className="rdr-slide" onScroll={onScroll}>
+      {/* ── Media viršuje (matosi iškart, prieš scroll'ą, nestabdo skaitymo) ── */}
+      <div className="rdr-media">
+        {hasVideo && active && videoOn ? (
+          <iframe
+            className="rdr-video"
+            src={`https://www.youtube.com/embed/${slide.videoId}?autoplay=1&mute=1&playsinline=1&rel=0`}
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+            title={slide.songTitle || slide.title}
+          />
+        ) : slide.bgImg ? (
+          <>
+            <img src={proxyImg(slide.bgImg)} alt="" draggable={false} />
+            {hasVideo && (
+              <button className="rdr-playbtn" onClick={(e) => { e.stopPropagation(); setVideoOn(true) }} aria-label="Groti">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+              </button>
+            )}
+            <div className="rdr-media-fade" />
+          </>
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
+        )}
+      </div>
+
+      {/* ── „Groja" juostelė po video ── */}
+      {hasVideo && (slide.songTitle || slide.songArtist) && (
+        <div className="rdr-np">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#f97316"><path d="M8 5v14l11-7z" /></svg>
+          <span className="rdr-np-t">{slide.songTitle || 'Groja'}</span>
+          {slide.songArtist && <span className="rdr-np-a">· {slide.songArtist}</span>}
+        </div>
+      )}
+
+      {/* ── Tekstinė dalis ── */}
+      <div className="rdr-content">
+        <span className="rdr-chip" style={{ background: seen ? 'rgba(255,255,255,0.16)' : slide.chipBg }}>{slide.chip}</span>
+        <h2 className="rdr-title">{slide.title}</h2>
+        {place && <p className="rdr-meta">{place}</p>}
+
+        {showArtistRow && (
+          <Link href={`/atlikejai/${slide.artist!.slug}`} className="rdr-artist" onClick={onNavLink}>
+            {slide.artist!.image
+              ? <img src={proxyImg(slide.artist!.image)} alt="" />
+              : <span className="rdr-artist-ph">{artistName![0]}</span>}
+            <span>{artistName}</span>
+          </Link>
+        )}
+
+        {/* Chart top sąrašas */}
+        {isChart && slide.chartTops && slide.chartTops.length > 0 && (
+          <div className="rdr-chart">
+            {slide.chartTops.map(t => (
+              <div key={t.pos} className="rdr-chart-row">
+                <span className="rdr-chart-pos">{t.pos}</span>
+                {t.cover_url || t.artist_image
+                  ? <img src={proxyImg(t.cover_url || t.artist_image!)} alt="" />
+                  : <span className="rdr-chart-ph" />}
+                <span className="rdr-chart-info"><b>{t.title}</b><i>{t.artist}</i></span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pilnas body (news) / excerpt (kiti) / loader */}
+        {body ? (
+          <div className="rdr-html" dangerouslySetInnerHTML={{ __html: body }} />
+        ) : bodyLoading ? (
+          <div className="rdr-load"><span /><span /><span /></div>
+        ) : (slide.excerpt || (!isChart && slide.subtitle)) ? (
+          <p className="rdr-excerpt">{slide.excerpt || slide.subtitle}</p>
+        ) : null}
+
+        {slide.authorName && <p className="rdr-author">— {slide.authorName}</p>}
+
+        <div style={{ height: 92 }} />
+      </div>
+
+      {/* ── Apatinė veiksmų juosta (sticky) ── */}
+      <div className="rdr-actions" onClick={(e) => e.stopPropagation()}>
+        {slide.likeable && slide.newsId && (
+          <button className={`rdr-like${liked ? ' on' : ''}`} onClick={toggleLike} aria-label="Patinka">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
+          </button>
+        )}
+        {isChart && onChartVote ? (
+          <button className="rdr-cta" style={{ background: slide.type === 'chart_lt' ? '#f97316' : '#3b82f6' }}
+            onClick={() => onChartVote(slide)}>
+            Balsuok
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+          </button>
+        ) : (
+          <Link href={slide.href} onClick={onNavLink} className="rdr-cta" style={{ background: seen ? 'rgba(255,255,255,0.18)' : '#f97316' }}>
+            {slide.ctaLabel || 'Skaityti'}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+          </Link>
+        )}
+        {slide.ticketUrl && (
+          <a href={slide.ticketUrl} target="_blank" rel="noopener noreferrer" className="rdr-ticket">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v3a2 2 0 0 1 0 4v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" /></svg>
+            Bilietai
+          </a>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChartVote, dk }: {
   slides: HeroSlide[]
@@ -525,342 +720,145 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   seenSlides: Set<string>
   onSeen: (href: string) => void
   onClose: () => void
-  /** Optional — chart slides swipe-down ar Balsuok mygtukas atveria voting
-   *  sheet'ą per šitą callback'ą. Reels'ai LIEKA atviri foną — po balsavimo
-   *  user'is gali tęsti horizontalų navigavimą per news/event slides. */
+  /** Chart slide'ams — atveria voting sheet'ą (reels lieka fone). */
   onChartVote?: (slide: HeroSlide) => void
   dk: boolean
 }) {
   const [idx, setIdx] = useState(initialIdx)
-  const [videoOpen, setVideoOpen] = useState(false)
   const [progress, setProgress] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState(0)
+  const [paused, setPaused] = useState(false)
 
-  const progressRef = useRef<number>(0)
   const startRef = useRef<number>(0)
   const rafRef = useRef<any>(null)
   const touchStartX = useRef<number>(0)
   const touchStartY = useRef<number>(0)
-  const trackRef = useRef<HTMLDivElement>(null)
+  const gestureDir = useRef<'h' | 'v' | null>(null)
 
   const slide = slides[idx]
 
-  /* ── Progress animation ── */
+  const stopProgress = useCallback(() => { cancelAnimationFrame(rafRef.current) }, [])
   const startProgress = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
     startRef.current = Date.now()
-    setProgress(0)
     const tick = () => {
       const p = Math.min((Date.now() - startRef.current) / REELS_DURATION, 1)
       setProgress(p)
-      progressRef.current = p
       if (p < 1) rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
   }, [])
 
-  const stopProgress = useCallback(() => {
-    cancelAnimationFrame(rafRef.current)
-  }, [])
-
-  /* ── Navigation ── */
-  const goTo = useCallback((newIdx: number) => {
-    if (newIdx < 0 || newIdx >= slides.length) { onClose(); return }
-    setVideoOpen(false)
-    setIdx(newIdx)
+  const goTo = useCallback((n: number) => {
+    if (n < 0) return
+    if (n >= slides.length) { onClose(); return }
+    setIdx(n)
   }, [slides.length, onClose])
 
-  /* Mark seen + start progress on slide change */
+  /* Slide pasikeitė — reset; pažymim seen išeinant. */
   useEffect(() => {
     if (!slide) return
-    if (!videoOpen) startProgress()
-    return () => {
-      stopProgress()
-      onSeen(slide.href) // mark seen when leaving this slide
-    }
+    setPaused(false)
+    setProgress(0)
+    startProgress()
+    return () => { stopProgress(); onSeen(slide.href) }
   }, [idx]) // eslint-disable-line
 
-  /* Pause/resume when video opens */
+  /* Pauzė skaitant (nuscrollinta žemyn). */
   useEffect(() => {
-    if (videoOpen) stopProgress()
-    else startProgress()
-  }, [videoOpen]) // eslint-disable-line
+    if (paused) stopProgress(); else startProgress()
+  }, [paused]) // eslint-disable-line
 
-  /* Auto-advance */
+  /* Auto-advance. */
   useEffect(() => {
-    if (progress >= 1 && !videoOpen) goTo(idx + 1)
+    if (progress >= 1 && !paused) goTo(idx + 1)
   }, [progress]) // eslint-disable-line
 
-  /* ── Touch swipe (horizontal) ── */
+  /* Klaviatūra (desktop). */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowRight') goTo(idx + 1)
+      else if (e.key === 'ArrowLeft') goTo(idx - 1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [idx, goTo, onClose])
+
+  /* Touch — horizontalus braukimas keičia istoriją; vertikalus = native scroll. */
   const onTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
-    setDragging(true)
-    stopProgress()
+    gestureDir.current = null
   }
-
   const onTouchMove = (e: React.TouchEvent) => {
     const dx = e.touches[0].clientX - touchStartX.current
     const dy = e.touches[0].clientY - touchStartY.current
-    // Only horizontal drag if clearly not a vertical scroll
-    if (Math.abs(dx) > Math.abs(dy)) {
+    if (gestureDir.current === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      gestureDir.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+      if (gestureDir.current === 'h') { setDragging(true); stopProgress() }
+    }
+    if (gestureDir.current === 'h') {
       e.preventDefault()
       setDragOffset(dx)
     }
   }
-
   const onTouchEnd = (e: React.TouchEvent) => {
-    const dx = e.changedTouches[0].clientX - touchStartX.current
-    const dy = e.changedTouches[0].clientY - touchStartY.current
-    setDragging(false)
-    setDragOffset(0)
-
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-      // Horizontal swipe → navigate slides
-      if (dx < 0) goTo(idx + 1)
-      else goTo(idx - 1)
-    } else if (dy > 80 && Math.abs(dy) > Math.abs(dx)) {
-      // Swipe DOWN — chart slide'uose atveria voting sheet'ą; visur kitur
-      // uždaro reels (default Stories-style behavior).
-      const cur = slides[idx]
-      const isChart = cur && (cur.type === 'chart_lt' || cur.type === 'chart_world')
-      if (isChart && onChartVote) {
-        onChartVote(cur)
-        // Reels lieka atviri fone — pause progress kol sheet'as atviras
-        stopProgress()
-      } else {
-        onClose()
-      }
-    } else {
-      // No significant swipe — resume progress
-      startProgress()
+    if (gestureDir.current === 'h') {
+      const dx = e.changedTouches[0].clientX - touchStartX.current
+      setDragging(false)
+      setDragOffset(0)
+      if (Math.abs(dx) > 55) goTo(dx < 0 ? idx + 1 : idx - 1)
+      else if (!paused) startProgress()
     }
+    gestureDir.current = null
   }
 
-  /* ── Mouse drag (desktop) ── */
-  const onMouseDown = (e: React.MouseEvent) => {
-    touchStartX.current = e.clientX
-    touchStartY.current = e.clientY
-    setDragging(true)
-    stopProgress()
-  }
-
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!dragging) return
-    setDragOffset(e.clientX - touchStartX.current)
-  }
-
-  const onMouseUp = (e: React.MouseEvent) => {
-    const dx = e.clientX - touchStartX.current
-    setDragging(false)
-    setDragOffset(0)
-    if (Math.abs(dx) > 50) {
-      if (dx < 0) goTo(idx + 1)
-      else goTo(idx - 1)
-    } else {
-      startProgress()
-    }
-  }
-
-  /* ── Tap left/right halves to navigate (Instagram style) ── */
-  const onTap = (e: React.MouseEvent) => {
-    if (Math.abs(dragOffset) > 10) return // was a drag, not a tap
-    if (videoOpen) return
-    const x = e.clientX
-    const mid = window.innerWidth / 2
-    if (x < mid) goTo(idx - 1)
-    else goTo(idx + 1)
-  }
-
-  const translateX = -idx * 100 + (dragOffset / window.innerWidth) * 100
+  const translateX = -idx * 100 + (dragging ? (dragOffset / (typeof window !== 'undefined' ? window.innerWidth : 400)) * 100 : 0)
 
   return (
-    <div className="hp-reels" style={{ userSelect: 'none' }}>
-      {/* Progress bars */}
-      <div style={{
-        position: 'fixed', top: 14, left: 16, right: 56, zIndex: 310,
-        display: 'flex', gap: 4, alignItems: 'center', pointerEvents: 'none',
-      }}>
+    <div className="hp-reels">
+      {/* Progreso juostelės */}
+      <div className="rdr-bars">
         {slides.map((s, i) => {
           const isSeen = seenSlides.has(s.href)
           const isPast = i < idx
           const isCurrent = i === idx
-          const barColor = isCurrent
-            ? '#f97316'
-            : isPast
-              ? (isSeen ? 'rgba(255,255,255,0.7)' : '#f97316')
-              : 'rgba(255,255,255,0.0)'
+          const barColor = isCurrent ? '#f97316' : isPast ? (isSeen ? 'rgba(255,255,255,0.7)' : '#f97316') : 'rgba(255,255,255,0.0)'
           return (
-            <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.22)', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', borderRadius: 2,
-                background: barColor,
-                width: isPast ? '100%' : isCurrent ? `${progress * 100}%` : '0%',
-              }} />
+            <div key={i} className="rdr-bar">
+              <div style={{ height: '100%', borderRadius: 2, background: barColor, width: isPast ? '100%' : isCurrent ? `${progress * 100}%` : '0%' }} />
             </div>
           )
         })}
       </div>
 
-      {/* Close button */}
-      <button onClick={onClose} style={{
-        position: 'fixed', top: 10, right: 16, zIndex: 310,
-        width: 36, height: 36, borderRadius: '50%',
-        background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
-        color: '#fff', fontSize: 16, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        backdropFilter: 'blur(8px)',
-      }}>✕</button>
+      {paused && <div className="rdr-paused">Skaitymo režimas · slink į viršų tęsti ↑</div>}
 
-      {/* Horizontal slide track */}
+      <button onClick={onClose} className="rdr-close" aria-label="Uždaryti">✕</button>
+
+      {idx > 0 && <button className="rdr-nav rdr-nav-l" onClick={() => goTo(idx - 1)} aria-label="Atgal">‹</button>}
+      <button className="rdr-nav rdr-nav-r" onClick={() => goTo(idx + 1)} aria-label="Toliau">›</button>
+
       <div
-        ref={trackRef}
         className="hp-reels-track"
-        style={{
-          transform: `translateX(${translateX}%)`,
-          transition: dragging ? 'none' : 'transform .32s cubic-bezier(.4,0,.2,1)',
-        }}
+        style={{ transform: `translateX(${translateX}%)`, transition: dragging ? 'none' : 'transform .32s cubic-bezier(.4,0,.2,1)' }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
-        onClick={onTap}
       >
         {slides.map((s, i) => (
-          <div key={i} className="hp-reels-slide">
-            {/* Image zone */}
-            <div className="hp-reels-img">
-              {s.bgImg
-                ? <img src={proxyImg(s.bgImg)} alt="" draggable={false} />
-                : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
-              }
-              {/* Video popup — on top of image */}
-              {s.videoId && videoOpen && i === idx && (
-                <div className="hp-reels-video-popup" onClick={e => e.stopPropagation()}>
-                  {/* Close bar — always visible at top */}
-                  <div style={{
-                    flexShrink: 0, height: 52, display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', padding: '0 16px',
-                    borderBottom: '1px solid rgba(255,255,255,0.08)',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-                        <img src={`https://img.youtube.com/vi/${s.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                      <div>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', margin: 0, lineHeight: 1.2 }}>{s.songTitle || 'Video'}</p>
-                        {s.songArtist && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: 0 }}>{s.songArtist}</p>}
-                      </div>
-                    </div>
-                    <button onClick={(e) => { e.stopPropagation(); setVideoOpen(false) }} style={{
-                      width: 32, height: 32, borderRadius: '50%',
-                      background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.15)',
-                      color: '#fff', fontSize: 14, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    }}>✕</button>
-                  </div>
-                  <iframe
-                    src={`https://www.youtube.com/embed/${s.videoId}?autoplay=1&rel=0&playsinline=1`}
-                    allow="autoplay; encrypted-media"
-                    allowFullScreen
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Content */}
-            <div className="hp-reels-info" onClick={e => e.stopPropagation()}>
-              {/* Chip — orange if unseen, muted if seen */}
-              <span style={{
-                display: 'inline-block', padding: '4px 12px', borderRadius: 16,
-                fontSize: 10, fontWeight: 900, color: '#fff',
-                background: seenSlides.has(s.href) ? 'rgba(255,255,255,0.15)' : s.chipBg,
-                fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase',
-                marginBottom: 10, alignSelf: 'flex-start',
-                transition: 'background .3s',
-              }}>{s.chip}</span>
-
-              {/* Title — tap advances to next slide */}
-              <p
-                onClick={() => goTo(idx + 1)}
-                style={{
-                  fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
-                  color: '#fff', lineHeight: 1.1, margin: '0 0 8px',
-                  letterSpacing: '-0.02em', cursor: 'pointer',
-                  display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                }}>{s.title}</p>
-
-              {/* Subtitle/excerpt pašalintas — naudotojas paprašė rodyti tik
-                  main title naujienoms (mobile + desktop). Subtitle dažnai
-                  buvo nuvedamas (excerpt'as), todėl card'as atrodė užkrautas. */}
-
-              {/* Video trigger */}
-              {s.videoId && !videoOpen && i === idx && (
-                <button onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 8px 8px',
-                  background: 'rgba(255,255,255,0.07)', borderRadius: 12,
-                  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', width: '100%',
-                }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={`https://img.youtube.com/vi/${s.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
-                  </div>
-                  <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.songTitle || 'Klausyti'}</p>
-                    {s.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{s.songArtist}</p>}
-                  </div>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: 'rgba(255,255,255,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
-                  </div>
-                </button>
-              )}
-
-              {/* Bottom action area — chart slide'ams 'Balsuok' (atveria sheet'ą,
-                  reels lieka), kitiems standard 'Daugiau' link'as. */}
-              {(s.type === 'chart_lt' || s.type === 'chart_world') && onChartVote ? (
-                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onChartVote(s); stopProgress() }}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                      padding: '13px 20px', borderRadius: 14, border: 'none', cursor: 'pointer',
-                      background: s.type === 'chart_lt' ? '#f97316' : '#3b82f6',
-                      color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
-                      letterSpacing: '-0.01em',
-                      boxShadow: `0 4px 20px ${s.type === 'chart_lt' ? 'rgba(249,115,22,0.35)' : 'rgba(59,130,246,0.35)'}`,
-                    }}
-                  >
-                    Balsuok
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 19l-7-7 7-7" transform="rotate(90 12 12)"/></svg>
-                  </button>
-                  <p style={{ margin: 0, textAlign: 'center', fontSize: 10.5, color: 'rgba(255,255,255,0.5)', fontWeight: 600, letterSpacing: '0.04em' }}>
-                    arba pertempk žemyn ↓
-                  </p>
-                </div>
-              ) : (
-                <div style={{ marginTop: 14, paddingTop: 0, display: 'flex', alignItems: 'center' }}>
-                  <Link
-                    href={s.href}
-                    onClick={onClose}
-                    style={{
-                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                      padding: '13px 20px', borderRadius: 14,
-                      background: seenSlides.has(s.href) ? 'rgba(255,255,255,0.12)' : '#f97316',
-                      color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
-                      textDecoration: 'none', letterSpacing: '-0.01em',
-                      boxShadow: seenSlides.has(s.href) ? 'none' : '0 4px 20px rgba(249,115,22,0.35)',
-                      transition: 'all .2s',
-                    }}
-                  >
-                    Daugiau
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                  </Link>
-                </div>
-              )}
-            </div>
+          <div key={`${s.type}-${s.href}-${i}`} className="hp-reels-slide">
+            <ReaderSlide
+              slide={s}
+              active={i === idx}
+              seen={seenSlides.has(s.href)}
+              onScrolledChange={(sc) => { if (i === idx) setPaused(sc) }}
+              onClose={onClose}
+              onChartVote={onChartVote}
+              onNavLink={onClose}
+            />
           </div>
         ))}
       </div>
@@ -2278,6 +2276,11 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
   // Admine pažymėti homepage hero: vartotojų įrašai + renginiai.
   const [heroPosts, setHeroPosts] = useState<{ id: number; title: string; href: string; cover: string | null; chip: string; chipBg: string; published_at: string | null; author: string | null }[]>([])
   const [heroEvents, setHeroEvents] = useState<Event[]>([])
+  // Reader v3 papildomi feed šaltiniai
+  const [dailyWinners, setDailyWinners] = useState<any[]>([])
+  const [discoveries, setDiscoveries] = useState<any[]>([])
+  const [recordings, setRecordings] = useState<any[]>([])
+  const [vertaConcerts, setVertaConcerts] = useState<{ concerts: any[]; destinations: any[] }>({ concerts: [], destinations: [] })
   // SSR seed'as → pageReady iškart true (overlay neblokuoja jau HTML'e esančio
   // turinio), overlay iš viso nerodomas. Be seed'o — senas elgesys (overlay kol
   // hero+tops paruošti).
@@ -2482,6 +2485,12 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     // Admine pažymėti hero renginiai (home_hero=1) + vartotojų įrašai. (rebuild2)
     fetch('/api/events?home_hero=1&limit=8&compact=1').then(r => r.json()).then(d => setHeroEvents(d.events || [])).catch(() => {})
     fetch('/api/blog/home-hero').then(r => r.json()).then(d => setHeroPosts(d.posts || [])).catch(() => {})
+    // Nauji feed tipai (reader v3): dienos daina (rotuojanti), radaro atradimai
+    // (dėmesio centre), koncertų įrašai (gyvai), verti kelionės koncertai.
+    fetch('/api/dienos-daina/winners?limit=7').then(r => r.json()).then(d => setDailyWinners(d.winners || [])).catch(() => {})
+    fetch('/api/muzikos-atradimai?featured=1&limit=6').then(r => r.json()).then(d => setDiscoveries(d.items || [])).catch(() => {})
+    fetch('/api/koncertu-irasai?limit=6').then(r => r.json()).then(d => setRecordings(d.recordings || [])).catch(() => {})
+    fetch('/api/verta-keliones').then(r => r.json()).then(d => setVertaConcerts({ concerts: d.concerts || [], destinations: d.destinations || [] })).catch(() => {})
     // News + songs vienu request'u. `since_days=7` (redeploy) — hero rodo tik šviežias
     // (≤1 sav.) naujienas, kad nekabėtų seni įrašai. Jei nieko naujo — heroSlides
     // vis tiek turės topus (suksis topai blogiausiu atveju). Limit 12 — hero
@@ -2533,6 +2542,10 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         chartTops: worldTop.slice(0, 5),
       } as any })
     }
+    const dateLT = (s: string | null | undefined) => {
+      const d = s ? new Date(s) : null
+      return d && !isNaN(d.getTime()) ? `${d.getFullYear()} m. ${MONTHS_FULL_LT[d.getMonth()]} ${d.getDate()} d.` : ''
+    }
     news.slice(0, 30).forEach(n => {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
       const songs = newsSongs[n.id] || []
@@ -2541,6 +2554,11 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
         title: sanitizeTitle(n.title),
         subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
+        excerpt: n.excerpt || '',
+        metaLine: dateLT(n.published_at),
+        newsId: n.id,
+        likeable: true,
+        ctaLabel: 'Skaityti straipsnį',
         bgImg: n.image_title_url || n.image_small_url,
         href: `/news/${n.slug}`,
         videoId: extractYouTubeId(song?.youtube_url || null),
@@ -2554,17 +2572,101 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     // naujienų pagal publikavimo datą (badge pagal įrašo tipą).
     heroPosts.forEach(p => {
       dated.push({ sortMs: ms(p.published_at), slide: {
-        type: 'news', chip: (p.chip || 'Įrašas').toUpperCase(), chipBg: p.chipBg || '#94a3b8',
+        type: 'blog', chip: (p.chip || 'Įrašas').toUpperCase(), chipBg: p.chipBg || '#94a3b8',
         title: sanitizeTitle(p.title),
         subtitle: '',
+        metaLine: [p.author, dateLT(p.published_at)].filter(Boolean).join(' · '),
+        authorName: p.author || null,
+        ctaLabel: 'Skaityti',
         bgImg: p.cover,
         href: p.href,
-        artist: p.author ? { name: p.author, slug: '', image: null } : null,
+        artist: null,
       } })
     })
     // Naujausi pirmi (topai įsiterpia pagal savo atsinaujinimo datą)
     dated.sort((a, b) => b.sortMs - a.sortMs)
     for (const x of dated) slides.push(x.slide)
+
+    // ── Nauji tipai (reader v3) ──
+    // Radaro atradimai — „dėmesio centre".
+    discoveries.slice(0, 2).forEach((d: any) => {
+      const dvid = d.embed_id ? (d.embed_type === 'youtube' ? d.embed_id : extractYouTubeId(d.embed_id)) : null
+      const who = d.author?.full_name || d.author?.username || ''
+      slides.push({
+        type: 'discovery', chip: 'DĖMESIO CENTRE', chipBg: '#7c3aed',
+        title: d.artist_name || d.track_name || 'Muzikos atradimas',
+        subtitle: d.body ? smartTruncate(d.body, 160) : '',
+        excerpt: d.body || '',
+        metaLine: [who, d.track_name].filter(Boolean).join(' · '),
+        bgImg: d.artist_cover || null,
+        href: d.artist_slug ? `/atlikejai/${d.artist_slug}` : '/muzikos-atradimai',
+        videoId: dvid,
+        songTitle: d.track_name || null,
+        songArtist: d.artist_name || null,
+        artist: null,
+        ctaLabel: d.artist_slug ? 'Atlikėjo profilis' : 'Atradimai',
+      })
+    })
+    // Koncertų įrašai — gyvai.
+    recordings.slice(0, 2).forEach((r: any) => {
+      const rt = r.recording_type === 'full' ? 'Pilnas koncertas' : r.recording_type === 'session' ? 'Gyvas pasirodymas' : 'Koncerto įrašas'
+      const place = [r.venue, r.city].filter(Boolean).join(', ')
+      slides.push({
+        type: 'recording', chip: rt.toUpperCase(), chipBg: '#be185d',
+        title: sanitizeTitle(r.title || r.artist_name || 'Koncertas'),
+        subtitle: '',
+        metaLine: [place, r.recorded_year].filter(Boolean).join(' · '),
+        bgImg: r.thumbnail_url || (r.youtube_id ? `https://img.youtube.com/vi/${r.youtube_id}/hqdefault.jpg` : null),
+        href: `/koncertu-irasai/${r.slug}`,
+        videoId: r.youtube_id || null,
+        songTitle: r.title || null,
+        songArtist: r.artist_name || null,
+        artist: r.artist_name ? { name: r.artist_name, slug: r.artist_slug || '', image: null } : null,
+        ctaLabel: 'Žiūrėti įrašą',
+      })
+    })
+    // Dienos daina — rotuoja pagal dieną; įsiterpia giliau į feed'ą (po ~3 įrašų).
+    if (dailyWinners.length > 0) {
+      const dayIdx = Math.floor(Date.now() / 86400000) % dailyWinners.length
+      const w = dailyWinners[dayIdx]
+      const tr = w?.tracks
+      if (tr) {
+        const dailySlide: HeroSlide = {
+          type: 'daily', chip: 'DIENOS DAINA', chipBg: '#f59e0b',
+          title: sanitizeTitle(tr.title || ''),
+          subtitle: '',
+          excerpt: w.winning_comment || '',
+          metaLine: tr.artists?.name || '',
+          bgImg: tr.cover_url || tr.artists?.cover_image_url || null,
+          href: '/dienos-daina',
+          videoId: extractYouTubeId(tr.video_url || null),
+          songTitle: tr.title || null,
+          songArtist: tr.artists?.name || null,
+          artist: tr.artists ? { name: tr.artists.name, slug: tr.artists.slug || '', image: tr.artists.cover_image_url || null } : null,
+          ctaLabel: 'Klausyti',
+        }
+        slides.splice(Math.min(3, slides.length), 0, dailySlide)
+      }
+    }
+    // Verti kelionės koncertai (užsienyje).
+    ;(vertaConcerts.concerts || []).slice(0, 2).forEach((c: any) => {
+      const dest = (vertaConcerts.destinations || []).find((x: any) => x.key === c.destKey)
+      const cd = c.date ? new Date(c.date) : null
+      const ds = cd && !isNaN(cd.getTime()) ? `${cd.getFullYear()} m. ${MONTHS_FULL_LT[cd.getMonth()]} ${cd.getDate()} d.` : ''
+      const where = dest ? [dest.city, dest.country].filter(Boolean).join(', ') : ''
+      slides.push({
+        type: 'verta', chip: 'VERTA KELIONĖS', chipBg: '#0891b2',
+        title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
+        subtitle: [where, ds].filter(Boolean).join(' · '),
+        excerpt: c.why || '',
+        metaLine: [where, ds].filter(Boolean).join(' · '),
+        bgImg: c.image || null,
+        href: `/verta-keliones#vk-${c.id}`,
+        ticketUrl: c.ticketUrl || null,
+        artist: null,
+        ctaLabel: 'Apie kelionę',
+      })
+    })
 
     // Renginiai: admine pažymėti (home_hero) pirmi, likusią vietą užpildo
     // naujausi renginiai automatiškai (dedup pagal id, max 4).
@@ -2591,10 +2693,14 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
           ? artistList.slice(0, 3).join(', ') + (artistList.length > 3 ? ` +${artistList.length - 3}` : '')
           : sanitizeTitle(ev.title)
       const firstArtist = (ev.event_artists || []).find(ea => ea.artists?.cover_image_url)
+      const evMeta = [city, dateStr].filter(Boolean).join(' · ')
       slides.push({
         type: 'event', chip: 'RENGINYS', chipBg: '#047857',
-        title: artistText,  // ARTISTS as primary text
-        subtitle: [city, dateStr].filter(Boolean).join(' · '),  // miestas · data
+        title: artistText,  // ARTISTS as primary text (atlikėjas nerodomas dar kartą žemiau)
+        subtitle: evMeta,  // miestas · data
+        metaLine: evMeta,
+        ticketUrl: ev.ticket_url || null,
+        ctaLabel: 'Apie renginį',
         bgImg: evImg,
         href: `/renginiai/${ev.slug}`,
         artist: firstArtist?.artists ? { name: firstArtist.artists.name, slug: firstArtist.artists.slug, image: firstArtist.artists.cover_image_url || null } : null,
@@ -2610,7 +2716,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     setHeroIdx(0)
     readyBits.current.hero = true
     tryReady.current()
-  }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents])
+  }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents, discoveries, recordings, dailyWinners, vertaConcerts])
 
   useEffect(() => {
     if (!heroSlides.length || heroVideoPlaying) return
@@ -2693,19 +2799,75 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .hp-mobile-chart{display:none}
         @media(max-width:960px){.hp-feed-strip{display:flex}.hp-mobile-chart{display:block}}
 
-        /* ── Reels overlay — horizontal Stories ── */
-        .hp-reels{position:fixed;inset:0;z-index:300;background:#000;overflow:hidden;touch-action:pan-x}
-        .hp-reels-track{height:100%;display:flex;flex-direction:row;will-change:transform;transition:transform .32s cubic-bezier(.4,0,.2,1)}
-        .hp-reels-slide{height:100vh;width:100vw;flex-shrink:0;display:flex;flex-direction:column;background:#000;position:relative;overflow:hidden}
+        /* ── Reels reader v3 — horizontal istorijos, vertikalus skaitymas ── */
+        .hp-reels{position:fixed;inset:0;z-index:300;background:#000;overflow:hidden}
+        .hp-reels-track{height:100%;display:flex;flex-direction:row;will-change:transform}
+        .hp-reels-slide{height:100dvh;width:100vw;flex-shrink:0;position:relative;overflow:hidden;background:#000}
 
-        /* Image zone — video pops on top */
-        .hp-reels-img{flex:0 0 55%;position:relative;overflow:hidden}
-        .hp-reels-img img{width:100%;height:100%;object-fit:cover}
-        .hp-reels-img::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40%;background:linear-gradient(to top,#000,transparent)}
-        .hp-reels-video-popup{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;background:rgba(0,0,0,0.92);animation:hp-in .2s ease both}
-        .hp-reels-video-popup iframe{width:100%;flex:1;border:none}
+        /* Vertikaliai scrollinama istorija */
+        .rdr-slide{height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}
+        .rdr-slide::-webkit-scrollbar{display:none}
 
-        .hp-reels-info{flex:1;padding:0 20px 28px;display:flex;flex-direction:column;justify-content:flex-start;position:relative;margin-top:-32px;z-index:1}
+        /* Media viršuje (matosi iškart) */
+        .rdr-media{position:relative;width:100%;aspect-ratio:16/10;background:#0a0a0a;overflow:hidden}
+        .rdr-media img{width:100%;height:100%;object-fit:cover;display:block}
+        .rdr-video{width:100%;height:100%;border:none;display:block;background:#000}
+        .rdr-media-fade{position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(to top,#000,transparent);pointer-events:none}
+        .rdr-playbtn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,0.55);border:1.5px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(6px);padding-left:4px}
+
+        /* „Groja" juostelė */
+        .rdr-np{display:flex;align-items:center;gap:6px;padding:9px 20px;background:rgba(249,115,22,0.10);border-bottom:1px solid rgba(255,255,255,0.06);font-family:'Outfit',sans-serif}
+        .rdr-np-t{font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-np-a{font-size:11px;color:rgba(255,255,255,0.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+        /* Turinys */
+        .rdr-content{padding:16px 20px 0}
+        .rdr-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:10px;font-weight:900;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px}
+        .rdr-title{font-family:'Outfit',sans-serif;font-size:23px;font-weight:900;color:#fff;line-height:1.14;letter-spacing:-0.02em;margin:0 0 8px}
+        .rdr-meta{font-size:12.5px;font-weight:600;color:rgba(255,255,255,0.5);margin:0 0 12px}
+        .rdr-artist{display:inline-flex;align-items:center;gap:8px;text-decoration:none;margin:0 0 14px;padding:5px 12px 5px 5px;background:rgba(255,255,255,0.06);border-radius:999px}
+        .rdr-artist img{width:30px;height:30px;border-radius:50%;object-fit:cover}
+        .rdr-artist-ph{width:30px;height:30px;border-radius:50%;background:#f97316;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;text-transform:uppercase}
+        .rdr-artist span{font-size:13px;font-weight:700;color:#fff}
+        .rdr-excerpt{font-size:15.5px;line-height:1.62;color:rgba(255,255,255,0.82);margin:0}
+        .rdr-html{font-size:15.5px;line-height:1.66;color:rgba(255,255,255,0.82)}
+        .rdr-html p{margin:0 0 14px}
+        .rdr-html a{color:#fb923c;text-decoration:underline}
+        .rdr-html h2,.rdr-html h3{font-family:'Outfit',sans-serif;color:#fff;font-size:18px;margin:20px 0 8px;line-height:1.2}
+        .rdr-html img{max-width:100%;height:auto;border-radius:12px;margin:12px 0;display:block}
+        .rdr-html iframe{max-width:100%;border-radius:12px;margin:12px 0}
+        .rdr-html ul,.rdr-html ol{padding-left:20px;margin:0 0 14px}
+        .rdr-html blockquote{border-left:3px solid #f97316;padding-left:14px;margin:0 0 14px;color:rgba(255,255,255,0.7);font-style:italic}
+        .rdr-author{font-size:13px;font-weight:700;color:rgba(255,255,255,0.6);margin:14px 0 0}
+        .rdr-load{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+        .rdr-load span{height:13px;border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,0.06),rgba(255,255,255,0.13),rgba(255,255,255,0.06));background-size:200% 100%;animation:rdr-sk 1.2s infinite}
+        .rdr-load span:nth-child(1){width:100%}.rdr-load span:nth-child(2){width:92%}.rdr-load span:nth-child(3){width:68%}
+        @keyframes rdr-sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+        /* Chart sąrašas */
+        .rdr-chart{display:flex;flex-direction:column;gap:8px;margin:4px 0 16px}
+        .rdr-chart-row{display:flex;align-items:center;gap:10px}
+        .rdr-chart-pos{width:20px;text-align:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:15px;color:#f97316;flex-shrink:0}
+        .rdr-chart-row img,.rdr-chart-ph{width:42px;height:42px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#1a1a1a}
+        .rdr-chart-info{display:flex;flex-direction:column;min-width:0}
+        .rdr-chart-info b{font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-chart-info i{font-size:11.5px;font-style:normal;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+        /* Apatinė veiksmų juosta (sticky) */
+        .rdr-actions{position:sticky;bottom:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,#000 62%,transparent);z-index:5}
+        .rdr-like{width:48px;height:48px;flex-shrink:0;border-radius:14px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s}
+        .rdr-like.on{background:rgba(244,63,94,0.16);border-color:rgba(244,63,94,0.4)}
+        .rdr-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:14px 20px;border-radius:14px;border:none;cursor:pointer;color:#fff;font-family:'Outfit',sans-serif;font-size:14.5px;font-weight:800;letter-spacing:-0.01em;text-decoration:none}
+        .rdr-ticket{display:flex;align-items:center;gap:6px;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.16);color:#fff;font-family:'Outfit',sans-serif;font-size:13.5px;font-weight:800;text-decoration:none;flex-shrink:0}
+
+        /* Progreso juostelės + kontrolės */
+        .rdr-bars{position:fixed;top:12px;left:14px;right:54px;z-index:312;display:flex;gap:4px;align-items:center;pointer-events:none}
+        .rdr-bar{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.22);overflow:hidden}
+        .rdr-close{position:fixed;top:9px;right:14px;z-index:312;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+        .rdr-paused{position:fixed;top:26px;left:50%;transform:translateX(-50%);z-index:311;font-family:'Outfit',sans-serif;font-size:10.5px;font-weight:700;color:rgba(255,255,255,0.72);background:rgba(0,0,0,0.55);padding:4px 12px;border-radius:999px;pointer-events:none;backdrop-filter:blur(6px);white-space:nowrap}
+        .rdr-nav{position:fixed;top:50%;transform:translateY(-50%);z-index:308;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:24px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+        .rdr-nav-l{left:12px}.rdr-nav-r{right:12px}
+        @media(min-width:900px){.rdr-nav{display:flex}.rdr-media,.rdr-np,.rdr-content,.rdr-actions{max-width:560px;margin-left:auto;margin-right:auto}}
 
         /* ── Hero cinematic ── */
         .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:var(--bg-body)}
@@ -2835,7 +2997,8 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                 }
                 // ── Default slide (news/event/promo) — opens reels ──
                 const isSeen = seenSlides.has(slide.href)
-                const artistName = slide.artist?.name || null
+                // Renginiams title JAU yra atlikėjas — nerodom dar kartą po juo.
+                const artistName = slide.type === 'event' ? null : (slide.artist?.name || null)
                 // showExcerpt — naujienoms NEBE rodom subtitle (excerpt'as).
                 // Card'as paprastesnis: chip + title (+ artist'as jei yra).
                 // Eventams paliekam subtitle (data/vieta) — jis kontekstinis.
