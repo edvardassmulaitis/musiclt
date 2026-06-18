@@ -642,8 +642,33 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       // Jei lookahead nerado albumo — naudoti currentAlbum iš rowspan
       if (!albumTitle && currentAlbum && albumRowspan > 0) albumTitle = currentAlbum
 
+      // 2026-06-16: lentelės BE Year stulpelio, kuriose metai yra „Details"
+      // cell'o `* Released: <date>" eilutėje (Fenix Flexin). Tokiose lentelėse
+      // nėra `| YYYY` cell'o, todėl pendingTitle niekada neflush'inamas →
+      // likdavo TIK paskutinis singlas. Ištraukiam datą iš lookahead'o ir
+      // push'inam IŠKART.
+      let relYear: number | null = null, relMonth: number | null = null, relDay: number | null = null
+      if (!hasYearCol) {
+        const MONTHS: Record<string, number> = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 }
+        for (let k = i + 1; k < Math.min(i + 30, lines.length); k++) {
+          const nl = lines[k]
+          if (/^\s*\|-/.test(nl) || /!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(nl) || nl.startsWith('|}') || nl.startsWith('{|')) break
+          // „Released: Month DD, YYYY" (US) arba „Released: DD Month YYYY" (intl)
+          const relUS = nl.match(/[Rr]elease[d]?[^|{}]*?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s*(\d{4})/i)
+          if (relUS) { relMonth = MONTHS[relUS[1].toLowerCase()] || null; relDay = parseInt(relUS[2]); relYear = parseInt(relUS[3]); break }
+          const relINT = nl.match(/[Rr]elease[d]?[^|{}]*?(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i)
+          if (relINT) { relDay = parseInt(relINT[1]); relMonth = MONTHS[relINT[2].toLowerCase()] || null; relYear = parseInt(relINT[3]); break }
+          const relY = nl.match(/[Rr]elease[d]?[^|{}]*?\b((?:19|20)\d{2})\b/)
+          if (relY) { relYear = parseInt(relY[1]); break }
+        }
+      }
+
       // Metai
-      if (yearRowspan > 0) {
+      if (!hasYearCol && relYear !== null) {
+        for (const t of titleParts) {
+          singles.push({ title: t, year: relYear, month: relMonth, day: relDay, albumTitle, featuredArtists: featuredArtists.length > 0 ? featuredArtists : undefined, source: 'wikipedia', selected: false })
+        }
+      } else if (yearRowspan > 0) {
         for (const t of titleParts) {
           singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle, featuredArtists: featuredArtists.length > 0 ? featuredArtists : undefined, source: 'wikipedia', selected: false })
         }
