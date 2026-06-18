@@ -1429,17 +1429,25 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
 function HeroV2Slider({ slides, dk }: { slides: HeroSlide[]; dk: boolean }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [activeIdx, setActiveIdx] = useState(0)
+  // Rodyklių matomumas: pradžioje slepiam „atgal", gale — „pirmyn".
+  const [atStart, setAtStart] = useState(true)
+  const [atEnd, setAtEnd] = useState(false)
   useEffect(() => {
     const el = trackRef.current
     if (!el) return
-    const onScroll = () => {
+    const update = () => {
       const card = el.querySelector('.hp-hero-slot') as HTMLElement | null
-      if (!card) return
-      const step = card.offsetWidth + 16
-      setActiveIdx(Math.round(el.scrollLeft / step))
+      if (card) setActiveIdx(Math.round(el.scrollLeft / (card.offsetWidth + 16)))
+      const max = el.scrollWidth - el.clientWidth - 2
+      setAtStart(el.scrollLeft <= 2)
+      setAtEnd(el.scrollLeft >= max)
     }
-    el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
+    update()
+    el.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null
+    if (ro) ro.observe(el)
+    return () => { el.removeEventListener('scroll', update); window.removeEventListener('resize', update); ro?.disconnect() }
   }, [slides])
   const many = slides.length > 1
   const stepEl = () => trackRef.current?.querySelector('.hp-hero-slot') as HTMLElement | null
@@ -1482,19 +1490,19 @@ function HeroV2Slider({ slides, dk }: { slides: HeroSlide[]; dk: boolean }) {
               </Link>
             </div>
           </div>
-          {many && (
-            <>
-              <button type="button" aria-label="Ankstesnis" onClick={() => scrollByDir(-1)}
-                className="hp-hero-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
-                style={{ left: -6 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-              </button>
-              <button type="button" aria-label="Kitas" onClick={() => scrollByDir(1)}
-                className="hp-hero-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
-                style={{ right: -6 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-              </button>
-            </>
+          {many && !atStart && (
+            <button type="button" aria-label="Ankstesnis" onClick={() => scrollByDir(-1)}
+              className="hp-hero-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+              style={{ left: -6 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+          )}
+          {many && !atEnd && (
+            <button type="button" aria-label="Kitas" onClick={() => scrollByDir(1)}
+              className="hp-hero-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+              style={{ right: -6 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+            </button>
           )}
         </div>
         {many && (
@@ -2566,7 +2574,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
       if (!evImg) return
       const dateRaw = (ev as any).start_date || ev.event_date
       const d = dateRaw ? new Date(dateRaw) : null
-      const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_FULL_LT[d.getMonth()]} ${d.getFullYear()}` : ''
+      const dateStr = d && !isNaN(d.getTime()) ? `${d.getFullYear()} m. ${MONTHS_FULL_LT[d.getMonth()]} ${d.getDate()} d.` : ''
       const city = ev.city || ev.venues?.city || ''
       const artistList = (ev.event_artists || [])
         .filter(ea => ea.artists?.name)
