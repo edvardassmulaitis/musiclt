@@ -55,34 +55,38 @@ export function GroupPlayModal({ artistId, artistName, onClose }: { artistId: nu
       ) : tracks.length === 0 ? (
         <div className="py-10 text-center text-[13px] text-[var(--text-muted)]">Šios grupės dainų su vaizdo įrašu kol kas nėra.</div>
       ) : (
-        <>
-          <div className="overflow-hidden rounded-xl border border-[var(--border-default)]">
-            <ChartYtPlayer videoId={curVid} playing={playing} posterUrl={poster} title={current?.title} onActivate={() => setPlaying(true)} />
+        <div className="grid gap-4 sm:grid-cols-[1.3fr_1fr]">
+          {/* Kairė: grotuvas (mažesnis) + dabar grojama */}
+          <div className="min-w-0">
+            <div className="overflow-hidden rounded-xl border border-[var(--border-default)]">
+              <ChartYtPlayer videoId={curVid} playing={playing} posterUrl={poster} title={current?.title} onActivate={() => setPlaying(true)} />
+            </div>
+            {current && (
+              <p className="m-0 mt-2.5 px-0.5 text-[13.5px] font-bold text-[var(--text-primary)]">
+                {current.title}
+                {current.artists?.name && <span className="ml-1.5 font-medium text-[var(--text-muted)]">· {current.artists.name}</span>}
+              </p>
+            )}
           </div>
-          {current && (
-            <p className="m-0 mt-2.5 px-0.5 text-[13.5px] font-bold text-[var(--text-primary)]">
-              {current.title}
-              {current.artists?.name && <span className="ml-1.5 font-medium text-[var(--text-muted)]">· {current.artists.name}</span>}
-            </p>
-          )}
-          <div className="mt-2 flex flex-col gap-1">
+          {/* Dešinė: top dainų sąrašas (matomas vienu metu su grotuvu) */}
+          <div className="flex max-h-[58vh] min-w-0 flex-col gap-1 overflow-y-auto pr-0.5 sm:max-h-[430px]">
             {tracks.map((t, i) => {
               const active = i === cur
               return (
                 <button key={t.id} type="button" onClick={() => { setCur(i); setPlaying(true) }}
-                  className={`flex cursor-pointer items-center gap-3 rounded-lg border-0 px-2.5 py-2 text-left transition-colors ${active ? 'bg-[rgba(249,115,22,0.12)]' : 'bg-transparent hover:bg-[var(--card-hover)]'}`}>
+                  className={`flex cursor-pointer items-center gap-2.5 rounded-lg border-0 px-2 py-1.5 text-left transition-colors ${active ? 'bg-[rgba(249,115,22,0.12)]' : 'bg-transparent hover:bg-[var(--card-hover)]'}`}>
                   <span className={`w-5 shrink-0 text-center font-['Outfit',sans-serif] text-[12px] font-black ${active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}>{i + 1}</span>
                   {t.cover_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(t.cover_url)} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-md object-cover" />
-                  ) : <div className="h-10 w-10 shrink-0 rounded-md bg-[var(--cover-placeholder)]" />}
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[var(--text-primary)]">{t.title}</span>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className={`shrink-0 ${active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}><polygon points="6 4 20 12 6 20 6 4" /></svg>
+                    <img src={proxyImg(t.cover_url)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+                  ) : <div className="h-9 w-9 shrink-0 rounded-md bg-[var(--cover-placeholder)]" />}
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-[var(--text-primary)]">{t.title}</span>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" className={`shrink-0 ${active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}><polygon points="6 4 20 12 6 20 6 4" /></svg>
                 </button>
               )
             })}
           </div>
-        </>
+        </div>
       )}
     </HomeListModal>
   )

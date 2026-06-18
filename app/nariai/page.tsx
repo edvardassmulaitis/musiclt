@@ -78,7 +78,10 @@ export default function NariaiPage() {
       const rest: Member[] = (d.new_members || [])
         .filter((m: any) => !seen.has(m.username))
         .map((m: any) => ({ username: m.username, name: m.name, avatar: m.avatar, favArtists: m.fav_artists || [], isNew: !m.joined_legacy_at }))
-      setList([...actives, ...rest])
+      // Rodom TIK narius, kurie turi priskirtų mėgstamų atlikėjų/dainų. Sąrašas
+      // savaime augs, kai nariai pasiims/susikurs accountus ir užsipildys mėgstamus.
+      const withFavs = [...actives, ...rest].filter(m => (m.favArtists?.length || 0) > 0)
+      setList(withFavs)
     }).catch(() => { if (on) setList([]) })
     return () => { on = false }
   }, [])

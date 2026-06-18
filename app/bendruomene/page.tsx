@@ -217,6 +217,8 @@ function Stats({ likes, comments }: { likes?: number | null; comments?: number |
 function DiscoveryModal({ a, onClose }: { a: Atradimas; onClose: () => void }) {
   const body = sani(a.body)
   const title = `${a.artist_name || 'Atradimas'}${a.track_name ? ` - ${a.track_name}` : ''}`
+  // Spotify embed_id gali būti saugomas kaip „spotify:track:ID", pilnas URL ar grynas ID — normalizuojam.
+  const spotifyId = (a.embed_id || '').replace(/^spotify:track:/, '').replace(/^https?:\/\/open\.spotify\.com\/(?:embed\/)?track\//, '').split(/[?/]/)[0]
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(a.like_count || 0)
   const [busy, setBusy] = useState(false)
@@ -259,21 +261,26 @@ function DiscoveryModal({ a, onClose }: { a: Atradimas; onClose: () => void }) {
   return (
     <>
       <HomeListModal open onClose={onClose} title={title} subtitle={a.author ? `dalinasi ${uname(a.author)}` : null}>
-        {a.embed_type === 'youtube' && a.embed_id ? (
-          <div className="overflow-hidden rounded-xl border border-[var(--border-default)]" style={{ aspectRatio: '16/9' }}>
-            <iframe src={`https://www.youtube.com/embed/${a.embed_id}`} title="YouTube" className="h-full w-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+        {/* Kairė: embed (mažesnis); dešinė: PILNAS komentaro tekstas (matomi kartu) */}
+        <div className="grid gap-4 sm:grid-cols-[1.3fr_1fr]">
+          <div className="min-w-0">
+            {a.embed_type === 'youtube' && a.embed_id ? (
+              <div className="overflow-hidden rounded-xl border border-[var(--border-default)]" style={{ aspectRatio: '16/9' }}>
+                <iframe src={`https://www.youtube.com/embed/${a.embed_id}?autoplay=1&rel=0`} title="YouTube" className="h-full w-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+              </div>
+            ) : a.embed_type === 'spotify' && spotifyId ? (
+              <iframe src={`https://open.spotify.com/embed/track/${spotifyId}`} title="Spotify" className="w-full rounded-xl border-0" style={{ height: 352 }} allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" />
+            ) : discThumb(a) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={discThumb(a)!} alt="" className="w-full rounded-xl object-cover" style={{ maxHeight: 280 }} />
+            ) : null}
           </div>
-        ) : a.embed_type === 'spotify' && a.embed_id ? (
-          <iframe src={`https://open.spotify.com/embed/track/${a.embed_id}`} title="Spotify" className="w-full rounded-xl border-0" height={152} allow="encrypted-media" />
-        ) : discThumb(a) ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={discThumb(a)!} alt="" className="w-full rounded-xl object-cover" style={{ maxHeight: 280 }} />
-        ) : null}
-        {body && <p className="m-0 mt-4 whitespace-pre-line text-[13.5px] leading-relaxed text-[var(--text-secondary)]">{body}</p>}
-        {/* apačia: dviejų zonų „patinka" (širdis + skaičius → kas pamėgo) + Daugiau */}
+          {body && <p className="m-0 max-h-[52vh] min-w-0 overflow-y-auto whitespace-pre-line text-[13.5px] leading-relaxed text-[var(--text-secondary)] sm:max-h-[420px]">{body}</p>}
+        </div>
+        {/* apačia: dviejų zonų „patinka" (širdis + skaičius → kas pamėgo) + Daugiau (į bendrą atradimų puslapį) */}
         <div className="mt-4 flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3">
           <LikePill likes={likeCount} selfLiked={liked} onToggle={toggleLike} onOpenModal={openLikers} pending={busy} variant="surface" />
-          <Link href={`/muzikos-atradimai/${a.id}`} className="ml-auto shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline">Daugiau →</Link>
+          <Link href="/muzikos-atradimai" className="ml-auto shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline">Daugiau atradimų →</Link>
         </div>
       </HomeListModal>
       {likersOpen && (
@@ -997,6 +1004,7 @@ function PostTopasRowCard({ p, onOpenEntry }: { p: FeedPost; onOpenEntry: (e: Li
           <Link href={feedHref(p)} className="no-underline">
             <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
           </Link>
+          <Link href={feedHref(p)} className="ml-auto hidden shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70 sm:inline-flex">Visas topas →</Link>
         </div>
         {entries.length === 0 ? (
           <p className="m-0 mt-2 py-3 text-[12px] text-[var(--text-muted)]">Tuščias topas</p>
@@ -1010,34 +1018,29 @@ function PostTopasRowCard({ p, onOpenEntry }: { p: FeedPost; onOpenEntry: (e: Li
                 </div>
               ))}
             </Link>
-            {/* Desktop: mozaika — #1 didelis (2×2), likę mažėjančia tvarka, „Visas
-                topas" plytelė užpildo galą; užpildo visą plotį be tuščių vietų. */}
-            <div className="mt-2.5 hidden grid-cols-5 gap-2 sm:grid">
+            {/* Desktop: viena juosta — #1 šiek tiek didesnis, likę mažesni, vienoje eilėje. */}
+            <div className="mt-2.5 hidden h-[150px] items-stretch gap-2 sm:flex">
               {entries.map((e, i) => {
                 const big = i === 0
-                const spanCls = big ? 'col-span-2 row-span-2 aspect-square' : 'aspect-square'
                 const cell = (
                   <div className="relative h-full w-full overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
                     <TopEntryTile e={e} big={big} />
                   </div>
                 )
                 const tip = `${sani(e.title)}${e.artist ? ' – ' + e.artist : ''}`
+                const flexCls = big ? 'flex-[2]' : 'flex-1'
                 return clickable(e) ? (
                   <button key={e.rank} type="button" onClick={() => onOpenEntry(e)} title={tip}
-                    className={`group/tile ${spanCls} cursor-pointer overflow-hidden rounded-lg border-0 bg-transparent p-0`}>
+                    className={`group/tile ${flexCls} min-w-0 cursor-pointer overflow-hidden rounded-lg border-0 bg-transparent p-0`}>
                     {cell}
                   </button>
                 ) : (
                   <Link key={e.rank} href={feedHref(p)} title={tip}
-                    className={`${spanCls} overflow-hidden rounded-lg no-underline`}>
+                    className={`${flexCls} min-w-0 overflow-hidden rounded-lg no-underline`}>
                     {cell}
                   </Link>
                 )
               })}
-              <Link href={feedHref(p)}
-                className="col-span-2 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border-strong)] font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.06)]">
-                Visas topas →
-              </Link>
             </div>
           </>
         )}
@@ -1403,7 +1406,7 @@ function KornerModal({ onClose }: { onClose: () => void }) {
         ))}
       </div>
       {posts === null ? (
-        <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">{Array(8).fill(null).map((_, i) => <div key={i} className="hp-skel h-[140px] w-full rounded-xl sm:h-[190px] sm:w-[280px]" />)}</div>
+        <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">{Array(8).fill(null).map((_, i) => <div key={i} className="hp-skel h-[200px] w-full rounded-xl sm:h-[250px] sm:w-[280px]" />)}</div>
       ) : posts.length === 0 ? (
         <div className="py-12 text-center text-[13px] text-[var(--text-muted)]">Įrašų dar nėra.</div>
       ) : (
@@ -1415,13 +1418,37 @@ function KornerModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+// Kūryba/vertimas excerpt → „eilėraščio" eilutės po ~35 simb. žodžio riboje
+// (toks pat formatavimas kaip homepage Bendruomenės kūrybos kortelėse).
+function poetryLines(text: string): string[] {
+  const words = (text || '').split(' ')
+  const lines: string[] = []
+  let cur = ''
+  for (const w of words) {
+    if (cur.length + w.length + 1 > 35 && cur) { lines.push(cur); cur = w }
+    else cur = cur ? cur + ' ' + w : w
+  }
+  if (cur) lines.push(cur)
+  return lines
+}
+
 function KornerCard({ p, wide = false }: { p: FeedPost; wide?: boolean }) {
   const kind = postKind(p)
+  const isCreative = kind === 'kuryba' || kind === 'vertimas'
+  const poem = isCreative && p.excerpt ? poetryLines(p.excerpt).slice(0, 9) : null
   return (
-    <Link href={feedHref(p)} className={`group flex snap-start flex-col rounded-[15px] border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4 no-underline transition-colors hover:bg-[var(--card-hover)] ${wide ? 'w-full shrink sm:w-[280px] sm:shrink-0' : 'w-[280px] shrink-0'}`}>
+    <Link href={feedHref(p)} style={{ minHeight: 250 }} className={`group flex snap-start flex-col rounded-[15px] border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4 no-underline transition-colors hover:bg-[var(--card-hover)] ${wide ? 'w-full shrink sm:w-[280px] sm:shrink-0' : 'w-[280px] shrink-0'}`}>
       <KindBadge kind={kind} abs={false} />
       <h4 className="m-0 mt-3 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title) || '(be pavadinimo)'}</h4>
-      {p.excerpt && <p className={`m-0 mt-1.5 text-[12.5px] leading-relaxed text-[var(--text-muted)] ${wide ? 'line-clamp-4 sm:line-clamp-4' : 'line-clamp-4'}`}>{p.excerpt}</p>}
+      {poem && poem.length > 0 ? (
+        <div className="mt-2 min-h-0 flex-1 overflow-hidden">
+          {poem.map((line, i) => (
+            <span key={i} className="block truncate text-[12.5px] italic leading-[1.7] text-[var(--text-secondary)]">{line}</span>
+          ))}
+        </div>
+      ) : p.excerpt ? (
+        <p className="m-0 mt-1.5 line-clamp-6 text-[12.5px] leading-relaxed text-[var(--text-muted)]">{p.excerpt}</p>
+      ) : null}
       <div className="mt-auto flex items-center gap-1.5 pt-2.5">
         <Avatar src={p.author?.avatar_url} name={uname(p.author)} size={16} />
         <span className="min-w-0 truncate text-[11px] text-[var(--text-muted)]">{uname(p.author)}</span>
@@ -1476,11 +1503,11 @@ function KornerSection() {
       </div>
       <div className="hp-scroll flex snap-x gap-3 overflow-x-auto pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {ordered === null ? (
-          Array(5).fill(null).map((_, i) => <div key={i} className="hp-skel h-[190px] w-[280px] shrink-0 rounded-[15px]" />)
+          Array(5).fill(null).map((_, i) => <div key={i} className="hp-skel h-[250px] w-[280px] shrink-0 rounded-[15px]" />)
         ) : (
           <>
             {ordered.map(p => <KornerCard key={p.id} p={p} />)}
-            <Link href="/blogas/rasyti?type=creation" className="group flex w-[280px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[15px] border border-dashed border-[var(--border-strong)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)]" style={{ minHeight: 190 }}>
+            <Link href="/blogas/rasyti?type=creation" className="group flex w-[280px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[15px] border border-dashed border-[var(--border-strong)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)]" style={{ minHeight: 250 }}>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(249,115,22,0.15)] text-[var(--accent-orange)]"><Ic d={I.plus} size={15} /></span>
               <b className="font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">Įkelk savo kūrybą</b>
               <span className="text-[11px] text-[var(--text-muted)]">eilėraštį, vertimą ar mintis</span>
