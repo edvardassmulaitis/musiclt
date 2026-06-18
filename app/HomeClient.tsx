@@ -15,6 +15,7 @@ import { HomeListModal } from '@/components/HomeListModal'
 import { HomeListContent } from '@/components/HomeListContent'
 import Scroller from '@/components/ui/Scroller'
 import BendruomeneSection from '@/components/home/BendruomeneSection'
+import { DienosDainaHero } from '@/components/DienosDainaHero'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
@@ -537,17 +538,20 @@ const newsBodyCache = new Map<number, string>()
  *  auto-advance kai nuscrollinta žemyn — „skaitymo režimas"), video iframe'o
  *  mount'ą (tik aktyvi kortelė groja), news pilno body lazy-fetch'ą, ♥ ir
  *  apatinę veiksmų juostą. */
-function ReaderSlide({ slide, active, seen, onScrolledChange, onClose, onChartVote, onNavLink }: {
+function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, onClose, onChartVote, onDailyVote, onNavLink }: {
   slide: HeroSlide
   active: boolean
   seen: boolean
   onScrolledChange: (scrolled: boolean) => void
+  onPlayingChange: (playing: boolean) => void
   onClose: () => void
   onChartVote?: (slide: HeroSlide) => void
+  onDailyVote?: (slide: HeroSlide) => void
   onNavLink: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [videoOn, setVideoOn] = useState(false)
+  const [mini, setMini] = useState(false)
   const [body, setBody] = useState<string | null>(
     slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null)
   )
@@ -556,16 +560,23 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onClose, onChartVo
   const [likeBusy, setLikeBusy] = useState(false)
 
   const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
+  const isDaily = slide.type === 'daily'
   const hasVideo = !!slide.videoId
 
-  /* Auto-play video tik aktyviai kortelei; išeinant — sustabdom + grįžtam į viršų. */
+  /* Išeinant iš kortelės — sustabdom video + grįžtam į viršų. JOKIO auto-play:
+   *  grotuvas pasileidžia tik paspaudus oranžinį play. */
   useEffect(() => {
-    if (active && hasVideo) setVideoOn(true)
     if (!active) {
       setVideoOn(false)
+      setMini(false)
       if (scrollRef.current) scrollRef.current.scrollTop = 0
     }
-  }, [active, hasVideo])
+  }, [active])
+
+  /* Pranešam tėvui apie grojimą (groja → auto-advance stoja). */
+  useEffect(() => {
+    if (active) onPlayingChange(videoOn)
+  }, [videoOn, active]) // eslint-disable-line
 
   /* Pilno news body lazy-fetch — tik kai kortelė tampa aktyvi. */
   useEffect(() => {
@@ -583,7 +594,10 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onClose, onChartVo
 
   const onScroll = () => {
     const el = scrollRef.current
-    if (el) onScrolledChange(el.scrollTop > 24)
+    if (!el) return
+    const top = el.scrollTop
+    setMini(videoOn && top > 36)
+    onScrolledChange(top > 4)
   }
 
   const toggleLike = async () => {
@@ -606,36 +620,43 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onClose, onChartVo
 
   return (
     <div ref={scrollRef} className="rdr-slide" onScroll={onScroll}>
-      {/* ── Media viršuje (matosi iškart, prieš scroll'ą, nestabdo skaitymo) ── */}
-      <div className="rdr-media">
-        {hasVideo && active && videoOn ? (
+      {/* ── Media viršuje. Play = oranžinis mygtukas (ne auto). Scrollinant grojantis
+          video lieka MINIMIZUOTAS (sticky kampe), garsas tęsiasi. ── */}
+      {videoOn ? (
+        <div
+          className={`rdr-vwrap${mini ? ' mini' : ''}`}
+          onClick={mini ? () => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) : undefined}
+        >
           <iframe
             className="rdr-video"
-            src={`https://www.youtube.com/embed/${slide.videoId}?autoplay=1&mute=1&playsinline=1&rel=0`}
+            src={`https://www.youtube.com/embed/${slide.videoId}?autoplay=1&playsinline=1&rel=0`}
             allow="autoplay; encrypted-media; picture-in-picture"
             allowFullScreen
             title={slide.songTitle || slide.title}
           />
-        ) : slide.bgImg ? (
-          <>
-            <img src={proxyImg(slide.bgImg)} alt="" draggable={false} />
-            {hasVideo && (
-              <button className="rdr-playbtn" onClick={(e) => { e.stopPropagation(); setVideoOn(true) }} aria-label="Groti">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
-              </button>
-            )}
-            <div className="rdr-media-fade" />
-          </>
-        ) : (
-          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
-        )}
-      </div>
+          {mini && (
+            <button className="rdr-vclose" onClick={(e) => { e.stopPropagation(); setVideoOn(false) }} aria-label="Uždaryti grotuvą">✕</button>
+          )}
+        </div>
+      ) : (
+        <div className="rdr-media">
+          {slide.bgImg
+            ? <img className="rdr-media-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} />
+            : <div className="rdr-media-img" style={{ background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
+          <div className="rdr-media-fade" />
+          {hasVideo && (
+            <button className="rdr-playbtn" onClick={(e) => { e.stopPropagation(); setVideoOn(true) }} aria-label="Groti">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+            </button>
+          )}
+        </div>
+      )}
 
-      {/* ── „Groja" juostelė po video ── */}
+      {/* ── „Groja" juostelė ── */}
       {hasVideo && (slide.songTitle || slide.songArtist) && (
         <div className="rdr-np">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="#f97316"><path d="M8 5v14l11-7z" /></svg>
-          <span className="rdr-np-t">{slide.songTitle || 'Groja'}</span>
+          <span className="rdr-np-t">{slide.songTitle || 'Klausyk'}</span>
           {slide.songArtist && <span className="rdr-np-a">· {slide.songArtist}</span>}
         </div>
       )}
@@ -694,7 +715,12 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onClose, onChartVo
         {isChart && onChartVote ? (
           <button className="rdr-cta" style={{ background: slide.type === 'chart_lt' ? '#f97316' : '#3b82f6' }}
             onClick={() => onChartVote(slide)}>
-            Balsuok
+            Balsuok už topą
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+          </button>
+        ) : isDaily && onDailyVote ? (
+          <button className="rdr-cta" style={{ background: '#f59e0b' }} onClick={() => onDailyVote(slide)}>
+            Balsuoti · Siūlyti dainą
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
           </button>
         ) : (
@@ -714,7 +740,7 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onClose, onChartVo
   )
 }
 
-function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChartVote, dk }: {
+function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChartVote, onDailyVote, dk }: {
   slides: HeroSlide[]
   initialIdx: number
   seenSlides: Set<string>
@@ -722,13 +748,16 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   onClose: () => void
   /** Chart slide'ams — atveria voting sheet'ą (reels lieka fone). */
   onChartVote?: (slide: HeroSlide) => void
+  /** Dienos dainos slide'ui — atveria balsavimo/siūlymo sheet'ą. */
+  onDailyVote?: (slide: HeroSlide) => void
   dk: boolean
 }) {
   const [idx, setIdx] = useState(initialIdx)
   const [progress, setProgress] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState(0)
-  const [paused, setPaused] = useState(false)
+  const [scrolled, setScrolled] = useState(false)   // aktyvi kortelė nuscrollinta žemyn
+  const [playing, setPlaying] = useState(false)      // aktyvioj kortelėj groja video
 
   const startRef = useRef<number>(0)
   const rafRef = useRef<any>(null)
@@ -737,6 +766,10 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   const gestureDir = useRef<'h' | 'v' | null>(null)
 
   const slide = slides[idx]
+  // Auto-advance stoja jei skaitoma (scroll) ARBA groja. Braukimas į šoną
+  // blokuojamas TIK kai nuscrollinta (grojant vis dar galima braukti).
+  const autoOff = scrolled || playing
+  const swipeLocked = scrolled
 
   const stopProgress = useCallback(() => { cancelAnimationFrame(rafRef.current) }, [])
   const startProgress = useCallback(() => {
@@ -759,20 +792,21 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   /* Slide pasikeitė — reset; pažymim seen išeinant. */
   useEffect(() => {
     if (!slide) return
-    setPaused(false)
+    setScrolled(false)
+    setPlaying(false)
     setProgress(0)
     startProgress()
     return () => { stopProgress(); onSeen(slide.href) }
   }, [idx]) // eslint-disable-line
 
-  /* Pauzė skaitant (nuscrollinta žemyn). */
+  /* Pauzė kai skaitoma/grojama. */
   useEffect(() => {
-    if (paused) stopProgress(); else startProgress()
-  }, [paused]) // eslint-disable-line
+    if (autoOff) stopProgress(); else startProgress()
+  }, [autoOff]) // eslint-disable-line
 
   /* Auto-advance. */
   useEffect(() => {
-    if (progress >= 1 && !paused) goTo(idx + 1)
+    if (progress >= 1 && !autoOff) goTo(idx + 1)
   }, [progress]) // eslint-disable-line
 
   /* Klaviatūra (desktop). */
@@ -786,7 +820,8 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     return () => window.removeEventListener('keydown', onKey)
   }, [idx, goTo, onClose])
 
-  /* Touch — horizontalus braukimas keičia istoriją; vertikalus = native scroll. */
+  /* Touch — horizontalus braukimas keičia istoriją (tik jei NEnuscrollinta);
+   *  vertikalus = native scroll. */
   const onTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
@@ -796,7 +831,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     const dx = e.touches[0].clientX - touchStartX.current
     const dy = e.touches[0].clientY - touchStartY.current
     if (gestureDir.current === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
-      gestureDir.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+      gestureDir.current = (!swipeLocked && Math.abs(dx) > Math.abs(dy)) ? 'h' : 'v'
       if (gestureDir.current === 'h') { setDragging(true); stopProgress() }
     }
     if (gestureDir.current === 'h') {
@@ -810,7 +845,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
       setDragging(false)
       setDragOffset(0)
       if (Math.abs(dx) > 55) goTo(dx < 0 ? idx + 1 : idx - 1)
-      else if (!paused) startProgress()
+      else if (!autoOff) startProgress()
     }
     gestureDir.current = null
   }
@@ -834,7 +869,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
         })}
       </div>
 
-      {paused && <div className="rdr-paused">Skaitymo režimas · slink į viršų tęsti ↑</div>}
+      {scrolled && <div className="rdr-paused">Skaitymo režimas · slink į viršų tęsti ↑</div>}
 
       <button onClick={onClose} className="rdr-close" aria-label="Uždaryti">✕</button>
 
@@ -854,9 +889,11 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
               slide={s}
               active={i === idx}
               seen={seenSlides.has(s.href)}
-              onScrolledChange={(sc) => { if (i === idx) setPaused(sc) }}
+              onScrolledChange={(sc) => { if (i === idx) setScrolled(sc) }}
+              onPlayingChange={(pl) => { if (i === idx) setPlaying(pl) }}
               onClose={onClose}
               onChartVote={onChartVote}
+              onDailyVote={onDailyVote}
               onNavLink={onClose}
             />
           </div>
@@ -2230,6 +2267,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
 
   /* ── Chart bottom sheet state (mobile + naudojama bet kur) ── */
   const [chartSheet, setChartSheet] = useState<{ topType: 'lt_top30' | 'top40'; title: string; accent: string } | null>(null)
+  const [dailySheetOpen, setDailySheetOpen] = useState(false)
 
   /* ── Modal state ── */
   // Track/Album modal'ai homepage'e — atidaromi spaudžiant track/album card.
@@ -2810,10 +2848,19 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
 
         /* Media viršuje (matosi iškart) */
         .rdr-media{position:relative;width:100%;aspect-ratio:16/10;background:#0a0a0a;overflow:hidden}
-        .rdr-media img{width:100%;height:100%;object-fit:cover;display:block}
+        .rdr-media-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
         .rdr-video{width:100%;height:100%;border:none;display:block;background:#000}
-        .rdr-media-fade{position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(to top,#000,transparent);pointer-events:none}
-        .rdr-playbtn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,0.55);border:1.5px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(6px);padding-left:4px}
+        .rdr-media-fade{position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(to top,#000,transparent);pointer-events:none;z-index:1}
+        /* Native oranžinis play (paleidžia mini-grotuvą; auto-play IŠJUNGTAS) */
+        .rdr-playbtn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:66px;height:66px;border-radius:50%;background:#f97316;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;padding-left:4px;z-index:2;box-shadow:0 6px 22px rgba(249,115,22,0.5)}
+        .rdr-playbtn:active{transform:translate(-50%,-50%) scale(0.94)}
+        /* Grotuvo apvalkalas — pilnas viršuje; scrollinant lieka sticky kampe
+           (sticky, NE fixed — kad neišsikraipytų dėl track transform). Garsas tęsiasi. */
+        .rdr-vwrap{position:sticky;top:0;z-index:30;width:100%;aspect-ratio:16/10;background:#000;overflow:hidden;transition:width .25s ease,height .25s ease,border-radius .25s ease}
+        .rdr-vwrap iframe{width:100%;height:100%;border:none;display:block}
+        .rdr-vwrap.mini{top:8px;width:172px;height:97px;aspect-ratio:auto;margin:0 8px 0 auto;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.18);cursor:pointer}
+        .rdr-vwrap.mini iframe{pointer-events:none}
+        .rdr-vclose{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.65);border:none;color:#fff;font-size:11px;line-height:1;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center}
 
         /* „Groja" juostelė */
         .rdr-np{display:flex;align-items:center;gap:6px;padding:9px 20px;background:rgba(249,115,22,0.10);border-bottom:1px solid rgba(255,255,255,0.06);font-family:'Outfit',sans-serif}
@@ -3065,6 +3112,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
               title: s.title,
               accent: s.type === 'chart_lt' ? '#f97316' : '#3b82f6',
             })}
+            onDailyVote={() => setDailySheetOpen(true)}
             dk={dk}
           />
         )}
@@ -3077,6 +3125,26 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
           title={chartSheet?.title || 'TOPAS'}
           accent={chartSheet?.accent || '#f97316'}
         />
+
+        {/* ═══════════════ DIENOS DAINA — balsavimas + siūlymas (sheet) ═══════════════ */}
+        {dailySheetOpen && typeof document !== 'undefined' && createPortal((
+          <div
+            onClick={() => setDailySheetOpen(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: '100%', maxWidth: 560, maxHeight: '92vh', overflowY: 'auto', background: 'var(--bg-body)', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: '14px 14px 28px', position: 'relative' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                <span style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border-strong)' }} />
+              </div>
+              <button onClick={() => setDailySheetOpen(false)} aria-label="Uždaryti"
+                style={{ position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-hover)', border: 'none', color: 'var(--text-primary)', fontSize: 14, cursor: 'pointer', zIndex: 2 }}>✕</button>
+              <DienosDainaHero fullPage />
+            </div>
+          </div>
+        ), document.body)}
 
         {/* ═══════════════════════ MAIN CONTENT ═══════════════════════ */}
         <div className="hp-cnt" style={{ maxWidth: 1360, margin: '0 auto', padding: '42px 20px', display: 'flex', flexDirection: 'column', gap: 44 }}>
