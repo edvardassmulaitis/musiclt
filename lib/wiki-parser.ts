@@ -728,7 +728,12 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       }
       // 2026-06-16: leisti 1-simbolio pavadinimus (Aitch albumas „4") jei iš tikro [[wikilink]] (wm) į albumo straipsnį.
       if (!title || (title.length < 2 && !wm) || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle)) continue
-      if (['discography','videography','certification','singles','chart'].some(b => title.toLowerCase().includes(b))) continue
+      // 2026-06-18: 'singles' IŠIMTAS iš blocklist'o. Albumai literaliai pavadinti
+      // „Singles" (Maroon 5 greatest hits) ar „The Singles Collection" tapdavo
+      // skip'inami, nes title.includes('singles'). Tikroji ==Singles== sekcija jau
+      // skip'inama per skipSection/inSinglesSection (žr. aukščiau), tad šitas
+      // title-lygio filtras buvo perteklinis IR blokavo legalius compilation albumus.
+      if (['discography','videography','certification','chart'].some(b => title.toLowerCase().includes(b))) continue
 
       const rowLines: string[] = [line]
       let year: number | null = currentYear
