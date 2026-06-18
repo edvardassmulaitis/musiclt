@@ -47,6 +47,7 @@ type OutPost = {
   entry_count: number | null
   blog_slug: string | null
   author: { id: string | null; full_name: string | null; username: string | null; avatar_url: string | null } | null
+  artist: { id: number; slug: string | null; name: string; image: string | null } | null
 }
 
 // Normalizuojam abu list_item formatus į vieną.
@@ -305,6 +306,16 @@ export async function GET(req: NextRequest) {
       entriesById.set(r.id, entries)
     }
 
+    // Susietos grupės (target_artist_id) info — „groti grupės dainas" mygtukui.
+    const linkedArtistIds = [...new Set(deduped.map(r => r.target_artist_id).filter((x: any): x is number => !!x))]
+    const linkedArtist = new Map<number, { id: number; slug: string | null; name: string; image: string | null }>()
+    if (linkedArtistIds.length) {
+      try {
+        const { data: la } = await sb.from('artists').select('id, slug, name, cover_image_url').in('id', linkedArtistIds)
+        for (const a of (la || []) as any[]) linkedArtist.set(a.id, { id: a.id, slug: a.slug || null, name: a.name || '', image: a.cover_image_url || null })
+      } catch {}
+    }
+
     const posts: OutPost[] = deduped.map(r => {
       const prof = r.blogs?.profiles
       const entries = entriesById.get(r.id) || null
@@ -324,6 +335,7 @@ export async function GET(req: NextRequest) {
         entry_count: r.post_type === 'topas' && Array.isArray(r.list_items) ? r.list_items.length : null,
         blog_slug: r.blogs?.slug || prof?.username || null,
         author: prof ? { id: prof.id || null, full_name: prof.full_name || null, username: prof.username || null, avatar_url: prof.avatar_url || null } : null,
+        artist: (r.target_artist_id && linkedArtist.get(r.target_artist_id)) || null,
       }
     })
 

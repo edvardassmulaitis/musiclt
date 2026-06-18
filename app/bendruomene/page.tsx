@@ -29,6 +29,7 @@ import { HomeListModal } from '@/components/HomeListModal'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
+import { GroupPlayModal } from '@/components/GroupPlayModal'
 import { LikePill } from '@/components/LikePill'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
 
@@ -119,11 +120,13 @@ type FeedPost = {
   editorial_type: string | null; excerpt: string | null; featured_until: string | null
   cover: string | null; collage: string[] | null; entries: ListEntry[] | null; entry_count?: number | null; blog_slug: string | null
   author: { id: string | null; full_name: string | null; username: string | null; avatar_url: string | null } | null
+  artist?: { id: number; slug: string | null; name: string; image: string | null } | null
 }
 type DiskKomentaras = { author: string; excerpt: string; avatar?: string | null; created_at?: string | null }
 type Diskusija = {
   id: number; slug: string; title: string; author_name: string | null; author_avatar: string | null
   comment_count: number; created_at: string; artist_name?: string | null; artist_image?: string | null
+  artist_id?: number | null; artist_slug?: string | null
   latest_comment?: DiskKomentaras | null
   latest_comments?: DiskKomentaras[]
   featured_until?: string | null
@@ -913,6 +916,19 @@ function kindColor(kind: string): string {
 function AccentBar({ color }: { color: string }) {
   return <span aria-hidden className="w-[3px] shrink-0" style={{ background: color }} />
 }
+// Grupės grotuvo mygtukas — apatiniame dešiniame kampe ant vizualo. Span (ne
+// button), kad nebūtų interaktyvaus elemento <a> viduje; preventDefault stabdo
+// kortelės navigaciją.
+function GroupPlayBtn({ onPlay }: { onPlay: () => void }) {
+  return (
+    <span role="button" tabIndex={0} aria-label="Groti grupės dainas"
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onPlay() }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onPlay() } }}
+      className="absolute bottom-2.5 right-2.5 z-[2] flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.45)] transition-transform hover:scale-105">
+      <Ic d={I.play} size={16} filled />
+    </span>
+  )
+}
 // Bendra apatinė autoriaus eilutė (inline, be border-top — tinka horizontaliai kortelei).
 function RowMeta({ author, date, likes, comments }: { author?: { username?: string | null; full_name?: string | null; avatar_url?: string | null } | null; date?: string | null; likes?: number | null; comments?: number | null }) {
   return (
@@ -925,7 +941,7 @@ function RowMeta({ author, date, likes, comments }: { author?: { username?: stri
   )
 }
 
-function PostRowCard({ p }: { p: FeedPost }) {
+function PostRowCard({ p, onGroupPlay }: { p: FeedPost; onGroupPlay: (a: { id: number; name: string }) => void }) {
   const kind = postKind(p)
   return (
     <Link href={feedHref(p)} className={`${ROW_BASE} ${ROW_MINH}`}>
@@ -935,6 +951,7 @@ function PostRowCard({ p }: { p: FeedPost }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={proxyImg(p.cover)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
           {p.rating != null && <span className="absolute right-2 top-2 rounded-md bg-black/75 px-2 py-0.5 text-[12px] font-black text-amber-300">★ {p.rating}</span>}
+          {p.artist?.id && <GroupPlayBtn onPlay={() => onGroupPlay({ id: p.artist!.id, name: p.artist!.name })} />}
         </div>
       )}
       <div className={ROW_PAD}>
@@ -1034,7 +1051,7 @@ function PostTopasRowCard({ p, onOpenEntry }: { p: FeedPost; onOpenEntry: (e: Li
 // Diskusijos eilutė — suvienodinta su kitų įrašų kortele (#2): naujausias
 // komentaras kaip excerpt, apačioje komentatoriaus username + komentarų skaičius
 // (kaip RowMeta, be „prieš X" laiko).
-function DiskusijaRowCard({ d }: { d: Diskusija }) {
+function DiskusijaRowCard({ d, onGroupPlay }: { d: Diskusija; onGroupPlay: (a: { id: number; name: string }) => void }) {
   const lc = (d.latest_comments && d.latest_comments[0]) || d.latest_comment || null
   return (
     <Link href={`/diskusijos/${d.slug}`} className={`${ROW_BASE} ${ROW_MINH} hover:border-[rgba(139,92,246,0.5)]`}
@@ -1046,6 +1063,7 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
           <img src={proxyImg(d.artist_image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
           <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 45%, rgba(13,19,32,0.85))' }} />
           {d.artist_name && <span className="absolute bottom-2 left-3 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-white/90">{d.artist_name}</span>}
+          {d.artist_id && <GroupPlayBtn onPlay={() => onGroupPlay({ id: d.artist_id!, name: d.artist_name || 'Grupė' })} />}
         </div>
       )}
       <div className={ROW_PAD}>
@@ -1168,6 +1186,7 @@ function PulsasSection() {
   const [openDisc, setOpenDisc] = useState<Atradimas | null>(null)
   const [trackModal, setTrackModal] = useState<{ id: number; title: string; cover_url: string | null; artist_name: string | null } | null>(null)
   const [albumModal, setAlbumModal] = useState<number | null>(null)
+  const [groupPlay, setGroupPlay] = useState<{ id: number; name: string } | null>(null)
   const openEntry = useCallback((e: ListEntry) => {
     if (e.id == null) return
     if (e.kind === 'track') setTrackModal({ id: e.id, title: e.title, cover_url: e.image, artist_name: e.artist })
@@ -1319,11 +1338,11 @@ function PulsasSection() {
         <>
           <div className="flex flex-col gap-3">
             {visible.map((it) => {
-              if (it.kind === 'disc') return <DiskusijaRowCard key={`d-${it.d.id}`} d={it.d} />
+              if (it.kind === 'disc') return <DiskusijaRowCard key={`d-${it.d.id}`} d={it.d} onGroupPlay={setGroupPlay} />
               if (it.kind === 'atrad') return <AtradimasRowCard key={`a-${it.a.id}`} a={it.a} onOpen={setOpenDisc} />
               const p = it.post
               if (p.post_type === 'topas') return <PostTopasRowCard key={`p-${p.id}`} p={p} onOpenEntry={openEntry} />
-              return <PostRowCard key={`p-${p.id}`} p={p} />
+              return <PostRowCard key={`p-${p.id}`} p={p} onGroupPlay={setGroupPlay} />
             })}
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -1344,6 +1363,7 @@ function PulsasSection() {
       {openDisc && <DiscoveryModal a={openDisc} onClose={() => setOpenDisc(null)} />}
       {trackModal && <HomeTrackModal track={trackModal} onClose={() => setTrackModal(null)} />}
       {albumModal != null && <AlbumInfoModal albumId={albumModal} onClose={() => setAlbumModal(null)} />}
+      {groupPlay && <GroupPlayModal artistId={groupPlay.id} artistName={groupPlay.name} onClose={() => setGroupPlay(null)} />}
     </section>
   )
 }

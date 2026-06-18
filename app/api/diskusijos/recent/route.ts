@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     let q = sb
       .from('discussions')
       .select('id, slug, title, author_name, author_avatar, comment_count, created_at, last_comment_at, featured_until, ' +
-        'artist:artist_id(name, slug, cover_image_url)')
+        'artist:artist_id(id, name, slug, cover_image_url)')
       .eq('is_deleted', false)
       .or('legacy_kind.is.null,legacy_kind.eq.discussion')
     if (featuredOnly) q = q.gt('featured_until', new Date().toISOString())
@@ -86,6 +86,8 @@ export async function GET(req: Request) {
         featured_until: d.featured_until || null,
         artist_name: art?.name || null,
         artist_image: art?.cover_image_url || null,
+        artist_id: art?.id ?? null,
+        artist_slug: art?.slug ?? null,
         latest_comment: cs[0] || null,
         latest_comments: cs,
       }
