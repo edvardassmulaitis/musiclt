@@ -7,8 +7,26 @@ import { notifyFromSession } from '@/lib/notifications'
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return NextResponse.json({ error: 'Prisijunk' }, { status: 401 })
   const { id } = await params
+
+  // ── Anoniminis „pliusas" ── 2026-06-18 Edvardo prašymu: neprisijungęs
+  // vartotojas vis tiek gali paspausti „Patinka". Įrašom kaip denormalizuoto
+  // skaitiklio +1 (be liker'io eilutės — anonimas neturi profilio). Klientas
+  // (localStorage) saugo, kad tas pats įrenginys neperdaugintų, ir po to
+  // pasiūlo užsiregistruoti, „kad paskatintų kūrėją".
+  if (!session?.user?.id) {
+    try {
+      const sb = createAdminClient()
+      const { data: post } = await sb
+        .from('blog_posts').select('like_count').eq('id', id).maybeSingle() as { data: any }
+      const next = (Number(post?.like_count) || 0) + 1
+      await sb.from('blog_posts').update({ like_count: next }).eq('id', id)
+      return NextResponse.json({ liked: true, anon: true, count: next })
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 500 })
+    }
+  }
+
   try {
     const liked = await togglePostLike(id, session.user.id)
 
