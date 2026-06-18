@@ -82,11 +82,17 @@ export async function runYtBackfill(opts: {
   for (const { id, phase } of rows) {
     if (Date.now() - start > budgetMs) break
     phasesSeen.add(phase)
-    // Fazė C — tik datos backfill: praleidžiam Data API IR neperrašom views.
-    // A/B — irgi skipDataApi (taupom kvotą), bet views rašom (jų dar nėra).
-    const enrichOpts = phase === 'C'
-      ? { skipDataApi: true, preserveViews: true }
-      : { skipDataApi: true }
+    // 2026-06-18: Fazė A (trūksta views — pagrindinis topų/peržiūrų reikalas)
+    // naudoja PILNĄ enrich su Data API (patikima: teisingai atkuria views IR
+    // teisingai išvalo tikrai ištrintus video). Nemokami InnerTube šaltiniai iš
+    // Vercel'io duodavo daug FALSE „negyvas" (video tvarkingas, bet neperskaito).
+    // Data API kvotai pasibaigus getVideoDetails vis tiek automatiškai krenta į
+    // nemokamus šaltinius (graceful). Fazės B/C (ilga uodega) — lieka nemokama.
+    const enrichOpts = phase === 'A'
+      ? {}                                              // pilnas enrich (Data API)
+      : phase === 'C'
+        ? { skipDataApi: true, preserveViews: true }
+        : { skipDataApi: true }
     try {
       const r = await enrichTrack(id, true, enrichOpts)
       if (r.ok) {
