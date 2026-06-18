@@ -352,22 +352,28 @@ export default function NewsArticleClient({
           overflow:hidden; background:#080d14;
           display:flex; align-items:flex-end;
         }
-        .na-hero-photo { position:absolute; inset-block:0; right:0; left:auto; width:60%; overflow:hidden; }
-        .na-hero-blur  { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(50px) saturate(1.2) brightness(0.85); transform:scale(1.25); }
-        .na-hero-img   { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 40%; animation:na-zoom 36s ease-in-out infinite alternate; filter:saturate(1.05) contrast(1.02); }
-        .na-hero-fade-l { position:absolute; inset:0; background:linear-gradient(to right, #080d14 6%, rgba(8,13,20,0.6) 40%, transparent 80%); pointer-events:none; }
-        .na-hero-fade-b { position:absolute; inset:0; background:linear-gradient(to top, #080d14 2%, rgba(8,13,20,0.35) 28%, transparent 60%); pointer-events:none; }
+        /* Foto dešinėje — VISO AUKŠČIO (object-contain), blur fill užpildo
+           kraštus (kaip galerijos solo / artist page, tik kitoje pusėje).
+           Niekada nenukerpa subjektui galvos/kojų. */
+        .na-hero-photo { position:absolute; inset-block:0; right:0; left:auto; width:58%; overflow:hidden; }
+        .na-hero-blur  { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(46px) saturate(1.1) brightness(0.55); transform:scale(1.2); }
+        .na-hero-img   { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:center; filter:saturate(1.04) contrast(1.02); }
+        /* Siaura kairio krašto blend juosta — foto įsilieja į tamsų teksto foną */
+        .na-hero-fade-l { position:absolute; inset:0; background:linear-gradient(to right, #080d14 0%, rgba(8,13,20,0.5) 14%, transparent 34%); pointer-events:none; }
+        .na-hero-fade-b { position:absolute; inset:0; background:linear-gradient(to top, rgba(8,13,20,0.5) 0%, transparent 20%); pointer-events:none; }
         .na-hero-noimg  { position:absolute; inset:0; background:linear-gradient(135deg,#0d1420 0%,#111826 100%); }
         .na-hero-noimg::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.12) 0%, transparent 55%); }
 
         .na-hero-wrap  { position:relative; z-index:2; width:100%; max-width:1240px; margin:0 auto; padding:0 28px 36px; }
-        .na-hero-inner { max-width:680px; animation:na-in .7s .05s both; }
+        .na-hero-inner { max-width:700px; animation:na-in .7s .05s both; }
         .na-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.7rem,3.1vw,2.8rem); font-weight:900; line-height:1.06; letter-spacing:-.03em; color:#fff; margin:0 0 16px; text-shadow:0 2px 24px rgba(0,0,0,0.45); }
 
-        /* Viena meta eilutė: data · atlikėjas · Patinka · Dalintis */
-        .na-meta { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
-        .na-date { font-size:12.5px; color:rgba(255,255,255,0.5); font-weight:600; font-family:'Outfit',sans-serif; }
-        .na-meta-sep { width:4px; height:4px; border-radius:50%; background:rgba(255,255,255,0.28); }
+        /* Veiksmai VIRŠ pavadinimo */
+        .na-actbar { display:flex; flex-wrap:wrap; gap:9px; margin-bottom:16px; }
+        /* Meta po pavadinimu: data kairėje, susiję atlikėjai dešinėje */
+        .na-meta { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
+        .na-date { font-size:12.5px; color:rgba(255,255,255,0.55); font-weight:600; font-family:'Outfit',sans-serif; }
+        .na-artbar { margin-left:auto; display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
 
         .na-artpill { display:inline-flex; align-items:center; gap:7px; background:rgba(255,255,255,0.09); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.14); border-radius:100px; padding:4px 13px 4px 4px; text-decoration:none; transition:background .2s,border-color .2s; }
         .na-artpill:hover { background:rgba(255,255,255,0.16); border-color:rgba(255,255,255,0.28); }
@@ -380,14 +386,16 @@ export default function NewsArticleClient({
         .na-act-liked { color:#f97316; background:rgba(249,115,22,0.14); border-color:rgba(249,115,22,0.4); }
         .na-act-count { margin-left:3px; padding-left:8px; border-left:1px solid rgba(255,255,255,0.22); font-weight:800; cursor:pointer; }
 
-        /* ── Page layout ── */
+        /* ── Page layout — platesnis player'is (420), siauresnis tekstas ── */
         .na-page { max-width:1240px; margin:0 auto; padding:0 28px; }
-        .na-grid { display:grid; gap:48px; align-items:start; padding:40px 0 90px; }
-        .na-grid.has-sb { grid-template-columns:minmax(0,1fr) 340px; }
-        .na-grid.no-sb  { grid-template-columns:minmax(0,1fr); max-width:780px; margin:0 auto; }
+        .na-grid { display:grid; gap:60px; align-items:start; padding:40px 0 90px; }
+        .na-grid.has-sb { grid-template-columns:minmax(0,1fr) 420px; }
+        .na-grid.no-sb  { grid-template-columns:minmax(0,1fr); max-width:760px; margin:0 auto; }
 
         /* ── Prose ── */
-        .na-prose { color:var(--text-secondary); font-size:1.08rem; line-height:1.85; }
+        .na-prose { color:var(--text-secondary); font-size:1.08rem; line-height:1.85; max-width:680px; }
+        /* „pagal pirminį šaltinį" nuoroda (įdėta į body kaip .news-source) — slepiam */
+        .na-prose .news-source { display:none; }
         .na-prose p  { margin-bottom:22px; }
         .na-prose a  { color:var(--accent-link); text-decoration:underline; }
         .na-prose h2 { font-family:'Outfit',sans-serif; font-size:1.5rem; font-weight:900; color:var(--text-primary); margin:40px 0 16px; letter-spacing:-.025em; }
@@ -475,20 +483,26 @@ export default function NewsArticleClient({
 
           <div className="na-hero-wrap">
             <div className="na-hero-inner">
+              {/* Veiksmai virš pavadinimo */}
+              <div className="na-actbar">
+                <NewsLikeButton newsId={news.id} />
+                <ShareButton />
+              </div>
               <h1 className="na-h1">{news.title}</h1>
               <div className="na-meta">
                 <span className="na-date">{formatDate(news.published_at)}</span>
-                {artists.map((a, i) => (
-                  <Link key={`${a.id}-${i}`} href={`/atlikejai/${a.id}`} className="na-artpill">
-                    {a.cover_image_url
-                      ? <img src={a.cover_image_url} alt={a.name} referrerPolicy="no-referrer" />
-                      : <span className="na-artpill-av">{(a.name || '?')[0]}</span>}
-                    <span>{a.name}</span>
-                  </Link>
-                ))}
-                <span className="na-meta-sep" />
-                <NewsLikeButton newsId={news.id} />
-                <ShareButton />
+                {artists.length > 0 && (
+                  <div className="na-artbar">
+                    {artists.map((a, i) => (
+                      <Link key={`${a.id}-${i}`} href={`/atlikejai/${a.id}`} className="na-artpill">
+                        {a.cover_image_url
+                          ? <img src={a.cover_image_url} alt={a.name} referrerPolicy="no-referrer" />
+                          : <span className="na-artpill-av">{(a.name || '?')[0]}</span>}
+                        <span>{a.name}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
