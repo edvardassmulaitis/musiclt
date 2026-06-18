@@ -258,10 +258,23 @@ function FeedCard({ it, onDismiss, onOpenTrack }: { it: FeedItem; onDismiss: (ke
             {it.subtitle && <span className="sr-sub">{it.subtitle}</span>}
           </span>
         )}
-        {when && <span className="sr-meta"><span className="sr-time">{when}</span></span>}
-        {it.because && (
-          <span className="sr-because" title={`Panašu į tavo mėgstamus: ${it.because}`}>
-            {IconLink}<span className="sr-because-tx">{it.because}</span>
+        {(when || it.because) && (
+          <span className="sr-meta">
+            {when && <span className="sr-time">{when}</span>}
+            {it.because && (
+              <span className="sr-because" title={`Panašu į tavo mėgstamus: ${it.because}`}>
+                {IconLink}
+                <span className="sr-because-tx">{it.because}</span>
+                {it.becauseArtists && it.becauseArtists.some(a => a.image) && (
+                  <span className="sr-because-pics">
+                    {it.becauseArtists.filter(a => a.image).map((a, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={i} src={proxyImg(a.image as string)} alt={a.name} title={a.name} loading="lazy" />
+                    ))}
+                  </span>
+                )}
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -462,9 +475,12 @@ function SrautasInner() {
         .sr-sub { font-size:12.5px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .sr-meta { display:flex; align-items:center; gap:8px; margin-top:1px; min-width:0; }
         .sr-time { font-size:11.5px; color:var(--text-faint); white-space:nowrap; flex:0 0 auto; }
-        .sr-because { display:flex; align-items:center; gap:5px; min-width:0; margin-top:2px; font-size:11.5px; color:var(--accent-orange); font-weight:600; }
+        .sr-because { display:inline-flex; align-items:center; gap:4px; min-width:0; font-size:11.5px; color:var(--accent-orange); font-weight:600; }
         .sr-because svg { width:12px; height:12px; flex:0 0 auto; }
         .sr-because-tx { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sr-because-pics { display:none; align-items:center; }
+        .sr-because-pics img { width:19px; height:19px; border-radius:50%; object-fit:cover; margin-left:-6px; box-shadow:0 0 0 1.5px var(--bg-elevated); }
+        .sr-because-pics img:first-child { margin-left:0; }
 
         /* ── Veiksmų ikonos: vientisos, temai pritaikytos (matomos light/dark) ── */
         .sr-act { position:absolute; cursor:pointer; padding:0; z-index:3; border-radius:50%;
@@ -504,6 +520,9 @@ function SrautasInner() {
           .sr-sub { white-space:normal; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; }
           .sr-like { bottom:7px; right:7px; }
           .sr-dismiss { opacity:.9; top:7px; right:7px; }
+          /* susiję atlikėjai: ant mobile tik mini foto (tekstas netelpa) */
+          .sr-because svg, .sr-because-tx { display:none; }
+          .sr-because-pics { display:inline-flex; }
           .srf-gear { position:static; transform:none; margin-left:2px; }
           .srf { gap:8px; }
         }

@@ -220,7 +220,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     if (!charts.length) return
     const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
     const { data: entries } = await sb.from('external_chart_entries')
-      .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(cover_url, video_url)')
+      .select('chart_id, artist_id, position, title, artist_name, cover_url')
       .in('artist_id', matchIds).in('chart_id', charts.map(c => Number(c.id)))
       .order('position', { ascending: true }).limit(30)
     const seen = new Set<string>()
@@ -231,12 +231,11 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
       if (seen.has(dk)) continue
       seen.add(dk)
       const rec = recById.get(aid)
-      const tr = one(e.tracks)
       queues.chart.push({
         key: `chart-${e.chart_id}-${aid}`, kind: 'chart',
         title: e.title || e.artist_name || c.title || 'Topas',
         subtitle: `#${e.position} · ${c.title}${c.period_label ? ` · ${c.period_label}` : ''}`,
-        image: e.cover_url || tr?.cover_url || ytThumb(tr?.video_url) || rec?.cover_image_url || null,
+        image: e.cover_url || rec?.cover_image_url || null,
         href: `/topai/${c.source}-${c.chart_key}`, date: null, badge: 'Topas',
         avatar: rec?.cover_image_url || null,
         artist: rec ? { id: aid, name: rec.name, slug: rec.slug } : (e.artist_name ? { id: aid, name: e.artist_name, slug: null } : null),
@@ -249,22 +248,17 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
   const eventsTask = async () => {
     if (!recIds.length) return
     const { data: ea } = await sb.from('event_artists').select('event_id, artist_id').in('artist_id', recIds).limit(400)
-    const eventArtist = new Map<number, number>() // event_id → rekomenduojamas artist_id (pirmas)
-    for (const r of (ea || []) as any[]) { const e = Number(r.event_id); if (!eventArtist.has(e)) eventArtist.set(e, Number(r.artist_id)) }
-    const eventIds = Array.from(eventArtist.keys())
+    const eventIds = Array.from(new Set((ea || []).map((r: any) => Number(r.event_id)).filter(Boolean)))
     if (!eventIds.length) return
     const { data } = await sb.from('events')
       .select('id, title, slug, cover_image_url, start_date, city, venue_name')
       .in('id', eventIds).gte('start_date', new Date().toISOString())
       .order('start_date', { ascending: true }).limit(6)
     for (const ev of (data || []) as any[]) {
-      const aid = eventArtist.get(Number(ev.id)) || 0
-      const a = aid ? recById.get(aid) : null
       queues.event.push({
         key: `event-${ev.id}`, kind: 'event', title: ev.title || '',
         subtitle: [ev.city, ev.venue_name].filter(Boolean).join(' · ') || null,
-        image: ev.cover_image_url || a?.cover_image_url || null, href: `/renginiai/${ev.slug}`, date: ev.start_date, badge: 'Koncertas',
-        artist: a ? { id: aid, name: a.name, slug: a.slug } : null,
+        image: ev.cover_image_url || null, href: `/renginiai/${ev.slug}`, date: ev.start_date, badge: 'Koncertas',
       })
     }
   }
@@ -413,8 +407,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
       } catch { /* ignore */ }
     }
     for (const d of rows) {
-      const aid = d.artist_id ? Number(d.artist_id) : 0
-      const a = aid ? recById.get(aid) : null
+      const a = d.artist_id ? recById.get(Number(d.artist_id)) : null
       const cmt = lastComment.get(d.id)
       queues.topic.push({
         key: `topic-${d.id}`, kind: 'topic', title: d.title || '',
@@ -422,8 +415,6 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         image: a?.cover_image_url || null, href: `/diskusijos/${d.slug}`,
         date: d.last_comment_at || d.created_at, badge: 'Diskusija',
         avatar: a?.cover_image_url || null,
-        // artist nustatom → prikabinama „nes mėgsti X" (žr. attach loop).
-        artist: a ? { id: aid, name: a.name, slug: a.slug } : null,
         meta: { comments: d.comment_count, likes: d.like_count },
       })
     }
@@ -432,7 +423,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
   await Promise.all([releasesTask(), chartsTask(), eventsTask(), topicsTask(), vertaTask(), genresTask(), becauseTask()].map(p => p.catch(() => {})))
 
   // Prikabinam „Nes mėgsti X" prie atlikėjų IR jų leidinių/topų/temų kortelių.
-  for (const arr of [queues.artist, queues.release, queues.chart, queues.topic, queues.event]) {
+  for (const arr of [queues.artist, queues.release, queues.chart, queues.topic]) {
     for (const a of arr) {
       const rid = a.artist?.id
       if (rid && becauseMap.has(rid)) { a.because = becauseMap.get(rid) || null; a.becauseArtists = becauseArtistsMap.get(rid) || null }
