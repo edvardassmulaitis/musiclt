@@ -759,7 +759,7 @@ function HappeningArea() {
             <span className="flex w-full items-start gap-2">
               <Avatar src={ev0.actor_avatar} name={ev0.actor_name || 'narys'} size={26} />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="line-clamp-4 text-[11.5px] leading-snug text-[var(--text-secondary)]">
+                <span className="line-clamp-[6] text-[11.5px] leading-snug text-[var(--text-secondary)]">
                   {ACT_VERB[ev0.event_type] || 'atnaujino'}{ev0.entity_title ? <> <b className="font-semibold text-[var(--text-primary)]">{sani(ev0.entity_title)}</b></> : null}
                 </span>
                 <span className="text-[10px] text-[var(--text-faint)]">{timeAgo(ev0.created_at) || 'ką tik'}</span>
@@ -777,7 +777,7 @@ function HappeningArea() {
             <span className="flex w-full items-start gap-2">
               <Avatar src={lastShoutMsg.author_avatar} name={lastShoutMsg.author_name || 'narys'} size={26} />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="line-clamp-4 text-[11.5px] leading-snug text-[var(--text-secondary)]">{lastShoutMsg.body}</span>
+                <span className="line-clamp-[6] text-[11.5px] leading-snug text-[var(--text-secondary)]">{lastShoutMsg.body}</span>
                 <span className="text-[10px] text-[var(--text-faint)]">{timeAgo(lastShoutMsg.created_at) || 'ką tik'}</span>
               </span>
             </span>
@@ -981,7 +981,6 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
                   <div className="mb-1 flex items-center gap-1.5">
                     <Avatar src={c.avatar} name={c.author} size={15} />
                     <b className="min-w-0 flex-1 truncate text-[10.5px] font-bold text-[var(--text-primary)]">{c.author}</b>
-                    {c.created_at && timeAgo(c.created_at) && <span className="shrink-0 text-[9.5px] text-[var(--text-faint)]">{timeAgo(c.created_at)}</span>}
                   </div>
                   <p className="m-0 line-clamp-[6] text-[12px] leading-relaxed text-[var(--text-secondary)]">{c.excerpt}</p>
                 </div>
@@ -994,7 +993,6 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
                   <div className="mb-1 flex items-center gap-1.5">
                     <Avatar src={c.avatar} name={c.author} size={15} />
                     <b className="min-w-0 flex-1 truncate text-[10.5px] font-bold text-[var(--text-primary)]">{c.author}</b>
-                    {c.created_at && timeAgo(c.created_at) && <span className="shrink-0 text-[9.5px] text-[var(--text-faint)]">{timeAgo(c.created_at)}</span>}
                   </div>
                   <p className="m-0 line-clamp-3 text-[12px] leading-relaxed text-[var(--text-secondary)]">{c.excerpt}</p>
                 </div>
@@ -1004,6 +1002,7 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
         )}
         <div className="mt-2 flex items-center gap-2">
           <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-[var(--text-muted)]"><Ic d={I.comment} size={12} /> {d.comment_count > 0 ? `${d.comment_count} koment.` : 'Nauja tema'}</span>
+          {timeAgo(d.latest_comment?.created_at || d.created_at) && <span className="shrink-0 text-[10px] text-[var(--text-faint)]">· {timeAgo(d.latest_comment?.created_at || d.created_at)}</span>}
         </div>
       </div>
     </Link>
@@ -1029,7 +1028,7 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` — ${a.track_name}` : ''}
         </h3>
-        {quote && <p className="m-0 mt-1.5 line-clamp-[7] text-[13px] italic leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">„{quote.length > 520 ? quote.slice(0, 520).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
+        {quote && <p className="m-0 mt-1.5 line-clamp-[7] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">{quote.length > 520 ? quote.slice(0, 520).replace(/\s+\S*$/, '') + '…' : quote}</p>}
         <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
       </div>
     </button>
