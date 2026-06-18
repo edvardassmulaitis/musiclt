@@ -760,10 +760,15 @@ function HappeningArea() {
               <Avatar src={ev0.actor_avatar} name={ev0.actor_name || 'narys'} size={26} />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="line-clamp-3 text-[12px] leading-snug text-[var(--text-secondary)]">
-                  {ACT_VERB[ev0.event_type] || 'atnaujino'}{ev0.entity_title ? <> <b className="font-semibold text-[var(--text-primary)]">{sani(ev0.entity_title)}</b></> : null}
+                  <b className="font-semibold text-[var(--text-primary)]">{ev0.actor_name || 'narys'}</b> {ACT_VERB[ev0.event_type] || 'atnaujino'}{ev0.entity_title ? <> <span className="font-semibold text-[var(--text-secondary)]">{sani(ev0.entity_title)}</span></> : null}
                 </span>
                 <span className="text-[10px] text-[var(--text-faint)]">{timeAgo(ev0.created_at) || 'ką tik'}</span>
               </span>
+              {ev0.entity_image && (
+                // susieto atlikėjo/grupės mini foto
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={proxyImg(ev0.entity_image)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+              )}
             </span>
           ) : <span className="text-[11px] text-[var(--text-muted)]">narių veiksmų srautas</span>}
         </button>
