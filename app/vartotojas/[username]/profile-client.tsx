@@ -2895,77 +2895,57 @@ function RecentLikesCard({
       ...(favoriteAlbums || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'album' })),
       ...(favoriteTracks || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'track' })),
     ]
-    return arr.sort((a, b) => new Date(b.liked_at).getTime() - new Date(a.liked_at).getTime()).slice(0, 4)
+    return arr.sort((a, b) => new Date(b.liked_at).getTime() - new Date(a.liked_at).getTime()).slice(0, 8)
   }, [favoriteArtists, favoriteAlbums, favoriteTracks])
 
-  const KIND_LABEL: Record<string, string> = { artist: 'Atlikėjas', album: 'Albumas', track: 'Daina' }
-
   return (
-    <div className="rounded-2xl p-5" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-      <h4 className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider mb-2.5"
-          style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
-        <span style={{ color: '#e11d48' }}><HeartOutlineIcon size={12} /></span>
+    <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+      <h4 className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider mb-2 px-1"
+          style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+        <HeartOutlineIcon size={12} />
         Neseniai pamėgta
       </h4>
-      {items.length > 0 ? items.map((it, i) => {
-        const artist = Array.isArray(it.artists) ? it.artists[0] : it.artists
-        const isArtist = it._kind === 'artist'
-        const thumb = isArtist
-          ? (it.cover_image_url || null)
-          : (it._kind === 'track' ? ytThumbProfile(it.video_url) : null) || it.cover_url || artist?.cover_image_url || null
-        const href = isArtist ? `/atlikejai/${it.slug}`
-          : artist ? `/atlikejai/${artist.slug}/${it.slug || it.id}`
-          : it._kind === 'track' ? `/lt/daina/${it.slug || ''}/${it.id}` : `/lt/albumas/${it.slug || ''}/${it.id}`
-        return (
-          <Link key={`${it._kind}-${it.id}`} href={href}
-                className="group flex items-center gap-2.5 py-2 transition hover:opacity-85"
-                style={{ borderBottom: i < items.length - 1 ? '1px dashed var(--border-subtle)' : 'none' }}>
-            {thumb ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={thumb} alt="" loading="lazy"
-                   className={`w-[40px] h-[40px] object-cover flex-shrink-0 ${isArtist ? 'rounded-full' : 'rounded-lg'}`} />
-            ) : (
-              <div className={`w-[40px] h-[40px] flex-shrink-0 flex items-center justify-center ${isArtist ? 'rounded-full' : 'rounded-lg'}`}
-                   style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>♬</div>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="text-[12.5px] font-bold leading-tight truncate group-hover:text-[var(--accent-orange)] transition"
-                   style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
-                {isArtist ? it.name : it.title}
-              </div>
-              <div className="text-[10.5px] truncate" style={{ color: 'var(--text-faint)' }}>
-                {artist && !isArtist ? `${artist.name} · ` : ''}{relTimeLt(it.liked_at)}
-              </div>
-            </div>
-            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[8.5px] font-extrabold uppercase tracking-wide"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
-              {KIND_LABEL[it._kind]}
-            </span>
-          </Link>
-        )
-      }) : (
-        <p className="text-[12px] py-2" style={{ color: 'var(--text-muted)' }}>Pamėgtos muzikos dar nėra</p>
+      {items.length > 0 ? (
+        <div className="flex flex-col">
+          {items.map((it) => {
+            const artist = Array.isArray(it.artists) ? it.artists[0] : it.artists
+            const isArtist = it._kind === 'artist'
+            const thumb = isArtist
+              ? (it.cover_image_url || null)
+              : (it._kind === 'track' ? ytThumbProfile(it.video_url) : null) || it.cover_url || artist?.cover_image_url || null
+            const href = isArtist ? `/atlikejai/${it.slug}`
+              : artist ? `/atlikejai/${artist.slug}/${it.slug || it.id}`
+              : it._kind === 'track' ? `/lt/daina/${it.slug || ''}/${it.id}` : `/lt/albumas/${it.slug || ''}/${it.id}`
+            const subtitle = isArtist
+              ? relTimeLt(it.liked_at)
+              : `${artist?.name ? artist.name + ' · ' : ''}${relTimeLt(it.liked_at)}`
+            return (
+              <Link key={`${it._kind}-${it.id}`} href={href}
+                    className="group flex items-center gap-3 rounded-xl px-1.5 py-1.5 transition hover:bg-[var(--bg-hover)]">
+                {thumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumb} alt="" loading="lazy"
+                       className={`w-[44px] h-[44px] object-cover flex-shrink-0 ${isArtist ? 'rounded-full' : 'rounded-lg'}`} />
+                ) : (
+                  <div className={`w-[44px] h-[44px] flex-shrink-0 flex items-center justify-center ${isArtist ? 'rounded-full' : 'rounded-lg'}`}
+                       style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>♬</div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-bold leading-tight truncate group-hover:text-[var(--accent-orange)] transition"
+                       style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+                    {isArtist ? it.name : it.title}
+                  </div>
+                  <div className="text-[11px] truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {subtitle}
+                  </div>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="text-[12px] py-2 px-1" style={{ color: 'var(--text-muted)' }}>Pamėgtos muzikos dar nėra</p>
       )}
-      <div className="mt-3 pt-2.5 flex flex-col gap-1.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-        {(favoriteArtists?.length || 0) > 0 && (
-          <button type="button" onClick={() => onOpenMore('artist')} className="flex justify-between text-[12px] font-bold transition hover:opacity-80"
-                  style={{ color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }}>
-            <span>Mėgstami atlikėjai</span><span style={{ color: 'var(--accent-orange)' }}>{favoriteArtists.length} →</span>
-          </button>
-        )}
-        {(albumResolvedTotal || 0) > 0 && (
-          <button type="button" onClick={() => onOpenMore('album')} className="flex justify-between text-[12px] font-bold transition hover:opacity-80"
-                  style={{ color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }}>
-            <span>Mėgstami albumai</span><span style={{ color: 'var(--accent-orange)' }}>{Number(albumResolvedTotal).toLocaleString('lt-LT')} →</span>
-          </button>
-        )}
-        {(trackResolvedTotal || 0) > 0 && (
-          <button type="button" onClick={() => onOpenMore('track')} className="flex justify-between text-[12px] font-bold transition hover:opacity-80"
-                  style={{ color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }}>
-            <span>Mėgstamos dainos</span><span style={{ color: 'var(--accent-orange)' }}>{Number(trackResolvedTotal).toLocaleString('lt-LT')} →</span>
-          </button>
-        )}
-      </div>
     </div>
   )
 }

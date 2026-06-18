@@ -88,17 +88,18 @@ export function FollowButton({
   // Stilius kaip atlikėjų „Sekti" širdelė: užpildytas oranžinis kai sekama,
   // subtilus translucent (ghost) / card pill kai dar ne.
   void count; void loaded
-  const base = iconOnly
+  // V18c: kai jau sekama — rodom TIK aktyvią širdelę (be „Seki" teksto),
+  // kompaktiškas apskritimas kaip iconOnly.
+  const compactCircle = iconOnly || following
+  const base = compactCircle
     ? 'inline-flex items-center justify-center rounded-full transition hover:opacity-90 active:scale-[0.97] disabled:opacity-60'
     : 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition hover:opacity-90 active:scale-[0.97] disabled:opacity-60'
 
   let style: React.CSSProperties
-  if (iconOnly) {
+  if (compactCircle) {
     style = following
       ? { width: '28px', height: '28px', background: 'var(--accent-orange)', border: '1px solid var(--accent-orange)' }
       : { width: '28px', height: '28px', background: 'var(--hero-tag-bg)', border: '1px solid var(--hero-tag-border)' }
-  } else if (following) {
-    style = { background: 'var(--accent-orange)', color: '#fff', border: '1px solid var(--accent-orange)', boxShadow: '0 4px 14px rgba(249,115,22,0.30)' }
   } else if (variant === 'ghost') {
     // V18: theme-aware — light mode hero šviesus, baltas tekstas dingdavo.
     style = { background: 'var(--hero-tag-bg)', color: 'var(--hero-name)', border: '1px solid var(--hero-tag-border)' }
@@ -116,13 +117,13 @@ export function FollowButton({
       style={{ fontFamily: "'Outfit', sans-serif", ...style }}
       title={following ? 'Nebesekti' : 'Sekti šį narį'}
     >
-      <svg viewBox="0 0 24 24" width={iconOnly ? 14 : 12} height={iconOnly ? 14 : 12} aria-hidden
+      <svg viewBox="0 0 24 24" width={compactCircle ? 14 : 12} height={compactCircle ? 14 : 12} aria-hidden
            fill={following ? '#fff' : 'none'}
            stroke={following ? '#fff' : 'var(--accent-orange)'}
            strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
       </svg>
-      {!iconOnly && (following ? 'Seki' : 'Sekti')}
+      {!compactCircle && 'Sekti'}
     </button>
   )
 }
