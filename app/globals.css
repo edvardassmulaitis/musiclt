@@ -296,6 +296,7 @@ select:focus-visible {
   --hero-chip-bg: rgba(0,0,0,.25);
   --hero-chip-border: rgba(255,255,255,.08);
   --popbar-empty: rgba(255,255,255,0.18);
+  --eq-unlit: rgba(255,255,255,0.06);
 
   /* Artist profile specific colors */
   --player-bg: rgba(0,0,0,.25);
@@ -442,6 +443,7 @@ select:focus-visible {
   --hero-chip-bg: rgba(255,255,255,.6);
   --hero-chip-border: rgba(0,0,0,.1);
   --popbar-empty: rgba(15,26,46,0.16);
+  --eq-unlit: rgba(15,26,46,0.08);
 
   /* Artist profile specific colors */
   --player-bg: rgba(0,0,0,.04);

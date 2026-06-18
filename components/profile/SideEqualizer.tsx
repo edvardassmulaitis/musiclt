@@ -166,7 +166,6 @@ function LedVertical({
           const isRest = b.fullName === '__rest__'
           const isSelected = selectedGenre === b.fullName
           const isDimmed = selectedGenre && !isSelected && !isRest
-          const isLast = i === bars.length - 1
           const bouncePhase = (i * 0.42) % 1
           return (
             <button
@@ -177,7 +176,6 @@ function LedVertical({
               title={isRest ? 'Visi kiti stiliai — atidaryti modalą' : `${b.label} — ${b.percent.toFixed(0)}%`}
               style={{
                 animation: b.percent > 0 ? `eqBarBounceV11 ${1.8 + bouncePhase * 1.2}s ease-in-out ${bouncePhase * 0.6}s infinite alternate` : undefined,
-                borderRight: isLast ? 'none' : '1px solid rgba(0,0,0,0.35)',
               }}
             >
               <div className="flex flex-col-reverse gap-[1px] w-full px-[2px]">
@@ -193,7 +191,7 @@ function LedVertical({
                         height: `${CELL_H}px`,
                         background: lit
                           ? `rgba(${b.rgb}, ${isSelected ? Math.min(alpha + 0.15, 1) : alpha})`
-                          : 'rgba(255,255,255,0.05)',
+                          : 'var(--eq-unlit)',
                         boxShadow: glow ? `0 0 ${isSelected ? 10 : 6}px rgba(${b.rgb}, ${isSelected ? 0.9 : 0.7})` : 'none',
                         opacity: 0,
                         transform: 'scaleY(0.3)',
@@ -212,7 +210,7 @@ function LedVertical({
         {bars.map((b) => {
           const isSelected = selectedGenre === b.fullName
           return (
-            <div key={b.fullName} className="flex-1 min-w-0 text-center flex flex-col items-center gap-0.5 px-[1px]">
+            <div key={b.fullName} className="flex-1 min-w-0 text-center flex flex-col items-center px-[1px]">
               <span
                 className="font-extrabold truncate leading-tight w-full"
                 style={{
@@ -221,15 +219,9 @@ function LedVertical({
                   color: isSelected ? b.hex : 'var(--text-secondary)',
                   letterSpacing: '-0.015em',
                 }}
-                title={b.label}
+                title={`${b.label} — ${b.percent.toFixed(0)}%`}
               >
                 {b.label}
-              </span>
-              <span
-                className="font-mono tabular-nums"
-                style={{ fontSize: PCT_FS, color: isSelected ? b.hex : 'var(--text-faint)' }}
-              >
-                {b.percent.toFixed(0)}%
               </span>
             </div>
           )
@@ -350,7 +342,7 @@ function LedEqualizer({
 
   return (
     <div
-      className={`relative rounded-2xl border overflow-hidden ${isLarge ? 'p-5 sm:p-6' : 'p-3 sm:p-4'} h-full flex flex-col`}
+      className={`relative rounded-2xl border overflow-hidden ${isLarge ? 'p-5 sm:p-6' : 'px-3 sm:px-4 pt-2.5 pb-3 sm:pb-4'} h-full flex flex-col`}
       style={{
         background: 'linear-gradient(135deg, var(--card-bg), transparent 80%)',
         borderColor: 'var(--border-subtle)',

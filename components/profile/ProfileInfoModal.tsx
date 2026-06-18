@@ -79,13 +79,17 @@ export function ProfileInfoModal({
 // rodyti TĄ PATĮ turinį inline (be modalo). showHeader=false praleidžia
 // avatar/vardą (mobile profilis jau turi header'į virš tab'ų).
 export function ProfileAboutContent({
-  profile, stats, memberSinceYear, showHeader = false, compact = false,
+  profile, stats, memberSinceYear, showHeader = false, compact = false, hideLegacy = false,
 }: {
   profile: any
   stats: Stats
   memberSinceYear: number
   showHeader?: boolean
   compact?: boolean
+  // V18: hideLegacy — nerodom archyvinės statistikos (forumo žinutės, vidut.
+  // balai, prisijungimai) nei „iš senos music.lt" pastabos. Naudojama profilio
+  // inline „Apie mane" rodinyje.
+  hideLegacy?: boolean
 }) {
   const secMb = compact ? 'mb-3.5' : 'mb-5'
   const statGrid = compact ? 'grid grid-cols-3 gap-2 mt-2' : 'grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-2'
@@ -232,9 +236,11 @@ export function ProfileAboutContent({
             <section className={secMb}>
               <SectionLabel>
                 Aprašymas
-                <span className="ml-2 italic font-normal" style={{ color: 'var(--text-faint)' }}>
-                  (iš senos music.lt — gali būti pasenęs)
-                </span>
+                {!hideLegacy && (
+                  <span className="ml-2 italic font-normal" style={{ color: 'var(--text-faint)' }}>
+                    (iš senos music.lt — gali būti pasenęs)
+                  </span>
+                )}
               </SectionLabel>
               <div
                 className={`mt-2 rounded-xl leading-relaxed whitespace-pre-line ${compact ? 'p-3 text-[13px]' : 'p-4 text-sm'}`}
@@ -276,8 +282,8 @@ export function ProfileAboutContent({
             </section>
           )}
 
-          {/* Forum / legacy stats */}
-          {rows.length > 0 && (
+          {/* Forum / legacy stats — slepiam kai hideLegacy (V18 inline „Apie mane") */}
+          {!hideLegacy && rows.length > 0 && (
             <section>
               <SectionLabel>Statistika (legacy)</SectionLabel>
               <div className={statGrid}>

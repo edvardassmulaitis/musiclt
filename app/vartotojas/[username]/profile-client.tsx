@@ -363,7 +363,7 @@ export function ProfileClient(props: any) {
         isLegacy={isLegacy}
         isUnclaimed={isUnclaimed}
         onOpenMore={setMoreOpen}
-        onOpenInfo={() => setInfoOpen(true)}
+        memberSinceYear={memberSinceYear}
       />
 
       </div>{/* /desktop wrapper (hidden lg:block) */}
@@ -680,7 +680,7 @@ function MobileProfileView(props: any) {
                 </button>
               )
             })()}
-            <ProfileAboutContent profile={profile} stats={stats} memberSinceYear={memberSinceYear} compact />
+            <ProfileAboutContent profile={profile} stats={stats} memberSinceYear={memberSinceYear} compact hideLegacy />
           </div>
         )}
       </div>
@@ -1124,14 +1124,14 @@ function ShareButton({ username, iconOnly = false }: { username: string; iconOnl
         onClick={onClick}
         aria-label={copied ? 'Nukopijuota' : 'Dalintis profiliu'}
         className="inline-flex items-center justify-center rounded-full transition hover:opacity-90"
-        style={{ width: '28px', height: '28px', background: copied ? 'rgba(52,211,153,0.25)' : 'rgba(255,255,255,0.13)', border: `1px solid ${copied ? 'rgba(52,211,153,0.5)' : 'rgba(255,255,255,0.24)'}` }}
+        style={{ width: '28px', height: '28px', background: copied ? 'rgba(52,211,153,0.25)' : 'var(--hero-tag-bg)', border: `1px solid ${copied ? 'rgba(52,211,153,0.5)' : 'var(--hero-tag-border)'}` }}
       >
         {copied ? (
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <polyline points="20 6 9 17 4 12" />
           </svg>
         ) : (
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ color: '#fff' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ color: 'var(--hero-name)' }}>
             <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
           </svg>
@@ -1146,7 +1146,7 @@ function ShareButton({ username, iconOnly = false }: { username: string; iconOnl
       onClick={onClick}
       aria-label="Dalintis profiliu"
       className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition hover:opacity-90"
-      style={{ fontFamily: "'Outfit', sans-serif", background: 'rgba(255,255,255,0.13)', color: '#fff', border: '1px solid rgba(255,255,255,0.24)' }}
+      style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--hero-tag-bg)', color: 'var(--hero-name)', border: '1px solid var(--hero-tag-border)' }}
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
@@ -1227,7 +1227,7 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen?.() } }}
-      className="group relative w-full h-full rounded-2xl border overflow-hidden flex flex-col text-left cursor-pointer transition hover:-translate-y-0.5 p-3 sm:p-4"
+      className="group relative w-full h-full rounded-2xl border overflow-hidden flex flex-col text-left cursor-pointer transition hover:-translate-y-0.5 px-3 sm:px-4 pt-2.5 pb-3 sm:pb-4"
       style={{
         background: 'linear-gradient(135deg, var(--card-bg), transparent 80%)',
         borderColor: 'var(--border-subtle)',
@@ -2240,7 +2240,10 @@ function buildFeedItems({
   for (const lane of (contentLanes || [])) {
     for (const p of (lane.posts || [])) {
       if (!p.published_at) continue
-      items.push({ id: `post-${lane.type}-${p.id}`, kind: 'post', date: p.published_at, post: p, laneType: lane.type })
+      // V18: efektyvus tipas (display_post_type) — koncertų įspūdžiai
+      // (article+editorial koncertai) → 'event' label/filtras, ne 'article'.
+      const eff = p.display_post_type || lane.type
+      items.push({ id: `post-${eff}-${p.id}`, kind: 'post', date: p.published_at, post: p, laneType: eff })
     }
   }
 
@@ -2340,16 +2343,25 @@ function HeartOutlineIcon({ size = 14 }: { size?: number }) {
   )
 }
 
+function UserIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  )
+}
+
 const PF_CHIP = 'flex-shrink-0 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-semibold whitespace-nowrap transition'
 
-function FeedFilterPills({ typePills, active, onChange, hasLikes, onOpenInfo }: {
+function FeedFilterPills({ typePills, active, onChange, hasLikes }: {
   typePills: { key: string; label: string; color: string }[]
   active: string
   onChange: (k: string) => void
   hasLikes: boolean
-  onOpenInfo: () => void
 }) {
   const likesOn = active === 'likes'
+  const aboutOn = active === 'about'
   return (
     <div className="flex items-center gap-3">
       {/* Kairė: įrašų tipai (scroll'inami) */}
@@ -2365,36 +2377,36 @@ function FeedFilterPills({ typePills, active, onChange, hasLikes, onOpenInfo }: 
                       color: on ? '#fff' : 'var(--text-secondary)',
                       border: `1px solid ${on ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
                     }}>
-              {!on && <span aria-hidden className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: p.color }} />}
               {p.label}
             </button>
           )
         })}
       </div>
 
-      {/* Dešinė: Mėgstama muzika + Apie mane */}
+      {/* Dešinė: Mėgstama muzika + Apie mane (neutralus stilius, kaip kiti chip'ai) */}
       <div className="flex items-center gap-2 flex-shrink-0">
         {hasLikes && (
           <button type="button" onClick={() => onChange(likesOn ? 'all' : 'likes')}
                   className={PF_CHIP}
                   style={{
                     fontFamily: "'Outfit', sans-serif",
-                    background: likesOn ? '#e11d48' : 'var(--bg-hover, var(--bg-surface))',
-                    color: likesOn ? '#fff' : '#e11d48',
-                    border: `1px solid ${likesOn ? '#e11d48' : 'rgba(225,29,72,0.4)'}`,
+                    background: likesOn ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
+                    color: likesOn ? '#fff' : 'var(--text-secondary)',
+                    border: `1px solid ${likesOn ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
                   }}>
             <HeartOutlineIcon />
             Mėgstama muzika
           </button>
         )}
-        <button type="button" onClick={onOpenInfo}
+        <button type="button" onClick={() => onChange(aboutOn ? 'all' : 'about')}
                 className={PF_CHIP}
                 style={{
                   fontFamily: "'Outfit', sans-serif",
-                  background: 'var(--bg-hover, var(--bg-surface))',
-                  color: 'var(--text-secondary)',
-                  border: '1px solid var(--border-default, var(--border-subtle))',
+                  background: aboutOn ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
+                  color: aboutOn ? '#fff' : 'var(--text-secondary)',
+                  border: `1px solid ${aboutOn ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
                 }}>
+          <UserIcon />
           Apie mane
         </button>
       </div>
@@ -2407,7 +2419,7 @@ function ProfileBodyDesktop(props: any) {
   const {
     profile, blog, contentLanes, postTypeCounts, stats, dailyPicks,
     favoriteArtists, favoriteAlbums, favoriteTracks, likesCounts,
-    albumResolvedTotal, trackResolvedTotal, isLegacy, isUnclaimed, onOpenMore, onOpenInfo,
+    albumResolvedTotal, trackResolvedTotal, isLegacy, isUnclaimed, onOpenMore, memberSinceYear,
   } = props
 
   const hasLikes = (favoriteArtists?.length || 0) > 0 || (favoriteAlbums?.length || 0) > 0 || (favoriteTracks?.length || 0) > 0
@@ -2424,17 +2436,24 @@ function ProfileBodyDesktop(props: any) {
 
   // V18: tik įrašų tipų chip'ai (be „Visi", be „Mėgstama" — tie persikėlė į
   // dešinę filtrų barą). „Visi" = numatytasis (filter==='all'); deselect grąžina.
+  // Tipai imami iš REALIŲ feed elementų efektyvaus tipo (display_post_type) —
+  // todėl koncertų įspūdžiai rodo „Koncertai", o ne „Muzikos apžvalgos".
   const typePills = useMemo(() => {
+    const present = new Set<string>()
+    for (const it of feedItems) {
+      if (it.kind === 'post' && it.laneType) present.add(it.laneType)
+      else if (it.kind === 'ddweek') present.add('dd')
+    }
     const out: { key: string; label: string; color: string }[] = []
     for (const t of FEED_PILL_ORDER) {
-      if ((postTypeCounts?.[t] || 0) > 0) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+      if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
     }
-    if (hasDdWeeks) out.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
+    if (present.has('dd')) out.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
     for (const t of FEED_PILL_TAIL) {
-      if ((postTypeCounts?.[t] || 0) > 0) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+      if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
     }
     return out
-  }, [postTypeCounts, hasDdWeeks])
+  }, [feedItems])
 
   // V18: vientisas srautas — be atskiro „featured" akcentinio bloko, visi
   // įrašai rodomi kaip /bendruomene tipo horizontalios kortelės.
@@ -2447,6 +2466,7 @@ function ProfileBodyDesktop(props: any) {
   // rodinį (atlikėjai/albumai/dainos) — tai tas pats turinys, kuriuo
   // užsipildo tuščias profilis, tik išskleistas.
   const showLikesView = filter === 'likes'
+  const showAboutView = filter === 'about'
 
   return (
     <>
@@ -2454,12 +2474,16 @@ function ProfileBodyDesktop(props: any) {
       <div className="sticky top-[56px] z-30 backdrop-blur-md"
            style={{ background: 'color-mix(in srgb, var(--bg-body) 90%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
         <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
-          <FeedFilterPills typePills={typePills} active={filter} onChange={setFilter} hasLikes={hasLikes} onOpenInfo={onOpenInfo} />
+          <FeedFilterPills typePills={typePills} active={filter} onChange={setFilter} hasLikes={hasLikes} />
         </div>
       </div>
 
       <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20">
-        {showLikesView ? (
+        {showAboutView ? (
+          <div className="max-w-3xl">
+            <ProfileAboutContent profile={profile} stats={stats} memberSinceYear={memberSinceYear} hideLegacy />
+          </div>
+        ) : showLikesView ? (
           <LikesSections
             profile={profile}
             favoriteArtists={favoriteArtists}

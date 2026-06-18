@@ -176,7 +176,19 @@ export default async function UserProfilePage({ params }: Props) {
 }
 
 const POST_HEAVY_COLS =
-  'id, slug, title, summary, cover_image_url, content, published_at, reading_time_min, like_count, comment_count, post_type, creation_subtype, tags, list_items'
+  'id, slug, title, summary, cover_image_url, content, published_at, reading_time_min, like_count, comment_count, post_type, editorial_type, creation_subtype, tags, list_items'
+
+// V18: admine „Koncertų įspūdžiai" saugomi kaip post_type='article' +
+// editorial_type='koncertai' (žr. /api/admin/irasai writeKind). Profilio feed'as
+// anksčiau žiūrėjo TIK į post_type → koncertų įspūdžiai rodėsi kaip „Muzikos
+// apžvalga". Čia suskaičiuojam efektyvų tipą, kurį naudoja kortelės ir filtrai.
+function effectivePostType(postType: string, editorialType: string | null | undefined): string {
+  if (postType === 'article') {
+    if (editorialType === 'koncertai') return 'event'
+    if (editorialType === 'recenzija') return 'review'
+  }
+  return postType
+}
 
 // V12 (2026-06-02): hero-image enrichment chain (mirror'ina blog post hero
 // logiką iš app/blogas/[username]/[slug]/page.tsx) — paverčia pateiktą postų
@@ -289,6 +301,15 @@ async function loadBlogPosts(blog: any): Promise<{ lanes: { type: string; posts:
 
   // 3. Enrichinam visus sample postus vienu batch'u
   await enrichPostThumbs(sb, laneResults.flatMap((l) => l.posts))
+
+  // 3b. V18: efektyvus tipas pagal (post_type, editorial_type) — kad koncertų
+  // įspūdžiai (article+koncertai) rodytųsi kaip „Koncertų įspūdžiai", o ne
+  // „Muzikos apžvalga". Profilio feed'as naudoja display_post_type label'iui.
+  for (const lane of laneResults) {
+    for (const p of lane.posts) {
+      p.display_post_type = effectivePostType(p.post_type, p.editorial_type)
+    }
+  }
 
   // 4. PERF V16: topas list_items gali turėti po 50 pozicijų su image URL'ais —
   // klientui reikia tik top-3 preview + count. Trim'inam prieš serializaciją.

@@ -96,11 +96,12 @@ export function FollowButton({
   if (iconOnly) {
     style = following
       ? { width: '28px', height: '28px', background: 'var(--accent-orange)', border: '1px solid var(--accent-orange)' }
-      : { width: '28px', height: '28px', background: 'rgba(255,255,255,0.13)', border: '1px solid rgba(255,255,255,0.24)' }
+      : { width: '28px', height: '28px', background: 'var(--hero-tag-bg)', border: '1px solid var(--hero-tag-border)' }
   } else if (following) {
     style = { background: 'var(--accent-orange)', color: '#fff', border: '1px solid var(--accent-orange)', boxShadow: '0 4px 14px rgba(249,115,22,0.30)' }
   } else if (variant === 'ghost') {
-    style = { background: 'rgba(255,255,255,0.13)', color: '#fff', border: '1px solid rgba(255,255,255,0.24)' }
+    // V18: theme-aware — light mode hero šviesus, baltas tekstas dingdavo.
+    style = { background: 'var(--hero-tag-bg)', color: 'var(--hero-name)', border: '1px solid var(--hero-tag-border)' }
   } else {
     style = { background: 'var(--card-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }
   }
