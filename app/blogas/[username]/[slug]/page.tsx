@@ -1,11 +1,9 @@
 // app/blogas/[username]/[slug]/page.tsx
 //
-// Single blog post puslapis — naujas dizainas paimtas iš news straipsnio
-// pattern'o (.na-* klasės), su sticky kairiu sidebar'u skirtu prisegtai
-// muzikai + target entity'ui. Plotis 1300px, full-bleed hero su nuotrauka
-// dešinėje, content + sidebar grid 2 kolonomis. Komentarai render'inami
-// per unified EntityCommentsBlock — tą patį komponentą kaip diskusijos,
-// dainos, news (modern + legacy mix, replies, likes, attachments).
+// Single blog post puslapis. Player'is (sidebar) VISADA naudoja mūsų DB
+// suvestas susijusias dainas ir groja per YouTube — Spotify embed'ai atmetami
+// (žr. lib/blog-player.ts buildBlogPlayerTracks). Stilius = atlikėjo puslapio
+// PlayerCard. Komentarai per unified EntityCommentsBlock.
 
 import { notFound } from 'next/navigation'
 import {
@@ -15,6 +13,7 @@ import {
 } from '@/lib/supabase-blog'
 import { extractMusicFromBody, enrichTracksWithOembed, resolveEmbedsToDbTracks } from '@/lib/blog-content'
 import { buildTopasPlaylist } from '@/lib/topas-resolve'
+import { buildBlogPlayerTracks, extractedToPlayerTrack, type BlogPlayerTrack } from '@/lib/blog-player'
 import { createAdminClient } from '@/lib/supabase'
 import BlogPostPageClient from './page-client'
 import { POST_TYPE_OPTIONS, type BlogPostType } from '@/components/blog/post-types'
@@ -53,41 +52,47 @@ export default async function PostPage({ params }: { params: Promise<{ username:
       : Promise.resolve(null),
   ])
 
-  // EXTRACT inline music embeds (YouTube/Spotify iframes + legacy favorite
-  // widget) iš body — perkelti į sidebar player'į. Body lieka švarus tekstas.
-  // content_enriched (admin enrichinta versija su DB nuorodomis) turi pirmenybę prieš originalų content.
   const { cleanedHtml, music: rawEmbeddedMusic } = extractMusicFromBody((post as any).content_enriched || post.content || '')
-  // Enrich with Spotify/YouTube oEmbed metadata (title + artist + cover thumb)
-  // — kitaip sidebar rodytų generic "Spotify takelis" be konteksto.
   const enrichedMusic = await enrichTracksWithOembed(rawEmbeddedMusic)
-  // Resolve į DB tracks per spotify_id arba video_url — kai track'as migruotas,
-  // pridedam db_track {id, slug, artist_slug}. UI sidebar pagal tai rodo
-  // „Daugiau" pill, nukreipiantį į /dainos/<slug> page'ą.
   const sbAdmin = createAdminClient()
   const embeddedMusic = await resolveEmbedsToDbTracks(enrichedMusic, sbAdmin)
 
-  // Topo grojaraštis player'iui: daina→ta daina, albumas→populiariausia albumo
-  // daina, atlikėjas→populiariausia daina. Manual attachment'ai (žemiau) overridina.
   const topasPlayerTracks = postType === 'topas' && Array.isArray(post.list_items)
     ? await buildTopasPlaylist(sbAdmin, post.list_items)
     : []
 
-  // getPost grąžina post + nested `blog` (singular), kuriame yra `profiles`
-  // su author meta. Supabase JOIN'as gali grąžinti arr or object — handle abu.
+  // ── PLAYER GROJARAŠTIS — visada mūsų DB dainos + YouTube (ne Spotify) ──
+  const { data: manualRows } = await sbAdmin
+    .from('blog_post_tracks').select('track_id').eq('post_id', post.id)
+  const manualTrackIds: number[] = (manualRows || []).map((r: any) => r.track_id).filter(Boolean)
+  const ytEmbeds = embeddedMusic.filter(m => m.source === 'youtube')
+
+  let playerTracks: BlogPlayerTrack[] = []
+  if (postType === 'topas') {
+    if (manualTrackIds.length) {
+      playerTracks = await buildBlogPlayerTracks(sbAdmin, { manualTrackIds })
+    }
+    if (!playerTracks.length) {
+      playerTracks = (topasPlayerTracks || [])
+        .map(extractedToPlayerTrack)
+        .filter(Boolean) as BlogPlayerTrack[]
+    }
+  } else {
+    playerTracks = await buildBlogPlayerTracks(sbAdmin, {
+      manualTrackIds,
+      albumId: post.target_album_id ?? (attachments.albums[0] as any)?.id ?? null,
+      artistId: post.target_artist_id ?? (attachments.artists[0] as any)?.id ?? null,
+      fallbackEmbeds: ytEmbeds,
+    })
+  }
+
   const blog = (post as any).blog
   const profile = Array.isArray(blog?.profiles) ? blog.profiles[0] : blog?.profiles
   const authorName = (profile as any)?.full_name || (profile as any)?.username || username
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://musiclt.vercel.app'
 
-  // Hero image priority — TOP TRACK YouTube thumbnail išteklių pirma
-  // (saugiau dėl copyright nei artist'o originalios fotografijos):
-  //   1. Explicit cover_image_url (admin nustatytas)
-  //   2. Pirmas embedded music cover (YT thumb arba Spotify album art)
-  //   3. DB junction tracks[0].cover_image_url
-  //   4. Target entity (review/translation/event)
-  //   5. Topas list_items[0]
-  //   6. Junction albums[0] / artists[0] kaip last resort
   const firstEmbedCover = embeddedMusic.find(m => !!m.cover_url)?.cover_url || null
+  const firstPlayerCover = playerTracks.find(t => !!t.cover_url)?.cover_url || null
   const firstJunctionCover =
     (attachments.tracks[0] as any)?.cover_image_url ||
     (attachments.albums[0] as any)?.cover_image_url || null
@@ -104,6 +109,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
   const heroImage =
     post.cover_image_url ||
     firstEmbedCover ||
+    firstPlayerCover ||
     firstJunctionCover ||
     targetEntityImage ||
     firstListItemImage ||
@@ -128,12 +134,10 @@ export default async function PostPage({ params }: { params: Promise<{ username:
     ...(post.cover_image_url ? { image: post.cover_image_url } : {}),
   }
 
-  // Has sidebar = any attachment OR embedded body music OR target entity present
   const hasSidebar =
+    playerTracks.length > 0 ||
     attachments.artists.length > 0 ||
     attachments.albums.length > 0 ||
-    attachments.tracks.length > 0 ||
-    embeddedMusic.length > 0 ||
     !!targetInfo
 
   return (
@@ -172,8 +176,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
         blogTitle={blog?.title || null}
         heroImage={heroImage}
         attachments={attachments}
-        embeddedMusic={embeddedMusic}
-        topasPlayerTracks={topasPlayerTracks}
+        playerTracks={playerTracks}
         targetInfo={targetInfo}
         hasSidebar={hasSidebar}
       />
