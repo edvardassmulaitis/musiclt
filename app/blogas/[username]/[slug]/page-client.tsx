@@ -1,22 +1,20 @@
 'use client'
 // app/blogas/[username]/[slug]/page-client.tsx
 //
-// Blog post puslapio dizainas (rev 2 — pagal user feedback):
-//   • NĖRA breadcrumb'o (perteklinis)
-//   • Type chip rodomas TIK custom post type'ams (review/translation/event/topas);
-//     paprastam 'article' tag'as praleidžiamas
-//   • User'is rodomas didžiu avatar'u + vardas + sub-info (member nuo / karma)
-//   • Peržiūrų skaitliukas pašalintas iš public hero (rodysim user'io dashboard'e)
-//   • Layout: title hero'je per visą plotį, žemiau 2-col grid'as —
-//     TEKSTAS KAIRĖJE (max 720px), MUZIKOS PLAYER + atlikėjai/albumai DEŠINĖJE
-//     sticky (rev 2 swap, anksčiau buvo atvirkščiai)
-//   • Tags filter'inami: auto-importuoti tag'ai 'legacy' ir 'dienoraštis'
-//     niekur nerodomi (jie pridėti scraper'io, ne user'io)
-//   • „Patinka" mygtukas styled per FollowPill pattern'ą iš artist page'o
-//     (heart + count, count'as atidaro likers modal'ą)
-//   • Komentarų skaitliukas — mygtukas, paspaudus scroll'inasi į komentarų bloką
+// Blog post puslapio dizainas (rev 3 — light-mode + layout refactor):
+//   • LIGHT/DARK — visos spalvos per CSS theme kintamuosius (--bg-*, --text-*,
+//     --accent-*, --border-*). Anksčiau buvo hard-coded tamsios → light mode'e
+//     viskas atrodė tamsu. Dabar gerbiamas [data-theme].
+//   • LAYOUT — autorius, trumpa info, Patinka/Komentarai IR susiję atlikėjai/
+//     albumai perkelti į kompaktišką HORIZONTALIĄ JUOSTĄ po title (bp-bar).
+//     Dešinėje sidebar'e lieka TIK muzikos player'is (+ target entity card).
+//   • Žvaigždutė prieš PopBar dash'us pašalinta.
+//   • MOBILE — player'is NĖRA automatiškai aktyvus. Juostoje yra stilingas
+//     „Klausyti" mygtukas, kuris atidaro minimalų apatinį sticky player'į
+//     (danga + pavadinimas + play/pause + kita; iframe groja paslėptas).
+//   • Tags filter'inami: auto-importuoti tag'ai 'legacy' ir 'dienoraštis' slepiami.
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
@@ -72,12 +70,6 @@ type Props = {
 }
 
 // Auto-importuoti tag'ai (scraper'io pridėti) — niekur nerodomi.
-// Tag'us paliekam tik user'io originalius (jei ką ant music.lt jis pats sudėjo;
-// dabartiniame scrape'e nematėm tokių case'ų, bet pasiliekam erdvę plėtrai).
-// Tag'ai, kurie buvo auto-įdedami legacy migration metu — dabar paslepiami nuo
-// chip listing'o. Type badge (KŪRYBA / VERTIMAS / ...) ir creation_subtype
-// (Eilėraštis, Novelė, ...) jau rodomi atskirai virš title'o, dubliuoti chip'e
-// būtų triukšmas.
 const AUTO_TAGS = new Set([
   'legacy', 'dienoraštis', 'dienorastis',
   'vertimas', 'kūryba', 'kuryba',
@@ -86,12 +78,6 @@ const AUTO_TAGS = new Set([
   'miniatiūra', 'miniatiura',
   'apsakymas', 'esė', 'ese', 'proza', 'daina',
 ])
-
-function ytId(url?: string | null) {
-  if (!url) return null
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
-  return m ? m[1] : null
-}
 
 // PopBar lygiai pagal user profile page'ą — karma → 5-dot indikatorius.
 function karmaToLevel(k: number | null): number {
@@ -104,19 +90,33 @@ function karmaToLevel(k: number | null): number {
   return 0
 }
 
+// Viewport hook — kad mobile/desktop player'iai NEbūtų abu mount'inti vienu
+// metu (display:none iframe vis tiek grotų garsą). Render'inam vieną pagal
+// matchMedia. SSR'e default desktop (false).
+function useIsMobile(breakpoint = 960): boolean {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`)
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [breakpoint])
+  return isMobile
+}
+
 export default function BlogPostPageClient(props: Props) {
   const { post, postType, typeLabel, authorName, authorUsername, authorAvatar,
           authorKarma, authorJoinedYear, blogTitle, heroImage, attachments,
           embeddedMusic, topasPlayerTracks, targetInfo } = props
-  // hasSidebar prop'as iš page.tsx — paliekam Props type'e backward compat,
-  // bet visada renderinam sidebar'ą su InfoBox (info dalis visada matosi).
   void props.hasSidebar
+  void blogTitle
+  void authorJoinedYear
 
   const karmaLevel = karmaToLevel(authorKarma)
+  const isMobile = useIsMobile()
 
-  // Build unified player track list — merge DB-resolved attachments + body-
-  // extracted embeds. Eilė: DB tracks first (resolved → highest quality),
-  // tada body embeds (YT/Spotify) — kurie irgi groja iframe'e.
+  // Build unified player track list — merge DB-resolved attachments + body embeds.
   const playerTracks: ExtractedTrack[] = [
     ...attachments.tracks.map((t: any): ExtractedTrack => {
       const a = Array.isArray(t.artist) ? t.artist[0] : t.artist
@@ -134,27 +134,53 @@ export default function BlogPostPageClient(props: Props) {
     ...embeddedMusic.filter(m => !!m.embed_url),
   ]
 
-  // Topas: jei autorius pats prisegė muzikos (playerTracks) — ta overridina;
-  // kitaip grojaraštis sudaromas iš topo įrašų (album→top daina, artist→top daina).
   const effectivePlayerTracks: ExtractedTrack[] =
     postType === 'topas'
       ? (playerTracks.length > 0 ? playerTracks : (topasPlayerTracks || []))
       : playerTracks
 
+  const hasPlayer = effectivePlayerTracks.length > 0
+
+  // ── Shared player state (lifted) — kad desktop sidebar player IR mobile
+  //    sticky player dalintųsi ta pačia daina/būsena. ──
+  const [active, setActive] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  const openMobilePlayer = () => { setMobileOpen(true); setPlaying(true) }
+
   const showChip = postType !== 'article'   // tik custom type'ams
   const visibleTags = (post.tags || []).filter(t => !AUTO_TAGS.has((t || '').toLowerCase()))
 
-  // Hide summary kai jis yra body excerpt'as — anksčiau scraper'is
-  // body_excerpt'ą įdėdavo kaip summary, bet kūnas prasideda su tais pačiais
-  // sakiniais → dublikacija. Tikrinam ar summary tekstas yra prefix'as
-  // strip'into body'o (be HTML tag'ų, sumažintas whitespace).
+  // Susiję — albumai + atlikėjai sujungti į vieną chip'ų sąrašą juostai.
+  const related: { id: string; href: string; title: string; sub: string; img: string | null; fallback: string }[] = [
+    ...attachments.albums.map((al: any) => {
+      const a = Array.isArray(al.artist) ? al.artist[0] : al.artist
+      return {
+        id: `al:${al.id}`,
+        href: `/albumai/${al.slug || al.id}`,
+        title: al.title as string,
+        sub: [a?.name, al.release_year].filter(Boolean).join(' · '),
+        img: al.cover_image_url || null,
+        fallback: (al.title || '?')[0]?.toUpperCase() || '?',
+      }
+    }),
+    ...attachments.artists.map((a: any) => ({
+      id: `ar:${a.id}`,
+      href: `/atlikejai/${a.slug || a.id}`,
+      title: a.name as string,
+      sub: 'Atlikėjas',
+      img: a.cover_image_url || null,
+      fallback: (a.name || '?')[0]?.toUpperCase() || '?',
+    })),
+  ]
+
   const showSummary = (() => {
     if (!post.summary || !post.content) return !!post.summary
     const norm = (s: string) => s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
     const sum = norm(post.summary)
     const body = norm(post.content)
     if (!sum || !body) return !!post.summary
-    // Jei summary identiškas pradiniam body fragment'ui (~95% match) → hide.
     return !body.startsWith(sum.slice(0, Math.min(sum.length, 100)))
   })()
 
@@ -165,22 +191,22 @@ export default function BlogPostPageClient(props: Props) {
   return (
     <>
       <style jsx global>{`
-        .bp-root { background:#080d14; color:#dde8f8; font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; }
+        .bp-root { background:var(--bg-body); color:var(--text-secondary); font-family:'DM Sans',sans-serif;
+                   -webkit-font-smoothing:antialiased; min-height:100vh; }
 
-        /* ── HERO — split: title LEFT (60%), photo RIGHT (40%, fade-out) ── */
+        /* ── HERO — title LEFT, photo RIGHT (fade-out) ── */
         .bp-hero { position:relative; min-height:240px; overflow:hidden;
-                   background:linear-gradient(180deg, #0d1420 0%, #0a0f18 100%);
+                   background:linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-body) 100%);
                    display:flex; align-items:flex-end; }
         .bp-hero::after { content:''; position:absolute; inset:0; pointer-events:none;
                           background:radial-gradient(ellipse at 75% 30%, rgba(249,115,22,0.06) 0%, transparent 60%); }
-        /* Photo dešinėje — užima ~45% pločio, fade'inasi į kairę kad tekstas neuždengtų */
         .bp-hero-photo { position:absolute; top:0; right:0; bottom:0; width:45%; overflow:hidden; z-index:1; }
         .bp-hero-photo img { width:100%; height:100%; object-fit:cover; object-position:center 25%;
                               animation:bp-hero-zoom 18s ease-out forwards;
                               -webkit-mask-image:linear-gradient(to left, black 35%, transparent 100%);
                               mask-image:linear-gradient(to left, black 35%, transparent 100%); }
         .bp-hero-photo-fade { position:absolute; inset:0;
-                              background:linear-gradient(to top, rgba(8,13,20,0.45) 0%, transparent 60%); }
+                              background:linear-gradient(to top, rgba(var(--bg-body-rgb),0.45) 0%, transparent 60%); }
         @keyframes bp-hero-zoom { from { transform:scale(1) } to { transform:scale(1.06) } }
         .bp-hero-content { position:relative; z-index:2; width:100%; max-width:1400px; margin:0 auto;
                            padding:36px 32px 28px; }
@@ -188,77 +214,79 @@ export default function BlogPostPageClient(props: Props) {
         @keyframes bp-in { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
 
         .bp-chip { display:inline-block; font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.08em;
-                   text-transform:uppercase; color:#fff; padding:4px 12px; border-radius:20px;
-                   background:rgba(249,115,22,0.2); border:1px solid rgba(249,115,22,0.3); }
-        .bp-rating { display:inline-flex; align-items:center; gap:4px; background:rgba(255,255,255,0.12); border-radius:6px;
-                     padding:3px 8px; font-family:'Outfit',sans-serif; font-size:11px; font-weight:900; color:#fff;
+                   text-transform:uppercase; color:var(--accent-orange); padding:4px 12px; border-radius:20px;
+                   background:rgba(249,115,22,0.14); border:1px solid rgba(249,115,22,0.3); }
+        .bp-rating { display:inline-flex; align-items:center; gap:4px; background:var(--bg-hover); border-radius:6px;
+                     padding:3px 8px; font-family:'Outfit',sans-serif; font-size:11px; font-weight:900; color:var(--text-primary);
                      margin-left:8px; }
         .bp-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,2.6vw,2.4rem); font-weight:900; line-height:1.08;
-                 letter-spacing:-.03em; color:#fff; margin:10px 0 0; }
+                 letter-spacing:-.03em; color:var(--text-primary); margin:10px 0 0; }
 
-        /* User card hero'je — avatar + name + sub */
-        .bp-user { display:inline-flex; align-items:center; gap:12px; background:rgba(255,255,255,0.07);
-                   backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.12); border-radius:100px;
-                   padding:6px 16px 6px 6px; text-decoration:none; color:inherit; transition:background .15s; }
-        .bp-user:hover { background:rgba(255,255,255,0.12); }
-        .bp-user-av { width:38px; height:38px; border-radius:50%; overflow:hidden; flex-shrink:0;
-                      display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
-                      font-size:15px; font-weight:900; color:#fff; }
-        .bp-user-av img { width:100%; height:100%; object-fit:cover; }
-        .bp-user-text { display:flex; flex-direction:column; gap:3px; }
-        .bp-user-name { font-family:'Outfit',sans-serif; font-size:14px; font-weight:800; color:#fff; letter-spacing:-.01em; line-height:1; }
-        .bp-user-popbar { display:inline-flex; align-items:center; gap:6px; }
-        .bp-user-popbar-icon { font-size:11px; line-height:1; }
+        /* ── HORIZONTAL BAR — autorius + meta + actions + susiję (po title) ── */
+        .bp-bar-wrap { border-bottom:1px solid var(--border-subtle); background:var(--bg-body); }
+        .bp-bar { max-width:1400px; margin:0 auto; padding:13px 32px;
+                  display:flex; align-items:center; gap:12px 18px; flex-wrap:wrap; }
+        .bp-bar-author { display:inline-flex; align-items:center; gap:11px; text-decoration:none; color:inherit; }
+        .bp-bar-av { width:40px; height:40px; border-radius:50%; overflow:hidden; flex-shrink:0;
+                     display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
+                     font-size:15px; font-weight:900; color:#fff; }
+        .bp-bar-av img { width:100%; height:100%; object-fit:cover; }
+        .bp-bar-author-text { display:flex; flex-direction:column; gap:4px; }
+        .bp-bar-name { font-family:'Outfit',sans-serif; font-size:14px; font-weight:800; color:var(--text-primary);
+                       letter-spacing:-.01em; line-height:1; transition:color .15s; }
+        .bp-bar-author:hover .bp-bar-name { color:var(--accent-orange); }
+        .bp-bar-meta { font-size:12.5px; color:var(--text-muted); display:flex; align-items:center; gap:7px;
+                       white-space:nowrap; }
+        .bp-bar-dot { color:var(--text-faint); }
+        .bp-bar-actions { display:flex; align-items:center; gap:8px; }
+        .bp-bar-related { display:flex; align-items:center; gap:8px; margin-left:auto; max-width:100%;
+                          overflow-x:auto; padding-bottom:2px; scrollbar-width:thin; }
+        .bp-bar-related::-webkit-scrollbar { height:5px; }
+        .bp-bar-related::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:3px; }
+        .bp-bar-related-label { font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.12em;
+                                text-transform:uppercase; color:var(--text-faint); flex-shrink:0; }
+        .bp-bar-chip { display:inline-flex; align-items:center; gap:8px; padding:4px 13px 4px 4px; border-radius:100px;
+                       background:var(--card-bg); border:1px solid var(--border-subtle); text-decoration:none;
+                       color:inherit; flex-shrink:0; transition:background .15s, border-color .15s; }
+        .bp-bar-chip:hover { background:var(--bg-hover); border-color:var(--border-default); }
+        .bp-bar-chip-thumb { width:30px; height:30px; border-radius:50%; object-fit:cover; flex-shrink:0;
+                             background:var(--card-bg); }
+        .bp-bar-chip-fallback { width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex;
+                                align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
+                                font-size:12px; font-weight:900; background:var(--bg-hover); color:var(--text-muted); }
+        .bp-bar-chip-text { display:flex; flex-direction:column; gap:2px; min-width:0; max-width:160px; }
+        .bp-bar-chip-title { font-size:12.5px; font-weight:700; color:var(--text-primary); white-space:nowrap;
+                             overflow:hidden; text-overflow:ellipsis; line-height:1.1; }
+        .bp-bar-chip-sub { font-size:10.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden;
+                           text-overflow:ellipsis; line-height:1.1; }
+
+        /* Mobile „Klausyti" play btn — juostoje, atidaro sticky player'į */
+        .bp-bar-play { display:inline-flex; align-items:center; gap:8px; padding:9px 16px; border-radius:100px;
+                       border:none; cursor:pointer; font-family:'Outfit',sans-serif; font-size:13px; font-weight:800;
+                       color:#fff; background:var(--accent-orange); box-shadow:0 6px 18px rgba(249,115,22,0.32);
+                       transition:transform .15s, box-shadow .15s; }
+        .bp-bar-play:hover { transform:translateY(-1px); box-shadow:0 9px 24px rgba(249,115,22,0.4); }
+        .bp-bar-play svg { flex-shrink:0; }
+
+        /* PopBar — karma indikatorius (be žvaigždutės) */
         .bp-popbar { display:inline-flex; gap:3px; align-items:center; }
-        .bp-popbar-dot { display:inline-block; height:4px; width:22px; border-radius:2px; background:rgba(255,255,255,0.18); transition:background .2s; transform-origin:left center; }
-        .bp-popbar-dot.is-on { background:var(--accent-orange, #f97316); }
-
-        .bp-meta-row { margin-top:14px; display:flex; align-items:center; gap:10px 16px; flex-wrap:wrap; font-size:13px;
-                       color:rgba(255,255,255,0.65); font-weight:500; }
+        .bp-popbar-dot { display:inline-block; height:4px; width:20px; border-radius:2px; background:var(--border-strong);
+                         transition:background .2s; transform-origin:left center; }
+        .bp-popbar-dot.is-on { background:var(--accent-orange); }
 
         /* ── PAGE LAYOUT ── */
         .bp-page { max-width:1400px; margin:0 auto; padding:0 32px; }
-        .bp-grid { display:grid; gap:32px; align-items:start; padding:18px 0 80px; }
-        .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 400px; }
+        .bp-grid { display:grid; gap:32px; align-items:start; padding:22px 0 80px; }
+        .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 380px; }
 
-        /* ── SIDEBAR — sticky right ── */
+        /* ── SIDEBAR — sticky right (tik player + target card) ── */
         .bp-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:14px; min-width:0; }
-
-        /* InfoBox — pilna info kortelė viršuje sidebar'e (author + meta + actions) */
-        .bp-info-box { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.05); border-radius:14px;
-                       padding:16px; display:flex; flex-direction:column; gap:14px; }
-        .bp-info-author { display:flex; align-items:center; gap:12px; text-decoration:none; color:inherit; }
-        .bp-info-av { width:44px; height:44px; border-radius:50%; overflow:hidden; flex-shrink:0;
-                      display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
-                      font-size:16px; font-weight:900; color:#fff; }
-        .bp-info-av img { width:100%; height:100%; object-fit:cover; }
-        .bp-info-author-text { display:flex; flex-direction:column; gap:5px; min-width:0; }
-        .bp-info-author-name { font-family:'Outfit',sans-serif; font-size:15px; font-weight:800; color:#f2f4f8;
-                               letter-spacing:-.01em; line-height:1; transition:color .15s; }
-        .bp-info-author:hover .bp-info-author-name { color:#f97316; }
-        .bp-info-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px;
-                        color:#8aa8cc; font-weight:500; }
-        .bp-info-dot { color:rgba(255,255,255,0.25); }
-        .bp-info-actions { display:flex; gap:8px; flex-wrap:wrap; }
-        .bp-sb-card { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.05); border-radius:14px; overflow:hidden; }
+        .bp-sb-card { background:var(--card-bg); border:1px solid var(--border-subtle); border-radius:14px; overflow:hidden; }
         .bp-sb-card-padded { padding:14px; }
         .bp-sb-heading { font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.14em;
-                         text-transform:uppercase; color:#5e7290; margin:0 0 10px; }
+                         text-transform:uppercase; color:var(--text-muted); margin:0 0 10px; }
 
-        /* Player — perimta artist page tracks-table stilistika su rows
-           (# | title | popbar). Aspect-video viršuje su orange play overlay. */
-        .bp-mu-hdr { display:flex; align-items:center; gap:9px; padding:10px 14px;
-                     border-bottom:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); }
-        .bp-mu-hdr-icon { width:26px; height:26px; border-radius:7px;
-                          background:linear-gradient(135deg,#f97316,#e05500);
-                          display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        .bp-mu-hdr-eq { display:flex; align-items:flex-end; gap:2px; height:12px; }
-        .bp-mu-hdr-eq span { width:2.5px; border-radius:2px; background:#fff;
-                              transform-origin:bottom; animation:bp-eq .7s ease-in-out infinite alternate; }
-        @keyframes bp-eq { from { transform:scaleY(.3) } to { transform:scaleY(1) } }
-        .bp-mu-hdr-label { font-family:'Outfit',sans-serif; font-size:10px; font-weight:800; text-transform:uppercase;
-                           letter-spacing:.1em; color:#8aa8cc; flex:1; }
-        /* Video — atskirta aspect ratio dėl Spotify (152px height) vs YT (16:9) */
+        /* Player */
         .bp-mu-video { background:#000; aspect-ratio:16/9; position:relative; }
         .bp-mu-video.is-spotify { aspect-ratio:auto; height:152px; }
         .bp-mu-video.is-spotify .bp-mu-iframe { height:152px; }
@@ -272,248 +300,204 @@ export default function BlogPostPageClient(props: Props) {
         .bp-mu-thumb img { width:100%; height:100%; object-fit:cover; }
         .bp-mu-thumb-noplay { cursor:default; }
         .bp-mu-no-thumb { width:100%; height:100%; display:flex; align-items:center; justify-content:center;
-                          font-size:48px; color:#5e7290; background:#080d14; }
-        /* Orange play btn — bottom-right corner (artist page hero parity).
-           Anksčiau buvo centre — uždengdavo veido/scenos kompoziciją. */
+                          font-size:48px; color:var(--text-muted); background:var(--cover-placeholder); }
         .bp-mu-play-overlay { position:absolute; inset:0;
                               background:linear-gradient(to top, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 30%, transparent 60%);
                               pointer-events:none; }
         .bp-mu-play-btn { position:absolute; bottom:12px; right:12px;
                           width:48px; height:48px; border-radius:50%;
-                          background:var(--accent-orange, #f97316);
+                          background:var(--accent-orange);
                           box-shadow:0 8px 24px rgba(249,115,22,0.5);
                           display:flex; align-items:center; justify-content:center;
                           border:3px solid rgba(255,255,255,0.15);
                           transition:transform .2s; }
         .bp-mu-thumb:hover .bp-mu-play-btn { transform:scale(1.1); }
         .bp-mu-iframe { width:100%; height:100%; border:none; }
-        /* Now-playing strip — kompakt'as title + artist */
         .bp-mu-now { display:flex; align-items:center; gap:10px; padding:10px 14px;
                      background:rgba(249,115,22,.06); border-top:1px solid rgba(249,115,22,.1); }
         .bp-mu-now-info { flex:1; min-width:0; }
-        .bp-mu-now-title { font-family:'Outfit',sans-serif; font-size:12px; font-weight:800; color:#f2f4f8; margin:0;
+        .bp-mu-now-title { font-family:'Outfit',sans-serif; font-size:12px; font-weight:800; color:var(--text-primary); margin:0;
                            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .bp-mu-now-artist { font-size:10px; color:#8aa8cc; margin:2px 0 0; }
-        .bp-mu-yt { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:50%;
+        .bp-mu-now-artist { font-size:10px; color:var(--text-muted); margin:2px 0 0; }
+        .bp-mu-yt { background:var(--bg-hover); border:1px solid var(--border-default); border-radius:50%;
                     width:28px; height:28px; display:flex; align-items:center; justify-content:center;
-                    color:#dde8f8; text-decoration:none; flex-shrink:0; transition:background .15s; }
-        .bp-mu-yt:hover { background:rgba(255,255,255,0.1); }
+                    color:var(--text-secondary); text-decoration:none; flex-shrink:0; transition:background .15s; }
+        .bp-mu-yt:hover { background:var(--bg-active); }
 
-        /* Track list — artist page TracksTable stiliumi.
-           Row structure: # | (title + popbar + artist STACKED) | link + play.
-           Max-height 240px (~5-6 tracks visible). */
         .bp-mu-list { max-height:240px; overflow-y:auto; padding:6px 0; }
         .bp-mu-list::-webkit-scrollbar { width:6px; }
-        .bp-mu-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:3px; }
-        /* Row container — flex: body button + actions */
-        .bp-mu-track { display:flex; align-items:center; gap:6px; padding:0 8px 0 0;
-                       transition:background .15s; }
-        .bp-mu-track:hover { background:rgba(255,255,255,0.04); }
+        .bp-mu-list::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:3px; }
+        .bp-mu-track { display:flex; align-items:center; gap:6px; padding:0 8px 0 0; transition:background .15s; }
+        .bp-mu-track:hover { background:var(--bg-hover); }
         .bp-mu-track-on { background:rgba(249,115,22,.10); }
-        /* Clickable row body — # + info, fills available width */
         .bp-mu-track-body { flex:1; min-width:0; display:flex; align-items:center; gap:10px;
                             padding:9px 0 9px 14px; background:transparent; border:none; cursor:pointer;
                             text-align:left; font-family:'DM Sans',sans-serif; color:inherit; }
-        /* Position number — w-5, 12px Outfit bold, faint text default, orange active */
-        .bp-mu-track-num { font-family:'Outfit',sans-serif; font-size:12px; font-weight:800; color:#5e7290;
-                           min-width:20px; text-align:center; flex-shrink:0; font-variant-numeric:tabular-nums;
-                           line-height:1; }
-        .bp-mu-track-on .bp-mu-track-num { color:#f97316; }
-        /* Actions on right: external link + play btn */
+        .bp-mu-track-num { font-family:'Outfit',sans-serif; font-size:12px; font-weight:800; color:var(--text-muted);
+                           min-width:20px; text-align:center; flex-shrink:0; font-variant-numeric:tabular-nums; line-height:1; }
+        .bp-mu-track-on .bp-mu-track-num { color:var(--accent-orange); }
         .bp-mu-track-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
-        /* Daugiau pill — burger icon, atidaro /dainos/<slug> (kur lyrics + comments).
-           Stiliuje identiškas artist page TrackInfoModal trigger button'ui. */
-        .bp-mu-track-more { display:flex; align-items:center; justify-content:center;
-                            padding:5px 8px; border-radius:999px;
-                            background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
-                            color:#5e7290; text-decoration:none;
+        .bp-mu-track-more { display:flex; align-items:center; justify-content:center; padding:5px 8px; border-radius:999px;
+                            background:var(--card-bg); border:1px solid var(--border-default);
+                            color:var(--text-muted); text-decoration:none;
                             transition:background .15s, border-color .15s, color .15s; }
-        .bp-mu-track-more:hover { background:rgba(249,115,22,0.1); border-color:rgba(249,115,22,0.4);
-                                  color:var(--accent-orange, #f97316); }
-        .bp-mu-track-play { display:flex; align-items:center; justify-content:center;
-                            width:30px; height:30px; border-radius:50%;
-                            background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
-                            color:#dde8f8; cursor:pointer; transition:all .15s; }
-        .bp-mu-track-play:hover { background:var(--accent-orange, #f97316); border-color:transparent; color:#fff; }
-        .bp-mu-track-on .bp-mu-track-play { background:var(--accent-orange, #f97316);
-                                            border-color:transparent; color:#fff; }
-        /* Info col — flex column (title row above popbar row) */
+        .bp-mu-track-more:hover { background:rgba(249,115,22,0.1); border-color:rgba(249,115,22,0.4); color:var(--accent-orange); }
+        .bp-mu-track-play { display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%;
+                            background:var(--card-bg); border:1px solid var(--border-default);
+                            color:var(--text-secondary); cursor:pointer; transition:all .15s; }
+        .bp-mu-track-play:hover { background:var(--accent-orange); border-color:transparent; color:#fff; }
+        .bp-mu-track-on .bp-mu-track-play { background:var(--accent-orange); border-color:transparent; color:#fff; }
         .bp-mu-track-info { flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
-        .bp-mu-track-title { font-family:'Outfit',sans-serif; font-size:13px; font-weight:700; color:#dde8f8;
-                             margin:0; line-height:1.2;
-                             white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
-        .bp-mu-track-on .bp-mu-track-title { color:#f97316; }
-        .bp-mu-track-artist { font-size:10.5px; color:#8aa8cc; margin:0; line-height:1.1;
+        .bp-mu-track-title { font-family:'Outfit',sans-serif; font-size:13px; font-weight:700; color:var(--text-primary);
+                             margin:0; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+        .bp-mu-track-on .bp-mu-track-title { color:var(--accent-orange); }
+        .bp-mu-track-artist { font-size:10.5px; color:var(--text-muted); margin:0; line-height:1.1;
                               white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
-        /* Mini PopBar — POD title (kaip artist page). 3px dash, 14px wide. */
         .bp-mu-popbar { display:flex; gap:3px; align-items:center; }
-        .bp-mu-popbar span { display:inline-block; height:3px; width:14px; border-radius:1.5px;
-                              background:rgba(255,255,255,0.18); }
-        .bp-mu-popbar span.is-on { background:var(--accent-orange, #f97316);
-                                    opacity:0.65; }
+        .bp-mu-popbar span { display:inline-block; height:3px; width:14px; border-radius:1.5px; background:var(--border-strong); }
+        .bp-mu-popbar span.is-on { background:var(--accent-orange); opacity:0.65; }
         .bp-mu-popbar span.is-on:nth-child(-n+3) { opacity:0.9; }
         .bp-mu-popbar span.is-on:first-child { opacity:1; }
 
-        /* Generic attachment item (artists/albums lists) */
-        .bp-att-item { display:flex; align-items:center; gap:10px; padding:7px 6px; border-radius:8px;
-                       text-decoration:none; color:inherit; transition:background .15s; }
-        .bp-att-item:hover { background:rgba(255,255,255,0.04); }
-        .bp-att-thumb { width:40px; height:40px; border-radius:8px; object-fit:cover; flex-shrink:0;
-                        background:rgba(255,255,255,0.04); }
-        .bp-att-thumb-fallback { width:40px; height:40px; border-radius:8px; flex-shrink:0; display:flex;
-                                 align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
-                                 font-size:14px; font-weight:900; background:rgba(255,255,255,0.05); color:#5e7290; }
-        .bp-att-text { flex:1; min-width:0; }
-        .bp-att-title { font-size:13px; font-weight:700; color:#dde8f8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .bp-att-sub { font-size:11px; color:#8aa8cc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
+        /* ── MOBILE STICKY PLAYER ── */
+        .bp-msp { position:fixed; left:0; right:0; bottom:0; z-index:60;
+                  background:var(--bg-surface); border-top:1px solid var(--border-default);
+                  box-shadow:0 -6px 24px rgba(0,0,0,0.18); }
+        .bp-msp-frame { overflow:hidden; height:0; transition:height .26s ease; background:#000; }
+        .bp-msp-frame.is-open { height:200px; }
+        .bp-msp-frame.is-open.is-spotify { height:152px; }
+        .bp-msp-frame iframe { width:100%; height:100%; border:0; display:block; }
+        .bp-msp-strip { display:flex; align-items:center; gap:11px; padding:9px 14px;
+                        padding-bottom:calc(9px + env(safe-area-inset-bottom, 0px)); }
+        .bp-msp-cover { width:42px; height:42px; border-radius:9px; object-fit:cover; flex-shrink:0; background:var(--card-bg); }
+        .bp-msp-cover-fallback { width:42px; height:42px; border-radius:9px; flex-shrink:0; display:flex; align-items:center;
+                                 justify-content:center; font-size:20px; color:var(--text-muted); background:var(--bg-hover); }
+        .bp-msp-info { flex:1; min-width:0; }
+        .bp-msp-title { font-family:'Outfit',sans-serif; font-size:13px; font-weight:800; color:var(--text-primary); margin:0;
+                        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .bp-msp-artist { font-size:11px; color:var(--text-muted); margin:2px 0 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .bp-msp-btn { display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer;
+                      background:none; border:none; color:var(--text-secondary); padding:6px; border-radius:50%;
+                      transition:background .15s, color .15s; }
+        .bp-msp-btn:hover { background:var(--bg-hover); color:var(--text-primary); }
+        .bp-msp-btn.is-primary { width:42px; height:42px; background:var(--accent-orange); color:#fff;
+                                 box-shadow:0 4px 14px rgba(249,115,22,0.4); }
+        .bp-msp-btn.is-primary:hover { background:var(--accent-orange); filter:brightness(1.06); }
 
-        /* ── PROSE — be max-width, kad tekstas užpildytų visą main column'ą
-           ir tarpas tarp text/player būtų minimalus (anksčiau 720px riba
-           palikdavo 200+ px tuščios erdvės dešinėje main column dalyje) ── */
-        .bp-prose { color:#b0bdd4; font-size:1.06rem; line-height:1.88; }
+        /* ── PROSE ── */
+        .bp-prose { color:var(--text-secondary); font-size:1.06rem; line-height:1.88; }
         .bp-prose p { margin-bottom:22px; }
-        .bp-prose a { color:#3b82f6; text-decoration:underline; }
-        .bp-prose h2 { font-family:'Outfit',sans-serif; font-size:1.5rem; font-weight:900; color:#f2f4f8;
+        .bp-prose a { color:var(--accent-link); text-decoration:underline; }
+        .bp-prose h2 { font-family:'Outfit',sans-serif; font-size:1.5rem; font-weight:900; color:var(--text-primary);
                        margin:40px 0 16px; letter-spacing:-.025em; }
-        .bp-prose h3 { font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800; color:#f2f4f8; margin:32px 0 12px; }
-        .bp-prose blockquote { border-left:3px solid #f97316; padding:14px 22px; margin:32px 0;
+        .bp-prose h3 { font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800; color:var(--text-primary); margin:32px 0 12px; }
+        .bp-prose blockquote { border-left:3px solid var(--accent-orange); padding:14px 22px; margin:32px 0;
                                background:rgba(249,115,22,.05); border-radius:0 12px 12px 0; }
-        .bp-prose blockquote p { font-size:1.08rem; font-weight:700; font-style:italic; color:#dde8f8; line-height:1.55; margin:0; }
+        .bp-prose blockquote p { font-size:1.08rem; font-weight:700; font-style:italic; color:var(--text-primary); line-height:1.55; margin:0; }
         .bp-prose ul, .bp-prose ol { margin:16px 0 24px 22px; }
-        .bp-prose li { margin-bottom:6px; line-height:1.78; color:#b0bdd4; }
-        .bp-prose strong { color:#f2f4f8; font-weight:700; }
+        .bp-prose li { margin-bottom:6px; line-height:1.78; color:var(--text-secondary); }
+        .bp-prose strong { color:var(--text-primary); font-weight:700; }
         .bp-prose img { max-width:100%; border-radius:10px; }
 
-        .bp-summary { font-size:1.12rem; line-height:1.5; color:#b0bdd4; font-weight:500;
-                      margin:0 0 16px; padding-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.05);
+        .bp-summary { font-size:1.12rem; line-height:1.5; color:var(--text-secondary); font-weight:500;
+                      margin:0 0 16px; padding-bottom:14px; border-bottom:1px solid var(--border-subtle);
                       font-family:'Outfit',sans-serif; }
 
-        /* ── ACTIONS — TOP row (above body), TAGS row pakeliama čia ── */
-        .bp-top-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center;
-                          margin:0 0 18px; max-width:720px; }
-        .bp-footer-row { margin:38px 0 0; padding-top:24px; border-top:1px solid rgba(255,255,255,0.06);
-                         display:flex; flex-wrap:wrap; gap:14px; align-items:center; max-width:720px; }
+        /* ── TAGS ── */
         .bp-tags { display:flex; flex-wrap:wrap; gap:6px; }
-        .bp-tag { padding:5px 11px; border-radius:14px; background:rgba(255,255,255,0.04);
-                  border:1px solid rgba(255,255,255,0.06); color:#8aa8cc; font-size:11.5px; font-weight:700;
+        .bp-tag { padding:5px 11px; border-radius:14px; background:var(--card-bg);
+                  border:1px solid var(--border-subtle); color:var(--text-muted); font-size:11.5px; font-weight:700;
                   text-decoration:none; transition:background .15s; font-family:'Outfit',sans-serif; }
-        .bp-tag:hover { background:rgba(255,255,255,0.07); color:#dde8f8; }
+        .bp-tag:hover { background:var(--bg-hover); color:var(--text-primary); }
 
-        /* FollowPill-style (perimta iš artist page'o) */
+        /* FollowPill-style */
         .bp-pill { display:inline-flex; align-items:stretch; overflow:hidden; border-radius:999px;
-                   border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04);
+                   border:1px solid var(--border-default); background:var(--card-bg);
                    transition:border-color .15s, background-color .15s; }
-        .bp-pill.is-on { border-color:#f97316; background:#f97316; box-shadow:0 6px 18px rgba(249,115,22,0.35); }
+        .bp-pill.is-on { border-color:var(--accent-orange); background:var(--accent-orange); box-shadow:0 6px 18px rgba(249,115,22,0.35); }
         .bp-pill-side { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; cursor:pointer;
-                       background:none; border:none; color:#dde8f8; font-family:'Outfit',sans-serif;
+                       background:none; border:none; color:var(--text-secondary); font-family:'Outfit',sans-serif;
                        font-size:13px; font-weight:800; transition:background .15s; }
         .bp-pill.is-on .bp-pill-side { color:#fff; }
-        .bp-pill-side:hover { background:rgba(255,255,255,0.06); }
+        .bp-pill-side:hover { background:var(--bg-hover); }
         .bp-pill.is-on .bp-pill-side:hover { background:rgba(0,0,0,0.08); }
         .bp-pill-side[disabled] { cursor:not-allowed; opacity:0.7; }
         .bp-pill-count { display:inline-flex; align-items:center; padding:8px 14px;
-                         border-left:1px solid rgba(255,255,255,0.1); font-family:'Outfit',sans-serif;
+                         border-left:1px solid var(--border-default); font-family:'Outfit',sans-serif;
                          font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; }
         .bp-pill.is-on .bp-pill-count { border-color:rgba(255,255,255,0.3); color:#fff; }
-        .bp-pill-count.is-link { cursor:pointer; background:none; border:none; border-left:1px solid rgba(255,255,255,0.1);
-                                 color:#dde8f8; transition:background .15s; }
+        .bp-pill-count.is-link { cursor:pointer; background:none; border:none; border-left:1px solid var(--border-default);
+                                 color:var(--text-secondary); transition:background .15s; }
         .bp-pill.is-on .bp-pill-count.is-link { color:#fff; border-color:rgba(255,255,255,0.3); }
-        .bp-pill-count.is-link:hover { background:rgba(255,255,255,0.06); }
+        .bp-pill-count.is-link:hover { background:var(--bg-hover); }
         .bp-pill.is-on .bp-pill-count.is-link:hover { background:rgba(0,0,0,0.08); }
 
-        /* Topas list — fancy: didelis viršelis kairėje, tekstas dešinėje */
+        /* Topas list */
         .bp-topas { list-style:none; padding:0; margin:36px 0; display:flex; flex-direction:column; gap:16px; }
         .bp-topas-item { display:flex; flex-direction:column; gap:14px; padding:18px; border-radius:18px;
-                         background:linear-gradient(150deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018));
-                         border:1px solid rgba(255,255,255,0.07);
+                         background:var(--card-bg);
+                         border:1px solid var(--border-subtle);
                          text-decoration:none; color:inherit; transition:transform .16s, background .16s, border-color .16s, box-shadow .16s; }
         .bp-topas-lower { display:flex; align-items:flex-start; gap:20px; }
         .bp-topas-item.is-link { cursor:pointer; }
         .bp-topas-item.is-link:hover { transform:translateY(-2px); border-color:rgba(249,115,22,0.32);
-                         box-shadow:0 12px 30px rgba(0,0,0,0.28); }
+                         box-shadow:0 12px 30px rgba(0,0,0,0.18); }
         .bp-topas-cover-wrap { position:relative; flex-shrink:0; width:150px; height:150px; border-radius:14px; overflow:hidden;
-                               box-shadow:0 6px 20px rgba(0,0,0,0.34); }
+                               box-shadow:0 6px 20px rgba(0,0,0,0.2); }
         .bp-topas-cover { width:150px; height:150px; border-radius:14px; object-fit:cover; display:block;
-                          background:rgba(255,255,255,0.04); }
+                          background:var(--card-bg); transition:transform .3s ease; }
         .bp-topas-cover-empty { display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
-                          font-size:2.6rem; font-weight:900; color:rgba(255,255,255,0.18);
-                          background:linear-gradient(135deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)); }
+                          font-size:2.6rem; font-weight:900; color:var(--text-faint);
+                          background:var(--bg-hover); }
         .bp-topas-play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
                          border:0; cursor:pointer; color:#fff;
                          background:linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0.1));
                          opacity:0; transition:opacity .2s ease; }
-        /* Subtilus play elementas — pasirodo hover'inant VISĄ kortelę (aiškus klikinamumo ženklas) */
         .bp-topas-item.is-link:hover .bp-topas-play, .bp-topas-play:focus-visible { opacity:1; }
         .bp-topas-play > svg { width:38px; height:38px; box-sizing:border-box; filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));
                                background:rgba(249,115,22,0.96); border-radius:50%; padding:10px;
                                transform:scale(0.82); transition:transform .2s cubic-bezier(0.22,1,0.36,1); }
         .bp-topas-item.is-link:hover .bp-topas-play > svg { transform:scale(1); }
-        .bp-topas-item.is-link:hover .bp-topas-cover { transform:scale(1.04); transition:transform .3s ease; }
-        .bp-topas-cover { transition:transform .3s ease; }
+        .bp-topas-item.is-link:hover .bp-topas-cover { transform:scale(1.04); }
         .bp-topas-titlerow { display:flex; align-items:baseline; gap:14px; }
         .bp-topas-rank { font-family:'Outfit',sans-serif; font-weight:900; font-size:1.7rem; letter-spacing:-.03em;
                           line-height:1; flex-shrink:0; }
-        .bp-topas-title { font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800; color:#f2f4f8; line-height:1.25;
+        .bp-topas-title { font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800; color:var(--text-primary); line-height:1.25;
                           letter-spacing:-.01em; margin:0; }
-        .bp-topas-artist-inline { color:#f97316; }
-        .bp-topas-dash { color:#5e7290; }
+        .bp-topas-artist-inline { color:var(--accent-orange); }
+        .bp-topas-dash { color:var(--text-muted); }
         .bp-topas-genres { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
         .bp-topas-genre { font-family:'Outfit',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.02em;
-                          text-transform:lowercase; color:#9db4d4; background:rgba(255,255,255,0.05);
-                          border:1px solid rgba(255,255,255,0.08); border-radius:100px; padding:2px 9px; }
-        .bp-topas-comment { flex:1; min-width:0; font-size:.94rem; color:#b6c6de; margin:0; line-height:1.7; }
-
-        /* Author footer */
-        .bp-author-footer { margin-top:48px; padding:18px; background:rgba(255,255,255,0.03);
-                            border:1px solid rgba(255,255,255,0.06); border-radius:14px; display:flex;
-                            align-items:center; gap:14px; max-width:720px; }
-        .bp-author-footer .av-lg { width:54px; height:54px; border-radius:50%; flex-shrink:0; overflow:hidden;
-                                   display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif;
-                                   font-size:18px; font-weight:900; color:#fff; }
-        .bp-author-footer .av-lg img { width:100%; height:100%; object-fit:cover; }
-        .bp-author-footer-name { font-family:'Outfit',sans-serif; font-size:1.05rem; font-weight:800; color:#f2f4f8;
-                                 text-decoration:none; }
-        .bp-author-footer-name:hover { color:#f97316; }
-        .bp-author-footer-sub { font-size:11.5px; color:#5e7290; margin-top:2px; }
-        .bp-author-footer-link { padding:8px 16px; border-radius:100px; background:rgba(255,255,255,0.05);
-                                 border:1px solid rgba(255,255,255,0.08); color:#dde8f8; font-family:'Outfit',sans-serif;
-                                 font-size:12px; font-weight:700; text-decoration:none; transition:background .15s; }
-        .bp-author-footer-link:hover { background:rgba(255,255,255,0.08); }
+                          text-transform:lowercase; color:var(--text-secondary); background:var(--card-bg);
+                          border:1px solid var(--border-subtle); border-radius:100px; padding:2px 9px; }
+        .bp-topas-comment { flex:1; min-width:0; font-size:.94rem; color:var(--text-secondary); margin:0; line-height:1.7; }
 
         /* Comments section */
-        .bp-comments { margin-top:48px; padding-top:28px; border-top:1px solid rgba(255,255,255,0.06); }
+        .bp-comments { margin-top:48px; padding-top:28px; border-top:1px solid var(--border-subtle); }
 
         /* ── RESPONSIVE ── */
         @media (max-width: 1100px) {
-          .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 320px; }
+          .bp-grid.has-sb { grid-template-columns:minmax(0,1fr) 340px; }
         }
         @media (max-width: 960px) {
           .bp-grid.has-sb { grid-template-columns:1fr; }
-          /* Reorder mobile: InfoBox (sidebar) PIRMA (virš teksto), tada main.
-             Naudojam display:contents + flex order'ius, bet CSS Grid'e per
-             grid-auto-flow ir explicit order ant child'ų. */
           .bp-grid.has-sb main { order:2; }
-          .bp-grid.has-sb .bp-sidebar { order:1; position:static; top:auto;
-                                         flex-direction:column; gap:14px; }
-          /* Mobile'e InfoBox kompaktiškas — tik avatar+meta+actions vienoje
-             eilėje, kad netruktų vietos. Player'is su iframe lieka sticky,
-             bet rendr'inasi POŽ infoboxu (jau order'įjuje). */
-          .bp-info-box { padding:12px 14px; gap:10px; }
-          .bp-info-author { gap:10px; }
-          .bp-info-av { width:38px; height:38px; }
-          /* Sumažinam mobile hero ir gridą */
+          .bp-grid.has-sb .bp-sidebar { order:1; position:static; top:auto; flex-direction:column; gap:14px; }
           .bp-hero { min-height:auto; flex-direction:column; }
           .bp-hero-photo { position:relative; width:100%; height:160px; }
           .bp-hero-photo img { -webkit-mask-image:linear-gradient(to top, transparent 0%, black 50%);
                                 mask-image:linear-gradient(to top, transparent 0%, black 50%); }
           .bp-hero-content { padding:14px 18px 18px; max-width:100%; }
           .bp-hero-inner { max-width:100%; }
+          .bp-bar { padding:12px 18px; }
+          .bp-bar-related { margin-left:0; flex-basis:100%; }
           .bp-page { padding:0 18px; }
-          .bp-grid { padding:18px 0 60px; gap:20px; }
+          .bp-grid { padding:18px 0 90px; gap:20px; }
         }
         @media (max-width: 540px) {
           .bp-hero-photo { height:130px; }
           .bp-h1 { font-size:1.5rem; }
+          .bp-bar-meta { font-size:12px; }
           .bp-topas { gap:12px; margin:26px 0; }
           .bp-topas-item { padding:13px; gap:12px; border-radius:15px; }
           .bp-topas-lower { gap:13px; }
@@ -530,7 +514,7 @@ export default function BlogPostPageClient(props: Props) {
       `}</style>
 
       <div className="bp-root">
-        {/* ══════════ HERO — title KAIRĖJE, nuotrauka DEŠINĖJE (mirror of artist page) ═══ */}
+        {/* ══════════ HERO ══════════ */}
         <section className="bp-hero">
           {heroImage && (
             <div className="bp-hero-photo">
@@ -546,9 +530,9 @@ export default function BlogPostPageClient(props: Props) {
                   <span className="bp-chip">{typeLabel}</span>
                   {postType === 'creation' && post.creation_subtype && (
                     <span className="bp-chip" style={{
-                      background: 'rgba(255,255,255,0.06)',
-                      borderColor: 'rgba(255,255,255,0.12)',
-                      color: 'rgba(220,232,248,0.85)',
+                      background: 'var(--bg-hover)',
+                      borderColor: 'var(--border-default)',
+                      color: 'var(--text-secondary)',
                     }}>{post.creation_subtype}</span>
                   )}
                   {postType === 'review' && post.rating !== null && post.rating !== undefined && (
@@ -561,15 +545,92 @@ export default function BlogPostPageClient(props: Props) {
           </div>
         </section>
 
+        {/* ══════════ HORIZONTAL BAR — autorius + meta + actions + susiję ══════════ */}
+        <div className="bp-bar-wrap">
+          <div className="bp-bar">
+            <Link href={`/@${authorUsername}`} className="bp-bar-author">
+              <div className="bp-bar-av" style={{ background: `hsl(${(authorName.charCodeAt(0) || 65) * 17 % 360},35%,40%)` }}>
+                {authorAvatar
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  ? <img src={authorAvatar} alt="" />
+                  : (authorName[0] || '?').toUpperCase()
+                }
+              </div>
+              <div className="bp-bar-author-text">
+                <span className="bp-bar-name">{authorName}</span>
+                <PopBar level={karmaLevel} />
+              </div>
+            </Link>
+
+            <div className="bp-bar-meta">
+              {post.published_at && <span>{new Date(post.published_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })}</span>}
+              {post.reading_time_min > 0 && (
+                <>
+                  <span className="bp-bar-dot">·</span>
+                  <span>{post.reading_time_min} min. skaitymo</span>
+                </>
+              )}
+            </div>
+
+            <div className="bp-bar-actions">
+              <BlogLikePill postId={post.id} initialCount={post.like_count} />
+              <button
+                type="button"
+                onClick={scrollToComments}
+                className="bp-pill"
+                style={{ cursor: 'pointer', background: 'none', padding: 0, font: 'inherit' }}
+                title="Pereiti į komentarus"
+              >
+                <span className="bp-pill-side" style={{ pointerEvents: 'none' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  Komentarai
+                </span>
+                <span className="bp-pill-count" style={{ pointerEvents: 'none' }}>
+                  {post.comment_count.toLocaleString('lt-LT')}
+                </span>
+              </button>
+            </div>
+
+            {/* Mobile play btn — atidaro apatinį sticky player'į */}
+            {isMobile && hasPlayer && (
+              <button type="button" className="bp-bar-play" onClick={openMobilePlayer}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                Klausyti
+              </button>
+            )}
+
+            {/* Susiję atlikėjai + albumai — chip'ai dešinėje */}
+            {related.length > 0 && (
+              <div className="bp-bar-related">
+                <span className="bp-bar-related-label">Susiję</span>
+                {related.map(r => (
+                  <Link key={r.id} href={r.href} className="bp-bar-chip" title={r.title}>
+                    {r.img
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      ? <img src={proxyImg(r.img)} alt="" className="bp-bar-chip-thumb" />
+                      : <span className="bp-bar-chip-fallback">{r.fallback}</span>
+                    }
+                    <span className="bp-bar-chip-text">
+                      <span className="bp-bar-chip-title">{r.title}</span>
+                      {r.sub && <span className="bp-bar-chip-sub">{r.sub}</span>}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* ══════════ MAIN + SIDEBAR ══════════ */}
         <div className="bp-page">
           <div className="bp-grid has-sb">
 
-            {/* MAIN (left) — tik tekstas + komentarai */}
+            {/* MAIN (left) — tekstas + komentarai */}
             <main style={{ minWidth: 0 }}>
               {showSummary && <p className="bp-summary">{post.summary}</p>}
 
-              {/* Topas su išparsinta struktūra: įžanga → stilingos kortelės → pabaiga (be raw content). */}
               {postType === 'topas' && post.list_items.length > 0 && (post.topas_meta?.intro || post.topas_meta?.outro) ? (
                 <>
                   {post.topas_meta?.intro && (
@@ -587,7 +648,6 @@ export default function BlogPostPageClient(props: Props) {
                       <EnrichedProse html={post.content} />
                     </div>
                   )}
-
                   {postType === 'topas' && post.list_items.length > 0 && (
                     <TopasList items={post.list_items} />
                   )}
@@ -598,7 +658,6 @@ export default function BlogPostPageClient(props: Props) {
                 <ReviewTrackList items={post.list_items} />
               )}
 
-              {/* Tags — palieku po body, kad neperkraut info box'o */}
               {visibleTags.length > 0 && (
                 <div className="bp-tags" style={{ marginTop: 32 }}>
                   {visibleTags.map((tag: string) => (
@@ -619,156 +678,41 @@ export default function BlogPostPageClient(props: Props) {
               </div>
             </main>
 
-            {/* SIDEBAR (right, sticky) — InfoBox viršuje + Player apačioje */}
+            {/* SIDEBAR (right, sticky) — TIK player (desktop) + target card */}
             <aside className="bp-sidebar">
-              {/* InfoBox: author + popbar + date + read time + Patinka + Komentarai.
-                  Visada matomas — net jei nėra player tracks (kai nėra musi, sidebar
-                  vis tiek turi info card). */}
-              <InfoBox
-                postId={post.id}
-                postLikeCount={post.like_count}
-                commentCount={post.comment_count}
-                publishedAt={post.published_at}
-                readingTime={post.reading_time_min}
-                authorName={authorName}
-                authorUsername={authorUsername}
-                authorAvatar={authorAvatar}
-                karmaLevel={karmaLevel}
-                onScrollToComments={scrollToComments}
-              />
-              {effectivePlayerTracks.length > 0 && <UnifiedPlayer tracks={effectivePlayerTracks} />}
+              {!isMobile && hasPlayer && (
+                <UnifiedPlayer
+                  tracks={effectivePlayerTracks}
+                  active={active} setActive={setActive}
+                  playing={playing} setPlaying={setPlaying}
+                />
+              )}
               {targetInfo && (targetInfo.artist || targetInfo.album || targetInfo.track || targetInfo.event) && (
                 <TargetEntityCard target={targetInfo} postType={postType} />
               )}
-                {/* Albums (atskira kortelė — ne player listed) */}
-                {attachments.albums.length > 0 && (
-                  <div className="bp-sb-card bp-sb-card-padded">
-                    <p className="bp-sb-heading">Albumai · {attachments.albums.length}</p>
-                    {attachments.albums.map((al: any) => {
-                      const a = Array.isArray(al.artist) ? al.artist[0] : al.artist
-                      return (
-                        <Link key={al.id} href={`/albumai/${al.slug || al.id}`} className="bp-att-item">
-                          {al.cover_image_url
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            ? <img src={proxyImg(al.cover_image_url)} alt="" className="bp-att-thumb" />
-                            : <div className="bp-att-thumb-fallback">{(al.title || '?')[0]?.toUpperCase()}</div>
-                          }
-                          <div className="bp-att-text">
-                            <div className="bp-att-title">{al.title}</div>
-                            <div className="bp-att-sub">{a?.name}{al.release_year ? ` · ${al.release_year}` : ''}</div>
-                          </div>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                )}
-                {/* Artists */}
-                {attachments.artists.length > 0 && (
-                  <div className="bp-sb-card bp-sb-card-padded">
-                    <p className="bp-sb-heading">Atlikėjai · {attachments.artists.length}</p>
-                    {attachments.artists.map((a: any) => (
-                      <Link key={a.id} href={`/atlikejai/${a.slug || a.id}`} className="bp-att-item">
-                        {a.cover_image_url
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          ? <img src={proxyImg(a.cover_image_url)} alt="" className="bp-att-thumb" />
-                          : <div className="bp-att-thumb-fallback">{(a.name || '?')[0]?.toUpperCase()}</div>
-                        }
-                        <div className="bp-att-text">
-                          <div className="bp-att-title">{a.name}</div>
-                          <div className="bp-att-sub">music.lt atlikėjas</div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
             </aside>
           </div>
         </div>
       </div>
+
+      {/* ══════════ MOBILE STICKY PLAYER ══════════ */}
+      {isMobile && mobileOpen && hasPlayer && (
+        <MobileStickyPlayer
+          tracks={effectivePlayerTracks}
+          active={active} setActive={setActive}
+          playing={playing} setPlaying={setPlaying}
+          onClose={() => { setMobileOpen(false); setPlaying(false) }}
+        />
+      )}
     </>
   )
 }
 
-/* ─── InfoBox — author info + post meta + action buttons (right sidebar TOP) ─ */
-function InfoBox(props: {
-  postId: string
-  postLikeCount: number
-  commentCount: number
-  publishedAt: string | null | undefined
-  readingTime: number
-  authorName: string
-  authorUsername: string
-  authorAvatar: string | null
-  karmaLevel: number
-  onScrollToComments: () => void
-}) {
-  const { postId, postLikeCount, commentCount, publishedAt, readingTime,
-          authorName, authorUsername, authorAvatar, karmaLevel,
-          onScrollToComments } = props
-  const formatDate = (d?: string | null) =>
-    d ? new Date(d).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
-
-  return (
-    <div className="bp-info-box">
-      {/* Author row — avatar + name + popbar (be rounded pill'o, plain stack) */}
-      <Link href={`/@${authorUsername}`} className="bp-info-author">
-        <div className="bp-info-av" style={{ background: `hsl(${(authorName.charCodeAt(0) || 65) * 17 % 360},35%,30%)` }}>
-          {authorAvatar
-            /* eslint-disable-next-line @next/next/no-img-element */
-            ? <img src={authorAvatar} alt="" />
-            : (authorName[0] || '?').toUpperCase()
-          }
-        </div>
-        <div className="bp-info-author-text">
-          <span className="bp-info-author-name">{authorName}</span>
-          <div className="bp-user-popbar" aria-label={`Karma: ${karmaLevel}/5`}>
-            <span className="bp-user-popbar-icon">⭐</span>
-            <PopBar level={karmaLevel} />
-          </div>
-        </div>
-      </Link>
-
-      {/* Meta — date + reading time */}
-      <div className="bp-info-meta">
-        {publishedAt && <span>{formatDate(publishedAt)}</span>}
-        {readingTime > 0 && (
-          <>
-            <span className="bp-info-dot">·</span>
-            <span>{readingTime} min. skaitymo</span>
-          </>
-        )}
-      </div>
-
-      {/* Actions: Patinka + Komentarai */}
-      <div className="bp-info-actions">
-        <BlogLikePill postId={postId} initialCount={postLikeCount} />
-        <button
-          type="button"
-          onClick={onScrollToComments}
-          className="bp-pill"
-          style={{ cursor: 'pointer', background: 'none', padding: 0, font: 'inherit' }}
-          title="Pereiti į komentarus"
-        >
-          <span className="bp-pill-side" style={{ pointerEvents: 'none' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            Komentarai
-          </span>
-          <span className="bp-pill-count" style={{ pointerEvents: 'none' }}>
-            {commentCount.toLocaleString('lt-LT')}
-          </span>
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* ─── PopBar — perimta iš user profile page'o (animated 5-dot indikatorius) ─ */
+/* ─── PopBar — karma indikatorius (5 dash; be žvaigždutės) ─ */
 function PopBar({ level }: { level: number }) {
   const total = 5
   return (
-    <div className="bp-popbar" aria-hidden>
+    <div className="bp-popbar" aria-label={`Karma: ${level}/5`}>
       {Array.from({ length: total }).map((_, i) => {
         const filled = i < level
         return (
@@ -795,27 +739,23 @@ function PopBar({ level }: { level: number }) {
   )
 }
 
-/* ─── UnifiedPlayer ─ embedded YT/Spotify iframes + track list ───────────── */
-//
-// Vienas player'is visam dėmesys'iui — paima ExtractedTrack[] (gali būti YT,
-// Spotify ir music_lt embed mix). Iframe rodomas viršuje, žemiau — track lista.
-// Klauso iframe atribut'us 16:9 (YT) arba flexible aspect (Spotify embed yra
-// 80px tall, ne video). UX inspiruotas artist page'o hero player + tracks
-// section: pirmoji daina iškart "nukreipta" (atrodo kaip parent klaviša),
-// thumbnail su orange play btn'u, click → iframe pakeičia src ir grojama.
-function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
-  const [active, setActive] = useState(0)
-  const [playing, setPlaying] = useState(false)
+/* ─── PopBar helper (mini, tracklist) ─ */
+function trackPopLevel(total: number, i: number) {
+  return Math.max(1, Math.ceil((total - i) / Math.max(1, Math.ceil(total / 5))))
+}
+
+/* ─── UnifiedPlayer — desktop sidebar (controlled) ─ */
+function UnifiedPlayer({ tracks, active, setActive, playing, setPlaying }: {
+  tracks: ExtractedTrack[]
+  active: number; setActive: (i: number) => void
+  playing: boolean; setPlaying: (p: boolean) => void
+}) {
   const cur = tracks[active]
   const isSpotify = cur?.source === 'spotify'
   const thumb = cur?.cover_url || null
 
   return (
     <div className="bp-sb-card">
-      {/* Heading „Susijusi muzika" pašalintas — player atrodo identiškai
-          artist page hero player'iui (video → track list, be header'io). */}
-
-      {/* Video / iframe — Spotify embed yra 152px tall, YT yra 16:9 */}
       <div className={`bp-mu-video ${isSpotify ? 'is-spotify' : ''}`}>
         {playing && cur?.embed_url ? (
           <iframe
@@ -832,13 +772,10 @@ function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
               ? <img src={thumb} alt="" />
               : <div className="bp-mu-no-thumb">{cur?.source === 'spotify' ? '♫' : '♪'}</div>
             }
-            {/* Overlay tints — gradient apačioje, kad play btn matytųsi */}
             {cur?.embed_url && <div className="bp-mu-play-overlay" />}
-            {/* Source badge — viršuje dešinėje */}
             <span className={`bp-mu-src-badge bp-mu-src-${cur?.source}`}>
               {cur?.source === 'youtube' ? 'YouTube' : cur?.source === 'spotify' ? 'Spotify' : 'music.lt'}
             </span>
-            {/* Play btn — apačioje dešinėje (artist page hero pattern) */}
             {cur?.embed_url && (
               <span className="bp-mu-play-btn">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}>
@@ -872,12 +809,9 @@ function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
         <div className="bp-mu-list">
           {tracks.map((t, i) => {
             const isOn = active === i
-            // PopBar level — descending pagal order'į (pirmas = 5, last = 1).
-            // Atspindi „prominence" sąraše (artist page style — top track = pilnas bar).
-            const popLevel = Math.max(1, Math.ceil((tracks.length - i) / Math.max(1, Math.ceil(tracks.length / 5))))
+            const popLevel = trackPopLevel(tracks.length, i)
             return (
               <div key={t.key + ':' + i} className={`bp-mu-track ${isOn ? 'bp-mu-track-on' : ''}`}>
-                {/* Row body clickable — switches active track in player */}
                 <button
                   type="button"
                   onClick={() => { setActive(i); setPlaying(true) }}
@@ -897,10 +831,6 @@ function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
                     {t.artist_name && <p className="bp-mu-track-artist">{t.artist_name}</p>}
                   </div>
                 </button>
-                {/* Actions on right side: Daugiau pill (TIK kai resolved) + play btn.
-                    Daugiau atidaro /dainos/<slug> kur tas pats UI kaip artist
-                    page TrackInfoModal (player + lyrics + komentarai). External
-                    link į Spotify/YouTube pašalintas (klaidina UX). */}
                 <div className="bp-mu-track-actions">
                   {t.db_track && (
                     <Link
@@ -909,7 +839,6 @@ function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
                       title="Daugiau: žodžiai, komentarai, video"
                       onClick={e => e.stopPropagation()}
                     >
-                      {/* Burger/text-lines icon — same as artist page TrackInfoModal trigger */}
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                         <line x1="3" y1="6" x2="21" y2="6" />
                         <line x1="3" y1="12" x2="21" y2="12" />
@@ -946,7 +875,86 @@ function UnifiedPlayer({ tracks }: { tracks: ExtractedTrack[] }) {
   )
 }
 
-/* ─── FollowPill-style like button (per artist page'o pattern'ą) ────────── */
+/* ─── MobileStickyPlayer — minimal apatinė juosta (controlled) ─
+   Iframe groja paslėptas (height:0 kai sutraukta — garsas tęsiasi).
+   „Expand" rodyklė atidaro patį embed'ą (152px Spotify / 200px YT). */
+function MobileStickyPlayer({ tracks, active, setActive, playing, setPlaying, onClose }: {
+  tracks: ExtractedTrack[]
+  active: number; setActive: (i: number) => void
+  playing: boolean; setPlaying: (p: boolean) => void
+  onClose: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const cur = tracks[active]
+  const isSpotify = cur?.source === 'spotify'
+  const hasNext = active < tracks.length - 1
+
+  return (
+    <div className="bp-msp" role="region" aria-label="Muzikos grotuvas">
+      {/* Iframe — visada mount'inamas kai playing (kad garsas tęstųsi sutraukus) */}
+      {cur?.embed_url && playing && (
+        <div className={`bp-msp-frame ${expanded ? 'is-open' : ''} ${isSpotify ? 'is-spotify' : ''}`}>
+          <iframe
+            key={cur.key + ':' + active}
+            src={cur.embed_url + (cur.source === 'youtube' ? '&autoplay=1' : '')}
+            allow="autoplay; encrypted-media; clipboard-write"
+            allowFullScreen
+          />
+        </div>
+      )}
+
+      <div className="bp-msp-strip">
+        {cur?.cover_url
+          /* eslint-disable-next-line @next/next/no-img-element */
+          ? <img src={cur.cover_url} alt="" className="bp-msp-cover" />
+          : <span className="bp-msp-cover-fallback">{isSpotify ? '♫' : '♪'}</span>
+        }
+        <div className="bp-msp-info">
+          <p className="bp-msp-title">{cur?.title || (isSpotify ? 'Spotify takelis' : 'Takelis')}</p>
+          {cur?.artist_name && <p className="bp-msp-artist">{cur.artist_name}</p>}
+        </div>
+
+        {/* Play / pause (pause = atjungia iframe → garsas stoja) */}
+        <button type="button" className="bp-msp-btn is-primary"
+          onClick={() => setPlaying(!playing)}
+          aria-label={playing ? 'Pristabdyti' : 'Leisti'}>
+          {playing ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z" /></svg>
+          )}
+        </button>
+
+        {/* Kita daina */}
+        {tracks.length > 1 && (
+          <button type="button" className="bp-msp-btn"
+            onClick={() => { if (hasNext) { setActive(active + 1); setPlaying(true) } else { setActive(0); setPlaying(true) } }}
+            aria-label="Kita daina" title="Kita daina">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5l9 7-9 7V5zm10 0h2v14h-2z" /></svg>
+          </button>
+        )}
+
+        {/* Expand / collapse embed */}
+        <button type="button" className="bp-msp-btn" onClick={() => setExpanded(e => !e)}
+          aria-label={expanded ? 'Sutraukti grotuvą' : 'Išskleisti grotuvą'} title="Vaizdas">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+               style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
+            <polyline points="18 15 12 9 6 15" />
+          </svg>
+        </button>
+
+        {/* Uždaryti */}
+        <button type="button" className="bp-msp-btn" onClick={onClose} aria-label="Uždaryti grotuvą" title="Uždaryti">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ─── FollowPill-style like button ────────── */
 function BlogLikePill({ postId, initialCount }: { postId: string; initialCount: number }) {
   const { data: session } = useSession()
   const [liked, setLiked] = useState(false)
@@ -1024,7 +1032,7 @@ function BlogLikePill({ postId, initialCount }: { postId: string; initialCount: 
   )
 }
 
-/* ─── Enrichinta proza — albumas/daina → modalas, atlikėjas → naujas tabas; hover kortelė ── */
+/* ─── Enrichinta proza ── */
 type EnrichPreview = { type: string; title: string; subtitle: string | null; cover: string | null; genres: string[]; metric: number; metric_label: string; href: string }
 function parseEnrichHref(href: string): { type: string; q: string } | null {
   let m = href.match(/\/albumai\/.*-(\d+)$/); if (m) return { type: 'album', q: `id=${m[1]}` }
@@ -1062,7 +1070,6 @@ function EnrichedProse({ html }: { html: string }) {
     }, 240)
   }
   const onOut = () => { clearTimeout(timerRef.current); timerRef.current = setTimeout(() => setHover(null), 120) }
-  // Memoizuotas — kad hover state pokyčiai NEperkrautų embed'ų (Spotify/YT iframe).
   const rendered = useMemo(() => <PostContent html={html} />, [html])
 
   return (
@@ -1070,20 +1077,20 @@ function EnrichedProse({ html }: { html: string }) {
       {rendered}
       {hover && (
         <div style={{ position: 'fixed', left: hover.left, top: hover.top, transform: 'translateY(-100%) translateY(-10px)', zIndex: 60, width: 264, pointerEvents: 'none' }}>
-          <div style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 12, boxShadow: '0 12px 36px rgba(0,0,0,0.5)', display: 'flex', gap: 11 }}>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 14, padding: 12, boxShadow: 'var(--modal-shadow)', display: 'flex', gap: 11 }}>
             {hover.data.cover
               /* eslint-disable-next-line @next/next/no-img-element */
               ? <img src={proxyImg(hover.data.cover)} alt="" style={{ width: 56, height: 56, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
-              : <div style={{ width: 56, height: 56, borderRadius: 9, background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />}
+              : <div style={{ width: 56, height: 56, borderRadius: 9, background: 'var(--card-bg)', flexShrink: 0 }} />}
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 14, color: '#f2f4f8', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hover.data.title}</div>
-              {hover.data.subtitle && <div style={{ fontSize: 11.5, color: '#8aa8cc', marginTop: 2 }}>{hover.data.subtitle}</div>}
+              <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hover.data.title}</div>
+              {hover.data.subtitle && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{hover.data.subtitle}</div>}
               {hover.data.genres.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-                  {hover.data.genres.slice(0, 3).map((g, i) => <span key={i} style={{ fontSize: 9.5, color: '#9db4d4', background: 'rgba(255,255,255,0.06)', borderRadius: 100, padding: '1px 7px' }}>{g}</span>)}
+                  {hover.data.genres.slice(0, 3).map((g, i) => <span key={i} style={{ fontSize: 9.5, color: 'var(--text-secondary)', background: 'var(--card-bg)', borderRadius: 100, padding: '1px 7px' }}>{g}</span>)}
                 </div>
               )}
-              <div style={{ fontSize: 11, color: '#f97316', marginTop: 6, fontWeight: 600 }}>♥ {hover.data.metric.toLocaleString('lt-LT')} {hover.data.metric_label}</div>
+              <div style={{ fontSize: 11, color: 'var(--accent-orange)', marginTop: 6, fontWeight: 600 }}>♥ {hover.data.metric.toLocaleString('lt-LT')} {hover.data.metric_label}</div>
             </div>
           </div>
         </div>
@@ -1094,15 +1101,13 @@ function EnrichedProse({ html }: { html: string }) {
   )
 }
 
-/* ─── Topas list ─────────────────────────────────────────────────────────── */
+/* ─── Topas list ── */
 function TopasList({ items }: { items: any[] }) {
   const [albumModalId, setAlbumModalId] = useState<number | null>(null)
   return (
     <>
     <ol className="bp-topas">
       {items.map((item, idx) => {
-        // Albumas → atidaro AlbumInfoModal (NE nav, nes /albumai reikia {artist-album-id}).
-        // Daina → /dainos/{slug-id}; atlikėjas → /atlikejai/{slug}.
         const isAlbum = item.type === 'album' && item.entity_id
         const href =
           item.type === 'track'  && item.entity_slug && item.entity_id ? `/dainos/${item.entity_slug}-${item.entity_id}` :
@@ -1112,14 +1117,13 @@ function TopasList({ items }: { items: any[] }) {
         const Wrapper: any = isAlbum ? 'div' : href ? Link : 'div'
         const wrapperProps = isAlbum ? { onClick: openAlbum, role: 'button', tabIndex: 0 } : href ? { href } : {}
         const clickable = isAlbum || !!href
-        const rankColor = idx === 0 ? '#f97316' : idx === 1 ? '#dde8f8' : idx === 2 ? '#a4b8d4' : '#5e7290'
+        const rankColor = idx === 0 ? 'var(--accent-orange)' : idx === 1 ? 'var(--text-primary)' : idx === 2 ? 'var(--text-secondary)' : 'var(--text-muted)'
         const genres: string[] = Array.isArray(item.genres) ? item.genres : []
         const hasDesc = !!item.comment
         const playable = isAlbum || (item.type === 'track' && item.entity_id)
         return (
           <li key={idx}>
             <Wrapper {...wrapperProps} className={`bp-topas-item ${clickable ? 'is-link' : ''}`}>
-              {/* Viršus per visą plotį — numeris + pavadinimas + žanrai */}
               <div className="bp-topas-titlerow">
                 <span className="bp-topas-rank" style={{ color: rankColor }}>{item.rank || (idx + 1)}</span>
                 <div className="min-w-0">
@@ -1135,7 +1139,6 @@ function TopasList({ items }: { items: any[] }) {
                   )}
                 </div>
               </div>
-              {/* Apačia — viršelis kairėje + aprašymas per visą likusį plotį */}
               <div className="bp-topas-lower">
                 <div className="bp-topas-cover-wrap">
                   {item.image_url
@@ -1162,7 +1165,7 @@ function TopasList({ items }: { items: any[] }) {
   )
 }
 
-/* ─── Review track list (albumo recenzija per dainas) ──────────────────── */
+/* ─── Review track list ── */
 function ReviewTrackList({ items }: { items: any[] }) {
   return (
     <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1176,19 +1179,19 @@ function ReviewTrackList({ items }: { items: any[] }) {
         return (
           <Wrapper key={idx} {...wp} style={{
             display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 12,
-            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', textDecoration: 'none',
+            background: 'var(--card-bg)', border: '1px solid var(--border-subtle)', textDecoration: 'none',
           }}>
-            <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, color: '#5e7290', fontSize: 14, width: 22, textAlign: 'center', flexShrink: 0 }}>{idx + 1}</span>
+            <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, color: 'var(--text-muted)', fontSize: 14, width: 22, textAlign: 'center', flexShrink: 0 }}>{idx + 1}</span>
             {item.image_url
               /* eslint-disable-next-line @next/next/no-img-element */
               ? <img src={proxyImg(item.image_url)} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-              : <span style={{ width: 40, height: 40, borderRadius: 8, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />}
+              : <span style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--card-bg)', flexShrink: 0 }} />}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 15, color: '#dde8f8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
-              {item.comment && <p style={{ fontSize: 13, color: '#9fb2cf', marginTop: 2 }}>{item.comment}</p>}
+              <p style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
+              {item.comment && <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{item.comment}</p>}
             </div>
             {item.rating !== null && item.rating !== undefined && (
-              <span style={{ flexShrink: 0, background: 'rgba(249,115,22,0.15)', color: '#f97316', borderRadius: 8, padding: '3px 9px', fontWeight: 800, fontSize: 14, fontFamily: "'Outfit', sans-serif" }}>{item.rating}</span>
+              <span style={{ flexShrink: 0, background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)', borderRadius: 8, padding: '3px 9px', fontWeight: 800, fontSize: 14, fontFamily: "'Outfit', sans-serif" }}>{item.rating}</span>
             )}
           </Wrapper>
         )
@@ -1197,7 +1200,7 @@ function ReviewTrackList({ items }: { items: any[] }) {
   )
 }
 
-/* ─── Target entity card ───────────────────────────────────────────────── */
+/* ─── Target entity card ── */
 function TargetEntityCard({ target, postType }: { target: any; postType: BlogPostType }) {
   let entity: { kind: string; href: string; name: string; subname?: string; image?: string | null } | null = null
   if (target.event) {
@@ -1229,21 +1232,19 @@ function TargetEntityCard({ target, postType }: { target: any; postType: BlogPos
       {entity.image
         /* eslint-disable-next-line @next/next/no-img-element */
         ? <img src={proxyImg(entity.image)} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
-        : <div style={{ width: 56, height: 56, borderRadius: 10, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
+        : <div style={{ width: 56, height: 56, borderRadius: 10, background: 'var(--card-bg)', flexShrink: 0 }} />
       }
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: 10, fontWeight: 900, letterSpacing: '.14em',
-                    textTransform: 'uppercase', color: '#f97316', margin: 0 }}>{entity.kind}</p>
-        <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 800, color: '#f2f4f8',
+                    textTransform: 'uppercase', color: 'var(--accent-orange)', margin: 0 }}>{entity.kind}</p>
+        <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 800, color: 'var(--text-primary)',
                     margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entity.name}</p>
         {entity.subname && (
-          <p style={{ fontSize: 12, color: '#8aa8cc', margin: '2px 0 0', whiteSpace: 'nowrap',
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0', whiteSpace: 'nowrap',
                       overflow: 'hidden', textOverflow: 'ellipsis' }}>{entity.subname}</p>
         )}
       </div>
-      <span style={{ color: '#5e7290', fontSize: 18, flexShrink: 0 }}>→</span>
+      <span style={{ color: 'var(--text-muted)', fontSize: 18, flexShrink: 0 }}>→</span>
     </Link>
   )
 }
-
-/* AuthorFooter pašalintas — author info dabar gyvena InfoBox sidebar'e. */
