@@ -757,16 +757,10 @@ function HappeningArea() {
           </span>
           {ev0 ? (
             <span className="flex w-full items-start gap-2">
-              {ev0.entity_image ? (
-                // susijusio objekto (atlikėjo/dainos) foto
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(ev0.entity_image)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-md object-cover" />
-              ) : (
-                <Avatar src={ev0.actor_avatar} name={ev0.actor_name || 'narys'} size={36} />
-              )}
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="line-clamp-2 text-[11px] leading-snug text-[var(--text-muted)]">
-                  <b className="font-semibold text-[var(--text-secondary)]">{ev0.actor_name || 'narys'}</b> {ACT_VERB[ev0.event_type] || 'atnaujino'}{ev0.entity_title ? <> <span className="font-semibold text-[var(--text-secondary)]">{sani(ev0.entity_title)}</span></> : null}
+              <Avatar src={ev0.actor_avatar} name={ev0.actor_name || 'narys'} size={26} />
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="line-clamp-4 text-[11.5px] leading-snug text-[var(--text-secondary)]">
+                  {ACT_VERB[ev0.event_type] || 'atnaujino'}{ev0.entity_title ? <> <b className="font-semibold text-[var(--text-primary)]">{sani(ev0.entity_title)}</b></> : null}
                 </span>
                 <span className="text-[10px] text-[var(--text-faint)]">{timeAgo(ev0.created_at) || 'ką tik'}</span>
               </span>
@@ -781,10 +775,10 @@ function HappeningArea() {
           </span>
           {lastShoutMsg ? (
             <span className="flex w-full items-start gap-2">
-              <Avatar src={lastShoutMsg.author_avatar} name={lastShoutMsg.author_name || 'narys'} size={36} />
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="line-clamp-2 text-[11px] leading-snug text-[var(--text-secondary)]">{lastShoutMsg.body}</span>
-                <span className="text-[10px] text-[var(--text-faint)]"><b className="font-semibold">{lastShoutMsg.author_name || 'narys'}</b> · {timeAgo(lastShoutMsg.created_at) || 'ką tik'}</span>
+              <Avatar src={lastShoutMsg.author_avatar} name={lastShoutMsg.author_name || 'narys'} size={26} />
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="line-clamp-4 text-[11.5px] leading-snug text-[var(--text-secondary)]">{lastShoutMsg.body}</span>
+                <span className="text-[10px] text-[var(--text-faint)]">{timeAgo(lastShoutMsg.created_at) || 'ką tik'}</span>
               </span>
             </span>
           ) : <span className="text-[11px] text-[var(--text-muted)]">bendras pokalbis</span>}
@@ -904,7 +898,7 @@ function TopEntryTile({ e, big = false }: { e: ListEntry; big?: boolean }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={proxyImg(e.image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
       ) : <div className="absolute inset-0" style={{ background: `hsl(${hue(e.title)},30%,20%)` }} />}
-      <span className={`absolute left-1.5 top-1.5 flex items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] font-black ${big ? 'h-[26px] min-w-[26px] text-[15px]' : 'h-[20px] min-w-[20px] text-[11px]'} ${e.rank === 1 ? 'bg-[var(--accent-orange)] text-white' : 'bg-[rgba(0,0,0,0.55)] text-white/85'}`}>{e.rank}</span>
+      <span className={`absolute left-1.5 top-1.5 flex items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] font-black ${big ? 'h-[26px] min-w-[26px] text-[15px]' : 'h-[20px] min-w-[20px] text-[11px]'} ${e.rank === 1 ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/65 text-white'}`}>{e.rank}</span>
       {big && (
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-5">
           <p className="m-0 truncate text-[12.5px] font-bold leading-tight text-white">{sani(e.title)}</p>
@@ -989,7 +983,7 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
                     <b className="min-w-0 flex-1 truncate text-[10.5px] font-bold text-[var(--text-primary)]">{c.author}</b>
                     {c.created_at && timeAgo(c.created_at) && <span className="shrink-0 text-[9.5px] text-[var(--text-faint)]">{timeAgo(c.created_at)}</span>}
                   </div>
-                  <p className="m-0 line-clamp-3 text-[12px] leading-relaxed text-[var(--text-secondary)]">{c.excerpt}</p>
+                  <p className="m-0 line-clamp-[6] text-[12px] leading-relaxed text-[var(--text-secondary)]">{c.excerpt}</p>
                 </div>
               ) })()}
             </div>
@@ -1009,8 +1003,7 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
           </>
         )}
         <div className="mt-2 flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-[#b79df7]"><Ic d={I.comment} size={12} /> {d.comment_count > 0 ? `${d.comment_count} koment.` : 'Nauja tema'}</span>
-          {timeAgo(d.latest_comment?.created_at || d.created_at) && <span className="shrink-0 text-[10px] text-[var(--text-faint)]">{timeAgo(d.latest_comment?.created_at || d.created_at)}</span>}
+          <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-[var(--text-muted)]"><Ic d={I.comment} size={12} /> {d.comment_count > 0 ? `${d.comment_count} koment.` : 'Nauja tema'}</span>
         </div>
       </div>
     </Link>
@@ -1036,8 +1029,8 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` — ${a.track_name}` : ''}
         </h3>
-        {quote && <p className="m-0 mt-1.5 flex-1 line-clamp-[7] text-[13px] italic leading-relaxed text-[var(--text-secondary)] sm:line-clamp-[6]">„{quote.length > 600 ? quote.slice(0, 600).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
-        <div className="mt-auto pt-1"><RowMeta author={a.author} date={a.created_at} likes={a.like_count} /></div>
+        {quote && <p className="m-0 mt-1.5 line-clamp-[7] text-[13px] italic leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">„{quote.length > 520 ? quote.slice(0, 520).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
+        <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
       </div>
     </button>
   )
@@ -1079,6 +1072,27 @@ function spreadByAuthor<T extends { post: FeedPost }>(items: T[]): T[] {
   return out
 }
 
+// Svoris koncertams ir muzikos apžvalgoms (#6): užtikrinam, kad bent po vieną
+// patektų į srautą net jei jų data senesnė — įterpiam ankstyvose pozicijose
+// (jei dar nėra pagrindiniame, pagal datą sudarytame sąraše).
+function mergeEditorialWeighted(main: FeedPost[], reviews: FeedPost[], concerts: FeedPost[]): FeedPost[] {
+  const out = [...main]
+  const ids = new Set(out.map(p => p.id))
+  const injectAt = (arr: FeedPost[], pos: number) => {
+    for (const p of arr) {
+      if (ids.has(p.id)) continue
+      ids.add(p.id)
+      out.splice(Math.min(pos, out.length), 0, p)
+      return
+    }
+  }
+  injectAt(concerts, 2)
+  injectAt(reviews, 3)
+  injectAt(concerts, 7)
+  injectAt(reviews, 9)
+  return out
+}
+
 function PulsasSection() {
   const [chip, setChip] = useState('')
   const [posts, setPosts] = useState<FeedPost[] | null>(null)
@@ -1096,12 +1110,17 @@ function PulsasSection() {
       fetch(`/api/atradimai/feed?nodedup=1&exclude_type=creation,translation,quick&limit=30`).then(r => r.json()).catch(() => ({})),
       fetch('/api/diskusijos/recent?limit=40').then(r => r.json()).catch(() => ({})),
       fetch('/api/muzikos-atradimai?limit=40').then(r => r.json()).catch(() => ({})),
-    ]).then(([f, d, a]) => {
+      fetch('/api/atradimai/feed?nodedup=1&editorial=recenzija&limit=4').then(r => r.json()).catch(() => ({})),
+      fetch('/api/atradimai/feed?nodedup=1&editorial=koncertai&limit=5').then(r => r.json()).catch(() => ({})),
+      fetch('/api/atradimai/feed?nodedup=1&type=review&limit=3').then(r => r.json()).catch(() => ({})),
+    ]).then(([f, d, a, rev, con, revAlb]) => {
       if (!on) return
-      setPosts(f.posts || [])
+      const reviews = [...(rev.posts || []), ...(revAlb.posts || [])]
+      setPosts(mergeEditorialWeighted(f.posts || [], reviews, con.posts || []))
       setPostsHasMore(!!f.hasMore)
       offsetRef.current = (f.posts || []).length
-      setDiscs(d.items || [])
+      // #5: nerodom diskusijų be jokio teksto (be komentaro turinio).
+      setDiscs((d.items || []).filter((x: Diskusija) => !!(x.latest_comment?.excerpt || (x.latest_comments && x.latest_comments[0]?.excerpt))))
       setAtrads(a.items || [])
     })
     return () => { on = false }
