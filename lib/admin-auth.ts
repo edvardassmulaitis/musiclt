@@ -13,14 +13,14 @@
 //   const session = await requireFullAdmin()        // tik admin / super_admin
 // ─────────────────────────────────────────────────────────────────────────
 
-import { getServerSession } from 'next-auth'
+import { getServerSession, type Session } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasMinRole, type MinRole, type Role } from '@/lib/admin-sections'
 
-export type AdminSession = Awaited<ReturnType<typeof getServerSession>>
+export type AdminSession = Session
 
 /** Grąžina sesiją jei rolė ≥ `min`, kitaip null. */
-export async function requireRole(min: MinRole): Promise<AdminSession | null> {
+export async function requireRole(min: MinRole): Promise<Session | null> {
   const session = await getServerSession(authOptions)
   const role = (session?.user as any)?.role as Role
   if (!session?.user || !hasMinRole(role, min)) return null
@@ -28,11 +28,11 @@ export async function requireRole(min: MinRole): Promise<AdminSession | null> {
 }
 
 /** Regular admin (editor) ir aukščiau — turinys, moderavimas, augimas. */
-export function requireAdmin(): Promise<AdminSession | null> {
+export function requireAdmin(): Promise<Session | null> {
   return requireRole('editor')
 }
 
 /** Pilna admin rolė (admin / super_admin) — migracija, sistema, vartotojai. */
-export function requireFullAdmin(): Promise<AdminSession | null> {
+export function requireFullAdmin(): Promise<Session | null> {
   return requireRole('admin')
 }
