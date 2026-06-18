@@ -2479,7 +2479,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     // mygtukas galėtų perpaleisti TIK šią užklausą (latestReload bump).
 
     fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
-    // Admine pažymėti hero renginiai (home_hero=1) + vartotojų įrašai. (rebuild)
+    // Admine pažymėti hero renginiai (home_hero=1) + vartotojų įrašai. (rebuild2)
     fetch('/api/events?home_hero=1&limit=8&compact=1').then(r => r.json()).then(d => setHeroEvents(d.events || [])).catch(() => {})
     fetch('/api/blog/home-hero').then(r => r.json()).then(d => setHeroPosts(d.posts || [])).catch(() => {})
     // News + songs vienu request'u. `since_days=7` (redeploy) — hero rodo tik šviežias
@@ -2573,7 +2573,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     for (const ev of heroEvents) { if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
     for (const ev of events) { if (evList.length >= 4) break; if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
     evList.forEach(ev => {
-      // Renginys be vizualo NEPATENKA (rebuild) į feed'ą (kad nebūtų tuščių tamsių kortelių).
+      // Renginys be vizualo NEPATENKA (rebuild2) į feed'ą (kad nebūtų tuščių tamsių kortelių).
       const evImg = ev.image_small_url || ev.cover_image_url || null
       if (!evImg) return
       const dateRaw = (ev as any).start_date || ev.event_date
@@ -2583,7 +2583,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
       const artistList = (ev.event_artists || [])
         .filter(ea => ea.artists?.name)
         .map(ea => ea.artists!.name)
-      // Festivaliams rodom festivalio pavadinimą (rebuild) (NE atlikėjų sąrašą); kitiems —
+      // Festivaliams rodom festivalio pavadinimą (rebuild2) (NE atlikėjų sąrašą); kitiems —
       // atlikėjai (arba renginio title kaip fallback).
       const artistText = ev.is_festival
         ? sanitizeTitle(ev.title)
