@@ -232,18 +232,14 @@ export function ProfileClient(props: any) {
             <>
               <div
                 aria-hidden
-                className="absolute inset-0"
+                className="absolute inset-0 pf-hero-cover"
                 style={{
                   backgroundImage: `url(${profile.cover_image_url || profile.avatar_url})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
-                  // PERF V16: blur 120→64px + mažesnis scale — pilno ekrano
-                  // 120px gaussian'as buvo pagrindinė scroll jank priežastis
-                  filter: 'blur(64px) saturate(1.35) brightness(0.3)',
-                  transform: 'scale(1.25) translateZ(0)',
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/55 to-[var(--bg-body)]" />
+              <div aria-hidden className="pf-hero-overlay" />
             </>
           ) : (
             <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #1a2436 0%, #0f1622 50%, var(--bg-body) 100%)' }} />
@@ -271,14 +267,14 @@ export function ProfileClient(props: any) {
 
                 <div className="min-w-0 flex-1">
                   <h1
-                    className="font-black leading-[1.0] tracking-[-0.04em] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.6)]"
+                    className="font-black leading-[1.0] tracking-[-0.04em] pf-hero-name"
                     style={{ fontSize: 'clamp(1.45rem, 3vw, 2.1rem)', fontFamily: "'Outfit', sans-serif" }}
                   >
                     {profile.username}
                   </h1>
 
                   {(karmaLevel > 0 || activityLevel > 0) && (
-                    <div className="mt-2 flex items-center gap-2 flex-nowrap">
+                    <div className="mt-2 flex flex-col items-start gap-1.5">
                       {karmaLevel > 0 && (
                         <PopBarChip
                           level={karmaLevel}
@@ -311,27 +307,17 @@ export function ProfileClient(props: any) {
 
               {bioSnippet && (
                 <p
-                  className="text-[13px] leading-relaxed line-clamp-3"
-                  style={{
-                    fontFamily: "'Outfit', sans-serif",
-                    color: 'rgba(255,255,255,0.78)',
-                  }}
+                  className="text-[13px] leading-relaxed line-clamp-3 pf-hero-bio"
+                  style={{ fontFamily: "'Outfit', sans-serif" }}
                 >
                   {bioSnippet}
                 </p>
               )}
 
               <div className="flex items-center gap-2.5 self-start">
-                {/* V16: Sekti su širdele (kaip prie atlikėjų) ir desktop'e */}
+                {/* V16: Sekti su širdele (kaip prie atlikėjų) ir desktop'e.
+                    „Daugiau →" perkeltas į filtrų barą kaip „Apie mane". */}
                 <FollowButton targetId={profile.id} variant="ghost" size="sm" />
-                <button
-                  type="button"
-                  onClick={() => setInfoOpen(true)}
-                  className="text-sm font-bold transition hover:opacity-80"
-                  style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
-                >
-                  Daugiau →
-                </button>
                 <ShareButton username={profile.username} />
               </div>
             </div>
@@ -377,6 +363,7 @@ export function ProfileClient(props: any) {
         isLegacy={isLegacy}
         isUnclaimed={isUnclaimed}
         onOpenMore={setMoreOpen}
+        onOpenInfo={() => setInfoOpen(true)}
       />
 
       </div>{/* /desktop wrapper (hidden lg:block) */}
@@ -521,13 +508,12 @@ function MobileProfileView(props: any) {
         <div className="absolute inset-0 -z-10 overflow-hidden">
           {profile.cover_image_url || avatar ? (
             <>
-              <div aria-hidden className="absolute inset-0"
+              <div aria-hidden className="absolute inset-0 pf-hero-cover"
                    style={{
                      backgroundImage: `url(${profile.cover_image_url || avatar})`,
                      backgroundSize: 'cover', backgroundPosition: 'center',
-                     filter: 'blur(56px) saturate(1.3) brightness(0.32)', transform: 'scale(1.3) translateZ(0)',
                    }} />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/45 to-[var(--bg-body)]" />
+              <div aria-hidden className="pf-hero-overlay" />
             </>
           ) : (
             <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a2436 0%, #0f1622 55%, var(--bg-body) 100%)' }} />
@@ -554,7 +540,7 @@ function MobileProfileView(props: any) {
             {/* Centras: @username + ♥ + share viršuje, popbar apačioje */}
             <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
               <div className="flex items-center gap-1.5 min-w-0">
-                <h1 className="font-black leading-tight tracking-[-0.03em] text-white truncate"
+                <h1 className="font-black leading-tight tracking-[-0.03em] pf-hero-name truncate"
                     style={{ fontSize: 'clamp(1.05rem, 4.5vw, 1.35rem)', fontFamily: "'Outfit', sans-serif" }}>
                   @{profile.username}
                 </h1>
@@ -577,8 +563,8 @@ function MobileProfileView(props: any) {
 
           {/* ── ROW 2: parašas ── */}
           {bioSnippet && (
-            <p className="mt-2.5 text-[12px] leading-[1.45] line-clamp-3"
-               style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.70)' }}>
+            <p className="mt-2.5 text-[12px] leading-[1.45] line-clamp-3 pf-hero-bio"
+               style={{ fontFamily: "'Outfit', sans-serif" }}>
               {bioSnippet}
             </p>
           )}
@@ -1236,10 +1222,12 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
   const cover = ytThumb || track.cover_url || artist?.cover_image_url || null
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
-      className="group relative w-full h-full rounded-2xl border overflow-hidden flex flex-col text-left transition hover:-translate-y-0.5"
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen?.() } }}
+      className="group relative w-full h-full rounded-2xl border overflow-hidden flex flex-col text-left cursor-pointer transition hover:-translate-y-0.5 p-3 sm:p-4"
       style={{
         background: 'linear-gradient(135deg, var(--card-bg), transparent 80%)',
         borderColor: 'var(--border-subtle)',
@@ -1247,7 +1235,8 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
       }}
       title={`${track.title}${artist ? ' — ' + artist.name : ''} · klausyti nuotaikos dainų`}
     >
-      <div className="p-3 sm:p-4 pb-1 flex items-center justify-between">
+      {/* Header — vienodas aukštis kaip „Muzikinis skonis" (SideEqualizer). */}
+      <div className="flex items-center justify-between mb-2">
         <div
           className="font-extrabold uppercase"
           style={{
@@ -1259,12 +1248,28 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
         >
           Nuotaikos dainos
         </div>
-        {count > 1 && (
-          <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(249,115,22,0.14)', color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>{count}</span>
-        )}
+        <div className="flex items-center gap-1">
+          {count > 1 && (
+            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(249,115,22,0.14)', color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>{count}</span>
+          )}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onOpen?.() }}
+            className="w-7 h-7 -mr-1 flex items-center justify-center rounded-md transition hover:bg-white/5"
+            title="Atidaryti nuotaikos dainų grotuvą"
+            aria-label="Atidaryti nuotaikos dainų grotuvą"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }} aria-hidden>
+              <polyline points="15 3 21 3 21 9" />
+              <polyline points="9 21 3 21 3 15" />
+              <line x1="21" y1="3" x2="14" y2="10" />
+              <line x1="3" y1="21" x2="10" y2="14" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 flex items-center gap-3.5 px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-1.5">
+      <div className="flex-1 flex items-center gap-3.5 pt-0.5">
         <div className="relative flex-shrink-0">
           <div className="absolute -inset-1 rounded-full opacity-45"
                style={{
@@ -1305,7 +1310,7 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
       </div>
 
       <style>{`@keyframes moodSpinV11 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </button>
+    </div>
   )
 }
 
@@ -1377,7 +1382,7 @@ function PopBarChip({
     <span
       title={title}
       aria-label={title}
-      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/15 bg-white/10 backdrop-blur-md px-2 py-0.5"
+      className="inline-flex w-fit items-center gap-1.5 rounded-full border pf-hero-chip backdrop-blur-md px-2 py-0.5"
       style={
         revealDelayMs > 0
           ? {
@@ -1425,7 +1430,7 @@ function PopBar({ level, size = 'md', animate = false, delayMs = 450 }: { level:
             className={[
               dashCls,
               'transition-colors',
-              filled ? 'bg-[var(--accent-orange)]' : 'bg-[rgba(255,255,255,0.18)]',
+              filled ? 'bg-[var(--accent-orange)]' : 'bg-[var(--popbar-empty)]',
             ].join(' ')}
             style={animStyle}
           />
@@ -2323,31 +2328,76 @@ function feedItemMatches(it: FeedItem, filter: string): boolean {
   return it.kind === 'post' && it.laneType === filter
 }
 
-function FeedFilterPills({ pills, active, onChange }: {
-  pills: { key: string; label: string; color: string }[]
+// V18: /topai stiliaus filtrų juosta. Kairėje — įrašų tipų chip'ai (toggle:
+// paspaudus aktyvų → grįžta į „visi"; „Visi" pill'o nebėra). Dešinėje —
+// „Mėgstama muzika" (su standartine kontūrine širdele, kaip top nav) ir
+// „Apie mane" (atidaro nario info modalą — buvęs hero „Daugiau →").
+function HeartOutlineIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />
+    </svg>
+  )
+}
+
+const PF_CHIP = 'flex-shrink-0 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-semibold whitespace-nowrap transition'
+
+function FeedFilterPills({ typePills, active, onChange, hasLikes, onOpenInfo }: {
+  typePills: { key: string; label: string; color: string }[]
   active: string
   onChange: (k: string) => void
+  hasLikes: boolean
+  onOpenInfo: () => void
 }) {
+  const likesOn = active === 'likes'
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {pills.map((p) => {
-        const isActive = active === p.key
-        return (
-          <button key={p.key} type="button" onClick={() => onChange(p.key)}
-                  className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-bold transition"
+    <div className="flex items-center gap-3">
+      {/* Kairė: įrašų tipai (scroll'inami) */}
+      <div className="flex items-center gap-2 overflow-x-auto min-w-0 flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {typePills.map((p) => {
+          const on = active === p.key
+          return (
+            <button key={p.key} type="button" onClick={() => onChange(on ? 'all' : p.key)}
+                    className={PF_CHIP}
+                    style={{
+                      fontFamily: "'Outfit', sans-serif",
+                      background: on ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
+                      color: on ? '#fff' : 'var(--text-secondary)',
+                      border: `1px solid ${on ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
+                    }}>
+              {!on && <span aria-hidden className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: p.color }} />}
+              {p.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Dešinė: Mėgstama muzika + Apie mane */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {hasLikes && (
+          <button type="button" onClick={() => onChange(likesOn ? 'all' : 'likes')}
+                  className={PF_CHIP}
                   style={{
                     fontFamily: "'Outfit', sans-serif",
-                    background: isActive ? 'var(--text-primary)' : 'var(--card-bg)',
-                    color: isActive ? 'var(--bg-body)' : 'var(--text-secondary)',
-                    border: `1px solid ${isActive ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
+                    background: likesOn ? '#e11d48' : 'var(--bg-hover, var(--bg-surface))',
+                    color: likesOn ? '#fff' : '#e11d48',
+                    border: `1px solid ${likesOn ? '#e11d48' : 'rgba(225,29,72,0.4)'}`,
                   }}>
-            {p.key !== 'all' && p.key !== 'likes' && (
-              <span aria-hidden className="w-[7px] h-[7px] rounded-full" style={{ background: p.color }} />
-            )}
-            {p.label}
+            <HeartOutlineIcon />
+            Mėgstama muzika
           </button>
-        )
-      })}
+        )}
+        <button type="button" onClick={onOpenInfo}
+                className={PF_CHIP}
+                style={{
+                  fontFamily: "'Outfit', sans-serif",
+                  background: 'var(--bg-hover, var(--bg-surface))',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-default, var(--border-subtle))',
+                }}>
+          Apie mane
+        </button>
+      </div>
     </div>
   )
 }
@@ -2357,7 +2407,7 @@ function ProfileBodyDesktop(props: any) {
   const {
     profile, blog, contentLanes, postTypeCounts, stats, dailyPicks,
     favoriteArtists, favoriteAlbums, favoriteTracks, likesCounts,
-    albumResolvedTotal, trackResolvedTotal, isLegacy, isUnclaimed, onOpenMore,
+    albumResolvedTotal, trackResolvedTotal, isLegacy, isUnclaimed, onOpenMore, onOpenInfo,
   } = props
 
   const hasLikes = (favoriteArtists?.length || 0) > 0 || (favoriteAlbums?.length || 0) > 0 || (favoriteTracks?.length || 0) > 0
@@ -2372,20 +2422,25 @@ function ProfileBodyDesktop(props: any) {
   const hasFeedContent = feedItems.some((it) => it.kind === 'post' || it.kind === 'ddweek')
   const [filter, setFilter] = useState<string>(hasFeedContent ? 'all' : hasLikes ? 'likes' : 'all')
 
-  const pills = useMemo(
-    () => buildFeedPills(postTypeCounts || {}, hasDdWeeks, hasLikes),
-    [postTypeCounts, hasDdWeeks, hasLikes],
-  )
+  // V18: tik įrašų tipų chip'ai (be „Visi", be „Mėgstama" — tie persikėlė į
+  // dešinę filtrų barą). „Visi" = numatytasis (filter==='all'); deselect grąžina.
+  const typePills = useMemo(() => {
+    const out: { key: string; label: string; color: string }[] = []
+    for (const t of FEED_PILL_ORDER) {
+      if ((postTypeCounts?.[t] || 0) > 0) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+    }
+    if (hasDdWeeks) out.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
+    for (const t of FEED_PILL_TAIL) {
+      if ((postTypeCounts?.[t] || 0) > 0) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+    }
+    return out
+  }, [postTypeCounts, hasDdWeeks])
 
-  // Featured — naujausias postas su vizualu (tik „Visi" rodinyje)
-  const featured = useMemo(() => {
-    if (filter !== 'all') return null
-    return feedItems.find((it) => it.kind === 'post' && (it.post.cover_image_url || it.post.fallback_thumb_url)) || null
-  }, [feedItems, filter])
-
+  // V18: vientisas srautas — be atskiro „featured" akcentinio bloko, visi
+  // įrašai rodomi kaip /bendruomene tipo horizontalios kortelės.
   const visible = useMemo(
-    () => feedItems.filter((it) => feedItemMatches(it, filter) && it !== featured),
-    [feedItems, filter, featured],
+    () => feedItems.filter((it) => feedItemMatches(it, filter)),
+    [feedItems, filter],
   )
 
   // „♥ Mėgstama muzika" pill'as visada atidaro pilną mėgstamos muzikos
@@ -2399,7 +2454,7 @@ function ProfileBodyDesktop(props: any) {
       <div className="sticky top-[56px] z-30 backdrop-blur-md"
            style={{ background: 'color-mix(in srgb, var(--bg-body) 90%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
         <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
-          <FeedFilterPills pills={pills} active={filter} onChange={setFilter} />
+          <FeedFilterPills typePills={typePills} active={filter} onChange={setFilter} hasLikes={hasLikes} onOpenInfo={onOpenInfo} />
         </div>
       </div>
 
@@ -2419,7 +2474,6 @@ function ProfileBodyDesktop(props: any) {
           <div className="grid lg:grid-cols-[minmax(0,1fr)_332px] gap-7 items-start">
             {/* FEED */}
             <div className="flex flex-col gap-5 min-w-0">
-              {featured && blog && <FeaturedPostCard post={featured.post} blogSlug={blog.slug} />}
               {visible.map((it) => (
                 it.kind === 'post' ? (
                   <FeedPostCard key={it.id} post={it.post} laneType={it.laneType!} blogSlug={blog?.slug || ''} />
@@ -2429,7 +2483,7 @@ function ProfileBodyDesktop(props: any) {
                   <LikesClusterCard key={it.id} likes={it.likes!} label={it.label!} onOpenMore={onOpenMore} />
                 )
               ))}
-              {visible.length === 0 && !featured && (
+              {visible.length === 0 && (
                 <div className="p-8 rounded-2xl text-center text-sm"
                      style={{ background: 'var(--card-bg)', border: '1px dashed var(--border-default)', color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
                   Šioje kategorijoje įrašų dar nėra
@@ -2446,7 +2500,7 @@ function ProfileBodyDesktop(props: any) {
             </div>
 
             {/* SIDE RAIL */}
-            <aside className="flex flex-col gap-4 lg:sticky lg:top-[120px]">
+            <aside className="flex flex-col gap-4 lg:sticky lg:top-[120px] lg:max-h-[calc(100vh-136px)] lg:overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {hasLikes && (
                 <RecentLikesCard
                   favoriteArtists={favoriteArtists}
@@ -2584,35 +2638,37 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
     )
   }
 
-  // ── SU VIZUALU: didelis cover ──
+  // ── SU VIZUALU: /bendruomene tipo horizontali kortelė (vizualas kairėj,
+  // tekstas dešinėj). Accent juosta kairiame krašte pagal įrašo tipą. ──
   if (thumb) {
     return (
-      <Link href={url} className="group block rounded-2xl overflow-hidden transition hover:-translate-y-0.5"
+      <Link href={url}
+            className="group relative flex overflow-hidden rounded-2xl transition hover:-translate-y-0.5 min-h-[150px] sm:min-h-[178px]"
             style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-        <div className={`relative w-full overflow-hidden ${compact ? 'aspect-[16/8]' : 'aspect-[16/7.5]'}`} style={{ background: 'var(--bg-elevated)' }}>
+        <span aria-hidden className="w-[3px] shrink-0 self-stretch" style={{ background: typeColor }} />
+        <div className="relative w-[116px] sm:w-[280px] shrink-0 self-stretch overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
-          <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
+          <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col px-4 py-4 sm:px-5">
           {typeLabel && (
-            <span className="absolute top-3 left-3 px-2 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
+            <span className="self-start px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
                   style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>
               {typeLabel}
             </span>
           )}
-        </div>
-        <div className="px-5 pt-3.5 pb-1">
-          <h3 className="text-[17.5px] font-extrabold leading-snug group-hover:text-[var(--accent-orange)] transition line-clamp-2"
+          <h3 className="mt-2 text-[16px] sm:text-[17.5px] font-extrabold leading-snug group-hover:text-[var(--accent-orange)] transition line-clamp-2"
               style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
             {post.title}
           </h3>
           {post.summary && (
-            <p className="mt-1.5 text-[13px] leading-relaxed line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
+            <p className="mt-1.5 text-[13px] leading-relaxed line-clamp-3 sm:line-clamp-4" style={{ color: 'var(--text-secondary)' }}>
               {post.summary}
             </p>
           )}
-        </div>
-        <div className="px-5 pb-3.5">
-          <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
+          <div className="mt-auto pt-2">
+            <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
+          </div>
         </div>
       </Link>
     )
@@ -2815,16 +2871,17 @@ function RecentLikesCard({
       ...(favoriteAlbums || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'album' })),
       ...(favoriteTracks || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'track' })),
     ]
-    return arr.sort((a, b) => new Date(b.liked_at).getTime() - new Date(a.liked_at).getTime()).slice(0, 5)
+    return arr.sort((a, b) => new Date(b.liked_at).getTime() - new Date(a.liked_at).getTime()).slice(0, 4)
   }, [favoriteArtists, favoriteAlbums, favoriteTracks])
 
   const KIND_LABEL: Record<string, string> = { artist: 'Atlikėjas', album: 'Albumas', track: 'Daina' }
 
   return (
     <div className="rounded-2xl p-5" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-      <h4 className="text-[11px] font-extrabold uppercase tracking-wider mb-2.5"
+      <h4 className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider mb-2.5"
           style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
-        ♥ Neseniai pamėgta
+        <span style={{ color: '#e11d48' }}><HeartOutlineIcon size={12} /></span>
+        Neseniai pamėgta
       </h4>
       {items.length > 0 ? items.map((it, i) => {
         const artist = Array.isArray(it.artists) ? it.artists[0] : it.artists

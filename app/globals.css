@@ -295,6 +295,7 @@ select:focus-visible {
   --hero-tag-border: rgba(255,255,255,.12);
   --hero-chip-bg: rgba(0,0,0,.25);
   --hero-chip-border: rgba(255,255,255,.08);
+  --popbar-empty: rgba(255,255,255,0.18);
 
   /* Artist profile specific colors */
   --player-bg: rgba(0,0,0,.25);
@@ -440,6 +441,7 @@ select:focus-visible {
   --hero-tag-border: rgba(0,0,0,.12);
   --hero-chip-bg: rgba(255,255,255,.6);
   --hero-chip-border: rgba(0,0,0,.1);
+  --popbar-empty: rgba(15,26,46,0.16);
 
   /* Artist profile specific colors */
   --player-bg: rgba(0,0,0,.04);
@@ -886,3 +888,30 @@ main.has-bottom-nav {
   font-size: 11.5px; color: var(--text-muted, #6b7686); margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Vartotojo profilio (/@username) hero — theme-aware.
+   Light mode anksčiau rodė „purviną pilką" overlay (tamsus blur'as + black→
+   white gradientas). Dabar šviesoje hero šviesus, tekstas tamsus.
+   ───────────────────────────────────────────────────────────────────────── */
+.pf-hero-cover {
+  filter: blur(64px) saturate(1.35) brightness(0.32);
+  transform: scale(1.25) translateZ(0);
+}
+[data-theme="light"] .pf-hero-cover {
+  filter: blur(72px) saturate(1.12) brightness(1.05);
+  opacity: 0.42;
+}
+.pf-hero-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.55) 55%, var(--bg-body) 100%);
+}
+[data-theme="light"] .pf-hero-overlay {
+  background: linear-gradient(to bottom, rgba(240,244,250,0.30) 0%, rgba(240,244,250,0.62) 55%, var(--bg-body) 100%);
+}
+.pf-hero-name { color: #fff; text-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+[data-theme="light"] .pf-hero-name { color: var(--text-primary); text-shadow: none; }
+.pf-hero-bio { color: rgba(255,255,255,0.80); }
+[data-theme="light"] .pf-hero-bio { color: var(--text-secondary); }
+.pf-hero-chip { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.10); }
+[data-theme="light"] .pf-hero-chip { border-color: var(--border-default); background: var(--bg-surface); }
