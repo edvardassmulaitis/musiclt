@@ -131,25 +131,22 @@ export async function backfillStats(): Promise<{
   recent: RecentBackfill[]
 }> {
   const supabase = createAdminClient()
-  const cnt = (q: any) => q as Promise<{ count: number | null }>
-  const head = () => supabase.from('tracks').select('id', { count: 'exact', head: true })
 
-  const [a, b, c, total, recovered, dead, recentRes] = await Promise.all([
-    cnt(head().not('video_url', 'is', null).is('video_views_checked_at', null).is('yt_backfill_at', null)),
-    cnt(head().is('video_url', null).is('youtube_searched_at', null).is('yt_backfill_at', null)
-      .not('title', 'is', null).not('artist_id', 'is', null)),
-    cnt(head().not('video_url', 'is', null).is('video_uploaded_at', null).is('yt_backfill_at', null)),
-    cnt(head().not('yt_backfill_at', 'is', null)),
-    cnt(head().not('yt_backfill_at', 'is', null).not('video_views', 'is', null)),
-    cnt(head().not('yt_backfill_at', 'is', null).not('video_url', 'is', null).is('video_views', null)),
-    supabase.from('tracks')
-      .select('id, title, video_views, video_url, yt_backfill_at, artists(name)')
-      .not('yt_backfill_at', 'is', null)
-      .order('yt_backfill_at', { ascending: false })
-      .limit(15),
-  ])
+  // Visi 6 skaičiai VIENA SQL funkcija (backfill_stats_counts) — patikima ir
+  // greita (~1s). Anksčiau 6 atskiros PostgREST count='exact' užklausos
+  // lygiagrečiai konkuruodavo / time-out'indavo → null'ai UI'e. 2026-06-18.
+  const { data: countsData } = await supabase.rpc('backfill_stats_counts')
+  const c: any = Array.isArray(countsData) ? countsData[0] : countsData
 
-  const recent: RecentBackfill[] = ((recentRes as any)?.data || []).map((r: any) => {
+  // Paskutiniai sutvarkyti — atskira lengva užklausa (idx_tracks_yt_backfill).
+  const { data: recentData } = await supabase
+    .from('tracks')
+    .select('id, title, video_views, video_url, yt_backfill_at, artists(name)')
+    .not('yt_backfill_at', 'is', null)
+    .order('yt_backfill_at', { ascending: false })
+    .limit(15)
+
+  const recent: RecentBackfill[] = ((recentData as any[]) || []).map((r: any) => {
     const art = Array.isArray(r.artists) ? r.artists[0] : r.artists
     const hasVideo = !!r.video_url
     const status: RecentBackfill['status'] =
@@ -159,8 +156,8 @@ export async function backfillStats(): Promise<{
 
   return {
     ok: true,
-    remaining: { A: a.count ?? null, B: b.count ?? null, C: c.count ?? null },
-    processed: { total: total.count ?? null, recovered: recovered.count ?? null, dead: dead.count ?? null },
+    remaining: { A: c?.rem_a ?? null, B: c?.rem_b ?? null, C: c?.rem_c ?? null },
+    processed: { total: c?.total ?? null, recovered: c?.recovered ?? null, dead: c?.dead ?? null },
     recent,
   }
 }
