@@ -33,7 +33,7 @@ function first<T>(v: T | T[] | null | undefined): T | null {
 }
 const num = (v: any): number | null => (typeof v === 'number' ? v : (v != null && /^\d+$/.test(String(v)) ? parseInt(String(v)) : null))
 
-type ListEntry = { rank: number; title: string; artist: string | null; image: string | null }
+type ListEntry = { rank: number; title: string; artist: string | null; image: string | null; kind: 'track' | 'album' | 'artist' | null; id: number | null }
 
 type OutPost = {
   id: number; slug: string; title: string; post_type: string; rating: number | null
@@ -198,11 +198,11 @@ export async function GET(req: NextRequest) {
       if (r.target_event_id) eventIds.add(r.target_event_id)
     }
 
-    // Topas entries (normalizuotos, top-5 pagal rank/position).
+    // Topas entries (normalizuotos, top-10 pagal rank/position).
     const topNormById = new Map<number, ReturnType<typeof normEntry>[]>()
     const topasRows = deduped.filter(r => r.post_type === 'topas' && Array.isArray(r.list_items) && r.list_items.length)
     for (const r of topasRows) {
-      const norm = (r.list_items as any[]).map((it, i) => normEntry(it, i)).sort((a, b) => a.rank - b.rank).slice(0, 5)
+      const norm = (r.list_items as any[]).map((it, i) => normEntry(it, i)).sort((a, b) => a.rank - b.rank).slice(0, 10)
       topNormById.set(r.id, norm)
       for (const e of norm) {
         if (e.image_url) continue
@@ -221,22 +221,25 @@ export async function GET(req: NextRequest) {
     const trackImg = new Map<number, string>(), albumImg = new Map<number, string>(), artistImg = new Map<number, string>()
     const trackImgLeg = new Map<number, string>(), albumImgLeg = new Map<number, string>(), artistImgLeg = new Map<number, string>()
     const eventImg = new Map<string, string>()
+    // legacy_id → kanoninis id (kad topas entry'is, kuris turi tik legacy_id,
+    // galėtų atidaryti dainos/albumo modalą per dabartinį DB id).
+    const trackIdByLeg = new Map<number, number>(), albumIdByLeg = new Map<number, number>()
     const E = { data: [] as any[] }
     try {
       const [tr, trL, al, alL, ar, arL, ev] = await Promise.all([
         trackIds.size ? sb.from('tracks').select('id, cover_url, video_url, artist:artist_id(cover_image_url)').in('id', [...trackIds]) : Promise.resolve(E),
-        trackLeg.size ? sb.from('tracks').select('legacy_id, cover_url, video_url, artist:artist_id(cover_image_url)').in('legacy_id', [...trackLeg]) : Promise.resolve(E),
+        trackLeg.size ? sb.from('tracks').select('id, legacy_id, cover_url, video_url, artist:artist_id(cover_image_url)').in('legacy_id', [...trackLeg]) : Promise.resolve(E),
         albumIds.size ? sb.from('albums').select('id, cover_image_url').in('id', [...albumIds]) : Promise.resolve(E),
-        albumLeg.size ? sb.from('albums').select('legacy_id, cover_image_url').in('legacy_id', [...albumLeg]) : Promise.resolve(E),
+        albumLeg.size ? sb.from('albums').select('id, legacy_id, cover_image_url').in('legacy_id', [...albumLeg]) : Promise.resolve(E),
         artistIds.size ? sb.from('artists').select('id, cover_image_url').in('id', [...artistIds]) : Promise.resolve(E),
         artistLeg.size ? sb.from('artists').select('legacy_id, cover_image_url').in('legacy_id', [...artistLeg]) : Promise.resolve(E),
         eventIds.size ? sb.from('events').select('id, cover_image_url').in('id', [...eventIds]) : Promise.resolve(E),
       ])
       const trackImgOf = (t: any) => ytThumb(t.video_url) || t.cover_url || first<any>(t.artist)?.cover_image_url || null
       for (const t of ((tr as any).data || [])) { const img = trackImgOf(t); if (img) trackImg.set(t.id, img) }
-      for (const t of ((trL as any).data || [])) { const img = trackImgOf(t); if (img) trackImgLeg.set(t.legacy_id, img) }
+      for (const t of ((trL as any).data || [])) { const img = trackImgOf(t); if (img) trackImgLeg.set(t.legacy_id, img); if (t.legacy_id != null && t.id != null) trackIdByLeg.set(t.legacy_id, t.id) }
       for (const a of ((al as any).data || [])) if (a.cover_image_url) albumImg.set(a.id, a.cover_image_url)
-      for (const a of ((alL as any).data || [])) if (a.cover_image_url) albumImgLeg.set(a.legacy_id, a.cover_image_url)
+      for (const a of ((alL as any).data || [])) { if (a.cover_image_url) albumImgLeg.set(a.legacy_id, a.cover_image_url); if (a.legacy_id != null && a.id != null) albumIdByLeg.set(a.legacy_id, a.id) }
       for (const a of ((ar as any).data || [])) if (a.cover_image_url) artistImg.set(a.id, a.cover_image_url)
       for (const a of ((arL as any).data || [])) if (a.cover_image_url) artistImgLeg.set(a.legacy_id, a.cover_image_url)
       for (const e of ((ev as any).data || [])) if (e.cover_image_url) eventImg.set(e.id, e.cover_image_url)
@@ -287,7 +290,17 @@ export async function GET(req: NextRequest) {
                   (e.album_legacy_id && albumImgLeg.get(e.album_legacy_id)) ||
                   (e.artist_legacy_id && artistImgLeg.get(e.artist_legacy_id)) || null
         }
-        return { rank: e.rank, title: e.title, artist: e.artist, image }
+        // Klikuojamumas: kanoninis kind + id (naujas formatas → entity_id;
+        // legacy → legacy_id išverstas į dabartinį DB id). artist'ai modalo
+        // neturi, todėl jiems id nereikalingas (fallback į straipsnį).
+        let kind: 'track' | 'album' | 'artist' | null =
+          (e.type === 'track' || e.type === 'album' || e.type === 'artist') ? e.type
+          : e.track_legacy_id ? 'track' : e.album_legacy_id ? 'album' : e.artist_legacy_id ? 'artist' : null
+        let id: number | null = null
+        if ((e.type === 'track' || e.type === 'album') && e.entity_id) id = e.entity_id
+        else if (kind === 'track' && e.track_legacy_id) id = trackIdByLeg.get(e.track_legacy_id) ?? null
+        else if (kind === 'album' && e.album_legacy_id) id = albumIdByLeg.get(e.album_legacy_id) ?? null
+        return { rank: e.rank, title: e.title, artist: e.artist, image, kind, id }
       })
       entriesById.set(r.id, entries)
     }

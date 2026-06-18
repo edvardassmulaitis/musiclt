@@ -27,6 +27,8 @@ import { proxyImg } from '@/lib/img-proxy'
 import { useActivity, ActivityModal } from '@/components/ActivityWidget'
 import { HomeListModal } from '@/components/HomeListModal'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
+import { HomeTrackModal } from '@/components/HomeTrackModal'
+import AlbumInfoModal from '@/components/AlbumInfoModal'
 import { LikePill } from '@/components/LikePill'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
 
@@ -111,7 +113,7 @@ function PopBar({ level, w = 11, onDark = false }: { level: number; w?: number; 
 }
 
 // ───────────────────────── types ─────────────────────────
-type ListEntry = { rank: number; title: string; artist: string | null; image: string | null }
+type ListEntry = { rank: number; title: string; artist: string | null; image: string | null; kind?: 'track' | 'album' | 'artist' | null; id?: number | null }
 type FeedPost = {
   id: number; slug: string; title: string; post_type: string; rating: number | null
   like_count: number | null; comment_count: number | null; published_at: string | null
@@ -576,14 +578,14 @@ function FeaturedSlider() {
             const inner = (
               <div className="group relative block aspect-[16/9] h-full w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[#0d1320] no-underline transition-all hover:-translate-y-0.5">
                 <KindBadge kind={c.chip} label={c.chipLabel} />
-                <div className="absolute inset-0 flex items-stretch justify-end overflow-hidden">
+                <div className="absolute inset-0 overflow-hidden">
                   {c.img ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(c.img)} alt="" loading="lazy" onError={ytFallback} className="h-full w-auto max-w-full object-cover"
-                      style={{ objectPosition: 'center 25%', WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)', maskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)' }} />
-                  ) : <div className="h-full w-full" style={{ background: `linear-gradient(135deg, hsl(${hue(c.title)},34%,22%), hsl(${(hue(c.title) + 40) % 360},30%,12%))` }} />}
+                    <img src={proxyImg(c.img)} alt="" loading="lazy" onError={ytFallback} className="absolute inset-0 h-full w-full object-cover"
+                      style={{ objectPosition: 'center 30%' }} />
+                  ) : <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(c.title)},34%,22%), hsl(${(hue(c.title) + 40) % 360},30%,12%))` }} />}
                 </div>
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/10" />
                 <div className="absolute inset-0 flex flex-col justify-end p-4">
                   <h3 className="m-0 max-w-[420px] font-['Outfit',sans-serif] text-[19px] font-black leading-[1.15] tracking-tight text-white transition-opacity group-hover:opacity-90 sm:text-[21px]">
                     {c.title}
@@ -902,8 +904,8 @@ type MixItem =
 // 2026-06-14: /atrasti Pulsas perdarytas iš 4-stulpelių masonry į vientisą srautą —
 // vienoda forma, kairysis spalvotas kraštas + etiketė koduoja tipą, viršelis kairėj.
 const ROW_BASE = 'group relative flex overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)]'
-const ROW_THUMB = 'relative w-[100px] shrink-0 self-stretch overflow-hidden bg-[var(--cover-placeholder)] sm:w-[248px]'
-const ROW_MINH = 'min-h-[168px] sm:min-h-[150px]'
+const ROW_THUMB = 'relative w-[112px] shrink-0 self-stretch overflow-hidden bg-[var(--cover-placeholder)] sm:w-[320px]'
+const ROW_MINH = 'min-h-[176px] sm:min-h-[200px]'
 const ROW_PAD = 'flex min-w-0 flex-1 flex-col px-5 py-4'
 
 function kindColor(kind: string): string {
@@ -939,7 +941,7 @@ function PostRowCard({ p }: { p: FeedPost }) {
       <div className={ROW_PAD}>
         <KindBadge kind={kind} abs={false} />
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
-        {p.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">{p.excerpt}</p>}
+        {p.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-4">{p.excerpt}</p>}
         <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
       </div>
     </Link>
@@ -965,47 +967,65 @@ function TopEntryTile({ e, big = false }: { e: ListEntry; big?: boolean }) {
   )
 }
 
-function PostTopasRowCard({ p }: { p: FeedPost }) {
-  const entries = (p.entries || []).slice(0, 5)
+function PostTopasRowCard({ p, onOpenEntry }: { p: FeedPost; onOpenEntry: (e: ListEntry) => void }) {
+  const entries = (p.entries || []).slice(0, 10)
+  // Desktop: ant dainos/albumo įrašo → tos dainos/albumo modalas; ant title/
+  // „Visas topas" → pilnas straipsnis. Tik įrašai su kanoniniu id atidaromi.
+  const clickable = (e: ListEntry) => e.id != null && (e.kind === 'track' || e.kind === 'album')
   return (
-    <Link href={feedHref(p)} className={`${ROW_BASE} ${ROW_MINH} hover:border-[rgba(245,158,11,0.5)]`}>
+    <div className={`${ROW_BASE} ${ROW_MINH} hover:border-[rgba(245,158,11,0.5)]`}>
       <AccentBar color="#f59e0b" />
       <div className={ROW_PAD}>
         <div className="flex flex-wrap items-center gap-2.5">
           <KindBadge kind="topas" abs={false} label={topLabel(p)} />
-          <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
+          <Link href={feedHref(p)} className="no-underline">
+            <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
+          </Link>
         </div>
         {entries.length === 0 ? (
           <p className="m-0 mt-2 py-3 text-[12px] text-[var(--text-muted)]">Tuščias topas</p>
         ) : (
           <>
-            {/* Mobile: collage — #1 didesnis (svoris aukštesnėms pozicijoms). */}
-            <div className="mt-2.5 grid grid-cols-4 gap-1.5 sm:hidden">
-              {entries.map((e, i) => (
+            {/* Mobile: collage — #1 didesnis (svoris aukštesnėms pozicijoms). Visa veda į straipsnį. */}
+            <Link href={feedHref(p)} className="mt-2.5 grid grid-cols-4 gap-1.5 no-underline sm:hidden">
+              {entries.slice(0, 5).map((e, i) => (
                 <div key={e.rank} className={`group/t relative aspect-square overflow-hidden rounded-lg bg-[var(--cover-placeholder)] ${i === 0 ? 'col-span-2 row-span-2' : ''}`}>
                   <TopEntryTile e={e} big={i === 0} />
                 </div>
               ))}
-            </div>
-            {/* Desktop: eilė tilių su pavadinimais. */}
+            </Link>
+            {/* Desktop: eilė tilių su pavadinimais — paspaudus atsidaro dainos/albumo modalas. */}
             <div className="mt-2.5 hidden flex-wrap gap-3 sm:flex">
-              {entries.map(e => (
-                <div key={e.rank} className="flex w-[112px] flex-col gap-1.5">
-                  <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
-                    <TopEntryTile e={e} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="m-0 truncate text-[12px] font-bold leading-tight text-[var(--text-primary)]">{sani(e.title)}</p>
-                    {e.artist && <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{e.artist}</p>}
-                  </div>
-                </div>
-              ))}
+              {entries.map(e => {
+                const tileInner = (
+                  <>
+                    <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
+                      <TopEntryTile e={e} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="m-0 truncate text-[12px] font-bold leading-tight text-[var(--text-primary)]">{sani(e.title)}</p>
+                      {e.artist && <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{e.artist}</p>}
+                    </div>
+                  </>
+                )
+                return clickable(e) ? (
+                  <button key={e.rank} type="button" onClick={() => onOpenEntry(e)}
+                    className="group/tile flex w-[112px] cursor-pointer flex-col gap-1.5 border-0 bg-transparent p-0 text-left">
+                    {tileInner}
+                  </button>
+                ) : (
+                  <Link key={e.rank} href={feedHref(p)} className="flex w-[112px] flex-col gap-1.5 no-underline">
+                    {tileInner}
+                  </Link>
+                )
+              })}
             </div>
           </>
         )}
         <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
+        <Link href={feedHref(p)} className="mt-2 self-start font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visas topas →</Link>
       </div>
-    </Link>
+    </div>
   )
 }
 
@@ -1029,7 +1049,7 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
       <div className={ROW_PAD}>
         <KindBadge kind="diskusija" abs={false} />
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(d.title)}</h3>
-        {lc?.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">{lc.excerpt}</p>}
+        {lc?.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-4">{lc.excerpt}</p>}
         <RowMeta author={{ username: lc?.author || d.author_name, avatar_url: lc?.avatar }} date={null} comments={d.comment_count} />
       </div>
     </Link>
@@ -1040,25 +1060,41 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
 function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) => void }) {
   const thumb = discThumb(a)
   const quote = sani(a.body)
+  // Grotuvas groja VIETOJE — paspaudus ▶ thumbnail'as virsta embed'u (be modalo).
+  const [playing, setPlaying] = useState(false)
+  const canPlayInline = !!a.embed_id && (a.embed_type === 'youtube' || a.embed_type === 'spotify')
+  const embedSrc = a.embed_type === 'youtube'
+    ? `https://www.youtube.com/embed/${a.embed_id}?autoplay=1&rel=0`
+    : a.embed_type === 'spotify'
+      ? `https://open.spotify.com/embed/track/${a.embed_id}`
+      : ''
   return (
-    <button type="button" onClick={() => onOpen(a)} className={`${ROW_BASE} ${ROW_MINH} w-full cursor-pointer p-0 text-left hover:border-[rgba(249,115,22,0.5)]`}>
+    <div className={`${ROW_BASE} ${ROW_MINH} w-full hover:border-[rgba(249,115,22,0.5)]`}>
       <AccentBar color="#f97316" />
       <div className={`${ROW_THUMB} flex items-center justify-center`}>
-        {thumb ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
-        ) : <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(a.artist_name || 'x')},34%,22%), hsl(${(hue(a.artist_name || 'x') + 40) % 360},30%,12%))` }} />}
-        <span className="relative z-[1] flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.4)] transition-transform group-hover:scale-105"><Ic d={I.play} size={17} filled /></span>
+        {playing && canPlayInline ? (
+          <iframe src={embedSrc} title="Grotuvas" className="absolute inset-0 h-full w-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+        ) : (
+          <>
+            {thumb ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+            ) : <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(a.artist_name || 'x')},34%,22%), hsl(${(hue(a.artist_name || 'x') + 40) % 360},30%,12%))` }} />}
+            <button type="button" aria-label="Groti" onClick={() => { if (canPlayInline) setPlaying(true); else onOpen(a) }}
+              className="relative z-[1] flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border-0 bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.4)] transition-transform hover:scale-105"><Ic d={I.play} size={17} filled /></button>
+          </>
+        )}
       </div>
-      <div className={ROW_PAD}>
+      <button type="button" onClick={() => onOpen(a)} className={`${ROW_PAD} cursor-pointer border-0 bg-transparent text-left`}>
         <KindBadge kind="atradimas" abs={false} />
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` - ${a.track_name}` : ''}
         </h3>
-        {quote && <p className="m-0 mt-1.5 line-clamp-4 text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">{quote.length > 340 ? quote.slice(0, 340).replace(/\s+\S*$/, '') + '…' : quote}</p>}
+        {quote && <p className="m-0 mt-1.5 line-clamp-4 text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-4">{quote.length > 340 ? quote.slice(0, 340).replace(/\s+\S*$/, '') + '…' : quote}</p>}
         <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
-      </div>
-    </button>
+      </button>
+    </div>
   )
 }
 
@@ -1128,6 +1164,13 @@ function PulsasSection() {
   const [shown, setShown] = useState(PAGE_SIZE)
   const [loadingMore, setLoadingMore] = useState(false)
   const [openDisc, setOpenDisc] = useState<Atradimas | null>(null)
+  const [trackModal, setTrackModal] = useState<{ id: number; title: string; cover_url: string | null; artist_name: string | null } | null>(null)
+  const [albumModal, setAlbumModal] = useState<number | null>(null)
+  const openEntry = useCallback((e: ListEntry) => {
+    if (e.id == null) return
+    if (e.kind === 'track') setTrackModal({ id: e.id, title: e.title, cover_url: e.image, artist_name: e.artist })
+    else if (e.kind === 'album') setAlbumModal(e.id)
+  }, [])
   const offsetRef = useRef(0)
 
   useEffect(() => {
@@ -1278,7 +1321,7 @@ function PulsasSection() {
               if (it.kind === 'disc') return <DiskusijaRowCard key={`d-${it.d.id}`} d={it.d} />
               if (it.kind === 'atrad') return <AtradimasRowCard key={`a-${it.a.id}`} a={it.a} onOpen={setOpenDisc} />
               const p = it.post
-              if (p.post_type === 'topas') return <PostTopasRowCard key={`p-${p.id}`} p={p} />
+              if (p.post_type === 'topas') return <PostTopasRowCard key={`p-${p.id}`} p={p} onOpenEntry={openEntry} />
               return <PostRowCard key={`p-${p.id}`} p={p} />
             })}
           </div>
@@ -1298,6 +1341,8 @@ function PulsasSection() {
         </>
       )}
       {openDisc && <DiscoveryModal a={openDisc} onClose={() => setOpenDisc(null)} />}
+      {trackModal && <HomeTrackModal track={trackModal} onClose={() => setTrackModal(null)} />}
+      {albumModal != null && <AlbumInfoModal albumId={albumModal} onClose={() => setAlbumModal(null)} />}
     </section>
   )
 }
