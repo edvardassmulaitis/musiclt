@@ -43,6 +43,11 @@ const albumDate = (y?: number | null, m?: number | null, d?: number | null) =>
   y ? `${y}-${String(m || 1).padStart(2, '0')}-${String(d || 1).padStart(2, '0')}T00:00:00.000Z` : null
 const one = (v: any) => (Array.isArray(v) ? v[0] : v)
 
+// Išvalo legacy diskusijų pavadinimų šiukšles: „R E M |232112" → „R E M".
+function cleanTitle(t?: string | null): string {
+  return (t || '').replace(/\s*\|\s*\d+\s*$/, '').replace(/\s{2,}/g, ' ').trim()
+}
+
 type RecItem = {
   key: string
   kind: 'artist' | 'track' | 'album' | 'event' | 'topic' | 'chart'
@@ -176,6 +181,8 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
       // Seno katalogo filtras (žr. feed/route.ts): 1987 m. daina ≠ naujiena.
       const ry = t.release_year || (t.release_date ? new Date(t.release_date).getFullYear() : null)
       if (ry && ry < curYear - 1) continue
+      const td = t.video_uploaded_at || t.release_date || albumDate(t.release_year, t.release_month, t.release_day)
+      if (td && Date.parse(td) > Date.now()) continue // dar neišleista
       queues.release.push({
         key: `track-${t.id}`, kind: 'track', title: t.title || '', subtitle: a?.name || null,
         image: t.cover_url || ytThumb(t.video_url) || a?.cover_image_url || null,
@@ -187,6 +194,8 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     }
     for (const al of (albumsRes.data || []) as any[]) {
       const a = one(al.artists)
+      const ad = albumDate(al.year, al.month, al.day)
+      if (ad && Date.parse(ad) > Date.now()) continue // dar neišleistas (Muse – Wow Signal)
       queues.release.push({
         key: `album-${al.id}`, kind: 'album', title: al.title || '', subtitle: a?.name || null,
         image: al.cover_image_url || a?.cover_image_url || null,
@@ -220,7 +229,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     if (!charts.length) return
     const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
     const { data: entries } = await sb.from('external_chart_entries')
-      .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(cover_url, video_url)')
+      .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(title, cover_url, video_url, artists:artist_id(name, cover_image_url))')
       .in('artist_id', matchIds).in('chart_id', charts.map(c => Number(c.id)))
       .order('position', { ascending: true }).limit(30)
     const seen = new Set<string>()
@@ -231,14 +240,17 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
       if (seen.has(dk)) continue
       seen.add(dk)
       const rec = recById.get(aid)
-      const tr = one(e.tracks)
+      const tr = one(e.tracks); const trArtist = one(tr?.artists)
+      const artistName = trArtist?.name || rec?.name || e.artist_name || null
+      const cover = tr?.cover_url || ytThumb(tr?.video_url) || trArtist?.cover_image_url || rec?.cover_image_url || e.cover_url || null
       queues.chart.push({
         key: `chart-${e.chart_id}-${aid}`, kind: 'chart',
-        title: e.title || e.artist_name || c.title || 'Topas',
-        subtitle: `#${e.position} · ${c.title}${c.period_label ? ` · ${c.period_label}` : ''}`,
-        image: e.cover_url || tr?.cover_url || ytThumb(tr?.video_url) || rec?.cover_image_url || null,
+        // resolved dainos title (ne raw chart entry tekstas „THE HIGHLIGHTS")
+        title: tr?.title || artistName || c.title || 'Topas',
+        subtitle: `${artistName ? artistName + ' · ' : ''}#${e.position} · ${c.title}`,
+        image: cover,
         href: `/topai/${c.source}-${c.chart_key}`, date: null, badge: 'Topas',
-        avatar: rec?.cover_image_url || null,
+        avatar: trArtist?.cover_image_url || rec?.cover_image_url || null,
         artist: rec ? { id: aid, name: rec.name, slug: rec.slug } : (e.artist_name ? { id: aid, name: e.artist_name, slug: null } : null),
       })
     }
@@ -397,6 +409,15 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
       .or('legacy_kind.is.null,legacy_kind.eq.discussion')
       .order('last_comment_at', { ascending: false, nullsFirst: false }).limit(6)
     const rows = (data || []) as any[]
+    // Atlikėjų nuotraukos (recById turi TIK rekomenduojamus; pamėgtiems reikia atskiros užklausos).
+    const artCover = new Map<number, { name: string; cover: string | null }>()
+    const artIds = Array.from(new Set(rows.map(d => Number(d.artist_id)).filter(Boolean)))
+    if (artIds.length) {
+      try {
+        const { data: arts } = await sb.from('artists').select('id, name, cover_image_url').in('id', artIds)
+        for (const a of (arts || []) as any[]) artCover.set(Number(a.id), { name: a.name, cover: a.cover_image_url || null })
+      } catch { /* ignore */ }
+    }
     const lastComment = new Map<number, string>()
     const ids = rows.map(d => d.id)
     if (ids.length) {
@@ -414,16 +435,19 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     }
     for (const d of rows) {
       const aid = d.artist_id ? Number(d.artist_id) : 0
-      const a = aid ? recById.get(aid) : null
+      const rec = aid ? recById.get(aid) : null
+      const ac = aid ? artCover.get(aid) : null
+      const name = rec?.name || ac?.name || null
+      const cover = rec?.cover_image_url || ac?.cover || null
       const cmt = lastComment.get(d.id)
       queues.topic.push({
-        key: `topic-${d.id}`, kind: 'topic', title: d.title || '',
-        subtitle: cmt ? `„${cmt}"` : (a?.name || (d.comment_count ? `${d.comment_count} komentarų` : null)),
-        image: a?.cover_image_url || null, href: `/diskusijos/${d.slug}`,
+        key: `topic-${d.id}`, kind: 'topic', title: cleanTitle(d.title),
+        subtitle: cmt ? `„${cmt}"` : (name || (d.comment_count ? `${d.comment_count} komentarų` : null)),
+        image: cover, href: `/diskusijos/${d.slug}`,
         date: d.last_comment_at || d.created_at, badge: 'Diskusija',
-        avatar: a?.cover_image_url || null,
+        avatar: cover,
         // artist nustatom → prikabinama „nes mėgsti X" (žr. attach loop).
-        artist: a ? { id: aid, name: a.name, slug: a.slug } : null,
+        artist: name ? { id: aid, name, slug: rec?.slug || null } : null,
         meta: { comments: d.comment_count, likes: d.like_count },
       })
     }
@@ -453,7 +477,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v8'],
+  ['srautas-recs-v9'],
   { revalidate: 300 },
 )
 

@@ -42,6 +42,7 @@ type FeedItem = {
   becauseArtists?: { name: string; image: string | null }[] | null
   avatar?: string | null
   badgeColor?: string | null
+  liked?: boolean
   artist?: { id?: number; name: string; slug: string | null } | null
   meta?: { post_type?: string; rating?: number | null; avatar?: string | null; comments?: number; likes?: number }
 }
@@ -138,8 +139,8 @@ function idFromKey(key: string): number {
 }
 
 /** Širdutė — sekti atlikėją / mėgti dainą ar albumą. */
-function LikeButton({ entity, id }: { entity: LikeEntity; id: number }) {
-  const [liked, setLiked] = useState(false)
+function LikeButton({ entity, id, initial = false }: { entity: LikeEntity; id: number; initial?: boolean }) {
+  const [liked, setLiked] = useState(initial)
   const [busy, setBusy] = useState(false)
   const endpoint =
     entity === 'artist' ? `/api/artists/${id}/like`
@@ -172,7 +173,7 @@ function LikeButton({ entity, id }: { entity: LikeEntity; id: number }) {
 
 /** Universali srauto kortelė — swipe-to-dismiss (tik horizontalus gestas),
  *  diskretiškos ♥ / × ikonos, dainos atidaromos modale. */
-function FeedCard({ it, onDismiss, onOpenTrack }: { it: FeedItem; onDismiss: (key: string) => void; onOpenTrack: (it: FeedItem) => void }) {
+function FeedCard({ it, onDismiss, onOpenTrack, onWhy }: { it: FeedItem; onDismiss: (key: string) => void; onOpenTrack: (it: FeedItem) => void; onWhy: (it: FeedItem) => void }) {
   const isArtist = it.kind === 'artist'
   const initial = (it.title || '?').trim()[0]?.toUpperCase() || '?'
   const when = it.kind === 'event' ? eventWhen(it.date) : timeAgo(it.date)
@@ -216,6 +217,7 @@ function FeedCard({ it, onDismiss, onOpenTrack }: { it: FeedItem; onDismiss: (ke
     if (it.kind === 'track') { e.preventDefault(); onOpenTrack(it) }
   }
   const dismiss = (e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); setLeaving(true); setTimeout(() => onDismiss(it.key), 150) }
+  const why = (e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); onWhy(it) }
 
   const style: CSSProperties = {
     transform: dx ? `translateX(${dx}px)` : undefined,
@@ -259,14 +261,14 @@ function FeedCard({ it, onDismiss, onOpenTrack }: { it: FeedItem; onDismiss: (ke
           </span>
         )}
         {when && <span className="sr-meta"><span className="sr-time">{when}</span></span>}
-        {it.because && (
-          <span className="sr-because" title={`Panašu į tavo mėgstamus: ${it.because}`}>
-            {IconLink}<span className="sr-because-tx">{it.because}</span>
-          </span>
-        )}
       </div>
 
-      {likeEntity && likeId ? <LikeButton entity={likeEntity} id={likeId} /> : null}
+      {likeEntity && likeId ? <LikeButton entity={likeEntity} id={likeId} initial={!!it.liked} /> : null}
+      {it.because && (
+        <button type="button" className="sr-act sr-why-btn" onClick={why} aria-label="Kodėl pasiūlyta" title="Kodėl pasiūlyta">
+          {IconLink}
+        </button>
+      )}
       <button type="button" className="sr-act sr-dismiss" onClick={dismiss} aria-label="Paslėpti" title="Paslėpti">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
       </button>
@@ -304,6 +306,8 @@ function SrautasInner() {
     })
   }, [])
 
+  // „Kodėl pasiūlyta" modalas.
+  const [whyItem, setWhyItem] = useState<FeedItem | null>(null)
   // Dainos modalas (kad uždarius liktum toje pačioje vietoje).
   const [modalTrack, setModalTrack] = useState<any | null>(null)
   const openTrack = useCallback((it: FeedItem) => {
@@ -417,7 +421,7 @@ function SrautasInner() {
     if (!canLoadMore) return
     const el = sentinel.current
     if (!el) return
-    const obs = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) moreFeed() }, { rootMargin: '600px 0px' })
+    const obs = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) moreFeed() }, { rootMargin: '150px 0px' })
     obs.observe(el)
     return () => obs.disconnect()
   }, [canLoadMore, moreFeed])
@@ -480,6 +484,27 @@ function SrautasInner() {
         .sr-dismiss svg { width:14px; height:14px; }
         .sr-dismiss:hover { transform:scale(1.1); color:var(--text-primary); }
         .sr-card:hover .sr-dismiss, .sr-dismiss:focus-visible { opacity:1; }
+        /* „Kodėl pasiūlyta" — connection ikona kairėje nuo × */
+        .sr-why-btn { top:6px; right:39px; width:27px; height:27px; color:var(--accent-orange); opacity:.92; }
+        .sr-why-btn svg { width:15px; height:15px; }
+        .sr-why-btn:hover { transform:scale(1.1); }
+
+        /* ── „Kodėl pasiūlyta" modalas ── */
+        .sr-wm-back { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.55); backdrop-filter:blur(3px);
+          display:flex; align-items:center; justify-content:center; padding:18px; }
+        .sr-wm { position:relative; max-width:420px; width:100%; background:var(--bg-elevated); border:1px solid var(--border-default,var(--border-subtle));
+          border-radius:18px; padding:22px 20px 20px; box-shadow:0 18px 50px rgba(0,0,0,0.4); }
+        .sr-wm-x { position:absolute; top:12px; right:12px; width:30px; height:30px; border-radius:50%; border:none; cursor:pointer;
+          background:var(--bg-surface); color:var(--text-secondary); display:inline-flex; align-items:center; justify-content:center; }
+        .sr-wm-x svg { width:16px; height:16px; }
+        .sr-wm-h { font-size:17px; font-weight:800; color:var(--text-primary); margin-bottom:10px; }
+        .sr-wm-p { font-size:13.5px; line-height:1.5; color:var(--text-secondary); margin:0 0 14px; }
+        .sr-wm-arts { display:flex; flex-direction:column; gap:9px; margin-bottom:15px; }
+        .sr-wm-art { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:600; color:var(--text-primary); }
+        .sr-wm-art img { width:34px; height:34px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
+        .sr-wm-ph { width:34px; height:34px; border-radius:50%; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
+          background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:14px; }
+        .sr-wm-note { font-size:12px; line-height:1.5; color:var(--text-faint); margin:0; border-top:1px solid var(--border-subtle); padding-top:12px; }
 
         /* ── Pagalbiniai ── */
         .sr-end { text-align:center; padding:30px 16px 6px; }
@@ -537,7 +562,7 @@ function SrautasInner() {
       ) : (
         <>
           <div className="sr-grid">
-            {filtered.map(it => <FeedCard key={it.key} it={it} onDismiss={dismiss} onOpenTrack={openTrack} />)}
+            {filtered.map(it => <FeedCard key={it.key} it={it} onDismiss={dismiss} onOpenTrack={openTrack} onWhy={setWhyItem} />)}
           </div>
 
           {canLoadMore && <div ref={sentinel} aria-hidden style={{ height: 1 }} />}
@@ -558,6 +583,39 @@ function SrautasInner() {
       )}
 
       {modalTrack && <HomeTrackModal track={modalTrack} onClose={() => setModalTrack(null)} />}
+      {whyItem && <WhyModal it={whyItem} onClose={() => setWhyItem(null)} />}
+    </div>
+  )
+}
+
+/** „Kodėl pasiūlyta" modalas — paaiškina rekomendacijos logiką + susiję atlikėjai. */
+function WhyModal({ it, onClose }: { it: FeedItem; onClose: () => void }) {
+  const arts = (it.becauseArtists || []).filter(a => a.name)
+  return (
+    <div className="sr-wm-back" onClick={onClose}>
+      <div className="sr-wm" onClick={e => e.stopPropagation()}>
+        <button type="button" className="sr-wm-x" onClick={onClose} aria-label="Uždaryti">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+        <div className="sr-wm-h">Kodėl tau tai siūlome</div>
+        <p className="sr-wm-p">
+          <b>{it.title}</b> pasiūlyta pagal tavo muzikos skonį — tai mėgsta klausytojai, kuriems patinka ir{arts.length ? ' šie tavo atlikėjai:' : ' panašūs atlikėjai.'}
+        </p>
+        {arts.length > 0 && (
+          <div className="sr-wm-arts">
+            {arts.map((a, i) => (
+              <span className="sr-wm-art" key={i}>
+                {a.image
+                  ? // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(a.image)} alt="" loading="lazy" />
+                  : <span className="sr-wm-ph">{a.name.trim()[0]?.toUpperCase() || '?'}</span>}
+                <span>{a.name}</span>
+              </span>
+            ))}
+          </div>
+        )}
+        <p className="sr-wm-note">Rekomendacijos remiasi „co-like" principu — kokius atlikėjus kartu mėgsta panašaus skonio klausytojai — bei žanrų / stiliaus artumu.</p>
+      </div>
     </div>
   )
 }

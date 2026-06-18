@@ -65,6 +65,7 @@ type FeedItem = {
   date: string | null
   badge: string
   badgeColor?: string | null
+  liked?: boolean
   artistId?: number | null
   avatar?: string | null
   artist?: { name: string; slug: string | null } | null
@@ -80,6 +81,35 @@ const ymd = (y?: number | null, m?: number | null, d?: number | null) =>
   y ? `${y}-${String(m || 1).padStart(2, '0')}-${String(d || 1).padStart(2, '0')}T00:00:00.000Z` : null
 
 const one = (v: any) => (Array.isArray(v) ? v[0] : v)
+
+// Išvalo legacy diskusijų pavadinimų šiukšles: „R E M |232112" → „R E M".
+function cleanTitle(t?: string | null): string {
+  return (t || '').replace(/\s*\|\s*\d+\s*$/, '').replace(/\s{2,}/g, ' ').trim()
+}
+
+// Nario įrašo „vizualas" — kaip /bendruomene feede: jei nėra cover_image_url,
+// imam susietos muzikos nuotrauką (daina → albumas → atlikėjas). NE avataras.
+async function blogThumbs(sb: any, posts: { id: number; cover_image_url: string | null }[]): Promise<Map<number, string>> {
+  const map = new Map<number, string>()
+  const need = posts.filter(p => !p.cover_image_url).map(p => p.id)
+  if (!need.length) return map
+  try {
+    const [tj, aj, arj] = await Promise.all([
+      sb.from('blog_post_tracks').select('post_id, tracks:track_id(video_url, cover_url, artist:artist_id(cover_image_url))').in('post_id', need),
+      sb.from('blog_post_albums').select('post_id, albums:album_id(cover_image_url)').in('post_id', need),
+      sb.from('blog_post_artists').select('post_id, artists:artist_id(cover_image_url)').in('post_id', need),
+    ])
+    for (const row of (tj.data || []) as any[]) {
+      if (map.has(row.post_id)) continue
+      const t = one(row.tracks); if (!t) continue
+      const img = t.cover_url || ytThumb(t.video_url) || one(t.artist)?.cover_image_url
+      if (img) map.set(row.post_id, img)
+    }
+    for (const row of (aj.data || []) as any[]) { if (map.has(row.post_id)) continue; const al = one(row.albums); if (al?.cover_image_url) map.set(row.post_id, al.cover_image_url) }
+    for (const row of (arj.data || []) as any[]) { if (map.has(row.post_id)) continue; const ar = one(row.artists); if (ar?.cover_image_url) map.set(row.post_id, ar.cover_image_url) }
+  } catch { /* ignore */ }
+  return map
+}
 
 // Per-artist cap: iš sąrašo palieka geriausią `perArtist` įrašų kiekvienam
 // atlikėjui. score(it) — kuo didesnis, tuo geriau (dainoms = naujumas).
@@ -232,14 +262,16 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       if (postIds) q = q.in('id', postIds)
       q = q.order('published_at', { ascending: false }).limit(16)
       const { data } = await q
-      for (const p of (data || []) as any[]) {
+      const rows = (data || []) as any[]
+      const thumbs = await blogThumbs(sb, rows)
+      for (const p of rows) {
         const blog = one(p.blogs); const prof = one(blog?.profiles)
         const blogSlug = blog?.slug || prof?.username
         const bb = blogBadge(p.post_type, p.editorial_type)
         out.push({
           key: `blog-${p.id}`, kind: 'blog', title: p.title || '',
           subtitle: prof?.full_name || prof?.username || null,
-          image: p.cover_image_url || prof?.avatar_url || null,
+          image: p.cover_image_url || thumbs.get(p.id) || null,
           href: blogSlug ? `/blogas/${blogSlug}/${p.slug}` : '/blogas',
           date: p.published_at, badge: bb.label, badgeColor: bb.color,
           avatar: prof?.avatar_url || null,
@@ -261,7 +293,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       if (!charts.length) return out
       const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
       const { data: entries } = await sb.from('external_chart_entries')
-        .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(slug, cover_url, video_url, artists:artist_id(name, cover_image_url))')
+        .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(title, slug, cover_url, video_url, artists:artist_id(name, cover_image_url))')
         .in('artist_id', artistIds).in('chart_id', charts.map(c => Number(c.id)))
         .order('position', { ascending: true }).limit(40)
       // Vienas geriausios pozicijos įrašas kiekvienam (atlikėjas+topas) deriniui.
@@ -276,9 +308,10 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         const artistName = ar?.name || e.artist_name || null
         out.push({
           key: `chart-${e.chart_id}-${aid}`, kind: 'chart',
-          title: e.title || artistName || c.title || 'Topas',
-          subtitle: `#${e.position} · ${c.title}${c.period_label ? ` · ${c.period_label}` : ''}`,
-          image: e.cover_url || tr?.cover_url || ytThumb(tr?.video_url) || ar?.cover_image_url || null,
+          // resolved dainos title (ne raw chart entry tekstas)
+          title: tr?.title || artistName || c.title || 'Topas',
+          subtitle: `${artistName ? artistName + ' · ' : ''}#${e.position} · ${c.title}`,
+          image: tr?.cover_url || ytThumb(tr?.video_url) || ar?.cover_image_url || e.cover_url || null,
           href: `/topai/${c.source}-${c.chart_key}`,
           date: null, badge: 'Topas', artistId: aid, avatar: ar?.cover_image_url || null,
           artist: artistName ? { name: artistName, slug: null } : null,
@@ -294,11 +327,20 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
     const out: FeedItem[] = []
     try {
       const { data } = await sb.from('discussions')
-        .select('id, title, slug, artist_id, comment_count, like_count, last_comment_at, created_at, artist:artists!discussions_artist_id_fkey(name, cover_image_url)')
+        .select('id, title, slug, artist_id, comment_count, like_count, last_comment_at, created_at')
         .in('artist_id', artistIds).eq('is_deleted', false)
         .or('legacy_kind.is.null,legacy_kind.eq.discussion') // tik tikros diskusijos (ne migruotos recenzijos/naujienos)
         .order('last_comment_at', { ascending: false, nullsFirst: false }).limit(10)
       const rows = (data || []) as any[]
+      // Atlikėjų nuotraukos atskira užklausa (patikimiau nei embedded join).
+      const artCover = new Map<number, { name: string; cover: string | null }>()
+      const artIds = Array.from(new Set(rows.map(d => Number(d.artist_id)).filter(Boolean)))
+      if (artIds.length) {
+        try {
+          const { data: arts } = await sb.from('artists').select('id, name, cover_image_url').in('id', artIds)
+          for (const a of (arts || []) as any[]) artCover.set(Number(a.id), { name: a.name, cover: a.cover_image_url || null })
+        } catch { /* ignore */ }
+      }
       // Naujausias komentaras kiekvienai diskusijai (kaip /bendruomene).
       const lastComment = new Map<number, string>()
       const ids = rows.map(d => d.id)
@@ -316,14 +358,15 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         } catch { /* ignore */ }
       }
       for (const d of rows) {
-        const a = one(d.artist)
+        const aid = d.artist_id ? Number(d.artist_id) : 0
+        const ac = aid ? artCover.get(aid) : null
         const cmt = lastComment.get(d.id)
         out.push({
-          key: `topic-${d.id}`, kind: 'topic', title: d.title || '',
-          subtitle: cmt ? `„${cmt}"` : (a?.name || (d.comment_count ? `${d.comment_count} komentarų` : 'Diskusija')),
-          image: a?.cover_image_url || null, href: `/diskusijos/${d.slug}`,
+          key: `topic-${d.id}`, kind: 'topic', title: cleanTitle(d.title),
+          subtitle: cmt ? `„${cmt}"` : (ac?.name || (d.comment_count ? `${d.comment_count} komentarų` : 'Diskusija')),
+          image: ac?.cover || null, href: `/diskusijos/${d.slug}`,
           date: d.last_comment_at || d.created_at, badge: 'Diskusija',
-          artistId: d.artist_id ? Number(d.artist_id) : null, avatar: a?.cover_image_url || null,
+          artistId: aid || null, avatar: ac?.cover || null,
           meta: { comments: d.comment_count, likes: d.like_count },
         })
       }
@@ -397,14 +440,16 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         .eq('status', 'published').not('published_at', 'is', null).lte('published_at', nowIso)
         .in('user_id', followedIds)
         .order('published_at', { ascending: false }).limit(20)
-      for (const p of (data || []) as any[]) {
+      const rows = (data || []) as any[]
+      const thumbs = await blogThumbs(sb, rows)
+      for (const p of rows) {
         const blog = one(p.blogs); const prof = one(blog?.profiles)
         const blogSlug = blog?.slug || prof?.username
         const bb = blogBadge(p.post_type, p.editorial_type)
         out.push({
           key: `blog-${p.id}`, kind: 'blog', title: p.title || '',
           subtitle: prof?.full_name || prof?.username || null,
-          image: p.cover_image_url || prof?.avatar_url || null,
+          image: p.cover_image_url || thumbs.get(p.id) || null,
           href: blogSlug ? `/blogas/${blogSlug}/${p.slug}` : '/blogas',
           date: p.published_at, badge: bb.label, badgeColor: bb.color,
           avatar: prof?.avatar_url || null,
@@ -494,7 +539,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v13'],
+  ['srautas-feed-v14'],
   { revalidate: 90 },
 )
 
@@ -522,5 +567,28 @@ export async function GET(req: NextRequest) {
   } catch { /* anon */ }
 
   const result = await getCachedFeed(uid || 'anon', artistIds, followedIds, limit, before)
+
+  // „liked" žyma dabartiniam nariui (kad ♥ rodytų teisingą būseną, ne visada tuščią).
+  if (uid && Array.isArray(result.items) && result.items.length) {
+    try {
+      const sb = createAdminClient()
+      const numId = (k: string) => Number(k.split('-').pop())
+      const tIds = result.items.filter((i: any) => i.kind === 'track').map((i: any) => numId(i.key)).filter(Boolean)
+      const aIds = result.items.filter((i: any) => i.kind === 'album').map((i: any) => numId(i.key)).filter(Boolean)
+      const liked = new Set<string>()
+      const [tl, al] = await Promise.all([
+        tIds.length ? sb.from('likes').select('entity_id').eq('entity_type', 'track').eq('user_id', uid).in('entity_id', tIds) : Promise.resolve({ data: [] as any[] }),
+        aIds.length ? sb.from('likes').select('entity_id').eq('entity_type', 'album').eq('user_id', uid).in('entity_id', aIds) : Promise.resolve({ data: [] as any[] }),
+      ])
+      for (const r of (tl.data || []) as any[]) liked.add(`track-${r.entity_id}`)
+      for (const r of (al.data || []) as any[]) liked.add(`album-${r.entity_id}`)
+      if (liked.size) {
+        // Naujas masyvas — nemutuojam unstable_cache objektų.
+        const items = result.items.map((it: any) => liked.has(it.key) ? { ...it, liked: true } : it)
+        return NextResponse.json({ ...result, items })
+      }
+    } catch { /* ignore */ }
+  }
+
   return NextResponse.json(result)
 }
