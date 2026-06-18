@@ -1,10 +1,11 @@
 'use client'
 
-// app/vartotojai/page.tsx (2026-06-17)
+// app/nariai/page.tsx (2026-06-18, buvęs /vartotojai)
 //
 // „Bendruomenės nariai" — pilnas narių sąrašas (į jį veda „Daugiau narių"
-// kortelė iš /bendruomene „Aktyvūs nariai" sekcijos). v1: aktyviausi + nauji
-// nariai su mėgstamiausių atlikėjų koliažu (ta pati kortelės stilistika).
+// kortelė iš /bendruomene „Aktyvūs nariai" sekcijos). Rodom AKTYVIUS narius +
+// naujus/suimportuotus (su mėgstamiausių atlikėjų koliažu) — kuo daugiau, kad
+// puslapis būtų gyvas, ne tik kelios kortelės.
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -64,18 +65,20 @@ function MemberCard({ m }: { m: Member }) {
   )
 }
 
-export default function VartotojaiPage() {
+export default function NariaiPage() {
   const [list, setList] = useState<Member[] | null>(null)
   useEffect(() => {
     let on = true
-    fetch('/api/atradimai/active-members?days=30&limit=24').then(r => r.json()).then(d => {
+    fetch('/api/atradimai/active-members?days=30&limit=48').then(r => r.json()).then(d => {
       if (!on) return
       const actives: Member[] = (d.members || []).map((m: any) => ({ user_id: m.user_id, username: m.username, name: m.name, avatar: m.avatar, favArtists: m.fav_artists || [], headline: m.headline || null, isNew: false }))
       const seen = new Set(actives.map(m => m.username))
-      const news: Member[] = (d.new_members || [])
-        .filter((m: any) => !seen.has(m.username) && !m.joined_legacy_at)
-        .map((m: any) => ({ username: m.username, name: m.name, avatar: m.avatar, favArtists: m.fav_artists || [], isNew: true }))
-      setList([...news, ...actives])
+      // Įtraukiam IR naujus, IR suimportuotus narius (ne tik realias registracijas) —
+      // kad sąrašas būtų pilnas, ne tik kelios kortelės.
+      const rest: Member[] = (d.new_members || [])
+        .filter((m: any) => !seen.has(m.username))
+        .map((m: any) => ({ username: m.username, name: m.name, avatar: m.avatar, favArtists: m.fav_artists || [], isNew: !m.joined_legacy_at }))
+      setList([...actives, ...rest])
     }).catch(() => { if (on) setList([]) })
     return () => { on = false }
   }, [])

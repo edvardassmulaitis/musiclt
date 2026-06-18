@@ -54,10 +54,9 @@ function extractYouTubeId(url?: string | null): string | null {
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?\s]{11})/)
   return m?.[1] || null
 }
-// Pirmąją raidę į didžiąją (username DB'e dažnai mažosiomis: edas → Edas).
+// Naudojam ORIGINALŲ username (be priverstinės didžiosios): einaras13 → einaras13.
 function capName(s?: string | null): string {
-  const n = (s || '').trim()
-  return n ? n.charAt(0).toUpperCase() + n.slice(1) : ''
+  return (s || '').trim()
 }
 function uname(a?: { username?: string | null; full_name?: string | null } | null): string {
   return capName(a?.username || a?.full_name || 'narys')
@@ -904,8 +903,8 @@ type MixItem =
 // 2026-06-14: /atrasti Pulsas perdarytas iš 4-stulpelių masonry į vientisą srautą —
 // vienoda forma, kairysis spalvotas kraštas + etiketė koduoja tipą, viršelis kairėj.
 const ROW_BASE = 'group relative flex overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)]'
-const ROW_THUMB = 'relative w-[112px] shrink-0 self-stretch overflow-hidden bg-[var(--cover-placeholder)] sm:w-[320px]'
-const ROW_MINH = 'min-h-[176px] sm:min-h-[200px]'
+const ROW_THUMB = 'relative w-[112px] shrink-0 self-stretch overflow-hidden bg-[var(--cover-placeholder)] sm:w-[400px]'
+const ROW_MINH = 'min-h-[176px] sm:min-h-[228px]'
 const ROW_PAD = 'flex min-w-0 flex-1 flex-col px-5 py-4'
 
 function kindColor(kind: string): string {
@@ -941,7 +940,7 @@ function PostRowCard({ p }: { p: FeedPost }) {
       <div className={ROW_PAD}>
         <KindBadge kind={kind} abs={false} />
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
-        {p.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-4">{p.excerpt}</p>}
+        {p.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-5">{p.excerpt}</p>}
         <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
       </div>
     </Link>
@@ -994,36 +993,39 @@ function PostTopasRowCard({ p, onOpenEntry }: { p: FeedPost; onOpenEntry: (e: Li
                 </div>
               ))}
             </Link>
-            {/* Desktop: eilė tilių su pavadinimais — paspaudus atsidaro dainos/albumo modalas. */}
-            <div className="mt-2.5 hidden flex-wrap gap-3 sm:flex">
-              {entries.map(e => {
-                const tileInner = (
-                  <>
-                    <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
-                      <TopEntryTile e={e} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="m-0 truncate text-[12px] font-bold leading-tight text-[var(--text-primary)]">{sani(e.title)}</p>
-                      {e.artist && <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{e.artist}</p>}
-                    </div>
-                  </>
+            {/* Desktop: mozaika — #1 didelis (2×2), likę mažėjančia tvarka, „Visas
+                topas" plytelė užpildo galą; užpildo visą plotį be tuščių vietų. */}
+            <div className="mt-2.5 hidden grid-cols-5 gap-2 sm:grid">
+              {entries.map((e, i) => {
+                const big = i === 0
+                const spanCls = big ? 'col-span-2 row-span-2 aspect-square' : 'aspect-square'
+                const cell = (
+                  <div className="relative h-full w-full overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
+                    <TopEntryTile e={e} big={big} />
+                  </div>
                 )
+                const tip = `${sani(e.title)}${e.artist ? ' – ' + e.artist : ''}`
                 return clickable(e) ? (
-                  <button key={e.rank} type="button" onClick={() => onOpenEntry(e)}
-                    className="group/tile flex w-[112px] cursor-pointer flex-col gap-1.5 border-0 bg-transparent p-0 text-left">
-                    {tileInner}
+                  <button key={e.rank} type="button" onClick={() => onOpenEntry(e)} title={tip}
+                    className={`group/tile ${spanCls} cursor-pointer overflow-hidden rounded-lg border-0 bg-transparent p-0`}>
+                    {cell}
                   </button>
                 ) : (
-                  <Link key={e.rank} href={feedHref(p)} className="flex w-[112px] flex-col gap-1.5 no-underline">
-                    {tileInner}
+                  <Link key={e.rank} href={feedHref(p)} title={tip}
+                    className={`${spanCls} overflow-hidden rounded-lg no-underline`}>
+                    {cell}
                   </Link>
                 )
               })}
+              <Link href={feedHref(p)}
+                className="col-span-2 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border-strong)] font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.06)]">
+                Visas topas →
+              </Link>
             </div>
           </>
         )}
         <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
-        <Link href={feedHref(p)} className="mt-2 self-start font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visas topas →</Link>
+        <Link href={feedHref(p)} className="mt-2 self-start font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70 sm:hidden">Visas topas →</Link>
       </div>
     </div>
   )
@@ -1049,7 +1051,7 @@ function DiskusijaRowCard({ d }: { d: Diskusija }) {
       <div className={ROW_PAD}>
         <KindBadge kind="diskusija" abs={false} />
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(d.title)}</h3>
-        {lc?.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-4">{lc.excerpt}</p>}
+        {lc?.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-5">{lc.excerpt}</p>}
         <RowMeta author={{ username: lc?.author || d.author_name, avatar_url: lc?.avatar }} date={null} comments={d.comment_count} />
       </div>
     </Link>
@@ -1071,7 +1073,7 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
   return (
     <div className={`${ROW_BASE} ${ROW_MINH} w-full hover:border-[rgba(249,115,22,0.5)]`}>
       <AccentBar color="#f97316" />
-      <div className={`${ROW_THUMB} flex items-center justify-center`}>
+      <div className={ROW_THUMB}>
         {playing && canPlayInline ? (
           <iframe src={embedSrc} title="Grotuvas" className="absolute inset-0 h-full w-full border-0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
@@ -1082,7 +1084,7 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
               <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
             ) : <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(a.artist_name || 'x')},34%,22%), hsl(${(hue(a.artist_name || 'x') + 40) % 360},30%,12%))` }} />}
             <button type="button" aria-label="Groti" onClick={() => { if (canPlayInline) setPlaying(true); else onOpen(a) }}
-              className="relative z-[1] flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border-0 bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.4)] transition-transform hover:scale-105"><Ic d={I.play} size={17} filled /></button>
+              className="absolute bottom-2.5 right-2.5 z-[1] flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-0 bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.45)] transition-transform hover:scale-105"><Ic d={I.play} size={16} filled /></button>
           </>
         )}
       </div>
@@ -1091,7 +1093,7 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` - ${a.track_name}` : ''}
         </h3>
-        {quote && <p className="m-0 mt-1.5 line-clamp-4 text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-4">{quote.length > 340 ? quote.slice(0, 340).replace(/\s+\S*$/, '') + '…' : quote}</p>}
+        {quote && <p className="m-0 mt-1.5 line-clamp-4 text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-5">{quote.length > 340 ? quote.slice(0, 340).replace(/\s+\S*$/, '') + '…' : quote}</p>}
         <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
       </button>
     </div>
@@ -1287,7 +1289,6 @@ function PulsasSection() {
         <div className="flex items-center gap-2.5">
           <span className="h-[18px] w-1 rounded-[3px] bg-[var(--accent-orange)]" />
           <h2 className="m-0 font-['Outfit',sans-serif] font-extrabold text-[var(--text-primary)]" style={{ fontSize: 'var(--section-title-size)', letterSpacing: 'var(--section-title-tracking)' }}>Pulsas</h2>
-          <span className="hidden text-[12.5px] text-[var(--text-muted)] sm:inline">kuo gyvena bendruomenė</span>
         </div>
       </div>
       <div className="mb-4 flex flex-wrap gap-2">
@@ -1382,7 +1383,7 @@ function KornerModal({ onClose }: { onClose: () => void }) {
         ))}
       </div>
       {posts === null ? (
-        <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">{Array(8).fill(null).map((_, i) => <div key={i} className="hp-skel h-[120px] w-full rounded-xl sm:h-[150px] sm:w-[210px]" />)}</div>
+        <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">{Array(8).fill(null).map((_, i) => <div key={i} className="hp-skel h-[140px] w-full rounded-xl sm:h-[190px] sm:w-[280px]" />)}</div>
       ) : posts.length === 0 ? (
         <div className="py-12 text-center text-[13px] text-[var(--text-muted)]">Įrašų dar nėra.</div>
       ) : (
@@ -1397,10 +1398,10 @@ function KornerModal({ onClose }: { onClose: () => void }) {
 function KornerCard({ p, wide = false }: { p: FeedPost; wide?: boolean }) {
   const kind = postKind(p)
   return (
-    <Link href={feedHref(p)} className={`group flex snap-start flex-col rounded-[13px] border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3.5 no-underline transition-colors hover:bg-[var(--card-hover)] ${wide ? 'w-full shrink sm:w-[210px] sm:shrink-0' : 'w-[200px] shrink-0'}`}>
+    <Link href={feedHref(p)} className={`group flex snap-start flex-col rounded-[15px] border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4 no-underline transition-colors hover:bg-[var(--card-hover)] ${wide ? 'w-full shrink sm:w-[280px] sm:shrink-0' : 'w-[280px] shrink-0'}`}>
       <KindBadge kind={kind} abs={false} />
-      <h4 className="m-0 mt-2.5 line-clamp-2 font-['Outfit',sans-serif] text-[13.5px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title) || '(be pavadinimo)'}</h4>
-      {p.excerpt && <p className={`m-0 mt-1 text-[11.5px] leading-snug text-[var(--text-muted)] ${wide ? 'line-clamp-3 sm:line-clamp-2' : 'line-clamp-2'}`}>{p.excerpt}</p>}
+      <h4 className="m-0 mt-3 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title) || '(be pavadinimo)'}</h4>
+      {p.excerpt && <p className={`m-0 mt-1.5 text-[12.5px] leading-relaxed text-[var(--text-muted)] ${wide ? 'line-clamp-4 sm:line-clamp-4' : 'line-clamp-4'}`}>{p.excerpt}</p>}
       <div className="mt-auto flex items-center gap-1.5 pt-2.5">
         <Avatar src={p.author?.avatar_url} name={uname(p.author)} size={16} />
         <span className="min-w-0 truncate text-[11px] text-[var(--text-muted)]">{uname(p.author)}</span>
@@ -1455,11 +1456,11 @@ function KornerSection() {
       </div>
       <div className="hp-scroll flex snap-x gap-3 overflow-x-auto pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {ordered === null ? (
-          Array(5).fill(null).map((_, i) => <div key={i} className="hp-skel h-[150px] w-[200px] shrink-0 rounded-[13px]" />)
+          Array(5).fill(null).map((_, i) => <div key={i} className="hp-skel h-[190px] w-[280px] shrink-0 rounded-[15px]" />)
         ) : (
           <>
             {ordered.map(p => <KornerCard key={p.id} p={p} />)}
-            <Link href="/blogas/rasyti?type=creation" className="group flex w-[200px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[13px] border border-dashed border-[var(--border-strong)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)]" style={{ minHeight: 150 }}>
+            <Link href="/blogas/rasyti?type=creation" className="group flex w-[280px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[15px] border border-dashed border-[var(--border-strong)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)]" style={{ minHeight: 190 }}>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(249,115,22,0.15)] text-[var(--accent-orange)]"><Ic d={I.plus} size={15} /></span>
               <b className="font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">Įkelk savo kūrybą</b>
               <span className="text-[11px] text-[var(--text-muted)]">eilėraštį, vertimą ar mintis</span>
@@ -1531,7 +1532,7 @@ function NariaiSection() {
           </Link>
         ))}
         {/* „Daugiau" — į pilną narių sąrašą. */}
-        <Link href="/vartotojai" className="group flex w-[150px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[15px] border border-dashed border-[var(--border-strong)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.05)]">
+        <Link href="/nariai" className="group flex w-[150px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[15px] border border-dashed border-[var(--border-strong)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.05)]">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(59,130,246,0.14)] text-[#3b82f6]"><Ic d="M9 6l6 6-6 6" size={18} /></span>
           <b className="font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">Daugiau narių</b>
           <span className="text-[10.5px] text-[var(--text-muted)]">visi bendruomenės nariai</span>

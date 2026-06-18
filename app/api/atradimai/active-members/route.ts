@@ -48,7 +48,7 @@ function headlineFor(counts: Record<string, number>): string {
 
 export async function GET(req: NextRequest) {
   const days = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('days') || '7'), 1), 30)
-  const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '8'), 1), 24)
+  const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '8'), 1), 60)
   const sb = createAdminClient()
 
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()

@@ -30,8 +30,8 @@ function extractYouTubeId(url?: string | null): string | null {
   return m?.[1] || null
 }
 function uname(a?: { username?: string | null; full_name?: string | null } | null): string {
-  const n = (a?.username || a?.full_name || 'narys').trim()
-  return n ? n.charAt(0).toUpperCase() + n.slice(1) : 'narys'
+  // Originalus username (be priverstinės didžiosios raidės).
+  return (a?.username || a?.full_name || 'narys').trim() || 'narys'
 }
 function Ic({ d, size = 14, filled = false }: { d: string; size?: number; filled?: boolean }) {
   return (

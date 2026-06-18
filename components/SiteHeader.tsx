@@ -168,7 +168,7 @@ const NAV: NavItem[] = [
     key: 'bendruomene',
     label: 'Bendruomenė',
     href: '/bendruomene',
-    match: ['/bendruomene', '/atrasti', '/vartotojai', '/diskusijos', '/pokalbiai', '/boombox', '/dienos-daina', '/blogas', '/feed', '/srautas'],
+    match: ['/bendruomene', '/atrasti', '/nariai', '/diskusijos', '/pokalbiai', '/boombox', '/dienos-daina', '/blogas', '/feed', '/srautas'],
     desc: 'Nariai, diskusijos, kūryba',
     accent: '#8b5cf6',
     icon: I.users,
@@ -187,7 +187,7 @@ const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string
     { href: '/koncertu-irasai', label: 'Koncertų įrašai' },
   ],
   bendruomene: [
-    { href: '/vartotojai', label: 'Nariai' },
+    { href: '/nariai', label: 'Nariai' },
     { href: '/diskusijos', label: 'Diskusijos' },
     { href: '/blogas', label: 'Narių įrašai' },
     { href: '/dienos-daina', label: 'Dienos daina' },
@@ -665,7 +665,7 @@ function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: s
   const dailySongs = data?.dailySongs || []
   const posts = data?.discoveryPosts || []
   const items: { href: string; icon: React.ReactNode; title: string; desc: string; rgb: string }[] = [
-    { href: '/vartotojai', icon: I.users, title: 'Pažink narius', desc: 'Aktyviausi bendruomenės nariai', rgb: '#f59e0b' },
+    { href: '/nariai', icon: I.users, title: 'Pažink narius', desc: 'Aktyviausi bendruomenės nariai', rgb: '#f59e0b' },
     { href: '/diskusijos', icon: I.forum, title: 'Diskusijos', desc: 'Forumo temos ir debatai', rgb: '#8b5cf6' },
     { href: '/pokalbiai', icon: I.chat, title: 'Pokalbių dėžutė', desc: 'Bendras gyvas chatas', rgb: '#06b6d4' },
     { href: '/boombox', icon: I.boombox, title: 'Boombox', desc: 'Muzikinis swipe žaidimas', rgb: '#6366f1' },
@@ -1135,7 +1135,7 @@ function MobileExpansion({
           </>
         )}
         <div className="sh-mexp-grid">
-          <Link href="/vartotojai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f59e0b') }}>
+          <Link href="/nariai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f59e0b') }}>
             <span className="sh-mexp-tile-icon">{I.users}</span>
             <span className="sh-mexp-tile-label">Pažink narius</span>
           </Link>
