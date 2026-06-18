@@ -141,7 +141,7 @@ export async function backfillStats(): Promise<{
   // Paskutiniai sutvarkyti — atskira lengva užklausa (idx_tracks_yt_backfill).
   const { data: recentData } = await supabase
     .from('tracks')
-    .select('id, title, video_views, video_url, yt_backfill_at, artists(name)')
+    .select('id, title, video_views, video_url, yt_backfill_at, artists!tracks_artist_id_fkey(name)')
     .not('yt_backfill_at', 'is', null)
     .order('yt_backfill_at', { ascending: false })
     .limit(15)
