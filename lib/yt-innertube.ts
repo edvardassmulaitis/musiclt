@@ -293,13 +293,20 @@ async function trySearchText(videoId: string): Promise<YtVideoDetails | null> {
  * neužsipildydavo, quick-add „neduodavo pridėti". Dabar nemokami InnerTube
  * šaltiniai (player, search) bandomi PRIEŠ watch-page'ą; visi turi timeout'us.
  */
-export async function getVideoDetails(videoId: string): Promise<YtVideoDetails | null> {
-  const sources: Array<(id: string) => Promise<YtVideoDetails | null>> = [
+export async function getVideoDetails(
+  videoId: string,
+  opts: { skipDataApi?: boolean } = {},
+): Promise<YtVideoDetails | null> {
+  // skipDataApi (foninis backfill) — praleidžia mokamą Data API, kad NEeikvotų
+  // dienos kvotos, reikalingos interaktyviam quick-add/enrich. Naudoja tik
+  // nemokamus InnerTube šaltinius. 2026-06-18.
+  let sources: Array<(id: string) => Promise<YtVideoDetails | null>> = [
     tryYtDataApi,
     tryPlayerApi,
     trySearchText,
     tryWatchPage,
   ]
+  if (opts.skipDataApi) sources = sources.filter((s) => s !== tryYtDataApi)
   let winner: YtVideoDetails | null = null
   let winnerSrc: ((id: string) => Promise<YtVideoDetails | null>) | null = null
   for (const src of sources) {
@@ -318,7 +325,10 @@ export async function getVideoDetails(videoId: string): Promise<YtVideoDetails |
   // release_year/month/day likdavo tušti, nors video data egzistuoja.
   if (!winner.uploadedAt) {
     // Nemokamą InnerTube player'į (turi uploadDate) bandom prieš lėtą watch-page'ą.
-    for (const src of [tryYtDataApi, tryPlayerApi, tryWatchPage]) {
+    const dateSources = (opts.skipDataApi
+      ? [tryPlayerApi, tryWatchPage]
+      : [tryYtDataApi, tryPlayerApi, tryWatchPage])
+    for (const src of dateSources) {
       if (src === winnerSrc) continue
       try {
         const r = await src(videoId)

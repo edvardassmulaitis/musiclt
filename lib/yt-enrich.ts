@@ -45,7 +45,14 @@ function svc() {
  *   2) jei (po žingsnio 1) turim videoId — fetch tikslų viewCount
  *   3) update tracks row + insert track_video_views_history
  */
-export async function enrichTrack(trackId: number, force = false): Promise<EnrichResult | EnrichError> {
+export async function enrichTrack(
+  trackId: number,
+  force = false,
+  opts: { skipDataApi?: boolean; preserveViews?: boolean } = {},
+): Promise<EnrichResult | EnrichError> {
+  // skipDataApi — foninis backfill praleidžia mokamą Data API (taupo kvotą).
+  // preserveViews — date-only backfill (C fazė): NEperrašom esamų views naujom
+  // (galimai aproksimuotom) reikšmėm; tik užpildom trūkstamą datą + embeddable.
   const supabase = svc()
   const warnings: string[] = []
 
@@ -186,11 +193,10 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
       // Timeout/network — paliekam nepaliestą (null), client-side onError pagaus.
     }
     try {
-      const details = await getVideoDetails(videoId)
+      const details = await getVideoDetails(videoId, { skipDataApi: opts.skipDataApi })
+      // preserveViews + jau turim views → NEperrašom (date-only backfill).
+      const keepViews = !!opts.preserveViews && viewsBefore != null
       if (details && !details.isPrivate) {
-        viewsAfter = details.viewCount
-        updates.video_views = details.viewCount
-        updates.video_views_checked_at = new Date().toISOString()
         // uploadDate iš YT (Data API publishedAt arba watch page JSON-LD).
         // Naudinga LT atlikėjams kaip release date proxy + leidžia
         // apskaičiuoti views/day rate'ą. Saugom tik jei dar neturim
@@ -198,6 +204,13 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
         if (details.uploadedAt && !(t as any).video_uploaded_at) {
           updates.video_uploaded_at = details.uploadedAt
         }
+        if (keepViews) {
+          // Tik datos backfill — views paliekam kaip buvo.
+          viewsAfter = viewsBefore
+        } else {
+        viewsAfter = details.viewCount
+        updates.video_views = details.viewCount
+        updates.video_views_checked_at = new Date().toISOString()
 
         const { data: hist, error: hErr } = await (supabase
           .from('track_video_views_history') as any)
@@ -213,6 +226,7 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
         if (details.source === 'search_text') {
           warnings.push(`viewCount aproksimacija (search-text fallback, ne tikslus)`)
         }
+        } // /else (ne keepViews)
       } else if (details?.isPrivate) {
         // Privatus/ištrintas video — clear visus video lauk'us, kad track'as
         // nesivilktų po sistemą su nemataju YT video. Iš naujo paleidus

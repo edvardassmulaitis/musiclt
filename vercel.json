@@ -25,6 +25,10 @@
     {
       "path": "/api/cron/import-jobs",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/yt-backfill",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
