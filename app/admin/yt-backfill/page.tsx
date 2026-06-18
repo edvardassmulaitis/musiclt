@@ -11,10 +11,20 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
+type Recent = {
+  id: number
+  title: string | null
+  artist: string | null
+  views: number | null
+  status: 'views' | 'video' | 'dead'
+  at: string | null
+}
+
 type Stats = {
   ok: true
   remaining: { A: number | null; B: number | null; C: number | null }
   processed: { total: number | null; recovered: number | null; dead: number | null }
+  recent?: Recent[]
 }
 
 type RunResult = {
@@ -130,6 +140,32 @@ export default function YtBackfillPage() {
           </div>
         ))}
       </div>
+
+      {/* Paskutiniai sutvarkyti */}
+      {stats?.recent && stats.recent.length > 0 && (
+        <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl shadow-sm mb-4 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[var(--border-subtle)] font-semibold text-sm text-[var(--text-secondary)]">
+            Paskutiniai sutvarkyti
+          </div>
+          <ul className="divide-y divide-[var(--border-subtle)]">
+            {stats.recent.map((r) => (
+              <li key={r.id} className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-[var(--bg-elevated)]">
+                <span className="shrink-0" title={r.status === 'views' ? 'Atkurtos peržiūros' : r.status === 'dead' ? 'Video negyvas / be peržiūrų' : 'Be video'}>
+                  {r.status === 'views' ? '✅' : r.status === 'dead' ? '⚠️' : '🔍'}
+                </span>
+                <a href={`/admin/tracks/${r.id}`} target="_blank" rel="noopener noreferrer"
+                  className="min-w-0 flex-1 truncate text-[var(--text-primary)] hover:text-blue-600">
+                  <span className="font-medium">{r.title || '—'}</span>
+                  <span className="text-[var(--text-muted)]"> · {r.artist || '—'}</span>
+                </a>
+                <span className="shrink-0 tabular-nums text-[var(--text-muted)]">
+                  {r.views != null ? `${fmt(r.views)} perž.` : '—'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {lastRun && (
         <div className="text-sm bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4 shadow-sm">

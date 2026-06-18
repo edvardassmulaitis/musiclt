@@ -113,31 +113,53 @@ export async function runYtBackfill(opts: {
   return { ok: true, phase, processed, found, errors, ms: Date.now() - start, done: false, samples }
 }
 
-/** Likučiai + progresas (stebėjimui ?stats=1 / admin puslapiui). */
+export type RecentBackfill = {
+  id: number
+  title: string | null
+  artist: string | null
+  views: number | null
+  status: 'views' | 'video' | 'dead'   // views=atkurti views; video=rasta/yra video be views; dead=negyvas
+  at: string | null
+}
+
+/** Likučiai + progresas + paskutiniai sutvarkyti (stebėjimui ?stats=1 / admin puslapiui). */
 export async function backfillStats(): Promise<{
   ok: true
   remaining: { A: number | null; B: number | null; C: number | null }
   processed: { total: number | null; recovered: number | null; dead: number | null }
+  recent: RecentBackfill[]
 }> {
   const supabase = createAdminClient()
   const cnt = (q: any) => q as Promise<{ count: number | null }>
   const head = () => supabase.from('tracks').select('id', { count: 'exact', head: true })
 
-  const [a, b, c, total, recovered, dead] = await Promise.all([
+  const [a, b, c, total, recovered, dead, recentRes] = await Promise.all([
     cnt(head().not('video_url', 'is', null).is('video_views_checked_at', null).is('yt_backfill_at', null)),
     cnt(head().is('video_url', null).is('youtube_searched_at', null).is('yt_backfill_at', null)
       .not('title', 'is', null).not('artist_id', 'is', null)),
     cnt(head().not('video_url', 'is', null).is('video_uploaded_at', null).is('yt_backfill_at', null)),
-    // Apdorota viso (turi backfill žymą)
     cnt(head().not('yt_backfill_at', 'is', null)),
-    // Atkurta: apdorota IR turi views
     cnt(head().not('yt_backfill_at', 'is', null).not('video_views', 'is', null)),
-    // Negyvi: apdorota, turi video_url, bet views taip ir liko tušti
     cnt(head().not('yt_backfill_at', 'is', null).not('video_url', 'is', null).is('video_views', null)),
+    supabase.from('tracks')
+      .select('id, title, video_views, video_url, yt_backfill_at, artists(name)')
+      .not('yt_backfill_at', 'is', null)
+      .order('yt_backfill_at', { ascending: false })
+      .limit(15),
   ])
+
+  const recent: RecentBackfill[] = ((recentRes as any)?.data || []).map((r: any) => {
+    const art = Array.isArray(r.artists) ? r.artists[0] : r.artists
+    const hasVideo = !!r.video_url
+    const status: RecentBackfill['status'] =
+      r.video_views != null ? 'views' : (hasVideo ? 'dead' : 'video')
+    return { id: r.id, title: r.title ?? null, artist: art?.name ?? null, views: r.video_views ?? null, status, at: r.yt_backfill_at ?? null }
+  })
+
   return {
     ok: true,
     remaining: { A: a.count ?? null, B: b.count ?? null, C: c.count ?? null },
     processed: { total: total.count ?? null, recovered: recovered.count ?? null, dead: dead.count ?? null },
+    recent,
   }
 }
