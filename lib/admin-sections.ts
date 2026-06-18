@@ -95,10 +95,11 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { key: 'radaras',        group: 'review', minRole: 'editor', href: '/admin/radaras',        icon: '📡', label: 'Naujų atlikėjų radaras',  hint: 'Sugeneruoti / įtraukti / paslėpti — /nauji-atlikejai', badgeKey: 'radar_pending' },
   { key: 'truksta',        group: 'review', minRole: 'editor', href: '/admin/truksta-muzikos',icon: '🧩', label: 'Trūkstama muzika',        hint: 'Bendruomenės minimi atlikėjai/albumai/dainos, kurių nėra DB', badgeKey: 'missing_music' },
   { key: 'claims',         group: 'review', minRole: 'editor', href: '/admin/claims',         icon: '🎫', label: 'Atlikėjų prašymai',       hint: '„Tai mano profilis" claim\'ai → studijos prieiga', badgeKey: 'claims_pending' },
-  { key: 'import-pending', group: 'review', minRole: 'editor', href: '/admin/import/pending', icon: '⏳', label: 'Pending review',          hint: 'music.lt turi, Wiki neturi — patvirtinti', badgeKey: 'import_pending' },
-  { key: 'topai-vidiniai', group: 'review', minRole: 'editor', href: '/admin/topai-vidiniai', icon: '📋', label: 'Vidiniai topai',          hint: 'Narių topų susiejimas su DB + patvirtinimas', badgeKey: 'internal_tops' },
+  { key: 'topai-vidiniai', group: 'review', minRole: 'editor', href: '/admin/topai-vidiniai', icon: '📋', label: 'Vidiniai topai',          hint: 'Narių topai laukia susiejimo + patvirtinimo (per mėn.)', badgeKey: 'internal_tops' },
+  { key: 'irasai',         group: 'review', minRole: 'editor', href: '/admin/irasai',         icon: '🗂️', label: 'Narių įrašai',            hint: 'Neperžiūrėti narių įrašai homepage juostai (per mėn.)', badgeKey: 'member_posts' },
   { key: 'substiliai',     group: 'review', minRole: 'editor', href: '/admin/substiliai',     icon: '🏷️', label: 'Substilių peržiūra',      hint: 'Pending substiliai — merge / approve / delete', badgeKey: 'substyles_pending' },
-  { key: 'top',            group: 'review', minRole: 'editor', href: '/admin/top',            icon: '🏆', label: 'TOP sąrašai',             hint: 'TOP 40 · LT TOP 30 — pasiūlymai laukia', badgeKey: 'top_pending' },
+  { key: 'charts',         group: 'review', minRole: 'editor', href: '/admin/charts',         icon: '🌍', label: 'Išoriniai topai',         hint: 'Nesumatchintos dainos po dienos atnaujinimo', badgeKey: 'charts_unmatched' },
+  { key: 'top',            group: 'review', minRole: 'editor', href: '/admin/top',            icon: '🏆', label: 'TOP sąrašai',             hint: 'Trūksta patvirtintų pasiūlymų ateinančiai savaitei (TOP40≥10, LT TOP30≥5)', badgeKey: 'top_short' },
 
   // ── Turinys ───────────────────────────────────────────────────────────────
   { key: 'artists',  group: 'content', minRole: 'editor', href: '/admin/artists',  newHref: '/admin/artists/new',  icon: '🎤', label: 'Atlikėjai',       countKey: 'artists' },
@@ -114,13 +115,11 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   // ── Augimas ───────────────────────────────────────────────────────────────
   { key: 'atradimai',     group: 'growth', minRole: 'editor', href: '/admin/atradimai',     icon: '✨', label: 'Muzikos atradimai', hint: 'Trūkstami atlikėjai — susieti / sukurti' },
   { key: 'kolekcijos',    group: 'growth', minRole: 'editor', href: '/admin/kolekcijos',    icon: '🎼', label: 'Kolekcijos',        hint: 'Teminės dainų/albumų kolekcijos' },
-  { key: 'charts',        group: 'growth', minRole: 'editor', href: '/admin/charts',        icon: '🌍', label: 'Išoriniai topai',   hint: 'AGATA, Spotify, Apple — susieti dainas' },
   { key: 'verta',         group: 'growth', minRole: 'editor', href: '/admin/verta-keliones',icon: '✈️', label: 'Verta kelionės',    hint: 'Scout turai → kandidatai · koncertai · kryptys' },
   { key: 'dienos-daina',  group: 'growth', minRole: 'editor', href: '/admin/dienos-daina',  icon: '⭐', label: 'Dienos daina',      hint: 'Daily song spotlight' },
 
   // ── Bendruomenė ir moderavimas ─────────────────────────────────────────────
   { key: 'comments', group: 'community', minRole: 'editor', href: '/admin/comments', icon: '💬', label: 'Komentarai', hint: 'Visi komentarai per visas surfaces' },
-  { key: 'irasai',   group: 'community', minRole: 'editor', href: '/admin/irasai',   icon: '🗂️', label: 'Narių įrašai', hint: 'Tipų priskyrimas homepage juostai + topų normalizavimas' },
   { key: 'voting',   group: 'community', minRole: 'editor', href: '/admin/voting',   icon: '🗳️', label: 'Balsavimai',  hint: 'Apdovanojimai, votings' },
 
   // ── Importai ir migracija (admin tier) ─────────────────────────────────────

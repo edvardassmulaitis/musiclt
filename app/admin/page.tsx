@@ -26,6 +26,8 @@ const BADGE_SUFFIX: Record<string, string> = {
   active_jobs: 'aktyvūs',
   users_migrated: 'migruoti',
   radar_pending: 'nauji',
+  top_short: 'trūksta',
+  charts_unmatched: 'nesumatchinta',
 }
 
 function Card({ card, summary }: { card: AdminSection; summary: Summary | null }) {

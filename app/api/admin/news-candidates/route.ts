@@ -34,16 +34,16 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // 2026-06-11: auto-expire senienos — preview/pending kandidatai senesni nei
-  // 30d nebeaktualūs (naujiena pasenusi), žymim 'expired' kad nekauptų
-  // skaičiukų ir nesimaišytų inbox'e. Pigus UPDATE su filtru, vykdomas
-  // kiekvieno list GET'o metu (idempotent).
+  // 2026-06-18: HARD-DELETE senienos (Edvardo sprendimas — savaitės threshold).
+  // Naujiena senesnė nei 7d nebeaktuali → naikinam, kad nekauptų skaičiukų ir
+  // nesimaišytų inbox'e. 'rejected' tombstone'ai paliekami (kad nebūtų re-scrape).
+  // Publikuotos naujienos (blog_posts) NELIEČIAMOS. Idempotent kas GET.
   try {
-    const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString()
+    const cutoff = new Date(Date.now() - 7 * 86_400_000).toISOString()
     await supabase
       .from('news_candidates')
-      .update({ status: 'expired' })
-      .in('status', ['preview', 'pending'])
+      .delete()
+      .in('status', ['preview', 'pending', 'expired'])
       .lt('created_at', cutoff)
   } catch { /* non-fatal */ }
 

@@ -25,24 +25,19 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // 2026-06-11: auto-expire senienos (kaupėsi šimtai pending event'ų):
-  //   1) renginiai, kurių data jau praėjo (vakar ir anksčiau)
-  //   2) renginiai be datos, scrapinti prieš >45d (nebepataisysi — pasenę)
-  // Idempotent UPDATE'ai kiekvieno list GET'o metu.
+  // 2026-06-18: HARD-DELETE senienos (Edvardo sprendimas — pasibaigę koncertai
+  // nebelaikomi pasiūlymuose; rodom + count'inam tik fresh). Naikinam:
+  //   1) renginius, kurių data jau praėjo (išskyrus 'rejected' tombstone'us)
+  //   2) renginius be datos, scrapintus prieš >45d
+  //   3) likusius 'expired' (senas dismissed state)
+  // Publikuoti renginiai (events lentelė) NELIEČIAMI — juos naudoja viešas
+  // /renginiai archyvas + /festivaliai. Idempotent kiekvieno list GET'o metu.
   try {
     const today = new Date().toISOString().slice(0, 10)
-    await supabase
-      .from('event_candidates')
-      .update({ status: 'expired' })
-      .eq('status', 'pending')
-      .lt('event_date', today)
     const staleCutoff = new Date(Date.now() - 45 * 86_400_000).toISOString()
-    await supabase
-      .from('event_candidates')
-      .update({ status: 'expired' })
-      .eq('status', 'pending')
-      .is('event_date', null)
-      .lt('created_at', staleCutoff)
+    await supabase.from('event_candidates').delete().neq('status', 'rejected').lt('event_date', today)
+    await supabase.from('event_candidates').delete().neq('status', 'rejected').is('event_date', null).lt('created_at', staleCutoff)
+    await supabase.from('event_candidates').delete().eq('status', 'expired')
   } catch { /* non-fatal */ }
 
   // Sort by newest scraped (created_at DESC) — matches news inbox semantic.
