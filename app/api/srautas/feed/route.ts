@@ -153,7 +153,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       // YouTube įkėlimas šviežias — tai NĖRA naujiena, praleidžiam.
       const ry = t.release_year || (t.release_date ? new Date(t.release_date).getFullYear() : null)
       if (ry && ry < curYear - 1) continue
-      if (Date.parse(date) > Date.now()) continue // dar neišleista
+      if (Date.parse(date || '') > Date.now()) continue // dar neišleista
       tracks.push({
         key: `track-${t.id}`, kind: 'track', title: t.title || '', subtitle: a?.name || null,
         image: t.cover_url || ytThumb(t.video_url) || a?.cover_image_url || null,
