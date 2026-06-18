@@ -16,6 +16,7 @@ import { trackCompositeScore, trackArtistSortVal, makeArtistTrackScorer, makeArt
 import { normalizeBio } from '@/lib/normalize-bio'
 import { formatArtistList } from '@/lib/format-artists'
 import { accusativeArtistName, genitiveArtistName } from '@/lib/text-utils'
+import { countryFlag } from '@/lib/country-flags'
 import { relativeLt } from '@/lib/discoveries'
 import DropBar from '@/components/DropBar'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
@@ -395,12 +396,12 @@ function timeAgo(iso: string | null | undefined): string {
   return `prieš ${Math.floor(diff / (365 * day))} m.`
 }
 
-const FLAGS: Record<string, string> = {
-  'Lietuva': '🇱🇹', 'Latvija': '🇱🇻', 'Estija': '🇪🇪', 'Lenkija': '🇵🇱',
-  'Vokietija': '🇩🇪', 'Prancūzija': '🇫🇷', 'Italija': '🇮🇹', 'Ispanija': '🇪🇸',
-  'Didžioji Britanija': '🇬🇧', 'JAV': '🇺🇸', 'Kanada': '🇨🇦', 'Australija': '🇦🇺',
-  'Japonija': '🇯🇵', 'Švedija': '🇸🇪', 'Norvegija': '🇳🇴', 'Danija': '🇩🇰',
-  'Suomija': '🇫🇮', 'Airija': '🇮🇪', 'Olandija': '🇳🇱', 'Rusija': '🇷🇺', 'Ukraina': '🇺🇦',
+// Vėliava bet kuriai šaliai — pilnas LT→ISO map'as lib/country-flags.ts.
+// Nežinoma šalis (pvz. „Kita") → '' (caller'is rodo 🌍 fallback'ą). Anksčiau
+// čia buvo trumpas hardcoded sąrašas be Meksikos ir dešimčių kitų šalių →
+// vėliava nerodydavo nieko (bug 2026-06-18).
+function flagFor(country?: string | null): string {
+  return countryFlag(country) || ''
 }
 
 /** Brand colors for social icons. `null` means "inherit current text color"
@@ -1525,7 +1526,7 @@ function Hero({
    *  recent=true (visi atlikėjai sort by 30d like count). */
   onOpenTopArtists?: (filter: { country?: string; genre?: string; global?: boolean; recent?: boolean }) => void
 }) {
-  const flag = artist.country ? (FLAGS[artist.country] || '') : ''
+  const flag = artist.country ? (flagFor(artist.country) || '🌍') : ''
   // Rank logic: chip'as su #N RODOMAS PAGAL ŽANRO RANK (ne country/global).
   // Anksčiau buvo country/global, bet useris paspaudęs chip'ą atidaro
   // ŽANRO modal'ą — ten matomas genre rank (Muse — #4 iš 51 Roko muzikoj).
@@ -1997,7 +1998,7 @@ function TopArtistsModal({
     : filter.zodiac
     ? `${ZODIAC_GLYPH[filter.zodiac] || '✶'} ${filter.zodiac} — top atlikėjai ir grupės`
     : filter.country
-    ? `${FLAGS[filter.country] || '🌍'} ${filter.country} top atlikėjai ir grupės`
+    ? `${flagFor(filter.country) || '🌍'} ${filter.country} top atlikėjai ir grupės`
     : filter.genre
     ? `${filter.genre} — top atlikėjai ir grupės`
     : 'Pasaulio top atlikėjai ir grupės'
@@ -2124,7 +2125,7 @@ function TopArtistsModal({
                         </span>
                         {a.country && (
                           <span className="font-['Outfit',sans-serif] text-[11.5px] font-medium text-[var(--text-muted)]">
-                            {FLAGS[a.country] || ''} {a.country}
+                            {flagFor(a.country) || '🌍'} {a.country}
                           </span>
                         )}
                       </span>
@@ -5136,7 +5137,7 @@ export default function ArtistProfileClient({
     }
   }
 
-  const flag = FLAGS[artist.country] || (artist.country ? '🌍' : '')
+  const flag = flagFor(artist.country) || (artist.country ? '🌍' : '')
   const hasBio = artist.description?.trim().length > 10
   const solo = artist.type === 'solo'
   const active = artist.active_from ? `${artist.active_from}–${artist.active_until || 'dabar'}` : null
