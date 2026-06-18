@@ -932,7 +932,9 @@ function TopEntryTile({ e, big = false }: { e: ListEntry; big?: boolean }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={proxyImg(e.image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
       ) : <div className="absolute inset-0" style={{ background: `hsl(${hue(e.title)},30%,20%)` }} />}
-      <span className={`absolute left-1.5 top-1.5 flex items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] font-black ${big ? 'h-[26px] min-w-[26px] text-[15px]' : 'h-[20px] min-w-[20px] text-[11px]'} ${e.rank === 1 ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/65 text-white'}`}>{e.rank}</span>
+      {/* #1 oranžinis, kiti VIENODAS pilkas (opaque — kad neprasišviestų viršelio
+          spalva, anksčiau pusiau permatomas juodas „nusispalvindavo" pagal kortelę). */}
+      <span className={`absolute left-1.5 top-1.5 flex items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] font-black text-white ${big ? 'h-[26px] min-w-[26px] text-[15px]' : 'h-[20px] min-w-[20px] text-[11px]'}`} style={{ background: e.rank === 1 ? 'var(--accent-orange)' : 'rgba(51,57,68,0.96)' }}>{e.rank}</span>
       {big && (
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-5">
           <p className="m-0 truncate text-[12.5px] font-bold leading-tight text-white">{sani(e.title)}</p>
@@ -965,16 +967,16 @@ function PostTopasRowCard({ p }: { p: FeedPost }) {
                 </div>
               ))}
             </div>
-            {/* Desktop: eilė tilių su pavadinimais. */}
-            <div className="mt-2.5 hidden flex-wrap gap-3 sm:flex">
-              {entries.map(e => (
-                <div key={e.rank} className="flex w-[112px] flex-col gap-1.5">
+            {/* Desktop: eilė tilių su pavadinimais; #1 šiek tiek didesnis. */}
+            <div className="mt-2.5 hidden flex-wrap items-start gap-3 sm:flex">
+              {entries.map((e, i) => (
+                <div key={e.rank} className={`flex flex-col gap-1.5 ${i === 0 ? 'w-[148px]' : 'w-[112px]'}`}>
                   <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
                     <TopEntryTile e={e} />
                   </div>
                   <div className="min-w-0">
-                    <p className="m-0 truncate text-[12px] font-bold leading-tight text-[var(--text-primary)]">{sani(e.title)}</p>
-                    {e.artist && <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{e.artist}</p>}
+                    <p className={`m-0 truncate font-bold leading-tight text-[var(--text-primary)] ${i === 0 ? 'text-[13.5px]' : 'text-[12px]'}`}>{sani(e.title)}</p>
+                    {e.artist && <p className={`m-0 truncate text-[var(--text-muted)] ${i === 0 ? 'text-[11.5px]' : 'text-[10.5px]'}`}>{e.artist}</p>}
                   </div>
                 </div>
               ))}
@@ -1033,7 +1035,9 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` - ${a.track_name}` : ''}
         </h3>
-        {quote && <p className="m-0 mt-1.5 line-clamp-[7] text-[13px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">{quote.length > 520 ? quote.slice(0, 520).replace(/\s+\S*$/, '') + '…' : quote}</p>}
+        {/* Tekstas užpildo visą kortelės aukštį (flex-1), kerpamas tik jei netelpa
+            (overflow), kad nebūtų didelio tarpo / per ankstyvo nutrūkimo. */}
+        {quote && <p className="m-0 mt-1.5 flex-1 overflow-hidden text-[13px] leading-relaxed text-[var(--text-secondary)]">{quote.length > 1200 ? quote.slice(0, 1200).replace(/\s+\S*$/, '') + '…' : quote}</p>}
         <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
       </div>
     </button>

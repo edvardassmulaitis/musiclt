@@ -1290,7 +1290,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                     // Jubiliejus — apvali albumo sukaktis (5, 10, 15, 20 ... metai):
                     // badge tampa oranžinis + kortelė šiek tiek išsiskiria.
                     const ageNum = it.age || 0
-                    const isJubilee = it.type === 'album_anniversary' && ageNum >= 5 && ageNum % 5 === 0
+                    const isJubilee = it.type === 'album_anniversary' && ageNum >= 10 && ageNum % 10 === 0
                     // Miręs atlikėjas → grayscale nuotrauka. Edvardo prašymu 2026-06-01.
                     const gray = it.type === 'death_anniversary' || it.deceased
                     // Cover + badge — bendra abiem (button album'ui / Link kitiems).
@@ -1305,7 +1305,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                           </div>
                         )}
                         {badge && (
-                          <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm ${isJubilee ? 'bg-[var(--accent-orange)] shadow-[0_2px_8px_rgba(249,115,22,0.5)]' : 'bg-black/70'}`}>{isJubilee ? `🎉 ${badge}` : badge}</span>
+                          <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm ${isJubilee ? 'bg-[var(--accent-orange)] shadow-[0_2px_8px_rgba(249,115,22,0.5)]' : 'bg-black/70'}`}>{badge}</span>
                         )}
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       </div>
@@ -3311,9 +3311,12 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                           const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
                           const venueLabel = [city, venue].filter(Boolean).join(', ')
                           const artistList = (ev.event_artists || []).filter(ea => ea.artists?.name).map(ea => ea.artists!.name)
-                          const artistText = artistList.length > 0
-                            ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '')
-                            : sanitizeTitle(ev.title)
+                          // Festivaliams — festivalio pavadinimas (NE atlikėjų sąrašas).
+                          const artistText = ev.is_festival
+                            ? sanitizeTitle(ev.title)
+                            : artistList.length > 0
+                              ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '')
+                              : sanitizeTitle(ev.title)
                           return (
                             <Link
                               key={ev.id}
