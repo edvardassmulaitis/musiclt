@@ -239,6 +239,11 @@ export async function enrichTrack(
         updates.video_uploaded_at = null
         updates.video_embeddable = false
         warnings.push(`Video privatus / pašalintas — išvalyta (videoId=${videoId})`)
+        // SVARBU: atnaujinam ir lokalų videoUrl/videoId, kad grąžinamas
+        // EnrichResult.videoUrl atspindėtų išvalymą (null). Backfill'as pagal tai
+        // sprendžia, ar ieškoti pakaitalo. 2026-06-18.
+        videoUrl = null
+        videoId = null
       } else {
         // Visi 3 source'ai failed — gali būti rate-limit'as ar bot block'as.
         // NEPASLINK'INAM clear, nes gali būti tik laikinas — user'is gali pakartoti.
