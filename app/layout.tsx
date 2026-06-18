@@ -37,8 +37,19 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="lt">
+    <html lang="lt" suppressHydrationWarning>
       <head>
+        {/* Anti-FOUC — temos pritaikymas PRIEŠ pirmą paint'ą. SiteContext
+            data-theme nustato tik po hydration (useEffect), tad light-mode
+            vartotojas per hard refresh pirma pamatydavo dark versiją. Šis
+            blokuojantis inline script'as nuskaito cookie / sistemos preferenciją
+            ir nustato data-theme + colorScheme sinchroniškai, kol dar nieko
+            nenupiešta. Logika privalo atitikti getInitialTheme() SiteContext.tsx. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var m=document.cookie.match(/(?:^| )music-lt-theme=([^;]+)/);var t=m?decodeURIComponent(m[1]):null;if(t!=='light'&&t!=='dark'){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}var r=document.documentElement;r.setAttribute('data-theme',t);r.style.colorScheme=t;}catch(e){var r=document.documentElement;r.setAttribute('data-theme','dark');r.style.colorScheme='dark';}})();`,
+          }}
+        />
         {/* Defensive favicon link — forcing icon.svg net jei Next.js
             metadata.icons negeneruoja link tag'o teisingai. */}
         <link rel="icon" type="image/svg+xml" href="/icon.svg" />

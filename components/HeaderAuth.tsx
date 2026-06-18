@@ -5,6 +5,20 @@ import { createPortal } from 'react-dom'
 import { signIn, signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
+import { useSite } from '@/components/SiteContext'
+
+// ── THEME ICONS ─────────────────────────────────────────────────────────────
+const SunIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="4"/>
+    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+  </svg>
+)
+const MoonIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+)
 
 // ── AUTH MODAL ──────────────────────────────────────────────────────────────
 
@@ -190,6 +204,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
 
 function UserMenu() {
   const { data: session } = useSession()
+  const { theme, setTheme, dk } = useSite()
   const [open, setOpen] = useState(false)
   const [username, setUsername] = useState<string | null>(null)
   const [studioId, setStudioId] = useState<number | null>(null)  // -1 = nėra valdomų atlikėjų
@@ -374,6 +389,34 @@ function UserMenu() {
               ), 'Admin panelė', true)}
             </div>
           )}
+
+          {/* Tema — perkelta iš mobile hamburger meniu, kad būtų pasiekiama
+              ir desktop'e (2026-06-18). */}
+          <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1.5">
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="w-full flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-all text-left"
+              style={{ width: 'calc(100% - 0.75rem)', color: 'var(--text-secondary)' }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.background = 'var(--bg-hover)'
+                el.style.color = 'var(--text-primary)'
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.background = 'transparent'
+                el.style.color = 'var(--text-secondary)'
+              }}
+            >
+              <span
+                className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0"
+                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+              >
+                {dk ? <SunIcon /> : <MoonIcon />}
+              </span>
+              {dk ? 'Šviesi tema' : 'Tamsi tema'}
+            </button>
+          </div>
 
           {/* Logout */}
           <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1.5">
