@@ -21,7 +21,7 @@ type Track = { id: number; slug: string; title: string; cover_url: string | null
 type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type EventArtist = { artists?: { id: number; name: string; slug: string; cover_image_url?: string | null; country?: string | null } | null; artist_id?: number; sort_order?: number; is_headliner?: boolean }
-type Event = { id: number; slug: string; title: string; event_date?: string; start_date?: string; end_date?: string; venue_custom?: string | null; venue_name?: string | null; venue_id?: number | null; image_small_url?: string | null; cover_image_url?: string | null; image_url?: string | null; city?: string | null; address?: string | null; created_at?: string; venues?: { name: string; city: string } | null; event_artists?: EventArtist[] | null }
+type Event = { id: number; slug: string; title: string; event_date?: string; start_date?: string; end_date?: string; venue_custom?: string | null; venue_name?: string | null; venue_id?: number | null; image_small_url?: string | null; cover_image_url?: string | null; image_url?: string | null; city?: string | null; address?: string | null; created_at?: string; is_festival?: boolean; venues?: { name: string; city: string } | null; event_artists?: EventArtist[] | null }
 type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
@@ -1287,11 +1287,15 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                       : it.type === 'birthday'
                         ? (it.age ? (it.deceased ? `${it.age} gimimo metinės` : `${it.age} m.`) : null)
                         : (it.year ? `${it.year} m.` : null)
+                    // Jubiliejus — apvali albumo sukaktis (5, 10, 15, 20 ... metai):
+                    // badge tampa oranžinis + kortelė šiek tiek išsiskiria.
+                    const ageNum = it.age || 0
+                    const isJubilee = it.type === 'album_anniversary' && ageNum >= 5 && ageNum % 5 === 0
                     // Miręs atlikėjas → grayscale nuotrauka. Edvardo prašymu 2026-06-01.
                     const gray = it.type === 'death_anniversary' || it.deceased
                     // Cover + badge — bendra abiem (button album'ui / Link kitiems).
                     const coverBlock = (
-                      <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+                      <div className={`relative aspect-square overflow-hidden rounded-xl bg-[var(--cover-placeholder)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)] ${isJubilee ? 'border-2 border-[var(--accent-orange)] shadow-[0_4px_18px_rgba(249,115,22,0.35)]' : 'border border-[var(--border-default)] shadow-[0_4px_12px_rgba(0,0,0,0.25)]'}`}>
                         {it.cover ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: gray ? 'grayscale(1)' : 'saturate(1.05) contrast(1.02)' }} />
@@ -1301,7 +1305,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                           </div>
                         )}
                         {badge && (
-                          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">{badge}</span>
+                          <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm ${isJubilee ? 'bg-[var(--accent-orange)] shadow-[0_2px_8px_rgba(249,115,22,0.5)]' : 'bg-black/70'}`}>{isJubilee ? `🎉 ${badge}` : badge}</span>
                         )}
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       </div>
@@ -2579,9 +2583,13 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
       const artistList = (ev.event_artists || [])
         .filter(ea => ea.artists?.name)
         .map(ea => ea.artists!.name)
-      const artistText = artistList.length > 0
-        ? artistList.slice(0, 3).join(', ') + (artistList.length > 3 ? ` +${artistList.length - 3}` : '')
-        : sanitizeTitle(ev.title)  // fallback to title if no artists
+      // Festivaliams rodom festivalio pavadinimą (NE atlikėjų sąrašą); kitiems —
+      // atlikėjai (arba renginio title kaip fallback).
+      const artistText = ev.is_festival
+        ? sanitizeTitle(ev.title)
+        : artistList.length > 0
+          ? artistList.slice(0, 3).join(', ') + (artistList.length > 3 ? ` +${artistList.length - 3}` : '')
+          : sanitizeTitle(ev.title)
       const firstArtist = (ev.event_artists || []).find(ea => ea.artists?.cover_image_url)
       slides.push({
         type: 'event', chip: 'RENGINYS', chipBg: '#047857',

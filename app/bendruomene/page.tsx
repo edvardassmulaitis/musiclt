@@ -904,7 +904,7 @@ function TopEntryTile({ e, big = false }: { e: ListEntry; big?: boolean }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={proxyImg(e.image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
       ) : <div className="absolute inset-0" style={{ background: `hsl(${hue(e.title)},30%,20%)` }} />}
-      <span className={`absolute left-1.5 top-1.5 flex items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] font-black ${big ? 'h-[26px] min-w-[26px] text-[15px]' : 'h-[20px] min-w-[20px] text-[11px]'} ${e.rank <= 3 ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{e.rank}</span>
+      <span className={`absolute left-1.5 top-1.5 flex items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] font-black ${big ? 'h-[26px] min-w-[26px] text-[15px]' : 'h-[20px] min-w-[20px] text-[11px]'} ${e.rank === 1 ? 'bg-[var(--accent-orange)] text-white' : 'bg-[rgba(0,0,0,0.55)] text-white/85'}`}>{e.rank}</span>
       {big && (
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-5">
           <p className="m-0 truncate text-[12.5px] font-bold leading-tight text-white">{sani(e.title)}</p>
@@ -1036,8 +1036,8 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
         <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` — ${a.track_name}` : ''}
         </h3>
-        {quote && <p className="m-0 mt-1.5 line-clamp-4 text-[13px] italic leading-relaxed text-[var(--text-secondary)] sm:line-clamp-3">„{quote.length > 360 ? quote.slice(0, 360).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
-        <RowMeta author={a.author} date={a.created_at} likes={a.like_count} />
+        {quote && <p className="m-0 mt-1.5 flex-1 line-clamp-[7] text-[13px] italic leading-relaxed text-[var(--text-secondary)] sm:line-clamp-[6]">„{quote.length > 600 ? quote.slice(0, 600).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
+        <div className="mt-auto pt-1"><RowMeta author={a.author} date={a.created_at} likes={a.like_count} /></div>
       </div>
     </button>
   )
