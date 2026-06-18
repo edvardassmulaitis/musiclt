@@ -12,7 +12,7 @@ type Hit = { type: string; id: number; slug: string; title: string; artist: stri
  * (mirror lib/chart-resolve primaryArtist): „HUNTR/X: EJAE, Audrey Nuna & REI AMI"
  * → „HUNTR/X". Taip picker'io default query randa dainą be rankinio trynimo. */
 function simpleArtist(name: string): string {
-  return (name || '').split(/,|&|\bfeaturing\b|\bfeat\.?\b|\bft\.?\b| x |\bvs\.?\b|\bw\/|:/i)[0].trim()
+  return (name || '').split(/,| & |\bfeaturing\b|\bfeat\.?\b|\bft\.?\b| x |\bvs\.?\b|\bw\/|:/i)[0].trim()
 }
 
 /* Nuvalo title paieškai: nuima (...), [...], „ - versija" priesagą ir „feat…"
