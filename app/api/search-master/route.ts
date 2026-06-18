@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { safeLike, buildSplits } from '@/lib/search-core'
+import { safeLike, buildSplits, rankTier, artistIdsForToken } from '@/lib/search-core'
+import { ytThumb } from '@/lib/radaras-shared'
 
 /**
  * Master search — vienas endpoint visam svetainės paieškos turiniui.
@@ -105,7 +106,7 @@ export async function GET(request: Request) {
   const matchedArtists = (artistsRes.data || []) as any[]
 
   // Fan-out atlikėjai — viršutiniai 2 (kad nesusiturėtų per daug duomenų).
-  const fanoutArtistIds = matchedArtists.slice(0, 2).map(a => a.id)
+  const fanoutArtistIds = matchedArtists.slice(0, 3).map(a => a.id)
   const fanoutEnabled = fanoutArtistIds.length > 0
   // Fan-out limit follow'ina pagrindinį limit'ą, kad pasirinkus dainas
   // chip'ą, matytume realų katalogą (220 Mamontovo dainų atveju → user'is
@@ -137,7 +138,7 @@ export async function GET(request: Request) {
 
     useCat('tracks')
       ? sb.from('tracks')
-          .select('id,slug,title,score,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
+          .select('id,slug,title,score,cover_url,video_url,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
           .ilike('title_norm', pat)
           .order('score', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
@@ -198,7 +199,7 @@ export async function GET(request: Request) {
     // Fan-out tracks: top atlikėjų visi populiariausi track'ai (be title filter'io).
     fanoutEnabled && useCat('tracks')
       ? sb.from('tracks')
-          .select('id,slug,title,score,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
+          .select('id,slug,title,score,cover_url,video_url,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
           .in('artist_id', fanoutArtistIds)
           .order('score', { ascending: false, nullsFirst: false })
           .limit(fanoutLimit)
@@ -269,19 +270,14 @@ export async function GET(request: Request) {
   }
 
   // Per-kategorija rerank: exact-match / starts-with title viršuje, tada score.
-  const qLow = q.toLowerCase()
-  const titleScore = (h: Hit) => {
-    const tl = h.title.toLowerCase()
-    if (tl === qLow) return 0
-    if (tl.startsWith(qLow)) return 1
-    return 2
-  }
+  // Rerank: exact > prefix (eilutė ARBA žodžio riba) > turi; tier'e — score
+  // desc. rankTier žodžio-ribos prefix'as užtikrina, kad „shy" rodytų
+  // „Jessica Shy" (žodis prasideda + populiari) virš „Shyne", o ne atvirkščiai.
   for (const k of Object.keys(out) as Category[]) {
-    out[k].sort((a, b) => {
-      const ta = titleScore(a), tb = titleScore(b)
-      if (ta !== tb) return ta - tb
-      return (b.score ?? 0) - (a.score ?? 0)
-    })
+    out[k].sort((a, b) =>
+      rankTier(a.title, q) - rankTier(b.title, q) ||
+      (b.score ?? 0) - (a.score ?? 0)
+    )
     out[k] = out[k].slice(0, limitPerCat)
   }
 
@@ -339,17 +335,10 @@ async function runCompound(
   // Dean Man I Need"). Pavadinimas match'inamas AND-sujungtais ilike per
   // KIEKVIENĄ token'ą (stop-word'ai ir tarpai nelaužo match'o).
   const results = await Promise.all(buildSplits(tokens).map(async ({ artistToks, titleToks }) => {
-    const aPat = `%${safe(artistToks.join(' '))}%`
-    const { data: matchArtists } = await sb
-      .from('artists')
-      .select('id,name,slug,cover_image_url,score')
-      .ilike('name_norm', aPat)
-      .order('score', { ascending: false, nullsFirst: false })
-      .limit(20)
-    if (!matchArtists || matchArtists.length === 0) return { tracks: [], albums: [] }
-    const aIds = matchArtists.map((x: any) => x.id)
+    const aIds = await artistIdsForToken(sb, artistToks.join(' '))
+    if (aIds.length === 0) return { tracks: [], albums: [] }
     let tq = sb.from('tracks')
-      .select('id,slug,title,score,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
+      .select('id,slug,title,score,cover_url,video_url,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
       .in('artist_id', aIds)
     let alq = sb.from('albums')
       .select('id,slug,title,cover_image_url,score,artist_id,artists:artist_id(id,name,slug)')
@@ -429,7 +418,10 @@ function toTrack(row: any): Hit {
     id: row.id, type: 'tracks',
     title: row.title,
     subtitle: row.artists?.name ?? null,
-    image_url: row.artists?.cover_image_url ?? null,
+    // Dainos vizualas: dainos viršelis → YouTube thumbnail (iš video_url) →
+    // (kraštutiniu atveju) atlikėjo nuotrauka. Anksčiau VISADA buvo atlikėjo
+    // nuotrauka, todėl visos to paties atlikėjo dainos atrodė vienodai.
+    image_url: row.cover_url || ytThumb(row.video_url) || row.artists?.cover_image_url || null,
     href: slugTrack(row.artists?.slug, row.slug, row.id),
     meta: { score: row.score, artist_id: row.artist_id, artist_slug: row.artists?.slug },
     score: row.score ?? 0,

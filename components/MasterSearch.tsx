@@ -120,7 +120,7 @@ const CAT_LABELS: Record<Category, { sg: string; pl: string; Icon: (p: { size?: 
   artists:     { sg: 'Atlikėjas',  pl: 'Atlikėjai',   Icon: IconArtist,     color: '#a78bfa' }, // purple
   albums:      { sg: 'Albumas',    pl: 'Albumai',     Icon: IconAlbum,      color: '#60a5fa' }, // blue
   tracks:      { sg: 'Daina',      pl: 'Dainos',      Icon: IconTrack,      color: '#f97316' }, // orange (brand)
-  profiles:    { sg: 'Vartotojas', pl: 'Vartotojai',  Icon: IconProfile,    color: '#fb7185' }, // rose
+  profiles:    { sg: 'Narys',      pl: 'Nariai',      Icon: IconProfile,    color: '#fb7185' }, // rose
   events:      { sg: 'Renginys',   pl: 'Renginiai',   Icon: IconEvent,      color: '#f472b6' }, // pink
   venues:      { sg: 'Vieta',      pl: 'Vietos',      Icon: IconVenue,      color: '#eab308' }, // amber
   news:        { sg: 'Naujiena',   pl: 'Naujienos',   Icon: IconNews,       color: '#22d3ee' }, // cyan
@@ -751,38 +751,42 @@ function EmptyState({
           <div className="ms-empty-title">
             <FlameIcon /> Populiariausi šią savaitę
           </div>
-          <div className="ms-empty-grid">
+          {/* List layout (ne grid'as) — pavadinimai telpa pilnai, gerai
+              skaitosi mobile'e. Dainos rodo savo viršelį / YouTube thumbnail. */}
+          <div className="ms-trend-list">
             {trending.map(item => {
               const meta = CAT_LABELS[item.type]
               const Ico = meta?.Icon || IconArtist
               const fallbackColor = meta?.color || '#a78bfa'
+              const circle = item.type === 'artists' || item.type === 'profiles'
               return (
                 <a
                   key={`${item.type}-${item.id}`}
                   href={item.href}
-                  className="ms-grid-item"
+                  className="ms-trend-row"
                   onClick={(e) => {
                     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return
                     e.preventDefault()
                     onGo(item)
                   }}
                 >
-                  <div className="ms-grid-img-wrap" style={{
-                    borderRadius: item.type === 'tracks' || item.type === 'albums' ? 8 : '50%',
-                  }}>
+                  <div className={`ms-trend-img ${circle ? 'circle' : ''}`}>
                     {item.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={proxyImg(item.image_url)} alt="" className="ms-grid-img" loading="lazy" />
+                      <img src={proxyImg(item.image_url)} alt="" loading="lazy" />
                     ) : (
-                      <div className="ms-grid-fallback" style={{ background: fallbackColor + '22', color: fallbackColor }}>
-                        <Ico size={26} />
+                      <div className="ms-trend-fallback" style={{ background: fallbackColor + '22', color: fallbackColor }}>
+                        <Ico size={20} />
                       </div>
                     )}
                   </div>
-                  <div className="ms-grid-text">
-                    <div className="ms-grid-title">{item.title}</div>
-                    {item.subtitle && <div className="ms-grid-sub">{item.subtitle}</div>}
+                  <div className="ms-trend-text">
+                    <div className="ms-trend-title">{item.title}</div>
+                    {item.subtitle && <div className="ms-trend-sub">{item.subtitle}</div>}
                   </div>
+                  <span className="ms-trend-badge" style={{ color: meta?.color, borderColor: (meta?.color || '#888') + '40' }}>
+                    <Ico size={10} /> {meta?.sg}
+                  </span>
                 </a>
               )
             })}
@@ -1084,8 +1088,8 @@ const searchCss = `
 .ms-items { display: flex; flex-direction: column; gap: 1px; }
 .ms-items.as-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
   padding: 4px 8px;
 }
 
@@ -1156,23 +1160,23 @@ const searchCss = `
 .ms-grid-item {
   border: 1px solid var(--border-default, rgba(255,255,255,0.06));
   background: var(--bg-deep, rgba(255,255,255,0.02));
-  border-radius: 12px;
-  padding: 12px 10px 10px;
+  border-radius: 10px;
+  padding: 7px 9px;
   cursor: pointer;
-  transition: background .12s, border-color .12s, transform .12s;
-  text-align: center;
-  display: flex; flex-direction: column;
+  transition: background .12s, border-color .12s;
+  text-align: left;
+  display: flex; flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
+  min-width: 0;
   font-family: inherit;
 }
 .ms-grid-item:hover, .ms-grid-item.sel {
   background: var(--bg-hover, rgba(255,255,255,0.05));
   border-color: var(--border-strong, rgba(255,255,255,0.12));
-  transform: translateY(-1px);
 }
 .ms-grid-img-wrap {
-  width: 72px; height: 72px;
+  width: 42px; height: 42px;
   border-radius: 50%; overflow: hidden;
   background: var(--bg-deep, rgba(0,0,0,0.2));
   flex-shrink: 0;
@@ -1182,7 +1186,7 @@ const searchCss = `
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
 }
-.ms-grid-text { width: 100%; }
+.ms-grid-text { flex: 1; min-width: 0; text-align: left; }
 .ms-grid-title {
   font-size: 13px; font-weight: 600;
   color: var(--text-primary, #fff);
@@ -1191,8 +1195,49 @@ const searchCss = `
 .ms-grid-sub {
   font-size: 11px; font-weight: 500;
   color: var(--text-muted, #888);
+  margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── Trending list (empty-state „Populiariausi šią savaitę") ── */
+.ms-trend-list { display: flex; flex-direction: column; gap: 1px; }
+.ms-trend-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .1s;
+}
+.ms-trend-row:hover { background: var(--bg-hover, rgba(255,255,255,0.05)); }
+.ms-trend-img {
+  width: 44px; height: 44px; flex-shrink: 0;
+  border-radius: 7px; overflow: hidden;
+  background: var(--bg-deep, rgba(0,0,0,0.2));
+  display: flex; align-items: center; justify-content: center;
+}
+.ms-trend-img.circle { border-radius: 50%; }
+.ms-trend-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ms-trend-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.ms-trend-text { flex: 1; min-width: 0; }
+.ms-trend-title {
+  font-size: 14px; font-weight: 600;
+  color: var(--text-primary, #fff);
+  letter-spacing: -0.005em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ms-trend-sub {
+  font-size: 12px; font-weight: 500;
+  color: var(--text-muted, #888);
   margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ms-trend-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 9.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 3px 7px; border: 1px solid; border-radius: 4px;
+  flex-shrink: 0; opacity: 0.85;
 }
 
 /* ── Empty state ── */
@@ -1319,7 +1364,12 @@ const searchCss = `
   .ms-row-img { width: 40px; height: 40px; }
   .ms-row-badge { display: none; }
   .ms-empty-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
-  .ms-items.as-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-  .ms-grid-img-wrap { width: 60px; height: 60px; }
+  /* Nariai/atlikėjai — 2 stulpeliai kompaktiškų eilučių (telpa, skaitosi). */
+  .ms-items.as-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+  .ms-grid-img-wrap { width: 38px; height: 38px; }
+  .ms-grid-item { padding: 6px 7px; gap: 8px; }
+  .ms-grid-title { font-size: 12.5px; }
+  /* Trending: badge'as užima vietą siaurame ekrane — slepiam. */
+  .ms-trend-badge { display: none; }
 }
 `

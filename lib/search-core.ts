@@ -46,13 +46,20 @@ export function broadTerm(q: string): string {
   return longWords.sort((a, b) => b.length - a.length)[0] || q
 }
 
-/** Match tier: 0 = exact, 1 = prasideda nuo, 2 = turi. Diakritikai nejautru. */
+/** Match tier: 0 = exact, 1 = prasideda nuo (visa eilutė ARBA bet kuris žodis),
+ *  2 = turi. Diakritikai nejautru.
+ *
+ *  Žodžio-ribos prefix'as svarbus: užklausa „shy" turi tier 1 ir „Shyne"
+ *  (eilutė prasideda), ir „Jessica Shy" (žodis „Shy" prasideda) — tada tier'o
+ *  viduje laimi populiaresnis (score), o ne tas, kuris atsitiktinai prasideda
+ *  raidėmis. */
 export function rankTier(value: string | null | undefined, q: string): number {
   const v = normLt(value || '')
   const n = normLt(q).trim()
   if (!n) return 2
   if (v === n) return 0
   if (v.startsWith(n)) return 1
+  if (v.split(/[\s\-/&,.()]+/).some((w) => w && w.startsWith(n))) return 1
   return 2
 }
 
@@ -75,6 +82,31 @@ export function buildSplits(tokens: string[]): Array<{ artistToks: string[]; tit
 }
 
 const SCORE_DESC = { ascending: false, nullsFirst: false } as const
+
+/**
+ * Atlikėjų ID pagal vieną „atlikėjo" token'ą (compound paieškoje) — prefix
+ * match'ai PIRMA (tikslesni), tada contains. DIDELIS limit'as, kad
+ * populiarus, bet ne-top-score atlikėjas nebūtų nukirstas: pvz. užklausa
+ * „lucky br" → atlikėjo token'as „br" → prefix `br%` (Britney, Bruno, Bruce…)
+ * garantuoja, kad „Britney Spears" pateks į kandidatus ir „Lucky" bus rasta.
+ * Senas vienkartinis `%br%` limit 30 nukirsdavo Britney už daugybės populiaresnių.
+ */
+export async function artistIdsForToken(sb: any, token: string, limit = 120): Promise<number[]> {
+  const safe = safeLike(token)
+  if (!safe) return []
+  const [pref, cont] = await Promise.all([
+    sb.from('artists').select('id,score').ilike('name_norm', `${safe}%`).order('score', SCORE_DESC).limit(limit),
+    sb.from('artists').select('id,score').ilike('name_norm', `%${safe}%`).order('score', SCORE_DESC).limit(limit),
+  ])
+  const seen = new Set<number>()
+  const ids: number[] = []
+  for (const r of [...((pref.data as any[]) || []), ...((cont.data as any[]) || [])]) {
+    if (seen.has(r.id)) continue
+    seen.add(r.id)
+    ids.push(r.id)
+  }
+  return ids
+}
 
 /**
  * Atlikėjų paieška: name_norm trigram + rikiavimas exact > prefix > contains,
@@ -160,18 +192,12 @@ export async function searchTracksCore(
   if (compound) {
     const variants = await Promise.all(
       buildSplits(tokens).map(async ({ artistToks, titleToks }) => {
-        const aPat = `%${safeLike(artistToks.join(' '))}%`
-        const { data: arts } = await sb
-          .from('artists')
-          .select('id,score')
-          .ilike('name_norm', aPat)
-          .order('score', SCORE_DESC)
-          .limit(30)
-        if (!arts || arts.length === 0) return [] as Row[]
+        const aIds = await artistIdsForToken(sb, artistToks.join(' '))
+        if (aIds.length === 0) return [] as Row[]
         let tq = sb
           .from('tracks')
           .select('id,title,score')
-          .in('artist_id', (arts as any[]).map((x) => x.id))
+          .in('artist_id', aIds)
         for (const tok of titleToks) tq = tq.ilike('title_norm', `%${safeLike(tok)}%`)
         const { data } = await tq.order('score', SCORE_DESC).limit(limit)
         return (data || []) as Row[]
@@ -257,18 +283,12 @@ export async function searchAlbumsCore(
   if (tokens.length >= 2) {
     const variants = await Promise.all(
       buildSplits(tokens).map(async ({ artistToks, titleToks }) => {
-        const aPat = `%${safeLike(artistToks.join(' '))}%`
-        const { data: arts } = await sb
-          .from('artists')
-          .select('id')
-          .ilike('name_norm', aPat)
-          .order('score', SCORE_DESC)
-          .limit(30)
-        if (!arts || arts.length === 0) return [] as Row[]
+        const aIds = await artistIdsForToken(sb, artistToks.join(' '))
+        if (aIds.length === 0) return [] as Row[]
         let alq = sb
           .from('albums')
           .select('id,title,score')
-          .in('artist_id', (arts as any[]).map((x) => x.id))
+          .in('artist_id', aIds)
         for (const tok of titleToks) alq = alq.ilike('title_norm', `%${safeLike(tok)}%`)
         const { data } = await alq.order('score', SCORE_DESC).limit(limit)
         return (data || []) as Row[]
