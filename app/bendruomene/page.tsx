@@ -371,6 +371,8 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
 function FeaturedSlider() {
   const [items, setItems] = useState<FeatItem[] | null>(null)
   const [activeIdx, setActiveIdx] = useState(0)
+  const [atStart, setAtStart] = useState(true)
+  const [atEnd, setAtEnd] = useState(false)
   const [openDisc, setOpenDisc] = useState<Atradimas | null>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -407,7 +409,10 @@ function FeaturedSlider() {
       if (!card) return
       const step = card.offsetWidth + 16
       setActiveIdx(Math.round(el.scrollLeft / step))
+      setAtStart(el.scrollLeft <= 4)
+      setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
     }
+    onScroll()
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
   }, [items])
@@ -551,16 +556,20 @@ function FeaturedSlider() {
         </div>
         {items !== null && many && (
           <>
-            <button type="button" aria-label="Ankstesnis" onClick={() => scrollByDir(-1)}
-              className="atr-feat-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
-              style={{ left: -6 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-            </button>
-            <button type="button" aria-label="Kitas" onClick={() => scrollByDir(1)}
-              className="atr-feat-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
-              style={{ right: -6 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-            </button>
+            {!atStart && (
+              <button type="button" aria-label="Ankstesnis" onClick={() => scrollByDir(-1)}
+                className="atr-feat-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+                style={{ left: -6 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+              </button>
+            )}
+            {!atEnd && (
+              <button type="button" aria-label="Kitas" onClick={() => scrollByDir(1)}
+                className="atr-feat-arrow absolute top-1/2 z-[4] flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,255,255,0.2)] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+                style={{ right: -6 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+              </button>
+            )}
           </>
         )}
       </div>
@@ -747,12 +756,20 @@ function HappeningArea() {
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#22c55e]" /> Kas vyksta
           </span>
           {ev0 ? (
-            <span className="flex w-full flex-col gap-0.5">
-              <span className="flex w-full items-center gap-1.5">
-                <Avatar src={ev0.actor_avatar} name={ev0.actor_name || 'narys'} size={18} />
-                <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-muted)]"><b className="font-semibold text-[var(--text-secondary)]">{ev0.actor_name || 'narys'}</b> {ACT_VERB[ev0.event_type] || 'atnaujino'}</span>
+            <span className="flex w-full items-start gap-2">
+              {ev0.entity_image ? (
+                // susijusio objekto (atlikėjo/dainos) foto
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={proxyImg(ev0.entity_image)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+              ) : (
+                <Avatar src={ev0.actor_avatar} name={ev0.actor_name || 'narys'} size={36} />
+              )}
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="line-clamp-2 text-[11px] leading-snug text-[var(--text-muted)]">
+                  <b className="font-semibold text-[var(--text-secondary)]">{ev0.actor_name || 'narys'}</b> {ACT_VERB[ev0.event_type] || 'atnaujino'}{ev0.entity_title ? <> <span className="font-semibold text-[var(--text-secondary)]">{sani(ev0.entity_title)}</span></> : null}
+                </span>
+                <span className="text-[10px] text-[var(--text-faint)]">{timeAgo(ev0.created_at) || 'ką tik'}</span>
               </span>
-              <span className="pl-[26px] text-[10px] text-[var(--text-faint)]">{timeAgo(ev0.created_at) || 'ką tik'}</span>
             </span>
           ) : <span className="text-[11px] text-[var(--text-muted)]">narių veiksmų srautas</span>}
         </button>
@@ -763,12 +780,12 @@ function HappeningArea() {
             <Ic d={I.comment} size={14} /> Pokalbiai
           </span>
           {lastShoutMsg ? (
-            <span className="flex w-full flex-col gap-0.5">
-              <span className="flex w-full items-center gap-1.5">
-                <Avatar src={lastShoutMsg.author_avatar} name={lastShoutMsg.author_name || 'narys'} size={18} />
-                <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-muted)]"><b className="font-semibold text-[var(--text-secondary)]">{lastShoutMsg.author_name || 'narys'}</b>: {lastShoutMsg.body}</span>
+            <span className="flex w-full items-start gap-2">
+              <Avatar src={lastShoutMsg.author_avatar} name={lastShoutMsg.author_name || 'narys'} size={36} />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="line-clamp-2 text-[11px] leading-snug text-[var(--text-secondary)]">{lastShoutMsg.body}</span>
+                <span className="text-[10px] text-[var(--text-faint)]"><b className="font-semibold">{lastShoutMsg.author_name || 'narys'}</b> · {timeAgo(lastShoutMsg.created_at) || 'ką tik'}</span>
               </span>
-              <span className="pl-[26px] text-[10px] text-[var(--text-faint)]">{timeAgo(lastShoutMsg.created_at) || 'ką tik'}</span>
             </span>
           ) : <span className="text-[11px] text-[var(--text-muted)]">bendras pokalbis</span>}
         </button>
@@ -786,7 +803,7 @@ const PROMPTS = [
   { href: '/blogas/rasyti?type=event', icon: I.mic, bg: 'rgba(59,130,246,0.15)', color: '#60a5fa', title: 'Buvai koncerte?', sub: 'Pasidalink įspūdžiais' },
   { href: '/blogas/rasyti?type=review', icon: I.pen, bg: 'rgba(239,68,68,0.15)', color: '#f87171', title: 'Turi minčių apie muziką?', sub: 'Parašyk apžvalgą' },
   { href: '/blogas/rasyti?type=topas', icon: I.trophy, bg: 'rgba(245,158,11,0.15)', color: '#fbbf24', title: 'Turi favoritų?', sub: 'Sudaryk savo topą' },
-  { href: '/muzikos-atradimai/pasidalink', icon: I.spark, bg: 'rgba(249,115,22,0.15)', color: '#fb923c', title: 'Atradai kažką įdomaus?', sub: 'Pasidalink atradimu' },
+  { href: '/muzikos-atradimai/pasidalink', icon: I.spark, bg: 'rgba(249,115,22,0.15)', color: '#fb923c', title: 'Atradai kažką įdomaus?', sub: 'Pasidalink muzikos atradimu' },
 ]
 
 // compact (#7): mobile versija rodoma puslapio apačioje po „Aktyvūs nariai" —
@@ -1457,7 +1474,7 @@ function InviteCTA() {
 // ═════════════════════════ Page ═════════════════════════
 export default function BendruomenePage() {
   return (
-    <div className="page-shell lg:!pb-12">
+    <div className="page-shell !pb-[68px] lg:!pb-12">
       <div className="page-head">
         <h1>Bendruomenė</h1>
         <p>Žmonės, kurie gyvena muzika</p>
