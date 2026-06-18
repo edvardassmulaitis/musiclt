@@ -81,46 +81,8 @@ const ymd = (y?: number | null, m?: number | null, d?: number | null) =>
 
 const one = (v: any) => (Array.isArray(v) ? v[0] : v)
 
-// Supina tipus į vieną srautą su variacija. Dainos (YT įkėlimai) — pirmiausia
-// (tikriausias „kas naujo"), albumai antra, o naujienos / įrašai / topai /
-// diskusijos / koncertai reguliariai įsiterpia.
-function weave(q: Record<string, FeedItem[]>, limit: number): FeedItem[] {
-  const template = ['track', 'album', 'track', 'news', 'chart', 'track', 'recording', 'album', 'blog', 'track', 'topic', 'event', 'track', 'album', 'news', 'blog']
-  const order = ['track', 'album', 'news', 'chart', 'recording', 'blog', 'topic', 'event']
-  const out: FeedItem[] = []
-  let ti = 0
-  while (out.length < limit) {
-    const want = template[ti % template.length]; ti++
-    let pick = q[want]?.shift()
-    if (!pick) {
-      const fb = order.find(k => q[k]?.length)
-      if (!fb) break
-      pick = q[fb].shift()
-    }
-    if (pick) out.push(pick)
-  }
-  return out
-}
-
-// Diversity reorder: dvi gretimos kortelės niekada ne iš to paties atlikėjo.
-// Greedy — jei kitas elementas to paties atlikėjo kaip prieš tai, ieškom toliau
-// kito atlikėjo ir sukeičiam. Stabilu, O(n²) bet n ≤ ~50.
-function spreadByArtist(items: FeedItem[]): FeedItem[] {
-  const out: FeedItem[] = []
-  const pool = [...items]
-  let lastAid: number | null | undefined = undefined
-  while (pool.length) {
-    let idx = pool.findIndex(it => !it.artistId || it.artistId !== lastAid)
-    if (idx === -1) idx = 0
-    const [pick] = pool.splice(idx, 1)
-    out.push(pick)
-    lastAid = pick.artistId
-  }
-  return out
-}
-
 // Per-artist cap: iš sąrašo palieka geriausią `perArtist` įrašų kiekvienam
-// atlikėjui. score(it) — kuo didesnis, tuo geriau (dainoms = video_views).
+// atlikėjui. score(it) — kuo didesnis, tuo geriau (dainoms = naujumas).
 function capPerArtist(items: FeedItem[], perArtist: number, score: (it: FeedItem) => number): FeedItem[] {
   const byArtist = new Map<number, FeedItem[]>()
   const noArtist: FeedItem[] = []
@@ -191,6 +153,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       // YouTube įkėlimas šviežias — tai NĖRA naujiena, praleidžiam.
       const ry = t.release_year || (t.release_date ? new Date(t.release_date).getFullYear() : null)
       if (ry && ry < curYear - 1) continue
+      if (Date.parse(date) > Date.now()) continue // dar neišleista
       tracks.push({
         key: `track-${t.id}`, kind: 'track', title: t.title || '', subtitle: a?.name || null,
         image: t.cover_url || ytThumb(t.video_url) || a?.cover_image_url || null,
@@ -204,6 +167,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       const a = one(al.artists)
       const date = ymd(al.year, al.month, al.day)
       if (!dateOk(date)) continue
+      if (Date.parse(date || '') > Date.now()) continue // dar neišleistas (pvz. Muse – Wow Signal)
       albums.push({
         key: `album-${al.id}`, kind: 'album', title: al.title || '', subtitle: a?.name || null,
         image: al.cover_image_url || a?.cover_image_url || null,
@@ -213,8 +177,10 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         artist: a ? { name: a.name, slug: a.slug } : null,
       })
     }
-    // Per-artist dedup: 1 daina (max views), 1 albumas (naujausias).
-    const dedTracks = capPerArtist(tracks, 1, it => (it.meta?.views as number) || Date.parse(it.date || '') / 1e10)
+    // Per-artist dedup: 1 NAUJAUSIA daina + 1 naujausias albumas (kad srautas
+    // būtų pagal šviežumą, ne pagal seną hitą — anksčiau imdavom max views ir
+    // iškildavo seni populiarūs kūriniai virš naujesnių).
+    const dedTracks = capPerArtist(tracks, 1, it => Date.parse(it.date || '') || 0)
     const dedAlbums = capPerArtist(albums, 1, it => Date.parse(it.date || '') || 0)
     dedTracks.sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
     dedAlbums.sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
@@ -295,7 +261,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       if (!charts.length) return out
       const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
       const { data: entries } = await sb.from('external_chart_entries')
-        .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(slug, cover_url, artists:artist_id(name, cover_image_url))')
+        .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(slug, cover_url, video_url, artists:artist_id(name, cover_image_url))')
         .in('artist_id', artistIds).in('chart_id', charts.map(c => Number(c.id)))
         .order('position', { ascending: true }).limit(40)
       // Vienas geriausios pozicijos įrašas kiekvienam (atlikėjas+topas) deriniui.
@@ -312,9 +278,9 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
           key: `chart-${e.chart_id}-${aid}`, kind: 'chart',
           title: e.title || artistName || c.title || 'Topas',
           subtitle: `#${e.position} · ${c.title}${c.period_label ? ` · ${c.period_label}` : ''}`,
-          image: e.cover_url || tr?.cover_url || ar?.cover_image_url || null,
+          image: e.cover_url || tr?.cover_url || ytThumb(tr?.video_url) || ar?.cover_image_url || null,
           href: `/topai/${c.source}-${c.chart_key}`,
-          date: nowIso, badge: 'Topas', artistId: aid, avatar: ar?.cover_image_url || null,
+          date: null, badge: 'Topas', artistId: aid, avatar: ar?.cover_image_url || null,
           artist: artistName ? { name: artistName, slug: null } : null,
         })
       }
@@ -490,38 +456,29 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
     musicTask(), newsTask(), blogTask(), chartsTask(), topicsTask(), eventsTask(), recordingsTask(), followedPostsTask(), vertaTask(),
   ])
 
-  // Pirmas psl → tipai supinti (dainos priekyje); tolesni → tik muzika chronologiškai.
-  let out: FeedItem[]
+  const ms = (it: FeedItem) => { const t = Date.parse(it.date || ''); return Number.isFinite(t) ? t : NaN }
+
+  // Chronologinis srautas: NAUJAUSI pirma. Būsimi koncertai (įprasti + „verta
+  // kelionės") — pačiame viršuje (artimiausi pirmi). Bedatės kortelės (topai) —
+  // gale. Tolesni psl (before) → tik muzika chronologiškai.
+  let ordered: FeedItem[]
+  const dedupe = (arr: FeedItem[]) => { const s = new Set<string>(); const o: FeedItem[] = []; for (const it of arr) { if (!s.has(it.key)) { s.add(it.key); o.push(it) } } return o }
+
   if (before) {
-    out = [...music.tracks, ...music.albums]
-      .sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
-      .slice(0, limit)
+    ordered = dedupe([...music.tracks, ...music.albums].sort((a, b) => ms(b) - ms(a))).slice(0, limit)
   } else {
-    out = weave({
-      track: [...music.tracks], album: [...music.albums],
-      news, blog: [...blog, ...followedPosts], chart: charts, topic: topics,
-      event: [...verta, ...events], recording: recordings,
-    }, limit)
-  }
-
-  // Dedupe
-  const seen = new Set<string>()
-  const deduped: FeedItem[] = []
-  for (const it of out) { if (!seen.has(it.key)) { seen.add(it.key); deduped.push(it) } }
-
-  // Diversity: jokių dviejų gretimų to paties atlikėjo.
-  let ordered = spreadByArtist(deduped)
-
-  // Pirmas psl: būsimi koncertai (įprasti + „verta kelionės") — į VIRŠŲ (artimiausi
-  // pirmi), kad nebūtų įstrigę tarp senesnių įrašų. Iki 4; likę lieka sraute.
-  if (!before) {
-    const topEvs = ordered.filter(it => it.kind === 'event')
-      .sort((a, b) => Date.parse(a.date || '') - Date.parse(b.date || ''))
-      .slice(0, 4)
-    if (topEvs.length) {
-      const topKeys = new Set(topEvs.map(e => e.key))
-      ordered = [...topEvs, ...ordered.filter(it => !topKeys.has(it.key))]
-    }
+    const uniq = dedupe([
+      ...music.tracks, ...music.albums, ...news, ...blog, ...followedPosts,
+      ...topics, ...events, ...verta, ...recordings, ...charts,
+    ])
+    const now = Date.now()
+    const upcoming = uniq.filter(it => it.kind === 'event' && !Number.isNaN(ms(it)) && ms(it) >= now)
+      .sort((a, b) => ms(a) - ms(b)).slice(0, 4)
+    const upKeys = new Set(upcoming.map(e => e.key))
+    const rest = uniq.filter(it => !upKeys.has(it.key))
+    const dated = rest.filter(it => !Number.isNaN(ms(it))).sort((a, b) => ms(b) - ms(a))
+    const undated = rest.filter(it => Number.isNaN(ms(it)))
+    ordered = [...upcoming, ...dated, ...undated].slice(0, limit)
   }
 
   // nextBefore = seniausia grąžinta MUZIKOS data (muzika = gilus šaltinis).
@@ -537,7 +494,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v12'],
+  ['srautas-feed-v13'],
   { revalidate: 90 },
 )
 
