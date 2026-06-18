@@ -312,7 +312,11 @@ export async function getVideoDetails(
   for (const src of sources) {
     try {
       const r = await src(videoId)
-      if (r && r.viewCount > 0) { winner = r; winnerSrc = src; break }
+      // Priimam jei (a) yra views, ARBA (b) autoritetingai patvirtinta, kad
+      // video miręs/ištrintas (isPrivate). 2026-06-18: be (b) ištrinto video
+      // signalas dingdavo (viewCount=0 atmesdavo) → enrichTrack nebevalydavo
+      // mirusio video_url ir neieškodavo pakaitalo.
+      if (r && (r.viewCount > 0 || r.isPrivate)) { winner = r; winnerSrc = src; break }
     } catch {
       // Bandome kitą source
     }

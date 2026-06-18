@@ -94,7 +94,14 @@ export async function runYtBackfill(opts: {
         ? { skipDataApi: true, preserveViews: true }
         : { skipDataApi: true }
     try {
-      const r = await enrichTrack(id, true, enrichOpts)
+      let r = await enrichTrack(id, true, enrichOpts)
+      // Fazė A: jei stored video buvo MIRĘS (Data API patvirtino → enrichTrack
+      // išvalė video_url), ieškom PAKAITALO — antras enrich be url'o paleidžia
+      // YouTube paiešką (kaip B fazė) ir priskiria veikiantį (embeddable) video.
+      // Taip „negyvi" topų kūriniai gauna grojantį video, o ne lieka tušti.
+      if (phase === 'A' && r.ok && r.videoUrl == null) {
+        try { r = await enrichTrack(id, true, {}) } catch { /* paliekam pirmą r */ }
+      }
       if (r.ok) {
         const ok = (r.wasFound || r.viewsAfter != null || (r as any).embeddable != null)
         if (ok) found++
