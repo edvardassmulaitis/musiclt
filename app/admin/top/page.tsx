@@ -90,7 +90,7 @@ function Countdown({ targetDate }: { targetDate: string | null }) {
 function AdminTopInner() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
 
   const [topType, setTopType] = useState<TopType>('top40')
   const [activeWeek, setActiveWeek] = useState<Week | null>(null)

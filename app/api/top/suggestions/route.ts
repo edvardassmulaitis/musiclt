@@ -59,7 +59,7 @@ export async function POST(req: Request) {
   const { top_type, track_id, manual_title, manual_artist, status: requestedStatus } = body
   const supabase = createAdminClient()
 
-  const isAdmin = ['admin', 'super_admin'].includes(session.user.role || '')
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session.user.role || '')
 
   // Admin'as gali iš karto nustatyti statusą (auto-pasiūlymų panelė:
   // approved = patvirtinti, rejected = praleisti/nebesiūlyti). Ne-admin'ams
@@ -199,7 +199,7 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.role || !['admin', 'super_admin'].includes(session.user.role))
+  if (!session?.user?.role || !['editor', 'admin', 'super_admin'].includes(session.user.role))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()

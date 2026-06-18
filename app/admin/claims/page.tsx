@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminClaimsPage() {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) redirect('/')
+  if (!session?.user || !['editor', 'admin', 'super_admin'].includes(session.user.role || '')) redirect('/')
 
   const sb = createAdminClient()
   const [claimsRes, teamsRes] = await Promise.all([

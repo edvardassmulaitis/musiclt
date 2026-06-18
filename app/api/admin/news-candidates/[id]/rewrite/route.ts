@@ -33,7 +33,7 @@ export const maxDuration = 60  // single Sonnet rewrite ≤ 30s typiškai
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes((session.user.role as string) || '')) {
+  if (!session?.user || !['editor', 'admin', 'super_admin'].includes((session.user.role as string) || '')) {
     return null
   }
   return session

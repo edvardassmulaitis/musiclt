@@ -216,7 +216,7 @@ export default function AdminInboxPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerInitialQuery, setPickerInitialQuery] = useState<string>('')
 
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
 
   const load = useCallback(async () => {
     setLoading(true)

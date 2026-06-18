@@ -27,7 +27,7 @@ export const maxDuration = 60
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes((session.user as any).role || '')) return null
+  if (!session?.user || !['editor', 'admin', 'super_admin'].includes((session.user as any).role || '')) return null
   return session
 }
 const isNew = (e: any) => !!e && ('rank' in e || 'entity_id' in e)

@@ -101,7 +101,7 @@ export default function EventInboxPage() {
   const [artistSearchOpen, setArtistSearchOpen] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
 
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
 
   // Body scroll lock kai modalas atidarytas
   useEffect(() => {

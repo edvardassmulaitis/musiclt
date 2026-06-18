@@ -38,7 +38,7 @@ export default function ArtistsAdmin() {
   const [confirmMode, setConfirmMode] = useState<ConfirmMode>('deactivate')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
   const isSuperAdmin = session?.user?.role === 'super_admin'
 
   const loadSeqRef = useRef(0)

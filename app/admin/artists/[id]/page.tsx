@@ -1438,7 +1438,7 @@ export default function EditArtist() {
   const [artistScore, setArtistScore] = useState<number | null>(null)
   const submitFnRef = useRef<{ fn: (() => void) | null }>({ fn: null })
 
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
   const artistId = params.id as string
 
   useEffect(() => {

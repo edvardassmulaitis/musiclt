@@ -7,7 +7,7 @@ declare module 'next-auth' {
       email: string
       name?: string | null
       image?: string | null
-      role: 'user' | 'admin' | 'super_admin' | 'moderator'
+      role: 'user' | 'editor' | 'admin' | 'super_admin' | 'moderator'
       /** true kai super_admin šiuo metu impersonuoja kitą vartotoją */
       impersonating?: boolean
     }
@@ -16,18 +16,18 @@ declare module 'next-auth' {
   }
 
   interface User {
-    role?: 'user' | 'admin' | 'super_admin' | 'moderator'
+    role?: 'user' | 'editor' | 'admin' | 'super_admin' | 'moderator'
   }
 }
 
 declare module 'next-auth/jwt' {
   interface JWT {
     id: string
-    role: 'user' | 'admin' | 'super_admin' | 'moderator'
+    role: 'user' | 'editor' | 'admin' | 'super_admin' | 'moderator'
     /** Originali super_admin tapatybė impersonation metu */
     impersonator?: {
       id: string
-      role: 'user' | 'admin' | 'super_admin' | 'moderator'
+      role: 'user' | 'editor' | 'admin' | 'super_admin' | 'moderator'
       email?: string | null
       name?: string | null
       picture?: string | null

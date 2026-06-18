@@ -413,7 +413,7 @@ export default function EditNews() {
   const slugRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
   const set = useCallback((key: keyof NewsForm, val: any) => setForm(f => ({ ...f, [key]: val })), [])
 
   useEffect(() => {

@@ -274,7 +274,7 @@ type Sort = 'new' | 'top'
 
 export default function DiscoveriesClient({ items, facets }: { items: Discovery[]; facets: DiscoveryFacets }) {
   const { data: session } = useSession()
-  const isAdmin = ['admin', 'super_admin'].includes(((session?.user as any)?.role) || '')
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(((session?.user as any)?.role) || '')
   const [q, setQ] = useState('')
   const [member, setMember] = useState('')
   const [style, setStyle] = useState('')

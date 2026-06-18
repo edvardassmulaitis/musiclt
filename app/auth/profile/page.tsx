@@ -33,13 +33,14 @@ export default function ProfilePage() {
   if (!session) return null
 
   const user = session.user
-  const isAdmin = user.role === 'admin' || user.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(user.role || '')
   const username = profile?.username || null
   const avatar = profile?.avatar_url || user.image || null
   const name = profile?.full_name || user.name || 'Vartotojas'
 
   const roleLabel = user.role === 'super_admin' ? '★ Super administratorius'
     : user.role === 'admin' ? '⭐ Administratorius'
+    : user.role === 'editor' ? '✏️ Redaktorius'
     : user.role === 'moderator' ? '🛡️ Moderatorius' : '👤 Narys'
 
   return (

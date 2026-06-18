@@ -458,7 +458,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
   const set = (f: keyof AlbumFull, v: any) => setForm(p => {
     const next = { ...p, [f]: v }
     formRef.current = next

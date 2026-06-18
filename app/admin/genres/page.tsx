@@ -26,7 +26,7 @@ export default function AdminGenresPage() {
   const [uploadingId, setUploadingId] = useState<number | null>(null)
   const [editingUrls, setEditingUrls] = useState<Record<number, string>>({})
 
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
 

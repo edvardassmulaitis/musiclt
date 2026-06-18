@@ -5,20 +5,6 @@ import { createPortal } from 'react-dom'
 import { signIn, signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
-import { useSite } from '@/components/SiteContext'
-
-// ── THEME ICONS ─────────────────────────────────────────────────────────────
-const SunIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="4"/>
-    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-  </svg>
-)
-const MoonIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-  </svg>
-)
 
 // ── AUTH MODAL ──────────────────────────────────────────────────────────────
 
@@ -204,10 +190,8 @@ function AuthModal({ onClose }: { onClose: () => void }) {
 
 function UserMenu() {
   const { data: session } = useSession()
-  const { theme, setTheme, dk } = useSite()
   const [open, setOpen] = useState(false)
   const [username, setUsername] = useState<string | null>(null)
-  const [studioId, setStudioId] = useState<number | null>(null)  // -1 = nėra valdomų atlikėjų
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -224,16 +208,8 @@ function UserMenu() {
     fetch('/api/profile').then(r => r.json()).then(d => { if (d?.username) setUsername(d.username) }).catch(() => {})
   }, [open, username])
 
-  // Ar vartotojas valdo bent vieną atlikėją → rodom „Atlikėjo studija".
-  useEffect(() => {
-    if (!open || studioId !== null) return
-    fetch('/api/studija/mine').then(r => r.json())
-      .then(d => setStudioId(Array.isArray(d?.artists) && d.artists.length ? d.artists[0].id : -1))
-      .catch(() => {})
-  }, [open, studioId])
-
   if (!session?.user) return null
-  const isAdmin = session.user.role === 'admin' || session.user.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session.user.role || '')
 
   const menuItem = (href: string, icon: React.ReactNode, label: string, accent?: boolean) => {
     const fg = accent ? 'var(--accent-orange)' : 'var(--text-secondary)'
@@ -351,7 +327,7 @@ function UserMenu() {
                   style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)' }}
                 >
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 7.1-1.01z"/></svg>
-                  {session.user.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                  {session.user.role === 'super_admin' ? 'Super Admin' : session.user.role === 'editor' ? 'Redaktorius' : 'Admin'}
                 </span>
               ) : (
                 <div className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{session.user.email}</div>
@@ -367,9 +343,6 @@ function UserMenu() {
             {menuItem('/mano-muzika', (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
             ), 'Mano muzika', true)}
-            {studioId && studioId > 0 ? menuItem(`/atlikejams/zona?a=${studioId}`, (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
-            ), 'Atlikėjo zona', true) : null}
             {menuItem('/blogas/mano', (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             ), 'Mano blogas')}
@@ -389,34 +362,6 @@ function UserMenu() {
               ), 'Admin panelė', true)}
             </div>
           )}
-
-          {/* Tema — perkelta iš mobile hamburger meniu, kad būtų pasiekiama
-              ir desktop'e (2026-06-18). */}
-          <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1.5">
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="w-full flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-all text-left"
-              style={{ width: 'calc(100% - 0.75rem)', color: 'var(--text-secondary)' }}
-              onMouseEnter={e => {
-                const el = e.currentTarget as HTMLElement
-                el.style.background = 'var(--bg-hover)'
-                el.style.color = 'var(--text-primary)'
-              }}
-              onMouseLeave={e => {
-                const el = e.currentTarget as HTMLElement
-                el.style.background = 'transparent'
-                el.style.color = 'var(--text-secondary)'
-              }}
-            >
-              <span
-                className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0"
-                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
-              >
-                {dk ? <SunIcon /> : <MoonIcon />}
-              </span>
-              {dk ? 'Šviesi tema' : 'Tamsi tema'}
-            </button>
-          </div>
 
           {/* Logout */}
           <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1.5">

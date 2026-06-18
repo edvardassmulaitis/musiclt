@@ -502,7 +502,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     finally { setParsingFeat(false) }
   }
 
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (mobileNavRef.current && !mobileNavRef.current.contains(e.target as Node)) setShowMobileNav(false) }

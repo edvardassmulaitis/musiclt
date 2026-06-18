@@ -122,7 +122,7 @@ export default function AdminImportPage() {
   const [actionMsg, setActionMsg] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
 
   const loadStats = useCallback(async () => {
     try {

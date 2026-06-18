@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes((session.user.role as string) || '')) {
+  if (!session?.user || !['editor', 'admin', 'super_admin'].includes((session.user.role as string) || '')) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
 

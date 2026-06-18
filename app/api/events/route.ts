@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
       period: (sp.get('period') as 'week' | 'month' | 'all') || undefined,
       showPast: sp.get('showPast') === 'true',
       order: (sp.get('order') as 'asc' | 'desc') || undefined,
-      homeHero: sp.get('home_hero') === '1',
       limit: parseInt(sp.get('limit') || '20'),
       offset: parseInt(sp.get('offset') || '0'),
     })
@@ -46,7 +45,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
+  if (!session?.user || !['editor', 'admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

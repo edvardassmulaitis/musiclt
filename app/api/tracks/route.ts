@@ -262,7 +262,7 @@ function mapTrack(t: any) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
+  if (!session?.user || !['editor', 'admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

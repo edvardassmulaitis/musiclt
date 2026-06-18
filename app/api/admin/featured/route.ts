@@ -19,7 +19,7 @@ const TABLE: Record<string, string> = {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   const role = session?.user?.role
-  if (role !== 'admin' && role !== 'super_admin')
+  if (!['editor', 'admin', 'super_admin'].includes(role || ''))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))

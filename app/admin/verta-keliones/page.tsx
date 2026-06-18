@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminVertaKelionesPage() {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes((session.user as any).role || '')) {
+  if (!session?.user || !['editor', 'admin', 'super_admin'].includes((session.user as any).role || '')) {
     redirect('/admin')
   }
   return (

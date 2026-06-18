@@ -28,7 +28,7 @@ export default function AdminSubstyleReview() {
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
 
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
 
   const load = () => {

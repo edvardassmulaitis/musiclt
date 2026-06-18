@@ -374,7 +374,7 @@ function Comments({ newsId }: { newsId: number }) {
     setComments(prev => prev.filter(c => c.id !== id))
   }
 
-  const isAdmin = ['admin', 'super_admin'].includes((session?.user as any)?.role)
+  const isAdmin = ['editor', 'admin', 'super_admin'].includes((session?.user as any)?.role)
 
   return (
     <div className="cm-wrap">

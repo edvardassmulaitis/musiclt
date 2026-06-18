@@ -27,7 +27,7 @@ export const maxDuration = 60
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes((session.user as any).role || '')) return null
+  if (!session?.user || !['editor', 'admin', 'super_admin'].includes((session.user as any).role || '')) return null
   return session
 }
 
@@ -182,7 +182,7 @@ export async function GET(req: Request) {
 
   // SVARBU (supabase-js): filtrai (.not/.is/.eq/.in) PRIEŠ transformacijas (.order/.range).
   let q = sb.from('blog_posts')
-    .select(`id, slug, title, post_type, editorial_type, status, published_at, created_at, homepage_reviewed_at, featured_until, home_hero, list_items, target_album_id, target_event_id, ${join}`)
+    .select(`id, slug, title, post_type, editorial_type, status, published_at, created_at, homepage_reviewed_at, featured_until, list_items, target_album_id, target_event_id, ${join}`)
     .eq('status', 'published')
     .in('post_type', ['article', 'topas', 'review', 'creation', 'translation', 'event'])
   if (!includeHidden) q = q.not('blogs.profiles.hide_from_homepage', 'is', true)
@@ -208,7 +208,6 @@ export async function GET(req: Request) {
       reviewed: !!b.homepage_reviewed_at,
       featured_until: b.featured_until || null,
       featured: !!(b.featured_until && new Date(b.featured_until).getTime() > Date.now()),
-      home_hero: !!b.home_hero,
       published_at: b.published_at,
       author: prof?.username || prof?.full_name || null,
       hidden: !!prof?.hide_from_homepage,
@@ -233,13 +232,6 @@ export async function PATCH(req: Request) {
     const { error } = await sb.from('blog_posts').update({ featured_until }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, featured_until })
-  }
-
-  // „Homepage hero" žymė — įrašas rodomas pradžios hero feede tarp naujienų.
-  if ('home_hero' in body && !('kind' in body)) {
-    const { error } = await sb.from('blog_posts').update({ home_hero: !!body.home_hero }).eq('id', id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, home_hero: !!body.home_hero })
   }
 
   // Vizualo priskyrimas featured įrašui be cover (admin įklijuoja URL arba

@@ -1,46 +1,38 @@
 'use client'
-// Admin dashboard — sugrupuotos sekcijos, kiekviena su touch-friendly kortelėm.
-// Migracija aukščiausiai (kasdienio darbo srautas: aktyvuoti, peržiūrėti pending,
-// patvirtinti). Po jos — content management (atlikėjai/albums/tracks/news/events).
-// Pabaigoje — sistemos meta (genres/search/settings/voting).
+// Admin dashboard — „ką reikia padaryti dabar", ne funkcijų katalogas.
 //
-// Mobile-first: kortelės stack'inasi 1 kolona <640px, 2 kolonos sm:, 3 kolonos lg:.
-// Touch targets >= 44px (iOS HIG). Niekur ne small text be papildomos akcijos.
+// Grupės + kortelės + rolės gyvena VIENAME tiesos šaltinyje: lib/admin-sections.ts.
+// Tas pats config'as valdo middleware enforcement (server-side). Čia tik renderis.
+//
+// Rolės: editor (regular admin) mato review/content/growth/community; admin +
+// super_admin papildomai mato imports/system. Filtravimas — canSeeSection().
+//
+// Mobile-first: 1 kolona <640px, 2 sm:, 3 lg:. Touch targets >= 44px.
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AdminMigrationProgress from '@/components/AdminMigrationProgress'
 import AdminQuickAdd from '@/components/AdminQuickAdd'
+import {
+  ADMIN_GROUPS, ADMIN_SECTIONS, canSeeSection, hasMinRole, isAdminTier,
+  type AdminSection, type GroupKey,
+} from '@/lib/admin-sections'
 
-type Counts = {
-  artists: number; albums: number; tracks: number
-  news: number; events: number; venues: number
-  top_pending: number
-  pending_albums: number   // legacy_scrape_pending
-  pending_tracks: number
-  active_jobs: number      // import_jobs running/pending
-  inbox_pending: number    // news candidates laukia review'o
-  users_migrated: number   // ghost user'iai su >=1 faze
+// Summary endpoint grąžina plokščią objektą: { artists: 13641, inbox_pending: 38, ... }
+type Summary = Record<string, number>
+
+const BADGE_SUFFIX: Record<string, string> = {
+  active_jobs: 'aktyvūs',
+  users_migrated: 'migruoti',
+  radar_pending: 'nauji',
 }
 
-type AdminCard = {
-  href: string
-  newHref?: string
-  icon: string
-  label: string
-  count?: number
-  badge?: { text: string; color: 'orange' | 'red' | 'green' | 'blue' }
-  hint?: string
-}
+function Card({ card, summary }: { card: AdminSection; summary: Summary | null }) {
+  const badgeVal = card.badgeKey ? summary?.[card.badgeKey] : undefined
+  const showBadge = typeof badgeVal === 'number' && badgeVal > 0
+  const countVal = card.countKey ? summary?.[card.countKey] : undefined
 
-function Card({ card }: { card: AdminCard }) {
-  const badgeColors: Record<string, string> = {
-    orange: 'bg-orange-100 text-orange-700 border-orange-200',
-    red:    'bg-red-100 text-red-700 border-red-200',
-    green:  'bg-green-100 text-green-700 border-green-200',
-    blue:   'bg-blue-100 text-blue-700 border-blue-200',
-  }
   return (
     <div className="overflow-hidden rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] transition-all hover:border-[var(--border-strong)] hover:shadow-md">
       <Link
@@ -54,16 +46,15 @@ function Card({ card }: { card: AdminCard }) {
             <span className="truncate text-[11px] text-[var(--text-muted)]">{card.hint}</span>
           )}
         </div>
-        {card.badge && (
-          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-bold ${badgeColors[card.badge.color]}`}>
-            {card.badge.text}
+        {showBadge ? (
+          <span className="shrink-0 rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10.5px] font-bold text-orange-700">
+            {badgeVal} {BADGE_SUFFIX[card.badgeKey!] || 'laukia'}
           </span>
-        )}
-        {card.count !== undefined && !card.badge && (
+        ) : countVal !== undefined ? (
           <span className="shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
-            {card.count.toLocaleString('lt-LT')}
+            {countVal.toLocaleString('lt-LT')}
           </span>
-        )}
+        ) : null}
       </Link>
       {card.newHref && (
         <Link
@@ -90,9 +81,9 @@ function SectionTitle({ icon, label, hint }: { icon: string; label: string; hint
 }
 
 function CollapseButton({
-  icon, label, hint, count, open, onToggle, badge,
+  icon, label, count, open, onToggle, badge,
 }: {
-  icon: string; label: string; hint: string; count: number
+  icon: string; label: string; count: number
   open: boolean; onToggle: () => void; badge?: string
 }) {
   return (
@@ -105,7 +96,6 @@ function CollapseButton({
       <span className="text-2xl">{icon}</span>
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="font-semibold text-[var(--text-primary)]">{label}</span>
-        <span className="truncate text-[11px] text-[var(--text-muted)]">{hint}</span>
       </div>
       {badge && (
         <span className="shrink-0 rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10.5px] font-bold text-orange-700">
@@ -129,165 +119,30 @@ function CollapseButton({
 export default function AdminDashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [counts, setCounts] = useState<Counts | null>(null)
-  const [importsOpen, setImportsOpen] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false)
+  const role = session?.user?.role
+  const isAdmin = isAdminTier(role)
+  const isFull = hasMinRole(role, 'admin')
 
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const [summary, setSummary] = useState<Summary | null>(null)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
 
   useEffect(() => {
     if (!isAdmin) return
-    Promise.all([
-      fetch('/api/artists?limit=1').then(r => r.json()),
-      fetch('/api/albums?limit=1').then(r => r.json()),
-      fetch('/api/tracks?limit=1').then(r => r.json()),
-      fetch('/api/news?limit=1').then(r => r.json()),
-      fetch('/api/events?limit=1&showPast=true').then(r => r.json()),
-      fetch('/api/top/suggestions?status=pending').then(r => r.json()),
-      fetch('/api/venues').then(r => r.json()),
-      // Migration counters — turi būti light query'ai. Naudojam REST API
-      // su `Prefer: count=exact, head=true` jei reikia, bet dabar tiesiog
-      // imam .total iš normalaus list endpoint'o.
-      fetch('/api/admin/import/pending/counts').then(r => r.ok ? r.json() : { albums: 0, tracks: 0, jobs: 0 }).catch(() => ({ albums: 0, tracks: 0, jobs: 0 })),
-      // Inbox pending news candidates (light query — head=true count)
-      fetch('/api/admin/news-candidates?status=pending&limit=1').then(r => r.ok ? r.json() : { total: 0 }).catch(() => ({ total: 0 })),
-      // Migrated users count (>=1 phase touched)
-      fetch('/api/admin/users-migration/counts').then(r => r.ok ? r.json() : { migrated: 0 }).catch(() => ({ migrated: 0 })),
-    ]).then(([ar, al, tr, nw, ev, sg, vn, mig, inbox, usersMig]) => {
-      setCounts({
-        artists: ar.total || 0,
-        albums: al.total || 0,
-        tracks: tr.total || 0,
-        news: nw.total || 0,
-        events: ev.total || 0,
-        top_pending: sg.suggestions?.length || 0,
-        venues: vn.venues?.length || 0,
-        pending_albums: mig.albums || 0,
-        pending_tracks: mig.tracks || 0,
-        active_jobs: mig.jobs || 0,
-        inbox_pending: inbox.total || inbox.candidates?.length || 0,
-        users_migrated: usersMig.migrated || 0,
-      })
-    })
+    fetch('/api/admin/dashboard-summary')
+      .then(r => (r.ok ? r.json() : {}))
+      .then((d) => setSummary(d || {}))
+      .catch(() => setSummary({}))
   }, [isAdmin])
 
   if (status === 'loading' || !isAdmin) return null
 
-  const totalPending = (counts?.pending_albums || 0) + (counts?.pending_tracks || 0)
+  // Sekcijos matomos šiai rolei, sugrupuotos.
+  const visibleByGroup = (g: GroupKey) =>
+    ADMIN_SECTIONS.filter(s => s.group === g && canSeeSection(role, s))
 
-  // ── Sekcijos ────────────────────────────────────────────────────────
-  // Kasdienio darbo srautai — review queue + nariai. Aukščiausioje vietoje.
-  const ops: AdminCard[] = [
-    {
-      href: '/admin/inbox',
-      icon: '📥',
-      label: 'Naujienų inbox',
-      hint: 'News scout candidates → review / publish',
-      badge: counts?.inbox_pending && counts.inbox_pending > 0
-        ? { text: `${counts.inbox_pending} laukia`, color: 'orange' }
-        : undefined,
-    },
-    {
-      href: '/admin/import/pending',
-      icon: '⏳',
-      label: 'Pending review',
-      hint: 'music.lt has, Wiki neturi — patvirtinti',
-      badge: totalPending > 0
-        ? { text: `${totalPending} laukia`, color: 'orange' }
-        : undefined,
-    },
-  ]
-
-  // Vienkartiniai / migracijos įrankiai — sukelti po vienu collapse mygtuku,
-  // kad dashboard'as nebūtų perkrautas (kasdien nenaudojami).
-  const importTools: AdminCard[] = [
-    {
-      href: '/admin/import',
-      icon: '🚀',
-      label: 'Atlikėjų migracija',
-      hint: 'Wiki + scrape job queue, bulk run',
-      badge: counts?.active_jobs && counts.active_jobs > 0
-        ? { text: `${counts.active_jobs} aktyvūs`, color: 'orange' }
-        : undefined,
-    },
-    {
-      href: '/admin/artist-import',
-      icon: '📋',
-      label: 'JSON importas',
-      hint: 'GPT JSON → atlikėjo info (create/update)',
-    },
-    {
-      href: '/admin/import/forum',
-      icon: '🧵',
-      label: 'Forum migracija',
-      hint: 'Senas forumas → diskusijų threads',
-    },
-    {
-      href: '/admin/eventai',
-      icon: '📅',
-      label: 'Eventai (legacy)',
-      hint: 'Senų renginių importas',
-    },
-    {
-      href: '/admin/users-migration',
-      icon: '👤',
-      label: 'Narių UGC migracija',
-      hint: 'Per-user content + likes (beveik baigta)',
-      badge: counts?.users_migrated && counts.users_migrated > 0
-        ? { text: `${counts.users_migrated} migruoti`, color: 'green' }
-        : undefined,
-    },
-  ]
-
-  // Pagrindinis turinys — kasdien tvarkomos esybės. Lieka matomos.
-  const content: AdminCard[] = [
-    { href: '/admin/artists', newHref: '/admin/artists/new', icon: '🎤', label: 'Atlikėjai', count: counts?.artists },
-    { href: '/admin/albums', newHref: '/admin/albums/new', icon: '💿', label: 'Albumai', count: counts?.albums },
-    { href: '/admin/tracks', newHref: '/admin/tracks/new', icon: '🎵', label: 'Dainos', count: counts?.tracks },
-    { href: '/admin/news', newHref: '/admin/news/new', icon: '📰', label: 'Naujienos', count: counts?.news },
-    { href: '/admin/events', newHref: '/admin/events/new', icon: '📅', label: 'Renginiai', count: counts?.events },
-    { href: '/admin/venues', newHref: '/admin/venues/new', icon: '📍', label: 'Vietos', count: counts?.venues },
-  ]
-
-  // Rečiau naudojama — topai, balsavimai, sistema, papildomi įrankiai.
-  // Sukelta po vienu collapse mygtuku, kad main page nebūtų perkrautas.
-  const more: AdminCard[] = [
-    {
-      href: '/admin/top',
-      icon: '🏆',
-      label: 'TOP sąrašai',
-      hint: 'TOP 40 · LT TOP 30',
-      badge: counts?.top_pending && counts.top_pending > 0
-        ? { text: `${counts.top_pending} laukia`, color: 'orange' }
-        : undefined,
-    },
-    { href: '/admin/radaras', icon: '📡', label: 'Naujų atlikėjų radaras', hint: 'Featured / įtraukti / paslėpti — /nauji-atlikejai' },
-    { href: '/admin/claims', icon: '🎫', label: 'Atlikėjų prašymai', hint: '„Tai mano profilis" claim\'ai → studijos prieiga (/atlikejams/zona)' },
-
-    { href: '/admin/koncertu-irasai', icon: '🎬', label: 'Koncertų įrašai', hint: 'Pridėk live pasirodymą iš YouTube nuorodos — /koncertu-irasai' },
-    { href: '/admin/verta-keliones', icon: '✈️', label: 'Verta kelionės', hint: 'Scout 2026 turai → kandidatai · koncertai · kryptys — /verta-keliones' },
-    { href: '/admin/kolekcijos', icon: '🎼', label: 'Kolekcijos', hint: 'Teminės dainų/albumų kolekcijos — kurti, redaguoti, AI pildyti dainomis · /muzika' },
-    { href: '/admin/galerija', icon: '📸', label: 'Foto galerija', hint: 'Foto reportažai + fotografai — Flickr import / upload · /galerija' },
-    { href: '/admin/atradimai', icon: '✨', label: 'Muzikos atradimai', hint: 'Trūkstami atlikėjai — susieti su DB arba sukurti · /muzikos-atradimai' },
-    { href: '/admin/charts', icon: '🌍', label: 'Išoriniai topai', hint: 'AGATA, Spotify, Apple — susieti dainas' },
-    { href: '/admin/irasai', icon: '🗂️', label: 'Narių įrašai', hint: 'Tipų priskyrimas homepage juostai + topų normalizavimas (legacy→entity)' },
-    { href: '/admin/topai-vidiniai', icon: '📋', label: 'Vidiniai topai', hint: 'Narių topų susiejimas su DB + patvirtinimas (kaip išoriniai topai)' },
-    { href: '/admin/truksta-muzikos', icon: '🧩', label: 'Trūkstama muzika', hint: 'Vieninga eilė: bendruomenės minimi atlikėjai/albumai/dainos, kurių dar nėra DB' },
-    { href: '/admin/dienos-daina', icon: '⭐', label: 'Dienos daina', hint: 'Daily song spotlight' },
-    { href: '/admin/voting', icon: '🗳️', label: 'Balsavimai', hint: 'Apdovanojimai, votings' },
-    { href: '/admin/boombox', icon: '🎛️', label: 'Boombox', hint: 'Live stream player config' },
-    { href: '/admin/comments', icon: '💬', label: 'Komentarai', hint: 'Visi komentarai per visas surfaces' },
-    { href: '/admin/contacts', icon: '📇', label: 'Vadybininkų bazė', hint: 'Atlikėjų vadyba / booking / label kontaktai' },
-    { href: '/admin/genres', icon: '🎨', label: 'Žanrai' },
-    { href: '/admin/role-translations', icon: '🌐', label: 'Sričių vertimai' },
-    { href: '/admin/search', icon: '🔍', label: 'Paieška' },
-    { href: '/admin/users', icon: '👥', label: 'Vartotojai' },
-    { href: '/admin/settings', icon: '⚙️', label: 'Nustatymai' },
-    { href: '/admin/db-stats', icon: '💾', label: 'DB stats', hint: 'Lentelių dydžiai, dead indexes, bloat' },
-    { href: '/admin/yt-backfill', icon: '🎞️', label: 'YouTube backfill', hint: 'Foninis YT info pildymas (views/data/embed) — progresas + prioritetai' },
-  ]
+  const toggle = (g: string) => setOpenGroups(o => ({ ...o, [g]: !o[g] }))
 
   return (
     <div className="min-h-screen bg-[var(--bg-elevated)]">
@@ -297,71 +152,58 @@ export default function AdminDashboardPage() {
             Admin dashboard
           </h1>
           <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">
-            Migracijos workflow + content management. Optimizuotas mobile'ui.
+            Ką reikia padaryti dabar — peržiūra, turinys, augimas.{!isFull && ' (Redaktoriaus rodinys)'}
           </p>
         </div>
 
-        {/* Greitas pridėjimas — viena nuoroda → daina (YT) arba albumas (Wiki) */}
+        {/* Greitas pridėjimas */}
         <section className="mb-6">
           <AdminQuickAdd />
         </section>
 
-        {/* Kasdienis darbas — inbox review, pending entries */}
-        <section className="mb-8">
-          <SectionTitle icon="📋" label="Kasdienis darbas" hint="inbox review, pending entries" />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {ops.map(card => <Card key={card.href} card={card} />)}
-          </div>
-        </section>
+        {ADMIN_GROUPS.map((group) => {
+          // Grupė matoma tik jei rolė pasiekia jos minRole.
+          if (!hasMinRole(role, group.minRole)) return null
+          const cards = visibleByGroup(group.key)
+          if (cards.length === 0) return null
 
-        {/* Turinys — pagrindinės kasdien tvarkomos esybės */}
-        <section className="mb-8">
-          <SectionTitle icon="📚" label="Turinys" hint="atlikėjai, albumai, dainos, naujienos, renginiai" />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {content.map(card => <Card key={card.href} card={card} />)}
-          </div>
-        </section>
+          // Imports/system — collapse mygtukas.
+          if (group.collapsed) {
+            const open = !!openGroups[group.key]
+            const badge = group.key === 'imports' && summary?.active_jobs
+              ? `${summary.active_jobs} aktyvūs` : undefined
+            return (
+              <section key={group.key} className="mb-4">
+                <CollapseButton
+                  icon={group.icon}
+                  label={group.title}
+                  count={cards.length}
+                  open={open}
+                  onToggle={() => toggle(group.key)}
+                  badge={badge}
+                />
+                {open && (
+                  <div className="mt-3 space-y-3">
+                    {group.key === 'imports' && <AdminMigrationProgress />}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {cards.map(card => <Card key={card.key} card={card} summary={summary} />)}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )
+          }
 
-        {/* ── Rečiau naudojama — sukelta po collapse mygtukais ──────────── */}
-
-        {/* Importai / Migracija — vienkartiniai įrankiai + progreso widget (lazy) */}
-        <section className="mb-4">
-          <CollapseButton
-            icon="🚀"
-            label="Importai / Migracija"
-            hint="Atlikėjų importas, JSON, forumas, legacy eventai, narių UGC — vienkartiniai įrankiai"
-            count={importTools.length}
-            open={importsOpen}
-            onToggle={() => setImportsOpen(o => !o)}
-            badge={counts?.active_jobs && counts.active_jobs > 0 ? `${counts.active_jobs} aktyvūs` : undefined}
-          />
-          {importsOpen && (
-            <div className="mt-3 space-y-3">
-              {/* Migracijos progresas — kraunamas tik atvėrus (kad main page negaištų) */}
-              <AdminMigrationProgress />
+          // review/content/growth/community — visada išskleista.
+          return (
+            <section key={group.key} className="mb-8">
+              <SectionTitle icon={group.icon} label={group.title} />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {importTools.map(card => <Card key={card.href} card={card} />)}
+                {cards.map(card => <Card key={card.key} card={card} summary={summary} />)}
               </div>
-            </div>
-          )}
-        </section>
-
-        {/* Daugiau — topai, balsavimai, sistema, papildomi įrankiai */}
-        <section className="mb-6">
-          <CollapseButton
-            icon="🗂️"
-            label="Daugiau"
-            hint="Topai, balsavimai, komentarai, žanrai, vartotojai, nustatymai — rečiau naudojama"
-            count={more.length}
-            open={moreOpen}
-            onToggle={() => setMoreOpen(o => !o)}
-          />
-          {moreOpen && (
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {more.map(card => <Card key={card.href} card={card} />)}
-            </div>
-          )}
-        </section>
+            </section>
+          )
+        })}
       </div>
     </div>
   )

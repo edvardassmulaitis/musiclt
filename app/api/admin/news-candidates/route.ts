@@ -14,7 +14,7 @@ export const runtime = 'nodejs'
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes((session.user.role as string) || '')) {
+  if (!session?.user || !['editor', 'admin', 'super_admin'].includes((session.user.role as string) || '')) {
     return null
   }
   return session

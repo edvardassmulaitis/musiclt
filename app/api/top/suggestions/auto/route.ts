@@ -60,7 +60,7 @@ type Candidate = {
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.role || !['admin', 'super_admin'].includes(session.user.role))
+  if (!session?.user?.role || !['editor', 'admin', 'super_admin'].includes(session.user.role))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)

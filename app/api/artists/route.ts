@@ -9,12 +9,12 @@ import { loadSubstyleRows, resolveSubstyle, type SubstyleRowFull } from '@/lib/s
  *  Pakeičia seną „eq(name)→insert if missing" logiką visuose 3 kūrimo keliuose. */
 async function linkSubstyles(
   sb: ReturnType<typeof createAdminClient>,
-  artistId: number | null,
+  artistId: number,
   names: string[],
   artistGenreId: number | null,
   rows?: SubstyleRowFull[],
 ) {
-  if (!artistId || !names?.length) return
+  if (!names?.length) return
   const subRows = rows || await loadSubstyleRows(sb)
   const seen = new Set<number>()
   for (const name of names) {
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
+  if (!session?.user || !['editor', 'admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -1,38 +1,51 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
+import { minRoleForPath, hasMinRole, isAdminTier } from '@/lib/admin-sections'
 
-export function middleware(req: NextRequest) {
+const AUTH_SECRET = process.env.NEXTAUTH_SECRET || 'kjcxLaUePrIgs0SM6C6yen/Whkp87MDKywsUjmrBPYE='
+
+export async function middleware(req: NextRequest) {
   const url = req.nextUrl
   const { pathname } = url
 
-  // Seni bendruomenės hub URL'ai → /bendruomene (308). Hub'as: /atradimai (V1) →
-  // /feed (2026-06-05) → /atrasti (2026-06-05 v2) → /bendruomene (2026-06-17).
-  // Middleware'e, kad apeitų Vercel edge cache'uotą seną statinį puslapį
-  // (page-lygio permanentRedirect to nepadaro, nes serveris atiduoda cache HIT).
+  // ── Admin prieigos kontrolė (vienas chokepoint'as) ──────────────────────────
+  // Rolių ribos iš lib/admin-sections.ts (tas pats config'as, kuris valdo homepage).
+  // Tikras server-side enforcement: editor negali apeiti per URL ar tiesioginį API.
+  const adminMin = minRoleForPath(pathname)
+  if (adminMin) {
+    const token = await getToken({ req, secret: AUTH_SECRET })
+    const role = (token as any)?.role
+    if (!hasMinRole(role, adminMin)) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      const dest = url.clone()
+      dest.search = ''
+      // editor, pataikęs į admin-only zoną → atgal į admin homepage; kiti → į pradžią.
+      dest.pathname = isAdminTier(role) ? '/admin' : '/'
+      return NextResponse.redirect(dest)
+    }
+  }
+
+  // Seni bendruomenės hub URL'ai → /atrasti (308). Hub'as: /atradimai (V1) →
+  // /feed (2026-06-05) → /atrasti (2026-06-05 v2). Middleware'e, kad apeitų
+  // Vercel edge cache'uotą seną statinį puslapį (page-lygio permanentRedirect
+  // to nepadaro, nes serveris atiduoda cache HIT).
   if (pathname === '/atradimai' || pathname.startsWith('/atradimai/')) {
     const dest = url.clone()
-    dest.pathname = pathname.replace(/^\/atradimai/, '/bendruomene')
+    dest.pathname = pathname.replace(/^\/atradimai/, '/atrasti')
     return NextResponse.redirect(dest, 308)
   }
   if (pathname === '/feed' || pathname.startsWith('/feed/')) {
     const dest = url.clone()
-    dest.pathname = pathname.replace(/^\/feed/, '/bendruomene')
-    return NextResponse.redirect(dest, 308)
-  }
-  if (pathname === '/atrasti' || pathname.startsWith('/atrasti/')) {
-    const dest = url.clone()
-    dest.pathname = pathname.replace(/^\/atrasti/, '/bendruomene')
+    dest.pathname = pathname.replace(/^\/feed/, '/atrasti')
     return NextResponse.redirect(dest, 308)
   }
 
-  // Atlikėjo zona: seni keliai → /atlikejams/zona (2026-06-15).
+  // Atlikėjo studija perkelta /studija → /atlikejams/studija (2026-06-15).
   if (pathname === '/studija' || pathname.startsWith('/studija/')) {
     const dest = url.clone()
-    dest.pathname = pathname.replace(/^\/studija/, '/atlikejams/zona')
-    return NextResponse.redirect(dest, 308)
-  }
-  if (pathname === '/atlikejams/studija' || pathname.startsWith('/atlikejams/studija/')) {
-    const dest = url.clone()
-    dest.pathname = pathname.replace(/^\/atlikejams\/studija/, '/atlikejams/zona')
+    dest.pathname = pathname.replace(/^\/studija/, '/atlikejams/studija')
     return NextResponse.redirect(dest, 308)
   }
 
@@ -93,8 +106,12 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Visi page-route'ai, išskyrus Next interninius, API ir statinius failus
-  // (failai su plėtiniu, pvz. .js/.css/.png). Reikalinga, kad /@<username>
-  // ir /user/<username> patektų į middleware.
-  matcher: ['/((?!_next/|api/|favicon.ico|robots.txt|sitemap.xml|.*\\.[^/]+$).*)'],
+  // 1) Visi page-route'ai, išskyrus Next interninius, API ir statinius failus
+  //    (failai su plėtiniu, pvz. .js/.css/.png). Reikalinga, kad /@<username>,
+  //    /user/<username> ir /admin/* patektų į middleware.
+  // 2) /api/admin/* — admin API prieigos kontrolei (rolės enforcement).
+  matcher: [
+    '/((?!_next/|api/|favicon.ico|robots.txt|sitemap.xml|.*\\.[^/]+$).*)',
+    '/api/admin/:path*',
+  ],
 }
