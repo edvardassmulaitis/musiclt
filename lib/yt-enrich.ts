@@ -27,6 +27,7 @@ export type EnrichResult = {
   viewsAfter: number | null
   viewsDelta: number | null
   historyId: number | null
+  embeddable?: boolean | null
   warnings?: string[]
 }
 
@@ -170,6 +171,20 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
   const viewsBefore = (t.video_views ?? null) as number | null
 
   if (videoId) {
+    // Embeddable statusas per oEmbed (nemokama, iš Vercel'io patikima). 2026-06-18
+    // fix: anksčiau enrichTrack NIEKADA nenustatydavo video_embeddable, o PUT
+    // /api/tracks/[id] keičiant video_url jį nuvalo į null → embed badge'as
+    // likdavo tuščias po kiekvieno redagavimo. Dabar užpildom čia. (Privataus/
+    // ištrinto video atveju žemiau perrašom į false.)
+    try {
+      const oe = await fetch(
+        `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+        { signal: AbortSignal.timeout(5000) }
+      )
+      updates.video_embeddable = oe.ok
+    } catch {
+      // Timeout/network — paliekam nepaliestą (null), client-side onError pagaus.
+    }
     try {
       const details = await getVideoDetails(videoId)
       if (details && !details.isPrivate) {
@@ -250,6 +265,7 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
     viewsAfter,
     viewsDelta,
     historyId,
+    embeddable: ('video_embeddable' in updates ? updates.video_embeddable : null) as boolean | null,
     warnings: warnings.length ? warnings : undefined,
   }
 }

@@ -679,7 +679,10 @@ function albumTypeFlags(wikitext: string): Partial<AlbumFull> {
 
 type TrackContext = {
   videoId: string
-  details: NonNullable<Awaited<ReturnType<typeof getVideoDetails>>>
+  // details gali būti null, kai YT Data API kvota išnaudota IR InnerTube
+  // fallback'ai nepavyko — tokiu atveju metaduomenis (title/kanalą) imame iš
+  // oEmbed, o views/data užsipildys vėliau per enrich. Žr. fetchTrackContext.
+  details: Awaited<ReturnType<typeof getVideoDetails>>
   channelName: string
   embeddable: boolean | null
   artistSegment: string
@@ -693,12 +696,19 @@ type TrackContext = {
 async function fetchTrackContext(url: string): Promise<TrackContext | { error: string }> {
   const videoId = extractVideoIdFromUrl(url)
   if (!videoId) return { error: 'Neatpažinta YouTube nuoroda' }
-  const details = await getVideoDetails(videoId)
-  if (!details) return { error: 'Nepavyko gauti YouTube video duomenų' }
 
   const warnings: string[] = []
+
+  // 1) oEmbed PIRMA — nemokamas ir iš Vercel'io patikimai pasiekiamas. Duoda
+  //    video pavadinimą + kanalą + embeddable. Nuo šito priklauso atlikėjo/dainos
+  //    atskyrimas, todėl tai svarbesnis šaltinis nei views (kuriuos galima
+  //    užpildyti vėliau). 2026-06-18: anksčiau buvo kviečiamas PO getVideoDetails
+  //    ir, kai Data API kvota išnaudota, getVideoDetails grąžindavo null → quick-add
+  //    visai „neduodavo pridėti". Dabar oEmbed užtikrina, kad bent metaduomenis
+  //    turim.
   let channelName = ''
   let embeddable: boolean | null = null
+  let oembedTitle = ''
   try {
     const oe = await fetch(
       `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
@@ -708,6 +718,7 @@ async function fetchTrackContext(url: string): Promise<TrackContext | { error: s
     if (oe.ok) {
       const oj = await oe.json().catch(() => null)
       if (oj?.author_name) channelName = String(oj.author_name)
+      if (oj?.title) oembedTitle = String(oj.title)
     } else {
       warnings.push('YouTube video gali būti blokuojamas embed\'ams (VEVO/region) — patikrink grotuvą.')
     }
@@ -715,8 +726,22 @@ async function fetchTrackContext(url: string): Promise<TrackContext | { error: s
     embeddable = null
   }
 
+  // 2) getVideoDetails — views + įkėlimo data (+ title atsarginis). BEST-EFFORT:
+  //    kai Data API kvota išnaudota, gali grįžti null. Tokiu atveju, jei oEmbed
+  //    davė pavadinimą, vis tiek tęsiam — daina bus sukurta, o views/data
+  //    užsipildys per vėlesnį enrich'ą.
+  const details = await getVideoDetails(videoId)
+
+  const rawVideoTitle = (details?.title || oembedTitle || '').trim()
+  if (!rawVideoTitle) {
+    return { error: 'Nepavyko gauti YouTube video duomenų (nei oEmbed, nei API). Pabandyk vėliau.' }
+  }
+  if (!details) {
+    warnings.push('YouTube views/data laikinai nepasiekiami (galimai Data API kvota) — daina kuriama iš oEmbed; views užsipildys vėliau per enrich.')
+  }
+
   ensureWikiInit()
-  const { artist: artistSegment, title: rawTitle } = parseYtTitle(details.title || '', channelName)
+  const { artist: artistSegment, title: rawTitle } = parseYtTitle(rawVideoTitle, channelName)
   const { cleanTitle, featuring: titleFeats } = wiki.parseFeaturing(rawTitle || '')
   // Dainos pavadinimas — SAKINIO raidžių registras (pirma raidė didžioji, kitos
   // mažosios), kaip LT konvencija dainoms. NE Title Case (kiekvienas žodis didžiąja
@@ -726,10 +751,10 @@ async function fetchTrackContext(url: string): Promise<TrackContext | { error: s
   const title = toSentenceCaseLt(baseTitle)
 
   let year: number | null = null, month: number | null = null, day: number | null = null
-  if (details.uploadedAt) {
+  if (details?.uploadedAt) {
     const d = new Date(details.uploadedAt)
     if (!isNaN(d.getTime())) { year = d.getUTCFullYear(); month = d.getUTCMonth() + 1; day = d.getUTCDate() }
-  } else {
+  } else if (details) {
     warnings.push('YouTube neturėjo įkėlimo datos — išleidimo diena nenustatyta.')
   }
 
@@ -775,7 +800,7 @@ export async function previewTrack(url: string): Promise<PreviewResult> {
       release_month: ctx.release.month,
       release_day: ctx.release.day,
       embeddable: ctx.embeddable,
-      views: ctx.details.viewCount ?? null,
+      views: ctx.details?.viewCount ?? null,
     },
   }
 }
@@ -845,7 +870,7 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
       title,
       video_url: `https://www.youtube.com/watch?v=${videoId}`,
       video_embeddable: embeddable,
-      video_uploaded_at: details.uploadedAt || null,
+      video_uploaded_at: details?.uploadedAt || null,
     }
     applyDate(upd)
     await supabase.from('tracks').update(upd).eq('id', trackId)
@@ -861,7 +886,7 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
       title, slug: finalSlug, artist_id: artist.id,
       video_url: `https://www.youtube.com/watch?v=${videoId}`,
       video_embeddable: embeddable,
-      video_uploaded_at: details.uploadedAt || null,
+      video_uploaded_at: details?.uploadedAt || null,
     }
     applyDate(insertBody)
     const { data: created, error: insErr } = await supabase
@@ -880,7 +905,7 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
     }
   }
 
-  let views: number | null = details.viewCount ?? null
+  let views: number | null = details?.viewCount ?? null
   try {
     const er = await enrichTrack(trackId, true)
     if (er.ok && er.viewsAfter != null) views = er.viewsAfter
@@ -913,7 +938,7 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
     artist,
     detail: {
       video_id: videoId,
-      upload_date: details.uploadedAt || null,
+      upload_date: details?.uploadedAt || null,
       views, embeddable,
       lyrics_found: lyricsFound,
       spotify_found: spotifyFound,

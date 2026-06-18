@@ -72,6 +72,7 @@ export async function searchYouTube(query: string): Promise<YtSearchResult[]> {
   const searchQuery = query + ' official music video'
   const res = await fetch(YT_SEARCH_ENDPOINT, {
     method: 'POST',
+    signal: AbortSignal.timeout(8000),
     headers: { 'Content-Type': 'application/json', 'User-Agent': UA },
     body: JSON.stringify({ context: INNERTUBE_CONTEXT, query: searchQuery }),
   })
@@ -129,7 +130,13 @@ async function tryYtDataApi(videoId: string): Promise<YtVideoDetails | null> {
   try {
     const url = `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,status&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(apiKey)}`
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
-    if (!res.ok) return null
+    if (!res.ok) {
+      // 403 quotaExceeded — dienos kvota išnaudota. Logginam (Vercel logs), kad
+      // būtų aišku, jog tai NE parsing'o bug'as, o kvota — grandinė pereis į
+      // nemokamus InnerTube fallback'us (player/search).
+      if (res.status === 403) console.warn(`[yt-data-api] 403 (galimai quotaExceeded) videoId=${videoId} — fallback į InnerTube`)
+      return null
+    }
     const data = (await res.json()) as any
     const item = data?.items?.[0]
     if (!item) {
@@ -165,6 +172,12 @@ async function tryYtDataApi(videoId: string): Promise<YtVideoDetails | null> {
 async function tryWatchPage(videoId: string): Promise<YtVideoDetails | null> {
   const res = await fetch(`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&hl=en&gl=US&bpctr=9999999999&has_verified=1`, {
     method: 'GET',
+    // 2026-06-18: BŪTINAS timeout. Iš Vercel'io šis watch-page fetch'as dažnai
+    // bot-blokuojamas IR užkimba (1MB+ HTML / consent challenge). Be timeout'o
+    // jis sukabindavo visą getVideoDetails grandinę → edit-page 8s enrich race
+    // ir quick-add 60s funkcijos limitas baigdavosi prieš pasiekiant veikiantį
+    // (InnerTube search) fallback'ą. Riba 6s — jei neatsako, einam toliau.
+    signal: AbortSignal.timeout(6000),
     headers: {
       'User-Agent': UA,
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -197,6 +210,7 @@ async function tryWatchPage(videoId: string): Promise<YtVideoDetails | null> {
 async function tryPlayerApi(videoId: string): Promise<YtVideoDetails | null> {
   const res = await fetch(YT_PLAYER_ENDPOINT, {
     method: 'POST',
+    signal: AbortSignal.timeout(7000),
     headers: { 'Content-Type': 'application/json', 'User-Agent': UA },
     body: JSON.stringify({ context: INNERTUBE_CONTEXT, videoId }),
   })
@@ -233,6 +247,7 @@ async function trySearchText(videoId: string): Promise<YtVideoDetails | null> {
   // backup — ne visiems track'ams kviečiam, tik kaip fallback.
   const res = await fetch(YT_SEARCH_ENDPOINT, {
     method: 'POST',
+    signal: AbortSignal.timeout(7000),
     headers: { 'Content-Type': 'application/json', 'User-Agent': UA },
     body: JSON.stringify({ context: INNERTUBE_CONTEXT, query: videoId }),
   })
@@ -260,24 +275,30 @@ async function trySearchText(videoId: string): Promise<YtVideoDetails | null> {
 
 /**
  * Gauna view count + meta. Bandomas fallback chain'as:
- *   0) YouTube Data API v3   — patikimas, oficialus (jei YOUTUBE_API_KEY set)
- *   1) watch puslapis        — tikslus, dažnai veikia, Vercel'is dažnai
- *                              bot-blocked
- *   2) /player InnerTube     — tikslus, geriau dirba iš sandbox'ų
- *   3) search-text           — APROKSIMACIJA iš "1.2M views" string'o (last resort)
+ *   0) YouTube Data API v3   — patikimas, oficialus (jei YOUTUBE_API_KEY set);
+ *                              BET turi dienos kvotą (10k units) — išnaudojus
+ *                              grąžina 403 quotaExceeded → null.
+ *   1) /player InnerTube     — tikslus (views + uploadDate), be kvotos, FREE.
+ *   2) search-text           — InnerTube paieška pagal videoId; APROKSIMACIJA
+ *                              iš "1.2M views" string'o, be kvotos, FREE.
+ *   3) watch puslapis        — tikslus, BET iš Vercel'io dažnai bot-blocked ir
+ *                              lėtas (1MB+ HTML) → paskutinis.
  *
  * Grąžinamas pirmasis sėkmingas — `source` rodo, kuris suveikė.
- * Data API turi prioritetą, nes jis tinkamiausias Vercel server-side
- * kontekstui (kitur InnerTube'as ratelimitins/blokuoja). InnerTube
- * fallback'ai išlaikomi, kad enrichment'as veiktų ir be API key
- * (pvz. development environment'e).
+ *
+ * 2026-06-18 PERTVARKA: kai Data API kvota išnaudota (dažnas atvejis), anksčiau
+ * grandinė ėjo į watch-page (Vercel'yje bot-blocked + be timeout'o → kabindavo)
+ * PRIEŠ pasiekiant veikiančius InnerTube fallback'us. Rezultatas: edit-page 8s
+ * enrich race ir quick-add 60s funkcijos limitas baigdavosi → views/data
+ * neužsipildydavo, quick-add „neduodavo pridėti". Dabar nemokami InnerTube
+ * šaltiniai (player, search) bandomi PRIEŠ watch-page'ą; visi turi timeout'us.
  */
 export async function getVideoDetails(videoId: string): Promise<YtVideoDetails | null> {
   const sources: Array<(id: string) => Promise<YtVideoDetails | null>> = [
     tryYtDataApi,
-    tryWatchPage,
     tryPlayerApi,
     trySearchText,
+    tryWatchPage,
   ]
   let winner: YtVideoDetails | null = null
   let winnerSrc: ((id: string) => Promise<YtVideoDetails | null>) | null = null
@@ -296,7 +317,8 @@ export async function getVideoDetails(videoId: string): Promise<YtVideoDetails |
   // datą pabandom ištraukti iš metadata-rich source'ų atskirai. Be šito
   // release_year/month/day likdavo tušti, nors video data egzistuoja.
   if (!winner.uploadedAt) {
-    for (const src of [tryYtDataApi, tryWatchPage, tryPlayerApi]) {
+    // Nemokamą InnerTube player'į (turi uploadDate) bandom prieš lėtą watch-page'ą.
+    for (const src of [tryYtDataApi, tryPlayerApi, tryWatchPage]) {
       if (src === winnerSrc) continue
       try {
         const r = await src(videoId)
