@@ -340,7 +340,14 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       // Singles sekcija gali būti depth 2 (==Singles==) ARBA depth 3
       // (===Singles=== po ==Discography==, pvz. Gigi Perez). Anksčiau tik
       // depth===2 → nested singles visiškai praleidžiami (0 singlų rasta).
-      if (/^singles?\s*$/i.test(h) && (depth === 2 || depth === 3)) {
+      // 2026-06-18: dedikuoti „X singles discography" puslapiai (Rihanna, Beyoncé,
+      // Taylor Swift, Eminem ir t.t.) NETURI ==Singles== header'io — singlai
+      // sugrupuoti po ==As lead artist== / ==As solo artist== (su ===2000s===
+      // dešimtmečių sub-sekcijomis). Anksčiau gate'as reikalavo literaliai
+      // „Singles" → inSingles niekada neaktyvuodavosi → 0 singlų. Pridėtas
+      // „As lead/solo (artist)" startas. „As featured artist" sąmoningai NEimamas
+      // (žemiau depth<=singlesDepth uždaro sekciją), kaip ir anksčiau.
+      if ((/^singles?\s*$/i.test(h) || /^as (?:lead|solo)(?: artist)?\s*$/i.test(h)) && (depth === 2 || depth === 3)) {
         inSingles = true; singlesDepth = depth; skipSubSection = false; hasYearCol = false
         currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false
         continue

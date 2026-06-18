@@ -646,6 +646,11 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       else if (h.includes('holiday') || h.includes('christmas') || h.includes('xmas')) { currentType = 'holiday'; skipSection = false; matched = true }
       else if (h.includes('soundtrack') || h.includes('score')) { currentType = 'soundtrack'; skipSection = false; matched = true }
       else if (h.includes('demo')) { currentType = 'demo'; skipSection = false; matched = true }
+      // 2026-06-18: „Reissues" sekcija (studijinio albumo perleidimai, pvz.
+      // Rihanna „Good Girl Gone Bad: Reloaded"). Anksčiau header'is nematch'indavo
+      // nė vieno tipo → !matched && depth===2 → skipSection=true → visa sekcija
+      // praleidžiama. Reissue traktuojam kaip 'studio' (deluxe/perleista versija).
+      else if (h.includes('reissue') || h.includes('re-issue') || h.includes('re-release')) { currentType = 'studio'; skipSection = false; matched = true }
       else if (h.includes('compilation') || h.includes('greatest') || h.includes('best of') || h.includes('collection')) { currentType = 'compilation'; skipSection = false; matched = true }
       else if (h.includes('live') || h.includes('concert')) { currentType = 'live'; skipSection = false; matched = true }
       else if (h.includes('box')) { currentType = 'other'; skipSection = true; matched = true }
