@@ -387,10 +387,12 @@ export default function NewsArticleClient({
         .na-root { background:var(--bg-body); color:var(--text-primary); font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; }
 
         /* ══ HERO — artist-page logika, foto DEŠINĖJE ══ */
+        /* Hero band visada tamsus (cinematic), nepriklausomai nuo temos —
+           balta teksto/foto kompozicija veikia ir light, ir dark mode. */
         .na-hero {
           position:relative; width:100%;
           min-height:380px; max-height:560px; height:54vh;
-          overflow:hidden; background:var(--bg-body);
+          overflow:hidden; background:#080d14;
           display:flex; align-items:flex-end;
         }
         /* Foto kontaineris — dešinė pusė, ~58% */
@@ -412,8 +414,8 @@ export default function NewsArticleClient({
           filter:saturate(1.08) contrast(1.04);
         }
         /* Gradient'ai — foto blend'as į tamsų foną (kairė) + apačia */
-        .na-hero-fade-l { position:absolute; inset:0; background:linear-gradient(to right, var(--bg-body) 4%, rgba(8,13,20,0.55) 38%, transparent 78%); pointer-events:none; }
-        .na-hero-fade-b { position:absolute; inset:0; background:linear-gradient(to top, var(--bg-body) 2%, rgba(8,13,20,0.35) 30%, transparent 62%); pointer-events:none; }
+        .na-hero-fade-l { position:absolute; inset:0; background:linear-gradient(to right, #080d14 4%, rgba(8,13,20,0.55) 38%, transparent 78%); pointer-events:none; }
+        .na-hero-fade-b { position:absolute; inset:0; background:linear-gradient(to top, #080d14 2%, rgba(8,13,20,0.35) 30%, transparent 62%); pointer-events:none; }
         .na-hero-noimg { position:absolute; inset:0; background:linear-gradient(135deg,#0d1420 0%,#111826 100%); }
         .na-hero-noimg::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.12) 0%, transparent 55%); }
 
@@ -564,9 +566,9 @@ export default function NewsArticleClient({
         @media(max-width:860px){
           .na-hero { height:auto; min-height:auto; max-height:none; flex-direction:column; align-items:stretch; }
           .na-hero-photo { position:relative; width:100%; height:210px; }
-          .na-hero-fade-l { background:linear-gradient(to top, var(--bg-body) 4%, transparent 70%); }
+          .na-hero-fade-l { background:linear-gradient(to top, #080d14 4%, transparent 70%); }
           .na-hero-fade-b { display:none; }
-          .na-hero-wrap { background:var(--bg-body); padding:18px 20px 26px; max-width:100%; }
+          .na-hero-wrap { background:#080d14; padding:18px 20px 26px; max-width:100%; }
           .na-hero-inner { max-width:100%; }
           .na-h1 { text-shadow:none; }
         }
