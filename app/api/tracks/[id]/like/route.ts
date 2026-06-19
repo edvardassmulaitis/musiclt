@@ -144,12 +144,11 @@ export async function POST(
         entity_id: trackId,
         user_id: profile.id,
         user_username: profile.username,
-        source: 'auth',
       })
       if (error) {
         if (error.code === '23505') {
           await sb.from('likes')
-            .update({ user_id: profile.id, source: 'auth' })
+            .update({ user_id: profile.id })
             .eq('entity_type', 'track')
             .eq('entity_id', trackId)
             .eq('user_username', profile.username)
