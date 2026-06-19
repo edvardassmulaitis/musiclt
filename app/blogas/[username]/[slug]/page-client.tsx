@@ -229,7 +229,7 @@ export default function BlogPostPageClient(props: Props) {
                                 font-family:'Outfit',sans-serif; font-size:12px; font-weight:900; background:var(--bg-hover); color:var(--text-muted); }
         .bp-bar-pill-name { font-family:'Outfit',sans-serif; font-size:13px; font-weight:700; color:var(--text-primary);
                             white-space:nowrap; max-width:170px; overflow:hidden; text-overflow:ellipsis; }
-        .bp-bar-play { display:inline-flex; align-items:center; gap:8px; padding:9px 16px; border-radius:100px; border:none; cursor:pointer;
+        .bp-bar-play { display:inline-flex; align-items:center; gap:7px; padding:8px 14px; border-radius:100px; border:none; cursor:pointer;
                        font-family:'Outfit',sans-serif; font-size:13px; font-weight:800; color:#fff; background:var(--accent-orange);
                        box-shadow:0 6px 18px rgba(249,115,22,0.32); transition:transform .15s, box-shadow .15s; }
         .bp-bar-play:hover { transform:translateY(-1px); box-shadow:0 9px 24px rgba(249,115,22,0.4); }
@@ -273,6 +273,7 @@ export default function BlogPostPageClient(props: Props) {
         .bp-pill-side:hover { background:var(--bg-hover); }
         .bp-pill.is-on .bp-pill-side:hover { background:rgba(0,0,0,0.08); }
         .bp-pill-side[disabled] { cursor:not-allowed; opacity:0.7; }
+        .bp-pill-icon { padding:8px 11px; }
         .bp-pill-count { display:inline-flex; align-items:center; padding:8px 14px; border-left:1px solid var(--border-default);
                          font-family:'Outfit',sans-serif; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; }
         .bp-pill.is-on .bp-pill-count { border-color:rgba(255,255,255,0.3); color:#fff; }
@@ -410,13 +411,12 @@ export default function BlogPostPageClient(props: Props) {
                 onClick={scrollToComments}
                 className="bp-pill"
                 style={{ cursor: 'pointer', background: 'none', padding: 0, font: 'inherit' }}
-                title="Pereiti į komentarus"
+                title="Pereiti į komentarus" aria-label="Komentarai"
               >
-                <span className="bp-pill-side" style={{ pointerEvents: 'none' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <span className="bp-pill-side bp-pill-icon" style={{ pointerEvents: 'none' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                   </svg>
-                  Komentarai
                 </span>
                 <span className="bp-pill-count" style={{ pointerEvents: 'none' }}>{post.comment_count.toLocaleString('lt-LT')}</span>
               </button>
@@ -655,7 +655,9 @@ function MobileStickyPlayer({ tracks, active, setActive, playing, setPlaying, on
   const hasNext = active < tracks.length - 1
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[60] border-t border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_-6px_24px_rgba(0,0,0,0.18)]" role="region" aria-label="Muzikos grotuvas">
+    <div className="fixed inset-x-0 z-[200] border-t border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_-6px_24px_rgba(0,0,0,0.22)]"
+         style={{ bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+         role="region" aria-label="Muzikos grotuvas">
       {vid && playing && (
         <div className="overflow-hidden bg-black transition-[height] duration-300" style={{ height: expanded ? 200 : 0 }}>
           <iframe
@@ -667,7 +669,7 @@ function MobileStickyPlayer({ tracks, active, setActive, playing, setPlaying, on
           />
         </div>
       )}
-      <div className="flex items-center gap-3 px-3.5 py-2.5" style={{ paddingBottom: 'calc(0.625rem + env(safe-area-inset-bottom, 0px))' }}>
+      <div className="flex items-center gap-3 px-3.5 py-2.5">
         {cur?.cover_url
           /* eslint-disable-next-line @next/next/no-img-element */
           ? <img src={cur.cover_url} alt="" className="h-[42px] w-[42px] shrink-0 rounded-[9px] object-cover" />
@@ -769,12 +771,11 @@ function BlogLikePill({ postId, initialCount }: { postId: string; initialCount: 
     <div>
       <div style={{ display: 'inline-flex', alignItems: 'center' }}>
         <div className={`bp-pill ${liked ? 'is-on' : ''}`}>
-          <button type="button" onClick={toggle} disabled={pending} className="bp-pill-side"
-            title={liked ? 'Patiko' : 'Pažymėti, kad patinka'} aria-pressed={liked}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+          <button type="button" onClick={toggle} disabled={pending} className="bp-pill-side bp-pill-icon"
+            title={liked ? 'Patiko' : 'Pažymėti, kad patinka'} aria-label={liked ? 'Patiko' : 'Patinka'} aria-pressed={liked}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
-            {liked ? 'Patiko' : 'Patinka'}
           </button>
           {count > 0 ? (
             <button type="button" onClick={() => { loadLikers(); setModalOpen(true) }} className="bp-pill-count is-link" title="Pamatyti kas patiko">
