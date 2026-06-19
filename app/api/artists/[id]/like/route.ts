@@ -49,17 +49,17 @@ async function readAnonCookie(): Promise<string | null> {
 async function resolveProfile(
   sb: ReturnType<typeof createAdminClient>,
   session: any,
-): Promise<{ id: string; username: string } | null> {
+): Promise<{ id: string; username: string; avatar_url: string | null; rank: string | null } | null> {
   const uid = session?.user?.id as string | undefined
   if (uid) {
-    const { data } = await sb.from('profiles').select('id, username').eq('id', uid).maybeSingle()
-    if (data?.id) return { id: data.id, username: data.username || `user_${String(data.id).slice(0, 8)}` }
+    const { data } = await sb.from('profiles').select('id, username, avatar_url, rank').eq('id', uid).maybeSingle()
+    if (data?.id) return { id: data.id, username: data.username || `user_${String(data.id).slice(0, 8)}`, avatar_url: (data as any).avatar_url ?? null, rank: (data as any).rank ?? null }
   }
   const email = session?.user?.email as string | undefined
   if (email) {
-    const { data } = await sb.from('profiles').select('id, username')
+    const { data } = await sb.from('profiles').select('id, username, avatar_url, rank')
       .ilike('email', email.trim().toLowerCase()).order('created_at', { ascending: true }).limit(1).maybeSingle()
-    if (data?.id) return { id: data.id, username: data.username || `user_${String(data.id).slice(0, 8)}` }
+    if (data?.id) return { id: data.id, username: data.username || `user_${String(data.id).slice(0, 8)}`, avatar_url: (data as any).avatar_url ?? null, rank: (data as any).rank ?? null }
   }
   return null
 }
@@ -91,6 +91,7 @@ export async function GET(
 
   let liked = false
   let anonymous = false
+  let you: { user_username: string; user_avatar_url: string | null; user_rank: string | null } | null = null
 
   if (session?.user?.email) {
     const profile = await resolveProfile(sb, session)
@@ -104,6 +105,7 @@ export async function GET(
         .limit(1)
         .maybeSingle()
       liked = !!data
+      you = { user_username: profile.username, user_avatar_url: profile.avatar_url, user_rank: profile.rank }
     }
   } else {
     const anonId = await readAnonCookie()
@@ -122,7 +124,7 @@ export async function GET(
   }
 
   const count = await getTotalCount(sb, artistId)
-  return NextResponse.json({ liked, count, anonymous })
+  return NextResponse.json({ liked, count, anonymous, you })
 }
 
 // ── POST: toggles like ────
@@ -207,7 +209,7 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ liked: !existing, count, anonymous: false })
+    return NextResponse.json({ liked: !existing, count, anonymous: false, you: { user_username: profile.username, user_avatar_url: profile.avatar_url, user_rank: profile.rank } })
   }
 
   // ── Anonymous branch — identify by cookie ──
