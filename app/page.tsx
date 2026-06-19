@@ -48,8 +48,17 @@ export default async function HomePage() {
   const tracksOk = (tracks.lt.length + tracks.world.length) > 0
   const albumsOk = (albums.lt.length + albums.world.length) > 0
 
-  // Seed'as nepavyko → throw (NEcache'inam unseeded puslapio). Žr. header'į.
+  // Seed'as nepavyko:
+  //  • RUNTIME (ISR revalidacija) → throw, kad Next išlaikytų paskutinį gerą
+  //    cache'intą puslapį (ne tuščią).
+  //  • BUILD prerender (NEXT_PHASE='phase-production-build') → NEcrashinam viso
+  //    deploy'o dėl lėto DB. Atiduodam unseeded puslapį — HomeClient pasiima
+  //    /api/home/latest client-side, o ISR regeneruos seeded versiją kai DB
+  //    atsigaus. Be šito kiekvienas build'as priklauso nuo DB greičio (flaky red).
   if (!tracksOk || !albumsOk) {
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      return <HomeClient />
+    }
     throw new Error(
       `Homepage seed unavailable (tracksOk=${tracksOk} albumsOk=${albumsOk}) — ` +
         'preserving last-good ISR page instead of caching an empty one'
