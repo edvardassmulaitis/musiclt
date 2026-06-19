@@ -44,7 +44,7 @@ export default async function UserDailyPicksPage({ params, searchParams }: Props
     .from('daily_song_picks')
     .select(`
       id, picked_on, comment, like_count, legacy_track_id, track_id,
-      tracks:track_id(id, slug, title, video_url, cover_url, like_count, artist_id, artists:artist_id(id, slug, name, cover_image_url))
+      tracks:track_id(id, slug, title, video_url, cover_url, artist_id, artists:artist_id(id, slug, name, cover_image_url))
     `, { count: 'exact' })
     .eq('author_id', profile.id)
     .order('picked_on', { ascending: false })
