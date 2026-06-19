@@ -1145,6 +1145,9 @@ async function getOrCreateArtistMainDiscussionId(
       .insert({
         artist_id: artistId,
         title: artistName,
+        // body — NOT NULL + CHECK char_length>=10. Trumpas auto įvadas
+        // pagrindinei atlikėjo temai.
+        body: `Bendra diskusija apie atlikėją ${artistName}.`,
         slug: `${base}-a${artistId}`,
         tag: 'Kita',
         legacy_kind: 'discussion',
@@ -1209,24 +1212,31 @@ async function ArtistContent({ artist }: { artist: any }) {
     || galleryFirst
     || null
 
-  // „Nauja daina" = išleista einamaisiais metais ARBA praėjusiais metais.
-  // Tikslią datą imam iš YouTube įkėlimo datos (is_new_date), tada iš
-  // release_date, galiausiai iš release_year. Be jokios datos info —
-  // daina nelaikoma nauja (ir „Naujausios" tabas nerodomas, jei nė viena
-  // daina nepatenka). Anksčiau buvo slankus 24 mėn. langas — per platus;
-  // dabar griežtai kalendoriniai „šiemet arba pernai".
-  const nowYear = new Date().getFullYear()
-  const minNewYear = nowYear - 1 // einamieji + praėję metai
-  const effectiveYear = (t: any): number | null => {
-    if (t.is_new_date) { const d = new Date(t.is_new_date); if (!isNaN(d.getTime())) return d.getFullYear() }
-    if (t.release_date) { const d = new Date(t.release_date); if (!isNaN(d.getTime())) return d.getFullYear() }
-    if (t.release_year) return t.release_year
+  // „Nauja daina" = išleista einamaisiais metais (2026) ARBA per paskutinius
+  // 12 mėn. nuo šiandienos. Tikslią datą imam iš YouTube įkėlimo datos
+  // (is_new_date), tada iš release_date, tada iš release_year+month(+day).
+  // Slankus 12 mėn. langas (ne kalendorinis „pernai") — kad pvz. daina
+  // išleista 2025-04-18, kai šiandien 2026-06-19 (>12 mėn.), NEBŪTŲ laikoma
+  // nauja. Tik metai (be mėn.) → naujumą laikom tik einamaisiais metais.
+  const _now = new Date()
+  const _nowYear = _now.getFullYear()
+  const _cutoff = new Date(_now); _cutoff.setFullYear(_nowYear - 1) // prieš 12 mėn.
+  const _effDate = (t: any): Date | null => {
+    if (t.is_new_date) { const d = new Date(t.is_new_date); if (!isNaN(d.getTime())) return d }
+    if (t.release_date) { const d = new Date(t.release_date); if (!isNaN(d.getTime())) return d }
+    if (t.release_year && t.release_month) {
+      const d = new Date(t.release_year, (t.release_month as number) - 1, (t.release_day as number) || 1)
+      if (!isNaN(d.getTime())) return d
+    }
     return null
   }
   const newTracks = tracks.filter((t: any) => {
     if (t.is_new) return true
-    const y = effectiveYear(t)
-    return y != null && y >= minNewYear
+    const d = _effDate(t)
+    if (d) return d >= _cutoff
+    // Tik metai (be tikslios datos) → naujumą laikom tik einamaisiais metais.
+    if (t.release_year) return t.release_year >= _nowYear
+    return false
   })
   const topVideos = tracks.filter((t: any) => t.video_url).slice(0, 8)
 

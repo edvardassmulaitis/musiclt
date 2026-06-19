@@ -1135,14 +1135,27 @@ function PlayerCard({
                               </span>
                             )
                           }
-                          // Naujos dainos (einamųjų/praėjusių metų) — vietoj metų
-                          // badge'o rodom mažą žalią tašką „naujumo" signalui.
+                          // Naujos dainos — vietoj metų badge'o rodom mažą žalią
+                          // tašką. Hover (title) parodo tikslią išleidimo datą.
                           if (newTrackIds.has(t.id)) {
+                            const pad = (n: number) => String(n).padStart(2, '0')
+                            const mo = (t as any).release_month
+                            const dy = (t as any).release_day
+                            const rd = (t as any).release_date
+                            const ind = (t as any).is_new_date
+                            let dateLabel = ''
+                            const fromIso = (s?: string | null) => {
+                              if (!s) return ''
+                              const d = new Date(s)
+                              return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+                            }
+                            dateLabel = fromIso(ind) || fromIso(rd) ||
+                              (yr ? (mo && dy ? `${yr}-${pad(mo)}-${pad(dy)}` : mo ? `${yr}-${pad(mo)}` : String(yr)) : '')
                             return (
                               <span
                                 className="inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--accent-green)]"
-                                title="Nauja daina"
-                                aria-label="Nauja daina"
+                                title={dateLabel ? `Nauja · išleista ${dateLabel}` : 'Nauja daina'}
+                                aria-label={dateLabel ? `Nauja daina, išleista ${dateLabel}` : 'Nauja daina'}
                               />
                             )
                           }
@@ -6334,11 +6347,10 @@ export default function ArtistProfileClient({
           <ArtistConcertRow recordings={concertRecordings} artistName={artist.name} />
         )}
 
-        {/* Diskusijos — preview grid'as (3-col desktop, 2-col tablet, 1-col
-            mobile) kortelių su iki 2 paskutinių komentarų. Ribojam 6 kortelėm,
-            likusios — modal'e (panašu kaip events archyvas). auto-rows-fr —
-            kad visos eilutės kortelėse būtų vienodo aukščio, neprikl. nuo
-            komentarų skaičiaus. */}
+        {/* Diskusijos + Panaši muzika — šalia vienas kito (lg), kad mažiau
+            tuščios vietos. Jei panašių atlikėjų nėra — Diskusijos lieka pilno
+            pločio. */}
+        <div className={similar.length > 0 ? 'grid grid-cols-1 gap-6 lg:grid-cols-[1.7fr_1fr] lg:items-start' : undefined}>
         {(() => {
           const hasDiscoveries = discoveries.length > 0
           const PREVIEW_LIMIT = 6
@@ -6391,7 +6403,7 @@ export default function ArtistProfileClient({
                   <div className="mb-3 mt-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                     Kitos temos
                   </div>
-                  <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2">
                     {/* Cards link directly to canonical /diskusijos/tema/{legacy_id}
                         page (kuris renderuoja pilną thread-page-client su likes,
                         replies, composer, sort). */}
@@ -6404,6 +6416,31 @@ export default function ArtistProfileClient({
             </section>
           )
         })()}
+
+        {/* Panaši muzika — dešinė kolona greta Diskusijų (lg). Siaurame stulpe
+            avatarai wrap'inasi, mobile'e — horizontalus scroll. */}
+        {similar.length > 0 && (
+          <section>
+            <SectionTitle label="Panaši muzika" />
+            <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-visible">
+              {similar.map((a: any) => (
+                <Link key={a.id} href={`/atlikejai/${a.slug}`} className="w-[110px] shrink-0 snap-start text-center no-underline sm:w-[130px]">
+                  <div className="relative mx-auto mb-2.5 h-[90px] w-[90px] overflow-hidden rounded-full border-2 border-[var(--border-default)] transition-all hover:scale-105 hover:border-[var(--border-strong)] sm:h-[108px] sm:w-[108px]">
+                    {a.cover_image_url ? (
+                      <img src={proxyImg(a.cover_image_url)} alt={a.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[24px] font-black text-[var(--text-faint)]">
+                        {a.name[0]}
+                      </div>
+                    )}
+                  </div>
+                  <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{a.name}</div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+        </div>
 
         {/* Past events — fresh only; archyvas atidaromas pagal showArchive */}
         {(pastEvents.length > 0 || archivedPastEvents.length > 0) && (
@@ -6534,28 +6571,6 @@ export default function ArtistProfileClient({
           </section>
         )}
 
-        {/* Similar */}
-        {similar.length > 0 && (
-          <section>
-            <SectionTitle label="Panaši muzika" />
-            <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {similar.map((a: any) => (
-                <Link key={a.id} href={`/atlikejai/${a.slug}`} className="w-[110px] shrink-0 snap-start text-center no-underline sm:w-[130px]">
-                  <div className="relative mx-auto mb-2.5 h-[90px] w-[90px] overflow-hidden rounded-full border-2 border-[var(--border-default)] transition-all hover:scale-105 hover:border-[var(--border-strong)] sm:h-[108px] sm:w-[108px]">
-                    {a.cover_image_url ? (
-                      <img src={proxyImg(a.cover_image_url)} alt={a.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[24px] font-black text-[var(--text-faint)]">
-                        {a.name[0]}
-                      </div>
-                    )}
-                  </div>
-                  <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{a.name}</div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
 
       </main>
     </div>
