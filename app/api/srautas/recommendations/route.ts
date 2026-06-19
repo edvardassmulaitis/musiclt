@@ -235,29 +235,40 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     if (!charts.length) return
     const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
     const { data: entries } = await sb.from('external_chart_entries')
-      .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(title, cover_url, video_url, artists:artist_id(name, cover_image_url))')
+      .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(title, cover_url, video_url)')
       .in('artist_id', matchIds).in('chart_id', charts.map(c => Number(c.id)))
       .order('position', { ascending: true }).limit(30)
+    const eRows = (entries || []) as any[]
+    // Tikras atlikėjas iš artists lentelės (raw „WEEKND" mangled + dažnai track_id NULL).
+    const aById = new Map<number, { name: string; slug: string | null; cover: string | null }>()
+    const eArtIds = Array.from(new Set(eRows.map(e => Number(e.artist_id)).filter(Boolean)))
+    if (eArtIds.length) {
+      try {
+        const { data: arts } = await sb.from('artists').select('id, name, slug, cover_image_url').in('id', eArtIds)
+        for (const a of (arts || []) as any[]) aById.set(Number(a.id), { name: a.name, slug: a.slug || null, cover: a.cover_image_url || null })
+      } catch { /* ignore */ }
+    }
     const seen = new Set<string>()
-    for (const e of (entries || []) as any[]) {
+    for (const e of eRows) {
       const c = chartById.get(Number(e.chart_id)); if (!c) continue
       const aid = Number(e.artist_id)
       const dk = `${aid}-${c.id}`
       if (seen.has(dk)) continue
       seen.add(dk)
-      const rec = recById.get(aid)
-      const tr = one(e.tracks); const trArtist = one(tr?.artists)
-      const artistName = trArtist?.name || rec?.name || e.artist_name || null
-      const cover = tr?.cover_url || ytThumb(tr?.video_url) || trArtist?.cover_image_url || rec?.cover_image_url || e.cover_url || null
+      const a = aById.get(aid) || (recById.get(aid) ? { name: recById.get(aid)!.name, slug: recById.get(aid)!.slug, cover: recById.get(aid)!.cover_image_url } : null)
+      const tr = one(e.tracks)
+      const properName = a?.name || e.artist_name || null
+      const songTitle = tr?.title || null
+      const cover = a?.cover || tr?.cover_url || ytThumb(tr?.video_url) || e.cover_url || null
       queues.chart.push({
         key: `chart-${e.chart_id}-${aid}`, kind: 'chart',
-        // resolved dainos title (ne raw chart entry tekstas „THE HIGHLIGHTS")
-        title: tr?.title || artistName || c.title || 'Topas',
-        subtitle: `${artistName ? artistName + ' · ' : ''}#${e.position} · ${c.title}`,
+        // dainos title jei resolved, kitu atveju tikras atlikėjo vardas (ne „WEEKND")
+        title: songTitle || properName || c.title || 'Topas',
+        subtitle: `${songTitle && properName ? properName + ' · ' : ''}#${e.position} · ${c.title}`,
         image: cover,
         href: `/topai/${c.source}-${c.chart_key}`, date: null, badge: 'Topas',
-        avatar: trArtist?.cover_image_url || rec?.cover_image_url || null,
-        artist: rec ? { id: aid, name: rec.name, slug: rec.slug } : (e.artist_name ? { id: aid, name: e.artist_name, slug: null } : null),
+        avatar: a?.cover || null,
+        artist: properName ? { id: aid, name: properName, slug: a?.slug || null } : null,
       })
     }
   }
@@ -483,7 +494,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v9'],
+  ['srautas-recs-v10'],
   { revalidate: 300 },
 )
 

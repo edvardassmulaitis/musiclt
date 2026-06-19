@@ -299,29 +299,44 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       if (!charts.length) return out
       const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
       const { data: entries } = await sb.from('external_chart_entries')
-        .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(title, slug, cover_url, video_url, artists:artist_id(name, cover_image_url))')
+        .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(title, slug, cover_url, video_url)')
         .in('artist_id', artistIds).in('chart_id', charts.map(c => Number(c.id)))
         .order('position', { ascending: true }).limit(40)
+      const eRows = (entries || []) as any[]
+      // TIKRAS atlikėjas iš artists lentelės (raw chart tekstas „WEEKND" mangled +
+      // dažnai track_id NULL → nėra resolved track join → placeholder). artist_id
+      // jau sumatchintas, tad imam jo tikrą pavadinimą + nuotrauką.
+      const aById = new Map<number, { name: string; slug: string | null; cover: string | null }>()
+      const eArtIds = Array.from(new Set(eRows.map(e => Number(e.artist_id)).filter(Boolean)))
+      if (eArtIds.length) {
+        try {
+          const { data: arts } = await sb.from('artists').select('id, name, slug, cover_image_url').in('id', eArtIds)
+          for (const a of (arts || []) as any[]) aById.set(Number(a.id), { name: a.name, slug: a.slug || null, cover: a.cover_image_url || null })
+        } catch { /* ignore */ }
+      }
       // Vienas geriausios pozicijos įrašas kiekvienam (atlikėjas+topas) deriniui.
       const seen = new Set<string>()
-      for (const e of (entries || []) as any[]) {
+      for (const e of eRows) {
         const c = chartById.get(Number(e.chart_id)); if (!c) continue
         const aid = Number(e.artist_id)
         const dedupeKey = `${aid}-${c.id}`
         if (seen.has(dedupeKey)) continue
         seen.add(dedupeKey)
-        const tr = one(e.tracks); const ar = one(tr?.artists)
-        const artistName = ar?.name || e.artist_name || null
+        const tr = one(e.tracks)
+        const a = aById.get(aid)
+        const properName = a?.name || e.artist_name || null
+        const songTitle = tr?.title || null
+        const cover = a?.cover || tr?.cover_url || ytThumb(tr?.video_url) || e.cover_url || null
         out.push({
           key: `chart-${e.chart_id}-${aid}`, kind: 'chart',
-          // resolved dainos title (ne raw chart entry tekstas)
-          title: tr?.title || artistName || c.title || 'Topas',
-          subtitle: `${artistName ? artistName + ' · ' : ''}#${e.position} · ${c.title}`,
-          image: tr?.cover_url || ytThumb(tr?.video_url) || ar?.cover_image_url || e.cover_url || null,
+          // dainos title jei resolved, kitu atveju tikras atlikėjo vardas (ne „WEEKND")
+          title: songTitle || properName || c.title || 'Topas',
+          subtitle: `${songTitle && properName ? properName + ' · ' : ''}#${e.position} · ${c.title}`,
+          image: cover,
           href: `/topai/${c.source}-${c.chart_key}`,
           // nowIso → topai matomi srauto viršuje (current topai = švieži), ne nukišti į galą
-          date: nowIso, badge: 'Topas', artistId: aid, avatar: ar?.cover_image_url || null,
-          artist: artistName ? { name: artistName, slug: null } : null,
+          date: nowIso, badge: 'Topas', artistId: aid, avatar: a?.cover || null,
+          artist: properName ? { name: properName, slug: a?.slug || null } : null,
         })
       }
     } catch { /* ignore */ }
@@ -546,7 +561,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v15'],
+  ['srautas-feed-v16'],
   { revalidate: 90 },
 )
 
