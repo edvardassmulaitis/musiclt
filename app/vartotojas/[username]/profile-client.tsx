@@ -405,6 +405,7 @@ export function ProfileClient(props: any) {
             : moreOpen === 'album' ? favoriteAlbums
             : favoriteTracks
           }
+          username={profile.username}
           onClose={() => setMoreOpen(null)}
         />
       )}
@@ -1619,7 +1620,7 @@ function AlbumsFullWidth({
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2.5">
         {shown.map((al: any) => {
           const artist = Array.isArray(al.artists) ? al.artists[0] : al.artists
           const href = `/albumai/${al.slug || 'albumas'}-${al.id}`
@@ -1667,7 +1668,7 @@ function AlbumsFullWidth({
             color: 'var(--accent-orange)',
           }}
         >
-          +{remaining.toLocaleString('lt-LT')} daugiau · filtruoti, rikiuoti
+          +{remaining.toLocaleString('lt-LT')}
         </button>
       )}
     </>
@@ -1683,7 +1684,7 @@ function TracksFullWidth({
   const remaining = Math.max(totalCount - shown.length, 0)
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2.5">
         {shown.map((t: any) => {
           const artist = Array.isArray(t.artists) ? t.artists[0] : t.artists
           const href = `/dainos/${t.slug || 'daina'}-${t.id}`
@@ -1734,7 +1735,7 @@ function TracksFullWidth({
             color: 'var(--accent-orange)',
           }}
         >
-          +{remaining.toLocaleString('lt-LT')} daugiau · filtruoti, rikiuoti
+          +{remaining.toLocaleString('lt-LT')}
         </button>
       )}
     </>
@@ -2480,9 +2481,7 @@ function ProfileBodyDesktop(props: any) {
 
       <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20">
         {showAboutView ? (
-          <div className="max-w-3xl">
-            <ProfileAboutContent profile={profile} stats={stats} memberSinceYear={memberSinceYear} hideLegacy />
-          </div>
+          <ProfileAboutContent profile={profile} stats={stats} memberSinceYear={memberSinceYear} hideLegacy wide />
         ) : showLikesView ? (
           <LikesSections
             profile={profile}
@@ -2916,9 +2915,7 @@ function RecentLikesCard({
             const href = isArtist ? `/atlikejai/${it.slug}`
               : artist ? `/atlikejai/${artist.slug}/${it.slug || it.id}`
               : it._kind === 'track' ? `/lt/daina/${it.slug || ''}/${it.id}` : `/lt/albumas/${it.slug || ''}/${it.id}`
-            const subtitle = isArtist
-              ? relTimeLt(it.liked_at)
-              : `${artist?.name ? artist.name + ' · ' : ''}${relTimeLt(it.liked_at)}`
+            const subtitle = isArtist ? '' : (artist?.name || '')
             return (
               <Link key={`${it._kind}-${it.id}`} href={href}
                     className="group flex items-center gap-3 rounded-xl px-1.5 py-1.5 transition hover:bg-[var(--bg-hover)]">
@@ -2935,9 +2932,11 @@ function RecentLikesCard({
                        style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
                     {isArtist ? it.name : it.title}
                   </div>
-                  <div className="text-[11px] truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    {subtitle}
-                  </div>
+                  {subtitle && (
+                    <div className="text-[11px] truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      {subtitle}
+                    </div>
+                  )}
                 </div>
               </Link>
             )

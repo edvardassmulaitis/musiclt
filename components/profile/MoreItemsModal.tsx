@@ -45,12 +45,15 @@ const SORT_OPTIONS: Record<Kind, { mode: SortMode; label: string }[]> = {
 }
 
 export function MoreItemsModal({
-  kind, title, items, onClose,
+  kind, title, items, onClose, username,
 }: {
   kind: Kind
   title: string
   items: any[]
   onClose: () => void
+  // V18d: kai duotas — album/track modalas pasiima VISUS pamėgtus per API
+  // (SSR atsiunčia tik 48 preview).
+  username?: string
 }) {
   const [q, setQ] = useState('')
   const initialSort: SortMode =
@@ -58,6 +61,8 @@ export function MoreItemsModal({
     : kind === 'album' ? 'liked_tracks'
     : 'recent'
   const [sortMode, setSortMode] = useState<SortMode>(initialSort)
+  const [allItems, setAllItems] = useState<any[] | null>(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -69,9 +74,24 @@ export function MoreItemsModal({
     }
   }, [onClose])
 
+  // V18d: atidarius — pasiimam pilną sąrašą (tik album/track; artist jau pilnas).
+  useEffect(() => {
+    if (!username || (kind !== 'album' && kind !== 'track')) return
+    let alive = true
+    setLoading(true)
+    fetch(`/api/profile/${encodeURIComponent(username)}/likes?kind=${kind}`)
+      .then((r) => r.json())
+      .then((d) => { if (alive && Array.isArray(d.items) && d.items.length) setAllItems(d.items) })
+      .catch(() => {})
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [username, kind])
+
+  const sourceItems = allItems || items
+
   const filtered = useMemo(() => {
     const ql = q.trim().toLowerCase()
-    let rows = items
+    let rows = sourceItems
     if (ql) {
       rows = rows.filter((it: any) => {
         const t = (kind === 'artist' ? it.name : it.title) || ''
@@ -102,7 +122,7 @@ export function MoreItemsModal({
       })
     }
     return rows
-  }, [items, q, sortMode, kind])
+  }, [sourceItems, q, sortMode, kind])
 
   if (typeof window === 'undefined') return null
 
@@ -114,7 +134,7 @@ export function MoreItemsModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-3xl max-h-[92vh] sm:max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden"
+        className="relative w-full max-w-5xl max-h-[92vh] sm:max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden"
         style={{
           background: 'var(--modal-bg)',
           border: '1px solid var(--modal-border)',
@@ -124,7 +144,8 @@ export function MoreItemsModal({
         <header className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <h2 className="font-black text-base sm:text-lg leading-tight"
               style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
-            {title} <span className="font-bold" style={{ color: 'var(--text-muted)' }}>· {items.length}</span>
+            {title} <span className="font-bold" style={{ color: 'var(--text-muted)' }}>· {sourceItems.length}</span>
+            {loading && <span className="ml-2 text-[11px] font-bold align-middle" style={{ color: 'var(--text-faint)' }}>kraunama…</span>}
           </h2>
           <button
             type="button"
@@ -176,7 +197,7 @@ export function MoreItemsModal({
               Nieko nerasta pagal jūsų užklausą.
             </p>
           ) : kind === 'artist' ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2.5">
               {filtered.map((a: any) => (
                 <Link
                   key={a.id}
@@ -209,7 +230,7 @@ export function MoreItemsModal({
               ))}
             </div>
           ) : kind === 'album' ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2.5">
               {filtered.map((al: any) => {
                 const artist = Array.isArray(al.artists) ? al.artists[0] : al.artists
                 const href = artist ? `/atlikejai/${artist.slug}/${al.slug || al.id}` : `/lt/albumas/${al.slug || ''}/${al.id}`
@@ -217,7 +238,7 @@ export function MoreItemsModal({
                 return (
                   <Link key={al.id} href={href} onClick={onClose}
                         className="group block rounded-xl overflow-hidden transition hover:scale-[1.03]"
-                        style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+                        style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)', contentVisibility: 'auto', containIntrinsicSize: '0 200px' }}>
                     <div className="relative aspect-square w-full overflow-hidden"
                          style={{ background: 'linear-gradient(135deg, var(--border-subtle), var(--card-bg))' }}>
                       {al.cover_url ? (
@@ -246,7 +267,7 @@ export function MoreItemsModal({
               })}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {filtered.map((t: any, i: number) => {
                 const artist = Array.isArray(t.artists) ? t.artists[0] : t.artists
                 const href = artist ? `/atlikejai/${artist.slug}/${t.slug || t.id}` : `/lt/daina/${t.slug || ''}/${t.id}`
@@ -254,7 +275,7 @@ export function MoreItemsModal({
                 return (
                   <Link key={t.id} href={href} onClick={onClose}
                         className="group flex items-center gap-2.5 rounded-lg p-2 transition hover:bg-[var(--hover-bg)]"
-                        style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+                        style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)', contentVisibility: 'auto', containIntrinsicSize: '0 56px' }}>
                     <div className="w-5 text-center text-[11px] font-bold tabular-nums flex-shrink-0"
                          style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
                       {i + 1}

@@ -79,7 +79,7 @@ export function ProfileInfoModal({
 // rodyti TĄ PATĮ turinį inline (be modalo). showHeader=false praleidžia
 // avatar/vardą (mobile profilis jau turi header'į virš tab'ų).
 export function ProfileAboutContent({
-  profile, stats, memberSinceYear, showHeader = false, compact = false, hideLegacy = false,
+  profile, stats, memberSinceYear, showHeader = false, compact = false, hideLegacy = false, wide = false,
 }: {
   profile: any
   stats: Stats
@@ -90,8 +90,11 @@ export function ProfileAboutContent({
   // balai, prisijungimai) nei „iš senos music.lt" pastabos. Naudojama profilio
   // inline „Apie mane" rodinyje.
   hideLegacy?: boolean
+  // V18d: wide — pilno pločio desktop išdėstymas (sekcijos teka į 2 stulpelius),
+  // mažiau vertikalaus scroll'o. Naudojama profilio inline „Apie mane".
+  wide?: boolean
 }) {
-  const secMb = compact ? 'mb-3.5' : 'mb-5'
+  const secMb = wide ? '' : (compact ? 'mb-3.5' : 'mb-5')
   const statGrid = compact ? 'grid grid-cols-3 gap-2 mt-2' : 'grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-2'
   const sigClean = profile.legacy_signature?.replace(/^["„]|["""]$/g, '') ?? ''
   const birth = profile.legacy_birth_date ? new Date(profile.legacy_birth_date) : null
@@ -184,6 +187,7 @@ export function ProfileAboutContent({
           </div>
           )}
 
+          <div className={wide ? 'lg:columns-2 lg:gap-8 [&>section]:break-inside-avoid [&>section]:mb-6' : ''}>
           {/* Member photos — legacy_profile_photos */}
           {photos.length > 0 && (
             <section className={secMb}>
@@ -291,6 +295,7 @@ export function ProfileAboutContent({
               </div>
             </section>
           )}
+          </div>
         </>
   )
 }
