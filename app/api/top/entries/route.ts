@@ -109,7 +109,7 @@ export async function GET(req: Request) {
   const trackIds = entries.map(e => e.track_id).filter(Boolean)
   const { data: tracks } = await supabase
     .from('tracks')
-    .select('id, slug, title, cover_url, artist_id')
+    .select('id, slug, title, cover_url, artist_id, video_url')
     .in('id', trackIds)
 
   const artistIds = [...new Set((tracks || []).map((t: any) => t.artist_id).filter(Boolean))]
@@ -194,3 +194,4 @@ export async function DELETE(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
+

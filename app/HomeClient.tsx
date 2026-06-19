@@ -538,6 +538,93 @@ const newsBodyCache = new Map<number, string>()
  *  auto-advance kai nuscrollinta žemyn — „skaitymo režimas"), video iframe'o
  *  mount'ą (tik aktyvi kortelė groja), news pilno body lazy-fetch'ą, ♥ ir
  *  apatinę veiksmų juostą. */
+/** Inline chart sąrašas reader'yje — visas topas, balsavimas + dainos peržiūra
+ *  (be jokio „Daugiau"). Vote per /api/top/vote (ta pati logika kaip ChartBottomSheet). */
+function ChartVoteList({ topType, accent, onPlayingChange }: { topType: 'lt_top30' | 'top40'; accent: string; onPlayingChange: (p: boolean) => void }) {
+  const [entries, setEntries] = useState<any[]>([])
+  const [weekId, setWeekId] = useState<number | null>(null)
+  const [voted, setVoted] = useState<number[]>([])
+  const [remaining, setRemaining] = useState<number>(5)
+  const [busy, setBusy] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [playId, setPlayId] = useState<number | null>(null)
+
+  useEffect(() => {
+    let c = false
+    setLoading(true)
+    fetch(`/api/top/entries?type=${topType}`)
+      .then(r => r.json())
+      .then(d => {
+        if (c) return
+        const wId = d.week?.id ?? null
+        setWeekId(wId)
+        setEntries((d.entries || []).map((e: any, i: number) => ({
+          pos: e.position ?? (i + 1),
+          track_id: e.track_id,
+          title: sanitizeTitle(e.tracks?.title || ''),
+          artist: e.tracks?.artists?.name || '',
+          cover: e.tracks?.cover_url || e.tracks?.artists?.cover_image_url || null,
+          videoId: extractYouTubeId(e.tracks?.video_url || null),
+        })))
+        if (wId) fetch(`/api/top/vote?week_id=${wId}`).then(r => r.json()).then(v => { if (!c) { setVoted(v.voted_track_ids || []); setRemaining(v.votes_remaining ?? 5) } }).catch(() => {})
+      })
+      .catch(() => {})
+      .finally(() => { if (!c) setLoading(false) })
+    return () => { c = true }
+  }, [topType])
+
+  const vote = async (track_id: number) => {
+    if (busy || !weekId || voted.includes(track_id) || remaining <= 0) return
+    setBusy(track_id)
+    try {
+      const r = await fetch('/api/top/vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id, week_id: weekId, vote_type: 'like' }) })
+      if (r.status === 401) { window.location.href = '/auth/signin'; return }
+      if (r.ok) { setVoted(p => [...p, track_id]); setRemaining(p => Math.max(0, p - 1)) }
+    } catch {} finally { setBusy(null) }
+  }
+
+  const play = (e: any) => {
+    if (!e.videoId) return
+    setPlayId(e.track_id)
+    onPlayingChange(true)
+  }
+
+  if (loading) return <div className="rdr-load"><span /><span /><span /></div>
+
+  const playing = entries.find(e => e.track_id === playId)
+  return (
+    <div className="rdr-cvl">
+      {playing?.videoId && (
+        <div className="rdr-cvl-player">
+          <iframe
+            src={`https://www.youtube.com/embed/${playing.videoId}?autoplay=1&mute=1&playsinline=1&rel=0`}
+            allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen title={playing.title}
+          />
+          <button className="rdr-vclose" onClick={() => { setPlayId(null); onPlayingChange(false) }} aria-label="Uždaryti">✕</button>
+        </div>
+      )}
+      <div className="rdr-cvl-head">Balsuok už mėgstamas dainas · liko {remaining}</div>
+      {entries.map(e => {
+        const v = voted.includes(e.track_id)
+        return (
+          <div key={e.track_id} className="rdr-chart-row">
+            <span className="rdr-chart-pos">{e.pos}</span>
+            <button className="rdr-cvl-cover" onClick={() => play(e)} aria-label="Groti" disabled={!e.videoId}>
+              {e.cover ? <img src={proxyImg(e.cover)} alt="" /> : <span className="rdr-chart-ph" />}
+              {e.videoId && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
+            </button>
+            <span className="rdr-chart-info"><b>{e.title}</b><i>{e.artist}</i></span>
+            <button className={`rdr-cvl-vote${v ? ' on' : ''}`} disabled={v || busy === e.track_id || remaining <= 0} onClick={() => vote(e.track_id)} aria-label="Balsuoti"
+              style={v ? { borderColor: accent, color: accent } : undefined}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill={v ? accent : 'none'} stroke={v ? accent : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5l7 7h-4v7h-6v-7H5z" /></svg>
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, onClose, onChartVote, onDailyVote, onNavLink }: {
   slide: HeroSlide
   active: boolean
@@ -629,7 +716,7 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
         >
           <iframe
             className="rdr-video"
-            src={`https://www.youtube.com/embed/${slide.videoId}?autoplay=1&playsinline=1&rel=0`}
+            src={`https://www.youtube.com/embed/${slide.videoId}?autoplay=1&mute=1&playsinline=1&rel=0`}
             allow="autoplay; encrypted-media; picture-in-picture"
             allowFullScreen
             title={slide.songTitle || slide.title}
@@ -676,27 +763,39 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
           </Link>
         )}
 
-        {/* Chart top sąrašas */}
-        {isChart && slide.chartTops && slide.chartTops.length > 0 && (
-          <div className="rdr-chart">
-            {slide.chartTops.map(t => (
-              <div key={t.pos} className="rdr-chart-row">
-                <span className="rdr-chart-pos">{t.pos}</span>
-                {t.cover_url || t.artist_image
-                  ? <img src={proxyImg(t.cover_url || t.artist_image!)} alt="" />
-                  : <span className="rdr-chart-ph" />}
-                <span className="rdr-chart-info"><b>{t.title}</b><i>{t.artist}</i></span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Pilnas body (news) / excerpt (kiti) / loader */}
-        {body ? (
+        {isChart ? (
+          /* Visas topas inline — balsavimas + dainų peržiūra (aktyviai kortelei). */
+          active ? (
+            <ChartVoteList
+              topType={slide.type === 'chart_lt' ? 'lt_top30' : 'top40'}
+              accent={slide.type === 'chart_lt' ? '#f97316' : '#3b82f6'}
+              onPlayingChange={onPlayingChange}
+            />
+          ) : slide.chartTops && slide.chartTops.length > 0 ? (
+            <div className="rdr-chart">
+              {slide.chartTops.map(t => (
+                <div key={t.pos} className="rdr-chart-row">
+                  <span className="rdr-chart-pos">{t.pos}</span>
+                  {t.cover_url || t.artist_image
+                    ? <img src={proxyImg(t.cover_url || t.artist_image!)} alt="" />
+                    : <span className="rdr-chart-ph" />}
+                  <span className="rdr-chart-info"><b>{t.title}</b><i>{t.artist}</i></span>
+                </div>
+              ))}
+            </div>
+          ) : null
+        ) : isDaily ? (
+          /* Dienos daina inline — balsavimas + siūlymas + grojimas. */
+          active ? (
+            <div className="rdr-daily-embed"><DienosDainaHero fullPage /></div>
+          ) : slide.excerpt ? (
+            <p className="rdr-excerpt">{slide.excerpt}</p>
+          ) : null
+        ) : body ? (
           <div className="rdr-html" dangerouslySetInnerHTML={{ __html: body }} />
         ) : bodyLoading ? (
           <div className="rdr-load"><span /><span /><span /></div>
-        ) : (slide.excerpt || (!isChart && slide.subtitle)) ? (
+        ) : (slide.excerpt || slide.subtitle) ? (
           <p className="rdr-excerpt">{slide.excerpt || slide.subtitle}</p>
         ) : null}
 
@@ -712,23 +811,10 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
             <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
           </button>
         )}
-        {isChart && onChartVote ? (
-          <button className="rdr-cta" style={{ background: slide.type === 'chart_lt' ? '#f97316' : '#3b82f6' }}
-            onClick={() => onChartVote(slide)}>
-            Balsuok už topą
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-          </button>
-        ) : isDaily && onDailyVote ? (
-          <button className="rdr-cta" style={{ background: '#f59e0b' }} onClick={() => onDailyVote(slide)}>
-            Balsuoti · Siūlyti dainą
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-          </button>
-        ) : (
-          <Link href={slide.href} onClick={onNavLink} className="rdr-cta" style={{ background: seen ? 'rgba(255,255,255,0.18)' : '#f97316' }}>
-            {slide.ctaLabel || 'Skaityti'}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-          </Link>
-        )}
+        <Link href={slide.href} onClick={onNavLink} className="rdr-cta" style={{ background: seen ? 'rgba(255,255,255,0.18)' : (isChart ? (slide.type === 'chart_lt' ? '#f97316' : '#3b82f6') : isDaily ? '#f59e0b' : '#f97316') }}>
+          {slide.ctaLabel || (isChart ? 'Visas topas' : isDaily ? 'Dienos daina' : 'Skaityti')}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+        </Link>
         {slide.ticketUrl && (
           <a href={slide.ticketUrl} target="_blank" rel="noopener noreferrer" className="rdr-ticket">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v3a2 2 0 0 1 0 4v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" /></svg>
@@ -766,10 +852,11 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   const gestureDir = useRef<'h' | 'v' | null>(null)
 
   const slide = slides[idx]
-  // Auto-advance stoja jei skaitoma (scroll) ARBA groja. Braukimas į šoną
-  // blokuojamas TIK kai nuscrollinta (grojant vis dar galima braukti).
-  const autoOff = scrolled || playing
-  const swipeLocked = scrolled
+  // Interaktyvios kortelės (topai, dienos daina) — auto-advance IŠ VISO neveikia
+  // (kad nepradingtų bebalsuojant/beklausant). Kitur — stoja skaitant/grojant.
+  const interactive = !!slide && (slide.type === 'chart_lt' || slide.type === 'chart_world' || slide.type === 'daily')
+  const autoOff = interactive || scrolled || playing
+  // Braukimas į šoną veikia VISADA (ir skaitant) — pagal gesto kryptį (h vs v).
 
   const stopProgress = useCallback(() => { cancelAnimationFrame(rafRef.current) }, [])
   const startProgress = useCallback(() => {
@@ -831,7 +918,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     const dx = e.touches[0].clientX - touchStartX.current
     const dy = e.touches[0].clientY - touchStartY.current
     if (gestureDir.current === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
-      gestureDir.current = (!swipeLocked && Math.abs(dx) > Math.abs(dy)) ? 'h' : 'v'
+      gestureDir.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
       if (gestureDir.current === 'h') { setDragging(true); stopProgress() }
     }
     if (gestureDir.current === 'h') {
@@ -2899,6 +2986,23 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-chart-info{display:flex;flex-direction:column;min-width:0}
         .rdr-chart-info b{font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-chart-info i{font-size:11.5px;font-style:normal;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+        /* Inline topas (balsavimas + grojimas) */
+        .rdr-cvl{display:flex;flex-direction:column;gap:9px;margin:4px 0 12px}
+        .rdr-cvl-head{font-family:'Outfit',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.04em;color:rgba(255,255,255,0.55);text-transform:uppercase}
+        .rdr-cvl-player{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000;margin-bottom:4px}
+        .rdr-cvl-player iframe{width:100%;height:100%;border:none;display:block}
+        .rdr-cvl-cover{position:relative;width:42px;height:42px;border-radius:8px;overflow:hidden;flex-shrink:0;border:none;padding:0;background:#1a1a1a;cursor:pointer}
+        .rdr-cvl-cover img{width:100%;height:100%;object-fit:cover;display:block}
+        .rdr-cvl-cover:disabled{cursor:default}
+        .rdr-cvl-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.32)}
+        .rdr-cvl-vote{width:40px;height:40px;flex-shrink:0;border-radius:11px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+        .rdr-cvl-vote:disabled{cursor:default;opacity:0.85}
+        .rdr-cvl-vote.on{background:rgba(255,255,255,0.04)}
+        .rdr-cvl-vote:active:not(:disabled){transform:scale(0.92)}
+
+        /* Dienos dainos inline embed — šviesus paviršius kad hero atrodytų natūraliai */
+        .rdr-daily-embed{background:var(--bg-body);border-radius:16px;padding:10px;margin:4px 0 12px}
 
         /* Apatinė veiksmų juosta (sticky) */
         .rdr-actions{position:sticky;bottom:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,#000 62%,transparent);z-index:5}
