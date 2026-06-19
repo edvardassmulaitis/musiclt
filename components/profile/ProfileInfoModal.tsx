@@ -222,15 +222,25 @@ export function ProfileAboutContent({
             </section>
           )}
 
-          {/* Personal info */}
+          {/* Personal info — V18f: kompaktiškos eilutės (be didelių boxų ir tarpų),
+              be „Statusas / VIP narys". */}
           {(profile.legacy_city || age != null || profile.legacy_occupation) && (
             <section className={secMb}>
               <SectionLabel>Apie narį</SectionLabel>
-              <div className={compact ? 'grid grid-cols-2 gap-2 mt-2' : 'grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2'}>
-                {profile.legacy_city && <Pair k="Miestas" v={profile.legacy_city} />}
-                {age != null && <Pair k="Amžius" v={`${age} m.`} />}
-                {profile.legacy_occupation && <Pair k="Užsiėmimas" v={profile.legacy_occupation} />}
-                {profile.is_vip_legacy && <Pair k="Statusas" v="VIP narys" highlight />}
+              <div className="mt-2 flex flex-col">
+                {([
+                  ['Miestas', profile.legacy_city || null],
+                  ['Amžius', age != null ? `${age} m.` : null],
+                  ['Užsiėmimas', profile.legacy_occupation || null],
+                ].filter(([, v]) => v) as [string, string][]).map(([k, v], i) => (
+                  <div key={k} className="flex items-baseline gap-3 py-1.5"
+                       style={{ borderTop: i > 0 ? '1px dashed var(--border-subtle)' : 'none' }}>
+                    <span className="flex-shrink-0 w-[92px] text-[10px] uppercase tracking-wider font-extrabold"
+                          style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>{k}</span>
+                    <span className="text-[13.5px] font-semibold"
+                          style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>{v}</span>
+                  </div>
+                ))}
               </div>
             </section>
           )}

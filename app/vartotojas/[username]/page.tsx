@@ -42,8 +42,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = await getProfileByUsername(username)
   if (!profile) return { title: 'Nerastas — music.lt' }
   const canonical = `/@${profile.username}`
-  // Dalinantis socialiniuose tinkluose rodom @username (ne tikrą vardą).
-  const title = `@${profile.username} — music.lt`
+  // Dalinantis socialiniuose tinkluose rodom username (be „@", pilnesnis).
+  const title = `${profile.username} — muzikinis profilis ir kolekcija | music.lt`
   const rawBio = (profile.bio || '').replace(/\s+/g, ' ').trim()
   const description = rawBio
     ? (rawBio.length > 160 ? rawBio.slice(0, 157).replace(/\s+\S*$/, '') + '…' : rawBio)
@@ -305,7 +305,7 @@ async function loadBlogPosts(blog: any): Promise<{ lanes: { type: string; posts:
       .lte('published_at', nowIso)
       .eq('post_type', t)
       .order('published_at', { ascending: false })
-      .limit(12)
+      .limit(30)
     return { type: t, posts: (data || []) as any[] }
   }))
 

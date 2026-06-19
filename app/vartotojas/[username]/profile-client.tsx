@@ -2441,6 +2441,10 @@ function ProfileBodyDesktop(props: any) {
   // Realus srauto turinys = postai arba dienos dainos. Jei nieko nera -> atidarom Megstama muzika.
   const hasFeedContent = feedItems.some((it) => it.kind === 'post' || it.kind === 'ddweek')
   const [filter, setFilter] = useState<string>(hasFeedContent ? 'all' : hasLikes ? 'likes' : 'all')
+  // V18f: srautas plečiasi vietoje („Daugiau") — nebenukreipia į atskirą /blogas.
+  const FEED_PAGE = 10
+  const [shownCount, setShownCount] = useState(FEED_PAGE)
+  const changeFilter = (k: string) => { setFilter(k); setShownCount(FEED_PAGE) }
 
   // V18: tik įrašų tipų chip'ai (be „Visi", be „Mėgstama" — tie persikėlė į
   // dešinę filtrų barą). „Visi" = numatytasis (filter==='all'); deselect grąžina.
@@ -2482,7 +2486,7 @@ function ProfileBodyDesktop(props: any) {
       <div className="sticky top-[56px] z-30 backdrop-blur-md"
            style={{ background: 'color-mix(in srgb, var(--bg-body) 90%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
         <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
-          <FeedFilterPills typePills={typePills} active={filter} onChange={setFilter} hasLikes={hasLikes} />
+          <FeedFilterPills typePills={typePills} active={filter} onChange={changeFilter} hasLikes={hasLikes} />
         </div>
       </div>
 
@@ -2504,7 +2508,7 @@ function ProfileBodyDesktop(props: any) {
           <div className="grid lg:grid-cols-[minmax(0,1fr)_332px] gap-7 items-start">
             {/* FEED */}
             <div className="flex flex-col gap-5 min-w-0">
-              {visible.map((it) => (
+              {visible.slice(0, shownCount).map((it) => (
                 it.kind === 'post' ? (
                   <FeedPostCard key={it.id} post={it.post} laneType={it.laneType!} blogSlug={blog?.slug || ''} />
                 ) : it.kind === 'ddweek' ? (
@@ -2519,14 +2523,14 @@ function ProfileBodyDesktop(props: any) {
                   Šioje kategorijoje įrašų dar nėra
                 </div>
               )}
-              <FollowCtaCard profile={profile} />
-              {blog && (postTypeCounts && Object.values(postTypeCounts as Record<string, number>).reduce((s: number, n: any) => s + (n || 0), 0) > visible.length) && (
-                <Link href={`/blogas/${blog.slug}`}
-                      className="block w-full text-center rounded-full py-3 text-[13px] font-extrabold transition hover:opacity-85"
-                      style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                  Visi įrašai →
-                </Link>
+              {visible.length > shownCount && (
+                <button type="button" onClick={() => setShownCount((c) => c + FEED_PAGE)}
+                        className="block w-full text-center rounded-full py-3 text-[13px] font-extrabold transition hover:opacity-85"
+                        style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--accent-orange)' }}>
+                  Daugiau įrašų ({visible.length - shownCount})
+                </button>
               )}
+              <FollowCtaCard profile={profile} />
             </div>
 
             {/* SIDE RAIL */}
@@ -2603,60 +2607,60 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
   const isTopas = laneType === 'topas'
   const isTranslation = laneType === 'translation'
 
-  // ── TOPAS: chart preview be didelio cover ──
+  // ── TOPAS: /bendruomene tipo plytelių eilutė (be didelio cover) ──
   if (isTopas && listPreview) {
+    const entries = listPreview.slice(0, 5)
     return (
-      <Link href={url} className="group block rounded-2xl overflow-hidden transition hover:-translate-y-0.5"
-            style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-        <div className="flex items-center gap-2.5 px-5 pt-4 pb-1 flex-wrap">
-          <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
-                style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>
-            Topas{listCount ? ` · ${listCount}` : ''}
-          </span>
-          <h3 className="text-[17px] font-extrabold leading-tight group-hover:text-[var(--accent-orange)] transition"
-              style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
-            {post.title}
-          </h3>
-        </div>
-        <div className="px-5 py-1.5">
-          {listPreview.map((it, i) => (
-            <div key={i} className="flex items-center gap-3 py-2"
-                 style={{ borderBottom: i < listPreview.length - 1 ? '1px dashed var(--border-subtle)' : 'none' }}>
-              <span className="w-6 text-center text-[15px] font-black flex-shrink-0" style={{ color: typeColor, fontFamily: "'Outfit', sans-serif" }}>{i + 1}</span>
-              {it.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={it.image_url} alt="" loading="lazy" className="w-[54px] h-[32px] rounded-md object-cover flex-shrink-0" />
-              ) : (
-                <div className="w-[54px] h-[32px] rounded-md flex-shrink-0 flex items-center justify-center text-[11px]"
-                     style={{ background: `${typeColor}14`, color: typeColor }}>♬</div>
-              )}
-              <div className="min-w-0">
-                <div className="text-[13px] font-bold leading-tight truncate" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
-                  {it.title || '—'}
-                </div>
-                {it.artist && <div className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>{it.artist}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-        {listCount > listPreview.length && (
-          <div className="mx-5 mb-2 mt-1 text-center text-[12px] font-bold rounded-lg py-2"
-               style={{ color: typeColor, background: `${typeColor}10`, fontFamily: "'Outfit', sans-serif" }}>
-            Visas topas — dar {listCount - listPreview.length} poz. →
+      <Link href={url}
+            className="group relative flex overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] transition-all hover:-translate-y-0.5 hover:border-[rgba(245,158,11,0.5)]">
+        <span aria-hidden className="w-[3px] shrink-0 self-stretch" style={{ background: typeColor }} />
+        <div className="flex min-w-0 flex-1 flex-col px-5 py-4">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
+                  style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>
+              Topas{listCount ? ` · ${listCount}` : ''}
+            </span>
+            <h3 className="text-[16px] sm:text-[17.5px] font-extrabold leading-snug group-hover:text-[var(--accent-orange)] transition line-clamp-2"
+                style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+              {post.title}
+            </h3>
           </div>
-        )}
-        <div className="px-5 pb-3.5">
-          <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
+          <div className="mt-3 flex flex-wrap gap-3">
+            {entries.map((it, i) => (
+              <div key={i} className="flex w-[88px] sm:w-[96px] flex-col gap-1.5">
+                <div className="relative aspect-square w-full overflow-hidden rounded-lg" style={{ background: 'var(--cover-placeholder)' }}>
+                  {it.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={it.image_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-lg" style={{ background: `${typeColor}14`, color: typeColor }}>♬</div>
+                  )}
+                  <span className="absolute left-1.5 top-1.5 flex h-[20px] min-w-[20px] items-center justify-center rounded-md px-1 text-[11px] font-black text-white"
+                        style={{ background: i === 0 ? typeColor : 'rgba(0,0,0,0.65)', fontFamily: "'Outfit', sans-serif" }}>{i + 1}</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="m-0 truncate text-[12px] font-bold leading-tight" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{it.title || '—'}</p>
+                  {it.artist && <p className="m-0 truncate text-[10.5px]" style={{ color: 'var(--text-muted)' }}>{it.artist}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3">
+            <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
+          </div>
+          {listCount > entries.length && (
+            <span className="mt-2 self-start text-[11.5px] font-bold transition-opacity group-hover:opacity-70"
+                  style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>Visas topas →</span>
+          )}
         </div>
       </Link>
     )
   }
 
-  // ── VERTIMAS: kompaktiška eilutė ──
+  // ── VERTIMAS: kompaktiška eilutė (su data) ──
   if (isTranslation) {
     return (
-      <Link href={url} className="group block rounded-2xl p-4 transition hover:-translate-y-0.5"
-            style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+      <Link href={url} className="group block rounded-2xl p-4 transition hover:-translate-y-0.5 border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-[var(--border-strong)]">
         <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white mb-2"
               style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>Vertimas</span>
         <h3 className="text-[15.5px] font-extrabold leading-tight group-hover:text-[var(--accent-orange)] transition"
@@ -2664,6 +2668,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
           {post.title}
         </h3>
         {post.summary && <p className="mt-1 text-[12.5px] truncate" style={{ color: 'var(--text-muted)' }}>{post.summary}</p>}
+        <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
       </Link>
     )
   }
