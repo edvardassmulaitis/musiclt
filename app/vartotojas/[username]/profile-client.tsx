@@ -98,23 +98,26 @@ export function ProfileClient(props: any) {
   const isUnclaimed = !profile.is_claimed
   const totalContent = stats.diary + stats.translate + stats.creation + stats.daily_picks
 
+  // V18e: dosnesnė skalė — anksčiau dažam nariui rodė tik 1-2 brūkšnelius.
+  // Karma: legacy music.lt taškai (5 lygiai).
   const karmaLevel = useMemo(() => {
     const k = profile.legacy_karma_points || 0
-    if (k >= 20000) return 5
-    if (k >= 5000) return 4
-    if (k >= 1500) return 3
-    if (k >= 300) return 2
-    if (k >= 50) return 1
+    if (k >= 10000) return 5
+    if (k >= 2500) return 4
+    if (k >= 600) return 3
+    if (k >= 120) return 2
+    if (k >= 10) return 1
     return 0
   }, [profile.legacy_karma_points])
 
+  // Aktyvumas: turinio (įrašai+vertimai+kūryba+dienos dainos) intensyvumas.
   const activityLevel = useMemo(() => {
     const t = totalContent
-    if (t >= 1500) return 5
-    if (t >= 500) return 4
-    if (t >= 150) return 3
-    if (t >= 40) return 2
-    if (t >= 5) return 1
+    if (t >= 800) return 5
+    if (t >= 250) return 4
+    if (t >= 75) return 3
+    if (t >= 20) return 2
+    if (t >= 3) return 1
     return 0
   }, [totalContent])
 
@@ -624,7 +627,7 @@ function MobileProfileView(props: any) {
             {favoriteArtists.length > 0 && (
               <section className="mt-7">
                 <SectionHeader title="Visi atlikėjai"
-                  meta={`${favoriteArtists.length} atlikėjų · tavo pasirinkta eilė`} />
+                  meta={`${favoriteArtists.length} atlikėjų`} />
                 <FavoriteArtistsCollage artists={favoriteArtists} maxShown={20}
                   totalCount={favoriteArtists.length} onOpenMore={() => onOpenMore('artist')} />
               </section>
@@ -633,7 +636,7 @@ function MobileProfileView(props: any) {
               <section className="mt-7">
                 <SectionHeader title="Visi albumai"
                   meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0, profile.legacy_liked_albums_count)} />
-                <AlbumsFullWidth albums={favoriteAlbums} maxShown={20}
+                <AlbumsFullWidth albums={favoriteAlbums} maxShown={23}
                   onOpenMore={() => onOpenMore('album')} totalCount={albumResolvedTotal} />
               </section>
             )}
@@ -641,7 +644,7 @@ function MobileProfileView(props: any) {
               <section className="mt-7">
                 <SectionHeader title="Visos dainos"
                   meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0, profile.legacy_liked_tracks_count)} />
-                <TracksFullWidth tracks={favoriteTracks} maxShown={20}
+                <TracksFullWidth tracks={favoriteTracks} maxShown={23}
                   onOpenMore={() => onOpenMore('track')} totalCount={trackResolvedTotal} />
               </section>
             )}
@@ -1099,23 +1102,25 @@ function trackMeta(resolved: number, pending: number, legacyCount?: number | nul
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// V12: Dalintis mygtukas — native share (mobile) → clipboard fallback. /@username.
+// V18e: Dalintis = paprastas „kopijuoti nuorodą" (be Safari native share sheet,
+// kuris glumino). Visada copy-to-clipboard su „Nukopijuota" feedback'u.
 // ─────────────────────────────────────────────────────────────────────────────
 function ShareButton({ username, iconOnly = false }: { username: string; iconOnly?: boolean }) {
   const [copied, setCopied] = useState(false)
   const onClick = async () => {
     const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/@${username}`
     try {
-      if (typeof navigator !== 'undefined' && (navigator as any).share) {
-        await (navigator as any).share({ title: `${username} — music.lt`, url })
-        return
-      }
-    } catch { /* user cancelled — fall through to copy */ }
-    try {
       await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    } catch { /* ignore */ }
+    } catch {
+      // Senesni Safari — fallback per laikiną input + execCommand.
+      try {
+        const el = document.createElement('input')
+        el.value = url; document.body.appendChild(el); el.select()
+        document.execCommand('copy'); document.body.removeChild(el)
+      } catch { /* ignore */ }
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
   }
 
   if (iconOnly) {
@@ -1280,10 +1285,10 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
                }} />
           {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={cover} alt="" className="relative w-[78px] h-[78px] rounded-full object-cover border-2 border-white/15"
+            <img src={cover} alt="" className="relative w-[64px] h-[64px] rounded-full object-cover border-2 border-white/15"
                  style={{ animation: 'moodSpinV11 40s linear infinite' }} />
           ) : (
-            <div className="relative w-[78px] h-[78px] rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-2xl"
+            <div className="relative w-[64px] h-[64px] rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-2xl"
                  style={{ color: 'rgba(255,255,255,0.7)' }}>♬</div>
           )}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
@@ -1302,7 +1307,7 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
             {track.title}
           </div>
           {artist && (
-            <div className="mt-1 font-semibold text-[12px] sm:text-[13px] truncate"
+            <div className="mt-1 font-semibold text-[12px] sm:text-[13px] leading-snug line-clamp-2"
                  style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-secondary)' }}>
               {artist.name}
             </div>
@@ -1655,23 +1660,29 @@ function AlbumsFullWidth({
             </Link>
           )
         })}
+        {remaining > 0 && <MoreTile remaining={remaining} onOpenMore={onOpenMore} />}
       </div>
-      {remaining > 0 && (
-        <button
-          type="button"
-          onClick={onOpenMore}
-          className="mt-3 w-full rounded-lg py-2.5 text-xs font-extrabold uppercase tracking-wider transition hover:scale-[1.005]"
-          style={{
-            fontFamily: "'Outfit', sans-serif",
-            background: 'var(--card-bg)',
-            border: '1px dashed var(--border-default)',
-            color: 'var(--accent-orange)',
-          }}
-        >
-          +{remaining.toLocaleString('lt-LT')}
-        </button>
-      )}
     </>
+  )
+}
+
+// V18e: „+N" — paskutinė tinklelio plytelė (atidaro modalą), vietoj plataus
+// mygtuko po tinkleliu (kuris su 6/eilutė palikdavo daug tuščios vietos).
+function MoreTile({ remaining, onOpenMore }: { remaining: number; onOpenMore: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpenMore}
+      className="group flex flex-col items-center justify-center rounded-xl h-full min-h-[120px] transition hover:-translate-y-0.5"
+      style={{ background: 'var(--card-bg)', border: '1px dashed var(--border-default)' }}
+    >
+      <span className="text-xl font-black leading-none" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
+        +{remaining.toLocaleString('lt-LT')}
+      </span>
+      <span className="mt-1.5 text-[10px] font-extrabold uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
+        Visi →
+      </span>
+    </button>
   )
 }
 
@@ -1722,22 +1733,8 @@ function TracksFullWidth({
             </Link>
           )
         })}
+        {remaining > 0 && <MoreTile remaining={remaining} onOpenMore={onOpenMore} />}
       </div>
-      {remaining > 0 && (
-        <button
-          type="button"
-          onClick={onOpenMore}
-          className="mt-3 w-full rounded-lg py-2.5 text-xs font-extrabold uppercase tracking-wider transition hover:scale-[1.005]"
-          style={{
-            fontFamily: "'Outfit', sans-serif",
-            background: 'var(--card-bg)',
-            border: '1px dashed var(--border-default)',
-            color: 'var(--accent-orange)',
-          }}
-        >
-          +{remaining.toLocaleString('lt-LT')}
-        </button>
-      )}
     </>
   )
 }
@@ -1788,6 +1785,16 @@ function DailyPicksScrollRow({
 // Combined feed
 // ─────────────────────────────────────────────────────────────────────────────
 
+// V18e: įrašams jaunesniems nei 1 metai rodom santykinį laiką („prieš 3 d."),
+// senesniems — pilną datą. relTimeLt apibrėžtas žemiau (function hoisting).
+function feedDateLabel(dateStr: string): string {
+  const t = new Date(dateStr).getTime()
+  if (!Number.isFinite(t)) return ''
+  const days = (Date.now() - t) / 86400000
+  if (days >= 0 && days < 365) return relTimeLt(dateStr)
+  return new Date(dateStr).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
 // V11.1: vienodinta post metadata juosta — datum + like + comment ikonomis
 // (SVG, ne emoji), kad nesimaišytų contextually.
 function PostMetaRow({
@@ -1802,7 +1809,7 @@ function PostMetaRow({
   return (
     <div className="mt-2 flex items-center gap-3 text-[10px] uppercase tracking-wider font-bold"
          style={{ color, fontFamily: "'Outfit', sans-serif" }}>
-      <span>{new Date(date).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+      <span>{feedDateLabel(date)}</span>
       {likes > 0 && (
         <span className="inline-flex items-center gap-1">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -2555,7 +2562,7 @@ function LikesSections(props: any) {
       {favoriteArtists.length > 0 && (
         <section>
           <SectionHeader title="Mėgstami atlikėjai"
-            meta={`${favoriteArtists.length} atlikėjų · tavo pasirinkta eilė`} />
+            meta={`${favoriteArtists.length} atlikėjų`} />
           <FavoriteArtistsCollage artists={favoriteArtists} maxShown={20}
             totalCount={favoriteArtists.length} onOpenMore={() => onOpenMore('artist')} />
         </section>
@@ -2564,7 +2571,7 @@ function LikesSections(props: any) {
         <section className="mt-8 sm:mt-10">
           <SectionHeader title="Mėgstami albumai"
             meta={albumMeta(albumResolvedTotal, likesCounts?.album?.pending || 0, profile.legacy_liked_albums_count)} />
-          <AlbumsFullWidth albums={favoriteAlbums} maxShown={20}
+          <AlbumsFullWidth albums={favoriteAlbums} maxShown={23}
             onOpenMore={() => onOpenMore('album')} totalCount={albumResolvedTotal} />
         </section>
       )}
@@ -2572,7 +2579,7 @@ function LikesSections(props: any) {
         <section className="mt-8 sm:mt-10">
           <SectionHeader title="Mėgstamos dainos"
             meta={trackMeta(trackResolvedTotal, likesCounts?.track?.pending || 0, profile.legacy_liked_tracks_count)} />
-          <TracksFullWidth tracks={favoriteTracks} maxShown={20}
+          <TracksFullWidth tracks={favoriteTracks} maxShown={23}
             onOpenMore={() => onOpenMore('track')} totalCount={trackResolvedTotal} />
         </section>
       )}
@@ -2666,10 +2673,9 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
   if (thumb) {
     return (
       <Link href={url}
-            className="group relative flex overflow-hidden rounded-2xl transition hover:-translate-y-0.5 min-h-[150px] sm:min-h-[178px]"
-            style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+            className="group relative flex overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] min-h-[160px] sm:min-h-[196px]">
         <span aria-hidden className="w-[3px] shrink-0 self-stretch" style={{ background: typeColor }} />
-        <div className="relative w-[116px] sm:w-[280px] shrink-0 self-stretch overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
+        <div className="relative w-[116px] sm:w-[264px] shrink-0 self-stretch overflow-hidden" style={{ background: 'var(--cover-placeholder)' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
         </div>
@@ -2974,19 +2980,34 @@ function FollowCtaCard({ profile }: { profile: any }) {
 function SimpleClaimFooter({ isLegacy, isUnclaimed }: any) {
   if (!isLegacy || !isUnclaimed) return null
   return (
-    <footer className="mt-12 sm:mt-16 pt-6"
-            style={{ borderTop: '1px solid var(--border-subtle)' }}>
-      <div className="max-w-xl mx-auto text-center p-4 rounded-2xl"
-           style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)' }}>
-        <p className="text-sm leading-relaxed mb-2.5"
-           style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
-          <span className="font-bold">Tai jūsų profilis?</span> Užsiregistruokite naujoje music.lt sistemoje tuo pačiu email&apos;u — automatiškai sujungsime visą jūsų istoriją.
-        </p>
-        <Link href="/auth/signin"
-              className="inline-block px-4 py-2 rounded-full bg-amber-500 text-black text-xs font-extrabold hover:bg-amber-400 transition uppercase tracking-wider"
-              style={{ fontFamily: "'Outfit', sans-serif" }}>
-          Atgauti accountą
-        </Link>
+    <footer className="mt-12 sm:mt-16">
+      <div className="relative max-w-2xl mx-auto overflow-hidden rounded-3xl px-6 py-7 sm:px-9 sm:py-8"
+           style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(251,191,36,0.06))', border: '1px solid rgba(249,115,22,0.22)' }}>
+        <div aria-hidden className="absolute -right-10 -top-12 w-44 h-44 rounded-full"
+             style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.18), transparent 70%)' }} />
+        <div className="relative flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left sm:gap-5">
+          <div className="flex-shrink-0 mb-3 sm:mb-0 w-12 h-12 rounded-2xl flex items-center justify-center"
+               style={{ background: 'var(--accent-orange)', boxShadow: '0 6px 18px rgba(249,115,22,0.35)' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M9 12l2 2 4-4" /><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[16px] sm:text-[18px] font-black leading-tight"
+                style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+              Tai tavo profilis?
+            </h3>
+            <p className="mt-1 text-[13px] leading-relaxed"
+               style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-secondary)' }}>
+              Užsiregistruok su tuo pačiu el. paštu — automatiškai sujungsime visą tavo music.lt istoriją.
+            </p>
+          </div>
+          <Link href="/auth/signin"
+                className="mt-4 sm:mt-0 flex-shrink-0 inline-flex items-center justify-center px-5 py-2.5 rounded-full text-[13px] font-extrabold transition hover:opacity-90 active:scale-[0.98]"
+                style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--accent-orange)', color: '#fff', boxShadow: '0 6px 18px rgba(249,115,22,0.3)' }}>
+            Aktyvuoti paskyrą
+          </Link>
+        </div>
       </div>
     </footer>
   )

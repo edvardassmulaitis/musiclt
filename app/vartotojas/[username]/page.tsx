@@ -42,8 +42,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = await getProfileByUsername(username)
   if (!profile) return { title: 'Nerastas — music.lt' }
   const canonical = `/@${profile.username}`
-  const title = `${profile.full_name || profile.username} — music.lt`
-  const description = profile.bio || `${profile.full_name || username} muzikos profilis`
+  // Dalinantis socialiniuose tinkluose rodom @username (ne tikrą vardą).
+  const title = `@${profile.username} — music.lt`
+  const rawBio = (profile.bio || '').replace(/\s+/g, ' ').trim()
+  const description = rawBio
+    ? (rawBio.length > 160 ? rawBio.slice(0, 157).replace(/\s+\S*$/, '') + '…' : rawBio)
+    : `@${profile.username} muzikinis profilis — skonis, dienoraštis ir kolekcija music.lt`
   return {
     title,
     description,
@@ -53,7 +57,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url: canonical,
       type: 'profile',
-      // og:image teikia file-based opengraph-image.tsx (dinaminė kortelė)
+      siteName: 'music.lt',
+      locale: 'lt_LT',
+      // og:image teikia file-based opengraph-image.tsx (1200×630 dinaminė kortelė)
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
     },
   }
 }
@@ -183,10 +194,9 @@ const POST_HEAVY_COLS =
 // anksčiau žiūrėjo TIK į post_type → koncertų įspūdžiai rodėsi kaip „Muzikos
 // apžvalga". Čia suskaičiuojam efektyvų tipą, kurį naudoja kortelės ir filtrai.
 function effectivePostType(postType: string, editorialType: string | null | undefined): string {
-  if (postType === 'article') {
-    if (editorialType === 'koncertai') return 'event'
-    if (editorialType === 'recenzija') return 'review'
-  }
+  // editorial_type='recenzija' lieka 'article' (rodom kaip „Muzikos apžvalga") —
+  // tai NE struktūrinė post_type='review'. Tik koncertai gauna atskirą tipą.
+  if (postType === 'article' && editorialType === 'koncertai') return 'event'
   return postType
 }
 
@@ -322,7 +332,7 @@ async function loadBlogPosts(blog: any): Promise<{ lanes: { type: string; posts:
     for (const p of lane.posts) {
       if (Array.isArray(p.list_items) && p.list_items.length > 0) {
         p.list_items_count = p.list_items.length
-        p.list_items_preview = p.list_items.slice(0, 3).map((it: any) => {
+        p.list_items_preview = p.list_items.slice(0, 5).map((it: any) => {
           const preview = {
             title: it?.title ?? it?.track_title ?? it?.name ?? null,
             artist: it?.artist_name ?? it?.artist ?? it?.subtitle ?? null,

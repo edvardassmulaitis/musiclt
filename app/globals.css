@@ -915,8 +915,9 @@ main.has-bottom-nav {
 [data-theme="light"] .pf-hero-name { color: var(--text-primary); text-shadow: none; }
 .pf-hero-bio { color: rgba(255,255,255,0.80); }
 [data-theme="light"] .pf-hero-bio { color: var(--text-secondary); }
-.pf-hero-chip { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.10); }
-[data-theme="light"] .pf-hero-chip { border-color: var(--border-default); background: var(--bg-surface); }
+.pf-hero-chip { border-color: rgba(255,255,255,0.14); background: rgba(255,255,255,0.08); }
+/* Light: subtilus permatomas atspalvis (NE solid balta — anksčiau labai išsiskyrė). */
+[data-theme="light"] .pf-hero-chip { border-color: rgba(15,26,46,0.10); background: rgba(15,26,46,0.05); }
 
 /* Artist hero substyle chips (.aphchip) — BULLETPROOF sprendimas.
    Chip'ai desktop'e persidengia su hero nuotrauka (gali būti šviesi ARBA
