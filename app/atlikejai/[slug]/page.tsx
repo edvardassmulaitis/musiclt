@@ -1193,6 +1193,25 @@ async function getOrCreateArtistMainDiscussionId(
   }
 }
 
+/** Komentaro kūnas saugomas kaip HTML (Tiptap composer output, pvz.
+ *  `<p style="text-align:left">♥</p>`). Preview kortelėms paverčiam į gryną
+ *  tekstą — kitaip React parodytų raw HTML žymes. */
+function stripCommentHtml(html?: string | null): string {
+  if (!html) return ''
+  return html
+    .replace(/<br\s*\/?>(?=)/gi, ' ')
+    .replace(/<\/(p|div|li|h[1-6])>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 /** Pagrindinės temos detalė inline blokui: meta + TOP komentarai (pagal
  *  patiktukus). Kai yra komentarų — UI rodo gražias korteles + CTA; kai nėra —
  *  įvedimo formą. */
@@ -1214,7 +1233,7 @@ async function getArtistMainDiscussionDetail(id: number) {
       .limit(3)
     const topComments = ((cs || []) as any[]).map((c: any) => ({
       id: c.id,
-      body: (c.body || '').trim(),
+      body: stripCommentHtml(c.body),
       like_count: c.like_count || 0,
       created_at: c.created_at || null,
       author_username: c.profiles?.username || null,

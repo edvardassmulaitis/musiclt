@@ -2611,7 +2611,7 @@ function SideInfo({
   const visibleIconSocials = !useLabels && overflowCount > 0 ? socialList.slice(0, ICON_LIMIT) : socialList
 
   return (
-    <aside className="flex h-fit flex-col items-stretch gap-3 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+    <aside className="flex h-fit w-full flex-col items-stretch gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
       {/* Row 1a: labeled mode — kai ≤2 items, rodom pill su logo + tekstu */}
       {hasSocials && useLabels && (
         <div className="flex w-full flex-wrap items-center gap-1.5">
