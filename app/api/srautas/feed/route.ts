@@ -93,6 +93,13 @@ function cleanTitle(t?: string | null): string {
     .replace(/\s{2,}/g, ' ').trim()
 }
 
+// Įrašo excerpt — HTML nuvalytas, sutrumpintas (kortelėms be viršelio).
+function excerptOf(summary?: string | null, max = 160): string | null {
+  const t = (summary || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+  if (!t) return null
+  return t.length > max ? t.slice(0, max).trimEnd() + '…' : t
+}
+
 // Nario įrašo „vizualas" — kaip /bendruomene feede: jei nėra cover_image_url,
 // imam susietos muzikos nuotrauką (daina → albumas → atlikėjas). NE avataras.
 async function blogThumbs(sb: any, posts: { id: number; cover_image_url: string | null }[]): Promise<Map<number, string>> {
@@ -263,7 +270,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         if (!postIds.length) return out
       }
       let q = sb.from('blog_posts')
-        .select('id, slug, title, cover_image_url, post_type, editorial_type, rating, published_at, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
+        .select('id, slug, title, summary, cover_image_url, post_type, editorial_type, rating, published_at, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
         .eq('status', 'published').not('published_at', 'is', null).lte('published_at', nowIso)
       if (postIds) q = q.in('id', postIds)
       q = q.order('published_at', { ascending: false }).limit(16)
@@ -281,66 +288,39 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
           href: blogSlug ? `/blogas/${blogSlug}/${p.slug}` : '/blogas',
           date: p.published_at, badge: bb.label, badgeColor: bb.color,
           avatar: prof?.avatar_url || null,
-          meta: { post_type: p.post_type, rating: p.rating, avatar: prof?.avatar_url || null },
+          meta: { post_type: p.post_type, rating: p.rating, avatar: prof?.avatar_url || null, excerpt: excerptOf(p.summary) },
         })
       }
     } catch { /* ignore */ }
     return out
   }
 
-  // ── TOPAI kuriuose paminėti pamėgti atlikėjai (tik 1-am psl, personalized) ──
+  // ── TOPAI — VIENA agreguota kortelė (kad savaitinis topų atsinaujinimas
+  //    nefloodintų srauto): „Tavo atlikėjai topuose: A · B · C…". ──────────────
   const chartsTask = async (): Promise<FeedItem[]> => {
     if (before || !personalized) return []
-    const out: FeedItem[] = []
     try {
-      const { data: currentCharts } = await sb.from('external_charts')
-        .select('id, source, chart_key, title, period_label').eq('is_current', true)
-      const charts = (currentCharts || []) as any[]
-      if (!charts.length) return out
-      const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
+      const { data: currentCharts } = await sb.from('external_charts').select('id').eq('is_current', true)
+      const chartIds = ((currentCharts || []) as any[]).map(c => Number(c.id))
+      if (!chartIds.length) return []
       const { data: entries } = await sb.from('external_chart_entries')
-        .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(title, slug, cover_url, video_url)')
-        .in('artist_id', artistIds).in('chart_id', charts.map(c => Number(c.id)))
-        .order('position', { ascending: true }).limit(40)
-      const eRows = (entries || []) as any[]
-      // TIKRAS atlikėjas iš artists lentelės (raw chart tekstas „WEEKND" mangled +
-      // dažnai track_id NULL → nėra resolved track join → placeholder). artist_id
-      // jau sumatchintas, tad imam jo tikrą pavadinimą + nuotrauką.
-      const aById = new Map<number, { name: string; slug: string | null; cover: string | null }>()
-      const eArtIds = Array.from(new Set(eRows.map(e => Number(e.artist_id)).filter(Boolean)))
-      if (eArtIds.length) {
-        try {
-          const { data: arts } = await sb.from('artists').select('id, name, slug, cover_image_url').in('id', eArtIds)
-          for (const a of (arts || []) as any[]) aById.set(Number(a.id), { name: a.name, slug: a.slug || null, cover: a.cover_image_url || null })
-        } catch { /* ignore */ }
-      }
-      // Vienas geriausios pozicijos įrašas kiekvienam (atlikėjas+topas) deriniui.
-      const seen = new Set<string>()
-      for (const e of eRows) {
-        const c = chartById.get(Number(e.chart_id)); if (!c) continue
-        const aid = Number(e.artist_id)
-        const dedupeKey = `${aid}-${c.id}`
-        if (seen.has(dedupeKey)) continue
-        seen.add(dedupeKey)
-        const tr = one(e.tracks)
-        const a = aById.get(aid)
-        const properName = a?.name || e.artist_name || null
-        const songTitle = tr?.title || null
-        const cover = a?.cover || tr?.cover_url || ytThumb(tr?.video_url) || e.cover_url || null
-        out.push({
-          key: `chart-${e.chart_id}-${aid}`, kind: 'chart',
-          // dainos title jei resolved, kitu atveju tikras atlikėjo vardas (ne „WEEKND")
-          title: songTitle || properName || c.title || 'Topas',
-          subtitle: `${songTitle && properName ? properName + ' · ' : ''}#${e.position} · ${c.title}`,
-          image: cover,
-          href: `/topai/${c.source}-${c.chart_key}`,
-          // nowIso → topai matomi srauto viršuje (current topai = švieži), ne nukišti į galą
-          date: nowIso, badge: 'Topas', artistId: aid, avatar: a?.cover || null,
-          artist: properName ? { name: properName, slug: a?.slug || null } : null,
-        })
-      }
+        .select('artist_id').in('artist_id', artistIds).in('chart_id', chartIds).limit(80)
+      const aids = Array.from(new Set(((entries || []) as any[]).map(e => Number(e.artist_id)).filter(Boolean)))
+      if (!aids.length) return []
+      const { data: arts } = await sb.from('artists').select('id, name, cover_image_url').in('id', aids).limit(12)
+      const names = ((arts || []) as any[]).map(a => a.name).filter(Boolean)
+      if (!names.length) return []
+      const cover = ((arts || []) as any[]).find(a => a.cover_image_url)?.cover_image_url || null
+      return [{
+        key: 'charts-summary', kind: 'chart',
+        title: 'Tavo atlikėjai topuose',
+        subtitle: names.slice(0, 8).join(' · '),
+        image: cover, href: '/topai', date: nowIso, badge: 'Topai',
+        artistId: null, avatar: cover,
+        meta: { excerpt: names.length > 8 ? `${names.slice(0, 8).join(', ')} ir dar ${names.length - 8}` : names.join(', ') },
+      }]
     } catch { /* ignore */ }
-    return out.slice(0, 6) // neapkraunam srauto viršaus topais
+    return []
   }
 
   // ── DISKUSIJOS susietos su pamėgtais atlikėjais (tik 1-am psl, personalized) ──
@@ -458,7 +438,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
     const out: FeedItem[] = []
     try {
       const { data } = await sb.from('blog_posts')
-        .select('id, slug, title, cover_image_url, post_type, editorial_type, rating, published_at, user_id, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
+        .select('id, slug, title, summary, cover_image_url, post_type, editorial_type, rating, published_at, user_id, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
         .eq('status', 'published').not('published_at', 'is', null).lte('published_at', nowIso)
         .in('user_id', followedIds)
         .order('published_at', { ascending: false }).limit(20)
@@ -475,7 +455,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
           href: blogSlug ? `/blogas/${blogSlug}/${p.slug}` : '/blogas',
           date: p.published_at, badge: bb.label, badgeColor: bb.color,
           avatar: prof?.avatar_url || null,
-          meta: { post_type: p.post_type, rating: p.rating, avatar: prof?.avatar_url || null },
+          meta: { post_type: p.post_type, rating: p.rating, avatar: prof?.avatar_url || null, excerpt: excerptOf(p.summary) },
         })
       }
     } catch { /* ignore */ }
@@ -561,7 +541,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v16'],
+  ['srautas-feed-v17'],
   { revalidate: 90 },
 )
 

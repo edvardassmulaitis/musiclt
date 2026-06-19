@@ -1,19 +1,15 @@
 'use client'
 
 /**
- * /srautas — ❤️ asmeninė muzikos zona. Du režimai (kaip /topai filtrų pill'ai,
- * centruoti): „Mėgstami" (turinys iš pamėgtų atlikėjų) ir „Tau gali patikti"
- * (rekomendacijos). Be papildomų tipo filtrų — viskas viename sraute.
+ * /srautas — ❤️ asmeninė muzikos zona. Du režimai: „Mėgstami" / „Tau gali patikti".
  *
- * 2026-06-17 v3:
- *   • Filtrų juosta = 2 centruoti pill'ai (/topai stilius) + diskretiška ⚙.
- *   • Švarios, neryškios ♥ / × ikonos (drop-shadow, ne bulky apskritimai).
- *   • Daina atidaroma MODALE (HomeTrackModal) — uždarius lieki toje pačioje
- *     vietoje; taisomas ir 404 (teisingas /dainos/{artist}-{slug}-{id} href).
- *   • Swipe stabilesnis — užrakinamas tik horizontalus gestas (vertikalus
- *     scroll'as nebevirsta swipe'u).
- *
- * GREITAVEIKA: feed'as užkraunamas IŠKART (mount), nelaukiant useSession.
+ * 2026-06-18 v4 — DESKTOP DVI KOLONOS (kaip /bendruomene, sąrašo stilius):
+ *   • Kairė (platesnė): naujienos, bendruomenės įrašai, diskusijos, koncertai,
+ *     topai (viena agreguota kortelė). Įrašams be viršelio rodomas excerpt'as
+ *     (ne placeholder raidė).
+ *   • Dešinė (siaura): nauja muzika (dainos/albumai) iš mėgstamų atlikėjų.
+ *   • Mobile: vientisas vienos kolonos sąrašas (chronologiškai).
+ *   Kortelės — horizontalios eilutės (wide / compact variantai).
  */
 
 import { useEffect, useState, useCallback, useMemo, useRef, Suspense, type MouseEvent, type TouchEvent, type CSSProperties } from 'react'
@@ -44,7 +40,7 @@ type FeedItem = {
   badgeColor?: string | null
   liked?: boolean
   artist?: { id?: number; name: string; slug: string | null } | null
-  meta?: { post_type?: string; rating?: number | null; avatar?: string | null; comments?: number; likes?: number }
+  meta?: { post_type?: string; rating?: number | null; avatar?: string | null; comments?: number; likes?: number; excerpt?: string | null }
 }
 
 const BADGE_COLOR: Record<Kind, string> = {
@@ -58,6 +54,9 @@ const BADGE_COLOR: Record<Kind, string> = {
   chart: '#eab308',
   recording: '#14b8a6',
 }
+
+const MUSIC_KINDS = new Set<Kind>(['track', 'album'])
+const isMusic = (it: FeedItem) => MUSIC_KINDS.has(it.kind)
 
 // ── Ikonos ───────────────────────────────────────────────────────────────────
 const HEART_PATH = 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z'
@@ -85,7 +84,7 @@ const IconGear = (
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
 )
-// Lietuviška „prieš N …" forma (pilni žodžiai).
+
 function ltUnit(n: number, forms: [string, string, string]): string {
   const m10 = n % 10, m100 = n % 100
   if (m10 === 1 && m100 !== 11) return forms[0]
@@ -120,7 +119,6 @@ function eventWhen(iso: string | null): string {
   if (!Number.isFinite(t)) return ''
   const dt = new Date(t)
   const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' }
-  // Tolimi koncertai (kiti metai) — pridedam metus.
   if (dt.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric'
   return dt.toLocaleDateString('lt-LT', opts)
 }
@@ -136,6 +134,19 @@ function Equalizer() {
 function idFromKey(key: string): number {
   const n = Number(key.split('-').pop())
   return Number.isFinite(n) ? n : 0
+}
+
+function useIsMobile(bp = 860): boolean {
+  const [m, setM] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia(`(max-width: ${bp}px)`)
+    const on = () => setM(mq.matches)
+    on()
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [bp])
+  return m
 }
 
 /** Širdutė — sekti atlikėją / mėgti dainą ar albumą. */
@@ -171,17 +182,18 @@ function LikeButton({ entity, id, initial = false }: { entity: LikeEntity; id: n
   )
 }
 
-/** Universali srauto kortelė — swipe-to-dismiss (tik horizontalus gestas),
- *  diskretiškos ♥ / × ikonos, dainos atidaromos modale. */
-function FeedCard({ it, onDismiss, onOpenTrack, onWhy }: { it: FeedItem; onDismiss: (key: string) => void; onOpenTrack: (it: FeedItem) => void; onWhy: (it: FeedItem) => void }) {
+/** Horizontali srauto eilutė. variant: wide (bendruomenė) | compact (muzika). */
+function FeedCard({ it, variant, onDismiss, onOpenTrack, onWhy }: { it: FeedItem; variant: 'wide' | 'compact'; onDismiss: (key: string) => void; onOpenTrack: (it: FeedItem) => void; onWhy: (it: FeedItem) => void }) {
   const isArtist = it.kind === 'artist'
   const initial = (it.title || '?').trim()[0]?.toUpperCase() || '?'
   const when = it.kind === 'event' ? eventWhen(it.date) : it.kind === 'chart' ? '' : timeAgo(it.date)
+  const excerpt = it.meta?.excerpt || null
   const likeEntity: LikeEntity | null =
     it.kind === 'artist' ? 'artist' : it.kind === 'track' ? 'track' : it.kind === 'album' ? 'album' : null
   const likeId = it.kind === 'artist' ? (it.artist?.id || 0) : idFromKey(it.key)
+  const hasImg = !!it.image
 
-  // ── Swipe: užrakinam ašį, kad vertikalus scroll'as nevirstų swipe'u ──
+  // ── Swipe ──
   const [dx, setDx] = useState(0)
   const [leaving, setLeaving] = useState(false)
   const start = useRef<{ x: number; y: number } | null>(null)
@@ -197,11 +209,10 @@ function FeedCard({ it, onDismiss, onOpenTrack, onWhy }: { it: FeedItem; onDismi
     const ddx = e.touches[0].clientX - start.current.x
     const ddy = e.touches[0].clientY - start.current.y
     if (axis.current === 'none') {
-      // sprendžiam ašį tik kai gestas pakankamai aiškus
       if (Math.abs(ddx) < 12 && Math.abs(ddy) < 12) return
       axis.current = Math.abs(ddx) > Math.abs(ddy) * 1.3 ? 'h' : 'v'
     }
-    if (axis.current !== 'h') return // vertikalus → leidžiam scroll'inti
+    if (axis.current !== 'h') return
     movedH.current = true
     setDx(ddx)
   }
@@ -228,39 +239,37 @@ function FeedCard({ it, onDismiss, onOpenTrack, onWhy }: { it: FeedItem; onDismi
   return (
     <Link
       href={it.href}
-      className={`sr-card${isArtist ? ' sr-card--artist' : ''}`}
+      className={`srl srl--${variant}${hasImg ? '' : ' srl--noimg'}${isArtist ? ' srl--artist' : ''}`}
       style={style}
       onClick={handleClick}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      <div className={`sr-cover${isArtist ? ' sr-cover--artist' : ''}`}>
-        {it.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImgResized(it.image, 480)} alt="" loading="lazy" />
-        ) : (
-          <span className="sr-cover-ph">{initial}</span>
-        )}
-      </div>
-
-      <div className="sr-body">
+      {hasImg && (
+        <div className="srl-cover">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={proxyImgResized(it.image, variant === 'compact' ? 160 : 300)} alt="" loading="lazy" />
+        </div>
+      )}
+      <div className="srl-body">
         {!isArtist && (
-          <span className="sr-kicker" style={{ color: it.badgeColor || BADGE_COLOR[it.kind] }}>
+          <span className="srl-kicker" style={{ color: it.badgeColor || BADGE_COLOR[it.kind] }}>
             {it.badge}{it.kind === 'blog' && it.meta?.rating ? ` · ${it.meta.rating}/10` : ''}
           </span>
         )}
-        <span className={`sr-title${isArtist ? ' sr-title--artist' : ''}`}>{it.title}</span>
+        <span className="srl-title">{it.title}</span>
         {(it.subtitle || (!isArtist && it.avatar)) && (
-          <span className="sr-sub-row">
+          <span className="srl-subrow">
             {!isArtist && it.avatar && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img className="sr-avatar" src={proxyImgResized(it.avatar, 64)} alt="" loading="lazy" />
+              <img className="srl-avatar" src={proxyImgResized(it.avatar, 64)} alt="" loading="lazy" />
             )}
-            {it.subtitle && <span className="sr-sub">{it.subtitle}</span>}
+            {it.subtitle && <span className="srl-sub">{it.subtitle}</span>}
           </span>
         )}
-        {when && <span className="sr-meta"><span className="sr-time">{when}</span></span>}
+        {variant === 'wide' && excerpt && <span className="srl-excerpt">{excerpt}</span>}
+        {when && <span className="srl-time">{when}</span>}
       </div>
 
       {likeEntity && likeId ? <LikeButton entity={likeEntity} id={likeId} initial={!!it.liked} /> : null}
@@ -291,6 +300,7 @@ function SrautasInner() {
   const { data: session } = useSession()
   const router = useRouter()
   const params = useSearchParams()
+  const isMobileView = useIsMobile()
 
   const initialMode: Mode = params.get('t') === 'tau' ? 'tau' : 'sekami'
   const [mode, setMode] = useState<Mode>(initialMode)
@@ -306,9 +316,7 @@ function SrautasInner() {
     })
   }, [])
 
-  // „Kodėl pasiūlyta" modalas.
   const [whyItem, setWhyItem] = useState<FeedItem | null>(null)
-  // Dainos modalas (kad uždarius liktum toje pačioje vietoje).
   const [modalTrack, setModalTrack] = useState<any | null>(null)
   const openTrack = useCallback((it: FeedItem) => {
     setModalTrack({
@@ -411,6 +419,8 @@ function SrautasInner() {
 
   const sourceItems = mode === 'sekami' ? items : recs
   const filtered = useMemo(() => sourceItems.filter(it => !dismissed.has(it.key)), [sourceItems, dismissed])
+  const musicItems = useMemo(() => filtered.filter(isMusic), [filtered])
+  const otherItems = useMemo(() => filtered.filter(it => !isMusic(it)), [filtered])
   const isLoading = mode === 'sekami' ? loading : (recLoading && recs.length === 0)
   const isPersonalized = mode === 'sekami' ? personalized : recPersonalized
   const canLoadMore = mode === 'sekami' && !!nextBefore
@@ -421,10 +431,12 @@ function SrautasInner() {
     if (!canLoadMore) return
     const el = sentinel.current
     if (!el) return
-    const obs = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) moreFeed() }, { rootMargin: '150px 0px' })
+    const obs = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) moreFeed() }, { rootMargin: '200px 0px' })
     obs.observe(el)
     return () => obs.disconnect()
-  }, [canLoadMore, moreFeed])
+  }, [canLoadMore, moreFeed, isMobileView, filtered.length])
+
+  const cardProps = { onDismiss: dismiss, onOpenTrack: openTrack, onWhy: setWhyItem }
 
   return (
     <div className="sr-wrap">
@@ -444,49 +456,53 @@ function SrautasInner() {
         .srf-gear svg { width:17px; height:17px; }
         .srf-gear:hover { color:var(--text-primary); }
 
-        /* ── Tinklelis ── */
-        .sr-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:20px; }
-        .sr-card { position:relative; display:flex; flex-direction:column; text-decoration:none; overflow:hidden;
-          background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:16px; will-change:transform;
-          transition:border-color .15s, box-shadow .15s; }
-        .sr-card:hover { border-color:var(--border-strong); box-shadow:0 8px 22px rgba(0,0,0,0.22); }
-        .sr-cover { position:relative; aspect-ratio:16/10; overflow:hidden;
-          background:linear-gradient(135deg, var(--bg-active), var(--bg-surface)); display:flex; align-items:center; justify-content:center; }
-        .sr-cover--artist { aspect-ratio:1/1; }
-        .sr-cover img { width:100%; height:100%; object-fit:cover; transition:transform .35s ease; }
-        .sr-card:hover .sr-cover img { transform:scale(1.04); }
-        .sr-cover-ph { font-size:42px; font-weight:900; color:var(--text-faint); }
-        .sr-body { display:flex; flex-direction:column; gap:4px; padding:11px 13px 13px; min-width:0; }
-        .sr-kicker { font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; line-height:1; margin-bottom:1px; }
-        .sr-title { font-size:14.5px; font-weight:700; color:var(--text-primary); line-height:1.32;
-          display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-        .sr-title--artist { -webkit-line-clamp:1; font-weight:800; font-size:15px; }
-        .sr-sub-row { display:flex; align-items:center; gap:6px; min-width:0; }
-        .sr-avatar { width:18px; height:18px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
-        .sr-sub { font-size:12.5px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .sr-meta { display:flex; align-items:center; gap:8px; margin-top:1px; min-width:0; }
-        .sr-time { font-size:11.5px; color:var(--text-faint); white-space:nowrap; flex:0 0 auto; }
-        .sr-because { display:flex; align-items:center; gap:5px; min-width:0; margin-top:2px; font-size:11.5px; color:var(--accent-orange); font-weight:600; }
-        .sr-because svg { width:12px; height:12px; flex:0 0 auto; }
-        .sr-because-tx { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        /* ── Dvi kolonos (desktop) ── */
+        .sr-cols { display:grid; grid-template-columns: 1.7fr 1fr; gap:22px; align-items:start; }
+        .sr-col { display:flex; flex-direction:column; gap:11px; min-width:0; }
+        .sr-colhead { font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); margin:0 2px 2px; }
+        .sr-list { display:flex; flex-direction:column; gap:10px; }
 
-        /* ── Veiksmų ikonos: vientisos, temai pritaikytos (matomos light/dark) ── */
+        /* ── Horizontali eilutė ── */
+        .srl { position:relative; display:flex; align-items:stretch; gap:0; text-decoration:none; overflow:hidden; will-change:transform;
+          background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:14px;
+          transition:border-color .15s, box-shadow .15s; }
+        .srl:hover { border-color:var(--border-strong); box-shadow:0 6px 18px rgba(0,0,0,0.18); }
+        .srl-cover { position:relative; flex:0 0 auto; overflow:hidden; align-self:stretch;
+          background:linear-gradient(135deg, var(--bg-active), var(--bg-surface)); }
+        .srl-cover img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .35s ease; }
+        .srl:hover .srl-cover img { transform:scale(1.04); }
+        .srl--wide { min-height:92px; }
+        .srl--wide .srl-cover { width:120px; }
+        .srl--compact { min-height:70px; }
+        .srl--compact .srl-cover { width:66px; }
+        .srl-body { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:3px; padding:10px 44px 10px 13px; }
+        .srl-kicker { font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; line-height:1; }
+        .srl-title { font-size:14px; font-weight:700; color:var(--text-primary); line-height:1.3;
+          display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .srl--compact .srl-title { font-size:13.5px; }
+        .srl-subrow { display:flex; align-items:center; gap:6px; min-width:0; }
+        .srl-avatar { width:17px; height:17px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
+        .srl-sub { font-size:12px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .srl-excerpt { font-size:12px; color:var(--text-muted); line-height:1.4; margin-top:1px;
+          display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .srl-time { font-size:11px; color:var(--text-faint); white-space:nowrap; margin-top:1px; }
+
+        /* ── Veiksmų ikonos ── */
         .sr-act { position:absolute; cursor:pointer; padding:0; z-index:3; border-radius:50%;
           display:inline-flex; align-items:center; justify-content:center;
           background:var(--bg-elevated); border:1px solid var(--border-default, var(--border-subtle));
           box-shadow:0 2px 8px rgba(0,0,0,0.16); transition:transform .14s, background .14s, color .14s, border-color .14s, opacity .14s; -webkit-tap-highlight-color:transparent; }
-        .sr-like { bottom:6px; right:6px; width:29px; height:29px; color:var(--accent-orange); }
-        .sr-like svg { width:16px; height:16px; }
+        .sr-like { bottom:6px; right:6px; width:28px; height:28px; color:var(--accent-orange); }
+        .sr-like svg { width:15px; height:15px; }
         .sr-like:hover { transform:scale(1.1); }
         .sr-like.done { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
         .sr-like:disabled { opacity:.7; }
-        .sr-dismiss { top:6px; right:6px; width:27px; height:27px; color:var(--text-muted); opacity:0; }
-        .sr-dismiss svg { width:14px; height:14px; }
+        .sr-dismiss { top:6px; right:6px; width:25px; height:25px; color:var(--text-muted); opacity:0; }
+        .sr-dismiss svg { width:13px; height:13px; }
         .sr-dismiss:hover { transform:scale(1.1); color:var(--text-primary); }
-        .sr-card:hover .sr-dismiss, .sr-dismiss:focus-visible { opacity:1; }
-        /* „Kodėl pasiūlyta" — connection ikona kairėje nuo × */
-        .sr-why-btn { top:6px; right:39px; width:27px; height:27px; color:var(--accent-orange); opacity:.92; }
-        .sr-why-btn svg { width:15px; height:15px; }
+        .srl:hover .sr-dismiss, .sr-dismiss:focus-visible { opacity:1; }
+        .sr-why-btn { top:6px; right:36px; width:25px; height:25px; color:var(--accent-orange); opacity:.92; }
+        .sr-why-btn svg { width:14px; height:14px; }
         .sr-why-btn:hover { transform:scale(1.1); }
 
         /* ── „Kodėl pasiūlyta" modalas ── */
@@ -517,24 +533,13 @@ function SrautasInner() {
         .sr-loading { display:flex; justify-content:center; padding:64px 0; }
         .sr-more-loading { display:flex; justify-content:center; padding:22px 0; }
 
-        /* ── MOBILE: horizontali kortelė ── */
-        @media (max-width:680px) {
+        @media (max-width:860px) {
           .sr-wrap { padding:12px 12px 32px; }
-          .sr-grid { grid-template-columns:1fr; gap:10px; }
-          .sr-card { flex-direction:row; align-items:stretch; }
-          .sr-cover { aspect-ratio:auto; width:120px; flex:0 0 120px; min-height:118px; }
-          .sr-cover--artist { width:104px; flex-basis:104px; }
-          .sr-body { flex:1; justify-content:center; padding:11px 46px 11px 13px; gap:4px; }
-          .sr-title { font-size:14px; -webkit-line-clamp:3; }
-          .sr-sub { white-space:normal; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; }
-          .sr-like { bottom:7px; right:7px; }
-          .sr-dismiss { opacity:.9; top:7px; right:7px; }
-          .srf-gear { position:static; transform:none; margin-left:2px; }
-          .srf { gap:8px; }
+          .srl-body { padding-right:44px; }
         }
       `}</style>
 
-      {/* Filtrų juosta: 2 centruoti pill'ai + ⚙ */}
+      {/* Filtrų juosta */}
       <div className="srf" role="tablist">
         <button type="button" role="tab" aria-selected={mode === 'sekami'} className={`srf-chip${mode === 'sekami' ? ' on' : ''}`} onClick={() => switchMode('sekami')}>
           {IconHeart}<span>Mėgstami</span>
@@ -561,9 +566,22 @@ function SrautasInner() {
         </div>
       ) : (
         <>
-          <div className="sr-grid">
-            {filtered.map(it => <FeedCard key={it.key} it={it} onDismiss={dismiss} onOpenTrack={openTrack} onWhy={setWhyItem} />)}
-          </div>
+          {isMobileView ? (
+            <div className="sr-list">
+              {filtered.map(it => <FeedCard key={it.key} it={it} variant={isMusic(it) ? 'compact' : 'wide'} {...cardProps} />)}
+            </div>
+          ) : (
+            <div className="sr-cols">
+              <div className="sr-col">
+                {otherItems.length > 0 && <div className="sr-colhead">Naujienos · bendruomenė</div>}
+                {otherItems.map(it => <FeedCard key={it.key} it={it} variant="wide" {...cardProps} />)}
+              </div>
+              <div className="sr-col">
+                {musicItems.length > 0 && <div className="sr-colhead">Nauja muzika</div>}
+                {musicItems.map(it => <FeedCard key={it.key} it={it} variant="compact" {...cardProps} />)}
+              </div>
+            </div>
+          )}
 
           {canLoadMore && <div ref={sentinel} aria-hidden style={{ height: 1 }} />}
           {loadingMore && <div className="sr-more-loading"><Equalizer /></div>}
@@ -588,7 +606,7 @@ function SrautasInner() {
   )
 }
 
-/** „Kodėl pasiūlyta" modalas — paaiškina rekomendacijos logiką + susiję atlikėjai. */
+/** „Kodėl pasiūlyta" modalas. */
 function WhyModal({ it, onClose }: { it: FeedItem; onClose: () => void }) {
   const arts = (it.becauseArtists || []).filter(a => a.name)
   return (

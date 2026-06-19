@@ -226,51 +226,26 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     queues.release = capped
   }
 
-  // ── Topai, kuriuose figūruoja pamėgti / rekomenduojami atlikėjai ─────────────
+  // ── Topai — VIENA agreguota kortelė (be savaitinio floodo) ──────────────────
   const chartsTask = async () => {
     if (!matchIds.length) return
-    const { data: currentCharts } = await sb.from('external_charts')
-      .select('id, source, chart_key, title, period_label').eq('is_current', true)
-    const charts = (currentCharts || []) as any[]
-    if (!charts.length) return
-    const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
+    const { data: currentCharts } = await sb.from('external_charts').select('id').eq('is_current', true)
+    const chartIds = ((currentCharts || []) as any[]).map(c => Number(c.id))
+    if (!chartIds.length) return
     const { data: entries } = await sb.from('external_chart_entries')
-      .select('chart_id, artist_id, position, title, artist_name, cover_url, tracks:track_id(title, cover_url, video_url)')
-      .in('artist_id', matchIds).in('chart_id', charts.map(c => Number(c.id)))
-      .order('position', { ascending: true }).limit(30)
-    const eRows = (entries || []) as any[]
-    // Tikras atlikėjas iš artists lentelės (raw „WEEKND" mangled + dažnai track_id NULL).
-    const aById = new Map<number, { name: string; slug: string | null; cover: string | null }>()
-    const eArtIds = Array.from(new Set(eRows.map(e => Number(e.artist_id)).filter(Boolean)))
-    if (eArtIds.length) {
-      try {
-        const { data: arts } = await sb.from('artists').select('id, name, slug, cover_image_url').in('id', eArtIds)
-        for (const a of (arts || []) as any[]) aById.set(Number(a.id), { name: a.name, slug: a.slug || null, cover: a.cover_image_url || null })
-      } catch { /* ignore */ }
-    }
-    const seen = new Set<string>()
-    for (const e of eRows) {
-      const c = chartById.get(Number(e.chart_id)); if (!c) continue
-      const aid = Number(e.artist_id)
-      const dk = `${aid}-${c.id}`
-      if (seen.has(dk)) continue
-      seen.add(dk)
-      const a = aById.get(aid) || (recById.get(aid) ? { name: recById.get(aid)!.name, slug: recById.get(aid)!.slug, cover: recById.get(aid)!.cover_image_url } : null)
-      const tr = one(e.tracks)
-      const properName = a?.name || e.artist_name || null
-      const songTitle = tr?.title || null
-      const cover = a?.cover || tr?.cover_url || ytThumb(tr?.video_url) || e.cover_url || null
-      queues.chart.push({
-        key: `chart-${e.chart_id}-${aid}`, kind: 'chart',
-        // dainos title jei resolved, kitu atveju tikras atlikėjo vardas (ne „WEEKND")
-        title: songTitle || properName || c.title || 'Topas',
-        subtitle: `${songTitle && properName ? properName + ' · ' : ''}#${e.position} · ${c.title}`,
-        image: cover,
-        href: `/topai/${c.source}-${c.chart_key}`, date: null, badge: 'Topas',
-        avatar: a?.cover || null,
-        artist: properName ? { id: aid, name: properName, slug: a?.slug || null } : null,
-      })
-    }
+      .select('artist_id').in('artist_id', matchIds).in('chart_id', chartIds).limit(80)
+    const aids = Array.from(new Set(((entries || []) as any[]).map(e => Number(e.artist_id)).filter(Boolean)))
+    if (!aids.length) return
+    const { data: arts } = await sb.from('artists').select('id, name, cover_image_url').in('id', aids).limit(12)
+    const names = ((arts || []) as any[]).map(a => a.name).filter(Boolean)
+    if (!names.length) return
+    const cover = ((arts || []) as any[]).find(a => a.cover_image_url)?.cover_image_url || null
+    queues.chart.push({
+      key: 'charts-summary', kind: 'chart',
+      title: 'Atlikėjai topuose',
+      subtitle: names.slice(0, 8).join(' · '),
+      image: cover, href: '/topai', date: null, badge: 'Topai',
+    })
   }
 
   // Tau = ATRADIMAI: koncertai TIK rekomenduojamų (ne pamėgtų) atlikėjų —
@@ -494,7 +469,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v10'],
+  ['srautas-recs-v11'],
   { revalidate: 300 },
 )
 
