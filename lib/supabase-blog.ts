@@ -119,7 +119,7 @@ export async function getDailySongPicks(userId: string, limit = 20) {
   // (YT thumb fallback chain).
   const { data: tracks } = await sb
     .from('tracks')
-    .select('id, slug, title, video_url, cover_url, like_count, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .select('id, slug, title, video_url, cover_url, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
     .in('id', trackIds)
   const trackRows = (tracks || []) as any[]
 
@@ -202,7 +202,7 @@ export async function getMoodSongTrack(trackId: number | null) {
   // bazinės kolonos = idempotent.
   const { data, error } = await sb
     .from('tracks')
-    .select('id, slug, title, video_url, cover_url, like_count, release_year, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
+    .select('id, slug, title, video_url, cover_url, release_year, artist_id, artists:artist_id(id, slug, name, cover_image_url)')
     .eq('id', trackId)
     .maybeSingle()
   if (error) {
