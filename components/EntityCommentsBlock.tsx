@@ -1061,10 +1061,11 @@ export default function EntityCommentsBlock({
               ? (c.author_name || 'Vartotojas')
               : (c.author_username || 'Anonimas')
             const avatarUrl = isModern ? c.author_avatar : c.author_avatar_url
-            // Show relative time (Prieš X) iki 1 metų, paskui absolute date
-            // („2026-01-10"). Anksčiau timestamp visiškai dingdavo legacy
-            // komentarams >1 metų — UI atrodė kaip „komentaras be datos".
-            const rel = relativeTime(c.created_at) || absoluteDate(c.created_at)
+            // Rodom TIK relative time („Prieš 2 mėn.") iki 1 metų. Senesniems
+            // nei 1 metai — datos NErodom (relativeTime grąžina null → žemiau
+            // `rel && (...)` paslepia). Edvardo prašymas: nerodyti senų datų,
+            // formatas „prieš X". Galioja VISIEMS forumams (bendras komponentas).
+            const rel = relativeTime(c.created_at)
             const id = isModern ? c.id : c.legacy_id
             const liked = isModern ? likedIds.has(c.id) : false
             // Reply parsing — TRYS šaltiniai (priority order):

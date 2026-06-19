@@ -4492,6 +4492,62 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
  *  Komentarai keliauja per /api/threads/[legacy_id]/posts — su realiais
  *  avatarais. Sortinimas (newest / oldest / popular) viršuje, sticky
  *  comment input apačioje. */
+/** Diskusijos sekimo širdelė (drawer header'yje). Senoji sistema temoms turėjo
+ *  👍; perkeliam kaip „Sekti diskusiją" su like count'u. */
+function DiscussionFollowHeart({ discussionId }: { discussionId?: number }) {
+  const [liked, setLiked] = useState(false)
+  const [count, setCount] = useState(0)
+  const [delta, setDelta] = useState(0)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (!discussionId) return
+    let dead = false
+    fetch(`/api/discussions/${discussionId}/like`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (dead || !d) return; setLiked(!!d.liked); setCount(d.count || 0); setDelta(0) })
+      .catch(() => {})
+    return () => { dead = true }
+  }, [discussionId])
+  if (!discussionId) return null
+  const shown = Math.max(0, count + delta)
+  const toggle = async () => {
+    if (busy) return
+    setBusy(true)
+    const prev = liked
+    setLiked(!prev); setDelta(d => d + (prev ? -1 : 1))
+    try {
+      const r = await fetch(`/api/discussions/${discussionId}/like`, { method: 'POST' })
+      if (r.status === 401) { window.location.href = '/auth/signin'; return }
+      const d = await r.json()
+      if (typeof d.liked !== 'boolean') { setLiked(prev); setDelta(x => x - (prev ? -1 : 1)) }
+      else setLiked(d.liked)
+    } catch { setLiked(prev); setDelta(x => x - (prev ? -1 : 1)) }
+    finally { setBusy(false) }
+  }
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={busy}
+      title={liked ? 'Nebesekti diskusijos' : 'Sekti diskusiją'}
+      aria-pressed={liked}
+      className={[
+        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 transition-colors',
+        liked
+          ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white'
+          : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
+      ].join(' ')}
+    >
+      <svg viewBox="0 0 24 24" width="14" height="14" fill={liked ? '#fff' : 'none'} stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+      </svg>
+      {shown > 0 && (
+        <span className="font-['Outfit',sans-serif] text-[12px] font-extrabold tabular-nums">{shown.toLocaleString('lt-LT')}</span>
+      )}
+    </button>
+  )
+}
+
 function DiscussionThreadModal({
   thread, onClose,
 }: { thread: LegacyThread | null; onClose: () => void }) {
@@ -4634,12 +4690,11 @@ function DiscussionThreadModal({
         <div className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden">
           <div className="h-1 w-10 rounded-full bg-[var(--border-default)]" />
         </div>
-        {/* Top bar — minimal close + open-full action. Title stays in
-            scrollable hero area (canonical-style). */}
+        {/* Top bar — diskusijos sekimo širdelė (kairėj) + open-full/close
+            (dešinėj). „← Diskusijos" pašalinta — vietoj jos naudinga info
+            (sekimas). Tema/komentarų kiekis lieka hero zonoje žemiau. */}
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-2.5">
-          <div className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-faint)]">
-            ← Diskusijos
-          </div>
+          <DiscussionFollowHeart discussionId={thread.id} />
           <div className="flex items-center gap-1">
             <a
               href={`/diskusijos/tema/${thread.legacy_id}`}
@@ -6480,22 +6535,24 @@ export default function ArtistProfileClient({
                       </div>
                     ))}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveThread({
-                      id: mainDiscussion.id,
-                      legacy_id: mainDiscussion.legacy_id ?? 0,
-                      slug: mainDiscussion.slug || '',
-                      source_url: '',
-                      title: mainDiscussion.title,
-                      post_count: mainDiscussion.comment_count,
-                      canonical_slug: mainDiscussion.slug,
-                    } as LegacyThread)}
-                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent-orange)] px-4 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white transition-opacity hover:opacity-90"
-                  >
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden><path d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z" /></svg>
-                    Komentuoti · žiūrėti visus ({mainDiscussion.comment_count.toLocaleString('lt-LT')})
-                  </button>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setActiveThread({
+                        id: mainDiscussion.id,
+                        legacy_id: mainDiscussion.legacy_id ?? 0,
+                        slug: mainDiscussion.slug || '',
+                        source_url: '',
+                        title: mainDiscussion.title,
+                        post_count: mainDiscussion.comment_count,
+                        canonical_slug: mainDiscussion.slug,
+                      } as LegacyThread)}
+                      className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.1)]"
+                    >
+                      Visi {mainDiscussion.comment_count.toLocaleString('lt-LT')} komentarai
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                    </button>
+                  </div>
                 </div>
               ) : mainDiscussionId ? (
                 <div className="mb-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 sm:p-5">

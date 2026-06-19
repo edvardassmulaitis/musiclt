@@ -134,7 +134,7 @@ export async function GET(req: Request) {
       // is_own — server-computed per request. Frontend should TRUST šitą,
       // ne lygint UUID/email pati. Robust against profile UUID drift.
       is_own: isOwn,
-      author_name: c.profiles?.full_name || c.profiles?.username || 'Vartotojas',
+      author_name: c.profiles?.username || c.profiles?.full_name || 'Vartotojas',
       author_avatar: c.profiles?.avatar_url || null,
       body: c.body || '',
       // Po 2026-05-28c content_html drop'o — visada NULL. UI fall'asi į
@@ -276,7 +276,7 @@ export async function POST(req: Request) {
       id: c.id,
       parent_id: c.parent_id,
       user_id: c.author_id,
-      author_name: c.profiles?.full_name || c.profiles?.username || 'Vartotojas',
+      author_name: c.profiles?.username || c.profiles?.full_name || 'Vartotojas',
       author_avatar: c.profiles?.avatar_url || null,
       body: c.body,
       like_count: c.like_count || 0,

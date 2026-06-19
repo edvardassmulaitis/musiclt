@@ -1210,8 +1210,7 @@ async function getArtistMainDiscussionDetail(id: number) {
       .select('id, body, like_count, created_at, author_id, profiles:author_id(username, avatar_url)')
       .eq('discussion_id', id)
       .eq('is_deleted', false)
-      .order('like_count', { ascending: false })
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }) // NAUJAUSI viršuje (kaip drawer'yje)
       .limit(3)
     const topComments = ((cs || []) as any[]).map((c: any) => ({
       id: c.id,
