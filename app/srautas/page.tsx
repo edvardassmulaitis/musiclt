@@ -40,7 +40,7 @@ type FeedItem = {
   badgeColor?: string | null
   liked?: boolean
   artist?: { id?: number; name: string; slug: string | null } | null
-  meta?: { post_type?: string; rating?: number | null; avatar?: string | null; comments?: number; likes?: number; excerpt?: string | null }
+  meta?: { post_type?: string; rating?: number | null; avatar?: string | null; comments?: number; likes?: number; excerpt?: string | null; chartRows?: { artist: string; chart: string; position: number; href: string }[] }
 }
 
 const BADGE_COLOR: Record<Kind, string> = {
@@ -183,7 +183,7 @@ function LikeButton({ entity, id, initial = false }: { entity: LikeEntity; id: n
 }
 
 /** Horizontali srauto eilutė. variant: wide (bendruomenė) | compact (muzika). */
-function FeedCard({ it, variant, onDismiss, onOpenTrack, onWhy }: { it: FeedItem; variant: 'wide' | 'compact'; onDismiss: (key: string) => void; onOpenTrack: (it: FeedItem) => void; onWhy: (it: FeedItem) => void }) {
+function FeedCard({ it, variant, onDismiss, onOpenTrack, onWhy, onOpenCharts }: { it: FeedItem; variant: 'wide' | 'compact'; onDismiss: (key: string) => void; onOpenTrack: (it: FeedItem) => void; onWhy: (it: FeedItem) => void; onOpenCharts: (it: FeedItem) => void }) {
   const isArtist = it.kind === 'artist'
   const initial = (it.title || '?').trim()[0]?.toUpperCase() || '?'
   const when = it.kind === 'event' ? eventWhen(it.date) : it.kind === 'chart' ? '' : timeAgo(it.date)
@@ -225,7 +225,8 @@ function FeedCard({ it, variant, onDismiss, onOpenTrack, onWhy }: { it: FeedItem
 
   const handleClick = (e: MouseEvent) => {
     if (movedH.current) { e.preventDefault(); e.stopPropagation(); return }
-    if (it.kind === 'track') { e.preventDefault(); onOpenTrack(it) }
+    if (it.kind === 'track') { e.preventDefault(); onOpenTrack(it); return }
+    if (it.kind === 'chart' && it.meta?.chartRows?.length) { e.preventDefault(); onOpenCharts(it) }
   }
   const dismiss = (e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); setLeaving(true); setTimeout(() => onDismiss(it.key), 150) }
   const why = (e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); onWhy(it) }
@@ -317,6 +318,7 @@ function SrautasInner() {
   }, [])
 
   const [whyItem, setWhyItem] = useState<FeedItem | null>(null)
+  const [chartsItem, setChartsItem] = useState<FeedItem | null>(null)
   const [modalTrack, setModalTrack] = useState<any | null>(null)
   const openTrack = useCallback((it: FeedItem) => {
     setModalTrack({
@@ -423,7 +425,9 @@ function SrautasInner() {
   const otherItems = useMemo(() => filtered.filter(it => !isMusic(it)), [filtered])
   const isLoading = mode === 'sekami' ? loading : (recLoading && recs.length === 0)
   const isPersonalized = mode === 'sekami' ? personalized : recPersonalized
-  const canLoadMore = mode === 'sekami' && !!nextBefore
+  // Infinite scroll TIK mobile (vientisas sąrašas). Desktop dvi kolonos = baigtinės
+  // (kitaip muzika augtų be galo, o bendruomenės kolona „nutrūktų" — netolygu).
+  const canLoadMore = mode === 'sekami' && !!nextBefore && isMobileView
 
   // Infinite scroll
   const sentinel = useRef<HTMLDivElement | null>(null)
@@ -436,7 +440,7 @@ function SrautasInner() {
     return () => obs.disconnect()
   }, [canLoadMore, moreFeed, isMobileView, filtered.length])
 
-  const cardProps = { onDismiss: dismiss, onOpenTrack: openTrack, onWhy: setWhyItem }
+  const cardProps = { onDismiss: dismiss, onOpenTrack: openTrack, onWhy: setWhyItem, onOpenCharts: setChartsItem }
 
   return (
     <div className="sr-wrap">
@@ -521,6 +525,18 @@ function SrautasInner() {
         .sr-wm-ph { width:34px; height:34px; border-radius:50%; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
           background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:14px; }
         .sr-wm-note { font-size:12px; line-height:1.5; color:var(--text-faint); margin:0; border-top:1px solid var(--border-subtle); padding-top:12px; }
+        .sr-wm--charts { max-width:460px; }
+        .sr-ch-list { display:flex; flex-direction:column; gap:14px; max-height:60vh; overflow-y:auto; }
+        .sr-ch-grp { }
+        .sr-ch-name { display:inline-block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em;
+          color:var(--accent-orange); text-decoration:none; margin-bottom:6px; }
+        .sr-ch-name:hover { text-decoration:underline; }
+        .sr-ch-rows { display:flex; flex-direction:column; gap:2px; }
+        .sr-ch-row { display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:8px; text-decoration:none;
+          color:var(--text-primary); transition:background .12s; }
+        .sr-ch-row:hover { background:var(--bg-surface); }
+        .sr-ch-pos { font-size:12px; font-weight:800; color:var(--text-faint); min-width:30px; }
+        .sr-ch-art { font-size:14px; font-weight:600; }
 
         /* ── Pagalbiniai ── */
         .sr-end { text-align:center; padding:30px 16px 6px; }
@@ -602,6 +618,43 @@ function SrautasInner() {
 
       {modalTrack && <HomeTrackModal track={modalTrack} onClose={() => setModalTrack(null)} />}
       {whyItem && <WhyModal it={whyItem} onClose={() => setWhyItem(null)} />}
+      {chartsItem && <ChartsModal it={chartsItem} onClose={() => setChartsItem(null)} />}
+    </div>
+  )
+}
+
+/** Topų modalas — kuris pamėgtas atlikėjas kuriame tope (grupuota pagal topą). */
+function ChartsModal({ it, onClose }: { it: FeedItem; onClose: () => void }) {
+  const rows = it.meta?.chartRows || []
+  const byChart = new Map<string, { href: string; entries: { artist: string; position: number }[] }>()
+  for (const r of rows) {
+    const g = byChart.get(r.chart) || { href: r.href, entries: [] }
+    g.entries.push({ artist: r.artist, position: r.position })
+    byChart.set(r.chart, g)
+  }
+  return (
+    <div className="sr-wm-back" onClick={onClose}>
+      <div className="sr-wm sr-wm--charts" onClick={e => e.stopPropagation()}>
+        <button type="button" className="sr-wm-x" onClick={onClose} aria-label="Uždaryti">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+        <div className="sr-wm-h">Tavo atlikėjai topuose</div>
+        <div className="sr-ch-list">
+          {Array.from(byChart.entries()).map(([chart, g]) => (
+            <div className="sr-ch-grp" key={chart}>
+              <Link href={g.href} className="sr-ch-name">{chart}</Link>
+              <div className="sr-ch-rows">
+                {g.entries.sort((a, b) => a.position - b.position).map((e, i) => (
+                  <Link href={g.href} className="sr-ch-row" key={i}>
+                    <span className="sr-ch-pos">#{e.position}</span>
+                    <span className="sr-ch-art">{e.artist}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

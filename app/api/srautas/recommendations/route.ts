@@ -226,25 +226,36 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     queues.release = capped
   }
 
-  // ── Topai — VIENA agreguota kortelė (be savaitinio floodo) ──────────────────
+  // ── Topai — VIENA agreguota kortelė (be floodo, be foto); detalės modale. ───
   const chartsTask = async () => {
     if (!matchIds.length) return
-    const { data: currentCharts } = await sb.from('external_charts').select('id').eq('is_current', true)
-    const chartIds = ((currentCharts || []) as any[]).map(c => Number(c.id))
-    if (!chartIds.length) return
+    const { data: currentCharts } = await sb.from('external_charts')
+      .select('id, source, chart_key, title').eq('is_current', true)
+    const charts = (currentCharts || []) as any[]
+    if (!charts.length) return
+    const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
     const { data: entries } = await sb.from('external_chart_entries')
-      .select('artist_id').in('artist_id', matchIds).in('chart_id', chartIds).limit(80)
-    const aids = Array.from(new Set(((entries || []) as any[]).map(e => Number(e.artist_id)).filter(Boolean)))
+      .select('artist_id, chart_id, position').in('artist_id', matchIds).in('chart_id', charts.map(c => Number(c.id)))
+      .order('position', { ascending: true }).limit(120)
+    const eRows = (entries || []) as any[]
+    const aids = Array.from(new Set(eRows.map(e => Number(e.artist_id)).filter(Boolean)))
     if (!aids.length) return
-    const { data: arts } = await sb.from('artists').select('id, name, cover_image_url').in('id', aids).limit(12)
-    const names = ((arts || []) as any[]).map(a => a.name).filter(Boolean)
-    if (!names.length) return
-    const cover = ((arts || []) as any[]).find(a => a.cover_image_url)?.cover_image_url || null
+    const { data: arts } = await sb.from('artists').select('id, name').in('id', aids)
+    const nameById = new Map<number, string>(((arts || []) as any[]).map(a => [Number(a.id), a.name as string]))
+    const seen = new Set<string>()
+    const rows: { artist: string; chart: string; position: number; href: string }[] = []
+    for (const e of eRows) {
+      const c = chartById.get(Number(e.chart_id)); if (!c) continue
+      const nm = nameById.get(Number(e.artist_id)); if (!nm) continue
+      const k = `${e.artist_id}-${e.chart_id}`; if (seen.has(k)) continue; seen.add(k)
+      rows.push({ artist: nm, chart: c.title || 'Topas', position: Number(e.position) || 0, href: `/topai/${c.source}-${c.chart_key}` })
+    }
+    if (!rows.length) return
+    const names = Array.from(new Set(rows.map(r => r.artist)))
     queues.chart.push({
       key: 'charts-summary', kind: 'chart',
-      title: 'Atlikėjai topuose',
-      subtitle: names.slice(0, 8).join(' · '),
-      image: cover, href: '/topai', date: null, badge: 'Topai',
+      title: 'Atlikėjai topuose', subtitle: null, image: null, href: '/topai', date: null, badge: 'Topai',
+      meta: { excerpt: names.join(', '), chartRows: rows.slice(0, 50) } as any,
     })
   }
 
@@ -469,7 +480,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v11'],
+  ['srautas-recs-v12'],
   { revalidate: 300 },
 )
 
