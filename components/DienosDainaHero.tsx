@@ -136,12 +136,39 @@ function Countdown() {
 
 // ───────────────────────── Winners (history) modal ─────────────────────────
 function WinnersModal({ onClose, onOpenTrack }: { onClose: () => void; onOpenTrack: (t: any) => void }) {
+  const PAGE = 50
   const [list, setList] = useState<DainaWinner[] | null>(null)
+  const [offset, setOffset] = useState(0)
+  const [done, setDone] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  const fetchPage = useCallback((off: number) => {
+    return fetch(`/api/dienos-daina/winners?limit=${PAGE}&offset=${off}`).then(r => r.json())
+  }, [])
+
   useEffect(() => {
     let on = true
-    fetch('/api/dienos-daina/winners?limit=30').then(r => r.json()).then(d => { if (on) setList(d.winners || []) }).catch(() => { if (on) setList([]) })
+    fetchPage(0).then(d => {
+      if (!on) return
+      const w = (d.winners || []) as DainaWinner[]
+      setList(w)
+      setOffset(w.length)
+      if (w.length < PAGE) setDone(true)
+    }).catch(() => { if (on) setList([]) })
     return () => { on = false }
-  }, [])
+  }, [fetchPage])
+
+  const loadMore = useCallback(() => {
+    if (loadingMore || done) return
+    setLoadingMore(true)
+    fetchPage(offset).then(d => {
+      const w = (d.winners || []) as DainaWinner[]
+      setList(prev => [...(prev || []), ...w])
+      setOffset(prev => prev + w.length)
+      if (w.length < PAGE) setDone(true)
+    }).catch(() => {}).finally(() => setLoadingMore(false))
+  }, [offset, loadingMore, done, fetchPage])
+
   return (
     <HomeListModal open onClose={onClose} title="Laimėjusios dainos" subtitle="Dienos dainų istorija">
       {list === null ? (
@@ -149,10 +176,12 @@ function WinnersModal({ onClose, onOpenTrack }: { onClose: () => void; onOpenTra
       ) : list.length === 0 ? (
         <div className="py-8 text-center text-[12px] text-[var(--text-muted)]">Istorijos dar nėra.</div>
       ) : (
+        <>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {list.filter(w => w.tracks).map(w => {
             const t = w.tracks!
             const img = trackImg(t)
+            const meta = w.proposer ? `siūlė ${uname(w.proposer)}` : (w.total_votes > 1 ? `${w.total_votes} narių pasirinko` : null)
             return (
               <button key={w.id} type="button" onClick={() => { onClose(); onOpenTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists }) }}
                 className="hp-card group flex items-center gap-3 p-3 text-left">
@@ -163,17 +192,25 @@ function WinnersModal({ onClose, onOpenTrack }: { onClose: () => void; onOpenTra
                 <div className="min-w-0 flex-1">
                   <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(t.title)}</p>
                   <p className="m-0 truncate text-[11.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
-                  <p className="m-0 mt-0.5 text-[10.5px] text-[var(--text-faint)]">{w.date}{w.proposer ? ` · siūlė ${uname(w.proposer)}` : ''}</p>
+                  <p className="m-0 mt-0.5 text-[10.5px] text-[var(--text-faint)]">{w.date}{meta ? ` · ${meta}` : ''}</p>
                 </div>
               </button>
             )
           })}
         </div>
+        {!done && (
+          <div className="mt-4 flex justify-center">
+            <button type="button" onClick={loadMore} disabled={loadingMore}
+              className="hp-card px-5 py-2 text-[12.5px] font-bold text-[var(--text-secondary)] disabled:opacity-50">
+              {loadingMore ? 'Kraunama…' : 'Rodyti daugiau'}
+            </button>
+          </div>
+        )}
+        </>
       )}
     </HomeListModal>
   )
 }
-
 // ───────────────────────── HERO ─────────────────────────
 export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
   const [noms, setNoms] = useState<Nomination[]>([])
