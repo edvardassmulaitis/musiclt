@@ -14,7 +14,7 @@ const PROFILE_SELECT = `
   legacy_vote_avg_album, legacy_vote_avg_artist,
   legacy_liked_artist_count, legacy_liked_album_count,
   legacy_liked_track_count, legacy_music_meter,
-  legacy_profile_photos
+  legacy_profile_photos, legacy_favorite_films
 `
 
 /** Try EXACT match first (faster, uses index); fallback to ilike. Defensive

@@ -20,6 +20,7 @@
 //     6. Naujausi komentarai — activity log
 
 import { useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { SideEqualizer } from '@/components/profile/SideEqualizer'
@@ -609,42 +610,36 @@ function MobileProfileView(props: any) {
         </header>
       </div>
 
-      {/* ── TAGŲ JUOSTOS (sticky) — V18h: DVI juostos. Viršuje įrašų tipai,
-          apačioje „Mėgstama muzika" + „Apie mane". ── */}
-      {stripChips.length > 0 && (() => {
-        const sideChips = stripChips.filter((c) => c.key === 'likes' || c.key === 'about')
-        const chipBtn = (c: { key: string; label: string; color: string }) => {
-          const on = sel === c.key
-          return (
-            <button key={c.key} type="button" onClick={() => setSel(on ? 'all' : c.key)}
-                    className={PF_CHIP}
-                    style={{
-                      fontFamily: "'Outfit', sans-serif",
-                      background: on ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
-                      color: on ? '#fff' : 'var(--text-secondary)',
-                      border: `1px solid ${on ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
-                    }}>
-              {c.key === 'likes' && <HeartOutlineIcon />}
-              {c.key === 'about' && <UserIcon />}
-              {c.label}
-            </button>
-          )
-        }
-        return (
-          <div className="sticky top-0 z-20 backdrop-blur-md"
-               style={{ background: 'color-mix(in srgb, var(--bg-body) 90%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
-            {feedTypeChips.length > 0 && (
-              <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {feedTypeChips.map(chipBtn)}
-              </div>
-            )}
-            <div className={`flex items-center gap-2 px-3 pb-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${feedTypeChips.length > 0 ? 'pt-0' : 'pt-2.5'}`}
-                 style={feedTypeChips.length > 0 ? { borderTop: '1px dashed var(--border-subtle)', paddingTop: '8px' } : undefined}>
-              {sideChips.map(chipBtn)}
+      {/* ── TAGŲ JUOSTA (sticky) — V18j: VIENA eilutė su horiz. scroll'u +
+          dešinio krašto „fade" užuomina, kad galima scroll'inti. ── */}
+      {stripChips.length > 0 && (
+        <div className="sticky top-0 z-20 backdrop-blur-md"
+             style={{ background: 'color-mix(in srgb, var(--bg-body) 90%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="relative">
+            <div className="flex items-center gap-2 px-3 py-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {stripChips.map((c) => {
+                const on = sel === c.key
+                return (
+                  <button key={c.key} type="button" onClick={() => setSel(on ? 'all' : c.key)}
+                          className={PF_CHIP}
+                          style={{
+                            fontFamily: "'Outfit', sans-serif",
+                            background: on ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
+                            color: on ? '#fff' : 'var(--text-secondary)',
+                            border: `1px solid ${on ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
+                          }}>
+                    {c.key === 'likes' && <HeartOutlineIcon />}
+                    {c.key === 'about' && <UserIcon />}
+                    {c.label}
+                  </button>
+                )
+              })}
             </div>
+            <div aria-hidden className="pointer-events-none absolute right-0 top-0 bottom-0 w-10"
+                 style={{ background: 'linear-gradient(to right, transparent, var(--bg-body))' }} />
           </div>
-        )
-      })()}
+        </div>
+      )}
 
       {/* ── TURINYS ── */}
       <div className="px-4 pt-3 pb-24">
@@ -663,6 +658,20 @@ function MobileProfileView(props: any) {
             trackResolvedTotal={trackResolvedTotal}
             onOpenMore={onOpenMore}
           />
+        )}
+
+        {/* V18j: „Neseniai pamėgta" mobile — žemiau po srautu (turiniui prioritetas). */}
+        {isFeedFilter && hasLikes && (
+          <div className="mt-6">
+            <RecentLikesCard
+              favoriteArtists={favoriteArtists}
+              favoriteAlbums={favoriteAlbums}
+              favoriteTracks={favoriteTracks}
+              albumResolvedTotal={albumResolvedTotal}
+              trackResolvedTotal={trackResolvedTotal}
+              onOpenMore={onOpenMore}
+            />
+          </div>
         )}
 
         {sel === 'likes' && (
@@ -2273,6 +2282,12 @@ function weekLabelLt(dateStr: string): string {
   return `${m[0].toUpperCase()}${m.slice(1)} ${Math.min(Math.ceil(d.getDate() / 7), 4)} sav., ${d.getFullYear()}`
 }
 
+const LT_MONTHS_NOM = ['Sausis', 'Vasaris', 'Kovas', 'Balandis', 'Gegužė', 'Birželis', 'Liepa', 'Rugpjūtis', 'Rugsėjis', 'Spalis', 'Lapkritis', 'Gruodis']
+function monthLabelLt(dateStr: string): string {
+  const d = new Date(dateStr)
+  return `${LT_MONTHS_NOM[d.getMonth()]} ${d.getFullYear()}`
+}
+
 // Posts iš contentLanes + dienos dainų savaitės + (fallback) like klasteriai.
 function buildFeedItems({
   contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks,
@@ -2295,25 +2310,28 @@ function buildFeedItems({
     }
   }
 
-  // Dienos dainos — savaitiniai klasteriai. Skip'inam neresolvintus picks
-  // (be tracks ryšio nėra ką rodyti) ir ribojam iki 3 naujausių savaičių,
-  // kad senų metų pavieniai pasirinkimai neužterštų feed'o tuščiomis kortelėmis.
-  const byWeek = new Map<string, any[]>()
+  // V18j: Dienos dainos grupuojamos pagal MĖNESĮ. Kortelėje — kelios
+  // geriausiai pasirodžiusios (pagal ♥), o visa kita atsidaro modale.
+  // Ribojam iki 3 naujausių mėnesių, kad neužterštų feed'o.
+  const byMonth = new Map<string, any[]>()
   for (const p of (dailyPicks || [])) {
     if (!p.picked_on || !p.tracks) continue
-    const k = isoWeekKeyLt(p.picked_on)
-    if (!byWeek.has(k)) byWeek.set(k, [])
-    byWeek.get(k)!.push(p)
+    const d = new Date(p.picked_on)
+    const k = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`
+    if (!byMonth.has(k)) byMonth.set(k, [])
+    byMonth.get(k)!.push(p)
   }
-  const ddWeeks = [...byWeek.entries()].map(([k, picks]) => {
-    picks.sort((a, b) => new Date(b.picked_on).getTime() - new Date(a.picked_on).getTime())
-    return { k, picks }
-  }).sort((a, b) => new Date(b.picks[0].picked_on).getTime() - new Date(a.picks[0].picked_on).getTime())
-    .slice(0, 3)
-  for (const { k, picks } of ddWeeks) {
+  const ddMonths = [...byMonth.entries()].map(([k, picks]) => {
+    // Naujausias pick'as mėnesyje = data feed'o rikiavimui.
+    const latest = picks.reduce((m, p) => Math.max(m, new Date(p.picked_on).getTime()), 0)
+    // Kortelei — rikiuojam pagal populiarumą (♥), o po to pagal datą.
+    picks.sort((a, b) => (b.like_count || 0) - (a.like_count || 0) || new Date(b.picked_on).getTime() - new Date(a.picked_on).getTime())
+    return { k, picks, latest }
+  }).sort((a, b) => b.latest - a.latest).slice(0, 3)
+  for (const { k, picks, latest } of ddMonths) {
     items.push({
-      id: `ddweek-${k}`, kind: 'ddweek', date: picks[0].picked_on,
-      picks, label: weekLabelLt(picks[0].picked_on),
+      id: `ddweek-${k}`, kind: 'ddweek', date: new Date(latest).toISOString(),
+      picks, label: monthLabelLt(picks[0].picked_on),
     })
   }
 
@@ -2803,11 +2821,58 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
   )
 }
 
-// ── Dienos dainų savaitės klasteris — 1 kortelė = 1 savaitė ──
+// ── Dienos dainų mėnesio klasteris — geriausiai pasirodžiusios + modalas ──
+function DdPickRow({ p, last }: { p: any; last: boolean }) {
+  const track = p.tracks
+  const artist = track && (Array.isArray(track.artists) ? track.artists[0] : track.artists)
+  const thumb = ytThumbProfile(track?.video_url) || track?.cover_url || artist?.cover_image_url || null
+  const href = (artist && track) ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}` : '#'
+  const d = new Date(p.picked_on)
+  return (
+    <Link href={href} className="group flex items-center gap-3 py-2 transition hover:opacity-85"
+          style={{ borderBottom: last ? 'none' : '1px dashed var(--border-subtle)' }}>
+      <span className="w-[44px] flex-shrink-0 text-[10px] font-extrabold uppercase leading-tight" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+        {LT_MONTHS_GEN[d.getMonth()].slice(0, 3)} {d.getDate()}
+      </span>
+      {thumb ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={thumb} alt="" loading="lazy" className="w-[44px] h-[44px] rounded-lg object-cover flex-shrink-0" />
+      ) : (
+        <div className="w-[44px] h-[44px] rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--accent-orange)' }}>♬</div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="text-[13.5px] font-bold leading-tight truncate group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{track?.title || 'Daina'}</div>
+        {artist && <div className="text-[11.5px] truncate" style={{ color: 'var(--text-muted)' }}>{artist.name}</div>}
+      </div>
+      {(p.like_count || 0) > 0 && <span className="text-[11px] font-bold flex-shrink-0" style={{ color: 'var(--text-faint)' }}>♥ {p.like_count}</span>}
+    </Link>
+  )
+}
+
+function DailyPicksModal({ picks, label, onClose }: { picks: any[]; label: string; onClose: () => void }) {
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div onClick={onClose} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.65)' }}>
+      <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)', boxShadow: 'var(--modal-shadow)' }}>
+        <header className="flex items-center justify-between gap-3 px-5 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <h3 className="font-black text-base" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>Dienos dainos · {label} <span style={{ color: 'var(--text-muted)' }}>· {picks.length}</span></h3>
+          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full transition hover:opacity-80" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)' }} aria-label="Uždaryti"><span style={{ color: 'var(--text-secondary)' }}>✕</span></button>
+        </header>
+        <div className="flex-1 overflow-y-auto px-5 py-2">
+          {picks.map((p, i) => <DdPickRow key={p.id} p={p} last={i === picks.length - 1} />)}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 function DdWeekCard({ picks, label, username, streak }: {
   picks: any[]; label: string; username: string; streak: number
 }) {
-  const shown = picks.slice(0, 7)
+  void username
+  const [allOpen, setAllOpen] = useState(false)
+  const shown = picks.slice(0, 6)
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
       <div className="flex items-center gap-2.5 px-5 pt-4 pb-1 flex-wrap">
@@ -2825,45 +2890,16 @@ function DdWeekCard({ picks, label, username, streak }: {
         )}
       </div>
       <div className="px-5 py-1.5">
-        {shown.map((p, i) => {
-          const track = p.tracks
-          const artist = track && (Array.isArray(track.artists) ? track.artists[0] : track.artists)
-          const thumb = ytThumbProfile(track?.video_url) || track?.cover_url || artist?.cover_image_url || null
-          const href = (artist && track) ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}` : '#'
-          const d = new Date(p.picked_on)
-          return (
-            <Link key={p.id} href={href} className="group flex items-center gap-3 py-2 transition hover:opacity-85"
-                  style={{ borderBottom: i < shown.length - 1 ? '1px dashed var(--border-subtle)' : 'none' }}>
-              <span className="w-[44px] flex-shrink-0 text-[10px] font-extrabold uppercase leading-tight"
-                    style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
-                {LT_MONTHS_GEN[d.getMonth()].slice(0, 3)} {d.getDate()}
-              </span>
-              {thumb ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={thumb} alt="" loading="lazy" className="w-[44px] h-[44px] rounded-lg object-cover flex-shrink-0" />
-              ) : (
-                <div className="w-[44px] h-[44px] rounded-lg flex-shrink-0 flex items-center justify-center"
-                     style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--accent-orange)' }}>♬</div>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="text-[13.5px] font-bold leading-tight truncate group-hover:text-[var(--accent-orange)] transition"
-                     style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
-                  {track?.title || 'Daina'}
-                </div>
-                {artist && <div className="text-[11.5px] truncate" style={{ color: 'var(--text-muted)' }}>{artist.name}</div>}
-              </div>
-              {(p.like_count || 0) > 0 && (
-                <span className="text-[11px] font-bold flex-shrink-0" style={{ color: 'var(--text-faint)' }}>♥ {p.like_count}</span>
-              )}
-            </Link>
-          )
-        })}
+        {shown.map((p, i) => <DdPickRow key={p.id} p={p} last={i === shown.length - 1} />)}
       </div>
-      <Link href={`/@${username}/dienos-dainos`}
-            className="block mx-5 mb-3.5 mt-1 text-center text-[12px] font-bold rounded-lg py-2 transition hover:opacity-85"
-            style={{ color: 'var(--accent-orange)', background: 'rgba(249,115,22,0.08)', fontFamily: "'Outfit', sans-serif" }}>
-        Visa kolekcija →
-      </Link>
+      {picks.length > shown.length && (
+        <button type="button" onClick={() => setAllOpen(true)}
+                className="block w-[calc(100%-40px)] mx-5 mb-3.5 mt-1 text-center text-[12px] font-bold rounded-lg py-2 transition hover:opacity-85"
+                style={{ color: 'var(--accent-orange)', background: 'rgba(249,115,22,0.08)', fontFamily: "'Outfit', sans-serif" }}>
+          Visos dienos dainos ({picks.length}) →
+        </button>
+      )}
+      {allOpen && <DailyPicksModal picks={picks} label={label} onClose={() => setAllOpen(false)} />}
     </div>
   )
 }

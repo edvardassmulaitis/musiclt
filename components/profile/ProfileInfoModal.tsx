@@ -222,16 +222,14 @@ export function ProfileAboutContent({
             </section>
           )}
 
-          {/* Personal info — V18f: kompaktiškos eilutės (be didelių boxų ir tarpų),
-              be „Statusas / VIP narys". */}
-          {(profile.legacy_city || age != null || profile.legacy_occupation) && (
+          {/* Personal info — V18f: kompaktiškos eilutės; V18j be „Užsiėmimas". */}
+          {(profile.legacy_city || age != null) && (
             <section className={secMb}>
               <SectionLabel>Apie narį</SectionLabel>
               <div className="mt-2 flex flex-col">
                 {([
                   ['Miestas', profile.legacy_city || null],
                   ['Amžius', age != null ? `${age} m.` : null],
-                  ['Užsiėmimas', profile.legacy_occupation || null],
                 ].filter(([, v]) => v) as [string, string][]).map(([k, v], i) => (
                   <div key={k} className="flex items-baseline gap-3 py-1.5"
                        style={{ borderTop: i > 0 ? '1px dashed var(--border-subtle)' : 'none' }}>
@@ -276,12 +274,22 @@ export function ProfileAboutContent({
             </section>
           )}
 
-          {/* Mėgstamos knygos / muzika (legacy_favorite_books field) */}
+          {/* Mėgstamiausios knygos */}
           {profile.legacy_favorite_books && (
             <section className={secMb}>
               <SectionLabel>Mėgstamiausios knygos</SectionLabel>
               <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }}>
                 {profile.legacy_favorite_books}
+              </p>
+            </section>
+          )}
+
+          {/* Mėgstamiausi filmai (V18j) */}
+          {profile.legacy_favorite_films && (
+            <section className={secMb}>
+              <SectionLabel>Mėgstamiausi filmai</SectionLabel>
+              <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }}>
+                {profile.legacy_favorite_films}
               </p>
             </section>
           )}
