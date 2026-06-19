@@ -160,6 +160,10 @@ type Props = {
   /** Šio atlikėjo koncertų įrašai (live pasirodymai) — rodomi sekcijoje po
    *  galerija. Server fetch per lib/concert-recordings.getArtistRecordings. */
   concertRecordings?: ConcertRecording[]
+  /** Pagrindinės atlikėjo diskusijų temos modern `discussions.id` — į ją eina
+   *  inline komentaras Diskusijų sekcijoje. Nustatoma serveryje (get-or-create
+   *  page.tsx). null — komentaro composer'is nerodomas. */
+  mainDiscussionId?: number | null
 }
 /** Custom era — single period in an artist's career. */
 type Era = {
@@ -1119,30 +1123,30 @@ function PlayerCard({
                         )}
                         {(() => {
                           const yr = (t as any).release_year
-                          const mo = (t as any).release_month
-                          const dy = (t as any).release_day
-                          if (!yr) return null
-                          const showAlways = filter === 'singles'
-                          const showAsNew = newTrackIds.has(t.id)
-                          if (!showAlways && !showAsNew) return null
-                          const pad = (n: number) => String(n).padStart(2, '0')
-                          // Singles filter → tik metai (kompaktiškiau, exact dates
-                          // čia ne tiek svarbu). Naujausios filter → pilna data.
-                          const dateLabel = showAlways
-                            ? String(yr)
-                            : mo && dy
-                              ? `${yr}-${pad(mo)}-${pad(dy)}`
-                              : mo
-                                ? `${yr}-${pad(mo)}`
-                                : String(yr)
-                          return (
-                            <span
-                              className="shrink-0 rounded bg-[rgba(59,130,246,0.16)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold tabular-nums tracking-wider text-[#60a5fa]"
-                              title={`Išleista ${dateLabel}`}
-                            >
-                              {dateLabel}
-                            </span>
-                          )
+                          // Singlų tabe — tik išleidimo metai, ŽALIAI (ne mėlynai).
+                          if (filter === 'singles') {
+                            if (!yr) return null
+                            return (
+                              <span
+                                className="shrink-0 rounded bg-[rgba(34,197,94,0.16)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold tabular-nums tracking-wider text-[var(--accent-green)]"
+                                title={`Išleista ${yr}`}
+                              >
+                                {yr}
+                              </span>
+                            )
+                          }
+                          // Naujos dainos (einamųjų/praėjusių metų) — vietoj metų
+                          // badge'o rodom mažą žalią tašką „naujumo" signalui.
+                          if (newTrackIds.has(t.id)) {
+                            return (
+                              <span
+                                className="inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--accent-green)]"
+                                title="Nauja daina"
+                                aria-label="Nauja daina"
+                              />
+                            )
+                          }
+                          return null
                         })()}
                       </div>
                       <PopBar level={pop} />
@@ -1846,7 +1850,7 @@ function Hero({
                     key={s.name}
                     onClick={() => onOpenTopArtists?.({ genre: s.name })}
                     title={`Top atlikėjai: ${s.name}`}
-                    className="inline-flex shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-transparent px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--text-muted)] hover:text-[var(--text-primary)] lg:border-white/15 lg:text-white/65 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/10 lg:hover:text-white/95"
+                    className="aphchip inline-flex shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-transparent px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--text-muted)] hover:text-[var(--text-primary)] lg:border-white/15 lg:text-white/65 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/10 lg:hover:text-white/95"
                   >
                     {s.name}
                   </button>
@@ -3009,12 +3013,14 @@ function MemberModalCard({ m }: { m: Member }) {
 // Atsidaro naujam tab'e (target="_blank" + rel="noopener").
 
 function SocialLinksModal({
-  artistName, artistCountry, links, website, followControls, onClose,
+  artistName, artistCountry, artistIsBand, links, website, followControls, onClose,
 }: {
   artistName: string
   /** LT atlikėjui country='Lietuva' — title konvertuojamas į galininką
    *  („Daugiau apie Andrių Mamontovą"). */
   artistCountry?: string | null
+  /** Grupė/projektas — tada pavadinimas nelinksniuojamas. */
+  artistIsBand?: boolean
   links: { platform: string; url: string }[]
   website?: string | null
   followControls?: {
@@ -3049,7 +3055,7 @@ function SocialLinksModal({
       <div className="flex max-h-[85vh] w-full flex-col rounded-t-3xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl sm:max-w-[460px] sm:rounded-3xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
           <h2 id="social-links-modal-title" className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-tight text-[var(--text-primary)]">
-            Daugiau apie {accusativeArtistName(artistName, artistCountry)}
+            Daugiau apie {accusativeArtistName(artistName, artistCountry, artistIsBand)}
           </h2>
           <button
             type="button"
@@ -3938,7 +3944,7 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, topVideoTracks = [], 
   return (
     <div className="mb-6 overflow-hidden rounded-2xl border border-[var(--border-default)] bg-gradient-to-r from-[rgba(249,115,22,0.08)] via-[var(--bg-surface)] to-[var(--bg-surface)] p-3 sm:mb-8 sm:p-5">
       <div className="mb-2 flex items-center gap-2">
-        <span className="inline-flex h-5 items-center rounded-full bg-[var(--accent-orange)] px-2 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.15em] text-white">
+        <span className="inline-flex h-5 items-center rounded-full bg-[var(--accent-green)] px-2 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.15em] text-white">
           Naujausias
         </span>
         <span className="font-['Outfit',sans-serif] text-[10.5px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
@@ -4946,13 +4952,15 @@ function useBodyScrollLock(active: boolean) {
 // kelios dešimtys) nesudarytų ilgo scroll'o profile page'e.
 
 function OrphanTracksModal({
-  tracks, artistName, artistSlug, artistCountry, onClose, onSelectTrack,
+  tracks, artistName, artistSlug, artistCountry, artistIsBand, onClose, onSelectTrack,
 }: {
   tracks: Track[]
   artistName: string
   /** LT atlikėjui country='Lietuva' → vardas konvertuojamas į kilmininką
    *  („Andriaus Mamontovo dainos"). Foreign country → vardas as-is. */
   artistCountry?: string | null
+  /** Grupė/projektas — tada pavadinimas nelinksniuojamas. */
+  artistIsBand?: boolean
   artistSlug: string
   onClose: () => void
   onSelectTrack: (t: Track) => void
@@ -4976,7 +4984,7 @@ function OrphanTracksModal({
       <div className="flex max-h-[85vh] w-full flex-col rounded-t-3xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl sm:max-w-[560px] sm:rounded-3xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
           <h2 id="orphan-tracks-modal-title" className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-tight text-[var(--text-primary)]">
-            Kitos {genitiveArtistName(artistName, artistCountry)} dainos · {tracks.length}
+            Kitos {genitiveArtistName(artistName, artistCountry, artistIsBand)} dainos · {tracks.length}
           </h2>
           <button
             type="button"
@@ -5012,7 +5020,7 @@ export default function ArtistProfileClient({
   events, similar, newTracks,
   legacyCommunity, legacyThreads = [], legacyNews = [], discoveries = [], ranks = [],
   linkedTrackIds = [], awards = [], eras = [], displayRoles = [], popBarLevel = 0, recentPopBarLevel = 0,
-  concertRecordings = [],
+  concertRecordings = [], mainDiscussionId = null,
 }: Props) {
   const [pid, setPid] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -5706,7 +5714,7 @@ export default function ArtistProfileClient({
       <BioModal
         open={bioModalOpen}
         onClose={() => setBioModalOpen(false)}
-        title={`Apie ${accusativeArtistName(artist.name, artist.country)}`}
+        title={`Apie ${accusativeArtistName(artist.name, artist.country, artist.type === 'group')}`}
         subtitle={bioSubtitle}
         html={bioHtml}
       />
@@ -5755,6 +5763,7 @@ export default function ArtistProfileClient({
           tracks={orphanTracks}
           artistName={artist.name}
           artistCountry={artist.country}
+          artistIsBand={artist.type === 'group'}
           artistSlug={artist.slug}
           onClose={() => setOrphanModalOpen(false)}
           onSelectTrack={(t) => setTrackInfoOpen(t)}
@@ -5765,6 +5774,7 @@ export default function ArtistProfileClient({
         <SocialLinksModal
           artistName={artist.name}
           artistCountry={artist.country}
+          artistIsBand={artist.type === 'group'}
           links={links}
           website={artist.website}
           followControls={{
@@ -5893,7 +5903,7 @@ export default function ArtistProfileClient({
           // jis turi „Sekti" pill perkeltą iš Hero zonos — vartotojas turi
           // follow'inti net naują/tuščią atlikėją.
           const sideInfoAvailable = true
-          const bioHeader = `Apie ${accusativeArtistName(artist.name, artist.country)}`
+          const bioHeader = `Apie ${accusativeArtistName(artist.name, artist.country, artist.type === 'group')}`
 
           if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
 
@@ -6095,7 +6105,7 @@ export default function ArtistProfileClient({
           }
           return (
             <section>
-              <SectionTitle label={`${genitiveArtistName(artist.name, artist.country)} albumai`} />
+              <SectionTitle label={`${genitiveArtistName(artist.name, artist.country, artist.type === 'group')} albumai`} />
 
               {/* Desktop: all filter chips wrap on one row */}
               <div className="mb-5 hidden flex-wrap gap-1.5 sm:flex sm:gap-2">
@@ -6311,7 +6321,7 @@ export default function ArtistProfileClient({
         {/* Galerija (masonry) */}
         {galleryPhotos.length > 0 && (
           <section ref={galerijaRef} id="galerija">
-            <SectionTitle label={`${genitiveArtistName(artist.name, artist.country)} nuotraukos`} count={galleryPhotos.length} />
+            <SectionTitle label={`${genitiveArtistName(artist.name, artist.country, artist.type === 'group')} nuotraukos`} count={galleryPhotos.length} />
             <MasonryGallery
               photos={galleryPhotos}
               onOpen={(i) => setLightboxIndex(i)}
@@ -6332,8 +6342,16 @@ export default function ArtistProfileClient({
         {(() => {
           const hasDiscoveries = discoveries.length > 0
           const PREVIEW_LIMIT = 6
-          const previewThreads = legacyThreads.slice(0, PREVIEW_LIMIT)
-          const overflow = Math.max(0, legacyThreads.length - PREVIEW_LIMIT)
+          // Pagrindinė atlikėjo/grupės tema (mainDiscussionId) nustatoma serveryje
+          // (page.tsx): senoji tema, kurios title == atlikėjo vardas, arba
+          // daugiausiai komentarų turinti; jei nė vienos — sukuriama nauja
+          // pagrindinė tema. Inline komentaras eina TIESIAI į ją.
+          // „Kitos temos" kortelėse — be pagrindinės.
+          const otherThreads = mainDiscussionId
+            ? legacyThreads.filter(t => t.id !== mainDiscussionId)
+            : legacyThreads
+          const previewThreads = otherThreads.slice(0, PREVIEW_LIMIT)
+          const overflow = Math.max(0, otherThreads.length - PREVIEW_LIMIT)
           return (
             <section>
               <div className="flex items-center justify-between">
@@ -6347,26 +6365,41 @@ export default function ArtistProfileClient({
                   </button>
                 )}
               </div>
+
+              {/* Inline komentaras — galima rašyti iškart, be navigacijos.
+                  Komentaras keliauja į pagrindinę temą (mainDiscussionId). Tas
+                  pats EntityCommentsBlock kaip kanoninėje /diskusijos page'ėje. */}
+              {mainDiscussionId ? (
+                <div className="mb-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 sm:p-5">
+                  <EntityCommentsBlock
+                    entityType="discussion"
+                    entityId={mainDiscussionId}
+                    title="Komentarai"
+                    compact
+                  />
+                </div>
+              ) : null}
+
               {/* „Muzikos atradimai" — bendruomenės komentarai apie šį atlikėją
                   iš /muzikos-atradimai. Kiekvienas atradimas — atskira pilna
                   kortelė (embed + visas tekstas), be modalo. */}
               {hasDiscoveries && <ArtistDiscoveries discoveries={discoveries} />}
-              {legacyThreads.length > 0 ? (
-                <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* Cards link directly to canonical /diskusijos/tema/{legacy_id}
-                      page (kuris renderuoja pilną thread-page-client su likes,
-                      replies, composer, sort). Anksčiau buvo custom drawer su
-                      limited UI — user'is teisingai pastebėjo, kad geriau
-                      naudoti vieną komponentą visur. */}
-                  {previewThreads.map((t) => (
-                    <DiscussionRow key={t.legacy_id} t={t} onOpen={setActiveThread} />
-                  ))}
-                </div>
-              ) : hasDiscoveries ? null : (
-                <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-8 text-center">
-                  <div className="mb-1 text-[14px] font-bold text-[var(--text-muted)]">Dar nėra diskusijų apie {artist.name}</div>
-                  <div className="text-[12px] text-[var(--text-faint)]">Diskusijų kūrimo funkcija ruošiama.</div>
-                </div>
+              {previewThreads.length > 0 && (
+                <>
+                  {/* Antraštė kitoms temoms — kad atskirtų nuo viršuje esančio
+                      inline komentaro bloko. */}
+                  <div className="mb-3 mt-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                    Kitos temos
+                  </div>
+                  <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {/* Cards link directly to canonical /diskusijos/tema/{legacy_id}
+                        page (kuris renderuoja pilną thread-page-client su likes,
+                        replies, composer, sort). */}
+                    {previewThreads.map((t) => (
+                      <DiscussionRow key={t.legacy_id} t={t} onOpen={setActiveThread} />
+                    ))}
+                  </div>
+                </>
               )}
             </section>
           )

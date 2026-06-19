@@ -5,6 +5,75 @@ import { createPortal } from 'react-dom'
 import { signIn, signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
+import { useSite } from '@/components/SiteContext'
+
+// ── THEME TOGGLE ──────────────────────────────────────────────────────────────
+// Šviesi/tamsi tema. Naudojam dviem pavidalais: pilno pločio eilutė profilio
+// dropdown'e (prisijungusiems) + ikonos mygtukas šalia „Prisijungti"
+// (neregistruotiems). Vienas šaltinis — useSite() (cookie + data-theme).
+
+function SunIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </svg>
+  )
+}
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  )
+}
+
+/** Pilno pločio eilutė profilio dropdown'e. */
+function ThemeToggleRow({ onDone }: { onDone?: () => void }) {
+  const { dk, setTheme } = useSite()
+  return (
+    <button
+      onClick={() => { setTheme(dk ? 'light' : 'dark'); onDone?.() }}
+      className="flex w-full items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-all text-left"
+      style={{ width: 'calc(100% - 0.75rem)', color: 'var(--text-secondary)' }}
+      onMouseEnter={e => {
+        const el = e.currentTarget as HTMLElement
+        el.style.color = 'var(--text-primary)'
+        el.style.background = 'var(--bg-hover)'
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLElement
+        el.style.color = 'var(--text-secondary)'
+        el.style.background = 'transparent'
+      }}
+    >
+      <span
+        className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0"
+        style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+      >
+        {dk ? <SunIcon /> : <MoonIcon />}
+      </span>
+      {dk ? 'Šviesi tema' : 'Tamsi tema'}
+    </button>
+  )
+}
+
+/** Ikonos mygtukas — neregistruotiems (šalia „Prisijungti"). */
+function ThemeToggleButton() {
+  const { dk, setTheme } = useSite()
+  return (
+    <button
+      onClick={() => setTheme(dk ? 'light' : 'dark')}
+      aria-label={dk ? 'Įjungti šviesią temą' : 'Įjungti tamsią temą'}
+      title={dk ? 'Šviesi tema' : 'Tamsi tema'}
+      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-all"
+      style={{ color: 'var(--text-muted)', background: 'var(--bg-hover)' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)' }}
+    >
+      {dk ? <SunIcon /> : <MoonIcon />}
+    </button>
+  )
+}
 
 // ── AUTH MODAL ──────────────────────────────────────────────────────────────
 
@@ -363,6 +432,11 @@ function UserMenu() {
             </div>
           )}
 
+          {/* Theme toggle — šviesi/tamsi tema */}
+          <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1.5">
+            <ThemeToggleRow onDone={() => setOpen(false)} />
+          </div>
+
           {/* Logout */}
           <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1.5">
             <button
@@ -411,13 +485,17 @@ export function HeaderAuth() {
 
   return (
     <>
-      <button
-        onClick={() => setShowModal(true)}
-        className="flex-shrink-0 font-bold px-5 py-2 rounded-full text-[13px] transition-all shadow-md hover:scale-[1.02] whitespace-nowrap"
-        style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}
-      >
-        Prisijungti
-      </button>
+      <div className="flex items-center gap-2">
+        {/* Tema keičiama ir neregistruotiems — ikona šalia „Prisijungti". */}
+        <ThemeToggleButton />
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex-shrink-0 font-bold px-5 py-2 rounded-full text-[13px] transition-all shadow-md hover:scale-[1.02] whitespace-nowrap"
+          style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}
+        >
+          Prisijungti
+        </button>
+      </div>
       {showModal && <AuthModal onClose={() => setShowModal(false)} />}
     </>
   )

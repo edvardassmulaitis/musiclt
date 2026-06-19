@@ -1101,6 +1101,64 @@ const fetchArtistData = unstable_cache(
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
+/** Pagrindinė atlikėjo diskusijų tema — į ją keliauja inline komentaras iš
+ *  atlikėjo puslapio Diskusijų sekcijos. Senoji music.lt sistema kiekvienai
+ *  grupei buvo sukūrusi pagrindinę temą (title == atlikėjo vardas). Get-or-create:
+ *    1) tema, kurios title == vardas (case-insensitive);
+ *    2) daugiausiai komentarų turinti tema;
+ *    3) jei nė vienos — sukuriam naują pagrindinę temą (is_legacy=false).
+ *  Grąžina modern discussions.id arba null. Niekada nemeta — klaida tik paslepia
+ *  inline composer'į, puslapio nelaužo. NB: NEšaukti iš unstable_cache (rašymas). */
+async function getOrCreateArtistMainDiscussionId(
+  artistId: number,
+  artistName: string,
+  existing: Array<{ id?: number; title?: string | null; post_count?: number | null }>,
+): Promise<number | null> {
+  if (!artistId) return null
+  const norm = (s?: string | null) => (s || '').trim().toLowerCase()
+  const nameNorm = norm(artistName)
+  const byName = existing.find((t) => t.id && norm(t.title) === nameNorm)
+  if (byName?.id) return byName.id
+  const mostCommented = existing
+    .filter((t) => t.id)
+    .sort((a, b) => (b.post_count || 0) - (a.post_count || 0))[0]
+  if (mostCommented?.id) return mostCommented.id
+  // Nėra nė vienos temos — sukuriam pagrindinę (idempotentiškai).
+  try {
+    const sb = createAdminClient()
+    const { data: ex } = await sb
+      .from('discussions')
+      .select('id')
+      .eq('artist_id', artistId)
+      .eq('legacy_kind', 'discussion')
+      .order('comment_count', { ascending: false })
+      .limit(1)
+    if (ex && ex[0]?.id) return ex[0].id
+    const base = (artistName || 'tema')
+      .toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'tema'
+    const { data: created } = await sb
+      .from('discussions')
+      .insert({
+        artist_id: artistId,
+        title: artistName,
+        slug: `${base}-a${artistId}`,
+        tag: 'Kita',
+        legacy_kind: 'discussion',
+        is_legacy: false,
+        comment_count: 0,
+      })
+      .select('id')
+      .single()
+    return created?.id ?? null
+  } catch {
+    return null
+  }
+}
+
 async function ArtistContent({ artist }: { artist: any }) {
   const data = await fetchArtistData(
     artist.id,
@@ -1151,21 +1209,24 @@ async function ArtistContent({ artist }: { artist: any }) {
     || galleryFirst
     || null
 
-  // Trending — tracks released in last 24 months (2 years). Tik tikra
-  // datos info — be guesstimate'ų. Anksčiau buvo legacy_id fallback'as
-  // (top 12% pagal legacy_id desc), bet jis maišė senus tracks'us be
-  // datos su tikrais naujausiais. Dabar: jei track neturi datos info —
-  // tab paprasčiausiai jo nerodo. Atitinkama tab'as nepasirodys
-  // artist'ams, kurie neturi ne vieno track'o su release_year/date.
-  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 24)
-  const cutY = cutoff.getFullYear(); const cutM = cutoff.getMonth() + 1
+  // „Nauja daina" = išleista einamaisiais metais ARBA praėjusiais metais.
+  // Tikslią datą imam iš YouTube įkėlimo datos (is_new_date), tada iš
+  // release_date, galiausiai iš release_year. Be jokios datos info —
+  // daina nelaikoma nauja (ir „Naujausios" tabas nerodomas, jei nė viena
+  // daina nepatenka). Anksčiau buvo slankus 24 mėn. langas — per platus;
+  // dabar griežtai kalendoriniai „šiemet arba pernai".
+  const nowYear = new Date().getFullYear()
+  const minNewYear = nowYear - 1 // einamieji + praėję metai
+  const effectiveYear = (t: any): number | null => {
+    if (t.is_new_date) { const d = new Date(t.is_new_date); if (!isNaN(d.getTime())) return d.getFullYear() }
+    if (t.release_date) { const d = new Date(t.release_date); if (!isNaN(d.getTime())) return d.getFullYear() }
+    if (t.release_year) return t.release_year
+    return null
+  }
   const newTracks = tracks.filter((t: any) => {
     if (t.is_new) return true
-    if (t.is_new_date) return new Date(t.is_new_date) >= cutoff
-    if (t.release_date) return new Date(t.release_date) >= cutoff
-    if (t.release_year && t.release_month) return t.release_year > cutY || (t.release_year === cutY && t.release_month >= cutM)
-    if (t.release_year) return t.release_year >= cutY
-    return false
+    const y = effectiveYear(t)
+    return y != null && y >= minNewYear
   })
   const topVideos = tracks.filter((t: any) => t.video_url).slice(0, 8)
 
@@ -1182,6 +1243,10 @@ async function ArtistContent({ artist }: { artist: any }) {
       recent_posts: recent,
     }
   })
+  // Pagrindinė diskusijų tema inline komentarui (žr. helper'į aukščiau).
+  const mainDiscussionId = await getOrCreateArtistMainDiscussionId(
+    artist.id, artist.name, legacyThreadsWithPosts as any,
+  )
   const legacyNewsWithPosts = (legacyNews as any[]).map((t) => {
     const recent = lastPosts.get(t.legacy_id) || []
     return {
@@ -1250,6 +1315,7 @@ async function ArtistContent({ artist }: { artist: any }) {
       popBarLevel={popBarLevel}
       recentPopBarLevel={recentPopBarLevel}
       concertRecordings={concertRecordings}
+      mainDiscussionId={mainDiscussionId}
     />
     <ArtistSocialSection artistId={artist.id} slug={artist.slug} name={artist.name} isClaimed={(artist as any).is_claimed} />
     </>

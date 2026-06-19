@@ -133,8 +133,11 @@ function toAccusativeWord(word: string): string {
  * @param countryHint Jei perduotas ir != 'Lietuva' — grąžinam unchanged.
  *                    Default: praleidžiam šitą čeką (caller'is atsakingas).
  */
-export function accusativeArtistName(name: string, countryHint?: string | null): string {
+export function accusativeArtistName(name: string, countryHint?: string | null, isBand?: boolean): string {
   if (!name) return name
+  // Grupių/projektų pavadinimai nelinksniuojami — „Vakaris Mirė albumai", ne
+  // „Vakario Mirės albumai". Heuristic'as tinka tik asmenvardžiams.
+  if (isBand) return name
   if (countryHint && countryHint !== 'Lietuva') return name
   // Per-word transform (space + hyphen separators)
   return name.split(/(\s+|-)/).map(part => {
@@ -194,8 +197,10 @@ function toGenitiveWord(word: string): string {
  * @param name        Vardininko forma („Andrius Mamontovas")
  * @param countryHint Jei != 'Lietuva' — return as-is
  */
-export function genitiveArtistName(name: string, countryHint?: string | null): string {
+export function genitiveArtistName(name: string, countryHint?: string | null, isBand?: boolean): string {
   if (!name) return name
+  // Grupių pavadinimai nelinksniuojami (žr. accusativeArtistName komentarą).
+  if (isBand) return name
   if (countryHint && countryHint !== 'Lietuva') return name
   return name.split(/(\s+|-)/).map(part => {
     if (/^\s+$/.test(part) || part === '-') return part

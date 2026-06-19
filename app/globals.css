@@ -918,6 +918,26 @@ main.has-bottom-nav {
 .pf-hero-chip { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.10); }
 [data-theme="light"] .pf-hero-chip { border-color: var(--border-default); background: var(--bg-surface); }
 
+/* Artist hero substyle chips (.aphchip) — šviesiame režime desktop'e
+   stiliaus pavadinimai būdavo balti ant balto fono dešinėje (nuotraukai
+   pasibaigus). Šviesiame režime suteikiam vientisą šviesią piliulę su
+   tamsiu tekstu, kuri įskaitoma IR ant tamsios nuotraukos kairėje, IR ant
+   balto puslapio fono dešinėje. Tamsiame režime — paliekam kaip buvo
+   (Tailwind lg:text-white/65). 2 klasių specifiškumas nugali Tailwind 1
+   klasės utility. */
+[data-theme="light"] .aphchip {
+  background: rgba(244,246,250,0.92);
+  border-color: rgba(15,26,46,0.16);
+  color: var(--text-secondary);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+[data-theme="light"] .aphchip:hover {
+  background: #ffffff;
+  border-color: rgba(15,26,46,0.34);
+  color: var(--text-primary);
+}
+
 /* redeploy: flaky prerender retry (V18b) */
 /* redeploy bump V18c */
 /* redeploy bump V18c #2 */
