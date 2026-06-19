@@ -4,6 +4,12 @@
 // suvestas susijusias dainas ir groja per YouTube — Spotify embed'ai atmetami
 // (žr. lib/blog-player.ts buildBlogPlayerTracks). Stilius = atlikėjo puslapio
 // PlayerCard. Komentarai per unified EntityCommentsBlock.
+//
+// GREITAVEIKA (2026-06-18): (a) ISR cache `revalidate` — puslapis cache'inamas
+// per URL, pakartotiniai užkrovimai akimirksniu (stale-while-revalidate);
+// (b) DB užklausos paraleliai (Promise.all); (c) NEbedarom lėtų oEmbed network
+// call'ų — player'is naudoja DB dainas, o body YouTube embed'ai naudojami tik
+// kaip fallback'as (YT thumbnail + id pakanka be oEmbed).
 
 import { notFound } from 'next/navigation'
 import {
@@ -11,12 +17,16 @@ import {
   getPostMusicAttachments,
   getReviewTargetInfo,
 } from '@/lib/supabase-blog'
-import { extractMusicFromBody, enrichTracksWithOembed, resolveEmbedsToDbTracks } from '@/lib/blog-content'
+import { extractMusicFromBody } from '@/lib/blog-content'
 import { buildTopasPlaylist } from '@/lib/topas-resolve'
 import { buildBlogPlayerTracks, extractedToPlayerTrack, type BlogPlayerTrack } from '@/lib/blog-player'
 import { createAdminClient } from '@/lib/supabase'
 import BlogPostPageClient from './page-client'
 import { POST_TYPE_OPTIONS, type BlogPostType } from '@/components/blog/post-types'
+
+// ISR — blog'o įrašai keičiasi retai; cache'inam 5 min. (like/comment skaitliukai
+// atsinaujina klientinėje pusėje per atskirus fetch'us, tad nedingsta švieži).
+export const revalidate = 300
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string; slug: string }> }) {
   const { username, slug } = await params
@@ -40,7 +50,14 @@ export default async function PostPage({ params }: { params: Promise<{ username:
   if (!post) notFound()
 
   const postType: BlogPostType = (post.post_type as BlogPostType) || 'article'
-  const [attachments, targetInfo] = await Promise.all([
+  const sbAdmin = createAdminClient()
+
+  // Body embed'ai ištraukiami sinchroniškai (be tinklo) — body lieka švarus.
+  const { cleanedHtml, music: rawEmbeddedMusic } = extractMusicFromBody((post as any).content_enriched || post.content || '')
+  const ytRawEmbeds = rawEmbeddedMusic.filter(m => m.source === 'youtube')
+
+  // Viskas paraleliai — attachments + target + rankiniai track id'ai.
+  const [attachments, targetInfo, manualRowsRes] = await Promise.all([
     getPostMusicAttachments(post.id),
     (postType === 'review' || postType === 'translation' || postType === 'event')
       ? getReviewTargetInfo({
@@ -50,39 +67,26 @@ export default async function PostPage({ params }: { params: Promise<{ username:
           event_id:  post.target_event_id  ?? null,
         })
       : Promise.resolve(null),
+    sbAdmin.from('blog_post_tracks').select('track_id').eq('post_id', post.id),
   ])
-
-  const { cleanedHtml, music: rawEmbeddedMusic } = extractMusicFromBody((post as any).content_enriched || post.content || '')
-  const enrichedMusic = await enrichTracksWithOembed(rawEmbeddedMusic)
-  const sbAdmin = createAdminClient()
-  const embeddedMusic = await resolveEmbedsToDbTracks(enrichedMusic, sbAdmin)
-
-  const topasPlayerTracks = postType === 'topas' && Array.isArray(post.list_items)
-    ? await buildTopasPlaylist(sbAdmin, post.list_items)
-    : []
+  const manualTrackIds: number[] = ((manualRowsRes as any)?.data || []).map((r: any) => r.track_id).filter(Boolean)
 
   // ── PLAYER GROJARAŠTIS — visada mūsų DB dainos + YouTube (ne Spotify) ──
-  const { data: manualRows } = await sbAdmin
-    .from('blog_post_tracks').select('track_id').eq('post_id', post.id)
-  const manualTrackIds: number[] = (manualRows || []).map((r: any) => r.track_id).filter(Boolean)
-  const ytEmbeds = embeddedMusic.filter(m => m.source === 'youtube')
-
   let playerTracks: BlogPlayerTrack[] = []
   if (postType === 'topas') {
     if (manualTrackIds.length) {
       playerTracks = await buildBlogPlayerTracks(sbAdmin, { manualTrackIds })
     }
-    if (!playerTracks.length) {
-      playerTracks = (topasPlayerTracks || [])
-        .map(extractedToPlayerTrack)
-        .filter(Boolean) as BlogPlayerTrack[]
+    if (!playerTracks.length && Array.isArray(post.list_items)) {
+      const topasPlayerTracks = await buildTopasPlaylist(sbAdmin, post.list_items)
+      playerTracks = (topasPlayerTracks || []).map(extractedToPlayerTrack).filter(Boolean) as BlogPlayerTrack[]
     }
   } else {
     playerTracks = await buildBlogPlayerTracks(sbAdmin, {
       manualTrackIds,
       albumId: post.target_album_id ?? (attachments.albums[0] as any)?.id ?? null,
       artistId: post.target_artist_id ?? (attachments.artists[0] as any)?.id ?? null,
-      fallbackEmbeds: ytEmbeds,
+      fallbackEmbeds: ytRawEmbeds,
     })
   }
 
@@ -91,7 +95,6 @@ export default async function PostPage({ params }: { params: Promise<{ username:
   const authorName = (profile as any)?.full_name || (profile as any)?.username || username
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://musiclt.vercel.app'
 
-  const firstEmbedCover = embeddedMusic.find(m => !!m.cover_url)?.cover_url || null
   const firstPlayerCover = playerTracks.find(t => !!t.cover_url)?.cover_url || null
   const firstJunctionCover =
     (attachments.tracks[0] as any)?.cover_image_url ||
@@ -108,7 +111,6 @@ export default async function PostPage({ params }: { params: Promise<{ username:
     : null
   const heroImage =
     post.cover_image_url ||
-    firstEmbedCover ||
     firstPlayerCover ||
     firstJunctionCover ||
     targetEntityImage ||
