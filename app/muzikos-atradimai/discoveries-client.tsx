@@ -109,7 +109,7 @@ function FilterPopover({ id, openId, setOpenId, label, icon, value, options, onP
   const filtered = options.filter(o => o.toLowerCase().includes(s.toLowerCase()))
   return (
     <div className="ma-popwrap" ref={ref}>
-      <button type="button" className={`ma-chip${value ? ' on' : ''}`} onClick={() => setOpenId(open ? null : id)}>
+      <button type="button" className={`flt-trig${value ? ' active' : ''}`} onClick={() => setOpenId(open ? null : id)}>
         {icon}<span className="ma-chip-lbl">{value ? `${label}: ${value}` : label}</span>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ opacity: .7 }}><path d="m6 9 6 6 6-6"/></svg>
       </button>
@@ -355,30 +355,30 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
   return (
     <div className="ma">
       {/* ── Kompaktiška filtrų juosta (Renginių stilius) ── */}
-      <div className="ma-fbar">
+      <div className="flt-bar flt-bar--wrap">
         <div className="ma-search-wrap">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <input value={q} onChange={e => { setQ(e.target.value); setLimit(20) }} placeholder="Ieškoti atlikėjo, dainos, teksto…" />
         </div>
 
-        <span className="ma-divider" />
+        <span className="flt-divider" />
 
         {/* Rūšiavimas */}
-        <button className={`ma-chip${sort === 'new' ? ' on' : ''}`} onClick={() => { setSort('new'); setLimit(20) }}>Naujausi</button>
-        <button className={`ma-chip${sort === 'top' ? ' on' : ''}`} onClick={() => { setSort('top'); setLimit(20) }}>
+        <button className={`flt-chip${sort === 'new' ? ' on' : ''}`} onClick={() => { setSort('new'); setLimit(20) }}>Naujausi</button>
+        <button className={`flt-chip${sort === 'top' ? ' on' : ''}`} onClick={() => { setSort('top'); setLimit(20) }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
           Populiariausi
         </button>
 
-        <span className="ma-divider" />
+        <span className="flt-divider" />
 
         <FilterPopover id="member" openId={openId} setOpenId={setOpenId} label="Narys" icon={IconUser} value={member} options={facets.members} onPick={v => { setMember(v); setLimit(20) }} />
         {facets.genres.length > 0 && (
           <FilterPopover id="style" openId={openId} setOpenId={setOpenId} label="Stilius" icon={IconNote} value={style} options={facets.genres} onPick={v => { setStyle(v); setLimit(20) }} />
         )}
-        {hasFilters && <button className="ma-reset" onClick={resetAll}>Išvalyti ✕</button>}
+        {hasFilters && <button className="flt-reset" onClick={resetAll}>Išvalyti ✕</button>}
 
-        <span className="ma-count">{list.length} {list.length === 1 ? 'atradimas' : list.length % 10 >= 1 && list.length % 10 <= 9 && !(list.length % 100 >= 11 && list.length % 100 <= 19) ? 'atradimai' : 'atradimų'}</span>
+        <span className="flt-count">{list.length} {list.length === 1 ? 'atradimas' : list.length % 10 >= 1 && list.length % 10 <= 9 && !(list.length % 100 >= 11 && list.length % 100 <= 19) ? 'atradimai' : 'atradimų'}</span>
         <AddDiscovery onAdded={handleAdded} />
       </div>
 
@@ -454,18 +454,10 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
 
       <style jsx>{`
         /* Filtrų juosta — Renginių (ev-fbar) stilius */
-        .ma-fbar{display:flex;flex-wrap:wrap;gap:7px;align-items:center;padding:11px 12px;border-radius:14px;background:var(--bg-surface);border:1px solid var(--border-default,rgba(255,255,255,0.08));margin-bottom:22px}
-        .ma-divider{width:1px;height:22px;background:var(--border-default,rgba(255,255,255,0.1));margin:0 2px}
         .ma-search-wrap{display:flex;align-items:center;gap:8px;background:var(--bg-hover);border:1px solid var(--border-default);border-radius:100px;padding:6px 13px;color:var(--text-muted);flex:1;min-width:180px;max-width:320px}
         .ma-search-wrap input{background:none;border:none;color:var(--text-primary);outline:none;width:100%;font-size:13px}
         :global(.ma-popwrap){position:relative;display:inline-flex}
-        :global(.ma-chip){display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:100px;font-size:12.5px;font-weight:600;font-family:'Outfit',sans-serif;background:var(--bg-hover);border:1px solid var(--border-default,rgba(255,255,255,0.08));color:var(--text-secondary);transition:all .15s;white-space:nowrap;cursor:pointer;line-height:1.3;max-width:240px}
-        :global(.ma-chip svg){display:block;flex-shrink:0}
         :global(.ma-chip-lbl){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        :global(.ma-chip:hover){color:var(--text-primary);border-color:rgba(249,115,22,0.4)}
-        :global(.ma-chip.on){background:var(--accent-orange);border-color:var(--accent-orange);color:#fff}
-        .ma-reset{padding:6px 11px;border-radius:100px;font-size:12px;font-weight:700;font-family:'Outfit',sans-serif;color:var(--accent-orange);background:transparent;border:none;cursor:pointer;white-space:nowrap}
-        .ma-count{margin-left:auto;font-size:12px;font-weight:700;color:var(--text-faint);font-family:'Outfit',sans-serif;background:var(--bg-hover);border-radius:100px;padding:4px 11px}
         :global(.ma-pop){position:absolute;top:calc(100% + 8px);left:0;z-index:60;width:240px;padding:12px;background:var(--bg-surface);border:1px solid var(--border-default,rgba(255,255,255,0.1));border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.32)}
         :global(.ma-pop-search){width:100%;height:34px;border-radius:9px;padding:0 11px;font-size:13px;margin-bottom:8px;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-primary);outline:none}
         :global(.ma-pop-list){display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto}

@@ -128,7 +128,7 @@ function buildHref(sp: SP, over: Partial<SP>): string {
 }
 
 function Chip({ href, active, children }: { href: string; active: boolean; children: ReactNode }) {
-  return <Link href={href} className={`mz-fchip${active ? ' on' : ''}`} prefetch={false}>{children}</Link>
+  return <Link href={href} className={`flt-chip${active ? ' on' : ''}`} prefetch={false}>{children}</Link>
 }
 
 export default async function AlbumsIndexPage({ searchParams }: PageProps) {
@@ -171,28 +171,24 @@ export default async function AlbumsIndexPage({ searchParams }: PageProps) {
           </div>
           <div className="mz-frow">
             <span className="mz-flbl">Šalis</span>
-            <Chip href={reset({ country: undefined })} active={f.country.mode === 'all'}>Visos</Chip>
-            <Chip href={reset({ country: 'lt' })} active={f.country.mode === 'lt'}>🇱🇹 Lietuva</Chip>
-            <Chip href={reset({ country: 'world' })} active={f.country.mode === 'world'}>🌍 Pasaulis</Chip>
+            <Chip href={f.country.mode === 'lt' ? reset({ country: undefined }) : reset({ country: 'lt' })} active={f.country.mode === 'lt'}>🇱🇹 Lietuva</Chip>
+            <Chip href={f.country.mode === 'world' ? reset({ country: undefined }) : reset({ country: 'world' })} active={f.country.mode === 'world'}>🌍 Pasaulis</Chip>
           </div>
           <div className="mz-frow">
             <span className="mz-flbl">Tipas</span>
-            <Chip href={reset({ type: undefined })} active={!f.type}>Visi</Chip>
-            {TYPE_OPTS.map((t) => <Chip key={t.key} href={reset({ type: t.key })} active={f.type === t.key}>{t.label}</Chip>)}
+            {TYPE_OPTS.map((t) => <Chip key={t.key} href={f.type === t.key ? reset({ type: undefined }) : reset({ type: t.key })} active={f.type === t.key}>{t.label}</Chip>)}
           </div>
           <div className="mz-frow">
             <span className="mz-flbl">Stilius</span>
-            <Chip href={reset({ genre: undefined })} active={!f.genreId}>Visi</Chip>
             {topGenres.map((g) => (
-              <Chip key={g.genre_id} href={reset({ genre: ltSlugify(g.name) })} active={f.genreId === g.genre_id}>
+              <Chip key={g.genre_id} href={f.genreId === g.genre_id ? reset({ genre: undefined }) : reset({ genre: ltSlugify(g.name) })} active={f.genreId === g.genre_id}>
                 {g.name.replace(/\s*muzika$/i, '')}
               </Chip>
             ))}
           </div>
           <div className="mz-frow">
             <span className="mz-flbl">Dešimtmetis</span>
-            <Chip href={reset({ decade: undefined })} active={!f.decade}>Visi</Chip>
-            {DECADES.map((d) => <Chip key={d} href={reset({ decade: String(d) })} active={f.decade === d}>{d}-ieji</Chip>)}
+            {DECADES.map((d) => <Chip key={d} href={f.decade === d ? reset({ decade: undefined }) : reset({ decade: String(d) })} active={f.decade === d}>{d}-ieji</Chip>)}
           </div>
         </div>
 

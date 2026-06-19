@@ -150,11 +150,11 @@ export default function ArtistsFilterBar({
     <div className={isPending ? 'afb busy' : 'afb'}>
       <style>{afbStyles}</style>
 
-      <div className="afb-row">
-        <div className="afb-seg" role="group" aria-label="Rūšiavimas">
+      <div className="flt-bar flt-bar--wrap afb-row">
+        <div className="flt-group" role="group" aria-label="Rūšiavimas">
           {SORT_BTNS.map((s) => (
             <button key={s.key} type="button"
-              className={`afb-seg-btn${current.sort === s.key ? ' on' : ''}`}
+              className={`flt-chip${current.sort === s.key ? ' on' : ''}`}
               onClick={() => setSort(s.key)} aria-pressed={current.sort === s.key}>
               {s.label}
             </button>
@@ -163,12 +163,12 @@ export default function ArtistsFilterBar({
 
         {/* ── Šalies dropdown ── */}
         <div className="afb-dd" ref={countryRef}>
-          <button type="button" className={`afb-trig${!isDefaultCountry(current.country) ? ' active' : ''}`}
+          <button type="button" className={`flt-trig${!isDefaultCountry(current.country) ? ' active' : ''}`}
             onClick={() => { setCountryOpen((o) => !o); setStyleOpen(false) }}
             aria-expanded={countryOpen} aria-haspopup="listbox">
             <span className="afb-trig-flag">{cd.flag}</span>
             <span className="afb-trig-text">{cd.text}</span>
-            <svg className="afb-caret" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+            <svg className="flt-caret" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
           </button>
           {countryOpen && (
             <div className="afb-pop afb-pop-country">
@@ -202,11 +202,11 @@ export default function ArtistsFilterBar({
 
         {/* ── Stiliaus dropdown (su sub-stiliais) ── */}
         <div className="afb-dd" ref={styleRef}>
-          <button type="button" className={`afb-trig${(current.genre || current.substyle) ? ' active' : ''}`}
+          <button type="button" className={`flt-trig${(current.genre || current.substyle) ? ' active' : ''}`}
             onClick={() => { setStyleOpen((o) => !o); setCountryOpen(false) }}
             aria-expanded={styleOpen} aria-haspopup="listbox">
             <span className="afb-trig-text">{styleTrig}</span>
-            <svg className="afb-caret" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+            <svg className="flt-caret" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
           </button>
           {styleOpen && (
             <div className="afb-pop afb-pop-style">
@@ -253,9 +253,9 @@ export default function ArtistsFilterBar({
         </div>
 
         {hasFilters && (
-          <Link href="/atlikejai" className="afb-clear" prefetch={false} onClick={() => { setCountryOpen(false); setStyleOpen(false) }}>✕ Išvalyti</Link>
+          <Link href="/atlikejai" className="flt-reset" prefetch={false} onClick={() => { setCountryOpen(false); setStyleOpen(false) }}>✕ Išvalyti</Link>
         )}
-        <span className="afb-count">{resultCount.toLocaleString('lt-LT')} atlikėjų</span>
+        <span className="flt-count">{resultCount.toLocaleString('lt-LT')} atlikėjų</span>
       </div>
     </div>
   )
@@ -264,20 +264,11 @@ export default function ArtistsFilterBar({
 const afbStyles = `
 .afb { max-width:1400px; margin:14px auto 0; padding:0 24px; }
 .afb.busy { opacity:.55; transition:opacity .1s; }
-.afb-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 
-.afb-seg { display:inline-flex; padding:3px; gap:2px; border-radius:12px; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08)); }
-.afb-seg-btn { padding:7px 14px; border:none; background:transparent; color:var(--text-secondary); font-size:12.5px; font-weight:700; font-family:'Outfit',sans-serif; border-radius:9px; cursor:pointer; transition:all .15s; white-space:nowrap; }
-.afb-seg-btn:hover { color:var(--text-primary); }
-.afb-seg-btn.on { background:var(--accent-orange); color:#fff; box-shadow:0 2px 8px rgba(249,115,22,.28); }
 
 .afb-dd { position:relative; }
-.afb-trig { display:inline-flex; align-items:center; gap:7px; height:40px; padding:0 12px; border-radius:11px; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08)); color:var(--text-secondary); font-size:12.5px; font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; transition:all .15s; }
-.afb-trig:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
-.afb-trig.active { color:var(--text-primary); border-color:rgba(249,115,22,0.55); background:rgba(249,115,22,0.10); }
 .afb-trig-flag { font-size:14px; line-height:1; }
 .afb-trig-text { max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.afb-caret { opacity:.6; flex-shrink:0; }
 
 .afb-pop { position:absolute; top:calc(100% + 6px); left:0; z-index:120; min-width:240px; background:var(--modal-bg,var(--bg-elevated)); border:1px solid var(--modal-border,var(--border-default,rgba(255,255,255,0.1))); border-radius:14px; box-shadow:var(--modal-shadow,0 18px 50px rgba(0,0,0,.5)); overflow:hidden; }
 .afb-pop-country { width:300px; }
@@ -305,13 +296,9 @@ const afbStyles = `
 .afb-exp.open { transform:rotate(180deg); }
 .afb-opt-sub { margin-left:10px; padding-left:16px; font-weight:500; font-size:12.5px; border-left:1px solid var(--border-default,rgba(255,255,255,0.08)); border-radius:0 8px 8px 0; }
 
-.afb-clear { height:40px; display:inline-flex; align-items:center; padding:0 14px; border-radius:11px; font-size:12px; font-weight:700; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.25); color:var(--accent-orange); cursor:pointer; font-family:'Outfit',sans-serif; }
-.afb-clear:hover { background:rgba(249,115,22,0.2); }
-.afb-count { margin-left:auto; font-size:12px; font-weight:600; color:var(--text-faint); white-space:nowrap; }
 
 @media(max-width:680px){
   .afb-pop-country, .afb-pop-style { width:min(320px, calc(100vw - 48px)); }
   .afb-trig-text { max-width:120px; }
-  .afb-count { width:100%; margin:0; text-align:right; }
 }
 `

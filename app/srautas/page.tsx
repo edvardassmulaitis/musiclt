@@ -447,20 +447,7 @@ function SrautasInner() {
       <style>{`
         .sr-wrap { max-width: 1180px; margin: 0 auto; padding: 18px 18px 40px; }
 
-        /* ── Filtrų juosta (/topai chip stilius) — desktop: režimai kairėj, ⚙ dešinėj ── */
-        .srf { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
-        .srf-modes { display:flex; align-items:center; gap:8px; }
-        .srf-chip { display:inline-flex; align-items:center; gap:8px; padding:6px 16px; border-radius:100px;
-          font-size:13px; font-weight:600; font-family:'Outfit', sans-serif; cursor:pointer; white-space:nowrap; line-height:1.3;
-          background:var(--bg-hover, var(--bg-surface)); border:1px solid var(--border-default, var(--border-subtle)); color:var(--text-secondary);
-          transition:color .15s, border-color .15s, background .15s; -webkit-tap-highlight-color:transparent; text-decoration:none; }
-        .srf-chip svg { width:15px; height:15px; display:block; }
-        .srf-chip:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
-        .srf-chip.on { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
-        .srf-gear { padding:7px 11px; color:var(--text-muted); }
-        .srf-gear svg { width:16px; height:16px; }
-        .srf-gear:hover { color:var(--text-primary); }
-        @media (max-width:680px) { .srf { justify-content:center; } }
+        /* Filtrų juosta — bendros .flt-* klasės (globals.css) */
 
         /* ── Dvi kolonos (desktop) ── */
         .sr-cols { display:grid; grid-template-columns: 1.7fr 1fr; gap:22px; align-items:start; }
@@ -558,16 +545,16 @@ function SrautasInner() {
       `}</style>
 
       {/* Filtrų juosta — režimai (kairėj) + ⚙ (dešinėj); mobile viskas šalia */}
-      <div className="srf">
-        <div className="srf-modes" role="tablist">
-          <button type="button" role="tab" aria-selected={mode === 'sekami'} className={`srf-chip${mode === 'sekami' ? ' on' : ''}`} onClick={() => switchMode('sekami')}>
+      <div className="flt-bar flt-bar--between">
+        <div className="flt-group" role="tablist">
+          <button type="button" role="tab" aria-selected={mode === 'sekami'} className={`flt-chip${mode === 'sekami' ? ' on' : ''}`} onClick={() => switchMode('sekami')}>
             {IconHeart}<span>Mėgstami</span>
           </button>
-          <button type="button" role="tab" aria-selected={mode === 'tau'} className={`srf-chip${mode === 'tau' ? ' on' : ''}`} onClick={() => switchMode('tau')}>
+          <button type="button" role="tab" aria-selected={mode === 'tau'} className={`flt-chip${mode === 'tau' ? ' on' : ''}`} onClick={() => switchMode('tau')}>
             {IconCompass}<span>Tau gali patikti</span>
           </button>
         </div>
-        <Link href="/mano-muzika" className="srf-chip srf-gear" aria-label="Mano muzika — valdymas" title="Mano muzika — valdymas">{IconGear}</Link>
+        <Link href="/mano-muzika" className="flt-chip flt-chip--ico flt-gear" aria-label="Mano muzika — valdymas" title="Mano muzika — valdymas">{IconGear}</Link>
       </div>
 
       {isLoading ? (

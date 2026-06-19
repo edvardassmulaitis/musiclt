@@ -262,10 +262,8 @@ export const muzikaStyles = `
 /* Filter bar (browse puslapiams: /albumai, /dainos) — server-rendered <a> chips */
 .mz-fbar { display:flex; flex-direction:column; gap:9px; margin-bottom:18px; }
 .mz-frow { display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+@media(max-width:680px){ .mz-frow { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; } .mz-frow::-webkit-scrollbar{ display:none; } .mz-flbl { position:sticky; left:0; } }
 .mz-flbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); min-width:58px; font-family:'Outfit',sans-serif; }
-.mz-fchip { padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08)); color:var(--text-secondary); transition:all .15s; white-space:nowrap; font-family:'Outfit',sans-serif; }
-.mz-fchip:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
-.mz-fchip.on { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
 .mz-count { font-size:13px; color:var(--text-muted); margin:2px 0 16px; }
 
 /* Pagination */
@@ -286,13 +284,7 @@ export const muzikaStyles = `
   .mz-tile-name { font-size:13px; }
 }
 /* Hub filtrų juosta — viena kompaktiška eilutė (/koncertai stilius) */
-.mz-hubfbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px; background:var(--bg-surface,var(--bg-elevated)); border:1px solid var(--border-default,rgba(255,255,255,0.08)); margin:22px 0; }
 .mz-hubfbar-spacer { margin-left:auto; }
-.mz-divider { width:1px; height:22px; background:var(--border-default,rgba(255,255,255,0.1)); margin:0 2px; }
-.mz-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600; font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08)); color:var(--text-secondary); transition:all .15s; white-space:nowrap; cursor:pointer; line-height:1.3; }
-.mz-chip:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
-.mz-chip.on { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
-.mz-chip svg { display:block; }
 .mz-pop { position:absolute; top:calc(100% + 8px); left:0; z-index:50; padding:11px; background:var(--bg-surface,var(--bg-elevated)); border:1px solid var(--border-default,rgba(255,255,255,0.1)); border-radius:14px; box-shadow:0 14px 40px rgba(0,0,0,0.32); }
 .mz-pop-list { display:flex; flex-direction:column; gap:2px; max-height:320px; overflow-y:auto; }
 .mz-opt { display:flex; align-items:center; gap:8px; text-align:left; width:100%; padding:8px 10px; border-radius:9px; font-size:13px; font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; background:transparent; border:none; color:var(--text-secondary); transition:all .12s; white-space:nowrap; }

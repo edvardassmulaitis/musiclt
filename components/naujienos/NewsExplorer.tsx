@@ -114,22 +114,21 @@ export default function NewsExplorer({
       <style>{NX_CSS}</style>
 
       {/* ── Filtrų juosta (ev-fbar stilius) ── */}
-      <div className="ev-fbar">
+      <div className="flt-bar flt-bar--wrap">
         {/* Tipai — INLINE chip'ai */}
-        <button className={`ev-chip${!filters.type ? ' on' : ''}`} disabled={lockAxis === 'type'} onClick={() => setF({ type: '' })}>Visos</button>
         {NEWS_TYPES.filter((t) => t.key !== 'kita').map((t) => (
-          <button key={t.key} className={`ev-chip${filters.type === t.key ? ' on' : ''}`} disabled={lockAxis === 'type'} onClick={() => setF({ type: filters.type === t.key ? '' : t.key })}>
+          <button key={t.key} className={`flt-chip${filters.type === t.key ? ' on' : ''}`} disabled={lockAxis === 'type'} onClick={() => setF({ type: filters.type === t.key ? '' : t.key })}>
             {t.labelPlural}
           </button>
         ))}
 
-        <span className="ev-divider" />
+        <span className="flt-divider" />
 
         {/* Stilius — dropdown „Visi stiliai" */}
         <div className="ev-dd" ref={styleRef}>
-          <button type="button" className={`ev-chip${filters.style != null ? ' on' : ''}`} disabled={lockAxis === 'style'} onClick={() => setStyleOpen((o) => !o)}>
+          <button type="button" className={`flt-trig${filters.style != null ? ' active' : ''}`} disabled={lockAxis === 'style'} onClick={() => setStyleOpen((o) => !o)}>
             <span>{activeStyle ? activeStyle.name.replace(' muzika', '') : 'Visi stiliai'}</span>
-            <svg width="10" height="6" viewBox="0 0 10 6" style={{ opacity: 0.6 }}><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+            <svg className="flt-caret" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
           </button>
           {styleOpen && (
             <div className="ev-pop" style={{ width: 220 }}>
@@ -145,14 +144,14 @@ export default function NewsExplorer({
           )}
         </div>
 
-        <span className="ev-divider" />
+        <span className="flt-divider" />
 
         {/* LT atlikėjai — vienas toggle su vėliava */}
-        <button className={`ev-chip${filters.scope === 'lt' ? ' on' : ''}`} disabled={lockAxis === 'scope'} onClick={() => setF({ scope: filters.scope === 'lt' ? '' : 'lt' })}>
+        <button className={`flt-chip${filters.scope === 'lt' ? ' on' : ''}`} disabled={lockAxis === 'scope'} onClick={() => setF({ scope: filters.scope === 'lt' ? '' : 'lt' })}>
           <span>🇱🇹</span><span>LT atlikėjai</span>
         </button>
 
-        {anyActive && !lockAxis && <button className="ev-reset" onClick={clearAll}>Išvalyti ✕</button>}
+        {anyActive && !lockAxis && <button className="flt-reset" onClick={clearAll}>Išvalyti ✕</button>}
       </div>
 
       {/* ── Turinys ── */}
@@ -205,17 +204,6 @@ const NX_CSS = `
 @media(min-width:1024px){ .nx-top3 { gap:20px; margin-bottom:22px; } }
 
 /* ── Filtrų juosta — identiška /koncertai (ev-*) ── */
-.ev-fbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px;
-  background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.08)); margin-bottom:24px; }
-.ev-divider { width:1px; height:22px; background:var(--border-default,rgba(255,255,255,0.1)); margin:0 2px; }
-.ev-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600;
-  font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08));
-  color:var(--text-secondary); transition:all .15s; white-space:nowrap; cursor:pointer; line-height:1.3; }
-.ev-chip:hover:not(:disabled) { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
-.ev-chip.on { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
-.ev-chip:disabled { cursor:default; }
-.ev-reset { padding:6px 11px; border-radius:100px; font-size:12px; font-weight:700; font-family:'Outfit',sans-serif;
-  color:var(--accent-orange); background:transparent; border:none; cursor:pointer; white-space:nowrap; }
 .ev-dd { position:relative; }
 .ev-pop { position:absolute; top:calc(100% + 8px); left:0; z-index:50; padding:8px;
   background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.1)); border-radius:14px;

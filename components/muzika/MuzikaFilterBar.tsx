@@ -50,15 +50,15 @@ export function MuzikaFilterBar({ scope, mode }: { scope: HubScope; mode: HubMod
     { key: 'alltime', label: 'Visų laikų' },
   ]
   return (
-    <div className="mz-hubbar">
-      <div className="mz-hubrow">
+    <div className="flt-bar flt-bar--wrap">
+      <div className="flt-group">
         <span className="mz-flbl">Šalis</span>
-        <div className="mz-fchips">
+        <div className="flt-group">
           {scopes.map((s) => (
             <Link
               key={s.key}
               href={hubHref(s.key, s.key === 'all' ? 'both' : mode)}
-              className={`mz-fchip${scope === s.key ? ' on' : ''}`}
+              className={`flt-chip${scope === s.key ? ' on' : ''}`}
               prefetch={false}
             >
               {s.label}
@@ -67,14 +67,14 @@ export function MuzikaFilterBar({ scope, mode }: { scope: HubScope; mode: HubMod
         </div>
       </div>
       {scope !== 'all' && (
-        <div className="mz-hubrow">
+        <div className="flt-group">
           <span className="mz-flbl">Rikiuoti</span>
-          <div className="mz-fchips">
+          <div className="flt-group">
             {modes.map((m) => (
               <Link
                 key={m.key}
                 href={hubHref(scope, m.key)}
-                className={`mz-fchip${mode === m.key ? ' on' : ''}`}
+                className={`flt-chip${mode === m.key ? ' on' : ''}`}
                 prefetch={false}
               >
                 {m.label}

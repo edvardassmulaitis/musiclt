@@ -621,13 +621,7 @@ function MobileProfileView(props: any) {
                 const on = sel === c.key
                 return (
                   <button key={c.key} type="button" onClick={() => setSel(on ? 'all' : c.key)}
-                          className={PF_CHIP}
-                          style={{
-                            fontFamily: "'Outfit', sans-serif",
-                            background: on ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
-                            color: on ? '#fff' : 'var(--text-secondary)',
-                            border: `1px solid ${on ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
-                          }}>
+                          className={`flt-chip${on ? ' on' : ''}`}>
                     {c.key === 'likes' && <HeartOutlineIcon />}
                     {c.key === 'about' && <UserIcon />}
                     {c.label}
@@ -2418,7 +2412,6 @@ function UserIcon({ size = 14 }: { size?: number }) {
   )
 }
 
-const PF_CHIP = 'flex-shrink-0 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-semibold whitespace-nowrap transition'
 
 function FeedFilterPills({ typePills, active, onChange, hasLikes }: {
   typePills: { key: string; label: string; color: string }[]
@@ -2436,13 +2429,7 @@ function FeedFilterPills({ typePills, active, onChange, hasLikes }: {
           const on = active === p.key
           return (
             <button key={p.key} type="button" onClick={() => onChange(on ? 'all' : p.key)}
-                    className={PF_CHIP}
-                    style={{
-                      fontFamily: "'Outfit', sans-serif",
-                      background: on ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
-                      color: on ? '#fff' : 'var(--text-secondary)',
-                      border: `1px solid ${on ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
-                    }}>
+                    className={`flt-chip${on ? ' on' : ''}`}>
               {p.label}
             </button>
           )
@@ -2453,25 +2440,13 @@ function FeedFilterPills({ typePills, active, onChange, hasLikes }: {
       <div className="flex items-center gap-2 flex-shrink-0">
         {hasLikes && (
           <button type="button" onClick={() => onChange(likesOn ? 'all' : 'likes')}
-                  className={PF_CHIP}
-                  style={{
-                    fontFamily: "'Outfit', sans-serif",
-                    background: likesOn ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
-                    color: likesOn ? '#fff' : 'var(--text-secondary)',
-                    border: `1px solid ${likesOn ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
-                  }}>
+                  className={`flt-chip${likesOn ? ' on' : ''}`}>
             <HeartOutlineIcon />
             Mėgstama muzika
           </button>
         )}
         <button type="button" onClick={() => onChange(aboutOn ? 'all' : 'about')}
-                className={PF_CHIP}
-                style={{
-                  fontFamily: "'Outfit', sans-serif",
-                  background: aboutOn ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
-                  color: aboutOn ? '#fff' : 'var(--text-secondary)',
-                  border: `1px solid ${aboutOn ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
-                }}>
+                className={`flt-chip${aboutOn ? ' on' : ''}`}>
           <UserIcon />
           Apie mane
         </button>

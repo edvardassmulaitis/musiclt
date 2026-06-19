@@ -110,7 +110,7 @@ function buildHref(sp: SP, over: Partial<SP>): string {
 }
 
 function Chip({ href, active, children }: { href: string; active: boolean; children: ReactNode }) {
-  return <Link href={href} className={`mz-fchip${active ? ' on' : ''}`} prefetch={false}>{children}</Link>
+  return <Link href={href} className={`flt-chip${active ? ' on' : ''}`} prefetch={false}>{children}</Link>
 }
 
 export default async function SongsIndexPage({ searchParams }: PageProps) {
@@ -151,15 +151,13 @@ export default async function SongsIndexPage({ searchParams }: PageProps) {
           </div>
           <div className="mz-frow">
             <span className="mz-flbl">Šalis</span>
-            <Chip href={reset({ country: undefined })} active={f.country.mode === 'all'}>Visos</Chip>
-            <Chip href={reset({ country: 'lt' })} active={f.country.mode === 'lt'}>🇱🇹 Lietuva</Chip>
-            <Chip href={reset({ country: 'world' })} active={f.country.mode === 'world'}>🌍 Pasaulis</Chip>
+            <Chip href={f.country.mode === 'lt' ? reset({ country: undefined }) : reset({ country: 'lt' })} active={f.country.mode === 'lt'}>🇱🇹 Lietuva</Chip>
+            <Chip href={f.country.mode === 'world' ? reset({ country: undefined }) : reset({ country: 'world' })} active={f.country.mode === 'world'}>🌍 Pasaulis</Chip>
           </div>
           <div className="mz-frow">
             <span className="mz-flbl">Stilius</span>
-            <Chip href={reset({ genre: undefined })} active={!f.genreId}>Visi</Chip>
             {topGenres.map((g) => (
-              <Chip key={g.genre_id} href={reset({ genre: ltSlugify(g.name) })} active={f.genreId === g.genre_id}>
+              <Chip key={g.genre_id} href={f.genreId === g.genre_id ? reset({ genre: undefined }) : reset({ genre: ltSlugify(g.name) })} active={f.genreId === g.genre_id}>
                 {g.name.replace(/\s*muzika$/i, '')}
               </Chip>
             ))}

@@ -45,13 +45,13 @@ export default function MuzikaTabs({
 
   // Perjungiant šalį išlaikom rikiavimą (jei buvom konkrečioj šaly).
   const keepMode: HubMode = scope === 'all' ? 'both' : mode
-  const scopes: { key: HubScope; label: string }[] = [
-    { key: 'all', label: 'Visi' },
+  // Be „Visi" — nieko nepasirinkus rodoma viskas (/muzika). Aktyvų paspaudus → grįžta į „viską".
+  const scopes: { key: Exclude<HubScope, 'all'>; label: string }[] = [
     { key: 'lt', label: '🇱🇹 Lietuviška' },
     { key: 'world', label: '🌍 Užsienio' },
   ]
-  const modes: { key: HubMode; label: string }[] = [
-    { key: 'both', label: 'Viskas' },
+  // Be „Viskas" — numatyta abu (both). Aktyvų rikiavimą paspaudus → grįžta į „abu".
+  const modes: { key: Exclude<HubMode, 'both'>; label: string }[] = [
     { key: 'trending', label: 'Dabar' },
     { key: 'alltime', label: 'Visų laikų' },
   ]
@@ -62,13 +62,14 @@ export default function MuzikaTabs({
   ]
 
   return (
-    <div className="mz-hubfbar">
+    <div className="flt-bar flt-bar--wrap" style={{ marginTop: 14 }}>
       {/* Šalis — SEO Link chip'ai (išlaiko stilių + tipą) */}
       {scopes.map((s) => (
         <Link
           key={s.key}
-          href={hubUrl(s.key, s.key === 'all' ? 'both' : keepMode, { stilius: genreSlug, tipas })}
-          className={`mz-chip${scope === s.key ? ' on' : ''}`}
+          href={scope === s.key ? hubUrl('all', 'both', { stilius: genreSlug, tipas }) : hubUrl(s.key, keepMode, { stilius: genreSlug, tipas })}
+          className={`flt-chip${scope === s.key ? ' on' : ''}`}
+          aria-current={scope === s.key ? 'page' : undefined}
           prefetch={false}
         >
           {s.label}
@@ -78,12 +79,12 @@ export default function MuzikaTabs({
       {/* Rikiavimas — tik konkrečiai šaliai */}
       {scope !== 'all' && (
         <>
-          <span className="mz-divider" />
+          <span className="flt-divider" />
           {modes.map((m) => (
             <Link
               key={m.key}
-              href={hubUrl(scope, m.key, { stilius: genreSlug, tipas })}
-              className={`mz-chip${mode === m.key ? ' on' : ''}`}
+              href={mode === m.key ? hubUrl(scope, 'both', { stilius: genreSlug, tipas }) : hubUrl(scope, m.key, { stilius: genreSlug, tipas })}
+              className={`flt-chip${mode === m.key ? ' on' : ''}`}
               prefetch={false}
             >
               {m.label}
@@ -92,11 +93,11 @@ export default function MuzikaTabs({
         </>
       )}
 
-      <span className="mz-divider" />
+      <span className="flt-divider" />
 
       {/* Stilius — popover, sets ?stilius (išlaiko scope+tipas) */}
       <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
-        <button type="button" onClick={() => setOpen((v) => !v)} className={`mz-chip${genreSlug ? ' on' : ''}`}>
+        <button type="button" onClick={() => setOpen((v) => !v)} className={`flt-trig${genreSlug ? ' active' : ''}`}>
           {Icon.note}<span>{genreLabel || 'Stilius'}</span><span style={{ opacity: 0.7 }}>{Icon.chevron}</span>
         </button>
         {open && (
@@ -129,7 +130,7 @@ export default function MuzikaTabs({
         <Link
           key={t.key}
           href={hubUrl(scope, keepMode, { stilius: genreSlug, tipas: t.key })}
-          className={`mz-chip${tipas === t.key ? ' on' : ''}`}
+          className={`flt-chip${tipas === t.key ? ' on' : ''}`}
           aria-current={tipas === t.key ? 'page' : undefined}
           prefetch={false}
         >
