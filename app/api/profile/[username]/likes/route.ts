@@ -19,9 +19,10 @@ const TRACK_SEL = 'id, slug, title, cover_url, video_url, score, artist_id, arti
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { username: string } },
+  { params }: { params: Promise<{ username: string }> },
 ) {
-  const username = decodeURIComponent(params.username || '').replace(/^@/, '')
+  const { username: rawUsername } = await params
+  const username = decodeURIComponent(rawUsername || '').replace(/^@/, '')
   const kind = new URL(req.url).searchParams.get('kind')
   if (!username || (kind !== 'album' && kind !== 'track')) {
     return NextResponse.json({ items: [] })
