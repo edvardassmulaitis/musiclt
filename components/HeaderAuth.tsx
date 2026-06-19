@@ -65,7 +65,7 @@ function ThemeToggleButton() {
       onClick={() => setTheme(dk ? 'light' : 'dark')}
       aria-label={dk ? 'Įjungti šviesią temą' : 'Įjungti tamsią temą'}
       title={dk ? 'Šviesi tema' : 'Tamsi tema'}
-      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-all"
+      className="hidden min-[1081px]:flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-all"
       style={{ color: 'var(--text-muted)', background: 'var(--bg-hover)' }}
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)' }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)' }}
