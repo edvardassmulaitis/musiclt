@@ -541,15 +541,13 @@ function MobileProfileView(props: any) {
               </div>
             )}
 
-            {/* Centras: @username + ♥ + share viršuje, popbar apačioje */}
+            {/* Centras: @username (pilnas plotis — ♥/share perkelti į parašo eilutę), popbar apačioje */}
             <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
               <div className="flex items-center gap-1.5 min-w-0">
                 <h1 className="font-black leading-tight tracking-[-0.03em] pf-hero-name truncate"
                     style={{ fontSize: 'clamp(1.05rem, 4.5vw, 1.35rem)', fontFamily: "'Outfit', sans-serif" }}>
                   @{profile.username}
                 </h1>
-                <FollowButton targetId={profile.id} variant="ghost" iconOnly />
-                <ShareButton username={profile.username} iconOnly />
               </div>
               {activityLevel > 0 && (
                 <div>
@@ -566,41 +564,59 @@ function MobileProfileView(props: any) {
             )}
           </div>
 
-          {/* ── ROW 2: parašas ── */}
-          {bioSnippet && (
-            <p className="mt-2.5 text-[12px] leading-[1.45] line-clamp-3 pf-hero-bio"
-               style={{ fontFamily: "'Outfit', sans-serif" }}>
-              {bioSnippet}
-            </p>
-          )}
+          {/* ── ROW 2: parašas + veiksmai (♥ Sekti / Dalintis) dešinėje,
+              po equalizer/nuotaikos elementais — kad username turėtų visą plotį ── */}
+          <div className="mt-2.5 flex items-start gap-3">
+            {bioSnippet ? (
+              <p className="flex-1 min-w-0 text-[12px] leading-[1.45] line-clamp-3 pf-hero-bio"
+                 style={{ fontFamily: "'Outfit', sans-serif" }}>
+                {bioSnippet}
+              </p>
+            ) : <div className="flex-1" />}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <FollowButton targetId={profile.id} variant="ghost" iconOnly />
+              <ShareButton username={profile.username} iconOnly />
+            </div>
+          </div>
         </header>
       </div>
 
-      {/* ── TAGŲ JUOSTA (sticky) — V17, pakeitė tab'us ── */}
-      {stripChips.length > 0 && (
-        <div className="sticky top-0 z-20 backdrop-blur-md"
-             style={{ background: 'color-mix(in srgb, var(--bg-body) 90%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="flex items-center gap-2 px-3 py-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {stripChips.map((c) => {
-              const on = sel === c.key
-              return (
-                <button key={c.key} type="button" onClick={() => setSel(on ? 'all' : c.key)}
-                        className={PF_CHIP}
-                        style={{
-                          fontFamily: "'Outfit', sans-serif",
-                          background: on ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
-                          color: on ? '#fff' : 'var(--text-secondary)',
-                          border: `1px solid ${on ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
-                        }}>
-                  {c.key === 'likes' && <HeartOutlineIcon />}
-                  {c.key === 'about' && <UserIcon />}
-                  {c.label}
-                </button>
-              )
-            })}
+      {/* ── TAGŲ JUOSTOS (sticky) — V18h: DVI juostos. Viršuje įrašų tipai,
+          apačioje „Mėgstama muzika" + „Apie mane". ── */}
+      {stripChips.length > 0 && (() => {
+        const sideChips = stripChips.filter((c) => c.key === 'likes' || c.key === 'about')
+        const chipBtn = (c: { key: string; label: string; color: string }) => {
+          const on = sel === c.key
+          return (
+            <button key={c.key} type="button" onClick={() => setSel(on ? 'all' : c.key)}
+                    className={PF_CHIP}
+                    style={{
+                      fontFamily: "'Outfit', sans-serif",
+                      background: on ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
+                      color: on ? '#fff' : 'var(--text-secondary)',
+                      border: `1px solid ${on ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
+                    }}>
+              {c.key === 'likes' && <HeartOutlineIcon />}
+              {c.key === 'about' && <UserIcon />}
+              {c.label}
+            </button>
+          )
+        }
+        return (
+          <div className="sticky top-0 z-20 backdrop-blur-md"
+               style={{ background: 'color-mix(in srgb, var(--bg-body) 90%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
+            {feedTypeChips.length > 0 && (
+              <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {feedTypeChips.map(chipBtn)}
+              </div>
+            )}
+            <div className={`flex items-center gap-2 px-3 pb-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${feedTypeChips.length > 0 ? 'pt-0' : 'pt-2.5'}`}
+                 style={feedTypeChips.length > 0 ? { borderTop: '1px dashed var(--border-subtle)', paddingTop: '8px' } : undefined}>
+              {sideChips.map(chipBtn)}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── TURINYS ── */}
       <div className="px-4 pt-3 pb-24">
