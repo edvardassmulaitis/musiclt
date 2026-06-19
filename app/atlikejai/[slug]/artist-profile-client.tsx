@@ -5080,6 +5080,8 @@ export default function ArtistProfileClient({
   const [isAnonLike, setIsAnonLike] = useState<boolean>(false)
   const [modernLikeCount, setModernLikeCount] = useState<number>(likeCount)
   const [selfLikePending, setSelfLikePending] = useState(false)
+  const [likeDelta, setLikeDelta] = useState(0)
+  const [youFan, setYouFan] = useState<LikeUser | null>(null)
   // Surfaces DB-schema mismatches (e.g. the FK migration hasn't been applied)
   // so the user sees an actionable toast instead of silent failure.
   const [likeErrorMsg, setLikeErrorMsg] = useState<string | null>(null)
@@ -5106,6 +5108,7 @@ export default function ArtistProfileClient({
         if (typeof data.anonymous === 'boolean') setIsAnonLike(data.anonymous)
         // authed derived: if anonymous flag is false and response succeeded, user is signed in
         if (typeof data.anonymous === 'boolean') setAuthed(!data.anonymous)
+        if (data.you && typeof data.you.user_username === 'string') setYouFan(data.you)
       })
       .catch(() => {})
     return () => { cancelled = true }
@@ -5117,6 +5120,7 @@ export default function ArtistProfileClient({
     const prev = selfLiked
     setSelfLiked(prev ? false : true)
     setModernLikeCount(c => c + (prev ? -1 : 1))
+    setLikeDelta(d => d + (prev ? -1 : 1))
     try {
       const res = await fetch(`/api/artists/${artist.id}/like`, { method: 'POST' })
       if (res.ok) {
@@ -5139,6 +5143,7 @@ export default function ArtistProfileClient({
         console.error('[like toggle] server error', res.status, detail)
         setSelfLiked(prev)
         setModernLikeCount(c => c - (prev ? -1 : 1))
+        setLikeDelta(d => d - (prev ? -1 : 1))
         const errStr = String(detail?.error || '')
         if (/foreign key constraint/i.test(errStr) && /user_id_fkey/i.test(errStr)) {
           setLikeErrorMsg('Duomenų bazės migracija dar neatlikta: likes.user_id FK turi rodyti į profiles. Paleisk 20260427_unified_likes.sql.')
@@ -5153,6 +5158,7 @@ export default function ArtistProfileClient({
       console.error('[like toggle] network error', err)
       setSelfLiked(prev)
       setModernLikeCount(c => c - (prev ? -1 : 1))
+      setLikeDelta(d => d - (prev ? -1 : 1))
     } finally {
       setSelfLikePending(false)
     }
@@ -5170,8 +5176,11 @@ export default function ArtistProfileClient({
   // dvigubintų. Sprendimas: jei selfLiked perduotas — modernLikeCount turi
   // diff'ą, kitaip — naudojam tik artistLikes.
   const baseArtistLikes = legacyCommunity?.artistLikes ?? 0
-  const likes = baseArtistLikes + followers
+  const likes = Math.max(0, baseArtistLikes + followers + likeDelta)
   const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
+  const modalLikeUsers: any[] = (selfLiked && youFan)
+    ? [youFan, ...allLikesUsers.filter((u: any) => String(u.user_username || '').toLowerCase() !== String(youFan.user_username || '').toLowerCase())]
+    : allLikesUsers
 
   // Discography filters — album types + "Kitos dainos" (orphan tracks).
   // Multi-select: Set of active keys. 'all' sentinel = show everything.
@@ -5706,7 +5715,7 @@ export default function ArtistProfileClient({
         onClose={() => setLikesModalOpen(false)}
         title={`„${artist.name}" patinka`}
         count={likes}
-        users={allLikesUsers}
+        users={modalLikeUsers}
         subjectName={artist.name}
         subjectPhoto={artist.cover_image_url || heroImage}
         selfLiked={selfLiked}
