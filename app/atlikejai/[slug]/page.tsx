@@ -746,12 +746,43 @@ async function getEvents(id: number) {
     .sort((a: any, b: any) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
   return [...upcoming, ...past].slice(0, 12)
 }
-async function getSimilar(artistId: number, genreIds: number[]) {
-  if (!genreIds.length) return []
+async function getSimilar(artistId: number, genreIds: number[], substyleIds: number[] = [], country: string | null = null) {
+  if (!genreIds.length && !substyleIds.length) return []
   const sb = createAdminClient()
-  const { data } = await sb.from('artist_genres').select('artist_id, artists:artist_id(id, slug, name, cover_image_url)').in('genre_id', genreIds).limit(80)
-  const seen = new Set([artistId]); const out: any[] = []
-  for (const r of (data || []) as any[]) { if (r.artists && !seen.has(r.artists.id)) { seen.add(r.artists.id); out.push(r.artists) } if (out.length >= 14) break }
+  // „Panaši muzika" relevancija (anksčiau buvo paprasčiausiai pirmi 14 atlikėjų
+  // dalijančių BET KOKĮ platų žanrą → random'as). Dabar reitinguojam pagal:
+  //   1) substilių persidengimą (Experimental rock, Pop rock ir kt.) — STIPRUS
+  //      panašumo signalas (×100 už kiekvieną bendrą substilį);
+  //   2) plataus žanro persidengimą (Roko/Pop muzika) — silpnesnis (×20);
+  //   3) tą pačią šalį (+30) — LT atlikėjui rodom LT panašius;
+  //   4) populiarumą (score) — kaip tiebreaker'į (žinomesni viršuje).
+  type Cand = { artist: any; sub: number; gen: number }
+  const cand = new Map<number, Cand>()
+  const add = (a: any, kind: 'sub' | 'gen') => {
+    if (!a || a.id === artistId) return
+    const e = cand.get(a.id) || { artist: a, sub: 0, gen: 0 }
+    e[kind]++
+    cand.set(a.id, e)
+  }
+  if (substyleIds.length) {
+    const { data } = await sb.from('artist_substyles')
+      .select('substyle_id, artists:artist_id(id, slug, name, cover_image_url, country, score)')
+      .in('substyle_id', substyleIds).limit(500)
+    for (const r of (data || []) as any[]) add(r.artists, 'sub')
+  }
+  if (genreIds.length) {
+    const { data } = await sb.from('artist_genres')
+      .select('genre_id, artists:artist_id(id, slug, name, cover_image_url, country, score)')
+      .in('genre_id', genreIds).limit(500)
+    for (const r of (data || []) as any[]) add(r.artists, 'gen')
+  }
+  const scored = [...cand.values()].map((e) => {
+    const sameCountry = country && e.artist.country === country ? 1 : 0
+    const pop = Math.min(Number(e.artist.score) || 0, 1000) / 1000
+    const sim = e.sub * 100 + e.gen * 20 + sameCountry * 30 + pop * 5
+    return { artist: e.artist, sim }
+  }).sort((a, b) => b.sim - a.sim)
+  const out: any[] = scored.slice(0, 14).map((s) => s.artist)
   // Cover image strategy — PIRMA cover_image_url (atlikėjo official profile
   // foto, dažniausiai Wiki-imported HD). Tik jei jos nėra ARBA ji yra mažas
   // music.lt thumbnail (legacy URL signature) — fallback'inam į newest active
@@ -1076,7 +1107,7 @@ const fetchArtistData = unstable_cache(
       ...(legacyNews as any[]).map((t) => t.legacy_id),
     ]
     const [similar, legacyCommunity, ranks, lastPosts, popBarLevel, recentPopBarLevel, concertRecordings] = await Promise.all([
-      getSimilar(artistId, genres.map((g: any) => g.id)),
+      getSimilar(artistId, genres.map((g: any) => g.id), (substyles as any[]).map((s: any) => s.id), country),
       getLegacyCommunity(artistId, albumIds, allTrackIds),
       getArtistRanks(artistId, country, genres as { id: number; name: string }[], score),
       getLastPostsByThread(allThreadIds, 2),
@@ -1157,6 +1188,47 @@ async function getOrCreateArtistMainDiscussionId(
       .select('id')
       .single()
     return created?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+/** Pagrindinės temos detalė inline blokui: meta + TOP komentarai (pagal
+ *  patiktukus). Kai yra komentarų — UI rodo gražias korteles + CTA; kai nėra —
+ *  įvedimo formą. */
+async function getArtistMainDiscussionDetail(id: number) {
+  try {
+    const sb = createAdminClient()
+    const { data: disc } = await sb
+      .from('discussions')
+      .select('id, legacy_id, slug, title, comment_count')
+      .eq('id', id)
+      .single()
+    if (!disc) return null
+    const { data: cs } = await sb
+      .from('comments')
+      .select('id, body, like_count, created_at, author_id, profiles:author_id(username, avatar_url)')
+      .eq('discussion_id', id)
+      .eq('is_deleted', false)
+      .order('like_count', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(3)
+    const topComments = ((cs || []) as any[]).map((c: any) => ({
+      id: c.id,
+      body: (c.body || '').trim(),
+      like_count: c.like_count || 0,
+      created_at: c.created_at || null,
+      author_username: c.profiles?.username || null,
+      author_avatar: c.profiles?.avatar_url || null,
+    })).filter((c: any) => c.body)
+    return {
+      id: disc.id,
+      legacy_id: (disc as any).legacy_id ?? null,
+      slug: (disc as any).slug ?? null,
+      title: disc.title || '',
+      comment_count: Math.max((disc as any).comment_count || 0, topComments.length),
+      topComments,
+    }
   } catch {
     return null
   }
@@ -1257,6 +1329,9 @@ async function ArtistContent({ artist }: { artist: any }) {
   const mainDiscussionId = await getOrCreateArtistMainDiscussionId(
     artist.id, artist.name, legacyThreadsWithPosts as any,
   )
+  const mainDiscussion = mainDiscussionId
+    ? await getArtistMainDiscussionDetail(mainDiscussionId)
+    : null
   const legacyNewsWithPosts = (legacyNews as any[]).map((t) => {
     const recent = lastPosts.get(t.legacy_id) || []
     return {
@@ -1326,6 +1401,7 @@ async function ArtistContent({ artist }: { artist: any }) {
       recentPopBarLevel={recentPopBarLevel}
       concertRecordings={concertRecordings}
       mainDiscussionId={mainDiscussionId}
+      mainDiscussion={mainDiscussion}
     />
     <ArtistSocialSection artistId={artist.id} slug={artist.slug} name={artist.name} isClaimed={(artist as any).is_claimed} />
     </>

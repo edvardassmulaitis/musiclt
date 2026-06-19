@@ -918,24 +918,30 @@ main.has-bottom-nav {
 .pf-hero-chip { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.10); }
 [data-theme="light"] .pf-hero-chip { border-color: var(--border-default); background: var(--bg-surface); }
 
-/* Artist hero substyle chips (.aphchip) — šviesiame režime desktop'e
-   papildomi stiliai (Experimental rock ir kt.) būdavo balti ant balto/
-   šviesaus fono → nematomi. Šviesiam režimui duodam ŠVIESIAI PILKĄ piliulę
-   su tamsiu tekstu (kaip Edvardas prašė): aiškiai matoma ir ant šviesaus
-   puslapio fono, ir ant nuotraukos perėjimo. Tamsiam režimui — paliekam kaip
-   buvo (Tailwind lg:text-white/65). 2 klasių specifiškumas nugali Tailwind
-   1 klasės utility. */
-[data-theme="light"] .aphchip {
-  background: rgba(15,26,46,0.06);
-  border-color: rgba(15,26,46,0.16);
-  color: var(--text-secondary);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-[data-theme="light"] .aphchip:hover {
-  background: rgba(15,26,46,0.11);
-  border-color: rgba(15,26,46,0.30);
-  color: var(--text-primary);
+/* Artist hero substyle chips (.aphchip) — BULLETPROOF sprendimas.
+   Chip'ai desktop'e persidengia su hero nuotrauka (gali būti šviesi ARBA
+   tamsi), o dešinėje — baltas/tamsus puslapio fonas (priklauso nuo temos).
+   Vienas teksto/fono derinys negali tikti visiems backdrop'ams. Sprendimas:
+   pati piliulė gauna PUSIAU PERMATOMĄ TAMSŲ STIKLINĮ foną + baltą tekstą +
+   text-shadow — įskaitomumą lemia piliulė, NE tai, kas po ja. Veikia ant
+   šviesios/tamsios nuotraukos IR ant balto/tamsaus puslapio, abiejose temose.
+   Taikoma tik desktop'e (lg ≥ 1024px), kur chip'ai dengia nuotrauką; mobile'e
+   jie po hero ant kortelės fono (temos kintamieji). !important nugali Tailwind
+   lg: utilities (tas pats 1024px media query → reikia !important). */
+@media (min-width: 1024px) {
+  .aphchip {
+    background: rgba(8, 13, 22, 0.62) !important;
+    border-color: rgba(255, 255, 255, 0.26) !important;
+    color: rgba(255, 255, 255, 0.95) !important;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  }
+  .aphchip:hover {
+    background: rgba(8, 13, 22, 0.80) !important;
+    border-color: rgba(255, 255, 255, 0.48) !important;
+    color: #fff !important;
+  }
 }
 
 /* redeploy: flaky prerender retry (V18b) */

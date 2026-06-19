@@ -164,6 +164,17 @@ type Props = {
    *  inline komentaras Diskusijų sekcijoje. Nustatoma serveryje (get-or-create
    *  page.tsx). null — komentaro composer'is nerodomas. */
   mainDiscussionId?: number | null
+  /** Pagrindinės temos detalė: meta + TOP komentarai. Kai comment_count>0 —
+   *  rodom korteles + CTA; kai 0 — įvedimo formą. */
+  mainDiscussion?: MainDiscussion | null
+}
+type MainDiscussionComment = {
+  id: number; body: string; like_count: number; created_at: string | null
+  author_username: string | null; author_avatar: string | null
+}
+type MainDiscussion = {
+  id: number; legacy_id: number | null; slug: string | null; title: string
+  comment_count: number; topComments: MainDiscussionComment[]
 }
 /** Custom era — single period in an artist's career. */
 type Era = {
@@ -2274,9 +2285,6 @@ function FollowPill({
         >
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
-        <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold tracking-tight">
-          {heartFilled ? 'Seki' : 'Sekti'}
-        </span>
       </button>
       {/* Count zona — clickable kai >0 (atidaro likers modal'ą). */}
       {countClickable ? (
@@ -3396,8 +3404,15 @@ function Lightbox({
 // ── MasonryGallery ─────────────────────────────────────────────────
 
 function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: number) => void }) {
-  const limited = photos.slice(0, 24)
-  if (!limited.length) return null
+  if (!photos.length) return null
+  // Ribojam matomų nuotraukų kiekį — kai daug, rodom GALLERY_LIMIT ir „+N
+  // daugiau" plytelę, kuri atidaro pilną galeriją (Lightbox). „+1" atveju
+  // tiesiog rodom tą vieną, kad nebūtų „+1 daugiau" su viena paslėpta.
+  const GALLERY_LIMIT = 11
+  const showMore = photos.length > GALLERY_LIMIT + 1
+  const limited = showMore ? photos.slice(0, GALLERY_LIMIT) : photos.slice(0, 24)
+  const hiddenCount = photos.length - limited.length
+  const peekUrl = showMore ? photos[GALLERY_LIMIT]?.url : null
   // 2026-05-21: kai mažai photos (1-3), masonry columns palieka tuščius
   // stulpelius dešinėje ir vizualiai atrodo netvarkingai. Naudojam flex
   // justify-center su max'iniu kortelės pločiu — visi photo centruoti
@@ -3442,10 +3457,35 @@ function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: numbe
       </div>
     )
   }
+  // „+N daugiau" plytelė — peek į pirmą paslėptą nuotrauką su tamsiu overlay'um;
+  // paspaudus atidaro pilną galeriją (Lightbox) ties pirma paslėpta.
+  const moreTile = showMore ? (
+    <button
+      key="more"
+      onClick={() => onOpen(GALLERY_LIMIT)}
+      style={{ breakInside: 'avoid' }}
+      className="group relative mb-2 block aspect-[4/5] w-full overflow-hidden rounded-xl border-0 p-0 md:mb-3"
+      aria-label={`Rodyti visas nuotraukas (dar ${hiddenCount})`}
+      title="Visos nuotraukos"
+    >
+      {peekUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={proxyImg(peekUrl)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+      ) : (
+        <div className="h-full w-full bg-[var(--bg-elevated)]" />
+      )}
+      <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 text-white transition-colors group-hover:bg-black/45">
+        <span className="font-['Outfit',sans-serif] text-[22px] font-black leading-none">+{hiddenCount}</span>
+        <span className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.12em]">daugiau</span>
+      </span>
+    </button>
+  ) : null
+
   // 4+ photos: CSS-columns masonry — flows naturally by image aspect ratio
   return (
     <div className="columns-2 gap-2 sm:columns-3 md:gap-3 lg:columns-4">
       {limited.map(photoCard)}
+      {moreTile}
     </div>
   )
 }
@@ -5033,7 +5073,7 @@ export default function ArtistProfileClient({
   events, similar, newTracks,
   legacyCommunity, legacyThreads = [], legacyNews = [], discoveries = [], ranks = [],
   linkedTrackIds = [], awards = [], eras = [], displayRoles = [], popBarLevel = 0, recentPopBarLevel = 0,
-  concertRecordings = [], mainDiscussionId = null,
+  concertRecordings = [], mainDiscussionId = null, mainDiscussion = null,
 }: Props) {
   const [pid, setPid] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -5189,10 +5229,21 @@ export default function ArtistProfileClient({
   const atypes = [...new Set(albums.flatMap(aTypes))]
   const hasStudio = atypes.includes('Studijinis')
   const linkedSet = useMemo(() => new Set(linkedTrackIds), [linkedTrackIds])
-  const orphanTracks = useMemo(
-    () => tracks.filter(t => !linkedSet.has(t.id)),
-    [tracks, linkedSet],
-  )
+  // „Kitos dainos" — rikiuojam NAUJAUSIAS viršuje pagal YouTube įkėlimo datą
+  // (is_new_date), tada release_date, tada release_year/month/day. Be datos —
+  // į apačią. (Edvardo prašymas: orphan dainos chronologiškai nuo naujausių.)
+  const orphanTracks = useMemo(() => {
+    const dateVal = (t: any): number => {
+      if (t.is_new_date) { const x = new Date(t.is_new_date).getTime(); if (!isNaN(x)) return x }
+      if (t.release_date) { const x = new Date(t.release_date).getTime(); if (!isNaN(x)) return x }
+      if (t.release_year) {
+        const x = new Date(t.release_year, ((t.release_month as number) || 1) - 1, (t.release_day as number) || 1).getTime()
+        if (!isNaN(x)) return x
+      }
+      return 0
+    }
+    return tracks.filter(t => !linkedSet.has(t.id)).slice().sort((a, b) => dateVal(b) - dateVal(a))
+  }, [tracks, linkedSet])
   // Per-orphan-list leveler 2026-05-25 v6: orphan tracks turi savo
   // percentile context'ą (atskirai nuo tracksAllTime), kad „Kitos dainos"
   // grid'as turėtų savo top hit'ą su 5/5 ir žemiausias su 1/5.
@@ -6387,10 +6438,66 @@ export default function ArtistProfileClient({
                 )}
               </div>
 
-              {/* Inline komentaras — galima rašyti iškart, be navigacijos.
-                  Komentaras keliauja į pagrindinę temą (mainDiscussionId). Tas
-                  pats EntityCommentsBlock kaip kanoninėje /diskusijos page'ėje. */}
-              {mainDiscussionId ? (
+              {/* Pagrindinė tema. Kai JAU yra komentarų — rodom parinktus TOP
+                  komentarus gražiomis kortelėmis + CTA „Žiūrėti visus / Komentuoti"
+                  (atidaro pilną temą su composer'iu). Kai komentarų DAR nėra —
+                  rodom įvedimo formą iškart (EntityCommentsBlock). */}
+              {mainDiscussion && mainDiscussion.comment_count > 0 && mainDiscussion.topComments.length > 0 ? (
+                <div className="mb-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 sm:p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                      Komentarai · {mainDiscussion.comment_count.toLocaleString('lt-LT')}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2.5">
+                    {mainDiscussion.topComments.map((c) => (
+                      <div key={c.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3.5">
+                        <div className="mb-1.5 flex items-center gap-2.5">
+                          {c.author_avatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={proxyImg(c.author_avatar)} alt="" referrerPolicy="no-referrer" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+                          ) : (
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-elevated)] font-['Outfit',sans-serif] text-[12px] font-black text-[var(--text-muted)]">
+                              {(c.author_username || '?')[0]?.toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">
+                            {c.author_username || 'Vartotojas'}
+                          </div>
+                          {c.created_at && (
+                            <div className="text-[11px] text-[var(--text-faint)]">{relativeLt(c.created_at)}</div>
+                          )}
+                          {c.like_count > 0 && (
+                            <div className="ml-auto inline-flex items-center gap-1 text-[11px] font-bold text-[var(--text-muted)]">
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                              {c.like_count}
+                            </div>
+                          )}
+                        </div>
+                        <div className="whitespace-pre-wrap break-words font-['Outfit',sans-serif] text-[13.5px] leading-relaxed text-[var(--text-secondary)] line-clamp-4">
+                          {c.body}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveThread({
+                      id: mainDiscussion.id,
+                      legacy_id: mainDiscussion.legacy_id ?? 0,
+                      slug: mainDiscussion.slug || '',
+                      source_url: '',
+                      title: mainDiscussion.title,
+                      post_count: mainDiscussion.comment_count,
+                      canonical_slug: mainDiscussion.slug,
+                    } as LegacyThread)}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent-orange)] px-4 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white transition-opacity hover:opacity-90"
+                  >
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden><path d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z" /></svg>
+                    Komentuoti · žiūrėti visus ({mainDiscussion.comment_count.toLocaleString('lt-LT')})
+                  </button>
+                </div>
+              ) : mainDiscussionId ? (
                 <div className="mb-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 sm:p-5">
                   <EntityCommentsBlock
                     entityType="discussion"
@@ -6451,134 +6558,6 @@ export default function ArtistProfileClient({
         )}
         </div>
 
-        {/* Past events — fresh only; archyvas atidaromas pagal showArchive */}
-        {(pastEvents.length > 0 || archivedPastEvents.length > 0) && (
-          <section>
-            <div className="flex items-center justify-between">
-              <SectionTitle label="Renginių archyvas" />
-              {archivedPastEvents.length > 0 && (
-                <button
-                  onClick={() => setShowArchive(v => !v)}
-                  title={showArchive ? 'Slėpti senesnius' : `Rodyti senus renginius (${archivedPastEvents.length})`}
-                  className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-[11px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  {showArchive ? 'Slėpti archyvą' : `Archyvas (${archivedPastEvents.length})`}
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {(showArchive ? [...pastEvents, ...archivedPastEvents] : pastEvents).map((e: any) => <EventCard key={e.id} e={e} variant="past" onOpen={setActiveEvent} />)}
-            </div>
-          </section>
-        )}
-
-        {/* Legacy news — fresh only by default; archyvas via showArchive */}
-        {(freshLegacyNews.length > 0 || archivedLegacyNews.length > 0) && (
-          <section>
-            <div className="flex items-center justify-between">
-              <SectionTitle label="Naujienų archyvas" />
-              {archivedLegacyNews.length > 0 && (
-                <button
-                  onClick={() => setShowArchive(v => !v)}
-                  title={showArchive ? 'Slėpti senesnes' : `Rodyti senas naujienas (${archivedLegacyNews.length})`}
-                  className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-[11px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  {showArchive ? 'Slėpti archyvą' : `Archyvas (${archivedLegacyNews.length})`}
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {(showArchive ? [...freshLegacyNews, ...archivedLegacyNews].slice(0, 60) : freshLegacyNews.slice(0, 12)).map(n => {
-                const title = n.title || slugToForumTitle(n.slug)
-                const pc = (n as any).post_count ?? 0
-                const lc = (n as any).like_count ?? 0
-                // Migration timestamp detection — Coldplay/intl artistų visi
-                // naujienų įrašai turėjo `first_post_at = NOW()` IR
-                // `last_post_at = NOW()` (tas pats), nes legacy scrape'as
-                // nemigravo originalios datos. Heuristika: jei (a) data
-                // jaunesnė nei 30 dienų IR (b) first_post_at ≈ last_post_at
-                // (skirtumas <60s — abu set'inti tame pačiame migration
-                // call'e), tai NOW() artifact'as, ne real news date.
-                // Mikutavičiui: news properly migrated su real datomis
-                // (2002, 2008 ir t.t.) — ageDays >> 30, praeina filtrą.
-                const rawDate = n.first_post_at
-                const lastAct = (n as any).last_post_at
-                const dateStr = (() => {
-                  if (!rawDate) return null
-                  const d = new Date(rawDate)
-                  if (isNaN(d.getTime())) return null
-                  const ageDays = (Date.now() - d.getTime()) / 86400000
-                  if (ageDays < 30) {
-                    if (!lastAct) return null
-                    const lastD = new Date(lastAct)
-                    if (!isNaN(lastD.getTime())) {
-                      const gapSec = Math.abs(lastD.getTime() - d.getTime()) / 1000
-                      if (gapSec < 60) return null
-                    }
-                  }
-                  return d.toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })
-                })()
-                // News kortelės nukreipia į /news/{slug} (canonical news UI
-                // su gallery, related news, music player). canonical_slug =
-                // discussions.slug po canonical pipeline migracijos.
-                const newsHref = n.canonical_slug
-                  ? `/news/${n.canonical_slug}`
-                  : `/diskusijos/tema/${n.legacy_id}`
-                return (
-                  <Link
-                    key={n.legacy_id}
-                    href={newsHref}
-                    onClick={(ev) => {
-                      ev.preventDefault()
-                      setActiveNews({
-                        id: (n as any).id || n.legacy_id,
-                        slug: n.canonical_slug || undefined,
-                        title,
-                        legacy_id: n.legacy_id,
-                      })
-                    }}
-                    className="group flex flex-col gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[rgba(249,115,22,0.2)] bg-[rgba(249,115,22,0.1)] text-[var(--accent-orange)]">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V5a2 2 0 00-2-2z" /></svg>
-                      </div>
-                      <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">Naujiena</div>
-                      {dateStr && <div className="ml-auto text-[11px] font-medium text-[var(--text-muted)]">{dateStr}</div>}
-                    </div>
-                    <div className="text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[15px]">{title}</div>
-                    {(pc > 0 || lc > 0) && (
-                      <div className="mt-auto flex items-center gap-3 pt-1 text-[11px] text-[var(--text-muted)]">
-                        {lc > 0 && (
-                          <span className="inline-flex items-center gap-1">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                            </svg>
-                            {lc}
-                          </span>
-                        )}
-                        {pc > 0 && (
-                          <span className="inline-flex items-center gap-1">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                            </svg>
-                            {pc}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </Link>
-                )
-              })}
-            </div>
-          </section>
-        )}
 
 
       </main>
