@@ -20,10 +20,12 @@
 //     6. Naujausi komentarai — activity log
 
 import { useState, useMemo } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { SideEqualizer } from '@/components/profile/SideEqualizer'
 import { DailyPickCard } from '@/components/profile/DailyPicksCards'
 import { ProfileInfoModal, ProfileAboutContent } from '@/components/profile/ProfileInfoModal'
+import { ProfileEditModal } from '@/components/profile/ProfileEditModal'
 import { GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
 import { FULL_TO_SHORT } from '@/components/profile/SideEqualizer'
 
@@ -72,6 +74,9 @@ export function ProfileClient(props: any) {
     recentComments,
   } = props
 
+  const { data: session } = useSession()
+  const isOwner = !!session?.user?.id && session.user.id === profile.id
+  const [editOpen, setEditOpen] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
   const [tasteOpen, setTasteOpen] = useState(false)
   const [tasteInitial, setTasteInitial] = useState<AnyFilter | null>(null)
@@ -218,6 +223,8 @@ export function ProfileClient(props: any) {
           trackResolvedTotal={trackResolvedTotal}
           recentComments={recentComments}
           moodCount={moodList.length}
+          isOwner={isOwner}
+          onEdit={() => setEditOpen(true)}
           onOpenMood={() => setMoodOpen(true)}
           onOpenInfo={() => setInfoOpen(true)}
           onOpenTaste={openTaste}
@@ -321,6 +328,14 @@ export function ProfileClient(props: any) {
                 {/* V16: Sekti su širdele (kaip prie atlikėjų) ir desktop'e.
                     „Daugiau →" perkeltas į filtrų barą kaip „Apie mane". */}
                 <FollowButton targetId={profile.id} variant="ghost" size="sm" />
+                {isOwner && (
+                  <button type="button" onClick={() => setEditOpen(true)}
+                          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition hover:opacity-90"
+                          style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--hero-tag-bg)', color: 'var(--hero-name)', border: '1px solid var(--hero-tag-border)' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    Redaguoti
+                  </button>
+                )}
                 <ShareButton username={profile.username} />
               </div>
             </div>
@@ -370,6 +385,10 @@ export function ProfileClient(props: any) {
       />
 
       </div>{/* /desktop wrapper (hidden lg:block) */}
+
+      {editOpen && isOwner && (
+        <ProfileEditModal profile={profile} onClose={() => setEditOpen(false)} />
+      )}
 
       {infoOpen && (
         <ProfileInfoModal
@@ -437,6 +456,7 @@ function MobileProfileView(props: any) {
     moodTrack, blog, contentLanes, stats, memberSinceYear, dailyPicks, favoriteArtists,
     favoriteAlbums, favoriteTracks, likesCounts, albumResolvedTotal,
     trackResolvedTotal, recentComments, moodCount, onOpenMood, onOpenTaste, onOpenMore,
+    isOwner, onEdit,
   } = props
 
   const hasLikes = (favoriteArtists?.length || 0) > 0
@@ -575,6 +595,14 @@ function MobileProfileView(props: any) {
             ) : <div className="flex-1" />}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <FollowButton targetId={profile.id} variant="ghost" iconOnly />
+              {isOwner && (
+                <button type="button" onClick={onEdit}
+                        className="inline-flex items-center justify-center rounded-full transition hover:opacity-90"
+                        style={{ width: 28, height: 28, background: 'var(--hero-tag-bg)', border: '1px solid var(--hero-tag-border)', color: 'var(--hero-name)' }}
+                        aria-label="Redaguoti profilį">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                </button>
+              )}
               <ShareButton username={profile.username} iconOnly />
             </div>
           </div>
@@ -669,37 +697,7 @@ function MobileProfileView(props: any) {
 
         {sel === 'about' && (
           <div className="mt-1">
-            {moodTrack && (() => {
-              const ma = Array.isArray(moodTrack.artists) ? moodTrack.artists[0] : moodTrack.artists
-              const mc = moodTrack.cover_url || ma?.cover_image_url || null
-              return (
-                <button type="button" onClick={onOpenMood}
-                  className="w-full text-left flex items-center gap-3 rounded-xl px-3 py-2 mb-4 transition hover:opacity-85"
-                  style={{ background: 'rgba(249,115,22,0.10)', border: '1px solid rgba(249,115,22,0.22)' }}>
-                  {mc ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={mc} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center"
-                         style={{ background: 'rgba(249,115,22,0.2)', fontSize: '18px' }}>♬</div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>
-                      {moodTrack.title}
-                    </p>
-                    {ma && (
-                      <p className="text-xs truncate" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
-                        {ma.name}
-                      </p>
-                    )}
-                  </div>
-                  <span className="flex-shrink-0 text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
-                        style={{ background: 'rgba(249,115,22,0.15)', color: 'rgba(249,115,22,0.9)', fontFamily: "'Outfit', sans-serif" }}>
-                    {moodCount > 1 ? `Nuotaikos dainos · ${moodCount}` : 'Nuotaikos dainos'}
-                  </span>
-                </button>
-              )
-            })()}
+            {/* V18i: nuotaikos daina pašalinta iš čia — ji jau header'io circle'e. */}
             <ProfileAboutContent profile={profile} stats={stats} memberSinceYear={memberSinceYear} compact hideLegacy />
           </div>
         )}
