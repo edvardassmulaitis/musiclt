@@ -66,7 +66,6 @@ export type AdminGroup = {
 export const ADMIN_GROUPS: AdminGroup[] = [
   { key: 'review',    title: 'Reikia peržiūros',           icon: '📥', minRole: 'editor' },
   { key: 'content',   title: 'Turinys',                     icon: '📚', minRole: 'editor' },
-  { key: 'growth',    title: 'Augimas',                     icon: '📈', minRole: 'editor' },
   { key: 'community', title: 'Bendruomenė ir moderavimas',  icon: '💬', minRole: 'editor' },
   { key: 'imports',   title: 'Importai ir migracija',       icon: '🚀', minRole: 'admin', collapsed: true },
   { key: 'system',    title: 'Sistema',                     icon: '⚙️', minRole: 'admin', collapsed: true },
@@ -94,6 +93,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { key: 'inbox-events',   group: 'review', minRole: 'editor', href: '/admin/inbox/events',   icon: '🗓️', label: 'Renginių inbox',          hint: 'Renginių kandidatai → patvirtinti',         badgeKey: 'events_inbox_pending' },
   { key: 'radaras',        group: 'review', minRole: 'editor', href: '/admin/radaras',        icon: '📡', label: 'Naujų atlikėjų radaras',  hint: 'Sugeneruoti / įtraukti / paslėpti — /nauji-atlikejai', badgeKey: 'radar_pending' },
   { key: 'truksta',        group: 'review', minRole: 'editor', href: '/admin/truksta-muzikos',icon: '🧩', label: 'Trūkstama muzika',        hint: 'Bendruomenės minimi atlikėjai/albumai/dainos, kurių nėra DB', badgeKey: 'missing_music' },
+  { key: 'atradimai',      group: 'review', minRole: 'editor', href: '/admin/atradimai',      icon: '✨', label: 'Muzikos atradimai',       hint: 'Trūkstami atlikėjai — susieti / sukurti', badgeKey: 'atradimai_pending' },
   { key: 'claims',         group: 'review', minRole: 'editor', href: '/admin/claims',         icon: '🎫', label: 'Atlikėjų prašymai',       hint: '„Tai mano profilis" claim\'ai → studijos prieiga', badgeKey: 'claims_pending' },
   { key: 'topai-vidiniai', group: 'review', minRole: 'editor', href: '/admin/topai-vidiniai', icon: '📋', label: 'Vidiniai topai',          hint: 'Narių topai laukia susiejimo + patvirtinimo (per mėn.)', badgeKey: 'internal_tops' },
   { key: 'irasai',         group: 'review', minRole: 'editor', href: '/admin/irasai',         icon: '🗂️', label: 'Narių įrašai',            hint: 'Neperžiūrėti narių įrašai homepage juostai (per mėn.)', badgeKey: 'member_posts' },
@@ -111,16 +111,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { key: 'koncertu', group: 'content', minRole: 'editor', href: '/admin/koncertu-irasai', icon: '🎬', label: 'Koncertų įrašai', hint: 'Live pasirodymai iš YouTube' },
   { key: 'galerija', group: 'content', minRole: 'editor', href: '/admin/galerija', icon: '📸', label: 'Foto galerijos',  hint: 'Foto reportažai + fotografai' },
   { key: 'contacts', group: 'content', minRole: 'editor', href: '/admin/contacts', icon: '📇', label: 'Vadybininkų bazė', hint: 'Atlikėjų vadyba / booking / label kontaktai' },
-
-  // ── Augimas ───────────────────────────────────────────────────────────────
-  { key: 'atradimai',     group: 'growth', minRole: 'editor', href: '/admin/atradimai',     icon: '✨', label: 'Muzikos atradimai', hint: 'Trūkstami atlikėjai — susieti / sukurti' },
-  { key: 'kolekcijos',    group: 'growth', minRole: 'editor', href: '/admin/kolekcijos',    icon: '🎼', label: 'Kolekcijos',        hint: 'Teminės dainų/albumų kolekcijos' },
-  { key: 'verta',         group: 'growth', minRole: 'editor', href: '/admin/verta-keliones',icon: '✈️', label: 'Verta kelionės',    hint: 'Scout turai → kandidatai · koncertai · kryptys' },
-  { key: 'dienos-daina',  group: 'growth', minRole: 'editor', href: '/admin/dienos-daina',  icon: '⭐', label: 'Dienos daina',      hint: 'Daily song spotlight' },
+  { key: 'kolekcijos', group: 'content', minRole: 'editor', href: '/admin/kolekcijos', icon: '🎼', label: 'Kolekcijos',     hint: 'Teminės dainų/albumų kolekcijos' },
+  { key: 'verta',    group: 'content', minRole: 'editor', href: '/admin/verta-keliones', icon: '✈️', label: 'Verta kelionės', hint: 'Scout turai → kandidatai · koncertai · kryptys' },
+  { key: 'voting',   group: 'content', minRole: 'editor', href: '/admin/voting',   icon: '🗳️', label: 'Balsavimai',  hint: 'Apdovanojimai, votings' },
 
   // ── Bendruomenė ir moderavimas ─────────────────────────────────────────────
-  { key: 'comments', group: 'community', minRole: 'editor', href: '/admin/comments', icon: '💬', label: 'Komentarai', hint: 'Visi komentarai per visas surfaces' },
-  { key: 'voting',   group: 'community', minRole: 'editor', href: '/admin/voting',   icon: '🗳️', label: 'Balsavimai',  hint: 'Apdovanojimai, votings' },
+  { key: 'comments',     group: 'community', minRole: 'editor', href: '/admin/comments',    icon: '💬', label: 'Komentarai',  hint: 'Visi komentarai per visas surfaces' },
+  { key: 'dienos-daina', group: 'community', minRole: 'editor', href: '/admin/dienos-daina', icon: '⭐', label: 'Dienos daina', hint: 'Daily song spotlight' },
 
   // ── Importai ir migracija (admin tier) ─────────────────────────────────────
   { key: 'import',          group: 'imports', minRole: 'admin', href: '/admin/import',          icon: '🚀', label: 'Atlikėjų migracija', hint: 'Wiki + scrape job queue, bulk run', badgeKey: 'active_jobs' },

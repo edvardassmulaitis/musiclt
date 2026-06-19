@@ -154,7 +154,7 @@ export default function AdminDashboardPage() {
             Admin dashboard
           </h1>
           <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">
-            Ką reikia padaryti dabar — peržiūra, turinys, augimas.{!isFull && ' (Redaktoriaus rodinys)'}
+            Ką reikia padaryti dabar — peržiūra, turinys, bendruomenė.{!isFull && ' (Redaktoriaus rodinys)'}
           </p>
         </div>
 
@@ -166,7 +166,16 @@ export default function AdminDashboardPage() {
         {ADMIN_GROUPS.map((group) => {
           // Grupė matoma tik jei rolė pasiekia jos minRole.
           if (!hasMinRole(role, group.minRole)) return null
-          const cards = visibleByGroup(group.key)
+          let cards = visibleByGroup(group.key)
+          // „Reikia peržiūros" — rodom TIK korteles, kuriose realiai kažkas laukia
+          // (badge > 0), kad nebūtų triukšmo. Kol summary kraunasi (null) — rodom
+          // visas, kad nemirgėtų.
+          if (group.key === 'review' && summary) {
+            cards = cards.filter(c => {
+              const v = c.badgeKey ? summary[c.badgeKey] : undefined
+              return typeof v === 'number' && v > 0
+            })
+          }
           if (cards.length === 0) return null
 
           // Imports/system — collapse mygtukas.
