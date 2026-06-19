@@ -163,14 +163,13 @@ export async function POST(
         entity_id: artistId,
         user_id: profile.id,
         user_username: profile.username,
-        source: 'auth',
       })
       if (error) {
         // Username collision (e.g. ghost user su tuo pačiu username) → atnaujinam
         // existing eilutę su user_id (claim).
         if (error.code === '23505') {
           await sb.from('likes')
-            .update({ user_id: profile.id, source: 'auth' })
+            .update({ user_id: profile.id })
             .eq('entity_type', 'artist')
             .eq('entity_id', artistId)
             .eq('user_username', profile.username)
