@@ -483,14 +483,15 @@ function MobileProfileView(props: any) {
       else if (it.kind === 'ddweek') present.add('dd')
       else if (it.kind === 'comment') present.add('comment')
     }
+    // V18g: kaip desktop — be „Visi" pill'o (default='all'; aktyvų paspaudus
+    // grįžta į „all"). Be spalvotų taškų.
     const out: { key: string; label: string; color: string }[] = []
-    if (hasFeed) out.push({ key: 'all', label: 'Visi', color: '#f97316' })
     for (const t of ['article', 'review', 'event', 'topas']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
     if (present.has('dd')) out.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
     for (const t of ['creation', 'translation']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
     if (present.has('comment')) out.push({ key: 'comment', label: 'Komentarai', color: '#60a5fa' })
     return out
-  }, [feedItems, hasFeed])
+  }, [feedItems])
 
   const stripChips = useMemo(() => {
     const out = [...feedTypeChips]
@@ -499,9 +500,8 @@ function MobileProfileView(props: any) {
     return out
   }, [feedTypeChips, hasLikes])
 
-  // Numatytasis = „Mėgstama muzika" (kolekcija atrodo pilna iškart). Feed'as
-  // („Visi") lieka chip'as, jei yra. Be likes — feed'as, paskui „Apie mane".
-  const [sel, setSel] = useState<string>(hasLikes ? 'likes' : hasFeed ? 'all' : 'about')
+  // V18g: numatytasis kaip desktop — feed'as ('all') pirma, kitaip likes/about.
+  const [sel, setSel] = useState<string>(hasFeed ? 'all' : hasLikes ? 'likes' : 'about')
   const isFeedFilter = sel !== 'likes' && sel !== 'about'
 
   const avatar = realPhotoUrl || profile.avatar_url || null
@@ -559,7 +559,8 @@ function MobileProfileView(props: any) {
               )}
             </div>
 
-            {/* Dešinys: equalizer (header mode — taller, tik modal) */}
+            {/* Dešinys: nuotaikos daina (mažas circle) + equalizer */}
+            {moodTrack && <MobileMoodCircle track={moodTrack} onOpen={onOpenMood} />}
             {hasMusicMeter && (
               <TasteChip meter={profile.legacy_music_meter} onClick={() => onOpenTaste()} size="header" />
             )}
@@ -579,21 +580,20 @@ function MobileProfileView(props: any) {
       {stripChips.length > 0 && (
         <div className="sticky top-0 z-20 backdrop-blur-md"
              style={{ background: 'color-mix(in srgb, var(--bg-body) 90%, transparent)', borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="flex items-center gap-1.5 px-3 py-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex items-center gap-2 px-3 py-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {stripChips.map((c) => {
-              const isActive = sel === c.key
+              const on = sel === c.key
               return (
-                <button key={c.key} type="button" onClick={() => setSel(c.key)}
-                        className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-bold transition"
+                <button key={c.key} type="button" onClick={() => setSel(on ? 'all' : c.key)}
+                        className={PF_CHIP}
                         style={{
                           fontFamily: "'Outfit', sans-serif",
-                          background: isActive ? 'var(--text-primary)' : 'var(--card-bg)',
-                          color: isActive ? 'var(--bg-body)' : 'var(--text-secondary)',
-                          border: `1px solid ${isActive ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
+                          background: on ? 'var(--accent-orange)' : 'var(--bg-hover, var(--bg-surface))',
+                          color: on ? '#fff' : 'var(--text-secondary)',
+                          border: `1px solid ${on ? 'var(--accent-orange)' : 'var(--border-default, var(--border-subtle))'}`,
                         }}>
-                  {c.key !== 'all' && (
-                    <span aria-hidden className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: c.color }} />
-                  )}
+                  {c.key === 'likes' && <HeartOutlineIcon />}
+                  {c.key === 'about' && <UserIcon />}
                   {c.label}
                 </button>
               )
@@ -968,6 +968,32 @@ function TasteChip({ meter, onClick, fill = false, size = 'normal' }: {
         )
       })}
       <style>{`@keyframes tasteChipBar { from { transform: scaleY(0.78); } to { transform: scaleY(1); } }`}</style>
+    </button>
+  )
+}
+
+// V18g: mažas Nuotaikos dainos apskritimas (TIK circle, be teksto) — mobile
+// header'yje kairėje nuo equalizer'io. Paspaudus atidaro nuotaikos grotuvą.
+function MobileMoodCircle({ track, onOpen }: { track: any; onOpen?: () => void }) {
+  const artist = Array.isArray(track.artists) ? track.artists[0] : track.artists
+  const cover = ytThumbProfile(track.video_url) || track.cover_url || artist?.cover_image_url || null
+  return (
+    <button type="button" onClick={onOpen}
+      className="group relative flex-shrink-0" style={{ width: 52, height: 52 }}
+      title={`Nuotaikos dainos${track.title ? ' — ' + track.title : ''}`} aria-label="Nuotaikos dainos">
+      <span aria-hidden className="absolute -inset-1 rounded-full opacity-45"
+            style={{ background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #60a5fa, #34d399, #fbbf24, #f97316)', animation: 'moodSpinV11 16s linear infinite', filter: 'blur(3px)' }} />
+      {cover ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={cover} alt="" className="relative w-[52px] h-[52px] rounded-full object-cover border-2 border-white/15" style={{ animation: 'moodSpinV11 40s linear infinite' }} />
+      ) : (
+        <div className="relative w-[52px] h-[52px] rounded-full flex items-center justify-center text-lg bg-gradient-to-br from-orange-500/40 to-rose-600/30" style={{ color: 'rgba(255,255,255,0.8)' }}>♬</div>
+      )}
+      <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+            style={{ background: 'rgba(0,0,0,0.55)' }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="#fff" aria-hidden><polygon points="6 4 20 12 6 20 6 4" /></svg>
+      </span>
+      <style>{`@keyframes moodSpinV11 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </button>
   )
 }
