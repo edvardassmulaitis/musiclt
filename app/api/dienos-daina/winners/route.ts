@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase'
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const limit = parseInt(searchParams.get('limit') || '14')
+  const offset = parseInt(searchParams.get('offset') || '0')
   const date = searchParams.get('date')
   const supabase = createAdminClient()
 
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
     .order('date', { ascending: false })
 
   if (date) query = query.eq('date', date)
-  else query = query.limit(limit)
+  else query = query.range(offset, offset + limit - 1)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
