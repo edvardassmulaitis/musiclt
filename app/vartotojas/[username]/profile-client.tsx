@@ -516,7 +516,7 @@ function MobileProfileView(props: any) {
 
   const stripChips = useMemo(() => {
     const out = [...feedTypeChips]
-    if (hasLikes) out.push({ key: 'likes', label: 'Mėgstama muzika', color: '#e11d48' })
+    if (hasLikes) out.push({ key: 'likes', label: 'Muzika', color: '#e11d48' })
     out.push({ key: 'about', label: 'Apie mane', color: '#a3a3a3' })
     return out
   }, [feedTypeChips, hasLikes])
@@ -2858,11 +2858,6 @@ function DdWeekCard({ picks, label, username, streak }: {
         <h3 className="text-[15.5px] font-extrabold" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
           {label}
         </h3>
-        {streak > 30 && (
-          <span className="ml-auto text-[11.5px] font-bold" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
-            🔥 {streak.toLocaleString('lt-LT')} d. serija
-          </span>
-        )}
       </div>
       <div className="px-5 py-1.5">
         {shown.map((p, i) => <DdPickRow key={p.id} p={p} last={i === shown.length - 1} />)}
@@ -2958,6 +2953,9 @@ function RecentLikesCard({
     ]
     return arr.sort((a, b) => new Date(b.liked_at).getTime() - new Date(a.liked_at).getTime()).slice(0, 8)
   }, [favoriteArtists, favoriteAlbums, favoriteTracks])
+
+  // V18k: jei nėra neseniai pamėgtos muzikos — visai nerodom kortelės.
+  if (items.length === 0) return null
 
   return (
     <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
