@@ -2456,6 +2456,10 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
      arba abi sekcijos tuščios (galima problema, ne reali tuštuma). Retry'inam
      iki 2 kartų su backoff'u; jei vis tiek degraded/klaida → tracksStatus
      = 'error' → UI rodo „Bandyti dar kartą" kortelę vietoj amžinų skeletonų. */
+  // Ar jau turim NETUŠČIO turinio (SSR seed'as arba ankstesnis sėkmingas fetch).
+  // Naudojam kaip „no-wipe" saugiklį: transient tuščias /api/home/latest atsakymas
+  // NIEKADA neperrašo jau rodomo turinio ir nenuverčia į 'error'.
+  const hasAnyRef = useRef(seeded)
   const loadLatest = useCallback(async () => {
     setTracksStatus('loading')
     const attempt = async (signal: AbortSignal, fresh: boolean) => {
@@ -2485,18 +2489,28 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
           await new Promise(res => setTimeout(res, 600 * (i + 1)))
           continue
         }
-        setTracks([...tLt, ...tWorld])
-        setAlbums([...aLt, ...aWorld])
-        setUpcomingAlbums((d.upcoming || []) as any[])
-        setTotals({
-          tracksLt: d.tracks?.totalLt || 0,
-          tracksWorld: d.tracks?.totalWorld || 0,
-          albumsLt: d.albums?.totalLt || 0,
-          albumsWorld: d.albums?.totalWorld || 0,
-          upcoming: d.upcomingTotal || 0,
-        })
-        const totalItems = tLt.length + tWorld.length + aLt.length + aWorld.length
-        setTracksStatus(totalItems === 0 && d.degraded ? 'error' : 'ok')
+        const newTracks = [...tLt, ...tWorld]
+        const newAlbums = [...aLt, ...aWorld]
+        const totalItems = newTracks.length + newAlbums.length
+        // No-wipe saugiklis: NETUŠČIO turinio niekada nekeičiam tuščiu atsakymu.
+        if (newTracks.length) setTracks(newTracks)
+        if (newAlbums.length) setAlbums(newAlbums)
+        if ((d.upcoming || []).length) setUpcomingAlbums((d.upcoming || []) as any[])
+        if (totalItems > 0) {
+          setTotals({
+            tracksLt: d.tracks?.totalLt || 0,
+            tracksWorld: d.tracks?.totalWorld || 0,
+            albumsLt: d.albums?.totalLt || 0,
+            albumsWorld: d.albums?.totalWorld || 0,
+            upcoming: d.upcomingTotal || 0,
+          })
+          hasAnyRef.current = true
+          setTracksStatus('ok')
+          return
+        }
+        // Tuščias atsakymas: jei jau turim turinio — paliekam jį ('ok'); jei ne —
+        // 'error', kurį auto-retry effect'as savaime perbando (be paspaudimo).
+        setTracksStatus(hasAnyRef.current ? 'ok' : 'error')
         return
       } catch {
         clearTimeout(timer)
@@ -2504,7 +2518,9 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
           await new Promise(res => setTimeout(res, 600 * (i + 1)))
           continue
         }
-        setTracksStatus('error')
+        // Visi bandymai fail'ino: jei jau rodom turinį, neblaškom vartotojo
+        // klaidos kortele — paliekam esamą. Antraip 'error' → auto-retry.
+        setTracksStatus(hasAnyRef.current ? 'ok' : 'error')
       }
     }
   }, [])
@@ -2519,6 +2535,24 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     }
     loadLatest()
   }, [loadLatest, latestReload, seeded])
+
+  // ── Auto-self-heal („kad taip negalėtų nutikti") ──
+  // Jei „Naujos dainos / Nauji albumai" liko 'error' būsenoje (visi fetch'ai
+  // fail'ino — tipiškai cold-start serverless > timeout), AUTOMATIŠKAI perbandom
+  // su didėjančiu atidėjimu. Vartotojui NEBEREIKIA spausti „Bandyti dar kartą" —
+  // sekcija atsistato pati per kelias sekundes (po cold-start'o /api/home/latest
+  // atsako akimirksniu, todėl kitas bandymas paprastai pavyksta). Po 8 bandymų
+  // sustojam ir paliekam rankinį mygtuką kaip kraštutinę priemonę.
+  const autoRetryRef = useRef(0)
+  useEffect(() => {
+    if (tracksStatus === 'ok') { autoRetryRef.current = 0; return }
+    if (tracksStatus !== 'error') return
+    if (autoRetryRef.current >= 8) return
+    const n = autoRetryRef.current
+    const delay = Math.min(20000, Math.round(1500 * Math.pow(1.6, n)))
+    const t = setTimeout(() => { autoRetryRef.current = n + 1; loadLatest() }, delay)
+    return () => clearTimeout(t)
+  }, [tracksStatus, loadLatest])
 
   /* Horizontal scroll arrows — ant ne-touch įrenginių prie kiekvieno .hp-scroll
      parent'o pridedam ◄ ► mygtukus. Mygtukai scrollina 85% conteinerio pločio
