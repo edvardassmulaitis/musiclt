@@ -26,10 +26,20 @@ export async function GET() {
   try {
     // Parallel — visos trys užklausos vienu metu. Kiekviena turi savo
     // error handling'ą — jei viena fail'ina, kitos vis tiek grąžina duomenis.
+    // Saugiklis: kiekviena uzklausa max 20s. Jei DB intermitentiskai pakimba,
+    // grazinam „degraded" greitai (no-store -> klientas self-heal perbando), o
+    // NE 180s Vercel hang. NEliesti page.tsx seed'o (zr. SESSION 2026-06-21).
+    const withDeadline = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+      Promise.race([
+        p,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+        ),
+      ])
     const [tracksResult, albumsResult, upcomingResult] = await Promise.allSettled([
-      getLatestTracksForHome(),
-      getLatestAlbumsForHome(),
-      getUpcomingAlbumsForHome(),
+      withDeadline(getLatestTracksForHome(), 20_000, 'tracks'),
+      withDeadline(getLatestAlbumsForHome(), 20_000, 'albums'),
+      withDeadline(getUpcomingAlbumsForHome(), 20_000, 'upcoming'),
     ])
     const tracks = tracksResult.status === 'fulfilled' ? tracksResult.value : (() => { console.error('home/latest tracks failed:', (tracksResult as any).reason?.message); return { lt: [], world: [], totalLt: 0, totalWorld: 0 } })()
     const albums = albumsResult.status === 'fulfilled' ? albumsResult.value : (() => { console.error('home/latest albums failed:', (albumsResult as any).reason?.message); return { lt: [], world: [], totalLt: 0, totalWorld: 0 } })()

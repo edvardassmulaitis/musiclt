@@ -229,8 +229,7 @@ function hybridScore(
 const TRACK_SELECT =
   'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
   'release_date, release_year, created_at, artist_id, ' +
-  'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country, score), ' +
-  'album_tracks(albums(id, year))'
+  'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
 
 async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
   const supabase = createAdminClient()
@@ -291,7 +290,46 @@ async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
   if (out.length === 0) {
     throw new Error('fetchLatestTracksRaw returned 0 rows — treating as transient failure (not caching)')
   }
+
+  // Album metai reissue-filtrui — batched uzklausa (NE inline embed). Inline
+  // `album_tracks(albums(id,year))` embed'as 500 kandidatu MICRO DB darydavo
+  // ~8s (correlated per-row) -> homepage „Naujos dainos" hang/timeout. Vienas
+  // set-based IN(...) batch ~0.3s. Cache'inama kartu su rows. SESSION 2026-06-21.
+  await attachAlbumYears(out)
+
   return out
+}
+
+/** Uzpildo kiekvieno track'o `album_tracks` lauka (reissue-filtrui) per viena
+ *  ar kelis batched `IN(track_id)` uzklausas vietoj brangaus inline embed'o. */
+async function attachAlbumYears(rows: LatestTrackRow[]): Promise<void> {
+  if (rows.length === 0) return
+  const supabase = createAdminClient()
+  const ids = rows.map(r => r.id)
+  const CHUNK = 300
+  const chunks: number[][] = []
+  for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK))
+  const results = await Promise.all(chunks.map(chunk =>
+    withRetry(async () => {
+      const res = await supabase
+        .from('album_tracks')
+        .select('track_id, albums(id, year)')
+        .in('track_id', chunk)
+      if (res.error) throw res.error
+      return res.data || []
+    }, { label: 'tracks.albumYears', tries: 2 }),
+  ))
+  const byTrack = new Map<number, Array<{ albums: { id: number; year: number | null } | null }>>()
+  for (const chunkRows of results) {
+    for (const row of chunkRows as any[]) {
+      const tid = row.track_id as number
+      const albs = Array.isArray(row.albums) ? row.albums : (row.albums ? [row.albums] : [])
+      const arr = byTrack.get(tid) || []
+      for (const a of albs) arr.push({ albums: a ? { id: a.id ?? 0, year: a.year ?? null } : null })
+      byTrack.set(tid, arr)
+    }
+  }
+  for (const r of rows) r.album_tracks = byTrack.get(r.id) || []
 }
 
 /** Cache'inta raw fetch'inimo funkcija. Vidinis arg pirmiausia veikia kaip
