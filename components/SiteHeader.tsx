@@ -7,6 +7,7 @@ import { HeaderAuth } from '@/components/HeaderAuth'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { MessagesBell } from '@/components/MessagesBell'
 import { MasterSearch } from '@/components/MasterSearch'
+import { useSite } from '@/components/SiteContext'
 import { RadarSweepMini } from '@/components/RadarSweepMini'
 import { openQuickCreate } from '@/components/QuickCreate'
 import { proxyImg } from '@/lib/img-proxy'
@@ -175,16 +176,35 @@ const NAV: NavItem[] = [
   },
 ]
 
-/* Mobile flat-meniu sub-nuorodos — chip'ai TIK ten, kur yra atskiros sritys,
-   kurių nepamatai iš skyriaus pagrindinio puslapio (Koncertai, Bendruomenė).
-   Muzika/Topai/Naujienos/Skelbimai hub'ai patys viską parodo → be pills.
-   Tik patvirtinti route'ai (kad nebūtų 404). */
+/* Mobile flat-meniu quick-action chip'ai — po kiekvienu skyriaus pavadinimu.
+   Pakeičia ilgus subtekstus trumpais, tiesioginiais nav shortcut'ais į
+   aktualiausius poskyrius. Tik patvirtinti route'ai (kad nebūtų 404). */
 const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string }[]>> = {
+  muzika: [
+    { href: '/muzika/lietuviska', label: 'LT' },
+    { href: '/muzika/uzsienio', label: 'Pasaulio muzika' },
+    { href: '/muzikos-atradimai', label: 'Radaras' },
+  ],
+  topai: [
+    { href: '/top30', label: 'LT TOP 30' },
+    { href: '/top40', label: 'TOP 40' },
+    { href: '/balsavimai', label: 'Balsavimai' },
+  ],
+  naujienos: [
+    { href: '/naujienos/lietuva', label: 'LT' },
+    { href: '/naujienos/pasaulis', label: 'Pasaulis' },
+  ],
   renginiai: [
     { href: '/festivaliai', label: 'Festivaliai' },
     { href: '/galerija', label: 'Foto reportažai' },
     { href: '/verta-keliones', label: 'Verta kelionės' },
     { href: '/koncertu-irasai', label: 'Koncertų įrašai' },
+  ],
+  skelbimai: [
+    { href: '/skelbimai/irasai', label: 'Įrašai' },
+    { href: '/skelbimai/instrumentai', label: 'Instrumentai' },
+    { href: '/skelbimai/muzikantai', label: 'Muzikantai' },
+    { href: '/skelbimai/paslaugos', label: 'Paslaugos' },
   ],
   bendruomene: [
     { href: '/nariai', label: 'Nariai' },
@@ -1257,6 +1277,7 @@ export function SiteHeader() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const { dk, setTheme } = useSite()
   const [preview, setPreview] = useState<NavPreview | null>(null)
   // Desktop dropdown'o "closing" state — paspaudus link'ą uždaro
   // panel'ą iškart. SVARBU: suppress'as laikomas KOL pelė fiziškai
@@ -2919,7 +2940,6 @@ export function SiteHeader() {
                     <span className="sh-mrow-icon">{n.icon}</span>
                     <span className="sh-mrow-text">
                       <span className="sh-mrow-title">{n.label}</span>
-                      <span className="sh-mrow-desc">{n.desc}</span>
                     </span>
                     <span className="sh-mblock-go" aria-hidden>
                       <ArrowRight size={15} />
@@ -2938,6 +2958,21 @@ export function SiteHeader() {
               )
             })}
           </nav>
+        </div>
+
+        {/* FOOTER — temos perjungiklis (matomas ir neprisijungusiems mobile) */}
+        <div className="sh-mfoot">
+          <button
+            type="button"
+            onClick={() => setTheme(dk ? 'light' : 'dark')}
+            className="sh-mfoot-btn"
+            aria-label={dk ? 'Įjungti šviesią temą' : 'Įjungti tamsią temą'}
+          >
+            {dk
+              ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+              : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
+            {dk ? 'Šviesi tema' : 'Tamsi tema'}
+          </button>
         </div>
       </div>
 
