@@ -161,35 +161,14 @@ function isoDaysAgo(days: number): string {
      3) last-known-good — jei viskas vis tiek fail'ina, serve'inam paskutinį
         gerą rezultatą (ne tuščią) iš in-memory (warm instance). */
 
-// Per-attempt timeout. Supabase JS klientas NETURI fetch timeout'o — jei TCP
-// jungtis „pakimba" (cold serverless instance, pool hiccup, network stall),
-// užklausa NEgrąžina nei rezultato, nei error'o ir SSR render'is laukia iki
-// Vercel funkcijos limito. Tada homepage'as nukrenta į ne-seed'intą client-
-// fetch fallback'ą („Naujos dainos" tuščios → „Nepavyko užkrauti"). withTimeout
-// paverčia pakibimą greitu throw'u, todėl withRetry self-heal'ina, o page.tsx
-// empty-guard / last-known-good logika suveikia teisingai.
-async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  try {
-    return await Promise.race([
-      p,
-      new Promise<T>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-      }),
-    ])
-  } finally {
-    if (timer) clearTimeout(timer)
-  }
-}
-
 async function withRetry<T>(
   fn: () => Promise<T>,
-  { tries = 3, baseDelayMs = 250, label = 'query', timeoutMs = 6000 }: { tries?: number; baseDelayMs?: number; label?: string; timeoutMs?: number } = {},
+  { tries = 3, baseDelayMs = 250, label = 'query' }: { tries?: number; baseDelayMs?: number; label?: string } = {},
 ): Promise<T> {
   let lastErr: unknown
   for (let i = 0; i < tries; i++) {
     try {
-      return await withTimeout(Promise.resolve(fn()), timeoutMs, label)
+      return await fn()
     } catch (e) {
       lastErr = e
       if (i < tries - 1) {
