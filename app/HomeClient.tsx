@@ -2536,6 +2536,12 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
      arba abi sekcijos tuščios (galima problema, ne reali tuštuma). Retry'inam
      iki 2 kartų su backoff'u; jei vis tiek degraded/klaida → tracksStatus
      = 'error' → UI rodo „Bandyti dar kartą" kortelę vietoj amžinų skeletonų. */
+  // Ar jau turim NETUŠČIO turinio (SSR seed'as arba ankstesnis sėkmingas fetch).
+  // „No-wipe" saugiklis: transient tuščias/degraded atsakymas NIEKADA neperrašo
+  // jau rodomo turinio ir nenuverčia sekcijų į klaidą.
+  const hasAnyRef = useRef(seeded)
+  const autoRetryRef = useRef(0)
+  const [latestGaveUp, setLatestGaveUp] = useState(false)
   const loadLatest = useCallback(async () => {
     setTracksStatus('loading')
     const attempt = async (signal: AbortSignal, fresh: boolean) => {
@@ -2550,7 +2556,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     const maxTries = 3
     for (let i = 0; i < maxTries; i++) {
       const ctrl = new AbortController()
-      const timer = setTimeout(() => ctrl.abort(), 8000)
+      const timer = setTimeout(() => ctrl.abort(), 16000)
       try {
         const d = await attempt(ctrl.signal, i > 0)
         clearTimeout(timer)
@@ -2565,18 +2571,29 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
           await new Promise(res => setTimeout(res, 600 * (i + 1)))
           continue
         }
-        setTracks([...tLt, ...tWorld])
-        setAlbums([...aLt, ...aWorld])
-        setUpcomingAlbums((d.upcoming || []) as any[])
-        setTotals({
-          tracksLt: d.tracks?.totalLt || 0,
-          tracksWorld: d.tracks?.totalWorld || 0,
-          albumsLt: d.albums?.totalLt || 0,
-          albumsWorld: d.albums?.totalWorld || 0,
-          upcoming: d.upcomingTotal || 0,
-        })
-        const totalItems = tLt.length + tWorld.length + aLt.length + aWorld.length
-        setTracksStatus(totalItems === 0 && d.degraded ? 'error' : 'ok')
+        const newTracks = [...tLt, ...tWorld]
+        const newAlbums = [...aLt, ...aWorld]
+        const totalItems = newTracks.length + newAlbums.length
+        // No-wipe: tik NETUŠČIĄ rezultatą rašom (kad transient tuščias atsakymas
+        // neištrintų jau rodomo turinio).
+        if (newTracks.length) setTracks(newTracks)
+        if (newAlbums.length) setAlbums(newAlbums)
+        if ((d.upcoming || []).length) setUpcomingAlbums((d.upcoming || []) as any[])
+        if (totalItems > 0) {
+          setTotals({
+            tracksLt: d.tracks?.totalLt || 0,
+            tracksWorld: d.tracks?.totalWorld || 0,
+            albumsLt: d.albums?.totalLt || 0,
+            albumsWorld: d.albums?.totalWorld || 0,
+            upcoming: d.upcomingTotal || 0,
+          })
+          hasAnyRef.current = true
+          setTracksStatus('ok')
+          return
+        }
+        // Tuščia/degraded: jei jau rodom turinį — paliekam ('ok'); antraip 'error'
+        // (auto-retry effect'as perbandys savaime, be vartotojo paspaudimo).
+        setTracksStatus(hasAnyRef.current ? 'ok' : 'error')
         return
       } catch {
         clearTimeout(timer)
@@ -2584,7 +2601,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
           await new Promise(res => setTimeout(res, 600 * (i + 1)))
           continue
         }
-        setTracksStatus('error')
+        setTracksStatus(hasAnyRef.current ? 'ok' : 'error')
       }
     }
   }, [])
@@ -2599,6 +2616,27 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     }
     loadLatest()
   }, [loadLatest, latestReload, seeded])
+
+  // ── Auto-self-heal („kad taip negalėtų nutikti") ──
+  // Jei „Naujos dainos / Nauji albumai" liko klaidos būsenoje (cold-start API >
+  // timeout, transient DB), AUTOMATIŠKAI perbandom su didėjančiu atidėjimu —
+  // vartotojui NEBEREIKIA spausti „Bandyti dar kartą". Kol perbandinėjam, UI
+  // rodo skeletonus (ne klaidos kortelę), todėl niekada neatrodo „sugadinta".
+  // Tik po ~24 nesėkmingų bandymų (minutės) parodom rankinį mygtuką kaip
+  // kraštutinę priemonę.
+  useEffect(() => {
+    if (tracksStatus === 'ok') {
+      autoRetryRef.current = 0
+      if (latestGaveUp) setLatestGaveUp(false)
+      return
+    }
+    if (tracksStatus !== 'error') return
+    const n = autoRetryRef.current
+    if (n >= 24) { if (!latestGaveUp) setLatestGaveUp(true); return }
+    const delay = Math.min(30000, Math.round(1200 * Math.pow(1.5, n)))
+    const t = setTimeout(() => { autoRetryRef.current = n + 1; loadLatest() }, delay)
+    return () => clearTimeout(t)
+  }, [tracksStatus, loadLatest, latestGaveUp])
 
   /* Horizontal scroll arrows — ant ne-touch įrenginių prie kiekvieno .hp-scroll
      parent'o pridedam ◄ ► mygtukus. Mygtukai scrollina 85% conteinerio pločio
@@ -3416,10 +3454,10 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     <div className="flex items-stretch gap-3">
                       <RowDivider icon={lane} />
                       <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Naujos dainos">
-                        {tracksStatus === 'loading' && tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
+                        {(tracks.length === 0 && (tracksStatus === 'loading' || (tracksStatus === 'error' && !latestGaveUp))) ? Array(8).fill(null).map((_, i) => (
                           <EqSkel key={i} w={200} h={112} r={12} />
                         )) : tracksStatus === 'error' && tracks.length === 0 ? (
-                          <LoadErrorCard onRetry={() => setLatestReload(n => n + 1)} height={112} />
+                          <LoadErrorCard onRetry={() => { setLatestGaveUp(false); autoRetryRef.current = 0; setLatestReload(n => n + 1) }} height={112} />
                         ) : items.length === 0 ? (
                           <div className="flex h-[112px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
                             {lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}
@@ -3518,10 +3556,10 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     <div className="flex items-stretch gap-3">
                       <RowDivider icon={lane} />
                       <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Nauji albumai">
-                        {tracksStatus === 'loading' && albums.length === 0 ? Array(8).fill(null).map((_, i) => (
+                        {(albums.length === 0 && (tracksStatus === 'loading' || (tracksStatus === 'error' && !latestGaveUp))) ? Array(8).fill(null).map((_, i) => (
                           <EqSkel key={i} w={156} h={156} r={12} />
                         )) : tracksStatus === 'error' && albums.length === 0 ? (
-                          <LoadErrorCard onRetry={() => setLatestReload(n => n + 1)} height={156} />
+                          <LoadErrorCard onRetry={() => { setLatestGaveUp(false); autoRetryRef.current = 0; setLatestReload(n => n + 1) }} height={156} />
                         ) : items.length === 0 ? (
                         <div className="flex h-[156px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
                           {lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}
