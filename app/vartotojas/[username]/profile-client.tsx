@@ -2304,9 +2304,9 @@ function buildFeedItems({
     }
   }
 
-  // V18j: Dienos dainos grupuojamos pagal MĖNESĮ. Kortelėje — kelios
-  // geriausiai pasirodžiusios (pagal ♥), o visa kita atsidaro modale.
-  // Ribojam iki 3 naujausių mėnesių, kad neužterštų feed'o.
+  // V18l: Dienos dainos grupuojamos pagal MĖNESĮ. Mėnesio viduje — naujausi
+  // viršuje (picked_on DESC). Iki 6 naujausių mėnesių; visos mėnesio dainos
+  // atsidaro modale.
   const byMonth = new Map<string, any[]>()
   for (const p of (dailyPicks || [])) {
     if (!p.picked_on || !p.tracks) continue
@@ -2316,12 +2316,11 @@ function buildFeedItems({
     byMonth.get(k)!.push(p)
   }
   const ddMonths = [...byMonth.entries()].map(([k, picks]) => {
-    // Naujausias pick'as mėnesyje = data feed'o rikiavimui.
     const latest = picks.reduce((m, p) => Math.max(m, new Date(p.picked_on).getTime()), 0)
-    // Kortelei — rikiuojam pagal populiarumą (♥), o po to pagal datą.
-    picks.sort((a, b) => (b.like_count || 0) - (a.like_count || 0) || new Date(b.picked_on).getTime() - new Date(a.picked_on).getTime())
+    // Naujausi pasiūlymai viršuje.
+    picks.sort((a, b) => new Date(b.picked_on).getTime() - new Date(a.picked_on).getTime())
     return { k, picks, latest }
-  }).sort((a, b) => b.latest - a.latest).slice(0, 3)
+  }).sort((a, b) => b.latest - a.latest).slice(0, 6)
   for (const { k, picks, latest } of ddMonths) {
     items.push({
       id: `ddweek-${k}`, kind: 'ddweek', date: new Date(latest).toISOString(),

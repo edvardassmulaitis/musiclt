@@ -24,7 +24,6 @@ type Photo = { url: string; thumb_url?: string; caption?: string }
 export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: () => void }) {
   const router = useRouter()
   const [avatarUrl, setAvatarUrl] = useState<string>(profile.avatar_url || '')
-  const [coverUrl, setCoverUrl] = useState<string>(profile.cover_image_url || '')
   const [bio, setBio] = useState<string>(profile.bio || '')
   const [signature, setSignature] = useState<string>(profile.legacy_signature || '')
   const [city, setCity] = useState<string>(profile.legacy_city || '')
@@ -38,7 +37,6 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
   const [uploading, setUploading] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const coverInput = useRef<HTMLInputElement>(null)
   const photoInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -55,11 +53,6 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
     if (!r.ok) throw new Error(d?.error || 'Įkėlimas nepavyko')
     return d.url || null
   }
-  const onPickCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; if (!f) return
-    setUploading('cover'); setErr(null)
-    try { const u = await uploadFile(f); if (u) setCoverUrl(u) } catch (x: any) { setErr(x.message) } finally { setUploading(null) }
-  }
   const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []); if (!files.length) return
     setUploading('photo'); setErr(null)
@@ -71,7 +64,6 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
     setBusy(true); setErr(null)
     const body: Record<string, any> = {
       avatar_url: avatarUrl || null,
-      cover_image_url: coverUrl || null,
       bio: bio.trim() || null,
       legacy_signature: signature.trim() || null,
       legacy_city: city.trim() || null,
@@ -128,25 +120,6 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
             </div>
           </div>
 
-          {/* Cover */}
-          <div>
-            <span className={label} style={labelStyle}>Fono nuotrauka (po antrašte)</span>
-            <div className="flex items-center gap-3">
-              {coverUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={coverUrl} alt="" className="w-28 h-14 rounded-lg object-cover flex-shrink-0" style={{ border: '1px solid var(--border-default)' }} />
-              ) : (
-                <div className="w-28 h-14 rounded-lg flex-shrink-0" style={{ background: 'var(--card-bg)', border: '1px dashed var(--border-default)' }} />
-              )}
-              <button type="button" onClick={() => coverInput.current?.click()} disabled={uploading === 'cover'}
-                      className="px-3 py-2 rounded-lg text-[13px] font-bold transition hover:opacity-85 disabled:opacity-60"
-                      style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
-                {uploading === 'cover' ? 'Keliama…' : 'Įkelti'}
-              </button>
-              {coverUrl && <button type="button" onClick={() => setCoverUrl('')} className="text-[12px] font-bold" style={{ color: 'var(--text-muted)' }}>Pašalinti</button>}
-              <input ref={coverInput} type="file" accept="image/*" className="hidden" onChange={onPickCover} />
-            </div>
-          </div>
 
           {/* Trumpai apie save */}
           <div>
