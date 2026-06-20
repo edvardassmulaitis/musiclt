@@ -324,6 +324,16 @@ const cachedFetchLatestTracksRaw = unstable_cache(
   { tags: [HOME_TAGS.tracks], revalidate: 300 }
 )
 
+// DURABLE fallback (6h). Tas pats fetch'as, bet ilgas TTL. Pildomas fone po
+// kiekvieno sėkmingo primary fetch'o. Naudojamas TIK kai primary (300s) fail'ina
+// (DB blip recompute metu) — tada homepage'as gauna paskutinį gerą rezultatą
+// (iki 6h senumo) vietoj tuščio/„netrukus". „Negali failinti" garantija seed'ui.
+const cachedFetchLatestTracksRawDurable = unstable_cache(
+  async (_version: string) => fetchLatestTracksRaw(),
+  ['home-latest-tracks-raw-durable'],
+  { tags: [HOME_TAGS.tracks], revalidate: 21600 }
+)
+
 /**
  * Grąžina LT + World lane'us su top N (po dedupe per artist).
  * Dedupe taisyklė: kai artist'as turi >=2 šviežius tracks, paliekam tą su
@@ -349,14 +359,20 @@ export async function getLatestTracksForHome(): Promise<{
     // v6: cache-key bump'as — naujas deploy startuoja su ŠVARIU cache'u
     // (neserve'inam jokio anksčiau užnuodyto tuščio entry po deploy).
     rows = await cachedFetchLatestTracksRaw('v6-saugiklis')
+    // Fone atnaujinam DURABLE (6h) fallback — kad DB blip'o metu turėtume seed'ą.
+    void cachedFetchLatestTracksRawDurable('v6-saugiklis').catch(() => {})
   } catch (e) {
-    // Empty-guard arba DB klaida → jei turim paskutinį gerą rezultatą warm
-    // instance'e, serve'inam jį (ne tuščią „...netrukus"). Antraip propaguojam.
-    if (lastGood.tracks) {
-      console.error('[home-latest] tracks fetch failed — serving last-known-good:', (e as any)?.message)
-      return lastGood.tracks
+    // Primary fail'ino (transient/empty). Bandom DURABLE (iki 6h) — geriau
+    // truputį pasenęs turinys nei tuščia. Tada in-memory last-good. Tada throw.
+    try {
+      rows = await cachedFetchLatestTracksRawDurable('v6-saugiklis')
+    } catch {
+      if (lastGood.tracks) {
+        console.error('[home-latest] tracks fetch failed — serving last-known-good:', (e as any)?.message)
+        return lastGood.tracks
+      }
+      throw e
     }
-    throw e
   }
 
   // Filtruojam mojibake / placeholder titles, kur title == artist name.
@@ -519,6 +535,13 @@ const cachedFetchLatestAlbumsRaw = unstable_cache(
   { tags: [HOME_TAGS.albums], revalidate: 300 }
 )
 
+// DURABLE fallback (6h) — žr. cachedFetchLatestTracksRawDurable paaiškinimą.
+const cachedFetchLatestAlbumsRawDurable = unstable_cache(
+  async (_version: string) => fetchLatestAlbumsRaw(),
+  ['home-latest-albums-raw-durable'],
+  { tags: [HOME_TAGS.albums], revalidate: 21600 }
+)
+
 export async function getLatestAlbumsForHome(): Promise<{
   lt: LatestAlbumRow[]
   world: LatestAlbumRow[]
@@ -530,12 +553,17 @@ export async function getLatestAlbumsForHome(): Promise<{
   let rows: LatestAlbumRow[]
   try {
     rows = await cachedFetchLatestAlbumsRaw('v3-saugiklis')
+    void cachedFetchLatestAlbumsRawDurable('v3-saugiklis').catch(() => {})
   } catch (e) {
-    if (lastGood.albums) {
-      console.error('[home-latest] albums fetch failed — serving last-known-good:', (e as any)?.message)
-      return lastGood.albums
+    try {
+      rows = await cachedFetchLatestAlbumsRawDurable('v3-saugiklis')
+    } catch {
+      if (lastGood.albums) {
+        console.error('[home-latest] albums fetch failed — serving last-known-good:', (e as any)?.message)
+        return lastGood.albums
+      }
+      throw e
     }
-    throw e
   }
   const today = new Date()
   const isReleased = (a: LatestAlbumRow) => {
