@@ -41,6 +41,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
   const [styles, setStyles] = useState<FavStyle[]>(initial.styles)
   const [showOnboard, setShowOnboard] = useState(suggestOnboarding)
   const [toast, setToast] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false) // mobile ⋯ meniu
   const toastTimer = useRef<any>(null)
   const flash = useCallback((m: string) => { setToast(m); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(null), 2600) }, [])
 
@@ -99,24 +100,45 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
       {toast && <div className="fixed left-1/2 -translate-x-1/2 top-4 z-[200] rounded-full px-4 py-2 text-[12.5px] font-bold shadow-lg" style={{ background: '#f43f5e', color: '#fff' }}>{toast}</div>}
 
       <div className="page-head">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h1>Mano muzika</h1>
-            <p className="!mt-0.5">Vienas mėgstamiausių sąrašas — pirmi 20 rodomi tavo profilyje.</p>
+            <p className="!mt-0.5 hidden sm:block">Vienas mėgstamiausių sąrašas — pirmi 20 rodomi tavo profilyje.</p>
           </div>
           <div className="shrink-0 flex items-center gap-2">
-            <Link href="/perkelti" className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold text-white transition-transform hover:scale-[1.03]" style={{ background: 'var(--accent-orange)' }}><Ico name="download" size={13} /> Importuoti <BrandIcons /></Link>
-            {username && <Link href={`/vartotojas/${username}`} className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}><Ico name="eye" size={13} /> Profilis</Link>}
+            {/* Desktop — pilnos nuorodos */}
+            <Link href="/perkelti" className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold text-white transition-transform hover:scale-[1.03]" style={{ background: 'var(--accent-orange)' }}><Ico name="download" size={13} /> Importuoti <BrandIcons /></Link>
+            {username && <Link href={`/vartotojas/${username}`} className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}><Ico name="eye" size={13} /> Profilis</Link>}
+            {/* Mobile — ⋯ meniu (kompaktiška: importai, profilis, užpildymas) */}
+            <div className="relative sm:hidden">
+              <button onClick={() => setMenuOpen(o => !o)} aria-label="Daugiau" className="inline-flex items-center justify-center w-9 h-9 rounded-full" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-[90]" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 mt-2 z-[100] w-60 rounded-2xl p-2 shadow-xl" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
+                    <Link href="/perkelti" className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-bold text-white mb-1" style={{ background: 'var(--accent-orange)' }}><Ico name="download" size={14} /> Importuoti muziką</Link>
+                    {username && <Link href={`/vartotojas/${username}`} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-bold mb-2" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}><Ico name="eye" size={14} /> Mano profilis</Link>}
+                    <div className="px-1 pt-1 pb-1.5 text-[10.5px] font-black uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Užpildymas</div>
+                    <div className="flex flex-wrap gap-1.5 px-1 pb-1">
+                      <Goal label="Atlikėjai" n={counts.artist} t={TARGETS.artists} /><Goal label="Albumai" n={counts.album} t={TARGETS.albums} />
+                      <Goal label="Dainos" n={counts.track} t={TARGETS.tracks} /><Goal label="Stiliai" n={counts.styles} t={TARGETS.styles} />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
-        {/* Kompaktiška progreso juosta — vienoje eilutėje su tikslų chip'ais. */}
-        <div className="mt-3 rounded-xl px-3 py-2 flex items-center gap-3 flex-wrap" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+        {/* Progreso juosta — mobile tik % + juosta; chip'ai (užpildymas) keliasi į ⋯ meniu. */}
+        <div className="mt-3 rounded-xl px-3 py-2 flex items-center gap-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-[12px] font-black" style={{ color: 'var(--accent-orange)' }}>{pct}%</span>
             <span className="text-[11.5px] font-bold" style={{ color: 'var(--text-muted)' }}>užpildyta</span>
           </div>
-          <div className="h-1.5 flex-1 min-w-[120px] rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #f97316, #a78bfa)' }} /></div>
-          <div className="flex flex-wrap gap-1.5 shrink-0">
+          <div className="h-1.5 flex-1 min-w-[80px] rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #f97316, #a78bfa)' }} /></div>
+          <div className="hidden sm:flex flex-wrap gap-1.5 shrink-0">
             <Goal label="Atlikėjai" n={counts.artist} t={TARGETS.artists} /><Goal label="Albumai" n={counts.album} t={TARGETS.albums} />
             <Goal label="Dainos" n={counts.track} t={TARGETS.tracks} /><Goal label="Stiliai" n={counts.styles} t={TARGETS.styles} />
           </div>
