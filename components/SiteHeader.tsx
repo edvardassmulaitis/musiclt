@@ -2466,31 +2466,35 @@ export function SiteHeader() {
           min-height: 0;
           overflow-y: auto;
           -webkit-overflow-scrolling: touch;
+          display: flex;
+          flex-direction: column;
         }
 
         /* MAIN VIEW — clean text-row list (no gradients) */
         .sh-mlist {
+          flex: 1 1 auto;
           display: flex; flex-direction: column;
-          padding: 4px 0;
+          justify-content: space-evenly;
+          padding: 2px 0;
         }
         /* Flat blokas — skyriaus antraštė (nuoroda) + sub-nuorodų chip'ai */
         .sh-mblock {
           position: relative;
-          padding: 4px 0;
+          padding: 2px 0;
           border-bottom: 1px solid var(--border-default);
         }
         .sh-mblock:last-child { border-bottom: none; }
         .sh-mblock-acc {
           position: absolute;
-          left: 0; top: 12px; height: 38px;
+          left: 0; top: 10px; height: 32px;
           width: 3px;
           border-radius: 0 3px 3px 0;
           background: var(--accent-orange);
         }
         /* Antraštė — visa eilutė tiesioginė nuoroda į skyriaus puslapį */
         .sh-mblock-head {
-          display: flex; align-items: center; gap: 14px;
-          padding: 10px 16px;
+          display: flex; align-items: center; gap: 12px;
+          padding: 7px 16px;
           text-decoration: none;
           border-radius: 10px;
           transition: background .12s;
@@ -2504,13 +2508,18 @@ export function SiteHeader() {
         }
         /* Sub-nuorodos — visada matomi chip'ai (wrap), kiekvienas tiesioginis link'as */
         .sh-mchips {
-          display: flex; flex-wrap: wrap; gap: 7px;
-          padding: 2px 16px 8px 62px;
+          display: flex; flex-wrap: nowrap; gap: 7px;
+          padding: 0 16px 7px 60px;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
         }
+        .sh-mchips::-webkit-scrollbar { display: none; }
         .sh-mchip {
-          font-size: 12.5px; font-weight: 600;
-          padding: 6px 12px;
+          font-size: 12px; font-weight: 600;
+          padding: 5px 11px;
           border-radius: 99px;
+          flex-shrink: 0;
           border: 1px solid var(--border-default);
           background: var(--bg-hover);
           color: var(--text-secondary);
@@ -2529,14 +2538,14 @@ export function SiteHeader() {
            kaip iOS Settings / macOS sidebar. */
         .sh-mrow-icon {
           flex-shrink: 0;
-          width: 38px; height: 38px;
-          border-radius: 10px;
+          width: 32px; height: 32px;
+          border-radius: 9px;
           display: flex; align-items: center; justify-content: center;
           color: var(--text-primary);
           background: var(--bg-hover);
           border: 1px solid var(--border-default);
         }
-        .sh-mrow-icon svg { width: 19px; height: 19px; stroke-width: 2; }
+        .sh-mrow-icon svg { width: 17px; height: 17px; stroke-width: 2; }
         /* Active row — accent ring around icon (orange brand color) */
         .sh-mblock.active .sh-mrow-icon {
           color: var(--accent-orange);
@@ -2549,7 +2558,7 @@ export function SiteHeader() {
           gap: 3px;
         }
         .sh-mrow-title {
-          font-size: 15.5px; font-weight: 700;
+          font-size: 14.5px; font-weight: 700;
           color: var(--text-primary);
           line-height: 1.2;
           letter-spacing: -0.01em;
@@ -2567,14 +2576,14 @@ export function SiteHeader() {
         /* Footer — theme toggle */
         .sh-mfoot {
           flex-shrink: 0;
-          padding: 10px 14px;
+          padding: 7px 14px;
           border-top: 1px solid var(--border-default);
         }
         .sh-mfoot-btn {
           display: flex; align-items: center; justify-content: center;
           gap: 8px;
           width: 100%;
-          padding: 10px 14px;
+          padding: 8px 14px;
           border-radius: 10px;
           border: none;
           background: var(--bg-hover);
