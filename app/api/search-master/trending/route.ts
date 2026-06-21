@@ -1,27 +1,31 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { ytThumb } from '@/lib/radaras-shared'
 
 /**
- * „Populiariausi šią savaitę" — paieškos empty-state blokas.
+ * Populiariausi paieškoje ("Populiariausi šią savaitę").
  *
- * V2 (patikimumas): anksčiau šaltinis buvo VIEN search_clicks per 14d. Dėl
- * to sekcija atrodydavo „sugedusi": keli test-klikai ant vieno atlikėjo
- * (pvz. 7 Rihanna dainos iš eilės) užplūsdavo visą gridą, o likusi dalis
- * būdavo atsitiktiniai score-fallback'ai, kurių vartotojas niekada neieškojo.
+ * Strategy:
+ *   1. RPC `search_trending(days, per_type)` agreguoja REALŲ pastarosios
+ *      savaitės populiarumą:
+ *        - `likes` (track/artist/album) per paskutines 7 dienas (svoris ×1)
+ *        - `search_clicks` (tracks/artists/albums) per 7 d. (svoris ×3 —
+ *          paieškos paspaudimas intencingesnis nei like'as)
+ *      Grąžina top-N per kiekvieną tipą (entity_type plural, entity_id, cnt).
+ *   2. Fetch'iname metadata (slug, title, image) atlikėjams / dainoms / albumams.
+ *   3. Interleave'inam atlikėjas → daina → albumas → ... kad sekcija būtų
+ *      įvairi (ne vien grupės) ir apimtų albumus.
  *
- * Dabar — BLENDAS su diversity:
- *   • clicks per 7d kaip „šviežumo" signalas (cap 1 įrašas / atlikėją),
- *   • likusią dalį pildome top-by-score populiariausiais (irgi cap 1 / atlikėją),
- *   • dainos rodo savo viršelį / YouTube thumbnail, NE atlikėjo nuotrauką.
+ * Fallback'as: jei kurios kategorijos pastarąją savaitę nėra jokio
+ * engagement'o, papildom top-by-score, kad sekcija nebūtų tuščia/skylėta.
  *
- * Rezultatas: tankus, įvairus, realiai populiarus mix'as, kuris niekada nėra
- * tuščias ir neužstringa ties vienu atlikėju.
+ * Cache: edge 5min.
  */
+
+type Cat = 'artists' | 'tracks' | 'albums'
 
 type TrendingHit = {
   id: number | string
-  type: 'artists' | 'tracks'
+  type: Cat
   title: string
   subtitle?: string | null
   image_url?: string | null
@@ -31,101 +35,164 @@ type TrendingHit = {
 
 const slugTrack = (artistSlug: string | null | undefined, trackSlug: string, id: number) =>
   artistSlug ? `/dainos/${artistSlug}-${trackSlug}-${id}` : `/dainos/${trackSlug}-${id}`
+const slugAlbum = (slug: string, id: number) => `/albumai/${slug}-${id}`
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '10'), 1), 20)
+  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '12'), 1), 24)
   const sb = createAdminClient()
-  const PER_SIDE = Math.ceil(limit / 2) + 2   // šiek tiek atsargos mix'ui
 
-  // ── 1. Recent clicks (7d) — šviežumo signalas ──
-  const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
-  const { data: clicks } = await sb
-    .from('search_clicks')
-    .select('entity_type,entity_id')
-    .gte('created_at', since)
-    .in('entity_type', ['artists', 'tracks'])
-    .limit(2000)
-
-  const counts = new Map<string, { type: 'artists' | 'tracks'; id: number; count: number }>()
-  for (const c of (clicks || []) as any[]) {
-    const k = `${c.entity_type}:${c.entity_id}`
-    const ex = counts.get(k)
-    if (ex) ex.count++
-    else counts.set(k, { type: c.entity_type, id: c.entity_id, count: 1 })
-  }
-  const sorted = Array.from(counts.values()).sort((a, b) => b.count - a.count)
-  const clickArtistIds = sorted.filter(x => x.type === 'artists').map(x => x.id)
-  const clickTrackIds = sorted.filter(x => x.type === 'tracks').map(x => x.id)
-  const clickMap = new Map(sorted.map(x => [`${x.type}:${x.id}`, x.count]))
-
-  // ── 2. ATLIKĖJAI: clicked (pagal count) → užpildom top-by-score ──
-  const artistHits: TrendingHit[] = []
-  const seenArtist = new Set<number>()
-  const pushArtist = (a: any, click?: number) => {
-    if (!a || seenArtist.has(a.id) || artistHits.length >= PER_SIDE) return
-    seenArtist.add(a.id)
-    artistHits.push({
-      id: a.id, type: 'artists', title: a.name,
-      image_url: a.cover_image_url,
-      href: `/atlikejai/${a.slug}`,
-      ...(click ? { click_count: click } : {}),
-    })
+  // ── 1. Realus savaitės populiarumas per RPC ──
+  let rows: { entity_type: Cat; entity_id: number; cnt: number }[] = []
+  try {
+    const { data } = await sb.rpc('search_trending', { days: 7, per_type: 30 })
+    rows = (data || []) as any[]
+  } catch {
+    rows = []
   }
 
-  if (clickArtistIds.length > 0) {
-    const { data } = await sb.from('artists')
+  const artistRows = rows.filter(r => r.entity_type === 'artists')
+  const trackRows = rows.filter(r => r.entity_type === 'tracks')
+  const albumRows = rows.filter(r => r.entity_type === 'albums')
+
+  let artistHits: TrendingHit[] = []
+  let trackHits: TrendingHit[] = []
+  let albumHits: TrendingHit[] = []
+
+  // ── 2. Metadata ──
+  if (artistRows.length > 0) {
+    const ids = artistRows.map(x => x.entity_id)
+    const { data } = await sb
+      .from('artists')
       .select('id,slug,name,cover_image_url')
-      .in('id', clickArtistIds.slice(0, 40))
+      .in('id', ids)
     const map = new Map((data || []).map((a: any) => [a.id, a]))
-    for (const id of clickArtistIds) pushArtist(map.get(id), clickMap.get(`artists:${id}`))
+    artistHits = artistRows
+      .map(x => {
+        const a: any = map.get(x.entity_id)
+        if (!a) return null
+        return {
+          id: a.id,
+          type: 'artists' as const,
+          title: a.name,
+          image_url: a.cover_image_url,
+          href: `/atlikejai/${a.slug}`,
+          click_count: x.cnt,
+        }
+      })
+      .filter(Boolean) as TrendingHit[]
   }
-  if (artistHits.length < PER_SIDE) {
-    const { data } = await sb.from('artists')
+
+  if (trackRows.length > 0) {
+    const ids = trackRows.map(x => x.entity_id)
+    const { data } = await sb
+      .from('tracks')
+      .select('id,slug,title,artist_id,artists:artist_id(name,slug,cover_image_url)')
+      .in('id', ids)
+    const map = new Map((data || []).map((t: any) => [t.id, t]))
+    trackHits = trackRows
+      .map(x => {
+        const t: any = map.get(x.entity_id)
+        if (!t) return null
+        return {
+          id: t.id,
+          type: 'tracks' as const,
+          title: t.title,
+          subtitle: t.artists?.name ?? null,
+          image_url: t.artists?.cover_image_url ?? null,
+          href: slugTrack(t.artists?.slug, t.slug, t.id),
+          click_count: x.cnt,
+        }
+      })
+      .filter(Boolean) as TrendingHit[]
+  }
+
+  if (albumRows.length > 0) {
+    const ids = albumRows.map(x => x.entity_id)
+    const { data } = await sb
+      .from('albums')
+      .select('id,slug,title,artist_id,cover_image_url,artists:artist_id(name,slug)')
+      .in('id', ids)
+    const map = new Map((data || []).map((al: any) => [al.id, al]))
+    albumHits = albumRows
+      .map(x => {
+        const al: any = map.get(x.entity_id)
+        if (!al) return null
+        return {
+          id: al.id,
+          type: 'albums' as const,
+          title: al.title,
+          subtitle: al.artists?.name ?? null,
+          image_url: al.cover_image_url,
+          href: slugAlbum(al.slug, al.id),
+          click_count: x.cnt,
+        }
+      })
+      .filter(Boolean) as TrendingHit[]
+  }
+
+  // ── 3. Fallback'ai (tik jei kategorija beveik tuščia) ──
+  if (artistHits.length < 3) {
+    const have = new Set(artistHits.map(h => h.id))
+    const { data } = await sb
+      .from('artists')
       .select('id,slug,name,cover_image_url,score')
       .order('score', { ascending: false, nullsFirst: false })
-      .limit(PER_SIDE + 10)
-    for (const a of (data || []) as any[]) pushArtist(a)
+      .limit(10)
+    for (const a of (data || []) as any[]) {
+      if (have.has(a.id) || artistHits.length >= 5) continue
+      artistHits.push({
+        id: a.id, type: 'artists', title: a.name,
+        image_url: a.cover_image_url, href: `/atlikejai/${a.slug}`,
+      })
+      have.add(a.id)
+    }
   }
-
-  // ── 3. DAINOS: clicked (cap 1 / atlikėją) → užpildom top-by-score (cap 1 / atlikėją) ──
-  const trackHits: TrendingHit[] = []
-  const seenTrack = new Set<number>()
-  const seenTrackArtist = new Set<number>()
-  const TRACK_SEL = 'id,slug,title,score,cover_url,video_url,artist_id,artists:artist_id(name,slug,cover_image_url)'
-  const pushTrack = (t: any, click?: number) => {
-    if (!t || seenTrack.has(t.id) || trackHits.length >= PER_SIDE) return
-    if (t.artist_id && seenTrackArtist.has(t.artist_id)) return   // diversity: max 1 daina / atlikėją
-    seenTrack.add(t.id)
-    if (t.artist_id) seenTrackArtist.add(t.artist_id)
-    trackHits.push({
-      id: t.id, type: 'tracks', title: t.title,
-      subtitle: t.artists?.name ?? null,
-      image_url: t.cover_url || ytThumb(t.video_url) || t.artists?.cover_image_url || null,
-      href: slugTrack(t.artists?.slug, t.slug, t.id),
-      ...(click ? { click_count: click } : {}),
-    })
-  }
-
-  if (clickTrackIds.length > 0) {
-    const { data } = await sb.from('tracks').select(TRACK_SEL).in('id', clickTrackIds.slice(0, 60))
-    const map = new Map((data || []).map((t: any) => [t.id, t]))
-    for (const id of clickTrackIds) pushTrack(map.get(id), clickMap.get(`tracks:${id}`))
-  }
-  if (trackHits.length < PER_SIDE) {
-    const { data } = await sb.from('tracks')
-      .select(TRACK_SEL)
+  if (trackHits.length < 3) {
+    const have = new Set(trackHits.map(h => h.id))
+    const { data } = await sb
+      .from('tracks')
+      .select('id,slug,title,artist_id,artists:artist_id(name,slug,cover_image_url),score')
       .order('score', { ascending: false, nullsFirst: false })
-      .limit(PER_SIDE * 8)   // daug kandidatų, nes cap'inam 1/atlikėją
-    for (const t of (data || []) as any[]) pushTrack(t)
+      .limit(10)
+    for (const t of (data || []) as any[]) {
+      if (have.has(t.id) || trackHits.length >= 5) continue
+      trackHits.push({
+        id: t.id, type: 'tracks', title: t.title,
+        subtitle: t.artists?.name ?? null,
+        image_url: t.artists?.cover_image_url ?? null,
+        href: slugTrack(t.artists?.slug, t.slug, t.id),
+      })
+      have.add(t.id)
+    }
+  }
+  if (albumHits.length < 2) {
+    const have = new Set(albumHits.map(h => h.id))
+    const { data } = await sb
+      .from('albums')
+      .select('id,slug,title,artist_id,cover_image_url,artists:artist_id(name,slug),score')
+      .order('score', { ascending: false, nullsFirst: false })
+      .limit(8)
+    for (const al of (data || []) as any[]) {
+      if (have.has(al.id) || albumHits.length >= 4) continue
+      albumHits.push({
+        id: al.id, type: 'albums', title: al.title,
+        subtitle: al.artists?.name ?? null,
+        image_url: al.cover_image_url,
+        href: slugAlbum(al.slug, al.id),
+      })
+      have.add(al.id)
+    }
   }
 
-  // ── 4. Mix'as: atlikėjas → daina → atlikėjas → … ──
+  // ── 4. Interleave: atlikėjas → daina → albumas → ... (įvairovė) ──
   const out: TrendingHit[] = []
-  const maxLen = Math.max(artistHits.length, trackHits.length)
+  const lanes = [artistHits, trackHits, albumHits]
+  const maxLen = Math.max(...lanes.map(l => l.length))
   for (let i = 0; i < maxLen && out.length < limit; i++) {
-    if (artistHits[i] && out.length < limit) out.push(artistHits[i])
-    if (trackHits[i] && out.length < limit) out.push(trackHits[i])
+    for (const lane of lanes) {
+      if (lane[i] && out.length < limit) out.push(lane[i])
+    }
   }
 
   return NextResponse.json({ items: out.slice(0, limit) }, {
