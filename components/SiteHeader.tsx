@@ -179,11 +179,11 @@ const NAV: NavItem[] = [
 /* Mobile flat-meniu quick-action chip'ai — po kiekvienu skyriaus pavadinimu.
    Pakeičia ilgus subtekstus trumpais, tiesioginiais nav shortcut'ais į
    aktualiausius poskyrius. Tik patvirtinti route'ai (kad nebūtų 404). */
-const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string }[]>> = {
+const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string; dot?: boolean }[]>> = {
   muzika: [
     { href: '/muzika/lietuviska', label: '🇱🇹 Lietuviška' },
     { href: '/muzika/uzsienio', label: 'Pasaulio' },
-    { href: '/muzikos-atradimai', label: 'Naujienų radaras' },
+    { href: '/muzikos-atradimai', label: 'Naujienų radaras', dot: true },
   ],
   topai: [
     { href: '/top30', label: '🇱🇹 LT TOP 30' },
@@ -201,12 +201,13 @@ const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string
     { href: '/verta-keliones', label: 'Kelionės' },
   ],
   skelbimai: [
-    { href: '/skelbimai/irasai', label: 'Vinilai' },
+    { href: '/skelbimai/irasai', label: 'Vinilai, kiti įrašai' },
     { href: '/skelbimai/instrumentai', label: 'Instrumentai' },
     { href: '/skelbimai/muzikantai', label: 'Grupės ir nariai' },
   ],
   bendruomene: [
     { href: '/diskusijos', label: 'Diskusijos' },
+    { href: '/atradimai', label: 'Atradimai' },
     { href: '/dienos-daina', label: 'Dienos dainos' },
     { href: '/nariai', label: 'Nariai' },
   ],
@@ -2489,7 +2490,7 @@ export function SiteHeader() {
         }
         /* Antraštė — visa eilutė tiesioginė nuoroda į skyriaus puslapį */
         .sh-mblock-head {
-          display: flex; align-items: center; gap: 12px;
+          display: flex; align-items: center; gap: 6px;
           padding: 9px 16px;
           text-decoration: none;
           border-radius: 10px;
@@ -2499,15 +2500,20 @@ export function SiteHeader() {
         .sh-mblock-go {
           flex-shrink: 0;
           color: var(--text-muted);
-          opacity: 0.55;
+          opacity: 0.5;
           display: flex;
+          margin-top: 1px;
+          transition: transform .15s, color .15s, opacity .15s;
         }
+        .sh-mblock-head:hover .sh-mblock-go { transform: translateX(2px); opacity: 0.9; }
+        .sh-mblock.active .sh-mblock-go { color: var(--accent-orange); opacity: 0.9; }
         /* Sub-nuorodos — visada matomi chip'ai (wrap), kiekvienas tiesioginis link'as */
         .sh-mchips {
           display: flex; flex-wrap: wrap; gap: 7px;
           padding: 0 16px 8px 16px;
         }
         .sh-mchip {
+          display: inline-flex; align-items: center; gap: 6px;
           font-size: 12px; font-weight: 600;
           padding: 5px 11px;
           border-radius: 99px;
@@ -2556,6 +2562,23 @@ export function SiteHeader() {
           letter-spacing: -0.02em;
         }
         .sh-mblock.active .sh-mrow-title { color: var(--accent-orange); }
+        /* Pulsuojantis žalias taškas (pvz. „Naujienų radaras" — live) */
+        .sh-mchip-dot {
+          width: 7px; height: 7px;
+          border-radius: 50%;
+          background: var(--accent-green, #22c55e);
+          flex-shrink: 0;
+          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+          animation: shMchipPulse 1.8s ease-out infinite;
+        }
+        @keyframes shMchipPulse {
+          0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+          70%  { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .sh-mchip-dot { animation: none; }
+        }
         .sh-mrow-desc {
           font-size: 12.5px; font-weight: 500;
           color: var(--text-muted);
@@ -2954,17 +2977,16 @@ export function SiteHeader() {
                     onClick={() => setMenuOpen(false)}
                     className="sh-mblock-head"
                   >
-                    <span className="sh-mrow-text">
-                      <span className="sh-mrow-title">{n.label}</span>
-                    </span>
+                    <span className="sh-mrow-title">{n.label}</span>
                     <span className="sh-mblock-go" aria-hidden>
-                      <ArrowRight size={15} />
+                      <ArrowRight size={16} />
                     </span>
                   </Link>
                   {subs.length > 0 && (
                     <div className="sh-mchips">
                       {subs.map(s => (
                         <Link key={s.href} href={s.href} onClick={() => setMenuOpen(false)} className="sh-mchip">
+                          {s.dot && <span className="sh-mchip-dot" aria-hidden />}
                           {s.label}
                         </Link>
                       ))}
@@ -2983,14 +3005,14 @@ export function SiteHeader() {
             <SearchIcon size={16} />
             Paieška
           </button>
-          <button
-            type="button"
-            onClick={() => { openQuickCreate(); setMenuOpen(false) }}
+          <Link
+            href="/auth/profile"
+            onClick={() => setMenuOpen(false)}
             className="sh-mfoot-act"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Skelbti
-          </button>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profilis
+          </Link>
           <button
             type="button"
             onClick={() => setTheme(dk ? 'light' : 'dark')}
