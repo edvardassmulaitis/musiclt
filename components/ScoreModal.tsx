@@ -48,7 +48,7 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
 // Fixed display order — JSONB doesn't preserve key insertion order
 const CATEGORY_ORDER: Record<string, string[]> = {
   lt:  ['catalog', 'media', 'popularity_recent', 'popularity_alltime', 'community', 'career', 'awards'],
-  int: ['catalog', 'chart', 'commercial', 'reach', 'awards'],
+  int: ['catalog', 'popularity_recent', 'popularity_alltime', 'chart', 'commercial', 'reach', 'awards'],
 }
 
 function ScoreBar({ label, value, max, color, details }: {

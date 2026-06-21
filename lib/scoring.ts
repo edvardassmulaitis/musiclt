@@ -204,6 +204,19 @@ export function computeLTScore(data: {
 }
 
 // ── INT Scoring ────────────────────────────────────────────────
+//
+// 2026-06-21 v5 — POPULARITY (YouTube views) pridėtas. Anksčiau INT formulė
+// VISAI neturėjo populiarumo komponento iš peržiūrų — kai Wiki faktoriai
+// (chart/commercial/awards) atjungti, visi nusistovėję atlikėjai gaudavo
+// vienodą balą (catalog 20 + reach 15 = 35), todėl „Populiariausi visų laikų"
+// užsienio sąrašas neturėjo jokio populiarumo signalo (Metallica = Pink Floyd
+// = Eminem = 35, o atsitiktiniai LT-formule suskaičiuoti atlikėjai iškildavo
+// į viršų). Dabar — kaip ir LT — naudojam YT peržiūras:
+//   popularity_alltime (0-25): log10(SUM views) × 1.7 — lifetime reach
+//   popularity_recent  (0-18): log10(SUM views last 3y) × 1.5 — current
+// Maksimumai suded­ami virš 100, bet `total = min(100, …)` apkarpo — kai Wiki
+// faktoriai įjungti, viskas telpa; kol atjungti, populiarumas + catalog +
+// reach duoda prasmingą reitingą užsienio atlikėjams.
 
 export function computeINTScore(data: {
   n_albums: number
@@ -212,6 +225,8 @@ export function computeINTScore(data: {
   n_lyrics: number
   likes: number
   career_years: number
+  total_video_views?: number       // SUM lifetime YT views
+  recent_video_views?: number      // SUM YT views where release_year >= now-3y
   // Chart data (from album certifications/peak_chart_position)
   n_charted_albums: number    // albums with any chart position
   n_top10_albums: number      // albums peaking in top 10
@@ -224,6 +239,7 @@ export function computeINTScore(data: {
 }): ScoreBreakdown {
   const {
     n_albums, n_tracks, n_videos, n_lyrics, likes, career_years,
+    total_video_views = 0, recent_video_views = 0,
     n_charted_albums, n_top10_albums, n_number1_albums,
     n_certified_albums, n_platinum_albums, n_diamond_albums, total_cert_points,
     awards,
@@ -258,7 +274,27 @@ export function computeINTScore(data: {
   const awardsAgg = awards || { major_won:0, major_nominated:0, major_inducted:0, other_won:0, other_nominated:0, channels:0 }
   const awardsCat = computeAwardsSubscore(awardsAgg, 'int')
 
-  const total = Math.min(100, catalog + chart + commercial + reach + awardsCat.points)
+  // ⑥ ALL-TIME POPULARITY (0-25): log10(SUM lifetime views) × 1.7.
+  //   Nesisaturuoja praktikoje (cap 25 ties 10^14.7 perž.) — duoda sklandų
+  //   reitingą pagal lifetime reach: 1M≈10, 100M≈14, 1B≈15, 25B≈18.
+  const popAllTime = total_video_views > 0
+    ? Math.min(25, Math.round(Math.log10(total_video_views + 1) * 1.7))
+    : 0
+
+  // ⑦ RECENT POPULARITY (0-18): log10(SUM views last 3y) × 1.5 — current relevance.
+  const popRecent = recent_video_views > 0
+    ? Math.min(18, Math.round(Math.log10(recent_video_views + 1) * 1.5))
+    : 0
+
+  const total = Math.min(
+    100,
+    catalog + chart + commercial + reach + awardsCat.points + popAllTime + popRecent
+  )
+
+  const fmtViews = (n: number) => n >= 1_000_000
+    ? `${(n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0)}M perž.`
+    : n >= 1_000 ? `${(n / 1_000).toFixed(0)}K perž.`
+    : n > 0 ? `${n} perž.` : 'nėra perž.'
 
   // Build details strings
   const chartDetails = [
@@ -277,6 +313,8 @@ export function computeINTScore(data: {
     type: 'int',
     categories: {
       catalog:    { points: catalog, max: 20, details: `${n_albums} alb., ${n_tracks} dainų` },
+      popularity_recent:  { points: popRecent, max: 18, details: `pastaraisiais 3m: ${fmtViews(recent_video_views)}` },
+      popularity_alltime: { points: popAllTime, max: 25, details: `viso laiko: ${fmtViews(total_video_views)}` },
       chart:      { points: chart, max: 30, details: chartDetails },
       commercial: { points: commercial, max: 20, details: certDetails },
       reach:      { points: reach, max: 15, details: career_years > 0 ? `${career_years} m. karjera, ${n_videos} klipų` : 'nenurodyta' },
@@ -287,6 +325,7 @@ export function computeINTScore(data: {
     final_score: total,
     inputs: {
       n_albums, n_tracks, n_videos, n_lyrics, likes, career_years,
+      total_video_views, recent_video_views,
       n_charted_albums, n_top10_albums, n_number1_albums,
       n_certified_albums, n_platinum_albums, n_diamond_albums, total_cert_points,
     },
