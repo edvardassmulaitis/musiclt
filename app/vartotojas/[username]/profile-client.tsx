@@ -654,21 +654,6 @@ function MobileProfileView(props: any) {
           />
         )}
 
-        {/* V18j/m: „Neseniai pamėgta" mobile — žemiau po srautu, horizontali juosta. */}
-        {isFeedFilter && hasLikes && (
-          <div className="mt-6">
-            <RecentLikesCard
-              favoriteArtists={favoriteArtists}
-              favoriteAlbums={favoriteAlbums}
-              favoriteTracks={favoriteTracks}
-              albumResolvedTotal={albumResolvedTotal}
-              trackResolvedTotal={trackResolvedTotal}
-              onOpenMore={onOpenMore}
-              horizontal
-            />
-          </div>
-        )}
-
         {sel === 'likes' && (
           <div>
             <RecentlyLiked albums={favoriteAlbums} tracks={favoriteTracks} />
@@ -1109,6 +1094,7 @@ function MergedFeed({
       albumResolvedTotal={albumResolvedTotal}
       trackResolvedTotal={trackResolvedTotal}
       onOpenMore={onOpenMore}
+      horizontal
     />
   ) : null
 
@@ -2820,7 +2806,9 @@ function DdPickRow({ p, last }: { p: any; last: boolean }) {
         <div className="w-[44px] h-[44px] rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--accent-orange)' }}>♬</div>
       )}
       <div className="min-w-0 flex-1">
-        <div className="text-[13.5px] font-bold leading-tight truncate group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{track?.title || 'Daina'}</div>
+        <div className="text-[13.5px] font-bold leading-tight truncate group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+          {p.is_winner && <span title="Dienos dainos laimėtoja">🏆 </span>}{track?.title || 'Daina'}
+        </div>
         {artist && <div className="text-[11.5px] truncate" style={{ color: 'var(--text-muted)' }}>{artist.name}</div>}
       </div>
       {(p.like_count || 0) > 0 && <span className="text-[11px] font-bold flex-shrink-0" style={{ color: 'var(--text-faint)' }}>♥ {p.like_count}</span>}
@@ -2860,6 +2848,11 @@ function DdPickTile({ p }: { p: any }) {
           <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-xl" style={{ color: 'var(--accent-orange)' }}>♬</div>
+        )}
+        {p.is_winner && (
+          <span className="absolute left-1 top-1 px-1.5 py-0.5 rounded-full text-[9px] font-black flex items-center gap-0.5"
+                title="Dienos dainos laimėtoja"
+                style={{ background: 'linear-gradient(135deg,#f59e0b,#f97316)', color: '#fff', boxShadow: '0 1px 4px rgba(249,115,22,0.5)' }}>🏆 #1</span>
         )}
         {(p.like_count || 0) > 0 && (
           <span className="absolute right-1 top-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}>♥ {p.like_count}</span>

@@ -146,7 +146,25 @@ export async function getDailySongPicks(userId: string, limit = 20) {
     artistMainGenres: genreByArtist.get(t.artist_id) || [],
   }))
   const trackMap = new Map(enrichedTracks.map((t: any) => [t.id, t]))
-  return rows.map((r) => ({ ...r, tracks: r.track_id ? trackMap.get(r.track_id) || null : null }))
+
+  // V18n: pažymim pick'us, kurių daina TĄ dieną tapo dienos dainos LAIMĖTOJA
+  // (daily_song_winners date+track_id sutapimas) → kortelėje #1 badge'as.
+  const winSet = new Set<string>()
+  const dates = Array.from(new Set(rows.map((r) => r.picked_on).filter(Boolean)))
+  if (dates.length) {
+    const { data: wins } = await sb
+      .from('daily_song_winners')
+      .select('date, track_id')
+      .in('date', dates)
+      .in('track_id', trackIds)
+    for (const w of (wins || []) as any[]) winSet.add(`${w.date}|${w.track_id}`)
+  }
+
+  return rows.map((r) => ({
+    ...r,
+    is_winner: !!r.track_id && winSet.has(`${r.picked_on}|${r.track_id}`),
+    tracks: r.track_id ? trackMap.get(r.track_id) || null : null,
+  }))
 }
 
 export async function getDailySongPicksCount(userId: string): Promise<number> {
