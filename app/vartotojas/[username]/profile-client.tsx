@@ -2811,25 +2811,24 @@ function DdModalRow({ p, onPlay, playing }: { p: any; onPlay: (vid: string) => v
   return (
     <div className="flex items-start gap-3 rounded-xl px-2.5 py-2.5" style={{ background: win ? 'rgba(249,115,22,0.10)' : undefined }}>
       <button type="button" onClick={() => vid && onPlay(vid)} disabled={!vid}
-              className="relative w-[56px] h-[56px] rounded-lg overflow-hidden flex-shrink-0 group"
-              style={{ background: 'rgba(249,115,22,0.12)' }} aria-label="Groti">
+              className="relative w-[104px] flex-shrink-0 rounded-lg overflow-hidden group"
+              style={{ aspectRatio: '16 / 9', background: 'rgba(249,115,22,0.12)' }} aria-label="Groti">
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
         ) : <div className="absolute inset-0 flex items-center justify-center text-lg" style={{ color: 'var(--accent-orange)' }}>♬</div>}
         {vid && (
           <span className={`absolute inset-0 flex items-center justify-center transition ${playing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} style={{ background: 'rgba(0,0,0,0.45)' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" aria-hidden><polygon points="6 4 20 12 6 20 6 4" /></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" aria-hidden><polygon points="6 4 20 12 6 20 6 4" /></svg>
           </span>
         )}
       </button>
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <Link href={href} className="min-w-0 truncate text-[14px] font-bold leading-tight transition hover:text-[var(--accent-orange)]"
-                style={{ fontFamily: "'Outfit', sans-serif", color: win ? 'var(--accent-orange)' : 'var(--text-primary)' }}>{track?.title || 'Daina'}</Link>
-          <span className="flex-shrink-0 text-[10.5px]" style={{ color: 'var(--text-faint)' }}>{dateShort}</span>
+        <Link href={href} className="block min-w-0 line-clamp-2 text-[14px] font-bold leading-tight transition hover:text-[var(--accent-orange)]"
+              style={{ fontFamily: "'Outfit', sans-serif", color: win ? 'var(--accent-orange)' : 'var(--text-primary)' }}>{track?.title || 'Daina'}</Link>
+        <div className="truncate text-[11.5px] mt-0.5" style={{ color: win ? 'rgba(249,115,22,0.85)' : 'var(--text-muted)' }}>
+          {artist ? `${artist.name} · ${dateShort}` : dateShort}
         </div>
-        {artist && <div className="truncate text-[12px] mt-0.5" style={{ color: win ? 'rgba(249,115,22,0.85)' : 'var(--text-muted)' }}>{artist.name}{win && ' · laimėtoja'}</div>}
         {p.comment && <div className="mt-1 text-[12px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{p.comment}</div>}
       </div>
       {(p.like_count || 0) > 0 && <span className="text-[11px] font-bold flex-shrink-0 mt-1" style={{ color: win ? 'var(--accent-orange)' : 'var(--text-faint)' }}>♥ {p.like_count}</span>}
@@ -2849,7 +2848,7 @@ function DailyPicksModal({ picks, label, onClose }: { picks: any[]; label: strin
   if (typeof window === 'undefined') return null
   return createPortal(
     <div onClick={onClose} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.65)' }}>
-      <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-lg max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)', boxShadow: 'var(--modal-shadow)' }}>
+      <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)', boxShadow: 'var(--modal-shadow)' }}>
         <header className="flex items-center justify-between gap-3 px-5 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <h3 className="font-black text-base" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>Dienos dainos · {label} <span style={{ color: 'var(--text-muted)' }}>· {picks.length}</span></h3>
           <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full transition hover:opacity-80" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)' }} aria-label="Uždaryti"><span style={{ color: 'var(--text-secondary)' }}>✕</span></button>
@@ -2861,7 +2860,8 @@ function DailyPicksModal({ picks, label, onClose }: { picks: any[]; label: strin
             </div>
           </div>
         )}
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 flex flex-col gap-0.5">
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-2 flex flex-col gap-0.5"
+             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
           {picks.map((p) => <DdModalRow key={p.id} p={p} playing={!!ytIdProfile(p.tracks?.video_url) && ytIdProfile(p.tracks?.video_url) === playVid} onPlay={setPlayVid} />)}
         </div>
       </div>
@@ -2877,8 +2877,8 @@ function DdPickTile({ p }: { p: any }) {
   const thumb = ytThumbProfile(track?.video_url) || track?.cover_url || artist?.cover_image_url || null
   const href = (artist && track) ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}` : '#'
   return (
-    <Link href={href} className="group flex w-[92px] flex-shrink-0 flex-col gap-1.5 transition hover:-translate-y-0.5">
-      <div className="relative aspect-square w-full overflow-hidden rounded-lg" style={{ background: 'rgba(249,115,22,0.10)' }}>
+    <Link href={href} className="group flex w-[150px] flex-shrink-0 flex-col gap-1.5 transition hover:-translate-y-0.5">
+      <div className="relative w-full overflow-hidden rounded-lg" style={{ aspectRatio: '16 / 9', background: 'rgba(249,115,22,0.10)' }}>
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
@@ -2892,8 +2892,8 @@ function DdPickTile({ p }: { p: any }) {
         )}
       </div>
       <div className="min-w-0">
-        <div className="truncate text-[12px] font-bold leading-tight group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{track?.title || 'Daina'}</div>
-        {artist && <div className="truncate text-[10.5px]" style={{ color: 'var(--text-muted)' }}>{artist.name}</div>}
+        <div className="line-clamp-2 text-[12px] font-bold leading-tight group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{track?.title || 'Daina'}</div>
+        {artist && <div className="truncate text-[10.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{artist.name}</div>}
       </div>
     </Link>
   )
@@ -2923,9 +2923,9 @@ function DdWeekCard({ picks, label, username, streak }: {
       <div className="flex gap-2.5 px-5 pb-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {shown.map((p) => <DdPickTile key={p.id} p={p} />)}
         {remaining > 0 && (
-          <button type="button" onClick={() => setAllOpen(true)} className="group flex w-[92px] flex-shrink-0 flex-col gap-1.5 text-left">
-            <div className="relative aspect-square w-full rounded-lg flex flex-col items-center justify-center transition group-hover:-translate-y-0.5"
-                 style={{ border: '1px dashed var(--border-default)', background: 'var(--card-bg)' }}>
+          <button type="button" onClick={() => setAllOpen(true)} className="group flex w-[150px] flex-shrink-0 flex-col gap-1.5 text-left">
+            <div className="relative w-full rounded-lg flex flex-col items-center justify-center transition group-hover:-translate-y-0.5"
+                 style={{ aspectRatio: '16 / 9', border: '1px dashed var(--border-default)', background: 'var(--card-bg)' }}>
               <span className="text-lg font-black leading-none" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>+{remaining}</span>
             </div>
             <div className="truncate text-[12px] font-bold" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>Daugiau →</div>
