@@ -1,34 +1,45 @@
 /**
- * chart-resolve.ts — external_chart_entries → katalogo dainų susiejimas.
+ * chart-resolve.ts — external_chart_entries → katalogo dainų/albumų susiejimas.
  *
  * Modelis (žr. EXTERNAL_CHARTS_PLAN.md §3): „review queue first".
- *  - findConfidentMatch: griežtas auto-match (atlikėjas IR pavadinimas sutampa
- *    po normalizacijos) → resolve_state='matched'. Naudoja bulk „Auto-match".
- *  - Neaiškūs lieka 'ambiguous'/'pending' → admin per /admin/charts patvirtina
- *    (link per search-entities picker) arba sukuria naują (find-or-create).
+ *  - findConfidentMatch: auto-match (atlikėjas IR pavadinimas sutampa po
+ *    normalizacijos) → resolve_state='matched'.
+ *  - Neaiškūs lieka 'pending' → admin per /admin/charts patvirtina rankiniu būdu.
+ *
+ * 2026-06-21 perrašyta atlikėjo rezoliucija (žr. CHARTS_AUDIT_2026-06-04.md follow-up):
+ *  - Atlikėjas ieškomas per INDEKSUOTĄ `artists.name_norm` (= lower(unaccent(name)))
+ *    tikslia lygybe — atsparu diakritikai ABIEM kryptim (jautì↔jauti, mésh↔Mesh,
+ *    Kamaniu↔Kamanių) ir nesugriūna ant trumpų/dažnų vardų. Senasis `ilike %tok%
+ *    limit 60` apkapodavo tikrąjį atlikėją (pvz. „ba." — DB 508 vardų su „ba",
+ *    realus „ba." nepatekdavo į pirmus 60 → niekada nematch'ino).
+ *  - Atlikėjo atomai: bandomas PILNAS vardas pirma (grupės su &/+ nesuskyla:
+ *    „G&G Sindikatas", „8 Kambarys + Kotryna Aurėja"), tada featuring segmentai,
+ *    tada be „The" prefikso („JACKSON 5" ↔ „The Jackson 5").
+ *  - Pavadinimo match'as: exact → aggressive(be skliaustų) → tight(be tarpų,
+ *    „Les"↔„L.E.S.") → gated prefix (Apple sutrumpina „u + me =" ↔ „u + me = <3")
+ *    → gated containment („…TOUR COLLECTION" ↔ „+−=÷× (Tour Collection)").
+ *
+ * 2026-06-21 PASTOVI ATMINTIS (chart_resolution_memory): kiekvienas sujungimas
+ *  įsimenamas globaliai (norm_key+kind → entity). Per ingest, jei auto-match nerado,
+ *  konsultuojam atmintį — taip rankiniai sujungimai NEpradingsta kai topas
+ *  atsinaujina nauju period_label (žr. chart_store.py carry-over bug fix).
  */
-// Sb klientas tipuojamas `any` — createAdminClient() grąžina typed
-// SupabaseClient<Database>, kuris dėl generic contravariance gali nesutapti su
-// importuotu SupabaseClient tipu (Vercel build fail). `any` saugu helperiui.
 type Sb = any
 
+// Postgres `unaccent` + LT diakritika. ł/ø/đ/æ/œ/ß — NFKD jų neskaido, todėl
+// pridedam rankiniu būdu, kad atitiktų DB `name_norm` (lower(unaccent(name))).
 const LT_MAP: Record<string, string> = {
   ą: 'a', č: 'c', ę: 'e', ė: 'e', į: 'i', š: 's', ų: 'u', ū: 'u', ž: 'z',
+  ł: 'l', ø: 'o', đ: 'd', æ: 'ae', œ: 'oe', ß: 'ss',
 }
 
-/** Spotify-stiliaus versijų/leidimų raktažodžiai. Naudojami nuimti priesagas
- *  po „ - " (be skliaustų): „- 2011 Remaster", „- Single Version", „- Radio Edit",
- *  „- Live", „- Mono" ir t.t. DB kataloge laikomas ŠVARUS pavadinimas, todėl be
- *  šių priesagų „Dreams - 2001 Remaster" sutampa su „Dreams". */
+/** Spotify-stiliaus versijų/leidimų raktažodžiai (po „ - " be skliaustų). */
 const VERSION_KW =
   'remaster|remastered|re-?master(?:ed)?|version|edit|mix|remix|mono|stereo|live|' +
   'acoustic|unplugged|demo|single|radio|instrumental|karaoke|bonus|expanded|deluxe|' +
   'anniversary|re-?recorded|reprise|explicit|clean|extended|club|dub|session|' +
   "sped\\s*up|slowed|soundtrack|ost|taylor['’]s version"
 
-/** Nuima trailing „ - <… su versijos raktažodžiu …>" priesagą (gali kartotis).
- *  `[^-–—]*` neleidžia peršokti per ankstesnį brūkšnį → tikras pavadinimas su
- *  „ - " (pvz. „A - B") nenukenčia, jei jame nėra versijos raktažodžio. */
 function stripVersionSuffix(s: string): string {
   const re = new RegExp(`\\s[-–—]\\s[^-–—]*\\b(?:${VERSION_KW})\\b.*$`, 'i')
   let out = s, prev = ''
@@ -36,115 +47,271 @@ function stripVersionSuffix(s: string): string {
   return out.trim()
 }
 
-/** Normalizuoja palyginimui: lower, LT diakritika, versijų priesaga, feat/() nuėmimas, alnum. */
+/** Deakcentas: lower + LT/extra map + NFKD combining nuėmimas. KIRILICA/ne-lotyniški
+ *  rašmenys IŠLAIKOMI (nedarom ascii-strip) — kad „Шадэ" nepavirstų į „". Atitinka
+ *  Postgres `lower(unaccent(...))`. */
+function deaccent(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .replace(/[ąčęėįšųūžłøđæœß]/g, c => LT_MAP[c] || c)
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+}
+
+/** colNorm — VEIDRODIS `artists.name_norm` / `tracks.title_norm` stulpeliui:
+ *  tik lower+unaccent, BE punktuacijos/tarpų normalizacijos. Naudojam tiksliai
+ *  `name_norm=eq.` užklausai (indeksuota, diakritikai atspari abiem kryptim). */
+export function colNorm(s: string): string {
+  return deaccent(s).trim()
+}
+
+/** Normalizuoja palyginimui: deaccent, versijų priesaga, feat/() nuėmimas, tik
+ *  raidės/skaitmenys (UNICODE — kirilica išlaikoma), vedantis „the" nuimamas
+ *  (CHEMICAL BROTHERS == The Chemical Brothers). */
 export function normalizeForMatch(s: string): string {
-  return stripVersionSuffix(
-    (s || '')
-      .toLowerCase()
-      .replace(/[ąčęėįšųūž]/g, c => LT_MAP[c] || c)
-      .normalize('NFKD').replace(/[̀-ͯ]/g, ''),
+  let out = stripVersionSuffix(deaccent(s))
+  out = out.replace(
+    /\([^)]*\bfeat[^)]*\)|\([^)]*remix[^)]*\)|\([^)]*version[^)]*\)|\([^)]*w\/[^)]*\)|\bfeat\.?\b.*$/g,
+    '',
   )
-    // SVARBU: skliaustų raktažodžiai tikrinami PER VIENĄ grupę ([^)]*), kad
-    // „(When You Gonna) … (w/ X)" nesusinaikintų visas (anksčiau .*? peršokdavo
-    // per „)" ir nuvalydavo visą pavadinimą).
-    .replace(/\([^)]*\bfeat[^)]*\)|\([^)]*remix[^)]*\)|\([^)]*version[^)]*\)|\([^)]*w\/[^)]*\)|\bfeat\.?\b.*$/g, '')
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')   // keep ALL unicode raidžiai/skaičiai (kirilica ir kt.)
-    .trim()
-    .replace(/^the\s+/, '')   // nuimam vedantį „the " (CHEMICAL BROTHERS == The Chemical Brothers)
+  return out.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/^the\s+/, '')
 }
 
-/** Agresyvesnė normalizacija: pašalina VISUS skliaustus (...)  ir [...].
- *  Naudojama kaip fallback kai standartinis match neranda — chart pavadinime
- *  dažnai būna papildomos žymos: „(When You Gonna)", „[Deluxe]", „(Sped Up)" ir t.t.
- *  kurios neegzistuoja DB track pavadinime. */
+/** Agresyvi normalizacija: pašalina VISUS skliaustus (...) ir [...]. */
 export function normalizeAggressive(s: string): string {
-  return stripVersionSuffix(
-    (s || '')
-      .toLowerCase()
-      .replace(/[ąčęėįšųūž]/g, c => LT_MAP[c] || c)
-      .normalize('NFKD').replace(/[̀-ͯ]/g, ''),
-  )
-    .replace(/\bfeat\.?\b.*$/, '')            // feat ir viskas po jo
-    .replace(/\([^)]*\)/g, '')                // visi (...)
-    .replace(/\[[^\]]*\]/g, '')               // visi [...]
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')   // keep ALL unicode raidžiai/skaičiai (kirilica ir kt.)
-    .trim()
-    .replace(/^the\s+/, '')   // nuimam vedantį „the " (CHEMICAL BROTHERS == The Chemical Brothers)
+  let out = stripVersionSuffix(deaccent(s))
+  out = out.replace(/\bfeat\.?\b.*$/, '').replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '')
+  return out.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/^the\s+/, '')
 }
 
-/** Pirmas atlikėjas iš „Xcho, By Индия, МОТ" / „A feat. B" / „A & B". */
+/** „Tight" raktas — be tarpų. „Les" ↔ „L.E.S." (initializmai/punktuacija). */
+export function normalizeTight(s: string): string {
+  return normalizeForMatch(s).replace(/\s+/g, '')
+}
+
+/** Pirmas atlikėjas iš „Xcho, By Индия, МОТ" / „A feat. B" / „A & B".
+ *  Skiria su TARPAIS aplink & ir x — kad „G&G Sindikatas"/„HUNTR/X" nesuskiltų.
+ *  „:" — K-pop kreditams („Grupė: nariai"). */
 export function primaryArtist(name: string): string {
-  // „A, B" / „A & B" / „A feat. B" / „A x B" (su TARPAIS — kad „HUNTR/X" nelūžtų
-  // ties X) / „A vs B" / „A w/ B" / „Grupė: nariai" (K-pop kreditai) → 1-as atlikėjas.
   return (name || '').split(/,| & |\bfeaturing\b|\bfeat\.?\b|\bft\.?\b| x |\bvs\.?\b|\bw\/|:/i)[0].trim()
 }
 
-/** Ilgiausias RAW žodis (su diakritika) ilike prefiltrui.
- *  SVARBU: ilike lyginamas prieš RAW DB reikšmes (su ž/ė/š/Cyrillic), tad token'as
- *  TURI išlaikyti originalius simbolius — normalizuotas „zveris" niekada neranda
- *  „Žvėris". Palyginimą daro normalizeForMatch atskirai. */
-function rawLongestToken(s: string): string {
-  const toks = (s || '').split(/[^\p{L}\p{N}]+/u).filter(t => t.length >= 2)
-  return (toks.sort((a, b) => b.length - a.length)[0] || (s || '').trim())
-    .replace(/[%_]/g, '')
+/** Atlikėjo „atomai" lookup'ui — PILNAS vardas pirma (grupės su &/+ nesuskyla,
+ *  nes skiriam tik su TARPAIS aplink & ir x), tada featuring segmentai, tada be
+ *  „The" prefikso. */
+function artistAtoms(name: string): string[] {
+  const raw = (name || '').trim()
+  const parts = raw.split(/,| & |\bfeaturing\b|\bfeat\.?\b|\bft\.?\b| x |\bvs\.?\b|\bw\/|\/| \+ |:/i)
+    .map(p => p.trim()).filter(Boolean)
+  const base = [raw, ...parts]
+  const out: string[] = []
+  for (const a of base) {
+    out.push(a)
+    const noThe = a.replace(/^the\s+/i, '').trim()
+    if (noThe && noThe !== a) out.push(noThe)
+  }
+  const seen = new Set<string>()
+  return out.filter(a => {
+    const k = a.toLowerCase()
+    if (!a || seen.has(k)) return false
+    seen.add(k); return true
+  })
+}
+
+/** Ilgiausias colNorm token'as ilike fallback'ui. */
+function longestColToken(s: string): string {
+  const toks = colNorm(s).split(/[^\p{L}\p{N}]+/u).filter(t => t.length >= 2)
+  return (toks.sort((a, b) => b.length - a.length)[0] || colNorm(s)).replace(/[%_]/g, '')
+}
+
+/**
+ * Atlikėjo ID kandidatai pagal RAW vardą. Per `name_norm` tikslią lygybę
+ * (indeksuota, diakritikai atspari) + token ilike fallback. Grąžina visus
+ * sutampančius (primary + featuring + „The"-variantai).
+ */
+export async function resolveArtistIds(sb: Sb, rawArtist: string): Promise<number[]> {
+  const found = new Set<number>()
+  for (const atom of artistAtoms(rawArtist)) {
+    const cn = colNorm(atom)
+    if (!cn) continue
+    // 1) Tikslus name_norm match.
+    const { data: exact } = await sb.from('artists').select('id').eq('name_norm', cn).limit(10)
+    if (exact && exact.length) { for (const a of exact) found.add(a.id); continue }
+    // 2) Fallback: token ilike ant name_norm + matchNorm filtras (punktuacijos skirtumai).
+    const tok = longestColToken(atom)
+    if (!tok) continue
+    const { data: cand } = await sb.from('artists').select('id, name')
+      .ilike('name_norm', `%${tok}%`).limit(80)
+    const an = normalizeForMatch(atom)
+    for (const a of (cand || [])) if (normalizeForMatch(a.name) === an) found.add(a.id)
+  }
+  return [...found]
+}
+
+type CatHit = { id: number; title: string; artist_id: number; artists?: any }
+
+/** Suranda atitikmenį atlikėjo kataloge. Lygiai: exact → aggressive → tight →
+ *  (fuzzy) gated prefix → gated containment. Grąžina geriausią eilutę arba null. */
+function matchInCatalog(rows: CatHit[], rawTitle: string, fuzzy: boolean): CatHit | null {
+  const tn = normalizeForMatch(rawTitle)
+  const ta = normalizeAggressive(rawTitle)
+  const tt = normalizeTight(rawTitle)
+  if (!tn) return null
+  // 1) exact (pirmenybė tiksliam raw sutapimui, tada mažiausias id = kanoninis)
+  let hits = rows.filter(t => normalizeForMatch(t.title) === tn)
+  // 2) aggressive
+  if (!hits.length && ta && ta !== tn) hits = rows.filter(t => normalizeAggressive(t.title) === ta)
+  // 3) tight (be tarpų) — gate len>=3
+  if (!hits.length && tt.length >= 3) hits = rows.filter(t => normalizeTight(t.title) === tt)
+  if (hits.length) {
+    hits.sort((a, b) => a.id - b.id)
+    return hits.find(h => (h.title || '').trim() === (rawTitle || '').trim()) || hits[0]
+  }
+  if (!fuzzy) return null
+  // 4) gated prefix — Apple sutrumpina ilgus pavadinimus. Tik 1 unikalus kandidatas,
+  //    chart pavadinimas pakankamai ilgas (>=6 simb. arba >=2 žodžiai).
+  if (tn.length >= 6 || tn.split(' ').length >= 2) {
+    const pf = rows.filter(t => {
+      const dn = normalizeForMatch(t.title)
+      return dn !== tn && dn.startsWith(tn + ' ')
+    })
+    const distinct = new Set(pf.map(t => normalizeForMatch(t.title)))
+    if (distinct.size === 1) return pf.sort((a, b) => a.id - b.id)[0]
+  }
+  // 5) gated containment — trumpesnė (sutampanti) pusė >=8 simb. ir >=2 žodžiai,
+  //    tik 1 unikalus kandidatas. („…TOUR COLLECTION" ⊃ „tour collection").
+  const cont = rows.filter(t => {
+    const dn = normalizeForMatch(t.title)
+    if (!dn || dn === tn) return false
+    const short = dn.length <= tn.length ? dn : tn
+    return short.length >= 8 && short.split(' ').length >= 2 && (dn.includes(tn) || tn.includes(dn))
+  })
+  const distinctC = new Set(cont.map(t => normalizeForMatch(t.title)))
+  if (distinctC.size === 1) return cont.sort((a, b) => a.id - b.id)[0]
+  return null
+}
+
+const YT_TAGS = new RegExp(
+  '\\((?:official|lyric|visuali[sz]er|audio|video|music\\s*video|mv|clip|teaser|' +
+  'performance|live\\s*session|color\\s*coded)[^)]*\\)|' +
+  '\\[(?:official|lyric|audio|video|mv)[^\\]]*\\]', 'i')
+
+/** YouTube/junk pavadinimo valymas (fallback kai exact nerado). Nuima „| Live…"
+ *  uodegą, (Official Video) žymas, hashtagus, atlikėjo vardo prefiksą
+ *  („Gabrielius Vagelis – Užteko" → „Užteko"). */
+export function cleanTitle(title: string, artist = ''): string {
+  let t = title || ''
+  t = t.replace(/\s[|•·]\s.*$/, '')
+  t = t.replace(YT_TAGS, '')
+  t = t.replace(/#\w+/g, '')
+  t = t.replace(/\s+\bofficial\b.*$/i, '')
+  const m = t.match(/^(.*?)\s*[-–—:]\s*(.+)$/)
+  if (artist && m) {
+    const an = normalizeForMatch(artist)
+    if (an && normalizeForMatch(m[1]) === an) t = m[2]
+  }
+  return t.replace(/^[\s\t\-–—|·•✦*~“”"']+|[\s\t\-–—|·•✦*~“”"']+$/g, '').trim()
 }
 
 export type ConfidentMatch = { trackId: number; artistId: number; trackTitle: string; artistName: string }
 
 /**
- * Griežtas match: randa atlikėją, kurio normalizuotas vardas == entry atlikėjo,
- * ir po juo dainą, kurios normalizuotas pavadinimas == entry pavadinimo.
- * Diakritikai atsparu: ilike prefiltras su RAW token'u, palyginimas normalizuotas.
- * Track'us fetch'ina pagal atlikėją ir filtruoja JS'e (ne title ilike) — atsparu
- * versijų priesagoms / diakritikai. Jei keli identiški → ima kanoninį (maž. id).
+ * Atlikėjas (per name_norm) + daina (per katalogo match). `opts.fuzzy` įjungia
+ * prefix/containment lygius (naudoja chart auto-resolve; bendro naudojimo
+ * iškvietimai lieka griežti — tik exact/aggressive/tight).
  */
 export async function findConfidentMatch(
-  sb: Sb, rawArtist: string, rawTitle: string,
+  sb: Sb, rawArtist: string, rawTitle: string, opts?: { fuzzy?: boolean },
 ): Promise<ConfidentMatch | null> {
-  const aNorm = normalizeForMatch(primaryArtist(rawArtist))
-  const tNorm = normalizeForMatch(rawTitle)
-  const tAggr = normalizeAggressive(rawTitle)   // fallback be skliaustų
-  if (!aNorm || !tNorm) return null
-
-  // Kandidatai atlikėjai pagal ilgiausią RAW žodį (platus), tada tikslus filtras.
-  const aTok = rawLongestToken(primaryArtist(rawArtist))
-  if (!aTok) return null
-  const { data: artists } = await sb
-    .from('artists')
-    .select('id, name')
-    .ilike('name', `%${aTok}%`)
-    .limit(60)
-  const exact = (artists || []).filter((a: any) => normalizeForMatch(a.name) === aNorm)
-  if (exact.length === 0) return null
-
-  const ids = exact.map((a: any) => a.id)
-  // Visi atlikėjo track'ai → filtras JS'e (be title ilike, kad diakritika/versijos netrukdytų).
-  const { data: tracks } = await sb
-    .from('tracks')
+  if (!normalizeForMatch(rawTitle)) return null
+  const ids = await resolveArtistIds(sb, rawArtist)
+  if (!ids.length) return null
+  const { data: tracks } = await sb.from('tracks')
     .select('id, title, artist_id, artists:artist_id(name)')
-    .in('artist_id', ids)
-    .limit(800)
-  // 1) Tikslus match (standartinė normalizacija)
-  let hits = (tracks || []).filter((t: any) => normalizeForMatch(t.title) === tNorm)
-  // 2) Fallback: agresyvi normalizacija (strip ALL parens/brackets) — abiem pusėm
-  if (hits.length === 0) {   // VISADA bandyk agresyvią (strip visus skliaustus) — DB pusė gali turėti „(su …)"/„(with …)" kurių primary nenuima
-    hits = (tracks || []).filter((t: any) => normalizeAggressive(t.title) === tAggr)
+    .in('artist_id', ids).limit(1200)
+  let hit = matchInCatalog((tracks || []) as CatHit[], rawTitle, !!opts?.fuzzy)
+  if (!hit) {
+    const ct = cleanTitle(rawTitle, rawArtist)
+    if (ct && ct !== rawTitle && normalizeForMatch(ct)) hit = matchInCatalog((tracks || []) as CatHit[], ct, !!opts?.fuzzy)
   }
-  if (hits.length === 0) return null
+  if (!hit) return null
+  const ar = Array.isArray(hit.artists) ? hit.artists[0] : hit.artists
+  return { trackId: hit.id, artistId: hit.artist_id, trackTitle: hit.title, artistName: ar?.name || rawArtist }
+}
 
-  // Vienas → akivaizdu; keli (alt versijos) → kanoninis = mažiausias id, bet
-  // pirmenybė tiksliam raw pavadinimo sutapimui.
-  hits.sort((a: any, b: any) => a.id - b.id)
-  const t: any = hits.find((h: any) => (h.title || '').trim() === rawTitle.trim()) || hits[0]
-  const ar = Array.isArray(t.artists) ? t.artists[0] : t.artists
-  return { trackId: t.id, artistId: t.artist_id, trackTitle: t.title, artistName: ar?.name || rawArtist }
+export type ConfidentAlbumMatch = { albumId: number; artistId: number; albumTitle: string; artistName: string }
+
+export async function findConfidentAlbumMatch(
+  sb: Sb, rawArtist: string, rawTitle: string, opts?: { fuzzy?: boolean },
+): Promise<ConfidentAlbumMatch | null> {
+  if (!normalizeForMatch(rawTitle)) return null
+  const ids = await resolveArtistIds(sb, rawArtist)
+  if (!ids.length) return null
+  const { data: albums } = await sb.from('albums')
+    .select('id, title, artist_id, artists:artist_id(name, slug)')
+    .in('artist_id', ids).limit(1200)
+  let hit = matchInCatalog((albums || []) as CatHit[], rawTitle, !!opts?.fuzzy)
+  if (!hit) {
+    const ct = cleanTitle(rawTitle, rawArtist)
+    if (ct && ct !== rawTitle && normalizeForMatch(ct)) hit = matchInCatalog((albums || []) as CatHit[], ct, !!opts?.fuzzy)
+  }
+  if (!hit) return null
+  const ar = Array.isArray(hit.artists) ? hit.artists[0] : hit.artists
+  return { albumId: hit.id, artistId: hit.artist_id, albumTitle: hit.title, artistName: ar?.name || rawArtist }
+}
+
+/* ───────────────────────── PASTOVI ATMINTIS ───────────────────────── */
+
+function memKeys(rawArtist: string, rawTitle: string) {
+  const norm = `${normalizeForMatch(primaryArtist(rawArtist))}|${normalizeForMatch(rawTitle)}`
+  const aggr = `${normalizeAggressive(primaryArtist(rawArtist))}|${normalizeAggressive(rawTitle)}`
+  return { norm, aggr: aggr !== norm ? aggr : null }
+}
+
+/** Įsimena sujungimą globaliai (upsert pagal norm_key+kind). Tylus (best-effort). */
+export async function rememberResolution(
+  sb: Sb,
+  o: { rawArtist: string; rawTitle: string; kind: 'track' | 'album'; trackId?: number | null; albumId?: number | null; artistId?: number | null; state?: string },
+): Promise<void> {
+  try {
+    const { norm, aggr } = memKeys(o.rawArtist, o.rawTitle)
+    if (!norm || norm === '|') return
+    await sb.from('chart_resolution_memory').upsert({
+      norm_key: norm, aggr_key: aggr, kind: o.kind,
+      track_id: o.kind === 'track' ? (o.trackId ?? null) : null,
+      album_id: o.kind === 'album' ? (o.albumId ?? null) : null,
+      artist_id: o.artistId ?? null,
+      resolve_state: o.state || 'matched',
+      last_artist_name: o.rawArtist, last_title: o.rawTitle,
+    }, { onConflict: 'norm_key,kind' })
+  } catch { /* atmintis — best effort */ }
+}
+
+export type RecalledResolution = { trackId: number | null; albumId: number | null; artistId: number | null; state: string }
+
+/** Atgamina anksčiau įsimintą sujungimą (norm_key, tada aggr_key). Tikrina ar
+ *  entity vis dar egzistuoja (FK cascade trina stale, bet apsidraudžiam). */
+export async function recallResolution(
+  sb: Sb, rawArtist: string, rawTitle: string, kind: 'track' | 'album',
+): Promise<RecalledResolution | null> {
+  const { norm, aggr } = memKeys(rawArtist, rawTitle)
+  if (!norm) return null
+  const col = kind === 'album' ? 'album_id' : 'track_id'
+  const sel = 'track_id, album_id, artist_id, resolve_state'
+  let { data } = await sb.from('chart_resolution_memory').select(sel)
+    .eq('kind', kind).eq('norm_key', norm).limit(1)
+  if ((!data || !data.length) && aggr) {
+    ;({ data } = await sb.from('chart_resolution_memory').select(sel)
+      .eq('kind', kind).eq('aggr_key', aggr).limit(1))
+  }
+  const row = (data || [])[0]
+  if (!row || !row[col]) return null
+  return { trackId: row.track_id, albumId: row.album_id, artistId: row.artist_id, state: row.resolve_state || 'matched' }
 }
 
 /**
- * Cross-chart link: susiejus/sukūrus dainą (ar albumą) viename tope, ta pati
- * daina automatiškai susiejama VISUOSE kituose current chart'uose (pvz. Шадэ
- * yra ir AGATA, ir Apple, ir Spotify). Match pagal normalizuotą artist+title.
- * Grąžina kiek papildomų įrašų susieta.
+ * Cross-chart link: susiejus dainą/albumą viename tope — susiejam VISUOSE kituose
+ * current chart'uose (pagal normalizuotą artist+title). Grąžina kiek susieta.
  */
 export async function linkSongAcrossCharts(
   sb: Sb,
@@ -155,13 +322,19 @@ export async function linkSongAcrossCharts(
   if (!tNorm) return 0
   const isAlbum = !!opts.albumId
 
+  // Įsimenam atmintyje (kad ingest nepamirštų).
+  await rememberResolution(sb, {
+    rawArtist: opts.rawArtist, rawTitle: opts.rawTitle, kind: isAlbum ? 'album' : 'track',
+    trackId: opts.trackId, albumId: opts.albumId, artistId: opts.artistId, state: 'matched',
+  })
+
   const { data: charts } = await sb.from('external_charts').select('id, chart_key').eq('is_current', true)
   const chartIds = (charts || [])
     .filter((c: any) => (c.chart_key === 'albums') === isAlbum)
     .map((c: any) => c.id)
   if (chartIds.length === 0) return 0
 
-  const tok = rawLongestToken(opts.rawTitle)
+  const tok = longestColToken(opts.rawTitle)
   if (!tok) return 0
   const { data: cands } = await sb.from('external_chart_entries')
     .select('id, artist_name, title')
@@ -184,45 +357,7 @@ export async function linkSongAcrossCharts(
   return n
 }
 
-export type ConfidentAlbumMatch = { albumId: number; artistId: number; albumTitle: string; artistName: string }
-
-/**
- * Album atitikmuo (albumų chart'ams). Tas pats principas kaip findConfidentMatch,
- * tik prieš `albums` lentelę. Diakritikai atsparu (raw token + JS filtras).
- */
-export async function findConfidentAlbumMatch(
-  sb: Sb, rawArtist: string, rawTitle: string,
-): Promise<ConfidentAlbumMatch | null> {
-  const aNorm = normalizeForMatch(primaryArtist(rawArtist))
-  const tNorm = normalizeForMatch(rawTitle)
-  const tAggr = normalizeAggressive(rawTitle)
-  if (!aNorm || !tNorm) return null
-
-  const aTok = rawLongestToken(primaryArtist(rawArtist))
-  if (!aTok) return null
-  const { data: artists } = await sb
-    .from('artists').select('id, name').ilike('name', `%${aTok}%`).limit(60)
-  const exact = (artists || []).filter((a: any) => normalizeForMatch(a.name) === aNorm)
-  if (exact.length === 0) return null
-  const ids = exact.map((a: any) => a.id)
-
-  const { data: albums } = await sb
-    .from('albums')
-    .select('id, title, artist_id, artists:artist_id(name, slug)')
-    .in('artist_id', ids)
-    .limit(800)
-  let hits = (albums || []).filter((al: any) => normalizeForMatch(al.title) === tNorm)
-  if (hits.length === 0) {   // VISADA bandyk agresyvią (strip visus skliaustus) — DB pusė gali turėti „(su …)"/„(with …)" kurių primary nenuima
-    hits = (albums || []).filter((al: any) => normalizeAggressive(al.title) === tAggr)
-  }
-  if (hits.length === 0) return null
-  hits.sort((a: any, b: any) => a.id - b.id)
-  const al: any = hits.find((h: any) => (h.title || '').trim() === rawTitle.trim()) || hits[0]
-  const ar = Array.isArray(al.artists) ? al.artists[0] : al.artists
-  return { albumId: al.id, artistId: al.artist_id, albumTitle: al.title, artistName: ar?.name || rawArtist }
-}
-
-/** Create album po atlikėju (minimal ghost — title+slug+artist). Grąžina album_id. */
+/** Create album po atlikėju (minimal ghost). Grąžina album_id. */
 export async function createAlbumForArtist(
   sb: Sb, artistId: number, rawTitle: string,
 ): Promise<number> {
@@ -249,39 +384,42 @@ export function slugifyLt(s: string): string {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100)
 }
 
-/**
- * Find-or-create atlikėjas pagal vardą (normalizuotas lookup). Ghost-stiliaus
- * minimalus įrašas (name + slug + country + type). Grąžina artist_id.
- */
+/** Find-or-create atlikėjas. SIAURAS lookup (tik primary vardas, BE „The"/split
+ *  išplėtimo — kad create nesusietų „Doors" su „The Doors"): name_norm exact +
+ *  token ilike fallback. */
 export async function findOrCreateArtist(
   sb: Sb, rawArtist: string, country: string | null,
 ): Promise<number> {
   const name = primaryArtist(rawArtist) || rawArtist
-  const nNorm = normalizeForMatch(name)
-  const nTok = rawLongestToken(name)
-  const { data: cands } = await sb
-    .from('artists').select('id, name')
-    .ilike('name', `%${nTok || name}%`).limit(60)
-  const hit = (cands || []).find((a: any) => normalizeForMatch(a.name) === nNorm)
-  if (hit) return hit.id
+  const cn = colNorm(name)
+  if (cn) {
+    const { data: exact } = await sb.from('artists').select('id').eq('name_norm', cn).limit(1)
+    if (exact && exact.length) return exact[0].id
+    const tok = longestColToken(name)
+    if (tok) {
+      const { data: cand } = await sb.from('artists').select('id, name')
+        .ilike('name_norm', `%${tok}%`).limit(80)
+      const nn = normalizeForMatch(name)
+      const hit = (cand || []).find((a: any) => normalizeForMatch(a.name) === nn)
+      if (hit) return hit.id
+    }
+  }
 
   let slug = slugifyLt(name) || `artist-${Date.now()}`
   const { data: ex } = await sb.from('artists').select('id').eq('slug', slug).maybeSingle()
   if (ex) slug = `${slug}-${Date.now().toString(36)}`
   const { data: row, error } = await sb.from('artists').insert({
-    slug, name, country: country || null, type: 'solo',
-    type_music: true,
+    slug, name, country: country || null, type: 'solo', type_music: true,
   }).select('id').single()
   if (error) throw error
   return row.id
 }
 
-/** Create track po atlikėju (minimal, kaip quick-create). Grąžina track_id. */
+/** Create track po atlikėju (minimal). Grąžina track_id. */
 export async function createTrackForArtist(
   sb: Sb, artistId: number, rawTitle: string,
 ): Promise<number> {
   const title = rawTitle.trim()
-  // dedupe: ar jau yra toks track'as po šiuo atlikėju
   const { data: ex } = await sb.from('tracks')
     .select('id, title').eq('artist_id', artistId).ilike('title', title).limit(5)
   const dup = (ex || []).find((t: any) => normalizeForMatch(t.title) === normalizeForMatch(title))
