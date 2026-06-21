@@ -528,7 +528,7 @@ function DiscussionsWidget() {
                          REELS OVERLAY COMPONENT
    ════════════════════════════════════════════════════════════════════ */
 
-const REELS_DURATION = 9000
+const REELS_DURATION = 13000
 
 /** Pilno news straipsnio body cache — modulio lygyje, kad keičiant slide'us
  *  nereiktų perkrauti to paties straipsnio iš naujo. */
@@ -587,7 +587,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
   if (loading) return <div className="rdr-load"><span /><span /><span /></div>
   return (
     <div className="rdr-cvl">
-      <div className="rdr-cvl-head">Balsuok už mėgstamas — spausk „+" tiek kartų, kiek nori</div>
+      <div className="rdr-cvl-head">Balsuok už mėgstamas</div>
       {entries.map(e => {
         const n = counts[e.track_id] || 0
         const maxed = n >= WEEKLY
@@ -600,16 +600,10 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
             </button>
             <span className="rdr-chart-info"><b>{e.title}</b><i>{e.artist}</i></span>
             <button className={`rdr-cvl-vote${n > 0 ? ' voted' : ''}`} disabled={maxed} onClick={() => vote(e.track_id)}
-              aria-label="Balsuoti" style={{ background: accent, borderColor: accent }}
-              title={maxed ? 'Pasiektas maks. balsų' : 'Spausk tiek kartų, kiek nori'}>
-              {n > 0 ? (
-                <span className="rdr-cvl-mine">{n}</span>
-              ) : (
-                <>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                  <span className="rdr-cvl-lbl">Balsuoti</span>
-                </>
-              )}
+              aria-label="Balsuoti" title={maxed ? 'Pasiektas maks. balsų' : 'Spausk tiek kartų, kiek nori'}>
+              {n > 0
+                ? <span className="rdr-cvl-mine">{n}</span>
+                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>}
             </button>
           </div>
         )
@@ -693,6 +687,7 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
   onNavLink: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const vwrapRef = useRef<HTMLDivElement>(null)
   const [videoOn, setVideoOn] = useState(false)
   const [curVideoId, setCurVideoId] = useState<string | null>(slide.videoId || null)
   const [mini, setMini] = useState(false)
@@ -706,6 +701,7 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
   const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
   const isDaily = slide.type === 'daily'
   const isNews = slide.type === 'news'
+  const isRecording = slide.type === 'recording'
   const hasVideo = !!slide.videoId
 
   /* Išeinant iš kortelės — sustabdom video, grįžtam į viršų. JOKIO auto-play. */
@@ -745,12 +741,19 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
     onScrolledChange(top > 4)
   }
 
-  /* Bendras grotuvo paleidimas — naudoja ir top play, ir topo/dienos dainos eilutės. */
+  /* Bendras grotuvo paleidimas. SVARBU: iframe'ą kuriam SINCHRONIŠKAI paspaudimo
+   *  handler'yje (ne per React render), kad išliktų „user activation" ir YouTube
+   *  AUTOMATIŠKAI grotų SU GARSU (ypač iOS — React deferred render praranda gestą). */
   const play = (vid?: string) => {
-    setCurVideoId(vid || slide.videoId || null)
+    const id = vid || slide.videoId
+    if (!id) return
+    setCurVideoId(id)
     setVideoOn(true)
-    // Jei jau nuscrollinta — grotuvas iškart minimizuotas (lieka sticky aukščiau).
     setMini((scrollRef.current?.scrollTop || 0) > 36)
+    const el = vwrapRef.current
+    if (el) {
+      el.innerHTML = `<iframe class="rdr-video" src="https://www.youtube.com/embed/${id}?autoplay=1&playsinline=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="grotuvas"></iframe>`
+    }
   }
 
   const toggleLike = async () => {
@@ -775,36 +778,28 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
     <div ref={scrollRef} className="rdr-slide" onScroll={onScroll}>
       {/* ── Media / grotuvas viršuje. Play = oranžinis mygtukas (ne auto), apatiniam
           dešiniam kampe. Scrollinant grojantis video lieka sticky (minimizuojasi). ── */}
-      {showMedia && (
-        videoOn && curVideoId ? (
-          <div
-            className={`rdr-vwrap${mini ? ' mini' : ''}`}
-            onClick={mini ? () => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) : undefined}
-          >
-            <iframe
-              className="rdr-video"
-              src={`https://www.youtube.com/embed/${curVideoId}?autoplay=1&playsinline=1&rel=0`}
-              allow="autoplay; encrypted-media; picture-in-picture"
-              allowFullScreen
-              title={slide.songTitle || slide.title}
-            />
-            {mini && (
-              <button className="rdr-vclose" onClick={(e) => { e.stopPropagation(); setVideoOn(false) }} aria-label="Uždaryti grotuvą">✕</button>
-            )}
-          </div>
-        ) : (
-          <div className="rdr-media">
-            {slide.bgImg
-              ? <img className="rdr-media-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} />
-              : <div className="rdr-media-img" style={{ background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
-            <div className="rdr-media-fade" />
-            {hasVideo && (
-              <button className="rdr-playbtn" onClick={(e) => { e.stopPropagation(); play() }} aria-label="Groti">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
-              </button>
-            )}
-          </div>
-        )
+      {/* Grotuvo konteineris — visada kai kortelė aktyvi (iframe įdedamas imperatyviai
+          paspaudimo metu). Paslėptas kol negroja. */}
+      {active && (
+        <div
+          ref={vwrapRef}
+          className={`rdr-vwrap${mini ? ' mini' : ''}`}
+          style={{ display: videoOn ? undefined : 'none' }}
+          onClick={mini ? () => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) : undefined}
+        />
+      )}
+      {showMedia && !videoOn && (
+        <div className="rdr-media">
+          {slide.bgImg
+            ? <img className="rdr-media-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} />
+            : <div className="rdr-media-img" style={{ background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
+          <div className="rdr-media-fade" />
+          {hasVideo && (
+            <button className="rdr-playbtn" onClick={(e) => { e.stopPropagation(); play() }} aria-label="Groti">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+            </button>
+          )}
+        </div>
       )}
 
       {/* ── „Groja" juostelė (tik kai yra konkreti daina) ── */}
@@ -819,7 +814,9 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
       {/* ── Tekstinė dalis ── */}
       <div className="rdr-content">
         <span className="rdr-chip" style={{ background: seen ? 'rgba(255,255,255,0.16)' : slide.chipBg }}>{slide.chip}</span>
-        <h2 className="rdr-title">{slide.title}</h2>
+        {isRecording
+          ? <Link href={slide.href} onClick={onNavLink} className="rdr-title rdr-title-link">{slide.title}</Link>
+          : <h2 className="rdr-title">{slide.title}</h2>}
         {place && <p className="rdr-meta">{place}</p>}
 
         {showArtistRow && (
@@ -874,25 +871,28 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
         <div style={{ height: 92 }} />
       </div>
 
-      {/* ── Apatinė veiksmų juosta (sticky) ── */}
-      <div className="rdr-actions" onClick={(e) => e.stopPropagation()}>
-        {slide.likeable && slide.newsId && (
-          <button className={`rdr-like${liked ? ' on' : ''}`} onClick={toggleLike} aria-label="Patinka">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
-          </button>
-        )}
-        <Link href={slide.href} onClick={onNavLink} className={`rdr-cta${isNews ? ' subtle' : ''}`}
-          style={isNews ? undefined : { background: seen ? 'rgba(255,255,255,0.18)' : (isChart ? (slide.type === 'chart_lt' ? '#f97316' : '#3b82f6') : isDaily ? '#f59e0b' : '#f97316') }}>
-          {(isNews ? 'Pilna versija ir komentarai' : slide.ctaLabel) || (isChart ? 'Visas topas' : isDaily ? 'Dienos daina' : 'Skaityti')}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-        </Link>
-        {slide.ticketUrl && (
-          <a href={slide.ticketUrl} target="_blank" rel="noopener noreferrer" className="rdr-ticket">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v3a2 2 0 0 1 0 4v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" /></svg>
-            Bilietai
-          </a>
-        )}
-      </div>
+      {/* ── Apatinė veiksmų juosta (sticky). Koncertų įrašams jos NĖRA —
+          title yra aktyvi nuoroda. ── */}
+      {!isRecording && (
+        <div className="rdr-actions" onClick={(e) => e.stopPropagation()}>
+          {slide.likeable && slide.newsId && (
+            <button className={`rdr-like${liked ? ' on' : ''}`} onClick={toggleLike} aria-label="Patinka">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
+            </button>
+          )}
+          <Link href={slide.href} onClick={onNavLink} className={`rdr-cta${isNews ? ' subtle' : ''}`}
+            style={isNews ? undefined : { background: seen ? 'rgba(255,255,255,0.18)' : (isChart ? (slide.type === 'chart_lt' ? '#f97316' : '#3b82f6') : isDaily ? '#f59e0b' : '#f97316') }}>
+            {(isNews ? 'Pilna versija ir komentarai' : slide.ctaLabel) || (isChart ? 'Visas topas' : isDaily ? 'Dienos daina' : 'Skaityti')}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+          </Link>
+          {slide.ticketUrl && (
+            <a href={slide.ticketUrl} target="_blank" rel="noopener noreferrer" className="rdr-ticket">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v3a2 2 0 0 1 0 4v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" /></svg>
+              Bilietai
+            </a>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -915,7 +915,6 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   const [dragOffset, setDragOffset] = useState(0)
   const [scrolled, setScrolled] = useState(false)   // aktyvi kortelė nuscrollinta žemyn
   const [playing, setPlaying] = useState(false)      // aktyvioj kortelėj groja video
-  const [touched, setTouched] = useState(false)      // vartotojas palietė kortelę → auto-advance stoja
 
   const startRef = useRef<number>(0)
   const rafRef = useRef<any>(null)
@@ -928,7 +927,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   // Interaktyvios kortelės (topai, dienos daina) — auto-advance IŠ VISO neveikia
   // (kad nepradingtų bebalsuojant/beklausant). Kitur — stoja skaitant/grojant.
   const interactive = !!slide && (slide.type === 'chart_lt' || slide.type === 'chart_world' || slide.type === 'daily')
-  const autoOff = interactive || scrolled || playing || touched
+  const autoOff = interactive || scrolled || playing
   // Braukimas į šoną veikia VISADA (ir skaitant) — pagal gesto kryptį (h vs v).
 
   const stopProgress = useCallback(() => { cancelAnimationFrame(rafRef.current) }, [])
@@ -954,7 +953,6 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     if (!slide) return
     setScrolled(false)
     setPlaying(false)
-    setTouched(false)
     setProgress(0)
     startProgress()
     return () => { stopProgress(); onSeen(slide.href) }
@@ -988,7 +986,6 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     // grotuvas) — NEperimam gesto, kad mygtukas tikrai suveiktų iš pirmo karto.
     const t = e.target as HTMLElement
     ignoreGesture.current = !!(t && t.closest && t.closest('button, a, iframe, input, textarea, .rdr-actions, .rdr-vwrap'))
-    if (!touched) setTouched(true)  // bet koks prisilietimas → auto-advance stoja (spėji peržiūrėti)
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     gestureDir.current = null
@@ -1037,7 +1034,11 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
         })}
       </div>
 
-      {scrolled && <div className="rdr-paused">Pristabdyta</div>}
+      {scrolled && (
+        <div className="rdr-paused" aria-label="Pristabdyta">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+        </div>
+      )}
 
       <button onClick={onClose} className="rdr-close" aria-label="Uždaryti">✕</button>
 
@@ -3063,7 +3064,9 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         /* Turinys */
         .rdr-content{padding:16px 20px 0}
         .rdr-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:10px;font-weight:900;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px}
-        .rdr-title{font-family:'Outfit',sans-serif;font-size:23px;font-weight:900;color:#fff;line-height:1.14;letter-spacing:-0.02em;margin:0 0 8px}
+        .rdr-title{font-family:'Outfit',sans-serif;font-size:23px;font-weight:900;color:#fff;line-height:1.14;letter-spacing:-0.02em;margin:0 0 8px;display:block}
+        a.rdr-title-link{text-decoration:none}
+        a.rdr-title-link:active{opacity:0.7}
         .rdr-meta{font-size:12.5px;font-weight:600;color:rgba(255,255,255,0.5);margin:0 0 12px}
         .rdr-artist{display:inline-flex;align-items:center;gap:8px;text-decoration:none;margin:0 0 14px;padding:5px 12px 5px 5px;background:rgba(255,255,255,0.06);border-radius:999px}
         .rdr-artist img{width:30px;height:30px;border-radius:50%;object-fit:cover}
@@ -3091,7 +3094,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-chart-row{display:flex;align-items:center;gap:10px}
         .rdr-chart-pos{width:20px;text-align:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:15px;color:#f97316;flex-shrink:0}
         .rdr-chart-row img,.rdr-chart-ph{width:42px;height:42px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#1a1a1a}
-        .rdr-chart-info{display:flex;flex-direction:column;min-width:0}
+        .rdr-chart-info{display:flex;flex-direction:column;min-width:0;flex:1}
         .rdr-chart-info b{font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-chart-info i{font-size:11.5px;font-style:normal;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
@@ -3104,12 +3107,11 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-cvl-cover img{width:100%;height:100%;object-fit:cover;display:block}
         .rdr-cvl-cover:disabled{cursor:default}
         .rdr-cvl-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.32)}
-        .rdr-cvl-vote{display:flex;align-items:center;justify-content:center;gap:5px;flex-shrink:0;min-width:40px;height:38px;padding:0 12px;border-radius:10px;border:1px solid;color:#fff;font-family:'Outfit',sans-serif;font-size:12.5px;font-weight:800;cursor:pointer;transition:transform .12s}
-        .rdr-cvl-vote.voted{padding:0;width:40px}
-        .rdr-cvl-vote:disabled{opacity:0.55}
-        .rdr-cvl-vote:active:not(:disabled){transform:scale(0.92)}
-        .rdr-cvl-mine{font-size:14px;font-weight:900}
-        .rdr-cvl-lbl{font-size:12.5px;font-weight:800}
+        .rdr-cvl-vote{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:38px;height:38px;border-radius:50%;border:1.5px solid var(--accent-orange);background:transparent;color:var(--accent-orange);font-family:'Outfit',sans-serif;cursor:pointer;transition:transform .12s,background .15s}
+        .rdr-cvl-vote.voted{background:var(--accent-orange);color:#fff}
+        .rdr-cvl-vote:disabled{opacity:0.5}
+        .rdr-cvl-vote:active:not(:disabled){transform:scale(0.9)}
+        .rdr-cvl-mine{font-size:15px;font-weight:900}
 
         /* Dienos dainos inline embed — šviesus paviršius kad hero atrodytų natūraliai */
         .rdr-daily-embed{background:var(--bg-body);border-radius:16px;padding:10px;margin:4px 0 12px}
@@ -3146,7 +3148,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-bars{position:fixed;top:12px;left:14px;right:54px;z-index:312;display:flex;gap:4px;align-items:center;pointer-events:none}
         .rdr-bar{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.22);overflow:hidden}
         .rdr-close{position:fixed;top:9px;right:14px;z-index:312;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
-        .rdr-paused{position:fixed;top:26px;left:50%;transform:translateX(-50%);z-index:311;font-family:'Outfit',sans-serif;font-size:10.5px;font-weight:700;color:rgba(255,255,255,0.72);background:rgba(0,0,0,0.55);padding:4px 12px;border-radius:999px;pointer-events:none;backdrop-filter:blur(6px);white-space:nowrap}
+        .rdr-paused{position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:311;display:flex;align-items:center;justify-content:center;width:28px;height:28px;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.55);border-radius:50%;pointer-events:none;backdrop-filter:blur(6px)}
         .rdr-nav{position:fixed;top:50%;transform:translateY(-50%);z-index:308;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:24px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
         .rdr-nav-l{left:12px}.rdr-nav-r{right:12px}
         @media(min-width:900px){.rdr-nav{display:flex}.rdr-media,.rdr-np,.rdr-content,.rdr-actions{max-width:560px;margin-left:auto;margin-right:auto}}
