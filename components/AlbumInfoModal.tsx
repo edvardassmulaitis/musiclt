@@ -20,7 +20,6 @@ import { LikePill } from '@/components/LikePill'
 import { SharePill } from '@/components/SharePill'
 import LikesModal from '@/components/LikesModal'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
-import { ArtistOverviewCard } from '@/components/ArtistOverviewCard'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -371,7 +370,7 @@ export default function AlbumInfoModal({
   // Slide animation classes — drawer'is iš dešinės. mounted=false kviečia
   // slide-out per CSS transition (200ms), o tada onClose paleidžia state cleanup.
   const drawerTransform = mounted ? 'translate-x-0' : 'translate-x-full'
-  const albumTypeLabel = album?.type_studio === true ? 'Studijinis albumas' : (album?.type || '')
+  const albumTypeTag = album?.type_studio === true ? 'Studijinis' : (album?.type || '')
 
   // Skeleton title from preview, kol fetch'inasi.
   const titleNow = album?.title || preview?.title || ''
@@ -398,111 +397,23 @@ export default function AlbumInfoModal({
       <aside
         onClick={(e) => e.stopPropagation()}
         className={[
-          'flex w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)]',
+          'relative flex w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)]',
           'h-[90vh] rounded-t-2xl',
-          // max-w 960px — toks pat kaip dainos modale, kad player'is būtų to
-          // paties dydžio ir užtektų vietos tracklist'ui + atlikėjo overview.
-          // (Anksčiau 720px — viskas susispausdavo, sunkiai skaitoma.)
-          'sm:h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[960px]',
+          'sm:h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[720px]',
         ].join(' ')}
       >
-        {/* Mobile handle bar */}
-        <div className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden">
-          <div className="h-1 w-10 rounded-full bg-[var(--border-default)]" />
-        </div>
-
-        {/* Header — cover + title + artist + external + close */}
-        <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2">
-          {artist ? (
-            <Link
-              href={`/atlikejai/${artist.slug}`}
-              aria-label={`Pas ${artist.name}`}
-              className="shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)]"
-              style={{ width: 40, height: 40 }}
-            >
-              {coverNow ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(coverNow)} alt={titleNow} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[16px]">💿</div>
-              )}
-            </Link>
-          ) : (
-            <div className="shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)]" style={{ width: 40, height: 40 }}>
-              {coverNow ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(coverNow)} alt={titleNow} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[16px]">💿</div>
-              )}
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">
-              {titleNow || 'Kraunama…'}
-            </div>
-            {artist && (
-              <div className="truncate text-[11.5px] leading-tight">
-                <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
-                  {artist.name}
-                </Link>
-              </div>
-            )}
-            {/* Meta eilutė — data · tipas · dainų sk. Švarus stilius kaip
-                dainos puslapyje (vietoj garsaus oranžinio uppercase kicker'io). */}
-            {album && (
-              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
-                {(album.dateFormatted || album.year) && (
-                  <span className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">
-                    {album.dateFormatted || `${album.year} m.`}
-                  </span>
-                )}
-                {albumTypeLabel && (
-                  <>
-                    <span className="text-[var(--text-faint)]">·</span>
-                    <span className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">{albumTypeLabel}</span>
-                  </>
-                )}
-                {tracks.length > 0 && (
-                  <>
-                    <span className="text-[var(--text-faint)]">·</span>
-                    <span className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">{tracks.length} dain.</span>
-                  </>
-                )}
-                {album.is_upcoming && (
-                  <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">Greitai</span>
-                )}
-              </div>
-            )}
-            {/* Veiksmų eilutė — LikePill + Dalintis (kaip albumo puslapyje). */}
-            {album && (
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <LikePill
-                  likes={likeCount}
-                  selfLiked={selfLiked}
-                  onToggle={onToggleLike}
-                  onOpenModal={onOpenLikersModal}
-                  pending={selfLikePending}
-                  variant="surface"
-                />
-                <SharePill
-                  title={`${album.title}${artist ? ` — ${artist.name}` : ''}`}
-                  url={artist ? `/albumai/${artist.slug}-${album.slug}-${album.id}` : `/albumai/${album.slug}-${album.id}`}
-                  size="sm"
-                />
-              </div>
-            )}
-          </div>
+        {/* Top-right corner controls — atidaryti naują langą + uždaryti */}
+        <div className="absolute right-2 top-2 z-20 flex items-center gap-1.5">
           {album && (
             <Link
               href={artist ? `/albumai/${artist.slug}-${album.slug}-${album.id}` : `/albumai/${album.slug}-${album.id}`}
               target="_blank"
               rel="noopener"
               aria-label="Atidaryti albumo puslapį"
-              title="Atidaryti albumo puslapį"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+              title="Atidaryti naujame lange"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)]/90 text-[var(--text-secondary)] backdrop-blur-sm transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
             >
-              <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
               </svg>
             </Link>
@@ -511,12 +422,78 @@ export default function AlbumInfoModal({
             type="button"
             onClick={handleClose}
             aria-label="Uždaryti"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)]/90 text-[var(--text-secondary)] backdrop-blur-sm transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
           >
-            <svg viewBox="0 0 16 16" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+            <svg viewBox="0 0 16 16" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
               <path d="M3 3l10 10M13 3L3 13" />
             </svg>
           </button>
+        </div>
+
+        {/* Mobile handle bar */}
+        <div className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden">
+          <div className="h-1 w-10 rounded-full bg-[var(--border-default)]" />
+        </div>
+
+        {/* Header — bigger cover (≈3 rows) + tag + title + artist. Veiksmai
+            (like/share) perkelti į tabų juostą; uždaryti/naujas langas — kampe. */}
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] px-4 py-3 pr-[88px]">
+          {artist ? (
+            <Link
+              href={`/atlikejai/${artist.slug}`}
+              aria-label={`Pas ${artist.name}`}
+              className="shrink-0 overflow-hidden rounded-xl border border-[var(--border-subtle)]"
+              style={{ width: 60, height: 60 }}
+            >
+              {coverNow ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={proxyImg(coverNow)} alt={titleNow} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[22px]">💿</div>
+              )}
+            </Link>
+          ) : (
+            <div className="shrink-0 overflow-hidden rounded-xl border border-[var(--border-subtle)]" style={{ width: 60, height: 60 }}>
+              {coverNow ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={proxyImg(coverNow)} alt={titleNow} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[22px]">💿</div>
+              )}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            {/* Kicker — TIPO žyma (subtili) + DATA. Be dainų skaičiaus. */}
+            {album && (
+              <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                {albumTypeTag && (
+                  <span className="rounded-md bg-[var(--bg-hover)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                    {albumTypeTag}
+                  </span>
+                )}
+                {(album.dateFormatted || album.year) && (
+                  <span className="text-[10.5px] font-semibold text-[var(--text-muted)]">
+                    {album.dateFormatted || `${album.year} m.`}
+                  </span>
+                )}
+                {album.is_upcoming && (
+                  <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+                    Greitai
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)]">
+              {titleNow || 'Kraunama…'}
+            </div>
+            {artist && (
+              <div className="truncate text-[12px] leading-tight">
+                <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
+                  {artist.name}
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Two-column layout (desktop) / single-column (mobile) ── */}
@@ -575,16 +552,41 @@ export default function AlbumInfoModal({
             </div>
             {/* Artist overview + comment CTA — below video, desktop only */}
             <div className="hidden md:flex flex-1 min-h-0 flex-col overflow-y-auto px-3 py-3">
+              {/* Artist overview card — photo + name + genres + description */}
               {artist && (
-                <ArtistOverviewCard
-                  slug={artist.slug}
-                  name={artist.name}
-                  photoUrl={artist.cover_image_url}
-                  genres={artistGenres}
-                  description={artistDesc}
-                />
+                <div className="flex gap-3 mb-3">
+                  <Link href={`/atlikejai/${artist.slug}`} className="shrink-0">
+                    <div className="h-[88px] w-[88px] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--cover-placeholder)]">
+                      {artist.cover_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={proxyImg(artist.cover_image_url)} alt={artist.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[28px]">🎤</div>
+                      )}
+                    </div>
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">
+                      {artist.name}
+                    </Link>
+                    {artistGenres.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {artistGenres.map(g => (
+                          <span key={g} className="rounded-full bg-[var(--bg-hover)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-muted)]">
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {artistDesc && (
+                      <p className="mt-1.5 line-clamp-4 text-[12px] leading-[1.5] text-[var(--text-secondary)]">
+                        {artistDesc}
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
-              {/* Comment CTA — pinned bottom */}
+              {/* Comment CTA */}
               <button
                 type="button"
                 onClick={() => setMobileTab('comments')}
@@ -599,7 +601,7 @@ export default function AlbumInfoModal({
           {/* Right column — tabs + tracklist/comments */}
           <div className="flex flex-1 min-h-0 flex-col">
             {/* Tabs — Dainos / Komentarai */}
-            <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
+            <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-1.5 sm:gap-4 sm:px-4">
               <button
                 type="button"
                 onClick={() => setMobileTab('tracks')}
@@ -634,6 +636,25 @@ export default function AlbumInfoModal({
                   </span>
                 )}
               </button>
+              {/* Veiksmai — like + dalintis, kompaktiškai dešinėje. */}
+              {album && (
+                <div className="ml-auto flex items-center gap-1.5">
+                  <LikePill
+                    likes={likeCount}
+                    selfLiked={selfLiked}
+                    onToggle={onToggleLike}
+                    onOpenModal={onOpenLikersModal}
+                    pending={selfLikePending}
+                    variant="surface"
+                    size="sm"
+                  />
+                  <SharePill
+                    title={`${album.title}${artist ? ` — ${artist.name}` : ''}`}
+                    url={artist ? `/albumai/${artist.slug}-${album.slug}-${album.id}` : `/albumai/${album.slug}-${album.id}`}
+                    size="sm"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Body — tracklist or comments */}

@@ -17,12 +17,18 @@ type Props = {
   /** 'light' — white glass look for overlay on photo.
    *  'surface' — solid look for normal theme backgrounds. */
   variant?: 'light' | 'surface'
+  /** 'md' — default; 'sm' — compact for tab bars / dense action rows. */
+  size?: 'sm' | 'md'
 }
 
 export function LikePill({
-  likes, selfLiked, onToggle, onOpenModal, pending = false, variant = 'light',
+  likes, selfLiked, onToggle, onOpenModal, pending = false, variant = 'light', size = 'md',
 }: Props) {
   const heartFilled = !!selfLiked
+  const sm = size === 'sm'
+  const heartPad = sm ? 'px-2.5 py-1' : 'px-3.5 py-2'
+  const countPad = sm ? 'px-2.5 py-1 text-[12px]' : 'px-4 py-2 text-[13px]'
+  const heartSize = sm ? 'h-[14px] w-[14px]' : 'h-[17px] w-[17px]'
   const baseWrap = variant === 'light'
     ? 'border border-white/20 bg-white/10 backdrop-blur-md text-white'
     : 'border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-primary)]'
@@ -45,7 +51,8 @@ export function LikePill({
         aria-label={heartFilled ? 'Atšaukti patinka' : 'Pažymėti patinka'}
         aria-pressed={heartFilled}
         className={[
-          'flex items-center justify-center px-3.5 py-2 transition-colors',
+          'flex items-center justify-center transition-colors',
+          heartPad,
           pending ? 'cursor-wait opacity-70' : 'cursor-pointer',
           !heartFilled && variant === 'light' ? 'hover:bg-white/10' : '',
           !heartFilled && variant === 'surface' ? 'hover:bg-[var(--bg-hover)]' : '',
@@ -55,7 +62,7 @@ export function LikePill({
         <svg
           viewBox="0 0 24 24"
           fill={heartFilled ? '#fff' : 'currentColor'}
-          className={['h-[17px] w-[17px] transition-transform', heartFilled ? 'scale-110 text-white' : 'text-[var(--accent-orange)]'].join(' ')}
+          className={[heartSize, 'transition-transform', heartFilled ? 'scale-110 text-white' : 'text-[var(--accent-orange)]'].join(' ')}
         >
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
@@ -68,7 +75,8 @@ export function LikePill({
           title="Pamatyk kam patinka"
           aria-label="Pamatyk kam patinka"
           className={[
-            'flex items-center border-l px-4 py-2 font-["Outfit",sans-serif] text-[13px] font-extrabold tabular-nums tracking-wide transition-colors',
+            'flex items-center border-l font-["Outfit",sans-serif] font-extrabold tabular-nums tracking-wide transition-colors',
+            countPad,
             dividerColor,
             heartFilled ? '!border-white/30' : '',
             !heartFilled && variant === 'light' ? 'hover:bg-white/10' : '',
@@ -81,7 +89,8 @@ export function LikePill({
       ) : (
         <span
           className={[
-            'flex items-center border-l px-4 py-2 font-["Outfit",sans-serif] text-[13px] font-extrabold tabular-nums tracking-wide',
+            'flex items-center border-l font-["Outfit",sans-serif] font-extrabold tabular-nums tracking-wide',
+            countPad,
             dividerColor,
             heartFilled ? '!border-white/30' : '',
             likes === 0 ? 'opacity-70' : '',
