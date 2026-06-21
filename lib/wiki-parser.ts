@@ -460,11 +460,7 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
             // parseDiscographyPage(main) kuris paimdavo Awards table wikitable'ą.
             // Naujas check: skipGroup TIK kai sekcija yra "group-context" tipo
             // (su [Band Name], "with X", "as part of Y") IR ne standartinis album-type.
-            // 2026-06-15: plural-tolerant. Anksčiau `\balbum\b` NEatpažino bare
-            // "Albums"/"EPs"/"Singles" headerių (trailing `s` laužo word-boundary)
-            // → solo artistų (pvz Sam Garrett, kurio sekcija tik "Albums", ne
-            // "Studio albums") albumų sekcija buvo skip'inama → 0 albumų.
-            const isAlbumTypeSection = /\b(studio|albums?|singles?|eps?|extended\s*plays?|compilations?|live|remix(?:es)?|covers?|tributes?|soundtracks?|scores?|holiday|christmas|demos?|mixtapes?|reissues?|greatest|best\s*of|collections?|videos?|dvds?|box(?:es)?|charts?|discograph)\b/i.test(hRaw)
+            const isAlbumTypeSection = /\b(studio|album|single|ep|extended\s*play|compilation|live|remix|cover|tribute|soundtrack|score|holiday|christmas|demo|mixtape|reissue|greatest|best\s*of|collection|video|dvd|box|chart|discograph)\b/i.test(hRaw)
             const isSoloMarker = /\bsolo\b|as\s+lead|as\s+artist|as\s+performer/i.test(hRaw)
             skipGroup = soloOnly && !isAlbumTypeSection && !isSoloMarker && hRaw.trim().length > 0
           }
@@ -492,6 +488,9 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
           else if (typeH.includes('holiday') || typeH.includes('christmas')) currentType = 'holiday'
           else if (typeH.includes('demo')) currentType = 'demo'
           else if (typeH.includes('compilation') || typeH.includes('greatest') || typeH.includes('best of')) currentType = 'compilation'
+          // 2026-06-21: mixtape sekcija bullet-list main page'uose → 'studio'
+          // (žr. parseDiscographyPage komentarą; Drake „More Life" ir kt.).
+          else if (typeH.includes('mixtape')) currentType = 'studio'
           else if (typeH.includes('live') || typeH.includes('concert')) currentType = 'live'
           else if (typeH.includes('box') || typeH.includes('video') || typeH.includes('dvd')) { skipGroup = true }
           else if (/solo|as lead|as artist|as performer/i.test(typeH)) currentType = 'studio'
@@ -520,7 +519,6 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
     if (line.toLowerCase().includes('main article') || line.toLowerCase().includes('see also')) continue
 
     let title = '', wikiTitle = ''
-    let titleFromLink = false
     // 2026-06-11: italic PIRMA, wikilink tik fallback. Wikipedia konvencija:
     // albumo pavadinimas VISADA italic ''...''. Anksčiau [[wikilink]] buvo pirmas,
     // todėl `''Modern Times'' with [[Mike Mainieri]]` gaudavo „Mike Mainieri"
@@ -530,27 +528,14 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
       const inner = im[1]
       // Italic viduje gali būti wikilink: ''[[Album (dis)|Album]]''
       const innerWm = inner.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-      if (innerWm) { wikiTitle = innerWm[1].trim(); title = cleanWikiText(innerWm[2] || innerWm[1]); titleFromLink = true }
+      if (innerWm) { wikiTitle = innerWm[1].trim(); title = cleanWikiText(innerWm[2] || innerWm[1]) }
       else { title = cleanWikiText(inner); wikiTitle = title.replace(/ /g, '_') }
     } else {
       // Fallback: bare [[wikilink]] be italic (retesnis formatas)
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-      if (wm) { wikiTitle = wm[1].trim(); title = cleanWikiText(wm[2] || wm[1]); titleFromLink = true }
+      if (wm) { wikiTitle = wm[1].trim(); title = cleanWikiText(wm[2] || wm[1]) }
     }
-    // 2026-06-15: plain-text albumai BE italic IR BE wikilink (pvz Sam Garrett:
-    // `* Forward to Zion (2023)`, `* One Family (2025)` — nauji leidimai dažnai
-    // dar neturi atskiro straipsnio nei italic markup'o). Imam tekstą tarp
-    // bullet'o ir metų `(YYYY)`. Gate'inam ant metų `(....YYYY...)` buvimo, kad
-    // nepagautume „main article", komentarų ar kitų ne-albuminių bullet'ų.
-    if (!title) {
-      const ym = line.match(/^[*#]\s*(.+?)\s*\([^)]*?\d{4}[^)]*\)/)
-      if (ym) {
-        const cand = cleanWikiText(ym[1]).replace(/'{2,}/g, '').trim()
-        if (cand && cand.length >= 2) { title = cand; wikiTitle = cand.replace(/ /g, '_') }
-      }
-    }
-    // 2026-06-16: leisti 1-simbolio/numeric pavadinimus (Aitch „4", Ed Sheeran „÷") jei iš tikro [[wikilink]] į albumo straipsnį (titleFromLink).
-    if (!title || (title.length < 2 && !titleFromLink) || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle) || (/^[A-Z]{2,3}$/.test(title) && !titleFromLink)) continue
+    if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle) || /^[A-Z]{2,3}$/.test(title)) continue
     const bad = ['discography', 'songs', 'videography', 'filmography', 'certification', 'chart']
     if (bad.some(b => title.toLowerCase().includes(b) || wikiTitle.toLowerCase().includes(b))) continue
     // Year extraction — bandom kelis pattern'us:
@@ -558,8 +543,8 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
     // 2. `* YYYY:` arba `*YYYY:` prefix — Brazilian/PT-influenced pages (Caetano Veloso, Gilberto Gil, Tom Zé)
     // 3. `* '''YYYY'''` bold prefix — kai kurie naudoja bold metus
     // 4. `* YYYY —` arba `* YYYY -` dash separator
-    // 2026-06-11: bare `\((\d{4})\)` neatpažindavo `(February 1969)` (Al Kooper).
-    // Naujas `\([^)]*?(\d{4})\)` leidžia mėnesį/label prieš metus.
+    // 2026-06-11: `\((\d{4})\)` neatpažindavo `(February 1969)` (Al Kooper) —
+    // tik bare `(YYYY)`. Naujas `\([^)]*?(\d{4})\)` leidžia mėnesį/label'ą prieš metus.
     const yearM = line.match(/\([^)]*?(\d{4})\)/)
       || line.match(/^\*\s*'''(\d{4})'''/)
       || line.match(/^\*\s*(\d{4})\s*[:：\-—–]/)
@@ -620,6 +605,12 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       // albumais. Anksčiau catch-all `!matched && depth >= 3` skip'indavo
       // šitą section'ą → Morten Harket / Dave Gahan / etc. negaudavo NIEKO.
       if (h === 'albums' || h === 'studio albums') { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
+      // 2026-06-21: „Solo albums" depth-3 subsekcija po ==Studio albums== (Drake,
+      // daug rapperių disco puslapių: ===Solo albums=== / ===Collaborative albums===).
+      // „Collaborative" jau match'inta žemiau, bet „Solo albums" nematch'indavo nė
+      // vieno tipo → !matched && depth>=3 → skipSection=true → VISI solo studio
+      // albumai (Thank Me Later, Take Care, Views...) praleidžiami. Traktuojam kaip studio.
+      else if (h === 'solo albums' || h === 'solo' || (h.includes('solo') && h.includes('album'))) { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
       else if (h.includes('studio')) { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
       else if (h.includes('collaborative') || h.includes('collaboration')) {
         // 2026-05-19 fix: jei sekcijos header'is taip pat turi "appearance" /
@@ -627,12 +618,8 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
         // „Collaborations and other appearances"), ne primary-artist'o
         // collaborations. Skip'inam, kad neimport'intume Sucker Punch /
         // Symphony of British Music / Beside Bowie ir kt. kaip „Queen studio".
-        // 2026-06-16: bare „Collaborations" (be žodžio 'album') YRA guest/feature
-        // SINGLŲ lentelė su „Other artist(s)"/"Album" stulpeliais (Tito el
-        // Bambino) — NE atlikėjo albumai. Parser'is imdavo „Other artist(s)"
-        // (Pharrell Williams, Olga Tañón) ir „Album" cell'us kaip studio albumus.
-        // Parse'inam TIK tikrus „Collaboration ALBUMS" / „Collaborative albums".
-        if (isAppearanceSection || !h.includes('album')) { skipSection = true; matched = true }
+        // True „Collaboration albums" (be 'appearance') vis dar parse'inami.
+        if (isAppearanceSection) { skipSection = true; matched = true }
         else { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
       }
       else if (h.includes('extended play') || h.includes(' ep') || h === 'eps') { currentType = 'ep'; skipSection = false; matched = true }
@@ -651,6 +638,12 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       // nė vieno tipo → !matched && depth===2 → skipSection=true → visa sekcija
       // praleidžiama. Reissue traktuojam kaip 'studio' (deluxe/perleista versija).
       else if (h.includes('reissue') || h.includes('re-issue') || h.includes('re-release')) { currentType = 'studio'; skipSection = false; matched = true }
+      // 2026-06-21: „Mixtapes" sekcija (Drake „More Life", „So Far Gone", „If You're
+      // Reading This It's Too Late" ir kt.). Anksčiau header'is nematch'indavo nė
+      // vieno tipo → !matched && depth===2 → skipSection=true → visa sekcija
+      // praleidžiama → More Life „neimportuojamas". Komercinius mixtape'us
+      // traktuojam kaip 'studio' — jie de facto albumai (chartina, sertifikuojami).
+      else if (h.includes('mixtape')) { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
       else if (h.includes('compilation') || h.includes('greatest') || h.includes('best of') || h.includes('collection')) { currentType = 'compilation'; skipSection = false; matched = true }
       else if (h.includes('live') || h.includes('concert')) { currentType = 'live'; skipSection = false; matched = true }
       else if (h.includes('box')) { currentType = 'other'; skipSection = true; matched = true }
@@ -731,8 +724,7 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
         const im = cell.match(/'{2,3}([^']+)'{2,3}/) || cell.match(/^"([^"]+)"/)
         if (im) { title = cleanWikiText(im[1]); wikiTitle = title.replace(/ /g, '_') }
       }
-      // 2026-06-16: leisti 1-simbolio pavadinimus (Aitch albumas „4") jei iš tikro [[wikilink]] (wm) į albumo straipsnį.
-      if (!title || (title.length < 2 && !wm) || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle)) continue
+      if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle)) continue
       // 2026-06-18: 'singles' IŠIMTAS iš blocklist'o. Albumai literaliai pavadinti
       // „Singles" (Maroon 5 greatest hits) ar „The Singles Collection" tapdavo
       // skip'inami, nes title.includes('singles'). Tikroji ==Singles== sekcija jau
@@ -878,7 +870,7 @@ export function parseHashListTracks(
   passedDates?: Map<string, SingleInfoboxData>,
 ): TrackEntry[] {
   const tracks: TrackEntry[] = []
-  // Find ==Track listing== section (case-insensitive, allow "Track list", "Tracks")
+  // Find ==Track listing== section (case-insensitive, allow "Track list(ing)(s)", "Tracks")
   const secMatch = wikitext.match(/^(==+)\s*(?:Track\s*list(?:ings?)?|Tracks)\s*\1\s*$/im)
   if (!secMatch || secMatch.index === undefined) return []
   const sectionLevel = secMatch[1].length  // count of '=' chars (e.g. 2 for ==X==)
@@ -916,6 +908,8 @@ export function parseHashListTracks(
   // ==Track listing== sekcijoje). Be-trukmės regex'as saugus nes:
   // (a) tik `# "..."` formatas (ne bullet `*`), (b) tik ==Track listing== viduje.
   // Duration formatai: `– 6:17` (dash) ARBA `(6:17)` (skliausteliuose, Last Days of the Century)
+  // 2026-06-11: `– (3:55)` (Al Kooper) — dash + parenthesized duration. Pridėtas
+  // `\(?` ir `\)?` aplink duration grupę dash variante.
   const lineReWithDur = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*(?:[–—-]\s*\(?(\d{1,2}:\d{2}(?::\d{2})?)\)?|\((\d{1,2}:\d{2}(?::\d{2})?)\))/gm
   const lineReNoDur = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*$/gm
   // Pirma bandome su trukme — jei randa bent 1, naudojam tik tą regex'ą
@@ -1443,8 +1437,10 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
       const durStr = lenM?.[1]?.trim() || ''
       // Palaikom MM:SS arba HH:MM:SS formatą. Anksčiau tik MM:SS — todėl
       // 1:44:35 (Coldplay documentary 1h44m) praeidavo be duration check'o
-      // (regex'as nematch'ino). Hard cap 15min — bet kokia ilgesnė „daina"
-      // greičiausiai documentary, mix tape, ar full album upload.
+      // (regex'as nematch'ino). 2026-06-11: cap pakeltas nuo 15min iki 45min.
+      // Ambient/electronic/progressive žanrai turi 20+ min track'us (Popol Vuh
+      // „In den Gärten Pharaos" 17:38 ir „Vuh" 19:51 buvo filtruojami).
+      // 45min vis dar pagauna full-album upload'us ir documentary.
       const durMatch = durStr.match(/^(\d+):(\d+)(?::(\d+))?$/)
       if (durMatch) {
         const totalSec = durMatch[3]
