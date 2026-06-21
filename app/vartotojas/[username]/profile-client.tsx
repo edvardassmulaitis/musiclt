@@ -654,7 +654,7 @@ function MobileProfileView(props: any) {
           />
         )}
 
-        {/* V18j: „Neseniai pamėgta" mobile — žemiau po srautu (turiniui prioritetas). */}
+        {/* V18j/m: „Neseniai pamėgta" mobile — žemiau po srautu, horizontali juosta. */}
         {isFeedFilter && hasLikes && (
           <div className="mt-6">
             <RecentLikesCard
@@ -664,6 +664,7 @@ function MobileProfileView(props: any) {
               albumResolvedTotal={albumResolvedTotal}
               trackResolvedTotal={trackResolvedTotal}
               onOpenMore={onOpenMore}
+              horizontal
             />
           </div>
         )}
@@ -2322,8 +2323,12 @@ function buildFeedItems({
     return { k, picks, latest }
   }).sort((a, b) => b.latest - a.latest).slice(0, 6)
   for (const { k, picks, latest } of ddMonths) {
+    // V18m: data = mėnesio PRADŽIA, kad dienos dainos rikiuotųsi PO to mėnesio
+    // įrašų (įrašai būna >1 d.), o virš ankstesnio mėnesio. `latest` nenaudojam.
+    void latest
+    const d0 = new Date(picks[0].picked_on)
     items.push({
-      id: `ddweek-${k}`, kind: 'ddweek', date: new Date(latest).toISOString(),
+      id: `ddweek-${k}`, kind: 'ddweek', date: new Date(d0.getFullYear(), d0.getMonth(), 1).toISOString(),
       picks, label: monthLabelLt(picks[0].picked_on),
     })
   }
@@ -2841,15 +2846,43 @@ function DailyPicksModal({ picks, label, onClose }: { picks: any[]; label: strin
   )
 }
 
+// Viena dienos dainos plytelė horizontalioje juostoje (viršelis + pavad.).
+function DdPickTile({ p }: { p: any }) {
+  const track = p.tracks
+  const artist = track && (Array.isArray(track.artists) ? track.artists[0] : track.artists)
+  const thumb = ytThumbProfile(track?.video_url) || track?.cover_url || artist?.cover_image_url || null
+  const href = (artist && track) ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}` : '#'
+  return (
+    <Link href={href} className="group flex w-[92px] flex-shrink-0 flex-col gap-1.5 transition hover:-translate-y-0.5">
+      <div className="relative aspect-square w-full overflow-hidden rounded-lg" style={{ background: 'rgba(249,115,22,0.10)' }}>
+        {thumb ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-xl" style={{ color: 'var(--accent-orange)' }}>♬</div>
+        )}
+        {(p.like_count || 0) > 0 && (
+          <span className="absolute right-1 top-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}>♥ {p.like_count}</span>
+        )}
+      </div>
+      <div className="min-w-0">
+        <div className="truncate text-[12px] font-bold leading-tight group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{track?.title || 'Daina'}</div>
+        {artist && <div className="truncate text-[10.5px]" style={{ color: 'var(--text-muted)' }}>{artist.name}</div>}
+      </div>
+    </Link>
+  )
+}
+
 function DdWeekCard({ picks, label, username, streak }: {
   picks: any[]; label: string; username: string; streak: number
 }) {
-  void username
+  void username; void streak
   const [allOpen, setAllOpen] = useState(false)
   const shown = picks.slice(0, 6)
+  const remaining = picks.length - shown.length
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-      <div className="flex items-center gap-2.5 px-5 pt-4 pb-1 flex-wrap">
+      <div className="flex items-center gap-2.5 px-5 pt-4 pb-2 flex-wrap">
         <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
               style={{ background: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>
           Dienos dainos
@@ -2858,16 +2891,19 @@ function DdWeekCard({ picks, label, username, streak }: {
           {label}
         </h3>
       </div>
-      <div className="px-5 py-1.5">
-        {shown.map((p, i) => <DdPickRow key={p.id} p={p} last={i === shown.length - 1} />)}
+      {/* Horizontali juosta: mobile scroll'inasi, desktop telpa + „Daugiau" boxas. */}
+      <div className="flex gap-2.5 px-5 pb-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {shown.map((p) => <DdPickTile key={p.id} p={p} />)}
+        {remaining > 0 && (
+          <button type="button" onClick={() => setAllOpen(true)} className="group flex w-[92px] flex-shrink-0 flex-col gap-1.5 text-left">
+            <div className="relative aspect-square w-full rounded-lg flex flex-col items-center justify-center transition group-hover:-translate-y-0.5"
+                 style={{ border: '1px dashed var(--border-default)', background: 'var(--card-bg)' }}>
+              <span className="text-lg font-black leading-none" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>+{remaining}</span>
+            </div>
+            <div className="truncate text-[12px] font-bold" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>Daugiau →</div>
+          </button>
+        )}
       </div>
-      {picks.length > shown.length && (
-        <button type="button" onClick={() => setAllOpen(true)}
-                className="block w-[calc(100%-40px)] mx-5 mb-3.5 mt-1 text-center text-[12px] font-bold rounded-lg py-2 transition hover:opacity-85"
-                style={{ color: 'var(--accent-orange)', background: 'rgba(249,115,22,0.08)', fontFamily: "'Outfit', sans-serif" }}>
-          Visos dienos dainos ({picks.length}) →
-        </button>
-      )}
       {allOpen && <DailyPicksModal picks={picks} label={label} onClose={() => setAllOpen(false)} />}
     </div>
   )
@@ -2942,7 +2978,7 @@ function relTimeLt(dateStr: string): string {
 
 function RecentLikesCard({
   favoriteArtists, favoriteAlbums, favoriteTracks,
-  albumResolvedTotal, trackResolvedTotal, onOpenMore,
+  albumResolvedTotal, trackResolvedTotal, onOpenMore, horizontal = false,
 }: any) {
   const items = useMemo(() => {
     const arr: any[] = [
@@ -2950,11 +2986,43 @@ function RecentLikesCard({
       ...(favoriteAlbums || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'album' })),
       ...(favoriteTracks || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'track' })),
     ]
-    return arr.sort((a, b) => new Date(b.liked_at).getTime() - new Date(a.liked_at).getTime()).slice(0, 8)
+    return arr.sort((a, b) => new Date(b.liked_at).getTime() - new Date(a.liked_at).getTime()).slice(0, 12)
   }, [favoriteArtists, favoriteAlbums, favoriteTracks])
 
   // V18k: jei nėra neseniai pamėgtos muzikos — visai nerodom kortelės.
   if (items.length === 0) return null
+
+  // V18m: horizontali juosta (mobile) — viršeliai scroll'inami į šoną.
+  if (horizontal) {
+    return (
+      <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
+        <h4 className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider mb-2 px-1"
+            style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+          <HeartOutlineIcon size={12} />
+          Neseniai pamėgta
+        </h4>
+        <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {items.map((it) => {
+            const artist = Array.isArray(it.artists) ? it.artists[0] : it.artists
+            const isArtist = it._kind === 'artist'
+            const thumb = isArtist ? (it.cover_image_url || null) : (it._kind === 'track' ? ytThumbProfile(it.video_url) : null) || it.cover_url || artist?.cover_image_url || null
+            const href = isArtist ? `/atlikejai/${it.slug}` : artist ? `/atlikejai/${artist.slug}/${it.slug || it.id}` : it._kind === 'track' ? `/lt/daina/${it.slug || ''}/${it.id}` : `/lt/albumas/${it.slug || ''}/${it.id}`
+            return (
+              <Link key={`${it._kind}-${it.id}`} href={href} className="group flex w-[88px] flex-shrink-0 flex-col gap-1.5 transition hover:-translate-y-0.5">
+                {thumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumb} alt="" loading="lazy" className={`w-[88px] h-[88px] object-cover ${isArtist ? 'rounded-full' : 'rounded-lg'}`} />
+                ) : (
+                  <div className={`w-[88px] h-[88px] flex items-center justify-center text-xl ${isArtist ? 'rounded-full' : 'rounded-lg'}`} style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>♬</div>
+                )}
+                <div className="truncate text-[11.5px] font-bold leading-tight group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{isArtist ? it.name : it.title}</div>
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
