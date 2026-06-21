@@ -2486,6 +2486,9 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
   // Reader v3 papildomi feed šaltiniai
   const [dailyWinners, setDailyWinners] = useState<any[]>([])
   const [dailyNomsCount, setDailyNomsCount] = useState<number>(0)
+  // Admin feed override'ai (paslėpti/prisegti/eiliškumas) + laisvi įrašai
+  const [feedOverrides, setFeedOverrides] = useState<{ item_key: string; hidden: boolean; pinned: boolean; sort_order: number | null }[]>([])
+  const [feedCustom, setFeedCustom] = useState<any[]>([])
   const [discoveries, setDiscoveries] = useState<any[]>([])
   const [recordings, setRecordings] = useState<any[]>([])
   const [vertaConcerts, setVertaConcerts] = useState<{ concerts: any[]; destinations: any[] }>({ concerts: [], destinations: [] })
@@ -2700,6 +2703,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     fetch('/api/muzikos-atradimai?featured=1&limit=6').then(r => r.json()).then(d => setDiscoveries(d.items || [])).catch(() => {})
     fetch('/api/koncertu-irasai?limit=6').then(r => r.json()).then(d => setRecordings(d.recordings || [])).catch(() => {})
     fetch('/api/verta-keliones').then(r => r.json()).then(d => setVertaConcerts({ concerts: d.concerts || [], destinations: d.destinations || [] })).catch(() => {})
+    fetch('/api/feed/overrides').then(r => r.json()).then(d => { setFeedOverrides(d.overrides || []); setFeedCustom(d.custom || []) }).catch(() => {})
     // News + songs vienu request'u. `since_days=7` (redeploy) — hero rodo tik šviežias
     // (≤1 sav.) naujienas, kad nekabėtų seni įrašai. Jei nieko naujo — heroSlides
     // vis tiek turės topus (suksis topai blogiausiu atveju). Limit 12 — hero
@@ -2944,11 +2948,42 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
       subtitle: 'Visi Lietuvos atlikėjai vienoje vietoje',
       href: '/atlikejai',
     })
-    setHeroSlides(slides)
+
+    // ── Admin feed override'ai: paslėpti / prisegti / rankinis eiliškumas + laisvi įrašai ──
+    const feedKey = (s: HeroSlide) => `${s.type}::${s.href}`
+    const ovMap = new Map(feedOverrides.map(o => [o.item_key, o]))
+    const items: { slide: HeroSlide; i: number; ord: number | null }[] = []
+    slides.forEach((s, i) => {
+      const o = ovMap.get(feedKey(s))
+      if (o?.hidden) return
+      const ord = o && typeof o.sort_order === 'number' ? o.sort_order : (o?.pinned ? -1 : null)
+      items.push({ slide: s, i, ord })
+    })
+    feedCustom.filter(c => !c.hidden).forEach((c, ci) => {
+      items.push({
+        slide: {
+          type: 'custom', chip: (c.chip || 'ĮRAŠAS').toUpperCase(), chipBg: c.chip_bg || '#6366f1',
+          title: sanitizeTitle(c.title || ''), subtitle: c.subtitle || '', excerpt: c.subtitle || '',
+          href: c.href, bgImg: c.image_url || null, videoId: extractYouTubeId(c.video_url || null),
+          ctaLabel: 'Atidaryti',
+        },
+        i: 10000 + ci,
+        ord: typeof c.sort_order === 'number' ? c.sort_order : -1,
+      })
+    })
+    items.sort((a, b) => {
+      if (a.ord != null && b.ord != null) return a.ord - b.ord || a.i - b.i
+      if (a.ord != null) return -1
+      if (b.ord != null) return 1
+      return a.i - b.i
+    })
+    const finalSlides = items.map(x => x.slide)
+
+    setHeroSlides(finalSlides.length ? finalSlides : slides)
     setHeroIdx(0)
     readyBits.current.hero = true
     tryReady.current()
-  }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents, discoveries, recordings, dailyWinners, dailyNomsCount, vertaConcerts])
+  }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents, discoveries, recordings, dailyWinners, dailyNomsCount, vertaConcerts, feedOverrides, feedCustom])
 
   useEffect(() => {
     if (!heroSlides.length || heroVideoPlaying) return

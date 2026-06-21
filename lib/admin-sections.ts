@@ -114,6 +114,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { key: 'kolekcijos', group: 'content', minRole: 'editor', href: '/admin/kolekcijos', icon: '🎼', label: 'Kolekcijos',     hint: 'Teminės dainų/albumų kolekcijos' },
   { key: 'verta',    group: 'content', minRole: 'editor', href: '/admin/verta-keliones', icon: '✈️', label: 'Verta kelionės', hint: 'Scout turai → kandidatai · koncertai · kryptys' },
   { key: 'voting',   group: 'content', minRole: 'editor', href: '/admin/voting',   icon: '🗳️', label: 'Balsavimai',  hint: 'Apdovanojimai, votings' },
+  { key: 'feed',     group: 'content', minRole: 'editor', href: '/admin/feed',     icon: '📲', label: 'Pagrindinis feed', hint: 'Mobilus istorijų srautas — prisegti/slėpti/tvarka + laisvi įrašai' },
 
   // ── Bendruomenė ir moderavimas ─────────────────────────────────────────────
   { key: 'comments',     group: 'community', minRole: 'editor', href: '/admin/comments',    icon: '💬', label: 'Komentarai',  hint: 'Visi komentarai per visas surfaces' },
