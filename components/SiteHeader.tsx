@@ -181,38 +181,34 @@ const NAV: NavItem[] = [
    aktualiausius poskyrius. Tik patvirtinti route'ai (kad nebūtų 404). */
 const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string }[]>> = {
   muzika: [
-    { href: '/muzika/lietuviska', label: 'LT' },
-    { href: '/muzika/uzsienio', label: 'Pasaulio muzika' },
-    { href: '/muzikos-atradimai', label: 'Radaras' },
+    { href: '/muzika/lietuviska', label: '🇱🇹 Lietuviška' },
+    { href: '/muzika/uzsienio', label: 'Pasaulio' },
+    { href: '/muzikos-atradimai', label: 'Naujienų radaras' },
   ],
   topai: [
-    { href: '/top30', label: 'LT TOP 30' },
+    { href: '/top30', label: '🇱🇹 LT TOP 30' },
     { href: '/top40', label: 'TOP 40' },
-    { href: '/balsavimai', label: 'Balsavimai' },
+    { href: '/balsavimai', label: 'Balsavimai ir rinkimai' },
   ],
   naujienos: [
-    { href: '/naujienos/lietuva', label: 'LT' },
-    { href: '/naujienos/pasaulis', label: 'Pasaulis' },
+    { href: '/naujienos/lietuva', label: '🇱🇹 Lietuvoje' },
+    { href: '/naujienos/pasaulis', label: 'Pasaulyje' },
   ],
   renginiai: [
+    { href: '/koncertu-irasai', label: 'Įrašai' },
+    { href: '/galerija', label: 'Nuotraukos' },
     { href: '/festivaliai', label: 'Festivaliai' },
-    { href: '/galerija', label: 'Foto reportažai' },
-    { href: '/verta-keliones', label: 'Verta kelionės' },
-    { href: '/koncertu-irasai', label: 'Koncertų įrašai' },
+    { href: '/verta-keliones', label: 'Kelionės' },
   ],
   skelbimai: [
-    { href: '/skelbimai/irasai', label: 'Įrašai' },
+    { href: '/skelbimai/irasai', label: 'Vinilai' },
     { href: '/skelbimai/instrumentai', label: 'Instrumentai' },
-    { href: '/skelbimai/muzikantai', label: 'Muzikantai' },
-    { href: '/skelbimai/paslaugos', label: 'Paslaugos' },
+    { href: '/skelbimai/muzikantai', label: 'Grupės ir nariai' },
   ],
   bendruomene: [
-    { href: '/nariai', label: 'Nariai' },
     { href: '/diskusijos', label: 'Diskusijos' },
-    { href: '/blogas', label: 'Narių įrašai' },
-    { href: '/dienos-daina', label: 'Dienos daina' },
-    { href: '/pokalbiai', label: 'Pokalbiai' },
-    { href: '/boombox', label: 'Boombox' },
+    { href: '/dienos-daina', label: 'Dienos dainos' },
+    { href: '/nariai', label: 'Nariai' },
   ],
 }
 
@@ -2486,7 +2482,7 @@ export function SiteHeader() {
         .sh-mblock:last-child { border-bottom: none; }
         .sh-mblock-acc {
           position: absolute;
-          left: 0; top: 10px; height: 32px;
+          left: 0; top: 9px; height: 26px;
           width: 3px;
           border-radius: 0 3px 3px 0;
           background: var(--accent-orange);
@@ -2494,7 +2490,7 @@ export function SiteHeader() {
         /* Antraštė — visa eilutė tiesioginė nuoroda į skyriaus puslapį */
         .sh-mblock-head {
           display: flex; align-items: center; gap: 12px;
-          padding: 7px 16px;
+          padding: 9px 16px;
           text-decoration: none;
           border-radius: 10px;
           transition: background .12s;
@@ -2508,13 +2504,9 @@ export function SiteHeader() {
         }
         /* Sub-nuorodos — visada matomi chip'ai (wrap), kiekvienas tiesioginis link'as */
         .sh-mchips {
-          display: flex; flex-wrap: nowrap; gap: 7px;
-          padding: 0 16px 7px 60px;
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
+          display: flex; flex-wrap: wrap; gap: 7px;
+          padding: 0 16px 8px 16px;
         }
-        .sh-mchips::-webkit-scrollbar { display: none; }
         .sh-mchip {
           font-size: 12px; font-weight: 600;
           padding: 5px 11px;
@@ -2558,11 +2550,12 @@ export function SiteHeader() {
           gap: 3px;
         }
         .sh-mrow-title {
-          font-size: 14.5px; font-weight: 700;
+          font-size: 17.5px; font-weight: 800;
           color: var(--text-primary);
-          line-height: 1.2;
-          letter-spacing: -0.01em;
+          line-height: 1.15;
+          letter-spacing: -0.02em;
         }
+        .sh-mblock.active .sh-mrow-title { color: var(--accent-orange); }
         .sh-mrow-desc {
           font-size: 12.5px; font-weight: 500;
           color: var(--text-muted);
@@ -2576,24 +2569,39 @@ export function SiteHeader() {
         /* Footer — theme toggle */
         .sh-mfoot {
           flex-shrink: 0;
-          padding: 7px 14px;
+          display: flex; align-items: center; gap: 8px;
+          padding: 9px 14px;
           border-top: 1px solid var(--border-default);
         }
-        .sh-mfoot-btn {
+        .sh-mfoot-act {
+          flex: 1;
           display: flex; align-items: center; justify-content: center;
-          gap: 8px;
-          width: 100%;
-          padding: 8px 14px;
+          gap: 7px;
+          padding: 10px 12px;
           border-radius: 10px;
           border: none;
           background: var(--bg-hover);
           color: var(--text-secondary);
-          font-size: 13px; font-weight: 700;
+          font-size: 13.5px; font-weight: 700;
           font-family: inherit;
           cursor: pointer;
-          transition: background .12s;
+          transition: background .12s, color .12s;
         }
-        .sh-mfoot-btn:hover { background: var(--border-default); color: var(--text-primary); }
+        .sh-mfoot-act:hover, .sh-mfoot-act:active {
+          background: rgba(249,115,22,0.10); color: var(--accent-orange);
+        }
+        .sh-mfoot-theme {
+          flex-shrink: 0;
+          width: 42px; height: 42px;
+          display: flex; align-items: center; justify-content: center;
+          border-radius: 10px;
+          border: none;
+          background: var(--bg-hover);
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: background .12s, color .12s;
+        }
+        .sh-mfoot-theme:hover { background: var(--border-default); color: var(--text-primary); }
 
         .sh-mnav {
           flex: 1;
@@ -2946,7 +2954,6 @@ export function SiteHeader() {
                     onClick={() => setMenuOpen(false)}
                     className="sh-mblock-head"
                   >
-                    <span className="sh-mrow-icon">{n.icon}</span>
                     <span className="sh-mrow-text">
                       <span className="sh-mrow-title">{n.label}</span>
                     </span>
@@ -2969,18 +2976,31 @@ export function SiteHeader() {
           </nav>
         </div>
 
-        {/* FOOTER — temos perjungiklis (matomas ir neprisijungusiems mobile) */}
+        {/* FOOTER — greiti veiksmai + kompaktiškas temos perjungiklis
+            (matomi ir neprisijungusiems mobile) */}
         <div className="sh-mfoot">
+          <button type="button" onClick={openSearch} className="sh-mfoot-act">
+            <SearchIcon size={16} />
+            Paieška
+          </button>
+          <button
+            type="button"
+            onClick={() => { openQuickCreate(); setMenuOpen(false) }}
+            className="sh-mfoot-act"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Skelbti
+          </button>
           <button
             type="button"
             onClick={() => setTheme(dk ? 'light' : 'dark')}
-            className="sh-mfoot-btn"
+            className="sh-mfoot-theme"
             aria-label={dk ? 'Įjungti šviesią temą' : 'Įjungti tamsią temą'}
+            title={dk ? 'Šviesi tema' : 'Tamsi tema'}
           >
             {dk
-              ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-              : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
-            {dk ? 'Šviesi tema' : 'Tamsi tema'}
+              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
           </button>
         </div>
       </div>
