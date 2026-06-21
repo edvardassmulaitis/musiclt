@@ -306,8 +306,8 @@ export default function BlogPostPageClient(props: Props) {
         .bp-topas-titlerow { grid-area:title; display:flex; align-items:baseline; gap:14px; }
         .bp-topas-rank { font-family:'Outfit',sans-serif; font-weight:900; font-size:1.7rem; letter-spacing:-.03em; line-height:1; flex-shrink:0; }
         .bp-topas-title { font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800; color:var(--text-primary); line-height:1.25; letter-spacing:-.01em; margin:0; }
-        .bp-topas-artist-inline { color:var(--accent-orange); }
-        .bp-topas-dash { color:var(--text-muted); }
+        .bp-topas-title-main { display:block; color:var(--accent-orange); }
+        .bp-topas-title-artist { display:block; color:var(--text-secondary); font-weight:600; font-size:.9em; margin-top:2px; }
         .bp-topas-genres { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
         .bp-topas-genre { font-family:'Outfit',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.02em; text-transform:lowercase;
                           color:var(--text-secondary); background:var(--card-bg); border:1px solid var(--border-subtle); border-radius:100px; padding:2px 9px; }
@@ -389,7 +389,14 @@ export default function BlogPostPageClient(props: Props) {
               </div>
               <div className="bp-bar-author-text">
                 <span className="bp-bar-name">{authorUsername}</span>
-                <PopBar level={karmaLevel} size="md" />
+                {karmaLevel > 0 && (
+                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full border pf-hero-chip backdrop-blur-md px-2 py-0.5" title="Karma — istoriniai music.lt taškai">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
+                      <path d="M12 2l2.39 7.36H22l-6.18 4.48L18.21 22 12 17.27 5.79 22l2.39-8.16L2 9.36h7.61z" />
+                    </svg>
+                    <PopBar level={karmaLevel} size="sm" />
+                  </span>
+                )}
               </div>
             </Link>
 
@@ -884,9 +891,14 @@ function TopasList({ items }: { items: any[] }) {
                 <span className="bp-topas-rank" style={{ color: rankColor }}>{item.rank || (idx + 1)}</span>
                 <div className="min-w-0">
                   <p className="bp-topas-title">
-                    {item.artist && <span className="bp-topas-artist-inline">{item.artist}</span>}
-                    {item.artist && <span className="bp-topas-dash"> — </span>}
-                    {item.title}
+                    {item.title ? (
+                      <>
+                        <span className="bp-topas-title-main">{item.title}</span>
+                        {item.artist && <span className="bp-topas-title-artist">{item.artist}</span>}
+                      </>
+                    ) : (
+                      <span className="bp-topas-title-main">{item.artist}</span>
+                    )}
                   </p>
                   {genres.length > 0 && (
                     <div className="bp-topas-genres">
