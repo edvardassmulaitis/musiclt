@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import { usePathname } from 'next/navigation'
 import { SiteProvider } from '@/components/SiteContext'
+import { NavigationProgress } from '@/components/NavigationProgress'
 import { SiteHeader } from '@/components/SiteHeader'
 import { SiteFooter } from '@/components/SiteFooter'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
@@ -34,6 +35,11 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SiteProvider>
+      {/* Globalus instant-feedback indikatorius — startuoja ant click'o,
+          dar prieš Next router'iui pradedant navigaciją. */}
+      <Suspense fallback={null}>
+        <NavigationProgress />
+      </Suspense>
       {!isAdmin && <SiteHeader />}
       <main className={mainHasPadding ? 'has-bottom-nav' : undefined}>{children}</main>
       {!isAdmin && !isChat && !isFeed && <SiteFooter />}
