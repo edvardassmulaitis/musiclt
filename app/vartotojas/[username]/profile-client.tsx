@@ -2632,7 +2632,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
 
   // ── TOPAS: /bendruomene tipo plytelių eilutė (be didelio cover) ──
   if (isTopas && listPreview) {
-    const entries = listPreview.slice(0, 5)
+    const entries = listPreview.slice(0, 6)
     return (
       <Link href={url}
             className="group relative flex overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] transition-all hover:-translate-y-0.5 hover:border-[rgba(245,158,11,0.5)]">
@@ -2667,14 +2667,19 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
                 </div>
               </div>
             ))}
+            {listCount > entries.length && (
+              <div className="flex w-[88px] sm:w-[96px] flex-col gap-1.5">
+                <div className="relative aspect-square w-full rounded-lg flex flex-col items-center justify-center"
+                     style={{ border: '1px dashed var(--border-default)', background: 'var(--card-bg)' }}>
+                  <span className="text-base font-black leading-none" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>+{listCount - entries.length}</span>
+                </div>
+                <p className="m-0 truncate text-[12px] font-bold" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>Daugiau →</p>
+              </div>
+            )}
           </div>
           <div className="mt-3">
             <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
           </div>
-          {listCount > entries.length && (
-            <span className="mt-2 self-start text-[11.5px] font-bold transition-opacity group-hover:opacity-70"
-                  style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>Visas topas →</span>
-          )}
         </div>
       </Link>
     )
@@ -2787,45 +2792,53 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
 }
 
 // ── Dienos dainų mėnesio klasteris — geriausiai pasirodžiusios + modalas ──
-function DdPickRow({ p, last }: { p: any; last: boolean }) {
+function ytIdProfile(videoUrl: string | null | undefined): string | null {
+  if (!videoUrl) return null
+  const m = videoUrl.match(YT_REGEX_PROFILE)
+  return m ? m[1] : null
+}
+
+// Modalo eilutė — erdvi, su play (groja viduje), data prie pavadinimo, plain komentaras.
+function DdModalRow({ p, onPlay, playing }: { p: any; onPlay: (vid: string) => void; playing: boolean }) {
   const track = p.tracks
   const artist = track && (Array.isArray(track.artists) ? track.artists[0] : track.artists)
   const thumb = ytThumbProfile(track?.video_url) || track?.cover_url || artist?.cover_image_url || null
+  const vid = ytIdProfile(track?.video_url)
   const href = (artist && track) ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}` : '#'
   const d = new Date(p.picked_on)
+  const dateShort = `${LT_MONTHS_GEN[d.getMonth()].slice(0, 3)} ${d.getDate()}`
   const win = !!p.is_winner
   return (
-    <Link href={href} className="group flex items-start gap-3 px-2 py-2 rounded-lg transition hover:opacity-90"
-          style={{
-            borderBottom: last ? 'none' : '1px dashed var(--border-subtle)',
-            background: win ? 'rgba(249,115,22,0.09)' : undefined,
-          }}>
-      <span className="w-[44px] flex-shrink-0 text-[10px] font-extrabold uppercase leading-tight mt-1"
-            style={{ color: win ? 'var(--accent-orange)' : 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
-        {LT_MONTHS_GEN[d.getMonth()].slice(0, 3)} {d.getDate()}
-      </span>
-      {thumb ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={thumb} alt="" loading="lazy" className="w-[44px] h-[44px] rounded-lg object-cover flex-shrink-0" />
-      ) : (
-        <div className="w-[44px] h-[44px] rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--accent-orange)' }}>♬</div>
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="text-[13.5px] font-bold leading-tight truncate transition"
-             style={{ fontFamily: "'Outfit', sans-serif", color: win ? 'var(--accent-orange)' : 'var(--text-primary)' }}>
-          {track?.title || 'Daina'}{win && <span className="ml-1.5 text-[9px] font-extrabold uppercase tracking-wide align-middle">· laimėtoja</span>}
-        </div>
-        {artist && <div className="text-[11.5px] truncate" style={{ color: win ? 'rgba(249,115,22,0.85)' : 'var(--text-muted)' }}>{artist.name}</div>}
-        {p.comment && (
-          <div className="mt-0.5 text-[11.5px] leading-snug line-clamp-2 italic" style={{ color: 'var(--text-muted)' }}>„{p.comment}"</div>
+    <div className="flex items-start gap-3 rounded-xl px-2.5 py-2.5" style={{ background: win ? 'rgba(249,115,22,0.10)' : undefined }}>
+      <button type="button" onClick={() => vid && onPlay(vid)} disabled={!vid}
+              className="relative w-[56px] h-[56px] rounded-lg overflow-hidden flex-shrink-0 group"
+              style={{ background: 'rgba(249,115,22,0.12)' }} aria-label="Groti">
+        {thumb ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        ) : <div className="absolute inset-0 flex items-center justify-center text-lg" style={{ color: 'var(--accent-orange)' }}>♬</div>}
+        {vid && (
+          <span className={`absolute inset-0 flex items-center justify-center transition ${playing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} style={{ background: 'rgba(0,0,0,0.45)' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" aria-hidden><polygon points="6 4 20 12 6 20 6 4" /></svg>
+          </span>
         )}
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <Link href={href} className="min-w-0 truncate text-[14px] font-bold leading-tight transition hover:text-[var(--accent-orange)]"
+                style={{ fontFamily: "'Outfit', sans-serif", color: win ? 'var(--accent-orange)' : 'var(--text-primary)' }}>{track?.title || 'Daina'}</Link>
+          <span className="flex-shrink-0 text-[10.5px]" style={{ color: 'var(--text-faint)' }}>{dateShort}</span>
+        </div>
+        {artist && <div className="truncate text-[12px] mt-0.5" style={{ color: win ? 'rgba(249,115,22,0.85)' : 'var(--text-muted)' }}>{artist.name}{win && ' · laimėtoja'}</div>}
+        {p.comment && <div className="mt-1 text-[12px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{p.comment}</div>}
       </div>
       {(p.like_count || 0) > 0 && <span className="text-[11px] font-bold flex-shrink-0 mt-1" style={{ color: win ? 'var(--accent-orange)' : 'var(--text-faint)' }}>♥ {p.like_count}</span>}
-    </Link>
+    </div>
   )
 }
 
 function DailyPicksModal({ picks, label, onClose }: { picks: any[]; label: string; onClose: () => void }) {
+  const [playVid, setPlayVid] = useState<string | null>(null)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
@@ -2836,13 +2849,20 @@ function DailyPicksModal({ picks, label, onClose }: { picks: any[]; label: strin
   if (typeof window === 'undefined') return null
   return createPortal(
     <div onClick={onClose} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.65)' }}>
-      <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)', boxShadow: 'var(--modal-shadow)' }}>
+      <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-lg max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)', boxShadow: 'var(--modal-shadow)' }}>
         <header className="flex items-center justify-between gap-3 px-5 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <h3 className="font-black text-base" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>Dienos dainos · {label} <span style={{ color: 'var(--text-muted)' }}>· {picks.length}</span></h3>
           <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full transition hover:opacity-80" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)' }} aria-label="Uždaryti"><span style={{ color: 'var(--text-secondary)' }}>✕</span></button>
         </header>
-        <div className="flex-1 overflow-y-auto px-5 py-2">
-          {picks.map((p, i) => <DdPickRow key={p.id} p={p} last={i === picks.length - 1} />)}
+        {playVid && (
+          <div className="flex-shrink-0 px-4 pt-3" style={{ background: 'var(--modal-bg)' }}>
+            <div className="relative w-full overflow-hidden rounded-xl" style={{ aspectRatio: '16 / 9', background: '#000' }}>
+              <iframe src={`https://www.youtube-nocookie.com/embed/${playVid}?autoplay=1`} title="Grotuvas" allow="autoplay; encrypted-media" allowFullScreen className="absolute inset-0 h-full w-full" />
+            </div>
+          </div>
+        )}
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 flex flex-col gap-0.5">
+          {picks.map((p) => <DdModalRow key={p.id} p={p} playing={!!ytIdProfile(p.tracks?.video_url) && ytIdProfile(p.tracks?.video_url) === playVid} onPlay={setPlayVid} />)}
         </div>
       </div>
     </div>,
@@ -2888,15 +2908,17 @@ function DdWeekCard({ picks, label, username, streak }: {
   const remaining = picks.length - shown.length
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-      <div className="flex items-center gap-2.5 px-5 pt-4 pb-2 flex-wrap">
+      {/* Antraštė klikuojama — atidaro pilną mėnesio modalą (ir kai nėra „Daugiau" boxo). */}
+      <button type="button" onClick={() => setAllOpen(true)} className="group flex w-full items-center gap-2.5 px-5 pt-4 pb-2 flex-wrap text-left">
         <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
               style={{ background: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>
           Dienos dainos
         </span>
-        <h3 className="text-[15.5px] font-extrabold" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+        <h3 className="text-[15.5px] font-extrabold group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
           {label}
         </h3>
-      </div>
+        <span className="ml-auto text-[11px] font-bold" style={{ color: 'var(--text-faint)' }}>{picks.length} →</span>
+      </button>
       {/* Horizontali juosta: mobile scroll'inasi, desktop telpa + „Daugiau" boxas. */}
       <div className="flex gap-2.5 px-5 pb-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {shown.map((p) => <DdPickTile key={p.id} p={p} />)}

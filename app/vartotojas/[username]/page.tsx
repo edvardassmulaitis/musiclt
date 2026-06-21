@@ -333,7 +333,7 @@ async function loadBlogPosts(blog: any): Promise<{ lanes: { type: string; posts:
     for (const p of lane.posts) {
       if (Array.isArray(p.list_items) && p.list_items.length > 0) {
         p.list_items_count = p.list_items.length
-        p.list_items_preview = p.list_items.slice(0, 5).map((it: any) => {
+        p.list_items_preview = p.list_items.slice(0, 6).map((it: any) => {
           const preview = {
             title: it?.title ?? it?.track_title ?? it?.name ?? null,
             artist: it?.artist_name ?? it?.artist ?? it?.subtitle ?? null,
