@@ -20,6 +20,7 @@ import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
+import { LikePill } from '@/components/LikePill'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
 import { PostContent } from './post-content'
@@ -287,13 +288,12 @@ export default function BlogPostPageClient(props: Props) {
 
         /* ── Topas list ── */
         .bp-topas { list-style:none; padding:0; margin:36px 0; display:flex; flex-direction:column; gap:16px; }
-        .bp-topas-item { display:flex; flex-direction:column; gap:14px; padding:18px; border-radius:18px;
+        .bp-topas-item { display:grid; grid-template-columns:auto 1fr; grid-template-areas:"title title" "cover comment"; column-gap:20px; row-gap:14px; align-items:start; padding:18px; border-radius:18px;
                          background:var(--card-bg); border:1px solid var(--border-subtle); text-decoration:none; color:inherit;
                          transition:transform .16s, background .16s, border-color .16s, box-shadow .16s; }
-        .bp-topas-lower { display:flex; align-items:flex-start; gap:20px; }
         .bp-topas-item.is-link { cursor:pointer; }
         .bp-topas-item.is-link:hover { transform:translateY(-2px); border-color:rgba(249,115,22,0.32); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
-        .bp-topas-cover-wrap { position:relative; flex-shrink:0; width:150px; height:150px; border-radius:14px; overflow:hidden; box-shadow:0 6px 20px rgba(0,0,0,0.2); }
+        .bp-topas-cover-wrap { grid-area:cover; position:relative; flex-shrink:0; width:150px; height:150px; border-radius:14px; overflow:hidden; box-shadow:0 6px 20px rgba(0,0,0,0.2); }
         .bp-topas-cover { width:150px; height:150px; border-radius:14px; object-fit:cover; display:block; background:var(--card-bg); transition:transform .3s ease; }
         .bp-topas-cover-empty { display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif; font-size:2.6rem; font-weight:900; color:var(--text-faint); background:var(--bg-hover); }
         .bp-topas-play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; border:0; cursor:pointer; color:#fff;
@@ -303,7 +303,7 @@ export default function BlogPostPageClient(props: Props) {
                                background:rgba(249,115,22,0.96); border-radius:50%; padding:10px; transform:scale(0.82); transition:transform .2s cubic-bezier(0.22,1,0.36,1); }
         .bp-topas-item.is-link:hover .bp-topas-play > svg { transform:scale(1); }
         .bp-topas-item.is-link:hover .bp-topas-cover { transform:scale(1.04); }
-        .bp-topas-titlerow { display:flex; align-items:baseline; gap:14px; }
+        .bp-topas-titlerow { grid-area:title; display:flex; align-items:baseline; gap:14px; }
         .bp-topas-rank { font-family:'Outfit',sans-serif; font-weight:900; font-size:1.7rem; letter-spacing:-.03em; line-height:1; flex-shrink:0; }
         .bp-topas-title { font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800; color:var(--text-primary); line-height:1.25; letter-spacing:-.01em; margin:0; }
         .bp-topas-artist-inline { color:var(--accent-orange); }
@@ -311,7 +311,7 @@ export default function BlogPostPageClient(props: Props) {
         .bp-topas-genres { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
         .bp-topas-genre { font-family:'Outfit',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.02em; text-transform:lowercase;
                           color:var(--text-secondary); background:var(--card-bg); border:1px solid var(--border-subtle); border-radius:100px; padding:2px 9px; }
-        .bp-topas-comment { flex:1; min-width:0; font-size:.94rem; color:var(--text-secondary); margin:0; line-height:1.7; }
+        .bp-topas-comment { grid-area:comment; min-width:0; font-size:.94rem; color:var(--text-secondary); margin:0; line-height:1.7; }
 
         .bp-comments { margin-top:48px; padding-top:28px; border-top:1px solid var(--border-subtle); }
 
@@ -335,8 +335,7 @@ export default function BlogPostPageClient(props: Props) {
           .bp-hero-photo { height:130px; }
           .bp-h1 { font-size:1.5rem; }
           .bp-topas { gap:12px; margin:26px 0; }
-          .bp-topas-item { padding:13px; gap:12px; border-radius:15px; }
-          .bp-topas-lower { gap:13px; }
+          .bp-topas-item { padding:13px; column-gap:13px; row-gap:12px; border-radius:15px; grid-template-areas:"cover title" "comment comment"; align-items:center; }
           .bp-topas-cover-wrap { width:92px; height:92px; border-radius:12px; }
           .bp-topas-cover { width:92px; height:92px; border-radius:12px; }
           .bp-topas-comment { font-size:.88rem; line-height:1.62; }
@@ -389,7 +388,7 @@ export default function BlogPostPageClient(props: Props) {
                 }
               </div>
               <div className="bp-bar-author-text">
-                <span className="bp-bar-name">@{authorUsername}</span>
+                <span className="bp-bar-name">{authorUsername}</span>
                 <PopBar level={karmaLevel} size="md" />
               </div>
             </Link>
@@ -512,9 +511,12 @@ function PopBar({ level, size = 'sm' }: { level: number; size?: 'sm' | 'md' }) {
   const w = size === 'md' ? 22 : 14
   return (
     <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }} aria-hidden>
-      {Array.from({ length: Math.min(level, total) }).map((_, i) => (
-        <span key={i} style={{ height: h, width: w, borderRadius: 2, background: 'var(--accent-orange)', opacity: 0.55 + 0.45 * (i + 1) / total }} />
-      ))}
+      {Array.from({ length: total }).map((_, i) => {
+        const filled = i < level
+        return (
+          <span key={i} style={{ height: h, width: w, borderRadius: 2, background: filled ? 'var(--accent-orange)' : 'var(--popbar-empty)', opacity: filled ? 0.55 + 0.45 * (i + 1) / total : 1 }} />
+        )
+      })}
     </span>
   )
 }
@@ -769,23 +771,14 @@ function BlogLikePill({ postId, initialCount }: { postId: string; initialCount: 
 
   return (
     <div>
-      <div style={{ display: 'inline-flex', alignItems: 'center' }}>
-        <div className={`bp-pill ${liked ? 'is-on' : ''}`}>
-          <button type="button" onClick={toggle} disabled={pending} className="bp-pill-side bp-pill-icon"
-            title={liked ? 'Patiko' : 'Pažymėti, kad patinka'} aria-label={liked ? 'Patiko' : 'Patinka'} aria-pressed={liked}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-            </svg>
-          </button>
-          {count > 0 ? (
-            <button type="button" onClick={() => { loadLikers(); setModalOpen(true) }} className="bp-pill-count is-link" title="Pamatyti kas patiko">
-              {count.toLocaleString('lt-LT')}
-            </button>
-          ) : (
-            <span className="bp-pill-count" style={{ opacity: 0.6 }}>0</span>
-          )}
-        </div>
-      </div>
+      <LikePill
+        likes={count}
+        selfLiked={liked}
+        onToggle={toggle}
+        onOpenModal={count > 0 ? () => { loadLikers(); setModalOpen(true) } : undefined}
+        pending={pending}
+        variant="surface"
+      />
       {showNudge && !authed && (
         <div className="bp-like-nudge">
           Ačiū! <button type="button" onClick={() => signIn(undefined, { callbackUrl: typeof window !== 'undefined' ? window.location.href : '/' })}>Užsiregistruok</button> ir paskatink kūrėją.
@@ -902,21 +895,19 @@ function TopasList({ items }: { items: any[] }) {
                   )}
                 </div>
               </div>
-              <div className="bp-topas-lower">
-                <div className="bp-topas-cover-wrap">
-                  {item.image_url
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    ? <img src={item.image_url} alt="" className="bp-topas-cover" />
-                    : <div className="bp-topas-cover bp-topas-cover-empty">{(item.artist || item.title || '?').charAt(0).toUpperCase()}</div>
-                  }
-                  {playable && (
-                    <button type="button" className="bp-topas-play" aria-label="Klausyti" onClick={(e) => { if (isAlbum) openAlbum(e) }}>
-                      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                    </button>
-                  )}
-                </div>
-                {hasDesc && <p className="bp-topas-comment">{item.comment}</p>}
+              <div className="bp-topas-cover-wrap">
+                {item.image_url
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  ? <img src={item.image_url} alt="" className="bp-topas-cover" />
+                  : <div className="bp-topas-cover bp-topas-cover-empty">{(item.artist || item.title || '?').charAt(0).toUpperCase()}</div>
+                }
+                {playable && (
+                  <button type="button" className="bp-topas-play" aria-label="Klausyti" onClick={(e) => { if (isAlbum) openAlbum(e) }}>
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  </button>
+                )}
               </div>
+              {hasDesc && <p className="bp-topas-comment">{item.comment}</p>}
             </Wrapper>
           </li>
         )

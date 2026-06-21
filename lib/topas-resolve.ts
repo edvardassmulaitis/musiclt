@@ -42,7 +42,7 @@ async function enrichByTitle(sb: Sb, title: string) {
 // + tekste minimi atlikėjų vardai (DB). Manual triggeris → kelios klaidos OK.
 export async function enrichProseLinks(sb: Sb, html: string): Promise<string> {
   if (!html) return html
-  const blocks = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => ({ raw: m[0], text: stripTags(m[1]) }))
+  const blocks = [...html.matchAll(/(<p\b[^>]*>)([\s\S]*?)<\/p>/gi)].map(m => ({ raw: m[0], open: m[1], text: stripTags(m[2]) }))
   if (!blocks.length) return html
 
   type Cand = { kind: 'pair' | 'title' | 'artist'; text: string; artist?: string; title?: string }
@@ -82,7 +82,7 @@ export async function enrichProseLinks(sb: Sb, html: string): Promise<string> {
   const isWord = (ch: string) => /[\p{L}\p{N}]/u.test(ch)
   for (const b of blocks) {
     const tt = b.text.trim()
-    if (resolved.has(tt)) { out = out.replace(b.raw, `<p>${enrichLinkHtml(resolved.get(tt)!, tt)}</p>`); continue }
+    if (resolved.has(tt)) { out = out.replace(b.raw, `${b.open}${enrichLinkHtml(resolved.get(tt)!, tt)}</p>`); continue }
     const matches: { start: number; end: number; text: string }[] = []
     for (const [text] of resolved) {
       if (text === tt) continue
@@ -108,7 +108,7 @@ export async function enrichProseLinks(sb: Sb, html: string): Promise<string> {
       h += escHtml(b.text.slice(pos, s)) + enrichLinkHtml(resolved.get(m.text)!, m.text); pos = e
     }
     h += escHtml(b.text.slice(pos))
-    out = out.replace(b.raw, `<p>${h}</p>`)
+    out = out.replace(b.raw, `${b.open}${h}</p>`)
   }
   return out
 }
