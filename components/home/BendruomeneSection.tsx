@@ -219,7 +219,7 @@ function DDCard({ it }: { it: CommunityItem }) {
   const winnerLevel = Math.max(1, Math.round((winnerVotes / maxVotes) * 5))
   return (
     <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline"
-      style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0, background: 'linear-gradient(135deg,#241308 0%,#10141f 65%)', borderColor: 'rgba(249,115,22,0.3)' }}>
+      style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0, background: 'var(--card-bg)', borderColor: 'rgba(249,115,22,0.35)' }}>
       <Badge meta={meta} />
       <div className="flex items-center gap-3 px-3.5 pt-9">
         <div className="relative h-[86px] w-[86px] shrink-0 overflow-hidden rounded-xl shadow-[0_8px_22px_rgba(0,0,0,0.45)]">
@@ -238,29 +238,29 @@ function DDCard({ it }: { it: CommunityItem }) {
                 style={{ background: '#f97316' }}>#1</span>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[#f0f4fc]">{it.title}</p>
-          {it.author_name && <p className="m-0 mt-0.5 truncate text-[11.5px] text-[#aec4dd]">{it.author_name}</p>}
-          <div className="mt-1.5"><PopBar level={winnerLevel} onDark /></div>
+          <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">{it.title}</p>
+          {it.author_name && <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{it.author_name}</p>}
+          <div className="mt-1.5"><PopBar level={winnerLevel} /></div>
         </div>
       </div>
-      <div className="mx-3.5 mt-3 flex flex-col gap-1.5 border-t border-[rgba(255,255,255,0.08)] pt-2.5">
+      <div className="mx-3.5 mt-3 flex flex-col gap-1.5 border-t border-[var(--border-subtle)] pt-2.5">
         {candidates.length > 0 ? (
           <>
-            <p className="m-0 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.1em] text-[#8ea8c4]">Kiti pasiūlymai</p>
+            <p className="m-0 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-muted)]">Kiti pasiūlymai</p>
             {candidates.map((c, i) => {
               const level = Math.max(1, Math.round((c.votes / maxVotes) * 5))
               return (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[12px] font-black text-[#8ea8c4]">{c.rank ?? i + 2}</span>
+                  <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[12px] font-black text-[var(--text-muted)]">{c.rank ?? i + 2}</span>
                   {c.cover
                     ? <img src={proxyImg(c.cover)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
                         className="h-[30px] w-[30px] shrink-0 rounded-md object-cover" />
                     : <div className="h-[30px] w-[30px] shrink-0 rounded-md" style={{ background: `hsl(${strHue(c.title)},30%,22%)` }} />
                   }
                   <div className="min-w-0 flex-1">
-                    <p className="m-0 truncate text-[11.5px] font-bold leading-tight text-[#f0f4fc]" style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
-                    {c.artist && <p className="m-0 truncate text-[9.5px] leading-tight text-[#8ea8c4]">{c.artist}</p>}
-                    <div className="mt-1"><PopBar level={level} w={9} onDark /></div>
+                    <p className="m-0 truncate text-[11.5px] font-bold leading-tight text-[var(--text-primary)]" style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
+                    {c.artist && <p className="m-0 truncate text-[9.5px] leading-tight text-[var(--text-muted)]">{c.artist}</p>}
+                    <div className="mt-1"><PopBar level={level} w={9} /></div>
                   </div>
                 </div>
               )
@@ -276,8 +276,8 @@ function DDCard({ it }: { it: CommunityItem }) {
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="m-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[#f0f4fc]">Siūlyti dainą</p>
-              <p className="m-0 text-[10px] text-[#8ea8c4]">Rink dienos dainą su bendruomene</p>
+              <p className="m-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)]">Siūlyti dainą</p>
+              <p className="m-0 text-[10px] text-[var(--text-muted)]">Rink dienos dainą su bendruomene</p>
             </div>
           </a>
         )}
@@ -338,33 +338,28 @@ function TopasCard({ it }: { it: CommunityItem }) {
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {entries.length > 0 && (
           <div className="mt-1 flex flex-col">
-            {entries.map(e => {
-              // #1 — oranžinis numeris + didesnis viršelis/pavadinimas; kiti pilki.
-              const big = e.rank === 1
-              const sz = big ? 'h-[42px] w-[42px]' : 'h-[30px] w-[30px]'
-              return (
-                <div key={e.rank} className="flex items-center gap-2 border-b border-[var(--border-subtle)] py-[6px] last:border-b-0">
-                  <span className={`shrink-0 text-center font-black ${big ? 'w-5 text-[14px]' : 'w-4 text-[12px]'}`}
-                        style={{ color: big ? 'var(--accent-orange)' : 'var(--text-muted)', fontFamily: "'Outfit',sans-serif" }}>
-                    {e.rank}
-                  </span>
-                  {e.image
-                    ? <img src={proxyImg(e.image)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
-                        className={`${sz} shrink-0 rounded-md object-cover`} />
-                    : <div className={`${sz} shrink-0 rounded-md`}
-                        style={{ background: `hsl(${strHue(e.title)},30%,20%)` }} />
-                  }
-                  <div className="min-w-0 flex-1">
-                    <p className={`m-0 truncate font-bold leading-tight text-[var(--text-primary)] ${big ? 'text-[13px]' : 'text-[11.5px]'}`}
-                       style={{ fontFamily: "'Outfit',sans-serif" }}>{e.title}</p>
-                    {e.artist && (
-                      <p className={`m-0 truncate leading-tight text-[var(--text-muted)] ${big ? 'text-[10.5px]' : 'text-[9.5px]'}`}
-                         style={{ fontFamily: "'Outfit',sans-serif" }}>{e.artist}</p>
-                    )}
-                  </div>
+            {entries.map(e => (
+              <div key={e.rank} className="flex items-center gap-2 border-b border-[var(--border-subtle)] py-[6px] last:border-b-0">
+                <span className="w-4 shrink-0 text-center text-[12px] font-black"
+                      style={{ color: e.rank === 1 ? '#fbbf24' : e.rank === 2 ? '#94a3b8' : e.rank === 3 ? '#c97d4d' : 'var(--text-faint)', fontFamily: "'Outfit',sans-serif" }}>
+                  {e.rank}
+                </span>
+                {e.image
+                  ? <img src={proxyImg(e.image)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+                      className="h-[30px] w-[30px] shrink-0 rounded-md object-cover" />
+                  : <div className="h-[30px] w-[30px] shrink-0 rounded-md"
+                      style={{ background: `hsl(${strHue(e.title)},30%,20%)` }} />
+                }
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 truncate text-[11.5px] font-bold leading-tight text-[var(--text-primary)]"
+                     style={{ fontFamily: "'Outfit',sans-serif" }}>{e.title}</p>
+                  {e.artist && (
+                    <p className="m-0 truncate text-[9.5px] leading-tight text-[var(--text-muted)]"
+                       style={{ fontFamily: "'Outfit',sans-serif" }}>{e.artist}</p>
+                  )}
                 </div>
-              )
-            })}
+              </div>
+            ))}
           </div>
         )}
         {(it.entries?.length || 0) > 5 && (
@@ -422,7 +417,7 @@ function AtradimasCard({ it }: { it: CommunityItem }) {
     <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
       <Badge meta={meta} />
       <Cover url={it.cover} alt={artistName} hue={h} iconType="atradimas" />
-      <div className="flex flex-1 flex-col gap-1 px-3 pb-2 pt-2.5">
+      <div className="flex flex-col gap-1 px-3 pb-2 pt-2.5">
         {trackName ? (
           <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
              style={{ fontFamily: "'Outfit',sans-serif" }}>{trackName}</p>
@@ -435,7 +430,7 @@ function AtradimasCard({ it }: { it: CommunityItem }) {
              style={{ fontFamily: "'Outfit',sans-serif" }}>{artistName}</p>
         )}
         {it.excerpt && (
-          <div className="mt-1 flex min-h-0 flex-1 gap-2">
+          <div className="mt-1 flex gap-2">
             {it.author_avatar
               ? <img src={proxyImg(it.author_avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
                   className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
@@ -446,8 +441,8 @@ function AtradimasCard({ it }: { it: CommunityItem }) {
                   </div>
                 : null
             }
-            {/* Tekstas užpildo likusį kortelės aukštį (flex-1), kerpamas tik jei netelpa. */}
-            <p className="m-0 flex-1 overflow-hidden text-[11px] leading-relaxed text-[var(--text-secondary)]">{it.excerpt}</p>
+            <p className="m-0 text-[11px] leading-relaxed text-[var(--text-secondary)]"
+               style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it.excerpt}</p>
           </div>
         )}
       </div>
@@ -492,9 +487,9 @@ export default function BendruomeneSection() {
         <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">
           Bendruomenė
         </h2>
-        <Link href="/bendruomene"
+        <Link href="/atrasti"
               className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">
-          Daugiau →
+          Atrasti →
         </Link>
       </div>
 
@@ -513,5 +508,3 @@ export default function BendruomeneSection() {
     </section>
   )
 }
-
-// redeploy 1781786641

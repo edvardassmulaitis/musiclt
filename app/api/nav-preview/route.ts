@@ -175,12 +175,18 @@ export async function GET() {
         .select('date, tracks:track_id ( slug, title, cover_url, video_url, artists:artist_id ( name, slug, cover_image_url ) )')
         .order('date', { ascending: false })
         .limit(10),
+      // Naujausi narių įrašai — ATSPINDI realų feed'ą (/api/home/community):
+      //   !inner join + hide_from_homepage=not.is.true → paslėptų narių įrašai
+      //   išmetami DB lygyje; topas rodomas tik patvirtintas. Be šių filtrų
+      //   dropdown'as rodydavo paslėpto nario įrašus (Edvardo pastaba 2026-06-21).
       supabase
         .from('blog_posts')
-        .select('id, slug, title, cover_image_url, post_type, published_at, blogs:blog_id ( slug, profiles:user_id ( full_name, username, avatar_url ) )')
+        .select('id, slug, title, cover_image_url, post_type, published_at, blogs:blog_id!inner ( slug, profiles:user_id!inner ( full_name, username, avatar_url, hide_from_homepage ) )')
         .eq('status', 'published')
         .not('published_at', 'is', null)
         .lte('published_at', new Date().toISOString())
+        .not('blogs.profiles.hide_from_homepage', 'is', true)
+        .or('post_type.neq.topas,topas_approved_at.not.is.null')
         .order('published_at', { ascending: false })
         .limit(80),
       // Naujausi aktyvūs skelbimai — Skelbimų dropdown'o juostai (realūs itemai)

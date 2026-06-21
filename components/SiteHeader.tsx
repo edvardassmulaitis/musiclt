@@ -7,9 +7,9 @@ import { HeaderAuth } from '@/components/HeaderAuth'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { MessagesBell } from '@/components/MessagesBell'
 import { MasterSearch } from '@/components/MasterSearch'
-import { useSite } from '@/components/SiteContext'
 import { RadarSweepMini } from '@/components/RadarSweepMini'
 import { openQuickCreate } from '@/components/QuickCreate'
+import { useSite } from '@/components/SiteContext'
 import { proxyImg } from '@/lib/img-proxy'
 import { GENRE_COLORS, GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
 import { NEWS_STYLES, NEWS_TYPES, NEWS_SCOPES } from '@/lib/news-taxonomy'
@@ -168,52 +168,50 @@ const NAV: NavItem[] = [
   {
     key: 'bendruomene',
     label: 'Bendruomenė',
-    href: '/bendruomene',
-    match: ['/bendruomene', '/atrasti', '/nariai', '/diskusijos', '/pokalbiai', '/boombox', '/dienos-daina', '/blogas', '/feed', '/srautas'],
+    href: '/atrasti',
+    match: ['/atrasti', '/vartotojai', '/diskusijos', '/pokalbiai', '/boombox', '/dienos-daina', '/blogas', '/feed', '/srautas'],
     desc: 'Nariai, diskusijos, kūryba',
     accent: '#8b5cf6',
     icon: I.users,
   },
 ]
 
-/* Mobile flat-meniu quick-action chip'ai — po kiekvienu skyriaus pavadinimu.
-   Pakeičia ilgus subtekstus trumpais, tiesioginiais nav shortcut'ais į
-   aktualiausius poskyrius. Tik patvirtinti route'ai (kad nebūtų 404). */
-const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string; dot?: boolean }[]>> = {
-  muzika: [
-    { href: '/muzika/lietuviska', label: '🇱🇹 Lietuviška' },
-    { href: '/muzika/uzsienio', label: 'Pasaulio' },
-    { href: '/muzikos-atradimai', label: 'Naujienų radaras', dot: true },
-  ],
-  topai: [
-    { href: '/top30', label: '🇱🇹 LT TOP 30' },
-    { href: '/top40', label: 'TOP 40' },
-    { href: '/balsavimai', label: 'Balsavimai ir rinkimai' },
-  ],
-  naujienos: [
-    { href: '/naujienos/lietuva', label: '🇱🇹 Lietuvoje' },
-    { href: '/naujienos/pasaulis', label: 'Pasaulyje' },
-  ],
+/* Mobile flat-meniu sub-nuorodos — chip'ai TIK ten, kur yra atskiros sritys,
+   kurių nepamatai iš skyriaus pagrindinio puslapio (Koncertai, Bendruomenė).
+   Muzika/Topai/Naujienos/Skelbimai hub'ai patys viską parodo → be pills.
+   Tik patvirtinti route'ai (kad nebūtų 404). */
+const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string }[]>> = {
   renginiai: [
-    { href: '/koncertu-irasai', label: 'Įrašai' },
-    { href: '/galerija', label: 'Nuotraukos' },
     { href: '/festivaliai', label: 'Festivaliai' },
-    { href: '/verta-keliones', label: 'Kelionės' },
-  ],
-  skelbimai: [
-    { href: '/skelbimai/irasai', label: 'Vinilai, kiti įrašai' },
-    { href: '/skelbimai/instrumentai', label: 'Instrumentai' },
-    { href: '/skelbimai/muzikantai', label: 'Grupės ir nariai' },
+    { href: '/galerija', label: 'Foto reportažai' },
+    { href: '/verta-keliones', label: 'Verta kelionės' },
+    { href: '/koncertu-irasai', label: 'Koncertų įrašai' },
   ],
   bendruomene: [
+    { href: '/vartotojai', label: 'Nariai' },
     { href: '/diskusijos', label: 'Diskusijos' },
-    { href: '/atradimai', label: 'Atradimai' },
-    { href: '/dienos-daina', label: 'Dienos dainos' },
-    { href: '/nariai', label: 'Nariai' },
+    { href: '/blogas', label: 'Narių įrašai' },
+    { href: '/dienos-daina', label: 'Dienos daina' },
+    { href: '/pokalbiai', label: 'Pokalbiai' },
+    { href: '/boombox', label: 'Boombox' },
   ],
 }
 
 /* ── Header chrome icons ── */
+const SunIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+    <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </svg>
+)
+const MoonIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+)
 const SearchIcon = ({ size = 16 }: { size?: number } = {}) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
     <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -682,10 +680,9 @@ function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: s
   const dailySongs = data?.dailySongs || []
   const posts = data?.discoveryPosts || []
   const items: { href: string; icon: React.ReactNode; title: string; desc: string; rgb: string }[] = [
-    { href: '/nariai', icon: I.users, title: 'Pažink narius', desc: 'Aktyviausi bendruomenės nariai', rgb: '#f59e0b' },
+    { href: '/vartotojai', icon: I.users, title: 'Pažink narius', desc: 'Aktyviausi bendruomenės nariai', rgb: '#f59e0b' },
     { href: '/diskusijos', icon: I.forum, title: 'Diskusijos', desc: 'Forumo temos ir debatai', rgb: '#8b5cf6' },
     { href: '/pokalbiai', icon: I.chat, title: 'Pokalbių dėžutė', desc: 'Bendras gyvas chatas', rgb: '#06b6d4' },
-    { href: '/boombox', icon: I.boombox, title: 'Boombox', desc: 'Muzikinis swipe žaidimas', rgb: '#6366f1' },
   ]
   const headLabel: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif",
@@ -701,7 +698,6 @@ function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: s
     <div className="sh-panel">
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Bendruomenė</span>
-        <Link href="/bendruomene" className="sh-panel-section-more">Atrask viską <ArrowRight size={11}/></Link>
       </div>
 
       {/* Dienos dainos — nugalėtojų juosta */}
@@ -1152,7 +1148,7 @@ function MobileExpansion({
           </>
         )}
         <div className="sh-mexp-grid">
-          <Link href="/nariai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f59e0b') }}>
+          <Link href="/vartotojai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f59e0b') }}>
             <span className="sh-mexp-tile-icon">{I.users}</span>
             <span className="sh-mexp-tile-label">Pažink narius</span>
           </Link>
@@ -1271,10 +1267,10 @@ function MobileExpansion({
  * Main component
  * ──────────────────────────────────────────────────────────────── */
 export function SiteHeader() {
+  const { theme, setTheme, dk } = useSite()
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const { dk, setTheme } = useSite()
   const [preview, setPreview] = useState<NavPreview | null>(null)
   // Desktop dropdown'o "closing" state — paspaudus link'ą uždaro
   // panel'ą iškart. SVARBU: suppress'as laikomas KOL pelė fiziškai
@@ -2463,35 +2459,31 @@ export function SiteHeader() {
           min-height: 0;
           overflow-y: auto;
           -webkit-overflow-scrolling: touch;
-          display: flex;
-          flex-direction: column;
         }
 
         /* MAIN VIEW — clean text-row list (no gradients) */
         .sh-mlist {
-          flex: 1 1 auto;
           display: flex; flex-direction: column;
-          justify-content: space-evenly;
-          padding: 2px 0;
+          padding: 4px 0;
         }
         /* Flat blokas — skyriaus antraštė (nuoroda) + sub-nuorodų chip'ai */
         .sh-mblock {
           position: relative;
-          padding: 2px 0;
+          padding: 4px 0;
           border-bottom: 1px solid var(--border-default);
         }
         .sh-mblock:last-child { border-bottom: none; }
         .sh-mblock-acc {
           position: absolute;
-          left: 0; top: 9px; height: 26px;
+          left: 0; top: 12px; height: 38px;
           width: 3px;
           border-radius: 0 3px 3px 0;
           background: var(--accent-orange);
         }
         /* Antraštė — visa eilutė tiesioginė nuoroda į skyriaus puslapį */
         .sh-mblock-head {
-          display: flex; align-items: center; gap: 6px;
-          padding: 9px 16px;
+          display: flex; align-items: center; gap: 14px;
+          padding: 10px 16px;
           text-decoration: none;
           border-radius: 10px;
           transition: background .12s;
@@ -2500,24 +2492,18 @@ export function SiteHeader() {
         .sh-mblock-go {
           flex-shrink: 0;
           color: var(--text-muted);
-          opacity: 0.5;
+          opacity: 0.55;
           display: flex;
-          margin-top: 1px;
-          transition: transform .15s, color .15s, opacity .15s;
         }
-        .sh-mblock-head:hover .sh-mblock-go { transform: translateX(2px); opacity: 0.9; }
-        .sh-mblock.active .sh-mblock-go { color: var(--accent-orange); opacity: 0.9; }
         /* Sub-nuorodos — visada matomi chip'ai (wrap), kiekvienas tiesioginis link'as */
         .sh-mchips {
           display: flex; flex-wrap: wrap; gap: 7px;
-          padding: 0 16px 8px 16px;
+          padding: 2px 16px 8px 62px;
         }
         .sh-mchip {
-          display: inline-flex; align-items: center; gap: 6px;
-          font-size: 12px; font-weight: 600;
-          padding: 5px 11px;
+          font-size: 12.5px; font-weight: 600;
+          padding: 6px 12px;
           border-radius: 99px;
-          flex-shrink: 0;
           border: 1px solid var(--border-default);
           background: var(--bg-hover);
           color: var(--text-secondary);
@@ -2536,14 +2522,14 @@ export function SiteHeader() {
            kaip iOS Settings / macOS sidebar. */
         .sh-mrow-icon {
           flex-shrink: 0;
-          width: 32px; height: 32px;
-          border-radius: 9px;
+          width: 38px; height: 38px;
+          border-radius: 10px;
           display: flex; align-items: center; justify-content: center;
           color: var(--text-primary);
           background: var(--bg-hover);
           border: 1px solid var(--border-default);
         }
-        .sh-mrow-icon svg { width: 17px; height: 17px; stroke-width: 2; }
+        .sh-mrow-icon svg { width: 19px; height: 19px; stroke-width: 2; }
         /* Active row — accent ring around icon (orange brand color) */
         .sh-mblock.active .sh-mrow-icon {
           color: var(--accent-orange);
@@ -2556,28 +2542,10 @@ export function SiteHeader() {
           gap: 3px;
         }
         .sh-mrow-title {
-          font-size: 17.5px; font-weight: 800;
+          font-size: 15.5px; font-weight: 700;
           color: var(--text-primary);
-          line-height: 1.15;
-          letter-spacing: -0.02em;
-        }
-        .sh-mblock.active .sh-mrow-title { color: var(--accent-orange); }
-        /* Pulsuojantis žalias taškas (pvz. „Naujienų radaras" — live) */
-        .sh-mchip-dot {
-          width: 7px; height: 7px;
-          border-radius: 50%;
-          background: var(--accent-green, #22c55e);
-          flex-shrink: 0;
-          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
-          animation: shMchipPulse 1.8s ease-out infinite;
-        }
-        @keyframes shMchipPulse {
-          0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
-          70%  { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .sh-mchip-dot { animation: none; }
+          line-height: 1.2;
+          letter-spacing: -0.01em;
         }
         .sh-mrow-desc {
           font-size: 12.5px; font-weight: 500;
@@ -2592,39 +2560,24 @@ export function SiteHeader() {
         /* Footer — theme toggle */
         .sh-mfoot {
           flex-shrink: 0;
-          display: flex; align-items: center; gap: 8px;
-          padding: 9px 14px;
+          padding: 10px 14px;
           border-top: 1px solid var(--border-default);
         }
-        .sh-mfoot-act {
-          flex: 1;
+        .sh-mfoot-btn {
           display: flex; align-items: center; justify-content: center;
-          gap: 7px;
-          padding: 10px 12px;
+          gap: 8px;
+          width: 100%;
+          padding: 10px 14px;
           border-radius: 10px;
           border: none;
           background: var(--bg-hover);
           color: var(--text-secondary);
-          font-size: 13.5px; font-weight: 700;
+          font-size: 13px; font-weight: 700;
           font-family: inherit;
           cursor: pointer;
-          transition: background .12s, color .12s;
+          transition: background .12s;
         }
-        .sh-mfoot-act:hover, .sh-mfoot-act:active {
-          background: rgba(249,115,22,0.10); color: var(--accent-orange);
-        }
-        .sh-mfoot-theme {
-          flex-shrink: 0;
-          width: 42px; height: 42px;
-          display: flex; align-items: center; justify-content: center;
-          border-radius: 10px;
-          border: none;
-          background: var(--bg-hover);
-          color: var(--text-secondary);
-          cursor: pointer;
-          transition: background .12s, color .12s;
-        }
-        .sh-mfoot-theme:hover { background: var(--border-default); color: var(--text-primary); }
+        .sh-mfoot-btn:hover { background: var(--border-default); color: var(--text-primary); }
 
         .sh-mnav {
           flex: 1;
@@ -2977,16 +2930,19 @@ export function SiteHeader() {
                     onClick={() => setMenuOpen(false)}
                     className="sh-mblock-head"
                   >
-                    <span className="sh-mrow-title">{n.label}</span>
+                    <span className="sh-mrow-icon">{n.icon}</span>
+                    <span className="sh-mrow-text">
+                      <span className="sh-mrow-title">{n.label}</span>
+                      <span className="sh-mrow-desc">{n.desc}</span>
+                    </span>
                     <span className="sh-mblock-go" aria-hidden>
-                      <ArrowRight size={16} />
+                      <ArrowRight size={15} />
                     </span>
                   </Link>
                   {subs.length > 0 && (
                     <div className="sh-mchips">
                       {subs.map(s => (
                         <Link key={s.href} href={s.href} onClick={() => setMenuOpen(false)} className="sh-mchip">
-                          {s.dot && <span className="sh-mchip-dot" aria-hidden />}
                           {s.label}
                         </Link>
                       ))}
@@ -2998,31 +2954,10 @@ export function SiteHeader() {
           </nav>
         </div>
 
-        {/* FOOTER — greiti veiksmai + kompaktiškas temos perjungiklis
-            (matomi ir neprisijungusiems mobile) */}
+        {/* Theme toggle — fixed footer */}
         <div className="sh-mfoot">
-          <button type="button" onClick={openSearch} className="sh-mfoot-act">
-            <SearchIcon size={16} />
-            Paieška
-          </button>
-          <Link
-            href="/auth/profile"
-            onClick={() => setMenuOpen(false)}
-            className="sh-mfoot-act"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            Profilis
-          </Link>
-          <button
-            type="button"
-            onClick={() => setTheme(dk ? 'light' : 'dark')}
-            className="sh-mfoot-theme"
-            aria-label={dk ? 'Įjungti šviesią temą' : 'Įjungti tamsią temą'}
-            title={dk ? 'Šviesi tema' : 'Tamsi tema'}
-          >
-            {dk
-              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
+          <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="sh-mfoot-btn">
+            {dk ? <><SunIcon /> Šviesi tema</> : <><MoonIcon /> Tamsi tema</>}
           </button>
         </div>
       </div>
