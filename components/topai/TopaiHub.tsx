@@ -250,14 +250,17 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {breadcrumbLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />}
 
-      <TopaiFilterBar view={view} />
+      {/* Antraštė — matomas H1 + paantraštė (kaip /muzika, /dainos ir kt.).
+          Tekstas keičiasi pagal aktyvų filtrą → kiekvienas landing'as turi
+          unikalų H1 ir aprašą. */}
+      <header className="tp-hero">
+        <div className="tp-hero-inner">
+          <h1>{info.h1}</h1>
+          <p className="tp-hero-lead">{info.desc}</p>
+        </div>
+      </header>
 
-      {/* H1 — SEO (vizualiai paslėptas; matomas hero pašalintas Edvardo
-          prašymu). Tekstas keičiasi pagal aktyvų filtrą → kiekvienas
-          landing'as turi unikalų H1. */}
-      <h1 style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
-        {info.h1}
-      </h1>
+      <TopaiFilterBar view={view} />
 
       {orderedCards.length === 0 ? (
         <div className="tp-none">Šios kategorijos topai šiuo metu formuojasi.</div>
@@ -346,6 +349,12 @@ function ChartCard({ card }: { card: Card }) {
 const styles = `
   .tp { max-width: var(--page-max); margin: 0 auto; padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); color: var(--text-primary); font-family: 'DM Sans', sans-serif; }
   @media (max-width: 640px) { .tp { padding-left: var(--page-pad-x-sm); padding-right: var(--page-pad-x-sm); } }
+
+  /* Antraštės blokas — suderinta su /muzika (.mz-hero) ir globalia .page-head skale. */
+  .tp-hero { position: relative; margin-bottom: var(--page-head-gap); }
+  .tp-hero-inner { position: relative; }
+  .tp-hero h1 { margin: 0; font-family: 'Outfit', sans-serif; font-weight: var(--page-h1-weight); letter-spacing: var(--page-h1-tracking); font-size: var(--page-h1-size); line-height: var(--page-h1-line); color: var(--text-primary); }
+  .tp-hero-lead { margin: 10px 0 0; color: var(--page-sub-color); font-size: var(--page-sub-size); line-height: var(--page-sub-line); max-width: var(--page-sub-max); }
 
   .tp-none { padding: 60px 0; text-align: center; color: var(--text-muted); font-size: 14px; }
 
