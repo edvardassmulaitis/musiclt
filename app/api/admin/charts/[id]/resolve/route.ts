@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase'
 import {
   findConfidentMatch, findOrCreateArtist,
   findConfidentAlbumMatch, createAlbumForArtist,
+  recallResolution, rememberResolution,
 } from '@/lib/chart-resolve'
 import { commitChartTrack } from '@/lib/quick-add'
 
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           await sb.from('external_chart_entries').update({
             album_id: albumId, track_id: null, artist_id: artistId, resolve_state: 'created',
           }).eq('id', e.id)
+          await rememberResolution(sb, { rawArtist: e.artist_name, rawTitle: e.title, kind: 'album', albumId, artistId, state: 'created' })
           created++
         } else {
           // Bulk: primary+featuring atlikėjai + track (BE YT enrich — greitis/budget).
@@ -69,6 +71,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           await sb.from('external_chart_entries').update({
             track_id: r.trackId, album_id: null, artist_id: r.artistId, resolve_state: 'created',
           }).eq('id', e.id)
+          await rememberResolution(sb, { rawArtist: e.artist_name, rawTitle: e.title, kind: 'track', trackId: r.trackId, artistId: r.artistId, state: 'created' })
           created++
         }
       } catch { /* praleidžiam — lieka pending, kitas run'as pakartos */ }
@@ -83,22 +86,36 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const batch = entries.slice(i, i + 8)
     await Promise.all(batch.map(async (e: any) => {
       try {
+        const kind: 'track' | 'album' = isAlbum ? 'album' : 'track'
         if (isAlbum) {
-          const m = await findConfidentAlbumMatch(sb, e.artist_name, e.title)
+          const m = await findConfidentAlbumMatch(sb, e.artist_name, e.title, { fuzzy: true })
           if (m) {
             await sb.from('external_chart_entries').update({
               album_id: m.albumId, track_id: null, artist_id: m.artistId, resolve_state: 'matched',
             }).eq('id', e.id)
-            matched++
+            await rememberResolution(sb, { rawArtist: e.artist_name, rawTitle: e.title, kind, albumId: m.albumId, artistId: m.artistId })
+            matched++; return
           }
         } else {
-          const m = await findConfidentMatch(sb, e.artist_name, e.title)
+          const m = await findConfidentMatch(sb, e.artist_name, e.title, { fuzzy: true })
           if (m) {
             await sb.from('external_chart_entries').update({
               track_id: m.trackId, album_id: null, artist_id: m.artistId, resolve_state: 'matched',
             }).eq('id', e.id)
-            matched++
+            await rememberResolution(sb, { rawArtist: e.artist_name, rawTitle: e.title, kind, trackId: m.trackId, artistId: m.artistId })
+            matched++; return
           }
+        }
+        // Auto-match nerado — konsultuojam pastovią atmintį (anksčiau rankiniu būdu
+        // sujungta pora, kuri katalogo paieška dabar nesutampa, pvz. po pavadinimo
+        // pokyčio). Taip rankinis darbas nepradingsta.
+        const rec = await recallResolution(sb, e.artist_name, e.title, kind)
+        if (rec && (rec.trackId || rec.albumId)) {
+          await sb.from('external_chart_entries').update({
+            track_id: rec.trackId, album_id: rec.albumId, artist_id: rec.artistId,
+            resolve_state: rec.state || 'matched',
+          }).eq('id', e.id)
+          matched++
         }
       } catch { /* praleidžiam — lieka review eilėje */ }
     }))
