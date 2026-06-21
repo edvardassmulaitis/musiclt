@@ -19,7 +19,7 @@
 //     5. Mėgstamos dainos — YT thumb grid + quick filters
 //     6. Naujausi komentarai — activity log
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -2263,10 +2263,10 @@ function weekLabelLt(dateStr: string): string {
   return `${m[0].toUpperCase()}${m.slice(1)} ${Math.min(Math.ceil(d.getDate() / 7), 4)} sav., ${d.getFullYear()}`
 }
 
-const LT_MONTHS_NOM = ['Sausis', 'Vasaris', 'Kovas', 'Balandis', 'Gegužė', 'Birželis', 'Liepa', 'Rugpjūtis', 'Rugsėjis', 'Spalis', 'Lapkritis', 'Gruodis']
+const LT_MONTHS_NOM = ['sausis', 'vasaris', 'kovas', 'balandis', 'gegužė', 'birželis', 'liepa', 'rugpjūtis', 'rugsėjis', 'spalis', 'lapkritis', 'gruodis']
 function monthLabelLt(dateStr: string): string {
   const d = new Date(dateStr)
-  return `${LT_MONTHS_NOM[d.getMonth()]} ${d.getFullYear()}`
+  return `${d.getFullYear()} m. ${LT_MONTHS_NOM[d.getMonth()]}`
 }
 
 // Posts iš contentLanes + dienos dainų savaitės + (fallback) like klasteriai.
@@ -2307,7 +2307,7 @@ function buildFeedItems({
     // Naujausi pasiūlymai viršuje.
     picks.sort((a, b) => new Date(b.picked_on).getTime() - new Date(a.picked_on).getTime())
     return { k, picks, latest }
-  }).sort((a, b) => b.latest - a.latest).slice(0, 6)
+  }).sort((a, b) => b.latest - a.latest).slice(0, 24)
   for (const { k, picks, latest } of ddMonths) {
     // V18m: data = mėnesio PRADŽIA, kad dienos dainos rikiuotųsi PO to mėnesio
     // įrašų (įrašai būna >1 d.), o virš ankstesnio mėnesio. `latest` nenaudojam.
@@ -2793,10 +2793,15 @@ function DdPickRow({ p, last }: { p: any; last: boolean }) {
   const thumb = ytThumbProfile(track?.video_url) || track?.cover_url || artist?.cover_image_url || null
   const href = (artist && track) ? `/dainos/${artist.slug}-${track.slug || track.id}-${track.id}` : '#'
   const d = new Date(p.picked_on)
+  const win = !!p.is_winner
   return (
-    <Link href={href} className="group flex items-center gap-3 py-2 transition hover:opacity-85"
-          style={{ borderBottom: last ? 'none' : '1px dashed var(--border-subtle)' }}>
-      <span className="w-[44px] flex-shrink-0 text-[10px] font-extrabold uppercase leading-tight" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+    <Link href={href} className="group flex items-start gap-3 px-2 py-2 rounded-lg transition hover:opacity-90"
+          style={{
+            borderBottom: last ? 'none' : '1px dashed var(--border-subtle)',
+            background: win ? 'rgba(249,115,22,0.09)' : undefined,
+          }}>
+      <span className="w-[44px] flex-shrink-0 text-[10px] font-extrabold uppercase leading-tight mt-1"
+            style={{ color: win ? 'var(--accent-orange)' : 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
         {LT_MONTHS_GEN[d.getMonth()].slice(0, 3)} {d.getDate()}
       </span>
       {thumb ? (
@@ -2806,17 +2811,28 @@ function DdPickRow({ p, last }: { p: any; last: boolean }) {
         <div className="w-[44px] h-[44px] rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--accent-orange)' }}>♬</div>
       )}
       <div className="min-w-0 flex-1">
-        <div className="text-[13.5px] font-bold leading-tight truncate group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
-          {p.is_winner && <span title="Dienos dainos laimėtoja">🏆 </span>}{track?.title || 'Daina'}
+        <div className="text-[13.5px] font-bold leading-tight truncate transition"
+             style={{ fontFamily: "'Outfit', sans-serif", color: win ? 'var(--accent-orange)' : 'var(--text-primary)' }}>
+          {track?.title || 'Daina'}{win && <span className="ml-1.5 text-[9px] font-extrabold uppercase tracking-wide align-middle">· laimėtoja</span>}
         </div>
-        {artist && <div className="text-[11.5px] truncate" style={{ color: 'var(--text-muted)' }}>{artist.name}</div>}
+        {artist && <div className="text-[11.5px] truncate" style={{ color: win ? 'rgba(249,115,22,0.85)' : 'var(--text-muted)' }}>{artist.name}</div>}
+        {p.comment && (
+          <div className="mt-0.5 text-[11.5px] leading-snug line-clamp-2 italic" style={{ color: 'var(--text-muted)' }}>„{p.comment}"</div>
+        )}
       </div>
-      {(p.like_count || 0) > 0 && <span className="text-[11px] font-bold flex-shrink-0" style={{ color: 'var(--text-faint)' }}>♥ {p.like_count}</span>}
+      {(p.like_count || 0) > 0 && <span className="text-[11px] font-bold flex-shrink-0 mt-1" style={{ color: win ? 'var(--accent-orange)' : 'var(--text-faint)' }}>♥ {p.like_count}</span>}
     </Link>
   )
 }
 
 function DailyPicksModal({ picks, label, onClose }: { picks: any[]; label: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
+  }, [onClose])
   if (typeof window === 'undefined') return null
   return createPortal(
     <div onClick={onClose} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.65)' }}>
@@ -2849,13 +2865,10 @@ function DdPickTile({ p }: { p: any }) {
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-xl" style={{ color: 'var(--accent-orange)' }}>♬</div>
         )}
-        {p.is_winner && (
-          <span className="absolute left-1 top-1 px-1.5 py-0.5 rounded-full text-[9px] font-black flex items-center gap-0.5"
-                title="Dienos dainos laimėtoja"
-                style={{ background: 'linear-gradient(135deg,#f59e0b,#f97316)', color: '#fff', boxShadow: '0 1px 4px rgba(249,115,22,0.5)' }}>🏆 #1</span>
-        )}
-        {(p.like_count || 0) > 0 && (
-          <span className="absolute right-1 top-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}>♥ {p.like_count}</span>
+        {((p.like_count || 0) > 0 || p.is_winner) && (
+          <span className="absolute right-1 top-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold backdrop-blur-md"
+                title={p.is_winner ? 'Dienos dainos laimėtoja' : undefined}
+                style={{ background: p.is_winner ? 'var(--accent-orange)' : 'rgba(0,0,0,0.55)', color: '#fff' }}>♥ {p.like_count || 0}</span>
         )}
       </div>
       <div className="min-w-0">
@@ -3012,6 +3025,14 @@ function RecentLikesCard({
               </Link>
             )
           })}
+          {/* Daugiau boxas — atidaro visą mėgstamą muziką (dainos modale). */}
+          <button type="button" onClick={() => onOpenMore?.('track')} className="group flex w-[88px] flex-shrink-0 flex-col gap-1.5 text-left">
+            <div className="w-[88px] h-[88px] rounded-lg flex flex-col items-center justify-center transition group-hover:-translate-y-0.5"
+                 style={{ border: '1px dashed var(--border-default)', background: 'var(--card-bg)' }}>
+              <span className="text-base font-black leading-none" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>→</span>
+            </div>
+            <div className="truncate text-[11.5px] font-bold" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>Daugiau</div>
+          </button>
         </div>
       </div>
     )
