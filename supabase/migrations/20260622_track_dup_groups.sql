@@ -203,3 +203,101 @@ begin
   get diagnostics n = row_count;
   return n;
 end $$;
+-- Release-year mismatches: track's release_year is newer than the earliest
+-- album it appears on (usually a YouTube upload year wrongly overwriting the
+-- real release). The earliest album year is the reliable original-release year.
+
+create or replace function release_year_mismatches(
+  p_min_diff int default 2,
+  p_limit int default 50,
+  p_offset int default 0
+) returns table(
+  track_id bigint, title text, artist_name text, artist_slug text,
+  release_year int, album_year int, album_title text, diff int
+)
+language plpgsql volatile as $$
+begin
+  set local statement_timeout = '60s';
+  return query
+  with ta as (
+    select at.track_id, min(al.year) y
+    from album_tracks at
+    join albums al on al.id = at.album_id
+    where al.year between 1900 and 2100
+    group by at.track_id
+  )
+  select t.id::bigint, t.title, a.name, a.slug,
+         t.release_year::int, ta.y::int,
+         (select al2.title from album_tracks at2 join albums al2 on al2.id = at2.album_id
+          where at2.track_id = t.id and al2.year = ta.y order by al2.id limit 1),
+         (t.release_year - ta.y)::int
+  from tracks t
+  join ta on ta.track_id = t.id
+  left join artists a on a.id = t.artist_id
+  where t.release_year is not null and t.release_year > ta.y + p_min_diff
+  order by (t.release_year - ta.y) desc, t.id
+  limit p_limit offset p_offset;
+end $$;
+
+-- Fix one track: snap release_year to earliest album year, drop the (wrong)
+-- precise date, clear the "new" flags.
+create or replace function fix_track_release_year(p_id int)
+returns int
+language plpgsql security definer as $$
+declare v_year int;
+begin
+  select min(al.year) into v_year
+  from album_tracks at join albums al on al.id = at.album_id
+  where at.track_id = p_id and al.year between 1900 and 2100;
+  if v_year is null then return null; end if;
+  update tracks set
+    release_year = v_year,
+    release_date = null, release_month = null, release_day = null,
+    is_new = false, is_new_date = null
+  where id = p_id;
+  return v_year;
+end $$;
+
+-- Bulk auto-fix all tracks whose release_year exceeds the earliest album year
+-- by more than p_min_diff.
+create or replace function fix_all_release_years(p_min_diff int default 2)
+returns int
+language plpgsql security definer as $$
+declare n int;
+begin
+  set local statement_timeout = '170s';
+  with ta as (
+    select at.track_id, min(al.year) y
+    from album_tracks at join albums al on al.id = at.album_id
+    where al.year between 1900 and 2100
+    group by at.track_id
+  )
+  update tracks t set
+    release_year = ta.y,
+    release_date = null, release_month = null, release_day = null,
+    is_new = false, is_new_date = null
+  from ta
+  where t.id = ta.track_id
+    and t.release_year is not null
+    and t.release_year > ta.y + p_min_diff;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+create or replace function release_year_mismatch_count(p_min_diff int default 2)
+returns bigint
+language plpgsql volatile as $$
+declare n bigint;
+begin
+  set local statement_timeout = '60s';
+  with ta as (
+    select at.track_id, min(al.year) y
+    from album_tracks at join albums al on al.id = at.album_id
+    where al.year between 1900 and 2100
+    group by at.track_id
+  )
+  select count(*) into n
+  from tracks t join ta on ta.track_id = t.id
+  where t.release_year is not null and t.release_year > ta.y + p_min_diff;
+  return n;
+end $$;

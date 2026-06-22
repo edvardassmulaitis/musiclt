@@ -697,16 +697,137 @@ function PopularNoYtSection() {
   )
 }
 
+/* ─────────────────── Išleidimo metų neatitikimai ─────────────────── */
+
+type DateRow = {
+  id: number; title: string; artist_name: string | null; artist_slug: string | null
+  release_year: number; album_year: number; album_title: string | null; diff: number
+}
+
+function DateMismatchSection() {
+  const [rows, setRows] = useState<DateRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [minDiff, setMinDiff] = useState(2)
+  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState<Record<number, boolean>>({})
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 4000) }
+
+  const load = useCallback(async (pg: number, md: number, append: boolean) => {
+    setLoading(true)
+    try {
+      const r = await fetch(`/api/admin/duplikatai/date-mismatch?minDiff=${md}&page=${pg}`)
+      const j = await r.json()
+      if (j.error) { flash(j.error); return }
+      if (j.total != null) setTotal(j.total)
+      setHasMore(!!j.hasMore)
+      setRows(prev => append ? [...prev, ...(j.tracks || [])] : (j.tracks || []))
+    } finally { setLoading(false) }
+  }, [])
+  useEffect(() => { load(0, minDiff, false); setPage(0) }, [minDiff, load])
+
+  const fixOne = async (t: DateRow) => {
+    setBusy(b => ({ ...b, [t.id]: true }))
+    try {
+      const r = await fetch('/api/admin/duplikatai/date-mismatch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fix_one', id: t.id }),
+      })
+      const j = await r.json()
+      if (j.ok) { setRows(rs => rs.filter(x => x.id !== t.id)); setTotal(n => n == null ? n : Math.max(0, n - 1)); flash(`Pataisyta → ${j.new_year}.`) }
+      else flash('Klaida: ' + (j.error || ''))
+    } finally { setBusy(b => ({ ...b, [t.id]: false })) }
+  }
+
+  const fixAll = async () => {
+    if (!confirm(`Auto-taisyti VISAS ${total ?? ''} dainas (release_year → anksčiausio albumo metai)? Šio veiksmo atšaukti negalima.`)) return
+    setBulkBusy(true)
+    try {
+      const r = await fetch('/api/admin/duplikatai/date-mismatch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fix_all', minDiff }),
+      })
+      const j = await r.json()
+      if (j.ok) { flash(`Pataisyta: ${j.fixed}.`); load(0, minDiff, false); setPage(0) }
+      else flash('Klaida: ' + (j.error || ''))
+    } finally { setBulkBusy(false) }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <p className="text-sm text-gray-500">
+          Dainos, kurių išleidimo metai <b>vėlesni</b> nei anksčiausias albumas, kuriame jos yra (dažnai YT įkėlimo
+          metai perrašo tikrus). Anksčiausio albumo metai = tikras originalas. Taisyk po vieną arba <b>auto-fix visus</b>.
+        </p>
+        <button onClick={fixAll} disabled={bulkBusy || !total}
+          className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50 shrink-0">
+          {bulkBusy ? 'Taisoma…' : `⚡ Auto-fix visus${total != null ? ` (${total})` : ''}`}
+        </button>
+      </div>
+      <div className="flex items-center gap-2 mb-4 text-sm">
+        <span className="text-gray-500">Skirtumas ≥</span>
+        {[1, 2, 5, 10].map(v => (
+          <button key={v} onClick={() => setMinDiff(v)}
+            className={`px-3 py-1 rounded-full border ${minDiff === v ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-700 border-gray-300'}`}>
+            {v} m.
+          </button>
+        ))}
+      </div>
+      {toast && <div className="mb-4 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm">{toast}</div>}
+      {loading && rows.length === 0 && <div className="text-gray-500 py-10 text-center">Kraunama…</div>}
+      {!loading && rows.length === 0 && <div className="text-gray-500 py-10 text-center">Neatitikimų nerasta. 🎉</div>}
+      <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+        {rows.map(t => (
+          <div key={t.id} className="flex items-center gap-3 px-4 py-2.5">
+            <div className="min-w-0 flex-1">
+              <Link href={`/admin/tracks/${t.id}`} target="_blank" rel="noopener noreferrer" className="font-medium text-gray-900 hover:underline truncate">{t.title}</Link>
+              <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
+                {t.artist_slug
+                  ? <Link href={`/atlikejai/${t.artist_slug}`} className="hover:underline">{t.artist_name || '—'}</Link>
+                  : <span>{t.artist_name || '—'}</span>}
+                <span className="text-gray-300">·</span><span className="text-gray-400">#{t.id}</span>
+                {t.album_title && <><span className="text-gray-300">·</span><span className="text-gray-400 truncate">albumas: {t.album_title}</span></>}
+              </div>
+            </div>
+            <div className="text-sm shrink-0 flex items-center gap-1.5">
+              <span className="text-red-600 font-semibold line-through">{t.release_year}</span>
+              <span className="text-gray-400">→</span>
+              <span className="text-green-700 font-semibold">{t.album_year}</span>
+            </div>
+            <button onClick={() => fixOne(t)} disabled={busy[t.id]}
+              className="px-2.5 py-1 rounded-md bg-green-600 text-white text-xs hover:bg-green-700 disabled:opacity-50 shrink-0">
+              {busy[t.id] ? '…' : 'Taisyti'}
+            </button>
+          </div>
+        ))}
+      </div>
+      {hasMore && (
+        <div className="text-center mt-6">
+          <button onClick={() => { const n = page + 1; setPage(n); load(n, minDiff, true) }} disabled={loading}
+            className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 text-sm hover:border-gray-400 disabled:opacity-60">
+            {loading ? 'Kraunama…' : 'Rodyti daugiau'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ─────────────────────────────── Hub ─────────────────────────────── */
 
-const VIEWS: Array<{ key: 'dup' | 'yt' | 'pop'; label: string }> = [
+const VIEWS: Array<{ key: 'dup' | 'yt' | 'pop' | 'dates'; label: string }> = [
   { key: 'dup', label: '🧹 Dublikatai' },
   { key: 'yt', label: '🧽 YT be embed' },
   { key: 'pop', label: '♥ Populiarūs be YT' },
+  { key: 'dates', label: '📅 Metų neatitikimai' },
 ]
 
 export default function CleanupHubPage() {
-  const [view, setView] = useState<'dup' | 'yt' | 'pop'>('dup')
+  const [view, setView] = useState<'dup' | 'yt' | 'pop' | 'dates'>('dup')
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-4">Dainų tvarkymas</h1>
@@ -721,6 +842,7 @@ export default function CleanupHubPage() {
       {view === 'dup' && <DedupSection />}
       {view === 'yt' && <YtJunkSection />}
       {view === 'pop' && <PopularNoYtSection />}
+      {view === 'dates' && <DateMismatchSection />}
     </div>
   )
 }
