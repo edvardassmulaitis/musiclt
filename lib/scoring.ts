@@ -750,19 +750,23 @@ export function computeAllTimeScore(data: AllTimeScoreData): ScoreBreakdown {
   // tad PERŽIŪROS diferencijuoja jų eilę (MJ 15 mlrd. > Beatles 3.4 mlrd. > Johnny
   // Cash 1.3 mlrd.). Modernūs (trumpas stažas) lieka žemiau, bet ne flash-only.
   //
-  // ① BENDRA APRĖPTIS (viso peržiūrų) 0-52 — pagrindinis diferencijuotojas.
-  //   10M≈12, 100M≈24, 1mlrd≈36, 10mlrd≈48, 25mlrd+→cap 52.
-  const reachTotal = total_views > 0 ? clampPts(12 * Math.log10(total_views + 1) - 72, 52) : 0
+  // v7.4: BENDROS PERŽIŪROS gauna daugiau svorio (Edvardo prašymu) — kad
+  // didelės aprėpties atlikėjai (Bon Jovi, Metallica 6-8 mlrd.) nelipsų žemiau
+  // mažesnės aprėpties klasikų (Marvin Gaye 0.8 mlrd., CCR 1.5 mlrd.). Klasika
+  // lieka, bet mažesnė — tik tam, kad legendos nenugrimztų po modernių žvaigždžių.
+  //
+  // ① BENDRA APRĖPTIS (viso peržiūrų) 0-55 — PAGRINDINIS matas.
+  //   100M≈26, 500M≈35, 1mlrd≈40, 5mlrd≈49, 10mlrd≈52, 20mlrd+→cap 55.
+  const reachTotal = total_views > 0 ? clampPts(13 * Math.log10(total_views + 1) - 77, 55) : 0
   // ── AUDITORIJOS VARTAI ──────────────────────────────────────────────────
   // Klasika ir katalogas SKAIČIUOJA tik jei atlikėjas turi realią auditoriją.
-  // Kitaip 0-peržiūrų atlikėjai (pvz. klasikos kompozitorius B.V. Kutavičius —
-  // sena karjera + daug įrašų, bet ~0 YouTube peržiūrų) iškildavo vien iš
-  // klasikos+katalogo. audience = 0 kai nėra aprėpties, 1.0 nuo ~46M perž.
+  // Kitaip 0-peržiūrų atlikėjai (pvz. kompozitorius B.V. Kutavičius) iškildavo
+  // vien iš klasikos+katalogo. audience = 0 kai nėra aprėpties, 1.0 nuo ~46M perž.
   const audience = Math.min(1, reachTotal / 20)
-  // ② KLASIKA (kaip seniai debiutavo) 0-30 — apribota, mažėjanti grąža. ×audience.
-  //   debiutas 1995→7, 1985→14, 1975→21, 1965→28, ≤1962→cap 30. <1950 ar nėra → 0.
-  const heritageRaw = debut_year >= 1950 ? Math.min(30, (2005 - debut_year) * 0.7) : 0
-  const heritage = clampPts(heritageRaw * audience, 30)
+  // ② KLASIKA (kaip seniai debiutavo) 0-25 — apribota, mažėjanti grąža. ×audience.
+  //   debiutas 1995→8, 1985→11, 1975→16, 1965→22, ≤1959→cap 25. <1950 ar nėra → 0.
+  const heritageRaw = debut_year >= 1950 ? Math.min(25, (2005 - debut_year) * 0.55) : 0
+  const heritage = clampPts(heritageRaw * audience, 25)
   // ③ KATALOGAS 0-10 — gylis (ne vienas hitas). ×audience.
   const catalogRaw = n_videos > 0 ? Math.min(10, 5 * Math.log10(n_videos + 1)) : 0
   const catalogYt = clampPts(catalogRaw * audience, 10)
@@ -770,8 +774,8 @@ export function computeAllTimeScore(data: AllTimeScoreData): ScoreBreakdown {
   return {
     type,
     categories: {
-      reach_total: { points: reachTotal, max: 52, details: `viso: ${fmtTotalViews(total_views)}` },
-      heritage:    { points: heritage, max: 30, details: debut_year >= 1950 ? `klasika — debiutas ${debut_year}` : 'modernus / nenurodyta' },
+      reach_total: { points: reachTotal, max: 55, details: `viso: ${fmtTotalViews(total_views)}` },
+      heritage:    { points: heritage, max: 25, details: debut_year >= 1950 ? `klasika — debiutas ${debut_year}` : 'modernus / nenurodyta' },
       catalog_yt:  { points: catalogYt, max: 10, details: `${n_videos} klipų su peržiūromis` },
     },
     total, score_override: 0, final_score: total,

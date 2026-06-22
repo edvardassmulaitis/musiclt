@@ -29,12 +29,13 @@ export async function GET(req: NextRequest) {
 
   const now = Date.now(), DAY = 86_400_000
   const curYear = new Date().getFullYear()
+  const recentCutoff = now - 2 * 365 * DAY   // trending langas = 2 metai
   let total_views = 0, minYear = 0, maxYear = 0
   const tracks = (rows || []).map((t: any) => {
     const v = Number(t.video_views) || 0
     total_views += v
     const ry = Number(t.release_year) || 0
-    if (ry >= 1900 && ry <= curYear + 1 && ry !== 1970) {
+    if (ry >= 1950 && ry <= curYear + 1 && ry !== 1970) {
       if (minYear === 0 || ry < minYear) minYear = ry
       if (ry > maxYear) maxYear = ry
     }
@@ -43,7 +44,8 @@ export async function GET(req: NextRequest) {
     if (ts === null && ry) ts = Date.UTC(ry, 0, 1)
     const ageDays = ts === null ? null : Math.max(30, (now - ts) / DAY)
     const vpd = ageDays ? Math.round(v / ageDays) : null
-    return { id: t.id, title: t.title, slug: t.slug, views: v, year: ry || null, vpd }
+    const recent = ts !== null && ts >= recentCutoff
+    return { id: t.id, title: t.title, slug: t.slug, views: v, year: ry || null, vpd, recent }
   })
 
   const span_years = minYear > 0 && maxYear > minYear ? maxYear - minYear : 0
@@ -51,7 +53,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     summary: { n_videos: tracks.length, total_views, span_years, min_year: minYear || null, max_year: maxYear || null },
+    // ALL-TIME drill-down: daugiausiai peržiūrų (bendra aprėptis).
     top_views: tracks.slice(0, 15),
-    top_perday: [...tracks].filter(t => t.vpd != null).sort((a, b) => (b.vpd! - a.vpd!)).slice(0, 15),
+    // TRENDING drill-down: TIK naujos (≤2 m.) dainos pagal peržiūras/dieną.
+    top_recent: tracks.filter(t => t.recent && t.vpd != null).sort((a, b) => (b.vpd! - a.vpd!)).slice(0, 15),
   })
 }

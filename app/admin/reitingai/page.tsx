@@ -23,8 +23,8 @@ type Mode = 'alltime' | 'trending'
 type Col = { key: string; label: string; short: string; color: string; max: number; desc: string }
 
 const ALLTIME_COLS: Col[] = [
-  { key: 'reach_total', label: 'Bendra aprėptis', short: 'Aprėptis',  color: '#a78bfa', max: 52, desc: 'Visų laikų peržiūrų suma — pagrindinis diferencijuotojas (kiek iš viso klausyta).' },
-  { key: 'heritage',    label: 'Klasika',        short: 'Klasika',   color: '#0ea5e9', max: 30, desc: 'Kaip seniai debiutavo (apribota, mažėjanti grąža). Iškelia klasikus virš modernių, bet tarp klasikų eilę lemia peržiūros.' },
+  { key: 'reach_total', label: 'Bendra aprėptis', short: 'Aprėptis',  color: '#a78bfa', max: 55, desc: 'Visų laikų peržiūrų suma — PAGRINDINIS matas (kiek iš viso klausyta).' },
+  { key: 'heritage',    label: 'Klasika',        short: 'Klasika',   color: '#0ea5e9', max: 25, desc: 'Kaip seniai debiutavo (apribota). Iškelia klasikus virš modernių, bet tarp klasikų eilę lemia peržiūros. Skaičiuojama tik turintiems realią auditoriją.' },
   { key: 'catalog_yt',  label: 'Katalogas',      short: 'Katalog.',  color: '#3b82f6', max: 10, desc: 'Klipų su peržiūromis skaičius.' },
 ]
 const TRENDING_COLS: Col[] = [
@@ -246,9 +246,9 @@ export default function ReitingaiAdmin() {
                               </ol>
                             </div>
                             <div>
-                              <div className="text-[11px] font-bold text-[var(--text-secondary)] mb-1">🔥 Daugiausiai peržiūrų / dieną (trending)</div>
+                              <div className="text-[11px] font-bold text-[var(--text-secondary)] mb-1">🔥 Naujos dainos (≤2 m.) — peržiūros / dieną (trending)</div>
                               <ol className="space-y-0.5">
-                                {dd.top_perday.map((t: any, k: number) => (
+                                {(dd.top_recent || []).map((t: any, k: number) => (
                                   <li key={t.id} className="flex items-baseline gap-2 text-[12px]">
                                     <span className="text-[var(--text-faint)] w-4 text-right">{k + 1}.</span>
                                     <Link href={`/admin/tracks/${t.id}`} className="flex-1 truncate text-[var(--text-primary)] hover:text-orange-600">{t.title}</Link>
@@ -256,6 +256,9 @@ export default function ReitingaiAdmin() {
                                     <span className="tabular-nums font-semibold text-[#ec4899] w-16 text-right">{fmtN(t.vpd)}/d.</span>
                                   </li>
                                 ))}
+                                {(!dd.top_recent || dd.top_recent.length === 0) && (
+                                  <li className="text-[11px] text-[var(--text-faint)]">Nėra naujų (≤2 m.) dainų — todėl trending balas žemas.</li>
+                                )}
                               </ol>
                             </div>
                           </div>
