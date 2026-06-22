@@ -72,6 +72,37 @@ export async function PATCH(req: NextRequest) {
 
   const supabase = createAdminClient()
 
+  // Legacy profilio claim — priskirti realų el. paštą seno nario profiliui.
+  // Po to žmogus prisijungęs tuo el. paštu automatiškai perima profilį
+  // (signIn / magic-link verify pažymi is_claimed). Reclaim'inamas ir username.
+  if ('setEmail' in body) {
+    const raw = typeof body.setEmail === 'string' ? body.setEmail.trim().toLowerCase() : ''
+    if (!raw || !raw.includes('@')) {
+      return NextResponse.json({ error: 'Neteisingas el. paštas' }, { status: 400 })
+    }
+    // Konflikto patikra: ar el. paštą jau turi KITAS profilis (UNIQUE lower(email)).
+    const { data: holder } = await supabase
+      .from('profiles')
+      .select('id, username, full_name, provider, is_claimed')
+      .ilike('email', raw)
+      .neq('id', userId)
+      .limit(1)
+      .maybeSingle()
+    if (holder) {
+      return NextResponse.json(
+        {
+          error: 'conflict',
+          message: `Šį el. paštą jau turi kitas profilis: ${holder.username || holder.full_name || holder.id}. Sujungimui kreipkis (rankinis merge).`,
+          holder,
+        },
+        { status: 409 }
+      )
+    }
+    const { error } = await supabase.from('profiles').update({ email: raw }).eq('id', userId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true, email: raw })
+  }
+
   // hide_from_homepage toggle (admin + super_admin gali)
   if ('hide_from_homepage' in body) {
     const { error } = await supabase

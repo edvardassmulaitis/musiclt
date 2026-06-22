@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   // .eq() trūkdavo match'o ir kurdavo dublikatą, žr. 2026-05-02 incidentą).
   let { data: profile } = await supabase
     .from('profiles')
-    .select('id, role, full_name, avatar_url')
+    .select('id, role, full_name, avatar_url, is_claimed, provider')
     .ilike('email', email)
     .order('created_at', { ascending: true })
     .limit(1)
@@ -55,13 +55,23 @@ export async function GET(req: NextRequest) {
     const { data: newProfile } = await supabase
       .from('profiles')
       .insert({ email, role, provider: 'email' })
-      .select('id, role, full_name, avatar_url')
+      .select('id, role, full_name, avatar_url, is_claimed, provider')
       .single()
     profile = newProfile
   }
 
   if (!profile) {
     return NextResponse.redirect(new URL('/auth/error?error=ProfileError', req.url))
+  }
+
+  // Legacy profilio perėmimas — jei prisijungiama prie seno legacy_forum
+  // profilio (admin priskyrė realų el. paštą), pažymim perimtą + provider.
+  if (profile.is_claimed !== true && profile.provider === 'legacy_forum') {
+    try {
+      await supabase.from('profiles').update({ is_claimed: true, provider: 'email' }).eq('id', profile.id)
+    } catch (e: any) {
+      console.error('[legacy-claim/email] non-fatal:', e?.message || e)
+    }
   }
 
   const secret = process.env.NEXTAUTH_SECRET || 'kjcxLaUePrIgs0SM6C6yen/Whkp87MDKywsUjmrBPYE='

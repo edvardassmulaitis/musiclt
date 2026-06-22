@@ -33,6 +33,7 @@ export default function AdminUsersPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [updating, setUpdating] = useState<string | null>(null)
   const [impersonating, setImpersonating] = useState<string | null>(null)
+  const [emailDraft, setEmailDraft] = useState<Record<string, string>>({})
 
   // Filtrai
   const [q, setQ] = useState('')
@@ -109,6 +110,24 @@ export default function AdminUsersPage() {
     })
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)))
     setUpdating(null)
+  }
+
+  // Priskirti realų el. paštą seno (legacy) nario profiliui — perėmimui.
+  const assignEmail = async (userId: string) => {
+    const val = (emailDraft[userId] || '').trim().toLowerCase()
+    if (!val || !val.includes('@')) { alert('Įvesk teisingą el. paštą'); return }
+    setUpdating(userId)
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, setEmail: val }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setUpdating(null)
+    if (!res.ok) { alert(data.message || data.error || 'Klaida priskiriant el. paštą'); return }
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, email: data.email } : u)))
+    setEmailDraft((prev) => ({ ...prev, [userId]: '' }))
+    alert('Priskirta. Kai narys prisijungs šiuo el. paštu — automatiškai perims šį profilį (su senu username ir veikla).')
   }
 
   const impersonate = async (user: Profile) => {
@@ -269,6 +288,27 @@ export default function AdminUsersPage() {
                             {user.username && user.email ? ' · ' : ''}
                             {user.email}
                           </div>
+                          {trulySuper && !real && (
+                            <div className="mt-1.5 flex items-center gap-1">
+                              <input
+                                type="email"
+                                placeholder="priskirti realų el. paštą"
+                                value={emailDraft[user.id] || ''}
+                                onChange={(e) => setEmailDraft((p) => ({ ...p, [user.id]: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === 'Enter') assignEmail(user.id) }}
+                                className="text-xs bg-[var(--input-bg)] border border-[var(--input-border)] rounded px-2 py-1 text-[var(--input-text)] w-48 focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => assignEmail(user.id)}
+                                disabled={updating === user.id}
+                                title="Priskirti el. paštą — narys prisijungęs juo perims šį profilį"
+                                className="text-xs font-medium px-2 py-1 rounded bg-music-blue text-white hover:bg-music-blue/90 disabled:opacity-50"
+                              >
+                                Priskirti
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>

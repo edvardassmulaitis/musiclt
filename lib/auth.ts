@@ -30,7 +30,7 @@ export const authOptions: AuthOptions = {
         // taip 2026-05-02 vakarą Edvardas prarado admin teises).
         const { data: candidates } = await supabase
           .from('profiles')
-          .select('id, role, created_at')
+          .select('id, role, created_at, is_claimed, provider, full_name, avatar_url')
           .ilike('email', normEmail)
           .order('created_at', { ascending: true })
           .limit(5)
@@ -77,6 +77,27 @@ export const authOptions: AuthOptions = {
             user.role = existing.role
           }
           user.id = existing.id
+
+          // ── Legacy profilio perėmimas (claim) ──────────────────────────
+          // Jei prisijungiama prie SENO (legacy_forum) profilio, kuriam admin
+          // priskyrė realų el. paštą, bet jis dar neperimtas — pažymim perimtą,
+          // perrašom provider'į ir užpildom avatar/vardą iš social paskyros.
+          // Username + visa sena veikla jau yra šiame profilyje (auto-reclaim).
+          // Fire-and-forget: klaida neblokuoja prisijungimo.
+          if (existing.is_claimed !== true && existing.provider === 'legacy_forum') {
+            try {
+              const patch: Record<string, any> = {
+                is_claimed: true,
+                provider: account?.provider || 'email',
+              }
+              if (!existing.full_name && user.name) patch.full_name = user.name
+              if (!existing.avatar_url && user.image) patch.avatar_url = user.image
+              await supabase.from('profiles').update(patch).eq('id', existing.id)
+              console.log(`[legacy-claim] ${normEmail} perėmė legacy profilį ${existing.id}`)
+            } catch (e: any) {
+              console.error('[legacy-claim] non-fatal:', e?.message || e)
+            }
+          }
         }
 
         // Migrate any anonymous signals this device has accumulated into the
