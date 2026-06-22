@@ -17,6 +17,13 @@ export const maxDuration = 120
  */
 
 const PLACEHOLDER = 'Music.lt'
+// Known scrape-failure placeholder titles (parser fell back to site chrome /
+// error page). Any of these is rejected during extraction so we use a better
+// source (og:title / slug) instead.
+const PLACEHOLDERS = new Set(['music.lt', 'system error'])
+function isPlaceholderTitle(s: string): boolean {
+  return PLACEHOLDERS.has(s.trim().toLowerCase())
+}
 
 function deaccentLower(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -70,7 +77,7 @@ function extractTitle(html: string, artistName: string | null, sourceUrl: string
   const h1 = html.match(/<h1\b[^>]*itemprop=["']name["'][^>]*>([\s\S]*?)<\/h1>/i)
   if (h1) {
     const t = decodeEntities(stripTags(h1[1]))
-    if (t && t.toLowerCase() !== PLACEHOLDER.toLowerCase() && t.length <= 200) return { title: t, method: 'h1' }
+    if (t && !isPlaceholderTitle(t) && t.length <= 200) return { title: t, method: 'h1' }
   }
   // 2) og:title — extract the meta tag first, then read content respecting the
   // actual quote delimiter so apostrophes inside the title aren't truncated.
@@ -79,17 +86,17 @@ function extractTitle(html: string, artistName: string | null, sourceUrl: string
   const ogContent = ogTag && (ogTag[0].match(/content="([^"]*)"/i) || ogTag[0].match(/content='([^']*)'/i))
   if (ogContent) {
     const t = extractFromHeadTitle(ogContent[1], artistName)
-    if (t && t.toLowerCase() !== PLACEHOLDER.toLowerCase() && t.length <= 200) return { title: t, method: 'og:title' }
+    if (t && !isPlaceholderTitle(t) && t.length <= 200) return { title: t, method: 'og:title' }
   }
   // 3) <title>
   const tt = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
   if (tt) {
     const t = extractFromHeadTitle(tt[1], artistName)
-    if (t && t.toLowerCase() !== PLACEHOLDER.toLowerCase() && t.length <= 200) return { title: t, method: 'title' }
+    if (t && !isPlaceholderTitle(t) && t.length <= 200) return { title: t, method: 'title' }
   }
   // 4) slug fallback (lossy: no diacritics / parens)
   const slug = titleFromSlug(sourceUrl)
-  if (slug && slug.toLowerCase() !== PLACEHOLDER.toLowerCase()) return { title: slug, method: 'slug' }
+  if (slug && !isPlaceholderTitle(slug)) return { title: slug, method: 'slug' }
   return { title: null, method: 'none' }
 }
 
@@ -109,6 +116,8 @@ export async function POST(req: NextRequest) {
   // without ever clobbering a correct title.
   const prefixGuard = body.prefix_guard === true
   const ids: number[] = Array.isArray(body.ids) ? body.ids.map((x: any) => Number(x)).filter(Boolean) : []
+  // match_title: target a specific placeholder string (e.g. "System error").
+  const matchTitle: string = typeof body.match_title === 'string' && body.match_title ? body.match_title : PLACEHOLDER
 
   const sb = createAdminClient()
 
@@ -118,7 +127,7 @@ export async function POST(req: NextRequest) {
     .not('source_url', 'is', null)
     .order('id', { ascending: true })
     .limit(limit)
-  q = ids.length ? q.in('id', ids) : q.eq('title', PLACEHOLDER)
+  q = ids.length ? q.in('id', ids) : q.eq('title', matchTitle)
   const { data: rows, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -136,7 +145,7 @@ export async function POST(req: NextRequest) {
       if (!title) { results.push({ id: r.id, title: null, method, ok: false, error: 'no title found' }); continue }
       const cur = String(r.title || '')
       if (prefixGuard) {
-        const isPlaceholder = cur === PLACEHOLDER
+        const isPlaceholder = isPlaceholderTitle(cur)
         const extends_ = title.length > cur.length && title.startsWith(cur)
         if (!isPlaceholder && !extends_) {
           results.push({ id: r.id, title, method, ok: true, skipped: true })
@@ -156,7 +165,7 @@ export async function POST(req: NextRequest) {
   const { count: remaining } = await sb
     .from('tracks')
     .select('id', { count: 'exact', head: true })
-    .eq('title', PLACEHOLDER)
+    .eq('title', matchTitle)
 
   return NextResponse.json({
     ok: true,
