@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
 import { enrichTrack } from '@/lib/yt-enrich'
+import { revalidateHomeTag } from '@/lib/home-latest'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -160,6 +161,7 @@ export async function PUT(
     if ('description' in data) updates.description = data.description || null
     if ('spotify_id' in data) updates.spotify_id = data.spotify_id || null
     if ('is_single' in data) updates.is_single = !!data.is_single  // admin form'e gali toggle
+    if ('hide_from_homepage' in data) updates.hide_from_homepage = !!data.hide_from_homepage  // paslėpti dainą iš homepage
     if ('release_year' in data || 'release_month' in data || 'release_day' in data) {
       const y = data.release_year ? parseInt(data.release_year) : null
       const m = data.release_month ? parseInt(data.release_month) : null
@@ -201,6 +203,10 @@ export async function PUT(
     if (Object.keys(updates).length > 0) {
       const { error } = await supabase.from('tracks').update(updates).eq('id', trackId)
       if (error) throw error
+      // Homepage „Naujos dainos" juostos/„Daugiau" cache'as priklauso nuo
+      // hide_from_homepage / is_new / video / title — iškart išvalom, kad
+      // paslėpta daina dingtų be 5 min/15 min cache delay'aus. 2026-06-23.
+      revalidateHomeTag('tracks')
     }
 
     // Po video_url išvalymo — ištrinam visus track_video_views_history rows.
