@@ -56,7 +56,11 @@ export const HOME_LANE_LIMIT = 10
 // (mažuma) neiškristų: 90d tracks ~1100, albums year>=2025 ~700.
 // Šie limitai taikomi prieš JS-lygio dedupe/filter — didesnis pool
 // = tikslesnė LT juosta. Pro plan (1 GB RAM) laiko ~1200 be problemų.
-const TRACKS_CANDIDATE_FETCH_LIMIT = 500
+// ⚠️ NEKELTI virš ~300! Su 500 tracks užklausa per Supabase JS klientą
+// (sunkesnis SELECT) /api/home/latest virš 20s timeout'ina → tracks tušti →
+// homepage „Naujos dainos" nebesikrauna. Patikrinta: 250→1.1s, 500→20s+ (DB
+// užklausa indeksuota=18ms, lūžis transporto/serializacijos sluoksny, ne DB).
+const TRACKS_CANDIDATE_FETCH_LIMIT = 250
 const ALBUMS_CANDIDATE_FETCH_LIMIT = 800
 
 /* ────────────────────────────── Tags ────────────────────────────── */
