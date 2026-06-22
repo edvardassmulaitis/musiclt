@@ -826,12 +826,16 @@ async function gatherArtistYT(supabase: any, artistId: number) {
     if (v <= 0) continue
     n_videos++
     total_views += v   // all-time aprėpčiai
-    let ts: number | null = null
-    if (r.video_uploaded_at) { const t = Date.parse(r.video_uploaded_at); if (!Number.isNaN(t)) ts = t }
-    if (ts === null && ry) ts = Date.UTC(ry, 0, 1)
+    let uploadTs: number | null = null
+    if (r.video_uploaded_at) { const t = Date.parse(r.video_uploaded_at); if (!Number.isNaN(t)) uploadTs = t }
+    const ts = uploadTs !== null ? uploadTs : (ry ? Date.UTC(ry, 0, 1) : null)
     if (ts === null) continue
-    // Trending — TIK dainos iš pastarųjų 2 metų.
-    if (ts >= recentCutoff) {
+    // Trending recency — „pastarieji 2 metai". release_year yra tiesa kai yra
+    // (2024+ = recent net jei nėra įkėlimo datos; anksčiau Jan-1 paversdavo 2024
+    // dainą 2.4 m. sena → klaidingai iškrisdavo, pvz. ba. 20 dainų → 0). Be metų
+    // — pagal įkėlimo datą.
+    const recent = ry >= 1950 ? (ry >= curYear - 2) : (uploadTs !== null && uploadTs >= recentCutoff)
+    if (recent) {
       const ageDays = Math.max(30, (now - ts) / DAY)
       vpd_2y += v / ageDays
       views_2y += v

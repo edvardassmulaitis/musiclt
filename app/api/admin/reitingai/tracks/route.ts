@@ -39,12 +39,12 @@ export async function GET(req: NextRequest) {
       if (minYear === 0 || ry < minYear) minYear = ry
       if (ry > maxYear) maxYear = ry
     }
-    let ts: number | null = null
-    if (t.video_uploaded_at) { const p = Date.parse(t.video_uploaded_at); if (!Number.isNaN(p)) ts = p }
-    if (ts === null && ry) ts = Date.UTC(ry, 0, 1)
+    let uploadTs: number | null = null
+    if (t.video_uploaded_at) { const p = Date.parse(t.video_uploaded_at); if (!Number.isNaN(p)) uploadTs = p }
+    const ts = uploadTs !== null ? uploadTs : (ry ? Date.UTC(ry, 0, 1) : null)
     const ageDays = ts === null ? null : Math.max(30, (now - ts) / DAY)
     const vpd = ageDays ? Math.round(v / ageDays) : null
-    const recent = ts !== null && ts >= recentCutoff
+    const recent = ry >= 1950 ? (ry >= curYear - 2) : (uploadTs !== null && uploadTs >= recentCutoff)
     return { id: t.id, title: t.title, slug: t.slug, views: v, year: ry || null, vpd, recent }
   })
 
