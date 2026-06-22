@@ -487,7 +487,7 @@ export default function BendruomeneSection() {
         <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">
           Bendruomenė
         </h2>
-        <Link href="/atrasti"
+        <Link href="/bendruomene"
               className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">
           Daugiau →
         </Link>
