@@ -34,6 +34,7 @@ type ExtraStats = {
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   // YouTube formulės (v7). ScoreModal rodo kanoninį ALL-TIME balą.
   reach_total: { label: 'Bendra aprėptis',      color: '#a78bfa' },   // viso peržiūrų
+  legacy:      { label: 'music.lt palikimas',   color: '#14b8a6' },   // senojo puslapio „patinka"
   heritage:    { label: 'Klasika',              color: '#0ea5e9' },   // kaip seniai debiutavo
   longevity:   { label: 'Ilgaamžiškumas',       color: '#0ea5e9' },   // legacy (seni breakdown'ai)
   pop_perday:  { label: 'Populiarumas / dieną', color: '#ec4899' },   // trending
@@ -54,7 +55,7 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 // Fixed display order — ScoreModal rodo kanoninį ALL-TIME balą (be recency).
-const ALLTIME_ORDER = ['reach_total', 'heritage', 'catalog_yt']
+const ALLTIME_ORDER = ['reach_total', 'legacy', 'heritage', 'catalog_yt']
 const CATEGORY_ORDER: Record<string, string[]> = {
   lt:  ALLTIME_ORDER,
   int: ALLTIME_ORDER,

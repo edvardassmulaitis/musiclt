@@ -23,13 +23,14 @@ type Mode = 'alltime' | 'trending'
 type Col = { key: string; label: string; short: string; color: string; max: number; desc: string }
 
 const ALLTIME_COLS: Col[] = [
-  { key: 'reach_total', label: 'Bendra aprėptis', short: 'Aprėptis',  color: '#a78bfa', max: 55, desc: 'Visų laikų peržiūrų suma — PAGRINDINIS matas (kiek iš viso klausyta).' },
-  { key: 'heritage',    label: 'Klasika',        short: 'Klasika',   color: '#0ea5e9', max: 25, desc: 'Kaip seniai debiutavo (apribota). Iškelia klasikus virš modernių, bet tarp klasikų eilę lemia peržiūros. Skaičiuojama tik turintiems realią auditoriją.' },
+  { key: 'reach_total', label: 'Bendra aprėptis', short: 'Aprėptis',  color: '#a78bfa', max: 62, desc: 'Visų laikų peržiūrų suma — PAGRINDINIS matas (kiek iš viso klausyta).' },
+  { key: 'legacy',      label: 'music.lt palikimas', short: 'music.lt', color: '#14b8a6', max: 20, desc: 'Senojo music.lt puslapio „patinka" — pre-YouTube populiarumas. Iškelia legendas (Mamontovas, SEL, Foje), kurių YouTube perž. mažai, bet music.lt buvo didžiulis.' },
+  { key: 'heritage',    label: 'Klasika',        short: 'Klasika',   color: '#0ea5e9', max: 10, desc: 'Kaip seniai debiutavo (mažas boost\'as). Skaičiuojama tik turintiems realią auditoriją.' },
   { key: 'catalog_yt',  label: 'Katalogas',      short: 'Katalog.',  color: '#3b82f6', max: 10, desc: 'Klipų su peržiūromis skaičius.' },
 ]
 const TRENDING_COLS: Col[] = [
-  { key: 'charts',     label: 'Dabartiniai topai', short: 'Topuose',   color: '#f59e0b', max: 60, desc: 'Buvimas dabartiniuose išoriniuose topuose (Billboard, Spotify Global, Apple, Official UK; LT — M.A.M.A, AGATA, Spotify/Apple LT). Geriausia pozicija + kiek topų. Autoritetingas „trendina dabar" signalas, atnaujinamas kasdien.' },
-  { key: 'pop_perday', label: 'Peržiūros / dieną', short: 'Per dieną', color: '#ec4899', max: 40, desc: 'Naujų (≤2 m.) dainų YouTube peržiūros per dieną — momentum.' },
+  { key: 'charts',     label: 'Dabartiniai topai', short: 'Topuose',   color: '#f59e0b', max: 50, desc: 'Buvimas dabartiniuose išoriniuose topuose (Billboard, Spotify Global, Apple, Official UK; LT — M.A.M.A, AGATA, Spotify/Apple LT). Geriausia pozicija + kiek topų. Autoritetingas „trendina dabar" signalas, atnaujinamas kasdien.' },
+  { key: 'pop_perday', label: 'Peržiūros / dieną', short: 'Per dieną', color: '#ec4899', max: 50, desc: 'Naujų (≤2 m.) dainų YouTube peržiūros per dieną — momentum. Leidžia kilti ir be globalių topų.' },
 ]
 
 const fmtCountry = (c: string | null) => (c && c !== 'Lietuva' ? c : '🇱🇹')

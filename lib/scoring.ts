@@ -719,24 +719,27 @@ export type TrendingScoreData = {
 }
 function chartPoints(best: number, count: number): number {
   if (!best || best <= 0) return 0
-  const pos = best <= 1 ? 36 : best <= 3 ? 33 : best <= 5 ? 30 : best <= 10 ? 26
-    : best <= 20 ? 20 : best <= 40 ? 14 : best <= 100 ? 8 : 4
-  const breadth = Math.min(14, count * 2)
-  return Math.min(60, pos + breadth)
+  const pos = best <= 1 ? 32 : best <= 3 ? 29 : best <= 5 ? 26 : best <= 10 ? 22
+    : best <= 20 ? 17 : best <= 40 ? 11 : best <= 100 ? 6 : 3
+  const breadth = Math.min(12, count * 1.5)
+  return Math.round(Math.min(50, pos + breadth))
 }
 export function computeTrendingScore(data: TrendingScoreData): ScoreBreakdown {
   const { vpd_2y, views_2y, n_2y, chart_best, chart_count, type } = data
-  // ① DABARTINIAI TOPAI 0-60 — autoritetingas „trendina dabar" signalas.
+  // v9 balansas (Edvardo pastabos): topai NEBE dominuoja vieni — peržiūros/dieną
+  // irgi iki 50, kad didelio momentum atlikėjai (BTS, lotynų hitai) kiltų net be
+  // globalių topų, bet topuose esantys (Taylor, Drake) vis tiek aukštai.
+  // ① DABARTINIAI TOPAI 0-50.
   const charts = chartPoints(chart_best, chart_count)
-  // ② NAUJŲ DAINŲ PERŽIŪROS / DIENĄ (≤2 m.) 0-40 — YouTube momentum.
-  //   100K/d≈33, 1M/d≈48→cap40, t.y. 1M+/d → 40.
-  const popPerDay = vpd_2y > 0 ? clampPts(15 * Math.log10(vpd_2y + 1) - 42, 40) : 0
+  // ② NAUJŲ DAINŲ PERŽIŪROS / DIENĄ (≤2 m.) 0-50 — YouTube momentum.
+  //   100K/d≈34, 1M/d≈50, t.y. 1M+/d → 50.
+  const popPerDay = vpd_2y > 0 ? clampPts(16 * Math.log10(vpd_2y + 1) - 46, 50) : 0
   const total = Math.min(100, charts + popPerDay)
   return {
     type,
     categories: {
-      charts:     { points: charts, max: 60, details: chart_best > 0 ? `topuose: geriausia #${chart_best}, ${chart_count} sąraš.` : 'nėra dabartiniuose topuose' },
-      pop_perday: { points: popPerDay, max: 40, details: `${fmtPerDay(vpd_2y)} (naujų dainų perž./d.)` },
+      charts:     { points: charts, max: 50, details: chart_best > 0 ? `topuose: geriausia #${chart_best}, ${chart_count} sąraš.` : 'nėra dabartiniuose topuose' },
+      pop_perday: { points: popPerDay, max: 50, details: `${fmtPerDay(vpd_2y)} (naujų dainų perž./d.)` },
     },
     total, score_override: 0, final_score: total,
     inputs: { vpd_2y: Math.round(vpd_2y), views_2y, n_2y, chart_best, chart_count },
@@ -746,48 +749,43 @@ export function computeTrendingScore(data: TrendingScoreData): ScoreBreakdown {
 // ── ALL-TIME (visų laikų, be recency) ─────────────────────────────────────
 export type AllTimeScoreData = {
   total_views: number; n_videos: number; debut_year: number
+  legacy_likes: number    // music.lt senojo puslapio „patinka" — pre-YouTube populiarumas
   type: 'lt' | 'int'
 }
 export function computeAllTimeScore(data: AllTimeScoreData): ScoreBreakdown {
-  const { total_views, n_videos, debut_year, type } = data
-  // v7.2 kalibracija. PROBLEMA su v7.1: ilgaamžiškumas (metų TARPSNIS) per stipriai
-  // kėlė mažai klausomus bet ilgos karjeros atlikėjus — Johnny Cash (tik 1.3 mlrd.
-  // perž., bet 67 m. tarpsnis) ir Elton John lipdavo virš Michael Jackson (15 mlrd.)
-  // ir Queen. Sprendimas: vietoj TARPSNIO ilgio — KLASIKA (kaip seniai debiutavo).
-  // Klasika apribota ir su mažėjančia grąža → visi „klasikiniai" gauna panašiai,
-  // tad PERŽIŪROS diferencijuoja jų eilę (MJ 15 mlrd. > Beatles 3.4 mlrd. > Johnny
-  // Cash 1.3 mlrd.). Modernūs (trumpas stažas) lieka žemiau, bet ne flash-only.
+  const { total_views, n_videos, debut_year, legacy_likes, type } = data
+  // v9 kalibracija (Edvardo pastabos): (1) PERŽIŪROS dar platesnės — Coldplay
+  // (16 mlrd.) nebelieka lygus Bonnie Tyler (2 mlrd.); klasika dar sumažinta —
+  // ABBA nebelipa virš didesnės aprėpties Bon Jovi. (2) NAUJA: music.lt senojo
+  // puslapio „patinka" (legacy_likes) — pre-YouTube populiarumas. Iškelia LT
+  // legendas (Mamontovas 1016, Mikutavičius 720, SEL 469, Foje 581), kurių
+  // YouTube perž. mažai, bet music.lt buvo didžiulis; veikia ir užsienio
+  // klasikams, populiariems music.lt (Metallica 920, Coldplay 740, Madonna 164).
   //
-  // v7.4: BENDROS PERŽIŪROS gauna daugiau svorio (Edvardo prašymu) — kad
-  // didelės aprėpties atlikėjai (Bon Jovi, Metallica 6-8 mlrd.) nelipsų žemiau
-  // mažesnės aprėpties klasikų (Marvin Gaye 0.8 mlrd., CCR 1.5 mlrd.). Klasika
-  // lieka, bet mažesnė — tik tam, kad legendos nenugrimztų po modernių žvaigždžių.
-  //
-  // ① BENDRA APRĖPTIS (viso peržiūrų) 0-55 — PAGRINDINIS matas.
-  //   100M≈26, 500M≈35, 1mlrd≈40, 5mlrd≈49, 10mlrd≈52, 20mlrd+→cap 55.
-  const reachTotal = total_views > 0 ? clampPts(13 * Math.log10(total_views + 1) - 77, 55) : 0
-  // ── AUDITORIJOS VARTAI ──────────────────────────────────────────────────
-  // Klasika ir katalogas SKAIČIUOJA tik jei atlikėjas turi realią auditoriją.
-  // Kitaip 0-peržiūrų atlikėjai (pvz. kompozitorius B.V. Kutavičius) iškildavo
-  // vien iš klasikos+katalogo. audience = 0 kai nėra aprėpties, 1.0 nuo ~46M perž.
+  // ① BENDRA APRĖPTIS (viso peržiūrų) 0-62 — PAGRINDINIS, plati skalė.
+  //   100M≈38, 1mlrd≈50, 5mlrd≈58, 16mlrd+→cap 62.
+  const reachTotal = total_views > 0 ? clampPts(12 * Math.log10(total_views + 1) - 58, 62) : 0
   const audience = Math.min(1, reachTotal / 20)
-  // ② KLASIKA (kaip seniai debiutavo) 0-25 — apribota, mažėjanti grąža. ×audience.
-  //   debiutas 1995→8, 1985→11, 1975→16, 1965→22, ≤1959→cap 25. <1950 ar nėra → 0.
-  const heritageRaw = debut_year >= 1950 ? Math.min(25, (2005 - debut_year) * 0.55) : 0
-  const heritage = clampPts(heritageRaw * audience, 25)
-  // ③ KATALOGAS 0-10 — gylis (ne vienas hitas). ×audience.
+  // ② MUSIC.LT PALIKIMAS (senojo puslapio „patinka") 0-20 — pre-YouTube populiarumas.
+  //   ~30 like→0, 100→4, 300→9, 700→16, 1000+→20. Atskiras signalas (ne ×audience).
+  const legacy = legacy_likes > 0 ? clampPts((Math.log10(legacy_likes + 1) - 1.5) * 13, 20) : 0
+  // ③ KLASIKA (kaip seniai debiutavo) 0-10 — mažas „klasiko" boost'as, ×audience.
+  const heritageRaw = debut_year >= 1950 ? Math.min(10, (2005 - debut_year) * 0.27) : 0
+  const heritage = clampPts(heritageRaw * audience, 10)
+  // ④ KATALOGAS 0-10 — gylis (ne vienas hitas). ×audience.
   const catalogRaw = n_videos > 0 ? Math.min(10, 5 * Math.log10(n_videos + 1)) : 0
   const catalogYt = clampPts(catalogRaw * audience, 10)
-  const total = Math.min(100, reachTotal + heritage + catalogYt)
+  const total = Math.min(100, reachTotal + legacy + heritage + catalogYt)
   return {
     type,
     categories: {
-      reach_total: { points: reachTotal, max: 55, details: `viso: ${fmtTotalViews(total_views)}` },
-      heritage:    { points: heritage, max: 25, details: debut_year >= 1950 ? `klasika — debiutas ${debut_year}` : 'modernus / nenurodyta' },
+      reach_total: { points: reachTotal, max: 62, details: `viso: ${fmtTotalViews(total_views)}` },
+      legacy:      { points: legacy, max: 20, details: legacy_likes > 0 ? `music.lt: ${legacy_likes} „patinka"` : 'nėra music.lt duomenų' },
+      heritage:    { points: heritage, max: 10, details: debut_year >= 1950 ? `klasika — debiutas ${debut_year}` : 'modernus / nenurodyta' },
       catalog_yt:  { points: catalogYt, max: 10, details: `${n_videos} klipų su peržiūromis` },
     },
     total, score_override: 0, final_score: total,
-    inputs: { total_views, n_videos, debut_year },
+    inputs: { total_views, n_videos, debut_year, legacy_likes },
   }
 }
 
@@ -798,7 +796,7 @@ export const computeYTScore = computeTrendingScore
 async function gatherArtistYT(supabase: any, artistId: number) {
   const { data: artist } = await supabase
     .from('artists')
-    .select('country, score_override')
+    .select('country, score_override, legacy_likes')
     .eq('id', artistId)
     .single()
   const isLT = !artist?.country || artist.country === 'Lietuva'
@@ -861,7 +859,8 @@ async function gatherArtistYT(supabase: any, artistId: number) {
   } catch {}
 
   const override = artist?.score_override || 0
-  return { vpd_2y, views_2y, n_2y, total_views, n_videos, debut_year: debutYear, chart_best, chart_count, type, override }
+  const legacy_likes = Number(artist?.legacy_likes) || 0
+  return { vpd_2y, views_2y, n_2y, total_views, n_videos, debut_year: debutYear, legacy_likes, chart_best, chart_count, type, override }
 }
 
 function applyOverride(bd: ScoreBreakdown, override: number): ScoreBreakdown {
@@ -877,7 +876,7 @@ export async function calculateArtistScores(
 ): Promise<{ alltime: ScoreBreakdown; trending: ScoreBreakdown }> {
   const d = await gatherArtistYT(supabase, artistId)
   const alltime = applyOverride(
-    computeAllTimeScore({ total_views: d.total_views, n_videos: d.n_videos, debut_year: d.debut_year, type: d.type }),
+    computeAllTimeScore({ total_views: d.total_views, n_videos: d.n_videos, debut_year: d.debut_year, legacy_likes: d.legacy_likes, type: d.type }),
     d.override,
   )
   const trending = applyOverride(
