@@ -3355,7 +3355,21 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         {/* ═══════════════════════ BELOW-HERO CONTENT ═══════════════════════ */}
         <div style={{ opacity: pageReady ? 1 : 0, transition: 'opacity 0.3s ease', pointerEvents: pageReady ? 'auto' : 'none' }}>
 
-        {heroSlides.length > 0 && (
+        {/* Mobile hero loaderis — kol heroReady=false (tik mobile; .hp-feed-strip
+            paslėptas desktop). Stilius kaip /bendruomene (hp-skel-card+hp-eq;
+            CSS iš desktop skeleton <style>, kuris DOM'e kol !heroReady). */}
+        {pageReady && !heroReady && (
+          <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }} aria-hidden>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'hidden', height: 296, alignItems: 'stretch' }}>
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} className="hp-skel-card" style={{ flexShrink: 0, width: 188, height: 290, borderRadius: 16 }}>
+                  <div className="hp-eq"><span /><span /><span /><span /><span /></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {heroReady && heroSlides.length > 0 && (
           <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }}>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 296, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
               {heroSlides.map((slide, i) => {
