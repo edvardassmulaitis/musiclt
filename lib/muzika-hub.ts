@@ -165,7 +165,25 @@ async function topScoreArtistIds(scope: 'lt' | 'world', limit: number): Promise<
   }
 }
 
-/** „Šiuo metu populiaru" atlikėjai: charts → naujausi releases → score fallback.
+/** Fallback trending'ui — top pagal `score_trending` (peržiūros per dieną). */
+async function topTrendingArtistIds(scope: 'lt' | 'world', limit: number): Promise<number[]> {
+  try {
+    const sb = createAdminClient()
+    let q = sb
+      .from('artists')
+      .select('id')
+      .order('score_trending', { ascending: false, nullsFirst: false })
+      .order('name', { ascending: true })
+      .limit(limit)
+    q = scope === 'lt' ? q.eq('country', LT_COUNTRY) : q.neq('country', LT_COUNTRY)
+    const { data } = await q
+    return ((data || []) as any[]).map((a) => a.id)
+  } catch {
+    return []
+  }
+}
+
+/** „Šiuo metu populiaru" atlikėjai: charts → naujausi releases → trending score fallback.
  *  Dedup, scope (country) garantuotas po fetch'o. */
 export const getTrendingArtists = cache(
   async (scope: 'lt' | 'world', limit = 12): Promise<HubArtist[]> => {
@@ -185,7 +203,7 @@ export const getTrendingArtists = cache(
     // Fallback jei tuščia / per mažai.
     if (artists.length < limit) {
       const have = new Set(artists.map((a) => a.id))
-      const fillIds = (await topScoreArtistIds(scope, limit * 2)).filter((id) => !have.has(id))
+      const fillIds = (await topTrendingArtistIds(scope, limit * 2)).filter((id) => !have.has(id))
       const fill = await fetchArtistsByIds(fillIds)
       artists = [...artists, ...fill]
     }

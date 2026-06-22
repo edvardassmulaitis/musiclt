@@ -25,7 +25,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
-import { calculateArtistScore } from '@/lib/scoring'
+import { calculateArtistScores } from '@/lib/scoring'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,16 +53,18 @@ async function authorize(req: NextRequest, requireSuperAdmin = false): Promise<b
 }
 
 async function recalcOne(artistId: number): Promise<{ id: number; score: number }> {
-  const breakdown = await calculateArtistScore(supabase, artistId)
+  const { alltime, trending } = await calculateArtistScores(supabase, artistId)
   await supabase
     .from('artists')
     .update({
-      score: breakdown.final_score,
-      score_breakdown: breakdown,
+      score: alltime.final_score,
+      score_breakdown: alltime,
+      score_trending: trending.final_score,
+      score_trending_breakdown: trending,
       score_updated_at: new Date().toISOString(),
     })
     .eq('id', artistId)
-  return { id: artistId, score: breakdown.final_score }
+  return { id: artistId, score: alltime.final_score }
 }
 
 export async function GET(req: NextRequest) {

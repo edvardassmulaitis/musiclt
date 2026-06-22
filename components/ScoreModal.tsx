@@ -32,11 +32,12 @@ type ExtraStats = {
 }
 
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
-  // YouTube-only formulė (v6)
-  pop_perday:  { label: 'Populiarumas / dieną', color: '#ec4899' },   // 0-55, peržiūros per dieną
-  reach_total: { label: 'Bendra aprėptis',      color: '#a78bfa' },   // 0-20, viso peržiūrų
-  freshness:   { label: 'Šviežumas',            color: '#10b981' },   // 0-15, naujausi įkėlimai 3m
-  catalog_yt:  { label: 'Katalogas',            color: '#3b82f6' },   // 0-10, klipų skaičius
+  // YouTube formulės (v7). ScoreModal rodo kanoninį ALL-TIME balą.
+  reach_total: { label: 'Bendra aprėptis',      color: '#a78bfa' },   // viso peržiūrų
+  longevity:   { label: 'Ilgaamžiškumas',       color: '#0ea5e9' },   // kūrybos metų tarpsnis
+  pop_perday:  { label: 'Populiarumas / dieną', color: '#ec4899' },   // trending
+  freshness:   { label: 'Šviežumas',            color: '#10b981' },   // trending
+  catalog_yt:  { label: 'Katalogas',            color: '#3b82f6' },   // klipų skaičius
   // ── legacy raktai (seni breakdown'ai DB, kol neperskaičiuoti) ──
   catalog:    { label: 'Diskografija', color: '#3b82f6' },
   media:      { label: 'Turinys', color: '#8b5cf6' },
@@ -51,12 +52,11 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   awards:     { label: 'Apdovanojimai', color: '#eab308' },
 }
 
-// Fixed display order — JSONB doesn't preserve key insertion order.
-// v6 YouTube formulė: ta pati tvarka LT ir INT.
-const YT_ORDER = ['pop_perday', 'reach_total', 'freshness', 'catalog_yt']
+// Fixed display order — ScoreModal rodo kanoninį ALL-TIME balą (be recency).
+const ALLTIME_ORDER = ['reach_total', 'longevity', 'catalog_yt']
 const CATEGORY_ORDER: Record<string, string[]> = {
-  lt:  YT_ORDER,
-  int: YT_ORDER,
+  lt:  ALLTIME_ORDER,
+  int: ALLTIME_ORDER,
 }
 
 function ScoreBar({ label, value, max, color, details }: {

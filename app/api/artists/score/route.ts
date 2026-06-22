@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { calculateArtistScore } from '@/lib/scoring'
+import { calculateArtistScores } from '@/lib/scoring'
 
 /**
  * POST /api/artists/score — Bulk recalculate scores for ALL artists
@@ -31,13 +31,15 @@ export async function POST() {
 
   for (const { id } of artists) {
     try {
-      const breakdown = await calculateArtistScore(supabase, id)
+      const { alltime, trending } = await calculateArtistScores(supabase, id)
       await supabase
         .from('artists')
         .update({
-          score: breakdown.final_score,
-          score_override: breakdown.score_override,
-          score_breakdown: breakdown,
+          score: alltime.final_score,
+          score_override: alltime.score_override,
+          score_breakdown: alltime,
+          score_trending: trending.final_score,
+          score_trending_breakdown: trending,
           score_updated_at: new Date().toISOString(),
         })
         .eq('id', id)

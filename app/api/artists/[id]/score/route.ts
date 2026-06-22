@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { calculateArtistScore } from '@/lib/scoring'
+import { calculateArtistScores } from '@/lib/scoring'
 
 // ── GET /api/artists/[id]/score ──────────────────────────────
 // Returns current score breakdown (from DB if cached, or computes fresh)
@@ -15,7 +15,7 @@ export async function GET(
 
   const { data: artist } = await supabase
     .from('artists')
-    .select('score, score_override, score_breakdown, score_updated_at')
+    .select('score, score_override, score_breakdown, score_trending, score_trending_breakdown, score_updated_at')
     .eq('id', id)
     .single()
 
@@ -27,6 +27,8 @@ export async function GET(
     score: artist.score,
     score_override: artist.score_override || 0,
     breakdown: artist.score_breakdown,
+    score_trending: artist.score_trending,
+    trending_breakdown: artist.score_trending_breakdown,
     updated_at: artist.score_updated_at,
   })
 }
@@ -46,15 +48,17 @@ export async function POST(
   const artistId = parseInt(id)
   const supabase = createAdminClient()
 
-  const breakdown = await calculateArtistScore(supabase, artistId)
+  const { alltime, trending } = await calculateArtistScores(supabase, artistId)
 
-  // Save to DB
+  // Save to DB — kanoninis `score` = ALL-TIME, plius atskiras trending.
   const { error } = await supabase
     .from('artists')
     .update({
-      score: breakdown.final_score,
-      score_override: breakdown.score_override,
-      score_breakdown: breakdown,
+      score: alltime.final_score,
+      score_override: alltime.score_override,
+      score_breakdown: alltime,
+      score_trending: trending.final_score,
+      score_trending_breakdown: trending,
       score_updated_at: new Date().toISOString(),
     })
     .eq('id', artistId)
@@ -64,9 +68,11 @@ export async function POST(
   }
 
   return NextResponse.json({
-    score: breakdown.final_score,
-    score_override: breakdown.score_override,
-    breakdown,
+    score: alltime.final_score,
+    score_override: alltime.score_override,
+    breakdown: alltime,
+    score_trending: trending.final_score,
+    trending_breakdown: trending,
     updated_at: new Date().toISOString(),
   })
 }
@@ -95,15 +101,17 @@ export async function PATCH(
     .update({ score_override: newOverride })
     .eq('id', artistId)
 
-  // Recalculate with new override
-  const breakdown = await calculateArtistScore(supabase, artistId)
+  // Recalculate with new override — abu reitingai (bonusas taikomas abiem).
+  const { alltime, trending } = await calculateArtistScores(supabase, artistId)
 
   // Save
   const { error } = await supabase
     .from('artists')
     .update({
-      score: breakdown.final_score,
-      score_breakdown: breakdown,
+      score: alltime.final_score,
+      score_breakdown: alltime,
+      score_trending: trending.final_score,
+      score_trending_breakdown: trending,
       score_updated_at: new Date().toISOString(),
     })
     .eq('id', artistId)
@@ -113,9 +121,11 @@ export async function PATCH(
   }
 
   return NextResponse.json({
-    score: breakdown.final_score,
+    score: alltime.final_score,
     score_override: newOverride,
-    breakdown,
+    breakdown: alltime,
+    score_trending: trending.final_score,
+    trending_breakdown: trending,
     updated_at: new Date().toISOString(),
   })
 }

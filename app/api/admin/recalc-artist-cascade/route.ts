@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import {
-  calculateArtistScore,
+  calculateArtistScores,
   computeAlbumScore,
   computeTrackScore,
 } from '@/lib/scoring'
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   // ── 1. Artist score ───────────────────────────────────────────
   let artistScore = 0
   try {
-    const artistBreakdown = await calculateArtistScore(supabase, artistId)
+    const { alltime: artistBreakdown, trending } = await calculateArtistScores(supabase, artistId)
     artistScore = artistBreakdown.final_score
     await supabase
       .from('artists')
@@ -53,6 +53,8 @@ export async function POST(req: NextRequest) {
         score: artistBreakdown.final_score,
         score_override: artistBreakdown.score_override,
         score_breakdown: artistBreakdown,
+        score_trending: trending.final_score,
+        score_trending_breakdown: trending,
         score_updated_at: now,
       })
       .eq('id', artistId)

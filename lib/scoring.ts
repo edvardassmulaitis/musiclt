@@ -670,27 +670,23 @@ export async function calculateTrackScore(
 
 // ── Main scoring function ──────────────────────────────────────
 
-// ── UNIFIED YOUTUBE SCORE (2026-06-21 v6) ─────────────────────────────────
+// ── DU YOUTUBE REITINGAI (2026-06-21 v7) ──────────────────────────────────
 //
-// Edvardo sprendimas: kol kas reitingas remiasi TIK YouTube enrich info
-// (peržiūros + įkėlimo/išleidimo data). VIENA formulė LT ir užsienio atlikėjams
-// (sąrašai vis tiek atskiri pagal šalį). Esminis rodiklis — PERŽIŪROS PER DIENĄ
-// (vpd): peržiūros ÷ vaizdo amžius dienomis. Tai savaime įvertina laikotarpį —
-// senas hitas su milijonais peržiūrų per 15 metų turi mažesnį vpd nei dabartinis
-// hitas; nauja daina su sprogusiomis peržiūromis kyla aukštyn. „Per-dieną
-// dominuoja" balansas: vpd 55 + visų laikų aprėptis 20 + šviežumas 15 + katalogas 10.
+// Edvardo sprendimas: reitingas tik iš YouTube enrich (peržiūros + įkėlimo/
+// išleidimo data), bet DVI atskiros formulės, kad nemaišyti „dabar populiaru"
+// su „visų laikų":
 //
-// Spike apsauga: amžius dienomis floored ties 30 (kad 3 dienų klipas neduotų
-// absurdiškai didelio vpd). Recent (šviežumas) = vpd iš klipų, įkeltų/išleistų
-// per pastaruosius 3 metus → atvaizduoja dabartinį aktyvumą.
-
-export type YTScoreData = {
-  vpd_total: number       // SUM(views / age_days) — peržiūros per dieną (visas katalogas)
-  vpd_recent: number      // SUM(views / age_days) klipams iš pastarųjų 3 metų
-  total_views: number     // SUM(views) — visų laikų aprėptis
-  n_videos: number        // klipų su peržiūromis skaičius
-  type: 'lt' | 'int'
-}
+//   1) TRENDING (`score_trending`) — DABARTINIS populiarumas. Esminis rodiklis —
+//      PERŽIŪROS PER DIENĄ (vpd = peržiūros ÷ vaizdo amžius). Kyla dabartiniai
+//      hitai. Naudojama „Dabar populiaru" sekcijose.
+//
+//   2) ALL-TIME (`score`) — VISŲ LAIKŲ dydis/legendos. SĄMONINGAI BE recency:
+//      bendros peržiūros (aprėptis) + ILGAAMŽIŠKUMAS (kūrybos metų tarpsnis) +
+//      katalogas. Taip legendos (The Beatles, Queen, ABBA) kyla virš dabartinių
+//      žvaigždžių, nors šių YouTube peržiūrų daugiau. Naudojama „Populiariausi
+//      visų laikų" + kaip kanoninis `artists.score`.
+//
+// Spike apsauga (trending): vaizdo amžius floored ties 30 d.
 
 const clampPts = (raw: number, max: number) => Math.max(0, Math.min(max, Math.round(raw)))
 
@@ -701,31 +697,28 @@ function fmtPerDay(n: number): string {
   return '0/d.'
 }
 function fmtTotalViews(n: number): string {
-  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}␣mlrd. perž.`.replace('␣', ' ')
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)} mlrd. perž.`
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0)}M perž.`
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K perž.`
   return n > 0 ? `${n} perž.` : 'nėra perž.'
 }
 
-export function computeYTScore(data: YTScoreData): ScoreBreakdown {
+// ── TRENDING (per dieną) ──────────────────────────────────────────────────
+export type TrendingScoreData = {
+  vpd_total: number; vpd_recent: number; total_views: number; n_videos: number
+  type: 'lt' | 'int'
+}
+export function computeTrendingScore(data: TrendingScoreData): ScoreBreakdown {
   const { vpd_total, vpd_recent, total_views, n_videos, type } = data
-
-  // ① POPULIARUMAS (per dieną) 0-55 — esminis. ~10 balų / dešimtis kartų:
-  //   1K/d≈5, 10K/d≈15, 100K/d≈25, 1M/d≈35, 10M/d≈45, 100M/d→cap 55.
+  // ① POPULIARUMAS (per dieną) 0-55 — esminis. 1K/d≈5,100K/d≈25,1M/d≈35,10M/d≈45.
   const popPerDay = vpd_total > 0 ? clampPts(10 * Math.log10(vpd_total + 1) - 25, 55) : 0
-
-  // ② BENDRA APRĖPTIS (viso peržiūrų) 0-20 — legendų „svoris".
-  //   10M≈8, 100M≈13, 1mlrd≈18, 25mlrd→cap 20.
+  // ② BENDRA APRĖPTIS 0-20.
   const reachTotal = total_views > 0 ? clampPts(4 * Math.log10(total_views + 1) - 21, 20) : 0
-
-  // ③ ŠVIEŽUMAS (naujausi įkėlimai, 3m) 0-15 — dabartinis aktyvumas.
+  // ③ ŠVIEŽUMAS (vpd iš ≤3 m. klipų) 0-15.
   const freshness = vpd_recent > 0 ? clampPts(2.5 * Math.log10(vpd_recent + 1) - 2, 15) : 0
-
-  // ④ KATALOGAS (klipų su peržiūromis) 0-10 — gylis/aprėptis (ne vienas hitas).
+  // ④ KATALOGAS 0-10.
   const catalogYt = n_videos > 0 ? clampPts(5 * Math.log10(n_videos + 1), 10) : 0
-
   const total = Math.min(100, popPerDay + reachTotal + freshness + catalogYt)
-
   return {
     type,
     categories: {
@@ -734,64 +727,120 @@ export function computeYTScore(data: YTScoreData): ScoreBreakdown {
       freshness:   { points: freshness, max: 15, details: `naujausi 3m: ${fmtPerDay(vpd_recent)}` },
       catalog_yt:  { points: catalogYt, max: 10, details: `${n_videos} klipų su peržiūromis` },
     },
-    total,
-    score_override: 0,
-    final_score: total,
+    total, score_override: 0, final_score: total,
     inputs: { vpd_total: Math.round(vpd_total), vpd_recent: Math.round(vpd_recent), total_views, n_videos },
   }
 }
 
-export async function calculateArtistScore(
-  supabase: any,
-  artistId: number
-): Promise<ScoreBreakdown> {
-  // YouTube-only reitingas (v6). Reikia tik: artist.country (LT/INT žymai) +
-  // score_override, ir per-track video_views + įkėlimo/išleidimo data.
+// ── ALL-TIME (visų laikų, be recency) ─────────────────────────────────────
+export type AllTimeScoreData = {
+  total_views: number; n_videos: number; span_years: number
+  type: 'lt' | 'int'
+}
+export function computeAllTimeScore(data: AllTimeScoreData): ScoreBreakdown {
+  const { total_views, n_videos, span_years, type } = data
+  // ① BENDRA APRĖPTIS (viso peržiūrų) 0-55 — pagrindinis dydžio matas.
+  //   100M≈11, 1mlrd≈19, 3mlrd≈... , 25mlrd→cap. 8·log10(views)-25.
+  const reachTotal = total_views > 0 ? clampPts(8 * Math.log10(total_views + 1) - 25, 55) : 0
+  // ② ILGAAMŽIŠKUMAS (kūrybos metų tarpsnis) 0-35 — KĄ recency atmeta: legendos.
+  //   20 m.→16, 35 m.→28, 44+ m.→cap 35.
+  const longevity = span_years > 0 ? clampPts(0.8 * span_years, 35) : 0
+  // ③ KATALOGAS 0-10.
+  const catalogYt = n_videos > 0 ? clampPts(5 * Math.log10(n_videos + 1), 10) : 0
+  const total = Math.min(100, reachTotal + longevity + catalogYt)
+  return {
+    type,
+    categories: {
+      reach_total: { points: reachTotal, max: 55, details: `viso: ${fmtTotalViews(total_views)}` },
+      longevity:   { points: longevity, max: 35, details: span_years > 0 ? `${span_years} m. kūrybos tarpsnis` : 'nenurodyta' },
+      catalog_yt:  { points: catalogYt, max: 10, details: `${n_videos} klipų su peržiūromis` },
+    },
+    total, score_override: 0, final_score: total,
+    inputs: { total_views, n_videos, span_years },
+  }
+}
+
+// Back-compat alias (senas pavadinimas).
+export const computeYTScore = computeTrendingScore
+
+// ── Bendras duomenų surinkimas (vienas track fetch) ────────────────────────
+async function gatherArtistYT(supabase: any, artistId: number) {
   const { data: artist } = await supabase
     .from('artists')
     .select('country, score_override')
     .eq('id', artistId)
     .single()
-
   const isLT = !artist?.country || artist.country === 'Lietuva'
 
-  // Per-track YT duomenys — peržiūros + įkėlimo data (fallback: release_year Sausio 1).
   const { data: trackRows } = await supabase
     .from('tracks')
     .select('video_views, video_uploaded_at, release_year')
     .eq('artist_id', artistId)
-    .not('video_views', 'is', null)
 
   const now = Date.now()
   const DAY = 86_400_000
   const recentCutoff = now - 3 * 365 * DAY
+  const curYear = new Date().getFullYear()
   let vpd_total = 0, vpd_recent = 0, total_views = 0, n_videos = 0
+  let minYear = 0, maxYear = 0
   for (const r of (trackRows || []) as any[]) {
+    // ilgaamžiškumui — visi track'ai su validžiu release_year.
+    // 1970 atmetama: Unix-epoch placeholder iš blogų parse'ų (pvz. Shawn
+    // Mendes 17 dainų „1970") klaidingai išpučia tarpsnį. Tikri 1970 m.
+    // atlikėjai turi 1969/1971 kaimynus, tad jų tarpsnis nenukenčia.
+    const ry = Number(r.release_year) || 0
+    if (ry >= 1900 && ry <= curYear + 1 && ry !== 1970) {
+      if (minYear === 0 || ry < minYear) minYear = ry
+      if (ry > maxYear) maxYear = ry
+    }
     const v = Number(r.video_views) || 0
     if (v <= 0) continue
     n_videos++
     total_views += v
-    // įkėlimo data → fallback release_year (Sausio 1).
     let ts: number | null = null
     if (r.video_uploaded_at) { const t = Date.parse(r.video_uploaded_at); if (!Number.isNaN(t)) ts = t }
-    if (ts === null && r.release_year) ts = Date.UTC(Number(r.release_year), 0, 1)
-    if (ts === null) continue  // be datos — į vpd neįskaičiuojam (lieka total/reach)
+    if (ts === null && ry) ts = Date.UTC(ry, 0, 1)
+    if (ts === null) continue
     const ageDays = Math.max(30, (now - ts) / DAY)
     const vpd = v / ageDays
     vpd_total += vpd
     if (ts >= recentCutoff) vpd_recent += vpd
   }
-
-  const breakdown = computeYTScore({
-    vpd_total, vpd_recent, total_views, n_videos,
-    type: isLT ? 'lt' : 'int',
-  })
-
-  // Rankinis koregavimas (±15) — taikomas ant bazinio balo, apkarpoma 0-100.
+  const span_years = minYear > 0 && maxYear > minYear ? maxYear - minYear : 0
+  const type: 'lt' | 'int' = isLT ? 'lt' : 'int'
   const override = artist?.score_override || 0
-  breakdown.score_override = override
-  breakdown.final_score = Math.max(0, Math.min(100, breakdown.total + override))
+  return { vpd_total, vpd_recent, total_views, n_videos, span_years, type, override }
+}
 
-  return breakdown
+function applyOverride(bd: ScoreBreakdown, override: number): ScoreBreakdown {
+  bd.score_override = override
+  bd.final_score = Math.max(0, Math.min(100, bd.total + override))
+  return bd
+}
+
+/** Abu reitingai vienu kreipimusi. */
+export async function calculateArtistScores(
+  supabase: any,
+  artistId: number
+): Promise<{ alltime: ScoreBreakdown; trending: ScoreBreakdown }> {
+  const d = await gatherArtistYT(supabase, artistId)
+  const alltime = applyOverride(
+    computeAllTimeScore({ total_views: d.total_views, n_videos: d.n_videos, span_years: d.span_years, type: d.type }),
+    d.override,
+  )
+  const trending = applyOverride(
+    computeTrendingScore({ vpd_total: d.vpd_total, vpd_recent: d.vpd_recent, total_views: d.total_views, n_videos: d.n_videos, type: d.type }),
+    d.override,
+  )
+  return { alltime, trending }
+}
+
+/** Back-compat: kanoninis `score` = ALL-TIME breakdown. */
+export async function calculateArtistScore(
+  supabase: any,
+  artistId: number
+): Promise<ScoreBreakdown> {
+  const { alltime } = await calculateArtistScores(supabase, artistId)
+  return alltime
 }
 
