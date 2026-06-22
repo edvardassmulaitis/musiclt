@@ -56,8 +56,8 @@ export const HOME_LANE_LIMIT = 10
 // (mažuma) neiškristų: 90d tracks ~1100, albums year>=2025 ~700.
 // Šie limitai taikomi prieš JS-lygio dedupe/filter — didesnis pool
 // = tikslesnė LT juosta. Pro plan (1 GB RAM) laiko ~1200 be problemų.
-const TRACKS_CANDIDATE_FETCH_LIMIT = 250
-const ALBUMS_CANDIDATE_FETCH_LIMIT = 350
+const TRACKS_CANDIDATE_FETCH_LIMIT = 500
+const ALBUMS_CANDIDATE_FETCH_LIMIT = 800
 
 /* ────────────────────────────── Tags ────────────────────────────── */
 
@@ -197,31 +197,62 @@ function isLT(country: string | null | undefined): boolean {
 /** „Nauja" badge: ar įrašas pridėtas per paskutines N dienų. */
 export const NEW_BADGE_DAYS = 3
 
+/* ──────────────────────── Homepage „tik populiarūs" juosta ────────────────────────
+   (2026-06-23, Edvardo prašymu) Anksčiau homepage juostos buvo rikiuojamos
+   hibridiniu balu (70% šviežumas + 30% populiarumas) — todėl scrollinant į šoną
+   datos „šokinėdavo" (mišri tvarka, ne chronologinė). Dabar:
+
+     • Juostoje rodom TIK populiarius releasus, surikiuotus pagal DATĄ (naujausi
+       kairėje) → scrollinant datos eina nuosekliai naujausi→seniausi.
+     • Mažiau populiarūs lieka TIK po „Daugiau →" (pilnas sąrašas /api/home/list,
+       kuris ima ltFull/worldFull su savo sort toggle).
+
+   Populiarumo slenkstis yra LANE-AWARE: LT scenoje populiarumo balai natūraliai
+   žemesni nei pasaulio (LT track score med ~33 vs pasaulio ~52; LT album med ~13
+   vs ~47), todėl LT riba švelnesnė — kitaip LT juosta tuštėtų. Track'as
+   populiarus jei artist.score >= score ARBA video_views >= views; albumas —
+   pagal artist.score (albumo per-track peržiūros čia neužkraunamos).
+
+   Floor (STRIP_MIN_ITEMS): jei riba praleidžia per mažai, papildom artimiausiais
+   pagal populiarumą — kad juosta neliktų tuščia / su „...netrukus", kai šviežio
+   turinio realiai yra. */
+const POP_THRESHOLDS = {
+  tracks: {
+    lt: { score: 40, views: 50_000 },
+    world: { score: 55, views: 300_000 },
+  },
+  albums: {
+    lt: { score: 30 },
+    world: { score: 50 },
+  },
+} as const
+
+// Minimalus juostos ilgis — žemiau jo papildom „kitais geriausiais", kad
+// nerodytume tuščios juostos lėtomis savaitėmis.
+const STRIP_MIN_ITEMS = 5
+
 /**
- * Hibridinis rikiavimo balas: 70% šviežumas + 30% populiarumas.
- *
- * Šviežumas: 0–1, kur 1 = šiandien, 0 = seniausias lango kraštas.
- * Populiarumas: 0–1, normalizuotas pagal artist.score (0–100 skalė DB).
- * video_views naudojamas kaip papildomas boost (log skalė).
- *
- * Rezultatas: didesnis = aukščiau sąraše.
+ * Homepage juostos atranka: paliekam tik populiarius (per `isPopular`), o jei jų
+ * mažiau nei STRIP_MIN_ITEMS — papildom artimiausiais pagal `popScore`. Galutinis
+ * sąrašas VISADA rikiuojamas pagal datą DESC (naujausi pirma) ir apkarpomas iki
+ * `limit`.
  */
-function hybridScore(
-  dateMs: number,
-  windowMs: number,
-  nowMs: number,
-  artistScore: number,
-  videoViews: number,
-): number {
-  // Šviežumas: kuo naujesnė, tuo arčiau 1
-  const freshness = Math.max(0, Math.min(1, (dateMs - (nowMs - windowMs)) / windowMs))
-  // Populiarumas: artist score normalizuotas (max ~80 DB)
-  const popArtist = Math.min(1, (artistScore || 0) / 80)
-  // YT views boost (log skalė): 1M views = ~0.5, 10M = ~0.58, 100k = ~0.42
-  const popViews = videoViews > 0 ? Math.min(1, Math.log10(videoViews) / 8) : 0
-  // Sujungiame: artist score svarbiau nei views
-  const popularity = popArtist * 0.7 + popViews * 0.3
-  return freshness * 0.7 + popularity * 0.3
+function selectPopularStrip<T>(
+  full: T[],
+  isPopular: (r: T) => boolean,
+  popScore: (r: T) => number,
+  dateMs: (r: T) => number,
+  limit: number,
+): T[] {
+  let chosen = full.filter(isPopular)
+  if (chosen.length < STRIP_MIN_ITEMS) {
+    const fill = full
+      .filter(r => !isPopular(r))
+      .sort((a, b) => popScore(b) - popScore(a))
+      .slice(0, STRIP_MIN_ITEMS - chosen.length)
+    chosen = [...chosen, ...fill]
+  }
+  return [...chosen].sort((a, b) => dateMs(b) - dateMs(a)).slice(0, limit)
 }
 
 /* ────────────────────────────── Tracks ────────────────────────────── */
@@ -229,7 +260,8 @@ function hybridScore(
 const TRACK_SELECT =
   'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
   'release_date, release_year, created_at, artist_id, ' +
-  'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
+  'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country, score), ' +
+  'album_tracks(albums(id, year))'
 
 async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
   const supabase = createAdminClient()
@@ -268,7 +300,7 @@ async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
         .gte('release_year', currentYear - 1)
         .not('video_url', 'is', null)
         .order('id', { ascending: false })
-        .limit(120)
+        .limit(200)
       if (res.error) throw res.error
       return res
     }, { label: 'tracks.fallback' }),
@@ -290,46 +322,7 @@ async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
   if (out.length === 0) {
     throw new Error('fetchLatestTracksRaw returned 0 rows — treating as transient failure (not caching)')
   }
-
-  // Album metai reissue-filtrui — batched uzklausa (NE inline embed). Inline
-  // `album_tracks(albums(id,year))` embed'as 500 kandidatu MICRO DB darydavo
-  // ~8s (correlated per-row) -> homepage „Naujos dainos" hang/timeout. Vienas
-  // set-based IN(...) batch ~0.3s. Cache'inama kartu su rows. SESSION 2026-06-21.
-  await attachAlbumYears(out)
-
   return out
-}
-
-/** Uzpildo kiekvieno track'o `album_tracks` lauka (reissue-filtrui) per viena
- *  ar kelis batched `IN(track_id)` uzklausas vietoj brangaus inline embed'o. */
-async function attachAlbumYears(rows: LatestTrackRow[]): Promise<void> {
-  if (rows.length === 0) return
-  const supabase = createAdminClient()
-  const ids = rows.map(r => r.id)
-  const CHUNK = 300
-  const chunks: number[][] = []
-  for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK))
-  const results = await Promise.all(chunks.map(chunk =>
-    withRetry(async () => {
-      const res = await supabase
-        .from('album_tracks')
-        .select('track_id, albums(id, year)')
-        .in('track_id', chunk)
-      if (res.error) throw res.error
-      return res.data || []
-    }, { label: 'tracks.albumYears', tries: 2 }),
-  ))
-  const byTrack = new Map<number, Array<{ albums: { id: number; year: number | null } | null }>>()
-  for (const chunkRows of results) {
-    for (const row of chunkRows as any[]) {
-      const tid = row.track_id as number
-      const albs = Array.isArray(row.albums) ? row.albums : (row.albums ? [row.albums] : [])
-      const arr = byTrack.get(tid) || []
-      for (const a of albs) arr.push({ albums: a ? { id: a.id ?? 0, year: a.year ?? null } : null })
-      byTrack.set(tid, arr)
-    }
-  }
-  for (const r of rows) r.album_tracks = byTrack.get(r.id) || []
 }
 
 /** Cache'inta raw fetch'inimo funkcija. Vidinis arg pirmiausia veikia kaip
@@ -469,22 +462,27 @@ export async function getLatestTracksForHome(): Promise<{
   const ltFull = dedupe(ltRaw)
   const worldFull = dedupe(worldRaw)
 
-  // Hibridinis rikiavimas: 70% šviežumas + 30% populiarumas.
-  // Taikomas tik ant galutinio sąrašo (po dedupe) — dedupe viduje
-  // vis dar naudoja datą/views pickBetter logiką.
-  const nowMs = Date.now()
-  const windowMs = LATEST_TRACK_WINDOW_DAYS * 86_400_000
-  const trackHybrid = (r: LatestTrackRow) =>
-    hybridScore(uploadMs(r), windowMs, nowMs, r.artists?.score ?? 0, r.video_views ?? 0)
-  ltFull.sort((a, b) => trackHybrid(b) - trackHybrid(a))
-  worldFull.sort((a, b) => trackHybrid(b) - trackHybrid(a))
-  // Raw irgi rikiuojam (modalas)
-  ltRaw.sort((a, b) => trackHybrid(b) - trackHybrid(a))
-  worldRaw.sort((a, b) => trackHybrid(b) - trackHybrid(a))
+  // ── Rikiavimas pagal DATĄ (naujausi pirma) ──
+  // Visi pilni sąrašai (ltFull/worldFull/raw) — chronologiškai. „Daugiau →"
+  // modalas (/api/home/list) ima ltFull/worldFull ir turi savo sort toggle.
+  ltFull.sort((a, b) => uploadMs(b) - uploadMs(a))
+  worldFull.sort((a, b) => uploadMs(b) - uploadMs(a))
+  ltRaw.sort((a, b) => uploadMs(b) - uploadMs(a))
+  worldRaw.sort((a, b) => uploadMs(b) - uploadMs(a))
+
+  // ── Homepage juosta: TIK populiarūs, surikiuoti pagal datą ──
+  const trackPopScore = (r: LatestTrackRow) => {
+    const s = (r.artists?.score ?? 0) / 100
+    const v = (r.video_views ?? 0) > 0 ? Math.log10(r.video_views as number) / 8 : 0
+    return s * 0.7 + v * 0.3
+  }
+  const isPopTrack = (lane: 'lt' | 'world') => (r: LatestTrackRow) =>
+    (r.artists?.score ?? 0) >= POP_THRESHOLDS.tracks[lane].score ||
+    (r.video_views ?? 0) >= POP_THRESHOLDS.tracks[lane].views
 
   const result = {
-    lt: ltFull.slice(0, HOME_LANE_LIMIT),
-    world: worldFull.slice(0, HOME_LANE_LIMIT),
+    lt: selectPopularStrip(ltFull, isPopTrack('lt'), trackPopScore, uploadMs, HOME_LANE_LIMIT),
+    world: selectPopularStrip(worldFull, isPopTrack('world'), trackPopScore, uploadMs, HOME_LANE_LIMIT),
     totalLt: ltFull.length,
     totalWorld: worldFull.length,
     ltFull,
@@ -517,7 +515,7 @@ async function fetchLatestAlbumsRaw(): Promise<LatestAlbumRow[]> {
       .order('year', { ascending: false })
       .order('month', { ascending: false, nullsFirst: false })
       .order('day', { ascending: false, nullsFirst: false })
-      .limit(350)
+      .limit(800)
     if (res.error) throw res.error
     return res
   }, { label: 'albums.latest' })
@@ -583,22 +581,24 @@ export async function getLatestAlbumsForHome(): Promise<{
   const ltAll = released.filter(r => isLT(r.artists!.country))
   const worldAll = released.filter(r => !isLT(r.artists!.country))
 
-  // Hibridinis rikiavimas: 70% šviežumas + 30% populiarumas.
-  // Albumų „data" = year/month/day konvertuota į ms.
-  const nowMs = Date.now()
-  const windowMs = LATEST_ALBUM_WINDOW_DAYS * 86_400_000
+  // ── Rikiavimas pagal DATĄ (naujausi pirma) ──
+  // Albumų „data" = year/month/day konvertuota į ms. ltAll/worldAll naudoja
+  // „Daugiau →" modalas (su savo sort toggle).
   const albumDateMs = (a: LatestAlbumRow) => {
     if (!a.year) return 0
     return new Date(a.year, (a.month ?? 1) - 1, a.day ?? 1).getTime()
   }
-  const albumHybrid = (a: LatestAlbumRow) =>
-    hybridScore(albumDateMs(a), windowMs, nowMs, a.artists?.score ?? 0, 0)
-  ltAll.sort((a, b) => albumHybrid(b) - albumHybrid(a))
-  worldAll.sort((a, b) => albumHybrid(b) - albumHybrid(a))
+  ltAll.sort((a, b) => albumDateMs(b) - albumDateMs(a))
+  worldAll.sort((a, b) => albumDateMs(b) - albumDateMs(a))
+
+  // ── Homepage juosta: TIK populiarūs (pagal artist.score), pagal datą ──
+  const albumPopScore = (a: LatestAlbumRow) => (a.artists?.score ?? 0) / 100
+  const isPopAlbum = (lane: 'lt' | 'world') => (a: LatestAlbumRow) =>
+    (a.artists?.score ?? 0) >= POP_THRESHOLDS.albums[lane].score
 
   const result = {
-    lt: ltAll.slice(0, HOME_LANE_LIMIT),
-    world: worldAll.slice(0, HOME_LANE_LIMIT),
+    lt: selectPopularStrip(ltAll, isPopAlbum('lt'), albumPopScore, albumDateMs, HOME_LANE_LIMIT),
+    world: selectPopularStrip(worldAll, isPopAlbum('world'), albumPopScore, albumDateMs, HOME_LANE_LIMIT),
     totalLt: ltAll.length,
     totalWorld: worldAll.length,
     ltFull: ltAll,
