@@ -739,20 +739,24 @@ export type AllTimeScoreData = {
 }
 export function computeAllTimeScore(data: AllTimeScoreData): ScoreBreakdown {
   const { total_views, n_videos, span_years, type } = data
-  // ① BENDRA APRĖPTIS (viso peržiūrų) 0-55 — pagrindinis dydžio matas.
-  //   100M≈11, 1mlrd≈19, 3mlrd≈... , 25mlrd→cap. 8·log10(views)-25.
-  const reachTotal = total_views > 0 ? clampPts(8 * Math.log10(total_views + 1) - 25, 55) : 0
-  // ② ILGAAMŽIŠKUMAS (kūrybos metų tarpsnis) 0-35 — KĄ recency atmeta: legendos.
-  //   20 m.→16, 35 m.→28, 44+ m.→cap 35.
-  const longevity = span_years > 0 ? clampPts(0.8 * span_years, 35) : 0
-  // ③ KATALOGAS 0-10.
+  // v7.1 kalibracija — MAŽIAU saturacijos viršuje (anksčiau legendų krūva ties
+  // 95-99, nes longevity+catalog užsidarydavo max). Dabar visi trys plačiau
+  // diferencijuoja: aprėptis nuo peržiūrų, ilgaamžiškumas nuo metų tarpsnio.
+  //
+  // ① BENDRA APRĖPTIS (viso peržiūrų) 0-50 — sklandi, praktiškai nesisaturuoja:
+  //   10M≈12, 100M≈24, 1mlrd≈36, 10mlrd≈48, 30mlrd≈54→cap 50.
+  const reachTotal = total_views > 0 ? clampPts(12 * Math.log10(total_views + 1) - 72, 50) : 0
+  // ② ILGAAMŽIŠKUMAS (kūrybos metų tarpsnis) 0-40 — diferencijuoja eras, ne flat:
+  //   10 m.→6, 20 m.→12, 30 m.→18, 40 m.→24, 60 m.→36.
+  const longevity = span_years > 0 ? clampPts(0.6 * span_years, 40) : 0
+  // ③ KATALOGAS 0-10 — gylis (ne vienas hitas).
   const catalogYt = n_videos > 0 ? clampPts(5 * Math.log10(n_videos + 1), 10) : 0
   const total = Math.min(100, reachTotal + longevity + catalogYt)
   return {
     type,
     categories: {
-      reach_total: { points: reachTotal, max: 55, details: `viso: ${fmtTotalViews(total_views)}` },
-      longevity:   { points: longevity, max: 35, details: span_years > 0 ? `${span_years} m. kūrybos tarpsnis` : 'nenurodyta' },
+      reach_total: { points: reachTotal, max: 50, details: `viso: ${fmtTotalViews(total_views)}` },
+      longevity:   { points: longevity, max: 40, details: span_years > 0 ? `${span_years} m. kūrybos tarpsnis` : 'nenurodyta' },
       catalog_yt:  { points: catalogYt, max: 10, details: `${n_videos} klipų su peržiūromis` },
     },
     total, score_override: 0, final_score: total,

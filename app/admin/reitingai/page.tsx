@@ -7,7 +7,7 @@
 // Atskiri tab'ai LT / užsienis. Kiekviena balo dalis atskiru stulpeliu (kodėl toks
 // balas) + rankinis bonus balas (±15, taikomas abiem reitingams).
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import Link from 'next/link'
 
 type Cat = { points: number; max: number; details: string }
@@ -45,6 +45,8 @@ export default function ReitingaiAdmin() {
   const [q, setQ] = useState('')
   const [offset, setOffset] = useState(0)
   const [busy, setBusy] = useState<Record<number, boolean>>({})
+  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [drill, setDrill] = useState<Record<number, any>>({})
   const limit = 60
   const qDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -104,6 +106,21 @@ export default function ReitingaiAdmin() {
   }
 
   const pill = (active: boolean) => `px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${active ? 'bg-orange-500 text-white' : 'bg-white border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`
+
+  const fmtN = (n: number) => n >= 1_000_000_000 ? `${(n / 1e9).toFixed(2)} mlrd.` : n >= 1_000_000 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${(n / 1e3).toFixed(0)}K` : String(n)
+
+  // Išskleidžiamas drill-down — kokios dainos subuildino balą.
+  const toggleExpand = async (id: number) => {
+    if (expandedId === id) { setExpandedId(null); return }
+    setExpandedId(id)
+    if (!drill[id]) {
+      try {
+        const res = await fetch(`/api/admin/reitingai/tracks?artist_id=${id}`)
+        const j = await res.json()
+        if (res.ok) setDrill(d => ({ ...d, [id]: j }))
+      } catch {}
+    }
+  }
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 py-6">
@@ -171,10 +188,15 @@ export default function ReitingaiAdmin() {
             {!loading && rows.map((r, i) => {
               const md = r[mode]
               const isBusy = !!busy[r.id]
+              const open = expandedId === r.id
+              const dd = drill[r.id]
               return (
-                <tr key={r.id} className="border-t border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]">
+                <Fragment key={r.id}>
+                <tr className="border-t border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]">
                   <td className="px-2 py-1.5 text-right tabular-nums text-[var(--text-faint)]">{offset + i + 1}</td>
                   <td className="px-2 py-1.5 sticky left-0 bg-white">
+                    <button onClick={() => toggleExpand(r.id)} title="Rodyti, kokios dainos subuildino balą"
+                      className="mr-1.5 text-[var(--text-faint)] hover:text-orange-600 w-4 inline-block text-center">{open ? '▾' : '▸'}</button>
                     <Link href={`/admin/artists/${r.id}`} className="font-semibold text-[var(--text-primary)] hover:text-orange-600">{r.name}</Link>
                     <span className="ml-1.5 text-[11px] text-[var(--text-faint)]">{fmtCountry(r.country)}</span>
                   </td>
@@ -200,6 +222,50 @@ export default function ReitingaiAdmin() {
                     <button disabled={isBusy} onClick={() => recalc(r)} title="Perskaičiuoti šio atlikėjo balą" className="text-[var(--text-faint)] hover:text-orange-600 disabled:opacity-40">{isBusy ? '…' : '↻'}</button>
                   </td>
                 </tr>
+                {open && (
+                  <tr className="bg-[var(--bg-elevated)]">
+                    <td colSpan={cols.length + 5} className="px-4 py-3">
+                      {!dd ? (
+                        <div className="text-xs text-[var(--text-faint)]">Kraunama…</div>
+                      ) : (
+                        <div>
+                          <div className="text-[11px] text-[var(--text-secondary)] mb-2">
+                            Viso peržiūrų: <b>{fmtN(dd.summary.total_views)}</b> · klipų su peržiūromis: <b>{dd.summary.n_videos}</b> · kūrybos tarpsnis: <b>{dd.summary.span_years} m.</b>{dd.summary.min_year ? ` (${dd.summary.min_year}–${dd.summary.max_year})` : ''}
+                          </div>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div>
+                              <div className="text-[11px] font-bold text-[var(--text-secondary)] mb-1">🏆 Daugiausiai peržiūrų (visų laikų aprėptis)</div>
+                              <ol className="space-y-0.5">
+                                {dd.top_views.map((t: any, k: number) => (
+                                  <li key={t.id} className="flex items-baseline gap-2 text-[12px]">
+                                    <span className="text-[var(--text-faint)] w-4 text-right">{k + 1}.</span>
+                                    <Link href={`/admin/tracks/${t.id}`} className="flex-1 truncate text-[var(--text-primary)] hover:text-orange-600">{t.title}</Link>
+                                    {t.year && <span className="text-[var(--text-faint)] text-[10px]">{t.year}</span>}
+                                    <span className="tabular-nums font-semibold text-[#a78bfa] w-16 text-right">{fmtN(t.views)}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                            <div>
+                              <div className="text-[11px] font-bold text-[var(--text-secondary)] mb-1">🔥 Daugiausiai peržiūrų / dieną (trending)</div>
+                              <ol className="space-y-0.5">
+                                {dd.top_perday.map((t: any, k: number) => (
+                                  <li key={t.id} className="flex items-baseline gap-2 text-[12px]">
+                                    <span className="text-[var(--text-faint)] w-4 text-right">{k + 1}.</span>
+                                    <Link href={`/admin/tracks/${t.id}`} className="flex-1 truncate text-[var(--text-primary)] hover:text-orange-600">{t.title}</Link>
+                                    {t.year && <span className="text-[var(--text-faint)] text-[10px]">{t.year}</span>}
+                                    <span className="tabular-nums font-semibold text-[#ec4899] w-16 text-right">{fmtN(t.vpd)}/d.</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               )
             })}
           </tbody>
