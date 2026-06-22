@@ -88,7 +88,7 @@ export default function HotStrip() {
           Karšta dabar
         </h2>
         <Link
-          href="/atrasti"
+          href="/bendruomene"
           className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
         >
           Atrasti →
