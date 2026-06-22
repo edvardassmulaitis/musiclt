@@ -17,6 +17,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import { LikePill } from '@/components/LikePill'
+import { SharePill } from '@/components/SharePill'
 import LikesModal from '@/components/LikesModal'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 
@@ -578,15 +579,36 @@ export default function AlbumInfoModal({
                   </div>
                 </div>
               )}
-              {/* Comment CTA */}
-              <button
-                type="button"
-                onClick={() => setMobileTab('comments')}
-                className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                {commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Pasidalink nuomone'}
-              </button>
+              {/* „Daugiau" — kiti atlikėjo albumai (desktop, vietoj „Pasidalink nuomone"). */}
+              {artist && (details?.otherAlbums || []).length > 0 && (
+                <div className="mt-auto border-t border-[var(--border-subtle)] pt-3">
+                  <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                    Daugiau
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(details?.otherAlbums || []).slice(0, 6).map(a => (
+                      <Link
+                        key={a.id}
+                        href={`/albumai/${artist.slug}-${a.slug}-${a.id}`}
+                        target="_blank"
+                        rel="noopener"
+                        title={a.title}
+                        className="block overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                      >
+                        <span className="block aspect-square w-full overflow-hidden rounded bg-[var(--cover-placeholder)]">
+                          {a.cover_image_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                          )}
+                        </span>
+                        <span className="block truncate px-0.5 pb-0.5 pt-1 font-['Outfit',sans-serif] text-[10px] font-extrabold text-[var(--text-primary)]">
+                          {a.title}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -628,7 +650,7 @@ export default function AlbumInfoModal({
                   </span>
                 )}
               </button>
-              {/* Veiksmai — tik patinka, kompaktiškai dešinėje (dalintis pašalintas — netilpo). */}
+              {/* Veiksmai — patinka + dalintis, kompaktiškai dešinėje. */}
               {album && (
                 <div className="ml-auto flex items-center gap-1.5">
                   <LikePill
@@ -638,6 +660,11 @@ export default function AlbumInfoModal({
                     onOpenModal={onOpenLikersModal}
                     pending={selfLikePending}
                     variant="surface"
+                    size="sm"
+                  />
+                  <SharePill
+                    title={`${album.title}${artist ? ` — ${artist.name}` : ''}`}
+                    url={artist ? `/albumai/${artist.slug}-${album.slug}-${album.id}` : `/albumai/${album.slug}-${album.id}`}
                     size="sm"
                   />
                 </div>
@@ -755,9 +782,10 @@ export default function AlbumInfoModal({
                 )}
               </div>
               {/* „Daugiau iš atlikėjo" — INSIDE scroll area so it doesn't steal
-                  fixed space from tracklist, especially on mobile. */}
+                  fixed space from tracklist. Tik mobile — desktop'e šis blokas
+                  rodomas kairiajame stulpelyje (vietoj komentaro CTA). */}
               {artist && (details?.otherAlbums || []).length > 0 && (
-                <div className="mt-4 border-t border-[var(--border-subtle)] pt-3">
+                <div className="mt-4 border-t border-[var(--border-subtle)] pt-3 md:hidden">
                   <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                     Daugiau iš {artist.name}
                   </div>
