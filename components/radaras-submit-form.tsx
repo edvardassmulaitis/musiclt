@@ -98,8 +98,8 @@ export default function RadarSubmitForm() {
           <input id="genre" name="genre" maxLength={80} style={field} placeholder="Pvz. indie, repas…" />
         </div>
         <div>
-          <label style={lbl} htmlFor="city">Miestas</label>
-          <input id="city" name="city" maxLength={80} style={field} placeholder="Pvz. Kaunas" />
+          <label style={lbl} htmlFor="city">Miestas / šalis</label>
+          <input id="city" name="city" maxLength={80} style={field} placeholder="Pvz. Kaunas arba Berlynas" />
         </div>
       </div>
 

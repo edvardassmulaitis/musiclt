@@ -28,14 +28,15 @@ export const revalidate = 1800
 
 const TITLE = 'Nauji atlikėjai — naujos muzikos radaras | music.lt'
 const DESCRIPTION =
-  'Naujos muzikos radaras: nauji ir mažai žinomi Lietuvos atlikėjai bei grupės, ' +
-  'šviežiausios dainos ir kylantys kūrėjai. Atrask, ką verta išgirsti pirmas.'
+  'Naujos muzikos radaras: nauji ir mažai žinomi Lietuvos ir užsienio atlikėjai bei ' +
+  'grupės, šviežiausios dainos ir kylantys kūrėjai. Atrask, ką verta išgirsti pirmas.'
 
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
-  keywords: ['nauji atlikėjai', 'nauja lietuviška muzika', 'kylantys atlikėjai',
-    'naujos grupės', 'nauja muzika', 'lietuviški atlikėjai', 'emerging artists Lietuva'],
+  keywords: ['nauji atlikėjai', 'nauja muzika', 'kylantys atlikėjai', 'naujos grupės',
+    'nauja lietuviška muzika', 'lietuviški atlikėjai', 'užsienio atlikėjai',
+    'emerging artists', 'emerging artists Lietuva'],
   alternates: { canonical: `${SITE_URL}/nauji-atlikejai` },
   openGraph: { title: TITLE, description: DESCRIPTION, url: `${SITE_URL}/nauji-atlikejai`, type: 'website' },
 }
@@ -135,14 +136,14 @@ export default async function NaujiAtlikejaiPage() {
           <div className="rd-cta-txt">
             <h3>Esi kūrėjas ar pažįsti kylantį?</h3>
             <p>
-              Radaras skirtas naujiems ir mažai žinomiems Lietuvos atlikėjams. Pasiūlyk save
-              arba grupę, kurią verta išgirsti — užpildyk trumpą formą, o mes peržiūrėsime ir
-              pristatysime klausytojams.
+              Radaras skirtas naujiems ir mažai žinomiems kūrėjams — iš Lietuvos ir iš
+              užsienio. Pasiūlyk save arba atlikėją, kurį verta išgirsti — užpildyk trumpą
+              formą, o mes peržiūrėsime ir pristatysime klausytojams.
             </p>
           </div>
           <div className="rd-cta-actions">
             <RadarSubmitButton />
-            <Link href="/atlikejai?country=lt" className="rd-btn rd-btn-ghost" prefetch={false}>Naršyti atlikėjus</Link>
+            <Link href="/atlikejai" className="rd-btn rd-btn-ghost" prefetch={false}>Naršyti atlikėjus</Link>
           </div>
         </div>
 
@@ -150,9 +151,10 @@ export default async function NaujiAtlikejaiPage() {
         <div className="rd-prose">
           <p>
             <strong>Naujos muzikos radaras</strong> — vieta, kur renkame naujus ir mažai
-            žinomus Lietuvos atlikėjus bei grupes. Čia rasi šviežiausius pasirodymus,
-            kylančius kūrėjus ir nepelnytai negirdėtą lietuvišką muziką. Norėdamas daugiau,
-            naršyk <Link href="/atlikejai?country=lt">Lietuvos atlikėjus</Link>,{' '}
+            žinomus atlikėjus bei grupes iš Lietuvos ir iš užsienio. Čia rasi šviežiausius
+            pasirodymus, kylančius kūrėjus ir nepelnytai negirdėtą muziką — tiek lietuvišką,
+            tiek pasaulinę. Norėdamas daugiau, naršyk{' '}
+            <Link href="/atlikejai">visus atlikėjus</Link>,{' '}
             <Link href="/muzika">muzikos katalogą</Link> arba{' '}
             <Link href="/topai">populiariausius topus</Link>.
           </p>
