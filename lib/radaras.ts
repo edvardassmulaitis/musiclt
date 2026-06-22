@@ -51,6 +51,11 @@ export const FOREIGN_SCORE_FLOOR = 18
 export const FOREIGN_SCORE_CEIL = 70
 /** music.lt įsitraukimo lubos — dar mažai kam žinomas LT publikai. */
 export const FOREIGN_LIKES_CEIL = 220
+/** Karjeros pradžios riba užsieniečiams: PIRMAS YT įkėlimas per ≤tiek dienų
+ *  (≈3 metai). Atmeta senus/legacy aktus (Public Enemy, The Monkees…), palieka
+ *  tikrai naujus (Cortis, Bella Kay, Luis R. Conriquez…). Skaičiuojama per
+ *  radar_first_uploads RPC (REST 1000-eil. limitas → bulk select nepatikimas). */
+export const FOREIGN_CAREER_MAX_DAYS = 1100
 /** Kiek užsienio atlikėjų maks. rodom radare (po žanrų diversifikacijos). */
 export const FOREIGN_CAP = 18
 /** „Šviežia" ženkliukas — paskutinis įkėlimas per tiek dienų. */
@@ -132,8 +137,8 @@ async function recentTrackArtists(limit = 700): Promise<{ order: number[]; lates
 
 /* ─────────── Užsienio emerging kandidatai (auto, NAUJA) ───────────
  * Analogiškas recentTrackArtists, bet užsieniečiams. „Emerging" gate'as —
- * score juosta (promising, ne megažvaigždė) + maža music.lt auditorija + cover.
- * Karjeros amžiaus filtras užsieniečiams NETAIKOMAS (jų katalogai DB seni). */
+ * score juosta (promising, ne megažvaigždė) + maža music.lt auditorija + cover
+ * + KARJEROS PRADŽIA ≤FOREIGN_CAREER_MAX_DAYS (pirmas YT įkėlimas, per RPC). */
 async function recentForeignArtists(limit = 1000): Promise<{ order: number[]; latest: Map<number, LatestRow> }> {
   const latest = new Map<number, LatestRow>()
   const order: number[] = []
@@ -158,6 +163,25 @@ async function recentForeignArtists(limit = 1000): Promise<{ order: number[]; la
       if (!latest.has(t.artist_id)) {
         latest.set(t.artist_id, { artist_id: t.artist_id, latest_title: t.title ?? null, latest_at: t.video_uploaded_at ?? null, latest_video_url: t.video_url ?? null, legacy_likes: a.legacy_likes ?? null })
         order.push(t.artist_id)
+      }
+    }
+    // KARJEROS PRADŽIOS filtras — palik tik tuos, kurių pirmas YT įkėlimas ≤ ribos.
+    // RPC radar_first_uploads(ids) = patikima min(date) per atlikėją (REST agregatai
+    // išjungti, o bulk select kapojamas ties 1000 eil.). Degrade: jei RPC krenta /
+    // grąžina tuščią — paliekam pool be filtro (nesunaikinam viso radaro).
+    if (order.length > 0) {
+      const cutoff = Date.now() - FOREIGN_CAREER_MAX_DAYS * 86_400_000
+      const firstAt = new Map<number, number>()
+      try {
+        const { data: fu } = await sb.rpc('radar_first_uploads', { ids: order })
+        for (const r of (fu || []) as any[]) {
+          if (r.first_at) firstAt.set(r.artist_id, Date.parse(r.first_at))
+        }
+      } catch { /* degrade */ }
+      if (firstAt.size > 0) {
+        const kept = order.filter((id) => { const t = firstAt.get(id); return t != null && t >= cutoff })
+        order.length = 0
+        order.push(...kept)
       }
     }
   } catch { /* degrade */ }
