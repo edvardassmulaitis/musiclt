@@ -4,19 +4,20 @@ import { createAdminClient } from '@/lib/supabase'
 /**
  * Populiariausi paieškoje ("Populiariausi šią savaitę").
  *
- * Strategy:
- *   1. RPC `search_trending(days, per_type)` agreguoja REALŲ pastarosios
- *      savaitės populiarumą:
- *        - `likes` (track/artist/album) per paskutines 7 dienas (svoris ×1)
- *        - `search_clicks` (tracks/artists/albums) per 7 d. (svoris ×3 —
- *          paieškos paspaudimas intencingesnis nei like'as)
- *      Grąžina top-N per kiekvieną tipą (entity_type plural, entity_id, cnt).
- *   2. Fetch'iname metadata (slug, title, image) atlikėjams / dainoms / albumams.
- *   3. Interleave'inam atlikėjas → daina → albumas → ... kad sekcija būtų
- *      įvairi (ne vien grupės) ir apimtų albumus.
+ * Strategy (RPC `search_trending(days, per_type)`):
+ *   - LIVE signalas = REALŪS `search_clicks` (paskutinės 14 d.). Tai
+ *     vienintelis nesuterštas realaus aktyvumo šaltinis — `likes.created_at`
+ *     yra iškreiptas legacy migracijos (importas stampuoja recent datas),
+ *     todėl 7d like'ų langas atrodydavo „random".
+ *   - BAZĖ = visų laikų populiariausi pagal bendrą like'ų skaičių
+ *     (materialized view `mv_top_liked`, top-150/tipą, refresh savaitinis
+ *     per pg_cron). Stabili, atpažįstama (AC/DC, Nirvana, Mamontovas...).
+ *   - Merge: realus paspaudimas (×1M) visada iškeliamas VIRŠ bet kokio
+ *     all-time bazinio → kai atsiras srautas, sekcija savaime virsta tikru
+ *     trending'u; kol jo nėra — rodo tikrai populiarius, niekada ne random.
  *
- * Fallback'as: jei kurios kategorijos pastarąją savaitę nėra jokio
- * engagement'o, papildom top-by-score, kad sekcija nebūtų tuščia/skylėta.
+ * Po RPC: fetch metadata + interleave atlikėjas → daina → albumas (įvairovė).
+ * Score-fallback'as žemiau lieka tik kaip kraštutinė apsauga (RPC tuščias).
  *
  * Cache: edge 5min.
  */
@@ -45,7 +46,7 @@ export async function GET(req: Request) {
   // ── 1. Realus savaitės populiarumas per RPC ──
   let rows: { entity_type: Cat; entity_id: number; cnt: number }[] = []
   try {
-    const { data } = await sb.rpc('search_trending', { days: 7, per_type: 30 })
+    const { data } = await sb.rpc('search_trending', { days: 14, per_type: 30 })
     rows = (data || []) as any[]
   } catch {
     rows = []
