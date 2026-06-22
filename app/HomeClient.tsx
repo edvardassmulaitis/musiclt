@@ -2558,6 +2558,14 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
   const filtEvt = events
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
+  // „Hero settle" — kol async šaltiniai (news/topai/events/...) trūkčioja po
+  // vieną, hero turinys persirikiuoja → flicker (matosi sąrašo galo įrašai,
+  // tada priekiniai). Todėl hero laikom permatomą kol turinys NUSISTOVI (be
+  // pakeitimų ~280ms), tada gražiai fade-in. heroMax garantuoja pasirodymą net
+  // jei duomenys vis trūkčioja.
+  const [heroSettled, setHeroSettled] = useState(false)
+  const heroSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const heroMaxRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /* ── Naujos dainos + albumai loader (retry + degraded handling) ──
      /api/home/latest dabar grąžina `degraded: true` kai DB užklausa fail'ino
@@ -3003,6 +3011,11 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
 
     setHeroSlides(finalSlides.length ? finalSlides : slides)
     setHeroIdx(0)
+    // Debounce: kol turinys keičiasi — atidedam atskleidimą; kai nustoja —
+    // fade-in (jau galutine tvarka, be flicker'io).
+    if (heroSettleRef.current) clearTimeout(heroSettleRef.current)
+    heroSettleRef.current = setTimeout(() => setHeroSettled(true), 280)
+    if (!heroMaxRef.current) heroMaxRef.current = setTimeout(() => setHeroSettled(true), 2500)
     readyBits.current.hero = true
     tryReady.current()
   }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents, discoveries, recordings, dailyWinners, dailyNomsCount, vertaConcerts, feedOverrides, feedCustom])
@@ -3310,7 +3323,14 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
           </div>
         ), document.body)}
         {pageReady && heroSlides.length > 0 && (
-          <HeroV2Slider slides={heroSlides} dk={dk} />
+          <div style={{
+            opacity: heroSettled ? 1 : 0,
+            transform: heroSettled ? 'none' : 'translateY(10px)',
+            transition: 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.22,1,0.36,1)',
+            willChange: 'opacity, transform',
+          }}>
+            <HeroV2Slider slides={heroSlides} dk={dk} />
+          </div>
         )}
 
 
@@ -3318,7 +3338,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         <div style={{ opacity: pageReady ? 1 : 0, transition: 'opacity 0.3s ease', pointerEvents: pageReady ? 'auto' : 'none' }}>
 
         {heroSlides.length > 0 && (
-          <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }}>
+          <div className="hp-feed-strip" style={{ padding: '14px 16px 0', opacity: heroSettled ? 1 : 0, transform: heroSettled ? 'none' : 'translateY(10px)', transition: 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.22,1,0.36,1)' }}>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 296, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
               {heroSlides.map((slide, i) => {
                 const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
