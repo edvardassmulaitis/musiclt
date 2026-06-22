@@ -89,6 +89,46 @@ export function normalizeTight(s: string): string {
   return normalizeForMatch(s).replace(/\s+/g, '')
 }
 
+/** Jungtukai (and/y/&/und…) — daugiakalbiai „ir". Naudojami looseNorm'e, kad
+ *  „Nalguita y Teta" == „Nalguita & Teta", „Florence + the Machine" ==
+ *  „Florence And The Machine". */
+const CONNECTORS = new Set(['and', 'und', 'et', 'y', 'e', 'ir', 'con', 'n'])
+
+/** „Loose" raktas — matchNorm be jungtukų tokenų. */
+export function looseNorm(s: string): string {
+  return normalizeForMatch(s).split(' ').filter(t => t && !CONNECTORS.has(t)).join(' ')
+}
+
+/** Atlikėjo vardo variantai alias'ams: pilnas, be skliaustų, skliaustų turinys.
+ *  „The Jacksons (Jackson 5)" → {„jacksons", „the jacksons" be the→jacksons, „jackson 5"}. */
+function parenVariants(name: string): Set<string> {
+  const out = new Set<string>()
+  out.add(normalizeForMatch(name))
+  out.add(normalizeForMatch(name.replace(/\([^)]*\)|\[[^\]]*\]/g, '')))
+  const m = name.matchAll(/\(([^)]*)\)|\[([^\]]*)\]/g)
+  for (const g of m) { const v = normalizeForMatch(g[1] || g[2] || ''); if (v) out.add(v) }
+  out.delete('')
+  return out
+}
+
+/** Dice bigramų koeficientas (0..1) — fuzzy match'ui (misspelling / „de la"↔„del la").
+ *  Deterministinis, identiškas TS↔Python. */
+function bigrams(s: string): string[] {
+  const t = '  ' + s.replace(/ /g, '') + '  '
+  const r: string[] = []
+  for (let i = 0; i < t.length - 1; i++) r.push(t.slice(i, i + 2))
+  return r
+}
+export function dice(a: string, b: string): number {
+  const A = bigrams(a), B = bigrams(b)
+  if (!A.length || !B.length) return 0
+  const m = new Map<string, number>()
+  for (const g of A) m.set(g, (m.get(g) || 0) + 1)
+  let inter = 0
+  for (const g of B) { const c = m.get(g) || 0; if (c > 0) { inter++; m.set(g, c - 1) } }
+  return (2 * inter) / (A.length + B.length)
+}
+
 /** Pirmas atlikėjas iš „Xcho, By Индия, МОТ" / „A feat. B" / „A & B".
  *  Skiria su TARPAIS aplink & ir x — kad „G&G Sindikatas"/„HUNTR/X" nesuskiltų.
  *  „:" — K-pop kreditams („Grupė: nariai"). */
@@ -137,13 +177,26 @@ export async function resolveArtistIds(sb: Sb, rawArtist: string): Promise<numbe
     // 1) Tikslus name_norm match.
     const { data: exact } = await sb.from('artists').select('id').eq('name_norm', cn).limit(10)
     if (exact && exact.length) { for (const a of exact) found.add(a.id); continue }
-    // 2) Fallback: token ilike ant name_norm + matchNorm filtras (punktuacijos skirtumai).
+    // 2) Fallback: token ilike ant name_norm + matchNorm/loose/paren filtras
+    //    (punktuacija, jungtukai, alias skliausteliuose), tada gated fuzzy.
     const tok = longestColToken(atom)
-    if (!tok) continue
+    if (!tok || tok.length < 3) continue
     const { data: cand } = await sb.from('artists').select('id, name')
-      .ilike('name_norm', `%${tok}%`).limit(80)
-    const an = normalizeForMatch(atom)
-    for (const a of (cand || [])) if (normalizeForMatch(a.name) === an) found.add(a.id)
+      .ilike('name_norm', `%${tok}%`).limit(120)
+    const an = normalizeForMatch(atom), al = looseNorm(atom), ap = parenVariants(atom)
+    let strong = (cand || []).filter((a: any) => {
+      if (normalizeForMatch(a.name) === an) return true
+      if (al && looseNorm(a.name) === al) return true
+      for (const v of parenVariants(a.name)) if (ap.has(v)) return true
+      return false
+    })
+    if (!strong.length) {
+      // Gated fuzzy: aiškus nugalėtojas (≥0.88 ir ≥0.06 atotrūkis) — misspelling.
+      const sc = (cand || []).map((a: any) => ({ a, s: dice(normalizeForMatch(a.name), an) }))
+        .sort((x: any, y: any) => y.s - x.s)
+      if (sc.length && sc[0].s >= 0.88 && (sc.length < 2 || sc[0].s - sc[1].s >= 0.06)) strong = [sc[0].a]
+    }
+    for (const a of strong) found.add(a.id)
   }
   return [...found]
 }
@@ -156,6 +209,7 @@ function matchInCatalog(rows: CatHit[], rawTitle: string, fuzzy: boolean): CatHi
   const tn = normalizeForMatch(rawTitle)
   const ta = normalizeAggressive(rawTitle)
   const tt = normalizeTight(rawTitle)
+  const tl = looseNorm(rawTitle)
   if (!tn) return null
   // 1) exact (pirmenybė tiksliam raw sutapimui, tada mažiausias id = kanoninis)
   let hits = rows.filter(t => normalizeForMatch(t.title) === tn)
@@ -163,11 +217,21 @@ function matchInCatalog(rows: CatHit[], rawTitle: string, fuzzy: boolean): CatHi
   if (!hits.length && ta && ta !== tn) hits = rows.filter(t => normalizeAggressive(t.title) === ta)
   // 3) tight (be tarpų) — gate len>=3
   if (!hits.length && tt.length >= 3) hits = rows.filter(t => normalizeTight(t.title) === tt)
+  // 4) connector (be jungtukų) — „Nalguita y Teta" == „Nalguita & Teta"
+  if (!hits.length && tl && tl !== tn) hits = rows.filter(t => looseNorm(t.title) === tl)
   if (hits.length) {
     hits.sort((a, b) => a.id - b.id)
     return hits.find(h => (h.title || '').trim() === (rawTitle || '').trim()) || hits[0]
   }
   if (!fuzzy) return null
+  // 4b) censorship — „I'M DAT N***A": nuimam masked tokeną, prefiksuojam likutį.
+  if (rawTitle.includes('*')) {
+    const head = normalizeForMatch(rawTitle.replace(/\s*\S*\*\S*.*$/, ''))
+    if (head && (head.length >= 6 || head.split(' ').length >= 2)) {
+      const pf = rows.filter(t => { const dn = normalizeForMatch(t.title); return dn !== head && dn.startsWith(head + ' ') })
+      if (new Set(pf.map(t => normalizeForMatch(t.title))).size === 1) return pf.sort((a, b) => a.id - b.id)[0]
+    }
+  }
   // 4) gated prefix — Apple sutrumpina ilgus pavadinimus. Tik 1 unikalus kandidatas,
   //    chart pavadinimas pakankamai ilgas (>=6 simb. arba >=2 žodžiai).
   if (tn.length >= 6 || tn.split(' ').length >= 2) {
@@ -188,6 +252,13 @@ function matchInCatalog(rows: CatHit[], rawTitle: string, fuzzy: boolean): CatHi
   })
   const distinctC = new Set(cont.map(t => normalizeForMatch(t.title)))
   if (distinctC.size === 1) return cont.sort((a, b) => a.id - b.id)[0]
+  // 6) gated fuzzy (Dice) — aiškus nugalėtojas. „el bachaton de la l" ↔ „… del la l".
+  //    Scoped į VIENO atlikėjo katalogą, todėl rizika maža.
+  if (tn.length >= 8) {
+    const sc = rows.map(t => ({ t, s: dice(normalizeForMatch(t.title), tn) }))
+      .sort((x, y) => y.s - x.s)
+    if (sc.length && sc[0].s >= 0.86 && (sc.length < 2 || sc[0].s - sc[1].s >= 0.06)) return sc[0].t
+  }
   return null
 }
 
@@ -225,14 +296,26 @@ export async function findConfidentMatch(
 ): Promise<ConfidentMatch | null> {
   if (!normalizeForMatch(rawTitle)) return null
   const ids = await resolveArtistIds(sb, rawArtist)
-  if (!ids.length) return null
-  const { data: tracks } = await sb.from('tracks')
-    .select('id, title, artist_id, artists:artist_id(name)')
-    .in('artist_id', ids).limit(1200)
-  let hit = matchInCatalog((tracks || []) as CatHit[], rawTitle, !!opts?.fuzzy)
-  if (!hit) {
-    const ct = cleanTitle(rawTitle, rawArtist)
-    if (ct && ct !== rawTitle && normalizeForMatch(ct)) hit = matchInCatalog((tracks || []) as CatHit[], ct, !!opts?.fuzzy)
+  let hit: CatHit | null = null
+  if (ids.length) {
+    const { data: tracks } = await sb.from('tracks')
+      .select('id, title, artist_id, artists:artist_id(name)')
+      .in('artist_id', ids).limit(1200)
+    hit = matchInCatalog((tracks || []) as CatHit[], rawTitle, !!opts?.fuzzy)
+    if (!hit) {
+      const ct = cleanTitle(rawTitle, rawArtist)
+      if (ct && ct !== rawTitle && normalizeForMatch(ct)) hit = matchInCatalog((tracks || []) as CatHit[], ct, !!opts?.fuzzy)
+    }
+  }
+  // SWAP fallback (tik fuzzy/chart kelyje): YouTube'as kartais sukeičia atlikėją↔
+  // pavadinimą. Bandom atlikėją iš pavadinimo, o vardą — kaip dainą (TIK exact).
+  if (!hit && opts?.fuzzy) {
+    const sids = await resolveArtistIds(sb, rawTitle)
+    if (sids.length) {
+      const { data: st } = await sb.from('tracks')
+        .select('id, title, artist_id, artists:artist_id(name)').in('artist_id', sids).limit(1200)
+      hit = matchInCatalog((st || []) as CatHit[], rawArtist, false)
+    }
   }
   if (!hit) return null
   const ar = Array.isArray(hit.artists) ? hit.artists[0] : hit.artists
