@@ -60,7 +60,7 @@ begin
     ( select a.name from tracks t left join artists a on a.id=t.artist_id where t.id = g.ids[1] ),
     'pending'
   from ( select spotify_id, dup_norm(title) nt, array_agg(id order by id) ids
-         from tracks where spotify_id is not null and spotify_id <> '' and dup_norm(title) <> ''
+         from tracks where spotify_id is not null and spotify_id <> '' and dup_norm(title) <> '' and dup_norm(title) <> 'music lt'
          group by spotify_id, dup_norm(title) having count(*) > 1 ) g
   on conflict (group_key) do nothing;
   get diagnostics n = row_count;
@@ -83,7 +83,7 @@ begin
     ( select a.name from tracks t left join artists a on a.id=t.artist_id where t.id = g.ids[1] ),
     'pending'
   from ( select video_url, dup_norm(title) nt, array_agg(id order by id) ids
-         from tracks where video_url is not null and video_url <> '' and dup_norm(title) <> ''
+         from tracks where video_url is not null and video_url <> '' and dup_norm(title) <> '' and dup_norm(title) <> 'music lt'
          group by video_url, dup_norm(title) having count(*) > 1 ) g
   on conflict (group_key) do nothing;
   get diagnostics n = row_count;
@@ -107,7 +107,7 @@ begin
     ( select a.name from tracks t left join artists a on a.id=t.artist_id where t.id = g.ids[1] ),
     'pending'
   from ( select artist_id, dup_norm(title) nt, array_agg(id order by id) ids
-         from tracks where dup_norm(title) <> '' and artist_id is not null
+         from tracks where dup_norm(title) <> '' and dup_norm(title) <> 'music lt' and artist_id is not null
          group by artist_id, dup_norm(title) having count(*) > 1 ) g
   on conflict (group_key) do nothing;
   get diagnostics n = row_count;
@@ -127,7 +127,7 @@ begin
     from tracks t left join artists a on a.id = t.artist_id
   ),
   nt_sized as (
-    select nt from base where nt <> '' and length(nt) >= 4
+    select nt from base where nt <> '' and nt <> 'music lt' and length(nt) >= 4
     group by nt having count(*) between 2 and 30 and count(distinct artist_id) > 1
   ),
   ca_pairs as (
