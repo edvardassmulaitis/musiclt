@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(await backfillStats())
   }
 
-  const batch = parseInt(sp.get('batch') || '40', 10) || 40
+  const batch = parseInt(sp.get('batch') || '60', 10) || 60
   const phaseParam = sp.get('phase')
   const phase = (phaseParam === 'A' || phaseParam === 'B' || phaseParam === 'C') ? phaseParam : null
 

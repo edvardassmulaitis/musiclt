@@ -28,7 +28,7 @@
     },
     {
       "path": "/api/cron/yt-backfill",
-      "schedule": "*/15 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }

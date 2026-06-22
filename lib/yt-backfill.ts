@@ -66,7 +66,7 @@ export async function runYtBackfill(opts: {
 } = {}): Promise<BackfillRun> {
   const budgetMs = opts.budgetMs ?? 50000
   const batch = Math.max(1, Math.min(opts.batch ?? 40, 100))
-  const delayMs = opts.delayMs ?? 250
+  const delayMs = opts.delayMs ?? 120
   const start = Date.now()
   const supabase = createAdminClient()
 
