@@ -167,6 +167,7 @@ export async function GET(
       is_upcoming: album.is_upcoming || false,
       type_studio: album.type_studio || false,
       legacy_id: album.legacy_id ?? null,
+      description: album.description || null,
     },
     artist: {
       id: artist.id,

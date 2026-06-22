@@ -31,6 +31,7 @@ type AlbumDetails = {
     show_player: boolean; is_upcoming: boolean
     type_studio?: boolean
     legacy_id?: number | null
+    description?: string | null
   }
   artist: { id: number; slug: string; name: string; cover_image_url: string | null; description?: string | null }
   tracks: Array<{
@@ -69,6 +70,24 @@ function ytId(url?: string | null) {
   if (!url) return null
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
   return m ? m[1] : null
+}
+
+// Aprašymai saugomi kaip HTML — paverčiam į švarų tekstą (be tag'ų), paragrafus
+// paliekam kaip eilučių lūžius. Naudojam IR albumo, IR atlikėjo aprašymui.
+function plainText(s?: string | null): string {
+  if (!s) return ''
+  return s
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 function popLevelRelative(value: number, max: number): number {
@@ -541,8 +560,18 @@ export default function AlbumInfoModal({
             </div>
             {/* Artist overview + comment CTA — below video, desktop only */}
             <div className="hidden md:flex flex-1 min-h-0 flex-col overflow-y-auto px-3 py-3">
-              {/* Artist overview card — photo + name + genres + description */}
-              {artist && (
+              {/* Jei įvestas ALBUMO aprašymas — rodom tekstą apie albumą VIETOJ
+                  atlikėjo info. Kitaip — standartinė atlikėjo kortelė. */}
+              {album?.description && plainText(album.description) ? (
+                <div className="mb-3">
+                  <div className="mb-1.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                    Apie albumą
+                  </div>
+                  <p className="whitespace-pre-line text-[12.5px] leading-[1.6] text-[var(--text-secondary)]">
+                    {plainText(album.description)}
+                  </p>
+                </div>
+              ) : artist ? (
                 <div className="flex gap-3 mb-3">
                   <Link href={`/atlikejai/${artist.slug}`} className="shrink-0">
                     <div className="h-[88px] w-[88px] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--cover-placeholder)]">
@@ -568,13 +597,13 @@ export default function AlbumInfoModal({
                       </div>
                     )}
                     {artistDesc && (
-                      <p className="mt-1.5 line-clamp-4 text-[12px] leading-[1.5] text-[var(--text-secondary)]">
-                        {artistDesc}
+                      <p className="mt-1.5 line-clamp-4 whitespace-pre-line text-[12px] leading-[1.5] text-[var(--text-secondary)]">
+                        {plainText(artistDesc)}
                       </p>
                     )}
                   </div>
                 </div>
-              )}
+              ) : null}
               {/* „Daugiau / {atlikėjas}" — kiti atlikėjo albumai (desktop, vietoj
                   „Pasidalink nuomone"). Žema horizontali juostelė — netampo modalo
                   aukščio, todėl neatsiranda papildomo scroll'o. */}
