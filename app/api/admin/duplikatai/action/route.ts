@@ -58,26 +58,12 @@ export async function POST(req: NextRequest) {
     const keeper = Number(body.keeper_id) || Number(group.suggested_keeper_id) || allIds0[0]
     if (!allIds0.includes(keeper)) return NextResponse.json({ error: 'keeper not in group' }, { status: 400 })
     const losers = allIds0.filter(id => id !== keeper)
-    const { data: trs } = await sb.from('tracks').select('id, title').in('id', losers)
-    const titleMap = new Map<number, string>((trs || []).map((t: any) => [t.id, t.title || '']))
-    const rel = (title: string): string => {
-      const s = title.toLowerCase()
-      if (/\b(remix|rmx|\bmix\b|edit|rework|bootleg|flip|\bvip\b|dub)\b/.test(s)) return 'remix'
-      if (/\b(live|gyvai|gyva|concert|koncert|unplugged|session|acoustic|akustin)\b/.test(s)) return 'live'
-      if (/\b(instrumental|instrumentin|karaoke|backing)\b/.test(s)) return 'instrumental'
-      if (/\bcover|kaveris\b/.test(s)) return 'cover'
-      if (/\bmashup\b/.test(s)) return 'mashup'
-      return 'remix'
-    }
-    const rows = losers.map(id => ({ track_id: id, related_track_id: keeper, relation_type: rel(titleMap.get(id) || '') }))
-    if (rows.length) {
-      const { error: relErr } = await sb.from('track_relations').upsert(rows, { onConflict: 'track_id,related_track_id,relation_type', ignoreDuplicates: true })
-      if (relErr) return NextResponse.json({ ok: false, error: relErr.message }, { status: 500 })
-    }
+    const { data, error: relErr } = await sb.rpc('link_versions', { p_keeper: keeper, p_losers: losers })
+    if (relErr) return NextResponse.json({ ok: false, error: relErr.message }, { status: 500 })
     await sb.from('track_dup_groups').update({
       status: 'versioned', resolved_at: new Date().toISOString(), resolved_by: resolvedBy, updated_at: new Date().toISOString(),
     }).eq('id', groupId)
-    return NextResponse.json({ ok: true, action: 'link_versions', keeper, linked: rows.length })
+    return NextResponse.json({ ok: true, action: 'link_versions', keeper, linked: data })
   }
 
   // Merge ONE loser into the keeper (the rest of the group stays pending).

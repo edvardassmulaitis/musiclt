@@ -287,6 +287,29 @@ begin
     );
   return n;
 end $$;
+-- Link a group of same-song tracks as versions of one main (keeper):
+-- each loser becomes a remix/live/etc. of the keeper in track_relations.
+create or replace function link_versions(p_keeper int, p_losers int[])
+returns int
+language plpgsql security definer as $$
+declare n int := 0; r record; rt text;
+begin
+  for r in select id, title from tracks where id = any(p_losers) and id <> p_keeper loop
+    rt := case
+      when r.title ~* '\y(remix|rmx|edit|rework|bootleg|flip|vip|dub|mix)\y' then 'remix'
+      when r.title ~* '\y(live|gyvai|gyva|concert|koncert|unplugged|session|acoustic|akustin\w*)\y' then 'live'
+      when r.title ~* '\y(instrumental|instrumentin\w*|karaoke|backing)\y' then 'instrumental'
+      when r.title ~* '\y(cover|kaveris)\y' then 'cover'
+      when r.title ~* '\ymashup\y' then 'mashup'
+      else 'remix'
+    end;
+    insert into track_relations(track_id, related_track_id, relation_type)
+    values (r.id, p_keeper, rt)
+    on conflict (track_id, related_track_id, relation_type) do nothing;
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
 -- Per-signal scan functions. Each raises its own statement_timeout and stays
 -- well under the API gateway limit, so they can be called one at a time from
 -- the admin UI (service-role RPC) to repeat the duplicate scan.
