@@ -110,20 +110,6 @@ function PopBar({ level }: { level: number }) {
   )
 }
 
-// „Aktyvi/grojama" indikatorius — animuoti ekvalaizerio brūkšneliai vietoj pauzės
-// ikonos. Parodom, kad daina parinkta/aktyvi, NEteigdami kad realiai groja
-// (autoplay gali nesuveikti, o pauzės ikona tuomet meluotų).
-function NowPlayingBars() {
-  return (
-    <span className="flex h-3 items-end gap-[2px]" aria-hidden>
-      <style>{`@keyframes npbBar{0%,100%{height:30%}50%{height:100%}}`}</style>
-      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.10s infinite' }} />
-      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.45s infinite' }} />
-      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.25s infinite' }} />
-    </span>
-  )
-}
-
 export default function AlbumPageClient({
   album, artist, tracks, otherAlbums, similarAlbums, likes,
 }: Props) {
@@ -263,8 +249,6 @@ export default function AlbumPageClient({
         <ul className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)]">
           {sortedTracks.map((t, i) => {
             const isActive = effectiveIdx === i
-            // „Aktyvi/grojama" = parinkta IR vartotojas paspaudė leisti.
-            const isLive = isActive && videoStarted
             const v = ytId(t.video_url)
             const canPlay = !!v
             const lc = (t as any).like_count
@@ -331,8 +315,8 @@ export default function AlbumPageClient({
                   <button
                     onClick={() => canPlay && handlePlay(i)}
                     disabled={!canPlay}
-                    aria-label={!canPlay ? 'Video nėra' : (isLive ? `Aktyvi daina: ${t.title}` : `Leisti ${t.title}`)}
-                    title={!canPlay ? '' : (isLive ? 'Aktyvi daina' : 'Leisti')}
+                    aria-label={!canPlay ? 'Video nėra' : `Leisti ${t.title}`}
+                    title={!canPlay ? '' : 'Leisti'}
                     className={[
                       'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
                       canPlay
@@ -342,13 +326,9 @@ export default function AlbumPageClient({
                         : 'cursor-default bg-transparent text-[var(--text-faint)] opacity-50',
                     ].join(' ')}
                   >
-                    {isLive ? (
-                      <NowPlayingBars />
-                    ) : (
-                      <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
-                        <polygon points="6,4 20,12 6,20" />
-                      </svg>
-                    )}
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
+                      <polygon points="6,4 20,12 6,20" />
+                    </svg>
                   </button>
                 </div>
               </li>

@@ -107,20 +107,6 @@ function PopBar({ level }: { level: number }) {
   )
 }
 
-// „Grojama" indikatorius — animuoti ekvalaizerio brūkšneliai. Naudojam vietoj
-// pauzės ikonos: parodom, kad daina YRA aktyvi/parinkta, NEteigdami kad realiai
-// groja (autoplay gali nesuveikti, o pauzės ikona tuomet meluotų).
-function NowPlayingBars() {
-  return (
-    <span className="flex h-3 items-end gap-[2px]" aria-hidden>
-      <style>{`@keyframes npbBar{0%,100%{height:30%}50%{height:100%}}`}</style>
-      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.10s infinite' }} />
-      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.45s infinite' }} />
-      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.25s infinite' }} />
-    </span>
-  )
-}
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function AlbumInfoModal({
@@ -589,29 +575,31 @@ export default function AlbumInfoModal({
                   </div>
                 </div>
               )}
-              {/* „Daugiau" — kiti atlikėjo albumai (desktop, vietoj „Pasidalink nuomone"). */}
+              {/* „Daugiau / {atlikėjas}" — kiti atlikėjo albumai (desktop, vietoj
+                  „Pasidalink nuomone"). Žema horizontali juostelė — netampo modalo
+                  aukščio, todėl neatsiranda papildomo scroll'o. */}
               {artist && (details?.otherAlbums || []).length > 0 && (
                 <div className="mt-auto border-t border-[var(--border-subtle)] pt-3">
                   <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                    Daugiau
+                    Daugiau / {artist.name}
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(details?.otherAlbums || []).slice(0, 6).map(a => (
+                  <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+                    {(details?.otherAlbums || []).slice(0, 8).map(a => (
                       <Link
                         key={a.id}
                         href={`/albumai/${artist.slug}-${a.slug}-${a.id}`}
                         target="_blank"
                         rel="noopener"
                         title={a.title}
-                        className="block overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                        className="block w-[64px] shrink-0 no-underline group"
                       >
-                        <span className="block aspect-square w-full overflow-hidden rounded bg-[var(--cover-placeholder)]">
+                        <span className="block aspect-square w-full overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--cover-placeholder)] transition-colors group-hover:border-[var(--border-strong)]">
                           {a.cover_image_url && (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                           )}
                         </span>
-                        <span className="block truncate px-0.5 pb-0.5 pt-1 font-['Outfit',sans-serif] text-[10px] font-extrabold text-[var(--text-primary)]">
+                        <span className="mt-1 block truncate font-['Outfit',sans-serif] text-[9.5px] font-bold leading-tight text-[var(--text-primary)]">
                           {a.title}
                         </span>
                       </Link>
@@ -702,9 +690,6 @@ export default function AlbumInfoModal({
                   <ul className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)]">
                     {sortedTracks.map((t, i) => {
                       const isActive = effectiveIdx === i
-                      // „Aktyvi/grojama" = parinkta IR vartotojas paspaudė leisti.
-                      // Nesiremiam realaus grojimo būsena (jos patikimai nežinom).
-                      const isLive = isActive && videoStarted
                       const v = ytId(t.video_url)
                       const canPlay = !!v
                       const lc = (t as any).like_count
@@ -751,8 +736,8 @@ export default function AlbumInfoModal({
                             <button
                               onClick={() => canPlay && handlePlay(i)}
                               disabled={!canPlay}
-                              aria-label={!canPlay ? 'Video nėra' : (isLive ? `Aktyvi daina: ${t.title}` : `Leisti ${t.title}`)}
-                              title={!canPlay ? '' : (isLive ? 'Aktyvi daina' : 'Leisti')}
+                              aria-label={!canPlay ? 'Video nėra' : `Leisti ${t.title}`}
+                              title={!canPlay ? '' : 'Leisti'}
                               className={[
                                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
                                 canPlay
@@ -762,13 +747,9 @@ export default function AlbumInfoModal({
                                   : 'cursor-default bg-transparent text-[var(--text-faint)] opacity-50',
                               ].join(' ')}
                             >
-                              {isLive ? (
-                                <NowPlayingBars />
-                              ) : (
-                                <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
-                                  <polygon points="6,4 20,12 6,20" />
-                                </svg>
-                              )}
+                              <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
+                                <polygon points="6,4 20,12 6,20" />
+                              </svg>
                             </button>
                           </div>
                         </li>
