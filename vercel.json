@@ -11,8 +11,8 @@
       "schedule": "0 13 * * 0"
     },
     {
-      "path": "/api/admin/internal/score-recalc?limit=50",
-      "schedule": "0 3 * * *"
+      "path": "/api/admin/internal/score-recalc?limit=1500&older_than=20",
+      "schedule": "0 */2 * * *"
     },
     {
       "path": "/api/internal/verta-keliones-scout",
@@ -25,10 +25,6 @@
     {
       "path": "/api/cron/import-jobs",
       "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/yt-backfill",
-      "schedule": "*/5 * * * *"
     }
   ]
 }

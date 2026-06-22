@@ -27,6 +27,8 @@ import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
 import { calculateArtistScores } from '@/lib/scoring'
 
+export const maxDuration = 60
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -73,8 +75,12 @@ export async function GET(req: NextRequest) {
   }
 
   const url = new URL(req.url)
-  const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit') || 25)))
-  const olderThanHours = Number(url.searchParams.get('older_than') || 24)
+  // Throughput pakeltas (2026-06-22): trending priklauso nuo laiko (šviežumas,
+  // dabartiniai topai, naujausios peržiūros), tad VISAS katalogas turi atsinaujinti
+  // kasdien — kitaip „šviežumas" lieka užšalęs. Cron sukasi dažnai, ima seniausiai
+  // atnaujintus (natūraliai cikliškai pereina visus), lygiagrečiai.
+  const limit = Math.min(3000, Math.max(1, Number(url.searchParams.get('limit') || 25)))
+  const olderThanHours = Number(url.searchParams.get('older_than') || 20)
 
   // Find candidates: NULL OR older than X hours
   const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000).toISOString()
@@ -87,16 +93,20 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  const rows = candidates || []
   const results: { id: number; score: number }[] = []
   const errors: { id: number; err: string }[] = []
-  for (const row of candidates || []) {
-    try {
-      const r = await recalcOne(row.id)
-      results.push(r)
-    } catch (e: any) {
-      errors.push({ id: row.id, err: String(e?.message || e) })
+  // Lygiagretus apdorojimas (švelnus micro-DB'iui).
+  const CONC = 12
+  let idx = 0
+  async function worker() {
+    while (idx < rows.length) {
+      const row = rows[idx++]
+      try { results.push(await recalcOne(row.id)) }
+      catch (e: any) { errors.push({ id: row.id, err: String(e?.message || e) }) }
     }
   }
+  await Promise.all(Array.from({ length: CONC }, worker))
 
   return NextResponse.json({
     ok: true,
