@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase'
+import { sendEmail } from '@/lib/email'
 import { randomBytes } from 'crypto'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const BASE = process.env.NEXTAUTH_URL || 'https://musiclt.vercel.app'
 
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json()
+    const body = await req.json()
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
     if (!email || !email.includes('@')) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
     }
@@ -18,17 +19,16 @@ export async function POST(req: NextRequest) {
     const token = randomBytes(32).toString('hex')
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24h
 
-    // Save to verification_tokens table
+    // Save to verification_tokens table (identifier saugomas lowercase'intas)
     await supabase.from('verification_tokens').upsert({
       identifier: email,
       token,
       expires: expires.toISOString(),
     })
 
-    const url = `${process.env.NEXTAUTH_URL}/api/auth/magic-link/verify?token=${token}&email=${encodeURIComponent(email)}`
+    const url = `${BASE}/api/auth/magic-link/verify?token=${token}&email=${encodeURIComponent(email)}`
 
-    await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+    const sendRes = await sendEmail({
       to: email,
       subject: 'Prisijungimas prie music.lt',
       html: `
@@ -48,6 +48,11 @@ export async function POST(req: NextRequest) {
         </div>
       `,
     })
+
+    if (!sendRes.ok) {
+      console.error('Magic link send failed:', sendRes.error)
+      return NextResponse.json({ error: 'Failed to send email' }, { status: 500 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (err) {

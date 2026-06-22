@@ -5,11 +5,14 @@ import { encode } from 'next-auth/jwt'
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const token = searchParams.get('token')
-  const email = searchParams.get('email')
+  const rawEmail = searchParams.get('email')
 
-  if (!token || !email) {
+  if (!token || !rawEmail) {
     return NextResponse.redirect(new URL('/auth/error?error=InvalidToken', req.url))
   }
+
+  // Normalizuojam — token'as išsaugotas lowercase'intas (magic-link route).
+  const email = rawEmail.trim().toLowerCase()
 
   const supabase = createAdminClient()
 
@@ -31,19 +34,23 @@ export async function GET(req: NextRequest) {
 
   await supabase.from('verification_tokens').delete().eq('token', token)
 
-  // Get or create profile
+  // Get or create profile — CASE-INSENSITIVE (kitur sistema naudoja ilike;
+  // .eq() trūkdavo match'o ir kurdavo dublikatą, žr. 2026-05-02 incidentą).
   let { data: profile } = await supabase
     .from('profiles')
     .select('id, role, full_name, avatar_url')
-    .eq('email', email)
-    .single()
+    .ilike('email', email)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
 
   if (!profile) {
     const { data: whitelisted } = await supabase
       .from('admin_whitelist')
       .select('role')
-      .eq('email', email)
-      .single()
+      .ilike('email', email)
+      .limit(1)
+      .maybeSingle()
     const role = whitelisted?.role || 'user'
     const { data: newProfile } = await supabase
       .from('profiles')

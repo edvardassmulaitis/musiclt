@@ -7,10 +7,15 @@
 
 import { Resend } from 'resend'
 import { createHmac } from 'crypto'
+import { sendViaGmail } from '@/lib/gmail-send'
 
+// Transportas: 'gmail' — siunčia per Gmail API (be domeno verifikacijos, testui);
+// kitu atveju — Resend (reikalauja verifikuoto domeno produkcijai).
+const TRANSPORT = (process.env.EMAIL_TRANSPORT || 'resend').toLowerCase()
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 const FROM = process.env.EMAIL_FROM || 'music.lt <onboarding@resend.dev>'
-const BASE = process.env.NEXTAUTH_URL || 'https://music.lt'
+// BASE: produkcijos URL nuorodoms laiškuose. music.lt dar nevaldom → default Vercel.
+const BASE = process.env.NEXTAUTH_URL || 'https://musiclt.vercel.app'
 const SECRET = process.env.INTERNAL_API_SECRET || process.env.NEXTAUTH_SECRET || 'musiclt'
 
 export type SendResult = { ok: boolean; error?: string }
@@ -22,6 +27,18 @@ export async function sendEmail(opts: {
   replyTo?: string
   headers?: Record<string, string>
 }): Promise<SendResult> {
+  // Gmail transportas — naudojamas kol nėra verifikuoto Resend domeno.
+  if (TRANSPORT === 'gmail') {
+    const r = await sendViaGmail({
+      to: opts.to,
+      subject: opts.subject,
+      html: opts.html,
+      replyTo: opts.replyTo,
+    })
+    if (!r.ok) console.warn('[email] Gmail send nepavyko:', r.error)
+    return r
+  }
+
   if (!resend) {
     console.warn('[email] RESEND_API_KEY nesukonfigūruotas — laiškas neišsiųstas')
     return { ok: false, error: 'not_configured' }

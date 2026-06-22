@@ -1,6 +1,5 @@
 import { AuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import FacebookProvider from 'next-auth/providers/facebook'
 import { createAdminClient } from '@/lib/supabase'
 import { readAnonIdFromCookie, migrateAnonToProfile } from '@/lib/anon-migration'
 
@@ -10,10 +9,7 @@ export const authOptions: AuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
-    FacebookProvider({
-      clientId: process.env.FACEBOOK_CLIENT_ID!,
-      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
-    }),
+    // Facebook pašalintas (2026-06-22): verifikacijos vargas + mažėjantis naudojimas.
   ],
 
   pages: {
