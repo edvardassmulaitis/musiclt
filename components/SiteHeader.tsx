@@ -168,8 +168,8 @@ const NAV: NavItem[] = [
   {
     key: 'bendruomene',
     label: 'Bendruomenė',
-    href: '/atrasti',
-    match: ['/atrasti', '/vartotojai', '/diskusijos', '/pokalbiai', '/boombox', '/dienos-daina', '/blogas', '/feed', '/srautas'],
+    href: '/bendruomene',
+    match: ['/bendruomene', '/atrasti', '/vartotojai', '/diskusijos', '/pokalbiai', '/boombox', '/dienos-daina', '/blogas', '/feed', '/srautas'],
     desc: 'Nariai, diskusijos, kūryba',
     accent: '#8b5cf6',
     icon: I.users,
