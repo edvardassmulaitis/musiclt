@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
         artist_slug: a?.slug ?? null,
         has_video: !!(t.video_url && t.video_url !== ''),
         video_url: t.video_url,
+        spotify_id: t.spotify_id || null,
         has_spotify: !!(t.spotify_id && t.spotify_id !== ''),
         has_lyrics: !!(t.lyrics && t.lyrics !== ''),
         has_cover: !!(t.cover_url && t.cover_url !== ''),

@@ -50,6 +50,50 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, action: 'dismiss' })
   }
 
+  const allIds0 = (group.track_ids as number[]) || []
+
+  // Merge ONE loser into the keeper (the rest of the group stays pending).
+  if (action === 'merge_one') {
+    const keeper = Number(body.keeper_id)
+    const loser = Number(body.loser_id)
+    if (!keeper || !loser || keeper === loser) return NextResponse.json({ error: 'keeper_id and loser_id required' }, { status: 400 })
+    if (!allIds0.includes(keeper) || !allIds0.includes(loser)) return NextResponse.json({ error: 'ids must be in group' }, { status: 400 })
+
+    const { error: mErr } = await sb.rpc('merge_tracks', {
+      p_winner_id: keeper, p_loser_id: loser, p_field_choices: {}, p_merged_by: resolvedBy,
+    })
+    if (mErr) return NextResponse.json({ ok: false, error: mErr.message }, { status: 500 })
+
+    const remaining = allIds0.filter(id => id !== loser)
+    const done = remaining.length < 2
+    await sb.from('track_dup_groups').update({
+      track_ids: remaining,
+      member_count: remaining.length,
+      status: done ? 'merged' : 'pending',
+      resolved_at: done ? new Date().toISOString() : null,
+      resolved_by: done ? resolvedBy : null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', groupId)
+    return NextResponse.json({ ok: true, action: 'merge_one', remaining_ids: remaining, group_done: done })
+  }
+
+  // Remove ONE track from the group ("leave as separate" — not a duplicate).
+  if (action === 'separate_one') {
+    const trackId = Number(body.track_id)
+    if (!trackId || !allIds0.includes(trackId)) return NextResponse.json({ error: 'track_id must be in group' }, { status: 400 })
+    const remaining = allIds0.filter(id => id !== trackId)
+    const done = remaining.length < 2
+    await sb.from('track_dup_groups').update({
+      track_ids: remaining,
+      member_count: remaining.length,
+      status: done ? 'dismissed' : 'pending',
+      resolved_at: done ? new Date().toISOString() : null,
+      resolved_by: done ? resolvedBy : null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', groupId)
+    return NextResponse.json({ ok: true, action: 'separate_one', remaining_ids: remaining, group_done: done })
+  }
+
   if (action === 'merge') {
     const ids = (group.track_ids as number[]) || []
     let keeper = Number(body.keeper_id) || Number(group.suggested_keeper_id) || ids[0]
