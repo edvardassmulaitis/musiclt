@@ -155,6 +155,22 @@ function DedupSection() {
     } finally { setBusy(b => ({ ...b, [g.id]: false })) }
   }
 
+  const doLinkVersions = async (g: Group) => {
+    const keeperId = keeper[g.id]
+    if (!keeperId) return
+    if (!confirm(`Pažymėti „${g.members.find(m => m.id === keeperId)?.title}" kaip pagrindinę, o kitas (${g.members.length - 1}) kaip jos versijas/remiksus? (Dainos NEtrinamos, tik susiejamos.)`)) return
+    setBusy(b => ({ ...b, [g.id]: true }))
+    try {
+      const r = await fetch('/api/admin/duplikatai/action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: g.id, action: 'link_versions', keeper_id: keeperId }),
+      })
+      const j = await r.json()
+      if (j.ok) { setGroups(gs => gs.filter(x => x.id !== g.id)); flash(`Susieta ${j.linked} versija(-os).`) }
+      else flash('Klaida: ' + (j.error || ''))
+    } finally { setBusy(b => ({ ...b, [g.id]: false })) }
+  }
+
   const applyRemaining = (groupId: number, remainingIds: number[], done: boolean) => {
     setGroups(gs => done
       ? gs.filter(x => x.id !== groupId)
@@ -424,6 +440,14 @@ function DedupSection() {
                   className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-medium disabled:opacity-60"
                 >
                   {busy[g.id] ? '…' : 'Sujungti visus į „lieka"'}
+                </button>
+                <button
+                  onClick={() => doLinkVersions(g)}
+                  disabled={busy[g.id]}
+                  title="Pažymėti liekančią kaip pagrindinę, kitas — kaip jos remiksus/versijas (track_relations). Dainos netrinamos."
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  🔗 Susieti kaip versijas
                 </button>
                 <button
                   onClick={() => doDismiss(g)}
@@ -817,17 +841,107 @@ function DateMismatchSection() {
   )
 }
 
+/* ─────────────────────── Featuring (trūksta atlikėjo) ─────────────────────── */
+
+type FeatRow = {
+  id: number; title: string; main_artist: string | null; main_artist_slug: string | null
+  feat_id: number; feat_name: string; feat_slug: string | null; video_views: number | null
+}
+
+function FeaturingSection() {
+  const [rows, setRows] = useState<FeatRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState<Record<number, boolean>>({})
+  const [toast, setToast] = useState<string | null>(null)
+  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 3500) }
+
+  const load = useCallback(async (pg: number, append: boolean) => {
+    setLoading(true)
+    try {
+      const r = await fetch(`/api/admin/duplikatai/featuring?page=${pg}`)
+      const j = await r.json()
+      if (j.error) { flash(j.error); return }
+      if (j.total != null) setTotal(j.total)
+      setHasMore(!!j.hasMore)
+      setRows(prev => append ? [...prev, ...(j.tracks || [])] : (j.tracks || []))
+    } finally { setLoading(false) }
+  }, [])
+  useEffect(() => { load(0, false); setPage(0) }, [load])
+
+  const link = async (t: FeatRow) => {
+    setBusy(b => ({ ...b, [t.id]: true }))
+    try {
+      const r = await fetch('/api/admin/duplikatai/featuring', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'link', track_id: t.id, feat_id: t.feat_id }),
+      })
+      const j = await r.json()
+      if (j.ok) { setRows(rs => rs.filter(x => x.id !== t.id)); setTotal(n => n == null ? n : Math.max(0, n - 1)); flash(`Prijungta: ${t.feat_name}.`) }
+      else flash('Klaida: ' + (j.error || ''))
+    } finally { setBusy(b => ({ ...b, [t.id]: false })) }
+  }
+
+  return (
+    <div>
+      <p className="text-sm text-gray-500 mb-4">
+        Dainos, kurių pavadinime nurodytas <b>featuring atlikėjas</b> (ft./feat./su X), egzistuojantis bazėje, bet
+        <b> nesusietas</b>. Prijunk teisingą atlikėją{total != null ? ` — rasta ${total}` : ''}. Rūšiuota pagal populiarumą.
+      </p>
+      {toast && <div className="mb-4 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm">{toast}</div>}
+      {loading && rows.length === 0 && <div className="text-gray-500 py-10 text-center">Kraunama…</div>}
+      {!loading && rows.length === 0 && <div className="text-gray-500 py-10 text-center">Nieko nerasta. 🎉</div>}
+      <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+        {rows.map(t => (
+          <div key={t.id} className="flex items-center gap-3 px-4 py-2.5">
+            <div className="min-w-0 flex-1">
+              <Link href={`/admin/tracks/${t.id}`} target="_blank" rel="noopener noreferrer" className="font-medium text-gray-900 hover:underline truncate">{t.title}</Link>
+              <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
+                {t.main_artist_slug
+                  ? <Link href={`/atlikejai/${t.main_artist_slug}`} className="hover:underline">{t.main_artist || '—'}</Link>
+                  : <span>{t.main_artist || '—'}</span>}
+                <span className="text-gray-300">·</span><span className="text-gray-400">#{t.id}</span>
+                {t.video_views ? <><span className="text-gray-300">·</span><span className="text-gray-400">▶ {fmtViews(t.video_views)}</span></> : null}
+              </div>
+            </div>
+            <span className="text-sm shrink-0 text-gray-500">+ feat:&nbsp;
+              {t.feat_slug
+                ? <Link href={`/atlikejai/${t.feat_slug}`} target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 hover:underline">{t.feat_name}</Link>
+                : <span className="font-medium text-indigo-600">{t.feat_name}</span>}
+            </span>
+            <button onClick={() => link(t)} disabled={busy[t.id]}
+              className="px-2.5 py-1 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-700 disabled:opacity-50 shrink-0">
+              {busy[t.id] ? '…' : `Prijungti`}
+            </button>
+          </div>
+        ))}
+      </div>
+      {hasMore && (
+        <div className="text-center mt-6">
+          <button onClick={() => { const n = page + 1; setPage(n); load(n, true) }} disabled={loading}
+            className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 text-sm hover:border-gray-400 disabled:opacity-60">
+            {loading ? 'Kraunama…' : 'Rodyti daugiau'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ─────────────────────────────── Hub ─────────────────────────────── */
 
-const VIEWS: Array<{ key: 'dup' | 'yt' | 'pop' | 'dates'; label: string }> = [
+const VIEWS: Array<{ key: 'dup' | 'yt' | 'pop' | 'dates' | 'feat'; label: string }> = [
   { key: 'dup', label: '🧹 Dublikatai' },
   { key: 'yt', label: '🧽 YT be embed' },
   { key: 'pop', label: '♥ Populiarūs be YT' },
   { key: 'dates', label: '📅 Metų neatitikimai' },
+  { key: 'feat', label: '🎤 Featuring' },
 ]
 
 export default function CleanupHubPage() {
-  const [view, setView] = useState<'dup' | 'yt' | 'pop' | 'dates'>('dup')
+  const [view, setView] = useState<'dup' | 'yt' | 'pop' | 'dates' | 'feat'>('dup')
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-4">Dainų tvarkymas</h1>
@@ -843,6 +957,7 @@ export default function CleanupHubPage() {
       {view === 'yt' && <YtJunkSection />}
       {view === 'pop' && <PopularNoYtSection />}
       {view === 'dates' && <DateMismatchSection />}
+      {view === 'feat' && <FeaturingSection />}
     </div>
   )
 }
