@@ -110,6 +110,20 @@ function PopBar({ level }: { level: number }) {
   )
 }
 
+// „Aktyvi/grojama" indikatorius — animuoti ekvalaizerio brūkšneliai vietoj pauzės
+// ikonos. Parodom, kad daina parinkta/aktyvi, NEteigdami kad realiai groja
+// (autoplay gali nesuveikti, o pauzės ikona tuomet meluotų).
+function NowPlayingBars() {
+  return (
+    <span className="flex h-3 items-end gap-[2px]" aria-hidden>
+      <style>{`@keyframes npbBar{0%,100%{height:30%}50%{height:100%}}`}</style>
+      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.10s infinite' }} />
+      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.45s infinite' }} />
+      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.25s infinite' }} />
+    </span>
+  )
+}
+
 export default function AlbumPageClient({
   album, artist, tracks, otherAlbums, similarAlbums, likes,
 }: Props) {
@@ -199,19 +213,12 @@ export default function AlbumPageClient({
   const dateStr = formatLtDate(album.year, album.month, album.day, album.dateFormatted)
 
   const handlePlay = (idx: number) => {
-    const track = sortedTracks[idx]
-    const newVid = ytId(track?.video_url || null) || albumYtId
     setActiveIdx(idx)
     setPlaying(true)
     setVideoStarted(true)
-    // Same iframe (same playerVid) — postMessage play. Different — iframe
-    // re-mounts via key change (playerVid changes → key includes it).
-    if (newVid === playerVid && newVid) {
-      videoIframeRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
-        '*',
-      )
-    }
+    // playToken bump → iframe key keičiasi → remount su &autoplay=1. Patikima ir
+    // tam pačiam, ir kitam video; nereikia postMessage onReady handshake'o.
+    setPlayToken(t => t + 1)
   }
 
   // Tab toggle — Dainos ↔ Komentarai (visiems viewport'ams, kaip modal'e).
@@ -220,6 +227,9 @@ export default function AlbumPageClient({
   const [commentTotal, setCommentTotal] = useState(0)
   // Click-to-play video state — orange play overlay matches modal pattern.
   const [videoStarted, setVideoStarted] = useState(false)
+  // playToken — bump'inamas kiekvienam „leisti"; įeina į iframe key → priverstinis
+  // remount su &autoplay=1 (patikima vietoj postMessage).
+  const [playToken, setPlayToken] = useState(0)
   const videoIframeRef = useRef<HTMLIFrameElement>(null)
   const bodyScrollRef = useRef<HTMLDivElement>(null)
 
@@ -253,7 +263,8 @@ export default function AlbumPageClient({
         <ul className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)]">
           {sortedTracks.map((t, i) => {
             const isActive = effectiveIdx === i
-            const isPlaying = isActive && playing
+            // „Aktyvi/grojama" = parinkta IR vartotojas paspaudė leisti.
+            const isLive = isActive && videoStarted
             const v = ytId(t.video_url)
             const canPlay = !!v
             const lc = (t as any).like_count
@@ -320,8 +331,8 @@ export default function AlbumPageClient({
                   <button
                     onClick={() => canPlay && handlePlay(i)}
                     disabled={!canPlay}
-                    aria-label={!canPlay ? 'Video nėra' : (isPlaying ? `Pauzė ${t.title}` : `Leisti ${t.title}`)}
-                    title={!canPlay ? '' : (isPlaying ? 'Pauzė' : 'Leisti')}
+                    aria-label={!canPlay ? 'Video nėra' : (isLive ? `Aktyvi daina: ${t.title}` : `Leisti ${t.title}`)}
+                    title={!canPlay ? '' : (isLive ? 'Aktyvi daina' : 'Leisti')}
                     className={[
                       'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
                       canPlay
@@ -331,11 +342,8 @@ export default function AlbumPageClient({
                         : 'cursor-default bg-transparent text-[var(--text-faint)] opacity-50',
                     ].join(' ')}
                   >
-                    {isPlaying ? (
-                      <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden>
-                        <rect x="6" y="5" width="4" height="14" rx="1" />
-                        <rect x="14" y="5" width="4" height="14" rx="1" />
-                      </svg>
+                    {isLive ? (
+                      <NowPlayingBars />
                     ) : (
                       <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
                         <polygon points="6,4 20,12 6,20" />
@@ -425,8 +433,8 @@ export default function AlbumPageClient({
                   <>
                     <iframe
                       ref={videoIframeRef}
-                      key={`album-page-video-${playerVid}`}
-                      src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+                      key={`album-page-video-${playerVid}-${videoStarted ? playToken : 'idle'}`}
+                      src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1${videoStarted ? '&autoplay=1' : ''}`}
                       title={`${album.title} — ${artist.name}`}
                       className="absolute inset-0 h-full w-full"
                       referrerPolicy="strict-origin-when-cross-origin"
@@ -439,10 +447,7 @@ export default function AlbumPageClient({
                         onClick={() => {
                           setVideoStarted(true)
                           setPlaying(true)
-                          videoIframeRef.current?.contentWindow?.postMessage(
-                            JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
-                            '*',
-                          )
+                          setPlayToken(t => t + 1)
                         }}
                         aria-label={`Leisti ${album.title}`}
                         className="group absolute inset-0 block h-full w-full overflow-hidden"

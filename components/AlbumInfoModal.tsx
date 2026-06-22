@@ -107,6 +107,20 @@ function PopBar({ level }: { level: number }) {
   )
 }
 
+// „Grojama" indikatorius — animuoti ekvalaizerio brūkšneliai. Naudojam vietoj
+// pauzės ikonos: parodom, kad daina YRA aktyvi/parinkta, NEteigdami kad realiai
+// groja (autoplay gali nesuveikti, o pauzės ikona tuomet meluotų).
+function NowPlayingBars() {
+  return (
+    <span className="flex h-3 items-end gap-[2px]" aria-hidden>
+      <style>{`@keyframes npbBar{0%,100%{height:30%}50%{height:100%}}`}</style>
+      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.10s infinite' }} />
+      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.45s infinite' }} />
+      <span className="w-[2.5px] rounded-[1px] bg-current" style={{ height: '100%', animation: 'npbBar 0.9s ease-in-out -0.25s infinite' }} />
+    </span>
+  )
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function AlbumInfoModal({
@@ -140,9 +154,14 @@ export default function AlbumInfoModal({
   const [mobileTab, setMobileTab] = useState<'tracks' | 'comments'>('tracks')
   const [commentTotal, setCommentTotal] = useState(0)
   // videoStarted — false default, rodom thumbnail + orange play overlay.
-  // Click → postMessage play + hide overlay (matches TrackInfoModal pattern).
+  // Click → įjungiam autoplay (iframe remount su &autoplay=1) + paslepiam overlay.
   const [videoStarted, setVideoStarted] = useState(false)
-  // Refs for iframe postMessage + body scroll reset on tab switch.
+  // playToken — didinamas KIEKVIENĄ kartą paspaudus „leisti" (overlay arba dainos
+  // mygtukas). Įeina į iframe `key`, todėl tas pats arba kitas video PRIVERSTINAI
+  // remount'inasi su `&autoplay=1` — patikima vietoj postMessage (kuris reikalauja
+  // onReady handshake'o ir dažnai nesuveikia).
+  const [playToken, setPlayToken] = useState(0)
+  // Refs for iframe + body scroll reset on tab switch.
   const videoIframeRef = useRef<HTMLIFrameElement>(null)
   const bodyScrollRef = useRef<HTMLDivElement>(null)
 
@@ -197,6 +216,7 @@ export default function AlbumInfoModal({
     setDetails(null)
     setMobileTab('tracks')
     setVideoStarted(false)
+    setPlayToken(0)
     setCommentTotal(0)
     setSelfLiked(false)
     setLikeCount(0)
@@ -347,19 +367,12 @@ export default function AlbumInfoModal({
   const showVideo = !!playerVid
 
   const handlePlay = (idx: number) => {
-    const track = sortedTracks[idx]
-    const newVid = ytId(track?.video_url || null) || albumYtId
     setActiveIdx(idx)
     setPlaying(true)
     setVideoStarted(true)
-    // Same iframe (same video) — postMessage play. Different video — iframe
-    // re-mounts via key change, autoplay=1 URL param triggers play.
-    if (newVid === playerVid && newVid) {
-      videoIframeRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
-        '*',
-      )
-    }
+    // playToken bump → iframe key keičiasi → remount su &autoplay=1. Veikia ir tam
+    // pačiam, ir kitam video; nereikia postMessage onReady handshake'o.
+    setPlayToken(t => t + 1)
   }
 
   // Don't render anything if no album active
@@ -499,8 +512,8 @@ export default function AlbumInfoModal({
                 <>
                   <iframe
                     ref={videoIframeRef}
-                    key={`album-modal-video-${playerVid}`}
-                    src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+                    key={`album-modal-video-${playerVid}-${videoStarted ? playToken : 'idle'}`}
+                    src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1${videoStarted ? '&autoplay=1' : ''}`}
                     title={titleNow}
                     className="absolute inset-0 h-full w-full"
                     referrerPolicy="strict-origin-when-cross-origin"
@@ -513,10 +526,7 @@ export default function AlbumInfoModal({
                       onClick={() => {
                         setVideoStarted(true)
                         setPlaying(true)
-                        videoIframeRef.current?.contentWindow?.postMessage(
-                          JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
-                          '*',
-                        )
+                        setPlayToken(t => t + 1)
                       }}
                       aria-label={`Leisti ${titleNow} vaizdo įrašą`}
                       className="group absolute inset-0 block h-full w-full overflow-hidden"
@@ -692,7 +702,9 @@ export default function AlbumInfoModal({
                   <ul className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)]">
                     {sortedTracks.map((t, i) => {
                       const isActive = effectiveIdx === i
-                      const isPlaying = isActive && playing
+                      // „Aktyvi/grojama" = parinkta IR vartotojas paspaudė leisti.
+                      // Nesiremiam realaus grojimo būsena (jos patikimai nežinom).
+                      const isLive = isActive && videoStarted
                       const v = ytId(t.video_url)
                       const canPlay = !!v
                       const lc = (t as any).like_count
@@ -739,8 +751,8 @@ export default function AlbumInfoModal({
                             <button
                               onClick={() => canPlay && handlePlay(i)}
                               disabled={!canPlay}
-                              aria-label={!canPlay ? 'Video nėra' : (isPlaying ? `Pauzė ${t.title}` : `Leisti ${t.title}`)}
-                              title={!canPlay ? '' : (isPlaying ? 'Pauzė' : 'Leisti')}
+                              aria-label={!canPlay ? 'Video nėra' : (isLive ? `Aktyvi daina: ${t.title}` : `Leisti ${t.title}`)}
+                              title={!canPlay ? '' : (isLive ? 'Aktyvi daina' : 'Leisti')}
                               className={[
                                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
                                 canPlay
@@ -750,11 +762,8 @@ export default function AlbumInfoModal({
                                   : 'cursor-default bg-transparent text-[var(--text-faint)] opacity-50',
                               ].join(' ')}
                             >
-                              {isPlaying ? (
-                                <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden>
-                                  <rect x="6" y="5" width="4" height="14" rx="1" />
-                                  <rect x="14" y="5" width="4" height="14" rx="1" />
-                                </svg>
+                              {isLive ? (
+                                <NowPlayingBars />
                               ) : (
                                 <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
                                   <polygon points="6,4 20,12 6,20" />
