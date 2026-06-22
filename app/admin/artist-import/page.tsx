@@ -5,15 +5,16 @@ export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import Link from 'next/link'
 import FullEnrichButton from '@/components/FullEnrichButton'
+import { ARTIST_IMPORT_PROMPT } from '@/lib/artist-import-prompt'
 
 // Tipai dubliuoti iš lib/artist-import.ts (client'e nenorim importuoti server lib).
 interface MatchCandidate { id: number; name: string; slug: string; type: string | null; country: string | null }
-interface FieldDiff { field: string; label: string; old: any; new: any; changed: boolean }
-interface LinkDiff { platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: string }
-interface ContactPlan { name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: string; isPotential: boolean }
-interface AlbumPlan { title: string; type: string | null; year: number | null; action: string; existingId: number | null }
-interface TrackPlan { title: string; albumTitle: string | null; type: string | null; action: string; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[] }
-interface ImagePlan { url: string; type: string | null; license: string | null; hasLicense: boolean; action: string }
+interface FieldDiff { field: string; label: string; old: any; new: any; changed: boolean; selectable: boolean }
+interface LinkDiff { index: number; platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: string }
+interface ContactPlan { index: number; name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: string; isPotential: boolean }
+interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: string; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean }
+interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: string; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[] }
+interface ImagePlan { index: number; url: string; type: string | null; license: string | null; hasLicense: boolean; action: string }
 interface Preview {
   match: { status: string; artist?: MatchCandidate; candidates: MatchCandidate[] }
   willCreateArtist: boolean
@@ -33,7 +34,7 @@ interface Summary {
   warnings: string[]
 }
 
-const EXAMPLE = `{
+const EXAMPLE_FULL = `{
   "artist_patch": {
     "name": "Silvester Belt",
     "type": "solo_artist",
@@ -49,6 +50,12 @@ const EXAMPLE = `{
   "images": []
 }`
 
+const EXAMPLE_ALBUM_DESC = `{
+  "artist": "Rokas Yan",
+  "album": "Alkis",
+  "description": "„Alkis" – trečiasis Roko Yan studijinis albumas ir vienas emociškai intensyviausių jo kūrybos etapų. Albume pop skambesys jungiamas su tamsesne vidine įtampa, santykių lūžiais, troškimu, savęs paieška ir dramatiškesne nuotaika."
+}`
+
 function Pill({ text, color }: { text: string; color: 'green' | 'blue' | 'orange' | 'gray' | 'red' }) {
   const colors: Record<string, string> = {
     green: 'bg-green-100 text-green-700 border-green-200',
@@ -60,14 +67,93 @@ function Pill({ text, color }: { text: string; color: 'green' | 'blue' | 'orange
   return <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-bold ${colors[color]}`}>{text}</span>
 }
 
-function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
+/** Atžymimas elementas — varnelė (default checked). Disabled = negalima taikyti (pvz. nepalaikoma). */
+function Check({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      onChange={onChange}
+      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+    />
+  )
+}
+
+function Section({
+  title, count, children, onAll, onNone,
+}: { title: string; count?: number; children: React.ReactNode; onAll?: () => void; onNone?: () => void }) {
   return (
     <div className="mb-4 rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] overflow-hidden">
       <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-4 py-2.5">
         <h3 className="text-sm font-bold text-[var(--text-primary)]">{title}</h3>
         {count !== undefined && <span className="text-xs text-[var(--text-muted)]">({count})</span>}
+        {(onAll || onNone) && (
+          <div className="ml-auto flex items-center gap-2 text-[11px]">
+            {onAll && <button onClick={onAll} className="text-blue-600 hover:underline">Visi</button>}
+            {onAll && onNone && <span className="text-[var(--text-faint)]">·</span>}
+            {onNone && <button onClick={onNone} className="text-[var(--text-muted)] hover:underline">Nieko</button>}
+          </div>
+        )}
       </div>
       <div className="p-4">{children}</div>
+    </div>
+  )
+}
+
+// ── Info modalas su sisteminiu promptu ─────────────────────────────────────────
+function InfoModal({ onClose }: { onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(ARTIST_IMPORT_PROMPT)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-8" onClick={onClose}>
+      <div
+        className="my-auto w-full max-w-2xl rounded-2xl border border-[var(--input-border)] bg-[var(--bg-surface)] shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
+          <h2 className="text-base font-bold text-[var(--text-primary)]">Kaip generuoti importo JSON</h2>
+          <button onClick={onClose} className="ml-auto rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]" aria-label="Uždaryti">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          <p className="text-[13px] text-[var(--text-secondary)]">
+            Nukopijuok žemiau esantį sisteminį promptą ir įdėk jį į GPT, Claude ar kitą LLM. Tada tiesiog parašyk vieną iš formatų:
+          </p>
+          <ul className="space-y-1.5 text-[12.5px] text-[var(--text-secondary)]">
+            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[11.5px]">Atlikėjas</code> — pilnas atlikėjo / grupės importas.</li>
+            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[11.5px]">Atlikėjas - Albumas</code> — tik albumo duomenys, aprašymas ir tracklistas.</li>
+            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[11.5px]">Atlikėjas - Albumas, tik aprašymas</code> — tik trumpas albumo aprašymas.</li>
+            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[11.5px]">Atlikėjas, tik kontaktai</code> — tik kontaktai (booking / vadyba / label).</li>
+          </ul>
+          <p className="text-[12.5px] text-[var(--text-muted)]">
+            Gautą JSON įklijuok į importo lauką, paspausk „Peržiūrėti", atžymėk ko nenori keisti ir paspausk „Taikyti".
+          </p>
+
+          <div className="rounded-xl border border-[var(--input-border)] bg-[var(--bg-elevated)]">
+            <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2">
+              <span className="text-xs font-semibold text-[var(--text-secondary)]">Sisteminis promptas</span>
+              <button
+                onClick={copy}
+                className={`ml-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${copied ? 'bg-green-600 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+              >
+                {copied ? '✓ Nukopijuota' : 'Kopijuoti promptą'}
+              </button>
+            </div>
+            <pre className="max-h-[40vh] overflow-auto whitespace-pre-wrap px-3 py-3 font-mono text-[11px] leading-relaxed text-[var(--text-primary)]">{ARTIST_IMPORT_PROMPT}</pre>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -79,8 +165,32 @@ export default function ArtistImportPage() {
   const [summary, setSummary] = useState<Summary | null>(null)
   const [error, setError] = useState<string>('')
   const [errors, setErrors] = useState<string[]>([])
+  const [showInfo, setShowInfo] = useState(false)
   // undefined = auto, 0 = kurti naują, number = pasirinktas atlikėjas
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined)
+
+  // ── Pasirinkimo (varnelių) būsena ──
+  const [selFields, setSelFields] = useState<Set<string>>(new Set())
+  const [selLinks, setSelLinks] = useState<Set<number>>(new Set())
+  const [selContacts, setSelContacts] = useState<Set<number>>(new Set())
+  const [selAlbums, setSelAlbums] = useState<Set<number>>(new Set())
+  const [selTracks, setSelTracks] = useState<Set<number>>(new Set())
+
+  function initSelection(p: Preview) {
+    setSelFields(new Set(p.fieldDiffs.filter(f => f.selectable).map(f => f.field)))
+    setSelLinks(new Set(p.linkDiffs.filter(l => l.action !== 'unsupported').map(l => l.index)))
+    setSelContacts(new Set(p.contactPlans.map(c => c.index)))
+    setSelAlbums(new Set(p.albumPlans.filter(a => !a.notFound).map(a => a.index)))
+    setSelTracks(new Set(p.trackPlans.map(t => t.index)))
+  }
+
+  function toggle<T>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, key: T) {
+    setter(prev => {
+      const n = new Set(prev)
+      if (n.has(key)) n.delete(key); else n.add(key)
+      return n
+    })
+  }
 
   async function call(apply: boolean, overrideId?: number | undefined) {
     setLoading(true); setError(''); setErrors([])
@@ -90,7 +200,18 @@ export default function ArtistImportPage() {
       const res = await fetch('/api/admin/artist-import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ json: jsonText, apply, artist_id: idToSend }),
+        body: JSON.stringify({
+          json: jsonText,
+          apply,
+          artist_id: idToSend,
+          selection: apply ? {
+            fields: [...selFields],
+            links: [...selLinks],
+            contacts: [...selContacts],
+            albums: [...selAlbums],
+            tracks: [...selTracks],
+          } : undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -99,7 +220,7 @@ export default function ArtistImportPage() {
         return
       }
       if (apply) { setSummary(data.summary); setPreview(null) }
-      else setPreview(data.preview)
+      else { setPreview(data.preview); initSelection(data.preview) }
     } catch (e: any) {
       setError(e.message || 'Tinklo klaida')
     } finally {
@@ -123,9 +244,19 @@ export default function ArtistImportPage() {
           <span className="text-[var(--text-faint)]">/</span>
           <span className="font-semibold text-[var(--text-secondary)]">JSON importas</span>
         </nav>
-        <h1 className="font-['Outfit',sans-serif] text-2xl font-extrabold text-[var(--text-primary)]">Atlikėjo JSON importas</h1>
+        <div className="flex items-start gap-2">
+          <h1 className="font-['Outfit',sans-serif] text-2xl font-extrabold text-[var(--text-primary)]">JSON importas</h1>
+          <button
+            onClick={() => setShowInfo(true)}
+            className="mt-1 flex items-center gap-1.5 rounded-lg border border-[var(--input-border)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)]"
+            title="Kaip generuoti importo JSON"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+            Info ir promptas
+          </button>
+        </div>
         <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">
-          Įklijuok GPT sugeneruotą JSON su info apie atlikėją. Sistema suras esamą atlikėją pagal vardą arba pasiūlys sukurti naują. Preview parodo pakeitimus prieš išsaugant.
+          Įklijuok GPT / LLM sugeneruotą JSON — pilną atlikėją, albumą arba vien albumo aprašymą (<code className="font-mono">{`{ artist, album, description }`}</code>). Peržiūra parodo pakeitimus; gali atžymėti, ko nenori keisti, prieš išsaugant.
         </p>
 
         {/* Input */}
@@ -133,7 +264,7 @@ export default function ArtistImportPage() {
           <textarea
             value={jsonText}
             onChange={e => setJsonText(e.target.value)}
-            placeholder={EXAMPLE}
+            placeholder={EXAMPLE_FULL}
             spellCheck={false}
             className="h-64 w-full resize-y rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] p-3 font-mono text-xs text-[var(--text-primary)] focus:border-blue-500 focus:outline-none"
           />
@@ -145,7 +276,7 @@ export default function ArtistImportPage() {
             disabled={loading || !jsonText.trim()}
             className="rounded-lg border border-[var(--input-border)] bg-[var(--bg-surface)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
           >
-            {loading ? 'Kraunama…' : 'Preview import'}
+            {loading ? 'Kraunama…' : 'Peržiūrėti'}
           </button>
           <button
             onClick={() => call(true)}
@@ -153,10 +284,13 @@ export default function ArtistImportPage() {
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
             title={!canApply ? 'Pirma pasirink target atlikėją' : ''}
           >
-            Apply import
+            Taikyti
           </button>
           {jsonText.trim() === '' && (
-            <button onClick={() => setJsonText(EXAMPLE)} className="text-xs text-music-blue hover:underline">Įkelti pavyzdį</button>
+            <>
+              <button onClick={() => setJsonText(EXAMPLE_FULL)} className="text-xs text-music-blue hover:underline">Pavyzdys: pilnas atlikėjas</button>
+              <button onClick={() => setJsonText(EXAMPLE_ALBUM_DESC)} className="text-xs text-music-blue hover:underline">Pavyzdys: tik albumo aprašymas</button>
+            </>
           )}
         </div>
 
@@ -202,6 +336,10 @@ export default function ArtistImportPage() {
         {/* Preview */}
         {preview && (
           <div className="mt-5">
+            <p className="mb-3 text-[12px] text-[var(--text-muted)]">
+              Pažymėti elementai bus taikomi. Atžymėk, ko nenori keisti esamoje informacijoje.
+            </p>
+
             {/* Artist match */}
             <Section title="Atlikėjas">
               {preview.match.status === 'matched' && preview.match.artist && (
@@ -248,21 +386,34 @@ export default function ArtistImportPage() {
 
             {/* Field diffs */}
             {preview.fieldDiffs.length > 0 && (
-              <Section title="Laukų pakeitimai" count={preview.fieldDiffs.length}>
+              <Section
+                title="Laukų pakeitimai"
+                count={preview.fieldDiffs.length}
+                onAll={() => setSelFields(new Set(preview.fieldDiffs.filter(f => f.selectable).map(f => f.field)))}
+                onNone={() => setSelFields(new Set())}
+              >
                 <div className="space-y-1.5">
                   {preview.fieldDiffs.map((f, i) => (
-                    <div key={i} className="grid grid-cols-[110px_1fr] items-start gap-2 text-xs">
-                      <span className="font-semibold text-[var(--text-secondary)]">{f.label}</span>
-                      <div className="min-w-0">
-                        {f.changed ? (
-                          <span>
-                            {f.old != null && <span className="text-red-600 line-through">{String(f.old)}</span>}
-                            {f.old != null && ' → '}
-                            <span className="text-green-700">{String(f.new)}</span>
-                          </span>
-                        ) : (
-                          <span className="text-[var(--text-muted)]">{String(f.new)} (be pakeitimų)</span>
-                        )}
+                    <div key={i} className="flex items-start gap-2 text-xs">
+                      <Check
+                        checked={f.selectable ? selFields.has(f.field) : false}
+                        disabled={!f.selectable}
+                        onChange={() => toggle(setSelFields, f.field)}
+                      />
+                      <div className="grid flex-1 grid-cols-[110px_1fr] items-start gap-2">
+                        <span className="font-semibold text-[var(--text-secondary)]">{f.label}</span>
+                        <div className="min-w-0">
+                          {f.changed ? (
+                            <span>
+                              {f.old != null && <span className="text-red-600 line-through">{String(f.old)}</span>}
+                              {f.old != null && ' → '}
+                              <span className="text-green-700">{String(f.new)}</span>
+                            </span>
+                          ) : (
+                            <span className="text-[var(--text-muted)]">{String(f.new)} (be pakeitimų)</span>
+                          )}
+                          {!f.selectable && <span className="ml-1 text-[var(--text-faint)]">(vardas nekeičiamas)</span>}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -272,37 +423,54 @@ export default function ArtistImportPage() {
 
             {/* Links */}
             {preview.linkDiffs.length > 0 && (
-              <Section title="Nuorodos" count={preview.linkDiffs.length}>
+              <Section
+                title="Nuorodos"
+                count={preview.linkDiffs.length}
+                onAll={() => setSelLinks(new Set(preview.linkDiffs.filter(l => l.action !== 'unsupported').map(l => l.index)))}
+                onNone={() => setSelLinks(new Set())}
+              >
                 <div className="space-y-1">
-                  {preview.linkDiffs.map((l, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      <Pill text={l.action === 'unsupported' ? 'nepalaikoma' : l.action} color={l.action === 'add' ? 'green' : l.action === 'update' ? 'blue' : l.action === 'unsupported' ? 'red' : 'gray'} />
-                      <span className="font-semibold text-[var(--text-secondary)]">{l.platform}</span>
-                      <span className="truncate text-[var(--text-muted)]">{l.newUrl}</span>
-                    </div>
-                  ))}
+                  {preview.linkDiffs.map((l, i) => {
+                    const unsupported = l.action === 'unsupported'
+                    return (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <Check checked={!unsupported && selLinks.has(l.index)} disabled={unsupported} onChange={() => toggle(setSelLinks, l.index)} />
+                        <Pill text={unsupported ? 'nepalaikoma' : l.action} color={l.action === 'add' ? 'green' : l.action === 'update' ? 'blue' : unsupported ? 'red' : 'gray'} />
+                        <span className="font-semibold text-[var(--text-secondary)]">{l.platform}</span>
+                        <span className="truncate text-[var(--text-muted)]">{l.newUrl}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               </Section>
             )}
 
             {/* Contacts */}
             {preview.contactPlans.length > 0 && (
-              <Section title="Kontaktai" count={preview.contactPlans.length}>
+              <Section
+                title="Kontaktai"
+                count={preview.contactPlans.length}
+                onAll={() => setSelContacts(new Set(preview.contactPlans.map(c => c.index)))}
+                onNone={() => setSelContacts(new Set())}
+              >
                 <div className="space-y-1.5">
                   {preview.contactPlans.map((c, i) => (
-                    <div key={i} className="text-xs">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Pill text={c.action} color={c.action === 'add' ? 'green' : 'blue'} />
-                        <span className="font-semibold text-[var(--text-primary)]">{c.name || '(be pavadinimo)'}</span>
-                        <Pill text={c.type} color="gray" />
-                        {c.isPotential && <Pill text="lead" color="orange" />}
-                        <span className="text-[var(--text-faint)]">{c.confidence}</span>
-                      </div>
-                      <div className="ml-1 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[var(--text-muted)]">
-                        {c.email && <span>✉ {c.email}</span>}
-                        {c.phone && <span>☎ {c.phone}</span>}
-                        {c.url && <span className="max-w-full truncate">🔗 {c.url}</span>}
-                        {!c.email && !c.phone && !c.url && <span className="text-[var(--text-faint)]">be kontaktinių duomenų</span>}
+                    <div key={i} className="flex items-start gap-2 text-xs">
+                      <Check checked={selContacts.has(c.index)} onChange={() => toggle(setSelContacts, c.index)} />
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Pill text={c.action} color={c.action === 'add' ? 'green' : 'blue'} />
+                          <span className="font-semibold text-[var(--text-primary)]">{c.name || '(be pavadinimo)'}</span>
+                          <Pill text={c.type} color="gray" />
+                          {c.isPotential && <Pill text="lead" color="orange" />}
+                          <span className="text-[var(--text-faint)]">{c.confidence}</span>
+                        </div>
+                        <div className="ml-1 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[var(--text-muted)]">
+                          {c.email && <span>✉ {c.email}</span>}
+                          {c.phone && <span>☎ {c.phone}</span>}
+                          {c.url && <span className="max-w-full truncate">🔗 {c.url}</span>}
+                          {!c.email && !c.phone && !c.url && <span className="text-[var(--text-faint)]">be kontaktinių duomenų</span>}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -312,14 +480,35 @@ export default function ArtistImportPage() {
 
             {/* Albums */}
             {preview.albumPlans.length > 0 && (
-              <Section title="Albumai" count={preview.albumPlans.length}>
-                <div className="space-y-1">
+              <Section
+                title="Albumai"
+                count={preview.albumPlans.length}
+                onAll={() => setSelAlbums(new Set(preview.albumPlans.filter(a => !a.notFound).map(a => a.index)))}
+                onNone={() => setSelAlbums(new Set())}
+              >
+                <div className="space-y-2">
                   {preview.albumPlans.map((a, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      <Pill text={a.action === 'create' ? 'naujas' : 'update'} color={a.action === 'create' ? 'green' : 'blue'} />
-                      <span className="text-[var(--text-primary)]">{a.title}</span>
-                      {a.year && <span className="text-[var(--text-muted)]">{a.year}</span>}
-                      {a.type && <span className="text-[var(--text-faint)]">{a.type}</span>}
+                    <div key={i} className="flex items-start gap-2 text-xs">
+                      <Check checked={!a.notFound && selAlbums.has(a.index)} disabled={a.notFound} onChange={() => toggle(setSelAlbums, a.index)} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Pill text={a.notFound ? 'nerastas' : a.action === 'create' ? 'naujas' : 'update'} color={a.notFound ? 'red' : a.action === 'create' ? 'green' : 'blue'} />
+                          <span className="text-[var(--text-primary)]">{a.title}</span>
+                          {a.year && <span className="text-[var(--text-muted)]">{a.year}</span>}
+                          {a.type && <span className="text-[var(--text-faint)]">{a.type}</span>}
+                          {a.descriptionChanged && <Pill text="aprašymas" color="orange" />}
+                        </div>
+                        {a.notFound && <p className="ml-0.5 mt-0.5 text-[var(--text-faint)]">Albumas nerastas pas atlikėją — aprašymas nebus išsaugotas.</p>}
+                        {a.description && a.descriptionChanged && (
+                          <details className="ml-0.5 mt-1">
+                            <summary className="cursor-pointer text-[var(--text-muted)]">Peržiūrėti aprašymą</summary>
+                            {a.descriptionOld && (
+                              <p className="mt-1 text-red-600 line-through">{a.descriptionOld}</p>
+                            )}
+                            <p className="mt-1 text-green-700">{a.description}</p>
+                          </details>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -328,10 +517,16 @@ export default function ArtistImportPage() {
 
             {/* Tracks */}
             {preview.trackPlans.length > 0 && (
-              <Section title="Dainos" count={preview.trackPlans.length}>
+              <Section
+                title="Dainos"
+                count={preview.trackPlans.length}
+                onAll={() => setSelTracks(new Set(preview.trackPlans.map(t => t.index)))}
+                onNone={() => setSelTracks(new Set())}
+              >
                 <div className="space-y-1">
                   {preview.trackPlans.map((t, i) => (
                     <div key={i} className="flex flex-wrap items-center gap-2 text-xs">
+                      <Check checked={selTracks.has(t.index)} onChange={() => toggle(setSelTracks, t.index)} />
                       <Pill text={t.action === 'create' ? 'nauja' : 'update'} color={t.action === 'create' ? 'green' : 'blue'} />
                       <span className="text-[var(--text-primary)]">{t.title}</span>
                       {t.albumTitle && <span className={t.albumFound ? 'text-[var(--text-muted)]' : 'text-orange-600'}>💿 {t.albumTitle}{!t.albumFound && ' (nerastas)'}</span>}
@@ -367,9 +562,23 @@ export default function ArtistImportPage() {
                 </ul>
               </Section>
             )}
+
+            {/* Apply (apačioje, patogu po ilgu preview) */}
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                onClick={() => call(true)}
+                disabled={loading || !canApply}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                title={!canApply ? 'Pirma pasirink target atlikėją' : ''}
+              >
+                {loading ? 'Kraunama…' : 'Taikyti pažymėtus'}
+              </button>
+            </div>
           </div>
         )}
       </div>
+
+      {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
     </div>
   )
 }

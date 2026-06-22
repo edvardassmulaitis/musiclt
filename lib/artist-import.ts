@@ -27,6 +27,7 @@ export interface ImportAlbum {
   title: string; source_title?: string; type?: string
   release_date?: string | null; release_year?: number | null
   total_tracks?: number | null
+  description?: string | null
   spotify_url?: string | null; apple_music_url?: string | null; deezer_url?: string | null
 }
 export interface ImportTrack {
@@ -62,6 +63,20 @@ export interface ArtistImportPayload {
   albums?: ImportAlbum[]
   tracks?: ImportTrack[]
   images?: ImportImage[]
+  /** 'full' = įprastas importas; 'album_description' = tik albumo aprašymo enrichment
+   *  (iš flat { artist, album, description } formato). Album_description režime
+   *  albumas TIK randamas (nesukuriamas) — jei nerastas, aprašymas praleidžiamas. */
+  mode?: 'full' | 'album_description'
+}
+
+/** Pasirinkimo filtras — UI po preview perduoda kurias dalis taikyti (varnelės).
+ *  Jei laukas undefined → taikoma viskas (backward-compatible). Tušti masyvai = nieko. */
+export interface ApplySelection {
+  fields?: string[]      // FieldDiff.field reikšmės (be 'name' — vardas nekeičiamas update'inant)
+  links?: number[]       // indeksai payload.links masyve
+  contacts?: number[]    // indeksai payload.contacts masyve
+  albums?: number[]      // indeksai payload.albums masyve
+  tracks?: number[]      // indeksai payload.tracks masyve
 }
 
 // ── Konstantos / enums ────────────────────────────────────────────────────────
@@ -196,9 +211,27 @@ export function validateImportJson(raw: unknown): ValidationResult {
   }
   if (!obj || typeof obj !== 'object') return { ok: false, errors: ['JSON turi būti objektas'] }
 
+  // ── Flat „tik albumo aprašymas" formatas: { artist, album, description } ──
+  // Normalizuojam į standartinį payload su mode='album_description'.
+  if (!obj.artist_patch && (obj.artist || obj.album || obj.description) && typeof obj.artist === 'string') {
+    const fErrors: string[] = []
+    if (!obj.artist || !String(obj.artist).trim()) fErrors.push('"artist" yra privalomas')
+    if (!obj.album || !String(obj.album).trim()) fErrors.push('"album" yra privalomas')
+    if (!obj.description || !String(obj.description).trim()) fErrors.push('"description" yra privalomas')
+    if (fErrors.length) return { ok: false, errors: fErrors }
+    const payload: ArtistImportPayload = {
+      artist_patch: { name: String(obj.artist).trim() },
+      links: [], contacts: [],
+      albums: [{ title: String(obj.album).trim(), description: String(obj.description).trim() }],
+      tracks: [], images: [],
+      mode: 'album_description',
+    }
+    return { ok: true, errors: [], payload }
+  }
+
   const patch = obj.artist_patch
   if (!patch || typeof patch !== 'object') {
-    errors.push('Trūksta "artist_patch" objekto')
+    errors.push('Trūksta "artist_patch" objekto (arba flat formato laukų: artist, album, description)')
   } else if (!patch.name || typeof patch.name !== 'string' || !patch.name.trim()) {
     errors.push('artist_patch.name yra privalomas')
   }
@@ -218,6 +251,7 @@ export function validateImportJson(raw: unknown): ValidationResult {
     albums: obj.albums || [],
     tracks: obj.tracks || [],
     images: obj.images || [],
+    mode: 'full',
   }
   return { ok: true, errors: [], payload }
 }
@@ -269,12 +303,12 @@ export async function matchArtist(sb: SupabaseClient, rawName: string): Promise<
 }
 
 // ── Preview ───────────────────────────────────────────────────────────────────
-export interface FieldDiff { field: string; label: string; old: any; new: any; changed: boolean }
-export interface LinkDiff { platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: 'add' | 'update' | 'unchanged' | 'unsupported' }
-export interface ContactPlan { name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: 'add' | 'update'; isPotential: boolean }
-export interface AlbumPlan { title: string; type: string | null; year: number | null; action: 'create' | 'update'; existingId: number | null }
-export interface TrackPlan { title: string; albumTitle: string | null; type: string | null; action: 'create' | 'update'; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[] }
-export interface ImagePlan { url: string; type: string | null; license: string | null; hasLicense: boolean; action: 'review' | 'skip' }
+export interface FieldDiff { field: string; label: string; old: any; new: any; changed: boolean; selectable: boolean }
+export interface LinkDiff { index: number; platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: 'add' | 'update' | 'unchanged' | 'unsupported' }
+export interface ContactPlan { index: number; name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: 'add' | 'update'; isPotential: boolean }
+export interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: 'create' | 'update'; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean }
+export interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: 'create' | 'update'; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[] }
+export interface ImagePlan { index: number; url: string; type: string | null; license: string | null; hasLicense: boolean; action: 'review' | 'skip' }
 
 export interface ImportPreview {
   match: ArtistMatch
@@ -341,9 +375,15 @@ export async function buildPreview(
   if (p.type === 'project') warnings.push('type "project" nepalaikomas DB — saugoma kaip "group".')
 
   const fieldDiffs: FieldDiff[] = []
+  // 'name' nekeičiamas atnaujinant esamą atlikėją (tik kuriant naują) — todėl ne-selectable.
+  const NON_SELECTABLE_FIELDS = new Set(['name'])
   const addDiff = (field: string, label: string, oldV: any, newV: any) => {
     if (newV === undefined || newV === null || newV === '') return
-    fieldDiffs.push({ field, label, old: oldV ?? null, new: newV, changed: String(oldV ?? '') !== String(newV ?? '') })
+    fieldDiffs.push({
+      field, label, old: oldV ?? null, new: newV,
+      changed: String(oldV ?? '') !== String(newV ?? ''),
+      selectable: !NON_SELECTABLE_FIELDS.has(field),
+    })
   }
   addDiff('name', 'Vardas', existing?.name, p.name)
   if (newType) addDiff('type', 'Tipas', existing?.type, newType)
@@ -365,17 +405,19 @@ export async function buildPreview(
 
   // ── Link diffs ──
   const linkDiffs: LinkDiff[] = []
-  for (const l of payload.links || []) {
+  const linksArr = payload.links || []
+  for (let li = 0; li < linksArr.length; li++) {
+    const l = linksArr[li]
     if (!l?.platform || !l?.url) continue
     const col = LINK_COLUMN_MAP[l.platform] || null
     if (!col) {
-      linkDiffs.push({ platform: l.platform, column: null, oldUrl: null, newUrl: l.url, action: 'unsupported' })
+      linkDiffs.push({ index: li, platform: l.platform, column: null, oldUrl: null, newUrl: l.url, action: 'unsupported' })
       warnings.push(`Link platforma "${l.platform}" dar neturi DB stulpelio — praleidžiama (galima sugretinti vėliau).`)
       continue
     }
     const oldUrl = existing?.[col] || null
     const action: LinkDiff['action'] = !oldUrl ? 'add' : (oldUrl === l.url ? 'unchanged' : 'update')
-    linkDiffs.push({ platform: l.platform, column: col, oldUrl, newUrl: l.url, action })
+    linkDiffs.push({ index: li, platform: l.platform, column: col, oldUrl, newUrl: l.url, action })
   }
 
   // ── Contact plans ──
@@ -391,7 +433,9 @@ export async function buildPreview(
     const { data: cs } = await sb.from('artist_contacts').select('id, type, email, url, name').eq('artist_id', targetArtistId)
     existingContacts = cs || []
   }
-  for (const c of (skipContacts ? [] : payload.contacts || [])) {
+  const contactsArr = skipContacts ? [] : (payload.contacts || [])
+  for (let ci = 0; ci < contactsArr.length; ci++) {
+    const c = contactsArr[ci]
     const type = c.type && CONTACT_TYPES.includes(c.type) ? c.type : 'general'
     if (c.type && !CONTACT_TYPES.includes(c.type)) warnings.push(`Nežinomas kontakto type "${c.type}" — saugoma kaip "general".`)
     const conf = c.confidence && CONFIDENCE_VALUES.includes(c.confidence) ? c.confidence : 'medium'
@@ -401,6 +445,7 @@ export async function buildPreview(
         (!c.email && ec.url && c.url && ec.url === c.url))
     )
     contactPlans.push({
+      index: ci,
       name: c.name || '', type, email: c.email || null, phone: c.phone || null,
       url: c.url || null, confidence: conf, action: dup ? 'update' : 'add', isPotential,
     })
@@ -410,29 +455,47 @@ export async function buildPreview(
   // ── Album plans ──
   const albumPlans: AlbumPlan[] = []
   const albumIdByTitle: Record<string, number> = {}
-  for (const a of payload.albums || []) {
+  const descriptionOnly = payload.mode === 'album_description'
+  const albumsArr = payload.albums || []
+  for (let ai = 0; ai < albumsArr.length; ai++) {
+    const a = albumsArr[ai]
     if (!a?.title) continue
     const parts = parseDateParts(a.release_date)
     const year = a.release_year ?? parts.year
     if (a.type && !ALBUM_TYPE_FLAG[a.type]) warnings.push(`Nežinomas albumo type "${a.type}" (${a.title}) — type flag nebus nustatytas.`)
     let existingId: number | null = null
+    let existingDescription: string | null = null
     if (targetArtistId) {
       const slug = albumSlug(a.title, year)
-      const { data: al } = await sb.from('albums').select('id').eq('artist_id', targetArtistId).eq('slug', slug).maybeSingle()
+      const { data: al } = await sb.from('albums').select('id, description').eq('artist_id', targetArtistId).eq('slug', slug).maybeSingle()
       existingId = al?.id ?? null
+      existingDescription = al?.description ?? null
       if (!existingId) {
-        const { data: byTitle } = await sb.from('albums').select('id').eq('artist_id', targetArtistId).ilike('title', a.title).maybeSingle()
+        const { data: byTitle } = await sb.from('albums').select('id, description').eq('artist_id', targetArtistId).ilike('title', a.title).maybeSingle()
         existingId = byTitle?.id ?? null
+        existingDescription = byTitle?.description ?? null
       }
     }
     if (existingId) albumIdByTitle[normalizeName(a.title)] = existingId
-    albumPlans.push({ title: a.title, type: a.type || null, year, action: existingId ? 'update' : 'create', existingId })
+    const newDescription = a.description?.trim() || null
+    const descriptionChanged = !!newDescription && String(existingDescription ?? '') !== newDescription
+    // Album_description režimas: albumas TIK randamas. Jei nerastas → aprašymas nepritaikomas.
+    const notFound = descriptionOnly && !existingId
+    if (notFound) warnings.push(`Albumas "${a.title}" nerastas pas atlikėją — aprašymas nebus išsaugotas (album_description režimas nesukuria naujų albumų).`)
+    albumPlans.push({
+      index: ai, title: a.title, type: a.type || null, year,
+      action: existingId ? 'update' : 'create', existingId,
+      description: newDescription, descriptionOld: existingDescription, descriptionChanged,
+      descriptionOnly, notFound,
+    })
   }
 
   // ── Track plans ──
   const trackPlans: TrackPlan[] = []
   const albumTitlesInPayload = new Set((payload.albums || []).map(a => normalizeName(a.title)))
-  for (const t of payload.tracks || []) {
+  const tracksArr = payload.tracks || []
+  for (let ti = 0; ti < tracksArr.length; ti++) {
+    const t = tracksArr[ti]
     if (!t?.title) continue
     if (t.type && !TRACK_TYPE_MAP[t.type]) warnings.push(`Nežinomas dainos type "${t.type}" (${t.title}) — saugoma kaip "normal".`)
     const albumTitle = t.album_title || null
@@ -459,17 +522,19 @@ export async function buildPreview(
       if (!faRows || faRows.length === 0) { featuringNew.push(fn); warnings.push(`Featuring "${fn}" (${t.title}) nerastas — bus sukurtas naujas atlikėjas.`) }
     }
     trackPlans.push({
-      title: t.title, albumTitle, type: t.type || null,
+      index: ti, title: t.title, albumTitle, type: t.type || null,
       action: existingId ? 'update' : 'create', existingId, albumFound, featuring, featuringNew,
     })
   }
 
   // ── Image plans ──
   const imagePlans: ImagePlan[] = []
-  for (const img of payload.images || []) {
+  const imagesArr = payload.images || []
+  for (let ii = 0; ii < imagesArr.length; ii++) {
+    const img = imagesArr[ii]
     if (!img?.url) continue
     const hasLicense = !!(img.license && img.license.trim())
-    imagePlans.push({ url: img.url, type: img.type || null, license: img.license || null, hasLicense, action: hasLicense ? 'review' : 'skip' })
+    imagePlans.push({ index: ii, url: img.url, type: img.type || null, license: img.license || null, hasLicense, action: hasLicense ? 'review' : 'skip' })
     if (!hasLicense) warnings.push(`Paveikslėlis be aiškios licencijos — praleidžiamas: ${img.url}`)
   }
   if ((payload.images || []).length) {
@@ -502,7 +567,7 @@ export interface ApplySummary {
 export async function applyImport(
   sb: SupabaseClient,
   payload: ArtistImportPayload,
-  opts: { forceArtistId?: number | null; importedBy?: string } = {}
+  opts: { forceArtistId?: number | null; importedBy?: string; selection?: ApplySelection } = {}
 ): Promise<ApplySummary> {
   const p = payload.artist_patch
   const warnings: string[] = []
@@ -511,6 +576,15 @@ export async function applyImport(
     contacts_added: 0, contacts_updated: 0, albums_created: 0, albums_updated: 0,
     tracks_created: 0, tracks_updated: 0, featuring_linked: 0, images_logged: 0, warnings,
   }
+
+  // ── Pasirinkimo filtras (varnelės iš preview). undefined laukas → taikoma viskas. ──
+  const sel = opts.selection
+  const fieldOn = (f: string) => !sel?.fields || sel.fields.includes(f)
+  const linkOn = (i: number) => !sel?.links || sel.links.includes(i)
+  const contactOn = (i: number) => !sel?.contacts || sel.contacts.includes(i)
+  const albumOn = (i: number) => !sel?.albums || sel.albums.includes(i)
+  const trackOn = (i: number) => !sel?.tracks || sel.tracks.includes(i)
+  const descriptionOnly = payload.mode === 'album_description'
 
   // ── Resolve / create artist ──
   let artistId: number | null = null
@@ -525,19 +599,22 @@ export async function applyImport(
     else if (m.status === 'multiple') throw new Error('Keli galimi atlikėjai — pasirink konkretų prieš taikant importą.')
   }
 
-  // Build artist column payload (tik pateikti laukai + linkai į stulpelius)
+  // Build artist column payload (tik pateikti + pažymėti laukai + linkai į stulpelius)
   const col: Record<string, any> = {}
-  if (p.country !== undefined) col.country = p.country
-  if (p.type) col.type = ARTIST_TYPE_MAP[p.type] || 'group'
-  if (p.birth_date) col.birth_date = p.birth_date
-  if (p.active_year_start !== undefined && p.active_year_start !== null) col.active_from = p.active_year_start
-  if (p.active_year_end !== undefined && p.active_year_end !== null) col.active_until = p.active_year_end
-  if (p.is_active !== undefined) col.is_active = p.is_active
-  if (p.gender && ['male', 'female'].includes(p.gender)) col.gender = p.gender
-  else if (p.gender) warnings.push(`Lytis "${p.gender}" nepalaikoma DB (tik male/female) — praleista.`)
-  if (p.bio) col.description = p.bio
-  for (const l of payload.links || []) {
+  if (p.country !== undefined && fieldOn('country')) col.country = p.country
+  if (p.type && fieldOn('type')) col.type = ARTIST_TYPE_MAP[p.type] || 'group'
+  if (p.birth_date && fieldOn('birth_date')) col.birth_date = p.birth_date
+  if (p.active_year_start !== undefined && p.active_year_start !== null && fieldOn('active_from')) col.active_from = p.active_year_start
+  if (p.active_year_end !== undefined && p.active_year_end !== null && fieldOn('active_until')) col.active_until = p.active_year_end
+  if (p.is_active !== undefined && fieldOn('is_active')) col.is_active = p.is_active
+  if (p.gender && ['male', 'female'].includes(p.gender) && fieldOn('gender')) col.gender = p.gender
+  else if (p.gender && !['male', 'female'].includes(p.gender)) warnings.push(`Lytis "${p.gender}" nepalaikoma DB (tik male/female) — praleista.`)
+  if (p.bio && fieldOn('description')) col.description = p.bio
+  const linksArr = payload.links || []
+  for (let li = 0; li < linksArr.length; li++) {
+    const l = linksArr[li]
     if (!l?.platform || !l?.url) continue
+    if (!linkOn(li)) continue
     const c = LINK_COLUMN_MAP[l.platform]
     if (c) { col[c] = l.url; summary.links_updated++ }
     else warnings.push(`Link "${l.platform}" praleistas (nėra stulpelio).`)
@@ -574,21 +651,21 @@ export async function applyImport(
   summary.created = created
 
   // ── Genre group (artist_genres) — replace ──
-  if (p.genre_group && GENRE_GROUPS.includes(p.genre_group as any)) {
+  if (p.genre_group && GENRE_GROUPS.includes(p.genre_group as any) && fieldOn('genre_group')) {
     const gid = GENRE_IDS[p.genre_group]
     if (gid) {
       await sb.from('artist_genres').delete().eq('artist_id', artistId)
       const { error } = await sb.from('artist_genres').insert({ artist_id: artistId, genre_id: gid })
       if (error) warnings.push(`Stiliaus grupės nustatymas nepavyko: ${error.message}`)
     }
-  } else if (p.genre_group) {
+  } else if (p.genre_group && !GENRE_GROUPS.includes(p.genre_group as any)) {
     warnings.push(`genre_group "${p.genre_group}" neteisinga — praleista.`)
   }
 
   // ── Sub-stiliai (artist_substyles) — per resolver (match arba pending) ──
   // NEBEKURIA šiukšlinių/dublikatinių substilių: fuzzy match prieš taksonomiją,
   // nerasti → 'pending' priskirti atlikėjo žanrui (review /admin/substiliai).
-  {
+  if (fieldOn('substyles')) {
     const artistGenreId = (p.genre_group && GENRE_GROUPS.includes(p.genre_group as any))
       ? GENRE_IDS[p.genre_group] : null
     const subRows = await loadSubstyleRows(sb)
@@ -617,7 +694,10 @@ export async function applyImport(
   if (skipContacts && (payload.contacts || []).length) {
     warnings.push(`Ne LT atlikėjas (${applyCountry}) — ${(payload.contacts || []).length} kontaktai praleisti.`)
   }
-  for (const c of (skipContacts ? [] : payload.contacts || [])) {
+  const contactsArr = skipContacts ? [] : (payload.contacts || [])
+  for (let ci = 0; ci < contactsArr.length; ci++) {
+    if (!contactOn(ci)) continue
+    const c = contactsArr[ci]
     const type = c.type && CONTACT_TYPES.includes(c.type) ? c.type : 'general'
     const conf = c.confidence && CONFIDENCE_VALUES.includes(c.confidence) ? c.confidence : 'medium'
     const email = c.email || null
@@ -643,11 +723,15 @@ export async function applyImport(
 
   // ── Albumai ──
   const albumIdByTitle: Record<string, number> = {}
-  for (const a of payload.albums || []) {
+  const albumsArr = payload.albums || []
+  for (let ai = 0; ai < albumsArr.length; ai++) {
+    if (!albumOn(ai)) continue
+    const a = albumsArr[ai]
     if (!a?.title) continue
     const parts = parseDateParts(a.release_date)
     const year = a.release_year ?? parts.year
     const slug = albumSlug(a.title, year)
+    const newDescription = a.description?.trim() || null
     // Type flags
     const typeFlags: Record<string, boolean> = {}
     if (a.type && ALBUM_TYPE_FLAG[a.type]) typeFlags[ALBUM_TYPE_FLAG[a.type]] = true
@@ -656,30 +740,36 @@ export async function applyImport(
     // Viršelis per Spotify oEmbed (be auth)
     const albumCover = await fetchSpotifyThumb(a.spotify_url)
 
-    let { data: existingAl } = await sb.from('albums').select('id, year, month, day, spotify_id, cover_image_url').eq('artist_id', artistId).eq('slug', slug).maybeSingle()
+    let { data: existingAl } = await sb.from('albums').select('id, year, month, day, spotify_id, cover_image_url, description').eq('artist_id', artistId).eq('slug', slug).maybeSingle()
     if (!existingAl) {
-      const { data: byTitle } = await sb.from('albums').select('id, year, month, day, spotify_id, cover_image_url').eq('artist_id', artistId).ilike('title', a.title).maybeSingle()
+      const { data: byTitle } = await sb.from('albums').select('id, year, month, day, spotify_id, cover_image_url, description').eq('artist_id', artistId).ilike('title', a.title).maybeSingle()
       existingAl = byTitle
     }
     if (existingAl) {
-      // FILL missing fields (neperrašom esamų)
+      // FILL missing fields (neperrašom esamų); APRAŠYMAS perrašomas jei pateiktas.
       const upd: Record<string, any> = {}
       if (!existingAl.year && year) upd.year = year
       if (!existingAl.month && parts.month) upd.month = parts.month
       if (!existingAl.day && parts.day) upd.day = parts.day
       if (!existingAl.spotify_id && spotifyId) upd.spotify_id = spotifyId
       if (!existingAl.cover_image_url && albumCover) upd.cover_image_url = albumCover
+      if (newDescription && newDescription !== (existingAl.description || null)) upd.description = newDescription
       Object.assign(upd, typeFlags)
       if (Object.keys(upd).length) {
         const { error } = await sb.from('albums').update(upd).eq('id', existingAl.id)
         if (!error) summary.albums_updated++
+        else warnings.push(`Albumas "${a.title}" update nepavyko: ${error.message}`)
       }
       albumIdByTitle[normalizeName(a.title)] = existingAl.id
+    } else if (descriptionOnly) {
+      // Album_description režimas NEKURIA naujų albumų — tik enrichina esamus.
+      warnings.push(`Albumas "${a.title}" nerastas pas atlikėją — aprašymas nepritaikytas (naujas albumas nesukurtas).`)
     } else {
       const insert: Record<string, any> = {
         title: a.title, slug, artist_id: artistId,
         year, month: parts.month, day: parts.day,
         cover_image_url: albumCover,
+        description: newDescription,
         spotify_id: spotifyId, source: 'json_import', ...typeFlags,
       }
       const { data: newAl, error } = await sb.from('albums').insert(insert).select('id').single()
@@ -689,7 +779,10 @@ export async function applyImport(
   }
 
   // ── Dainos ──
-  for (const t of payload.tracks || []) {
+  const tracksArr = payload.tracks || []
+  for (let ti = 0; ti < tracksArr.length; ti++) {
+    if (!trackOn(ti)) continue
+    const t = tracksArr[ti]
     if (!t?.title) continue
     const map = (t.type && TRACK_TYPE_MAP[t.type]) || TRACK_TYPE_MAP.album_track
     const parts = parseDateParts(t.release_date)

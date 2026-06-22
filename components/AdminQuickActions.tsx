@@ -18,6 +18,10 @@ const PlusIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
 )
 
+const CodeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>
+)
+
 export function AdminQuickActions({ variant = 'public' }: { variant?: 'public' | 'admin' }) {
   const { data: session } = useSession()
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
@@ -34,6 +38,14 @@ export function AdminQuickActions({ variant = 'public' }: { variant?: 'public' |
         >
           <PlusIcon />
           <span className="hidden sm:inline">Atlikėjas</span>
+        </Link>
+        <Link
+          href="/admin/artist-import"
+          className={`${cls} text-gray-600 hover:bg-gray-100`}
+          title="JSON importas"
+        >
+          <CodeIcon />
+          <span className="hidden sm:inline">JSON</span>
         </Link>
         <button
           type="button"

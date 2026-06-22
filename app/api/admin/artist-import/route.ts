@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Neteisingas request body' }, { status: 400 })
   }
 
-  const { json, apply, artist_id } = body || {}
+  const { json, apply, artist_id, selection } = body || {}
   const validation = validateImportJson(json)
   if (!validation.ok || !validation.payload) {
     return NextResponse.json({ error: 'Validacijos klaidos', errors: validation.errors }, { status: 400 })
@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
       const summary = await applyImport(sb, validation.payload, {
         forceArtistId,
         importedBy: (session.user as any).email || (session.user as any).id || null,
+        selection: selection && typeof selection === 'object' ? selection : undefined,
       })
       return NextResponse.json({ ok: true, summary })
     }
