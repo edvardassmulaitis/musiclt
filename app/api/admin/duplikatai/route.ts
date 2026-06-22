@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   // Page of groups.
   let gq = sb
     .from('track_dup_groups')
-    .select('id, signal, confidence, track_ids, member_count, suggested_keeper_id, sample_title, sample_artist')
+    .select('id, signal, confidence, track_ids, member_count, popularity, suggested_keeper_id, sample_title, sample_artist')
     .eq('status', 'pending')
   if (signal !== 'all') gq = gq.eq('signal', signal)
   const { data: groups, error } = await gq
