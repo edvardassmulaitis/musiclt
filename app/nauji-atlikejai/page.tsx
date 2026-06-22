@@ -15,6 +15,7 @@ import { SITE_URL } from '@/lib/artist-browse'
 import {
   getFeaturedArtists, getEmergingArtists, getFreshTracks,
 } from '@/lib/radaras'
+import { isLtCountry } from '@/lib/radaras-shared'
 import { radarStyles, RadarSection } from '@/components/radaras-ui'
 import { RadarSweepMini } from '@/components/RadarSweepMini'
 import RadarBrowse from '@/components/radaras-browse'
@@ -45,6 +46,10 @@ export default async function NaujiAtlikejaiPage() {
     getEmergingArtists(48),
     getFreshTracks(16),
   ])
+
+  // Atskiriam į dvi sekcijas (Lietuva / užsienis) — UI aiškumui.
+  const ltEmerging = emerging.filter((a) => isLtCountry(a.country))
+  const foreignEmerging = emerging.filter((a) => !isLtCountry(a.country))
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -93,17 +98,27 @@ export default async function NaujiAtlikejaiPage() {
           </RadarSection>
         )}
 
-        {/* ── Nauji ir kylantys (filtrai viršuje + tinklelis) ── */}
+        {/* ── Nauji ir kylantys IŠ LIETUVOS ── */}
         <RadarSection
-          title="Nauji ir kylantys"
-          sub="Atlikėjai ir grupės, neseniai išleidę naujų dainų, bet dar mažai kam žinomi. Filtruok pagal stilių."
+          title="Nauji ir kylantys iš Lietuvos"
+          sub="Lietuvos atlikėjai ir grupės, neseniai išleidę naujų dainų, bet dar mažai kam žinomi. Filtruok pagal stilių."
         >
-          {emerging.length > 0 ? (
-            <RadarBrowse artists={emerging} />
+          {ltEmerging.length > 0 ? (
+            <RadarBrowse artists={ltEmerging} hideCountry />
           ) : (
             <div className="rd-empty">Šiuo metu radaras kraunamas — užsuk kiek vėliau.</div>
           )}
         </RadarSection>
+
+        {/* ── Nauji ir kylantys IŠ UŽSIENIO ── */}
+        {foreignEmerging.length > 0 && (
+          <RadarSection
+            title="Nauji ir kylantys iš užsienio"
+            sub="Daug žadantys užsienio kūrėjai — įvairūs stiliai, dar neperaugę į megažvaigždes. Atrask juos pirmas."
+          >
+            <RadarBrowse artists={foreignEmerging} hideCountry />
+          </RadarSection>
+        )}
 
         {/* ── Šviežios dainos: sąrašas + grotuvas ── */}
         {freshTracks.length > 0 && (

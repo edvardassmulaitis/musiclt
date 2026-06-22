@@ -51,7 +51,7 @@ export default async function AdminRadarPage() {
     byStatus('featured'),
     byStatus('included'),
     byStatus('excluded'),
-    getEmergingArtists(40),
+    getEmergingArtists(40, true),   // foreignAuto=true — kandidatuose rodom ir užsienio auto
     pendingSubmissions(),
   ])
 

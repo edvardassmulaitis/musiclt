@@ -40,6 +40,19 @@ export const RADAR_LIKES_CEIL = 250
  *  (pvz. Romas Dambrauskas, Saulės Kliošas). Taikoma TIK auto-pool'ui; admin
  *  „Įtraukti" praeina nepriklausomai. */
 export const RADAR_CAREER_MAX_DAYS = 366
+/* ── Užsienio auto-pool (NAUJA) ──────────────────────────────────────────────
+ * Užsieniečiams legacy_likes ir karjeros amžius neveikia kaip „emerging" signalas
+ * (jų katalogai mūsų DB seni, o music.lt like'ų mažai net garsiems). Vietoj to
+ * naudojam atlikėjo populiarumo `score` juostą: pakankamai traukos, kad būtų
+ * „promising", bet ne megažvaigždė. Diversifikuojam per žanrus + ribojam kiekį. */
+/** Apatinė score riba — turi būti realių YT duomenų / traukos (atmeta tuščius). */
+export const FOREIGN_SCORE_FLOOR = 18
+/** Viršutinė score riba — virš jos jau garsus (Eminem 92, Shakira 89, Muse 85…). */
+export const FOREIGN_SCORE_CEIL = 70
+/** music.lt įsitraukimo lubos — dar mažai kam žinomas LT publikai. */
+export const FOREIGN_LIKES_CEIL = 220
+/** Kiek užsienio atlikėjų maks. rodom radare (po žanrų diversifikacijos). */
+export const FOREIGN_CAP = 18
 /** „Šviežia" ženkliukas — paskutinis įkėlimas per tiek dienų. */
 const FRESH_BADGE_DAYS = 45
 
@@ -117,19 +130,88 @@ async function recentTrackArtists(limit = 700): Promise<{ order: number[]; lates
   return { order, latest }
 }
 
+/* ─────────── Užsienio emerging kandidatai (auto, NAUJA) ───────────
+ * Analogiškas recentTrackArtists, bet užsieniečiams. „Emerging" gate'as —
+ * score juosta (promising, ne megažvaigždė) + maža music.lt auditorija + cover.
+ * Karjeros amžiaus filtras užsieniečiams NETAIKOMAS (jų katalogai DB seni). */
+async function recentForeignArtists(limit = 1000): Promise<{ order: number[]; latest: Map<number, LatestRow> }> {
+  const latest = new Map<number, LatestRow>()
+  const order: number[] = []
+  try {
+    const sb = createAdminClient()
+    const { data } = await sb
+      .from('tracks')
+      .select('artist_id, title, video_url, video_uploaded_at, artists!tracks_artist_id_fkey(country, legacy_likes, score, cover_image_url, radar_status)')
+      .not('video_uploaded_at', 'is', null)
+      .gte('video_uploaded_at', SINCE())
+      .order('video_uploaded_at', { ascending: false })
+      .limit(limit)
+    for (const t of (data || []) as any[]) {
+      const a = t.artists || {}
+      if (!t.artist_id) continue
+      if (!a.country || isLt(a.country)) continue              // tik užsienis (šalis privaloma)
+      if (!a.cover_image_url) continue                         // kokybiškas vizualas
+      if (a.radar_status === 'excluded') continue
+      const score = a.score ?? 0
+      if (score < FOREIGN_SCORE_FLOOR || score > FOREIGN_SCORE_CEIL) continue   // promising, ne megažvaigždė
+      if ((a.legacy_likes ?? 0) >= FOREIGN_LIKES_CEIL) continue                 // dar mažai žinomas LT
+      if (!latest.has(t.artist_id)) {
+        latest.set(t.artist_id, { artist_id: t.artist_id, latest_title: t.title ?? null, latest_at: t.video_uploaded_at ?? null, latest_video_url: t.video_url ?? null, legacy_likes: a.legacy_likes ?? null })
+        order.push(t.artist_id)
+      }
+    }
+  } catch { /* degrade */ }
+  return { order, latest }
+}
+
+/** Žanrų diversifikacija — round-robin per pirmąjį žanrą, kad sąrašas būtų
+ *  įvairus (ne 18 to paties stiliaus). `keepFirst` (admin „Įtraukti") visada lieka. */
+function diversifyByGenre(arts: RadarArtist[], keepFirst: Set<number>, cap: number): RadarArtist[] {
+  const pinned = arts.filter((a) => keepFirst.has(a.id))
+  const auto = arts.filter((a) => !keepFirst.has(a.id))
+  const buckets = new Map<string, RadarArtist[]>()
+  for (const a of auto) {
+    const key = a.genres[0] || '∅'
+    const arr = buckets.get(key) || []
+    arr.push(a)
+    buckets.set(key, arr)
+  }
+  const order = [...buckets.keys()]
+  const picked: RadarArtist[] = []
+  let added = true
+  while (added && picked.length < cap) {
+    added = false
+    for (const k of order) {
+      const arr = buckets.get(k)!
+      if (arr.length) {
+        picked.push(arr.shift()!)
+        added = true
+        if (picked.length >= cap) break
+      }
+    }
+  }
+  return [...pinned, ...picked]
+}
+
 /** Top YT URL'ai per atlikėją (collage fallback kai nėra cover) — maks. 4 per atlikėją. */
 async function topVideoUrls(ids: number[]): Promise<Map<number, string[]>> {
   const out = new Map<number, string[]>()
   if (ids.length === 0) return out
   try {
     const sb = createAdminClient()
+    // BUG fix: anksčiau buvo vienas globalus order(date desc)+limit(ids*6) →
+    // artist'ai su daug/seniau įkeltų dainų iškrisdavo už limito ir negaudavo
+    // NĖ vieno thumb'o (collage tuščias → nematomas placeholder). Dabar
+    // grupuojam pagal artist_id (eilutės gretimos) + dosnus limitas, kad
+    // KIEKVIENAS atlikėjas turėtų savo įkėlimus rinkinyje. 4-cap loop'e.
     const { data } = await sb
       .from('tracks')
-      .select('artist_id, video_url')
+      .select('artist_id, video_url, video_uploaded_at')
       .in('artist_id', ids)
       .not('video_url', 'is', null)
-      .order('video_uploaded_at', { ascending: false })
-      .limit(ids.length * 6)
+      .order('artist_id', { ascending: true })
+      .order('video_uploaded_at', { ascending: false, nullsFirst: false })
+      .limit(Math.max(ids.length * 40, 4000))
     for (const t of (data || []) as any[]) {
       if (!t.video_url) continue
       const arr = out.get(t.artist_id) || []
@@ -212,31 +294,50 @@ export const getFeaturedArtists = cache(async (): Promise<RadarArtist[]> => {
   } catch { return [] }
 })
 
-/** EMERGING tinklelis — included (admin) + auto-pool. Featured praleidžiam. */
-export const getEmergingArtists = cache(async (limit = 36): Promise<RadarArtist[]> => {
+/** EMERGING tinklelis — included (admin) + auto-pool. Featured praleidžiam.
+ *  Grąžina LIETUVĄ ir UŽSIENĮ kartu (puslapis/admin atskiria pagal šalį):
+ *   • LT:       included(LT) + LT auto-pool (karjeros riba ≤1 m.) — auto-live.
+ *   • Užsienis: included(world) VISADA; auto-pool (score juosta, diversifikuota)
+ *               TIK kai `foreignAuto` (admino kandidatams). Viešas psl. rodo tik
+ *               admino patvirtintus užsieniečius — apsauga nuo netinkamo turinio,
+ *               nes score-only signalas gali iškelti ofenzyvių/legacy aktų. */
+export const getEmergingArtists = cache(async (limit = 36, foreignAuto = false): Promise<RadarArtist[]> => {
   try {
     const sb = createAdminClient()
-    const [excl, included, recent] = await Promise.all([
+    const [excl, included, featuredRes, recentLt] = await Promise.all([
       excludedIds(),
-      sb.from('artists').select('id, radar_sort').eq('radar_status', 'included').order('radar_sort', { ascending: false }).limit(40),
+      sb.from('artists').select('id, country, radar_sort').eq('radar_status', 'included').order('radar_sort', { ascending: false }).limit(80),
+      sb.from('artists').select('id').eq('radar_status', 'featured'),
       recentTrackArtists(),
     ])
-    const featuredSet = new Set(((await sb.from('artists').select('id').eq('radar_status', 'featured')).data || []).map((a: any) => a.id))
-    const includedIds = ((included.data || []) as any[]).map((a) => a.id)
-    const includedSet = new Set<number>(includedIds)
-    const ordered: number[] = []
-    const seen = new Set<number>()
-    const push = (id: number) => { if (seen.has(id) || excl.has(id) || featuredSet.has(id)) return; seen.add(id); ordered.push(id) }
-    includedIds.forEach(push)
-    recent.order.forEach(push)
-    const hydrated = await hydrate(ordered.slice(0, Math.max(limit * 2, 60)), recent.latest)
-    // Karjeros riba: auto kandidatas turi turėti PIRMĄ įkėlimą per ≤1 metus.
-    // Admin „Įtraukti" (includedSet) praeina nepriklausomai.
+    const featuredSet = new Set(((featuredRes.data || []) as any[]).map((a) => a.id))
+    const includedRows = (included.data || []) as any[]
+    const includedSet = new Set<number>(includedRows.map((a) => a.id))
     const careerCutoff = Date.now() - RADAR_CAREER_MAX_DAYS * 86_400_000
-    const filtered = hydrated.filter((a) =>
+
+    // ── LIETUVA ── included(LT) + auto LT, su karjeros riba (≤1 m. naujam auto) ──
+    const ltOrdered: number[] = []
+    const seenLt = new Set<number>()
+    const pushLt = (id: number) => { if (seenLt.has(id) || excl.has(id) || featuredSet.has(id)) return; seenLt.add(id); ltOrdered.push(id) }
+    includedRows.filter((a) => isLt(a.country)).forEach((a) => pushLt(a.id))
+    recentLt.order.forEach(pushLt)
+    const ltHydrated = await hydrate(ltOrdered.slice(0, Math.max(limit * 2, 60)), recentLt.latest)
+    const ltFiltered = ltHydrated.filter((a) =>
       includedSet.has(a.id) || (a.first_upload_at != null && Date.parse(a.first_upload_at) >= careerCutoff),
-    )
-    return filtered.slice(0, limit)
+    ).slice(0, limit)
+
+    // ── UŽSIENIS ── included(world) VISADA; auto-pool tik admino kandidatams ──
+    const recentForeign = foreignAuto ? await recentForeignArtists() : { order: [] as number[], latest: new Map<number, LatestRow>() }
+    const fOrdered: number[] = []
+    const seenF = new Set<number>()
+    const pushF = (id: number) => { if (seenF.has(id) || excl.has(id) || featuredSet.has(id)) return; seenF.add(id); fOrdered.push(id) }
+    includedRows.filter((a) => !isLt(a.country)).forEach((a) => pushF(a.id))
+    recentForeign.order.forEach(pushF)
+    const fHydrated = await hydrate(fOrdered.slice(0, Math.max(FOREIGN_CAP * 4, 60)), recentForeign.latest)
+    // Auto kandidatams — diversifikuojam + ribojam. Be auto (vieša) — rodom visus patvirtintus.
+    const fCurated = foreignAuto ? diversifyByGenre(fHydrated, includedSet, FOREIGN_CAP) : fHydrated
+
+    return [...ltFiltered, ...fCurated]
   } catch { return [] }
 })
 

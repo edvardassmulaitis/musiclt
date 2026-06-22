@@ -10,14 +10,15 @@ import { EmergingTile } from '@/components/radaras-ui'
 
 type Country = 'all' | 'lt' | 'world'
 
-export default function RadarBrowse({ artists }: { artists: RadarArtist[] }) {
+export default function RadarBrowse({ artists, hideCountry = false }: { artists: RadarArtist[]; hideCountry?: boolean }) {
   const [country, setCountry] = useState<Country>('all')
   const [style, setStyle] = useState<string | null>(null)
 
   const ltCount = useMemo(() => artists.filter((a) => isLtCountry(a.country)).length, [artists])
   const worldCount = artists.length - ltCount
   // Šalies filtrą rodom kai yra užsienio atlikėjų (kitaip viskas LT — nereikia).
-  const showCountry = worldCount > 0
+  // hideCountry — kai puslapis JAU atskyrė į LT/užsienio sekcijas (toggle nereikalingas).
+  const showCountry = worldCount > 0 && !hideCountry
 
   const byCountry = useMemo(() => {
     if (country === 'all') return artists

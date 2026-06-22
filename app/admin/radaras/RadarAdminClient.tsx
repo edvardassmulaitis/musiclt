@@ -10,6 +10,7 @@
 //   excluded   = archyvas (atmesti auto / pristatyti ir baigti)
 
 import { useState, useCallback } from 'react'
+import { flagFor } from '@/lib/artist-browse'
 
 export type AdminArtist = {
   id: number
@@ -26,8 +27,6 @@ export type AdminArtist = {
 }
 
 type Status = 'featured' | 'included' | 'excluded' | null
-
-const COUNTRY_FLAG: Record<string, string> = { Lietuva: '🇱🇹' }
 
 async function setStatus(artistId: number, status: Status, extra?: { blurb?: string | null; sort?: number }) {
   const res = await fetch('/api/admin/radar', {
@@ -212,7 +211,7 @@ export default function RadarAdminClient({
         <div className="min-w-0 flex-1">
           <a href={`/atlikejai/${a.slug}`} target="_blank" rel="noreferrer"
             className="block truncate font-['Outfit',sans-serif] font-semibold text-[var(--text-primary)] hover:text-[var(--accent-orange)]">
-            {COUNTRY_FLAG[a.country || ''] || ''} {a.name}
+            {flagFor(a.country)} {a.name}
           </a>
           <div className="truncate text-xs text-[var(--text-muted)]">
             {(a.genres && a.genres.length > 0) ? a.genres.join(' · ') + ' · ' : ''}
@@ -280,7 +279,7 @@ export default function RadarAdminClient({
         items={included} empty="Tuščia — auto kandidatai (žemiau) ir taip rodomi tinklelyje." />
 
       <Section title="📡 Auto kandidatai"
-        hint="Algoritmo rasti: naujas LT atlikėjas (pirmas YT įkėlimas mažiau nei prieš metus + maža auditorija)."
+        hint="Algoritmo rasti: LT (pirmas YT įkėlimas ≤1 m. + maža auditorija) IR užsienio (daug žadantys, vidutinio populiarumo, dar ne megažvaigždės; diversifikuota per žanrus)."
         items={candidates} empty="Nėra kandidatų (gali būti DB ryšio problema arba langas tuščias)." />
 
       {/* Archyvas — paslėptas default, kad neerzintų */}

@@ -60,11 +60,12 @@ function fmtViews(n: number | null): string {
 export function YtCollage({ urls, name, className }: { urls: string[]; name: string; className: string }) {
   const thumbs = urls.map(ytThumb).filter(Boolean).slice(0, 4) as string[]
   if (thumbs.length === 0) {
+    // Vizualo fallback: matomas inicialas + brand gradientas (veikia ir light, ir
+    // dark temoje). SVARBU: spalva paimama iš CSS klasės (ne inline white), kad
+    // šviesioje temoje nebūtų nematoma — žr. .rd-tile-noimg / .rd-feat-noimg.
     return (
       <div className={className}>
-        <span style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 900, fontSize: '42px', color: 'rgba(255,255,255,0.08)' }}>
-          {name?.[0] || '?'}
-        </span>
+        <span>{(name?.[0] || '?').toUpperCase()}</span>
       </div>
     )
   }
@@ -319,8 +320,9 @@ export const radarStyles = `
   overflow:hidden; background:var(--bg-elevated); }
 .rd-feat-img img { width:100%; height:100%; object-fit:cover; display:block; }
 .rd-feat-noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center;
-  background:linear-gradient(135deg, var(--bg-elevated), rgba(249,115,22,0.10)); }
-.rd-feat-noimg span { font-family:'Outfit',sans-serif; font-weight:900; font-size:38px; color:rgba(255,255,255,0.10); }
+  background:linear-gradient(135deg, rgba(34,197,94,0.20), rgba(249,115,22,0.18)); }
+.rd-feat-noimg span { font-family:'Outfit',sans-serif; font-weight:900; font-size:40px; color:rgba(255,255,255,0.92);
+  text-shadow:0 1px 3px rgba(0,0,0,0.28); }
 .rd-feat-badge { position:absolute; top:7px; left:7px; font-family:'Outfit',sans-serif; font-weight:800;
   font-size:9.5px; text-transform:uppercase; letter-spacing:.06em; color:#fff;
   background:linear-gradient(92deg,var(--accent-orange),var(--accent-green)); padding:2px 7px; border-radius:100px; }
@@ -398,8 +400,9 @@ export const radarStyles = `
 .rd-tile-img img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .4s ease; }
 .rd-tile:hover .rd-tile-img img { transform:scale(1.06); }
 .rd-tile-noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center;
-  background:linear-gradient(135deg, var(--bg-elevated), rgba(34,197,94,0.08)); }
-.rd-tile-noimg span { font-family:'Outfit',sans-serif; font-weight:900; font-size:42px; color:rgba(255,255,255,0.08); }
+  background:linear-gradient(135deg, rgba(34,197,94,0.24), rgba(249,115,22,0.20)); }
+.rd-tile-noimg span { font-family:'Outfit',sans-serif; font-weight:900; font-size:46px; color:rgba(255,255,255,0.92);
+  text-shadow:0 1px 4px rgba(0,0,0,0.30); }
 .rd-tile-new { position:absolute; top:8px; left:8px; font-family:'Outfit',sans-serif; font-weight:800;
   font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#04130a;
   background:var(--accent-green); padding:2px 8px; border-radius:100px; box-shadow:0 2px 8px rgba(0,0,0,.3); }
