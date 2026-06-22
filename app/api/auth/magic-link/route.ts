@@ -5,6 +5,10 @@ import { randomBytes } from 'crypto'
 
 const BASE = process.env.NEXTAUTH_URL || 'https://musiclt.vercel.app'
 
+// Best-effort rate-limit (per serverless instance) — apsauga nuo spam relay.
+const lastSent = new Map<string, number>()
+const COOLDOWN_MS = 30_000
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -12,6 +16,13 @@ export async function POST(req: NextRequest) {
     if (!email || !email.includes('@')) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
     }
+
+    const now = Date.now()
+    const prev = lastSent.get(email)
+    if (prev && now - prev < COOLDOWN_MS) {
+      return NextResponse.json({ error: 'Per dažnai — palaukite kelias sekundes.' }, { status: 429 })
+    }
+    lastSent.set(email, now)
 
     const supabase = createAdminClient()
 

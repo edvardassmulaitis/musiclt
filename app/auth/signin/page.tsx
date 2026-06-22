@@ -7,7 +7,9 @@ import Link from 'next/link'
 
 function SignInContent() {
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/'
+  // Numatytai po prisijungimo → /sveiki (pasveikinimas/apžvalga). Jei vartotojas
+  // buvo nukreiptas iš konkretaus puslapio — gerbiam tą callbackUrl.
+  const callbackUrl = searchParams.get('callbackUrl') || '/sveiki'
   const [tab, setTab] = useState<'social'|'email'>('social')
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState<string|null>(null)

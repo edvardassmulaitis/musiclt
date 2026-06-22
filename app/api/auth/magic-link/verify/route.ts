@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
     ? '__Secure-next-auth.session-token'
     : 'next-auth.session-token'
 
-  const response = NextResponse.redirect(new URL('/', req.url))
+  const response = NextResponse.redirect(new URL('/sveiki', req.url))
   response.cookies.set(cookieName, sessionToken, {
     httpOnly: true,
     secure: isProduction,
