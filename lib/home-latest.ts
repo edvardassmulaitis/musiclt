@@ -56,8 +56,8 @@ export const HOME_LANE_LIMIT = 10
 // (mažuma) neiškristų: 90d tracks ~1100, albums year>=2025 ~700.
 // Šie limitai taikomi prieš JS-lygio dedupe/filter — didesnis pool
 // = tikslesnė LT juosta. Pro plan (1 GB RAM) laiko ~1200 be problemų.
-const TRACKS_CANDIDATE_FETCH_LIMIT = 500
-const ALBUMS_CANDIDATE_FETCH_LIMIT = 800
+const TRACKS_CANDIDATE_FETCH_LIMIT = 250
+const ALBUMS_CANDIDATE_FETCH_LIMIT = 350
 
 /* ────────────────────────────── Tags ────────────────────────────── */
 
@@ -268,7 +268,7 @@ async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
         .gte('release_year', currentYear - 1)
         .not('video_url', 'is', null)
         .order('id', { ascending: false })
-        .limit(200)
+        .limit(120)
       if (res.error) throw res.error
       return res
     }, { label: 'tracks.fallback' }),
@@ -517,7 +517,7 @@ async function fetchLatestAlbumsRaw(): Promise<LatestAlbumRow[]> {
       .order('year', { ascending: false })
       .order('month', { ascending: false, nullsFirst: false })
       .order('day', { ascending: false, nullsFirst: false })
-      .limit(800)
+      .limit(350)
     if (res.error) throw res.error
     return res
   }, { label: 'albums.latest' })
