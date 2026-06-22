@@ -111,6 +111,7 @@ const getEditorCounts = unstable_cache(
       missing_music, substyles_pending, claims_pending,
       internal_tops, member_posts,
       charts_unmatched, top_short, radar_pending, atradimai_pending,
+      lyrics_suggestions_pending,
     ] = await Promise.all([
       // Totalai
       headCount(() => sb.from('artists').select('id', { count: 'exact', head: true })),
@@ -134,6 +135,8 @@ const getEditorCounts = unstable_cache(
       radarPending(sb),
       // Muzikos atradimai: trūkstami atlikėjai (discovery_pending_artist, dar ne 'done')
       headCount(() => sb.from('discovery_pending_artist').select('id', { count: 'exact', head: true }).neq('status', 'done')),
+      // Dainų tekstų pasiūlymai — laukiantys peržiūros
+      headCount(() => sb.from('lyrics_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'pending')),
     ])
 
     return {
@@ -142,6 +145,7 @@ const getEditorCounts = unstable_cache(
       missing_music, substyles_pending, claims_pending,
       internal_tops, member_posts,
       charts_unmatched, top_short, radar_pending, atradimai_pending,
+      lyrics_suggestions_pending,
     }
   },
   ['admin-dashboard-editor-v2'],

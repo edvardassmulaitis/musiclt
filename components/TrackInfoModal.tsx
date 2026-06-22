@@ -12,6 +12,7 @@
 // artistTracks, onSelectTrack) yra optional — homepage'as jų neperduoda.
 
 import { useState, useEffect, useRef } from 'react'
+import { useSession } from 'next-auth/react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { LikePill } from '@/components/LikePill'
@@ -46,6 +47,19 @@ const yt = (u?: string | null) => {
   if (!u) return null
   const m = u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
   return m ? m[1] : null
+}
+
+// Aprašymai saugomi kaip HTML — paverčiam į švarų tekstą (paragrafai → lūžiai).
+function plainText(s?: string | null): string {
+  if (!s) return ''
+  return s
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 /** Format track duration as "m:ss". Accepts integer seconds or "mm:ss" strings. */
@@ -238,16 +252,23 @@ export function TrackInfoModal({
     return () => { cancelled = true }
   }, [track?.id])
 
-  // Artist extra info (description, genres) for rich fallback card
+  // Sesija — reikia teksto pasiūlymo formai (tik prisijungę gali siūlyti).
+  const { data: authSession } = useSession()
+  const isLoggedIn = !!authSession?.user
+
+  // Artist extra info (description, genres, galerijos foto) atlikėjo kortelei.
   const [artistDesc, setArtistDesc] = useState<string | null>(null)
   const [artistGenres, setArtistGenres] = useState<string[]>([])
+  // artistAltPhoto — KITA nuotrauka iš galerijos (ne ta pati kaip headeryje),
+  // kad būtų daugiau įvairovės. Fallback į header thumb.
+  const [artistAltPhoto, setArtistAltPhoto] = useState<string | null>(null)
   useEffect(() => {
-    if (!track || !artistSlug) { setArtistDesc(null); setArtistGenres([]); return }
+    if (!track || !artistSlug) { setArtistDesc(null); setArtistGenres([]); setArtistAltPhoto(null); return }
     let cancelled = false
     fetch(`/api/artists?check=${encodeURIComponent(artistName)}`)
       .then(r => r.json())
       .then(async (list: any[]) => {
-        if (cancelled) return
+        if (cancelled || !Array.isArray(list)) return
         const match = list.find((a: any) => a.slug === artistSlug) || list[0]
         if (!match) return
         const res = await fetch(`/api/artists/${match.id}`)
@@ -256,10 +277,38 @@ export function TrackInfoModal({
         if (cancelled) return
         setArtistDesc(a.description || null)
         setArtistGenres((a.substyleNames || []).slice(0, 4))
+        // Renkam galerijos foto, kuri SKIRIASI nuo header thumb'o.
+        const photos = (a.photos || []).filter((p: any) => p?.url && p.is_active !== false)
+        const alt = photos.find((p: any) => p.url !== artistThumbUrl) || photos[0]
+        setArtistAltPhoto(alt?.url || null)
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [track?.id, artistSlug, artistName])
+  }, [track?.id, artistSlug, artistName, artistThumbUrl])
+
+  // ── Teksto pasiūlymas (kai dainos teksto nėra) ──────────────────────────────
+  const [lyricsDraft, setLyricsDraft] = useState('')
+  const [lyricsSubmitting, setLyricsSubmitting] = useState(false)
+  const [lyricsSubmitted, setLyricsSubmitted] = useState(false)
+  const [lyricsErr, setLyricsErr] = useState('')
+  useEffect(() => { setLyricsDraft(''); setLyricsSubmitted(false); setLyricsErr('') }, [track?.id])
+  const submitLyrics = async () => {
+    if (!track || lyricsSubmitting) return
+    const text = lyricsDraft.trim()
+    if (!text) { setLyricsErr('Įrašyk tekstą'); return }
+    setLyricsSubmitting(true); setLyricsErr('')
+    try {
+      const res = await fetch(`/api/tracks/${track.id}/suggest-lyrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lyrics: text }),
+      })
+      const d = await res.json()
+      if (!res.ok) { setLyricsErr(d.error || 'Nepavyko išsiųsti'); setLyricsSubmitting(false); return }
+      setLyricsSubmitted(true)
+    } catch { setLyricsErr('Tinklo klaida') }
+    setLyricsSubmitting(false)
+  }
 
   const onToggleLike = async () => {
     if (likePending || !track) return
@@ -424,8 +473,10 @@ export function TrackInfoModal({
           <div className="h-1 w-10 rounded-full bg-[var(--border-default)]" />
         </div>
 
-        {/* Header — thumb + title + artist + meta + actions + close. Compact. */}
-        <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2">
+        {/* Header — thumb + title + artist + data. Like/Dalintis perkelti į dešinę
+            koloną (prie komentarų). Albumas rodomas žemiau kairėje, tad iš
+            header'io pašalintas (nebesikartoja). */}
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] px-4 py-2.5">
           {artistThumbUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -433,98 +484,33 @@ export function TrackInfoModal({
               alt={artistName}
               referrerPolicy="no-referrer"
               style={{ objectPosition: 'center top' }}
-              className="h-9 w-9 shrink-0 rounded-lg border border-[var(--border-subtle)] object-cover"
+              className="h-[52px] w-[52px] shrink-0 rounded-xl border border-[var(--border-subtle)] object-cover"
             />
           )}
           <div className="min-w-0 flex-1">
-            <div className="truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">
+            <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)]">
               {track.title}
             </div>
-            <div className="truncate text-[11.5px] leading-tight">
+            <div className="truncate text-[12px] leading-tight">
               {formatArtistList(
                 { id: -1, slug: artistSlug, name: artistName },
                 track.featuring || [],
               )}
             </div>
-            {/* Meta row — mobile only; desktop meta is in header right side */}
-            <div className="mt-0.5 flex sm:hidden flex-wrap items-center gap-1.5 text-[10.5px] text-[var(--text-muted)]">
-              {dateLabel && (
-                <span className="font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">
-                  {dateLabel}
-                </span>
-              )}
-              {dur && (
-                <>
-                  {dateLabel && <span className="text-[var(--text-faint)]">·</span>}
-                  <span className="font-['Outfit',sans-serif] font-bold tabular-nums text-[var(--text-muted)]">{dur}</span>
-                </>
-              )}
-              {(track.albums || []).slice(0, 1).map((al) => (
-                <span key={al.id} className="inline-flex min-w-0 items-center gap-1">
-                  <span className="text-[var(--text-faint)]">·</span>
-                  <Link
-                    href={`/albumai/${artistSlug}-${al.slug}-${al.id}`}
-                    target="_blank"
-                    rel="noopener"
-                    title={al.title}
-                    className="inline-flex min-w-0 items-center gap-1 no-underline transition-colors hover:text-[var(--text-primary)]"
-                  >
-                    {al.cover_image_url && (
-                      <span className="h-4 w-4 shrink-0 overflow-hidden rounded bg-[var(--cover-placeholder)]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={proxyImg(al.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                      </span>
-                    )}
-                    <span className="max-w-[140px] truncate font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">{al.title}</span>
-                  </Link>
-                </span>
-              ))}
-            </div>
-            {/* Veiksmų eilutė — mobile only */}
-            <div className="mt-1 flex sm:hidden flex-wrap items-center gap-1.5">
-              <LikePill
-                likes={likes}
-                selfLiked={selfLiked}
-                onToggle={onToggleLike}
-                pending={likePending}
-                onOpenModal={() => setLikersOpen(true)}
-                variant="surface"
-              />
-              <SharePill title={`${track.title} — ${artistName}`} url={trackHref} size="sm" />
-            </div>
-          </div>
-          {/* Desktop meta chips — right side of header */}
-          <div className="hidden sm:flex shrink-0 items-center gap-1.5 text-[10.5px] text-[var(--text-muted)]">
-            {dateLabel && (
-              <span className="font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">{dateLabel}</span>
+            {/* Data PO atlikėjo (kaip albumuose) + trukmė. */}
+            {(dateLabel || dur) && (
+              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+                {dateLabel && (
+                  <span className="font-['Outfit',sans-serif] font-semibold text-[var(--text-secondary)]">{dateLabel}</span>
+                )}
+                {dur && (
+                  <>
+                    {dateLabel && <span className="text-[var(--text-faint)]">·</span>}
+                    <span className="font-['Outfit',sans-serif] font-semibold tabular-nums text-[var(--text-muted)]">{dur}</span>
+                  </>
+                )}
+              </div>
             )}
-            {dur && (
-              <>
-                {dateLabel && <span className="text-[var(--text-faint)]">·</span>}
-                <span className="font-['Outfit',sans-serif] font-bold tabular-nums text-[var(--text-muted)]">{dur}</span>
-              </>
-            )}
-            {(track.albums || []).slice(0, 1).map((al) => (
-              <span key={al.id} className="inline-flex min-w-0 items-center gap-1">
-                <span className="text-[var(--text-faint)]">·</span>
-                <Link href={`/albumai/${artistSlug}-${al.slug}-${al.id}`} target="_blank" rel="noopener" title={al.title}
-                  className="inline-flex min-w-0 items-center gap-1 no-underline transition-colors hover:text-[var(--text-primary)]">
-                  {al.cover_image_url && (
-                    <span className="h-4 w-4 shrink-0 overflow-hidden rounded bg-[var(--cover-placeholder)]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={proxyImg(al.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                    </span>
-                  )}
-                  <span className="max-w-[140px] truncate font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">{al.title}</span>
-                </Link>
-              </span>
-            ))}
-          </div>
-          {/* Desktop actions */}
-          <div className="hidden sm:flex shrink-0 items-center gap-1.5">
-            <LikePill likes={likes} selfLiked={selfLiked} onToggle={onToggleLike} pending={likePending}
-              onOpenModal={() => setLikersOpen(true)} variant="surface" />
-            <SharePill title={`${track.title} — ${artistName}`} url={trackHref} size="sm" />
           </div>
           {track.spotify_id && (
             <a
@@ -630,10 +616,10 @@ export function TrackInfoModal({
                     rel="noopener"
                     className="group mb-2.5 flex items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-colors hover:border-[var(--border-strong)]"
                   >
-                    {artistThumbUrl ? (
+                    {(artistAltPhoto || artistThumbUrl) ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={proxyImg(artistThumbUrl)}
+                        src={proxyImg(artistAltPhoto || artistThumbUrl!)}
                         alt=""
                         style={{ objectPosition: 'center top' }}
                         className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover transition-transform duration-300 group-hover:scale-[1.03]"
@@ -653,11 +639,15 @@ export function TrackInfoModal({
                           ))}
                         </div>
                       )}
+                      {artistDesc && (
+                        <p className="mt-1.5 line-clamp-3 whitespace-pre-line font-['Outfit',sans-serif] text-[11.5px] leading-[1.5] text-[var(--text-secondary)]">
+                          {plainText(artistDesc)}
+                        </p>
+                      )}
                     </div>
                   </Link>
-                  {/* Albumas, iš kurio daina — VIETOJ atlikėjo aprašymo. Jei
-                      albumo nėra, fallback į aprašymą. */}
-                  {primaryAlbum ? (
+                  {/* Albumas, iš kurio daina (rodom papildomai prie atlikėjo info). */}
+                  {primaryAlbum && (
                     <Link
                       href={`/albumai/${artistSlug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
                       target="_blank"
@@ -682,11 +672,7 @@ export function TrackInfoModal({
                         <path d="M9 18l6-6-6-6" />
                       </svg>
                     </Link>
-                  ) : artistDesc ? (
-                    <p className="mb-2.5 line-clamp-4 font-['Outfit',sans-serif] text-[12px] leading-[1.6] text-[var(--text-secondary)]">
-                      {artistDesc}
-                    </p>
-                  ) : null}
+                  )}
                   {/* „Daugiau / atlikėjas" — žema horizontali kitų dainų juostelė */}
                   {more.length > 0 && (
                     <div className="mt-auto border-t border-[var(--border-subtle)] pt-3">
@@ -722,58 +708,107 @@ export function TrackInfoModal({
             })()}
           </div>
 
-          {/* Right — tabs + content */}
+          {/* Right — tabs (Tekstas / Komentarai) + Patinka/Dalintis + content */}
           <div className="flex-1 min-h-0 flex flex-col md:border-l md:border-[var(--border-subtle)]">
-            {/* Tabs */}
-            {lyricsText && (
-              <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
-                <button
-                  type="button"
-                  onClick={() => setMobileTab('lyrics')}
-                  className={[
-                    "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
-                    mobileTab === 'lyrics'
-                      ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
-                      : 'text-[var(--text-muted)]',
-                  ].join(' ')}
-                >
-                  Tekstas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMobileTab('comments')}
-                  className={[
-                    "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
-                    mobileTab === 'comments'
-                      ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
-                      : 'text-[var(--text-muted)]',
-                  ].join(' ')}
-                >
-                  <span>Komentarai</span>
-                  {commentTotal > 0 && (
-                    <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
-                      {commentTotal}
-                    </span>
-                  )}
-                </button>
+            {/* Tabs — VISADA rodom (net kai teksto nėra — kad būtų galima pasiūlyti).
+                Dešinėje: Patinka + Dalintis (perkelta iš header'io, abu size sm). */}
+            <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
+              <button
+                type="button"
+                onClick={() => setMobileTab('lyrics')}
+                className={[
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                  mobileTab === 'lyrics'
+                    ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                    : 'text-[var(--text-muted)]',
+                ].join(' ')}
+              >
+                Tekstas
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTab('comments')}
+                className={[
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                  mobileTab === 'comments'
+                    ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                    : 'text-[var(--text-muted)]',
+                ].join(' ')}
+              >
+                <span>Komentarai</span>
+                {commentTotal > 0 && (
+                  <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
+                    {commentTotal}
+                  </span>
+                )}
+              </button>
+              <div className="ml-auto flex items-center gap-1.5">
+                <LikePill
+                  likes={likes}
+                  selfLiked={selfLiked}
+                  onToggle={onToggleLike}
+                  pending={likePending}
+                  onOpenModal={() => setLikersOpen(true)}
+                  variant="surface"
+                  size="sm"
+                />
+                <SharePill title={`${track.title} — ${artistName}`} url={trackHref} size="sm" />
               </div>
-            )}
+            </div>
             {/* Scrollable body */}
             <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4">
-              {lyricsText && (
-                <div className={mobileTab === 'lyrics' ? 'block' : 'hidden'}>
-                  <div className="mb-4 flex items-baseline gap-2">
-                    <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className={mobileTab === 'lyrics' ? 'block' : 'hidden'}>
+                {lyricsText ? (
+                  <>
+                    <div className="mb-4 flex items-baseline gap-2">
+                      <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                        Dainos tekstas
+                      </div>
+                      <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                        pažymėk → reaguok
+                      </span>
+                    </div>
+                    <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
+                  </>
+                ) : lyricsSubmitted ? (
+                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center">
+                    <div className="text-[13px] font-extrabold text-[var(--text-primary)]">Ačiū! Tekstas išsiųstas peržiūrai.</div>
+                    <div className="mt-1 text-[12px] text-[var(--text-muted)]">Administratoriui patvirtinus, jis atsiras čia.</div>
+                  </div>
+                ) : isLoggedIn ? (
+                  <div>
+                    <div className="mb-3 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                       Dainos tekstas
                     </div>
-                    <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
-                      pažymėk → reaguok
-                    </span>
+                    <p className="mb-2 text-[12.5px] leading-[1.5] text-[var(--text-muted)]">
+                      Šios dainos teksto dar nėra. Žinai jį? Pasiūlyk — administratorius peržiūrės ir paskelbs.
+                    </p>
+                    <textarea
+                      value={lyricsDraft}
+                      onChange={e => setLyricsDraft(e.target.value)}
+                      rows={10}
+                      placeholder="Įrašyk dainos tekstą…"
+                      className="w-full resize-y rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-[13px] leading-[1.6] text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
+                    />
+                    {lyricsErr && <div className="mt-1 text-[11px] font-semibold text-red-500">{lyricsErr}</div>}
+                    <button
+                      type="button"
+                      onClick={submitLyrics}
+                      disabled={lyricsSubmitting}
+                      className="mt-2 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white disabled:opacity-50"
+                    >
+                      {lyricsSubmitting ? 'Siunčiama…' : 'Pasiūlyti tekstą'}
+                    </button>
                   </div>
-                  <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
-                </div>
-              )}
-              <div className={!lyricsText || mobileTab === 'comments' ? 'block' : 'hidden'}>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center">
+                    <div className="text-[13px] font-extrabold text-[var(--text-primary)]">Šios dainos teksto dar nėra</div>
+                    <p className="mt-1 text-[12px] text-[var(--text-muted)]">Prisijunk, kad galėtum pasiūlyti tekstą.</p>
+                    <Link href="/auth/signin" className="mt-3 inline-block rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white no-underline">Prisijungti</Link>
+                  </div>
+                )}
+              </div>
+              <div className={mobileTab === 'comments' ? 'block' : 'hidden'}>
                 <EntityCommentsBlock
                   entityType="track"
                   entityId={track.id}

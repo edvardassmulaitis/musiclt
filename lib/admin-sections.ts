@@ -100,6 +100,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { key: 'substiliai',     group: 'review', minRole: 'editor', href: '/admin/substiliai',     icon: '🏷️', label: 'Substilių peržiūra',      hint: 'Pending substiliai — merge / approve / delete', badgeKey: 'substyles_pending' },
   { key: 'charts',         group: 'review', minRole: 'editor', href: '/admin/charts',         icon: '🌍', label: 'Išoriniai topai',         hint: 'Nesumatchintos dainos po dienos atnaujinimo', badgeKey: 'charts_unmatched' },
   { key: 'top',            group: 'review', minRole: 'editor', href: '/admin/top',            icon: '🏆', label: 'TOP sąrašai',             hint: 'Trūksta patvirtintų pasiūlymų ateinančiai savaitei (TOP40≥10, LT TOP30≥5)', badgeKey: 'top_short' },
+  { key: 'teksto-pasiulymai', group: 'review', minRole: 'editor', href: '/admin/teksto-pasiulymai', icon: '📝', label: 'Tekstų pasiūlymai',     hint: 'Vartotojų pasiūlyti dainų tekstai → patvirtinti / atmesti', badgeKey: 'lyrics_suggestions_pending' },
 
   // ── Turinys ───────────────────────────────────────────────────────────────
   { key: 'artists',  group: 'content', minRole: 'editor', href: '/admin/artists',  newHref: '/admin/artists/new',  icon: '🎤', label: 'Atlikėjai',       countKey: 'artists' },
