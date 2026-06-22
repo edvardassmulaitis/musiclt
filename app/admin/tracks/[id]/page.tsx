@@ -416,6 +416,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [lyricsTab, setLyricsTab] = useState<LyricsTab>('lyrics')
   const [isNew, setIsNew] = useState(false)
   const [isNewDate, setIsNewDate] = useState<string | null>(null)
+  const [hideFromHome, setHideFromHome] = useState(false)
   const [coverUrl, setCoverUrl] = useState('')
   const [featuring, setFeaturing] = useState<FeaturingArtist[]>([])
   const [albums, setAlbums] = useState<AlbumRef[]>([])
@@ -525,6 +526,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       setVideoUrl(data.video_url || ''); setSpotifyId(data.spotify_id || '')
       setLyrics(data.lyrics || ''); setChords(data.chords || '')
       setIsNew(data.is_new || false); setIsNewDate(data.is_new_date || null)
+      setHideFromHome(data.hide_from_homepage || false)
       setCoverUrl(data.cover_url || '')
       // ── FIX 3: gauti atlikėjo nuotrauką ──────────────────────────────────
       if (data.artists?.name) {
@@ -560,7 +562,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     setSaving(true); setError('')
     try {
       // ── FIX 1: siųsti is_single ──────────────────────────────────────────
-      const payload = { title, artist_id: artistId, type: trackType, is_single: isSingle, release_year: releaseYear || null, release_month: releaseMonth || null, release_day: releaseDay || null, video_url: videoUrl, spotify_id: spotifyId, lyrics, chords, is_new: isNew, is_new_date: isNewDate, cover_url: coverUrl, featuring }
+      const payload = { title, artist_id: artistId, type: trackType, is_single: isSingle, release_year: releaseYear || null, release_month: releaseMonth || null, release_day: releaseDay || null, video_url: videoUrl, spotify_id: spotifyId, lyrics, chords, is_new: isNew, is_new_date: isNewDate, hide_from_homepage: hideFromHome, cover_url: coverUrl, featuring }
       const doSave = async (forceDup = false) => {
         const url = isNewTrack
           ? '/api/tracks'
@@ -580,7 +582,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       setSaved(true); setTimeout(() => setSaved(false), 2000)
       if (isNewTrack) router.push(`/admin/tracks/${data.id}`)
     } catch (e: any) { setError(e.message) } finally { setSaving(false) }
-  }, [title, artistId, trackType, isSingle, releaseYear, releaseMonth, releaseDay, videoUrl, spotifyId, lyrics, chords, isNew, isNewDate, coverUrl, featuring, id, isNewTrack])
+  }, [title, artistId, trackType, isSingle, releaseYear, releaseMonth, releaseDay, videoUrl, spotifyId, lyrics, chords, isNew, isNewDate, hideFromHome, coverUrl, featuring, id, isNewTrack])
 
   const handleDelete = async () => {
     if (!confirm(`Ištrinti "${title}"?`)) return
@@ -698,8 +700,17 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${isNew ? 'bg-green-500 text-white shadow-sm' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-active)]'}`}>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>Naujas
             </button>
+            {/* Paslėpti iš homepage „Naujos dainos" juostų + „Daugiau" modalo.
+                Daina lieka matoma visur kitur. Išsaugoma su „Išsaugoti". */}
+            <button type="button" onClick={() => setHideFromHome(p => !p)}
+              title="Nerodyti šios dainos homepage naujų dainų juostose ir Daugiau sąraše"
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${hideFromHome ? 'bg-red-500 text-white shadow-sm' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-active)]'}`}>
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0L21 21" /></svg>
+              {hideFromHome ? 'Paslėpta homepage' : 'Slėpti iš homepage'}
+            </button>
           </div>
           {isNew && isNewDate && <p className="text-xs text-green-500 mt-1">nuo {isNewDate} · išsaugoma automatiškai</p>}
+          {hideFromHome && <p className="text-xs text-red-500 mt-1">Nerodoma homepage „Naujos dainos" juostose — matoma visur kitur</p>}
         </div>
       </div>
 
