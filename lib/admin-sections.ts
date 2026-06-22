@@ -105,6 +105,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { key: 'artists',  group: 'content', minRole: 'editor', href: '/admin/artists',  newHref: '/admin/artists/new',  icon: '🎤', label: 'Atlikėjai',       countKey: 'artists' },
   { key: 'albums',   group: 'content', minRole: 'editor', href: '/admin/albums',   newHref: '/admin/albums/new',   icon: '💿', label: 'Albumai',         countKey: 'albums' },
   { key: 'tracks',   group: 'content', minRole: 'editor', href: '/admin/tracks',   newHref: '/admin/tracks/new',   icon: '🎵', label: 'Dainos',          countKey: 'tracks' },
+  { key: 'duplikatai', group: 'content', minRole: 'editor', href: '/admin/duplikatai', icon: '🧹', label: 'Dublikatai',     hint: 'Potencialūs dublikatai (Spotify ID / YouTube / tas pats atlikėjas / feat) — sujungti / atmesti' },
   { key: 'news',     group: 'content', minRole: 'editor', href: '/admin/news',     newHref: '/admin/news/new',     icon: '📰', label: 'Naujienos',       countKey: 'news' },
   { key: 'events',   group: 'content', minRole: 'editor', href: '/admin/events',   newHref: '/admin/events/new',   icon: '📅', label: 'Renginiai',       countKey: 'events' },
   { key: 'venues',   group: 'content', minRole: 'editor', href: '/admin/venues',   newHref: '/admin/venues/new',   icon: '📍', label: 'Vietos',          countKey: 'venues' },

@@ -1,0 +1,84 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/admin-auth'
+
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
+
+/**
+ * POST /api/admin/duplikatai/action
+ *
+ * Body:
+ *   { group_id: number, action: 'merge', keeper_id?: number }
+ *   { group_id: number, action: 'dismiss' }
+ *
+ * merge   — merges every other member of the group INTO the keeper via the
+ *           merge_tracks() RPC (loser rows hard-deleted, albums/featuring
+ *           unioned, snapshot saved to track_merges for revert). Group is then
+ *           marked 'merged'.
+ * dismiss — marks the group 'dismissed' (won't reappear on rescan).
+ */
+export async function POST(req: NextRequest) {
+  const session = await requireAdmin()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+
+  let body: any
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+
+  const groupId = Number(body.group_id)
+  const action = String(body.action || '')
+  if (!groupId) return NextResponse.json({ error: 'group_id required' }, { status: 400 })
+
+  const sb = createAdminClient()
+
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const userId = String((session.user as any)?.id || '')
+  const resolvedBy = uuidRe.test(userId) ? userId : null
+
+  const { data: group, error: gErr } = await sb
+    .from('track_dup_groups')
+    .select('id, track_ids, suggested_keeper_id, status')
+    .eq('id', groupId)
+    .single()
+  if (gErr || !group) return NextResponse.json({ error: 'Group not found' }, { status: 404 })
+  if (group.status !== 'pending') return NextResponse.json({ error: 'Group already resolved' }, { status: 409 })
+
+  if (action === 'dismiss') {
+    await sb.from('track_dup_groups')
+      .update({ status: 'dismissed', resolved_at: new Date().toISOString(), resolved_by: resolvedBy, updated_at: new Date().toISOString() })
+      .eq('id', groupId)
+    return NextResponse.json({ ok: true, action: 'dismiss' })
+  }
+
+  if (action === 'merge') {
+    const ids = (group.track_ids as number[]) || []
+    let keeper = Number(body.keeper_id) || Number(group.suggested_keeper_id) || ids[0]
+    if (!ids.includes(keeper)) keeper = ids[0]
+    const losers = ids.filter(id => id !== keeper)
+
+    const results: Array<{ loser: number; ok: boolean; error?: string }> = []
+    for (const loser of losers) {
+      const { error } = await sb.rpc('merge_tracks', {
+        p_winner_id: keeper,
+        p_loser_id: loser,
+        p_field_choices: {},
+        p_merged_by: resolvedBy,
+      })
+      results.push({ loser, ok: !error, error: error?.message })
+    }
+
+    const allOk = results.every(r => r.ok)
+    await sb.from('track_dup_groups')
+      .update({
+        status: allOk ? 'merged' : 'pending',
+        resolved_at: allOk ? new Date().toISOString() : null,
+        resolved_by: allOk ? resolvedBy : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', groupId)
+
+    return NextResponse.json({ ok: allOk, action: 'merge', keeper, merged: results.filter(r => r.ok).length, results })
+  }
+
+  return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+}
