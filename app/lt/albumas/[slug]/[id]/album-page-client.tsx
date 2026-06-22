@@ -197,7 +197,6 @@ export default function AlbumPageClient({
   const hasAnyVideo = !!playerVid
 
   const dateStr = formatLtDate(album.year, album.month, album.day, album.dateFormatted)
-  const albumTypeTag = album.type_studio === true ? 'Studijinis' : album.type
 
   const handlePlay = (idx: number) => {
     const track = sortedTracks[idx]
@@ -379,22 +378,14 @@ export default function AlbumPageClient({
             )}
           </Link>
           <div className="min-w-0 flex-1">
-            {/* Kicker — TIPO žyma (subtili) + METAI. Be dainų skaičiaus. */}
-            <div className="mb-1 flex flex-wrap items-center gap-1.5">
-              {albumTypeTag && (
-                <span className="rounded-md bg-[var(--bg-hover)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                  {albumTypeTag}
-                </span>
-              )}
-              {album.year && (
-                <span className="text-[10.5px] font-semibold text-[var(--text-muted)]">{album.year} m.</span>
-              )}
-              {album.is_upcoming && (
+            {/* Kicker — tik „Greitai" žyma. Tipas pašalintas, data perkelta žemiau. */}
+            {album.is_upcoming && (
+              <div className="mb-1 flex flex-wrap items-center gap-1.5">
                 <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
                   Greitai
                 </span>
-              )}
-            </div>
+              </div>
+            )}
             <h1 className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)]">
               {album.title}
             </h1>
@@ -403,6 +394,13 @@ export default function AlbumPageClient({
                 {artist.name}
               </Link>
             </div>
+            {/* Data — po atlikėjo pavadinimo. Tik mobile (desktop'e data rodoma chip'e
+                kairiajame stulpelyje). */}
+            {dateStr && (
+              <div className="mt-0.5 text-[11px] font-semibold text-[var(--text-muted)] md:hidden">
+                {dateStr}
+              </div>
+            )}
           </div>
           <Link
             href={`/atlikejai/${artist.slug}`}

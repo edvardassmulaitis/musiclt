@@ -17,7 +17,6 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import { LikePill } from '@/components/LikePill'
-import { SharePill } from '@/components/SharePill'
 import LikesModal from '@/components/LikesModal'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 
@@ -370,7 +369,6 @@ export default function AlbumInfoModal({
   // Slide animation classes — drawer'is iš dešinės. mounted=false kviečia
   // slide-out per CSS transition (200ms), o tada onClose paleidžia state cleanup.
   const drawerTransform = mounted ? 'translate-x-0' : 'translate-x-full'
-  const albumTypeTag = album?.type_studio === true ? 'Studijinis' : (album?.type || '')
 
   // Skeleton title from preview, kol fetch'inasi.
   const titleNow = album?.title || preview?.title || ''
@@ -399,7 +397,7 @@ export default function AlbumInfoModal({
         className={[
           'relative flex w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)]',
           'h-[90vh] rounded-t-2xl',
-          'sm:h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[720px]',
+          'sm:h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[860px] lg:max-w-[1040px]',
         ].join(' ')}
       >
         {/* Top-right corner controls — atidaryti naują langą + uždaryti */}
@@ -463,24 +461,12 @@ export default function AlbumInfoModal({
             </div>
           )}
           <div className="min-w-0 flex-1">
-            {/* Kicker — TIPO žyma (subtili) + DATA. Be dainų skaičiaus. */}
-            {album && (
+            {/* Kicker — tik „Greitai" žyma. Tipas pašalintas, data perkelta žemiau. */}
+            {album?.is_upcoming && (
               <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                {albumTypeTag && (
-                  <span className="rounded-md bg-[var(--bg-hover)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                    {albumTypeTag}
-                  </span>
-                )}
-                {(album.dateFormatted || album.year) && (
-                  <span className="text-[10.5px] font-semibold text-[var(--text-muted)]">
-                    {album.dateFormatted || `${album.year} m.`}
-                  </span>
-                )}
-                {album.is_upcoming && (
-                  <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
-                    Greitai
-                  </span>
-                )}
+                <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+                  Greitai
+                </span>
               </div>
             )}
             <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)]">
@@ -491,6 +477,12 @@ export default function AlbumInfoModal({
                 <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
                   {artist.name}
                 </Link>
+              </div>
+            )}
+            {/* Data — po atlikėjo pavadinimo (perkelta iš kicker'io). */}
+            {album && (album.dateFormatted || album.year) && (
+              <div className="mt-0.5 text-[11px] font-semibold text-[var(--text-muted)]">
+                {album.dateFormatted || `${album.year} m.`}
               </div>
             )}
           </div>
@@ -636,7 +628,7 @@ export default function AlbumInfoModal({
                   </span>
                 )}
               </button>
-              {/* Veiksmai — like + dalintis, kompaktiškai dešinėje. */}
+              {/* Veiksmai — tik patinka, kompaktiškai dešinėje (dalintis pašalintas — netilpo). */}
               {album && (
                 <div className="ml-auto flex items-center gap-1.5">
                   <LikePill
@@ -646,11 +638,6 @@ export default function AlbumInfoModal({
                     onOpenModal={onOpenLikersModal}
                     pending={selfLikePending}
                     variant="surface"
-                    size="sm"
-                  />
-                  <SharePill
-                    title={`${album.title}${artist ? ` — ${artist.name}` : ''}`}
-                    url={artist ? `/albumai/${artist.slug}-${album.slug}-${album.id}` : `/albumai/${album.slug}-${album.id}`}
                     size="sm"
                   />
                 </div>
