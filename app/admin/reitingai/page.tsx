@@ -23,15 +23,14 @@ type Mode = 'alltime' | 'trending'
 type Col = { key: string; label: string; short: string; color: string; max: number; desc: string }
 
 const ALLTIME_COLS: Col[] = [
-  { key: 'reach_total', label: 'Bendra aprėptis', short: 'Aprėptis',  color: '#a78bfa', max: 55, desc: 'Visų laikų peržiūrų suma — pagrindinis dydžio matas.' },
-  { key: 'longevity',   label: 'Ilgaamžiškumas', short: 'Ilgaamž.',  color: '#0ea5e9', max: 35, desc: 'Kūrybos metų tarpsnis (naujausi − seniausi metai). Tai, ko trending atmeta — iškelia legendas.' },
+  { key: 'reach_total', label: 'Bendra aprėptis', short: 'Aprėptis',  color: '#a78bfa', max: 52, desc: 'Visų laikų peržiūrų suma — pagrindinis diferencijuotojas (kiek iš viso klausyta).' },
+  { key: 'heritage',    label: 'Klasika',        short: 'Klasika',   color: '#0ea5e9', max: 30, desc: 'Kaip seniai debiutavo (apribota, mažėjanti grąža). Iškelia klasikus virš modernių, bet tarp klasikų eilę lemia peržiūros.' },
   { key: 'catalog_yt',  label: 'Katalogas',      short: 'Katalog.',  color: '#3b82f6', max: 10, desc: 'Klipų su peržiūromis skaičius.' },
 ]
 const TRENDING_COLS: Col[] = [
-  { key: 'pop_perday',  label: 'Populiarumas / dieną', short: 'Per dieną', color: '#ec4899', max: 55, desc: 'Peržiūros per dieną = klipo peržiūros ÷ amžius. Dabartinis klausomumas.' },
-  { key: 'reach_total', label: 'Bendra aprėptis',      short: 'Aprėptis',  color: '#a78bfa', max: 20, desc: 'Visų laikų peržiūrų suma.' },
-  { key: 'freshness',   label: 'Šviežumas',            short: 'Šviežum.',  color: '#10b981', max: 15, desc: 'Peržiūros per dieną tik iš naujausių (≤3 m.) klipų.' },
-  { key: 'catalog_yt',  label: 'Katalogas',            short: 'Katalog.',  color: '#3b82f6', max: 10, desc: 'Klipų su peržiūromis skaičius.' },
+  { key: 'pop_perday',     label: 'Peržiūros / dieną', short: 'Per dieną',  color: '#ec4899', max: 60, desc: 'Naujų (≤2 m.) dainų peržiūros per dieną. Esminis trending rodiklis — dabar klausomos NAUJOS dainos, ne visų laikų katalogas.' },
+  { key: 'reach_recent',   label: 'Naujų aprėptis',    short: 'Naujų perž.', color: '#a78bfa', max: 25, desc: 'Naujų (≤2 m.) dainų bendros peržiūros.' },
+  { key: 'catalog_recent', label: 'Naujų kiekis',      short: 'Naujų sk.',  color: '#10b981', max: 15, desc: 'Naujų (≤2 m.) dainų su peržiūromis skaičius — dabartinis aktyvumas.' },
 ]
 
 const fmtCountry = (c: string | null) => (c && c !== 'Lietuva' ? c : '🇱🇹')

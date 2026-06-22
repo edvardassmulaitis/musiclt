@@ -703,64 +703,79 @@ function fmtTotalViews(n: number): string {
   return n > 0 ? `${n} perž.` : 'nėra perž.'
 }
 
-// ── TRENDING (per dieną) ──────────────────────────────────────────────────
+// ── TRENDING (dabar populiaru) ────────────────────────────────────────────
+// v7.3 (Edvardo prašymu): trending remiasi TIK dainomis, išleistomis per
+// PASTARUOSIUS 2 METUS, ir jų peržiūromis per dieną — NE visu laiku. Taip
+// legendos (jokių naujų dainų) gauna ~0, o dabartiniai hitmeikeriai kyla.
 export type TrendingScoreData = {
-  vpd_total: number; vpd_recent: number; total_views: number; n_videos: number
+  vpd_2y: number          // SUM(views/age) klipams, išleistiems per 2 metus — esminis
+  views_2y: number        // SUM(views) tų pačių klipų
+  n_2y: number            // tokių klipų skaičius
   type: 'lt' | 'int'
 }
 export function computeTrendingScore(data: TrendingScoreData): ScoreBreakdown {
-  const { vpd_total, vpd_recent, total_views, n_videos, type } = data
-  // ① POPULIARUMAS (per dieną) 0-55 — esminis. 1K/d≈5,100K/d≈25,1M/d≈35,10M/d≈45.
-  const popPerDay = vpd_total > 0 ? clampPts(10 * Math.log10(vpd_total + 1) - 25, 55) : 0
-  // ② BENDRA APRĖPTIS 0-20.
-  const reachTotal = total_views > 0 ? clampPts(4 * Math.log10(total_views + 1) - 21, 20) : 0
-  // ③ ŠVIEŽUMAS (vpd iš ≤3 m. klipų) 0-15.
-  const freshness = vpd_recent > 0 ? clampPts(2.5 * Math.log10(vpd_recent + 1) - 2, 15) : 0
-  // ④ KATALOGAS 0-10.
-  const catalogYt = n_videos > 0 ? clampPts(5 * Math.log10(n_videos + 1), 10) : 0
-  const total = Math.min(100, popPerDay + reachTotal + freshness + catalogYt)
+  const { vpd_2y, views_2y, n_2y, type } = data
+  // ① PERŽIŪROS PER DIENĄ (≤2 m. dainos) 0-60 — esminis trending rodiklis.
+  //   1K/d≈5,10K/d≈20,100K/d≈35,1M/d≈50,5M/d+→cap 60.
+  const popPerDay = vpd_2y > 0 ? clampPts(15 * Math.log10(vpd_2y + 1) - 40, 60) : 0
+  // ② NAUJŲ DAINŲ APRĖPTIS (≤2 m. viso peržiūrų) 0-25.
+  const reachRecent = views_2y > 0 ? clampPts(8 * Math.log10(views_2y + 1) - 47, 25) : 0
+  // ③ NAUJŲ DAINŲ KIEKIS (aktyvumas) 0-15.
+  const catalogRecent = n_2y > 0 ? clampPts(6 * Math.log10(n_2y + 1), 15) : 0
+  const total = Math.min(100, popPerDay + reachRecent + catalogRecent)
   return {
     type,
     categories: {
-      pop_perday:  { points: popPerDay, max: 55, details: `${fmtPerDay(vpd_total)} (peržiūros per dieną)` },
-      reach_total: { points: reachTotal, max: 20, details: `viso: ${fmtTotalViews(total_views)}` },
-      freshness:   { points: freshness, max: 15, details: `naujausi 3m: ${fmtPerDay(vpd_recent)}` },
-      catalog_yt:  { points: catalogYt, max: 10, details: `${n_videos} klipų su peržiūromis` },
+      pop_perday:    { points: popPerDay, max: 60, details: `${fmtPerDay(vpd_2y)} (naujų dainų peržiūros per dieną)` },
+      reach_recent:  { points: reachRecent, max: 25, details: `naujos dainos (2m): ${fmtTotalViews(views_2y)}` },
+      catalog_recent:{ points: catalogRecent, max: 15, details: `${n_2y} naujų dainų (2m) su peržiūromis` },
     },
     total, score_override: 0, final_score: total,
-    inputs: { vpd_total: Math.round(vpd_total), vpd_recent: Math.round(vpd_recent), total_views, n_videos },
+    inputs: { vpd_2y: Math.round(vpd_2y), views_2y, n_2y },
   }
 }
 
 // ── ALL-TIME (visų laikų, be recency) ─────────────────────────────────────
 export type AllTimeScoreData = {
-  total_views: number; n_videos: number; span_years: number
+  total_views: number; n_videos: number; debut_year: number
   type: 'lt' | 'int'
 }
 export function computeAllTimeScore(data: AllTimeScoreData): ScoreBreakdown {
-  const { total_views, n_videos, span_years, type } = data
-  // v7.1 kalibracija — MAŽIAU saturacijos viršuje (anksčiau legendų krūva ties
-  // 95-99, nes longevity+catalog užsidarydavo max). Dabar visi trys plačiau
-  // diferencijuoja: aprėptis nuo peržiūrų, ilgaamžiškumas nuo metų tarpsnio.
+  const { total_views, n_videos, debut_year, type } = data
+  // v7.2 kalibracija. PROBLEMA su v7.1: ilgaamžiškumas (metų TARPSNIS) per stipriai
+  // kėlė mažai klausomus bet ilgos karjeros atlikėjus — Johnny Cash (tik 1.3 mlrd.
+  // perž., bet 67 m. tarpsnis) ir Elton John lipdavo virš Michael Jackson (15 mlrd.)
+  // ir Queen. Sprendimas: vietoj TARPSNIO ilgio — KLASIKA (kaip seniai debiutavo).
+  // Klasika apribota ir su mažėjančia grąža → visi „klasikiniai" gauna panašiai,
+  // tad PERŽIŪROS diferencijuoja jų eilę (MJ 15 mlrd. > Beatles 3.4 mlrd. > Johnny
+  // Cash 1.3 mlrd.). Modernūs (trumpas stažas) lieka žemiau, bet ne flash-only.
   //
-  // ① BENDRA APRĖPTIS (viso peržiūrų) 0-50 — sklandi, praktiškai nesisaturuoja:
-  //   10M≈12, 100M≈24, 1mlrd≈36, 10mlrd≈48, 30mlrd≈54→cap 50.
-  const reachTotal = total_views > 0 ? clampPts(12 * Math.log10(total_views + 1) - 72, 50) : 0
-  // ② ILGAAMŽIŠKUMAS (kūrybos metų tarpsnis) 0-40 — diferencijuoja eras, ne flat:
-  //   10 m.→6, 20 m.→12, 30 m.→18, 40 m.→24, 60 m.→36.
-  const longevity = span_years > 0 ? clampPts(0.6 * span_years, 40) : 0
-  // ③ KATALOGAS 0-10 — gylis (ne vienas hitas).
-  const catalogYt = n_videos > 0 ? clampPts(5 * Math.log10(n_videos + 1), 10) : 0
-  const total = Math.min(100, reachTotal + longevity + catalogYt)
+  // ① BENDRA APRĖPTIS (viso peržiūrų) 0-52 — pagrindinis diferencijuotojas.
+  //   10M≈12, 100M≈24, 1mlrd≈36, 10mlrd≈48, 25mlrd+→cap 52.
+  const reachTotal = total_views > 0 ? clampPts(12 * Math.log10(total_views + 1) - 72, 52) : 0
+  // ── AUDITORIJOS VARTAI ──────────────────────────────────────────────────
+  // Klasika ir katalogas SKAIČIUOJA tik jei atlikėjas turi realią auditoriją.
+  // Kitaip 0-peržiūrų atlikėjai (pvz. klasikos kompozitorius B.V. Kutavičius —
+  // sena karjera + daug įrašų, bet ~0 YouTube peržiūrų) iškildavo vien iš
+  // klasikos+katalogo. audience = 0 kai nėra aprėpties, 1.0 nuo ~46M perž.
+  const audience = Math.min(1, reachTotal / 20)
+  // ② KLASIKA (kaip seniai debiutavo) 0-30 — apribota, mažėjanti grąža. ×audience.
+  //   debiutas 1995→7, 1985→14, 1975→21, 1965→28, ≤1962→cap 30. <1950 ar nėra → 0.
+  const heritageRaw = debut_year >= 1950 ? Math.min(30, (2005 - debut_year) * 0.7) : 0
+  const heritage = clampPts(heritageRaw * audience, 30)
+  // ③ KATALOGAS 0-10 — gylis (ne vienas hitas). ×audience.
+  const catalogRaw = n_videos > 0 ? Math.min(10, 5 * Math.log10(n_videos + 1)) : 0
+  const catalogYt = clampPts(catalogRaw * audience, 10)
+  const total = Math.min(100, reachTotal + heritage + catalogYt)
   return {
     type,
     categories: {
-      reach_total: { points: reachTotal, max: 50, details: `viso: ${fmtTotalViews(total_views)}` },
-      longevity:   { points: longevity, max: 40, details: span_years > 0 ? `${span_years} m. kūrybos tarpsnis` : 'nenurodyta' },
+      reach_total: { points: reachTotal, max: 52, details: `viso: ${fmtTotalViews(total_views)}` },
+      heritage:    { points: heritage, max: 30, details: debut_year >= 1950 ? `klasika — debiutas ${debut_year}` : 'modernus / nenurodyta' },
       catalog_yt:  { points: catalogYt, max: 10, details: `${n_videos} klipų su peržiūromis` },
     },
     total, score_override: 0, final_score: total,
-    inputs: { total_views, n_videos, span_years },
+    inputs: { total_views, n_videos, debut_year },
   }
 }
 
@@ -783,37 +798,39 @@ async function gatherArtistYT(supabase: any, artistId: number) {
 
   const now = Date.now()
   const DAY = 86_400_000
-  const recentCutoff = now - 3 * 365 * DAY
+  const recentCutoff = now - 2 * 365 * DAY   // trending langas = 2 metai
   const curYear = new Date().getFullYear()
-  let vpd_total = 0, vpd_recent = 0, total_views = 0, n_videos = 0
-  let minYear = 0, maxYear = 0
+  let total_views = 0, n_videos = 0
+  let vpd_2y = 0, views_2y = 0, n_2y = 0
+  let debutYear = 0
   for (const r of (trackRows || []) as any[]) {
-    // ilgaamžiškumui — visi track'ai su validžiu release_year.
+    // KLASIKAI (debiuto metams) — release_year tik validžiame intervale.
     // 1970 atmetama: Unix-epoch placeholder iš blogų parse'ų (pvz. Shawn
-    // Mendes 17 dainų „1970") klaidingai išpučia tarpsnį. Tikri 1970 m.
-    // atlikėjai turi 1969/1971 kaimynus, tad jų tarpsnis nenukenčia.
+    // Mendes 17 dainų „1970"). <1950 atmetama: pre-1950 placeholderiai/klaidos
+    // (modernus atlikėjas su viena klaidinga sena daina negautų netikros klasikos).
     const ry = Number(r.release_year) || 0
-    if (ry >= 1900 && ry <= curYear + 1 && ry !== 1970) {
-      if (minYear === 0 || ry < minYear) minYear = ry
-      if (ry > maxYear) maxYear = ry
+    if (ry >= 1950 && ry <= curYear + 1 && ry !== 1970) {
+      if (debutYear === 0 || ry < debutYear) debutYear = ry
     }
     const v = Number(r.video_views) || 0
     if (v <= 0) continue
     n_videos++
-    total_views += v
+    total_views += v   // all-time aprėpčiai
     let ts: number | null = null
     if (r.video_uploaded_at) { const t = Date.parse(r.video_uploaded_at); if (!Number.isNaN(t)) ts = t }
     if (ts === null && ry) ts = Date.UTC(ry, 0, 1)
     if (ts === null) continue
-    const ageDays = Math.max(30, (now - ts) / DAY)
-    const vpd = v / ageDays
-    vpd_total += vpd
-    if (ts >= recentCutoff) vpd_recent += vpd
+    // Trending — TIK dainos iš pastarųjų 2 metų.
+    if (ts >= recentCutoff) {
+      const ageDays = Math.max(30, (now - ts) / DAY)
+      vpd_2y += v / ageDays
+      views_2y += v
+      n_2y++
+    }
   }
-  const span_years = minYear > 0 && maxYear > minYear ? maxYear - minYear : 0
   const type: 'lt' | 'int' = isLT ? 'lt' : 'int'
   const override = artist?.score_override || 0
-  return { vpd_total, vpd_recent, total_views, n_videos, span_years, type, override }
+  return { vpd_2y, views_2y, n_2y, total_views, n_videos, debut_year: debutYear, type, override }
 }
 
 function applyOverride(bd: ScoreBreakdown, override: number): ScoreBreakdown {
@@ -829,11 +846,11 @@ export async function calculateArtistScores(
 ): Promise<{ alltime: ScoreBreakdown; trending: ScoreBreakdown }> {
   const d = await gatherArtistYT(supabase, artistId)
   const alltime = applyOverride(
-    computeAllTimeScore({ total_views: d.total_views, n_videos: d.n_videos, span_years: d.span_years, type: d.type }),
+    computeAllTimeScore({ total_views: d.total_views, n_videos: d.n_videos, debut_year: d.debut_year, type: d.type }),
     d.override,
   )
   const trending = applyOverride(
-    computeTrendingScore({ vpd_total: d.vpd_total, vpd_recent: d.vpd_recent, total_views: d.total_views, n_videos: d.n_videos, type: d.type }),
+    computeTrendingScore({ vpd_2y: d.vpd_2y, views_2y: d.views_2y, n_2y: d.n_2y, type: d.type }),
     d.override,
   )
   return { alltime, trending }

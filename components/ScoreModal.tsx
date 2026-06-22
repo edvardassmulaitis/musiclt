@@ -34,7 +34,8 @@ type ExtraStats = {
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   // YouTube formulės (v7). ScoreModal rodo kanoninį ALL-TIME balą.
   reach_total: { label: 'Bendra aprėptis',      color: '#a78bfa' },   // viso peržiūrų
-  longevity:   { label: 'Ilgaamžiškumas',       color: '#0ea5e9' },   // kūrybos metų tarpsnis
+  heritage:    { label: 'Klasika',              color: '#0ea5e9' },   // kaip seniai debiutavo
+  longevity:   { label: 'Ilgaamžiškumas',       color: '#0ea5e9' },   // legacy (seni breakdown'ai)
   pop_perday:  { label: 'Populiarumas / dieną', color: '#ec4899' },   // trending
   freshness:   { label: 'Šviežumas',            color: '#10b981' },   // trending
   catalog_yt:  { label: 'Katalogas',            color: '#3b82f6' },   // klipų skaičius
@@ -53,7 +54,7 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 // Fixed display order — ScoreModal rodo kanoninį ALL-TIME balą (be recency).
-const ALLTIME_ORDER = ['reach_total', 'longevity', 'catalog_yt']
+const ALLTIME_ORDER = ['reach_total', 'heritage', 'catalog_yt']
 const CATEGORY_ORDER: Record<string, string[]> = {
   lt:  ALLTIME_ORDER,
   int: ALLTIME_ORDER,
