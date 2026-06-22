@@ -29,7 +29,7 @@ export async function PUT(req: NextRequest) {
   const body = await req.json()
   // V18i: +profilio savitvarkos laukai (rodomi „Apie mane" / hero): šūkis,
   // miestas, užsiėmimas, gimimo data, mėgstamos knygos, nario nuotraukos.
-  const allowed = ['full_name', 'username', 'bio', 'website', 'avatar_url', 'cover_image_url', 'social_twitter', 'social_spotify', 'social_youtube', 'social_tiktok', 'is_public', 'legacy_signature', 'legacy_city', 'legacy_occupation', 'legacy_birth_date', 'legacy_favorite_books', 'legacy_favorite_films', 'legacy_profile_photos']
+  const allowed = ['full_name', 'username', 'bio', 'website', 'avatar_url', 'cover_image_url', 'social_twitter', 'social_spotify', 'social_youtube', 'social_tiktok', 'is_public', 'legacy_signature', 'legacy_city', 'legacy_occupation', 'legacy_birth_date', 'legacy_favorite_books', 'legacy_favorite_films', 'legacy_profile_photos', 'default_profile_tab']
   const updates: Record<string, any> = {}
   for (const k of allowed) if (body[k] !== undefined) updates[k] = body[k]
 

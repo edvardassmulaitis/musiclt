@@ -67,6 +67,18 @@ type SubstyleFilter = { kind: 'substyle'; legacyId: number; name: string }
 type GenreFilter = { kind: 'genre'; name: string }
 type AnyFilter = SubstyleFilter | GenreFilter
 
+// Numatytasis profilio rodinys. Savininkas gali pasirinkti /auth/profile:
+// 'all' (įrašai), 'likes' (Mėgstama muzika), 'about' (Apie mane). 'auto'/null —
+// turi įrašų → įrašai; neturi įrašų → Mėgstama muzika (kitaip „Apie mane").
+// Jei pasirinktas rodinys neturi turinio (pvz. 'all' be įrašų), grįžtam į auto.
+function resolveInitialTab(pref: string | null | undefined, hasFeed: boolean, hasLikes: boolean): string {
+  const auto = hasFeed ? 'all' : hasLikes ? 'likes' : 'about'
+  if (pref === 'all') return hasFeed ? 'all' : auto
+  if (pref === 'likes') return hasLikes ? 'likes' : auto
+  if (pref === 'about') return 'about'
+  return auto
+}
+
 export function ProfileClient(props: any) {
   const {
     profile, favoriteArtists, favoriteStyles, favoriteAlbums, favoriteTracks, likesCounts,
@@ -522,7 +534,8 @@ function MobileProfileView(props: any) {
   }, [feedTypeChips, hasLikes])
 
   // V18g: numatytasis kaip desktop — feed'as ('all') pirma, kitaip likes/about.
-  const [sel, setSel] = useState<string>(hasFeed ? 'all' : hasLikes ? 'likes' : 'about')
+  // V19: gerbiam savininko pasirinkimą (profile.default_profile_tab).
+  const [sel, setSel] = useState<string>(resolveInitialTab(profile?.default_profile_tab, hasFeed, hasLikes))
   const isFeedFilter = sel !== 'likes' && sel !== 'about'
 
   const avatar = realPhotoUrl || profile.avatar_url || null
@@ -2463,7 +2476,8 @@ function ProfileBodyDesktop(props: any) {
   const hasDdWeeks = feedItems.some((it) => it.kind === 'ddweek')
   // Realus srauto turinys = postai arba dienos dainos. Jei nieko nera -> atidarom Megstama muzika.
   const hasFeedContent = feedItems.some((it) => it.kind === 'post' || it.kind === 'ddweek')
-  const [filter, setFilter] = useState<string>(hasFeedContent ? 'all' : hasLikes ? 'likes' : 'all')
+  // V19: gerbiam savininko pasirinkimą (profile.default_profile_tab); neturi įrašų → Mėgstama muzika.
+  const [filter, setFilter] = useState<string>(resolveInitialTab(profile?.default_profile_tab, hasFeedContent, hasLikes))
   // V18f: srautas plečiasi vietoje („Daugiau") — nebenukreipia į atskirą /blogas.
   const FEED_PAGE = 10
   const [shownCount, setShownCount] = useState(FEED_PAGE)
