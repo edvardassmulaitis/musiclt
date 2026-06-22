@@ -83,7 +83,7 @@ const fetchTrackData = unstable_cache(
     const { data: track } = await supabase
       .from('tracks')
       .select(`
-        id, slug, title, type, video_url, spotify_id, release_date,
+        id, slug, title, type, video_url, spotify_id, release_date, release_year, release_month,
         lyrics, chords, description, show_player, is_new, show_ai_interpretation,
         ai_interpretation, ai_image_url,
         artist_id, legacy_id, source,

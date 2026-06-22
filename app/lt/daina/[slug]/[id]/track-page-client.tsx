@@ -17,6 +17,7 @@ type Artist = { id: number; slug: string; name: string; cover_image_url: string 
 type Track = {
   id: number; slug: string; title: string; type: string
   video_url: string | null; spotify_id: string | null; release_date: string | null
+  release_year?: number | null; release_month?: number | null
   lyrics: string | null; chords: string | null; description: string | null
   show_player: boolean; is_new: boolean; featuring: Artist[]
   show_ai_interpretation: boolean
@@ -319,8 +320,12 @@ export default function TrackPageClient({
   const vid = ytId(track.video_url)
   const hasLyrics = !!track.lyrics?.trim()
   const hasChords = !!track.chords?.trim()
-  const dateStr = fmtDate(track.release_date)
   const primaryAlbum = albums[0] ?? null
+  // Data: pilna data → metai (+mėn.) → albumo metai (fallback, nes daugumai dainų
+  // tikslios datos DB nėra, bet albumas dažnai turi metus).
+  const dateStr = fmtDate(track.release_date)
+    || (track.release_year ? `${track.release_year} m.` : null)
+    || (primaryAlbum?.year ? `${primaryAlbum.year} m.` : null)
 
   // ── CSS Variables are used instead of inline theme object ──────────────────
   // All theme colors are now defined in globals.css with [data-theme] attribute
@@ -629,7 +634,6 @@ export default function TrackPageClient({
                       </div>
                     )}
                     <div className="min-w-0 flex-1 pt-0.5">
-                      <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Atlikėjas</div>
                       <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{artist.name}</div>
                       {artistGenres.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">

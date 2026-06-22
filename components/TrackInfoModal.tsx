@@ -345,7 +345,10 @@ export function TrackInfoModal({
   const fullDate = track.release_date
     ? (() => { const d = new Date(track.release_date!); return isNaN(d.getTime()) ? null : `${d.getFullYear()} m. ${ltMonths[d.getMonth()]} ${d.getDate()} d.` })()
     : (track.release_year && track.release_month ? `${track.release_year} m. ${ltMonths[track.release_month - 1]} mėn.` : null)
-  const dateLabel = fullDate || (year ? `${year} m.` : null)
+  // Fallback į albumo metus — daugumai dainų tikslios datos DB nėra, bet albumas
+  // dažnai turi metus (pvz. „ARIRANG 2026 m.").
+  const albumYear = (track.albums || [])[0]?.year || null
+  const dateLabel = fullDate || (year ? `${year} m.` : (albumYear ? `${albumYear} m.` : null))
   // serverLikeCount (sync'intas iš /api/tracks/[id]/like) jau įskaito visus
   // like'us, įskaitant šio user'io — fallback į track.like_count kol kraunasi.
   const likes = serverLikeCount ?? (typeof track.like_count === 'number' ? track.like_count : 0)
@@ -630,7 +633,6 @@ export function TrackInfoModal({
                       </div>
                     )}
                     <div className="min-w-0 flex-1 pt-0.5">
-                      <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Atlikėjas</div>
                       <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{artistName}</div>
                       {artistGenres.length > 0 && (
                         <div className="mt-1.5 flex flex-wrap gap-1">
