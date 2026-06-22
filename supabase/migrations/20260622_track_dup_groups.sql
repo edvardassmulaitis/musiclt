@@ -55,6 +55,25 @@ end $$;
 -- popularity for ordering dup groups (max youtube views among members)
 alter table track_dup_groups add column if not exists popularity bigint not null default 0;
 create index if not exists idx_tdg_popularity on track_dup_groups (status, popularity desc);
+create or replace function top_liked_low_views(
+  p_max_views bigint default 1000,
+  p_min_likes int default 5,
+  p_limit int default 50,
+  p_offset int default 0
+) returns table(track_id bigint, likes bigint)
+language plpgsql volatile as $$
+begin
+  set local statement_timeout = '60s';
+  return query
+    select l.entity_id, count(*)::bigint
+    from likes l
+    join tracks t on t.id = l.entity_id
+    where l.entity_type = 'track' and coalesce(t.video_views,0) <= p_max_views
+    group by l.entity_id
+    having count(*) >= p_min_likes
+    order by count(*) desc, l.entity_id
+    limit p_limit offset p_offset;
+end $$;
 -- Per-signal scan functions. Each raises its own statement_timeout and stays
 -- well under the API gateway limit, so they can be called one at a time from
 -- the admin UI (service-role RPC) to repeat the duplicate scan.

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/admin-auth'
+import { enrichTrack } from '@/lib/yt-enrich'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -24,6 +25,20 @@ export async function POST(req: NextRequest) {
   const action = String(body.action || '')
   const sb = createAdminClient()
   const now = new Date().toISOString()
+
+  if (action === 'enrich') {
+    const id = Number(body.id)
+    if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+    try {
+      const result: any = await enrichTrack(id, true)
+      if (!result?.ok) return NextResponse.json({ ok: false, error: result?.error || 'enrich failed' }, { status: 200 })
+      // return the refreshed video fields so the UI can update in place
+      const { data: t } = await sb.from('tracks').select('video_url, video_views, video_embeddable').eq('id', id).single()
+      return NextResponse.json({ ok: true, action, id, video_url: t?.video_url || null, video_views: t?.video_views ?? 0, video_embeddable: t?.video_embeddable ?? null })
+    } catch (e: any) {
+      return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 200 })
+    }
+  }
 
   if (action === 'zero_one') {
     const id = Number(body.id)
