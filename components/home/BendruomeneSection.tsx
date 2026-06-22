@@ -489,7 +489,7 @@ export default function BendruomeneSection() {
         </h2>
         <Link href="/atrasti"
               className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">
-          Atrasti →
+          Daugiau →
         </Link>
       </div>
 
