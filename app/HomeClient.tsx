@@ -188,12 +188,33 @@ function EqSkel({ w, h, r = 12 }: { w: number; h: number; r?: number }) {
  *  /api/home/latest fetch'as galutinai fail'ino (po retry) — kad vartotojas
  *  nematytų amžinų skeletonų ir galėtų perpaleisti rankiniu būdu. */
 function LoadErrorCard({ onRetry, height = 112 }: { onRetry: () => void; height?: number }) {
+  // ── Auto-self-heal („kad neliktų užstrigęs ant rankinio mygtuko") ──
+  // Kai ši kortelė parodoma (sekcija fail'ino), AUTOMATIŠKAI perbandom po kelių
+  // sekundžių — vartotojui nebereikia spausti. Jei perbandymas vėl fail'ina,
+  // sumonteruojamas naujas šios kortelės instancas → vėl perbando → savaiminis
+  // atsistatymas, kol /api/home/latest atsako (serveris jau pataisytas, atsako).
+  // SĄMONINGAI įdėta šitame mažame leaf komponente, kad paralelinės sesijos,
+  // perrašydamos didžiąją HomeClient render logiką, NEnuplautų self-heal'o
+  // (taip jau nutiko 2026-06-21 — žr. HOMEPAGE_LATEST_LOADING_HANDOFF.md).
+  useEffect(() => {
+    const t = setTimeout(() => { onRetry() }, 3500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   return (
     <div
       className="flex shrink-0 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] px-5"
       style={{ height, minWidth: 220 }}
     >
-      <span className="text-[12px] text-[var(--text-muted)]">Nepavyko užkrauti</span>
+      <span
+        aria-hidden
+        style={{
+          width: 18, height: 18, borderRadius: '50%',
+          border: '2px solid var(--border-default)', borderTopColor: 'var(--accent-orange)',
+          display: 'inline-block', animation: 'mz-spin 0.8s linear infinite',
+        }}
+      />
+      <span className="text-[12px] text-[var(--text-muted)]">Atnaujinama…</span>
       <button
         type="button"
         onClick={onRetry}
@@ -201,6 +222,7 @@ function LoadErrorCard({ onRetry, height = 112 }: { onRetry: () => void; height?
       >
         Bandyti dar kartą
       </button>
+      <style>{'@keyframes mz-spin{to{transform:rotate(360deg)}}'}</style>
     </div>
   )
 }
