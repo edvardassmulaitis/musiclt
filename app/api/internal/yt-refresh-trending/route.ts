@@ -31,25 +31,23 @@ export async function GET(req: NextRequest) {
   const minTrending = Number(url.searchParams.get('min_trending') || 35)
   const curYear = new Date().getFullYear()
 
-  // Naujausios dainos (šiemet/pernai) iš trending atlikėjų; seniausiai tikrintos pirma.
-  const { data: tracks, error } = await supabase
-    .from('tracks')
-    .select('id, video_views_checked_at, artists!inner(score_trending)')
-    .gte('release_year', curYear - 1)
-    .gte('artists.score_trending', minTrending)
-    .order('video_views_checked_at', { ascending: true, nullsFirst: true })
-    .limit(budget)
-
+  // RPC: per atlikėją TIK top-10 naujausių dainų (pagal peržiūras) — kad
+  // produktyvūs atlikėjai (YoungBoy 70 dainų) nesuvalgytų viso biudžeto ir
+  // refresh'intume tik balui svarbiausias dainas. Tarp jų — seniausiai tikrintos
+  // pirma (sąžininga rotacija, niekas neužsiloop'ina, niekas neužstringa).
+  const { data: cand, error } = await supabase.rpc('trending_refresh_candidates', {
+    p_budget: budget, p_min_trending: minTrending, p_min_year: curYear - 1,
+  })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   let refreshed = 0, failed = 0
   const errs: string[] = []
-  for (const t of tracks || []) {
+  for (const row of (cand || []) as { id: number }[]) {
     try {
-      const r: any = await enrichTrack((t as any).id, false)
-      if (r && !r.error) refreshed++; else { failed++; if (errs.length < 5) errs.push(`${(t as any).id}: ${r?.error || '?'}`) }
-    } catch (e: any) { failed++; if (errs.length < 5) errs.push(`${(t as any).id}: ${String(e?.message || e)}`) }
+      const r: any = await enrichTrack(row.id, false)
+      if (r && !r.error) refreshed++; else { failed++; if (errs.length < 5) errs.push(`${row.id}: ${r?.error || '?'}`) }
+    } catch (e: any) { failed++; if (errs.length < 5) errs.push(`${row.id}: ${String(e?.message || e)}`) }
   }
 
-  return NextResponse.json({ ok: true, candidates: (tracks || []).length, refreshed, failed, errs })
+  return NextResponse.json({ ok: true, candidates: (cand || []).length, refreshed, failed, errs })
 }
