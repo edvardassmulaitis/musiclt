@@ -711,38 +711,51 @@ function fmtTotalViews(n: number): string {
 // YouTube-regioninį dominavimą (pvz. ispanakalbiai, kurių YT velocity didžiulė, bet
 // globaliuose topuose nėra). Topuose esantys (Taylor, Drake, Olivia Rodrigo) kyla.
 export type TrendingScoreData = {
-  vpd_2y: number          // SUM(views/age) ≤2 m. klipams
+  vpd_2y: number          // SUM(views/age) naujausiems klipams
   views_2y: number; n_2y: number
   chart_best: number      // geriausia (mažiausia) pozicija dabartiniuose topuose; 0 jei nėra
   chart_count: number     // keliuose skirtinguose dabartiniuose topuose yra
+  fresh_days: number      // dienų nuo naujausio įkėlimo (ką tik išleido?)
   type: 'lt' | 'int'
 }
 function chartPoints(best: number, count: number): number {
   if (!best || best <= 0) return 0
-  const pos = best <= 1 ? 32 : best <= 3 ? 29 : best <= 5 ? 26 : best <= 10 ? 22
-    : best <= 20 ? 17 : best <= 40 ? 11 : best <= 100 ? 6 : 3
-  const breadth = Math.min(12, count * 1.5)
-  return Math.round(Math.min(50, pos + breadth))
+  const pos = best <= 1 ? 29 : best <= 3 ? 26 : best <= 5 ? 23 : best <= 10 ? 19
+    : best <= 20 ? 15 : best <= 40 ? 10 : best <= 100 ? 5 : 3
+  const breadth = Math.min(11, count * 1.4)
+  return Math.round(Math.min(45, pos + breadth))
+}
+// Šviežumas — KĄ TIK išleido (nepriklauso nuo peržiūrų kiekio, tad ir mažesnis
+// atlikėjas su nauju albumu gauna trending boostą).
+function freshnessPoints(days: number): number {
+  if (days <= 21) return 25
+  if (days <= 45) return 18
+  if (days <= 90) return 10
+  if (days <= 180) return 4
+  return 0
 }
 export function computeTrendingScore(data: TrendingScoreData): ScoreBreakdown {
-  const { vpd_2y, views_2y, n_2y, chart_best, chart_count, type } = data
-  // v9 balansas (Edvardo pastabos): topai NEBE dominuoja vieni — peržiūros/dieną
-  // irgi iki 50, kad didelio momentum atlikėjai (BTS, lotynų hitai) kiltų net be
-  // globalių topų, bet topuose esantys (Taylor, Drake) vis tiek aukštai.
-  // ① DABARTINIAI TOPAI 0-50.
+  const { vpd_2y, chart_best, chart_count, fresh_days, type } = data
+  // v10 (Edvardo pastabos): trys signalai. ① topai (autoritetas). ② peržiūros/dieną
+  // (momentum). ③ ŠVIEŽUMAS — ką tik išleistas albumas duoda boostą net jei perž.
+  // dar mažai (svarbu LT atlikėjams: ba. albumas prieš savaitę). Langas sutrauktas:
+  // per-dieną tik iš 2025+ dainų (2024 nebėra „trending").
   const charts = chartPoints(chart_best, chart_count)
-  // ② NAUJŲ DAINŲ PERŽIŪROS / DIENĄ (≤2 m.) 0-50 — YouTube momentum.
-  //   100K/d≈34, 1M/d≈50, t.y. 1M+/d → 50.
-  const popPerDay = vpd_2y > 0 ? clampPts(16 * Math.log10(vpd_2y + 1) - 46, 50) : 0
-  const total = Math.min(100, charts + popPerDay)
+  // ② PERŽIŪROS / DIENĄ 0-30: 9·log10(vpd)-18 → 10K/d≈18, 100K/d≈27, 1M/d→cap30.
+  const popPerDay = vpd_2y > 0 ? clampPts(9 * Math.log10(vpd_2y + 1) - 18, 30) : 0
+  // ③ ŠVIEŽUMAS 0-25.
+  const freshness = freshnessPoints(fresh_days)
+  const total = Math.min(100, charts + popPerDay + freshness)
+  const freshLabel = fresh_days <= 180 ? `prieš ${fresh_days} d.` : 'seniai'
   return {
     type,
     categories: {
-      charts:     { points: charts, max: 50, details: chart_best > 0 ? `topuose: geriausia #${chart_best}, ${chart_count} sąraš.` : 'nėra dabartiniuose topuose' },
-      pop_perday: { points: popPerDay, max: 50, details: `${fmtPerDay(vpd_2y)} (naujų dainų perž./d.)` },
+      charts:     { points: charts, max: 45, details: chart_best > 0 ? `topuose: geriausia #${chart_best}, ${chart_count} sąraš.` : 'nėra dabartiniuose topuose' },
+      pop_perday: { points: popPerDay, max: 30, details: `${fmtPerDay(vpd_2y)} (naujų dainų perž./d.)` },
+      freshness:  { points: freshness, max: 25, details: `naujausias įkėlimas: ${freshLabel}` },
     },
     total, score_override: 0, final_score: total,
-    inputs: { vpd_2y: Math.round(vpd_2y), views_2y, n_2y, chart_best, chart_count },
+    inputs: { vpd_2y: Math.round(vpd_2y), chart_best, chart_count, fresh_days },
   }
 }
 
@@ -808,11 +821,15 @@ async function gatherArtistYT(supabase: any, artistId: number) {
 
   const now = Date.now()
   const DAY = 86_400_000
-  const recentCutoff = now - 2 * 365 * DAY   // trending langas = 2 metai
+  // Trending langas SUTRAUKTAS (Edvardo pastaba: 2024 nebėra „trending"). Recent =
+  // šiemet/pernai (release_year >= curYear-1, t.y. 2025+) arba įkelta per ~15 mėn.
+  const recentCutoff = now - 460 * DAY
+  const AGE_FLOOR = 14   // d. — kad ką tik išleistas albumas gautų realų per-dieną boostą
   const curYear = new Date().getFullYear()
   let total_views = 0, n_videos = 0
   let vpd_2y = 0, views_2y = 0, n_2y = 0
   let debutYear = 0
+  let newestUploadTs = 0   // šviežumui — naujausio įkėlimo data
   for (const r of (trackRows || []) as any[]) {
     // KLASIKAI (debiuto metams) — release_year tik validžiame intervale.
     // 1970 atmetama: Unix-epoch placeholder iš blogų parse'ų (pvz. Shawn
@@ -827,22 +844,23 @@ async function gatherArtistYT(supabase: any, artistId: number) {
     n_videos++
     total_views += v   // all-time aprėpčiai
     let uploadTs: number | null = null
-    if (r.video_uploaded_at) { const t = Date.parse(r.video_uploaded_at); if (!Number.isNaN(t)) uploadTs = t }
+    if (r.video_uploaded_at) { const t = Date.parse(r.video_uploaded_at); if (!Number.isNaN(t)) { uploadTs = t; if (t > newestUploadTs) newestUploadTs = t } }
     const ts = uploadTs !== null ? uploadTs : (ry ? Date.UTC(ry, 0, 1) : null)
     if (ts === null) continue
     // Trending recency — „pastarieji 2 metai". release_year yra tiesa kai yra
     // (2024+ = recent net jei nėra įkėlimo datos; anksčiau Jan-1 paversdavo 2024
     // dainą 2.4 m. sena → klaidingai iškrisdavo, pvz. ba. 20 dainų → 0). Be metų
     // — pagal įkėlimo datą.
-    const recent = ry >= 1950 ? (ry >= curYear - 2) : (uploadTs !== null && uploadTs >= recentCutoff)
+    const recent = ry >= 1950 ? (ry >= curYear - 1) : (uploadTs !== null && uploadTs >= recentCutoff)
     if (recent) {
-      const ageDays = Math.max(30, (now - ts) / DAY)
+      const ageDays = Math.max(AGE_FLOOR, (now - ts) / DAY)
       vpd_2y += v / ageDays
       views_2y += v
       n_2y++
     }
   }
   const type: 'lt' | 'int' = isLT ? 'lt' : 'int'
+  const fresh_days = newestUploadTs > 0 ? Math.floor((now - newestUploadTs) / DAY) : 99999
 
   // Dabartiniai išoriniai topai (trending'ui) — atitinkamo scope (lt/world).
   let chart_best = 0, chart_count = 0
@@ -864,7 +882,7 @@ async function gatherArtistYT(supabase: any, artistId: number) {
 
   const override = artist?.score_override || 0
   const legacy_likes = Number(artist?.legacy_likes) || 0
-  return { vpd_2y, views_2y, n_2y, total_views, n_videos, debut_year: debutYear, legacy_likes, chart_best, chart_count, type, override }
+  return { vpd_2y, views_2y, n_2y, total_views, n_videos, debut_year: debutYear, legacy_likes, chart_best, chart_count, fresh_days, type, override }
 }
 
 function applyOverride(bd: ScoreBreakdown, override: number): ScoreBreakdown {
@@ -884,7 +902,7 @@ export async function calculateArtistScores(
     d.override,
   )
   const trending = applyOverride(
-    computeTrendingScore({ vpd_2y: d.vpd_2y, views_2y: d.views_2y, n_2y: d.n_2y, chart_best: d.chart_best, chart_count: d.chart_count, type: d.type }),
+    computeTrendingScore({ vpd_2y: d.vpd_2y, views_2y: d.views_2y, n_2y: d.n_2y, chart_best: d.chart_best, chart_count: d.chart_count, fresh_days: d.fresh_days, type: d.type }),
     d.override,
   )
   return { alltime, trending }

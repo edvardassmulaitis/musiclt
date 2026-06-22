@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
 
   const now = Date.now(), DAY = 86_400_000
   const curYear = new Date().getFullYear()
-  const recentCutoff = now - 2 * 365 * DAY   // trending langas = 2 metai
+  const recentCutoff = now - 460 * DAY       // trending langas ~15 mėn.
+  const AGE_FLOOR = 14
   let total_views = 0, minYear = 0, maxYear = 0
   const tracks = (rows || []).map((t: any) => {
     const v = Number(t.video_views) || 0
@@ -42,9 +43,9 @@ export async function GET(req: NextRequest) {
     let uploadTs: number | null = null
     if (t.video_uploaded_at) { const p = Date.parse(t.video_uploaded_at); if (!Number.isNaN(p)) uploadTs = p }
     const ts = uploadTs !== null ? uploadTs : (ry ? Date.UTC(ry, 0, 1) : null)
-    const ageDays = ts === null ? null : Math.max(30, (now - ts) / DAY)
+    const ageDays = ts === null ? null : Math.max(AGE_FLOOR, (now - ts) / DAY)
     const vpd = ageDays ? Math.round(v / ageDays) : null
-    const recent = ry >= 1950 ? (ry >= curYear - 2) : (uploadTs !== null && uploadTs >= recentCutoff)
+    const recent = ry >= 1950 ? (ry >= curYear - 1) : (uploadTs !== null && uploadTs >= recentCutoff)
     return { id: t.id, title: t.title, slug: t.slug, views: v, year: ry || null, vpd, recent }
   })
 
