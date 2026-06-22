@@ -284,6 +284,32 @@ export function cleanTitle(title: string, artist = ''): string {
   return t.replace(/^[\s\t\-–—|·•✦*~“”"']+|[\s\t\-–—|·•✦*~“”"']+$/g, '').trim()
 }
 
+/**
+ * Title-anchored fuzzy artist: kai pavadinimas DB yra TIKSLUS (per indeksuotą
+ * title_norm), bet atlikėjas su rašybos klaida („LOS DOS DE TAMAULIPAS" vs DB
+ * „Los Dos De Tampaulipas"). SAUGU, nes pavadinimas privalo sutapti tiksliai, o
+ * atlikėjas — tik aiškus high-similarity nugalėtojas. Gate: pavadinimas/atlikėjas
+ * pakankamai ilgi (ne trumpi „Hello"/„Sia" atsitiktinumai), Dice≥0.85, ≥0.08 atotrūkis.
+ */
+async function titleAnchoredMatch(
+  sb: Sb, table: 'tracks' | 'albums', rawArtist: string, rawTitle: string,
+): Promise<CatHit | null> {
+  const tq = colNorm(rawTitle)
+  if (!tq || (tq.length < 5 && tq.split(' ').length < 2)) return null
+  const an = normalizeForMatch(primaryArtist(rawArtist))
+  if (!an || an.length < 6) return null
+  const sel = table === 'albums'
+    ? 'id, title, artist_id, artists:artist_id(name, slug)'
+    : 'id, title, artist_id, artists:artist_id(name)'
+  const { data } = await sb.from(table).select(sel).eq('title_norm', tq).limit(50)
+  const scored = (data || []).map((t: any) => {
+    const nm = Array.isArray(t.artists) ? t.artists[0]?.name : t.artists?.name
+    return { t, s: dice(normalizeForMatch(nm || ''), an) }
+  }).filter((x: any) => x.s >= 0.85).sort((a: any, b: any) => b.s - a.s)
+  if (scored.length && (scored.length < 2 || scored[0].s - scored[1].s >= 0.08)) return scored[0].t as CatHit
+  return null
+}
+
 export type ConfidentMatch = { trackId: number; artistId: number; trackTitle: string; artistName: string }
 
 /**
@@ -317,6 +343,8 @@ export async function findConfidentMatch(
       hit = matchInCatalog((st || []) as CatHit[], rawArtist, false)
     }
   }
+  // Title-anchored fuzzy artist (rašybos klaida atlikėjo varde, tikslus pavadinimas).
+  if (!hit && opts?.fuzzy) hit = await titleAnchoredMatch(sb, 'tracks', rawArtist, rawTitle)
   if (!hit) return null
   const ar = Array.isArray(hit.artists) ? hit.artists[0] : hit.artists
   return { trackId: hit.id, artistId: hit.artist_id, trackTitle: hit.title, artistName: ar?.name || rawArtist }
@@ -338,6 +366,7 @@ export async function findConfidentAlbumMatch(
     const ct = cleanTitle(rawTitle, rawArtist)
     if (ct && ct !== rawTitle && normalizeForMatch(ct)) hit = matchInCatalog((albums || []) as CatHit[], ct, !!opts?.fuzzy)
   }
+  if (!hit && opts?.fuzzy) hit = await titleAnchoredMatch(sb, 'albums', rawArtist, rawTitle)
   if (!hit) return null
   const ar = Array.isArray(hit.artists) ? hit.artists[0] : hit.artists
   return { albumId: hit.id, artistId: hit.artist_id, albumTitle: hit.title, artistName: ar?.name || rawArtist }
