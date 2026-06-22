@@ -465,8 +465,9 @@ function DedupSection() {
 
 type JunkTrack = {
   id: number; slug: string; title: string
-  video_views: number | null; video_url: string | null; video_embeddable: boolean | null
-  reason: 'no_url' | 'not_embeddable'
+  video_views: number | null; video_url: string | null; video_embeddable?: boolean | null
+  reason?: 'no_url' | 'not_embeddable'
+  has_video?: boolean
   artist_name: string | null; artist_slug: string | null
   likes?: number
 }
