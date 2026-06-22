@@ -77,6 +77,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, action: 'merge_one', remaining_ids: remaining, group_done: done })
   }
 
+  // Clear the YouTube video off a track AND zero its (now junk) views.
+  if (action === 'clear_video') {
+    const trackId = Number(body.track_id)
+    if (!trackId || !allIds0.includes(trackId)) return NextResponse.json({ error: 'track_id must be in group' }, { status: 400 })
+    const { error: cErr } = await sb.from('tracks').update({
+      video_url: null,
+      video_embeddable: null,
+      video_views: 0,
+      video_views_checked_at: new Date().toISOString(),
+    }).eq('id', trackId)
+    if (cErr) return NextResponse.json({ ok: false, error: cErr.message }, { status: 500 })
+    return NextResponse.json({ ok: true, action: 'clear_video', track_id: trackId })
+  }
+
   // Hard-DELETE one track (junk), then drop it from the group.
   if (action === 'delete_one') {
     const trackId = Number(body.track_id)

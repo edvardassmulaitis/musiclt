@@ -120,7 +120,7 @@ export default function YtSiukslesPage() {
         {tracks.map(t => (
           <div key={t.id} className="flex items-center gap-3 px-4 py-2.5">
             <div className="min-w-0 flex-1">
-              <Link href={`/admin/tracks/${t.id}`} className="font-medium text-gray-900 hover:underline truncate">{t.title}</Link>
+              <Link href={`/admin/tracks/${t.id}`} target="_blank" rel="noopener noreferrer" className="font-medium text-gray-900 hover:underline truncate">{t.title}</Link>
               <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
                 {t.artist_slug
                   ? <Link href={`/atlikejai/${t.artist_slug}`} className="hover:underline">{t.artist_name || '—'}</Link>

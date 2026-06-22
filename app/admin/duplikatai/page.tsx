@@ -176,6 +176,24 @@ export default function DuplikataiPage() {
     } finally { setBusyMember(b => ({ ...b, [loserId]: false })) }
   }
 
+  const doClearVideo = async (g: Group, trackId: number) => {
+    setBusyMember(b => ({ ...b, [trackId]: true }))
+    try {
+      const r = await fetch('/api/admin/duplikatai/action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: g.id, action: 'clear_video', track_id: trackId }),
+      })
+      const j = await r.json()
+      if (j.ok) {
+        setExpanded(e => ({ ...e, [trackId]: false }))
+        setGroups(gs => gs.map(x => x.id === g.id
+          ? { ...x, members: x.members.map(m => m.id === trackId ? { ...m, has_video: false, video_url: null, video_views: 0 } : m) }
+          : x))
+        flash('Video pašalintas, peržiūros nunulintos.')
+      } else flash('Klaida: ' + (j.error || ''))
+    } finally { setBusyMember(b => ({ ...b, [trackId]: false })) }
+  }
+
   const doDeleteOne = async (g: Group, trackId: number, title: string) => {
     if (!confirm(`IŠTRINTI dainą „${title}" (#${trackId}) visam laikui? Šio veiksmo atšaukti negalima.`)) return
     setBusyMember(b => ({ ...b, [trackId]: true }))
@@ -305,7 +323,7 @@ export default function DuplikataiPage() {
                           : <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-gray-400 text-xs shrink-0">♪</div>}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <Link href={`/admin/tracks/${m.id}`} className="font-medium text-gray-900 hover:underline truncate">{m.title}</Link>
+                            <Link href={`/admin/tracks/${m.id}`} target="_blank" rel="noopener noreferrer" className="font-medium text-gray-900 hover:underline truncate">{m.title}</Link>
                             {isKeep && <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">LIEKA</span>}
                           </div>
                           <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
@@ -374,6 +392,25 @@ export default function DuplikataiPage() {
                                 title={m.title}
                                 allow="encrypted-media"
                               />}
+                          {yt && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <button
+                                onClick={() => doClearVideo(g, m.id)}
+                                disabled={busyMember[m.id]}
+                                title="Pašalinti šį video nuo dainos ir nunulinti jos YouTube peržiūras"
+                                className="px-2.5 py-1 rounded-md bg-white border border-red-200 text-red-600 text-xs hover:bg-red-50 disabled:opacity-50"
+                              >
+                                {busyMember[m.id] ? '…' : '🧽 Pašalinti video + nunulinti peržiūras'}
+                              </button>
+                              <a
+                                href={m.video_url || `https://www.youtube.com/watch?v=${yt}`}
+                                target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-gray-500 hover:underline"
+                              >
+                                Atidaryti YouTube ↗
+                              </a>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
