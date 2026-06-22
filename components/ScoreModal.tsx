@@ -32,11 +32,17 @@ type ExtraStats = {
 }
 
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
+  // YouTube-only formulė (v6)
+  pop_perday:  { label: 'Populiarumas / dieną', color: '#ec4899' },   // 0-55, peržiūros per dieną
+  reach_total: { label: 'Bendra aprėptis',      color: '#a78bfa' },   // 0-20, viso peržiūrų
+  freshness:   { label: 'Šviežumas',            color: '#10b981' },   // 0-15, naujausi įkėlimai 3m
+  catalog_yt:  { label: 'Katalogas',            color: '#3b82f6' },   // 0-10, klipų skaičius
+  // ── legacy raktai (seni breakdown'ai DB, kol neperskaičiuoti) ──
   catalog:    { label: 'Diskografija', color: '#3b82f6' },
   media:      { label: 'Turinys', color: '#8b5cf6' },
-  popularity: { label: 'Populiarumas', color: '#ec4899' },                 // legacy v3
-  popularity_recent:  { label: 'Aktualus pop.', color: '#ec4899' },        // 0-13, last 3y
-  popularity_alltime: { label: 'Bendras pop.', color: '#a78bfa' },         // 0-12, lifetime
+  popularity: { label: 'Populiarumas', color: '#ec4899' },
+  popularity_recent:  { label: 'Aktualus pop.', color: '#ec4899' },
+  popularity_alltime: { label: 'Bendras pop.', color: '#a78bfa' },
   community:  { label: 'Bendruomenė', color: '#f59e0b' },
   career:     { label: 'Karjera', color: '#10b981' },
   chart:      { label: 'Pasirodymai topuose', color: '#ef4444' },
@@ -45,10 +51,12 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   awards:     { label: 'Apdovanojimai', color: '#eab308' },
 }
 
-// Fixed display order — JSONB doesn't preserve key insertion order
+// Fixed display order — JSONB doesn't preserve key insertion order.
+// v6 YouTube formulė: ta pati tvarka LT ir INT.
+const YT_ORDER = ['pop_perday', 'reach_total', 'freshness', 'catalog_yt']
 const CATEGORY_ORDER: Record<string, string[]> = {
-  lt:  ['catalog', 'media', 'popularity_recent', 'popularity_alltime', 'community', 'career', 'awards'],
-  int: ['catalog', 'popularity_recent', 'popularity_alltime', 'chart', 'commercial', 'reach', 'awards'],
+  lt:  YT_ORDER,
+  int: YT_ORDER,
 }
 
 function ScoreBar({ label, value, max, color, details }: {

@@ -27,27 +27,15 @@ type Row = {
 
 type Scope = 'lt' | 'world'
 
-// Stulpelių tvarka + etiketės pagal formulę (atitinka lib/scoring.ts).
-const COLS: Record<'lt' | 'int', { key: string; label: string; short: string; color: string }[]> = {
-  lt: [
-    { key: 'catalog',            label: 'Diskografija',  short: 'Disk.',  color: '#3b82f6' },
-    { key: 'media',              label: 'Turinys',       short: 'Turin.', color: '#8b5cf6' },
-    { key: 'popularity_recent',  label: 'Aktualus pop.', short: 'Aktual.',color: '#ec4899' },
-    { key: 'popularity_alltime', label: 'Bendras pop.',  short: 'Bendr.', color: '#a78bfa' },
-    { key: 'community',          label: 'Bendruomenė',   short: 'Bendr.', color: '#f59e0b' },
-    { key: 'career',             label: 'Karjera',       short: 'Karj.',  color: '#10b981' },
-    { key: 'awards',             label: 'Apdovanojimai', short: 'Apdov.', color: '#eab308' },
-  ],
-  int: [
-    { key: 'catalog',            label: 'Diskografija',  short: 'Disk.',  color: '#3b82f6' },
-    { key: 'popularity_recent',  label: 'Aktualus pop.', short: 'Aktual.',color: '#ec4899' },
-    { key: 'popularity_alltime', label: 'Bendras pop.',  short: 'Bendr.', color: '#a78bfa' },
-    { key: 'chart',              label: 'Topai',         short: 'Topai',  color: '#ef4444' },
-    { key: 'commercial',         label: 'Sertifikatai',  short: 'Sert.',  color: '#f59e0b' },
-    { key: 'reach',              label: 'Aprėptis',      short: 'Aprėp.', color: '#10b981' },
-    { key: 'awards',             label: 'Apdovanojimai', short: 'Apdov.', color: '#eab308' },
-  ],
-}
+// Stulpeliai (atitinka lib/scoring.ts computeYTScore). Viena YouTube formulė
+// LT ir užsienio atlikėjams. „desc" rodoma kaip paaiškinimas po antrašte / tooltip.
+const YT_COLS: { key: string; label: string; short: string; color: string; max: number; desc: string }[] = [
+  { key: 'pop_perday',  label: 'Populiarumas / dieną', short: 'Per dieną',  color: '#ec4899', max: 55, desc: 'Peržiūros per dieną = klipo peržiūros ÷ jo amžius. Esminis rodiklis — parodo realų dabartinį klausomumą ir savaime įvertina laikotarpį.' },
+  { key: 'reach_total', label: 'Bendra aprėptis',      short: 'Viso perž.', color: '#a78bfa', max: 20, desc: 'Visų laikų peržiūrų suma — kiek iš viso klausyta (legendų „svoris").' },
+  { key: 'freshness',   label: 'Šviežumas',            short: 'Šviežumas',  color: '#10b981', max: 15, desc: 'Peržiūros per dieną tik iš naujausių (≤3 m.) klipų — dabartinis aktyvumas.' },
+  { key: 'catalog_yt',  label: 'Katalogas',            short: 'Katalogas',  color: '#3b82f6', max: 10, desc: 'Klipų su peržiūromis skaičius — ar gilus katalogas, ar vienas hitas.' },
+]
+const COLS: Record<'lt' | 'int', typeof YT_COLS> = { lt: YT_COLS, int: YT_COLS }
 
 function fmtCountry(c: string | null): string {
   return c && c !== 'Lietuva' ? c : '🇱🇹'
@@ -158,12 +146,20 @@ export default function ReitingaiAdmin() {
         />
       </div>
 
-      {/* Formulės paaiškinimas */}
-      <div className="mb-3 text-[11px] text-[var(--text-faint)]">
-        Formulė: {scope === 'lt'
-          ? 'Diskografija 22 · Turinys 10 · Aktualus pop. 13 · Bendras pop. 12 · Bendruomenė 13 · Karjera 10 · Apdovanojimai 20'
-          : 'Diskografija 20 · Aktualus pop. 18 · Bendras pop. 25 · Topai 30 · Sertifikatai 20 · Aprėptis 15 · Apdovanojimai 15'}
-        {' '}(galutinis = bazė + bonusas, apkarpoma 0–100). Pop. = YouTube peržiūros.
+      {/* Formulės paaiškinimas — kiekviena dalis aiškiai */}
+      <div className="mb-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-3">
+        <div className="text-xs font-bold text-[var(--text-secondary)] mb-1.5">Kaip skaičiuojamas balas (0–100, tik iš YouTube peržiūrų)</div>
+        <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5">
+          {YT_COLS.map(c => (
+            <div key={c.key} className="flex gap-2 text-[11px] leading-snug">
+              <span className="shrink-0 font-bold tabular-nums" style={{ color: c.color }}>{c.label} <span className="text-[var(--text-faint)]">(0–{c.max})</span></span>
+              <span className="text-[var(--text-faint)]">{c.desc}</span>
+            </div>
+          ))}
+        </div>
+        <div className="text-[11px] text-[var(--text-faint)] mt-2 pt-2 border-t border-[var(--border-subtle)]">
+          <b>Bazė</b> = šių keturių suma. <b>Galutinis balas</b> = bazė + rankinis bonusas (±15), apkarpoma 0–100. Ta pati formulė LT ir užsienio atlikėjams.
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-white">
@@ -173,8 +169,9 @@ export default function ReitingaiAdmin() {
               <th className="px-2 py-2 text-right font-bold w-10">#</th>
               <th className="px-2 py-2 text-left font-bold sticky left-0 bg-[var(--bg-elevated)]">Atlikėjas</th>
               {cols.map(c => (
-                <th key={c.key} className="px-2 py-2 text-center font-semibold w-14" title={`${c.label} (maks. ${rows[0]?.categories?.[c.key]?.max ?? ''})`}>
+                <th key={c.key} className="px-2 py-2 text-center font-semibold w-16" title={`${c.label} (0–${c.max}). ${c.desc}`}>
                   <span style={{ color: c.color }}>{c.short}</span>
+                  <span className="block text-[9px] font-normal text-[var(--text-faint)]">/{c.max}</span>
                 </th>
               ))}
               <th className="px-2 py-2 text-center font-bold w-14 border-l border-[var(--border-subtle)]">Bazė</th>

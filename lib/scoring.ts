@@ -670,196 +670,128 @@ export async function calculateTrackScore(
 
 // ── Main scoring function ──────────────────────────────────────
 
+// ── UNIFIED YOUTUBE SCORE (2026-06-21 v6) ─────────────────────────────────
+//
+// Edvardo sprendimas: kol kas reitingas remiasi TIK YouTube enrich info
+// (peržiūros + įkėlimo/išleidimo data). VIENA formulė LT ir užsienio atlikėjams
+// (sąrašai vis tiek atskiri pagal šalį). Esminis rodiklis — PERŽIŪROS PER DIENĄ
+// (vpd): peržiūros ÷ vaizdo amžius dienomis. Tai savaime įvertina laikotarpį —
+// senas hitas su milijonais peržiūrų per 15 metų turi mažesnį vpd nei dabartinis
+// hitas; nauja daina su sprogusiomis peržiūromis kyla aukštyn. „Per-dieną
+// dominuoja" balansas: vpd 55 + visų laikų aprėptis 20 + šviežumas 15 + katalogas 10.
+//
+// Spike apsauga: amžius dienomis floored ties 30 (kad 3 dienų klipas neduotų
+// absurdiškai didelio vpd). Recent (šviežumas) = vpd iš klipų, įkeltų/išleistų
+// per pastaruosius 3 metus → atvaizduoja dabartinį aktyvumą.
+
+export type YTScoreData = {
+  vpd_total: number       // SUM(views / age_days) — peržiūros per dieną (visas katalogas)
+  vpd_recent: number      // SUM(views / age_days) klipams iš pastarųjų 3 metų
+  total_views: number     // SUM(views) — visų laikų aprėptis
+  n_videos: number        // klipų su peržiūromis skaičius
+  type: 'lt' | 'int'
+}
+
+const clampPts = (raw: number, max: number) => Math.max(0, Math.min(max, Math.round(raw)))
+
+function fmtPerDay(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0)}M/d.`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K/d.`
+  if (n > 0) return `${Math.round(n)}/d.`
+  return '0/d.'
+}
+function fmtTotalViews(n: number): string {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}␣mlrd. perž.`.replace('␣', ' ')
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0)}M perž.`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K perž.`
+  return n > 0 ? `${n} perž.` : 'nėra perž.'
+}
+
+export function computeYTScore(data: YTScoreData): ScoreBreakdown {
+  const { vpd_total, vpd_recent, total_views, n_videos, type } = data
+
+  // ① POPULIARUMAS (per dieną) 0-55 — esminis. ~10 balų / dešimtis kartų:
+  //   1K/d≈5, 10K/d≈15, 100K/d≈25, 1M/d≈35, 10M/d≈45, 100M/d→cap 55.
+  const popPerDay = vpd_total > 0 ? clampPts(10 * Math.log10(vpd_total + 1) - 25, 55) : 0
+
+  // ② BENDRA APRĖPTIS (viso peržiūrų) 0-20 — legendų „svoris".
+  //   10M≈8, 100M≈13, 1mlrd≈18, 25mlrd→cap 20.
+  const reachTotal = total_views > 0 ? clampPts(4 * Math.log10(total_views + 1) - 21, 20) : 0
+
+  // ③ ŠVIEŽUMAS (naujausi įkėlimai, 3m) 0-15 — dabartinis aktyvumas.
+  const freshness = vpd_recent > 0 ? clampPts(2.5 * Math.log10(vpd_recent + 1) - 2, 15) : 0
+
+  // ④ KATALOGAS (klipų su peržiūromis) 0-10 — gylis/aprėptis (ne vienas hitas).
+  const catalogYt = n_videos > 0 ? clampPts(5 * Math.log10(n_videos + 1), 10) : 0
+
+  const total = Math.min(100, popPerDay + reachTotal + freshness + catalogYt)
+
+  return {
+    type,
+    categories: {
+      pop_perday:  { points: popPerDay, max: 55, details: `${fmtPerDay(vpd_total)} (peržiūros per dieną)` },
+      reach_total: { points: reachTotal, max: 20, details: `viso: ${fmtTotalViews(total_views)}` },
+      freshness:   { points: freshness, max: 15, details: `naujausi 3m: ${fmtPerDay(vpd_recent)}` },
+      catalog_yt:  { points: catalogYt, max: 10, details: `${n_videos} klipų su peržiūromis` },
+    },
+    total,
+    score_override: 0,
+    final_score: total,
+    inputs: { vpd_total: Math.round(vpd_total), vpd_recent: Math.round(vpd_recent), total_views, n_videos },
+  }
+}
+
 export async function calculateArtistScore(
   supabase: any,
   artistId: number
 ): Promise<ScoreBreakdown> {
-  // Get artist basic info
+  // YouTube-only reitingas (v6). Reikia tik: artist.country (LT/INT žymai) +
+  // score_override, ir per-track video_views + įkėlimo/išleidimo data.
   const { data: artist } = await supabase
     .from('artists')
-    .select('country, active_from, active_until, score_override, source')
+    .select('country, score_override')
     .eq('id', artistId)
     .single()
 
   const isLT = !artist?.country || artist.country === 'Lietuva'
 
-  // ── Wiki-factor gating (2026-05-21 v2 — GLOBAL flag) ───────────
-  // Wiki-dependent komponentai (INT: chart 30, commercial 20, awards 15;
-  // LT: awards 20) GLOBALLY atjungti, kol Wiki overlay neaplikuotas
-  // didžiajai daliai TOP INT atlikėjų. Edvardo intent (2026-05-21):
-  // "kol neturime info visiems top atlikėjams apie Wiki, neapsunkinti
-  // formulės — web'e topuose/rankings'uose remtis tik music.lt + YT views,
-  // kad visi vertinasi pagal tą patį info".
-  //
-  // Įjungimas: set SCORING_USE_WIKI_FACTORS=true Vercel env (ar .env.local
-  // lokaliai), kai Wiki overlay pritaikytas >50% TOP INT atlikėjų. Tada
-  // formulė automatiškai pradės pridurti chart+commercial+awards iš Wiki.
-  //
-  // Per-artist Wiki detection (kai global flag true): artists.source
-  // LIKE '%wiki%' ARBA bent vienas wiki-sourced track/album. Mirror'ina
-  // v_artist_migration_status.wiki_done logiką.
-  const wikiFactorsGloballyEnabled = process.env.SCORING_USE_WIKI_FACTORS === 'true'
-  let wikiDone = false
-  if (wikiFactorsGloballyEnabled) {
-    const sourceHasWiki = (artist?.source || '').toLowerCase().includes('wiki')
-    wikiDone = sourceHasWiki
-    if (!wikiDone) {
-      const { count: wikiTracks } = await supabase
-        .from('tracks')
-        .select('*', { count: 'exact', head: true })
-        .eq('artist_id', artistId)
-        .ilike('source', '%wiki%')
-      if ((wikiTracks || 0) > 0) wikiDone = true
-    }
-    if (!wikiDone) {
-      const { count: wikiAlbums } = await supabase
-        .from('albums')
-        .select('*', { count: 'exact', head: true })
-        .eq('artist_id', artistId)
-        .ilike('source', '%wiki%')
-      if ((wikiAlbums || 0) > 0) wikiDone = true
-    }
-  }
-
-  // Count albums
-  const { count: n_albums } = await supabase
-    .from('albums')
-    .select('*', { count: 'exact', head: true })
-    .eq('artist_id', artistId)
-
-  // Count tracks
-  const { count: n_tracks } = await supabase
+  // Per-track YT duomenys — peržiūros + įkėlimo data (fallback: release_year Sausio 1).
+  const { data: trackRows } = await supabase
     .from('tracks')
-    .select('*', { count: 'exact', head: true })
-    .eq('artist_id', artistId)
-
-  // Count tracks with video_url
-  const { count: n_videos } = await supabase
-    .from('tracks')
-    .select('*', { count: 'exact', head: true })
-    .eq('artist_id', artistId)
-    .not('video_url', 'is', null)
-
-  // Count tracks with lyrics
-  const { count: n_lyrics } = await supabase
-    .from('tracks')
-    .select('*', { count: 'exact', head: true })
-    .eq('artist_id', artistId)
-    .not('lyrics', 'is', null)
-
-  // Vieningas likes count — viena lentelė (`likes`) saugo modern auth +
-  // legacy music.lt + anon. Score formulai svarbu tik bendras skaičius.
-  const { count: likeCount } = await supabase
-    .from('likes')
-    .select('*', { count: 'exact', head: true })
-    .eq('entity_type', 'artist')
-    .eq('entity_id', artistId)
-  const likes = likeCount || 0
-
-  // YT views aggregation — pull all track video_views + release_year,
-  // suskaičiuojam (a) total lifetime ir (b) recent 3y views atskirai.
-  // Recent — track'ai išleisti per pastaruosius 3 metus.
-  const recentCutoffYear = new Date().getFullYear() - 3
-  const { data: viewRows } = await supabase
-    .from('tracks')
-    .select('video_views, release_year')
+    .select('video_views, video_uploaded_at, release_year')
     .eq('artist_id', artistId)
     .not('video_views', 'is', null)
-  let total_video_views = 0
-  let recent_video_views = 0
-  for (const r of (viewRows || []) as any[]) {
+
+  const now = Date.now()
+  const DAY = 86_400_000
+  const recentCutoff = now - 3 * 365 * DAY
+  let vpd_total = 0, vpd_recent = 0, total_views = 0, n_videos = 0
+  for (const r of (trackRows || []) as any[]) {
     const v = Number(r.video_views) || 0
-    total_video_views += v
-    if (r.release_year && r.release_year >= recentCutoffYear) {
-      recent_video_views += v
-    }
+    if (v <= 0) continue
+    n_videos++
+    total_views += v
+    // įkėlimo data → fallback release_year (Sausio 1).
+    let ts: number | null = null
+    if (r.video_uploaded_at) { const t = Date.parse(r.video_uploaded_at); if (!Number.isNaN(t)) ts = t }
+    if (ts === null && r.release_year) ts = Date.UTC(Number(r.release_year), 0, 1)
+    if (ts === null) continue  // be datos — į vpd neįskaičiuojam (lieka total/reach)
+    const ageDays = Math.max(30, (now - ts) / DAY)
+    const vpd = v / ageDays
+    vpd_total += vpd
+    if (ts >= recentCutoff) vpd_recent += vpd
   }
 
-  // Calculate career years.
-  // Pirmoji prielaida: artists.active_from (iš music.lt arba Wiki).
-  // Fallback'as: min(tracks.release_year) — patikimas kai music.lt neturi
-  // Veiklos pradžia lauko, bet tracks turi release_year iš dainų puslapių.
-  const currentYear = new Date().getFullYear()
-  let activeFrom = artist?.active_from || 0
-  if (!activeFrom) {
-    const { data: oldestTrack } = await supabase
-      .from('tracks')
-      .select('release_year')
-      .eq('artist_id', artistId)
-      .not('release_year', 'is', null)
-      .order('release_year', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-    if (oldestTrack?.release_year) activeFrom = oldestTrack.release_year
-  }
-  const activeUntil = artist?.active_until || currentYear
-  const career_years = activeFrom > 0 ? (activeUntil - activeFrom) : 0
+  const breakdown = computeYTScore({
+    vpd_total, vpd_recent, total_views, n_videos,
+    type: isLT ? 'lt' : 'int',
+  })
 
-  // Awards aggregate (from voting_participants ↔ channels metadata)
-  // We join 3 levels: participants → events → editions → channels.
-  // Filter by metadata.imported_from_award so only Wikipedia-imported entries
-  // (not user-voted active competitions) feed into the score.
-  //
-  // 2026-05-21 gating: jei wiki_done=false, awards nuliuojami. Awards
-  // ateina iš Wiki parseAwardsArticle → voting_participants su flag'u
-  // imported_from_award. Jei Wiki overlay neaplikuotas, score'as turi
-  // reflect'inti tik music.lt + YT duomenis, ne "0 awards / per anksti".
-  let awardsAgg = { major_won: 0, major_nominated: 0, major_inducted: 0,
-                    other_won: 0, other_nominated: 0, channels: 0 }
-  if (wikiDone) {
-    const { data: awardRows } = await supabase
-      .from('voting_participants')
-      .select('metadata, voting_events!inner(voting_editions!inner(voting_channels!inner(name)))')
-      .eq('artist_id', artistId)
-    const awardEntries: { channel_name: string; result: string }[] = []
-    for (const r of (awardRows || []) as any[]) {
-      if (!r.metadata?.imported_from_award) continue
-      const ch = r.voting_events?.voting_editions?.voting_channels
-      if (!ch?.name) continue
-      awardEntries.push({ channel_name: ch.name, result: r.metadata?.result || 'other' })
-    }
-    awardsAgg = aggregateAwardsData(awardEntries)
-  }
-
-  const baseData = {
-    n_albums: n_albums || 0,
-    n_tracks: n_tracks || 0,
-    n_videos: n_videos || 0,
-    n_lyrics: n_lyrics || 0,
-    likes: likes || 0,
-    career_years,
-    total_video_views,
-    recent_video_views,
-    awards: awardsAgg,
-  }
-
-  let breakdown: ScoreBreakdown
-
-  if (isLT) {
-    breakdown = computeLTScore(baseData)
-  } else {
-    // INT: chart 30 + commercial 20 ateina iš Wiki albums (certifications,
-    // peak_chart_position). Be Wiki — pass zero cert data, kad chart=0,
-    // commercial=0. Reach + catalog ir toliau veikia iš music.lt scrape'o.
-    let certData = {
-      n_charted_albums: 0, n_top10_albums: 0, n_number1_albums: 0,
-      n_certified_albums: 0, n_platinum_albums: 0, n_diamond_albums: 0,
-      total_cert_points: 0,
-    }
-    if (wikiDone) {
-      const { data: albumRows } = await supabase
-        .from('albums')
-        .select('certifications, peak_chart_position')
-        .eq('artist_id', artistId)
-      certData = aggregateCertData(albumRows || [])
-    }
-    breakdown = computeINTScore({ ...baseData, ...certData })
-  }
-
-  // Apply override
+  // Rankinis koregavimas (±15) — taikomas ant bazinio balo, apkarpoma 0-100.
   const override = artist?.score_override || 0
   breakdown.score_override = override
   breakdown.final_score = Math.max(0, Math.min(100, breakdown.total + override))
 
   return breakdown
 }
+
