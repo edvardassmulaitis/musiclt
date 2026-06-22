@@ -2563,12 +2563,10 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
   // tada priekiniai). Todėl hero laikom permatomą kol turinys NUSISTOVI (be
   // pakeitimų ~280ms), tada gražiai fade-in. heroMax garantuoja pasirodymą net
   // jei duomenys vis trūkčioja.
-  const [heroSettled, setHeroSettled] = useState(false)
-  const heroSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const heroMaxRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Freeze: kai hero nusistovi, NUSTOJAM perkurti heroSlides — net jei vėluojantis
-  // šaltinis ateina po atskleidimo, rodomos kortelės nebepersirikiuoja (0 flicker).
-  const heroFrozenRef = useRef(false)
+  // Hero atskleidžiamas TIK kai VISI jo duomenų šaltiniai atsako (fetch effect
+  // Promise.all) — turinys pilnas, stabilus, vienodas kiekvienam reload, be
+  // persirikiavimo. Iki tol — permatomas (vietos aukštis rezervuotas).
+  const [heroReady, setHeroReady] = useState(false)
 
   /* ── Naujos dainos + albumai loader (retry + degraded handling) ──
      /api/home/latest dabar grąžina `degraded: true` kai DB užklausa fail'ino
@@ -2718,30 +2716,21 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     //   - /api/news apriboja į 30 d. ir 12 įrašų (anksčiau 30 modern + 30 legacy).
     //   - /api/artists fetch'as PAŠALINTAS — "Atrask atlikėjus" UI yra po
     //     `{false &&` toggle'u (kol kas paslėpta). Brangus reverse'as DB nieko.
-    fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); setLtTopDate(d.week?.created_at || d.week?.week_start || ''); readyBits.current.tops = true; tryReady.current() }).catch(() => { readyBits.current.tops = true; tryReady.current() })
-    fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => { setWorldTop(parseTop(d.entries || [])); setWorldTopDate(d.week?.created_at || d.week?.week_start || '') }).catch(() => {})
-
-    // tracks + albums — ekstrahuota į `loadLatest` (su retry + degraded
-    // handling) ir paleidžiama atskirame effect'e, kad „Bandyti dar kartą"
-    // mygtukas galėtų perpaleisti TIK šią užklausą (latestReload bump).
-
-    fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
-    // Admine pažymėti hero renginiai (home_hero=1) + vartotojų įrašai. (rebuild2)
-    fetch('/api/events?home_hero=1&limit=8').then(r => r.json()).then(d => setHeroEvents(d.events || [])).catch(() => {})
-    fetch('/api/blog/home-hero').then(r => r.json()).then(d => setHeroPosts(d.posts || [])).catch(() => {})
-    // Nauji feed tipai (reader v3): dienos daina (rotuojanti), radaro atradimai
-    // (dėmesio centre), koncertų įrašai (gyvai), verti kelionės koncertai.
-    fetch('/api/dienos-daina/winners?limit=7').then(r => r.json()).then(d => setDailyWinners(d.winners || [])).catch(() => {})
-    fetch('/api/dienos-daina/nominations').then(r => r.json()).then(d => setDailyNomsCount((d.nominations || []).filter((n: any) => n.tracks).length)).catch(() => {})
-    fetch('/api/muzikos-atradimai?featured=1&limit=6').then(r => r.json()).then(d => setDiscoveries(d.items || [])).catch(() => {})
-    fetch('/api/koncertu-irasai?limit=6').then(r => r.json()).then(d => setRecordings(d.recordings || [])).catch(() => {})
-    fetch('/api/verta-keliones').then(r => r.json()).then(d => setVertaConcerts({ concerts: d.concerts || [], destinations: d.destinations || [] })).catch(() => {})
-    fetch('/api/feed/overrides').then(r => r.json()).then(d => { setFeedOverrides(d.overrides || []); setFeedCustom(d.custom || []) }).catch(() => {})
-    // News + songs vienu request'u. `since_days=7` (redeploy) — hero rodo tik šviežias
-    // (≤1 sav.) naujienas, kad nekabėtų seni įrašai. Jei nieko naujo — heroSlides
-    // vis tiek turės topus (suksis topai blogiausiu atveju). Limit 12 — hero
-    // reels rodo max ~10 slide'ų; daugiau payload tik teršia bandwidth'ą.
-    fetch('/api/news?limit=12&include=songs&since_days=7')
+    // VISI hero duomenų fetch'ai. Surenkam jų Promise'us → kai VISI atsako,
+    // atskleidžiam hero (pilnas, stabilus). maxT — saugiklis jei kas pakimba.
+    const hp: Promise<any>[] = []
+    hp.push(fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); setLtTopDate(d.week?.created_at || d.week?.week_start || ''); readyBits.current.tops = true; tryReady.current() }).catch(() => { readyBits.current.tops = true; tryReady.current() }))
+    hp.push(fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => { setWorldTop(parseTop(d.entries || [])); setWorldTopDate(d.week?.created_at || d.week?.week_start || '') }).catch(() => {}))
+    hp.push(fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {}))
+    hp.push(fetch('/api/events?home_hero=1&limit=8').then(r => r.json()).then(d => setHeroEvents(d.events || [])).catch(() => {}))
+    hp.push(fetch('/api/blog/home-hero').then(r => r.json()).then(d => setHeroPosts(d.posts || [])).catch(() => {}))
+    hp.push(fetch('/api/dienos-daina/winners?limit=7').then(r => r.json()).then(d => setDailyWinners(d.winners || [])).catch(() => {}))
+    hp.push(fetch('/api/dienos-daina/nominations').then(r => r.json()).then(d => setDailyNomsCount((d.nominations || []).filter((n: any) => n.tracks).length)).catch(() => {}))
+    hp.push(fetch('/api/muzikos-atradimai?featured=1&limit=6').then(r => r.json()).then(d => setDiscoveries(d.items || [])).catch(() => {}))
+    hp.push(fetch('/api/koncertu-irasai?limit=6').then(r => r.json()).then(d => setRecordings(d.recordings || [])).catch(() => {}))
+    hp.push(fetch('/api/verta-keliones').then(r => r.json()).then(d => setVertaConcerts({ concerts: d.concerts || [], destinations: d.destinations || [] })).catch(() => {}))
+    hp.push(fetch('/api/feed/overrides').then(r => r.json()).then(d => { setFeedOverrides(d.overrides || []); setFeedCustom(d.custom || []) }).catch(() => {}))
+    hp.push(fetch('/api/news?limit=12&include=songs&since_days=7')
       .then(r => r.json())
       .then(d => {
         const newsList = d.news || []
@@ -2754,7 +2743,12 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         }
         setNewsSongs(songsMap)
       })
-      .catch(() => {})
+      .catch(() => {}))
+    // +80ms — kad build effect spėtų perkurti heroSlides su PASKUTINIU duomeniu
+    // prieš atskleidžiant.
+    Promise.all(hp).then(() => setTimeout(() => setHeroReady(true), 80))
+    const heroMaxT = setTimeout(() => setHeroReady(true), 5000)
+    return () => clearTimeout(heroMaxT)
   }, [])
 
   /* ── Hero slides ──
@@ -2764,9 +2758,6 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
      naujesnė nei topo atsinaujinimas, atsiduria PRIEŠ topą. Renginiai lieka
      gale (jie ateities datų — nerikiuojam su feed'u). */
   useEffect(() => {
-    // Po atskleidimo hero UŽŠALDYTAS — nebeperkuriam (kitaip vėlyvas fetch'as
-    // persirikiuotų jau matomas korteles = flicker). Atnaujins kitą apsilankymą.
-    if (heroFrozenRef.current) return
     const slides: HeroSlide[] = []
     const dated: { sortMs: number; slide: HeroSlide }[] = []
     const ms = (s: string | null | undefined) => { const t = s ? new Date(s).getTime() : NaN; return isNaN(t) ? 0 : t }
@@ -3017,11 +3008,6 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
 
     setHeroSlides(finalSlides.length ? finalSlides : slides)
     setHeroIdx(0)
-    // Debounce: kol turinys keičiasi — atidedam atskleidimą; kai nustoja —
-    // fade-in (jau galutine tvarka, be flicker'io).
-    if (heroSettleRef.current) clearTimeout(heroSettleRef.current)
-    heroSettleRef.current = setTimeout(() => { heroFrozenRef.current = true; setHeroSettled(true) }, 400)
-    if (!heroMaxRef.current) heroMaxRef.current = setTimeout(() => { heroFrozenRef.current = true; setHeroSettled(true) }, 2500)
     readyBits.current.hero = true
     tryReady.current()
   }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents, discoveries, recordings, dailyWinners, dailyNomsCount, vertaConcerts, feedOverrides, feedCustom])
@@ -3330,9 +3316,9 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         ), document.body)}
         {pageReady && heroSlides.length > 0 && (
           <div style={{
-            opacity: heroSettled ? 1 : 0,
-            transform: heroSettled ? 'none' : 'translateY(10px)',
-            transition: 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.22,1,0.36,1)',
+            opacity: heroReady ? 1 : 0,
+            transform: heroReady ? 'none' : 'translateY(12px)',
+            transition: 'opacity 0.55s ease, transform 0.55s cubic-bezier(0.22,1,0.36,1)',
             willChange: 'opacity, transform',
           }}>
             <HeroV2Slider slides={heroSlides} dk={dk} />
@@ -3344,7 +3330,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         <div style={{ opacity: pageReady ? 1 : 0, transition: 'opacity 0.3s ease', pointerEvents: pageReady ? 'auto' : 'none' }}>
 
         {heroSlides.length > 0 && (
-          <div className="hp-feed-strip" style={{ padding: '14px 16px 0', opacity: heroSettled ? 1 : 0, transform: heroSettled ? 'none' : 'translateY(10px)', transition: 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.22,1,0.36,1)' }}>
+          <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }}>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 296, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
               {heroSlides.map((slide, i) => {
                 const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
