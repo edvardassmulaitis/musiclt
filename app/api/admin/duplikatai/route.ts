@@ -23,19 +23,17 @@ export async function GET(req: NextRequest) {
 
   const sb = createAdminClient()
 
-  // Per-signal counts (pending only) for the tabs.
+  // Per-signal counts (pending only) for the tabs. Use head+exact count so we
+  // are not capped by PostgREST's 1000-row default.
   const counts: Record<string, number> = { all: 0, spotify: 0, youtube: 0, same_artist: 0, cross_artist: 0 }
-  {
-    const { data: cRows } = await sb
-      .from('track_dup_groups')
-      .select('signal')
-      .eq('status', 'pending')
-      .limit(100000)
-    for (const r of (cRows || []) as Array<{ signal: string }>) {
-      counts.all++
-      if (counts[r.signal] !== undefined) counts[r.signal]++
-    }
-  }
+  await Promise.all(
+    (['all', 'spotify', 'youtube', 'same_artist', 'cross_artist'] as const).map(async key => {
+      let cq = sb.from('track_dup_groups').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+      if (key !== 'all') cq = cq.eq('signal', key)
+      const { count } = await cq
+      counts[key] = count || 0
+    })
+  )
 
   // Page of groups.
   let gq = sb
