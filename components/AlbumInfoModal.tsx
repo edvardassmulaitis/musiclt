@@ -518,12 +518,21 @@ export default function AlbumInfoModal({
                   <iframe
                     ref={videoIframeRef}
                     key={`album-modal-video-${playerVid}-${videoStarted ? playToken : 'idle'}`}
-                    src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1${videoStarted ? '&autoplay=1' : ''}`}
+                    src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1${videoStarted ? '&autoplay=1' : ''}&origin=${typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : ''}`}
                     title={titleNow}
                     className="absolute inset-0 h-full w-full"
                     referrerPolicy="strict-origin-when-cross-origin"
                     allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                     allowFullScreen
+                    onLoad={(e) => {
+                      // Autoplay naršyklėje leidžiamas tik MUTE — atsukam garsą per
+                      // YouTube IFrame API (unMute) po įkrovimo, keli bandymai.
+                      if (!videoStarted) return
+                      const w = (e.currentTarget as HTMLIFrameElement).contentWindow
+                      if (!w) return
+                      const cmd = (func: string) => { try { w.postMessage(JSON.stringify({ event: 'command', func, args: [] }), 'https://www.youtube.com') } catch {} }
+                      ;[0, 250, 700, 1500].forEach(d => setTimeout(() => { cmd('unMute'); cmd('playVideo') }, d))
+                    }}
                   />
                   {!videoStarted && (
                     <button

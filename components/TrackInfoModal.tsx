@@ -568,6 +568,16 @@ export function TrackInfoModal({
                       referrerPolicy="strict-origin-when-cross-origin"
                       allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                       allowFullScreen
+                      onLoad={(e) => {
+                        // Naršyklė autoplay leidžia tik MUTE — todėl po įkrovimo per
+                        // YouTube IFrame API atsukam garsą (unMute) + užtikrinam play.
+                        // Keli bandymai, nes player'is gali būti dar ne „ready".
+                        if (!videoStarted) return
+                        const w = (e.currentTarget as HTMLIFrameElement).contentWindow
+                        if (!w) return
+                        const cmd = (func: string) => { try { w.postMessage(JSON.stringify({ event: 'command', func, args: [] }), 'https://www.youtube.com') } catch {} }
+                        ;[0, 250, 700, 1500].forEach(d => setTimeout(() => { cmd('unMute'); cmd('playVideo') }, d))
+                      }}
                     />
                     {!videoStarted && (
                       <button
