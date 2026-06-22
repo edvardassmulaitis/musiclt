@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo, useState, useRef, useEffect, type ReactNode } from 'react'
+import Link from 'next/link'
 import {
-  flagEmoji, tripCostFrom, fmtDate,
+  flagEmoji, tripCostFrom, fmtDate, vkHref,
   type Concert, type Destination, type ReachMode,
 } from '@/lib/verta-keliones-seed'
 
@@ -203,10 +204,8 @@ function Card({ c, d, focused }: { c: Concert; d?: Destination; focused?: boolea
   const posterStyle = c.image
     ? { backgroundImage: `url(${c.image})` }
     : { background: gradFor(c.artist) }
-  const ticket = c.ticketUrl ||
-    `https://www.google.com/search?q=${encodeURIComponent(`${c.artist} ${d?.city || ''} 2026 tickets`)}`
   return (
-    <a id={`vk-${c.id}`} href={ticket} target="_blank" rel="noopener noreferrer" className={`vk-card${focused ? ' vk-card-focus' : ''}`}>
+    <Link id={`vk-${c.id}`} href={vkHref(c)} className={`vk-card${focused ? ' vk-card-focus' : ''}`}>
       <div className={`vk-thumb${c.image ? ' has-img' : ''}`} style={posterStyle}>
         {!c.image && <span className="vk-thumb-name">{c.artist}</span>}
       </div>
@@ -220,10 +219,10 @@ function Card({ c, d, focused }: { c: Concert; d?: Destination; focused?: boolea
         <span className="vk-when">{fmtDate(c.date, c.endDate)}{c.verified && <i className="vk-ok" title="Data patvirtinta">✓</i>}</span>
         <div className="vk-foot">
           <span className="vk-price">Kelionė nuo €{cost}</span>
-          <span className="vk-cta">Bilietai {I.arrowR}</span>
+          <span className="vk-cta">Plačiau {I.arrowR}</span>
         </div>
       </div>
-    </a>
+    </Link>
   )
 }
 

@@ -18,6 +18,38 @@ export function festivalHeuristic(ev: { title?: string | null; start_date?: stri
   return false
 }
 
+// ── Pretty URL slug'ai ───────────────────────────────────────────
+// DB'e renginių `slug` istoriškai = `event-<legacy_id>` (2068/2075). Tai
+// neturi pavadinimo → blogas SEO + bjaurus URL. Vietoj DB migracijos (scrape
+// upsert'as perrašytų slug atgal į `event-<id>`), kanoninis URL generuojamas
+// app'e iš pavadinimo + legacy_id: `/renginiai/<title-slug>-<legacy_id>`.
+// Sprendimas (getEventBySlug/getFestivalBySlug) atpažįsta IR seną `event-<id>`,
+// IR naują pretty slug'ą (paskutinis -<skaičius> = legacy_id).
+// Helper'iai gyvena lib/event-href.ts (client-safe) — čia re-eksportuojam.
+export { eventHref, festivalHref } from './event-href'
+
+/** Iš URL slug'o ištraukia trailing legacy_id, jei toks yra (`...-11290` → 11290). */
+function trailingLegacyId(slug: string): number | null {
+  const m = slug.match(/-(\d+)$/) || slug.match(/^event-(\d+)$/)
+  if (!m) return null
+  const n = Number(m[1])
+  return Number.isFinite(n) ? n : null
+}
+
+/** Vieningas eilutės parinkimas pagal slug'ą: tikslus slug ARBA trailing legacy_id. */
+async function fetchEventRow(supabase: any, sel: string, slug: string): Promise<any | null> {
+  // 1) Tikslus slug (sena `event-<id>` forma ar custom slug).
+  const exact = await supabase.from('events').select(sel).eq('slug', slug).maybeSingle()
+  if (exact.data) return exact.data
+  // 2) Pretty slug → trailing legacy_id.
+  const lid = trailingLegacyId(slug)
+  if (lid != null) {
+    const byLid = await supabase.from('events').select(sel).eq('legacy_id', lid).maybeSingle()
+    if (byLid.data) return byLid.data
+  }
+  return null
+}
+
 // ── Get events list (public) ─────────────────────────────────────
 export async function getEvents(opts: {
   city?: string
@@ -31,19 +63,17 @@ export async function getEvents(opts: {
   /** start_date rikiavimas. 'asc' (default) — soonest first (homepage).
    *  'desc' — newest first (admin'ui, kad scrape'inti 2026 renginiai būtų viršuje). */
   order?: 'asc' | 'desc'
-  /** Tik admine pažymėti homepage hero renginiai (home_hero=true). */
-  homeHero?: boolean
 } = {}) {
   const supabase = createAdminClient()
-  const { city, venueId, status, period, showPast = false, limit = 20, offset = 0, order = 'asc', homeHero = false } = opts
+  const { city, venueId, status, period, showPast = false, limit = 20, offset = 0, order = 'asc' } = opts
 
   let q = supabase
     .from('events')
     .select(`
-      id, title, slug, description, start_date, end_date,
+      id, title, slug, legacy_id, description, start_date, end_date,
       venue_name, venue_id, city, city_id, address, cover_image_url,
       ticket_url, price_from, price_to,
-      status, is_featured, home_hero, created_at,
+      status, is_featured, created_at,
       venues:venue_id(id, name, slug, city, address),
       event_artists(
         artist_id, is_headliner, sort_order,
@@ -68,7 +98,6 @@ export async function getEvents(opts: {
   if (status) q = q.eq('status', status)
   if (city && city !== 'Visi') q = q.eq('city', city)
   if (venueId) q = q.eq('venue_id', venueId)
-  if (homeHero) q = q.eq('home_hero', true)
 
   if (period === 'week') {
     const end = new Date()
@@ -142,7 +171,7 @@ export async function getFestivals(opts: { limit?: number } = {}) {
   const { limit = 400 } = opts
 
   const sel = `
-    id, title, slug, description, start_date, end_date,
+    id, title, slug, legacy_id, description, start_date, end_date,
     venue_name, venue_id, city, address, cover_image_url,
     ticket_url, price_from, price_to, status, is_featured, created_at,
     event_artists(
@@ -211,10 +240,8 @@ export async function getFestivals(opts: { limit?: number } = {}) {
 // patikrinam is_festival žymą.
 export async function getFestivalBySlug(slug: string) {
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('events')
-    .select(`
-      id, title, slug, description, start_date, end_date,
+  const sel = `
+      id, title, slug, legacy_id, description, start_date, end_date,
       venue_name, venue_id, city, address, cover_image_url,
       ticket_url, price_from, price_to,
       status, is_featured, created_at, updated_at, is_festival,
@@ -222,11 +249,9 @@ export async function getFestivalBySlug(slug: string) {
         artist_id, is_headliner, sort_order,
         artists(id, name, slug, cover_image_url, country)
       )
-    `)
-    .eq('slug', slug)
-    .single()
-
-  if (error || !data) return null
+    `
+  const data = await fetchEventRow(supabase, sel, slug)
+  if (!data) return null
   const ev = data as any
 
   // Atlikėjų žanrai (lineup'o kortelėms).
@@ -292,7 +317,7 @@ export async function getFeaturedEvents(limit = 3) {
   const { data, error } = await supabase
     .from('events')
     .select(`
-      id, title, slug, description, start_date, end_date,
+      id, title, slug, legacy_id, description, start_date, end_date,
       venue_name, city, cover_image_url,
       ticket_url, price_from, price_to, status, is_featured,
       event_artists(
@@ -312,22 +337,56 @@ export async function getFeaturedEvents(limit = 3) {
 // ── Get single event by slug ─────────────────────────────────────
 export async function getEventBySlug(slug: string) {
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('events')
-    .select(`
-      id, title, slug, description, start_date, end_date,
+  const sel = `
+      id, title, slug, legacy_id, description, start_date, end_date,
       venue_name, venue_id, city, address, cover_image_url,
       ticket_url, price_from, price_to,
-      status, is_featured, home_hero, created_at, updated_at,
+      status, is_featured, is_festival, created_at, updated_at,
       event_artists(
         artist_id, is_headliner, sort_order,
-        artists(id, name, slug, cover_image_url)
+        artists(id, name, slug, cover_image_url, country)
       )
-    `)
-    .eq('slug', slug)
-    .single()
+    `
+  const data = await fetchEventRow(supabase, sel, slug)
+  if (!data) return null
+  const ev = data as any
 
-  if (error || !data) return null
+  // Atlikėjų žanrai + top daina (lineup'ui su grotuvu) — tas pats praturtinimas
+  // kaip festivaliams. Žanrai = stiliaus žyma; top daina = nuotraukos fallback'as
+  // + „play" mygtukas (music elementas, kurio anksčiau renginio psl. neturėjo).
+  const artistIds = Array.from(new Set((ev.event_artists || []).map((ea: any) => ea.artist_id).filter(Boolean)))
+  if (artistIds.length) {
+    try {
+      const genreByArtist = new Map<number, string[]>()
+      const { data: ag } = await supabase
+        .from('artist_genres')
+        .select('artist_id, genres(name)')
+        .in('artist_id', artistIds as number[])
+      for (const r of (ag || []) as any[]) {
+        const name = r.genres?.name
+        if (!name) continue
+        const list = genreByArtist.get(r.artist_id) || []
+        if (!list.includes(name)) list.push(name)
+        genreByArtist.set(r.artist_id, list)
+      }
+      ev.artistGenres = Object.fromEntries(genreByArtist)
+    } catch { /* žanrai nebūtini */ }
+    try {
+      const { data: trks } = await supabase
+        .from('tracks')
+        .select('id, title, slug, cover_url, video_url, artist_id, video_views')
+        .in('artist_id', artistIds as number[])
+        .not('video_url', 'is', null)
+        .order('video_views', { ascending: false, nullsFirst: false })
+        .limit(600)
+      const top: Record<number, any> = {}
+      for (const t of (trks || []) as any[]) {
+        if (top[t.artist_id]) continue
+        top[t.artist_id] = { id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url }
+      }
+      ev.artistTopTrack = top
+    } catch { /* nebūtina */ }
+  }
 
   // Attendees ("Eis"/"Patiks") — atskira lentelė event_attendees.
   // Po 2026-05-28c architectural slim-down: profile data (avatar, rank)
@@ -335,16 +394,16 @@ export async function getEventBySlug(slug: string) {
   const { data: attendeesRaw } = await supabase
     .from('event_attendees')
     .select('user_username, user_id, created_at, profiles:user_id(avatar_url, rank)')
-    .eq('event_id', (data as any).id)
+    .eq('event_id', ev.id)
     .order('created_at', { ascending: false })
-  const attendees = (attendeesRaw || []).map((a: any) => ({
+  ev.attendees = (attendeesRaw || []).map((a: any) => ({
     user_username: a.user_username,
     user_rank: a.profiles?.rank || null,
     user_avatar_url: a.profiles?.avatar_url || null,
     created_at: a.created_at,
   }))
 
-  return { ...(data as any), attendees }
+  return ev
 }
 
 // ── Get single event by id ───────────────────────────────────────
@@ -356,7 +415,7 @@ export async function getEventById(id: string) {
       id, title, slug, description, start_date, end_date,
       venue_name, venue_id, city, address, cover_image_url,
       ticket_url, price_from, price_to,
-      status, is_featured, home_hero, created_at, updated_at,
+      status, is_featured, created_at, updated_at,
       event_artists(
         artist_id, is_headliner, sort_order,
         artists(id, name, slug, cover_image_url)

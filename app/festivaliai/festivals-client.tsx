@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { festivalHref } from '@/lib/event-href'
 
 /* ────────────────────────────────────────────────────────────────
  * Tipai
@@ -13,6 +14,7 @@ type Festival = {
   id: string
   title: string
   slug: string
+  legacy_id?: number | null
   description: string | null
   start_date: string
   end_date: string | null
@@ -299,7 +301,7 @@ function HeroFestival({ ev, upcoming }: { ev: Festival; upcoming: boolean }) {
   const heads = lu.filter(x => x.headliner).map(x => x.artist)
   const headNames = (heads.length ? heads : lu.map(x => x.artist)).slice(0, 6).map(a => a.name)
   return (
-    <Link href={`/festivaliai/${ev.slug}`} className="fs-hero">
+    <Link href={festivalHref(ev)} className="fs-hero">
       <div className="fs-hero-bg" style={ev.cover_image_url ? { backgroundImage: `url(${ev.cover_image_url})` } : undefined} />
       <div className="fs-hero-grad" />
       <div className="fs-hero-inner">
@@ -325,7 +327,7 @@ function FestivalCard({ ev, upcoming }: { ev: Festival; upcoming?: boolean }) {
   const cancelled = ev.status === 'cancelled'
 
   return (
-    <Link href={`/festivaliai/${ev.slug}`} className="fs-card">
+    <Link href={festivalHref(ev)} className="fs-card">
       <div className="fs-card-img">
         {ev.cover_image_url ? (
           <>

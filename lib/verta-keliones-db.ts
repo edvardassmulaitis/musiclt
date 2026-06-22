@@ -53,6 +53,55 @@ function mapEvent(e: any): Concert {
   }
 }
 
+// ── Vieno koncerto detalė (/verta-keliones/[slug]) ───────────────
+export { vkHref } from './verta-keliones-seed'
+
+export type AbroadTopTrack = { id: number; title: string; slug: string | null; cover_url: string | null; video_url: string | null }
+export type AbroadEventDetail = {
+  concert: Concert
+  dest: Destination | null
+  topTrack: AbroadTopTrack | null
+  related: Concert[]
+}
+
+function trailingId(slug: string): number | null {
+  const m = slug.match(/-(\d+)$/)
+  if (!m) return null
+  const n = Number(m[1])
+  return Number.isFinite(n) ? n : null
+}
+
+export const getAbroadEventBySlug = cache(async (slug: string): Promise<AbroadEventDetail | null> => {
+  const id = trailingId(slug)
+  if (id == null) return null
+  try {
+    const sb = createAdminClient()
+    const { data: ev } = await sb.from('abroad_events').select('*').eq('id', id).eq('is_published', true).maybeSingle()
+    if (!ev) return null
+    const concert = mapEvent(ev)
+
+    const [{ data: destRow }, related, topTrack] = await Promise.all([
+      sb.from('travel_destinations').select('*').eq('key', (ev as any).dest_key).maybeSingle(),
+      sb.from('abroad_events').select('*').eq('is_published', true).eq('dest_key', (ev as any).dest_key).neq('id', id).order('start_date', { ascending: true }).limit(6)
+        .then(r => (r.data || []).map(mapEvent)),
+      (async (): Promise<AbroadTopTrack | null> => {
+        const aid = (ev as any).artist_id
+        if (!aid) return null
+        const { data: trks } = await sb.from('tracks')
+          .select('id, title, slug, cover_url, video_url, video_views')
+          .eq('artist_id', aid).not('video_url', 'is', null)
+          .order('video_views', { ascending: false, nullsFirst: false }).limit(1)
+        const t = (trks || [])[0] as any
+        return t ? { id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url } : null
+      })(),
+    ])
+
+    return { concert, dest: destRow ? mapDest(destRow) : null, topTrack, related }
+  } catch {
+    return null
+  }
+})
+
 export const getVertaKelionesData = cache(async (): Promise<VertaKelionesData> => {
   try {
     const sb = createAdminClient()

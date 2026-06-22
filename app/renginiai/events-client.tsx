@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { eventHref } from '@/lib/event-href'
 
 /* ────────────────────────────────────────────────────────────────
  * Tipai
@@ -13,6 +14,7 @@ type Event = {
   id: string
   title: string
   slug: string
+  legacy_id?: number | null
   description: string | null
   start_date: string
   end_date: string | null
@@ -114,7 +116,7 @@ function Popover({ id, openId, setOpenId, label, icon, on, width, children }: {
 
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
-      <button type="button" onClick={() => setOpenId(open ? null : id)} className={`flt-trig${on ? ' active' : ''}`}>
+      <button type="button" onClick={() => setOpenId(open ? null : id)} className={`ev-chip${on ? ' on' : ''}`}>
         {icon}<span>{label}</span><span style={{ opacity: 0.7 }}>{Icon.chevron}</span>
       </button>
       {open && <div className="ev-pop" style={{ width: width ?? 'auto' }}>{children}</div>}
@@ -282,7 +284,7 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
       </div>
 
       {/* ── Kompaktiška filtrų juosta (viena eilutė) ── */}
-      <div className="flt-bar flt-bar--wrap">
+      <div className="ev-fbar">
         {/* Laikotarpis */}
         <Popover id="period" openId={openId} setOpenId={setOpenId} label={periodLabel} icon={Icon.calendar} on={!!from} width={278}>
           <p className="ev-pop-lbl">Greiti pasirinkimai</p>
@@ -305,13 +307,14 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
           {from && <button type="button" className="ev-pop-clear" onClick={() => { setPeriodLabel('Visos datos'); setFrom(null); setTo(null); setOpenId(null) }}>Išvalyti datas</button>}
         </Popover>
 
-        <span className="flt-divider" />
+        <span className="ev-divider" />
 
         {/* Miestai */}
+        <button className={`ev-chip${city === 'Visi' ? ' on' : ''}`} onClick={() => setCity('Visi')}>Visi miestai</button>
         {PRIMARY_CITIES.filter(c => cities.includes(c)).map(c => (
-          <button key={c} className={`flt-chip${city === c ? ' on' : ''}`} onClick={() => setCity(city === c ? 'Visi' : c)}>{c}</button>
+          <button key={c} className={`ev-chip${city === c ? ' on' : ''}`} onClick={() => setCity(c)}>{c}</button>
         ))}
-        {selectedInMore && <button className="flt-chip on" onClick={() => setCity('Visi')}>{city}</button>}
+        {selectedInMore && <button className="ev-chip on" onClick={() => setCity(city)}>{city}</button>}
         {moreCities.length > 0 && (
           <Popover id="cities" openId={openId} setOpenId={setOpenId} label="Kiti" on={false} width={230}>
             <input autoFocus value={citySearch} onChange={e => setCitySearch(e.target.value)} placeholder="Ieškoti miesto…" className="ev-search" />
@@ -323,7 +326,7 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
           </Popover>
         )}
 
-        <span className="flt-divider" />
+        <span className="ev-divider" />
 
         {/* Kaina */}
         <Popover id="price" openId={openId} setOpenId={setOpenId} label={price ? PRICE_OPTS.find(p => p.k === price)!.l : 'Kaina'} icon={Icon.euro} on={!!price} width={180}>
@@ -350,15 +353,15 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
           </Popover>
         )}
 
-        <span className="flt-divider" />
+        <span className="ev-divider" />
 
         {/* LT atlikėjai + Festivaliai + Verta kelionės (toggle'ai, gale) */}
-        <button className={`flt-chip${ltOnly ? ' on' : ''}`} onClick={() => setLtOnly(!ltOnly)}><span>🇱🇹</span><span>LT atlikėjai</span></button>
-        <button className={`flt-chip${festOnly ? ' on' : ''}`} onClick={() => setFestOnly(!festOnly)}>{Icon.tent}<span>Festivaliai</span></button>
-        <button className={`flt-chip${worthTrip ? ' on' : ''}`} onClick={() => setWorthTrip(!worthTrip)}>{Icon.plane}<span>Verta kelionės</span></button>
+        <button className={`ev-chip${ltOnly ? ' on' : ''}`} onClick={() => setLtOnly(!ltOnly)}><span>🇱🇹</span><span>LT atlikėjai</span></button>
+        <button className={`ev-chip${festOnly ? ' on' : ''}`} onClick={() => setFestOnly(!festOnly)}>{Icon.tent}<span>Festivaliai</span></button>
+        <button className={`ev-chip${worthTrip ? ' on' : ''}`} onClick={() => setWorthTrip(!worthTrip)}>{Icon.plane}<span>Verta kelionės</span></button>
 
-        {anyFilter && <button className="flt-reset" onClick={resetAll}>Išvalyti ✕</button>}
-        <span className="flt-count">{filtered.length} {filtered.length === 1 ? 'renginys' : filtered.length % 10 >= 1 && filtered.length % 10 <= 9 && !(filtered.length % 100 >= 11 && filtered.length % 100 <= 19) ? 'renginiai' : 'renginių'}</span>
+        {anyFilter && <button className="ev-reset" onClick={resetAll}>Išvalyti ✕</button>}
+        <span className="ev-count">{filtered.length} {filtered.length === 1 ? 'renginys' : filtered.length % 10 >= 1 && filtered.length % 10 <= 9 && !(filtered.length % 100 >= 11 && filtered.length % 100 <= 19) ? 'renginiai' : 'renginių'}</span>
       </div>
 
       {/* ── Archyvo juosta (viršuje — lengva išjungti) ── */}
@@ -423,7 +426,7 @@ function EventCard({ ev }: { ev: Event }) {
     : ev.title
 
   return (
-    <Link href={`/renginiai/${ev.slug}`} className="ev-card">
+    <Link href={eventHref(ev)} className="ev-card">
       <div className="ev-card-img">
         {ev.cover_image_url ? (
           <>
@@ -469,7 +472,23 @@ const EV_CSS = `
 .ev-head h1 { font-family:'Outfit',sans-serif; font-weight:var(--page-h1-weight); letter-spacing:var(--page-h1-tracking); font-size:var(--page-h1-size); line-height:var(--page-h1-line); color:var(--text-primary); }
 .ev-head p { color:var(--page-sub-color); font-size:var(--page-sub-size); line-height:var(--page-sub-line); margin-top:6px; max-width:var(--page-sub-max); }
 
-/* Filtrų juosta — bendros .flt-* klasės (globals.css). Popover'ai (.ev-pop/.ev-opt/.ev-mini) lieka žemiau. */
+/* Filter bar — viena kompaktiška eilutė */
+.ev-fbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px;
+  background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.08)); margin-bottom:22px; }
+.ev-divider { width:1px; height:22px; background:var(--border-default,rgba(255,255,255,0.1)); margin:0 2px; }
+
+/* Chip (= mz-fchip) */
+.ev-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600;
+  font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08));
+  color:var(--text-secondary); transition:all .15s; white-space:nowrap; cursor:pointer; line-height:1.3; }
+.ev-chip:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
+.ev-chip.on { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
+.ev-chip svg { display:block; }
+
+.ev-reset { padding:6px 11px; border-radius:100px; font-size:12px; font-weight:700; font-family:'Outfit',sans-serif;
+  color:var(--accent-orange); background:transparent; border:none; cursor:pointer; white-space:nowrap; }
+.ev-count { margin-left:auto; font-size:12px; font-weight:700; color:var(--text-faint); font-family:'Outfit',sans-serif;
+  background:var(--bg-hover); border-radius:100px; padding:4px 11px; }
 
 /* Popover */
 .ev-pop { position:absolute; top:calc(100% + 8px); left:0; z-index:50; padding:13px;

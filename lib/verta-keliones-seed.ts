@@ -10,7 +10,17 @@
  * patikrinti (oficialiai paskelbti) pažymėti `verified: true`.
  * ────────────────────────────────────────────────────────────────── */
 
+import { slugify } from './slugify'
+
 export type ReachMode = 'flight' | 'car'
+
+/** Pretty URL koncertui užsienyje: `/verta-keliones/<artistSlug|artist>-<destKey>-<id>`.
+ *  Client-safe (radar-client + detalės psl. naudoja tą patį). */
+export function vkHref(c: { id: string | number; artist?: string; artistSlug?: string; destKey?: string }): string {
+  const base = c.artistSlug || slugify(c.artist || 'koncertas')
+  const dest = c.destKey ? `-${c.destKey}` : ''
+  return `/verta-keliones/${base}${dest}-${c.id}`
+}
 
 export type Destination = {
   key: string

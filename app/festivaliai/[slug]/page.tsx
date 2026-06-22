@@ -1,6 +1,6 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { getFestivalBySlug } from '@/lib/supabase-events'
+import { getFestivalBySlug, festivalHref } from '@/lib/supabase-events'
 import FestivalLineup, { type LineupArtist } from './festival-lineup'
 
 type Artist = { id: number; name: string; slug: string; cover_image_url: string | null; country?: string | null }
@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${ev.title} – line-up, datos, atlikėjai | music.lt`,
     description: desc,
-    alternates: { canonical: `/festivaliai/${ev.slug}` },
+    alternates: { canonical: festivalHref(ev) },
     openGraph: {
       title: ev.title,
       description: desc,
@@ -52,6 +52,10 @@ export default async function FestivalPage({ params }: { params: Promise<{ slug:
   const { slug } = await params
   const ev = await getFestivalBySlug(slug)
   if (!ev) notFound()
+
+  // Kanoninis pretty URL (`<title>-<legacy_id>`) — sena `event-<id>` forma 308 redirect.
+  const canonical = festivalHref(ev)
+  if (ev.legacy_id != null && `/festivaliai/${slug}` !== canonical) redirect(canonical)
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://musiclt.vercel.app'
   const genresByArtist: Record<number, string[]> = ev.artistGenres || {}
