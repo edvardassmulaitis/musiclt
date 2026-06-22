@@ -28,9 +28,8 @@ const ALLTIME_COLS: Col[] = [
   { key: 'catalog_yt',  label: 'Katalogas',      short: 'Katalog.',  color: '#3b82f6', max: 10, desc: 'Klipų su peržiūromis skaičius.' },
 ]
 const TRENDING_COLS: Col[] = [
-  { key: 'pop_perday',     label: 'Peržiūros / dieną', short: 'Per dieną',  color: '#ec4899', max: 60, desc: 'Naujų (≤2 m.) dainų peržiūros per dieną. Esminis trending rodiklis — dabar klausomos NAUJOS dainos, ne visų laikų katalogas.' },
-  { key: 'reach_recent',   label: 'Naujų aprėptis',    short: 'Naujų perž.', color: '#a78bfa', max: 25, desc: 'Naujų (≤2 m.) dainų bendros peržiūros.' },
-  { key: 'catalog_recent', label: 'Naujų kiekis',      short: 'Naujų sk.',  color: '#10b981', max: 15, desc: 'Naujų (≤2 m.) dainų su peržiūromis skaičius — dabartinis aktyvumas.' },
+  { key: 'charts',     label: 'Dabartiniai topai', short: 'Topuose',   color: '#f59e0b', max: 60, desc: 'Buvimas dabartiniuose išoriniuose topuose (Billboard, Spotify Global, Apple, Official UK; LT — M.A.M.A, AGATA, Spotify/Apple LT). Geriausia pozicija + kiek topų. Autoritetingas „trendina dabar" signalas, atnaujinamas kasdien.' },
+  { key: 'pop_perday', label: 'Peržiūros / dieną', short: 'Per dieną', color: '#ec4899', max: 40, desc: 'Naujų (≤2 m.) dainų YouTube peržiūros per dieną — momentum.' },
 ]
 
 const fmtCountry = (c: string | null) => (c && c !== 'Lietuva' ? c : '🇱🇹')

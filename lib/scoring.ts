@@ -704,34 +704,42 @@ function fmtTotalViews(n: number): string {
 }
 
 // ── TRENDING (dabar populiaru) ────────────────────────────────────────────
-// v7.3 (Edvardo prašymu): trending remiasi TIK dainomis, išleistomis per
-// PASTARUOSIUS 2 METUS, ir jų peržiūromis per dieną — NE visu laiku. Taip
-// legendos (jokių naujų dainų) gauna ~0, o dabartiniai hitmeikeriai kyla.
+// v8 (Edvardo prašymu): trending = DABARTINIŲ IŠORINIŲ TOPŲ buvimas (Billboard,
+// Spotify Global, Apple, Official UK; LT — M.A.M.A, AGATA, Spotify/Apple LT,
+// Lietuvos TOP100) + naujų (≤2 m.) dainų peržiūros per dieną. Topai = autoritetingas
+// „kas dabar trendina" signalas, atnaujinamas kasdien (is_current) — numuša grynai
+// YouTube-regioninį dominavimą (pvz. ispanakalbiai, kurių YT velocity didžiulė, bet
+// globaliuose topuose nėra). Topuose esantys (Taylor, Drake, Olivia Rodrigo) kyla.
 export type TrendingScoreData = {
-  vpd_2y: number          // SUM(views/age) klipams, išleistiems per 2 metus — esminis
-  views_2y: number        // SUM(views) tų pačių klipų
-  n_2y: number            // tokių klipų skaičius
+  vpd_2y: number          // SUM(views/age) ≤2 m. klipams
+  views_2y: number; n_2y: number
+  chart_best: number      // geriausia (mažiausia) pozicija dabartiniuose topuose; 0 jei nėra
+  chart_count: number     // keliuose skirtinguose dabartiniuose topuose yra
   type: 'lt' | 'int'
 }
+function chartPoints(best: number, count: number): number {
+  if (!best || best <= 0) return 0
+  const pos = best <= 1 ? 36 : best <= 3 ? 33 : best <= 5 ? 30 : best <= 10 ? 26
+    : best <= 20 ? 20 : best <= 40 ? 14 : best <= 100 ? 8 : 4
+  const breadth = Math.min(14, count * 2)
+  return Math.min(60, pos + breadth)
+}
 export function computeTrendingScore(data: TrendingScoreData): ScoreBreakdown {
-  const { vpd_2y, views_2y, n_2y, type } = data
-  // ① PERŽIŪROS PER DIENĄ (≤2 m. dainos) 0-60 — esminis trending rodiklis.
-  //   1K/d≈5,10K/d≈20,100K/d≈35,1M/d≈50,5M/d+→cap 60.
-  const popPerDay = vpd_2y > 0 ? clampPts(15 * Math.log10(vpd_2y + 1) - 40, 60) : 0
-  // ② NAUJŲ DAINŲ APRĖPTIS (≤2 m. viso peržiūrų) 0-25.
-  const reachRecent = views_2y > 0 ? clampPts(8 * Math.log10(views_2y + 1) - 47, 25) : 0
-  // ③ NAUJŲ DAINŲ KIEKIS (aktyvumas) 0-15.
-  const catalogRecent = n_2y > 0 ? clampPts(6 * Math.log10(n_2y + 1), 15) : 0
-  const total = Math.min(100, popPerDay + reachRecent + catalogRecent)
+  const { vpd_2y, views_2y, n_2y, chart_best, chart_count, type } = data
+  // ① DABARTINIAI TOPAI 0-60 — autoritetingas „trendina dabar" signalas.
+  const charts = chartPoints(chart_best, chart_count)
+  // ② NAUJŲ DAINŲ PERŽIŪROS / DIENĄ (≤2 m.) 0-40 — YouTube momentum.
+  //   100K/d≈33, 1M/d≈48→cap40, t.y. 1M+/d → 40.
+  const popPerDay = vpd_2y > 0 ? clampPts(15 * Math.log10(vpd_2y + 1) - 42, 40) : 0
+  const total = Math.min(100, charts + popPerDay)
   return {
     type,
     categories: {
-      pop_perday:    { points: popPerDay, max: 60, details: `${fmtPerDay(vpd_2y)} (naujų dainų peržiūros per dieną)` },
-      reach_recent:  { points: reachRecent, max: 25, details: `naujos dainos (2m): ${fmtTotalViews(views_2y)}` },
-      catalog_recent:{ points: catalogRecent, max: 15, details: `${n_2y} naujų dainų (2m) su peržiūromis` },
+      charts:     { points: charts, max: 60, details: chart_best > 0 ? `topuose: geriausia #${chart_best}, ${chart_count} sąraš.` : 'nėra dabartiniuose topuose' },
+      pop_perday: { points: popPerDay, max: 40, details: `${fmtPerDay(vpd_2y)} (naujų dainų perž./d.)` },
     },
     total, score_override: 0, final_score: total,
-    inputs: { vpd_2y: Math.round(vpd_2y), views_2y, n_2y },
+    inputs: { vpd_2y: Math.round(vpd_2y), views_2y, n_2y, chart_best, chart_count },
   }
 }
 
@@ -833,8 +841,27 @@ async function gatherArtistYT(supabase: any, artistId: number) {
     }
   }
   const type: 'lt' | 'int' = isLT ? 'lt' : 'int'
+
+  // Dabartiniai išoriniai topai (trending'ui) — atitinkamo scope (lt/world).
+  let chart_best = 0, chart_count = 0
+  try {
+    const { data: chartRows } = await supabase
+      .from('external_chart_entries')
+      .select('position, chart_id, external_charts!inner(is_current, scope)')
+      .eq('artist_id', artistId)
+      .eq('external_charts.is_current', true)
+      .eq('external_charts.scope', isLT ? 'lt' : 'world')
+    const charts = new Set<number>()
+    for (const r of (chartRows || []) as any[]) {
+      const p = Number(r.position) || 0
+      if (p > 0 && (chart_best === 0 || p < chart_best)) chart_best = p
+      if (r.chart_id) charts.add(r.chart_id)
+    }
+    chart_count = charts.size
+  } catch {}
+
   const override = artist?.score_override || 0
-  return { vpd_2y, views_2y, n_2y, total_views, n_videos, debut_year: debutYear, type, override }
+  return { vpd_2y, views_2y, n_2y, total_views, n_videos, debut_year: debutYear, chart_best, chart_count, type, override }
 }
 
 function applyOverride(bd: ScoreBreakdown, override: number): ScoreBreakdown {
@@ -854,7 +881,7 @@ export async function calculateArtistScores(
     d.override,
   )
   const trending = applyOverride(
-    computeTrendingScore({ vpd_2y: d.vpd_2y, views_2y: d.views_2y, n_2y: d.n_2y, type: d.type }),
+    computeTrendingScore({ vpd_2y: d.vpd_2y, views_2y: d.views_2y, n_2y: d.n_2y, chart_best: d.chart_best, chart_count: d.chart_count, type: d.type }),
     d.override,
   )
   return { alltime, trending }
