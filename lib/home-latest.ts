@@ -120,6 +120,7 @@ type LatestTrackRow = {
   release_year: number | null
   release_date: string | null
   created_at: string | null
+  hide_from_homepage: boolean | null
   artist_id: number
   artists: LatestTrackArtist | null
   album_tracks?: Array<{ albums: { id: number; year: number | null } | null }> | null
@@ -259,7 +260,7 @@ function selectPopularStrip<T>(
 
 const TRACK_SELECT =
   'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
-  'release_date, release_year, created_at, artist_id, ' +
+  'release_date, release_year, created_at, hide_from_homepage, artist_id, ' +
   'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country, score), ' +
   'album_tracks(albums(id, year))'
 
@@ -292,7 +293,7 @@ async function fetchLatestTracksRaw(): Promise<LatestTrackRow[]> {
         .from('tracks')
         .select(
           'id, title, slug, cover_url, video_url, video_views, video_uploaded_at, ' +
-          'release_date, release_year, created_at, artist_id, ' +
+          'release_date, release_year, created_at, hide_from_homepage, artist_id, ' +
           'artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country, score)'
         )
         .is('video_uploaded_at', null)
@@ -372,8 +373,11 @@ export async function getLatestTracksForHome(): Promise<{
 
   // Filtruojam mojibake / placeholder titles, kur title == artist name.
   // + block-list: Rusijos atlikėjai niekada nerodomi homepage'e.
+  // + hide_from_homepage: admin'as rankiniu būdu paslėpė dainą iš homepage
+  //   (juostose IR „Daugiau" modale). Daina lieka matoma visur kitur. 2026-06-23.
   let valid = rows.filter(
-    r => r.artists && r.title && r.title !== r.artists.name && !isBlockedCountry(r.artists.country)
+    r => r.artists && r.title && r.title !== r.artists.name &&
+      !isBlockedCountry(r.artists.country) && !r.hide_from_homepage
   )
 
   // ── Reissue filter ──
