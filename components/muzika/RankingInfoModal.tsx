@@ -1,34 +1,54 @@
 'use client'
 
 // ℹ️ Modalas, paaiškinantis kaip sudaromi „Populiariausi visų laikų" ir
-// „Dabar populiaru" sąrašai. Vizualiai (svorio juostelės) — kad atrodytų solidžiai
-// ir aišku. Turinys turi atitikti lib/scoring.ts (computeAllTimeScore / Trending).
+// „Dabar populiaru" sąrašai. Paprastas: tuščiavidurė diagrama (donut) + trumpa
+// legenda, BE tikslių skaičių — tik bendras vaizdas, kas sudaro balą.
 
 import { useState } from 'react'
 
-type Part = { label: string; weight: number; color: string; desc: string }
+type Part = { label: string; weight: number; color: string; hint: string }
 
-const ALLTIME: { title: string; intro: string; parts: Part[]; foot: string } = {
+const ALLTIME: { title: string; intro: string; parts: Part[] } = {
   title: 'Kaip sudaromas „Populiariausi visų laikų" sąrašas',
-  intro: 'Tai bendras atlikėjo dydis per visą laiką — kiek iš viso klausytas, ne tik dabar. Balas (0–100) susideda iš:',
+  intro: 'Bendras atlikėjo dydis per visą laiką. Daugiausiai lemia:',
   parts: [
-    { label: 'Bendra aprėptis', weight: 62, color: '#a78bfa', desc: 'Kiek iš viso kartų klausyta jo dainų YouTube — pagrindinis dydžio matas.' },
-    { label: 'music.lt palikimas', weight: 20, color: '#14b8a6', desc: 'Populiarumas senajame music.lt („patinka"). Kad legendos, klausytos dar iki YouTube eros, nenugrimztų po dabartinių atlikėjų.' },
-    { label: 'Klasika', weight: 10, color: '#0ea5e9', desc: 'Kaip seniai atlikėjas kuria — nedidelis „klasiko" priedas.' },
-    { label: 'Katalogas', weight: 10, color: '#3b82f6', desc: 'Dainų gausa — ar gilus kūrybos kelias, ar vienas hitas.' },
+    { label: 'Bendras klausomumas', weight: 62, color: '#a78bfa', hint: 'kiek iš viso klausyta' },
+    { label: 'music.lt palikimas', weight: 20, color: '#14b8a6', hint: 'populiarumas dar iki YouTube' },
+    { label: 'Klasika', weight: 10, color: '#0ea5e9', hint: 'kaip seniai kuria' },
+    { label: 'Katalogas', weight: 10, color: '#3b82f6', hint: 'kūrybos gausa' },
   ],
-  foot: 'Sąmoningai NEvertinama, kas populiaru būtent dabar — tam yra „Dabar populiaru". Sąrašas atsinaujina automatiškai.',
 }
 
-const TRENDING: { title: string; intro: string; parts: Part[]; foot: string } = {
+const TRENDING: { title: string; intro: string; parts: Part[] } = {
   title: 'Kaip sudaromas „Dabar populiaru" sąrašas',
-  intro: 'Tai kas populiaru ŠIUO METU — skaičiuojama tik iš naujausių (maždaug paskutinių metų) dainų. Balas (0–100) susideda iš:',
+  intro: 'Kas populiaru šiuo metu — iš naujausių dainų. Lemia:',
   parts: [
-    { label: 'Dabartiniai topai', weight: 45, color: '#f59e0b', desc: 'Ar atlikėjas šiuo metu pasaulio ir Lietuvos topuose (Billboard, Spotify, Apple Music, M.A.M.A, AGATA…). Atnaujinama kasdien.' },
-    { label: 'Peržiūros per dieną', weight: 30, color: '#ec4899', desc: 'Kiek peržiūrų jo naujos dainos surenka kasdien — dabartinis pagreitis.' },
-    { label: 'Šviežumas', weight: 25, color: '#22c55e', desc: 'Ar ką tik išleido naują muziką — naujas albumas duoda postūmį net jei peržiūrų dar nedaug.' },
+    { label: 'Dabartiniai topai', weight: 45, color: '#f59e0b', hint: 'ar dabar pasaulio / LT topuose' },
+    { label: 'Klausomumas dabar', weight: 30, color: '#ec4899', hint: 'naujų dainų pagreitis' },
+    { label: 'Šviežumas', weight: 25, color: '#22c55e', hint: 'ar ką tik išleido' },
   ],
-  foot: 'Senesni hitai į šį sąrašą nepatenka — jie matomi „Populiariausi visų laikų". Atnaujinama kasdien.',
+}
+
+function Donut({ parts }: { parts: Part[] }) {
+  const total = parts.reduce((s, p) => s + p.weight, 0)
+  let acc = 0
+  const stops = parts.map((p) => {
+    const from = (acc / total) * 100
+    acc += p.weight
+    const to = (acc / total) * 100
+    return `${p.color} ${from}% ${to}%`
+  })
+  return (
+    <div style={{ position: 'relative', width: 132, height: 132, flex: '0 0 auto' }}>
+      <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: `conic-gradient(${stops.join(', ')})` }} />
+      <div style={{
+        position: 'absolute', inset: 0, margin: 'auto', width: 66, height: 66, borderRadius: '50%',
+        background: 'var(--modal-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <span style={{ fontSize: 20 }}>🎵</span>
+      </div>
+    </div>
+  )
 }
 
 export default function RankingInfoModal({ kind }: { kind: 'alltime' | 'trending' }) {
@@ -45,7 +65,7 @@ export default function RankingInfoModal({ kind }: { kind: 'alltime' | 'trending
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           width: 20, height: 20, marginLeft: 7, borderRadius: '50%',
-          border: '1.5px solid var(--border-subtle, #d4d4d8)', color: 'var(--text-muted, #71717a)',
+          border: '1.5px solid var(--modal-border, #d4d4d8)', color: 'var(--text-muted, #71717a)',
           fontSize: 12, fontWeight: 700, lineHeight: 1, cursor: 'pointer', background: 'transparent',
           verticalAlign: 'middle', flex: '0 0 auto',
         }}
@@ -55,41 +75,44 @@ export default function RankingInfoModal({ kind }: { kind: 'alltime' | 'trending
         <div
           onClick={() => setOpen(false)}
           style={{
-            position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.55)',
+            position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.6)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: 'var(--card-bg, #fff)', color: 'var(--text-primary, #18181b)',
-              borderRadius: 18, maxWidth: 520, width: '100%', maxHeight: '85vh', overflowY: 'auto',
-              padding: '22px 22px 18px', boxShadow: '0 24px 60px rgba(0,0,0,.35)',
+              background: 'var(--modal-bg, #0d1320)', color: 'var(--text-primary, #fff)',
+              border: '1px solid var(--modal-border, rgba(255,255,255,.1))',
+              borderRadius: 18, maxWidth: 460, width: '100%', padding: '22px 22px 20px',
+              boxShadow: 'var(--modal-shadow, 0 8px 32px rgba(0,0,0,.5))',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, lineHeight: 1.25 }}>{d.title}</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, lineHeight: 1.3 }}>{d.title}</h3>
               <button onClick={() => setOpen(false)} aria-label="Uždaryti"
-                style={{ background: 'transparent', border: 'none', fontSize: 22, lineHeight: 1, cursor: 'pointer', color: 'var(--text-muted,#71717a)' }}>×</button>
+                style={{ background: 'transparent', border: 'none', fontSize: 22, lineHeight: 1, cursor: 'pointer', color: 'var(--text-muted,#a1a1aa)', flex: '0 0 auto' }}>×</button>
             </div>
-            <p style={{ fontSize: 13.5, color: 'var(--text-muted, #52525b)', margin: '8px 0 16px', lineHeight: 1.5 }}>{d.intro}</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted, #a1a1aa)', margin: '8px 0 18px', lineHeight: 1.5 }}>{d.intro}</p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {d.parts.map((p) => (
-                <div key={p.label}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 5 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: p.color }}>{p.label}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-faint, #a1a1aa)', fontWeight: 600 }}>iki {p.weight} balų</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+              <Donut parts={d.parts} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 11, flex: 1, minWidth: 0 }}>
+                {d.parts.map((p) => (
+                  <div key={p.label} style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+                    <span style={{ width: 11, height: 11, borderRadius: 3, background: p.color, flex: '0 0 auto', marginTop: 3 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.25 }}>{p.label}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted, #a1a1aa)', lineHeight: 1.3 }}>{p.hint}</div>
+                    </div>
                   </div>
-                  <div style={{ height: 6, borderRadius: 4, background: 'var(--bg-elevated, #f4f4f5)', overflow: 'hidden', marginBottom: 5 }}>
-                    <div style={{ height: '100%', width: `${p.weight}%`, background: p.color, borderRadius: 4 }} />
-                  </div>
-                  <p style={{ fontSize: 12.5, color: 'var(--text-muted, #52525b)', margin: 0, lineHeight: 1.45 }}>{p.desc}</p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-            <p style={{ fontSize: 12, color: 'var(--text-faint, #a1a1aa)', margin: '16px 0 0', lineHeight: 1.5, borderTop: '1px solid var(--border-subtle, #e4e4e7)', paddingTop: 12 }}>{d.foot}</p>
+            <p style={{ fontSize: 11.5, color: 'var(--text-faint, #71717a)', margin: '18px 0 0', lineHeight: 1.5, borderTop: '1px solid var(--modal-border, rgba(255,255,255,.1))', paddingTop: 11 }}>
+              Atnaujinama automatiškai.
+            </p>
           </div>
         </div>
       )}
