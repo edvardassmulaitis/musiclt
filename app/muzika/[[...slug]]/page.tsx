@@ -235,14 +235,14 @@ export default async function MuzikaHubPage({ params, searchParams }: Props) {
       <>
         {showTrending && (trendLt.length > 0 || trendWorld.length > 0) && (
           <section className="mz-sec">
-            <SectionHead title={mode === 'trending' ? copy.h1 : 'Dabar populiarūs'} sub="Iš dabartinių topų ir naujausių pasirodymų" href="/atlikejai" hrefLabel="Visi atlikėjai" />
+            <SectionHead title={mode === 'trending' ? copy.h1 : 'Dabar populiarūs'} sub="Iš dabartinių topų ir naujausių pasirodymų" href="/atlikejai" hrefLabel="Visi atlikėjai" infoKind="trending" />
             {wantLt && trendLt.length > 0 && (<><div className="mz-subhead">🇱🇹 Lietuva</div><ArtistRow artists={trendLt} ranked /></>)}
             {wantWorld && trendWorld.length > 0 && (<><div className="mz-subhead">🌍 Pasaulis</div><ArtistRow artists={trendWorld} ranked /></>)}
           </section>
         )}
         {showAlltime && (popLt.length > 0 || popWorld.length > 0) && (
           <section className="mz-sec">
-            <SectionHead title={mode === 'alltime' ? copy.h1 : 'Populiariausi visų laikų'} sub="Daugiausiai klausomi atlikėjai per visą laiką" href="/atlikejai" hrefLabel="Visi atlikėjai" />
+            <SectionHead title={mode === 'alltime' ? copy.h1 : 'Populiariausi visų laikų'} sub="Daugiausiai klausomi atlikėjai per visą laiką" href="/atlikejai" hrefLabel="Visi atlikėjai" infoKind="alltime" />
             {wantLt && popLt.length > 0 && (<><div className="mz-subhead">🇱🇹 Lietuva</div><ArtistRow artists={popLt} ranked /></>)}
             {wantWorld && popWorld.length > 0 && (<><div className="mz-subhead">🌍 Pasaulis</div><ArtistRow artists={popWorld} ranked /></>)}
           </section>
