@@ -1,2 +1,0 @@
-To https://github.com/edvardassmulaitis/musiclt.git
-   3e9b129..cc3cfc1  HEAD -> main

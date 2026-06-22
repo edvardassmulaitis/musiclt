@@ -77,6 +77,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, action: 'merge_one', remaining_ids: remaining, group_done: done })
   }
 
+  // Hard-DELETE one track (junk), then drop it from the group.
+  if (action === 'delete_one') {
+    const trackId = Number(body.track_id)
+    if (!trackId || !allIds0.includes(trackId)) return NextResponse.json({ error: 'track_id must be in group' }, { status: 400 })
+    const { error: dErr } = await sb.rpc('delete_track', { p_id: trackId })
+    if (dErr) return NextResponse.json({ ok: false, error: dErr.message }, { status: 500 })
+    const remaining = allIds0.filter(id => id !== trackId)
+    const done = remaining.length < 2
+    await sb.from('track_dup_groups').update({
+      track_ids: remaining,
+      member_count: remaining.length,
+      status: done ? 'merged' : 'pending',
+      resolved_at: done ? new Date().toISOString() : null,
+      resolved_by: done ? resolvedBy : null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', groupId)
+    return NextResponse.json({ ok: true, action: 'delete_one', remaining_ids: remaining, group_done: done })
+  }
+
   // Remove ONE track from the group ("leave as separate" — not a duplicate).
   if (action === 'separate_one') {
     const trackId = Number(body.track_id)

@@ -31,6 +31,30 @@ create table if not exists track_dup_groups (
 );
 create index if not exists idx_tdg_status_conf on track_dup_groups (status, confidence);
 create index if not exists idx_tdg_signal on track_dup_groups (signal);
+-- fast per-track like counts
+create index if not exists idx_likes_track_entity on likes (entity_id) where entity_type = 'track';
+
+-- safe single-track delete: clears the 6 NO-ACTION FK references + polymorphic
+-- likes, then deletes the track (CASCADE / SET NULL FKs handle the rest).
+create or replace function delete_track(p_id int)
+returns void
+language plpgsql
+security definer
+as $$
+begin
+  delete from top_entries        where track_id = p_id;
+  delete from top_votes          where track_id = p_id;
+  delete from manual_top_entries where track_id = p_id;
+  delete from top_suggestions    where track_id = p_id;
+  delete from daily_song_votes   where track_id = p_id;
+  delete from daily_song_winners where track_id = p_id;
+  delete from likes where entity_type = 'track' and entity_id = p_id;
+  delete from tracks where id = p_id;
+end $$;
+
+-- popularity for ordering dup groups (max youtube views among members)
+alter table track_dup_groups add column if not exists popularity bigint not null default 0;
+create index if not exists idx_tdg_popularity on track_dup_groups (status, popularity desc);
 -- Per-signal scan functions. Each raises its own statement_timeout and stays
 -- well under the API gateway limit, so they can be called one at a time from
 -- the admin UI (service-role RPC) to repeat the duplicate scan.
@@ -50,8 +74,9 @@ declare n int;
 begin
   set local statement_timeout = '110s';
   insert into track_dup_groups
-    (group_key, signal, confidence, track_ids, member_count, suggested_keeper_id, sample_title, sample_artist, status)
+    (group_key, signal, confidence, track_ids, member_count, popularity, suggested_keeper_id, sample_title, sample_artist, status)
   select 'sp:'||g.spotify_id||':'||g.nt, 'spotify', 'high', g.ids, array_length(g.ids,1),
+    ( select coalesce(max(coalesce(t2.video_views,0)),0) from tracks t2 where t2.id = any(g.ids) ),
     ( select k.id from tracks k where k.id = any(g.ids)
       order by (k.video_url is not null and k.video_url<>'') desc, coalesce(k.video_views,0) desc,
                (k.lyrics is not null and k.lyrics<>'') desc, (k.cover_url is not null and k.cover_url<>'') desc,
@@ -73,8 +98,9 @@ declare n int;
 begin
   set local statement_timeout = '110s';
   insert into track_dup_groups
-    (group_key, signal, confidence, track_ids, member_count, suggested_keeper_id, sample_title, sample_artist, status)
+    (group_key, signal, confidence, track_ids, member_count, popularity, suggested_keeper_id, sample_title, sample_artist, status)
   select 'yt:'||g.video_url||':'||g.nt, 'youtube', 'high', g.ids, array_length(g.ids,1),
+    ( select coalesce(max(coalesce(t2.video_views,0)),0) from tracks t2 where t2.id = any(g.ids) ),
     ( select k.id from tracks k where k.id = any(g.ids)
       order by (k.spotify_id is not null and k.spotify_id<>'') desc, coalesce(k.video_views,0) desc,
                (k.lyrics is not null and k.lyrics<>'') desc, (k.cover_url is not null and k.cover_url<>'') desc,
@@ -96,8 +122,9 @@ declare n int;
 begin
   set local statement_timeout = '170s';
   insert into track_dup_groups
-    (group_key, signal, confidence, track_ids, member_count, suggested_keeper_id, sample_title, sample_artist, status)
+    (group_key, signal, confidence, track_ids, member_count, popularity, suggested_keeper_id, sample_title, sample_artist, status)
   select 'sa:'||g.artist_id||':'||g.nt, 'same_artist', 'medium', g.ids, array_length(g.ids,1),
+    ( select coalesce(max(coalesce(t2.video_views,0)),0) from tracks t2 where t2.id = any(g.ids) ),
     ( select k.id from tracks k where k.id = any(g.ids)
       order by (k.spotify_id is not null and k.spotify_id<>'') desc, (k.video_url is not null and k.video_url<>'') desc,
                coalesce(k.video_views,0) desc, (k.lyrics is not null and k.lyrics<>'') desc,
@@ -120,7 +147,7 @@ declare n int;
 begin
   set local statement_timeout = '110s';
   insert into track_dup_groups
-    (group_key, signal, confidence, track_ids, member_count, suggested_keeper_id, sample_title, sample_artist, status)
+    (group_key, signal, confidence, track_ids, member_count, popularity, suggested_keeper_id, sample_title, sample_artist, status)
   with base as (
     select t.id, t.artist_id, dup_norm(t.title) nt, lower(unaccent(t.title)) rt,
            lower(unaccent(coalesce(a.name,''))) an
@@ -143,6 +170,7 @@ begin
   grp as ( select nt, array_agg(distinct uid) ids from ca_members group by nt )
   select 'ca:'||g.nt, 'cross_artist', 'low',
     (select array_agg(x order by x) from unnest(g.ids) x), array_length(g.ids,1),
+    ( select coalesce(max(coalesce(t2.video_views,0)),0) from tracks t2 where t2.id = any(g.ids) ),
     ( select k.id from tracks k where k.id = any(g.ids)
       order by (k.spotify_id is not null and k.spotify_id<>'') desc, (k.video_url is not null and k.video_url<>'') desc,
                coalesce(k.video_views,0) desc, (k.lyrics is not null and k.lyrics<>'') desc,

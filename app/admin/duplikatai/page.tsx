@@ -30,6 +30,7 @@ type Member = {
   cover_url: string | null
   video_views: number | null
   page_view_count: number | null
+  likes: number
   created_at: string | null
 }
 type Group = {
@@ -175,6 +176,20 @@ export default function DuplikataiPage() {
     } finally { setBusyMember(b => ({ ...b, [loserId]: false })) }
   }
 
+  const doDeleteOne = async (g: Group, trackId: number, title: string) => {
+    if (!confirm(`IŠTRINTI dainą „${title}" (#${trackId}) visam laikui? Šio veiksmo atšaukti negalima.`)) return
+    setBusyMember(b => ({ ...b, [trackId]: true }))
+    try {
+      const r = await fetch('/api/admin/duplikatai/action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: g.id, action: 'delete_one', track_id: trackId }),
+      })
+      const j = await r.json()
+      if (j.ok) { applyRemaining(g.id, j.remaining_ids, j.group_done); flash('Ištrinta.') }
+      else flash('Klaida: ' + (j.error || ''))
+    } finally { setBusyMember(b => ({ ...b, [trackId]: false })) }
+  }
+
   const doSeparateOne = async (g: Group, trackId: number) => {
     setBusyMember(b => ({ ...b, [trackId]: true }))
     try {
@@ -305,8 +320,9 @@ export default function DuplikataiPage() {
                             <span className="text-gray-400" title="Sukurta">{fmtDate(m.created_at)}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[11px] text-gray-500 shrink-0">
-                          {m.video_views ? <span title="Peržiūros">{fmtViews(m.video_views)}</span> : null}
+                        <div className="flex items-center gap-2 text-[11px] text-gray-500 shrink-0">
+                          <span title="Patiktukai (iš senos sistemos)" className="text-rose-500 font-medium">♥ {m.likes}</span>
+                          {m.video_views ? <span title="YouTube peržiūros">▶ {fmtViews(m.video_views)}</span> : null}
                           {m.has_spotify && <span title="Spotify" className="text-green-600 font-semibold">S</span>}
                           {m.has_lyrics && <span title="Žodžiai">📝</span>}
                           {m.has_cover && <span title="Viršelis">🖼</span>}
@@ -328,6 +344,14 @@ export default function DuplikataiPage() {
                               className="px-2 py-1 rounded-md bg-white border border-gray-300 text-gray-600 text-xs hover:border-gray-400 disabled:opacity-50"
                             >
                               Atskirti
+                            </button>
+                            <button
+                              onClick={() => doDeleteOne(g, m.id, m.title)}
+                              disabled={busyMember[m.id]}
+                              title="Ištrinti dainą visam laikui"
+                              className="px-2 py-1 rounded-md bg-white border border-red-200 text-red-600 text-xs hover:bg-red-50 disabled:opacity-50"
+                            >
+                              🗑
                             </button>
                           </div>
                         )}

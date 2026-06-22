@@ -42,12 +42,18 @@ export async function GET(req: NextRequest) {
     .eq('status', 'pending')
   if (signal !== 'all') gq = gq.eq('signal', signal)
   const { data: groups, error } = await gq
+    .order('popularity', { ascending: false })
     .order('member_count', { ascending: false })
     .order('id', { ascending: true })
     .range(page * pageSize, page * pageSize + pageSize - 1)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const allIds = Array.from(new Set((groups || []).flatMap(g => g.track_ids as number[])))
+  const likeMap = new Map<number, number>()
+  if (allIds.length) {
+    const { data: lc } = await sb.rpc('track_like_counts', { ids: allIds })
+    for (const r of (lc || []) as Array<{ track_id: number; cnt: number }>) likeMap.set(Number(r.track_id), Number(r.cnt))
+  }
   const trackMap = new Map<number, any>()
   if (allIds.length) {
     const { data: tracks } = await sb
@@ -74,22 +80,31 @@ export async function GET(req: NextRequest) {
         cover_url: t.cover_url,
         video_views: t.video_views,
         page_view_count: t.page_view_count,
+        likes: likeMap.get(t.id) || 0,
         created_at: t.created_at,
       })
     }
   }
 
-  const out = (groups || []).map(g => ({
-    id: g.id,
-    signal: g.signal,
-    confidence: g.confidence,
-    suggested_keeper_id: g.suggested_keeper_id,
-    sample_title: g.sample_title,
-    sample_artist: g.sample_artist,
-    members: (g.track_ids as number[])
-      .map(id => trackMap.get(id))
-      .filter(Boolean),
-  })).filter(g => g.members.length > 1)  // skip groups whose members got merged away
+  const out = (groups || []).map(g => {
+    const members = (g.track_ids as number[]).map(id => trackMap.get(id)).filter(Boolean)
+    // suggested keeper first, then by popularity (views, then likes)
+    members.sort((a: any, b: any) => {
+      if (a.id === g.suggested_keeper_id) return -1
+      if (b.id === g.suggested_keeper_id) return 1
+      return (Number(b.video_views || 0) - Number(a.video_views || 0)) || ((b.likes || 0) - (a.likes || 0))
+    })
+    return {
+      id: g.id,
+      signal: g.signal,
+      confidence: g.confidence,
+      popularity: g.popularity,
+      suggested_keeper_id: g.suggested_keeper_id,
+      sample_title: g.sample_title,
+      sample_artist: g.sample_artist,
+      members,
+    }
+  }).filter(g => g.members.length > 1)  // skip groups whose members got merged away
 
   return NextResponse.json({
     counts,
