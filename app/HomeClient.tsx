@@ -3314,13 +3314,39 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
             </div>
           </div>
         ), document.body)}
-        {pageReady && heroSlides.length > 0 && (
-          <div style={{
-            opacity: heroReady ? 1 : 0,
-            transform: heroReady ? 'none' : 'translateY(12px)',
-            transition: 'opacity 0.55s ease, transform 0.55s cubic-bezier(0.22,1,0.36,1)',
-            willChange: 'opacity, transform',
-          }}>
+        {/* Hero loaderis — kol VISI hero šaltiniai dar kraunasi (heroReady=false).
+            Stilius kaip /bendruomene: pulsuojančios 16:9 kortelės + ekvalaizeris.
+            Tik desktop (.hp-hero-v2 paslėptas ≤768px; mobile rodo feed strip). */}
+        {pageReady && !heroReady && (
+          <section className="hp-hero-v2" aria-hidden>
+            <style>{`
+              @keyframes hpSkelPulse{0%,100%{opacity:1}50%{opacity:.5}}
+              @keyframes hpEqBar{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+              .hp-skel-card{background:var(--bg-surface);border:1px solid var(--border-default);animation:hpSkelPulse 1.8s ease-in-out infinite;display:flex;align-items:center;justify-content:center}
+              .hp-eq{display:flex;align-items:flex-end;gap:4px;height:28px}
+              .hp-eq span{width:4px;border-radius:2px;background:var(--accent-orange);opacity:.55;animation:hpEqBar 1s ease-in-out infinite;transform-origin:bottom}
+              .hp-eq span:nth-child(1){height:28px;animation-delay:0s}
+              .hp-eq span:nth-child(2){height:16px;animation-delay:.15s}
+              .hp-eq span:nth-child(3){height:24px;animation-delay:.3s}
+              .hp-eq span:nth-child(4){height:12px;animation-delay:.45s}
+              .hp-eq span:nth-child(5){height:20px;animation-delay:.6s}
+            `}</style>
+            <div className="mx-auto max-w-[1360px] px-5 pt-5">
+              <div className="flex items-stretch gap-4 pb-1">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="hp-hero-slot shrink-0">
+                    <div className="hp-skel-card h-full w-full rounded-2xl" style={{ aspectRatio: '16/9' }}>
+                      <div className="hp-eq"><span /><span /><span /><span /><span /></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+        {pageReady && heroReady && heroSlides.length > 0 && (
+          <div style={{ animation: 'hpHeroReveal 0.5s cubic-bezier(0.22,1,0.36,1) both' }}>
+            <style>{'@keyframes hpHeroReveal{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}'}</style>
             <HeroV2Slider slides={heroSlides} dk={dk} />
           </div>
         )}
