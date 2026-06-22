@@ -2566,6 +2566,9 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
   const [heroSettled, setHeroSettled] = useState(false)
   const heroSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const heroMaxRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Freeze: kai hero nusistovi, NUSTOJAM perkurti heroSlides — net jei vėluojantis
+  // šaltinis ateina po atskleidimo, rodomos kortelės nebepersirikiuoja (0 flicker).
+  const heroFrozenRef = useRef(false)
 
   /* ── Naujos dainos + albumai loader (retry + degraded handling) ──
      /api/home/latest dabar grąžina `degraded: true` kai DB užklausa fail'ino
@@ -2761,6 +2764,9 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
      naujesnė nei topo atsinaujinimas, atsiduria PRIEŠ topą. Renginiai lieka
      gale (jie ateities datų — nerikiuojam su feed'u). */
   useEffect(() => {
+    // Po atskleidimo hero UŽŠALDYTAS — nebeperkuriam (kitaip vėlyvas fetch'as
+    // persirikiuotų jau matomas korteles = flicker). Atnaujins kitą apsilankymą.
+    if (heroFrozenRef.current) return
     const slides: HeroSlide[] = []
     const dated: { sortMs: number; slide: HeroSlide }[] = []
     const ms = (s: string | null | undefined) => { const t = s ? new Date(s).getTime() : NaN; return isNaN(t) ? 0 : t }
@@ -3014,8 +3020,8 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     // Debounce: kol turinys keičiasi — atidedam atskleidimą; kai nustoja —
     // fade-in (jau galutine tvarka, be flicker'io).
     if (heroSettleRef.current) clearTimeout(heroSettleRef.current)
-    heroSettleRef.current = setTimeout(() => setHeroSettled(true), 280)
-    if (!heroMaxRef.current) heroMaxRef.current = setTimeout(() => setHeroSettled(true), 2500)
+    heroSettleRef.current = setTimeout(() => { heroFrozenRef.current = true; setHeroSettled(true) }, 400)
+    if (!heroMaxRef.current) heroMaxRef.current = setTimeout(() => { heroFrozenRef.current = true; setHeroSettled(true) }, 2500)
     readyBits.current.hero = true
     tryReady.current()
   }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents, discoveries, recordings, dailyWinners, dailyNomsCount, vertaConcerts, feedOverrides, feedCustom])
