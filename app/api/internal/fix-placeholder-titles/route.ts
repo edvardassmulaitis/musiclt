@@ -72,11 +72,13 @@ function extractTitle(html: string, artistName: string | null, sourceUrl: string
     const t = decodeEntities(stripTags(h1[1]))
     if (t && t.toLowerCase() !== PLACEHOLDER.toLowerCase() && t.length <= 200) return { title: t, method: 'h1' }
   }
-  // 2) og:title
-  const og = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i)
-            || html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*property=["']og:title["']/i)
-  if (og) {
-    const t = extractFromHeadTitle(og[1], artistName)
+  // 2) og:title — extract the meta tag first, then read content respecting the
+  // actual quote delimiter so apostrophes inside the title aren't truncated.
+  const ogTag = html.match(/<meta[^>]*property=["']og:title["'][^>]*>/i)
+              || html.match(/<meta[^>]*content=["'][^>]*["'][^>]*property=["']og:title["'][^>]*>/i)
+  const ogContent = ogTag && (ogTag[0].match(/content="([^"]*)"/i) || ogTag[0].match(/content='([^']*)'/i))
+  if (ogContent) {
+    const t = extractFromHeadTitle(ogContent[1], artistName)
     if (t && t.toLowerCase() !== PLACEHOLDER.toLowerCase() && t.length <= 200) return { title: t, method: 'og:title' }
   }
   // 3) <title>
@@ -99,21 +101,28 @@ export async function POST(req: NextRequest) {
 
   let body: any = {}
   try { body = await req.json() } catch {}
-  const limit = Math.min(60, Math.max(1, Number(body.limit) || 30))
+  const limit = Math.min(80, Math.max(1, Number(body.limit) || 30))
   const dry = body.dry === true
+  // prefix_guard: only overwrite when the freshly extracted title strictly
+  // EXTENDS the current one (or current is the placeholder). Lets us safely
+  // re-run over already-repaired rows to fix apostrophe-truncated titles
+  // without ever clobbering a correct title.
+  const prefixGuard = body.prefix_guard === true
+  const ids: number[] = Array.isArray(body.ids) ? body.ids.map((x: any) => Number(x)).filter(Boolean) : []
 
   const sb = createAdminClient()
 
-  const { data: rows, error } = await sb
+  let q = sb
     .from('tracks')
-    .select('id, source_url, artist_id, artists!tracks_artist_id_fkey(name)')
-    .eq('title', PLACEHOLDER)
+    .select('id, title, source_url, artist_id, artists!tracks_artist_id_fkey(name)')
     .not('source_url', 'is', null)
     .order('id', { ascending: true })
     .limit(limit)
+  q = ids.length ? q.in('id', ids) : q.eq('title', PLACEHOLDER)
+  const { data: rows, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const results: Array<{ id: number; title: string | null; method: string; ok: boolean; error?: string }> = []
+  const results: Array<{ id: number; title: string | null; method: string; ok: boolean; error?: string; skipped?: boolean }> = []
   for (const r of (rows || []) as any[]) {
     const artistName = (Array.isArray(r.artists) ? r.artists[0]?.name : r.artists?.name) ?? null
     try {
@@ -125,6 +134,15 @@ export async function POST(req: NextRequest) {
       const html = await resp.text()
       const { title, method } = extractTitle(html, artistName, r.source_url)
       if (!title) { results.push({ id: r.id, title: null, method, ok: false, error: 'no title found' }); continue }
+      const cur = String(r.title || '')
+      if (prefixGuard) {
+        const isPlaceholder = cur === PLACEHOLDER
+        const extends_ = title.length > cur.length && title.startsWith(cur)
+        if (!isPlaceholder && !extends_) {
+          results.push({ id: r.id, title, method, ok: true, skipped: true })
+          continue
+        }
+      }
       if (!dry) {
         const { error: uErr } = await sb.from('tracks').update({ title }).eq('id', r.id)
         if (uErr) { results.push({ id: r.id, title, method, ok: false, error: uErr.message }); continue }
