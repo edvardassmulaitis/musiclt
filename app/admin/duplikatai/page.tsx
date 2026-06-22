@@ -871,6 +871,8 @@ function FeaturingSection() {
   }, [])
   useEffect(() => { load(0, false); setPage(0) }, [load])
 
+  const [bulkBusy, setBulkBusy] = useState(false)
+
   const link = async (t: FeatRow) => {
     setBusy(b => ({ ...b, [t.id]: true }))
     try {
@@ -884,12 +886,33 @@ function FeaturingSection() {
     } finally { setBusy(b => ({ ...b, [t.id]: false })) }
   }
 
+  const fixAll = async () => {
+    if (!confirm(`Auto-prijungti VISUS ${total ?? ''} atlikėjus ir išvalyti „(ft. X)" tekstą iš pavadinimų? Šio veiksmo atšaukti negalima.`)) return
+    setBulkBusy(true)
+    try {
+      const r = await fetch('/api/admin/duplikatai/featuring', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fix_all' }),
+      })
+      const j = await r.json()
+      if (j.ok) { flash(`Prijungta: ${j.linked}.`); load(0, false); setPage(0) }
+      else flash('Klaida: ' + (j.error || ''))
+    } finally { setBulkBusy(false) }
+  }
+
   return (
     <div>
-      <p className="text-sm text-gray-500 mb-4">
-        Dainos, kurių pavadinime nurodytas <b>featuring atlikėjas</b> (ft./feat./su X), egzistuojantis bazėje, bet
-        <b> nesusietas</b>. Prijunk teisingą atlikėją{total != null ? ` — rasta ${total}` : ''}. Rūšiuota pagal populiarumą.
-      </p>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <p className="text-sm text-gray-500">
+          Dainos, kurių pavadinime nurodytas <b>featuring atlikėjas</b> (ft./feat./su X), egzistuojantis bazėje, bet
+          <b> nesusietas</b>. Prijunk po vieną arba auto-fix visus — atlikėjas susiejamas ir „(ft. X)" tekstas
+          pašalinamas iš pavadinimo{total != null ? `. Rasta ${total}` : ''}. Rūšiuota pagal populiarumą.
+        </p>
+        <button onClick={fixAll} disabled={bulkBusy || !total}
+          className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium disabled:opacity-50 shrink-0">
+          {bulkBusy ? 'Taisoma…' : `⚡ Auto-fix visus${total != null ? ` (${total})` : ''}`}
+        </button>
+      </div>
       {toast && <div className="mb-4 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm">{toast}</div>}
       {loading && rows.length === 0 && <div className="text-gray-500 py-10 text-center">Kraunama…</div>}
       {!loading && rows.length === 0 && <div className="text-gray-500 py-10 text-center">Nieko nerasta. 🎉</div>}

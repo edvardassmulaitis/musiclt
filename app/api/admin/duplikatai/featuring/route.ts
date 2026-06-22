@@ -44,17 +44,25 @@ export async function POST(req: NextRequest) {
 
   let body: any
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
-  if (String(body.action) !== 'link') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
-
-  const trackId = Number(body.track_id)
-  const featId = Number(body.feat_id)
-  if (!trackId || !featId) return NextResponse.json({ error: 'track_id and feat_id required' }, { status: 400 })
-
+  const action = String(body.action || '')
   const sb = createAdminClient()
-  const { error } = await sb.from('track_artists').upsert(
-    { track_id: trackId, artist_id: featId, is_primary: false },
-    { onConflict: 'track_id,artist_id', ignoreDuplicates: true },
-  )
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true, track_id: trackId, feat_id: featId })
+
+  // Auto-fix EVERYTHING: link all resolvable featuring artists + strip feat text.
+  if (action === 'fix_all') {
+    const { data, error } = await sb.rpc('fix_all_featuring')
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, action, linked: data })
+  }
+
+  if (action === 'link') {
+    const trackId = Number(body.track_id)
+    const featId = Number(body.feat_id)
+    if (!trackId || !featId) return NextResponse.json({ error: 'track_id and feat_id required' }, { status: 400 })
+    // links the artist AND strips the "(ft. X)" text from the title
+    const { error } = await sb.rpc('link_track_featuring', { p_track: trackId, p_feat: featId })
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, track_id: trackId, feat_id: featId })
+  }
+
+  return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }

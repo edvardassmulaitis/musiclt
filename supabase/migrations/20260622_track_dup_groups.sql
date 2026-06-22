@@ -218,6 +218,75 @@ begin
   where c.feat_norm is not null and length(c.feat_norm) >= 2;
   return n;
 end $$;
+-- Backend guard: never allow a track's MAIN artist to be added as a non-primary
+-- (featuring) artist of the same track. Covers every code path.
+create or replace function prevent_self_feature() returns trigger
+language plpgsql as $$
+begin
+  if NEW.is_primary = false
+     and NEW.artist_id = (select artist_id from tracks where id = NEW.track_id) then
+    return null;  -- silently skip the redundant self-feature
+  end if;
+  return NEW;
+end $$;
+
+drop trigger if exists trg_prevent_self_feature on track_artists;
+create trigger trg_prevent_self_feature
+  before insert or update on track_artists
+  for each row execute function prevent_self_feature();
+
+-- Helper: strip "(feat./ft./featuring/su/with X)" parentheticals from a title.
+create or replace function strip_feat_title(t text) returns text
+language sql immutable as $$
+  select trim(regexp_replace(coalesce(t,''),
+    '\s*[\(\[]\s*(?:feat|ft|featuring|su|with)\.?\s+[^)\]]+[\)\]]', '', 'gi'))
+$$;
+
+-- Link one track's featuring artist (from title) and strip the feat text.
+create or replace function link_track_featuring(p_track int, p_feat int)
+returns void
+language plpgsql security definer as $$
+begin
+  insert into track_artists(track_id, artist_id, is_primary)
+  values (p_track, p_feat, false)
+  on conflict (track_id, artist_id) do nothing;
+  update tracks set title = strip_feat_title(title) where id = p_track;
+end $$;
+
+-- Bulk auto-fix: for every track whose title names a resolvable, unlinked
+-- featuring artist — link it and strip the feat text from the title.
+create or replace function fix_all_featuring()
+returns int
+language plpgsql security definer as $$
+declare n int;
+begin
+  set local statement_timeout = '170s';
+  -- 1) link every track whose title names a resolvable, unlinked featuring artist
+  insert into track_artists(track_id, artist_id, is_primary)
+  select c.id, fa.id, false
+  from (
+    select t.id, t.artist_id,
+           lower(unaccent(trim((regexp_match(t.title,
+             '\((?:feat|ft|featuring|su|with)\.?\s+([^)]+)\)', 'i'))[1]))) as feat_norm
+    from tracks t
+    where t.title ~* '\((feat|ft|featuring|su|with)\.?\s'
+      and not exists (select 1 from track_artists ta where ta.track_id=t.id and ta.is_primary=false)
+  ) c
+  join artists fa on fa.name_norm = c.feat_norm and fa.id <> c.artist_id
+  where c.feat_norm is not null and length(c.feat_norm) >= 2
+  on conflict (track_id, artist_id) do nothing;
+  get diagnostics n = row_count;
+
+  -- 2) strip feat text ONLY where a linked featuring artist's name is in the title
+  update tracks t set title = strip_feat_title(t.title)
+  where t.title ~* '\((feat|ft|featuring|su|with)\.?\s'
+    and exists (
+      select 1 from track_artists ta join artists a on a.id = ta.artist_id
+      where ta.track_id = t.id and ta.is_primary = false
+        and position(lower(unaccent(a.name)) in lower(unaccent(t.title))) > 0
+    );
+  return n;
+end $$;
 -- Per-signal scan functions. Each raises its own statement_timeout and stays
 -- well under the API gateway limit, so they can be called one at a time from
 -- the admin UI (service-role RPC) to repeat the duplicate scan.
