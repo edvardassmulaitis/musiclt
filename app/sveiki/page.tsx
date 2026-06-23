@@ -1,9 +1,8 @@
 // app/sveiki/page.tsx
 //
-// „Sveiki" — įspūdingas pasveikinimo / apžvalgos puslapis po prisijungimo.
-// Rodo: koliažą iš patikusių viršelių, profilio apžvalgą (legacy statistiką
-// jei profilis perimtas), ir funkcijų pristatymą su CTA. Į jį nukreipiama po
-// magic-link verify ir po Google login (kai nėra specifinio callbackUrl).
+// „Sveiki" — solidus, įkvepiantis pasveikinimo / starto puslapis po prisijungimo.
+// Hero su ryškiu koliažu, nario mėgstami atlikėjai, nauji personalizuoti
+// feature'ai (srautas / atradimai / radaras) ir pagrindinės svetainės dalys.
 
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
@@ -18,16 +17,17 @@ export const metadata = {
   robots: { index: false, follow: false },
 }
 
-type Cover = { url: string }
+export type LikedArtist = { name: string; slug: string; cover: string | null }
 
 async function gatherWelcomeData(profile: any) {
   const sb = createAdminClient()
   const username: string | null = profile.username || null
 
   let covers: string[] = []
-  let likedArtists = 0
-  let likedAlbums = 0
+  let likedArtistsList: LikedArtist[] = []
+  let likedArtistsCount = 0
   let likedTracks = 0
+  let likedAlbums = 0
 
   if (username) {
     const { data: likes } = await sb
@@ -44,26 +44,31 @@ async function gatherWelcomeData(profile: any) {
       else if (r.entity_type === 'album') albumIds.add(r.entity_legacy_id)
       else if (r.entity_type === 'track') trackIds.add(r.entity_legacy_id)
     }
-    likedArtists = artistIds.size
+    likedArtistsCount = artistIds.size
     likedAlbums = albumIds.size
     likedTracks = trackIds.size
 
     const [ar, al] = await Promise.all([
       artistIds.size
-        ? sb.from('artists').select('cover_image_url').in('legacy_id', Array.from(artistIds)).not('cover_image_url', 'is', null).limit(40)
+        ? sb.from('artists').select('slug, name, cover_image_url').in('legacy_id', Array.from(artistIds)).limit(60)
         : Promise.resolve({ data: [] as any[] }),
       albumIds.size
         ? sb.from('albums').select('cover_image_url').in('legacy_id', Array.from(albumIds)).not('cover_image_url', 'is', null).limit(40)
         : Promise.resolve({ data: [] as any[] }),
     ])
+    const artistRows = (((ar as any).data as any[]) || [])
+    likedArtistsList = artistRows
+      .filter((a) => a.cover_image_url)
+      .map((a) => ({ name: a.name, slug: a.slug, cover: a.cover_image_url }))
+      .slice(0, 12)
     covers = [
-      ...(((ar as any).data as any[]) || []).map((x) => x.cover_image_url),
+      ...artistRows.map((a) => a.cover_image_url),
       ...(((al as any).data as any[]) || []).map((x) => x.cover_image_url),
     ].filter(Boolean)
   }
 
-  // Naujam vartotojui (be patikimų) — populiarių atlikėjų koliažas.
-  if (covers.length < 12) {
+  // Koliažui (ir naujam nariui) — populiarių atlikėjų viršeliai.
+  if (covers.length < 16) {
     const { data: pop } = await sb
       .from('artists')
       .select('cover_image_url')
@@ -75,11 +80,9 @@ async function gatherWelcomeData(profile: any) {
   }
 
   return {
-    covers: covers.slice(0, 30),
-    likedArtists,
-    likedAlbums,
-    likedTracks,
-    hasLegacy: !!(profile.legacy_message_count || profile.legacy_karma_points || profile.joined_legacy_at),
+    covers: covers.slice(0, 24),
+    likedArtists: likedArtistsList,
+    hasMusic: likedArtistsCount + likedAlbums + likedTracks > 0,
   }
 }
 
@@ -91,7 +94,7 @@ export default async function SveikiPage() {
 
   const data = await gatherWelcomeData(profile)
   const isAdmin = profile.role === 'admin' || profile.role === 'super_admin'
-  const isReturning = !!profile.is_claimed || data.likedArtists + data.likedAlbums + data.likedTracks > 0
+  const isReturning = !!profile.is_claimed || data.hasMusic
 
   return (
     <WelcomeClient
@@ -99,15 +102,8 @@ export default async function SveikiPage() {
       username={profile.username || null}
       avatarUrl={profile.avatar_url || null}
       covers={data.covers}
-      stats={{
-        artists: data.likedArtists,
-        albums: data.likedAlbums,
-        tracks: data.likedTracks,
-        karma: profile.legacy_karma_points || null,
-        messages: profile.legacy_message_count || null,
-        joinedLegacy: profile.joined_legacy_at || null,
-      }}
-      hasLegacy={data.hasLegacy}
+      likedArtists={data.likedArtists}
+      hasMusic={data.hasMusic}
       isReturning={isReturning}
       isAdmin={isAdmin}
     />
