@@ -2586,7 +2586,6 @@ function ProfileBodyDesktop(props: any) {
           </div>
         )}
 
-        <SimpleClaimFooter isLegacy={isLegacy} isUnclaimed={isUnclaimed} />
       </div>
     </>
   )
@@ -3138,48 +3137,8 @@ function FollowCtaCard({ profile }: { profile: any }) {
         Sek ir gauk pranešimą apie kiekvieną naują įrašą
       </div>
       <div className="flex justify-center">
-        <FollowButton targetId={profile.id} variant="primary" />
+        <FollowButton targetId={profile.id} variant="primary" keepLabel />
       </div>
     </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Footer
-// ─────────────────────────────────────────────────────────────────────────────
-
-function SimpleClaimFooter({ isLegacy, isUnclaimed }: any) {
-  if (!isLegacy || !isUnclaimed) return null
-  return (
-    <footer className="mt-12 sm:mt-16">
-      <div className="relative max-w-2xl mx-auto overflow-hidden rounded-3xl px-6 py-7 sm:px-9 sm:py-8"
-           style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(251,191,36,0.06))', border: '1px solid rgba(249,115,22,0.22)' }}>
-        <div aria-hidden className="absolute -right-10 -top-12 w-44 h-44 rounded-full"
-             style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.18), transparent 70%)' }} />
-        <div className="relative flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left sm:gap-5">
-          <div className="flex-shrink-0 mb-3 sm:mb-0 w-12 h-12 rounded-2xl flex items-center justify-center"
-               style={{ background: 'var(--accent-orange)', boxShadow: '0 6px 18px rgba(249,115,22,0.35)' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M9 12l2 2 4-4" /><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
-            </svg>
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-[16px] sm:text-[18px] font-black leading-tight"
-                style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
-              Tai tavo profilis?
-            </h3>
-            <p className="mt-1 text-[13px] leading-relaxed"
-               style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-secondary)' }}>
-              Užsiregistruok su tuo pačiu el. paštu — automatiškai sujungsime visą tavo music.lt istoriją.
-            </p>
-          </div>
-          <Link href="/auth/signin"
-                className="mt-4 sm:mt-0 flex-shrink-0 inline-flex items-center justify-center px-5 py-2.5 rounded-full text-[13px] font-extrabold transition hover:opacity-90 active:scale-[0.98]"
-                style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--accent-orange)', color: '#fff', boxShadow: '0 6px 18px rgba(249,115,22,0.3)' }}>
-            Aktyvuoti paskyrą
-          </Link>
-        </div>
-      </div>
-    </footer>
   )
 }
