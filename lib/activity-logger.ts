@@ -100,3 +100,28 @@ export function formatActivityEvent(event: {
       return { text: `${actor} atliko veiksmą`, url: null }
   }
 }
+
+
+// Pašalinti event'ą iš „Kas vyksta" srauto — pvz. kai narys atšaukia like'ą.
+// Match'inam pagal event_type + user_id + entity → dingsta to paties žmogaus
+// to paties objekto įrašas (kiti narių like'ai lieka).
+export async function deleteActivity(params: {
+  event_type: ActivityEventType
+  user_id: string
+  entity_type: string
+  entity_id: number | string
+}) {
+  try {
+    const supabase = createAdminClient()
+    const { error } = await supabase
+      .from('activity_events')
+      .delete()
+      .eq('event_type', params.event_type)
+      .eq('user_id', params.user_id)
+      .eq('entity_type', params.entity_type)
+      .eq('entity_id', Number(params.entity_id))
+    if (error) console.error('[deleteActivity] failed:', error.message)
+  } catch (err) {
+    console.error('[deleteActivity] error:', err)
+  }
+}
