@@ -10,7 +10,7 @@ import { randomUUID } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
-import { logActivity } from '@/lib/activity-logger'
+import { logActivity, deleteActivity } from '@/lib/activity-logger'
 
 const ANON_COOKIE = 'ml_anon_id'
 const ANON_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -138,6 +138,8 @@ export async function POST(
     if (existing) {
       const { error } = await sb.from('likes').delete().eq('id', existing.id)
       if (error) return jsonErr(`Nepavyko pašalinti: ${error.message}`, 500)
+      // Unlike → pašalinam atitinkamą „Kas vyksta" event'ą (kad dingtų iš srauto).
+      await deleteActivity({ event_type: 'track_like', user_id: profile.id, entity_type: 'track', entity_id: trackId })
     } else {
       const { error } = await sb.from('likes').insert({
         entity_type: 'track',
@@ -241,3 +243,4 @@ export async function POST(
     firstAnon,
   })
 }
+
