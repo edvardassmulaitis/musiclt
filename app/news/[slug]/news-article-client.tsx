@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
+import { HomeTrackModal } from '@/components/HomeTrackModal'
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 type Photo     = { url: string; caption?: string; source?: string }
@@ -34,6 +35,49 @@ function ytId(url?: string | null) {
 function formatDate(d: string) {
   try { return new Date(d).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' }) }
   catch { return d }
+}
+
+function ytThumbId(url?: string | null) {
+  if (!url) return null
+  const m = url.match(/(?:i\.ytimg\.com|img\.youtube\.com)\/vi\/([\w-]+)/)
+  return m ? m[1] : null
+}
+
+/* ─── Photo credit / source badge ──────────────────────────────────────────
+   Maža © ikona ant nuotraukos; hover/tap atskleidžia šaltinį. YouTube kadrui —
+   nuoroda į dainą; Wikipedia ar kitam šaltiniui — atitinkamas užrašas. */
+function PhotoCredit({ url, source }: { url?: string | null; source?: string | null }) {
+  const [open, setOpen] = useState(false)
+  if (!url) return null
+
+  const ytVid = ytThumbId(url)
+  const isWiki = /wikimedia\.org|wikipedia\.org/i.test(url) || /wikipedia/i.test(source || '')
+  let label = ''
+  let href: string | null = null
+  if (ytVid) { label = 'YouTube kadras'; href = `https://www.youtube.com/watch?v=${ytVid}` }
+  else if (isWiki) { label = 'Šaltinis: Wikipedia'; href = (source && /^https?:\/\//i.test(source)) ? source : null }
+  else if (source && /^https?:\/\//i.test(source)) {
+    try { label = 'Šaltinis: ' + new URL(source).hostname.replace(/^www\./, '') } catch { label = 'Šaltinis' }
+    href = source
+  } else if (source) { label = 'Šaltinis: ' + source }
+  else { label = '© Autorių teisės' }
+
+  const ico = (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="10" /><path d="M14.6 9.4a3.5 3.5 0 1 0 0 5.2" /></svg>
+  )
+  return (
+    <div className={`na-credit ${open ? 'is-open' : ''}`}>
+      {href ? (
+        <a className="na-credit-btn" href={href} target="_blank" rel="noopener noreferrer" title={label} aria-label={label} onClick={(e) => e.stopPropagation()}>
+          {ico}<span className="na-credit-label">{label}</span>
+        </a>
+      ) : (
+        <button className="na-credit-btn" type="button" title={label} aria-label={label} onClick={(e) => { e.stopPropagation(); setOpen(o => !o) }}>
+          {ico}<span className="na-credit-label">{label}</span>
+        </button>
+      )}
+    </div>
+  )
 }
 
 /* ─── News article like button ───────────────────────────────────────────── */
@@ -121,6 +165,7 @@ function ShareButton() {
    atlikejai/[slug] PlayerCard. */
 function MusicPlayer({ songs }: { songs: SongEntry[] }) {
   const [activeIdx, setActiveIdx] = useState(0)
+  const [modalTrack, setModalTrack] = useState<any | null>(null)
   const [playing, setPlaying]     = useState(false)
   const [thumbAlive, setThumbAlive] = useState<boolean | null>(null)
   const [embedDisabled, setEmbedDisabled] = useState<Set<string>>(new Set())
@@ -156,6 +201,7 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
   const play = (i: number) => { setActiveIdx(i); setPlaying(true) }
 
   return (
+    <>
     <div className="w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]">
       {/* Player area */}
       <div className="relative aspect-video w-full max-w-full overflow-hidden bg-black">
@@ -234,6 +280,18 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
                   </span>
                   {s.artist_name && <span className="w-full truncate text-[11px] text-[var(--text-muted)]">{s.artist_name}</span>}
                 </div>
+                {s.song_id ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setModalTrack({ id: s.song_id, title: s.title, cover_url: s.cover_url, video_url: s.youtube_url, artist_name: s.artist_name }) }}
+                    aria-label={`${s.title} — daugiau informacijos`}
+                    title="Daugiau: žodžiai, komentarai, video"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.1)] hover:text-[var(--accent-orange)]"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
+                      <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" />
+                    </svg>
+                  </button>
+                ) : null}
                 <button
                   onClick={(e) => { e.stopPropagation(); if (v) play(i) }}
                   disabled={!v}
@@ -254,6 +312,8 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
         })}
       </ul>
     </div>
+    <HomeTrackModal track={modalTrack} onClose={() => setModalTrack(null)} />
+    </>
   )
 }
 
@@ -283,6 +343,7 @@ function PhotoGallery({ photos }: { photos: Photo[] }) {
           <div className="pg-solo" onClick={() => setLb(0)}>
             <div className="pg-solo-blur" style={{ backgroundImage: `url(${photos[0].url})` }} />
             <img src={photos[0].url} alt={photos[0].caption || ''} className="pg-solo-img" />
+            <PhotoCredit url={photos[0].url} source={photos[0].source} />
           </div>
         ) : (
           <div className={`pg-grid pg-grid-${Math.min(shown.length, 5)}`}>
@@ -373,7 +434,8 @@ export default function NewsArticleClient({
         /* Meta po pavadinimu: data kairėje, susiję atlikėjai dešinėje */
         .na-meta { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
         .na-date { font-size:12.5px; color:rgba(255,255,255,0.55); font-weight:600; font-family:'Outfit',sans-serif; }
-        .na-artbar { margin-left:auto; display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
+        .na-meta-sep { width:3px; height:3px; border-radius:50%; background:rgba(255,255,255,0.3); }
+        .na-artbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 
         .na-artpill { display:inline-flex; align-items:center; gap:7px; background:rgba(255,255,255,0.09); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.14); border-radius:100px; padding:4px 13px 4px 4px; text-decoration:none; transition:background .2s,border-color .2s; }
         .na-artpill:hover { background:rgba(255,255,255,0.16); border-color:rgba(255,255,255,0.28); }
@@ -385,6 +447,13 @@ export default function NewsArticleClient({
         .na-act:hover { background:rgba(255,255,255,0.15); border-color:rgba(255,255,255,0.3); }
         .na-act-liked { color:#f97316; background:rgba(249,115,22,0.14); border-color:rgba(249,115,22,0.4); }
         .na-act-count { margin-left:3px; padding-left:8px; border-left:1px solid rgba(255,255,255,0.22); font-weight:800; cursor:pointer; }
+
+        /* Foto kreditas — © ženkliukas, hover atskleidžia šaltinį */
+        .na-credit { position:absolute; z-index:4; bottom:10px; right:10px; }
+        .na-credit-btn { display:inline-flex; align-items:center; gap:0; height:26px; padding:0 6px; border-radius:100px; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.85); font-size:11px; font-weight:700; font-family:'Outfit',sans-serif; text-decoration:none; cursor:pointer; transition:background .2s,border-color .2s; white-space:nowrap; }
+        .na-credit-btn:hover { background:rgba(0,0,0,0.78); border-color:rgba(255,255,255,0.36); color:#fff; }
+        .na-credit-label { max-width:0; opacity:0; overflow:hidden; transition:max-width .3s ease,opacity .2s,margin .2s; }
+        .na-credit:hover .na-credit-label, .na-credit.is-open .na-credit-label { max-width:220px; opacity:1; margin-left:6px; }
 
         /* ── Page layout — platesnis player'is (420), siauresnis tekstas ── */
         .na-page { max-width:1240px; margin:0 auto; padding:0 28px; }
@@ -476,6 +545,7 @@ export default function NewsArticleClient({
               <img src={heroImg} alt="" className="na-hero-img" referrerPolicy="no-referrer" />
               <div className="na-hero-fade-l" />
               <div className="na-hero-fade-b" />
+              <PhotoCredit url={heroImg} source={news.source_url || news.source_name} />
             </div>
           ) : (
             <div className="na-hero-noimg" />
@@ -492,6 +562,8 @@ export default function NewsArticleClient({
               <div className="na-meta">
                 <span className="na-date">{formatDate(news.published_at)}</span>
                 {artists.length > 0 && (
+                  <>
+                  <span className="na-meta-sep" />
                   <div className="na-artbar">
                     {artists.map((a, i) => (
                       <Link key={`${a.id}-${i}`} href={`/atlikejai/${a.id}`} className="na-artpill">
@@ -502,6 +574,7 @@ export default function NewsArticleClient({
                       </Link>
                     ))}
                   </div>
+                  </>
                 )}
               </div>
             </div>
