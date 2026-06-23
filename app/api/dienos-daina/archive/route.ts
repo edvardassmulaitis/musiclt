@@ -65,28 +65,53 @@ export async function GET(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const winners = (data || []) as any[]
 
-  // Tos pačios dienos nominacijos → laimėtojo proposer/komentaras + dalyvių sk.
+  // Dalyvių sk. + laimėtojo proposer/komentaras. Pagrindinis šaltinis —
+  // daily_song_picks (legacy scrape, ~40k); modernioms dienoms — nominacijos.
   if (winners.length > 0) {
     try {
       const dates = Array.from(new Set(winners.map(w => w.date)))
+      const { data: picks } = await supabase
+        .from('daily_song_picks')
+        .select('picked_on, track_id, comment, author_id')
+        .in('picked_on', dates)
+      const countByDate: Record<string, number> = {}
+      const pickByKey: Record<string, any> = {}
+      for (const p of (picks || []) as any[]) {
+        countByDate[p.picked_on] = (countByDate[p.picked_on] || 0) + 1
+        const k = `${p.picked_on}|${p.track_id}`
+        if (!pickByKey[k]) pickByKey[k] = p
+      }
       const { data: noms } = await supabase
         .from('daily_song_nominations')
         .select('date, track_id, comment, proposer:profiles!daily_song_nominations_user_id_fkey ( username, full_name, avatar_url )')
         .in('date', dates)
         .is('removed_at', null)
-      const byKey: Record<string, any> = {}
-      const countByDate: Record<string, number> = {}
+      const nomByKey: Record<string, any> = {}
+      const nomCountByDate: Record<string, number> = {}
       for (const n of (noms || []) as any[]) {
-        countByDate[n.date] = (countByDate[n.date] || 0) + 1
-        byKey[`${n.date}|${n.track_id}`] = n
+        nomCountByDate[n.date] = (nomCountByDate[n.date] || 0) + 1
+        nomByKey[`${n.date}|${n.track_id}`] = n
+      }
+      const winnerAuthorIds = Array.from(new Set(
+        winners.map(w => pickByKey[`${w.date}|${w.track_id}`]?.author_id).filter(Boolean)
+      )) as string[]
+      const profById: Record<string, any> = {}
+      if (winnerAuthorIds.length) {
+        const { data: profs } = await supabase
+          .from('profiles').select('id, username, full_name, avatar_url').in('id', winnerAuthorIds)
+        for (const p of (profs || []) as any[]) profById[p.id] = { username: p.username, full_name: p.full_name, avatar_url: p.avatar_url }
       }
       for (const w of winners) {
-        const n = byKey[`${w.date}|${w.track_id}`]
-        if (n) {
-          w.proposer = Array.isArray(n.proposer) ? n.proposer[0] : n.proposer
-          if (!w.winning_comment && n.comment) w.winning_comment = n.comment
+        const pk = pickByKey[`${w.date}|${w.track_id}`]
+        const nm = nomByKey[`${w.date}|${w.track_id}`]
+        if (pk) {
+          w.proposer = pk.author_id ? profById[pk.author_id] || null : null
+          if (!w.winning_comment && pk.comment) w.winning_comment = pk.comment
+        } else if (nm) {
+          w.proposer = Array.isArray(nm.proposer) ? nm.proposer[0] : nm.proposer
+          if (!w.winning_comment && nm.comment) w.winning_comment = nm.comment
         }
-        w.nom_count = countByDate[w.date] || 0
+        w.nom_count = countByDate[w.date] || nomCountByDate[w.date] || 0
         w.tracks = normTrack(w.tracks)
       }
     } catch {

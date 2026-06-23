@@ -18,23 +18,17 @@ function sani(s?: string | null) {
   return (s || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
 }
 function hue(s: string) { let h = 0; for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h }
-function extractYouTubeId(url?: string | null): string | null {
+// mqdefault (NE maxresdefault!): maxres dažnai grąžina pilką placeholder'į su
+// HTTP 200 → onError nesuveikia → „nėra embed'o". mqdefault visada realus.
+const YT_RE = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/v\/)([\w-]{11})/
+function ytThumb(url?: string | null): string | null {
   if (!url) return null
-  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?\s]{11})/)
-  return m?.[1] || null
-}
-function ytHQ(url: string | null): string | null {
-  if (!url) return null
-  return url.replace(/\/(mq|hq|sd)default\.jpg/, '/maxresdefault.jpg')
-}
-function ytFallback(e: React.SyntheticEvent<HTMLImageElement>) {
-  const img = e.currentTarget
-  if (img.src.includes('/maxresdefault.')) img.src = img.src.replace('/maxresdefault.', '/hqdefault.')
+  const m = url.match(YT_RE)
+  return m ? `https://img.youtube.com/vi/${m[1]}/mqdefault.jpg` : null
 }
 function trackImg(t: TrackLite | null): string | null {
   if (!t) return null
-  const yt = extractYouTubeId(t.video_url)
-  return ytHQ(t.cover_url ?? null) || (yt ? `https://img.youtube.com/vi/${yt}/maxresdefault.jpg` : null) || t.artists?.cover_image_url || null
+  return ytThumb(t.video_url) || (t.cover_url ?? null) || t.artists?.cover_image_url || null
 }
 function uname(a?: { username?: string | null; full_name?: string | null } | null): string {
   return a?.username || a?.full_name || 'narys'
@@ -69,7 +63,7 @@ function Avatar({ src, name, size = 22 }: { src?: string | null; name?: string |
 type TrackLite = { id: number; title: string; cover_url?: string | null; slug?: string | null; video_url?: string | null; artists: { id?: number; name: string; slug?: string | null; cover_image_url?: string | null } | null }
 type Proposer = { username: string | null; full_name: string | null; avatar_url: string | null }
 type Winner = { id: number; date: string; track_id: number; total_votes: number; weighted_votes: number; winning_comment?: string | null; proposer?: Proposer | null; nom_count?: number; tracks: TrackLite | null }
-type Participant = { id: number; comment?: string | null; votes: number; weighted_votes: number; voters?: Proposer[]; anon_votes?: number; proposer?: Proposer | null; tracks: TrackLite | null }
+type Participant = { id: number; comment?: string | null; points: number; likes?: number; voters?: Proposer[]; anon_votes?: number; proposer?: Proposer | null; is_winner?: boolean; tracks: TrackLite | null }
 
 const PAGE = 24
 
@@ -131,8 +125,8 @@ export default function DienosDainaArchive() {
     setExpanded(prev => prev === w.date ? null : w.date)
     if (expanded !== w.date && (w.nom_count || 0) > 0 && !parts[w.date]) {
       setParts(prev => ({ ...prev, [w.date]: 'loading' }))
-      fetch(`/api/dienos-daina/nominations?date=${w.date}`).then(r => r.json())
-        .then(d => setParts(prev => ({ ...prev, [w.date]: (d.nominations || []).filter((n: any) => n.tracks) })))
+      fetch(`/api/dienos-daina/day?date=${w.date}`).then(r => r.json())
+        .then(d => setParts(prev => ({ ...prev, [w.date]: (d.participants || []).filter((n: any) => n.tracks) })))
         .catch(() => setParts(prev => ({ ...prev, [w.date]: [] })))
     }
   }, [expanded, parts])
@@ -143,7 +137,7 @@ export default function DienosDainaArchive() {
     const img = t ? trackImg(t) : null
     const inner = img ? (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={proxyImg(img)} alt="" onError={ytFallback} loading="lazy" className="h-full w-full object-cover" />
+      <img src={proxyImg(img)} alt="" loading="lazy" className="h-full w-full object-cover" />
     ) : <div className="flex h-full w-full items-center justify-center" style={{ background: `hsl(${hue(t?.title || '')},30%,28%)` }} />
     return (
       <button type="button" onClick={onClick} aria-label="Atidaryti dainą"
@@ -238,8 +232,9 @@ export default function DienosDainaArchive() {
                         <span className="mb-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.13em] text-[var(--text-muted)]">Tos dienos dalyviai</span>
                         {p.map((n, i) => {
                           const nt = n.tracks!
-                          const isWinner = nt.id === t.id
-                          const np = n.weighted_votes || n.votes || 0
+                          const isWinner = !!n.is_winner
+                          const np = n.points || 0
+                          const isLikes = n.likes !== undefined
                           const voterNames = (n.voters || []).map(uname)
                           return (
                             <div key={n.id} className={`flex items-center gap-2.5 rounded-[9px] border px-2.5 py-2 ${isWinner ? 'border-[rgba(251,191,36,0.45)] bg-[rgba(251,191,36,0.08)]' : 'border-[var(--border-subtle)] bg-[var(--bg-primary)]'}`}>
@@ -248,13 +243,17 @@ export default function DienosDainaArchive() {
                               <Thumb t={nt} size={34} onClick={(e) => { e.stopPropagation(); openTrack(nt) }} />
                               <button type="button" onClick={() => openTrack(nt)} className="min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 text-left">
                                 <span className="block truncate text-[12.5px] font-bold text-[var(--text-primary)]">{sani(nt.title)}</span>
-                                <span className="block truncate text-[11px] text-[var(--text-muted)]">{nt.artists?.name}</span>
+                                <span className="block truncate text-[11px] text-[var(--text-muted)]">{nt.artists?.name}{n.proposer ? ` · ${uname(n.proposer)}` : ''}</span>
                                 {n.comment && <span className="mt-0.5 block truncate text-[11px] italic text-[var(--text-muted)]">„{sani(n.comment)}"</span>}
                                 {voterNames.length > 0 && <span className="mt-0.5 block truncate text-[10.5px] text-[var(--text-faint,var(--text-muted))]">balsavo: {voterNames.join(', ')}{n.anon_votes ? `, +${n.anon_votes}` : ''}</span>}
                               </button>
                               <span className="flex shrink-0 items-center gap-1.5">
                                 {isWinner && <span className="rounded-full bg-[rgba(251,191,36,0.18)] px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-wide text-[#d99e16]">Laimėjo</span>}
-                                <span className="text-[11px] font-bold text-[var(--text-muted)]">{np} {ptsWord(np)}</span>
+                                {np > 0 && (
+                                  isLikes
+                                    ? <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--text-muted)]"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8z" /></svg>{np}</span>
+                                    : <span className="text-[11px] font-bold text-[var(--text-muted)]">{np} {ptsWord(np)}</span>
+                                )}
                               </span>
                             </div>
                           )
