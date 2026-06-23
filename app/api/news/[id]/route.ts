@@ -106,6 +106,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         image_title_url: data.image_title_url || null,
         // Gallery as jsonb (if column exists) + legacy columns
         ...(data.gallery !== undefined ? { gallery: gallery } : {}),
+        ...(data.embeds !== undefined ? { embeds: data.embeds } : {}),
         ...imageColumns,
         published_at: data.published_at,
       })
