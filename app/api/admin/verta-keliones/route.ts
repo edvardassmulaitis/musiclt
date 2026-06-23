@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
           start_date: c.start_date, end_date: c.end_date, ticket_url: c.ticket_url,
           image_url: c.image_url, genres: c.genres || [], popularity: c.popularity || 0,
           is_festival: !!c.is_festival, festival_name: c.is_festival ? c.artist_name : null,
-          why: null, reach_mode: di.reach_mode || null, verified: false,
+          why: null, reach_mode: di.reach_mode || null, verified: true, // admin patvirtinimas = verifikuota (vieša rodoma TIK verified)
           source: 'scout', source_url: c.source_url, is_published: true, sort_order: 0,
         }
         const { error: insErr } = await sb.from('abroad_events').insert(row)

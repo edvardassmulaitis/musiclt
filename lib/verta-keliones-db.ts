@@ -76,13 +76,15 @@ export const getAbroadEventBySlug = cache(async (slug: string): Promise<AbroadEv
   if (id == null) return null
   try {
     const sb = createAdminClient()
-    const { data: ev } = await sb.from('abroad_events').select('*').eq('id', id).eq('is_published', true).maybeSingle()
+    // Vieša detalė TIK verifikuotiems (neverifikuoti seed/scout nerodomi, kol
+    // admin nepatvirtins) — atitinka /verta-keliones sąrašo logiką.
+    const { data: ev } = await sb.from('abroad_events').select('*').eq('id', id).eq('is_published', true).eq('verified', true).maybeSingle()
     if (!ev) return null
     const concert = mapEvent(ev)
 
     const [{ data: destRow }, related, topTrack] = await Promise.all([
       sb.from('travel_destinations').select('*').eq('key', (ev as any).dest_key).maybeSingle(),
-      sb.from('abroad_events').select('*').eq('is_published', true).eq('dest_key', (ev as any).dest_key).neq('id', id)
+      sb.from('abroad_events').select('*').eq('is_published', true).eq('verified', true).eq('dest_key', (ev as any).dest_key).neq('id', id)
         .gte('start_date', new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()))
         .order('start_date', { ascending: true }).limit(6)
         .then(r => (r.data || []).map(mapEvent)),
@@ -109,7 +111,10 @@ export const getVertaKelionesData = cache(async (): Promise<VertaKelionesData> =
     const sb = createAdminClient()
     const [dRes, eRes] = await Promise.all([
       sb.from('travel_destinations').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
-      sb.from('abroad_events').select('*').eq('is_published', true).order('start_date', { ascending: true }),
+      // Viešai TIK verifikuoti (verified=true). Neverifikuoti „seed"/scout
+      // įrašai (pvz. išgalvotas System of a Down Vienoje) nerodomi, kol admin
+      // jų nepatvirtina /admin/verta-keliones (patvirtinimas → verified=true).
+      sb.from('abroad_events').select('*').eq('is_published', true).eq('verified', true).order('start_date', { ascending: true }),
     ])
     const dests = dRes.data || []
     // Tik BŪSIMI koncertai — praėję (pvz. data jau įvyko) nerodomi nei sąraše,
@@ -117,7 +122,9 @@ export const getVertaKelionesData = cache(async (): Promise<VertaKelionesData> =
     // start_date >= šiandien (LT laiko zona).
     const ltToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
     const evs = (eRes.data || []).filter((e: any) => ((e.end_date || e.start_date || '') as string).slice(0, 10) >= ltToday)
-    if (!dests.length || !evs.length) {
+    // Seed (demo) tik kai DB tikrai neprieinama (nėra krypčių). Jei kryptys yra,
+    // bet verifikuotų koncertų nėra — grąžinam TUŠČIĄ (ne fake seed).
+    if (!dests.length) {
       return { concerts: SEED_CONCERTS, destinations: SEED_DESTS }
     }
     return {
