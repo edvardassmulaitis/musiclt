@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { SongsPanel } from '@/components/SongsPanel'
+import { detectEmbed } from '@/lib/embed-detect'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,17 +15,19 @@ type NewsType = { id: number; label: string; slug: string }
 type ArtistRef = { id: number; name: string; cover_image_url?: string }
 type Photo = { url: string; caption?: string; source?: string; source_url?: string }
 type SongEntry = { id?: number; song_id?: number | null; title: string; artist_name: string; youtube_url: string }
+type EmbedItem = { url: string; type?: string; embedUrl?: string | null; thumbnailUrl?: string | null; title?: string | null }
 
 type NewsForm = {
   title: string; slug: string; type: string; body: string
   source_url: string; source_name: string; is_hidden_home: boolean
   artists: ArtistRef[]; image_small_url: string; gallery: Photo[]
+  embeds: EmbedItem[]
   published_at: string
 }
 
 const emptyForm: NewsForm = {
   title: '', slug: '', type: 'news', body: '', source_url: '', source_name: '',
-  is_hidden_home: false, artists: [], image_small_url: '', gallery: [],
+  is_hidden_home: false, artists: [], image_small_url: '', gallery: [], embeds: [],
   published_at: new Date().toISOString().slice(0, 16),
 }
 
@@ -232,10 +235,11 @@ function SourceInput({ nameValue, urlValue, onNameChange, onUrlChange }: {
 // ─── PhotoPanel ───────────────────────────────────────────────────────────────
 
 function PhotoPanel({
-  gallery, onGalleryChange, heroUrl, onHeroChange, artists,
+  gallery, onGalleryChange, heroUrl, onHeroChange, artists, embeds, onEmbedsChange,
 }: {
   gallery: Photo[]; onGalleryChange: (g: Photo[]) => void
   heroUrl: string; onHeroChange: (url: string) => void; artists: ArtistRef[]
+  embeds: EmbedItem[]; onEmbedsChange: (e: EmbedItem[]) => void
 }) {
   const [artistPhotos, setArtistPhotos] = useState<Photo[]>([])
   const [uploading, setUploading] = useState(false)
@@ -273,10 +277,21 @@ function PhotoPanel({
   }
 
   const handleUrlAdd = async () => {
-    if (!urlVal.trim()) return
+    const raw = urlVal.trim()
+    if (!raw) return
+    // YouTube/Spotify/SoundCloud ir pan. — įdedam kaip TIKRĄ embedą (rodomas
+    // straipsnio gale), o ne kaip nuotraukos thumbnail į galeriją.
+    const det = detectEmbed(raw)
+    if (det && (det.type === 'youtube' || det.embedUrl || det.type === 'soundcloud' || det.type.startsWith('spotify'))) {
+      if (!embeds.some(e => e.url === raw)) {
+        onEmbedsChange([...embeds, { url: raw, type: det.type, embedUrl: det.embedUrl, thumbnailUrl: det.thumbnailUrl, title: det.title }])
+      }
+      setUrlVal('')
+      return
+    }
     setUrlLoading(true)
     try {
-      const url = await uploadFromUrl(urlVal.trim())
+      const url = await uploadFromUrl(raw)
       addPhotos([{ url, caption: '', source: sharedSource || undefined, source_url: sharedSourceUrl || undefined }])
       setUrlVal('')
     } catch (e: any) { alert(e.message) }
@@ -307,7 +322,7 @@ function PhotoPanel({
         <div className="flex gap-1">
           <input type="url" value={urlVal} onChange={e => setUrlVal(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleUrlAdd()}
-            placeholder="Arba įklijuoti nuorodą..."
+            placeholder="Nuotraukos URL arba YouTube/Spotify nuoroda..."
             className="flex-1 px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-blue-400" />
           <button onClick={handleUrlAdd} disabled={urlLoading || !urlVal.trim()}
             className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold disabled:opacity-40">
@@ -315,6 +330,25 @@ function PhotoPanel({
           </button>
         </div>
       </div>
+
+      {/* Embedai (YouTube / Spotify…) — rodomi straipsnio gale kaip realūs grotuvai */}
+      {embeds.length > 0 && (
+        <div className="border-b border-gray-100 px-3 py-2">
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+            Embedai · {embeds.length} (straipsnio gale)
+          </div>
+          <div className="flex flex-col gap-1">
+            {embeds.map((e, i) => (
+              <div key={`${e.url}-${i}`} className="flex items-center gap-2 bg-gray-50 rounded-lg px-2 py-1.5">
+                <span className="shrink-0 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">{e.type || 'embed'}</span>
+                <span className="flex-1 min-w-0 truncate text-[11px] text-gray-600">{e.title || e.url}</span>
+                <button onClick={() => onEmbedsChange(embeds.filter((_, j) => j !== i))}
+                  className="shrink-0 w-6 h-6 rounded-full hover:bg-red-500 hover:text-white flex items-center justify-center text-xs text-gray-500 transition-all">🗑</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Artist photos strip */}
       {artists.length > 0 && (
@@ -453,6 +487,7 @@ export default function EditNews() {
         artists: [...(data.artist ? [data.artist] : []), ...(data.artist2 ? [data.artist2] : [])],
         image_small_url: data.image_small_url || gallery[0]?.url || '',
         gallery,
+        embeds: Array.isArray(data.embeds) ? data.embeds : [],
         published_at: data.published_at ? data.published_at.slice(0, 16) : new Date().toISOString().slice(0, 16),
       })
       setLoading(false)
@@ -585,6 +620,7 @@ export default function EditNews() {
               gallery={form.gallery} onGalleryChange={g => set('gallery', g)}
               heroUrl={form.image_small_url} onHeroChange={url => set('image_small_url', url)}
               artists={form.artists}
+              embeds={form.embeds} onEmbedsChange={e => set('embeds', e)}
             />
             <SongsPanel newsId={newsId || 'new'} isNew={isNew} />
           </div>
@@ -619,6 +655,7 @@ export default function EditNews() {
                 gallery={form.gallery} onGalleryChange={g => set('gallery', g)}
                 heroUrl={form.image_small_url} onHeroChange={url => set('image_small_url', url)}
                 artists={form.artists}
+                embeds={form.embeds} onEmbedsChange={e => set('embeds', e)}
               />
             </div>
           </div>
