@@ -182,7 +182,7 @@ export async function GET(req: Request) {
 
   // SVARBU (supabase-js): filtrai (.not/.is/.eq/.in) PRIEŠ transformacijas (.order/.range).
   let q = sb.from('blog_posts')
-    .select(`id, slug, title, post_type, editorial_type, status, published_at, created_at, homepage_reviewed_at, featured_until, list_items, target_album_id, target_event_id, ${join}`)
+    .select(`id, slug, title, post_type, editorial_type, status, published_at, created_at, homepage_reviewed_at, featured_until, home_hero, list_items, target_album_id, target_event_id, ${join}`)
     .eq('status', 'published')
     .in('post_type', ['article', 'topas', 'review', 'creation', 'translation', 'event'])
   if (!includeHidden) q = q.not('blogs.profiles.hide_from_homepage', 'is', true)
@@ -206,6 +206,7 @@ export async function GET(req: Request) {
       editorial_type: b.editorial_type,
       kind: kindOf(b.post_type, b.editorial_type),
       reviewed: !!b.homepage_reviewed_at,
+        home_hero: !!b.home_hero,
       featured_until: b.featured_until || null,
       featured: !!(b.featured_until && new Date(b.featured_until).getTime() > Date.now()),
       published_at: b.published_at,
@@ -263,5 +264,12 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ ok: true, ...upd, kind: body.kind, reviewed: true })
   }
 
-  return NextResponse.json({ error: 'nothing to update' }, { status: 400 })
+  // „Į hero“ — įrašas rodomas pradžios HERO feede tarp naujienų (blog_posts.home_hero).
+    if ('home_hero' in body && !('kind' in body)) {
+      const { error } = await sb.from('blog_posts').update({ home_hero: !!body.home_hero }).eq('id', id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true, home_hero: !!body.home_hero })
+    }
+
+    return NextResponse.json({ error: 'nothing to update' }, { status: 400 })
 }
