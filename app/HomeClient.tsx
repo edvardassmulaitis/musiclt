@@ -774,6 +774,11 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
     setMini((scrollRef.current?.scrollTop || 0) > 36)
     const el = vwrapRef.current
     if (el) {
+      // SVARBU: konteinerį padarom matomą SINCHRONIŠKAI (React `videoOn` state dar
+      // nepritaikytas → inline display:none liktų). iframe sukurtas display:none
+      // konteineryje NEAUTOGROja (iOS/Chrome blokuoja paslėptą autoplay) → reikėdavo
+      // antro paspaudimo. Atrišam display PRIEŠ innerHTML, kad gestas + matomumas sutaptų.
+      el.style.display = 'block'
       el.innerHTML = `<iframe class="rdr-video" src="https://www.youtube.com/embed/${id}?autoplay=1&playsinline=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="grotuvas"></iframe>`
     }
   }
@@ -3425,7 +3430,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
                     {/* Bottom: title + excerpt + artist */}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
-                      <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
+                      <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
                       {showExcerpt && (
                         <p style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.78)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
                       )}
