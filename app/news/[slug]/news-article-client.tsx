@@ -20,6 +20,7 @@ type NewsItem  = {
   id: number; title: string; slug: string; body: string; type: string
   source_url?: string; source_name?: string; published_at: string
   image_small_url?: string; gallery?: Photo[]
+  heroCredit?: { author: string; license: string; url: string } | null
   artist?:  { id: number; name: string; cover_image_url?: string; photos?: any[] }
   artist2?: { id: number; name: string; cover_image_url?: string } | null
   artists?: ArtistRef[]
@@ -43,20 +44,43 @@ function ytThumbId(url?: string | null) {
   return m ? m[1] : null
 }
 
+/* Deterministinė (be fetch'o) Wikimedia/Wikipedia File: puslapio nuoroda. */
+function commonsFilePage(url?: string | null): string | null {
+  if (!url) return null
+  const m = url.match(/upload\.wikimedia\.org\/wikipedia\/([a-z-]+)\/[0-9a-f]\/[0-9a-f]{2}\/([^/?#]+)$/i)
+  if (!m) return null
+  const host = m[1].toLowerCase() === 'commons' ? 'commons.wikimedia.org' : `${m[1].toLowerCase()}.wikipedia.org`
+  return `https://${host}/wiki/File:${m[2]}`
+}
+
 /* ─── Photo credit / source badge ──────────────────────────────────────────
-   Maža © ikona ant nuotraukos; hover/tap atskleidžia šaltinį. YouTube kadrui —
-   nuoroda į dainą; Wikipedia ar kitam šaltiniui — atitinkamas užrašas. */
-function PhotoCredit({ url, source }: { url?: string | null; source?: string | null }) {
+   Maža © ikona ant nuotraukos; hover/tap atskleidžia šaltinį. Wiki nuotraukai —
+   realus autorius (iš `credit`, paimto iš Wikimedia) + nuoroda į PAČIĄ
+   nuotrauką (File: puslapį). YouTube kadrui — nuoroda į dainą. */
+function PhotoCredit({ url, source, credit }: {
+  url?: string | null
+  source?: string | null
+  credit?: { author: string; license: string; url: string } | null
+}) {
   const [open, setOpen] = useState(false)
   if (!url) return null
 
   const ytVid = ytThumbId(url)
-  const isWiki = /wikimedia\.org|wikipedia\.org/i.test(url) || /wikipedia/i.test(source || '')
+  const wikiPage = commonsFilePage(url) || (credit?.url || null)
+  const isWiki = !!commonsFilePage(url) || /wikimedia\.org|wikipedia\.org/i.test(url)
   let label = ''
   let href: string | null = null
-  if (ytVid) { label = 'YouTube kadras'; href = `https://www.youtube.com/watch?v=${ytVid}` }
-  else if (isWiki) { label = 'Šaltinis: Wikipedia'; href = (source && /^https?:\/\//i.test(source)) ? source : null }
-  else if (source && /^https?:\/\//i.test(source)) {
+  if (ytVid) {
+    label = 'YouTube kadras'; href = `https://www.youtube.com/watch?v=${ytVid}`
+  } else if (credit && (credit.author || credit.url)) {
+    // Realus autorius iš Wikimedia — „Foto: <autorius> · <licencija>"
+    label = credit.author
+      ? `Foto: ${credit.author}${credit.license ? ' · ' + credit.license : ''}`
+      : 'Šaltinis: Wikipedia'
+    href = credit.url || wikiPage
+  } else if (isWiki) {
+    label = 'Šaltinis: Wikipedia'; href = wikiPage
+  } else if (source && /^https?:\/\//i.test(source)) {
     try { label = 'Šaltinis: ' + new URL(source).hostname.replace(/^www\./, '') } catch { label = 'Šaltinis' }
     href = source
   } else if (source) { label = 'Šaltinis: ' + source }
@@ -425,7 +449,7 @@ export default function NewsArticleClient({
         .na-hero-noimg  { position:absolute; inset:0; background:linear-gradient(135deg,#0d1420 0%,#111826 100%); }
         .na-hero-noimg::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.12) 0%, transparent 55%); }
 
-        .na-hero-wrap  { position:relative; z-index:2; width:100%; max-width:1240px; margin:0 auto; padding:0 28px 36px; }
+        .na-hero-wrap  { position:relative; z-index:2; width:100%; max-width:1240px; margin:0 auto; padding:0 28px 22px; }
         .na-hero-inner { max-width:700px; animation:na-in .7s .05s both; }
         .na-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.7rem,3.1vw,2.8rem); font-weight:900; line-height:1.06; letter-spacing:-.03em; color:#fff; margin:0 0 16px; text-shadow:0 2px 24px rgba(0,0,0,0.45); }
 
@@ -457,7 +481,7 @@ export default function NewsArticleClient({
 
         /* ── Page layout — platesnis player'is (420), siauresnis tekstas ── */
         .na-page { max-width:1240px; margin:0 auto; padding:0 28px; }
-        .na-grid { display:grid; gap:60px; align-items:start; padding:40px 0 90px; }
+        .na-grid { display:grid; gap:60px; align-items:start; padding:22px 0 90px; }
         .na-grid.has-sb { grid-template-columns:minmax(0,1fr) 420px; }
         .na-grid.no-sb  { grid-template-columns:minmax(0,1fr); max-width:760px; margin:0 auto; }
 
@@ -545,7 +569,7 @@ export default function NewsArticleClient({
               <img src={heroImg} alt="" className="na-hero-img" referrerPolicy="no-referrer" />
               <div className="na-hero-fade-l" />
               <div className="na-hero-fade-b" />
-              <PhotoCredit url={heroImg} source={news.source_url || news.source_name} />
+              <PhotoCredit url={heroImg} source={news.source_url || news.source_name} credit={news.heroCredit} />
             </div>
           ) : (
             <div className="na-hero-noimg" />
