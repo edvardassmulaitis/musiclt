@@ -441,10 +441,13 @@ function EventCard({ ev }: { ev: Event }) {
   const artistLine = artists.map(a => a.name).join(', ')
   const venueLine = [ev.venue_name, ev.city].filter(Boolean).join(DOT)
   const whenLine = fmtWhen(ev.start_date)
-  // Be nuotraukos: „Atlikėjas @ Miestas" (ne tikslus pavadinimas).
-  const noimgText = artistLine
-    ? `${artistLine}${ev.city ? ` @ ${ev.city}` : ''}`
-    : ev.title
+  // Be nuotraukos: festivaliams — festivalio pavadinimas (atlikėjų sąrašas
+  // netelpa ir „taškuojasi"); kitiems — „Atlikėjas @ Miestas".
+  const noimgText = ev.is_festival
+    ? ev.title
+    : artistLine
+      ? `${artistLine}${ev.city ? ` @ ${ev.city}` : ''}`
+      : ev.title
 
   return (
     <Link href={eventHref(ev)} className="ev-card">
