@@ -38,6 +38,7 @@ type HeroSlide = {
   chartTops?: TopEntry[]
   // ── Reader v3 papildomi laukai ──
   newsId?: number | null            // pilno body lazy-fetch'ui (/api/news/[id])
+  blogId?: string | null            // bendruomenės įrašo pilno body lazy-fetch'ui (/api/blog/posts/[id])
   body?: string | null              // jau turimas pilnas/preview HTML (be fetch'o)
   excerpt?: string | null           // ilgesnis preview tekstas (verta/discovery/recording)
   metaLine?: string | null          // vieta · data / trukmė ir pan.
@@ -555,6 +556,7 @@ const REELS_DURATION = 13000
 /** Pilno news straipsnio body cache — modulio lygyje, kad keičiant slide'us
  *  nereiktų perkrauti to paties straipsnio iš naujo. */
 const newsBodyCache = new Map<number, string>()
+const blogBodyCache = new Map<string, string>()
 
 /** Viena istorija reader'yje. Pati valdo savo VERTIKALŲ scroll'ą (pauzina
  *  auto-advance kai nuscrollinta žemyn — „skaitymo režimas"), video iframe'o
@@ -714,7 +716,7 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
   const [curVideoId, setCurVideoId] = useState<string | null>(slide.videoId || null)
   const [mini, setMini] = useState(false)
   const [body, setBody] = useState<string | null>(
-    slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null)
+    slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null) || (slide.blogId ? blogBodyCache.get(slide.blogId) || null : null)
   )
   const [bodyLoading, setBodyLoading] = useState(false)
   const [liked, setLiked] = useState(false)
@@ -754,6 +756,20 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
       .catch(() => {})
       .finally(() => setBodyLoading(false))
   }, [active, slide.newsId]) // eslint-disable-line
+
+  /* Bendruomenės įrašo (blog) pilno turinio lazy-fetch — kaip naujienų. */
+  useEffect(() => {
+    if (!active || !slide.blogId || body || bodyLoading) return
+    setBodyLoading(true)
+    fetch(`/api/blog/posts/${slide.blogId}`)
+      .then(r => r.json())
+      .then(d => {
+        const html: string = d?.content || ''
+        if (html) { blogBodyCache.set(slide.blogId!, html); setBody(html) }
+      })
+      .catch(() => {})
+      .finally(() => setBodyLoading(false))
+  }, [active, slide.blogId]) // eslint-disable-line
 
   const onScroll = () => {
     const el = scrollRef.current
@@ -2837,11 +2853,16 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         type: 'blog', chip: (p.chip || 'Įrašas').toUpperCase(), chipBg: p.chipBg || '#94a3b8',
         title: sanitizeTitle(p.title),
         subtitle: '',
+        excerpt: p.excerpt || '',
         metaLine: [p.author, dateLT(p.published_at)].filter(Boolean).join(' · '),
         authorName: p.author || null,
         ctaLabel: 'Skaityti',
         bgImg: p.cover,
         href: p.href,
+        blogId: p.id || null,
+        videoId: p.videoId || null,
+        songTitle: p.songTitle || null,
+        songArtist: p.songArtist || null,
         artist: null,
       } })
     })
@@ -2996,12 +3017,13 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     // ── Admin feed override'ai: paslėpti / prisegti / rankinis eiliškumas + laisvi įrašai ──
     const feedKey = (s: HeroSlide) => `${s.type}::${s.href}`
     const ovMap = new Map(feedOverrides.map(o => [o.item_key, o]))
-    const items: { slide: HeroSlide; i: number; ord: number | null }[] = []
+    const items: { slide: HeroSlide; i: number; ord: number | null; pinned: boolean }[] = []
     slides.forEach((s, i) => {
       const o = ovMap.get(feedKey(s))
       if (o?.hidden) return
-      const ord = o?.pinned ? (typeof o.sort_order === 'number' ? o.sort_order : -1) : null  // /admin/feed: TIK pin'as kelia i virsu; sort_order vienas nedominuoja -> nauji irasai lieka priekyje pagal sviezuma
-      items.push({ slide: s, i, ord })
+      // Rankinė tvarka nugali, BET nauji auto-įrašai (be override'o) iškyla į priekį.
+      const ord = (o && typeof o.sort_order === 'number') ? o.sort_order : null
+      items.push({ slide: s, i, ord, pinned: !!o?.pinned })
     })
     feedCustom.filter(c => !c.hidden).forEach((c, ci) => {
       items.push({
@@ -3013,13 +3035,17 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         },
         i: 10000 + ci,
         ord: typeof c.sort_order === 'number' ? c.sort_order : -1,
+        pinned: false,
       })
     })
+    // 3 pakopos: 0=prisegti (📌 viršuje), 1=nauji/be override'o (pagal šviežumą →
+    // į priekį), 2=išsaugota rankinė tvarka (apačioje). /admin/feed atitinka.
+    const feedTier = (x: { ord: number | null; pinned: boolean }) => x.pinned ? 0 : (x.ord != null ? 2 : 1)
     items.sort((a, b) => {
-      if (a.ord != null && b.ord != null) return a.ord - b.ord || a.i - b.i
-      if (a.ord != null) return -1
-      if (b.ord != null) return 1
-      return a.i - b.i
+      const ta = feedTier(a), tb = feedTier(b)
+      if (ta !== tb) return ta - tb
+      if (ta === 1) return a.i - b.i
+      return ((a.ord ?? -1) - (b.ord ?? -1)) || (a.i - b.i)
     })
     const finalSlides = items.map(x => x.slide)
 
