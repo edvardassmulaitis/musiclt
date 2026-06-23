@@ -14,6 +14,7 @@
  */
 
 import { DienosDainaHero } from '@/components/DienosDainaHero'
+import DienosDainaArchive from '@/components/DienosDainaArchive'
 
 export default function DienesDainaClient(_props: {
   nominations?: unknown
@@ -29,6 +30,7 @@ export default function DienesDainaClient(_props: {
           <p className="m-0 mt-1.5 max-w-[600px] text-[13.5px] text-[var(--text-muted)]">Siūlyk savo favoritą ir balsuok už geriausią šios dienos dainą. Laimėtojas paaiškėja kiekvieną vidurnaktį.</p>
         </div>
         <DienosDainaHero fullPage />
+        <DienosDainaArchive />
       </div>
     </div>
   )
