@@ -116,7 +116,7 @@ export default async function VKDetailPage({ params }: { params: Promise<{ slug:
 
             {related.length > 0 && (
               <section className="vkd-block">
-                <h2 className="vkd-h2">Daugiau {dest?.city ? `iš ${dest.city}` : 'koncertų'}</h2>
+                <h2 className="vkd-h2">Kiti koncertai šioje kryptyje</h2>
                 <div className="vkd-rel">
                   {related.map(r => <RelCard key={r.id} c={r} dest={dest} />)}
                 </div>

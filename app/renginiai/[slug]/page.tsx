@@ -124,9 +124,17 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
           <Link href="/koncertai">Koncertai</Link><span>/</span><b>{ev.title}</b>
         </nav>
 
-        {/* ── HERO ── */}
+        {/* ── HERO — plakatas pagal vertikalią kraštinę (contain), fonas užpildytas
+              to paties plakato blur'u; tekstas tik apačioje (be CTA — bilietas šone) ── */}
         <div className="ep-hero">
-          <div className="ep-hero-bg" style={ev.cover_image_url ? { backgroundImage: `url(${ev.cover_image_url})` } : { background: gradFor(ev.title) }} />
+          {ev.cover_image_url ? (
+            <>
+              <span className="ep-hero-fill" style={{ backgroundImage: `url(${ev.cover_image_url})` }} />
+              <span className="ep-hero-poster" style={{ backgroundImage: `url(${ev.cover_image_url})` }} />
+            </>
+          ) : (
+            <span className="ep-hero-fill" style={{ background: gradFor(ev.title) }} />
+          )}
           <div className="ep-hero-grad" />
           <div className="ep-hero-inner">
             <div className="ep-hero-tags">
@@ -142,12 +150,6 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
               {(ev.venue_name || ev.city) && <span><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>{[ev.venue_name, ev.city].filter(Boolean).join(', ')}</span>}
               {allArtists.length > 0 && <span><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>{allArtists.length} {allArtists.length === 1 ? 'atlikėjas' : 'atlikėjai'}</span>}
             </div>
-            {(price || canBuy) && (
-              <div className="ep-hero-cta">
-                {price && <span className="ep-price">{price}</span>}
-                {canBuy && <a href={ev.ticket_url} target="_blank" rel="noopener noreferrer" className="ep-ticket">🎟 Pirkti bilietą</a>}
-              </div>
-            )}
           </div>
         </div>
 
@@ -173,7 +175,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
                 <h2 className="ep-h2">Dalyvauja <span className="ep-h2-count">{ev.attendees.length}</span></h2>
                 <div className="ep-att">
                   {ev.attendees.slice(0, 30).map((att: any, i: number) => (
-                    <Link key={`${att.user_username}-${i}`} href={`/u/${att.user_username}`} className="ep-att-chip" title={att.user_username}>
+                    <Link key={`${att.user_username}-${i}`} href={`/vartotojas/${att.user_username}`} className="ep-att-chip" title={att.user_username}>
                       <span className="ep-att-av" style={{ background: `hsl(${(att.user_username.charCodeAt(0) || 65) * 17 % 360},32%,18%)` }}>
                         {att.user_avatar_url ? <img src={att.user_avatar_url} alt={att.user_username} /> : att.user_username[0]?.toUpperCase()}
                       </span>
@@ -185,21 +187,21 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
             )}
           </div>
 
-          {/* ── Šoninė ── */}
+          {/* ── Šoninė — VIENAS bilietų CTA + glausta info (be datos/vietos
+                kartojimo: data rodoma kaip data-žyma, smulkmenos žemiau) ── */}
           <aside className="ep-side">
             <div className="ep-info">
-              <div className="ep-info-date">
-                <span className="ep-info-day">{dayNum}</span>
-                <span className="ep-info-mon">{monthStr}</span>
-                <span className="ep-info-year">{yearStr}</span>
+              <div className="ep-info-head">
+                <div className="ep-info-date">
+                  <span className="ep-info-day">{dayNum}</span>
+                  <span className="ep-info-mon">{monthStr}</span>
+                  <span className="ep-info-year">{yearStr}</span>
+                </div>
+                <div className="ep-info-headmeta">
+                  <span className="ep-info-time">{timeStr}</span>
+                  {price && <span className="ep-info-price">{price}</span>}
+                </div>
               </div>
-              <dl className="ep-info-list">
-                <div><dt>Data</dt><dd>{when}</dd></div>
-                {ev.venue_name && <div><dt>Vieta</dt><dd>{ev.venue_name}</dd></div>}
-                {ev.city && <div><dt>Miestas</dt><dd>{ev.city}</dd></div>}
-                {ev.address && <div><dt>Adresas</dt><dd>{ev.address}</dd></div>}
-                {price && <div><dt>Bilietai</dt><dd>{price}</dd></div>}
-              </dl>
               {canBuy
                 ? <a href={ev.ticket_url} target="_blank" rel="noopener noreferrer" className="ep-ticket full">🎟 Pirkti bilietą</a>
                 : isPast
@@ -207,6 +209,13 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
                   : isCancelled
                     ? <p className="ep-side-note cancel">Renginys atšauktas</p>
                     : null}
+              {(ev.venue_name || ev.city || ev.address) && (
+                <dl className="ep-info-list">
+                  {ev.venue_name && <div><dt>Vieta</dt><dd>{ev.venue_name}</dd></div>}
+                  {ev.address && <div><dt>Adresas</dt><dd>{[ev.address, ev.city].filter(Boolean).join(', ')}</dd></div>}
+                  {!ev.address && ev.city && <div><dt>Miestas</dt><dd>{ev.city}</dd></div>}
+                </dl>
+              )}
             </div>
           </aside>
         </div>
@@ -228,12 +237,17 @@ const EP_CSS = `
 .ep-crumb a:hover { color:var(--accent-orange); }
 .ep-crumb b { color:var(--text-secondary); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60vw; }
 
-/* HERO */
-.ep-hero { position:relative; border-radius:22px; overflow:hidden; min-height:300px; margin-bottom:26px;
+/* HERO — plakatas „contain" (pilnas aukštis, neištemptas), fonas = to paties
+   plakato blur'as; tamsus apatinis gradientas tekstui. */
+.ep-hero { position:relative; border-radius:22px; overflow:hidden; min-height:340px; margin-bottom:26px;
   background:var(--bg-elevated); border:1px solid var(--border-default,rgba(255,255,255,0.08)); }
-.ep-hero-bg { position:absolute; inset:0; background-size:cover; background-position:center 28%; background-color:#0c1622; }
-.ep-hero-grad { position:absolute; inset:0; background:linear-gradient(180deg, rgba(8,12,18,0.15) 0%, rgba(8,12,18,0.55) 48%, rgba(8,12,18,0.95) 100%); }
-.ep-hero-inner { position:relative; z-index:2; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; gap:12px; min-height:300px; padding:30px clamp(20px,4vw,44px); }
+@media(max-width:640px){ .ep-hero { min-height:300px; } }
+.ep-hero-fill { position:absolute; inset:0; background-size:cover; background-position:center; background-color:#0c1622;
+  filter:blur(30px) brightness(0.5); transform:scale(1.18); }
+.ep-hero-poster { position:absolute; inset:0; background-size:contain; background-position:center; background-repeat:no-repeat; z-index:1; }
+.ep-hero-grad { position:absolute; inset:0; z-index:2; background:linear-gradient(180deg, rgba(8,12,18,0) 0%, rgba(8,12,18,0.15) 42%, rgba(8,12,18,0.78) 82%, rgba(8,12,18,0.96) 100%); }
+.ep-hero-inner { position:relative; z-index:3; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; gap:11px; min-height:340px; padding:30px clamp(20px,4vw,44px); }
+@media(max-width:640px){ .ep-hero-inner { min-height:300px; } }
 .ep-hero-tags { display:flex; flex-wrap:wrap; gap:6px; }
 .ep-tag { font-family:'Outfit',sans-serif; font-weight:800; font-size:10.5px; letter-spacing:.04em; padding:5px 12px; border-radius:100px; }
 .ep-tag.up { background:var(--accent-orange); color:#fff; }
@@ -292,12 +306,16 @@ const EP_CSS = `
 .ep-side { display:flex; flex-direction:column; gap:16px; position:sticky; top:80px; }
 @media(max-width:900px){ .ep-side { position:static; } }
 .ep-info { padding:18px; border-radius:16px; background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.07)); }
-.ep-info-date { display:inline-flex; flex-direction:column; align-items:center; padding:10px 16px; border-radius:13px; margin-bottom:15px;
+.ep-info-head { display:flex; align-items:center; gap:14px; margin-bottom:15px; }
+.ep-info-date { display:inline-flex; flex-direction:column; align-items:center; padding:10px 16px; border-radius:13px; flex-shrink:0;
   background:rgba(249,115,22,0.1); border:1px solid rgba(249,115,22,0.2); }
 .ep-info-day { font-family:'Outfit',sans-serif; font-weight:900; font-size:28px; line-height:1; color:var(--accent-orange); }
 .ep-info-mon { font-family:'Outfit',sans-serif; font-weight:800; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#c2410c; margin-top:3px; }
 .ep-info-year { font-size:10px; color:var(--text-faint); margin-top:2px; }
-.ep-info-list { display:flex; flex-direction:column; gap:11px; }
+.ep-info-headmeta { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.ep-info-time { font-family:'Outfit',sans-serif; font-weight:800; font-size:16px; color:var(--text-primary); }
+.ep-info-price { font-family:'Outfit',sans-serif; font-weight:800; font-size:15px; color:var(--accent-orange); }
+.ep-info-list { display:flex; flex-direction:column; gap:11px; margin-top:15px; }
 .ep-info-list div { display:flex; flex-direction:column; gap:2px; }
 .ep-info-list dt { font-family:'Outfit',sans-serif; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); }
 .ep-info-list dd { font-size:13.5px; font-weight:600; color:var(--text-secondary); line-height:1.35; }

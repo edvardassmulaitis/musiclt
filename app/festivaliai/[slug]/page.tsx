@@ -192,7 +192,7 @@ export default async function FestivalPage({ params }: { params: Promise<{ slug:
                 <p className="fp-side-h">Dalyvauja ({ev.attendees.length})</p>
                 <div className="fp-att">
                   {ev.attendees.slice(0, 18).map((att: any, i: number) => (
-                    <Link key={`${att.user_username}-${i}`} href={`/u/${att.user_username}`} className="fp-att-chip" title={att.user_username}>
+                    <Link key={`${att.user_username}-${i}`} href={`/vartotojas/${att.user_username}`} className="fp-att-chip" title={att.user_username}>
                       <span className="fp-att-av" style={{ background: `hsl(${(att.user_username.charCodeAt(0) || 65) * 17 % 360},32%,18%)` }}>
                         {att.user_avatar_url ? <img src={att.user_avatar_url} alt={att.user_username} /> : att.user_username[0]?.toUpperCase()}
                       </span>
