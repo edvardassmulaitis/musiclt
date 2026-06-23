@@ -2983,7 +2983,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     slides.forEach((s, i) => {
       const o = ovMap.get(feedKey(s))
       if (o?.hidden) return
-      const ord = o && typeof o.sort_order === 'number' ? o.sort_order : (o?.pinned ? -1 : null)
+      const ord = o?.pinned ? (typeof o.sort_order === 'number' ? o.sort_order : -1) : null  // /admin/feed: TIK pin'as kelia i virsu; sort_order vienas nedominuoja -> nauji irasai lieka priekyje pagal sviezuma
       items.push({ slide: s, i, ord })
     })
     feedCustom.filter(c => !c.hidden).forEach((c, ci) => {
