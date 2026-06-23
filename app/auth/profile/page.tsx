@@ -57,6 +57,7 @@ const IcCheck = ({ className }: IconProps) => <svg {...sv(className)}><polyline 
 const IcSun = ({ className }: IconProps) => <svg {...sv(className)}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>
 const IcMoon = ({ className }: IconProps) => <svg {...sv(className)}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
 const IcLogout = ({ className }: IconProps) => <svg {...sv(className)}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+const IcLock = ({ className }: IconProps) => <svg {...sv(className)}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
 
 type SectionKey = 'profilis' | 'rodinys' | 'pranesimai' | 'isvaizda' | 'paskyra'
 
@@ -204,8 +205,6 @@ export default function SettingsPage() {
       legacy_favorite_films: films.trim() || null,
       legacy_profile_photos: photos,
     }
-    const cleanU = username.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 30)
-    if (session?.user?.role === 'super_admin' && cleanU && cleanU !== (profile?.username || '')) body.username = cleanU
     const y = parseInt(birthYear, 10)
     if (y >= 1900 && y <= new Date().getFullYear()) body.legacy_birth_date = `${y}-06-15`
     else if (!birthYear) body.legacy_birth_date = null
@@ -270,7 +269,6 @@ export default function SettingsPage() {
 
   const user = session.user
   const isAdmin = ['editor', 'admin', 'super_admin'].includes(user.role || '')
-  const isSuperAdmin = user.role === 'super_admin'
   const avatar = avatarUrl || user.image || null
   const name = fullName || profile?.full_name || user.name || 'Vartotojas'
   const uname = profile?.username || null
@@ -387,12 +385,13 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <Label>Naudotojo vardas</Label>
-                  <div className="flex items-stretch rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)', opacity: isSuperAdmin ? 1 : 0.6 }}>
-                    <span className="flex items-center px-2.5 text-[13px]" style={{ background: 'var(--card-bg)', color: 'var(--text-muted)', borderRight: '1px solid var(--border-default)' }}>@</span>
-                    <input className="flex-1 px-2.5 py-2 text-sm bg-transparent outline-none disabled:cursor-not-allowed" style={{ color: 'var(--text-primary)' }}
-                      value={username} maxLength={30} disabled={!isSuperAdmin} onChange={e => setUsername(e.target.value)} placeholder="vardas" />
+                  <div className="flex items-stretch rounded-lg overflow-hidden cursor-not-allowed" style={{ border: '1px solid var(--border-default)', background: 'var(--bg-hover)' }}>
+                    <span className="flex items-center px-2.5 text-[13px]" style={{ color: 'var(--text-muted)', borderRight: '1px solid var(--border-default)' }}>@</span>
+                    <input className="flex-1 px-2.5 py-2 text-sm bg-transparent outline-none cursor-not-allowed" style={{ color: 'var(--text-muted)' }}
+                      value={username} disabled readOnly aria-disabled placeholder="vardas" />
+                    <span className="flex items-center pr-2.5" style={{ color: 'var(--text-faint)' }}><IcLock className="h-3.5 w-3.5" /></span>
                   </div>
-                  <Hint>music.lt/@{username || 'vardas'}{isSuperAdmin ? '' : ' · keisti gali tik administratorius'}</Hint>
+                  <Hint>music.lt/@{username || 'vardas'} · vardo keisti negalima</Hint>
                 </div>
               </div>
 
