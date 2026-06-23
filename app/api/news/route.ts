@@ -227,6 +227,7 @@ export async function POST(req: NextRequest) {
         image3_url: data.image3_url || null, image3_caption: data.image3_caption || null,
         image4_url: data.image4_url || null, image4_caption: data.image4_caption || null,
         image5_url: data.image5_url || null, image5_caption: data.image5_caption || null,
+        embeds: Array.isArray(data.embeds) ? data.embeds : [],
         published_at: data.published_at || new Date().toISOString(),
         created_at: new Date().toISOString(),
       })
