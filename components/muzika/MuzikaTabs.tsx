@@ -55,11 +55,6 @@ export default function MuzikaTabs({
     { key: 'trending', label: 'Dabar' },
     { key: 'alltime', label: 'Visų laikų' },
   ]
-  const tabs: { key: HubTipas; label: string }[] = [
-    { key: 'atlikejai', label: 'Atlikėjai' },
-    { key: 'dainos', label: 'Dainos' },
-    { key: 'albumai', label: 'Albumai' },
-  ]
 
   return (
     <div className="flt-bar flt-bar--wrap" style={{ marginTop: 14 }}>
@@ -123,20 +118,6 @@ export default function MuzikaTabs({
           </div>
         )}
       </div>
-
-      {/* Tipas — sets ?tipas (išlaiko scope+stilius) */}
-      <span className="mz-hubfbar-spacer" />
-      {tabs.map((t) => (
-        <Link
-          key={t.key}
-          href={hubUrl(scope, keepMode, { stilius: genreSlug, tipas: t.key })}
-          className={`flt-chip${tipas === t.key ? ' on' : ''}`}
-          aria-current={tipas === t.key ? 'page' : undefined}
-          prefetch={false}
-        >
-          {t.label}
-        </Link>
-      ))}
     </div>
   )
 }
