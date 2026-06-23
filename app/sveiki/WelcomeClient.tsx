@@ -75,7 +75,7 @@ export default function WelcomeClient({
           <div style={{ width: 84, height: 84, borderRadius: '50%', margin: '0 auto 16px', border: '3px solid rgba(255,255,255,.9)', boxShadow: '0 10px 36px rgba(0,0,0,.4)', background: 'linear-gradient(135deg,#1a73e8,#f97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt={name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={avatarUrl ?? undefined} alt={name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 34, fontWeight: 900, color: '#fff' }}>{firstLetter}</span>
             )}
