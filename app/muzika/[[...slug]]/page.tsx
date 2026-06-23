@@ -159,7 +159,7 @@ export default async function MuzikaHubPage({ params, searchParams }: Props) {
   // Sudedami filtrai iš query: ?tipas (atlikejai|dainos|albumai), ?stilius (žanro slug).
   const sp = (await searchParams) || {}
   // /muzika rodo TIK atlikėjus — dainų/albumų vaizdai paslėpti (laikinai, kol netvarkingi).
-  const tipas: HubTipas = 'atlikejai'
+  const tipas = 'atlikejai' as HubTipas
   const rawStilius = Array.isArray(sp.stilius) ? sp.stilius[0] : sp.stilius
   const reqGenreSlug = rawStilius ? String(rawStilius) : null
 
