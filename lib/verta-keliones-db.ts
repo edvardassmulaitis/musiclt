@@ -82,7 +82,9 @@ export const getAbroadEventBySlug = cache(async (slug: string): Promise<AbroadEv
 
     const [{ data: destRow }, related, topTrack] = await Promise.all([
       sb.from('travel_destinations').select('*').eq('key', (ev as any).dest_key).maybeSingle(),
-      sb.from('abroad_events').select('*').eq('is_published', true).eq('dest_key', (ev as any).dest_key).neq('id', id).order('start_date', { ascending: true }).limit(6)
+      sb.from('abroad_events').select('*').eq('is_published', true).eq('dest_key', (ev as any).dest_key).neq('id', id)
+        .gte('start_date', new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()))
+        .order('start_date', { ascending: true }).limit(6)
         .then(r => (r.data || []).map(mapEvent)),
       (async (): Promise<AbroadTopTrack | null> => {
         const aid = (ev as any).artist_id
@@ -110,7 +112,11 @@ export const getVertaKelionesData = cache(async (): Promise<VertaKelionesData> =
       sb.from('abroad_events').select('*').eq('is_published', true).order('start_date', { ascending: true }),
     ])
     const dests = dRes.data || []
-    const evs = eRes.data || []
+    // Tik BŪSIMI koncertai — praėję (pvz. data jau įvyko) nerodomi nei sąraše,
+    // nei /srautas feed'e/hero. Daugiadieniai: end_date >= šiandien; vienadieniai:
+    // start_date >= šiandien (LT laiko zona).
+    const ltToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+    const evs = (eRes.data || []).filter((e: any) => ((e.end_date || e.start_date || '') as string).slice(0, 10) >= ltToday)
     if (!dests.length || !evs.length) {
       return { concerts: SEED_CONCERTS, destinations: SEED_DESTS }
     }

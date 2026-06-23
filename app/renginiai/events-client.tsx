@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { eventHref } from '@/lib/event-href'
+import { flagEmoji, tripCostFrom, fmtDate, vkHref, type Concert, type Destination } from '@/lib/verta-keliones-seed'
 
 /* ────────────────────────────────────────────────────────────────
  * Tipai
@@ -193,7 +194,7 @@ const PRICE_OPTS = [
 
 const PRIMARY_CITIES = ['Vilnius', 'Kaunas']
 
-export default function EventsClient({ events, cities }: { events: Event[]; cities: string[] }) {
+export default function EventsClient({ events, cities, abroadConcerts = [], destinations = [] }: { events: Event[]; cities: string[]; abroadConcerts?: Concert[]; destinations?: Destination[] }) {
   const [city, setCity] = useState('Visi')
   const [from, setFrom] = useState<Date | null>(null)
   const [to, setTo] = useState<Date | null>(null)
@@ -244,6 +245,17 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
   }, [base, city, from, to, ltOnly, price, styles, festOnly, worthTrip, archive])
 
   const anyFilter = city !== 'Visi' || !!from || ltOnly || !!price || styles.length > 0 || festOnly || worthTrip
+
+  // „Verta kelionės" — koncertai užsienyje (jau filtruoti į būsimus duomenų
+  // sluoksnyje). Rodomi atskiru tinkleliu, kortelės veda į /verta-keliones/[slug].
+  const destMap = useMemo(
+    () => Object.fromEntries((destinations || []).map(d => [d.key, d])) as Record<string, Destination>,
+    [destinations],
+  )
+  const abroadList = useMemo(
+    () => (abroadConcerts || []).slice().sort((a, b) => +new Date(a.date) - +new Date(b.date)),
+    [abroadConcerts],
+  )
 
   const groups = useMemo(() => {
     const map = new Map<string, { label: string; items: Event[] }>()
@@ -361,7 +373,9 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
         <button className={`ev-chip${worthTrip ? ' on' : ''}`} onClick={() => setWorthTrip(!worthTrip)}>{Icon.plane}<span>Verta kelionės</span></button>
 
         {anyFilter && <button className="ev-reset" onClick={resetAll}>Išvalyti ✕</button>}
-        <span className="ev-count">{filtered.length} {filtered.length === 1 ? 'renginys' : filtered.length % 10 >= 1 && filtered.length % 10 <= 9 && !(filtered.length % 100 >= 11 && filtered.length % 100 <= 19) ? 'renginiai' : 'renginių'}</span>
+        {(() => { const n = worthTrip ? abroadList.length : filtered.length; return (
+        <span className="ev-count">{n} {n === 1 ? 'renginys' : n % 10 >= 1 && n % 10 <= 9 && !(n % 100 >= 11 && n % 100 <= 19) ? 'renginiai' : 'renginių'}</span>
+        ) })()}
       </div>
 
       {/* ── Archyvo juosta (viršuje — lengva išjungti) ── */}
@@ -373,8 +387,8 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
       )}
 
       {/* ── Tinklelis / tuščia būsena ── */}
-      {filtered.length === 0 ? (
-        worthTrip ? (
+      {worthTrip ? (
+        abroadList.length === 0 ? (
           <div className="ev-empty">
             <p className="ev-empty-ic">{Icon.plane}</p>
             <h3>„Verta kelionės" — greitai</h3>
@@ -382,13 +396,20 @@ export default function EventsClient({ events, cities }: { events: Event[]; citi
             <button className="ev-mini on" style={{ marginTop: 14 }} onClick={resetAll}>Rodyti visus koncertus</button>
           </div>
         ) : (
-          <div className="ev-empty">
-            <p className="ev-empty-ic">🎫</p>
-            <h3>Renginių nerasta</h3>
-            <p>Pabandyk pakeisti datą, miestą ar kitus filtrus.</p>
-            {anyFilter && <button className="ev-mini on" style={{ marginTop: 14 }} onClick={resetAll}>Išvalyti filtrus</button>}
-          </div>
+          <>
+            <p className="ev-vk-note">Top atlikėjų koncertai užsienyje, pasiekiami pigiu skrydžiu arba mašina iš Lietuvos. <Link href="/verta-keliones" className="ev-vk-link">Atskiras puslapis →</Link></p>
+            <div className="ev-grid ev-grid-vk">
+              {abroadList.map(c => <AbroadCard key={c.id} c={c} d={destMap[c.destKey]} />)}
+            </div>
+          </>
         )
+      ) : filtered.length === 0 ? (
+        <div className="ev-empty">
+          <p className="ev-empty-ic">🎫</p>
+          <h3>Renginių nerasta</h3>
+          <p>Pabandyk pakeisti datą, miestą ar kitus filtrus.</p>
+          {anyFilter && <button className="ev-mini on" style={{ marginTop: 14 }} onClick={resetAll}>Išvalyti filtrus</button>}
+        </div>
       ) : (
         <div className="ev-months">
           {groups.map(grp => (
@@ -459,11 +480,46 @@ function EventCard({ ev }: { ev: Event }) {
   )
 }
 
+/* „Verta kelionės" kortelė (koncertas užsienyje) — ta pati ev-card vertikali
+ * forma, kad /koncertai tinklelis atrodytų vientisai; veda į /verta-keliones/[slug]. */
+function AbroadCard({ c, d }: { c: Concert; d?: Destination }) {
+  const cost = d ? tripCostFrom(c, d) : null
+  const flag = d ? flagEmoji(d.countryCode) : ''
+  const place = [c.venue, d?.city, d?.country].filter(Boolean).join(DOT)
+  return (
+    <Link href={vkHref(c)} className="ev-card">
+      <div className="ev-card-img">
+        {c.image ? (
+          <>
+            <span className="ev-card-bg" style={{ backgroundImage: `url(${c.image})` }} />
+            <img className="ev-card-fg" src={c.image} alt={c.artist} loading="lazy" referrerPolicy="no-referrer" />
+          </>
+        ) : (
+          <div className="ev-card-noimg"><span className="ev-card-noimg-name">{c.artist}</span></div>
+        )}
+        <div className="ev-card-tags">
+          {c.isFestival && <span className="ev-tag fest">FESTIVALIS</span>}
+          <span className="ev-tag star">{d?.reach === 'car' ? '🚗' : '✈'}</span>
+        </div>
+      </div>
+      <div className="ev-card-body">
+        <span className="ev-card-when">{fmtDate(c.date, c.endDate)}</span>
+        <h3 className="ev-card-title">{c.artist}</h3>
+        {place && <span className="ev-card-where">{flag} {place}</span>}
+        {cost != null && <span className="ev-card-artist"><span className="ev-card-artist-name" style={{ color: 'var(--accent-orange)', fontWeight: 700 }}>Kelionė nuo €{cost}</span></span>}
+      </div>
+    </Link>
+  )
+}
+
 /* ────────────────────────────────────────────────────────────────
  * Stiliai — atitinka /muzika ir /albumai sistemą (oranžinis akcentas,
  * mz-fchip pill'ai, tile tinklelis). CSS kintamieji iš globals.css.
  * ──────────────────────────────────────────────────────────────── */
 const EV_CSS = `
+.ev-vk-note { font-size:13px; color:var(--text-muted); margin:0 0 16px; line-height:1.5; }
+.ev-vk-link { color:var(--accent-orange); font-weight:700; white-space:nowrap; }
+.ev-grid-vk { margin-top:2px; }
 .ev-wrap { max-width:var(--page-max); margin:0 auto; padding:var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); font-family:'DM Sans',system-ui,sans-serif; }
 @media(max-width:640px){ .ev-wrap { padding-left:var(--page-pad-x-sm); padding-right:var(--page-pad-x-sm); } }
 

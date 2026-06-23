@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import { getEvents, getEventCities } from '@/lib/supabase-events'
+import { getVertaKelionesData } from '@/lib/verta-keliones-db'
 import EventsClient from '../renginiai/events-client'
 
 export const metadata: Metadata = {
@@ -13,10 +14,11 @@ export const metadata: Metadata = {
 export const revalidate = 300
 
 export default async function KoncertaiPage() {
-  const [{ events }, cities] = await Promise.all([
+  const [{ events }, cities, vk] = await Promise.all([
     getEvents({ showPast: true, order: 'desc', limit: 400 }),
     getEventCities(),
+    getVertaKelionesData(),
   ])
 
-  return <EventsClient events={events as any} cities={cities} />
+  return <EventsClient events={events as any} cities={cities} abroadConcerts={vk.concerts} destinations={vk.destinations} />
 }
