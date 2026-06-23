@@ -69,72 +69,104 @@ export async function GET(req: Request) {
     })
   } catch {}
 
-  // ── Mini nuotraukos (FIX 3): jei snapshot entity_image tuščias, batch'iniu
-  //    būdu išsprendžiam entity → atvaizdą. track → cover_url/YT thumb/atlikėjo
-  //    nuotrauka; album → cover_image_url; artist → cover_image_url. Po vieną
-  //    užklausą per tipą — pigu (feed limit ≤ 50). ──
+  // ── Kanoninių URL'ų + mini nuotraukų perskaičiavimas (FIX 2026-06-23) ──
+  //
+  //  entity_url buvo įrašytas log'inimo metu su tuometiniu formatu, kuris dažnai
+  //  pasenęs arba klaidingas → „Kas vyksta" nuorodos metė į 404. Pvz.:
+  //    • album_like rašė /atlikejai/{artistSlug}/{albumSlug} — toks route'as
+  //      NIEKADA neegzistavo (albumai gyvena /albumai/{slug}-{id}).
+  //    • comment rašė /albumai/{id} bei /dainos/{id} (be slug) — [slugId]
+  //      route'as reikalauja `-{id}` su slug prefiksu → 404.
+  //    • seni track/artist event'ai turi pre-slug formato URL'us.
+  //
+  //  Sprendimas: NEPASITIKIM įrašytu entity_url — perskaičiuojam iš
+  //  entity_type+entity_id pagal DABARTINĮ kanoninį formatą:
+  //    track  → /dainos/{artistSlug}-{trackSlug}-{id}
+  //    album  → /albumai/{artistSlug}-{albumSlug}-{id}
+  //    artist → /atlikejai/{artistSlug}
+  //  SVARBU: URL'ą perrašom TIK „nuoroda-į-entity" event'ams (like/comment/...),
+  //  o NE balsavimams/pasiūlymams (nomination/daily_vote/top_vote rodo
+  //  /dienos-daina, /top40 ir pan. — jų URL paliekam nepaliestą).
+  //  Tuo pačiu batch'u užpildom ir mini nuotrauką (jei snapshot tuščias).
   const rows = alive
-  const needImg = rows.filter(r => !r.entity_image && r.entity_id && r.entity_type)
-  if (needImg.length) {
-    const byType: Record<string, Set<number>> = {}
-    for (const r of needImg) {
-      ;(byType[r.entity_type] ||= new Set()).add(Number(r.entity_id))
+
+  // Event'ai, kurių nuoroda turi vesti į pačios entity (atlikėjo/albumo/dainos)
+  // puslapį. Kitiems (top_vote, daily_vote, nomination, blog, discussion…)
+  // paliekam įrašytą entity_url.
+  const ENTITY_LINK_EVENTS = new Set(['track_like', 'album_like', 'artist_like', 'like', 'comment', 'review', 'follow'])
+
+  const idsByType: Record<string, Set<number>> = {}
+  for (const r of rows) {
+    if (r.entity_id && (r.entity_type === 'track' || r.entity_type === 'album' || r.entity_type === 'artist')) {
+      ;(idsByType[r.entity_type] ||= new Set()).add(Number(r.entity_id))
     }
-    const trackImg = new Map<number, string>()
-    const albumImg = new Map<number, string>()
-    const artistImg = new Map<number, string>()
-    const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+  }
+
+  const trackInfo = new Map<number, { url: string | null; img: string | null }>()
+  const albumInfo = new Map<number, { url: string | null; img: string | null }>()
+  const artistInfo = new Map<number, { url: string | null; img: string | null }>()
+  const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
+  const oneArtist = (a: any) => (Array.isArray(a) ? a[0] : a)
+
+  if (idsByType.track || idsByType.album || idsByType.artist) {
     try {
       const tasks: PromiseLike<any>[] = []
-      if (byType.track?.size) {
+      if (idsByType.track?.size) {
         tasks.push(supabase.from('tracks')
-          .select('id, cover_url, video_url, artist:artist_id(cover_image_url)')
-          .in('id', Array.from(byType.track))
+          .select('id, slug, cover_url, video_url, artist:artist_id(slug, cover_image_url)')
+          .in('id', Array.from(idsByType.track))
           .then(({ data }) => {
             for (const t of (data || []) as any[]) {
+              const art = oneArtist(t.artist)
               const yt = t.video_url?.match?.(YT_RE)?.[1]
-              const art = Array.isArray(t.artist) ? t.artist[0] : t.artist
-              const img = t.cover_url || (yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : null) || art?.cover_image_url
-              if (img) trackImg.set(t.id, img)
+              const img = t.cover_url || (yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : null) || art?.cover_image_url || null
+              const url = art?.slug && t.slug ? `/dainos/${art.slug}-${t.slug}-${t.id}` : null
+              trackInfo.set(t.id, { url, img })
             }
           }))
       }
-      if (byType.album?.size) {
+      if (idsByType.album?.size) {
         tasks.push(supabase.from('albums')
-          .select('id, cover_image_url')
-          .in('id', Array.from(byType.album))
-          .then(({ data }) => { for (const a of (data || []) as any[]) if (a.cover_image_url) albumImg.set(a.id, a.cover_image_url) }))
+          .select('id, slug, cover_image_url, artist:artist_id(slug)')
+          .in('id', Array.from(idsByType.album))
+          .then(({ data }) => {
+            for (const a of (data || []) as any[]) {
+              const art = oneArtist(a.artist)
+              const url = art?.slug && a.slug ? `/albumai/${art.slug}-${a.slug}-${a.id}` : null
+              albumInfo.set(a.id, { url, img: a.cover_image_url || null })
+            }
+          }))
       }
-      if (byType.artist?.size) {
+      if (idsByType.artist?.size) {
         tasks.push(supabase.from('artists')
-          .select('id, cover_image_url')
-          .in('id', Array.from(byType.artist))
-          .then(({ data }) => { for (const a of (data || []) as any[]) if (a.cover_image_url) artistImg.set(a.id, a.cover_image_url) }))
+          .select('id, slug, cover_image_url')
+          .in('id', Array.from(idsByType.artist))
+          .then(({ data }) => {
+            for (const a of (data || []) as any[]) {
+              const url = a.slug ? `/atlikejai/${a.slug}` : null
+              artistInfo.set(a.id, { url, img: a.cover_image_url || null })
+            }
+          }))
       }
       await Promise.all(tasks)
+
       for (const r of rows) {
-        if (r.entity_image || !r.entity_id) continue
+        if (!r.entity_id) continue
         const id = Number(r.entity_id)
-        r.entity_image =
-          r.entity_type === 'track' ? trackImg.get(id) || null
-          : r.entity_type === 'album' ? albumImg.get(id) || null
-          : r.entity_type === 'artist' ? artistImg.get(id) || null
+        const info =
+          r.entity_type === 'track' ? trackInfo.get(id)
+          : r.entity_type === 'album' ? albumInfo.get(id)
+          : r.entity_type === 'artist' ? artistInfo.get(id)
           : null
+        if (!info) continue
+        // Mini nuotrauką užpildom visiems (jei snapshot tuščias).
+        if (!r.entity_image && info.img) r.entity_image = info.img
+        // URL'ą perrašom tik nuoroda-į-entity event'ams ir tik kai turim
+        // patikimą kanoninį (kitaip paliekam įrašytą).
+        if (info.url && ENTITY_LINK_EVENTS.has(r.event_type)) r.entity_url = info.url
       }
     } catch {}
   }
-
-  // ── Username resolve: „Kas vyksta" visada rodom username (ne pilną vardą iš
-  //    Google login'o). actor_name liekam kaip fallback. ──
-  try {
-    const uids = [...new Set(rows.map(r => r.user_id).filter(Boolean))]
-    if (uids.length) {
-      const { data: profs } = await supabase.from('profiles').select('id, username').in('id', uids)
-      const unameById = new Map<string, string>()
-      for (const p of (profs || []) as any[]) if (p.username) unameById.set(p.id, p.username)
-      for (const r of rows) r.actor_username = (r.user_id && unameById.get(r.user_id)) || null
-    }
-  } catch {}
 
   return NextResponse.json({ events: rows })
 }
