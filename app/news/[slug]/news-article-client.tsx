@@ -14,12 +14,13 @@ import { HomeTrackModal } from '@/components/HomeTrackModal'
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 type Photo     = { url: string; caption?: string; source?: string }
+type NewsEmbed = { url: string; type?: string; embedUrl?: string | null; thumbnailUrl?: string | null; title?: string | null }
 type SongEntry = { id?: number; song_id?: number | null; title: string; artist_name: string; youtube_url: string; cover_url?: string }
 type ArtistRef = { id: number; name: string; cover_image_url?: string }
 type NewsItem  = {
   id: number; title: string; slug: string; body: string; type: string
   source_url?: string; source_name?: string; published_at: string
-  image_small_url?: string; gallery?: Photo[]
+  image_small_url?: string; gallery?: Photo[]; embeds?: NewsEmbed[]
   heroCredit?: { author: string; license: string; url: string } | null
   artist?:  { id: number; name: string; cover_image_url?: string; photos?: any[] }
   artist2?: { id: number; name: string; cover_image_url?: string } | null
@@ -341,6 +342,46 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
   )
 }
 
+/* ─── Embedded media (real iframes, teksto pabaigoje) ────────────────────────
+   YT/Spotify/SoundCloud realūs grotuvai — ne thumbnail'ai. embedUrl pirmas;
+   jei nėra (Instagram/X/Bandcamp) — rodom nuorodos kortelę. */
+function embedSrc(e: NewsEmbed): string | null {
+  if (e.embedUrl) return e.embedUrl
+  const v = ytId(e.url) || (e.url.match(/youtube\.com\/shorts\/([\w-]{11})/)?.[1] ?? null)
+  if (v) return `https://www.youtube.com/embed/${v}`
+  return null
+}
+function NewsEmbeds({ embeds }: { embeds: NewsEmbed[] }) {
+  if (!embeds.length) return null
+  return (
+    <div className="na-embeds">
+      {embeds.map((e, i) => {
+        const src = embedSrc(e)
+        const isAudio = (e.type || '').startsWith('spotify') || e.type === 'soundcloud'
+        if (!src) {
+          return (
+            <a key={i} href={e.url} target="_blank" rel="noopener noreferrer" className="na-embed-link">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <span>{e.title || e.url}</span>
+            </a>
+          )
+        }
+        return (
+          <div key={i} className={isAudio ? 'na-embed na-embed-audio' : 'na-embed'}>
+            <iframe
+              src={src}
+              loading="lazy"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowFullScreen
+              title={e.title || 'Įterptas vaizdo įrašas'}
+            />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 /* ─── Photo Gallery ──────────────────────────────────────────────────────── */
 /* Vienas foto → blur-fill + object-contain (rodo VISĄ kadrą, be nukirpimo,
    kaip artist page galerija). Keli — mozaikinis cover grid'as. */
@@ -442,7 +483,7 @@ export default function NewsArticleClient({
            Niekada nenukerpa subjektui galvos/kojų. */
         .na-hero-photo { position:absolute; inset-block:0; right:0; left:auto; width:58%; overflow:hidden; }
         .na-hero-blur  { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(46px) saturate(1.1) brightness(0.55); transform:scale(1.2); }
-        .na-hero-img   { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:center; filter:saturate(1.04) contrast(1.02); }
+        .na-hero-img   { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:right center; filter:saturate(1.04) contrast(1.02); }
         /* Siaura kairio krašto blend juosta — foto įsilieja į tamsų teksto foną */
         .na-hero-fade-l { position:absolute; inset:0; background:linear-gradient(to right, #080d14 0%, rgba(8,13,20,0.5) 14%, transparent 34%); pointer-events:none; }
         .na-hero-fade-b { position:absolute; inset:0; background:linear-gradient(to top, rgba(8,13,20,0.5) 0%, transparent 20%); pointer-events:none; }
@@ -538,6 +579,15 @@ export default function NewsArticleClient({
         /* ── Comments spacing ── */
         .na-comments { margin-top:44px; }
 
+        /* ── Įterpti embedai (realūs grotuvai) teksto pabaigoje ── */
+        .na-embeds { margin-top:32px; display:flex; flex-direction:column; gap:18px; }
+        .na-embed { position:relative; width:100%; padding-bottom:56.25%; height:0; border-radius:14px; overflow:hidden; background:#000; box-shadow:0 12px 36px -16px rgba(0,0,0,0.5); }
+        .na-embed iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+        .na-embed-audio { padding-bottom:0; height:auto; background:transparent; box-shadow:none; }
+        .na-embed-audio iframe { position:static; height:152px; }
+        .na-embed-link { display:inline-flex; align-items:center; gap:8px; padding:12px 16px; border-radius:12px; background:var(--bg-elevated); border:1px solid var(--border-default); color:var(--accent-link); font-size:14px; font-weight:600; text-decoration:none; word-break:break-all; }
+        .na-embed-link:hover { border-color:var(--accent-orange); }
+
         /* ── Responsive ── */
         @media(max-width:1024px){
           .na-grid.has-sb { grid-template-columns:1fr; }
@@ -546,6 +596,7 @@ export default function NewsArticleClient({
         @media(max-width:860px){
           .na-hero { height:auto; min-height:auto; max-height:none; flex-direction:column; align-items:stretch; }
           .na-hero-photo { position:relative; width:100%; height:210px; }
+          .na-hero-img { object-position:center bottom; }
           .na-hero-fade-l { background:linear-gradient(to top, #080d14 4%, transparent 70%); }
           .na-hero-fade-b { display:none; }
           .na-hero-wrap { background:#080d14; padding:18px 20px 26px; max-width:100%; }
@@ -610,6 +661,7 @@ export default function NewsArticleClient({
           <div className={`na-grid ${hasSidebar ? 'has-sb' : 'no-sb'}`}>
             <main>
               <div className="na-prose" dangerouslySetInnerHTML={{ __html: news.body }} />
+              {news.embeds && news.embeds.length > 0 && <NewsEmbeds embeds={news.embeds} />}
               {gallery.length > 0 && <PhotoGallery photos={gallery} />}
               <div className="na-comments">
                 <EntityCommentsBlock entityType="news" entityId={news.id} title="Komentarai" skipLegacy />
