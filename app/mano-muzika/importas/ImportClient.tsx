@@ -8,6 +8,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
+import { parseSpotifyExport } from '@/lib/spotify-export'
 
 type Job = { id: string; status: string; phase: string; total: number; processed: number; matched: number; reported: number; error: string | null; finished_at: string | null; batch_id?: string | null; batch_status?: string | null }
 type ReviewHit = { itemId: number; id: number; name: string; slug: string | null; cover: string | null; artist: string | null; artistSlug: string | null; pop: number }
@@ -21,7 +22,7 @@ type Source = 'lastfm' | 'spotify' | 'youtube'
 
 const SOURCES: { key: Source; label: string; emoji: string; blurb: string }[] = [
   { key: 'lastfm', label: 'Last.fm', emoji: '🎧', blurb: 'Įvesk vartotojo vardą — perkelsim mėgstamus ir dažniausiai klausomus.' },
-  { key: 'spotify', label: 'Spotify', emoji: '🟢', blurb: 'Įkelk „Download your data" failą (YourLibrary.json).' },
+  { key: 'spotify', label: 'Spotify', emoji: '🟢', blurb: 'Įkelk „Download your data" failą (YourLibrary, Playlist arba klausymų istoriją).' },
   { key: 'youtube', label: 'YouTube', emoji: '▶️', blurb: 'Įklijuok viešo playlisto nuorodą.' },
 ]
 
@@ -59,6 +60,8 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
   const [review, setReview] = useState<{ matched: number; missing: number; items: { artists: ReviewHit[]; albums: ReviewHit[]; tracks: ReviewHit[] } } | null>(null)
   const [deselected, setDeselected] = useState<Set<number>>(new Set())
   const [confirming, setConfirming] = useState(false)
+  // Spotify failo atpažinimo info (koks failas, kiek rasta)
+  const [spotifyInfo, setSpotifyInfo] = useState<string | null>(null)
 
   // Foninio importo job'o būsena — kad pamatytume „vyksta / baigta" be progress baro.
   const refreshJob = useCallback(async () => {
@@ -130,15 +133,29 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
     catch (e: any) { setError(e.message) } finally { setLoading(false) }
   }
   async function onSpotifyFile(file: File) {
-    setLoading(true); setError(null); setResult(null); setDone(null)
+    setLoading(true); setError(null); setResult(null); setDone(null); setSpotifyInfo(null)
     try {
       const text = await file.text()
       const json = JSON.parse(text)
-      const artists = (json.artists || []).map((a: any) => ({ name: a.name || a.artistName })).filter((x: any) => x.name)
-      const tracks = (json.tracks || []).map((t: any) => ({ artist: t.artist || t.artistName, title: t.track || t.trackName })).filter((x: any) => x.artist && x.title)
-      const albums = (json.albums || []).map((a: any) => ({ artist: a.artist || a.artistName, title: a.album || a.albumName })).filter((x: any) => x.artist && x.title)
-      if (!artists.length && !tracks.length && !albums.length) throw new Error('Tai nepanašu į YourLibrary.json (nerasta artists/tracks/albums).')
-      onResult(await postJSON('/import/match', { artists, tracks, albums }))
+      // Daugiaformatis parser'is: atpažįsta YourLibrary / Playlist / StreamingHistory /
+      // YourSoundCapsule / Follow; Wrapped (tik URI) atmeta su paaiškinimu.
+      const parsed = parseSpotifyExport(json)
+      const { artists, tracks, albums } = parsed
+      const total = artists.length + tracks.length + albums.length
+      if (!total) {
+        throw new Error(parsed.note || 'Faile nerasta atpažįstamų atlikėjų, dainų ar albumų.')
+      }
+      // Siunčiam tik viršūnę pagal svorį (server limitai ~150/tipą) — parser'is jau surikiavo.
+      const top = <T,>(arr: T[], n: number) => arr.slice(0, n)
+      // Atpažinto failo santrauka vartotojui.
+      const parts: string[] = []
+      if (artists.length) parts.push(`${artists.length} atlikėjų`)
+      if (tracks.length) parts.push(`${tracks.length} dainų`)
+      if (albums.length) parts.push(`${albums.length} albumų`)
+      setSpotifyInfo(`Atpažinta: ${parsed.label} — ${parts.join(' · ')}.${parsed.note ? ` ${parsed.note}` : ''}`)
+      onResult(await postJSON('/import/match', {
+        artists: top(artists, 150), tracks: top(tracks, 200), albums: top(albums, 150),
+      }))
     } catch (e: any) { setError(e.message?.includes('JSON') ? 'Failas nėra teisingas JSON' : e.message) } finally { setLoading(false) }
   }
 
@@ -260,11 +277,16 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
           <button onClick={() => fileRef.current?.click()} className="w-full rounded-xl border-2 border-dashed py-7 text-center transition-colors"
             style={{ borderColor: 'var(--border-default)', background: 'var(--bg-elevated)' }}>
             <div className="text-2xl mb-1">📂</div>
-            <div className="text-[13.5px] font-bold">{loading ? 'Apdorojama…' : 'Spustelėk ir pasirink YourLibrary.json'}</div>
+            <div className="text-[13.5px] font-bold">{loading ? 'Apdorojama…' : 'Spustelėk ir pasirink Spotify JSON failą'}</div>
             <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>arba nutempk failą čia</div>
           </button>
+          {spotifyInfo && (
+            <div className="mt-3 rounded-xl px-3.5 py-2.5 text-[12px] leading-snug" style={{ background: 'rgba(29,185,84,0.10)', border: '1px solid rgba(29,185,84,0.35)', color: 'var(--text-secondary)' }}>
+              {spotifyInfo}
+            </div>
+          )}
           <Hint>
-            Spotify → Account → Privacy → „Download your data" → <b>Account data</b>. Po ~1 paros gausi ZIP su <b>YourLibrary.json</b> — įkelk jį čia.
+            Spotify → Account → Privacy → „Download your data" → <b>Account data</b>. Po ~1 paros gausi ZIP. Tinka bet kuris iš šių failų: <b>YourLibrary.json</b> (išsaugota muzika), <b>Playlist1.json</b> (grojaraščiai) arba <b>StreamingHistory_music_*.json</b> (klausymų istorija) — įkelk jį čia.
             {' '}<Link href="/perkelti#spotify" className="underline" style={{ color: 'var(--accent-orange)' }}>Detali instrukcija</Link>
           </Hint>
         </InputPanel>

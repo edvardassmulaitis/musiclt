@@ -26,7 +26,7 @@ const METHODS: { id: string; emoji: string; title: string; tagline: string; time
     steps: [
       { n: 1, text: 'Spotify → Account → Privacy settings → „Download your data" → pažymėk Account data.' },
       { n: 2, text: 'Palauk el. laiško (dažniausiai iki paros) ir parsisiųsk ZIP.' },
-      { n: 3, text: 'Įkelk iš jo failą YourLibrary.json — perkelsim išsaugotus atlikėjus, dainas ir albumus.' },
+      { n: 3, text: 'Įkelk bet kurį failą su muzika: YourLibrary.json (išsaugota), Playlist1.json (grojaraščiai) ar StreamingHistory_music_*.json (klausymų istorija) — atpažinsim automatiškai.' },
     ],
     cta: 'Įkelti Spotify failą',
   },

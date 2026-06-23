@@ -15,6 +15,7 @@
 import { createAdminClient } from '@/lib/supabase'
 import { searchArtistsCore, searchTracksCore, searchAlbumsCore, normLt } from '@/lib/search-core'
 import { addToLibrary, type FavKind } from '@/lib/mano-muzika'
+import { parseSpotifyExport } from '@/lib/spotify-export'
 import { normalizeForMatch, primaryArtist } from '@/lib/chart-resolve'
 
 // ── Raw / staged tipai ─────────────────────────────────────────────────────
@@ -395,13 +396,13 @@ export async function stageAndReport(
   return { ...staged, reported }
 }
 
-// ── Spotify „Download your data" (YourLibrary.json) ────────────────────────
-// Parse'inama kliente; čia – normalizatorius, jei reikėtų server-side.
+// ── Spotify „Download your data" (bet kuris eksporto failas) ────────────────
+// Parse'inama kliente (lib/spotify-export.ts); čia – tas pats normalizatorius
+// server-side. Atpažįsta YourLibrary / Playlist / StreamingHistory /
+// YourSoundCapsule / Follow; Wrapped (tik URI) grąžina tuščią.
 export function parseSpotifyLibrary(json: any): RawItems {
-  const artists: RawArtist[] = (json?.artists || []).map((a: any) => ({ name: a.name || a.artistName || '' })).filter((a: RawArtist) => a.name)
-  const tracks: RawTrackish[] = (json?.tracks || []).map((t: any) => ({ artist: t.artist || t.artistName || '', title: t.track || t.trackName || '' })).filter((t: RawTrackish) => t.artist && t.title)
-  const albums: RawTrackish[] = (json?.albums || []).map((a: any) => ({ artist: a.artist || a.artistName || '', title: a.album || a.albumName || '' })).filter((a: RawTrackish) => a.artist && a.title)
-  return { artists, tracks, albums }
+  const p = parseSpotifyExport(json)
+  return { artists: p.artists, tracks: p.tracks, albums: p.albums }
 }
 
 // ── YouTube viešas playlistas ──────────────────────────────────────────────
