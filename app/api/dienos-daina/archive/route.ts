@@ -101,13 +101,21 @@ export async function GET(req: Request) {
   }
 
   if (wantMeta) {
-    const { data: alld } = await supabase
-      .from('daily_song_winners')
-      .select('date')
-      .order('date', { ascending: false })
-      .limit(20000)
-    resp.years = (Array.from(new Set((alld || []).map((r: any) => String(r.date).slice(0, 4)))) as string[])
-      .sort((a, b) => b.localeCompare(a))
+    // Distinct metai. PostgREST grąžina max ~1000 eil. per užklausą, todėl
+    // perbėgam puslapiais (tik `date` stulpelis — pigu, tik pirmo krovimo metu).
+    const yearsSet = new Set<string>()
+    const SZ = 1000
+    for (let off = 0; off < 40000; off += SZ) {
+      const { data: chunk, error: e2 } = await supabase
+        .from('daily_song_winners')
+        .select('date')
+        .order('date', { ascending: false })
+        .range(off, off + SZ - 1)
+      if (e2 || !chunk || chunk.length === 0) break
+      for (const r of chunk as any[]) yearsSet.add(String(r.date).slice(0, 4))
+      if (chunk.length < SZ) break
+    }
+    resp.years = (Array.from(yearsSet) as string[]).sort((a, b) => b.localeCompare(a))
   }
 
   return NextResponse.json(resp)
