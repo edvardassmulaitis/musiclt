@@ -15,8 +15,8 @@ type SiteContextType = {
 
 const SiteContext = createContext<SiteContextType>({
   lens: 'lt', setLens: () => {},
-  theme: 'dark', setTheme: () => {},
-  dk: true,
+  theme: 'light', setTheme: () => {},
+  dk: false,
 })
 
 export function useSite() { return useContext(SiteContext) }
@@ -42,17 +42,17 @@ function getInitialTheme(): Theme {
     const saved = getCookie('music-lt-theme')
     if (saved === 'light' || saved === 'dark') return saved
   }
-  // 2. Check system preference
-  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches) {
-    return 'light'
+  // 2. Check system preference — gerbiame įrenginio nuostatą
+  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+    return 'dark'
   }
-  // 3. Default dark
-  return 'dark'
+  // 3. Default light (industry standard; nenustatyta nuostata → light)
+  return 'light'
 }
 
 export function SiteProvider({ children }: { children: ReactNode }) {
   const [lens, setLens] = useState<Lens>('lt')
-  const [theme, setThemeState] = useState<Theme>('dark') // SSR default
+  const [theme, setThemeState] = useState<Theme>('light') // SSR default
   const [mounted, setMounted] = useState(false)
   const dk = theme === 'dark'
 

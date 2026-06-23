@@ -47,7 +47,7 @@ export default function RootLayout({
             nenupiešta. Logika privalo atitikti getInitialTheme() SiteContext.tsx. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var m=document.cookie.match(/(?:^| )music-lt-theme=([^;]+)/);var t=m?decodeURIComponent(m[1]):null;if(t!=='light'&&t!=='dark'){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}var r=document.documentElement;r.setAttribute('data-theme',t);r.style.colorScheme=t;}catch(e){var r=document.documentElement;r.setAttribute('data-theme','dark');r.style.colorScheme='dark';}})();`,
+            __html: `(function(){try{var m=document.cookie.match(/(?:^| )music-lt-theme=([^;]+)/);var t=m?decodeURIComponent(m[1]):null;if(t!=='light'&&t!=='dark'){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}var r=document.documentElement;r.setAttribute('data-theme',t);r.style.colorScheme=t;}catch(e){var r=document.documentElement;r.setAttribute('data-theme','light');r.style.colorScheme='light';}})();`,
           }}
         />
         {/* Defensive favicon link — forcing icon.svg net jei Next.js
