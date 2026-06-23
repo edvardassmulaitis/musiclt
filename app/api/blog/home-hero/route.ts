@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getHomeHeroPosts } from '@/lib/supabase-blog'
+import { resolveBlogThumbs } from '@/lib/blog-thumb'
 
 // Admine pažymėti vartotojų įrašai (blog_posts.home_hero=true) — rodomi
 // pradžios hero feede tarp naujienų. Grąžinam jau paruoštą hero-slide formą.
@@ -27,6 +28,7 @@ function kindKey(postType: string | null, editorialType: string | null): string 
 export async function GET() {
   try {
     const rows = await getHomeHeroPosts(8)
+    const thumbs = await resolveBlogThumbs(rows as any[])
     const posts = (rows as any[]).map((p) => {
       const blogs = Array.isArray(p.blogs) ? p.blogs[0] : p.blogs
       const prof = Array.isArray(blogs?.profiles) ? blogs.profiles[0] : blogs?.profiles
@@ -36,7 +38,7 @@ export async function GET() {
         id: p.id,
         title: p.title,
         href: blogSlug ? `/blogas/${blogSlug}/${p.slug}` : '/blogas',
-        cover: p.cover_image_url || null,
+        cover: p.cover_image_url || thumbs.get(p.id) || null,
         chip: k.label,
         chipBg: k.color,
         published_at: p.published_at,
