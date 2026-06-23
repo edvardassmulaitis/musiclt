@@ -5,14 +5,21 @@ import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
+const HeadphonesIcon = (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+  </svg>
+)
+
 function SignInContent() {
   const searchParams = useSearchParams()
   // Numatytai po prisijungimo → /sveiki (pasveikinimas/apžvalga). Jei vartotojas
   // buvo nukreiptas iš konkretaus puslapio — gerbiam tą callbackUrl.
   const callbackUrl = searchParams.get('callbackUrl') || '/sveiki'
-  const [tab, setTab] = useState<'social'|'email'>('social')
+  const [tab, setTab] = useState<'social' | 'email'>('social')
   const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState<string|null>(null)
+  const [loading, setLoading] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState(false)
   const [error, setError] = useState('')
 
@@ -34,116 +41,174 @@ function SignInContent() {
       })
       const data = await res.json()
       if (!res.ok || data.error) {
-        setError('Klaida siunčiant laišką. Bandykite dar kartą.')
+        setError('Nepavyko išsiųsti laiško. Bandyk dar kartą.')
       } else {
         setEmailSent(true)
       }
     } catch {
-      setError('Klaida siunčiant laišką. Bandykite dar kartą.')
+      setError('Nepavyko išsiųsti laiško. Bandyk dar kartą.')
     } finally {
       setLoading(null)
     }
   }
 
+  const wrap = (children: React.ReactNode) => (
+    <div
+      style={{
+        background: 'var(--bg-body)',
+        minHeight: 'calc(100vh - 64px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '48px 20px',
+        fontFamily: "'DM Sans',system-ui,sans-serif",
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 400 }}>{children}</div>
+    </div>
+  )
+
+  // Brand viršus — orinis apskritimas su ausinukais (kaip /sveiki avataras).
+  const brandHead = (title: string, subtitle: string) => (
+    <div style={{ textAlign: 'center', marginBottom: 26 }}>
+      <div
+        style={{
+          width: 56, height: 56, borderRadius: '50%', margin: '0 auto 14px',
+          background: 'linear-gradient(135deg,#1a73e8,#f97316)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 8px 24px rgba(249,115,22,.28)',
+        }}
+      >
+        {HeadphonesIcon}
+      </div>
+      <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 24, fontWeight: 900, letterSpacing: '-.02em', margin: '0 0 6px', color: 'var(--text-primary)' }}>{title}</h1>
+      <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>{subtitle}</p>
+    </div>
+  )
+
   if (emailSent) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-950">
-        <div className="bg-gray-900 border border-white/10 rounded-2xl p-10 w-full max-w-sm text-center shadow-2xl">
-          <div className="text-5xl mb-4">📧</div>
-          <h2 className="text-xl font-black text-white mb-2">Patikrinkite paštą</h2>
-          <p className="text-gray-400 text-sm mb-6">
-            Išsiuntėme prisijungimo nuorodą į <span className="text-white font-medium">{email}</span>
+    return wrap(
+      <>
+        {brandHead('Patikrink paštą', 'Likterėk vienas žingsnis')}
+        <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)', borderRadius: 18, padding: '28px 24px', textAlign: 'center' }}>
+          <div
+            style={{
+              width: 52, height: 52, borderRadius: '50%', margin: '0 auto 14px',
+              background: 'rgba(249,115,22,.12)', border: '1px solid rgba(249,115,22,.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f97316',
+            }}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
+          </div>
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: '0 0 6px', lineHeight: 1.55 }}>
+            Prisijungimo nuorodą išsiuntėme į<br />
+            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{email}</span>
           </p>
-          <p className="text-gray-600 text-xs">Nuoroda galioja 24 valandas</p>
-          <button onClick={() => setEmailSent(false)} className="mt-6 text-sm text-music-blue hover:underline">
-            Grįžti atgal
+          <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '8px 0 0' }}>Nuoroda galioja 24 valandas. Nepamiršk patikrinti ir šlamšto aplanko.</p>
+          <button onClick={() => setEmailSent(false)} style={{ marginTop: 18, fontSize: 13, fontWeight: 600, color: '#f97316', background: 'none', border: 'none', cursor: 'pointer' }}>
+            ← Grįžti
           </button>
         </div>
-      </div>
+      </>
     )
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-950">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <Link href="/" className="text-3xl font-black">
-            <span className="text-music-blue">music</span>
-            <span className="text-music-orange">.lt</span>
-          </Link>
-          <p className="text-gray-500 text-sm mt-2">Prisijunkite prie bendruomenes</p>
+  return wrap(
+    <>
+      {brandHead('Prisijunk prie music.lt', 'Atlikėjai, topai, koncertai ir bendruomenė — viskas vienoje vietoje.')}
+
+      <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)', borderRadius: 18, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)' }}>
+          {([['social', 'Socialiniai'], ['email', 'El. paštas']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              style={{
+                flex: 1, padding: '13px 0', fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+                background: tab === key ? 'var(--bg-surface)' : 'transparent',
+                color: tab === key ? 'var(--text-primary)' : 'var(--text-muted)',
+                border: 'none',
+                borderBottom: tab === key ? '2px solid #f97316' : '2px solid transparent',
+                transition: 'all .15s',
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        <div className="bg-gray-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="flex border-b border-white/10">
-            <button onClick={() => setTab('social')}
-              className={`flex-1 py-3 text-sm font-bold transition-colors ${tab==='social'?'text-white bg-white/5':'text-gray-500 hover:text-gray-300'}`}>
-              Socialiniai
+        <div style={{ padding: 22 }}>
+          {tab === 'social' ? (
+            <button
+              onClick={() => handleSocial('google')}
+              disabled={loading !== null}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                background: '#fff', color: '#1a1a1a', fontWeight: 600, fontSize: 14.5, padding: '13px 18px',
+                borderRadius: 12, border: '1px solid rgba(0,0,0,.1)', cursor: 'pointer', opacity: loading ? 0.6 : 1,
+              }}
+            >
+              {loading === 'google' ? (
+                <span style={{ width: 20, height: 20, border: '2px solid #ccc', borderTopColor: '#555', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
+              )}
+              Tęsti su Google
             </button>
-            <button onClick={() => setTab('email')}
-              className={`flex-1 py-3 text-sm font-bold transition-colors ${tab==='email'?'text-white bg-white/5':'text-gray-500 hover:text-gray-300'}`}>
-              El. pastas
-            </button>
-          </div>
-
-          <div className="p-6">
-            {tab === 'social' ? (
-              <div className="space-y-3">
-                <button onClick={() => handleSocial('google')} disabled={loading !== null}
-                  className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-semibold py-3 px-5 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-60">
-                  {loading === 'google' ? <span className="w-5 h-5 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" /> : (
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                  )}
-                  Testi su Google
-                </button>
+          ) : (
+            <form onSubmit={handleEmail} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>El. pašto adresas</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="vardas@paštas.lt"
+                  required
+                  style={{
+                    width: '100%', background: 'var(--input-bg)', border: '1px solid var(--input-border)',
+                    borderRadius: 12, padding: '12px 14px', color: 'var(--input-text)', fontSize: 14, outline: 'none',
+                  }}
+                />
               </div>
-            ) : (
-              <form onSubmit={handleEmail} className="space-y-4">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1.5">El. pasto adresas</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="jusu@email.com"
-                    required
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-music-blue transition-colors"
-                  />
-                </div>
-                {error && <p className="text-red-400 text-xs">{error}</p>}
-                <button type="submit" disabled={loading === 'email' || !email}
-                  className="w-full bg-music-blue hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                  {loading === 'email' ? <span className="w-5 h-5 border-2 border-blue-300 border-t-white rounded-full animate-spin" /> : null}
-                  Gauti prisijungimo nuoroda
-                </button>
-                <p className="text-center text-xs text-gray-600">
-                  Issiusime magic link i jusu pasta
-                </p>
-              </form>
-            )}
-          </div>
+              {error && <p style={{ color: '#ef4444', fontSize: 12, margin: 0 }}>{error}</p>}
+              <button
+                type="submit"
+                disabled={loading === 'email' || !email}
+                style={{
+                  width: '100%', background: '#f97316', color: '#fff', fontWeight: 700, fontSize: 14.5,
+                  padding: '13px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
+                  opacity: loading === 'email' || !email ? 0.6 : 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                {loading === 'email' ? <span style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,.5)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} /> : null}
+                Gauti prisijungimo nuorodą
+              </button>
+              <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-faint)', margin: 0 }}>
+                Išsiųsime prisijungimo nuorodą — slaptažodžio nereikia.
+              </p>
+            </form>
+          )}
         </div>
-
-        <p className="text-center text-xs text-gray-700 mt-6">
-          Prisijungdami sutinkate su{' '}
-          <a href="/privatumas" className="text-music-blue hover:underline">privatumo politika</a>
-        </p>
-        <p className="text-center mt-4">
-          <Link href="/" className="text-sm text-gray-600 hover:text-white transition-colors">Grizti i pradzia</Link>
-        </p>
       </div>
-    </div>
+
+      <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-faint)', marginTop: 20 }}>
+        Prisijungdami sutinkate su{' '}
+        <a href="/privatumas" style={{ color: '#f97316', textDecoration: 'none' }}>privatumo politika</a>
+      </p>
+      <p style={{ textAlign: 'center', marginTop: 12 }}>
+        <Link href="/" style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none' }}>Grįžti į pradžią</Link>
+      </p>
+
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </>
   )
 }
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-music-blue border-t-transparent rounded-full animate-spin" /></div>}>
+    <Suspense fallback={<div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: 32, height: 32, border: '2px solid #f97316', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /></div>}>
       <SignInContent />
     </Suspense>
   )
