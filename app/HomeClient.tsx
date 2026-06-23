@@ -2536,7 +2536,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
   const [events, setEvents] = useState<Event[]>([])
   const [news, setNews] = useState<NewsItem[]>([])
   // Admine pažymėti homepage hero: vartotojų įrašai + renginiai.
-  const [heroPosts, setHeroPosts] = useState<{ id: number; title: string; href: string; cover: string | null; chip: string; chipBg: string; published_at: string | null; author: string | null }[]>([])
+  const [heroPosts, setHeroPosts] = useState<{ id: string; title: string; href: string; cover: string | null; chip: string; chipBg: string; published_at: string | null; author: string | null; excerpt?: string | null; videoId?: string | null; songTitle?: string | null; songArtist?: string | null }[]>([])
   const [heroEvents, setHeroEvents] = useState<Event[]>([])
   // Reader v3 papildomi feed šaltiniai
   const [dailyWinners, setDailyWinners] = useState<any[]>([])
