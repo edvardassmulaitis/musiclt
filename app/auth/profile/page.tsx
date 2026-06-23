@@ -30,6 +30,8 @@ type Profile = {
   legacy_favorite_films?: string | null
   legacy_profile_photos?: { url: string; thumb_url?: string; caption?: string }[] | null
   default_profile_tab?: string | null
+  is_public?: boolean | null
+  hide_from_homepage?: boolean | null
 }
 
 type Photo = { url: string; thumb_url?: string; caption?: string }
@@ -51,10 +53,7 @@ const IcEye = ({ className }: IconProps) => <svg {...sv(className)}><path d="M2 
 const IcBell = ({ className }: IconProps) => <svg {...sv(className)}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
 const IcPaint = ({ className }: IconProps) => <svg {...sv(className)}><circle cx="13.5" cy="6.5" r=".5" fill="currentColor" /><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" /><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" /><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z" /></svg>
 const IcSettings = ({ className }: IconProps) => <svg {...sv(className)}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" /></svg>
-const IcMusic = ({ className }: IconProps) => <svg {...sv(className)}><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
-const IcPen = ({ className }: IconProps) => <svg {...sv(className)}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
 const IcCheck = ({ className }: IconProps) => <svg {...sv(className)}><polyline points="20 6 9 17 4 12" /></svg>
-const IcChevron = ({ className }: IconProps) => <svg {...sv(className)}><polyline points="9 18 15 12 9 6" /></svg>
 const IcSun = ({ className }: IconProps) => <svg {...sv(className)}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>
 const IcMoon = ({ className }: IconProps) => <svg {...sv(className)}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
 const IcLogout = ({ className }: IconProps) => <svg {...sv(className)}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
@@ -63,7 +62,7 @@ type SectionKey = 'profilis' | 'rodinys' | 'pranesimai' | 'isvaizda' | 'paskyra'
 
 const NAV: { key: SectionKey; label: string; icon: ReactNode }[] = [
   { key: 'profilis', label: 'Profilis', icon: <IcUser /> },
-  { key: 'rodinys', label: 'Profilio rodinys', icon: <IcEye /> },
+  { key: 'rodinys', label: 'Profilio išdėstymas', icon: <IcEye /> },
   { key: 'pranesimai', label: 'Pranešimai', icon: <IcBell /> },
   { key: 'isvaizda', label: 'Išvaizda', icon: <IcPaint /> },
   { key: 'paskyra', label: 'Paskyra', icon: <IcSettings /> },
@@ -108,6 +107,12 @@ export default function SettingsPage() {
   const [defaultTab, setDefaultTab] = useState('auto')
   const [savedTab, setSavedTab] = useState(false)
 
+  // ── Anketos (de)aktyvavimas ──
+  const [isPublic, setIsPublic] = useState(true)
+  const [deactConfirm, setDeactConfirm] = useState(false)
+  const [deactAck, setDeactAck] = useState(false)
+  const [deactBusy, setDeactBusy] = useState(false)
+
   // ── Pranešimai ──
   const [prefs, setPrefs] = useState<Record<string, boolean>>({})
   const [prefsLoaded, setPrefsLoaded] = useState(false)
@@ -135,6 +140,7 @@ export default function SettingsPage() {
         setFilms(d.legacy_favorite_films || '')
         setPhotos(Array.isArray(d.legacy_profile_photos) ? d.legacy_profile_photos : [])
         setDefaultTab(d.default_profile_tab || 'auto')
+        setIsPublic(d.is_public !== false)
         const y = d.legacy_birth_date ? new Date(d.legacy_birth_date).getFullYear() : ''
         setBirthYear(y ? String(y) : '')
       }
@@ -222,6 +228,14 @@ export default function SettingsPage() {
     } catch { /* tylim */ }
   }
 
+  const setAnketaActive = async (active: boolean) => {
+    setDeactBusy(true)
+    try {
+      const r = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_public: active, hide_from_homepage: !active }) })
+      if (r.ok) { setIsPublic(active); setDeactConfirm(false); setDeactAck(false); router.refresh() }
+    } catch { /* tylim */ } finally { setDeactBusy(false) }
+  }
+
   const toggleNotif = async (type: string) => {
     const next = !prefs[type]
     setPrefs(p => ({ ...p, [type]: next })); setSavingPref(type)
@@ -290,6 +304,13 @@ export default function SettingsPage() {
               <div className="text-[14px] font-black truncate leading-tight">{name}</div>
               {uname && <div className="text-[12px] truncate" style={{ color: 'var(--text-muted)' }}>@{uname}</div>}
             </div>
+            {uname && (
+              <Link href={`/vartotojas/${uname}`} title="Peržiūrėti viešą profilį" aria-label="Peržiūrėti viešą profilį"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition hover:opacity-85"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
+                <IcEye />
+              </Link>
+            )}
           </div>
 
           {/* Navigacija */}
@@ -310,13 +331,6 @@ export default function SettingsPage() {
             })}
           </nav>
 
-          {uname && (
-            <Link href={`/vartotojas/${uname}`}
-              className="mt-3 hidden lg:flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[12.5px] font-bold transition hover:opacity-85"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>
-              <IcEye /> Peržiūrėti viešą profilį
-            </Link>
-          )}
         </aside>
 
         {/* ── TURINYS ── */}
@@ -451,7 +465,7 @@ export default function SettingsPage() {
 
           {section === 'rodinys' && (
             <Card>
-              <CardHead title="Profilio rodinys" sub="Ką lankytojai mato pirma, atvėrę tavo viešą profilį."
+              <CardHead title="Profilio išdėstymas" sub="Ką lankytojai mato pirma, atvėrę tavo viešą profilį."
                 right={savedTab ? <span className="inline-flex items-center gap-1 text-[11.5px] font-bold" style={{ color: '#34d399' }}><IcCheck className="h-3.5 w-3.5" /> Išsaugota</span> : null} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {DEFAULT_VIEW_OPTIONS.map(opt => {
@@ -511,10 +525,44 @@ export default function SettingsPage() {
               </Card>
 
               <Card className="mt-4">
-                <CardHead title="Valdymas" sub="Kiti tavo turinio ir muzikos nustatymai." />
-                <ManageLink href="/mano-muzika" icon={<IcMusic />} title="Mano muzika" sub="Mėgstami atlikėjai, albumai, dainos, nuotaikos" />
-                <ManageLink href="/blogas/nustatymai" icon={<IcPen />} title="Blogo nustatymai" sub="Pavadinimas, aprašymas, adresas" />
-                {isAdmin && <ManageLink href="/admin" icon={<IcSettings />} title="Admin panelė" sub="Svetainės valdymas" accent />}
+                <CardHead title="Anketa" sub={isPublic ? 'Tavo profilis šiuo metu matomas kitiems.' : 'Tavo anketa deaktyvuota — profilis paslėptas.'} />
+                {isPublic ? (
+                  !deactConfirm ? (
+                    <button type="button" onClick={() => setDeactConfirm(true)}
+                      className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold transition hover:opacity-85"
+                      style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.30)', color: '#f43f5e' }}>
+                      Deaktyvuoti anketą
+                    </button>
+                  ) : (
+                    <div className="rounded-xl p-4" style={{ background: 'rgba(244,63,94,0.06)', border: '1px solid rgba(244,63,94,0.25)' }}>
+                      <div className="text-[13.5px] font-bold" style={{ color: '#f43f5e' }}>Deaktyvuoti anketą?</div>
+                      <ul className="text-[12.5px] mt-2 leading-relaxed list-disc pl-4" style={{ color: 'var(--text-secondary)' }}>
+                        <li>Tavo viešas profilis taps nematomas (puslapis grąžins „nerasta“).</li>
+                        <li>Būsi paslėptas iš bendruomenės ir narių sąrašų.</li>
+                        <li>Duomenys NEbus ištrinti — bet kada gali vėl aktyvuoti.</li>
+                      </ul>
+                      <label className="flex items-center gap-2 mt-3 text-[12.5px] cursor-pointer" style={{ color: 'var(--text-primary)' }}>
+                        <input type="checkbox" checked={deactAck} onChange={e => setDeactAck(e.target.checked)} />
+                        Suprantu ir noriu deaktyvuoti savo anketą.
+                      </label>
+                      <div className="flex gap-2.5 mt-3">
+                        <button type="button" onClick={() => { setDeactConfirm(false); setDeactAck(false) }}
+                          className="rounded-xl px-4 py-2 text-[13px] font-bold transition hover:opacity-85"
+                          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Atšaukti</button>
+                        <button type="button" disabled={!deactAck || deactBusy} onClick={() => setAnketaActive(false)}
+                          className="rounded-xl px-4 py-2 text-[13px] font-extrabold transition hover:opacity-90 disabled:opacity-50"
+                          style={{ background: '#f43f5e', color: '#fff' }}>{deactBusy ? 'Vykdoma…' : 'Patvirtinti deaktyvavimą'}</button>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
+                    <div className="text-[12.5px]" style={{ color: 'var(--text-muted)' }}>Anketa deaktyvuota. Profilis ir įrašai paslėpti nuo kitų.</div>
+                    <button type="button" disabled={deactBusy} onClick={() => setAnketaActive(true)}
+                      className="shrink-0 rounded-xl px-4 py-2 text-[13px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
+                      style={{ background: 'var(--accent-orange)', color: '#fff' }}>{deactBusy ? 'Vykdoma…' : 'Vėl aktyvuoti'}</button>
+                  </div>
+                )}
               </Card>
 
               <Card className="mt-4">
@@ -570,18 +618,6 @@ function ThemeOpt({ active, icon, label, onClick }: { active: boolean; icon: Rea
       <span className="text-[14px] font-bold" style={{ color: active ? 'var(--accent-orange)' : 'var(--text-primary)' }}>{label}</span>
       {active && <IcCheck className="ml-auto h-4 w-4" />}
     </button>
-  )
-}
-function ManageLink({ href, icon, title, sub, accent }: { href: string; icon: ReactNode; title: string; sub: string; accent?: boolean }) {
-  return (
-    <Link href={href} className="group flex items-center gap-3.5 rounded-xl p-3.5 transition hover:opacity-90" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0" style={{ background: accent ? 'rgba(249,115,22,0.12)' : 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', color: accent ? 'var(--accent-orange)' : 'var(--text-secondary)' }}>{icon}</span>
-      <div className="flex-1 min-w-0">
-        <div className="text-[14px] font-black" style={{ color: accent ? 'var(--accent-orange)' : 'var(--text-primary)' }}>{title}</div>
-        <div className="text-[12px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{sub}</div>
-      </div>
-      <IcChevron className="shrink-0 transition group-hover:translate-x-0.5" />
-    </Link>
   )
 }
 
