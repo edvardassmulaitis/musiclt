@@ -46,25 +46,36 @@ export default function FeedAdminClient() {
     ])
 
     const list: Cand[] = []
+    const ms = (s: string | null | undefined) => { const t = s ? new Date(s).getTime() : NaN; return isNaN(t) ? 0 : t }
+    const mk = (key: string, typeLabel: string, title: string, image: string | null, href: string): Cand =>
+      ({ key, typeLabel, title, image, href, isCustom: false, hidden: false, pinned: false, sortOrder: null })
     const push = (key: string, typeLabel: string, title: string, image: string | null, href: string) =>
-      list.push({ key, typeLabel, title, image, href, isCustom: false, hidden: false, pinned: false, sortOrder: null })
+      list.push(mk(key, typeLabel, title, image, href))
 
-    // Charts (top visual = #1 YT)
+    // ── Topai + naujienos + įrašai: surikiuota pagal šviežumą (TIKSLIAI kaip homepage) ──
+    // Web feed'e topai NEBE visada pirmi — kiekvienas gauna datą (topas → savaitės
+    // atsinaujinimas; naujiena/įrašas → publikavimas) ir naujausi rodomi pirmi. Todėl
+    // šitas admin sąrašas dabar atspindi realią homepage tvarką (naujienos priekyje).
+    const dated: { sortMs: number; add: () => void }[] = []
     const ltE = lt.entries || []; const wE = w.entries || []
-    if (ltE.length) { const v = ytId(ltE[0]?.tracks?.video_url); push('chart_lt::/top30', 'Topas LT', 'LT TOP 30', ytThumb(v) || ltE[0]?.tracks?.cover_url || null, '/top30') }
-    if (wE.length) { const v = ytId(wE[0]?.tracks?.video_url); push('chart_world::/top40', 'Topas', 'TOP 40', ytThumb(v) || wE[0]?.tracks?.cover_url || null, '/top40') }
-    // News
-    ;(news.news || []).slice(0, 30).forEach((n: any) => push(`news::/news/${n.slug}`, 'Naujiena', strip(n.title), n.image_title_url || n.image_small_url || null, `/news/${n.slug}`))
-    // Blog (home_hero)
-    ;(blog.posts || []).forEach((p: any) => push(`blog::${p.href}`, 'Įrašas', strip(p.title), p.cover || null, p.href))
-    // Daily today (if >=5 noms) + winner
-    const nomCount = (noms.nominations || []).filter((x: any) => x.tracks).length
-    if (nomCount >= 5) push('daily::/dienos-daina', 'Dienos daina', 'Šiandienos dienos daina', null, '/dienos-daina')
-    if ((winners.winners || []).length) { const ww = winners.winners[0]; const tr = ww?.tracks; if (tr) push('daily_winner::/dienos-daina', 'Vakar laimėjo', strip(tr.title), ytThumb(ytId(tr.video_url)) || tr.cover_url || null, '/dienos-daina') }
+    if (ltE.length) dated.push({ sortMs: ms(lt.week?.created_at || lt.week?.week_start), add: () => { const v = ytId(ltE[0]?.tracks?.video_url); push('chart_lt::/top30', 'Topas LT', 'LT TOP 30', ytThumb(v) || ltE[0]?.tracks?.cover_url || null, '/top30') } })
+    if (wE.length) dated.push({ sortMs: ms(w.week?.created_at || w.week?.week_start), add: () => { const v = ytId(wE[0]?.tracks?.video_url); push('chart_world::/top40', 'Topas', 'TOP 40', ytThumb(v) || wE[0]?.tracks?.cover_url || null, '/top40') } })
+    ;(news.news || []).slice(0, 30).forEach((n: any) => dated.push({ sortMs: ms(n.published_at), add: () => push(`news::/news/${n.slug}`, 'Naujiena', strip(n.title), n.image_title_url || n.image_small_url || null, `/news/${n.slug}`) }))
+    ;(blog.posts || []).forEach((p: any) => dated.push({ sortMs: ms(p.published_at), add: () => push(`blog::${p.href}`, 'Įrašas', strip(p.title), p.cover || null, p.href) }))
+    dated.sort((a, b) => b.sortMs - a.sortMs)
+    dated.forEach(x => x.add())
+
     // Discoveries
     ;(disc.items || []).slice(0, 2).forEach((d: any) => { const href = d.artist_slug ? `/atlikejai/${d.artist_slug}` : '/muzikos-atradimai'; push(`discovery::${href}`, 'Atradimas', d.artist_name || d.track_name || 'Atradimas', d.artist_cover || null, href) })
     // Recordings
     ;(recs.recordings || []).slice(0, 2).forEach((r: any) => push(`recording::/koncertu-irasai/${r.slug}`, 'Koncerto įrašas', strip(r.title || r.artist_name || ''), r.thumbnail_url || ytThumb(r.youtube_id) || null, `/koncertu-irasai/${r.slug}`))
+    // Dienos daina — įsiterpia giliau (po ~3 įrašų), kaip homepage (slides.splice)
+    const dailyCands: Cand[] = []
+    const nomCount = (noms.nominations || []).filter((x: any) => x.tracks).length
+    if (nomCount >= 5) dailyCands.push(mk('daily::/dienos-daina', 'Dienos daina', 'Šiandienos dienos daina', null, '/dienos-daina'))
+    if ((winners.winners || []).length) { const ww = winners.winners[0]; const tr = ww?.tracks; if (tr) dailyCands.push(mk('daily_winner::/dienos-daina', 'Vakar laimėjo', strip(tr.title), ytThumb(ytId(tr.video_url)) || tr.cover_url || null, '/dienos-daina')) }
+    list.splice(Math.min(3, list.length), 0, ...dailyCands)
+
     // Verta
     ;(verta.concerts || []).slice(0, 2).forEach((c: any) => push(`verta::/verta-keliones#vk-${c.id}`, 'Verta kelionės', c.isFestival ? (c.festivalName || c.artist) : c.artist, c.image || null, `/verta-keliones#vk-${c.id}`))
     // Events (home_hero first, then latest, max 4, must have image)
@@ -72,19 +83,22 @@ export default function FeedAdminClient() {
     ;[...(hev.events || []), ...(events.events || [])].forEach((ev: any) => { if (evList.length < 4 && !evSeen.has(ev.id) && (ev.image_small_url || ev.cover_image_url)) { evSeen.add(ev.id); evList.push(ev) } })
     evList.forEach((ev: any) => push(`event::/renginiai/${ev.slug}`, 'Renginys', strip(ev.title), ev.image_small_url || ev.cover_image_url || null, `/renginiai/${ev.slug}`))
 
-    // apply overrides
+    // apply overrides — TIKSLIAI kaip homepage: TIK pin'as kelia į viršų; sort_order
+    // vienas nedominuoja (paslėpti įrašai lieka rodomi pilki, kad būtų galima atstatyti).
     const ovMap = new Map((ov.overrides || []).map((o: any) => [o.item_key, o]))
-    list.forEach(c => { const o: any = ovMap.get(c.key); if (o) { c.hidden = !!o.hidden; c.pinned = !!o.pinned; c.sortOrder = o.sort_order } })
-    // custom
-    ;(ov.custom || []).forEach((c: any) => list.push({ key: `custom::${c.href}`, typeLabel: 'Laisvas', title: strip(c.title), image: c.image_url || null, href: c.href, isCustom: true, customId: c.id, hidden: !!c.hidden, pinned: false, sortOrder: c.sort_order }))
+    list.forEach(c => { const o: any = ovMap.get(c.key); if (o) { c.hidden = !!o.hidden; c.pinned = !!o.pinned; c.sortOrder = o.pinned ? (typeof o.sort_order === 'number' ? o.sort_order : -1) : null } })
+    // custom (visada gauna eiliškumą, kaip homepage)
+    ;(ov.custom || []).forEach((c: any) => list.push({ key: `custom::${c.href}`, typeLabel: 'Laisvas', title: strip(c.title), image: c.image_url || null, href: c.href, isCustom: true, customId: c.id, hidden: !!c.hidden, pinned: false, sortOrder: typeof c.sort_order === 'number' ? c.sort_order : -1 }))
 
+    // Stabilus: ord turintys įrašai (pin/custom) pirmi pagal ord; kiti — pagal bazinę
+    // (šviežumo) tvarką.
+    const baseIdx = new Map(list.map((c, i) => [c.key, i]))
     list.sort((a, b) => {
-      const ao = a.sortOrder != null ? a.sortOrder : (a.pinned ? -1 : null)
-      const bo = b.sortOrder != null ? b.sortOrder : (b.pinned ? -1 : null)
-      if (ao != null && bo != null) return ao - bo
+      const ao = a.sortOrder; const bo = b.sortOrder
+      if (ao != null && bo != null) return ao - bo || (baseIdx.get(a.key)! - baseIdx.get(b.key)!)
       if (ao != null) return -1
       if (bo != null) return 1
-      return 0
+      return baseIdx.get(a.key)! - baseIdx.get(b.key)!
     })
     setCands(list)
     setLoading(false)
