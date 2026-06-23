@@ -23,10 +23,18 @@ export async function GET() {
     sb.from('abroad_events').select('*').order('start_date', { ascending: true }),
     sb.from('abroad_event_candidates').select('*').eq('status', 'pending').order('start_date', { ascending: true }),
   ])
+  // Slėpti praėjusius — admin tvarko tik tuos, kurie dar gali patekti į feedus
+  // (viešas /verta-keliones jau filtruoja praėjusius, žr. lib/verta-keliones-db.ts).
+  // Daugiadieniai: pagal end_date; vienadieniai: pagal start_date (LT laiko zona).
+  const ltToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const isUpcoming = (r: any) => (((r.end_date || r.start_date || '') as string).slice(0, 10) >= ltToday)
+  const evRows = (e.data || []) as any[]
+  const upcomingEv = evRows.filter(isUpcoming)                 // start_date ASC → artimiausi viršuje
+  const pastEv = evRows.filter((r) => !isUpcoming(r)).reverse() // praėję — į apačią (naujausi pirma)
   return NextResponse.json({
     destinations: d.data || [],
-    events: e.data || [],
-    candidates: c.data || [],
+    events: [...upcomingEv, ...pastEv],
+    candidates: (c.data || []).filter(isUpcoming), // praėję kandidatai = triukšmas, nerodom
   })
 }
 
