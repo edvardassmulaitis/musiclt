@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { loadSubstyleRows, resolveSubstyle } from '@/lib/substyle-resolve'
+import { revalidateHomeTag } from '@/lib/home-latest'
 
 function slugify(text: string): string {
   return text.toLowerCase()
@@ -187,6 +188,11 @@ export async function PATCH(
   if (Object.keys(updatePayload).length > 0) {
     const { error } = await supabase.from('artists').update(updatePayload).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    // Šalies (ar kt.) pakeitimas keičia homepage „Naujos dainos/albumai" LT/World
+    // juostas → perskaičiuojam snapshot'ą (kad pakeitimas matytųsi ~iškart).
+    if ('country' in updatePayload) {
+      try { revalidateHomeTag('tracks'); revalidateHomeTag('albums') } catch {}
+    }
   }
 
   // Nariai (grupės nariai) + Grupės (solo atlikėjo grupės)

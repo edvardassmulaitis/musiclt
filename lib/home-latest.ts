@@ -23,7 +23,8 @@
  *     - Modern news priority — legacy discussions po jo
  */
 
-import { unstable_cache, revalidateTag } from 'next/cache'
+import { unstable_cache, revalidateTag, revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 
 /* ────────────────────────────── Constants ────────────────────────────── */
@@ -73,11 +74,39 @@ export const HOME_TAGS = {
 } as const
 
 /** Iškviečiamas iš POST/PUT/DELETE endpoint'ų po naujo track/album/news/event. */
+// Debounce: kad bulk operacijos (importai, kurie kviečia revalidateHomeTag daug
+// kartų) nehammerintų snapshot perskaičiavimo. Per-instance (serverless).
+let __lastSnapRefresh = 0
+
+/** Iškviečiamas iš POST/PUT/DELETE endpoint'ų po naujo track/album/news/event. */
 export function revalidateHomeTag(kind: keyof typeof HOME_TAGS) {
   try {
     revalidateTag(HOME_TAGS[kind])
   } catch {
     /* dev mode silently no-ops */
+  }
+  // Admino pakeitimas (paslėpta daina, pakeista šalis, naujas track/album) → IŠKART
+  // perskaičiuojam homepage snapshot'ą fone. after() = po HTTP atsako (neblokuoja
+  // admino veiksmo), patikimas Vercel. Taip pakeitimai matosi ~per kelias sekundes,
+  // ne tik po CRON'o (3x/d). Dynamic import — kad išvengtume circular dependency
+  // (home-snapshot importuoja šį modulį).
+  const now = Date.now()
+  if (now - __lastSnapRefresh > 8000) {
+    __lastSnapRefresh = now
+    try {
+      after(async () => {
+        try {
+          const m = await import('@/lib/home-snapshot')
+          const payload = await m.computeHomeSnapshot()
+          await m.writeHomeSnapshot(payload)
+          try { revalidatePath('/') } catch {}
+        } catch {
+          /* nepavyko — CRON (3x/d) vis tiek atnaujins */
+        }
+      })
+    } catch {
+      /* after() ne request scope — CRON dengia */
+    }
   }
 }
 
@@ -195,7 +224,9 @@ const lastGood: { tracks: any | null; albums: any | null; upcoming: any | null }
 }
 
 function isLT(country: string | null | undefined): boolean {
-  if (!country) return true
+  // NULL/nenustatyta šalis NEBĖRA LT (Edvardo prašymu 2026-06-23): nenustatyto
+  // atlikėjo NErodome „LT atlikėjai" juostoje. Admin'as turi nustatyti šalį.
+  if (!country) return false
   return LT_COUNTRIES.includes(country)
 }
 
