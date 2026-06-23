@@ -2,8 +2,10 @@
  * CRON: /api/cron/refresh-home — paleidziamas 3x/dienoje (vercel.json) ir is naujo
  * apskaiciuoja homepage "Naujos dainos / Nauji albumai / Greitai pasirodys" duomenis
  * (sunki uzklausa) bei irasos gatava rezultata i home_snapshot lentele. Homepage'as
- * po to skaito TIK ta lentele (greita, niekada ne-timeout). Apsauga: ?key=... arba
- * Authorization: Bearer <CRON_SECRET> (Vercel Cron prideda automatiskai jei nustatytas).
+ * po to skaito TIK ta lentele (greita, niekada ne-timeout).
+ *
+ * Apsauga: priimam (a) Vercel Cron: Authorization: Bearer <CRON_SECRET>, ARBA
+ * (b) rankini trigger su ?key=<CRON_SECRET arba FALLBACK_KEY>.
  */
 import { NextResponse } from 'next/server'
 import { computeHomeSnapshot, writeHomeSnapshot } from '@/lib/home-snapshot'
@@ -13,12 +15,17 @@ import { HOME_TAGS } from '@/lib/home-latest'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const CRON_KEY = process.env.CRON_SECRET || 'hsnap_7f3a9c2e8b1d4f6a'
+const FALLBACK_KEY = 'hsnap_7f3a9c2e8b1d4f6a'
 
-export async function GET(req: Request) {
+function authorized(req: Request): boolean {
   const key = new URL(req.url).searchParams.get('key')
   const auth = req.headers.get('authorization')
-  if (key !== CRON_KEY && auth !== 'Bearer ' + CRON_KEY) {
+  const keys = [process.env.CRON_SECRET, FALLBACK_KEY].filter(Boolean) as string[]
+  return keys.some(k => key === k || auth === 'Bearer ' + k)
+}
+
+export async function GET(req: Request) {
+  if (!authorized(req)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
   try {
