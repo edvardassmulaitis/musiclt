@@ -86,19 +86,22 @@ export default function FeedAdminClient() {
     // apply overrides — TIKSLIAI kaip homepage: TIK pin'as kelia į viršų; sort_order
     // vienas nedominuoja (paslėpti įrašai lieka rodomi pilki, kad būtų galima atstatyti).
     const ovMap = new Map((ov.overrides || []).map((o: any) => [o.item_key, o]))
-    list.forEach(c => { const o: any = ovMap.get(c.key); if (o) { c.hidden = !!o.hidden; c.pinned = !!o.pinned; c.sortOrder = o.pinned ? (typeof o.sort_order === 'number' ? o.sort_order : -1) : null } })
+    list.forEach(c => { const o: any = ovMap.get(c.key); if (o) { c.hidden = !!o.hidden; c.pinned = !!o.pinned; c.sortOrder = (typeof o.sort_order === 'number') ? o.sort_order : null } })
     // custom (visada gauna eiliškumą, kaip homepage)
     ;(ov.custom || []).forEach((c: any) => list.push({ key: `custom::${c.href}`, typeLabel: 'Laisvas', title: strip(c.title), image: c.image_url || null, href: c.href, isCustom: true, customId: c.id, hidden: !!c.hidden, pinned: false, sortOrder: typeof c.sort_order === 'number' ? c.sort_order : -1 }))
 
     // Stabilus: ord turintys įrašai (pin/custom) pirmi pagal ord; kiti — pagal bazinę
     // (šviežumo) tvarką.
+    // 3 pakopos (Edvardo pasirinkimas): rankinė tvarka nugali, BET nauji auto-įrašai
+    // (be override'o) iškyla į priekį. 0=prisegti (📌, pačiame viršuje), 1=nauji/be
+    // override'o (pagal šviežumą — naujausi pirmi), 2=išsaugota rankinė tvarka (apačioje).
     const baseIdx = new Map(list.map((c, i) => [c.key, i]))
+    const tier = (c: Cand) => c.pinned ? 0 : (c.sortOrder != null ? 2 : 1)
     list.sort((a, b) => {
-      const ao = a.sortOrder; const bo = b.sortOrder
-      if (ao != null && bo != null) return ao - bo || (baseIdx.get(a.key)! - baseIdx.get(b.key)!)
-      if (ao != null) return -1
-      if (bo != null) return 1
-      return baseIdx.get(a.key)! - baseIdx.get(b.key)!
+      const ta = tier(a), tb = tier(b)
+      if (ta !== tb) return ta - tb
+      if (ta === 1) return baseIdx.get(a.key)! - baseIdx.get(b.key)!
+      return ((a.sortOrder ?? -1) - (b.sortOrder ?? -1)) || (baseIdx.get(a.key)! - baseIdx.get(b.key)!)
     })
     setCands(list)
     setLoading(false)
