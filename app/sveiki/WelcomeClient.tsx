@@ -29,7 +29,7 @@ export default function WelcomeClient({
   isReturning,
   isAdmin,
 }: {
-  name: string
+  name: string | null
   username: string | null
   avatarUrl: string | null
   covers: string[]
@@ -38,7 +38,10 @@ export default function WelcomeClient({
   isReturning: boolean
   isAdmin: boolean
 }) {
-  const firstLetter = (name[0] || '?').toUpperCase()
+  // Neutralus kreipinys (be lyties): rodom @username arba tikrą vardą; jei nieko —
+  // tik pasveikinimą be vardo. Jokio „bičiuli" ar „sugrįžęs/atvykęs" (vyriška giminė).
+  const displayName = username ? `@${username}` : (name || null)
+  const firstLetter = ((username || name || '?')[0] || '?').toUpperCase()
 
   const features = [
     { href: '/srautas', icon: Ic.stream, title: 'Mėgstamos muzikos srautas', desc: 'Kas naujo pas tavo atlikėjus' },
@@ -78,13 +81,13 @@ export default function WelcomeClient({
             )}
           </div>
           <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 'clamp(26px,4.6vw,40px)', fontWeight: 900, letterSpacing: '-.03em', margin: '0 0 10px', color: '#fff', textShadow: '0 2px 26px rgba(0,0,0,.55)' }}>
-            {isReturning ? 'Sveikas sugrįžęs,' : 'Sveikas atvykęs,'}{' '}
-            <span style={{ color: '#fbbf24' }}>{username ? `@${username}` : name}</span>
+            {isReturning ? 'Sveiki sugrįžę' : 'Sveiki atvykę'}{displayName ? ', ' : '!'}
+            {displayName && <span style={{ color: '#fbbf24' }}>{displayName}</span>}
           </h1>
           <p style={{ fontSize: 16, color: 'rgba(255,255,255,.86)', maxWidth: 460, margin: '0 auto', lineHeight: 1.55, textShadow: '0 1px 14px rgba(0,0,0,.55)' }}>
             {isReturning
               ? 'Tavo profilis susietas su naująja music.lt — visa istorija vietoje.'
-              : 'Sveikas prisijungęs prie didžiausios lietuviškos muzikos bendruomenės.'}
+              : 'Smagu, kad prisijungei prie didžiausios lietuviškos muzikos bendruomenės.'}
           </p>
         </div>
       </div>

@@ -94,11 +94,13 @@ export default async function SveikiPage() {
 
   const data = await gatherWelcomeData(profile)
   const isAdmin = profile.role === 'admin' || profile.role === 'super_admin'
-  const isReturning = !!profile.is_claimed || data.hasMusic
+  // „Sugrįžęs" tik tiems, kas turi senos veiklos (muzikos). is_claimed netinka —
+  // jis numatytai true ir naujam el. pašto nariui (rodydavo „sugrįžęs" klaidingai).
+  const isReturning = data.hasMusic
 
   return (
     <WelcomeClient
-      name={profile.full_name || profile.username || 'bičiuli'}
+      name={profile.full_name || null}
       username={profile.username || null}
       avatarUrl={profile.avatar_url || null}
       covers={data.covers}
