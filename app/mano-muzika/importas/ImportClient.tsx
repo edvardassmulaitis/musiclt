@@ -22,7 +22,7 @@ type Source = 'lastfm' | 'spotify' | 'youtube'
 
 const SOURCES: { key: Source; label: string; emoji: string; blurb: string }[] = [
   { key: 'lastfm', label: 'Last.fm', emoji: '🎧', blurb: 'Įvesk vartotojo vardą — perkelsim mėgstamus ir dažniausiai klausomus.' },
-  { key: 'spotify', label: 'Spotify', emoji: '🟢', blurb: 'Įkelk „Download your data" failą (YourLibrary, Playlist arba klausymų istoriją).' },
+  { key: 'spotify', label: 'Spotify', emoji: '🟢', blurb: 'Įkelk vieną JSON failą iš Spotify duomenų archyvo (pvz. Playlist1.json).' },
   { key: 'youtube', label: 'YouTube', emoji: '▶️', blurb: 'Įklijuok viešo playlisto nuorodą.' },
 ]
 
@@ -62,6 +62,7 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
   const [confirming, setConfirming] = useState(false)
   // Spotify failo atpažinimo info (koks failas, kiek rasta)
   const [spotifyInfo, setSpotifyInfo] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState(false)
 
   // Foninio importo job'o būsena — kad pamatytume „vyksta / baigta" be progress baro.
   const refreshJob = useCallback(async () => {
@@ -274,19 +275,26 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
       {source === 'spotify' && (
         <InputPanel>
           <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) onSpotifyFile(f) }} />
-          <button onClick={() => fileRef.current?.click()} className="w-full rounded-xl border-2 border-dashed py-7 text-center transition-colors"
-            style={{ borderColor: 'var(--border-default)', background: 'var(--bg-elevated)' }}>
-            <div className="text-2xl mb-1">📂</div>
-            <div className="text-[13.5px] font-bold">{loading ? 'Apdorojama…' : 'Spustelėk ir pasirink Spotify JSON failą'}</div>
-            <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>arba nutempk failą čia</div>
-          </button>
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={e => { e.preventDefault(); if (!dragOver) setDragOver(true) }}
+            onDragLeave={e => { e.preventDefault(); setDragOver(false) }}
+            onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) onSpotifyFile(f) }}
+            role="button" tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click() } }}
+            className="w-full cursor-pointer rounded-xl border-2 border-dashed py-7 text-center transition-colors"
+            style={{ borderColor: dragOver ? 'var(--accent-orange)' : 'var(--border-default)', background: dragOver ? 'rgba(249,115,22,0.08)' : 'var(--bg-elevated)' }}>
+            <div className="text-2xl mb-1">{dragOver ? '📥' : '📂'}</div>
+            <div className="text-[13.5px] font-bold">{loading ? 'Apdorojama…' : (dragOver ? 'Paleisk failą čia' : 'Vilk Spotify JSON failą čia')}</div>
+            <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>arba spustelėk ir pasirink (pvz. Playlist1.json)</div>
+          </div>
           {spotifyInfo && (
             <div className="mt-3 rounded-xl px-3.5 py-2.5 text-[12px] leading-snug" style={{ background: 'rgba(29,185,84,0.10)', border: '1px solid rgba(29,185,84,0.35)', color: 'var(--text-secondary)' }}>
               {spotifyInfo}
             </div>
           )}
           <Hint>
-            Spotify → Account → Privacy → „Download your data" → <b>Account data</b>. Po ~1 paros gausi ZIP. Tinka bet kuris iš šių failų: <b>YourLibrary.json</b> (išsaugota muzika), <b>Playlist1.json</b> (grojaraščiai) arba <b>StreamingHistory_music_*.json</b> (klausymų istorija) — įkelk jį čia.
+            <b>Kaip gauti failą:</b> Spotify svetainėje atidaryk <b>Account → Privacy settings</b>, pažymėk <b>„Account data"</b> ir spausk „Request data". Maždaug po paros gausi el. laišką su ZIP archyvu. Išskleisk jį ir įkelk vieną iš muzikos failų: <b>Playlist1.json</b> (tavo grojaraščiai), <b>StreamingHistory_music_*.json</b> (ką klauseisi) arba <b>YourLibrary.json</b> (išsaugota muzika). Kiti to paties archyvo failai (Identity, Payments ir pan.) nereikalingi.
             {' '}<Link href="/perkelti#spotify" className="underline" style={{ color: 'var(--accent-orange)' }}>Detali instrukcija</Link>
           </Hint>
         </InputPanel>

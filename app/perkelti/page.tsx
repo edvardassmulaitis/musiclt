@@ -87,15 +87,16 @@ export default function PerkeltiLanding() {
 
       {/* HOW MATCHING WORKS */}
       <div className="rounded-2xl p-5 sm:p-6" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-        <h2 className="text-[16px] font-black mb-2">Kaip vyksta sumešimas?</h2>
+        <h2 className="text-[16px] font-black mb-2">Kaip surandame tavo muziką?</h2>
         <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-          Iš kiekvieno šaltinio paimame atlikėjų ir dainų pavadinimus ir surandame juos music.lt bazėje — diakritikai ir „feat." nepainioja.
-          Tau parodome atitiktis (galimai netiksliąsias pažymime ≈), o neatpažintus įrašus tiesiog praleidžiame. Niekas nepridedama be tavo patvirtinimo.
+          Iš pasirinkto šaltinio paimame atlikėjų, dainų ir albumų pavadinimus ir ieškome jų music.lt kataloge.
+          Pavadinimą atpažįstame net jei rašyba šiek tiek skiriasi — pavyzdžiui, nesvarbu, ar yra lietuviškų raidžių, „feat." ar skyrybos ženklų.
+          Tau parodome, ką radome (mažiau tikras atitiktis pažymime ženklu ≈), o ko nerandame — tiesiog praleidžiame. Prie tavo muzikos niekas nepridedama be tavo patvirtinimo.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-[11.5px]" style={{ color: 'var(--text-faint)' }}>
-          <span className="rounded-full px-3 py-1" style={{ background: 'var(--bg-elevated)' }}>🔒 Duomenys nesaugomi tarpiniame serveryje</span>
-          <span className="rounded-full px-3 py-1" style={{ background: 'var(--bg-elevated)' }}>✋ Tu renkiesi, ką įdėti</span>
-          <span className="rounded-full px-3 py-1" style={{ background: 'var(--bg-elevated)' }}>♻️ Galima kartoti bet kada</span>
+          <span className="rounded-full px-3 py-1" style={{ background: 'var(--bg-elevated)' }}>🔒 Failo turinys serveryje neįrašomas</span>
+          <span className="rounded-full px-3 py-1" style={{ background: 'var(--bg-elevated)' }}>✋ Tu pats renkiesi, ką pridėti</span>
+          <span className="rounded-full px-3 py-1" style={{ background: 'var(--bg-elevated)' }}>♻️ Gali kartoti bet kada</span>
         </div>
       </div>
     </div>
