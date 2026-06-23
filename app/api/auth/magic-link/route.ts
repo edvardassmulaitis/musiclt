@@ -45,11 +45,10 @@ export async function POST(req: NextRequest) {
       html: `
         <div style="background:#f4f5f7;margin:0;padding:32px 12px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
           <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-            <div style="padding:32px 40px 22px;text-align:center;border-bottom:1px solid #eef0f3;">
-              <div style="font-size:30px;font-weight:800;letter-spacing:-0.5px;">
-                <span style="color:#1a73e8;">music</span><span style="color:#f97316;">.lt</span>
-              </div>
-              <div style="color:#9aa0a6;font-size:13px;margin-top:4px;">Lietuviškos muzikos bendruomenė</div>
+            <div style="background-color:#f4f7fc;background:linear-gradient(135deg,#eef3fb 0%,#fdf2ea 100%);padding:28px 40px 22px;text-align:center;border-bottom:1px solid #eef0f3;">
+              <img src="https://musiclt.vercel.app/email-logo.png" width="44" height="44" alt="music.lt" style="display:inline-block;vertical-align:middle;border:0;" />
+              <span style="display:inline-block;vertical-align:middle;margin-left:11px;font-size:28px;font-weight:800;letter-spacing:-0.5px;"><span style="color:#1a73e8;">music</span><span style="color:#f97316;">.lt</span></span>
+              <div style="color:#8a93a3;font-size:13px;margin-top:10px;">Lietuviškos muzikos bendruomenė</div>
             </div>
             <div style="padding:36px 40px;text-align:center;">
               <h1 style="font-size:21px;font-weight:700;color:#1a1a1a;margin:0 0 12px;">Prisijunkite prie music.lt</h1>
