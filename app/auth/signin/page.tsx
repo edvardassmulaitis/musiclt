@@ -89,7 +89,7 @@ function SignInContent() {
   if (emailSent) {
     return wrap(
       <>
-        {brandHead('Patikrink paštą', 'Likterėk vienas žingsnis')}
+        {brandHead('Patikrink paštą', 'Liko vienas žingsnis')}
         <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)', borderRadius: 18, padding: '28px 24px', textAlign: 'center' }}>
           <div
             style={{
