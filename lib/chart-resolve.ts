@@ -71,7 +71,7 @@ export function colNorm(s: string): string {
 export function normalizeForMatch(s: string): string {
   let out = stripVersionSuffix(deaccent(s))
   out = out.replace(
-    /\([^)]*\bfeat[^)]*\)|\([^)]*remix[^)]*\)|\([^)]*version[^)]*\)|\([^)]*w\/[^)]*\)|\bfeat\.?\b.*$/g,
+    /\([^)]*\b(?:feat|ft|featuring)[^)]*\)|\([^)]*remix[^)]*\)|\([^)]*version[^)]*\)|\([^)]*w\/[^)]*\)|\b(?:feat|ft|featuring)\.?\b.*$/g,
     '',
   )
   return out.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/^the\s+/, '')
@@ -80,7 +80,7 @@ export function normalizeForMatch(s: string): string {
 /** Agresyvi normalizacija: pašalina VISUS skliaustus (...) ir [...]. */
 export function normalizeAggressive(s: string): string {
   let out = stripVersionSuffix(deaccent(s))
-  out = out.replace(/\bfeat\.?\b.*$/, '').replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '')
+  out = out.replace(/\b(?:feat|ft|featuring)\.?\b.*$/, '').replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '')
   return out.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/^the\s+/, '')
 }
 
