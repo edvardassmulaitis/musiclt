@@ -16,7 +16,11 @@ import { createAdminClient } from '@/lib/supabase'
 import { searchArtistsCore, searchTracksCore, searchAlbumsCore, normLt } from '@/lib/search-core'
 import { addToLibrary, type FavKind } from '@/lib/mano-muzika'
 import { parseSpotifyExport } from '@/lib/spotify-export'
-import { normalizeForMatch, primaryArtist } from '@/lib/chart-resolve'
+import {
+  normalizeForMatch, primaryArtist,
+  findConfidentMatch, findConfidentAlbumMatch, recallResolution,
+} from '@/lib/chart-resolve'
+import { ytThumb } from '@/lib/radaras-shared'
 
 // ── Raw / staged tipai ─────────────────────────────────────────────────────
 export type RawArtist = { name: string; meta?: any }
@@ -101,29 +105,88 @@ export async function matchItems(items: RawItems, opts: { perKindLimit?: number;
 
 async function matchTrackish(sb: any, items: RawTrackish[], kind: 'track' | 'album', cc = 6): Promise<StagedHit[]> {
   return mapLimit(items, cc, async (it) => {
-    const q = `${it.artist} ${it.title}`.trim()
     const raw = it.title
-    const ids = kind === 'track'
-      ? await searchTracksCore(sb, q, { limit: 1 })
-      : await searchAlbumsCore(sb, q, { limit: 1 })
-    const id = ids[0]
-    if (!id) return { raw, rawArtist: it.artist, matched: false, confidence: 'low' as const }
-    // hydrate
-    const table = kind === 'track' ? 'tracks' : 'albums'
-    const coverCol = kind === 'track' ? 'cover_url' : 'cover_image_url'
-    const { data } = await sb.from(table)
-      .select(`id, slug, title, ${coverCol}, artists:artist_id(name, slug)`)
-      .eq('id', id).maybeSingle()
+    const artist = it.artist
     const pop = Number(it.meta?.playcount) || 0
-    if (!data) return { raw, rawArtist: it.artist, matched: false, confidence: 'low' as const, pop }
-    const artistObj = Array.isArray(data.artists) ? data.artists[0] : data.artists
-    return {
-      raw, rawArtist: it.artist, matched: true,
-      confidence: nameMatches(it.title, data.title) ? 'high' : 'low',
-      id: data.id, name: data.title, slug: data.slug, cover: data[coverCol] ?? null,
-      artist: artistObj?.name ?? null, artistSlug: artistObj?.slug ?? null, pop,
+
+    // ── ATPAŽINIMAS — ta pati patikima logika kaip išorinių topų susiejime ──
+    // (atlikėjo „atomai" per name_norm + fuzzy katalogo match + cleanTitle +
+    //  atlikėjo↔pavadinimo swap + pastovi sujungimų atmintis). Senasis trigram
+    //  `searchTracksCore` palaiktas kaip paskutinis low-confidence fallback'as.
+    let id: number | null = null
+    let strong = false
+
+    // 1) Pastovi atmintis — ankstesni rankiniai/auto sujungimai (chart_resolution_memory).
+    try {
+      const rec = await recallResolution(sb, artist, raw, kind)
+      if (rec) { id = kind === 'track' ? rec.trackId : rec.albumId; if (id) strong = true }
+    } catch { /* atmintis — best effort */ }
+
+    // 2) Patikimas match per chart-resolve (fuzzy: prefix/containment/swap/title-anchored).
+    if (!id) {
+      try {
+        if (kind === 'track') {
+          const m = await findConfidentMatch(sb, artist, raw, { fuzzy: true })
+          if (m) { id = m.trackId; strong = true }
+        } else {
+          const m = await findConfidentAlbumMatch(sb, artist, raw, { fuzzy: true })
+          if (m) { id = m.albumId; strong = true }
+        }
+      } catch { /* ignore — kris į fallback */ }
     }
+
+    // 3) Fallback — senasis trigram search (kad neprarastume jau veikusių atitikčių).
+    if (!id) {
+      const q = `${artist} ${raw}`.trim()
+      const ids = kind === 'track'
+        ? await searchTracksCore(sb, q, { limit: 1 })
+        : await searchAlbumsCore(sb, q, { limit: 1 })
+      id = ids[0] ?? null
+    }
+
+    if (!id) return { raw, rawArtist: artist, matched: false, confidence: 'low' as const, pop }
+    return hydrateTrackish(sb, kind, id, raw, artist, pop, strong)
   })
+}
+
+// ── Hydrate matched track/album + thumbnail fallback ────────────────────────
+// cover: cover_url → YouTube thumbnail (iš video_url) → albumo viršelis. Daugumos
+// dainų `cover_url` tuščias, bet jos turi `video_url` (muzikinis klipas) → iš ten
+// gauname miniatiūrą, kad importo peržiūroje matytųsi paveikslėliai.
+async function hydrateTrackish(
+  sb: any, kind: 'track' | 'album', id: number,
+  raw: string, rawArtist: string, pop: number, strong: boolean,
+): Promise<StagedHit> {
+  const table = kind === 'track' ? 'tracks' : 'albums'
+  const coverCol = kind === 'track' ? 'cover_url' : 'cover_image_url'
+  const sel = kind === 'track'
+    ? 'id, slug, title, cover_url, video_url, artists:artist_id(name, slug)'
+    : 'id, slug, title, cover_image_url, artists:artist_id(name, slug)'
+  const { data } = await sb.from(table).select(sel).eq('id', id).maybeSingle()
+  if (!data) return { raw, rawArtist, matched: false, confidence: 'low' as const, pop }
+  const artistObj = Array.isArray(data.artists) ? data.artists[0] : data.artists
+
+  let cover: string | null = data[coverCol] ?? null
+  if (!cover && kind === 'track') cover = ytThumb(data.video_url ?? null)
+  if (!cover) {
+    // Paskutinis fallback: albumo, kuriam priklauso daina, viršelis.
+    try {
+      if (kind === 'track') {
+        const { data: at } = await sb.from('album_tracks')
+          .select('albums(cover_image_url)').eq('track_id', id).limit(1).maybeSingle()
+        const alb = at?.albums ? (Array.isArray(at.albums) ? at.albums[0] : at.albums) : null
+        cover = alb?.cover_image_url ?? null
+      }
+    } catch { /* ignore */ }
+  }
+
+  return {
+    raw, rawArtist, matched: true,
+    // Patikimas (atmintis/chart-resolve) → high. Fallback → tikrinam pavadinimą.
+    confidence: strong || nameMatches(raw, data.title) ? 'high' : 'low',
+    id: data.id, name: data.title, slug: data.slug, cover,
+    artist: artistObj?.name ?? null, artistSlug: artistObj?.slug ?? null, pop,
+  }
 }
 
 // ── COMMIT — masinis įdėjimas į „Mano muziką" + revert-batch registravimas ──
