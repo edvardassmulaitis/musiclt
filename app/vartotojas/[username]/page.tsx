@@ -195,9 +195,16 @@ const POST_HEAVY_COLS =
 // anksčiau žiūrėjo TIK į post_type → koncertų įspūdžiai rodėsi kaip „Muzikos
 // apžvalga". Čia suskaičiuojam efektyvų tipą, kurį naudoja kortelės ir filtrai.
 function effectivePostType(postType: string, editorialType: string | null | undefined): string {
-  // editorial_type='recenzija' lieka 'article' (rodom kaip „Muzikos apžvalga") —
-  // tai NE struktūrinė post_type='review'. Tik koncertai gauna atskirą tipą.
-  if (postType === 'article' && editorialType === 'koncertai') return 'event'
+  // „Muzikos apžvalga" badge'ą uždeda TIK adminas (editorial_type='recenzija').
+  // „Koncertų įspūdžiai" → editorial_type='koncertai'. Paprastas nario įrašas
+  // (post_type='article' BE editorial_type) — JOKIO badge ('self'), net jei
+  // prie jo prisegta daina/albumas. Anksčiau bet koks article buvo klaidingai
+  // žymimas „Muzikos apžvalga" (legacy narių įrašai).
+  if (postType === 'article') {
+    if (editorialType === 'recenzija') return 'article'   // Muzikos apžvalga (admin)
+    if (editorialType === 'koncertai') return 'event'     // Koncertų įspūdžiai (admin)
+    return 'self'                                         // paprastas įrašas — be badge
+  }
   return postType
 }
 
@@ -256,18 +263,10 @@ async function enrichPostThumbs(sb: any, posts: any[]) {
       if (bg && bg.startsWith('http')) thumbByPost.set(p.id, bg)
     }
   }
-  const postsWithMusic = new Set<string>()
-  for (const r of [
-    ...(trackAttachRes.data || []),
-    ...(albumAttachRes.data || []),
-    ...(artistAttachRes.data || []),
-  ] as any[]) {
-    if (r.post_id) postsWithMusic.add(r.post_id)
-  }
   for (const p of posts) {
     if (!p.cover_image_url && thumbByPost.has(p.id)) p.fallback_thumb_url = thumbByPost.get(p.id)
-    if (p.post_type === 'article' && !postsWithMusic.has(p.id)) p.display_post_type = 'self'
-    else p.display_post_type = p.post_type
+    // Badge'as pagal (post_type, editorial_type) — žr. effectivePostType.
+    p.display_post_type = effectivePostType(p.post_type, p.editorial_type)
     delete p.content
   }
 }
