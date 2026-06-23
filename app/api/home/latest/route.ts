@@ -15,7 +15,6 @@
 
 import { NextResponse } from 'next/server'
 import { readHomeSnapshot } from '@/lib/home-snapshot'
-import { readHomeSnapshot } from '@/lib/home-snapshot'
 import {
   getLatestTracksForHome,
   getLatestAlbumsForHome,
@@ -25,12 +24,6 @@ import {
 } from '@/lib/home-latest'
 
 export async function GET() {
-  // Precomputed snapshot (CRON) — greita, niekada ne-degraded. Fallback zemiau.
-  const __snap = await readHomeSnapshot()
-  if (__snap) {
-    return NextResponse.json({ ...__snap, degraded: false }, { headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600', 'CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=600' } })
-  }
-
   // Precomputed snapshot (CRON) — greita, niekada ne-degraded. Fallback zemiau.
   const __snap = await readHomeSnapshot()
   if (__snap) {
