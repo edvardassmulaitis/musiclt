@@ -7,6 +7,7 @@ import { SITE_URL } from '@/lib/artist-browse'
 import { proxyImg } from '@/lib/img-proxy'
 import { newsArticleJsonLd, breadcrumbJsonLd, jsonLdScript } from '@/lib/news-jsonld'
 import { typeLabel } from '@/lib/news-taxonomy'
+import { wikiImageCredit } from '@/lib/wiki-credit'
 
 // Force-dynamic — kad legacy news fallback'as (discussions table) gauautume
 // fresh duomenis iškart po scrape'o, ne 404 dėl SSG cache'o.
@@ -352,6 +353,11 @@ export default async function NewsPage({ params }: Props) {
     artist2: artist2Obj,
     artists: allArtists,  // VISI susiję atlikėjai (primary + Susijusi info section)
   }
+
+  // Hero foto kreditas — jei nuotrauka iš Wikimedia/Wikipedia, paimam realų
+  // autorių + licenciją ir nuorodą į PAČIĄ nuotrauką (File: puslapį), ne į
+  // straipsnio šaltinį. Cache'inama 7 d. (žr. lib/wiki-credit.ts).
+  news.heroCredit = await wikiImageCredit(news.image_small_url || artistObj?.cover_image_url)
 
   // ── SEO: NewsArticle + BreadcrumbList JSON-LD ──────────────────────────
   const heroForLd = news.image_small_url
