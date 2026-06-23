@@ -45,18 +45,21 @@ export async function GET() {
       const prof = Array.isArray(blogs?.profiles) ? blogs.profiles[0] : blogs?.profiles
       const blogSlug = blogs?.slug || prof?.username || null
       const k = KIND[kindKey(p.post_type, p.editorial_type)] || KIND.irasas
+      const cover = p.cover_image_url || thumbs.get(p.id) || null
+      // Muzika: embed YouTube ARBA (jei viršelis = YouTube kadras) iš jo ištrauktas id.
+      const videoId = (p.embed_type === 'youtube' ? ytId(p.embed_url) : null) || ytId(p.embed_thumbnail_url) || ytId(cover) || null
       return {
         id: p.id,
         title: p.title,
         href: blogSlug ? `/blogas/${blogSlug}/${p.slug}` : '/blogas',
-        cover: p.cover_image_url || thumbs.get(p.id) || null,
+        cover,
         chip: k.label,
         chipBg: k.color,
         published_at: p.published_at,
         author: prof?.username || prof?.full_name || null,
         // Reader (mobile reels) — pilnesnis atvaizdavimas: tekstas + muzika.
         excerpt: p.summary ? plain(p.summary, 400) : plain(p.content, 400),
-        videoId: (p.embed_type === 'youtube' ? ytId(p.embed_url) : null) || ytId(p.embed_thumbnail_url) || null,
+        videoId,
         songTitle: p.embed_title || null,
         songArtist: null,
       }
