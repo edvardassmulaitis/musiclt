@@ -10,7 +10,7 @@ import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase'
 import {
   type ConcertRecording, type RecordingStyle, type RecordingType,
-  inferRecordingType,
+  inferRecordingType, recordingRegion,
 } from '@/lib/concert-recordings-shared'
 
 export type { ConcertRecording, RecordingStyle, RecordingType } from '@/lib/concert-recordings-shared'
@@ -75,6 +75,36 @@ export const getLatestRecordings = cache(async (limit = 120): Promise<ConcertRec
       .order('created_at', { ascending: false })
       .limit(limit)
     return ((data || []) as any[]).map(mapRow)
+  } catch { return [] }
+})
+
+/** Homepage feed'o įrašai: kaitaliojami LT / užsienis (1 LT, 1 užsienio…),
+ *  naujausi pagal YouTube įkėlimo datą. Šaltinis — ★ Featured įrašai (admin
+ *  pažymi, kurie patenka į homepage). Jei featured dar nėra — degrade į
+ *  naujausius publikuotus, kad homepage nebūtų tuščia. */
+export const getHomepageConcertRecordings = cache(async (limit = 6): Promise<ConcertRecording[]> => {
+  try {
+    const sb = createAdminClient()
+    const fetchPool = async (featuredOnly: boolean) => {
+      let q = sb.from('concert_recordings').select(SELECT_COLS).eq('is_published', true)
+      if (featuredOnly) q = q.eq('is_featured', true)
+      const { data } = await q
+        .order('uploaded_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .limit(40)
+      return ((data || []) as any[]).map(mapRow)
+    }
+    let pool = await fetchPool(true)
+    if (pool.length === 0) pool = await fetchPool(false) // fallback: dar nepažymėta featured
+    // Kaitaliojam LT / užsienis: naujausias LT, naujausias užsienio, …
+    const lt = pool.filter((r) => recordingRegion(r) === 'lt')
+    const world = pool.filter((r) => recordingRegion(r) === 'world')
+    const out: ConcertRecording[] = []
+    for (let i = 0; i < Math.max(lt.length, world.length) && out.length < limit; i++) {
+      if (lt[i]) out.push(lt[i])
+      if (world[i] && out.length < limit) out.push(world[i])
+    }
+    return out
   } catch { return [] }
 })
 

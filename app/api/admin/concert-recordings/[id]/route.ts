@@ -42,6 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const patch: Record<string, any> = { updated_at: new Date().toISOString() }
   if (typeof body.title === 'string') patch.title = body.title.trim()
+  if ('description' in body) patch.description = body.description?.toString() || null
   if (body.recording_type && TYPES.includes(body.recording_type)) patch.recording_type = body.recording_type
   if ('venue' in body) patch.venue = body.venue?.toString().trim() || null
   if ('city' in body) patch.city = body.city?.toString().trim() || null

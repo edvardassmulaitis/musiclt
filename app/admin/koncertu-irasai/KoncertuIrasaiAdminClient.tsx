@@ -11,12 +11,14 @@ export type AdminRecording = {
   slug: string
   youtube_id: string
   title: string
+  description: string | null
   artist_id: number | null
   artist_name_cached: string | null
   duration_seconds: number | null
   recording_type: RecordingType
   venue: string | null
   city: string | null
+  country: string | null
   recorded_on: string | null
   recorded_year: number | null
   uploaded_at: string | null
@@ -63,6 +65,48 @@ export default function KoncertuIrasaiAdminClient({ initialRecordings }: { initi
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
   const [items, setItems] = useState<AdminRecording[]>(initialRecordings)
+  // Esamo įrašo redagavimas (inline)
+  const [editId, setEditId] = useState<number | null>(null)
+  const [editForm, setEditForm] = useState<AdminRecording | null>(null)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editMsg, setEditMsg] = useState<string | null>(null)
+
+  function startEdit(it: AdminRecording) {
+    setEditId(it.id); setEditForm({ ...it }); setEditMsg(null)
+  }
+  function ed<K extends keyof AdminRecording>(k: K, v: AdminRecording[K]) {
+    setEditForm((f) => (f ? { ...f, [k]: v } : f))
+  }
+  async function handleEditSave() {
+    if (!editForm) return
+    if (!editForm.artist_id) { setEditMsg('⚠️ Pasirink atlikėją'); return }
+    setEditSaving(true); setEditMsg(null)
+    const f = editForm
+    try {
+      const res = await fetch(`/api/admin/concert-recordings/${f.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: f.title,
+          description: f.description,
+          artist_id: f.artist_id,
+          recording_type: f.recording_type,
+          venue: f.venue,
+          city: f.city,
+          country: f.country,
+          recorded_on: f.recorded_on || null,
+          recorded_year: f.recorded_year,
+          duration_seconds: f.duration_seconds,
+        }),
+      })
+      const json = await res.json()
+      if (!json.ok) { setEditMsg(`⚠️ ${json.error || 'Klaida'}`); setEditSaving(false); return }
+      setItems((prev) => prev.map((it) => (it.id === f.id ? { ...f } : it)))
+      setEditId(null); setEditForm(null)
+    } catch (e: any) {
+      setEditMsg(`⚠️ ${e?.message || 'Klaida'}`)
+    }
+    setEditSaving(false)
+  }
 
   async function handleParse() {
     const u = url.trim()
@@ -144,9 +188,9 @@ export default function KoncertuIrasaiAdminClient({ initialRecordings }: { initi
       // Prepend į sąrašą
       setItems((prev) => [{
         id: json.id, slug: json.slug, youtube_id: draft.youtube_id, title: draft.title,
-        artist_id: draft.artist_id, artist_name_cached: draft.artist_name,
+        description: draft.description, artist_id: draft.artist_id, artist_name_cached: draft.artist_name,
         duration_seconds: draft.duration_seconds, recording_type: draft.recording_type,
-        venue: draft.venue || null, city: draft.city || null,
+        venue: draft.venue || null, city: draft.city || null, country: draft.country || null,
         recorded_on: draft.recorded_on || null, recorded_year: draft.recorded_year ? Number(draft.recorded_year) : null,
         uploaded_at: draft.uploaded_at, view_count: draft.view_count, styles: [],
         is_published: draft.is_published, is_featured: draft.is_featured,
@@ -301,35 +345,124 @@ export default function KoncertuIrasaiAdminClient({ initialRecordings }: { initi
       <div className="space-y-2">
         {items.length === 0 && <p className="text-sm text-[var(--text-muted)]">Dar nėra įrašų. Pridėk pirmą iš nuorodos viršuje.</p>}
         {items.map((it) => (
-          <div key={it.id} className="flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2.5">
-            {it.thumbnail_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={it.thumbnail_url} alt="" className="h-12 w-20 shrink-0 rounded object-cover" referrerPolicy="no-referrer" />
-            ) : <div className="h-12 w-20 shrink-0 rounded bg-[var(--bg-elevated)]" />}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{it.title}</p>
-              <p className="truncate text-[12px] text-[var(--text-muted)]">
-                {it.artist_name_cached || '—'} · {recordingTypeLabel(it.recording_type)}
-                {it.duration_seconds ? ` · ${formatDuration(it.duration_seconds)}` : ''}
-                {it.venue ? ` · ${it.venue}` : ''}
-                {it.recorded_year ? ` · ${it.recorded_year}` : ''}
-              </p>
+          editId === it.id && editForm ? (
+            /* ── Redagavimo kortelė ── */
+            <div key={it.id} className="rounded-xl border border-blue-400/60 bg-[var(--bg-surface)] p-4">
+              <div className="grid gap-4 sm:grid-cols-[200px_1fr]">
+                <div>
+                  {editForm.thumbnail_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={editForm.thumbnail_url} alt="" className="aspect-video w-full rounded-lg object-cover" referrerPolicy="no-referrer" />
+                  )}
+                  <div className="mt-2 space-y-0.5 text-[12px] text-[var(--text-muted)]">
+                    {editForm.uploaded_at && <div>⬆️ Įkelta: {new Date(editForm.uploaded_at).toLocaleDateString('lt-LT')}</div>}
+                    {editForm.view_count != null && <div>👁 {editForm.view_count.toLocaleString('lt-LT')} perž.</div>}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className={labelCls}>Pavadinimas</label>
+                    <input value={editForm.title} onChange={(e) => ed('title', e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Aprašymas</label>
+                    <textarea value={editForm.description ?? ''} onChange={(e) => ed('description', e.target.value)} rows={4} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>
+                      Atlikėjas {editForm.artist_id
+                        ? <span className="text-green-600">· {editForm.artist_name_cached}</span>
+                        : <span className="text-red-500">· privaloma</span>}
+                    </label>
+                    {editForm.artist_id ? (
+                      <button onClick={() => { ed('artist_id', null); ed('artist_name_cached', null) }} className="text-sm text-[var(--accent-link)] underline">
+                        Pakeisti atlikėją
+                      </button>
+                    ) : (
+                      <ArtistSearchInput
+                        placeholder="Ieškoti atlikėjo…"
+                        onSelect={(id, name) => { ed('artist_id', id); ed('artist_name_cached', name) }}
+                      />
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Tipas</label>
+                      <select value={editForm.recording_type} onChange={(e) => ed('recording_type', e.target.value as RecordingType)} className={inputCls}>
+                        {RECORDING_TYPE_ORDER.map((t) => <option key={t} value={t}>{recordingTypeLabel(t)}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Trukmė (sek.)</label>
+                      <input type="number" value={editForm.duration_seconds ?? ''} onChange={(e) => ed('duration_seconds', e.target.value ? Number(e.target.value) : null)} className={inputCls} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className={labelCls}>Vieta / salė</label>
+                      <input value={editForm.venue ?? ''} onChange={(e) => ed('venue', e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Miestas</label>
+                      <input value={editForm.city ?? ''} onChange={(e) => ed('city', e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Šalis</label>
+                      <input value={editForm.country ?? ''} onChange={(e) => ed('country', e.target.value)} placeholder="Lietuva" className={inputCls} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Koncerto data</label>
+                      <input type="date" value={editForm.recorded_on ?? ''} onChange={(e) => ed('recorded_on', e.target.value || null)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>arba tik metai</label>
+                      <input type="number" value={editForm.recorded_year ?? ''} onChange={(e) => ed('recorded_year', e.target.value ? Number(e.target.value) : null)} className={inputCls} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 pt-1">
+                    <button onClick={handleEditSave} disabled={editSaving} className="rounded-lg bg-green-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
+                      {editSaving ? 'Saugau…' : 'Išsaugoti pakeitimus'}
+                    </button>
+                    <button onClick={() => { setEditId(null); setEditForm(null); setEditMsg(null) }} className="text-sm text-[var(--text-muted)] underline">Atšaukti</button>
+                    {editMsg && <span className="text-sm">{editMsg}</span>}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <button
-                onClick={() => patchItem(it.id, { is_featured: !it.is_featured })}
-                title="Featured"
-                className={`rounded px-2 py-1 text-[11px] font-bold ${it.is_featured ? 'bg-amber-500 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
-              >★</button>
-              <button
-                onClick={() => patchItem(it.id, { is_published: !it.is_published })}
-                title="Publikuota"
-                className={`rounded px-2 py-1 text-[11px] font-bold ${it.is_published ? 'bg-green-600 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
-              >{it.is_published ? 'Live' : 'Off'}</button>
-              <a href={`/koncertu-irasai/${it.slug}`} target="_blank" rel="noopener noreferrer" className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-[11px] font-bold text-[var(--text-muted)]">↗</a>
-              <button onClick={() => deleteItem(it.id)} title="Ištrinti" className="rounded bg-red-500/10 px-2 py-1 text-[11px] font-bold text-red-500">✕</button>
+          ) : (
+            <div key={it.id} className="flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2.5">
+              {it.thumbnail_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={it.thumbnail_url} alt="" className="h-12 w-20 shrink-0 rounded object-cover" referrerPolicy="no-referrer" />
+              ) : <div className="h-12 w-20 shrink-0 rounded bg-[var(--bg-elevated)]" />}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{it.title}</p>
+                <p className="truncate text-[12px] text-[var(--text-muted)]">
+                  {it.artist_name_cached || '—'} · {recordingTypeLabel(it.recording_type)}
+                  {it.duration_seconds ? ` · ${formatDuration(it.duration_seconds)}` : ''}
+                  {it.venue ? ` · ${it.venue}` : ''}
+                  {it.recorded_year ? ` · ${it.recorded_year}` : ''}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  onClick={() => patchItem(it.id, { is_featured: !it.is_featured })}
+                  title="★ Featured — rodyti homepage feed'e (1 LT + 1 užsienio)"
+                  className={`rounded px-2 py-1 text-[11px] font-bold ${it.is_featured ? 'bg-amber-500 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
+                >★</button>
+                <button
+                  onClick={() => patchItem(it.id, { is_published: !it.is_published })}
+                  title="Publikuota"
+                  className={`rounded px-2 py-1 text-[11px] font-bold ${it.is_published ? 'bg-green-600 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
+                >{it.is_published ? 'Live' : 'Off'}</button>
+                <button onClick={() => startEdit(it)} title="Redaguoti" className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-[11px] font-bold text-[var(--text-muted)]">✎</button>
+                <a href={`/koncertu-irasai/${it.slug}`} target="_blank" rel="noopener noreferrer" className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-[11px] font-bold text-[var(--text-muted)]">↗</a>
+                <button onClick={() => deleteItem(it.id)} title="Ištrinti" className="rounded bg-red-500/10 px-2 py-1 text-[11px] font-bold text-red-500">✕</button>
+              </div>
             </div>
-          </div>
+          )
         ))}
       </div>
     </div>

@@ -17,7 +17,8 @@ async function loadRecordings(): Promise<AdminRecording[]> {
     const sb = createAdminClient()
     const { data } = await sb
       .from('concert_recordings')
-      .select('id, slug, youtube_id, title, artist_id, artist_name_cached, duration_seconds, recording_type, venue, city, recorded_on, recorded_year, uploaded_at, view_count, styles, is_published, is_featured, thumbnail_url, created_at')
+      .select('id, slug, youtube_id, title, description, artist_id, artist_name_cached, duration_seconds, recording_type, venue, city, country, recorded_on, recorded_year, uploaded_at, view_count, styles, is_published, is_featured, thumbnail_url, created_at')
+      .order('uploaded_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(500)
     return (data || []) as AdminRecording[]
@@ -40,6 +41,8 @@ export default async function AdminKoncertuIrasaiPage() {
           Pridėk live pasirodymą iš vienos YouTube nuorodos — trukmė, įkėlimo data,
           vieta, koncerto data ir tipas atpažįstami automatiškai. Patikrink ir išsaugok.
           {' '}Rodoma <Link href="/koncertu-irasai" className="text-[var(--accent-link)]">/koncertu-irasai</Link> ir atlikėjo puslapyje.
+          {' '}Sąrašas rikiuojamas pagal YouTube įkėlimo datą (naujausi viršuje); ✎ redaguoti,
+          {' '}★ pažymi įrašą homepage feed&apos;ui (rodomas naujausias 1 LT + 1 užsienio).
         </p>
       </div>
 
