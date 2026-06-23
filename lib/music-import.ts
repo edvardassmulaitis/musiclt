@@ -17,7 +17,7 @@ import { searchArtistsCore, searchTracksCore, searchAlbumsCore, normLt } from '@
 import { addToLibrary, type FavKind } from '@/lib/mano-muzika'
 import { parseSpotifyExport } from '@/lib/spotify-export'
 import {
-  normalizeForMatch, primaryArtist,
+  normalizeForMatch, primaryArtist, resolveArtistIds,
   findConfidentMatch, findConfidentAlbumMatch, recallResolution,
 } from '@/lib/chart-resolve'
 import { ytThumb } from '@/lib/radaras-shared'
@@ -80,9 +80,36 @@ export async function matchItems(items: RawItems, opts: { perKindLimit?: number;
 
   // ARTISTS — top-1 per searchArtistsCore
   const artistHits: StagedHit[] = await mapLimit(artists, cc, async (a) => {
+    const pop = Number(a.meta?.playcount) || 0
+    // ── ATPAŽINIMAS — ta pati centralizuota logika kaip dainoms/albumams ──
+    // resolveArtistIds: name_norm atomai (pilnas vardas + primary + „The"-variantai
+    //  + „&/feat/x/vs" segmentai) → tiksli lygybė + token ilike + gated fuzzy.
+    //  Tai pataiso „Bob Marley & The Wailers", „P!nk" ir pan., kurių senasis
+    //  trigram top-1 prametdavo. Senasis searchArtistsCore — low-confidence fallback.
+    const resolveBest = async (ids: number[]) => {
+      if (!ids.length) return null
+      const { data } = await sb.from('artists')
+        .select('id, name, slug, cover_image_url, score')
+        .in('id', ids).order('score', { ascending: false }).limit(1)
+      return (data && data[0]) || null
+    }
+    try {
+      let ids = await resolveArtistIds(sb, a.name)
+      // Lietuviškas jungtukas „ir" (resolveArtistIds jo neskaido) — „Aistė … ir SKYLĖ".
+      if (!ids.length && / ir /i.test(a.name)) {
+        for (const part of a.name.split(/ ir /i)) {
+          const r = await resolveArtistIds(sb, part.trim()); if (r.length) ids = ids.concat(r)
+        }
+      }
+      const top = await resolveBest(ids)
+      if (top) return {
+        raw: a.name, matched: true, confidence: 'high' as const,
+        id: top.id, name: top.name, slug: top.slug, cover: top.cover_image_url ?? null, pop,
+      }
+    } catch { /* kris į trigram fallback */ }
+    // Fallback — senasis trigram (low-confidence).
     const res = await searchArtistsCore(sb, a.name, { limit: 1, select: 'id, name, slug, cover_image_url, score' })
     const top = res[0]
-    const pop = Number(a.meta?.playcount) || 0
     if (!top) return { raw: a.name, matched: false, confidence: 'low' as const, pop }
     return {
       raw: a.name, matched: true, confidence: nameMatches(a.name, top.name) ? 'high' : 'low',
