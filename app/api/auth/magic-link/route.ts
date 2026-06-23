@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
           <p style="color:#666;margin-bottom:32px;">Didziausia lietuviskos muzikos portalas</p>
           <h2 style="font-size:20px;margin-bottom:8px;">Prisijungimo nuoroda</h2>
           <p style="color:#444;margin-bottom:24px;">Spauskite mygtuka zemiau noredami prisijungti. Nuoroda galioja 24 valandas.</p>
-          <a href="${url}" style="display:inline-block;background:linear-gradient(135deg,#1a73e8,#f97316);color:white;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;font-size:16px;">
+          <a href="${url}" style="display:inline-block;background-color:#f97316;background:linear-gradient(135deg,#1a73e8,#f97316);color:#ffffff;font-weight:700;padding:16px 36px;border-radius:12px;text-decoration:none;font-size:16px;mso-padding-alt:0;">
             Prisijungti prie music.lt
           </a>
           <p style="color:#999;font-size:12px;margin-top:32px;">

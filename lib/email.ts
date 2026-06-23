@@ -78,7 +78,7 @@ export function emailLayout(opts: {
   footerHtml?: string
 }): string {
   const cta = opts.ctaUrl && opts.ctaLabel
-    ? `<a href="${opts.ctaUrl}" style="display:inline-block;background:linear-gradient(135deg,#1a73e8,#f97316);color:#fff;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;font-size:16px;margin-top:8px;">${opts.ctaLabel}</a>`
+    ? `<a href="${opts.ctaUrl}" style="display:inline-block;background-color:#f97316;background:linear-gradient(135deg,#1a73e8,#f97316);color:#fff;font-weight:700;padding:16px 36px;border-radius:12px;text-decoration:none;font-size:16px;margin-top:8px;">${opts.ctaLabel}</a>`
     : ''
   return `
   <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;padding:40px 24px;color:#1a1a1a;">
