@@ -1808,6 +1808,18 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
             {slide.subtitle}
           </p>
         )}
+        {/* Dienos dainos laimėtojui — atlikėjas + „Vakar laimėjo" žyma po pavadinimu. */}
+        {slide.type === 'daily_winner' && (
+          <div className="m-0 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            {slide.artist?.name && (
+              <span className="font-['Outfit',sans-serif] text-[15px] font-bold leading-none text-white/90">{slide.artist.name}</span>
+            )}
+            <span className="inline-flex items-center gap-1 rounded-[6px] bg-white/15 px-2 py-[3px] font-['Outfit',sans-serif] text-[10.5px] font-bold uppercase tracking-[0.06em] text-amber-300">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM5 9a2 2 0 0 1-2-2V5h4M19 9a2 2 0 0 0 2-2V5h-4"/></svg>
+              Vakar laimėjo
+            </span>
+          </div>
+        )}
       </div>
     </Link>
   )
@@ -2892,11 +2904,11 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
       const tr = w?.tracks
       if (tr) {
         dailySlides.push({
-          type: 'daily_winner', chip: 'VAKAR LAIMĖJO', chipBg: '#d97706',
+          type: 'daily_winner', chip: 'DIENOS DAINA', chipBg: '#f59e0b',
           title: sanitizeTitle(tr.title || ''),
           subtitle: '',
           excerpt: w.winning_comment || '',
-          metaLine: [tr.artists?.name, w.proposer ? `siūlė ${w.proposer.full_name || w.proposer.username}` : ''].filter(Boolean).join(' · '),
+          metaLine: ['Vakar laimėjo', tr.artists?.name, w.proposer ? `siūlė ${w.proposer.full_name || w.proposer.username}` : ''].filter(Boolean).join(' · '),
           bgImg: extractYouTubeId(tr.video_url || null) ? `https://img.youtube.com/vi/${extractYouTubeId(tr.video_url || null)}/hqdefault.jpg` : (tr.cover_url || tr.artists?.cover_image_url || null),
           href: '/dienos-daina',
           videoId: extractYouTubeId(tr.video_url || null),
