@@ -25,6 +25,17 @@ function kindKey(postType: string | null, editorialType: string | null): string 
   return 'irasas'
 }
 
+function ytId(url: string | null | undefined): string | null {
+  if (!url) return null
+  const m = String(url).match(/(?:v=|vi\/|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/)
+  return m ? m[1] : (/^[\w-]{11}$/.test(url) ? url : null)
+}
+function plain(html: string | null | undefined, max = 400): string {
+  if (!html) return ''
+  const t = String(html).replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&#39;|&apos;/gi, "'").replace(/&quot;/gi, '"').replace(/\s+/g, ' ').trim()
+  return t.length > max ? t.slice(0, max).trimEnd() + '…' : t
+}
+
 export async function GET() {
   try {
     const rows = await getHomeHeroPosts(8)
@@ -43,6 +54,11 @@ export async function GET() {
         chipBg: k.color,
         published_at: p.published_at,
         author: prof?.username || prof?.full_name || null,
+        // Reader (mobile reels) — pilnesnis atvaizdavimas: tekstas + muzika.
+        excerpt: p.summary ? plain(p.summary, 400) : plain(p.content, 400),
+        videoId: (p.embed_type === 'youtube' ? ytId(p.embed_url) : null) || ytId(p.embed_thumbnail_url) || null,
+        songTitle: p.embed_title || null,
+        songArtist: null,
       }
     })
     return NextResponse.json({ posts }, {
