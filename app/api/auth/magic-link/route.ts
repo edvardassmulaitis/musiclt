@@ -41,21 +41,37 @@ export async function POST(req: NextRequest) {
 
     const sendRes = await sendEmail({
       to: email,
-      subject: 'Prisijungimas prie music.lt',
+      subject: 'Jūsų prisijungimo nuoroda — music.lt',
       html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
-          <h1 style="font-size:28px;font-weight:900;margin-bottom:4px;">
-            <span style="color:#1a73e8">music</span><span style="color:#f97316">.lt</span>
-          </h1>
-          <p style="color:#666;margin-bottom:32px;">Didziausia lietuviskos muzikos portalas</p>
-          <h2 style="font-size:20px;margin-bottom:8px;">Prisijungimo nuoroda</h2>
-          <p style="color:#444;margin-bottom:24px;">Spauskite mygtuka zemiau noredami prisijungti. Nuoroda galioja 24 valandas.</p>
-          <a href="${url}" style="display:inline-block;background-color:#f97316;background:linear-gradient(135deg,#1a73e8,#f97316);color:#ffffff;font-weight:700;padding:16px 36px;border-radius:12px;text-decoration:none;font-size:16px;mso-padding-alt:0;">
-            Prisijungti prie music.lt
-          </a>
-          <p style="color:#999;font-size:12px;margin-top:32px;">
-            Jei neregistravotes music.lt, ignoruokite si laiska.
-          </p>
+        <div style="background:#f4f5f7;margin:0;padding:32px 12px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+          <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+            <div style="padding:32px 40px 22px;text-align:center;border-bottom:1px solid #eef0f3;">
+              <div style="font-size:30px;font-weight:800;letter-spacing:-0.5px;">
+                <span style="color:#1a73e8;">music</span><span style="color:#f97316;">.lt</span>
+              </div>
+              <div style="color:#9aa0a6;font-size:13px;margin-top:4px;">Lietuviškos muzikos bendruomenė</div>
+            </div>
+            <div style="padding:36px 40px;text-align:center;">
+              <h1 style="font-size:21px;font-weight:700;color:#1a1a1a;margin:0 0 12px;">Prisijunkite prie music.lt</h1>
+              <p style="color:#5f6368;font-size:15px;line-height:1.6;margin:0 0 28px;">
+                Sveiki! Paspauskite mygtuką žemiau ir iškart prisijungsite — slaptažodžio nereikia.
+              </p>
+              <a href="${url}" style="display:inline-block;background-color:#f97316;background:linear-gradient(135deg,#1a73e8,#f97316);color:#ffffff;font-weight:700;padding:16px 44px;border-radius:12px;text-decoration:none;font-size:16px;">
+                Prisijungti
+              </a>
+              <p style="color:#9aa0a6;font-size:13px;margin:28px 0 0;">
+                Nuoroda galioja <strong style="color:#5f6368;">24 valandas</strong>.
+              </p>
+            </div>
+            <div style="padding:20px 40px 30px;border-top:1px solid #eef0f3;text-align:center;">
+              <p style="color:#9aa0a6;font-size:12px;line-height:1.6;margin:0;">
+                Jei šios nuorodos neprašėte, tiesiog nepaisykite šio laiško — į jūsų paskyrą niekas neprisijungs.
+              </p>
+              <p style="color:#c3c7cc;font-size:12px;margin:12px 0 0;">
+                © music.lt · Didžiausias lietuviškos muzikos portalas
+              </p>
+            </div>
+          </div>
         </div>
       `,
     })
