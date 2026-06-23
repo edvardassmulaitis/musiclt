@@ -78,10 +78,14 @@ export default function FeedAdminClient() {
 
     // Verta
     ;(verta.concerts || []).slice(0, 2).forEach((c: any) => push(`verta::/verta-keliones#vk-${c.id}`, 'Verta kelionės', c.isFestival ? (c.festivalName || c.artist) : c.artist, c.image || null, `/verta-keliones#vk-${c.id}`))
-    // Events (home_hero first, then latest, max 4, must have image)
-    const evSeen = new Set<number>(); const evList: any[] = []
-    ;[...(hev.events || []), ...(events.events || [])].forEach((ev: any) => { if (evList.length < 4 && !evSeen.has(ev.id) && (ev.image_small_url || ev.cover_image_url)) { evSeen.add(ev.id); evList.push(ev) } })
-    evList.forEach((ev: any) => push(`event::/renginiai/${ev.slug}`, 'Renginys', strip(ev.title), ev.image_small_url || ev.cover_image_url || null, `/renginiai/${ev.slug}`))
+    // Events — TIKSLIAI kaip homepage (HomeClient): VISI home_hero renginiai
+    // (ne max 4!), po jų bendri iki 4 viso; vizualas filtruojamas renderinant.
+    // Anksčiau admin'as kirpdavo per 4 → 5-as home_hero renginys (pvz. GALÈRA)
+    // matydavosi homepage, bet NE admin'e → negalima buvo pertvarkyti/paslėpti.
+    const evSeen = new Set<any>(); const evList: any[] = []
+    for (const ev of (hev.events || [])) { if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
+    for (const ev of (events.events || [])) { if (evList.length >= 4) break; if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
+    evList.forEach((ev: any) => { const evImg = ev.image_small_url || ev.cover_image_url || null; if (!evImg) return; push(`event::/renginiai/${ev.slug}`, 'Renginys', strip(ev.title), evImg, `/renginiai/${ev.slug}`) })
 
     // apply overrides — TIKSLIAI kaip homepage: TIK pin'as kelia į viršų; sort_order
     // vienas nedominuoja (paslėpti įrašai lieka rodomi pilki, kad būtų galima atstatyti).
