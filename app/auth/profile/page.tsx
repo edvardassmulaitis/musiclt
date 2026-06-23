@@ -205,7 +205,7 @@ export default function SettingsPage() {
       legacy_profile_photos: photos,
     }
     const cleanU = username.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 30)
-    if (cleanU && cleanU !== (profile?.username || '')) body.username = cleanU
+    if (session?.user?.role === 'super_admin' && cleanU && cleanU !== (profile?.username || '')) body.username = cleanU
     const y = parseInt(birthYear, 10)
     if (y >= 1900 && y <= new Date().getFullYear()) body.legacy_birth_date = `${y}-06-15`
     else if (!birthYear) body.legacy_birth_date = null
@@ -270,6 +270,7 @@ export default function SettingsPage() {
 
   const user = session.user
   const isAdmin = ['editor', 'admin', 'super_admin'].includes(user.role || '')
+  const isSuperAdmin = user.role === 'super_admin'
   const avatar = avatarUrl || user.image || null
   const name = fullName || profile?.full_name || user.name || 'Vartotojas'
   const uname = profile?.username || null
@@ -305,7 +306,7 @@ export default function SettingsPage() {
               {uname && <div className="text-[12px] truncate" style={{ color: 'var(--text-muted)' }}>@{uname}</div>}
             </div>
             {uname && (
-              <Link href={`/vartotojas/${uname}`} title="Peržiūrėti viešą profilį" aria-label="Peržiūrėti viešą profilį"
+              <Link href={`/@${uname}`} title="Peržiūrėti viešą profilį" aria-label="Peržiūrėti viešą profilį"
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition hover:opacity-85"
                 style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
                 <IcEye />
@@ -386,12 +387,12 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <Label>Naudotojo vardas</Label>
-                  <div className="flex items-stretch rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+                  <div className="flex items-stretch rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)', opacity: isSuperAdmin ? 1 : 0.6 }}>
                     <span className="flex items-center px-2.5 text-[13px]" style={{ background: 'var(--card-bg)', color: 'var(--text-muted)', borderRight: '1px solid var(--border-default)' }}>@</span>
-                    <input className="flex-1 px-2.5 py-2 text-sm bg-transparent outline-none" style={{ color: 'var(--text-primary)' }}
-                      value={username} maxLength={30} onChange={e => setUsername(e.target.value)} placeholder="vardas" />
+                    <input className="flex-1 px-2.5 py-2 text-sm bg-transparent outline-none disabled:cursor-not-allowed" style={{ color: 'var(--text-primary)' }}
+                      value={username} maxLength={30} disabled={!isSuperAdmin} onChange={e => setUsername(e.target.value)} placeholder="vardas" />
                   </div>
-                  <Hint>music.lt/vartotojas/{username || 'vardas'}</Hint>
+                  <Hint>music.lt/@{username || 'vardas'}{isSuperAdmin ? '' : ' · keisti gali tik administratorius'}</Hint>
                 </div>
               </div>
 
