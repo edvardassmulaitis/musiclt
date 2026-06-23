@@ -907,7 +907,7 @@ export async function getHomeHeroPosts(limit = 8) {
   const sb = createAdminClient()
   const { data } = await sb
     .from('blog_posts')
-    .select('id, slug, title, summary, cover_image_url, post_type, editorial_type, published_at, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
+    .select('id, slug, title, summary, cover_image_url, post_type, editorial_type, published_at, list_items, target_track_id, target_album_id, target_artist_id, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
     .eq('status', 'published')
     .eq('home_hero', true)
     .lte('published_at', new Date().toISOString())
