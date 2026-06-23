@@ -117,6 +117,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { key: 'verta',    group: 'content', minRole: 'editor', href: '/admin/verta-keliones', icon: '✈️', label: 'Verta kelionės', hint: 'Scout turai → kandidatai · koncertai · kryptys' },
   { key: 'voting',   group: 'content', minRole: 'editor', href: '/admin/voting',   icon: '🗳️', label: 'Balsavimai',  hint: 'Apdovanojimai, votings' },
   { key: 'reitingai',group: 'content', minRole: 'editor', href: '/admin/reitingai', icon: '🏅', label: 'Reitingai',  hint: 'Atlikėjų balų sortinimas + skaidymas + rankiniai bonus balai (LT / užsienis)' },
+  { key: 'feed',     group: 'content', minRole: 'editor', href: '/admin/feed', icon: '📲', label: 'Pagrindinis feed\'as', hint: 'Homepage „istorijų" srautas — prisegti / slėpti / pertvarkyti' },
 
   // ── Bendruomenė ir moderavimas ─────────────────────────────────────────────
   { key: 'comments',     group: 'community', minRole: 'editor', href: '/admin/comments',    icon: '💬', label: 'Komentarai',  hint: 'Visi komentarai per visas surfaces' },
