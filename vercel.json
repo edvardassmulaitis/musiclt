@@ -29,6 +29,18 @@
     {
       "path": "/api/cron/import-jobs",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-home?key=hsnap_7f3a9c2e8b1d4f6a",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-home?key=hsnap_7f3a9c2e8b1d4f6a",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-home?key=hsnap_7f3a9c2e8b1d4f6a",
+      "schedule": "0 20 * * *"
     }
   ]
 }

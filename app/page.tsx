@@ -28,12 +28,17 @@ import {
   mapAlbumForHome,
 } from '@/lib/home-latest'
 import HomeClient, { type InitialLatest } from './HomeClient'
+import { readHomeSnapshot } from '@/lib/home-snapshot'
 
 // ISR — puslapio HTML (su seed'intais tracks/albums) cache'inamas 5 min;
 // stale-while-revalidate serve'ina iškart, o regeneracija vyksta fone.
 export const revalidate = 300
 
 export default async function HomePage() {
+  // 1) Precomputed snapshot (CRON 3x/d) — greita, patikima. Fallback i live zemiau.
+  const __snap = await readHomeSnapshot()
+  if (__snap) return <HomeClient initialLatest={__snap as InitialLatest} />
+
   // Server-side fetch — paralelinis. Kiekvienas getLatest* viduje jau daro
   // query retry + grąžina in-memory last-known-good, jei DB transient'iškai krenta.
   const [tracksR, albumsR, upcomingR] = await Promise.allSettled([
