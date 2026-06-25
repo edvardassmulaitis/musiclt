@@ -309,14 +309,20 @@ function RowStripe({ kind }: { kind: 'lt' | 'world' | 'radar' }) {
 
 
 function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
+  // Šoninė rinkmena (rail): Atlikėjai default; užvedus (hover/focus) keičiasi
+  // dešinė vitrina. Kai pelė palieka panelį — reset į Atlikėjai, kad kiekvienas
+  // atidarymas iškart parodytų ir LT, ir užsienio atlikėjus (Edvardo prašymas).
+  const [sec, setSec] = useState<'atlikejai' | 'albumai' | 'dainos' | 'stiliai' | 'radaras'>('atlikejai')
+
   const artistsLt    = data?.artistsLt    || []
   const artistsWorld = data?.artistsWorld || []
+  const albums       = data?.albums       || []
+  const tracks       = data?.tracks       || []
   const radar        = data?.radar        || []
 
-  // 8 main stiliai — rikiuojami pagal atlikėjų kiekį (populiariausi pirma);
-  // jei skaičių dar nėra (cache), krenta į fiksuotą STYLE_NAV_ORDER.
+  // Stiliai — rikiuojami pagal atlikėjų kiekį (populiariausi pirma); „Kitų
+  // stilių muzika" visada paskutinė. Cache fallback → STYLE_NAV_ORDER.
   const gc = data?.genreCounts || {}
-  // „Kitų stilių muzika" VISADA paskutinė; likusios — pagal atlikėjų kiekį.
   const styles = [...STYLES_ORDERED].sort((a, b) => {
     const ka = a.name === 'Kitų stilių muzika' ? 1 : 0
     const kb = b.name === 'Kitų stilių muzika' ? 1 : 0
@@ -324,136 +330,144 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
     return (gc[b.name] || 0) - (gc[a.name] || 0)
   })
 
-  // Atlikėjų eilutė: scroll'inamų atlikėjų juosta + VISADA matomas „atverti
-  // pilną sąrašą" button'as dešinėje (už scroll container'io — homepage
-  // StickyMoreButton stiliumi, kad nereiktų scroll'inti jį pasiekti).
-  const renderArtistRow = (list: typeof artistsLt, kind: 'lt' | 'world') => {
-    return (
-      <div>
-        <div className="sh-strip-more">
-          <Link
-            href={kind === 'lt' ? '/atlikejai?country=lt' : '/atlikejai?country=world'}
-            className="sh-more-link"
-            aria-label="Atverti visą sąrašą su filtrais"
-          >
-            Daugiau →
-          </Link>
-        </div>
-        <div className="sh-strip-wrap">
-          <RowStripe kind={kind} />
-          <div className="sh-strip">
-            {(list.length > 0 ? list : Array(6).fill(null)).map((a, i) => (
-              <Link
-                key={a?.id || `${kind}-${i}`}
-                href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
-                className="sh-mini sh-mini-xl"
-              >
-                <ImageBox
-                  src={a?.image}
-                  accent={accent}
-                  glyph={I.music}
-                  className="sh-mini-img"
-                />
-                <span className="sh-mini-title sh-mini-title-2">
-                  {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const railRadarIcon = (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19.07 4.93A10 10 0 1 0 21 9"/><path d="M14.83 9.17A4 4 0 1 0 16 12"/><path d="M22 2 12 12"/></svg>
+  )
+  // Rail tvarka: pažįstami (atlikėjai→albumai→dainos→stiliai), radaras apačioje.
+  const RAIL: { k: typeof sec; icon: React.ReactNode; label: string }[] = [
+    { k: 'atlikejai', icon: I.mic,         label: 'Atlikėjai ir grupės' },
+    { k: 'albumai',   icon: I.vinyl,       label: 'Albumai' },
+    { k: 'dainos',    icon: I.song,        label: 'Dainos' },
+    { k: 'stiliai',   icon: I.equalizer,   label: 'Stiliai' },
+    { k: 'radaras',   icon: railRadarIcon, label: 'Naujos muzikos radaras' },
+  ]
 
-  // Radaro eilutė — žalia juosta + mažesnės foto, nuoroda į /nauji-atlikejai.
-  const renderRadarRow = () => {
-    if (radar.length === 0) return null
-    return (
+  // Juostos antraštė — pavadinimas kairėje + „Daugiau →" dešinėje.
+  const head = (label: string, href: string, hint?: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>
+        {label}
+        {hint ? <span style={{ marginLeft: 7, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>{hint}</span> : null}
+      </span>
+      <Link href={href} className="sh-more-link">Daugiau →</Link>
+    </div>
+  )
+
+  // Atlikėjų juosta (LT arba užsienio) — flag stripe + „Daugiau" su country filtru.
+  const artistRow = (list: typeof artistsLt, kind: 'lt' | 'world', label: string, href: string) => (
+    <div>
+      {head(label, href, 'trending')}
       <div className="sh-strip-wrap">
-        <RowStripe kind="radar" />
+        <RowStripe kind={kind} />
         <div className="sh-strip">
-          {radar.map((a, i) => (
-            <Link key={a.id || `rad-${i}`} href={`/atlikejai/${a.slug}`} className="sh-mini sh-mini-md">
-              <ImageBox src={a.image} accent="#22c55e" glyph={I.music} className="sh-mini-img" />
-              <span className="sh-mini-title sh-mini-title-2">{a.name}</span>
+          {(list.length > 0 ? list : Array(6).fill(null)).map((a, i) => (
+            <Link key={a?.id || `${kind}-${i}`} href={a ? `/atlikejai/${a.slug}` : '/atlikejai'} className="sh-mini sh-mini-xl">
+              <ImageBox src={a?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}</span>
             </Link>
           ))}
         </div>
       </div>
-    )
-  }
+    </div>
+  )
 
-  // 8 main stiliai su SVG ikonomis (no emojis) — atspindi žanro charakterį
   return (
-    <div className="sh-panel sh-panel-muzika">
-
-      {/* ── ATLIKĖJAI sekcijos header'is — vienodas su Stiliai stiliumi ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-        fontFamily: "'Outfit', sans-serif",
-        fontSize: 11, fontWeight: 800,
-        textTransform: 'uppercase', letterSpacing: '0.1em',
-        color: 'var(--text-muted)',
-        marginBottom: 8,
-      }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span className="sh-trending-glyph" title="Trending">{I.trending}</span>
-          Atlikėjai ir grupės
-        </span>
+    <div className="sh-panel sh-panel-muzika sh-panel-railed" onMouseLeave={() => setSec('atlikejai')}>
+      {/* ── Šoninė rinkmena — skiltys, default Atlikėjai ── */}
+      <div className="sh-rail" role="tablist" aria-label="Muzikos skiltys">
+        {RAIL.map(r => (
+          <button
+            key={r.k}
+            type="button"
+            role="tab"
+            aria-selected={sec === r.k}
+            className={`sh-railitem${sec === r.k ? ' active' : ''}`}
+            onMouseEnter={() => setSec(r.k)}
+            onFocus={() => setSec(r.k)}
+            onClick={() => setSec(r.k)}
+          >
+            <span className="sh-railitem-ic" style={sec === r.k ? { color: accent } : undefined}>{r.icon}</span>
+            <span className="sh-railitem-label">{r.label}</span>
+          </button>
+        ))}
       </div>
 
-      {/* ── ATLIKĖJAI: LT + užsienio eilutės su flag stripe ── */}
-      {renderArtistRow(artistsLt, 'lt')}
-      <div style={{ height: 10 }} />
-      {renderArtistRow(artistsWorld, 'world')}
+      {/* ── Vitrina — keičiasi pagal aktyvią rail skiltį ── */}
+      <div className="sh-railbody">
+        {sec === 'atlikejai' && (
+          <>
+            {artistRow(artistsLt, 'lt', 'Lietuvos atlikėjai', '/atlikejai?country=lt')}
+            <div style={{ height: 14 }} />
+            {artistRow(artistsWorld, 'world', 'Užsienio atlikėjai', '/atlikejai?country=world')}
+          </>
+        )}
 
-      {/* ── RADARAS: nauji/kylantys — žalia juosta + mažesnės foto ── */}
-      {radar.length > 0 && (
-        <>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-            margin: '14px 0 7px',
-          }}>
-            {/* Mini RadarSweep — bendrinis komponentas, identiškas puslapio dideliam SVG */}
-            <span className="sh-radar-badge">
-              <RadarSweepMini size={36} />
-              Naujos muzikos radaras
-            </span>
-            <Link href="/nauji-atlikejai" className="sh-more-link">Daugiau →</Link>
+        {sec === 'albumai' && (
+          <div>
+            {head('Nauji albumai', '/albumai', 'trending')}
+            <div className="sh-strip-wrap">
+              <RowStripe kind="world" />
+              <div className="sh-strip">
+                {(albums.length > 0 ? albums : Array(6).fill(null)).map((a, i) => (
+                  <Link key={a?.id || `alb-${i}`} href={a ? `/albumai/${a.artistSlug ? `${a.artistSlug}-` : ''}${a.slug}-${a.id}` : '/albumai'} className="sh-mini sh-mini-xl">
+                    <ImageBox src={a?.image} accent={accent} glyph={I.vinyl} className="sh-mini-img" />
+                    <span className="sh-mini-title sh-mini-title-2">{a?.title || <span style={{ opacity: 0.45 }}>Albumas</span>}</span>
+                    {a?.artist ? <span className="sh-mini-meta">{a.artist}</span> : null}
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
-          {renderRadarRow()}
-        </>
-      )}
+        )}
 
-      {/* ── STILIAI — realus stoko vizualas (admin'as nustato per /admin/genres),
-              fallback'as: solid color + decorative ikona ── */}
-      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        {/* Header'is identiškas Atlikėjų eilutei — flex tarp title kairėje
-            ir Daugiau link'o dešinėje */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{
-            fontFamily: "'Outfit', sans-serif",
-            fontSize: 11,
-            fontWeight: 800,
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            color: 'var(--text-muted)',
-            paddingTop: 2,
-          }}>
-            Stiliai
-          </span>
-          <span style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
-          </span>
-        </div>
-        <div className="sh-chiprow sh-chiprow-fill">
-          {styles.map(s => (
-            <Link key={s.name} href={s.href} className="sh-navchip" title={s.name}>
-              <span className="sh-navchip-dot" style={{ background: 'var(--text-faint)' }} aria-hidden />
-              {s.name === 'Rimtoji muzika' ? 'Rimtoji' : s.short}
-            </Link>
-          ))}
-        </div>
+        {sec === 'dainos' && (
+          <div>
+            {head('Naujos dainos', '/dainos', 'trending')}
+            <div className="sh-strip-wrap">
+              <RowStripe kind="world" />
+              <div className="sh-strip">
+                {(tracks.length > 0 ? tracks : Array(6).fill(null)).map((t, i) => (
+                  <Link key={t?.id || `trk-${i}`} href={t ? `/dainos/${t.artistSlug}-${quickSlug(t.title)}-${t.id}` : '/dainos'} className="sh-mini sh-mini-xl">
+                    <ImageBox src={t?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
+                    <span className="sh-mini-title sh-mini-title-2">{t?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
+                    {t?.artist ? <span className="sh-mini-meta">{t.artist}</span> : null}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {sec === 'stiliai' && (
+          <div>
+            {head('Naršyk pagal stilių', '/zanrai')}
+            <div className="sh-chiprow sh-chiprow-fill">
+              {styles.map(s => (
+                <Link key={s.name} href={s.href} className="sh-navchip" title={s.name}>
+                  <span className="sh-navchip-dot" style={{ background: 'var(--text-faint)' }} aria-hidden />
+                  {s.name === 'Rimtoji muzika' ? 'Rimtoji' : s.short}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sec === 'radaras' && (
+          <div>
+            {head('Naujos muzikos radaras', '/nauji-atlikejai', 'kylantys')}
+            <div className="sh-strip-wrap">
+              <RowStripe kind="radar" />
+              <div className="sh-strip">
+                {(radar.length > 0 ? radar : Array(6).fill(null)).map((a, i) => (
+                  <Link key={a?.id || `rad-${i}`} href={a ? `/atlikejai/${a.slug}` : '/nauji-atlikejai'} className="sh-mini sh-mini-xl">
+                    <ImageBox src={a?.image} accent="#22c55e" glyph={I.music} className="sh-mini-img" />
+                    <span className="sh-mini-title sh-mini-title-2">{a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1525,6 +1539,47 @@ export function SiteHeader() {
 
         /* Muzika panel'as: paliekam padding'ą truputį mažesnį */
         .sh-panel-muzika { padding: 14px; }
+
+        /* ── Šoninė rinkmena (rail) + vitrina — Muzikos dropdown'o karkasas ──
+           Kairėje siaura tekstinė skilčių rinkmena, dešinėje perjungiama
+           trending vitrina. Rail laiko navigaciją, vitrina įkvepia. */
+        .sh-panel-railed { display: flex; align-items: stretch; }
+        .sh-panel-muzika.sh-panel-railed { padding: 0; }
+        .sh-rail {
+          width: 210px; flex-shrink: 0;
+          border-right: 1px solid var(--border-default);
+          padding: 14px 10px;
+          display: flex; flex-direction: column; gap: 3px;
+        }
+        .sh-railitem {
+          display: flex; align-items: center; gap: 10px;
+          width: 100%; text-align: left;
+          padding: 10px 11px;
+          border: 1px solid transparent;
+          border-radius: 11px;
+          background: transparent;
+          color: var(--text-secondary);
+          font-family: inherit;
+          cursor: pointer;
+          transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+        .sh-railitem:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .sh-railitem.active {
+          background: var(--bg-elevated);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        .sh-railitem-ic {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 18px; height: 18px; flex-shrink: 0;
+          color: var(--text-muted);
+        }
+        .sh-railitem-ic svg { width: 18px; height: 18px; }
+        .sh-railitem-label {
+          font-size: 13px; font-weight: 600; letter-spacing: -0.005em;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sh-railbody { flex: 1; min-width: 0; padding: 16px 18px; min-height: 248px; }
 
         /* LT vėliavos / world mėlynos juostelės indikatorius — homepage style:
            pritrauktas prie viršaus (align-self: flex-start), 38px aukščio */
