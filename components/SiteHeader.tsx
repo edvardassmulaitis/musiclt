@@ -50,6 +50,8 @@ type NavPreview = {
   artistsLt:    { id: number; slug: string; name: string; image: string | null }[]
   artistsWorld: { id: number; slug: string; name: string; image: string | null }[]
   albums:       { id: number; slug: string; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
+  albumsLt?:    { id: number; slug: string; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
+  albumsWorld?: { id: number; slug: string; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   tracks:       { id: number; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   events:       { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
   eventsLt?:    { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
@@ -316,8 +318,6 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
 
   const artistsLt    = data?.artistsLt    || []
   const artistsWorld = data?.artistsWorld || []
-  const albums       = data?.albums       || []
-  const tracks       = data?.tracks       || []
   const radar        = data?.radar        || []
 
   // Stiliai — rikiuojami pagal atlikėjų kiekį (populiariausi pirma); „Kitų
@@ -330,6 +330,12 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
     return (gc[b.name] || 0) - (gc[a.name] || 0)
   })
 
+  const albumsLt    = data?.albumsLt    || data?.albums || []
+  const albumsWorld = data?.albumsWorld || []
+  const top40       = data?.topChart?.top40 || []
+  const top30       = data?.topChart?.top30 || []
+  const genres      = data?.genres || {}
+
   const railRadarIcon = (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19.07 4.93A10 10 0 1 0 21 9"/><path d="M14.83 9.17A4 4 0 1 0 16 12"/><path d="M22 2 12 12"/></svg>
   )
@@ -339,15 +345,15 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
     { k: 'albumai',   icon: I.vinyl,       label: 'Albumai' },
     { k: 'dainos',    icon: I.song,        label: 'Dainos' },
     { k: 'stiliai',   icon: I.equalizer,   label: 'Stiliai' },
-    { k: 'radaras',   icon: railRadarIcon, label: 'Naujos muzikos radaras' },
+    { k: 'radaras',   icon: railRadarIcon, label: 'Radaras' },
   ]
 
-  // Juostos antraštė — pavadinimas kairėje + „Daugiau →" dešinėje.
-  const head = (label: string, href: string, hint?: string) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>
+  // Juostos antraštė — „liepsna" ikona (= trending, be žodžio) + pavadinimas + Daugiau.
+  const head = (label: string, href: string, hot = false) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>
+        {hot ? <span className="sh-hot-ic" aria-hidden>{I.flame}</span> : null}
         {label}
-        {hint ? <span style={{ marginLeft: 7, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>{hint}</span> : null}
       </span>
       <Link href={href} className="sh-more-link">Daugiau →</Link>
     </div>
@@ -356,7 +362,7 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   // Atlikėjų juosta (LT arba užsienio) — flag stripe + „Daugiau" su country filtru.
   const artistRow = (list: typeof artistsLt, kind: 'lt' | 'world', label: string, href: string) => (
     <div>
-      {head(label, href, 'trending')}
+      {head(label, href, true)}
       <div className="sh-strip-wrap">
         <RowStripe kind={kind} />
         <div className="sh-strip">
@@ -364,6 +370,44 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
             <Link key={a?.id || `${kind}-${i}`} href={a ? `/atlikejai/${a.slug}` : '/atlikejai'} className="sh-mini sh-mini-xl">
               <ImageBox src={a?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
               <span className="sh-mini-title sh-mini-title-2">{a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
+  // Albumų juosta — su atlikėjo meta (kompaktiškas tarpas, sh-mini--meta).
+  const albumRow = (list: typeof albumsLt, kind: 'lt' | 'world', label: string, href: string) => (
+    <div>
+      {head(label, href, true)}
+      <div className="sh-strip-wrap">
+        <RowStripe kind={kind} />
+        <div className="sh-strip">
+          {(list.length > 0 ? list : Array(6).fill(null)).map((a, i) => (
+            <Link key={a?.id || `${kind}-${i}`} href={a ? `/albumai/${a.artistSlug ? `${a.artistSlug}-` : ''}${a.slug}-${a.id}` : '/albumai'} className="sh-mini sh-mini-xl sh-mini--meta">
+              <ImageBox src={a?.image} accent={accent} glyph={I.vinyl} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-1">{a?.title || <span style={{ opacity: 0.45 }}>Albumas</span>}</span>
+              {a?.artist ? <span className="sh-mini-meta">{a.artist}</span> : null}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
+  // Dainų juosta — agreguoti pagrindinių topų lyderiai (TopMini).
+  const songRow = (list: TopMini[], kind: 'lt' | 'world', label: string, href: string) => (
+    <div>
+      {head(label, href, true)}
+      <div className="sh-strip-wrap">
+        <RowStripe kind={kind} />
+        <div className="sh-strip">
+          {(list.length > 0 ? list : Array(6).fill(null)).map((e: TopMini | null, i: number) => (
+            <Link key={e?.trackSlug || `${kind}-${i}`} href={e?.trackSlug ? `/dainos/${e.trackSlug}` : href} className="sh-mini sh-mini-xl sh-mini--meta">
+              <ImageBox src={e?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-1">{e?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
+              {e?.artist ? <span className="sh-mini-meta">{e.artist}</span> : null}
             </Link>
           ))}
         </div>
@@ -403,49 +447,34 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
         )}
 
         {sec === 'albumai' && (
-          <div>
-            {head('Nauji albumai', '/albumai', 'trending')}
-            <div className="sh-strip-wrap">
-              <RowStripe kind="world" />
-              <div className="sh-strip">
-                {(albums.length > 0 ? albums : Array(6).fill(null)).map((a, i) => (
-                  <Link key={a?.id || `alb-${i}`} href={a ? `/albumai/${a.artistSlug ? `${a.artistSlug}-` : ''}${a.slug}-${a.id}` : '/albumai'} className="sh-mini sh-mini-xl">
-                    <ImageBox src={a?.image} accent={accent} glyph={I.vinyl} className="sh-mini-img" />
-                    <span className="sh-mini-title sh-mini-title-2">{a?.title || <span style={{ opacity: 0.45 }}>Albumas</span>}</span>
-                    {a?.artist ? <span className="sh-mini-meta">{a.artist}</span> : null}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
+          <>
+            {albumRow(albumsLt, 'lt', 'Lietuvos albumai', '/albumai')}
+            <div style={{ height: 14 }} />
+            {albumRow(albumsWorld, 'world', 'Užsienio albumai', '/albumai')}
+          </>
         )}
 
         {sec === 'dainos' && (
-          <div>
-            {head('Naujos dainos', '/dainos', 'trending')}
-            <div className="sh-strip-wrap">
-              <RowStripe kind="world" />
-              <div className="sh-strip">
-                {(tracks.length > 0 ? tracks : Array(6).fill(null)).map((t, i) => (
-                  <Link key={t?.id || `trk-${i}`} href={t ? `/dainos/${t.artistSlug}-${quickSlug(t.title)}-${t.id}` : '/dainos'} className="sh-mini sh-mini-xl">
-                    <ImageBox src={t?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
-                    <span className="sh-mini-title sh-mini-title-2">{t?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
-                    {t?.artist ? <span className="sh-mini-meta">{t.artist}</span> : null}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
+          <>
+            {songRow(top40, 'world', 'TOP 40', '/top40')}
+            {top30.filter(e => e?.image).length >= 3 && (
+              <>
+                <div style={{ height: 14 }} />
+                {songRow(top30, 'lt', 'LT TOP 30', '/top30')}
+              </>
+            )}
+          </>
         )}
 
         {sec === 'stiliai' && (
           <div>
             {head('Naršyk pagal stilių', '/zanrai')}
-            <div className="sh-chiprow sh-chiprow-fill">
-              {styles.map(s => (
-                <Link key={s.name} href={s.href} className="sh-navchip" title={s.name}>
-                  <span className="sh-navchip-dot" style={{ background: 'var(--text-faint)' }} aria-hidden />
-                  {s.name === 'Rimtoji muzika' ? 'Rimtoji' : s.short}
+            <div className="sh-vgrid sh-vgrid-4">
+              {styles.slice(0, 8).map(s => (
+                <Link key={s.name} href={s.href} className="sh-vcard" title={s.name}>
+                  <ImageBox src={genres[s.name]} accent={accent} glyph={I.equalizer} className="sh-vimg" />
+                  <span className="sh-vtitle">{s.name === 'Rimtoji muzika' ? 'Rimtoji' : s.short}</span>
+                  {gc[s.name] ? <span className="sh-vmeta">{gc[s.name]} atlikėjų</span> : null}
                 </Link>
               ))}
             </div>
@@ -454,17 +483,14 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
 
         {sec === 'radaras' && (
           <div>
-            {head('Naujos muzikos radaras', '/nauji-atlikejai', 'kylantys')}
-            <div className="sh-strip-wrap">
-              <RowStripe kind="radar" />
-              <div className="sh-strip">
-                {(radar.length > 0 ? radar : Array(6).fill(null)).map((a, i) => (
-                  <Link key={a?.id || `rad-${i}`} href={a ? `/atlikejai/${a.slug}` : '/nauji-atlikejai'} className="sh-mini sh-mini-xl">
-                    <ImageBox src={a?.image} accent="#22c55e" glyph={I.music} className="sh-mini-img" />
-                    <span className="sh-mini-title sh-mini-title-2">{a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}</span>
-                  </Link>
-                ))}
-              </div>
+            {head('Naujos muzikos radaras', '/nauji-atlikejai')}
+            <div className="sh-vgrid sh-vgrid-5">
+              {(radar.length > 0 ? radar : Array(10).fill(null)).slice(0, 10).map((a, i) => (
+                <Link key={a?.id || `rad-${i}`} href={a ? `/atlikejai/${a.slug}` : '/nauji-atlikejai'} className="sh-vcard" title={a?.name || ''}>
+                  <ImageBox src={a?.image} accent="#22c55e" glyph={I.music} className="sh-vimg" />
+                  <span className="sh-vtitle">{a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}</span>
+                </Link>
+              ))}
             </div>
           </div>
         )}
@@ -1579,7 +1605,44 @@ export function SiteHeader() {
           font-size: 13px; font-weight: 600; letter-spacing: -0.005em;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .sh-railbody { flex: 1; min-width: 0; padding: 16px 18px; min-height: 248px; }
+        /* Fiksuotas min-aukštis — kad perjungiant skiltis modalas neсокinetų.
+           Atlikėjų dvi juostos = aukščiausia sekcija; kitos prilygsta. */
+        .sh-railbody { flex: 1; min-width: 0; padding: 16px 18px; min-height: 356px; }
+
+        /* „Liepsna" = trending (be nelietuviško žodžio) sekcijų antraštėse. */
+        .sh-hot-ic { display: inline-flex; align-items: center; color: var(--accent-orange); }
+        .sh-hot-ic svg { width: 13px; height: 13px; }
+
+        /* Albumų/dainų kortelės su atlikėjo meta — 1-eilutės title, BE 34px
+           rezervo (anksčiau likdavo keistas tarpas tarp title ir atlikėjo). */
+        .sh-mini-title-1 { -webkit-line-clamp: 1; }
+        .sh-mini-xl.sh-mini--meta { gap: 4px; }
+        .sh-mini-xl.sh-mini--meta .sh-mini-title { min-height: 0; }
+
+        /* Vizualų grid — Stiliai (4 stulp.) ir Radaras (5 stulp.), 2 eilutės,
+           kad užpildytų erdvę ir nesiskirtų aukštis nuo juostų. */
+        .sh-vgrid { display: grid; gap: 10px; }
+        .sh-vgrid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .sh-vgrid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        .sh-vcard { display: flex; flex-direction: column; gap: 6px; text-decoration: none; min-width: 0; }
+        .sh-vimg {
+          position: relative; display: block; width: 100%; aspect-ratio: 16 / 11;
+          border-radius: 11px; overflow: hidden;
+          background-size: cover; background-position: center;
+          background-color: var(--bg-hover);
+          border: 0.5px solid var(--border-subtle);
+          transition: transform .22s ease;
+        }
+        .sh-vcard:hover .sh-vimg { transform: scale(1.03); }
+        .sh-vtitle {
+          font-family: 'Outfit', sans-serif; font-size: 12.5px; font-weight: 700;
+          color: var(--text-primary); line-height: 1.25;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sh-vmeta {
+          font-size: 10.5px; font-weight: 500; color: var(--text-muted);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -2px;
+        }
 
         /* LT vėliavos / world mėlynos juostelės indikatorius — homepage style:
            pritrauktas prie viršaus (align-self: flex-start), 38px aukščio */

@@ -13,7 +13,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { resolveDisplayWeek } from '@/lib/top-week'
 import { getNewsFeed } from '@/lib/news-feed'
-import { getGenreCounts } from '@/lib/muzika-hub'
+import { getGenreCounts, getTrendingArtists } from '@/lib/muzika-hub'
 import { getEmergingArtists, getFeaturedArtists } from '@/lib/radaras'
 import { formatPrice } from '@/lib/skelbimai'
 
@@ -59,37 +59,8 @@ export async function GET() {
   const supabase = createAdminClient()
 
   try {
-    const [artistsLtRes, artistsWorldRes, albumsRes, tracksRes, eventsRes, newsRes, genresRes, ltCountRes, worldCountRes] = await Promise.all([
+    const [tracksRes, eventsRes, newsRes, genresRes, ltCountRes, worldCountRes] = await Promise.all([
       // (genres pridėtas paskutinis — žr. apačioje)
-      // 12 LT atlikėjų pagal score (su scroll'u juostoje)
-      supabase
-        .from('artists')
-        .select('id, slug, name, country, cover_image_url')
-        .eq('country', 'Lietuva')
-        .not('score', 'is', null)
-        .order('score', { ascending: false, nullsFirst: false })
-        .limit(12),
-
-      // 12 užsienio atlikėjų — country != Lietuva ARBA null. Reikalaujam
-      // cover_image_url (kad nebūtų placeholder'iai), score nullable.
-      supabase
-        .from('artists')
-        .select('id, slug, name, country, cover_image_url, score')
-        .or('country.is.null,country.neq.Lietuva')
-        .not('cover_image_url', 'is', null)
-        .order('score', { ascending: false, nullsFirst: false })
-        .order('id', { ascending: false })
-        .limit(12),
-
-      // 12 naujausių albumų
-      supabase
-        .from('albums')
-        .select('id, slug, title, cover_image_url, year, artists!albums_artist_id_fkey(name, slug)')
-        .not('cover_image_url', 'is', null)
-        .order('year', { ascending: false, nullsFirst: false })
-        .order('month', { ascending: false, nullsFirst: false })
-        .limit(12),
-
       // 12 trending dainų
       supabase
         .from('tracks')
@@ -306,29 +277,43 @@ export async function GET() {
       }
     } catch { radarArtists = [] }
 
+    // ── Trending atlikėjai (charts → naujausi releases → score_trending) ──
+    // Pakeičia seną all-time `score` rikiavimą — nav rodo DABAR populiarius.
+    const [trLt, trWorld] = await Promise.all([
+      getTrendingArtists('lt', 12),
+      getTrendingArtists('world', 12),
+    ])
+    // Trending albumai = trending atlikėjų naujausi albumai (po 1 atlikėjui),
+    // ta pačia trending tvarka. Albumai DB neturi savo trending metrikos.
+    const trendingAlbums = async (artistIds: number[], limit: number) => {
+      if (!artistIds.length) return []
+      const { data } = await supabase
+        .from('albums')
+        .select('id, slug, title, cover_image_url, year, artist_id, artists!albums_artist_id_fkey(name, slug)')
+        .in('artist_id', artistIds)
+        .not('cover_image_url', 'is', null)
+        .eq('is_upcoming', false)
+        .order('year', { ascending: false, nullsFirst: false })
+      const byArtist = new Map<number, any>()
+      for (const r of (data || []) as any[]) if (!byArtist.has(r.artist_id)) byArtist.set(r.artist_id, r)
+      const out: any[] = []
+      for (const id of artistIds) { const a = byArtist.get(id); if (a) out.push(a); if (out.length >= limit) break }
+      return out
+    }
+    const [albLtRows, albWorldRows] = await Promise.all([
+      trendingAlbums(trLt.map(a => a.id), 10),
+      trendingAlbums(trWorld.map(a => a.id), 10),
+    ])
+    const mapNavArtist = (a: any) => ({ id: a.id, slug: a.slug, name: a.name, image: a.cover_image_url })
+    const mapNavAlbum  = (a: any) => ({ id: a.id, slug: a.slug, title: a.title, image: a.cover_image_url, year: a.year, artist: a.artists?.name || '', artistSlug: a.artists?.slug || '' })
+
     const payload = {
       radar: radarArtists,
-      artistsLt: (artistsLtRes.data || []).map((a: any) => ({
-        id: a.id,
-        slug: a.slug,
-        name: a.name,
-        image: a.cover_image_url,
-      })),
-      artistsWorld: (artistsWorldRes.data || []).map((a: any) => ({
-        id: a.id,
-        slug: a.slug,
-        name: a.name,
-        image: a.cover_image_url,
-      })),
-      albums: (albumsRes.data || []).map((a: any) => ({
-        id: a.id,
-        slug: a.slug,
-        title: a.title,
-        image: a.cover_image_url,
-        year: a.year,
-        artist: a.artists?.name || '',
-        artistSlug: a.artists?.slug || '',
-      })),
+      artistsLt:    trLt.map(mapNavArtist),
+      artistsWorld: trWorld.map(mapNavArtist),
+      albumsLt:     albLtRows.map(mapNavAlbum),
+      albumsWorld:  albWorldRows.map(mapNavAlbum),
+      albums:       [...albLtRows, ...albWorldRows].slice(0, 12).map(mapNavAlbum),
       tracks: (tracksRes.data || []).map((t: any) => ({
         id: t.id,
         title: t.title,
