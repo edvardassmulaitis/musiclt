@@ -93,7 +93,7 @@
   display: block;
   width: 4px;
   height: 30%;
-  background: #f97316;  /* music.lt brand orange */
+  background: var(--accent-orange);  /* music.lt brand orange */
   border-radius: 2px;
   animation: eq-bar 0.9s ease-in-out infinite alternate;
   opacity: 0.9;
@@ -118,7 +118,7 @@
   display: block;
   width: 6px;
   height: 30%;
-  background: #f97316;
+  background: var(--accent-orange);
   border-radius: 2px;
   animation: eq-bar 1.0s ease-in-out infinite alternate;
 }
@@ -344,12 +344,13 @@ select:focus-visible {
   /* Light mode: jokio pilko šešėlio po hero kortelėmis (Edvardo prašymu).
      Hover'iui paliekam labai švelnų pakilimą. */
   --hero-card-shadow:       none;
-  --hero-card-shadow-hover: 0 8px 24px rgba(15,23,42,0.10);
-  --bg-body:         #f0f4fa;
-  --bg-body-rgb:     240, 244, 250;
-  --bg-surface:      #ffffff;
-  --bg-surface-rgb:  255, 255, 255;
-  --bg-elevated:     #f8faff;
+  --hero-card-shadow-hover: 0 8px 24px rgba(28,22,14,0.10);
+  /* Šiltas off-white (2026-06-25): vietoj cool blue-gray. */
+  --bg-body:         #f4f2ef;
+  --bg-body-rgb:     244, 242, 239;
+  --bg-surface:      #fbfaf8;
+  --bg-surface-rgb:  251, 250, 248;
+  --bg-elevated:     #f7f5f1;
   --bg-hover:        rgba(0,0,0,0.03);
   --bg-active:       rgba(0,0,0,0.05);
 
@@ -370,7 +371,7 @@ select:focus-visible {
   --accent-red:      #dc2626;
 
   /* Modals & overlays */
-  --modal-bg:        #ffffff;
+  --modal-bg:        #fbfaf8;
   --modal-border:    rgba(0,0,0,0.12);
   --modal-shadow:    0 8px 32px rgba(0,0,0,0.15);
   --overlay-bg:      rgba(0,0,0,0.4);
@@ -381,7 +382,7 @@ select:focus-visible {
 
   /* Player placeholder light mode override — soft blue-gray gradient su
      subtle orange tint, kad neatrodytų kaip svetimkūnis tamsus stačiakampis. */
-  --player-placeholder-bg: linear-gradient(135deg, #e8eef7 0%, #dde6f3 50%, #d3deee 100%);
+  --player-placeholder-bg: linear-gradient(135deg, #efece6 0%, #e7e2da 50%, #ddd6cb 100%);
 
   /* Inputs & forms */
   --input-bg:        rgba(0,0,0,0.04);
@@ -398,16 +399,16 @@ select:focus-visible {
   --editor-heading:      #111827;
   --editor-placeholder:  #9ca3af;
   --editor-blockquote:   #e5e7eb;
-  --editor-toolbox-bg:   #ffffff;
+  --editor-toolbox-bg:   #fbfaf8;
   --editor-toolbox-text: #374151;
-  --editor-toolbox-hover: #f3f4f6;
+  --editor-toolbox-hover: #f1efe9;
   --editor-selected-bg:  #eff6ff;
-  --editor-popup-bg:     #ffffff;
+  --editor-popup-bg:     #fbfaf8;
   --editor-popup-border: #e5e7eb;
   --editor-popup-shadow: 0 8px 24px rgba(0,0,0,0.12);
 
   /* Admin-specific */
-  --admin-toolbar-bg:     #f9fafb;
+  --admin-toolbar-bg:     #f6f4f0;
   --admin-toolbar-border: rgba(0,0,0,0.06);
 
   /* Status colors */
@@ -427,15 +428,15 @@ select:focus-visible {
   --homepage-skeleton-bg: rgba(0,0,0,0.06);
 
   /* Homepage hero gradients */
-  --homepage-hero-gradient: #f0f4fa;
-  --homepage-hero-overlay: linear-gradient(to right, rgba(240,244,250,1) 0%, rgba(240,244,250,0.2) 35%, rgba(240,244,250,0.05) 55%, transparent 70%, rgba(240,244,250,0.15) 82%, rgba(240,244,250,0.7) 94%, rgba(240,244,250,1) 100%), linear-gradient(to top, rgba(240,244,250,0.5) 0%, transparent 30%);
+  --homepage-hero-gradient: #f4f2ef;
+  --homepage-hero-overlay: linear-gradient(to right, rgba(244,242,239,1) 0%, rgba(244,242,239,0.2) 35%, rgba(244,242,239,0.05) 55%, transparent 70%, rgba(244,242,239,0.15) 82%, rgba(244,242,239,0.7) 94%, rgba(244,242,239,1) 100%), linear-gradient(to top, rgba(244,242,239,0.5) 0%, transparent 30%);
 
   /* Homepage position badges */
   --homepage-pos-accent: #ea6c0a;
 
   /* Hero & artist profile specific */
-  --hero-gradient-v: linear-gradient(to top, #f0f4fa 0%, rgba(240,244,250,.85) 30%, rgba(240,244,250,.4) 60%, rgba(240,244,250,.2) 100%);
-  --hero-gradient-h: linear-gradient(to right, rgba(240,244,250,.7) 0%, transparent 50%);
+  --hero-gradient-v: linear-gradient(to top, #f4f2ef 0%, rgba(244,242,239,.85) 30%, rgba(244,242,239,.4) 60%, rgba(244,242,239,.2) 100%);
+  --hero-gradient-h: linear-gradient(to right, rgba(244,242,239,.7) 0%, transparent 50%);
   --hero-name: #0f1a2e;
   --hero-tag-text: rgba(15,26,46,.7);
   --hero-tag-bg: rgba(0,0,0,.06);
@@ -447,14 +448,14 @@ select:focus-visible {
 
   /* Artist profile specific colors */
   --player-bg: rgba(0,0,0,.04);
-  --cover-placeholder: #e0e8f2;
+  --cover-placeholder: #e8e2d8;
   --playlist-active-bg: rgba(249,115,22,.08);
-  --section-label: #bbc8d8;
+  --section-label: #c4bcae;
   --section-line: rgba(0,0,0,.08);
 
   /* Album & track page */
-  --track-link-color: #c0d0e0;
-  --popup-bg: #dde6f2;
+  --track-link-color: #c7c0b2;
+  --popup-bg: #e9e3da;
   --popup-fill: #f97316;
   --dyk-bg: #fff8f2;
   --dyk-border: rgba(249,115,22,.25);
@@ -468,7 +469,7 @@ select:focus-visible {
   --link-btn-bg: rgba(0,0,0,.06);
   --link-btn-border: rgba(0,0,0,.12);
   --link-btn-text: #3a5a80;
-  --cover-area-bg: #f0f5ff;
+  --cover-area-bg: #f4f1ea;
   --comment-quote: #8899bb;
   --comment-author: #a0b4cc;
   --sub-border: rgba(0,0,0,.07);
@@ -476,8 +477,8 @@ select:focus-visible {
   --lyric-mark: rgba(249,115,22,.16);
   --chord-bg: rgba(249,115,22,.08);
   --chord-text: #ea6a00;
-  --panel-bg: #ffffff;
-  --card-surface: #ffffff;
+  --panel-bg: #fbfaf8;
+  --card-surface: #fbfaf8;
   --card-border-default: rgba(0,0,0,.08);
   --card-border-subtle: rgba(0,0,0,.07);
   --card-hover-bg: rgba(0,0,0,.03);
@@ -534,6 +535,26 @@ html, body {
   --section-title-size:     19px;
   --section-title-weight:   800;
   --section-title-tracking: -0.02em;
+
+  /* ── Radius skalė ──
+     Vienas šaltinis kampų suapvalinimui. Sutraukia esamus dublikatus
+     (10/12/14px, pill 100px vs 999px). Vertes keisk TIK čia. */
+  --radius-xs:    6px;
+  --radius-sm:    8px;
+  --radius-md:    10px;
+  --radius-lg:    12px;
+  --radius-xl:    14px;
+  --radius-2xl:   16px;
+  --radius-pill:  999px;   /* visi pill'ai: 100px + 999px → vienas */
+
+  /* ── Tipografijos skalė ── atitinka jau naudojamus dydžius. */
+  --fs-xs:    11.5px;
+  --fs-sm:    13px;
+  --fs-base:  14px;
+  --fs-md:    16px;
+  --fs-lg:    19px;
+  --lh-tight: 1.2;
+  --lh-base:  1.55;
 }
 
 /* Turinio konteineris — centruotas, kanoninio pločio, vienodos paraštės. */
