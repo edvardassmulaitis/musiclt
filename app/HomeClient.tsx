@@ -556,7 +556,17 @@ const REELS_DURATION = 13000
 /** Pilno news straipsnio body cache — modulio lygyje, kad keičiant slide'us
  *  nereiktų perkrauti to paties straipsnio iš naujo. */
 const newsBodyCache = new Map<number, string>()
-const blogBodyCache = new Map<string, string>()
+const blogPostCache = new Map<string, any>()
+
+/** Legacy blog turinio valymas reader'iui: nukerpa scraper'io „mėgstamų" lentelės
+ *  šlamštą gale, pašalina klaidingus </img>, santykinius music.lt kelius → absoliučius. */
+function cleanBlogHtml(html?: string | null): string {
+  let s = String(html || '')
+  s = s.replace(/<table[\s\S]*$/i, '')                 // legacy favorite_a lentelė + šlamštas gale
+  s = s.replace(/<\/img>/gi, '')                         // klaidingi uždarymo tag'ai
+  s = s.replace(/(src|href)="(?!https?:|\/\/|\/|#|data:|mailto:|javascript:)/gi, '$1="https://www.music.lt/')
+  return s.trim()
+}
 
 /** Viena istorija reader'yje. Pati valdo savo VERTIKALŲ scroll'ą (pauzina
  *  auto-advance kai nuscrollinta žemyn — „skaitymo režimas"), video iframe'o
@@ -716,9 +726,12 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
   const [curVideoId, setCurVideoId] = useState<string | null>(slide.videoId || null)
   const [mini, setMini] = useState(false)
   const [body, setBody] = useState<string | null>(
-    slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null) || (slide.blogId ? blogBodyCache.get(slide.blogId) || null : null)
+    slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null)
   )
   const [bodyLoading, setBodyLoading] = useState(false)
+  const [blogTopas, setBlogTopas] = useState<any[] | null>(null)
+  const [blogIntro, setBlogIntro] = useState<string | null>(null)
+  const [blogOutro, setBlogOutro] = useState<string | null>(null)
   const [liked, setLiked] = useState(false)
   const [likeBusy, setLikeBusy] = useState(false)
 
@@ -726,6 +739,7 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
   const isDaily = slide.type === 'daily'
   const isNews = slide.type === 'news'
   const isRecording = slide.type === 'recording'
+  const isBlog = slide.type === 'blog'
   const hasVideo = !!slide.videoId
 
   /* Išeinant iš kortelės — sustabdom video, grįžtam į viršų. JOKIO auto-play. */
@@ -757,16 +771,26 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
       .finally(() => setBodyLoading(false))
   }, [active, slide.newsId]) // eslint-disable-line
 
-  /* Bendruomenės įrašo (blog) pilno turinio lazy-fetch — kaip naujienų. */
+  /* Bendruomenės įrašo (blog) pilno turinio lazy-fetch. Topas → struktūruotas
+   *  sąrašas (kaip įrašo psl.), kiti → išvalytas content HTML. */
   useEffect(() => {
-    if (!active || !slide.blogId || body || bodyLoading) return
+    if (!active || !slide.blogId) return
+    if (body || blogTopas) return
+    const apply = (d: any) => {
+      if (d?.post_type === 'topas' && Array.isArray(d.list_items) && d.list_items.length) {
+        setBlogTopas(d.list_items)
+        setBlogIntro(d.topas_meta?.intro ? cleanBlogHtml(d.topas_meta.intro) : null)
+        setBlogOutro(d.topas_meta?.outro ? cleanBlogHtml(d.topas_meta.outro) : null)
+      } else if (d?.content) {
+        setBody(cleanBlogHtml(d.content))
+      }
+    }
+    const cached = blogPostCache.get(slide.blogId)
+    if (cached) { apply(cached); return }
     setBodyLoading(true)
     fetch(`/api/blog/posts/${slide.blogId}`)
       .then(r => r.json())
-      .then(d => {
-        const html: string = d?.content || ''
-        if (html) { blogBodyCache.set(slide.blogId!, html); setBody(html) }
-      })
+      .then(d => { if (d && !d.error) { blogPostCache.set(slide.blogId!, d); apply(d) } })
       .catch(() => {})
       .finally(() => setBodyLoading(false))
   }, [active, slide.blogId]) // eslint-disable-line
@@ -893,6 +917,25 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
           ) : null
         ) : isDaily ? (
           active ? <DailyCandidates onPlay={play} /> : (slide.excerpt ? <p className="rdr-excerpt">{slide.excerpt}</p> : null)
+        ) : (isBlog && blogTopas && blogTopas.length) ? (
+          <div className="rdr-toplist-wrap">
+            {blogIntro && <div className="rdr-html" dangerouslySetInnerHTML={{ __html: blogIntro }} />}
+            <div className="rdr-toplist">
+              {blogTopas.map((it: any, idx: number) => (
+                <div key={idx} className="rdr-top-item">
+                  <span className="rdr-top-rank">{it.rank ?? idx + 1}</span>
+                  {it.image_url
+                    ? <img className="rdr-top-cover" src={proxyImg(it.image_url)} alt="" loading="lazy" />
+                    : <span className="rdr-top-cover rdr-top-ph" />}
+                  <div className="rdr-top-info">
+                    <p className="rdr-top-title">{it.title}{it.artist ? <span className="rdr-top-artist"> — {it.artist}</span> : null}</p>
+                    {it.comment && <p className="rdr-top-comment">{it.comment}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {blogOutro && <div className="rdr-html rdr-outro" dangerouslySetInnerHTML={{ __html: blogOutro }} />}
+          </div>
         ) : body ? (
           <div className="rdr-html" dangerouslySetInnerHTML={{ __html: body }} />
         ) : bodyLoading ? (
@@ -3188,6 +3231,19 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-html iframe{max-width:100%;border-radius:12px;margin:12px 0}
         .rdr-html ul,.rdr-html ol{padding-left:20px;margin:0 0 14px}
         .rdr-html blockquote{border-left:3px solid #f97316;padding-left:14px;margin:0 0 14px;color:rgba(255,255,255,0.7);font-style:italic}
+        .rdr-toplist-wrap .rdr-html{margin-bottom:14px}
+        .rdr-toplist{display:flex;flex-direction:column;gap:15px;margin:4px 0}
+        .rdr-top-item{display:flex;gap:11px;align-items:flex-start}
+        .rdr-top-rank{flex-shrink:0;width:26px;height:26px;border-radius:8px;background:rgba(249,115,22,0.22);color:#fb923c;font-family:'Outfit',sans-serif;font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+        .rdr-top-cover{flex-shrink:0;width:56px;height:56px;border-radius:10px;object-fit:cover;display:block}
+        .rdr-top-ph{background:rgba(255,255,255,0.08)}
+        .rdr-top-info{min-width:0;flex:1}
+        .rdr-top-title{margin:0;font-family:'Outfit',sans-serif;font-weight:800;font-size:14.5px;color:#fff;line-height:1.25}
+        .rdr-top-artist{font-weight:600;color:rgba(255,255,255,0.62)}
+        .rdr-top-comment{margin:5px 0 0;font-size:13px;line-height:1.5;color:rgba(255,255,255,0.72)}
+        .rdr-outro{margin-top:20px}
+        .rdr-outro a{display:flex;align-items:center;gap:9px;color:#fff;text-decoration:none;margin:0 0 9px;font-size:13.5px}
+        .rdr-outro .bp-enrich-thumb{width:38px;height:38px;border-radius:8px;object-fit:cover;margin:0;flex-shrink:0}
         .rdr-author{font-size:13px;font-weight:700;color:rgba(255,255,255,0.6);margin:14px 0 0}
         .rdr-load{display:flex;flex-direction:column;gap:10px;margin-top:4px}
         .rdr-load span{height:13px;border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,0.06),rgba(255,255,255,0.13),rgba(255,255,255,0.06));background-size:200% 100%;animation:rdr-sk 1.2s infinite}
