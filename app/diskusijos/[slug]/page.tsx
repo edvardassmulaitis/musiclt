@@ -260,10 +260,10 @@ export default async function DiscussionPage({ params }: Props) {
   const sectionHref = isNewsThread ? '/naujienos' : '/diskusijos'
 
   return (
-    <div style={{ background: '#080d14', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg-body)', minHeight: '100vh' }}>
       <div className="mx-auto px-5 py-8" style={{ maxWidth: 1200 }}>
         <div className="mb-5 text-sm">
-          <Link href={sectionHref} className="text-gray-500 hover:text-white transition-colors">
+          <Link href={sectionHref} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
             ← {sectionLabel}
           </Link>
         </div>
@@ -286,19 +286,19 @@ export default async function DiscussionPage({ params }: Props) {
               </div>
             )}
 
-            <h1 className="mb-2 text-3xl font-black leading-tight text-white">
-              {discussion.is_locked && <span className="mr-2 text-gray-600">🔒</span>}
-              {discussion.is_pinned && <span className="mr-2 text-orange-400">📌</span>}
+            <h1 className="mb-2 text-3xl font-black leading-tight text-[var(--text-primary)]">
+              {discussion.is_locked && <span className="mr-2 text-[var(--text-faint)]">🔒</span>}
+              {discussion.is_pinned && <span className="mr-2 text-[var(--accent-orange)]">📌</span>}
               {prettifyDiscussionTitle(discussion.title, slug)}
             </h1>
 
-            <div className="mb-6 flex items-center gap-2 text-xs text-gray-500">
+            <div className="mb-6 flex items-center gap-2 text-xs text-[var(--text-muted)]">
               {/* Legacy migrated content neturi user — neperrodom "Vartotojas".
                   Modern user-created — rodom author_name. */}
               {!isLegacy && (
                 <>
-                  <span className="font-semibold text-gray-400">{discussion.author_name || 'Vartotojas'}</span>
-                  <span className="text-gray-700">·</span>
+                  <span className="font-semibold text-[var(--text-secondary)]">{discussion.author_name || 'Vartotojas'}</span>
+                  <span className="text-[var(--text-faint)]">·</span>
                 </>
               )}
               {/* Pirma fallback'inam į first_post_at (originali published data
@@ -309,21 +309,21 @@ export default async function DiscussionPage({ params }: Props) {
 
             {bodyIsMeaningful(discussion) && (
               <div
-                className="forum-html mb-8 text-sm leading-relaxed text-gray-300"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1.5rem' }}
+                className="forum-html mb-8 text-sm leading-relaxed text-[var(--text-secondary)]"
+                style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1.5rem' }}
                 dangerouslySetInnerHTML={{ __html: discussion.body }}
               />
             )}
             {/* Susiję atlikėjai — discussions.artist_id (legacy news threads
                 visada turi vieną artist'ą; ateity galim plėsti į m2m). */}
             {discussion.artist && (
-              <div className="mb-8 rounded-lg border border-white/10 bg-white/[0.02] p-4">
-                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+              <div className="mb-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   Susiję atlikėjai
                 </div>
                 <Link
                   href={`/atlikejai/${discussion.artist.slug}`}
-                  className="inline-flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-white/5"
+                  className="inline-flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-[var(--bg-hover)]"
                 >
                   {discussion.artist.cover_image_url && (
                     <img
@@ -332,7 +332,7 @@ export default async function DiscussionPage({ params }: Props) {
                       className="h-12 w-12 rounded-full object-cover"
                     />
                   )}
-                  <span className="font-bold text-white">{discussion.artist.name}</span>
+                  <span className="font-bold text-[var(--text-primary)]">{discussion.artist.name}</span>
                 </Link>
               </div>
             )}
@@ -343,7 +343,7 @@ export default async function DiscussionPage({ params }: Props) {
               .forum-html img { max-width: 100%; height: auto; margin: 0.5em 0; border-radius: 4px; }
               .forum-html a { color: var(--accent-orange); text-decoration: none; }
               .forum-html a:hover { text-decoration: underline; }
-              .forum-html b, .forum-html strong { color: #fff; }
+              .forum-html b, .forum-html strong { color: var(--text-primary); }
             ` }} />
 
             <EntityCommentsBlock
