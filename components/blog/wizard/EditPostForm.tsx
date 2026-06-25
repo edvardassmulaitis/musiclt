@@ -15,6 +15,7 @@ import { TranslationField, type TranslationTarget } from '@/components/blog/Tran
 import { EventTargetField, type EventTarget } from '@/components/blog/EventTargetField'
 import { ListEditorField, type ListItem } from '@/components/blog/ListEditorField'
 import type { BlogPostType } from '@/components/blog/post-types'
+import { cleanLegacyBlogHtml } from '@/lib/blog-html-clean'
 
 type LoadedPost = {
   title?: string
@@ -52,7 +53,9 @@ export function EditPostForm({ editId }: { editId: string }) {
   useEffect(() => {
     fetch(`/api/blog/posts/${editId}`).then(r => r.json()).then((p: LoadedPost) => {
       setTitle(p.title || '')
-      setContent(p.content || '')
+      // Nuvalom seną legacy „šiukšlinį" turinį (favorite-widget, javascript:
+      // nuorodos, sulūžę thumb'ai), kad redaktoriuje nebūtų [?] ir mirusių mygtukų.
+      setContent(cleanLegacyBlogHtml(p.content || ''))
       setCoverUrl(p.cover_image_url || '')
       setPostType((p.post_type as BlogPostType) || 'article')
       setRating(p.rating ?? null)
@@ -118,7 +121,10 @@ export function EditPostForm({ editId }: { editId: string }) {
         />
       </div>
 
-      <BlogEditor value={content} onChange={setContent} />
+      <div className="mb-4">
+        <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Tekstas</label>
+        <BlogEditor value={content} onChange={setContent} />
+      </div>
 
       <div className="mt-6">
         <ImageUploadField value={coverUrl} onChange={setCoverUrl} label="Antraštės nuotrauka" />

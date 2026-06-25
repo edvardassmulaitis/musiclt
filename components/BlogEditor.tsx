@@ -50,20 +50,20 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
     <div>
       {/* Subtle hint above editor */}
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[10px]" style={{ color: '#5e7290' }}>
+        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
           Įklijuok YouTube / Spotify nuorodą — auto-embed. Numesk nuotrauką — auto-upload.
         </p>
         <button
           type="button"
           onClick={() => setShowMusicModal(true)}
-          className="px-2.5 py-1 rounded-md text-[10px] font-bold transition"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#8aa8cc' }}
+          className="px-2.5 py-1 rounded-md text-[10px] font-bold transition hover:brightness-110"
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', color: 'var(--accent-orange)' }}
         >
           + music.lt
         </button>
       </div>
 
-      <div className="blog-editor-dark">
+      <div className="blog-editor-themed">
         <RichTextEditor
           value={value}
           onChange={onChange}
@@ -90,27 +90,32 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
         document.body
       )}
 
+      {/* Tema per CSS kintamuosius — redaktorius prisitaiko prie light/dark
+          (anksčiau buvo hard-coded dark → light fone tekstas atrodė išblukęs). */}
       <style jsx global>{`
-        .blog-editor-dark .border-gray-200 { border-color: rgba(255,255,255,0.08) !important; }
-        .blog-editor-dark .bg-white { background: rgba(255,255,255,0.02) !important; }
-        .blog-editor-dark .bg-gray-50 { background: rgba(255,255,255,0.03) !important; }
-        .blog-editor-dark .border-gray-100 { border-color: rgba(255,255,255,0.06) !important; }
-        .blog-editor-dark .text-gray-500 { color: #5e7290 !important; }
-        .blog-editor-dark .text-gray-800 { color: #c8d8f0 !important; }
-        .blog-editor-dark .text-gray-300 { color: #334058 !important; }
-        .blog-editor-dark .hover\\:bg-gray-100:hover { background: rgba(255,255,255,0.06) !important; }
-        .blog-editor-dark .hover\\:text-gray-800:hover { color: #c8d8f0 !important; }
-        .blog-editor-dark .bg-blue-100 { background: rgba(29,78,216,0.2) !important; }
-        .blog-editor-dark .text-blue-700 { color: #60a5fa !important; }
-        .blog-editor-dark .prose { color: #b0bdd4 !important; }
-        .blog-editor-dark .prose h2 { color: #f2f4f8 !important; }
-        .blog-editor-dark .prose h3 { color: #dde8f8 !important; }
-        .blog-editor-dark .ProseMirror { color: #b0bdd4; min-height: 280px; }
-        .blog-editor-dark .ProseMirror p.is-editor-empty:first-child::before { color: rgba(255,255,255,0.15) !important; }
-        .blog-editor-dark .ProseMirror blockquote { border-left-color: rgba(249,115,22,0.5); color: rgba(200,215,240,0.55); }
-        .blog-editor-dark .ProseMirror img { border-radius: 10px; margin: 16px 0; max-width: 100%; }
-        .blog-editor-dark .ProseMirror iframe { border-radius: 10px; margin: 20px 0; }
-        .blog-editor-dark .w-px.bg-gray-200 { background: rgba(255,255,255,0.08) !important; }
+        .blog-editor-themed .border-gray-200 { border-color: var(--border-subtle) !important; }
+        .blog-editor-themed .bg-white { background: var(--bg-surface) !important; }
+        .blog-editor-themed .bg-gray-50 { background: var(--bg-elevated) !important; }
+        .blog-editor-themed .border-gray-100 { border-color: var(--border-subtle) !important; }
+        .blog-editor-themed .text-gray-500 { color: var(--text-muted) !important; }
+        .blog-editor-themed .text-gray-800 { color: var(--text-primary) !important; }
+        .blog-editor-themed .text-gray-300 { color: var(--text-faint) !important; }
+        .blog-editor-themed .hover\\:bg-gray-100:hover { background: var(--bg-hover) !important; }
+        .blog-editor-themed .hover\\:text-gray-800:hover { color: var(--text-primary) !important; }
+        .blog-editor-themed .bg-blue-100 { background: rgba(249,115,22,0.14) !important; }
+        .blog-editor-themed .text-blue-700 { color: var(--accent-orange) !important; }
+        .blog-editor-themed .prose { color: var(--text-primary) !important; }
+        .blog-editor-themed .prose h2 { color: var(--text-primary) !important; }
+        .blog-editor-themed .prose h3 { color: var(--text-primary) !important; }
+        .blog-editor-themed .ProseMirror { color: var(--text-primary); min-height: 280px; font-size: 16px; line-height: 1.7; }
+        .blog-editor-themed .ProseMirror p { color: var(--text-primary); }
+        .blog-editor-themed .ProseMirror strong { color: var(--text-primary); font-weight: 700; }
+        .blog-editor-themed .ProseMirror a { color: var(--accent-orange); }
+        .blog-editor-themed .ProseMirror p.is-editor-empty:first-child::before { color: var(--text-faint) !important; }
+        .blog-editor-themed .ProseMirror blockquote { border-left-color: rgba(249,115,22,0.5); color: var(--text-muted); }
+        .blog-editor-themed .ProseMirror img { border-radius: 10px; margin: 16px 0; max-width: 100%; }
+        .blog-editor-themed .ProseMirror iframe { border-radius: 10px; margin: 20px 0; }
+        .blog-editor-themed .w-px.bg-gray-200 { background: var(--border-subtle) !important; }
       `}</style>
     </div>
   )
