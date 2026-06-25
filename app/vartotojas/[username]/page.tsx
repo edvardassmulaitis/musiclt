@@ -92,9 +92,10 @@ export default async function UserProfilePage({ params }: Props) {
     getMoodSongTrack(profile.mood_song_track_id ?? null),
     // Nuotaikos dainos top 20 — grotuvui profilyje.
     getProfileMoodSongs(profile.id, 20),
-    // V18o: 400 — daugiau mėnesių istorijos feed'e (klasteriai pagal mėnesį,
-    // iki 24 mėn.). Anksčiau 180 rodė tik ~pusmetį.
-    getDailySongPicks(profile.id, 400),
+    // V18o: 400 → V19 (2026-06-25) 150 — payload optimizacija. 400 įrašų su
+    // join'intais tracks rakdavo ~771KB HTML. Feed'as grupuoja klasteriais pagal
+    // mėnesį (preview 6/mėn., likę modale); 150 vis tiek dengia kelis mėnesius.
+    getDailySongPicks(profile.id, 150),
     getUserTranslations(profile.id, 12),
     getUserRecentComments(profile.username, 10),
   ])
