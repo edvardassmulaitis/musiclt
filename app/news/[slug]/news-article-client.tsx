@@ -153,7 +153,6 @@ function NewsLikeButton({ newsId }: { newsId: number }) {
         <svg width="15" height="15" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
-        Patinka
         {count > 0 && (
           <span onClick={e => { e.stopPropagation(); setModalOpen(true) }} className="na-act-count" title="Pamatyti kas paspaudė">
             {count}
@@ -481,15 +480,15 @@ export default function NewsArticleClient({
           overflow:hidden; background:#080d14;
           display:flex; align-items:flex-end;
         }
-        /* Foto per VISĄ hero plotį (full-bleed cover) — didelė ir ryški.
-           Blur fill lieka kaip atsarga portretinėms nuotraukoms; gradientai
-           kairėje+apačioje tamsina, kad pavadinimas liktų įskaitomas. */
-        .na-hero-photo { position:absolute; inset:0; width:100%; overflow:hidden; }
+        /* Foto dešinėje — VISO AUKŠČIO (object-contain), be kokybės praradimo /
+           nukirpimo. object-position:center → foto centruota savo dėžėje, tad
+           NEprilipusi prie krašto; blur fill sklandžiai užpildo šonus. */
+        .na-hero-photo { position:absolute; inset-block:0; right:0; left:auto; width:60%; overflow:hidden; }
         .na-hero-blur  { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(46px) saturate(1.1) brightness(0.55); transform:scale(1.2); }
-        .na-hero-img   { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 28%; filter:saturate(1.04) contrast(1.02); }
-        /* Kairės + apačios tamsinimas teksto įskaitomumui (foto dešinėje lieka ryški) */
-        .na-hero-fade-l { position:absolute; inset:0; background:linear-gradient(to right, #080d14 0%, rgba(8,13,20,0.62) 38%, rgba(8,13,20,0.08) 100%); pointer-events:none; }
-        .na-hero-fade-b { position:absolute; inset:0; background:linear-gradient(to top, #080d14 0%, rgba(8,13,20,0.55) 24%, transparent 58%); pointer-events:none; }
+        .na-hero-img   { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:center center; filter:saturate(1.04) contrast(1.02); }
+        /* Siaura kairio krašto blend juosta — foto įsilieja į tamsų teksto foną */
+        .na-hero-fade-l { position:absolute; inset:0; background:linear-gradient(to right, #080d14 0%, rgba(8,13,20,0.5) 16%, transparent 38%); pointer-events:none; }
+        .na-hero-fade-b { position:absolute; inset:0; background:linear-gradient(to top, rgba(8,13,20,0.5) 0%, transparent 20%); pointer-events:none; }
         .na-hero-noimg  { position:absolute; inset:0; background:linear-gradient(135deg,#0d1420 0%,#111826 100%); }
         .na-hero-noimg::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.12) 0%, transparent 55%); }
 
@@ -599,7 +598,7 @@ export default function NewsArticleClient({
         @media(max-width:860px){
           .na-hero { height:auto; min-height:auto; max-height:none; flex-direction:column; align-items:stretch; }
           .na-hero-photo { position:relative; width:100%; height:230px; }
-          .na-hero-img { object-position:center 28%; }
+          .na-hero-img { object-position:center center; }
           .na-hero-fade-l { background:linear-gradient(to top, #080d14 4%, transparent 70%); }
           .na-hero-fade-b { display:none; }
           .na-hero-wrap { background:#080d14; padding:18px 20px 26px; max-width:100%; }
@@ -685,4 +684,4 @@ export default function NewsArticleClient({
 }
 
 
-// redeploy: 20260625T095808Z
+// redeploy: 20260625T100914Z
