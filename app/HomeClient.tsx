@@ -724,12 +724,10 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   onNavLink: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const vwrapRef = useRef<HTMLDivElement>(null)
   const ytRef = useRef<ReelsYtHandle>(null)
   const [armed, setArmed] = useState(false)
   const [videoOn, setVideoOn] = useState(false)
   const [curVideoId, setCurVideoId] = useState<string | null>(slide.videoId || null)
-  const [mini, setMini] = useState(false)
   const [body, setBody] = useState<string | null>(
     slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null)
   )
@@ -751,7 +749,6 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   useEffect(() => {
     if (!active) {
       setVideoOn(false)
-      setMini(false)
       setCurVideoId(slide.videoId || null)
       ytRef.current?.stop()
       if (scrollRef.current) scrollRef.current.scrollTop = 0
@@ -771,7 +768,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
    *  videoOn → tap'o metu ytRef dar nebuvo. Šis efektas paleidžia po mount'o
    *  (ReelsYtPlayer pats laukia, kol player'is READY). */
   useEffect(() => {
-    if (active && videoOn && curVideoId) ytRef.current?.play(curVideoId)
+    if (active && videoOn && curVideoId && !hasVideo) ytRef.current?.play(curVideoId)
   }, [videoOn, curVideoId, active]) // eslint-disable-line
 
   /* Pranešam tėvui apie grojimą (groja → auto-advance stoja). */
@@ -821,7 +818,6 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     const el = scrollRef.current
     if (!el) return
     const top = el.scrollTop
-    setMini(videoOn && top > 36)
     onScrolledChange(top > 4)
   }
 
@@ -833,9 +829,8 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     if (!id) return
     setCurVideoId(id)
     setVideoOn(true)
-    setMini((scrollRef.current?.scrollTop || 0) > 36)
-    // Grojimą paleidžiam SINKRONIŠKAI tapo handler'yje ant jau PARUOŠTO (cued) YT
-    // player'io (kaip atlikėjo psl.) → groja 1 tapu su garsu, ir grįžus po braukimo.
+    // Grojimą paleidžiam SINKRONIŠKAI tapo handler'yje ant PARUOŠTO (cued) YT player'io
+    // → groja 1 tapu su garsu, ir grįžus po braukimo (loadVideoById priverstinis reload).
     ytRef.current?.play(id)
   }
 
@@ -864,26 +859,22 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
       {/* Grotuvo konteineris — visada kai kortelė aktyvi (iframe įdedamas imperatyviai
           paspaudimo metu). Paslėptas kol negroja. */}
       {(hasVideo || videoOn) ? (
-        <div
-          ref={vwrapRef}
-          className={`rdr-vwrap${mini ? ' mini' : ''}`}
-          onClick={mini ? () => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) : undefined}
-        >
+        <div className="rdr-media rdr-media-video">
           {/* YT player'is lieka primontuotas kai kortelė bent kartą buvo aktyvi
               (NEnaikinam perjungiant — destroy+recreate YT API flaky → grįžus negrotų). */}
           {(active || armed) && <ReelsYtPlayer ref={ytRef} videoId={curVideoId} />}
+          {/* Posteris = DIV (NE button) → braukimas į šoną veikia ant nuotraukos;
+              groja tik mažas ▶ mygtukas. */}
           {!videoOn && (
-            <button className="rdr-poster" onClick={(e) => { e.stopPropagation(); play() }} aria-label="Groti">
+            <div className="rdr-poster-layer">
               {slide.bgImg
                 ? <><span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImg(slide.bgImg)})` }} /><img className="rdr-poster-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} /></>
                 : <span className="rdr-poster-ph" />}
-              <span className="rdr-playbtn" aria-hidden="true">
+              <div className="rdr-media-fade" />
+              <button className="rdr-playbtn" onClick={(e) => { e.stopPropagation(); play() }} aria-label="Groti">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
-              </span>
-            </button>
-          )}
-          {mini && videoOn && (
-            <button className="rdr-vclose" onClick={(e) => { e.stopPropagation(); setVideoOn(false); ytRef.current?.stop() }} aria-label="Uždaryti grotuvą">✕</button>
+              </button>
+            </div>
           )}
         </div>
       ) : showMedia && !videoOn ? (
@@ -907,7 +898,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
       {/* ── Tekstinė dalis ── */}
       <div className="rdr-content">
         <div className="rdr-head">
-          <span className="rdr-chip" style={{ background: seen ? 'rgba(255,255,255,0.16)' : slide.chipBg }}>{slide.chip}</span>
+          <span className="rdr-chip" style={{ background: seen ? (dk ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.12)') : slide.chipBg, color: seen && !dk ? 'var(--text-primary)' : '#fff' }}>{slide.chip}</span>
           {place && <span className="rdr-date">{place}</span>}
         </div>
         {isRecording
@@ -1100,7 +1091,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     // Jei lietimas prasideda ant interaktyvaus elemento (play, balsavimas, nuoroda,
     // grotuvas) — NEperimam gesto, kad mygtukas tikrai suveiktų iš pirmo karto.
     const t = e.target as HTMLElement
-    ignoreGesture.current = !!(t && t.closest && t.closest('button, a, iframe, input, textarea, .rdr-actions, .rdr-vwrap'))
+    ignoreGesture.current = !!(t && t.closest && t.closest('button, a, iframe, input, textarea, .rdr-actions'))
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     gestureDir.current = null
@@ -3238,6 +3229,9 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         /* YT IFrame slotas (pre-created player) + posteris (contain + blur fonas) */
         .rdr-ytslot{position:absolute;inset:0;width:100%;height:100%}
         .rdr-ytslot iframe{width:100%;height:100%;border:0;display:block}
+        /* Video kortelės media — 16/10, NORMALUS srautas (NE sticky → scrollinasi su tekstu) */
+        .rdr-media-video{aspect-ratio:16/10;max-height:none}
+        .rdr-poster-layer{position:absolute;inset:0;z-index:2}
         .rdr-poster{position:absolute;inset:0;z-index:2;border:0;padding:0;margin:0;cursor:pointer;background:#000;display:block;width:100%;height:100%}
         .rdr-poster-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(26px) brightness(0.55);transform:scale(1.18)}
         .rdr-poster-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1}

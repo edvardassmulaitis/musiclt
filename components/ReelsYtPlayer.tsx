@@ -66,10 +66,7 @@ export const ReelsYtPlayer = forwardRef<ReelsYtHandle, { videoId: string | null 
             readyRef.current = true
             if (pendingRef.current) {
               const v = pendingRef.current; pendingRef.current = null
-              try {
-                if (v !== curRef.current) { e.target.loadVideoById(v); curRef.current = v }
-                else e.target.playVideo()
-              } catch {}
+              try { e.target.loadVideoById(v); curRef.current = v } catch {}
             }
           },
         },
@@ -89,10 +86,7 @@ export const ReelsYtPlayer = forwardRef<ReelsYtHandle, { videoId: string | null 
       play(vid: string) {
         const p = playerRef.current
         if (p && readyRef.current) {
-          try {
-            if (curRef.current !== vid) { p.loadVideoById(vid); curRef.current = vid }
-            else p.playVideo()
-          } catch {}
+          try { p.loadVideoById(vid); curRef.current = vid } catch {}
         } else {
           pendingRef.current = vid  // dar neparuoštas — paleisim per onReady
         }
