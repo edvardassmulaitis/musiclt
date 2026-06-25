@@ -12,7 +12,7 @@ type Ev = { id: number; slug: string | null; title: string; start_date: string; 
 type Stats = { views: number; likes: number; followers: number; temp: number; topPos: { pos: number; title: string } | null; complete: number }
 
 const MONTHS = ['Sau', 'Vas', 'Kov', 'Bal', 'Geg', 'Bir', 'Lie', 'Rugp', 'Rugs', 'Spa', 'Lap', 'Gru']
-const ACCENTS = ['var(--accent-orange)', '#e11d48', '#0ea5e9', '#10b981', '#8b5cf6']
+const ACCENTS = ['#f97316', '#e11d48', '#0ea5e9', '#10b981', '#8b5cf6']
 const SECTIONS: { key: string; label: string }[] = [
   { key: 'social', label: 'Soc. įrašai' }, { key: 'events', label: 'Renginiai' },
   { key: 'gallery', label: 'Galerija' }, { key: 'similar', label: 'Panašūs atlikėjai' },
@@ -39,7 +39,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
   const [busy, setBusy] = useState<string | null>(null)
   const [toast, setToast] = useState<{ ok: boolean; t: string } | null>(null)
   const [theme, setTheme] = useState(artist.profile_theme)
-  const [accent, setAccent] = useState(artist.accent_color || 'var(--accent-orange)')
+  const [accent, setAccent] = useState(artist.accent_color || '#f97316')
   const [hidden, setHidden] = useState<string[]>(artist.hidden_sections || [])
 
   const flash = (ok: boolean, t: string) => { setToast({ ok, t }); setTimeout(() => setToast(null), 3500) }
@@ -75,7 +75,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
   const card = 'rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]'
   const fld = 'flex-1 min-w-0 flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2.5'
   const inp = 'flex-1 min-w-0 bg-transparent outline-none text-sm text-[var(--text-primary)] placeholder:text-[var(--text-faint)]'
-  const addb = 'shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-[var(--accent-orange)] px-4 text-sm font-bold text-white font-[Outfit,sans-serif] disabled:opacity-60'
+  const addb = 'shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-[#f97316] px-4 text-sm font-bold text-white font-[Outfit,sans-serif] disabled:opacity-60'
   const gt = "mt-7 mb-3 flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-wider text-[var(--text-faint)] font-[Outfit,sans-serif]"
 
   return (
@@ -91,14 +91,14 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
           </a>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {genres.map((g, i) => (
-              <span key={g.id} className={`rounded-full border px-2.5 py-1 text-xs font-semibold font-[Outfit,sans-serif] ${i === 0 ? 'border-[rgba(249,115,22,0.25)] bg-[rgba(249,115,22,0.13)] text-[var(--accent-orange)]' : 'border-[var(--border-default)] bg-[var(--bg-hover)] text-[var(--text-secondary)]'}`}>{g.name}</span>
+              <span key={g.id} className={`rounded-full border px-2.5 py-1 text-xs font-semibold font-[Outfit,sans-serif] ${i === 0 ? 'border-[rgba(249,115,22,0.25)] bg-[rgba(249,115,22,0.13)] text-[#f97316]' : 'border-[var(--border-default)] bg-[var(--bg-hover)] text-[var(--text-secondary)]'}`}>{g.name}</span>
             ))}
             {genres.length === 0 && <span className="text-xs text-[var(--text-muted)]">Pridėk stilių per „Profilio info"</span>}
           </div>
         </div>
         {/* MINI DASHBOARD */}
         <div className="ml-auto flex flex-wrap gap-2.5">
-          <Mini label="Peržiūros" value={stats.views.toLocaleString('lt-LT')} spark="var(--accent-orange)" />
+          <Mini label="Peržiūros" value={stats.views.toLocaleString('lt-LT')} spark="#f97316" />
           <Mini label="Temperatūra" value={`${stats.temp}°`} sub="vs LT atlikėjai" />
           <Mini label="Top 40 vieta" value={stats.topPos ? `#${stats.topPos.pos}` : '—'} sub={stats.topPos?.title || 'dar ne topе'} accent />
         </div>
@@ -138,12 +138,12 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
             return (
               <div key={p.id} className="group relative h-[92px] w-[124px] shrink-0 overflow-hidden rounded-[10px] border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
                 <img src={p.url} alt="" className="h-full w-full object-cover" />
-                {(isHero || isProf) && <span className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white ${isHero ? 'bg-[var(--accent-orange)]' : 'bg-black/60'}`}>{isHero ? 'Hero' : 'Profilis'}</span>}
+                {(isHero || isProf) && <span className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white ${isHero ? 'bg-[#f97316]' : 'bg-black/60'}`}>{isHero ? 'Hero' : 'Profilis'}</span>}
                 <button onClick={() => { if (confirm('Pašalinti nuotrauką?')) photoAct('delete', p.url, p.id) }} title="Pašalinti" className="absolute right-1.5 top-1.5 z-10 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
                 </button>
                 <div className="absolute inset-0 flex flex-col justify-end gap-1 bg-gradient-to-t from-black/85 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100">
-                  <button onClick={() => photoAct('hero', p.url)} className="rounded-md bg-[var(--accent-orange)] py-1 text-[10px] font-semibold text-white">Hero</button>
+                  <button onClick={() => photoAct('hero', p.url)} className="rounded-md bg-[#f97316] py-1 text-[10px] font-semibold text-white">Hero</button>
                   <button onClick={() => photoAct('profile', p.url)} className="rounded-md border border-white/20 bg-white/10 py-1 text-[10px] font-semibold text-white">Profilis</button>
                 </div>
               </div>
@@ -160,10 +160,10 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
           {songs.length === 0 && <p className="text-sm text-[var(--text-muted)]">Pridėk pirmą dainą iš YouTube ↑</p>}
           {songs.map((s) => (
             <div key={s.id} className={`mb-2 flex items-center gap-3 rounded-xl border p-2.5 ${s.is_pinned ? 'border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.05)]' : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]'}`}>
-              <button onClick={() => togglePin(s)} title="Prisegti" className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${s.is_pinned ? 'text-[var(--accent-orange)]' : 'text-[var(--text-muted)] bg-[var(--bg-hover)]'}`}>{I.pin}</button>
+              <button onClick={() => togglePin(s)} title="Prisegti" className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${s.is_pinned ? 'text-[#f97316]' : 'text-[var(--text-muted)] bg-[var(--bg-hover)]'}`}>{I.pin}</button>
               <div className="h-[34px] w-[54px] shrink-0 overflow-hidden rounded-md bg-[var(--bg-surface)]">{thumb(s.video_url) ? <img src={thumb(s.video_url)!} alt="" className="h-full w-full object-cover" /> : null}</div>
               <div className="min-w-0 flex-1"><b className="block truncate text-[13px] font-semibold text-[var(--text-primary)]">{s.title}</b><small className="text-[10.5px] text-[var(--text-muted)]">{s.is_pinned ? 'Prisegta · ' : ''}{s.video_uploaded_at ? new Date(s.video_uploaded_at).toLocaleDateString('lt-LT') : (s.release_year || '—')}</small></div>
-              {s.state === 'eligible' && <button onClick={() => suggest(s)} disabled={busy === 's' + s.id} className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-3 py-1.5 text-[10.5px] font-bold text-white font-[Outfit,sans-serif]">{I.trophy} Top 40</button>}
+              {s.state === 'eligible' && <button onClick={() => suggest(s)} disabled={busy === 's' + s.id} className="inline-flex items-center gap-1.5 rounded-full bg-[#f97316] px-3 py-1.5 text-[10.5px] font-bold text-white font-[Outfit,sans-serif]">{I.trophy} Top 40</button>}
               {s.state === 'in' && <span className="rounded-full bg-[rgba(34,197,94,.14)] px-3 py-1.5 text-[10.5px] font-bold text-[var(--accent-green)]">Topе · {s.weeks} sav.</span>}
               {s.state === 'pending' && <span className="rounded-full bg-[rgba(251,191,36,.13)] px-3 py-1.5 text-[10.5px] font-bold text-[#fbbf24]">Pasiūlyta</span>}
               {s.state === 'wait' && <span className="rounded-full bg-[rgba(251,191,36,.13)] px-3 py-1.5 text-[10.5px] font-bold text-[#fbbf24]">Palauk</span>}
@@ -190,7 +190,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
         <div className={`${card} p-4`}>
           <h4 className="mb-2.5 font-[Outfit,sans-serif] text-[13px] font-bold text-[var(--text-primary)]">Anketos tema</h4>
           <div className="flex rounded-[9px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-0.5">
-            {['dark', 'light'].map((t) => <button key={t} onClick={() => { setTheme(t); saveAppearance({ profile_theme: t }) }} className={`flex-1 rounded-[7px] py-1.5 text-xs font-semibold font-[Outfit,sans-serif] ${theme === t ? 'bg-[var(--accent-orange)] text-white' : 'text-[var(--text-muted)]'}`}>{t === 'dark' ? 'Tamsi' : 'Šviesi'}</button>)}
+            {['dark', 'light'].map((t) => <button key={t} onClick={() => { setTheme(t); saveAppearance({ profile_theme: t }) }} className={`flex-1 rounded-[7px] py-1.5 text-xs font-semibold font-[Outfit,sans-serif] ${theme === t ? 'bg-[#f97316] text-white' : 'text-[var(--text-muted)]'}`}>{t === 'dark' ? 'Tamsi' : 'Šviesi'}</button>)}
           </div>
         </div>
         <div className={`${card} p-4`}>
@@ -207,7 +207,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
           <div className="flex flex-wrap gap-1.5">
             {SECTIONS.map((s) => { const on = !hidden.includes(s.key); return (
               <button key={s.key} onClick={() => { const nh = on ? [...hidden, s.key] : hidden.filter((x) => x !== s.key); setHidden(nh); saveAppearance({ hidden_sections: nh }) }}
-                className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold font-[Outfit,sans-serif] ${on ? 'border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.13)] text-[var(--accent-orange)]' : 'border-[var(--border-default)] text-[var(--text-muted)]'}`}>{s.label}</button>
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold font-[Outfit,sans-serif] ${on ? 'border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.13)] text-[#f97316]' : 'border-[var(--border-default)] text-[var(--text-muted)]'}`}>{s.label}</button>
             )})}
           </div>
         </div>
@@ -225,7 +225,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
       {/* COMPLETENESS */}
       <div className="mt-4 flex items-center gap-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-3 text-[12.5px] text-[var(--text-secondary)]">
         <span className="whitespace-nowrap">Profilis {stats.complete}% užbaigtas</span>
-        <div className="h-[7px] flex-1 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${stats.complete}%`, background: 'linear-gradient(90deg,var(--accent-orange),#fbbf24)' }} /></div>
+        <div className="h-[7px] flex-1 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${stats.complete}%`, background: 'linear-gradient(90deg,#f97316,#fbbf24)' }} /></div>
       </div>
 
       {toast && <div className={`fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-lg ${toast.ok ? 'bg-[var(--accent-green)]' : 'bg-[var(--accent-red)]'}`}>{toast.t}</div>}
@@ -237,7 +237,7 @@ function Mini({ label, value, sub, spark, accent }: { label: string; value: stri
   return (
     <div className="min-w-[112px] rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-2.5">
       <div className="text-[11px] text-[var(--text-muted)]">{label}</div>
-      <div className={`mt-0.5 font-[Outfit,sans-serif] text-[22px] font-extrabold ${accent ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]'}`}>{value}</div>
+      <div className={`mt-0.5 font-[Outfit,sans-serif] text-[22px] font-extrabold ${accent ? 'text-[#f97316]' : 'text-[var(--text-primary)]'}`}>{value}</div>
       {spark && <svg width="100" height="18" viewBox="0 0 100 18" className="mt-1"><polyline points="0,14 13,11 26,12 39,8 52,10 65,5 78,6 91,2 100,4" fill="none" stroke={spark} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
       {sub && <div className="mt-1.5 text-[10px] text-[var(--text-muted)]">{sub}</div>}
     </div>

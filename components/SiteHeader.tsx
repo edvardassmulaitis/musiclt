@@ -1169,7 +1169,7 @@ function MobileExpansion({
             <span className="sh-mexp-tile-icon">{I.users}</span>
             <span className="sh-mexp-tile-label">Pažink narius</span>
           </Link>
-          <Link href="/dienos-daina" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('var(--accent-orange)') }}>
+          <Link href="/dienos-daina" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
             <span className="sh-mexp-tile-icon">{I.music}</span>
             <span className="sh-mexp-tile-label">Dienos daina</span>
           </Link>
