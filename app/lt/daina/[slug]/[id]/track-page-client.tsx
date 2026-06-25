@@ -540,23 +540,6 @@ export default function TrackPageClient({
               </span>
             )}
           </div>
-          {/* Veiksmų eilutė — tik Spotify (Patinka + Dalintis perkelti prie komentarų). */}
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            {track.spotify_id && (
-              <a
-                href={`https://open.spotify.com/track/${track.spotify_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Klausyti Spotify"
-                className="inline-flex h-[30px] items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 font-['Outfit',sans-serif] text-[12px] font-bold text-[#1DB954] transition-colors hover:border-[#1DB954] hover:bg-[rgba(29,185,84,0.08)]"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                </svg>
-                Spotify
-              </a>
-            )}
-          </div>
         </div>
         {/* Admin score — kai turim score, mažas chip'as šalia meta. Kiti
             useriai šito nemato (ScoreCard pats handle'ina admin gating). */}
@@ -575,8 +558,10 @@ export default function TrackPageClient({
         'lg:grid-cols-[minmax(0,55%)_minmax(0,45%)]',
       ].join(' ')}>
 
-        {/* Left — player + extras */}
-        <div className="lg:border-r lg:border-[var(--border-subtle)]">
+        {/* Video — viršus kairėje (desktop) / pirmas (mobile). Source order:
+            video → extras → dešinė; mobile stack'as natūralus, desktop'e
+            explicit grid placement grąžina extras po video kairėje. */}
+        <div className="order-1 lg:col-start-1 lg:row-start-1">
           {/* Video player */}
           {vid && (
             <div className="w-full bg-black">
@@ -598,9 +583,11 @@ export default function TrackPageClient({
               </div>
             </div>
           )}
+        </div>
 
-          {/* Extras below player */}
-          <div className="flex flex-col gap-3 px-5 py-5">
+        {/* Extras — po video kairėje (desktop) / apačioje po tekstu (mobile).
+            „Daugiau" čia, NE sticky — scroll'inasi kartu. */}
+        <div className="order-3 flex flex-col gap-3 px-5 py-5 lg:col-start-1 lg:row-start-2">
             <AICard />
             <TriviaCard />
             <VersionsCard />
@@ -733,25 +720,13 @@ export default function TrackPageClient({
               )
             })()}
           </div>
-        </div>
 
-        {/* Right — veiksmai + tabs + lyrics/comments */}
-        <div className="min-h-0">
-          {/* Veiksmai — Patinka + Dalintis (perkelti iš header'io prie turinio). */}
-          <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-2.5">
-            <LikePill
-              likes={likeCount}
-              selfLiked={selfLiked}
-              onToggle={onToggleLike}
-              pending={likePending}
-              onOpenModal={() => setLikersModalEntity({ type: 'track', id: track.id, label: 'dainą' })}
-              variant="surface"
-              size="sm"
-            />
-            <SharePill title={`${track.title} — ${artist.name}`} url={`/dainos/${artist.slug}-${track.slug}-${track.id}`} size="sm" />
-          </div>
-          {/* Tab strip — mobile only. Tekstas VISADA (be teksto → siūlymo forma). */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5 lg:hidden">
+        {/* Dešinė — tabai (Tekstas/Komentarai) + Patinka/Dalintis/Spotify + turinys.
+            Desktop'e dešinis stulpelis per abi eilutes; mobile'e — antras. */}
+        <div className="order-2 min-h-0 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:border-l lg:border-[var(--border-subtle)]">
+          {/* Tab juosta — VISUOSE viewport'uose (kaip modale). Dešinėje veiksmai:
+              Patinka + Dalintis + Spotify (maža ikona). */}
+          <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
             <button
               type="button"
               onClick={() => setMobileTab('lyrics')}
@@ -781,12 +756,38 @@ export default function TrackPageClient({
                 </span>
               )}
             </button>
+            <div className="ml-auto flex items-center gap-1.5">
+              <LikePill
+                likes={likeCount}
+                selfLiked={selfLiked}
+                onToggle={onToggleLike}
+                pending={likePending}
+                onOpenModal={() => setLikersModalEntity({ type: 'track', id: track.id, label: 'dainą' })}
+                variant="surface"
+                size="sm"
+              />
+              <SharePill title={`${track.title} — ${artist.name}`} url={`/dainos/${artist.slug}-${track.slug}-${track.id}`} size="sm" />
+              {track.spotify_id && (
+                <a
+                  href={`https://open.spotify.com/track/${track.spotify_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Klausyti Spotify"
+                  aria-label="Klausyti Spotify"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#1DB954] transition-opacity hover:opacity-80"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                  </svg>
+                </a>
+              )}
+            </div>
           </div>
 
           {/* Tekstas — jei yra, rodom; jei ne — siūlymo forma (always present). */}
           <div className={[
             'min-h-0 px-5 py-5',
-            mobileTab === 'lyrics' ? 'block' : 'hidden lg:block',
+            mobileTab === 'lyrics' ? 'block' : 'hidden',
           ].join(' ')}>
             <div className="mb-4 flex items-baseline gap-2">
               <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
@@ -863,8 +864,8 @@ export default function TrackPageClient({
 
           {/* Comments */}
           <div ref={commentsColRef} className={[
-            'min-h-0 px-5 py-5 border-t border-[var(--border-subtle)]',
-            mobileTab === 'comments' ? 'block' : 'hidden lg:block',
+            'min-h-0 px-5 py-5',
+            mobileTab === 'comments' ? 'block' : 'hidden',
           ].join(' ')}>
             <EntityCommentsBlock
               entityType="track"
