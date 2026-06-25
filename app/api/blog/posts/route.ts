@@ -118,6 +118,15 @@ export async function POST(req: NextRequest) {
     if (Array.isArray(body.list_items)) {
       ;(data as any).list_items = normalizeListItems(body.list_items)
     }
+    // Apibendrinimas (ir, jei perduota, įžanga) → topas_meta JSONB.
+    const tm = body.topas_meta
+    if (tm && typeof tm === 'object' && !Array.isArray(tm)) {
+      const clean: Record<string, string> = {}
+      for (const k of ['intro', 'outro'] as const) {
+        if (typeof tm[k] === 'string' && tm[k].trim()) clean[k] = String(tm[k]).slice(0, 20000)
+      }
+      if (Object.keys(clean).length) (data as any).topas_meta = clean
+    }
   }
 
   if (postType === 'creation' && body.creation_subtype) {

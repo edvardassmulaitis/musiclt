@@ -18,6 +18,7 @@ import { useState, useEffect, Suspense, useCallback, type ReactNode } from 'reac
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { BlogEditor } from '@/components/BlogEditor'
+import { ListEditorField, type ListItem } from '@/components/blog/ListEditorField'
 import { ImageUploadField } from '@/components/blog/ImageUploadField'
 import { EventTargetField, type EventTarget } from '@/components/blog/EventTargetField'
 import { UsernameSetupGate } from '@/components/blog/UsernameSetupGate'
@@ -40,16 +41,6 @@ type TrackReview = {
   artist: string | null
   image_url: string | null
   rating: number | null
-  comment: string
-}
-
-type TopasItem = {
-  type: 'artist' | 'album' | 'track' | 'custom'
-  entity_id: number | null
-  entity_slug: string | null
-  title: string
-  artist: string | null
-  image_url: string | null
   comment: string
 }
 
@@ -117,7 +108,8 @@ function EditorInner() {
   // topas
   const [topasKind, setTopasKind] = useState<'artist' | 'album' | 'track' | 'mixed' | null>(null)
   const [topasCount, setTopasCount] = useState<number | null>(null)
-  const [topasItems, setTopasItems] = useState<TopasItem[]>([])
+  const [topasItems, setTopasItems] = useState<ListItem[]>([])
+  const [topasOutro, setTopasOutro] = useState('')
 
   // translation / mood / daily song target
   const [songTarget, setSongTarget] = useState<AttachmentHit | null>(null)
@@ -191,18 +183,6 @@ function EditorInner() {
     next()
   }
 
-  function pickTopasItem(hit: AttachmentHit) {
-    const typeMap: Record<AttachmentHit['type'], TopasItem['type']> = { grupe: 'artist', albumas: 'album', daina: 'track' }
-    setTopasItems(items => [...items, {
-      type: typeMap[hit.type],
-      entity_id: hit.id,
-      entity_slug: hit.slug,
-      title: hit.title,
-      artist: hit.artist,
-      image_url: hit.image_url ? proxyImg(hit.image_url) : null,
-      comment: '',
-    }])
-  }
 
   function pickTranslationTrack(hit: AttachmentHit) {
     setSongTarget(hit)
@@ -251,8 +231,9 @@ function EditorInner() {
     if (type === 'topas') {
       body.list_items = topasItems.map(it => ({
         type: it.type, entity_id: it.entity_id, entity_slug: it.entity_slug,
-        title: it.title, artist: it.artist, image_url: it.image_url, comment: it.comment.trim() || null,
+        title: it.title, artist: it.artist, image_url: it.image_url, comment: (it.comment || '').trim() || null,
       }))
+      body.topas_meta = { outro: topasOutro.trim() || null }
     }
     if (type === 'creation' && creationSubtype) body.creation_subtype = creationSubtype
 
@@ -388,12 +369,7 @@ function EditorInner() {
         id: 'entries', title: 'Sudaryk sąrašą',
         subtitle: topasCount ? `Pridėta ${topasItems.length} iš ${topasCount}. Tvarka = vieta tope.` : `Pridėta ${topasItems.length}.`,
         valid: topasItems.length >= 2,
-        node: <TopasEntries
-          items={topasItems}
-          kind={topasKind === 'mixed' || !topasKind ? 'all' : topasKind}
-          onPick={pickTopasItem}
-          onChange={setTopasItems}
-        />,
+        node: <ListEditorField items={topasItems} onChange={setTopasItems} />,
       })
       steps.push({
         id: 'final', title: 'Pavadink topą',
@@ -405,6 +381,10 @@ function EditorInner() {
           extra={<div className="wz-editor-wrap">
             <FieldLabel optional>Įžanga</FieldLabel>
             <BlogEditor value={content} onChange={setContent} placeholder="Konteksto paaiškinimas (neprivaloma)" />
+            <div style={{ marginTop: 16 }}>
+              <FieldLabel optional>Apibendrinimas</FieldLabel>
+              <BlogEditor value={topasOutro} onChange={setTopasOutro} placeholder="Apibendrinimas po sąrašo (neprivaloma)" />
+            </div>
           </div>}
         />,
       })
@@ -737,105 +717,6 @@ function TrackReviewList({
 }
 
 // ── Topas entries (add one-by-one + reorder + comment) ──────────────────────
-function TopasEntries({
-  items, kind, onPick, onChange,
-}: {
-  items: TopasItem[]
-  kind: 'artist' | 'album' | 'track' | 'all'
-  onPick: (hit: AttachmentHit) => void
-  onChange: (items: TopasItem[]) => void
-}) {
-  const move = (idx: number, dir: -1 | 1) => {
-    const j = idx + dir
-    if (j < 0 || j >= items.length) return
-    const next = [...items]
-    ;[next[idx], next[j]] = [next[j], next[idx]]
-    onChange(next)
-  }
-  const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx))
-  const setComment = (idx: number, c: string) => onChange(items.map((it, i) => i === idx ? { ...it, comment: c } : it))
-  const excludeKeys = items.filter(i => i.entity_id !== null).map(i => {
-    const t = i.type === 'artist' ? 'grupe' : i.type === 'album' ? 'albumas' : 'daina'
-    return `${t}:${i.entity_id}`
-  })
-
-  return (
-    <div className="te">
-      {items.length > 0 && (
-        <div className="te-list">
-          {items.map((it, idx) => (
-            <div key={idx} className="te-row">
-              <div className="te-main">
-                <span className="te-rank">{idx + 1}</span>
-                {it.image_url
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={it.image_url} alt="" className="te-cover" />
-                  : <span className="te-cover te-cover-ph" />}
-                <div className="te-text">
-                  <span className="te-title">{it.title}</span>
-                  {it.artist && <span className="te-artist">{it.artist}</span>}
-                </div>
-                <div className="te-btns">
-                  <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} aria-label="Aukštyn">↑</button>
-                  <button type="button" onClick={() => move(idx, 1)} disabled={idx === items.length - 1} aria-label="Žemyn">↓</button>
-                  <button type="button" onClick={() => remove(idx)} aria-label="Pašalinti" className="te-del">×</button>
-                </div>
-              </div>
-              <input
-                value={it.comment}
-                onChange={e => setComment(idx, e.target.value)}
-                placeholder="Komentaras (neprivaloma)"
-                className="te-comment"
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="te-add">
-        <p className="te-add-label">Pridėti įrašą</p>
-        <EntityPicker
-          kind={kind}
-          allowFilterChips={kind === 'all'}
-          onPick={onPick}
-          excludeKeys={excludeKeys}
-          placeholder="Ieškok…"
-        />
-      </div>
-
-      <style jsx>{`
-        .te-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
-        .te-row { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 13px; padding: 10px; }
-        .te-main { display: flex; align-items: center; gap: 10px; }
-        .te-rank { font-family: 'Outfit', sans-serif; font-weight: 900; font-size: 16px; color: var(--accent-orange); width: 20px; text-align: center; flex-shrink: 0; }
-        .te-cover { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
-        .te-cover-ph { background: var(--cover-placeholder); }
-        .te-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-        .te-title { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .te-artist { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .te-btns { display: flex; gap: 2px; flex-shrink: 0; }
-        .te-btns button {
-          width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer;
-          background: var(--bg-hover); color: var(--text-secondary); font-size: 14px; font-weight: 700;
-          -webkit-tap-highlight-color: transparent;
-        }
-        .te-btns button:disabled { opacity: .3; }
-        .te-del { color: var(--text-muted) !important; }
-        .te-comment {
-          width: 100%; margin-top: 8px; border-radius: 9px; padding: 7px 10px;
-          background: var(--bg-body); border: 1px solid var(--border-subtle); color: var(--text-secondary);
-          font-size: 13px; outline: none;
-        }
-        .te-comment:focus { border-color: var(--accent-orange); }
-        .te-add-label {
-          font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
-          color: var(--text-faint); font-family: 'Outfit', sans-serif; margin-bottom: 8px;
-        }
-      `}</style>
-    </div>
-  )
-}
-
 // Opaque full-screen shell — naudojamas boot/loading/gate būsenoms, kad nuo
 // PIRMO kadro overlay dengtų svetainės chrome (jokio footerio mirktelėjimo).
 function BootShell({ children }: { children: ReactNode }) {

@@ -728,6 +728,7 @@ export type PostUpsertFields = {
   tags?: string[]
   list_items?: any[]
   creation_subtype?: string | null
+  topas_meta?: { intro?: string | null; outro?: string | null } | null
 }
 
 export async function createPost(blogId: string, userId: string, data: PostUpsertFields & { slug: string }) {
