@@ -745,11 +745,10 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
 
   /* Išeinant iš kortelės — sustabdom video, grįžtam į viršų. JOKIO auto-play. */
   useEffect(() => {
-    if (!active) {
-      setVideoOn(false)
-      setCurVideoId(slide.videoId || null)
-      if (scrollRef.current) scrollRef.current.scrollTop = 0
-    }
+    // NEresetinam videoOn/curVideoId — kortelę palikus grotuvas lieka „įjungtas",
+    // tad grįžus iškart matomas NATIVE YouTube grotuvas (su veikiančiu ▶), o ne
+    // mūsų custom mygtukas (kuris Safari'je būdavo nepatikimas). Tik scroll į viršų.
+    if (!active && scrollRef.current) scrollRef.current.scrollTop = 0
   }, [active]) // eslint-disable-line
   /* „Į viršų" rodyklė (reels) — tėvas didina signalą, aktyvi kortelė nuslenka į
    *  viršų ir auto-slide vėl pradeda eiti (scrolled → false). */
@@ -847,7 +846,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           {/* Native YouTube <iframe> — šviežias kas paleidimą (key=playToken).
               Paprasčiausia ir patikimiausia (Safari įsk.): groja kas kartą, grįžus
               po braukimo irgi, o autoplay neuždegus — native ▶ visada po ranka. */}
-          {videoOn && curVideoId ? (
+          {videoOn && active && curVideoId ? (
             <iframe
               key={playToken}
               className="rdr-ytslot"
