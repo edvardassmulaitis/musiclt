@@ -20,6 +20,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { extractVideoIdFromUrl } from '@/lib/yt-innertube'
+import { recallResolution, findConfidentMatch, rememberResolution } from '@/lib/chart-resolve'
 
 export const runtime = 'nodejs'
 
@@ -56,10 +57,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Artist not found' }, { status: 404 })
   }
 
-  // Duplicate guard — gal jau yra
+  // ─── Duplicate guard — 3 pakopos, kad nesikurtų katalogo šiukšlės ───
+  // 2026-06-25: anksčiau buvo TIK exact ilike(title) → „Iceman" vs „Iceman
+  // (Official Video)" kūrė dublikatus. Dabar pridėtas memory-recall + fuzzy
+  // catalog match (tas pats matcher'is kaip chart import'e), scope'as — TIK
+  // šio atlikėjo katalogas.
+
+  // 1) Pastovi atmintis (chart_resolution_memory) — jei kada nors jau sujungta.
+  try {
+    const recalled = await recallResolution(supabase, artist.name, title, 'track')
+    if (recalled?.trackId) {
+      const { data: t } = await supabase
+        .from('tracks').select('id, title, slug').eq('id', recalled.trackId).maybeSingle()
+      if (t) {
+        return NextResponse.json({
+          track_id: t.id, title: t.title, slug: (t as any).slug,
+          artist_name: artist.name, already_existed: true, dedup: 'memory',
+        })
+      }
+    }
+  } catch { /* recall best-effort */ }
+
+  // 2) Fuzzy confident match (to paties atlikėjo kataloge) — pagauna variantus
+  //    su „(Official Video)", didžiosiomis, & vs and, ir pan.
+  try {
+    const m = await findConfidentMatch(supabase, artist.name, title, { fuzzy: true })
+    if (m?.trackId) {
+      const { data: t } = await supabase
+        .from('tracks').select('id, title, slug').eq('id', m.trackId).maybeSingle()
+      if (t) {
+        return NextResponse.json({
+          track_id: t.id, title: t.title, slug: (t as any).slug,
+          artist_name: artist.name, already_existed: true, dedup: 'fuzzy',
+        })
+      }
+    }
+  } catch { /* match best-effort */ }
+
+  // 3) Exact ilike guard (paskutinė apsauga)
   const { data: existing } = await supabase
     .from('tracks')
-    .select('id, title')
+    .select('id, title, slug')
     .eq('artist_id', artistId)
     .ilike('title', title)
     .maybeSingle()
@@ -67,8 +105,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       track_id: existing.id,
       title: existing.title,
+      slug: (existing as any).slug,
       artist_name: artist.name,
       already_existed: true,
+      dedup: 'exact',
     })
   }
 
@@ -131,6 +171,13 @@ export async function POST(req: NextRequest) {
   if (insErr || !created) {
     return NextResponse.json({ error: `Track create failed: ${insErr?.message}` }, { status: 500 })
   }
+
+  // Įsimenam į pastovią atmintį — kad kitas tas pats embed'as/paminėjimas
+  // ateityje atpažintų šitą track'ą, o ne kurtų dublikatą.
+  await rememberResolution(supabase, {
+    rawArtist: artist.name, rawTitle: title, kind: 'track',
+    trackId: created.id, artistId, state: 'matched',
+  })
 
   return NextResponse.json({
     track_id: created.id,
