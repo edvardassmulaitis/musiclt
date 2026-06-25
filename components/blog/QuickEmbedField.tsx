@@ -62,7 +62,7 @@ export function QuickEmbedField({
   return (
     <div className="space-y-3 mb-6">
       <div>
-        <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
+        <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
           Nuoroda
         </label>
         <input
@@ -70,25 +70,25 @@ export function QuickEmbedField({
           onChange={e => setDraft(e.target.value)}
           placeholder="https://youtube.com/... arba https://open.spotify.com/..."
           className="w-full px-3 py-2 rounded-lg text-sm outline-none focus:border-[#f97316]/30 transition"
-          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#dde8f8' }}
+          style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
           autoFocus
         />
       </div>
 
-      {loading && <p className="text-xs" style={{ color: '#5e7290' }}>Kraunasi preview...</p>}
+      {loading && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Kraunasi preview...</p>}
       {error && <p className="text-xs text-red-400">{error}</p>}
 
       {value && !loading && !error && (
-        <div className="rounded-lg overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="rounded-lg overflow-hidden" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
           {value.embed_thumbnail_url && (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={value.embed_thumbnail_url} alt="" className="w-full max-h-48 object-cover" />
           )}
           <div className="px-3 py-2">
-            <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#5e7290' }}>
+            <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
               {value.embed_type}
             </p>
-            <p className="text-sm font-semibold mt-0.5 truncate" style={{ color: '#dde8f8' }}>
+            <p className="text-sm font-semibold mt-0.5 truncate" style={{ color: 'var(--text-primary)' }}>
               {value.embed_title || value.embed_url}
             </p>
           </div>

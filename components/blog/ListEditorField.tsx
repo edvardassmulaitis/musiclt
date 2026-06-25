@@ -97,18 +97,18 @@ export function ListEditorField({
 
   return (
     <div className="mb-6">
-      <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
-        Sąrašas <span className="font-normal text-[#334058] normal-case">({items.length}/{MAX_ITEMS})</span>
+      <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+        Sąrašas <span className="font-normal text-[color:var(--text-faint)] normal-case">({items.length}/{MAX_ITEMS})</span>
       </label>
 
       {/* Esami items */}
       {items.length > 0 && (
         <div className="space-y-1.5 mb-3">
           {items.map((item, idx) => (
-            <div key={idx} className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div key={idx} className="rounded-lg p-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center gap-3">
                 {/* Rank */}
-                <div className="w-7 h-7 rounded flex items-center justify-center text-sm font-black flex-shrink-0" style={{ background: 'rgba(249,115,22,0.15)', color: '#f97316', fontFamily: "'Outfit', sans-serif" }}>
+                <div className="w-7 h-7 rounded flex items-center justify-center text-sm font-black flex-shrink-0" style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>
                   {item.rank}
                 </div>
 
@@ -117,16 +117,16 @@ export function ListEditorField({
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={item.image_url} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
                 ) : (
-                  <div className="w-10 h-10 rounded flex-shrink-0" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                  <div className="w-10 h-10 rounded flex-shrink-0" style={{ background: 'var(--bg-elevated)' }} />
                 )}
 
                 {/* Title + meta */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: '#dde8f8' }}>{item.title}</p>
-                  <p className="text-[10px] truncate" style={{ color: '#5e7290' }}>
+                  <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{item.title}</p>
+                  <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>
                     {item.artist || ''}
                     {item.type !== 'custom' && (
-                      <span className="ml-2 px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                      <span className="ml-2 px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-elevated)' }}>
                         {item.type === 'artist' ? 'atlikėjas' : item.type === 'album' ? 'albumas' : 'daina'}
                       </span>
                     )}
@@ -139,8 +139,8 @@ export function ListEditorField({
                     type="button"
                     onClick={() => move(idx, -1)}
                     disabled={idx === 0}
-                    className="w-6 h-6 flex items-center justify-center rounded text-xs hover:bg-white/[.06] transition disabled:opacity-30"
-                    style={{ color: '#8aa8cc' }}
+                    className="w-6 h-6 flex items-center justify-center rounded text-xs hover:bg-[var(--bg-hover)] transition disabled:opacity-30"
+                    style={{ color: 'var(--text-secondary)' }}
                     aria-label="Aukštyn"
                   >
                     ↑
@@ -149,8 +149,8 @@ export function ListEditorField({
                     type="button"
                     onClick={() => move(idx, 1)}
                     disabled={idx === items.length - 1}
-                    className="w-6 h-6 flex items-center justify-center rounded text-xs hover:bg-white/[.06] transition disabled:opacity-30"
-                    style={{ color: '#8aa8cc' }}
+                    className="w-6 h-6 flex items-center justify-center rounded text-xs hover:bg-[var(--bg-hover)] transition disabled:opacity-30"
+                    style={{ color: 'var(--text-secondary)' }}
                     aria-label="Žemyn"
                   >
                     ↓
@@ -158,8 +158,8 @@ export function ListEditorField({
                   <button
                     type="button"
                     onClick={() => setEditingComment(editingComment === idx ? null : idx)}
-                    className="w-6 h-6 flex items-center justify-center rounded text-xs hover:bg-white/[.06] transition"
-                    style={{ color: editingComment === idx ? '#f97316' : (item.comment ? '#dde8f8' : '#5e7290') }}
+                    className="w-6 h-6 flex items-center justify-center rounded text-xs hover:bg-[var(--bg-hover)] transition"
+                    style={{ color: editingComment === idx ? 'var(--accent-orange)' : (item.comment ? 'var(--text-primary)' : 'var(--text-muted)') }}
                     aria-label="Komentaras"
                     title={item.comment ? 'Su komentaru' : 'Pridėti komentarą'}
                   >
@@ -169,7 +169,7 @@ export function ListEditorField({
                     type="button"
                     onClick={() => remove(idx)}
                     className="w-6 h-6 flex items-center justify-center rounded text-xs hover:bg-red-500/10 hover:text-red-400 transition"
-                    style={{ color: '#5e7290' }}
+                    style={{ color: 'var(--text-muted)' }}
                     aria-label="Pašalinti"
                   >
                     ×
@@ -185,7 +185,7 @@ export function ListEditorField({
                   placeholder="Trumpas komentaras (neprivaloma)"
                   rows={2}
                   className="w-full mt-2 px-2 py-1.5 rounded text-xs outline-none focus:border-[#f97316]/30 transition resize-none"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', color: '#b0bdd4' }}
+                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
                 />
               )}
             </div>
@@ -198,7 +198,7 @@ export function ListEditorField({
         <div className="space-y-2">
           {/* Music.lt picker — visada matomas */}
           <div>
-            <p className="text-[10px] font-semibold mb-1.5" style={{ color: '#5e7290' }}>Pridėti iš music.lt</p>
+            <p className="text-[10px] font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Pridėti iš music.lt</p>
             <MusicSearchPicker
               attached={[]}
               onAdd={addFromHit}
@@ -212,20 +212,20 @@ export function ListEditorField({
             <button
               type="button"
               onClick={() => setShowCustomForm(true)}
-              className="text-xs font-semibold transition hover:text-white"
-              style={{ color: '#5e7290' }}
+              className="text-xs font-semibold transition hover:opacity-80"
+              style={{ color: 'var(--text-muted)' }}
             >
               + Pridėti custom įrašą (kažko nėra music.lt)
             </button>
           ) : (
-            <div className="rounded-lg p-3 space-y-2" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#5e7290' }}>Custom įrašas</p>
+            <div className="rounded-lg p-3 space-y-2" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Custom įrašas</p>
               <input
                 value={customTitle}
                 onChange={e => setCustomTitle(e.target.value)}
                 placeholder="Pavadinimas (privaloma)"
                 className="w-full px-2 py-1.5 rounded text-xs outline-none focus:border-[#f97316]/30 transition"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#dde8f8' }}
+                style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                 autoFocus
               />
               <input
@@ -233,14 +233,14 @@ export function ListEditorField({
                 onChange={e => setCustomArtist(e.target.value)}
                 placeholder="Atlikėjas (neprivaloma)"
                 className="w-full px-2 py-1.5 rounded text-xs outline-none focus:border-[#f97316]/30 transition"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#dde8f8' }}
+                style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
               />
               <input
                 value={customImage}
                 onChange={e => setCustomImage(e.target.value)}
                 placeholder="Image URL (neprivaloma)"
                 className="w-full px-2 py-1.5 rounded text-xs outline-none focus:border-[#f97316]/30 transition"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#dde8f8' }}
+                style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
               />
               <div className="flex gap-2">
                 <button
@@ -254,8 +254,8 @@ export function ListEditorField({
                 <button
                   type="button"
                   onClick={() => { setShowCustomForm(false); setCustomTitle(''); setCustomArtist(''); setCustomImage('') }}
-                  className="px-3 py-1 rounded text-xs hover:bg-white/[.06] transition"
-                  style={{ color: '#5e7290' }}
+                  className="px-3 py-1 rounded text-xs hover:bg-[var(--bg-hover)] transition"
+                  style={{ color: 'var(--text-muted)' }}
                 >
                   Atšaukti
                 </button>

@@ -56,7 +56,7 @@ export function ImageUploadField({
 
   return (
     <div>
-      <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
+      <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         {label}
       </label>
 
@@ -80,15 +80,15 @@ export function ImageUploadField({
           onClick={() => inputRef.current?.click()}
           className="rounded-lg px-4 py-5 text-center cursor-pointer transition"
           style={{
-            background: dragOver ? 'rgba(249,115,22,0.06)' : 'rgba(255,255,255,0.02)',
-            border: `1px dashed ${dragOver ? 'rgba(249,115,22,0.4)' : 'rgba(255,255,255,0.08)'}`,
+            background: dragOver ? 'rgba(249,115,22,0.06)' : 'var(--bg-elevated)',
+            border: `1px dashed ${dragOver ? 'rgba(249,115,22,0.4)' : 'var(--border-default)'}`,
           }}
         >
           {uploading ? (
-            <p className="text-xs" style={{ color: '#5e7290' }}>Įkeliama...</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Įkeliama...</p>
           ) : (
-            <p className="text-xs" style={{ color: '#5e7290' }}>
-              Numesk nuotrauką arba <span style={{ color: '#f97316' }}>spausk</span>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Numesk nuotrauką arba <span style={{ color: 'var(--accent-orange)' }}>spausk</span>
             </p>
           )}
         </div>

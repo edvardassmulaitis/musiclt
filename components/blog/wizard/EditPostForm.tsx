@@ -98,7 +98,7 @@ export function EditPostForm({ editId }: { editId: string }) {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
-        <Link href="/blogas/mano" className="text-xs hover:text-white transition" style={{ color: 'var(--text-muted)' }}>← Mano įrašai</Link>
+        <Link href="/blogas/mano" className="text-xs hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>← Mano įrašai</Link>
         <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
           Redaguoji · {TYPE_LABEL[postType] || postType}
         </span>
@@ -106,26 +106,33 @@ export function EditPostForm({ editId }: { editId: string }) {
 
       {error && <div className="text-xs mb-4 p-2 rounded" style={{ background: 'rgba(239,68,68,0.08)', color: '#fca5a5' }}>{error}</div>}
 
+      {/* 1) Pavadinimas — pirmas, kaip įprasta dokumentų redaktoriuose */}
+      <div className="mb-5">
+        <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Pavadinimas</label>
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          placeholder="Įrašo pavadinimas…"
+          className="w-full px-3 py-2.5 text-xl sm:text-2xl font-bold rounded-lg outline-none transition"
+          style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.02em', color: 'var(--text-primary)', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}
+        />
+      </div>
+
+      {/* 2) Tipui būdingas laukas (recenzija/vertimas/renginys/topas) */}
       {postType === 'review' && <ReviewTargetField target={reviewTarget} rating={rating} onTargetChange={setReviewTarget} onRatingChange={setRating} />}
       {postType === 'translation' && <TranslationField target={translation} onChange={setTranslation} />}
       {postType === 'event' && <EventTargetField target={eventTarget} onChange={setEventTarget} />}
       {postType === 'topas' && <ListEditorField items={listItems} onChange={setListItems} />}
 
+      {/* 3) Tekstas */}
       <div className="mb-4">
-        <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Pavadinimas</label>
-        <input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          className="w-full px-3 py-2.5 text-2xl font-bold rounded-lg outline-none transition"
-          style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.02em', color: 'var(--text-primary)', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}
-        />
-      </div>
-
-      <div className="mb-4">
-        <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Tekstas</label>
+        <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+          {postType === 'topas' ? 'Įžanga' : postType === 'translation' ? 'Vertimas' : 'Tekstas'}
+        </label>
         <BlogEditor value={content} onChange={setContent} />
       </div>
 
+      {/* 4) Antraštės nuotrauka */}
       <div className="mt-6">
         <ImageUploadField value={coverUrl} onChange={setCoverUrl} label="Antraštės nuotrauka" />
       </div>

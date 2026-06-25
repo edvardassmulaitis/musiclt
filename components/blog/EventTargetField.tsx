@@ -74,22 +74,22 @@ export function EventTargetField({
 
   return (
     <div className="mb-6" ref={wrapRef}>
-      <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
+      <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         Renginys
       </label>
 
       {target.display ? (
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate" style={{ color: '#dde8f8' }}>
+            <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
               {target.display.title}
             </p>
-            <p className="text-xs truncate" style={{ color: '#5e7290' }}>
+            <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
               {target.display.start_date && new Date(target.display.start_date).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })}
               {target.display.city && ` · ${target.display.city}`}
             </p>
           </div>
-          <button type="button" onClick={clear} className="px-2 py-1 rounded text-xs hover:text-white transition" style={{ color: '#5e7290' }}>
+          <button type="button" onClick={clear} className="px-2 py-1 rounded text-xs hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>
             ×
           </button>
         </div>
@@ -102,29 +102,29 @@ export function EventTargetField({
             onFocus={() => setOpen(true)}
             placeholder="Pasirink renginį..."
             className="w-full px-3 py-2 rounded-lg text-sm outline-none focus:border-[#f97316]/30 transition"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#dde8f8' }}
+            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
           />
 
           {open && (loading || results.length > 0) && (
             <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-lg overflow-hidden max-h-72 overflow-y-auto"
-              style={{ background: 'rgba(13,17,23,0.95)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)' }}>
-              {loading && <p className="px-3 py-2 text-xs" style={{ color: '#5e7290' }}>Ieškoma...</p>}
+              style={{ background: 'var(--modal-bg)', border: '1px solid var(--border-default)', backdropFilter: 'blur(8px)' }}>
+              {loading && <p className="px-3 py-2 text-xs" style={{ color: 'var(--text-muted)' }}>Ieškoma...</p>}
               {!loading && results.map(hit => (
                 <button
                   key={hit.id}
                   type="button"
                   onClick={() => pick(hit)}
-                  className="block w-full text-left px-3 py-2 hover:bg-white/[.04] transition"
+                  className="block w-full text-left px-3 py-2 hover:bg-[var(--bg-hover)] transition"
                 >
-                  <p className="text-sm font-semibold" style={{ color: '#dde8f8' }}>{hit.title}</p>
-                  <p className="text-[10px]" style={{ color: '#5e7290' }}>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{hit.title}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                     {hit.start_date && new Date(hit.start_date).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })}
                     {hit.city && ` · ${hit.city}`}
                   </p>
                 </button>
               ))}
               {!loading && results.length === 0 && q.length >= 2 && (
-                <p className="px-3 py-2 text-xs" style={{ color: '#5e7290' }}>Renginių nerasta</p>
+                <p className="px-3 py-2 text-xs" style={{ color: 'var(--text-muted)' }}>Renginių nerasta</p>
               )}
             </div>
           )}
