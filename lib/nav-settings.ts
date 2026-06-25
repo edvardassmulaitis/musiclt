@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { createAdminClient } from '@/lib/supabase'
+import { unstable_cache } from 'next/cache'
 
 export type NavVisibility = 'public' | 'hidden' | 'restricted'
 
@@ -71,3 +72,20 @@ export async function getNavSettings(): Promise<NavSettingRow[]> {
     n => byKey.get(n.key) || { key: n.key, visibility: 'public' as NavVisibility, allowlist: [] },
   )
 }
+
+/** revalidateTag raktas — admin išsaugojus nustatymus. */
+export const NAV_SETTINGS_TAG = 'nav-settings'
+
+/**
+ * GLOBALŪS ne-public nav key'ai (hidden + restricted) — vartotojo-nepriklausomi.
+ * Naudoja SSR <style> (NavVisibilityStyle), kad paslėptų punktus PRIEŠ pirmą
+ * paint'ą (be flash'o). Cache'inta + revalidate per NAV_SETTINGS_TAG.
+ */
+export const getNonPublicNavKeys = unstable_cache(
+  async (): Promise<string[]> => {
+    const rows = await getNavSettings()
+    return rows.filter(r => r.visibility !== 'public').map(r => r.key)
+  },
+  ['nav-non-public-keys'],
+  { tags: [NAV_SETTINGS_TAG], revalidate: 300 },
+)

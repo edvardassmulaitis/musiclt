@@ -5,11 +5,13 @@
 // POST → upsert vieno punkto { key, visibility, allowlist }.
 
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { requireFullAdmin } from '@/lib/admin-auth'
 import { createAdminClient } from '@/lib/supabase'
 import {
   getNavSettings,
   MANAGEABLE_NAV_KEYS,
+  NAV_SETTINGS_TAG,
   normIdentity,
   type NavVisibility,
 } from '@/lib/nav-settings'
@@ -57,5 +59,6 @@ export async function POST(req: Request) {
     )
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  revalidateTag(NAV_SETTINGS_TAG)
   return NextResponse.json({ ok: true })
 }

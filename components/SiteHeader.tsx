@@ -1318,15 +1318,35 @@ export function SiteHeader() {
     return () => { mounted = false }
   }, [])
 
-  // Paslėpti / restricted nav punktai (admin /admin/settings). Per-user.
+  // Paslėpti / restricted nav punktai (admin /admin/settings), per-user.
+  // SSR jau paslepia VISUS ne-public punktus per <style id="nav-vis-ssr"> (be
+  // flash'o). Gavę vartotojui specifinį sąrašą, PERRAŠOM tą style'ą — taip
+  // leistini (allowlist) punktai vėl pasirodo, o uždrausti lieka paslėpti.
+  const [navLoaded, setNavLoaded] = useState(false)
   useEffect(() => {
     let mounted = true
     fetch('/api/nav-settings')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (mounted && d && Array.isArray(d.hidden)) setHiddenNav(d.hidden) })
-      .catch(() => {})
+      .then(d => {
+        if (!mounted) return
+        if (d && Array.isArray(d.hidden)) setHiddenNav(d.hidden)
+        setNavLoaded(true)
+      })
+      .catch(() => { if (mounted) setNavLoaded(true) })
     return () => { mounted = false }
   }, [])
+
+  useEffect(() => {
+    if (!navLoaded) return
+    const css = hiddenNav.map(k => `[data-nav-key="${k}"]{display:none!important}`).join('')
+    let el = document.getElementById('nav-vis-ssr') as HTMLStyleElement | null
+    if (!el && css) {
+      el = document.createElement('style')
+      el.id = 'nav-vis-ssr'
+      document.head.appendChild(el)
+    }
+    if (el) el.textContent = css
+  }, [navLoaded, hiddenNav])
 
   // Cmd/Ctrl+K bei "/" atidaro paiešką
   useEffect(() => {
@@ -2824,12 +2844,13 @@ export function SiteHeader() {
 
           {/* Desktop nav with rich dropdowns */}
           <nav className="sh-desktop-nav" style={{ alignItems: 'center', gap: 2, marginLeft: 10, flexShrink: 0 }}>
-            {NAV.filter(n => !hiddenNav.includes(n.key)).map(n => {
+            {NAV.map(n => {
               const active = isActive(n)
               const closing = closingKey === n.key
               return (
                 <div
                   key={n.label}
+                  data-nav-key={n.key}
                   className={`sh-group${closing ? ' closing' : ''}`}
                   // Suppress'as nuimamas TIK kai pelė palieka grupę — taip
                   // dropdown'as nebeatsiranda po click'o, kol cursor'is stovi vietoje.
@@ -2983,11 +3004,11 @@ export function SiteHeader() {
         {/* CONTENT — flat meniu: skyrius = tiesioginė nuoroda, po juo sub-nuorodų chip'ai */}
         <div className="sh-mbody">
           <nav className="sh-mlist">
-            {NAV.filter(n => !hiddenNav.includes(n.key)).map(n => {
+            {NAV.map(n => {
               const active = isActive(n)
               const subs = NAV_SUBLINKS[n.key] || []
               return (
-                <div key={n.label} className={`sh-mblock${active ? ' active' : ''}`}>
+                <div key={n.label} data-nav-key={n.key} className={`sh-mblock${active ? ' active' : ''}`}>
                   {active && <span className="sh-mblock-acc" />}
                   <Link
                     href={n.href}

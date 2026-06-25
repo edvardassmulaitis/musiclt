@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/components/AuthProvider'
 import { SiteShell } from '@/components/SiteShell'
+import { NavVisibilityStyle } from '@/components/NavVisibilityStyle'
 
 export const metadata: Metadata = {
   // metadataBase — kad santykiniai OG/canonical URL'ai (pvz. „/topai") būtų
@@ -53,6 +54,8 @@ export default function RootLayout({
         {/* Defensive favicon link — forcing icon.svg net jei Next.js
             metadata.icons negeneruoja link tag'o teisingai. */}
         <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+        {/* Top-nav matomumas — paslepia ne-public punktus PRIEŠ paint'ą (be flash'o). */}
+        <NavVisibilityStyle />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
