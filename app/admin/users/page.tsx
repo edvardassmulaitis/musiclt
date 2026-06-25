@@ -19,6 +19,8 @@ type Profile = {
   legacy_karma_points: number | null
   last_seen_legacy_at: string | null
   hide_from_homepage: boolean | null
+  deactivated_at: string | null
+  deactivated_reason: string | null
 }
 
 const PAGE = 100
@@ -128,6 +130,48 @@ export default function AdminUsersPage() {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, email: data.email } : u)))
     setEmailDraft((prev) => ({ ...prev, [userId]: '' }))
     alert('Priskirta. Kai narys prisijungs šiuo el. paštu — automatiškai perims šį profilį (su senu username ir veikla).')
+  }
+
+  // Soft-delete: paslėpti / atgaivinti narį (atstatoma).
+  const toggleDeactivate = async (user: Profile) => {
+    if (!trulySuper) return
+    const isActive = !user.deactivated_at
+    const label = user.full_name || user.username || user.email
+    if (isActive) {
+      if (!confirm(`Paslėpti narį „${label}"?\n\nProfilis taps neviešas ir bus paslėptas iš pagrindinio. Veiklą galėsi atgaivinti bet kada.`)) return
+    } else {
+      if (!confirm(`Atgaivinti narį „${label}"?`)) return
+    }
+    setUpdating(user.id)
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, action: isActive ? 'deactivate' : 'reactivate' }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setUpdating(null)
+    if (!res.ok) { alert(data.message || data.error || 'Klaida'); return }
+    setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, deactivated_at: data.deactivated_at ?? null } : u)))
+  }
+
+  // Visiškas trynimas (negrįžtama) — dvigubas patvirtinimas.
+  const deleteUser = async (user: Profile) => {
+    if (!trulySuper) return
+    const label = user.full_name || user.username || user.email
+    if (!confirm(`IŠTRINTI narį „${label}" VISIŠKAI?\n\nNegrįžtama. Profilis ir jo veikla bus pašalinti, el. paštas (${user.email}) atlaisvintas.\n\nJei nori tik laikinai paslėpti — naudok „Paslėpti".`)) return
+    const typed = prompt(`Patvirtink: įrašyk IŠTRINTI`)
+    if (typed !== 'IŠTRINTI') { alert('Atšaukta.'); return }
+    setUpdating(user.id)
+    const res = await fetch('/api/admin/users', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setUpdating(null)
+    if (!res.ok) { alert(data.message || data.error || 'Klaida trinant'); return }
+    setUsers((prev) => prev.filter((u) => u.id !== user.id))
+    setTotal((t) => (typeof t === 'number' ? Math.max(0, t - 1) : t))
   }
 
   const impersonate = async (user: Profile) => {
@@ -282,6 +326,11 @@ export default function AdminUsersPage() {
                                 registruotas
                               </span>
                             )}
+                            {user.deactivated_at && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500 border border-red-500/20">
+                                paslėptas
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-[var(--text-muted)] truncate">
                             {user.username ? `@${user.username}` : ''}
@@ -355,18 +404,40 @@ export default function AdminUsersPage() {
                     {canImpersonate && (
                       <td className="px-4 py-3 text-right">
                         {!isSelf ? (
-                          <button
-                            onClick={() => impersonate(user)}
-                            disabled={impersonating === user.id}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-music-blue text-white hover:bg-music-blue/90 transition-colors disabled:opacity-50"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                              <polyline points="10 17 15 12 10 7" />
-                              <line x1="15" y1="12" x2="3" y2="12" />
-                            </svg>
-                            {impersonating === user.id ? 'Jungiamasi…' : 'Prisijungti kaip'}
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                            <button
+                              onClick={() => impersonate(user)}
+                              disabled={impersonating === user.id}
+                              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-music-blue text-white hover:bg-music-blue/90 transition-colors disabled:opacity-50"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                                <polyline points="10 17 15 12 10 7" />
+                                <line x1="15" y1="12" x2="3" y2="12" />
+                              </svg>
+                              {impersonating === user.id ? 'Jungiamasi…' : 'Prisijungti kaip'}
+                            </button>
+                            {trulySuper && user.role !== 'admin' && user.role !== 'super_admin' && (
+                              <>
+                                <button
+                                  onClick={() => toggleDeactivate(user)}
+                                  disabled={updating === user.id}
+                                  title={user.deactivated_at ? 'Atgaivinti narį' : 'Paslėpti narį (atstatoma)'}
+                                  className="inline-flex items-center text-xs font-medium px-2.5 py-1.5 rounded-lg border border-[var(--input-border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50"
+                                >
+                                  {user.deactivated_at ? 'Atgaivinti' : 'Paslėpti'}
+                                </button>
+                                <button
+                                  onClick={() => deleteUser(user)}
+                                  disabled={updating === user.id}
+                                  title="Ištrinti visiškai (negrįžtama)"
+                                  className="inline-flex items-center text-xs font-medium px-2.5 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                >
+                                  Ištrinti
+                                </button>
+                              </>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-xs text-[var(--text-faint)]">—</span>
                         )}
