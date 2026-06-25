@@ -4,22 +4,27 @@
 // /topai naršyklė — filtrų juosta (kanoninis <FilterBar>) + CLIENT-SIDE
 // kortelių filtravimas BE reload'o. Visos kortelės renderinamos serveryje
 // (vaikai), o čia tik rodom/slepiam pagal pasirinktą `view` (instant UX).
-// URL atnaujinamas per history.replaceState (shareable, be navigacijos).
 //
-//   • Regionas = primary  → inline chip'ai (Visi / LT / JAV / UK / Pasaulis)
-//   • Tipas    = secondary → kompaktiškas dropdown (Visi / Dainos / Albumai /
-//                            Bendruomenė). Viena eilutė ir mobile, ir desktop.
+// TOGGLE koncepcija (Edvardo): NĖRA „Visi" — pradinė būsena = niekas
+// nepažymėta = viskas. Paspaudus aktyvų chip'ą → grįžtam į pradinę. „Pasaulis"
+// = viskas, tad atskiro chip'o nėra (default jau rodo pasaulio topus).
 //
-// SEO: chip'ai = tikri <a href> į esamus path-segment puslapius
-// (/topai/lietuva, /topai/dainos ...). Crawler'is mato; useris gauna instant.
+//   • Regionas = primary  → inline chip'ai: LT / JAV / UK
+//   • Tipas    = secondary → dropdown: Dainos / Albumai / Music.lt topai
+//
+// SEO: chip'ai = tikri <a href> į esamus path-segment puslapius. /topai/pasaulis
+// route lieka (SEO/tiesioginė prieiga), tik chip'o juostoje nebėra.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FilterBar, type FilterGroup } from '@/components/ui/FilterBar'
 
 export type TopaiView = 'all' | 'lt' | 'world' | 'us' | 'uk' | 'songs' | 'albums' | 'community'
 
-const REGIONS: TopaiView[] = ['lt', 'world', 'us', 'uk']
-const TYPES: TopaiView[] = ['songs', 'albums', 'community']
+// Kortelių matomumo filtrui (world įeina — pasiekiama per /topai/pasaulis route).
+const REGION_VIEWS: TopaiView[] = ['lt', 'world', 'us', 'uk']
+const TYPE_VIEWS: TopaiView[] = ['songs', 'albums', 'community']
+// Matomi region chip'ai (be world/all — toggle koncepcija).
+const REGION_CHIPS: TopaiView[] = ['lt', 'us', 'uk']
 
 const PATHS: Record<TopaiView, string> = {
   all: '/topai',
@@ -41,8 +46,8 @@ export function TopaiBrowser({ initialView, children }: { initialView: TopaiView
   useEffect(() => {
     const grid = gridRef.current
     if (!grid) return
-    const isRegion = REGIONS.includes(view)
-    const isType = TYPES.includes(view)
+    const isRegion = REGION_VIEWS.includes(view)
+    const isType = TYPE_VIEWS.includes(view)
     let shown = 0
     grid.querySelectorAll<HTMLElement>('[data-card]').forEach((el) => {
       const ok = isRegion ? el.dataset.region === view : isType ? el.dataset.ctype === view : true
@@ -52,39 +57,38 @@ export function TopaiBrowser({ initialView, children }: { initialView: TopaiView
     setEmpty(shown === 0)
   }, [view])
 
-  const region = REGIONS.includes(view) ? view : 'all'
-  const tipas = TYPES.includes(view) ? view : 'all'
+  // Toggle: active='' kai nieko nepažymėta.
+  const regionActive: string = REGION_CHIPS.includes(view) ? view : ''
+  const tipasActive: string = TYPE_VIEWS.includes(view) ? view : ''
 
   const groups: FilterGroup[] = [
     {
       id: 'regionas',
       label: 'Regionas',
       tier: 'primary',
-      active: region,
+      active: regionActive,
       options: [
-        { key: 'all', label: 'Visi', href: '/topai' },
         { key: 'lt', label: 'LT', href: '/topai/lietuva', flagCc: 'lt' },
         { key: 'us', label: 'JAV', href: '/topai/jav', flagCc: 'us' },
         { key: 'uk', label: 'UK', href: '/topai/uk', flagCc: 'gb' },
-        { key: 'world', label: 'Pasaulis', href: '/topai/pasaulis', world: true },
       ],
     },
     {
       id: 'tipas',
       label: 'Tipas',
       tier: 'secondary',
-      active: tipas,
+      active: tipasActive,
       options: [
-        { key: 'all', label: 'Visi tipai', href: '/topai' },
         { key: 'songs', label: 'Dainos', href: '/topai/dainos' },
         { key: 'albums', label: 'Albumai', href: '/topai/albumai' },
-        { key: 'community', label: 'Bendruomenė', href: '/topai/bendruomene' },
+        { key: 'community', label: 'Music.lt topai', href: '/topai/bendruomene' },
       ],
     },
   ]
 
-  function onSelect(_groupId: string, key: string) {
-    const v: TopaiView = key === 'all' ? 'all' : (key as TopaiView)
+  function onSelect(groupId: string, key: string) {
+    const cur = groupId === 'regionas' ? regionActive : tipasActive
+    const v: TopaiView = cur === key ? 'all' : (key as TopaiView) // toggle off → viskas
     setView(v)
     if (typeof window !== 'undefined') {
       window.history.replaceState(null, '', PATHS[v] || '/topai')
