@@ -112,6 +112,26 @@ export async function GET(
     }
   }
 
+  // Aktyviausi / atpažįstami nariai viršuje: pirma su avataru (realūs aktyvūs
+  // nariai), tada pagal rango prioritetą, galiausiai pagal šviežumą. Taip net kai
+  // like'ų daug (limit 200) ir modalas kraunasi ilgėliau, naudingiausi nariai
+  // matomi iškart viršuje.
+  const rankPriority = (r: string | null): number => {
+    if (!r) return 0
+    const x = r.toLowerCase()
+    if (x.includes('vip') || x.includes('legend') || x.includes('profesion') || x.includes('guru')) return 3
+    if (x.includes('aktyv')) return 2
+    if (x.includes('naujok') || x.includes('naujas')) return 1
+    return 2
+  }
+  users.sort((a, b) => {
+    const av = (b.user_avatar_url ? 1 : 0) - (a.user_avatar_url ? 1 : 0)
+    if (av) return av
+    const rp = rankPriority(b.user_rank) - rankPriority(a.user_rank)
+    if (rp) return rp
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  })
+
   return NextResponse.json({
     count: users.length,
     users,
