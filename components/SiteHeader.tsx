@@ -1289,6 +1289,8 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [preview, setPreview] = useState<NavPreview | null>(null)
+  // Admin /admin/settings paslėpti / restricted nav punktai šiam vartotojui.
+  const [hiddenNav, setHiddenNav] = useState<string[]>([])
   // Desktop dropdown'o "closing" state — paspaudus link'ą uždaro
   // panel'ą iškart. SVARBU: suppress'as laikomas KOL pelė fiziškai
   // nepalieka grupės (onMouseLeave). Jei resetintume per pathname ar
@@ -1312,6 +1314,16 @@ export function SiteHeader() {
     fetch('/api/nav-preview')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (mounted && d && !d.error) setPreview(d) })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
+
+  // Paslėpti / restricted nav punktai (admin /admin/settings). Per-user.
+  useEffect(() => {
+    let mounted = true
+    fetch('/api/nav-settings')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (mounted && d && Array.isArray(d.hidden)) setHiddenNav(d.hidden) })
       .catch(() => {})
     return () => { mounted = false }
   }, [])
@@ -2803,17 +2815,8 @@ export function SiteHeader() {
             </svg>
           </button>
 
-          {/* Radaras — PRIEŠ logo, kairėje. Matomas ir mobile, ir desktop. */}
-          <Link
-            href="/nauji-atlikejai"
-            aria-label="Naujos muzikos radaras"
-            title="Naujos muzikos radaras — kylantys LT atlikėjai"
-            className="sh-radar"
-            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
-          >
-            <RadarSweepMini size={28} />
-          </Link>
-
+          {/* Radaro ikona iš top bar'o pašalinta (2026-06-25) — radaras lieka
+              Muzikos hover dropdown'e ir /nauji-atlikejai. Mažiau vizualaus triukšmo. */}
           <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
             <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
             <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
@@ -2821,7 +2824,7 @@ export function SiteHeader() {
 
           {/* Desktop nav with rich dropdowns */}
           <nav className="sh-desktop-nav" style={{ alignItems: 'center', gap: 2, marginLeft: 10, flexShrink: 0 }}>
-            {NAV.map(n => {
+            {NAV.filter(n => !hiddenNav.includes(n.key)).map(n => {
               const active = isActive(n)
               const closing = closingKey === n.key
               return (
@@ -2980,7 +2983,7 @@ export function SiteHeader() {
         {/* CONTENT — flat meniu: skyrius = tiesioginė nuoroda, po juo sub-nuorodų chip'ai */}
         <div className="sh-mbody">
           <nav className="sh-mlist">
-            {NAV.map(n => {
+            {NAV.filter(n => !hiddenNav.includes(n.key)).map(n => {
               const active = isActive(n)
               const subs = NAV_SUBLINKS[n.key] || []
               return (

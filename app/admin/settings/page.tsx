@@ -1,9 +1,138 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 type CacheKind = 'tracks' | 'albums' | 'news' | 'all'
+
+
+type NavVis = 'public' | 'hidden' | 'restricted'
+type NavRow = { key: string; visibility: NavVis; allowlist: string[] }
+
+const NAV_LABELS: Record<string, string> = {
+  muzika: 'Muzika',
+  topai: 'Topai',
+  naujienos: 'Naujienos',
+  renginiai: 'Koncertai',
+  skelbimai: 'Skelbimai',
+  bendruomene: 'Bendruomenė',
+}
+
+const VIS_OPTS: { value: NavVis; label: string }[] = [
+  { value: 'public', label: 'Matomas visiems' },
+  { value: 'hidden', label: 'Paslėptas visiems' },
+  { value: 'restricted', label: 'Tik tam tikriems nariams' },
+]
+
+function NavMenuControl() {
+  const [rows, setRows] = useState<NavRow[] | null>(null)
+  const [draft, setDraft] = useState<Record<string, { visibility: NavVis; allow: string }>>({})
+  const [saving, setSaving] = useState<string | null>(null)
+  const [msg, setMsg] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    fetch('/api/admin/nav-settings')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!d?.settings) return
+        setRows(d.settings as NavRow[])
+        const dr: Record<string, { visibility: NavVis; allow: string }> = {}
+        for (const r of d.settings as NavRow[]) {
+          dr[r.key] = { visibility: r.visibility, allow: (r.allowlist || []).join(', ') }
+        }
+        setDraft(dr)
+      })
+      .catch(() => {})
+  }, [])
+
+  const save = async (key: string) => {
+    const d = draft[key]
+    if (!d) return
+    setSaving(key)
+    setMsg(m => ({ ...m, [key]: '' }))
+    try {
+      const allowlist =
+        d.visibility === 'restricted'
+          ? d.allow.split(/[\n,]+/).map(x => x.trim()).filter(Boolean)
+          : []
+      const res = await fetch('/api/admin/nav-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, visibility: d.visibility, allowlist }),
+      })
+      const data = await res.json().catch(() => ({}))
+      setMsg(m => ({ ...m, [key]: res.ok ? '✓ Išsaugota' : `✗ ${data.error || res.status}` }))
+    } catch (e: any) {
+      setMsg(m => ({ ...m, [key]: `✗ ${e?.message || 'klaida'}` }))
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  return (
+    <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--input-border)] shadow-sm">
+      <div className="px-5 py-3 border-b border-[var(--border-subtle)]">
+        <h2 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wide">🧭 Meniu punktai</h2>
+      </div>
+      <div className="p-5 space-y-3">
+        <p className="text-sm text-[var(--text-secondary)]">
+          Valdyk, kurie viršutinio meniu punktai matomi. „Paslėptas" — dingsta iš meniu visiems (puslapis lieka pasiekiamas tiesiogine nuoroda). „Tik tam tikriems nariams" — matomas tik nurodytiems (el. paštas arba @username, po kablelį).
+        </p>
+
+        {rows === null ? (
+          <p className="text-sm text-[var(--text-muted)]">⏳ Kraunama...</p>
+        ) : (
+          <div className="space-y-2.5">
+            {rows.map(r => {
+              const d = draft[r.key] || { visibility: r.visibility, allow: '' }
+              return (
+                <div key={r.key} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-[var(--text-primary)] text-sm min-w-[110px]">
+                      {NAV_LABELS[r.key] || r.key}
+                    </span>
+                    <select
+                      value={d.visibility}
+                      onChange={e =>
+                        setDraft(m => ({ ...m, [r.key]: { ...d, visibility: e.target.value as NavVis } }))
+                      }
+                      className="text-sm rounded-lg border border-[var(--input-border)] bg-[var(--bg-surface)] text-[var(--text-primary)] px-2.5 py-1.5"
+                    >
+                      {VIS_OPTS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => save(r.key)}
+                      disabled={saving === r.key}
+                      className="px-3 py-1.5 bg-music-blue text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                    >
+                      {saving === r.key ? '⏳' : 'Išsaugoti'}
+                    </button>
+                    {msg[r.key] && (
+                      <span className={`text-xs font-medium ${msg[r.key].startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>
+                        {msg[r.key]}
+                      </span>
+                    )}
+                  </div>
+                  {d.visibility === 'restricted' && (
+                    <input
+                      type="text"
+                      value={d.allow}
+                      onChange={e => setDraft(m => ({ ...m, [r.key]: { ...d, allow: e.target.value } }))}
+                      placeholder="el.pastas@pvz.lt, @username, ..."
+                      className="mt-2 w-full text-sm rounded-lg border border-[var(--input-border)] bg-[var(--bg-surface)] text-[var(--text-primary)] px-3 py-1.5"
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function AdminSettings() {
   const [testResult, setTestResult] = useState<any>(null)
@@ -76,6 +205,8 @@ export default function AdminSettings() {
           <Link href="/admin/dashboard" className="text-music-blue hover:text-music-orange text-sm">← Grįžti</Link>
           <h1 className="text-2xl font-black text-[var(--text-primary)] mt-1">⚙️ Nustatymai & Diagnostika</h1>
         </div>
+
+        <NavMenuControl />
 
         {/* API Status */}
         <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--input-border)] shadow-sm">
