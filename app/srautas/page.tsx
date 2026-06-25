@@ -3,13 +3,11 @@
 /**
  * /srautas — ❤️ asmeninė muzikos zona. Du režimai: „Mėgstami" / „Tau gali patikti".
  *
- * 2026-06-18 v4 — DESKTOP DVI KOLONOS (kaip /bendruomene, sąrašo stilius):
- *   • Kairė (platesnė): naujienos, bendruomenės įrašai, diskusijos, koncertai,
- *     topai (viena agreguota kortelė). Įrašams be viršelio rodomas excerpt'as
- *     (ne placeholder raidė).
- *   • Dešinė (siaura): nauja muzika (dainos/albumai) iš mėgstamų atlikėjų.
- *   • Mobile: vientisas vienos kolonos sąrašas (chronologiškai).
- *   Kortelės — horizontalios eilutės (wide / compact variantai).
+ * 2026-06-25 v5 — VIENTISAS FEEDAS (desktop = mobile): viena centruota kolona,
+ *   visi įrašai (naujienos, bendruomenė, diskusijos, koncertai, topai IR nauja
+ *   muzika) sumaišyti chronologiškai. Atsisakyta dviejų kolonų išdėstymo —
+ *   buvo netolygu (muzikos kolona augo savaip). Įrašams be viršelio rodomas
+ *   excerpt'as. Kortelės — horizontalios eilutės (wide bendruomenei / compact muzikai).
  */
 
 import { useEffect, useState, useCallback, useMemo, useRef, Suspense, type MouseEvent, type TouchEvent, type CSSProperties } from 'react'
@@ -134,19 +132,6 @@ function Equalizer() {
 function idFromKey(key: string): number {
   const n = Number(key.split('-').pop())
   return Number.isFinite(n) ? n : 0
-}
-
-function useIsMobile(bp = 860): boolean {
-  const [m, setM] = useState(false)
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return
-    const mq = window.matchMedia(`(max-width: ${bp}px)`)
-    const on = () => setM(mq.matches)
-    on()
-    mq.addEventListener('change', on)
-    return () => mq.removeEventListener('change', on)
-  }, [bp])
-  return m
 }
 
 /** Širdutė — sekti atlikėją / mėgti dainą ar albumą. */
@@ -301,7 +286,6 @@ function SrautasInner() {
   const { data: session } = useSession()
   const router = useRouter()
   const params = useSearchParams()
-  const isMobileView = useIsMobile()
 
   const initialMode: Mode = params.get('t') === 'tau' ? 'tau' : 'sekami'
   const [mode, setMode] = useState<Mode>(initialMode)
@@ -421,13 +405,10 @@ function SrautasInner() {
 
   const sourceItems = mode === 'sekami' ? items : recs
   const filtered = useMemo(() => sourceItems.filter(it => !dismissed.has(it.key)), [sourceItems, dismissed])
-  const musicItems = useMemo(() => filtered.filter(isMusic), [filtered])
-  const otherItems = useMemo(() => filtered.filter(it => !isMusic(it)), [filtered])
   const isLoading = mode === 'sekami' ? loading : (recLoading && recs.length === 0)
   const isPersonalized = mode === 'sekami' ? personalized : recPersonalized
-  // Infinite scroll TIK mobile (vientisas sąrašas). Desktop dvi kolonos = baigtinės
-  // (kitaip muzika augtų be galo, o bendruomenės kolona „nutrūktų" — netolygu).
-  const canLoadMore = mode === 'sekami' && !!nextBefore && isMobileView
+  // Vientisas feedas — begalinis skrolinimas „Mėgstami" režime.
+  const canLoadMore = mode === 'sekami' && !!nextBefore
 
   // Infinite scroll
   const sentinel = useRef<HTMLDivElement | null>(null)
@@ -438,14 +419,14 @@ function SrautasInner() {
     const obs = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) moreFeed() }, { rootMargin: '200px 0px' })
     obs.observe(el)
     return () => obs.disconnect()
-  }, [canLoadMore, moreFeed, isMobileView, filtered.length])
+  }, [canLoadMore, moreFeed, filtered.length])
 
   const cardProps = { onDismiss: dismiss, onOpenTrack: openTrack, onWhy: setWhyItem, onOpenCharts: setChartsItem }
 
   return (
     <div className="sr-wrap">
       <style>{`
-        .sr-wrap { max-width: 1180px; margin: 0 auto; padding: 18px 18px 40px; }
+        .sr-wrap { max-width: 720px; margin: 0 auto; padding: 18px 18px 40px; }
 
         /* ── Filtrų juosta (/topai chip stilius) — desktop: režimai kairėj, ⚙ dešinėj ── */
         .srf { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
@@ -462,10 +443,7 @@ function SrautasInner() {
         .srf-gear:hover { color:var(--text-primary); }
         @media (max-width:860px) { .srf { justify-content:center; } }
 
-        /* ── Dvi kolonos (desktop) ── */
-        .sr-cols { display:grid; grid-template-columns: 1.7fr 1fr; gap:22px; align-items:start; }
-        .sr-col { display:flex; flex-direction:column; gap:11px; min-width:0; }
-        .sr-colhead { font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); margin:0 2px 2px; }
+        /* ── Vientisas feedas (viena centruota kolona) ── */
         .sr-list { display:flex; flex-direction:column; gap:10px; }
 
         /* ── Horizontali eilutė ── */
@@ -588,22 +566,9 @@ function SrautasInner() {
         </div>
       ) : (
         <>
-          {isMobileView ? (
-            <div className="sr-list">
-              {filtered.map(it => <FeedCard key={it.key} it={it} variant={isMusic(it) ? 'compact' : 'wide'} {...cardProps} />)}
-            </div>
-          ) : (
-            <div className="sr-cols">
-              <div className="sr-col">
-                {otherItems.length > 0 && <div className="sr-colhead">Naujienos · bendruomenė</div>}
-                {otherItems.map(it => <FeedCard key={it.key} it={it} variant="wide" {...cardProps} />)}
-              </div>
-              <div className="sr-col">
-                {musicItems.length > 0 && <div className="sr-colhead">Nauja muzika</div>}
-                {musicItems.map(it => <FeedCard key={it.key} it={it} variant="compact" {...cardProps} />)}
-              </div>
-            </div>
-          )}
+          <div className="sr-list">
+            {filtered.map(it => <FeedCard key={it.key} it={it} variant={isMusic(it) ? 'compact' : 'wide'} {...cardProps} />)}
+          </div>
 
           {canLoadMore && <div ref={sentinel} aria-hidden style={{ height: 1 }} />}
           {loadingMore && <div className="sr-more-loading"><Equalizer /></div>}
