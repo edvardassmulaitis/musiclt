@@ -19,7 +19,7 @@
 //     5. Mėgstamos dainos — YT thumb grid + quick filters
 //     6. Naujausi komentarai — activity log
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -2479,9 +2479,12 @@ function ProfileBodyDesktop(props: any) {
   // V19: gerbiam savininko pasirinkimą (profile.default_profile_tab); neturi įrašų → Mėgstama muzika.
   const [filter, setFilter] = useState<string>(resolveInitialTab(profile?.default_profile_tab, hasFeedContent, hasLikes))
   // V18f: srautas plečiasi vietoje („Daugiau") — nebenukreipia į atskirą /blogas.
-  const FEED_PAGE = 10
+  // V19 (2026-06-25): auto-įkrovimas scroll'inant (žr. sentinelRef žemiau) —
+  // įrašai atsiranda be „Daugiau" paspaudimo; mygtukas lieka kaip fallback.
+  const FEED_PAGE = 12
   const [shownCount, setShownCount] = useState(FEED_PAGE)
   const changeFilter = (k: string) => { setFilter(k); setShownCount(FEED_PAGE) }
+  const feedSentinelRef = useRef<HTMLDivElement | null>(null)
 
   // V18: tik įrašų tipų chip'ai (be „Visi", be „Mėgstama" — tie persikėlė į
   // dešinę filtrų barą). „Visi" = numatytasis (filter==='all'); deselect grąžina.
@@ -2510,6 +2513,20 @@ function ProfileBodyDesktop(props: any) {
     () => feedItems.filter((it) => feedItemMatches(it, filter)),
     [feedItems, filter],
   )
+
+  // V19 (2026-06-25): auto-įkrovimas — kai sentinel'is įeina į matomą sritį
+  // (su 800px rootMargin'u, kad būtų suspėjama iš anksto), praplečiam shownCount.
+  // Taip srautas pasipildo scroll'inant, be poreikio spausti „Daugiau įrašų".
+  useEffect(() => {
+    if (visible.length <= shownCount) return
+    const el = feedSentinelRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setShownCount((c) => c + FEED_PAGE)
+    }, { rootMargin: '800px 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [visible.length, shownCount])
 
   // „♥ Mėgstama muzika" pill'as visada atidaro pilną mėgstamos muzikos
   // rodinį (atlikėjai/albumai/dainos) — tai tas pats turinys, kuriuo
@@ -2561,11 +2578,16 @@ function ProfileBodyDesktop(props: any) {
                 </div>
               )}
               {visible.length > shownCount && (
-                <button type="button" onClick={() => setShownCount((c) => c + FEED_PAGE)}
-                        className="block w-full text-center rounded-full py-3 text-[13px] font-extrabold transition hover:opacity-85"
-                        style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--accent-orange)' }}>
-                  Daugiau įrašų ({visible.length - shownCount})
-                </button>
+                <>
+                  {/* Auto-įkrovimo sentinel'is — IntersectionObserver praplečia shownCount */}
+                  <div ref={feedSentinelRef} aria-hidden className="h-px w-full" />
+                  {/* Fallback mygtukas (jei observer'is nepalaikomas / JS išjungtas) */}
+                  <button type="button" onClick={() => setShownCount((c) => c + FEED_PAGE)}
+                          className="block w-full text-center rounded-full py-3 text-[13px] font-extrabold transition hover:opacity-85"
+                          style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--accent-orange)' }}>
+                    Daugiau įrašų ({visible.length - shownCount})
+                  </button>
+                </>
               )}
               <FollowCtaCard profile={profile} />
             </div>
@@ -2645,7 +2667,8 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
 
   // ── TOPAS: /bendruomene tipo plytelių eilutė (be didelio cover) ──
   if (isTopas && listPreview) {
-    const entries = listPreview.slice(0, 6)
+    // 5 įrašai + „+N Daugiau" plytelė = 6 plytelės vienoje eilutėje (be wrap į 2 eiles)
+    const entries = listPreview.slice(0, 5)
     return (
       <Link href={url}
             className="group relative flex overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] transition-all hover:-translate-y-0.5 hover:border-[rgba(245,158,11,0.5)]">
