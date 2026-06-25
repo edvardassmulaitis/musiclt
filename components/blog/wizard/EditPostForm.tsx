@@ -5,7 +5,7 @@
 // rodom kompaktišką vieno ekrano formą su jau egzistuojančiais laukų
 // komponentais. Tipas nebekeičiamas (jis fiksuotas po sukūrimo).
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { BlogEditor } from '@/components/BlogEditor'
@@ -28,6 +28,7 @@ type LoadedPost = {
   target_track_id?: number | null
   target_event_id?: string | null
   list_items?: ListItem[]
+  topas_meta?: { intro?: string | null; outro?: string | null } | null
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -47,6 +48,8 @@ export function EditPostForm({ editId }: { editId: string }) {
   const [translation, setTranslation] = useState<TranslationTarget>({ track_id: null, display: null })
   const [eventTarget, setEventTarget] = useState<EventTarget>({ event_id: null, display: null })
   const [listItems, setListItems] = useState<ListItem[]>([])
+  const [outro, setOutro] = useState('')          // topas apibendrinimas (topas_meta.outro)
+  const loadedMetaRef = useRef<Record<string, any> | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -65,6 +68,8 @@ export function EditPostForm({ editId }: { editId: string }) {
       if (p.target_track_id && p.post_type === 'translation') setTranslation({ track_id: p.target_track_id, display: null })
       if (p.target_event_id) setEventTarget({ event_id: p.target_event_id, display: null })
       if (Array.isArray(p.list_items) && p.list_items.length > 0) setListItems(p.list_items)
+      loadedMetaRef.current = p.topas_meta || null
+      if (p.topas_meta?.outro) setOutro(cleanLegacyBlogHtml(p.topas_meta.outro))
     }).finally(() => setLoading(false))
   }, [editId])
 
@@ -81,7 +86,12 @@ export function EditPostForm({ editId }: { editId: string }) {
     }
     if (postType === 'translation') body.target_track_id = translation.track_id
     if (postType === 'event') body.target_event_id = eventTarget.event_id
-    if (postType === 'topas') body.list_items = listItems
+    if (postType === 'topas') {
+      body.list_items = listItems
+      // Įžanga lieka `content` lauke; apibendrinimas → topas_meta.outro.
+      // Išsaugom esamus topas_meta laukus (pvz. intro), perrašom tik outro.
+      body.topas_meta = { ...(loadedMetaRef.current || {}), outro: outro.trim() || null }
+    }
     try {
       const res = await fetch(`/api/blog/posts/${editId}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -89,7 +99,7 @@ export function EditPostForm({ editId }: { editId: string }) {
       if (res.ok) router.push('/blogas/mano')
       else { const d = await res.json().catch(() => ({})); setError(d?.error || 'Klaida saugant') }
     } catch (e: any) { setError(e.message) } finally { setSaving(false) }
-  }, [editId, title, content, coverUrl, postType, rating, reviewTarget, translation, eventTarget, listItems, router])
+  }, [editId, title, content, coverUrl, postType, rating, reviewTarget, translation, eventTarget, listItems, outro, router])
 
   if (loading) {
     return <div className="min-h-[50vh] flex items-center justify-center text-sm" style={{ color: 'var(--text-faint)' }}>Kraunasi…</div>
@@ -120,19 +130,37 @@ export function EditPostForm({ editId }: { editId: string }) {
         />
       </div>
 
-      {/* 2) Tipui būdingas laukas (recenzija/vertimas/renginys/topas) */}
-      {postType === 'review' && <ReviewTargetField target={reviewTarget} rating={rating} onTargetChange={setReviewTarget} onRatingChange={setRating} />}
-      {postType === 'translation' && <TranslationField target={translation} onChange={setTranslation} />}
-      {postType === 'event' && <EventTargetField target={eventTarget} onChange={setEventTarget} />}
-      {postType === 'topas' && <ListEditorField items={listItems} onChange={setListItems} />}
+      {postType === 'topas' ? (
+        /* TOPAS: Įžanga → Sąrašas → Apibendrinimas (logiška skaitymo tvarka) */
+        <>
+          <div className="mb-5">
+            <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Įžanga</label>
+            <BlogEditor value={content} onChange={setContent} placeholder="Trumpa įžanga prieš sąrašą (neprivaloma)…" />
+          </div>
 
-      {/* 3) Tekstas */}
-      <div className="mb-4">
-        <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
-          {postType === 'topas' ? 'Įžanga' : postType === 'translation' ? 'Vertimas' : 'Tekstas'}
-        </label>
-        <BlogEditor value={content} onChange={setContent} />
-      </div>
+          <ListEditorField items={listItems} onChange={setListItems} />
+
+          <div className="mb-4">
+            <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Apibendrinimas</label>
+            <BlogEditor value={outro} onChange={setOutro} placeholder="Apibendrinimas po sąrašo (neprivaloma)…" />
+          </div>
+        </>
+      ) : (
+        <>
+          {/* 2) Tipui būdingas laukas (recenzija/vertimas/renginys) */}
+          {postType === 'review' && <ReviewTargetField target={reviewTarget} rating={rating} onTargetChange={setReviewTarget} onRatingChange={setRating} />}
+          {postType === 'translation' && <TranslationField target={translation} onChange={setTranslation} />}
+          {postType === 'event' && <EventTargetField target={eventTarget} onChange={setEventTarget} />}
+
+          {/* 3) Tekstas */}
+          <div className="mb-4">
+            <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+              {postType === 'translation' ? 'Vertimas' : 'Tekstas'}
+            </label>
+            <BlogEditor value={content} onChange={setContent} />
+          </div>
+        </>
+      )}
 
       {/* 4) Antraštės nuotrauka */}
       <div className="mt-6">

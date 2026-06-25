@@ -460,7 +460,7 @@ export default function BlogPostPageClient(props: Props) {
 
               {postType === 'topas' && post.list_items.length > 0 && (post.topas_meta?.intro || post.topas_meta?.outro) ? (
                 <>
-                  {post.topas_meta?.intro && (<div className="bp-prose"><EnrichedProse html={post.topas_meta.intro} /></div>)}
+                  {(post.topas_meta?.intro || post.content) && (<div className="bp-prose"><EnrichedProse html={post.topas_meta?.intro || post.content || ''} /></div>)}
                   <TopasList items={post.list_items} />
                   {post.topas_meta?.outro && (<div className="bp-prose" style={{ marginTop: 32 }}><EnrichedProse html={post.topas_meta.outro} /></div>)}
                 </>

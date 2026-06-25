@@ -88,7 +88,7 @@ export function ImageUploadField({
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Įkeliama...</p>
           ) : (
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Numesk nuotrauką arba <span style={{ color: 'var(--accent-orange)' }}>spausk</span>
+              Vilk nuotrauką čia arba <span style={{ color: 'var(--accent-orange)', fontWeight: 600 }}>spustelėk įkelti</span>
             </p>
           )}
         </div>

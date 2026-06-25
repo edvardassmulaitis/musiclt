@@ -81,6 +81,7 @@ export function ListEditorField({
   const [customArtist, setCustomArtist] = useState('')
   const [customImage, setCustomImage] = useState('')
   const [openComment, setOpenComment] = useState<number | null>(null)
+  const [replaceIdx, setReplaceIdx] = useState<number | null>(null)  // keičiamas susietas įrašas (komentaras išliks)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
 
@@ -138,6 +139,16 @@ export function ListEditorField({
     onChange(items.map((it, i) => i === idx ? { ...it, comment: comment || null } : it))
   }
 
+  // Pakeisti susietą music.lt įrašą NEPRARANDANT komentaro (ir pozicijos).
+  function replaceEntity(hit: AttachmentHit) {
+    if (replaceIdx === null) return
+    const e = hitToItem(hit)
+    onChange(items.map((it, i) => i === replaceIdx
+      ? { ...it, type: e.type, entity_id: e.entity_id, entity_slug: e.entity_slug, title: e.title, artist: e.artist, image_url: e.image_url }
+      : it))
+    setReplaceIdx(null)
+  }
+
   const atMax = items.length >= MAX_ITEMS
 
   // ── Add UI (picker + custom) — naudojamas ir tarpuose, ir pabaigoje ──
@@ -148,7 +159,7 @@ export function ListEditorField({
           <MusicSearchPicker attached={[]} onAdd={addFromHit} placeholder="Atlikėjas, albumas ar daina…" compact />
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => setCustomMode(true)} className="text-xs font-semibold hover:opacity-80 transition" style={{ color: 'var(--accent-orange)' }}>
-              + Custom įrašas (jei nėra music.lt)
+              + Įrašyti ranka (jei nėra music.lt)
             </button>
             {compact && (
               <button type="button" onClick={closeAdd} className="text-xs hover:opacity-80 transition ml-auto" style={{ color: 'var(--text-muted)' }}>Atšaukti</button>
@@ -157,7 +168,7 @@ export function ListEditorField({
         </>
       ) : (
         <div className="space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Custom įrašas</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Įrašoma ranka</p>
           <input value={customTitle} onChange={e => setCustomTitle(e.target.value)} placeholder="Pavadinimas (privaloma)" autoFocus
             className="w-full px-2.5 py-2 rounded-lg text-sm outline-none focus:border-[#f97316]/40 transition"
             style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
@@ -262,10 +273,21 @@ export function ListEditorField({
                       className="w-7 h-7 flex items-center justify-center rounded-lg text-sm hover:bg-[var(--bg-hover)] transition disabled:opacity-25" style={{ color: 'var(--text-secondary)' }} aria-label="Aukštyn">↑</button>
                     <button type="button" onClick={() => move(idx, 1)} disabled={idx === items.length - 1}
                       className="w-7 h-7 flex items-center justify-center rounded-lg text-sm hover:bg-[var(--bg-hover)] transition disabled:opacity-25" style={{ color: 'var(--text-secondary)' }} aria-label="Žemyn">↓</button>
+                    <button type="button" onClick={() => { closeAdd(); setReplaceIdx(replaceIdx === idx ? null : idx) }}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-sm hover:bg-[var(--bg-hover)] transition" style={{ color: replaceIdx === idx ? 'var(--accent-orange)' : 'var(--text-secondary)' }} aria-label="Keisti susietą įrašą" title="Pakeisti susietą įrašą (komentaras išliks)">✎</button>
                     <button type="button" onClick={() => remove(idx)}
                       className="w-7 h-7 flex items-center justify-center rounded-lg text-sm hover:bg-red-500/10 hover:text-red-500 transition" style={{ color: 'var(--text-muted)' }} aria-label="Pašalinti">×</button>
                   </div>
                 </div>
+
+                {/* Keisti susietą įrašą — komentaras ir pozicija išlieka */}
+                {replaceIdx === idx && (
+                  <div className="mt-2.5 rounded-lg p-2.5" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Pakeisti į kitą įrašą <span className="font-normal normal-case" style={{ color: 'var(--text-faint)' }}>· komentaras išliks</span></p>
+                    <MusicSearchPicker attached={[]} onAdd={replaceEntity} placeholder="Naujas atlikėjas, albumas ar daina…" compact />
+                    <button type="button" onClick={() => setReplaceIdx(null)} className="mt-1.5 text-[11px] hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>Atšaukti</button>
+                  </div>
+                )}
 
                 {/* Komentaras — visada matomas jei yra; kitaip mygtukas */}
                 {(item.comment || openComment === idx) ? (

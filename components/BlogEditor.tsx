@@ -107,7 +107,9 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
         .blog-editor-themed .prose { color: var(--text-primary) !important; }
         .blog-editor-themed .prose h2 { color: var(--text-primary) !important; }
         .blog-editor-themed .prose h3 { color: var(--text-primary) !important; }
-        .blog-editor-themed .ProseMirror { color: var(--text-primary); min-height: 280px; font-size: 16px; line-height: 1.7; }
+        /* Vidinis scroll'as — ilgas tekstas nebeišsidriekia per visą puslapį,
+           o slenkamas pačiame redaktoriaus lange (toolbar lieka matomas). */
+        .blog-editor-themed .ProseMirror { color: var(--text-primary); min-height: 220px; max-height: 55vh; overflow-y: auto; font-size: 16px; line-height: 1.7; }
         .blog-editor-themed .ProseMirror p { color: var(--text-primary); }
         .blog-editor-themed .ProseMirror strong { color: var(--text-primary); font-weight: 700; }
         .blog-editor-themed .ProseMirror a { color: var(--accent-orange); }

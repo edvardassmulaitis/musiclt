@@ -15,7 +15,7 @@ const ALLOWED_FIELDS = new Set([
   'post_type', 'rating',
   'target_artist_id', 'target_album_id', 'target_track_id', 'target_event_id',
   'embed_url', 'embed_type', 'embed_thumbnail_url', 'embed_title', 'embed_html',
-  'tags', 'list_items', 'creation_subtype',
+  'tags', 'list_items', 'creation_subtype', 'topas_meta',
 ])
 
 function clampItemRating(v: any): number | null {
@@ -94,6 +94,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         rating: clampItemRating(item?.rating),
       }))
       .filter((item: any) => item.title)
+  }
+
+  // ── Topas meta (įžanga / apibendrinimas) — tik string laukai, sanitizuoti.
+  if (updates.topas_meta !== undefined) {
+    const tm = updates.topas_meta
+    if (tm && typeof tm === 'object' && !Array.isArray(tm)) {
+      const clean: Record<string, string> = {}
+      for (const k of ['intro', 'outro'] as const) {
+        if (typeof tm[k] === 'string' && tm[k].trim()) clean[k] = String(tm[k]).slice(0, 20000)
+      }
+      updates.topas_meta = Object.keys(clean).length ? clean : null
+    } else {
+      updates.topas_meta = null
+    }
   }
 
   // ── Publish handling: nustatom published_at kai pereinama į published ─
