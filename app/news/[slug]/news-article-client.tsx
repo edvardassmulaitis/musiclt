@@ -485,8 +485,13 @@ export default function NewsArticleClient({
            NEprilipusi prie krašto; blur fill sklandžiai užpildo šonus. */
         .na-hero-photo { position:absolute; inset-block:0; right:0; left:auto; width:60%; overflow:hidden; }
         .na-hero-blur  { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(46px) saturate(1.1) brightness(0.55); transform:scale(1.2); }
-        .na-hero-img   { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:center center; filter:saturate(1.04) contrast(1.02); }
-        /* Siaura kairio krašto blend juosta — foto įsilieja į tamsų teksto foną */
+        /* Foto „rėmas" — flex shrink-wrap apie realią contain nuotrauką, kad ©
+           kreditas (frame viduje) sėdėtų ant TIKRO nuotraukos kampo, o ne ant
+           dėžės krašto / blur juostos šone. */
+        .na-hero-stage { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+        .na-hero-frame { position:relative; display:flex; max-width:100%; max-height:100%; min-width:0; min-height:0; }
+        .na-hero-img   { display:block; max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; filter:saturate(1.04) contrast(1.02); }
+        /* Siaura kairio krašto blend juosta — blur juosta įsilieja į tamsų foną */
         .na-hero-fade-l { position:absolute; inset:0; background:linear-gradient(to right, #080d14 0%, rgba(8,13,20,0.5) 16%, transparent 38%); pointer-events:none; }
         .na-hero-fade-b { position:absolute; inset:0; background:linear-gradient(to top, rgba(8,13,20,0.5) 0%, transparent 20%); pointer-events:none; }
         .na-hero-noimg  { position:absolute; inset:0; background:linear-gradient(135deg,#0d1420 0%,#111826 100%); }
@@ -598,7 +603,6 @@ export default function NewsArticleClient({
         @media(max-width:860px){
           .na-hero { height:auto; min-height:auto; max-height:none; flex-direction:column; align-items:stretch; }
           .na-hero-photo { position:relative; width:100%; height:230px; }
-          .na-hero-img { object-position:center center; }
           .na-hero-fade-l { background:linear-gradient(to top, #080d14 4%, transparent 70%); }
           .na-hero-fade-b { display:none; }
           .na-hero-wrap { background:#080d14; padding:18px 20px 26px; max-width:100%; }
@@ -619,10 +623,14 @@ export default function NewsArticleClient({
           {heroImg ? (
             <div className="na-hero-photo">
               <div className="na-hero-blur" style={{ backgroundImage: `url(${heroImg})` }} />
-              <img src={heroImg} alt="" className="na-hero-img" referrerPolicy="no-referrer" />
               <div className="na-hero-fade-l" />
               <div className="na-hero-fade-b" />
-              <PhotoCredit url={heroImg} source={news.source_url || news.source_name} credit={news.heroCredit} />
+              <div className="na-hero-stage">
+                <div className="na-hero-frame">
+                  <img src={heroImg} alt="" className="na-hero-img" referrerPolicy="no-referrer" />
+                  <PhotoCredit url={heroImg} source={news.source_url || news.source_name} credit={news.heroCredit} />
+                </div>
+              </div>
             </div>
           ) : (
             <div className="na-hero-noimg" />
@@ -684,4 +692,4 @@ export default function NewsArticleClient({
 }
 
 
-// redeploy: 20260625T100914Z
+// redeploy: 20260625T120702Z
