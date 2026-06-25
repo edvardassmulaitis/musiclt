@@ -106,7 +106,7 @@ export default function AdminChartsPage() {
   const [resolving, setResolving] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createProgress, setCreateProgress] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | 'unresolved'>('all')
+  const [filter, setFilter] = useState<'all' | 'unresolved'>('unresolved')
   const [titleEdit, setTitleEdit] = useState('')
   const [countryEdit, setCountryEdit] = useState('')
   const [savingMeta, setSavingMeta] = useState(false)
@@ -138,7 +138,7 @@ export default function AdminChartsPage() {
   useEffect(() => { loadCharts() }, [loadCharts])
 
   const openChart = (c: Chart) => {
-    setSelected(c); setFilter('all'); loadEntries(c.id)
+    setSelected(c); setFilter('unresolved'); loadEntries(c.id)
     setTitleEdit(c.title || ''); setCountryEdit(c.country || '')
     // Mobile (stack): nuscrollinam į detalę po sąrašu. Desktop (two-pane) — nereikia.
     setTimeout(() => {
