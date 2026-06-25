@@ -15,8 +15,8 @@ import { proxyImg } from '@/lib/img-proxy'
 import { TopaiBrowser, type TopaiView } from '@/components/topai/TopaiFilterBar'
 
 /* ───────────────────────────── Types ───────────────────────────── */
-type Region = 'lt' | 'world' | 'us' | 'uk'
-type Ctype = 'songs' | 'albums' | 'community'
+type Region = 'lt' | 'world' | 'us' | 'uk' | 'members'
+type Ctype = 'songs' | 'albums' | 'community' | 'members'
 type Entry = { position: number; title: string; artistName: string; coverUrl: string | null }
 type Card = {
   key: string; title: string; href: string; country: string | null
@@ -150,17 +150,53 @@ const VIEW_INFO: Record<TopaiView, { h1: string; desc: string; crumb: string | n
   uk: { h1: 'JK (UK) muzikos topai', desc: 'Jungtinės Karalystės dainų topai — Official UK, Spotify ir Apple Music duomenys.', crumb: 'UK' },
   songs: { h1: 'Dainų topai', desc: 'Populiariausių dainų topai — Lietuva, JAV, JK ir pasaulis vienoje vietoje.', crumb: 'Dainos' },
   albums: { h1: 'Albumų topai', desc: 'Populiariausių albumų topai — Lietuvos ir pasaulio reitingai.', crumb: 'Albumai' },
-  community: { h1: 'Music.lt bendruomenės topai', desc: 'Music.lt TOP 40 ir LT TOP 30 — bendruomenės balsavimu sudaromi savaitės topai.', crumb: 'Bendruomenė' },
+  community: { h1: 'Music.lt topai', desc: 'Music.lt TOP 40 ir LT TOP 30 — bendruomenės balsavimu sudaromi savaitės topai.', crumb: 'Music.lt topai' },
+  members: { h1: 'Bendruomenės topai', desc: 'Music.lt narių sudaryti topai — mėgstamiausių atlikėjų, albumų ir dainų sąrašai.', crumb: 'Bendruomenė' },
 }
 
+
+/* ─── Narių topai (blog 'topas' įrašai) → kortelės ─── */
+async function getMemberTops(sb: ReturnType<typeof createAdminClient>): Promise<Card[]> {
+  const { data } = await sb.from('blog_posts')
+    .select('id, slug, title, cover_image_url, like_count, published_at, list_items, blogs:blog_id!inner(slug, profiles:user_id!inner(username, hide_from_homepage))')
+    .eq('status', 'published')
+    .eq('post_type', 'topas')
+    .not('topas_approved_at', 'is', null)
+    .not('blogs.profiles.hide_from_homepage', 'is', true)
+    .order('like_count', { ascending: false, nullsFirst: false })
+    .order('published_at', { ascending: false })
+    .limit(12)
+  const rows = (data || []) as any[]
+  const cards: Card[] = []
+  for (const r of rows) {
+    const items = Array.isArray(r.list_items) ? r.list_items : []
+    if (items.length === 0) continue
+    const entries: Entry[] = items.slice(0, 5).map((it: any) => ({
+      position: Number(it.rank) || 0,
+      title: String(it.title || ''),
+      artistName: it.artist || '',
+      coverUrl: it.image_url || null,
+    }))
+    const blogSlug = r.blogs?.slug || r.blogs?.profiles?.username || null
+    const href = blogSlug ? `/blogas/${blogSlug}/${r.slug || r.id}` : '/blogas'
+    const cover = r.cover_image_url || entries.find((e) => e.coverUrl)?.coverUrl || null
+    cards.push({
+      key: `members-${r.id}`, title: r.title || 'Nario topas', href,
+      country: null, coverImageUrl: cover, accent: null, noFlag: true,
+      region: 'members', ctype: 'members', entries, sources: [],
+    })
+  }
+  return cards
+}
 
 /* ───────────────────────────── Hub ───────────────────────────── */
 export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
   const sb = createAdminClient()
-  const [top40, top30, ext] = await Promise.all([
+  const [top40, top30, ext, memberCards] = await Promise.all([
     getMiniChart(sb, 'top40', 5),
     getMiniChart(sb, 'lt_top30', 5),
     getExternalCharts(sb),
+    getMemberTops(sb),
   ])
 
   // ── Visos kortelės su region + ctype tagais ──
@@ -194,11 +230,11 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
 
   // Tvarka: consensus (song+album) → šaltiniai. Community atskiriamas
   // renderyje (rodomas pirmas).
-  const allCards = [...songCards, ...albumCards, ...sourceCards, ...communityCards]
+  const allCards = [...songCards, ...albumCards, ...sourceCards, ...communityCards, ...memberCards]
 
   // ── Pradinis matomumas pagal view (TopaiBrowser perima client-side) ──
   const isRegion = (['lt', 'world', 'us', 'uk'] as TopaiView[]).includes(view)
-  const isType = (['songs', 'albums', 'community'] as TopaiView[]).includes(view)
+  const isType = (['songs', 'albums', 'community', 'members'] as TopaiView[]).includes(view)
   const cardVisible = (c: Card) => isRegion ? c.region === view : isType ? c.ctype === view : true
   const visible = allCards.filter(cardVisible) // tik JSON-LD'ui (atspindi šį view)
 
@@ -216,7 +252,8 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
     : view === 'lt' ? '/topai/lietuva' : view === 'world' ? '/topai/pasaulis'
     : view === 'us' ? '/topai/jav' : view === 'uk' ? '/topai/uk'
     : view === 'songs' ? '/topai/dainos' : view === 'albums' ? '/topai/albumai'
-    : '/topai/bendruomene'
+    : view === 'community' ? '/topai/bendruomene'
+    : '/topai/nariu'
 
   // ── JSON-LD: CollectionPage + ItemList (+ BreadcrumbList landing'ams) ──
   const jsonLd: any = {
