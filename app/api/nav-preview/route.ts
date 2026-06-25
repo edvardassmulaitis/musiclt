@@ -307,6 +307,42 @@ export async function GET() {
     const mapNavArtist = (a: any) => ({ id: a.id, slug: a.slug, name: a.name, image: a.cover_image_url })
     const mapNavAlbum  = (a: any) => ({ id: a.id, slug: a.slug, title: a.title, image: a.cover_image_url, year: a.year, artist: a.artists?.name || '', artistSlug: a.artists?.slug || '' })
 
+    // ── Agreguotos trending dainos iš VISŲ chartų (ne tik music.lt voting) ──
+    // Sumuojam pozicijų svorius per visus is_current išorinius chartus (Spotify,
+    // Apple ir kt., LT + pasaulis); is_new / kylančioms +bonusas → „labiausiai
+    // trending". Skaidom pagal chart scope (LT vs pasaulis).
+    const { data: ecRows } = await supabase
+      .from('external_chart_entries')
+      .select('track_id, position, is_new, prev_position, tracks:track_id ( id, slug, title, cover_url, video_url, artists:artist_id ( name, slug ) ), external_charts!inner ( is_current, scope, chart_key )')
+      .eq('external_charts.is_current', true)
+      .eq('resolve_state', 'matched')
+      .neq('external_charts.chart_key', 'albums')
+      .not('track_id', 'is', null)
+      .limit(4000)
+    const aggLt = new Map<number, { score: number; t: any }>()
+    const aggWorld = new Map<number, { score: number; t: any }>()
+    for (const e of (ecRows || []) as any[]) {
+      const tr = Array.isArray(e.tracks) ? e.tracks[0] : e.tracks
+      if (!tr) continue
+      const ec = Array.isArray(e.external_charts) ? e.external_charts[0] : e.external_charts
+      const isLt = String(ec?.scope || '').toLowerCase() === 'lt'
+      const pos = e.position || 50
+      let w = Math.max(1, 101 - pos)
+      if (e.is_new) w += 20
+      if (e.prev_position && e.prev_position > pos) w += 10
+      const m = isLt ? aggLt : aggWorld
+      const cur = m.get(e.track_id) || { score: 0, t: tr }
+      cur.score += w
+      m.set(e.track_id, cur)
+    }
+    const rankSongs = (m: Map<number, { score: number; t: any }>, limit: number) =>
+      [...m.entries()].sort((a, b) => b[1].score - a[1].score).slice(0, limit).map(([id, v]) => {
+        const ar = Array.isArray(v.t.artists) ? v.t.artists[0] : v.t.artists
+        return { id, slug: v.t.slug, title: v.t.title, image: v.t.cover_url || ytThumb(v.t.video_url) || null, artist: ar?.name || '', artistSlug: ar?.slug || '' }
+      })
+    const songsLt = rankSongs(aggLt, 12)
+    const songsWorld = rankSongs(aggWorld, 12)
+
     const payload = {
       radar: radarArtists,
       artistsLt:    trLt.map(mapNavArtist),
@@ -314,6 +350,8 @@ export async function GET() {
       albumsLt:     albLtRows.map(mapNavAlbum),
       albumsWorld:  albWorldRows.map(mapNavAlbum),
       albums:       [...albLtRows, ...albWorldRows].slice(0, 12).map(mapNavAlbum),
+      songsLt,
+      songsWorld,
       tracks: (tracksRes.data || []).map((t: any) => ({
         id: t.id,
         title: t.title,

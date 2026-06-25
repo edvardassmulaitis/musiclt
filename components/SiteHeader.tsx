@@ -52,6 +52,8 @@ type NavPreview = {
   albums:       { id: number; slug: string; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   albumsLt?:    { id: number; slug: string; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   albumsWorld?: { id: number; slug: string; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
+  songsLt?:     { id: number; slug: string | null; title: string; image: string | null; artist: string; artistSlug: string }[]
+  songsWorld?:  { id: number; slug: string | null; title: string; image: string | null; artist: string; artistSlug: string }[]
   tracks:       { id: number; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   events:       { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
   eventsLt?:    { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
@@ -332,20 +334,20 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
 
   const albumsLt    = data?.albumsLt    || data?.albums || []
   const albumsWorld = data?.albumsWorld || []
-  const top40       = data?.topChart?.top40 || []
-  const top30       = data?.topChart?.top30 || []
+  const songsLt     = data?.songsLt     || []
+  const songsWorld  = data?.songsWorld  || []
   const genres      = data?.genres || {}
 
-  const railRadarIcon = (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19.07 4.93A10 10 0 1 0 21 9"/><path d="M14.83 9.17A4 4 0 1 0 16 12"/><path d="M22 2 12 12"/></svg>
-  )
+  // Radaro rail indikatorius — žalias pulsuojantis taškas (vietoj ikonos).
+  const radarDot = <span className="sh-pulse-dot" aria-hidden />
   // Rail tvarka: pažįstami (atlikėjai→albumai→dainos→stiliai), radaras apačioje.
-  const RAIL: { k: typeof sec; icon: React.ReactNode; label: string }[] = [
-    { k: 'atlikejai', icon: I.mic,         label: 'Atlikėjai ir grupės' },
-    { k: 'albumai',   icon: I.vinyl,       label: 'Albumai' },
-    { k: 'dainos',    icon: I.song,        label: 'Dainos' },
-    { k: 'stiliai',   icon: I.equalizer,   label: 'Stiliai' },
-    { k: 'radaras',   icon: railRadarIcon, label: 'Radaras' },
+  // href → kiekviena skiltis navigaciška (paspaudus atveria pilną puslapį).
+  const RAIL: { k: typeof sec; icon: React.ReactNode; label: string; href: string }[] = [
+    { k: 'atlikejai', icon: I.mic,       label: 'Atlikėjai ir grupės', href: '/atlikejai' },
+    { k: 'albumai',   icon: I.vinyl,     label: 'Albumai',             href: '/albumai' },
+    { k: 'dainos',    icon: I.song,      label: 'Dainos',              href: '/dainos' },
+    { k: 'stiliai',   icon: I.equalizer, label: 'Stiliai',             href: '/zanrai' },
+    { k: 'radaras',   icon: radarDot,    label: 'Radaras',             href: '/nauji-atlikejai' },
   ]
 
   // Juostos antraštė — „liepsna" ikona (= trending, be žodžio) + pavadinimas + Daugiau.
@@ -396,18 +398,18 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
     </div>
   )
 
-  // Dainų juosta — agreguoti pagrindinių topų lyderiai (TopMini).
-  const songRow = (list: TopMini[], kind: 'lt' | 'world', label: string, href: string) => (
+  // Dainų juosta — agreguoti trending lyderiai iš visų chartų (su atlikėjo meta).
+  const songRow = (list: typeof songsLt, kind: 'lt' | 'world', label: string, href: string) => (
     <div>
       {head(label, href, true)}
       <div className="sh-strip-wrap">
         <RowStripe kind={kind} />
         <div className="sh-strip">
-          {(list.length > 0 ? list : Array(6).fill(null)).map((e: TopMini | null, i: number) => (
-            <Link key={e?.trackSlug || `${kind}-${i}`} href={e?.trackSlug ? `/dainos/${e.trackSlug}` : href} className="sh-mini sh-mini-xl sh-mini--meta">
-              <ImageBox src={e?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
-              <span className="sh-mini-title sh-mini-title-1">{e?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
-              {e?.artist ? <span className="sh-mini-meta">{e.artist}</span> : null}
+          {(list.length > 0 ? list : Array(6).fill(null)).map((t, i) => (
+            <Link key={t?.id || `${kind}-${i}`} href={t ? `/dainos/${t.artistSlug ? `${t.artistSlug}-` : ''}${t.slug ? `${t.slug}-` : ''}${t.id}` : href} className="sh-mini sh-mini-xl sh-mini--meta">
+              <ImageBox src={t?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-1">{t?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
+              {t?.artist ? <span className="sh-mini-meta">{t.artist}</span> : null}
             </Link>
           ))}
         </div>
@@ -418,21 +420,19 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   return (
     <div className="sh-panel sh-panel-muzika sh-panel-railed" onMouseLeave={() => setSec('atlikejai')}>
       {/* ── Šoninė rinkmena — skiltys, default Atlikėjai ── */}
-      <div className="sh-rail" role="tablist" aria-label="Muzikos skiltys">
+      <div className="sh-rail" aria-label="Muzikos skiltys">
         {RAIL.map(r => (
-          <button
+          <Link
             key={r.k}
-            type="button"
-            role="tab"
-            aria-selected={sec === r.k}
+            href={r.href}
+            aria-current={sec === r.k ? 'true' : undefined}
             className={`sh-railitem${sec === r.k ? ' active' : ''}`}
             onMouseEnter={() => setSec(r.k)}
             onFocus={() => setSec(r.k)}
-            onClick={() => setSec(r.k)}
           >
             <span className="sh-railitem-ic" style={sec === r.k ? { color: accent } : undefined}>{r.icon}</span>
             <span className="sh-railitem-label">{r.label}</span>
-          </button>
+          </Link>
         ))}
       </div>
 
@@ -456,13 +456,9 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
 
         {sec === 'dainos' && (
           <>
-            {songRow(top40, 'world', 'TOP 40', '/top40')}
-            {top30.filter(e => e?.image).length >= 3 && (
-              <>
-                <div style={{ height: 14 }} />
-                {songRow(top30, 'lt', 'LT TOP 30', '/top30')}
-              </>
-            )}
+            {songRow(songsLt, 'lt', 'Trending Lietuvoje', '/topai')}
+            <div style={{ height: 14 }} />
+            {songRow(songsWorld, 'world', 'Trending pasaulyje', '/topai')}
           </>
         )}
 
@@ -1585,6 +1581,7 @@ export function SiteHeader() {
           border-radius: 11px;
           background: transparent;
           color: var(--text-secondary);
+          text-decoration: none;
           font-family: inherit;
           cursor: pointer;
           transition: background .15s ease, color .15s ease, border-color .15s ease;
@@ -1601,6 +1598,19 @@ export function SiteHeader() {
           color: var(--text-muted);
         }
         .sh-railitem-ic svg { width: 18px; height: 18px; }
+        /* Radaro rail indikatorius — žalias pulsuojantis taškas. */
+        .sh-pulse-dot {
+          width: 9px; height: 9px; border-radius: 50%;
+          background: #22c55e; flex-shrink: 0;
+          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+          animation: shPulse 1.8s ease-out infinite;
+        }
+        @keyframes shPulse {
+          0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+          70%  { box-shadow: 0 0 0 7px rgba(34, 197, 94, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        @media (prefers-reduced-motion: reduce) { .sh-pulse-dot { animation: none; } }
         .sh-railitem-label {
           font-size: 13px; font-weight: 600; letter-spacing: -0.005em;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
