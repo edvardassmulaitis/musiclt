@@ -82,8 +82,8 @@ export function TopaiBrowser({ initialView, children }: { initialView: TopaiView
       options: [
         { key: 'songs', label: 'Dainos', href: '/topai/dainos' },
         { key: 'albums', label: 'Albumai', href: '/topai/albumai' },
-        { key: 'community', label: 'Music.lt topai', href: '/topai/bendruomene' },
-        { key: 'members', label: 'Bendruomenė', href: '/topai/nariu' },
+        { key: 'community', label: 'Music.lt', href: '/topai/bendruomene' },
+        { key: 'members', label: 'Narių topai', href: '/topai/nariu' },
       ],
     },
   ]
