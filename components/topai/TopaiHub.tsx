@@ -23,6 +23,7 @@ type Card = {
   coverImageUrl: string | null; accent: string | null; noFlag?: boolean
   region: Region; ctype: Ctype
   entries: Entry[]; sources: { label: string; slug: string }[]
+  author?: { name: string; username: string | null; avatar: string | null }
 }
 
 const SOURCE_LINKS: Record<string, { label: string; slug: string }[]> = {
@@ -143,22 +144,22 @@ function toCard(
 
 /* ───────────────────── View → tekstas (H1 / JSON-LD / crumb) ───────────────────── */
 const VIEW_INFO: Record<TopaiView, { h1: string; desc: string; crumb: string | null }> = {
-  all: { h1: 'Muzikos topai — Lietuva ir pasaulis', desc: 'Music.lt TOP 40, LT TOP 30 ir bendri Lietuvos bei pasaulio dainų ir albumų topai.', crumb: null },
+  all: { h1: 'Lietuvos ir pasaulio muzikos topai', desc: 'Visa populiariausia muzika – vienoje vietoje.', crumb: null },
   lt: { h1: 'Lietuvos muzikos topai', desc: 'Lietuvos dainų ir albumų topai — AGATA, Spotify, Apple Music, Shazam ir Music.lt LT TOP 30.', crumb: 'Lietuva' },
   world: { h1: 'Pasaulio muzikos topai', desc: 'Pasaulio dainų ir albumų topai — Spotify Global, Billboard, Shazam ir Music.lt TOP 40.', crumb: 'Pasaulis' },
   us: { h1: 'JAV muzikos topai', desc: 'JAV dainų topai — Billboard Hot 100, Spotify ir Apple Music duomenys.', crumb: 'JAV' },
   uk: { h1: 'JK (UK) muzikos topai', desc: 'Jungtinės Karalystės dainų topai — Official UK, Spotify ir Apple Music duomenys.', crumb: 'UK' },
   songs: { h1: 'Dainų topai', desc: 'Populiariausių dainų topai — Lietuva, JAV, JK ir pasaulis vienoje vietoje.', crumb: 'Dainos' },
   albums: { h1: 'Albumų topai', desc: 'Populiariausių albumų topai — Lietuvos ir pasaulio reitingai.', crumb: 'Albumai' },
-  community: { h1: 'Music.lt topai', desc: 'Music.lt TOP 40 ir LT TOP 30 — bendruomenės balsavimu sudaromi savaitės topai.', crumb: 'Music.lt topai' },
-  members: { h1: 'Bendruomenės topai', desc: 'Music.lt narių sudaryti topai — mėgstamiausių atlikėjų, albumų ir dainų sąrašai.', crumb: 'Bendruomenė' },
+  community: { h1: 'Music.lt topai', desc: 'Music.lt TOP 40 ir LT TOP 30 — bendruomenės balsavimu sudaromi savaitės topai.', crumb: 'Music.lt' },
+  members: { h1: 'Narių topai', desc: 'Music.lt narių sudaryti topai — mėgstamiausių atlikėjų, albumų ir dainų sąrašai.', crumb: 'Narių topai' },
 }
 
 
 /* ─── Narių topai (blog 'topas' įrašai) → kortelės ─── */
 async function getMemberTops(sb: ReturnType<typeof createAdminClient>): Promise<Card[]> {
   const { data } = await sb.from('blog_posts')
-    .select('id, slug, title, cover_image_url, like_count, published_at, list_items, blogs:blog_id!inner(slug, profiles:user_id!inner(username, hide_from_homepage))')
+    .select('id, slug, title, cover_image_url, like_count, published_at, list_items, blogs:blog_id!inner(slug, profiles:user_id!inner(username, full_name, avatar_url, hide_from_homepage))')
     .eq('status', 'published')
     .eq('post_type', 'topas')
     .not('topas_approved_at', 'is', null)
@@ -177,13 +178,15 @@ async function getMemberTops(sb: ReturnType<typeof createAdminClient>): Promise<
       artistName: it.artist || '',
       coverUrl: it.image_url || null,
     }))
-    const blogSlug = r.blogs?.slug || r.blogs?.profiles?.username || null
+    const prof = r.blogs?.profiles
+    const blogSlug = r.blogs?.slug || prof?.username || null
     const href = blogSlug ? `/blogas/${blogSlug}/${r.slug || r.id}` : '/blogas'
     const cover = r.cover_image_url || entries.find((e) => e.coverUrl)?.coverUrl || null
     cards.push({
       key: `members-${r.id}`, title: r.title || 'Nario topas', href,
       country: null, coverImageUrl: cover, accent: null, noFlag: true,
       region: 'members', ctype: 'members', entries, sources: [],
+      author: { name: prof?.full_name || prof?.username || 'Narys', username: prof?.username || null, avatar: prof?.avatar_url || null },
     })
   }
   return cards
@@ -335,8 +338,21 @@ function ChartCard({ card, hidden }: { card: Card; hidden?: boolean }) {
     >
       <Link href={card.href} className="tc-main">
         <div className="tc-head">
-          {!card.noFlag && <Flag country={card.country} image={card.coverImageUrl} />}
-          <span className="tc-title">{card.title}</span>
+          {card.author ? (
+            <span className="tc-av">
+              {card.author.avatar
+                ? <img src={proxyImg(card.author.avatar, 64)} alt="" />
+                : <span className="tc-av-ph">{(card.author.name || '?').slice(0, 1).toUpperCase()}</span>}
+            </span>
+          ) : (!card.noFlag && <Flag country={card.country} image={card.coverImageUrl} />)}
+          {card.author ? (
+            <span className="tc-titwrap">
+              <span className="tc-title">{card.title}</span>
+              <span className="tc-by">{card.author.name}</span>
+            </span>
+          ) : (
+            <span className="tc-title">{card.title}</span>
+          )}
         </div>
         {entries.length === 0 ? (
           <div className="tc-empty">Sąrašas formuojasi</div>
@@ -411,6 +427,12 @@ const styles = `
   .tc-flag-globe { display: inline-flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); }
   .tc-title { flex: 1; min-width: 0; font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tc-brand .tc-title { color: var(--c); }
+  .tc-av { width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; overflow: hidden; background: var(--bg-elevated); display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px var(--border-subtle); }
+  .tc-av img { width: 100%; height: 100%; object-fit: cover; }
+  .tc-av-ph { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 15px; color: var(--text-muted); }
+  .tc-titwrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .tc-titwrap .tc-title { flex: 0 0 auto; font-size: 16px; }
+  .tc-by { font-size: 12.5px; font-weight: 600; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tc-cta-btn { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 4px 16px 14px; padding: 9px 12px; border-radius: 10px; font-size: 13px; font-weight: 800; color: var(--accent-orange); text-decoration: none; background: var(--bg-elevated); border: 1px solid var(--border-subtle); transition: background .14s, border-color .14s; }
   .tc-cta-btn:hover { background: var(--bg-surface); border-color: var(--accent-orange); }
 
