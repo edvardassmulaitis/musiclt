@@ -189,10 +189,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       finalSlug = `${slugBase}-${attempt}`
     }
 
+    // 2026-06-25: nuimam YT/Spotify nuorodas iš body — jos rodomos kaip embed'ai
+    // apačioje (news_songs is_embed), neturi kaboti kaip tekstas/nuoroda.
+    const strippedBody = String(overrideBody || '')
+      // <a href="...youtube/spotify...">...</a> → pašalinam visą anchor'ą
+      .replace(/<a\b[^>]*href=["']?[^"'>]*(?:youtube\.com|youtu\.be|open\.spotify\.com)[^"'>]*["']?[^>]*>[\s\S]*?<\/a>/gi, '')
+      // bare media URL tekste
+      .replace(/https?:\/\/[^\s"'<>]*(?:youtube\.com\/watch|youtu\.be\/|youtube\.com\/(?:embed|shorts)\/|open\.spotify\.com\/(?:track|album|artist|playlist))[^\s"'<>]*/gi, '')
+      // tušti <p> likę po pašalinimo
+      .replace(/<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '')
+      .trim()
+
     // Body — diskretiška source nuoroda (be portalo reklamavimo)
     const bodyWithSource = cand.source_url
-      ? `${overrideBody}\n\n<p class="news-source"><a href="${escapeAttr(cand.source_url)}" target="_blank" rel="noopener" class="text-xs text-gray-400 hover:text-gray-600">pagal pirminį šaltinį</a></p>`
-      : overrideBody
+      ? `${strippedBody}\n\n<p class="news-source"><a href="${escapeAttr(cand.source_url)}" target="_blank" rel="noopener" class="text-xs text-gray-400 hover:text-gray-600">pagal pirminį šaltinį</a></p>`
+      : strippedBody
 
     // ─── Track IDs (wizard override pre body.track_ids[], else AI suggested) ───
     // Parsing'as deklaruojamas anksti, kad auto-image YT thumb fallback'as
@@ -331,8 +342,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    // ─── news_songs: pridėti track'us + embed URLs ───
-    const songsToInsert: Array<{ news_id: number; sort_order: number; song_id?: number; title?: string; artist_name?: string; youtube_url?: string }> = []
+    // ─── news_songs: katalogo dainos (song_id) + embed'ai (is_embed) ───
+    // 2026-06-25: aiškiai atskiriam DU tipus:
+    //   • katalogo daina → song_id užpildytas, is_embed=false
+    //   • straipsnio embed (video tik rodymui) → song_id NULL, is_embed=true,
+    //     NIEKADA netampa katalogo tracku.
+    const songsToInsert: Array<{ news_id: number; sort_order: number; song_id?: number; title?: string; artist_name?: string; youtube_url?: string; is_embed: boolean }> = []
 
     // trackIds jau deklaruoti aukščiau (anksti, kad auto-image YT thumb veiktų).
     if (trackIds.length > 0) {
@@ -349,15 +364,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           title: t.title,
           artist_name: t.artists?.name || '',
           youtube_url: t.video_url || '',
+          is_embed: false,
         })
       }
     }
 
-    // 2) Embed URLs iš source'o (jei track'as nebuvo matched — vis tiek rodome video)
+    // 2) Embed URLs iš source'o — eina į apačią kaip embed'ai (is_embed=true),
+    //    NE kaip katalogo dainos. Skipinam dublikatus jei daina jau turi tą video.
     const embeds: string[] = (cand.embed_urls || []) as string[]
     let order = songsToInsert.length
     for (const url of embeds) {
-      // Skipinam dublikatus jeigu tracks jau turi tą video_url
       if (songsToInsert.some(s => s.youtube_url === url)) continue
       songsToInsert.push({
         news_id: created.id,
@@ -365,6 +381,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         title: '',
         artist_name: '',
         youtube_url: url,
+        is_embed: true,
       })
     }
 

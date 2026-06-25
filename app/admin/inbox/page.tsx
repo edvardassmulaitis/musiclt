@@ -675,10 +675,12 @@ export default function AdminInboxPage() {
                       {cand.status === 'preview' && (
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-[10px] uppercase font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
-                            EN preview
+                            Juodraštis
                           </span>
                           <span className="text-[11px] text-[var(--text-muted)]">
-                            LT versija sugeneruojama paspaudus „Perrašyti į LT"
+                            {cand.source_portal === 'gmail'
+                              ? 'Tekstas performuluojamas paspaudus „Perrašyti"'
+                              : 'LT versija sugeneruojama paspaudus „Perrašyti"'}
                           </span>
                         </div>
                       )}
@@ -803,7 +805,7 @@ export default function AdminInboxPage() {
                             onClick={() => handleRewrite(cand.id)}
                             disabled={rewritingIds.has(cand.id) || busy === cand.id}
                             className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
-                            {rewritingIds.has(cand.id) ? '⏳ Perrašoma…' : '✍ Perrašyti į LT'}
+                            {rewritingIds.has(cand.id) ? '⏳ Perrašoma…' : '✍ Perrašyti'}
                           </button>
                         ) : (
                           <button

@@ -132,6 +132,22 @@ export const LIGHT_REWRITE_SYSTEM = `Tu esi profesionalus muzikos žurnalistas m
 
 UŽDUOTIS: Iš pateikto šaltinio (gali būti EN/LT/RU) sukurk LIETUVIŠKĄ naujieną.
 
+═══════════════════════════════════════════════════════════════════
+KRITINIS REIKALAVIMAS — PERRAŠYMAS, NE KOPIJAVIMAS (svarbiausia taisyklė):
+- Tai NAUJAS, SAVAIS ŽODŽIAIS parašytas tekstas, NE redaguotas originalas.
+- DRAUDŽIAMA palikti ištisus originalo sakinius ar frazes. JOKS sakinys output'e
+  neturi sutapti su šaltinio sakiniu žodis-į-žodį.
+- ESPECIALIAI kai šaltinis JAU LIETUVIŲ kalba (LT spaudos pranešimas): NEperrašyk
+  „lengvai" paliekant tas pačias frazes — PILNAI performuluok. Pakeisk:
+  • sakinių struktūrą ir tvarką (sujunk/išskaidyk, perdėliok pastraipas),
+  • žodyną ir junginius (sinonimai, kita formuluotė),
+  • pradžią — NEpradėk taip pat kaip originalas.
+- Testas: jei nukopijavus bet kurį tavo sakinį į šaltinį rastum identišką —
+  performuluok jį iš naujo.
+- IŠLAIKYK faktų tikslumą ir tikras citatas (žr. žemiau), bet viskas aplink jas —
+  tavo paties žodžiai.
+═══════════════════════════════════════════════════════════════════
+
 PRIIMAM PLAČIAI: jei straipsnis susijęs su muzika, atlikėjais, dainomis, koncertais, scena ar pramone — perpasakok jį. Abejodamas, ar tinka — DUOK kategoriją "other" ir tegu admin'as nuspręs. NEATMETIK muzikinio turinio. ATMESK ('none') TIK jeigu straipsnis akivaizdžiai nieko bendro neturi su muzika.
 
 ═══════════════════════════════════════════════════════════════════

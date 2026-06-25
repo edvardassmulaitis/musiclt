@@ -63,13 +63,31 @@ export async function POST(
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  // Fetch full article — visad re-fetch, kad gautume šviežią raw_text
-  // (scout saugojo tik 20K chars, bet Sonnet'as gali naudoti iki 6K limit'o).
-  let article
-  try {
-    article = await extractFromUrl(candidate.source_url)
-  } catch (e: any) {
-    return NextResponse.json({ error: `Fetch source failed: ${e.message}` }, { status: 502 })
+  // Fetch full article. Scout candidate'ai turi source_url → re-fetch (šviežias
+  // raw_text). Gmail candidate'ai source_url NETURI → naudojam saugotą raw_text
+  // (spaudos pranešimo tekstas) + jau detektuotus embed_urls. Taip ir LT spaudos
+  // pranešimai praeina pro pilną perrašymą (PERRAŠYMAS, NE KOPIJAVIMAS taisyklė).
+  let article: { text: string; source_lang?: string; embed_urls: string[] }
+  if (candidate.source_url) {
+    try {
+      article = await extractFromUrl(candidate.source_url)
+    } catch (e: any) {
+      return NextResponse.json({ error: `Fetch source failed: ${e.message}` }, { status: 502 })
+    }
+  } else {
+    const rawText = (candidate.raw_text || candidate.ai_body || '')
+      .replace(/<[^>]+>/g, ' ')        // nuimam HTML tag'us jei buvo
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+    if (rawText.length < 30) {
+      return NextResponse.json({ error: 'No source text to rewrite' }, { status: 400 })
+    }
+    article = {
+      text: rawText,
+      source_lang: candidate.raw_lang || 'lt',
+      embed_urls: Array.isArray(candidate.embed_urls) ? candidate.embed_urls : [],
+    }
   }
 
   // Run Sonnet normalize su improved prompt'u

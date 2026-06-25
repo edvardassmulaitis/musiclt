@@ -355,7 +355,11 @@ export async function POST(req: NextRequest) {
       ai_tracks_mentioned: aiTracksMentioned,
       url_canonical_hash: canonicalHash(`gmail:${threadId}`),
       title_fingerprint: (ai.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 100),
-      status: 'pending',
+      // 2026-06-25: 'pending' → 'preview'. Anksčiau gmail (ypač LT spaudos
+      // pranešimai) eidavo tiesiai į publish su raw passthrough tekstu → likdavo
+      // identiškos frazės + boilerplate. Dabar VISI gmail candidate'ai praeina
+      // pro „Perrašyti" (normalizeArticle), kuris pilnai performuluoja.
+      status: 'preview',
     })
     .select('id')
     .single()
