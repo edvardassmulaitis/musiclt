@@ -16,6 +16,7 @@ import { HomeListContent } from '@/components/HomeListContent'
 import Scroller from '@/components/ui/Scroller'
 import BendruomeneSection from '@/components/home/BendruomeneSection'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
+import { ReelsYtPlayer, type ReelsYtHandle } from '@/components/ReelsYtPlayer'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
@@ -709,10 +710,11 @@ function DailyCandidates({ onPlay }: { onPlay: (videoId: string) => void }) {
   )
 }
 
-function ReaderSlide({ slide, active, seen, scrollTopSignal, onScrolledChange, onPlayingChange, onClose, onChartVote, onDailyVote, onNavLink }: {
+function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChange, onPlayingChange, onClose, onChartVote, onDailyVote, onNavLink }: {
   slide: HeroSlide
   active: boolean
   seen: boolean
+  dk: boolean
   scrollTopSignal: number
   onScrolledChange: (scrolled: boolean) => void
   onPlayingChange: (playing: boolean) => void
@@ -723,10 +725,10 @@ function ReaderSlide({ slide, active, seen, scrollTopSignal, onScrolledChange, o
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const vwrapRef = useRef<HTMLDivElement>(null)
+  const ytRef = useRef<ReelsYtHandle>(null)
   const [videoOn, setVideoOn] = useState(false)
   const [curVideoId, setCurVideoId] = useState<string | null>(slide.videoId || null)
   const [mini, setMini] = useState(false)
-  const [playToken, setPlayToken] = useState(0)
   const [body, setBody] = useState<string | null>(
     slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null)
   )
@@ -750,6 +752,7 @@ function ReaderSlide({ slide, active, seen, scrollTopSignal, onScrolledChange, o
       setVideoOn(false)
       setMini(false)
       setCurVideoId(slide.videoId || null)
+      ytRef.current?.stop()
       if (scrollRef.current) scrollRef.current.scrollTop = 0
     }
   }, [active]) // eslint-disable-line
@@ -758,6 +761,13 @@ function ReaderSlide({ slide, active, seen, scrollTopSignal, onScrolledChange, o
   useEffect(() => {
     if (active && scrollTopSignal > 0) scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [scrollTopSignal]) // eslint-disable-line
+
+  /* Topų/dienos dainos eilutės grojimas: ReelsYtPlayer primontuojamas tik kai
+   *  videoOn → tap'o metu ytRef dar nebuvo. Šis efektas paleidžia po mount'o
+   *  (ReelsYtPlayer pats laukia, kol player'is READY). */
+  useEffect(() => {
+    if (active && videoOn && curVideoId) ytRef.current?.play(curVideoId)
+  }, [videoOn, curVideoId, active]) // eslint-disable-line
 
   /* Pranešam tėvui apie grojimą (groja → auto-advance stoja). */
   useEffect(() => {
@@ -818,12 +828,10 @@ function ReaderSlide({ slide, active, seen, scrollTopSignal, onScrolledChange, o
     if (!id) return
     setCurVideoId(id)
     setVideoOn(true)
-    // Kiekvienas paleidimas didina playToken → iframe primontuojamas iš naujo su
-    // autoplay=1 (plain <iframe>, kaip ChartYtPlayer — patikimas autoplay su garsu).
-    // Tai pataiso: (a) pirmą tapą (groja iškart, ne tik „užloadina"), (b) grįžimą po
-    // braukimo į šoną — šviežias mount visada vėl groja.
-    setPlayToken(t => t + 1)
     setMini((scrollRef.current?.scrollTop || 0) > 36)
+    // Grojimą paleidžiam SINKRONIŠKAI tapo handler'yje ant jau PARUOŠTO (cued) YT
+    // player'io (kaip atlikėjo psl.) → groja 1 tapu su garsu, ir grįžus po braukimo.
+    ytRef.current?.play(id)
   }
 
   const toggleLike = async () => {
@@ -843,7 +851,6 @@ function ReaderSlide({ slide, active, seen, scrollTopSignal, onScrolledChange, o
   const artistName = slide.artist?.name || null
   const showArtistRow = !!artistName && slide.type !== 'event' && !isChart && !isDaily
   const showMedia = videoOn || slide.bgImg || hasVideo
-  const ytOrigin = typeof window !== 'undefined' ? `&origin=${encodeURIComponent(window.location.origin)}` : ''
 
   return (
     <div ref={scrollRef} className="rdr-slide" onScroll={onScroll}>
@@ -851,35 +858,36 @@ function ReaderSlide({ slide, active, seen, scrollTopSignal, onScrolledChange, o
           dešiniam kampe. Scrollinant grojantis video lieka sticky (minimizuojasi). ── */}
       {/* Grotuvo konteineris — visada kai kortelė aktyvi (iframe įdedamas imperatyviai
           paspaudimo metu). Paslėptas kol negroja. */}
-      {active && videoOn && curVideoId && (
+      {active && (hasVideo || videoOn) ? (
         <div
           ref={vwrapRef}
           className={`rdr-vwrap${mini ? ' mini' : ''}`}
           onClick={mini ? () => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) : undefined}
         >
-          <iframe
-            key={playToken}
-            className="rdr-video"
-            src={`https://www.youtube.com/embed/${curVideoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3${ytOrigin}`}
-            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-            allowFullScreen
-            title="grotuvas"
-          />
-        </div>
-      )}
-      {showMedia && !videoOn && (
-        <div className="rdr-media">
-          {slide.bgImg
-            ? <img className="rdr-media-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} />
-            : <div className="rdr-media-img" style={{ background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
-          <div className="rdr-media-fade" />
-          {hasVideo && (
-            <button className="rdr-playbtn" onClick={(e) => { e.stopPropagation(); play() }} aria-label="Groti">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+          {/* YT player'is PRE-CREATED (cued) → groja 1 tapu. Posteris ant viršaus kol negroja. */}
+          <ReelsYtPlayer ref={ytRef} videoId={curVideoId} />
+          {hasVideo && !videoOn && (
+            <button className="rdr-poster" onClick={(e) => { e.stopPropagation(); play() }} aria-label="Groti">
+              {slide.bgImg
+                ? <><span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImg(slide.bgImg)})` }} /><img className="rdr-poster-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} /></>
+                : <span className="rdr-poster-ph" />}
+              <span className="rdr-playbtn" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+              </span>
             </button>
           )}
+          {mini && videoOn && (
+            <button className="rdr-vclose" onClick={(e) => { e.stopPropagation(); setVideoOn(false); ytRef.current?.stop() }} aria-label="Uždaryti grotuvą">✕</button>
+          )}
         </div>
-      )}
+      ) : showMedia && !videoOn ? (
+        <div className="rdr-media">
+          {slide.bgImg
+            ? <><span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImg(slide.bgImg)})` }} /><img className="rdr-poster-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} /></>
+            : <div className="rdr-media-img" style={{ background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
+          <div className="rdr-media-fade" />
+        </div>
+      ) : null}
 
       {/* ── „Groja" juostelė (tik kai yra konkreti daina) ── */}
       {hasVideo && (slide.songTitle || slide.songArtist) && !isChart && !isDaily && (
@@ -892,20 +900,13 @@ function ReaderSlide({ slide, active, seen, scrollTopSignal, onScrolledChange, o
 
       {/* ── Tekstinė dalis ── */}
       <div className="rdr-content">
-        <span className="rdr-chip" style={{ background: seen ? 'rgba(255,255,255,0.16)' : slide.chipBg }}>{slide.chip}</span>
+        <div className="rdr-head">
+          <span className="rdr-chip" style={{ background: seen ? 'rgba(255,255,255,0.16)' : slide.chipBg }}>{slide.chip}</span>
+          {place && <span className="rdr-date">{place}</span>}
+        </div>
         {isRecording
           ? <Link href={slide.href} onClick={onNavLink} className="rdr-title rdr-title-link">{slide.title}</Link>
           : <h2 className="rdr-title">{slide.title}</h2>}
-        {place && <p className="rdr-meta">{place}</p>}
-
-        {showArtistRow && (
-          <Link href={`/atlikejai/${slide.artist!.slug}`} className="rdr-artist" onClick={onNavLink}>
-            {slide.artist!.image
-              ? <img src={proxyImg(slide.artist!.image)} alt="" />
-              : <span className="rdr-artist-ph">{artistName![0]}</span>}
-            <span>{artistName}</span>
-          </Link>
-        )}
 
         {isChart ? (
           active ? (
@@ -956,6 +957,15 @@ function ReaderSlide({ slide, active, seen, scrollTopSignal, onScrolledChange, o
           <p className="rdr-excerpt">{slide.excerpt || slide.subtitle}</p>
         ) : null}
 
+        {showArtistRow && (
+          <Link href={`/atlikejai/${slide.artist!.slug}`} className="rdr-artist rdr-artist-foot" onClick={onNavLink}>
+            {slide.artist!.image
+              ? <img src={proxyImg(slide.artist!.image)} alt="" />
+              : <span className="rdr-artist-ph">{artistName![0]}</span>}
+            <span>{artistName}</span>
+          </Link>
+        )}
+
         {slide.authorName && <p className="rdr-author">— {slide.authorName}</p>}
 
         {/* News: subtilus CTA į pilną straipsnį (komentarai). */}
@@ -975,7 +985,7 @@ function ReaderSlide({ slide, active, seen, scrollTopSignal, onScrolledChange, o
         <div className="rdr-actions" onClick={(e) => e.stopPropagation()}>
           {slide.likeable && slide.newsId && (
             <button className={`rdr-like${liked ? ' on' : ''}`} onClick={toggleLike} aria-label="Patinka">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
             </button>
           )}
           <Link href={slide.href} onClick={onNavLink} className={`rdr-cta${isNews ? ' subtle' : ''}`}
@@ -1117,7 +1127,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   const translateX = -idx * 100 + (dragging ? (dragOffset / (typeof window !== 'undefined' ? window.innerWidth : 400)) * 100 : 0)
 
   return (
-    <div className="hp-reels">
+    <div className={`hp-reels${dk ? '' : ' light'}`}>
       {/* Progreso juostelės */}
       <div className="rdr-bars">
         {slides.map((s, i) => {
@@ -1157,6 +1167,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
               slide={s}
               active={i === idx}
               seen={seenSlides.has(s.href)}
+              dk={dk}
               scrollTopSignal={i === idx ? scrollTopReq : 0}
               onScrolledChange={(sc) => { if (i === idx) setScrolled(sc) }}
               onPlayingChange={(pl) => { if (i === idx) setPlaying(pl) }}
@@ -3203,7 +3214,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-slide::-webkit-scrollbar{display:none}
 
         /* Media viršuje (matosi iškart) */
-        .rdr-media{position:relative;width:100%;aspect-ratio:16/10;background:#0a0a0a;overflow:hidden}
+        .rdr-media{position:relative;width:100%;aspect-ratio:4/5;max-height:60vh;background:#0a0a0a;overflow:hidden}
         .rdr-media-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
         .rdr-video{width:100%;height:100%;border:none;display:block;background:#000}
         .rdr-media-fade{position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(to top,#000,transparent);pointer-events:none;z-index:1}
@@ -3218,6 +3229,37 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-vwrap.mini iframe{pointer-events:none}
         .rdr-vclose{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.65);border:none;color:#fff;font-size:11px;line-height:1;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center}
 
+        /* YT IFrame slotas (pre-created player) + posteris (contain + blur fonas) */
+        .rdr-ytslot{position:absolute;inset:0;width:100%;height:100%}
+        .rdr-ytslot iframe{width:100%;height:100%;border:0;display:block}
+        .rdr-poster{position:absolute;inset:0;z-index:2;border:0;padding:0;margin:0;cursor:pointer;background:#000;display:block;width:100%;height:100%}
+        .rdr-poster-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(26px) brightness(0.55);transform:scale(1.18)}
+        .rdr-poster-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1}
+        .rdr-poster-ph{position:absolute;inset:0;background:linear-gradient(135deg,#0a1428,#162040)}
+        /* Antraštės galvutė: badge + data vienoj eilutėj (kompaktiška) */
+        .rdr-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+        .rdr-date{font-size:12px;font-weight:600;color:rgba(255,255,255,0.5);font-family:'Outfit',sans-serif}
+        /* Atlikėjo „pill" perkelta į teksto apačią */
+        .rdr-artist-foot{margin:18px 0 0}
+
+        /* ── Šviesi tema (light mode) — reels neturi būti juodas ── */
+        .hp-reels.light{background:var(--bg-body)}
+        .hp-reels.light .rdr-title,.hp-reels.light .rdr-title-link{color:var(--text-primary)}
+        .hp-reels.light .rdr-date{color:var(--text-muted)}
+        .hp-reels.light .rdr-excerpt,.hp-reels.light .rdr-html{color:var(--text-secondary)}
+        .hp-reels.light .rdr-html h2,.hp-reels.light .rdr-html h3{color:var(--text-primary)}
+        .hp-reels.light .rdr-artist{background:var(--bg-hover)}
+        .hp-reels.light .rdr-artist span{color:var(--text-primary)}
+        .hp-reels.light .rdr-author{color:var(--text-muted)}
+        .hp-reels.light .rdr-np-t{color:var(--text-primary)}
+        .hp-reels.light .rdr-actions{background:linear-gradient(to top,var(--bg-body) 62%,transparent)}
+        .hp-reels.light .rdr-media-fade{background:linear-gradient(to top,var(--bg-body),transparent)}
+        .hp-reels.light .rdr-like{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
+        .hp-reels.light .rdr-cta.subtle{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
+        .hp-reels.light .rdr-inline-cta{border-color:var(--border-default);color:var(--text-secondary)}
+        .hp-reels.light .rdr-bar{background:rgba(0,0,0,0.14)}
+        .hp-reels.light .rdr-uptop,.hp-reels.light .rdr-close,.hp-reels.light .rdr-nav{background:rgba(0,0,0,0.06);border-color:rgba(0,0,0,0.12);color:var(--text-primary)}
+
         /* „Groja" juostelė */
         .rdr-np{display:flex;align-items:center;gap:6px;padding:9px 20px;background:rgba(249,115,22,0.10);border-bottom:1px solid rgba(255,255,255,0.06);font-family:'Outfit',sans-serif}
         .rdr-np-t{font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -3225,7 +3267,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
 
         /* Turinys */
         .rdr-content{padding:16px 20px 0}
-        .rdr-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:10px;font-weight:900;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px}
+        .rdr-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:10px;font-weight:900;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.08em;text-transform:uppercase}
         .rdr-title{font-family:'Outfit',sans-serif;font-size:23px;font-weight:900;color:#fff;line-height:1.14;letter-spacing:-0.02em;margin:0 0 8px;display:block}
         a.rdr-title-link{text-decoration:none}
         a.rdr-title-link:active{opacity:0.7}
@@ -3314,7 +3356,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
 
         /* Apatinė veiksmų juosta (sticky) */
         .rdr-actions{position:sticky;bottom:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,#000 62%,transparent);z-index:5}
-        .rdr-like{width:48px;height:48px;flex-shrink:0;border-radius:14px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s}
+        .rdr-like{width:48px;height:48px;flex-shrink:0;border-radius:14px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s}
         .rdr-like.on{background:rgba(244,63,94,0.16);border-color:rgba(244,63,94,0.4)}
         .rdr-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:14px 20px;border-radius:14px;border:none;cursor:pointer;color:#fff;font-family:'Outfit',sans-serif;font-size:14.5px;font-weight:800;letter-spacing:-0.01em;text-decoration:none}
         .rdr-ticket{display:flex;align-items:center;gap:6px;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.16);color:#fff;font-family:'Outfit',sans-serif;font-size:13.5px;font-weight:800;text-decoration:none;flex-shrink:0}
