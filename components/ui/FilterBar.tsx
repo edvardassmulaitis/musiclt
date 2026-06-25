@@ -109,10 +109,11 @@ function ChipGroup({ g, onSelect }: { g: FilterGroup; onSelect?: SelectFn }) {
 function DropdownGroup({ g, open, setOpen, onSelect }: {
   g: FilterGroup; open: boolean; setOpen: (v: boolean) => void; onSelect?: SelectFn
 }) {
-  const def = g.options[0]?.key
-  const isDefault = g.active === def
+  // Toggle modelis: nėra „Visi" opcijos. active='' → nieko nepažymėta
+  // (rodom grupės label'į); kitaip rodom aktyvios opcijos label'į.
   const activeOpt = g.options.find((o) => o.key === g.active)
-  const triggerLabel = isDefault ? g.label : (activeOpt?.label ?? g.label)
+  const isDefault = !activeOpt
+  const triggerLabel = activeOpt?.label ?? g.label
   return (
     <div className="fb-dd">
       <button
