@@ -333,6 +333,52 @@ export function TrackInfoModal({
     onClose()
   }
 
+  // ── ⋯ veiksmų meniu (Pasirinkti Dienos daina / nuotaikos daina) — toks pat
+  // kaip standalone dainos puslapyje. ─────────────────────────────────────────
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuBusy, setMenuBusy] = useState(false)
+  const [menuMsg, setMenuMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [menuOpen])
+  useEffect(() => { if (!menuMsg) return; const t = setTimeout(() => setMenuMsg(null), 3500); return () => clearTimeout(t) }, [menuMsg])
+  useEffect(() => { setMenuOpen(false); setMenuMsg(null) }, [track?.id])
+
+  const nominateDienosDaina = async () => {
+    if (menuBusy || !track) return
+    if (!isLoggedIn) { setMenuOpen(false); setMenuMsg({ ok: false, text: 'Prisijunk, kad pasirinktum dienos dainą.' }); return }
+    setMenuBusy(true)
+    try {
+      const res = await fetch('/api/dienos-daina/nominations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: track.id }),
+      })
+      const d = await res.json().catch(() => ({}))
+      setMenuMsg(res.ok ? { ok: true, text: '✓ Pasirinkta Dienos daina!' } : { ok: false, text: d.error || 'Nepavyko.' })
+    } catch { setMenuMsg({ ok: false, text: 'Tinklo klaida.' }) }
+    finally { setMenuBusy(false); setMenuOpen(false) }
+  }
+  const makeMoodSong = async () => {
+    if (menuBusy || !track) return
+    if (!isLoggedIn) { setMenuOpen(false); setMenuMsg({ ok: false, text: 'Prisijunk, kad pažymėtum nuotaikos dainą.' }); return }
+    setMenuBusy(true)
+    try {
+      const res = await fetch('/api/mano-muzika/mood', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: track.id, make_active: true }),
+      })
+      const d = await res.json().catch(() => ({}))
+      setMenuMsg(res.ok ? { ok: true, text: '✓ Nustatyta kaip tavo nuotaikos daina.' } : { ok: false, text: d.error || 'Nepavyko.' })
+    } catch { setMenuMsg({ ok: false, text: 'Tinklo klaida.' }) }
+    finally { setMenuBusy(false); setMenuOpen(false) }
+  }
+
   if (!track) return null
   // createPortal lower down needs document.body — bail on SSR.
   if (typeof document === 'undefined') return null
@@ -765,8 +811,56 @@ export function TrackInfoModal({
                   size="sm"
                 />
                 <SharePill title={`${track.title} — ${artistName}`} url={trackHref} size="sm" />
+                {/* ⋯ veiksmų meniu — toks pat kaip dainos puslapyje. */}
+                <div ref={menuRef} className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen(v => !v)}
+                    aria-label="Daugiau veiksmų"
+                    title="Daugiau veiksmų"
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--card-hover)] hover:text-[var(--text-primary)]"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="12" cy="5" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="12" cy="19" r="1.8" />
+                    </svg>
+                  </button>
+                  {menuOpen && (
+                    <div className="absolute right-0 top-9 z-[60] w-60 overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] py-1 shadow-[0_18px_40px_-10px_rgba(0,0,0,0.5)]">
+                      <button
+                        type="button"
+                        onClick={nominateDienosDaina}
+                        disabled={menuBusy}
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--card-hover)] disabled:opacity-50"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--accent-orange)]">
+                          <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                        </svg>
+                        Pasirinkti Dienos dainą
+                      </button>
+                      <button
+                        type="button"
+                        onClick={makeMoodSong}
+                        disabled={menuBusy}
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--card-hover)] disabled:opacity-50"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-muted)]">
+                          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        </svg>
+                        Nustatyti kaip nuotaikos dainą
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+            {menuMsg && (
+              <div className={[
+                'shrink-0 px-4 py-2 text-center font-["Outfit",sans-serif] text-[12px] font-bold',
+                menuMsg.ok ? 'bg-[rgba(34,197,94,0.12)] text-[#16a34a]' : 'bg-[rgba(239,68,68,0.10)] text-[#dc2626]',
+              ].join(' ')}>
+                {menuMsg.text}
+              </div>
+            )}
             {/* Scrollable body */}
             <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4">
               <div className={mobileTab === 'lyrics' ? 'block' : 'hidden'}>
