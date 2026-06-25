@@ -2,19 +2,19 @@ import { Metadata } from 'next'
 import TopaiHub from '@/components/topai/TopaiHub'
 
 export const metadata: Metadata = {
-  title: 'Muzikos topai — Lietuva ir pasaulis | Music.lt',
+  title: 'Lietuvos ir pasaulio muzikos topai | Music.lt',
   description: 'Visi muzikos topai vienoje vietoje: Music.lt TOP 40 ir LT TOP 30, Lietuvos, JAV, JK bei pasaulio dainų ir albumų reitingai. Agreguoti AGATA, Spotify, Apple Music, Billboard, Official UK ir Shazam duomenys, atnaujinami kas savaitę.',
   keywords: ['muzikos topai', 'top 40', 'lietuvos topai', 'dainų topai', 'albumų topai', 'AGATA', 'Spotify topai', 'Billboard', 'Shazam', 'music.lt'],
   alternates: { canonical: '/topai' },
   openGraph: {
-    title: 'Muzikos topai — Lietuva ir pasaulis',
+    title: 'Lietuvos ir pasaulio muzikos topai',
     description: 'Music.lt TOP 40, LT TOP 30 ir agreguoti Lietuvos bei pasaulio dainų ir albumų topai vienoje vietoje.',
     url: '/topai',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Muzikos topai — Lietuva ir pasaulis | Music.lt',
+    title: 'Lietuvos ir pasaulio muzikos topai | Music.lt',
     description: 'Lietuvos ir pasaulio muzikos topai vienoje vietoje, atnaujinami kas savaitę.',
   },
 }
