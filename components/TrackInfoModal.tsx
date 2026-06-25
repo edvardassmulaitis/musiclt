@@ -256,35 +256,9 @@ export function TrackInfoModal({
   const { data: authSession } = useSession()
   const isLoggedIn = !!authSession?.user
 
-  // Artist extra info (description, genres, galerijos foto) atlikėjo kortelei.
-  const [artistDesc, setArtistDesc] = useState<string | null>(null)
-  const [artistGenres, setArtistGenres] = useState<string[]>([])
-  // artistAltPhoto — KITA nuotrauka iš galerijos (ne ta pati kaip headeryje),
-  // kad būtų daugiau įvairovės. Fallback į header thumb.
-  const [artistAltPhoto, setArtistAltPhoto] = useState<string | null>(null)
-  useEffect(() => {
-    if (!track || !artistSlug) { setArtistDesc(null); setArtistGenres([]); setArtistAltPhoto(null); return }
-    let cancelled = false
-    fetch(`/api/artists?check=${encodeURIComponent(artistName)}`)
-      .then(r => r.json())
-      .then(async (list: any[]) => {
-        if (cancelled || !Array.isArray(list)) return
-        const match = list.find((a: any) => a.slug === artistSlug) || list[0]
-        if (!match) return
-        const res = await fetch(`/api/artists/${match.id}`)
-        if (!res.ok) return
-        const a = await res.json()
-        if (cancelled) return
-        setArtistDesc(a.description || null)
-        setArtistGenres((a.substyleNames || []).slice(0, 4))
-        // Renkam galerijos foto, kuri SKIRIASI nuo header thumb'o.
-        const photos = (a.photos || []).filter((p: any) => p?.url && p.is_active !== false)
-        const alt = photos.find((p: any) => p.url !== artistThumbUrl) || photos[0]
-        setArtistAltPhoto(alt?.url || null)
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [track?.id, artistSlug, artistName, artistThumbUrl])
+  // (Atlikėjo info kortelė pašalinta iš modalo — po video rodom tik susijusią
+  //  muziką + albumą, suvienodinta su dainos puslapiu. Tad artistDesc/genres/
+  //  altPhoto fetch'as nebereikalingas.)
 
   // ── Teksto pasiūlymas (kai dainos teksto nėra) ──────────────────────────────
   const [lyricsDraft, setLyricsDraft] = useState('')
@@ -421,7 +395,7 @@ export function TrackInfoModal({
       >
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold">
-            Patiko dainą
+            Dainą mėgstantys nariai
             {likersUsers && <span className="ml-2 text-[11px] text-[var(--text-muted)]">({likersUsers.length})</span>}
           </div>
           <button
@@ -664,54 +638,50 @@ export function TrackInfoModal({
             {(() => {
               const more = (artistTracks || [])
                 .filter((t: any) => t.id !== track.id && yt(t.video_url))
+                .sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0))
                 .slice(0, 8)
               const primaryAlbum = (track.albums || [])[0]
               return (
-                <div className="hidden md:flex flex-1 min-h-0 flex-col overflow-y-auto px-3 py-3">
-                  {/* Atlikėjo kortelė — nuotrauka + vardas + žanrai */}
-                  <Link
-                    href={`/atlikejai/${artistSlug}`}
-                    target="_blank"
-                    rel="noopener"
-                    className="group mb-2.5 flex items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-colors hover:border-[var(--border-strong)]"
-                  >
-                    {(artistAltPhoto || artistThumbUrl) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={proxyImg(artistAltPhoto || artistThumbUrl!)}
-                        alt=""
-                        style={{ objectPosition: 'center top' }}
-                        className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                      />
-                    ) : (
-                      <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--bg-elevated)] to-[var(--bg-surface)]">
-                        <span className="font-['Outfit',sans-serif] text-[28px] font-bold text-[var(--text-muted)] opacity-40">{artistName.charAt(0)}</span>
+                <div className="hidden md:flex flex-1 min-h-0 flex-col gap-2.5 overflow-y-auto px-3 py-3">
+                  {/* Po video — BE atlikėjo info kortelės: susijusi (top) muzika +
+                      albumas, suvienodinta su standalone dainos puslapiu. */}
+                  {more.length > 0 && (
+                    <div>
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                        Susijusi muzika
                       </div>
-                    )}
-                    <div className="min-w-0 flex-1 pt-0.5">
-                      <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{artistName}</div>
-                      {artistGenres.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {artistGenres.map(g => (
-                            <span key={g} className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-semibold text-[var(--text-muted)]">{g}</span>
-                          ))}
-                        </div>
-                      )}
-                      {artistDesc && (
-                        <p className="mt-1.5 line-clamp-3 whitespace-pre-line font-['Outfit',sans-serif] text-[11.5px] leading-[1.5] text-[var(--text-secondary)]">
-                          {plainText(artistDesc)}
-                        </p>
-                      )}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {more.map((t: any) => {
+                          const tvid = yt(t.video_url)
+                          const inner = (
+                            <>
+                              <span className="aspect-video h-9 shrink-0 overflow-hidden rounded bg-black">
+                                {tvid && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                )}
+                              </span>
+                              <span className="min-w-0 flex-1 truncate font-['Outfit',sans-serif] text-[11px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</span>
+                            </>
+                          )
+                          const cls = 'flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 text-left no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
+                          return onSelectTrack ? (
+                            <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>{inner}</button>
+                          ) : (
+                            <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>{inner}</Link>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </Link>
-                  {/* Albumas, iš kurio daina (rodom papildomai prie atlikėjo info). */}
+                  )}
+                  {/* Albumas, iš kurio daina. */}
                   {primaryAlbum && (
                     <Link
                       href={`/albumai/${artistSlug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
                       target="_blank"
                       rel="noopener"
                       title={primaryAlbum.title}
-                      className="group mb-2.5 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-2.5 no-underline transition-colors hover:border-[var(--border-strong)]"
+                      className="group flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-2.5 no-underline transition-colors hover:border-[var(--border-strong)]"
                     >
                       <span className="h-[54px] w-[54px] shrink-0 overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
                         {primaryAlbum.cover_image_url && (
@@ -731,36 +701,6 @@ export function TrackInfoModal({
                       </svg>
                     </Link>
                   )}
-                  {/* „Daugiau / atlikėjas" — žema horizontali kitų dainų juostelė */}
-                  {more.length > 0 && (
-                    <div className="mt-auto border-t border-[var(--border-subtle)] pt-3">
-                      <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                        Daugiau / {artistName}
-                      </div>
-                      <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
-                        {more.map((t: any) => {
-                          const tvid = yt(t.video_url)
-                          const inner = (
-                            <>
-                              <span className="block aspect-video w-full overflow-hidden rounded bg-black">
-                                {tvid && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                                )}
-                              </span>
-                              <span className="mt-1 block truncate font-['Outfit',sans-serif] text-[9.5px] font-bold leading-tight text-[var(--text-primary)]">{t.title}</span>
-                            </>
-                          )
-                          const cls = 'block w-[104px] shrink-0 no-underline group'
-                          return onSelectTrack ? (
-                            <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>{inner}</button>
-                          ) : (
-                            <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>{inner}</Link>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )
             })()}
@@ -777,7 +717,7 @@ export function TrackInfoModal({
                 className={[
                   "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
                   mobileTab === 'lyrics'
-                    ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                    ? 'text-[var(--accent-orange)]'
                     : 'text-[var(--text-muted)]',
                 ].join(' ')}
               >
@@ -789,7 +729,7 @@ export function TrackInfoModal({
                 className={[
                   "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
                   mobileTab === 'comments'
-                    ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                    ? 'text-[var(--accent-orange)]'
                     : 'text-[var(--text-muted)]',
                 ].join(' ')}
               >
@@ -835,7 +775,7 @@ export function TrackInfoModal({
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--accent-orange)]">
                           <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
                         </svg>
-                        Pasirinkti Dienos dainą
+                        Pasirinkti Dienos daina
                       </button>
                       <button
                         type="button"
@@ -844,7 +784,7 @@ export function TrackInfoModal({
                         className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--card-hover)] disabled:opacity-50"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-muted)]">
-                          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                          <path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" />
                         </svg>
                         Nustatyti kaip nuotaikos dainą
                       </button>
