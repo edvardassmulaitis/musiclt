@@ -250,55 +250,9 @@ export default function AdminInboxPage() {
     if (status === 'authenticated') load()
   }, [status, isAdmin, router, load])
 
-  // Auto-trigger Gmail attachment backfill once per browser session.
-  // Idempotent — skipina jau processed'us. Be Gmail OAuth (env vars Vercel'yje)
-  // endpoint'as grąžina 503 'oauth_not_configured' — auto-trigger tada tyli,
-  // tik manualus DEBUG button parodo paaiškinimą.
-  const [backfillStats, setBackfillStats] = useState<{ scanned: number; processed: number; with_images: number; oauth_missing?: boolean } | null>(null)
-  useEffect(() => {
-    if (status !== 'authenticated' || !isAdmin) return
-    if (sessionStorage.getItem('gmail_attachments_backfill_done') === '1') return
-    let cancelled = false
-    ;(async () => {
-      try {
-        let totalScanned = 0
-        let totalProcessed = 0
-        let totalWithImages = 0
-        for (let round = 1; round <= 20; round++) {
-          if (cancelled) return
-          const res = await fetch('/api/admin/news-candidates/backfill-gmail-attachments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ limit: 10 }),
-          })
-          if (res.status === 503) {
-            // OAuth missing — pažymim, kad rodom UI message; nedarom retry'ų
-            const data = await res.json().catch(() => ({}))
-            if (data?.error === 'oauth_not_configured' && !cancelled) {
-              setBackfillStats({ scanned: 0, processed: 0, with_images: 0, oauth_missing: true })
-            }
-            sessionStorage.setItem('gmail_attachments_backfill_done', '1')
-            return
-          }
-          if (!res.ok) break
-          const data = await res.json()
-          totalScanned += data.candidates_processed || 0
-          totalProcessed += data.processed || 0
-          totalWithImages += data.candidates_with_images || 0
-          if ((data.candidates_processed || 0) === 0) break
-        }
-        sessionStorage.setItem('gmail_attachments_backfill_done', '1')
-        if (!cancelled && totalScanned > 0) {
-          setBackfillStats({ scanned: totalScanned, processed: totalProcessed, with_images: totalWithImages })
-          if (totalProcessed > 0) load()
-        }
-      } catch {
-        // Silent fail
-      }
-    })()
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, isAdmin])
+  // 2026-06-25: Gmail foto backfill perkeltas į cron/internal route — UI
+  // mygtukas (Force backfill DEBUG) + auto-trigger pašalinti. Foto auto-
+  // fetch'inamos ingest metu; manualus pridėjimas — per peržiūros modal'ą.
 
   const fetchBody = useCallback(async (id: number) => {
     if (bodies[id]) return bodies[id]
@@ -608,23 +562,6 @@ export default function AdminInboxPage() {
 
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3">
         <InboxTabs />
-        {backfillStats && backfillStats.oauth_missing && (
-          <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900">
-            <strong>📷 Gmail foto fetch:</strong> NEVEIKIA, nes Vercel\'yje neset\'inti Gmail OAuth credentials.
-            Reikia: <code className="bg-amber-100 px-1 rounded">GOOGLE_CLIENT_ID</code>,{' '}
-            <code className="bg-amber-100 px-1 rounded">GOOGLE_CLIENT_SECRET</code>,{' '}
-            <code className="bg-amber-100 px-1 rounded">GOOGLE_REFRESH_TOKEN</code>.
-            Foto kortelėse nebus auto-fetch\'inamos, bet gali manualiai pridėti per Peržiūrėti modal\'ą.
-          </div>
-        )}
-        {backfillStats && !backfillStats.oauth_missing && (
-          <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
-            📷 Gmail foto auto-backfill: nuskan\'iuota {backfillStats.scanned} kandidatų ·
-            ✓ {backfillStats.processed} foto pridėta į {backfillStats.with_images} kandidatų.
-            {backfillStats.processed === 0 && ' Nieko nerasta — gali būti, kad press release email\'ai be image attachment\'ų (vietoj jų inline HTML).'}
-          </div>
-        )}
-        <BackfillGmailAttachmentsButton onDone={() => load()} />
         {/* Category filter — icon-only chips mobile'e, su label desktop'e */}
         <div className="flex flex-wrap gap-1 mb-3 overflow-x-auto -mx-1 px-1">
           {['all', 'release', 'performance', 'tour', 'career_step', 'other'].map(cat => (
@@ -1327,100 +1264,3 @@ export default function AdminInboxPage() {
   )
 }
 
-/**
- * Backfill button — manual fallback'as / debug tool'as. Pagrinde backfill'as
- * auto-trigger'inamas page mount metu (žiūr. useEffect AdminInboxPage komponente).
- * Šitą mygtuką pasilieka kol patvirtinsim, kad auto veikia.
- */
-function BackfillGmailAttachmentsButton({ onDone }: { onDone: () => void }) {
-  const [running, setRunning] = useState(false)
-  const [progress, setProgress] = useState<{ totalProcessed: number; totalFailed: number; rounds: number; totalScanned: number; lastResults?: any[]; lastError?: string } | null>(null)
-  const [showDetails, setShowDetails] = useState(false)
-
-  const [needsReload, setNeedsReload] = useState(false)
-
-  const runBackfill = async () => {
-    if (!confirm('Force backfill — re-check ALL pending Gmail candidate\'ams ignoruojant attachments_checked_at flag\'ą, ir wipina esamas foto. Užtruks ~30s-3min. Naudoti DEBUG\'ui.')) return
-    setRunning(true)
-    setProgress({ totalProcessed: 0, totalFailed: 0, rounds: 0, totalScanned: 0 })
-    setNeedsReload(false)
-    try {
-      let totalProcessed = 0
-      let totalFailed = 0
-      let totalScanned = 0
-      let lastResults: any[] = []
-      sessionStorage.removeItem('gmail_attachments_backfill_done')
-      for (let round = 1; round <= 20; round++) {
-        const res = await fetch('/api/admin/news-candidates/backfill-gmail-attachments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          // force=true → ignore checked_at; clean=true → wipe esamas foto pirma
-          body: JSON.stringify({ limit: 10, force: true, clean: true }),
-        })
-        const data = await res.json()
-        if (!res.ok) {
-          setProgress(p => ({ ...(p || { totalProcessed: 0, totalFailed: 0, rounds: 0, totalScanned: 0 }), lastError: data.error || `HTTP ${res.status}` }))
-          break
-        }
-        totalProcessed += data.processed || 0
-        totalFailed += data.failed || 0
-        totalScanned += data.candidates_processed || 0
-        lastResults = data.results || []
-        setProgress({ totalProcessed, totalFailed, rounds: round, totalScanned, lastResults })
-        if ((data.candidates_processed || 0) === 0) break
-      }
-      sessionStorage.setItem('gmail_attachments_backfill_done', '1')
-      setNeedsReload(true)
-      // NESIKVIEČIAM onDone() automatiškai — paliekam user'iui inspektuoti detales
-    } catch (e: any) {
-      setProgress(p => ({ ...(p || { totalProcessed: 0, totalFailed: 0, rounds: 0, totalScanned: 0 }), lastError: e?.message || String(e) }))
-    } finally {
-      setRunning(false)
-    }
-  }
-
-  return (
-    <div className="mb-3 text-xs">
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          onClick={runBackfill}
-          disabled={running}
-          className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 text-amber-900 border border-amber-300 rounded font-medium disabled:opacity-50 transition-colors">
-          {running ? '⏳ Vyksta…' : '📷 Force backfill Gmail foto (DEBUG)'}
-        </button>
-        {progress && !running && (
-          <button
-            onClick={() => setShowDetails(s => !s)}
-            className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded font-medium">
-            {showDetails ? '🙈 slėpti detales' : '👁 rodyti detales'}
-          </button>
-        )}
-        {needsReload && !running && (
-          <button
-            onClick={() => { setNeedsReload(false); onDone() }}
-            className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded font-medium">
-            🔄 Atnaujinti sąrašą
-          </button>
-        )}
-        {progress && (
-          <span className="text-[var(--text-muted)]">
-            Scanned: {progress.totalScanned} ·
-            ✓ {progress.totalProcessed} foto pridėta
-            {progress.totalFailed > 0 && ` · ✗ ${progress.totalFailed} fail`}
-            {progress.lastError && <span className="text-red-500 ml-2">⚠ {progress.lastError}</span>}
-          </span>
-        )}
-      </div>
-      {showDetails && progress && (
-        <pre className="mt-2 p-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded text-[10px] overflow-x-auto max-h-80">
-{progress.lastResults && progress.lastResults.length > 0
-  ? JSON.stringify(progress.lastResults, null, 2)
-  : 'Tuščia — Force backfill neapdorojo nei vieno kandidato. Galimos priežastys:\n' +
-    '  - Visi pending Gmail kandidatai jau patikrinti ir wipinti šio run\'o metu (per-round limit 10)\n' +
-    '  - Auto-backfill jau pažymėjo, o filter\'is filtruoja juos (BET force=true jį turi išjungti)\n' +
-    '  - Migracija 20260518b neaplikuota → attachments_checked_at column missing → silent error'}
-        </pre>
-      )}
-    </div>
-  )
-}

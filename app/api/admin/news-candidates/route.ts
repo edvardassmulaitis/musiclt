@@ -31,6 +31,11 @@ export async function GET(req: NextRequest) {
   const statusList = statusRaw.split(',').map(s => s.trim()).filter(Boolean)
   const limit = parseInt(searchParams.get('limit') || '50', 10)
   const category = searchParams.get('category')
+  // 2026-06-25: ranking pagal artists.score (0-100), ne pagal legacy_likes.
+  // Žemo-score (žinomų) atlikėjų naujienos paslepiamos, kad inbox'as nebūtų
+  // užterštas low-interest grupėmis. ?all=1 apeina slėpimą (admin review).
+  const SCORE_FLOOR = parseInt(process.env.NEWS_SCORE_FLOOR || '20', 10)
+  const showAll = searchParams.get('all') === '1'
 
   const supabase = createAdminClient()
 
@@ -47,8 +52,10 @@ export async function GET(req: NextRequest) {
       .lt('created_at', cutoff)
   } catch { /* non-fatal */ }
 
-  // Sort by NEWEST first (created_at desc) — kandidatai chronologiškai.
-  // ai_confidence palieka kaip tie-breaker'is ant tos pačios dienos kandidatų.
+  // Fetch'inam platų pool'ą (created_at desc, ribota recency lange), o galutinį
+  // rikiavimą pagal score + filtravimą darom in-app žemiau. fetchLimit > limit,
+  // nes dalis kandidatų nukris po SCORE_FLOOR filtro.
+  const fetchLimit = Math.min(Math.max(limit * 4, 80), 200)
   let q = supabase
     .from('news_candidates')
     .select(`
@@ -63,7 +70,7 @@ export async function GET(req: NextRequest) {
     .in('status', statusList)
     .order('created_at', { ascending: false })
     .order('ai_confidence', { ascending: false })
-    .limit(limit)
+    .limit(fetchLimit)
 
   if (category) q = q.eq('ai_category', category)
 
@@ -75,11 +82,11 @@ export async function GET(req: NextRequest) {
   for (const c of (data || [])) {
     for (const id of (c.suggested_artist_ids || [])) allArtistIds.add(id)
   }
-  let artistMap: Record<number, { id: number; name: string; slug: string; cover_image_url: string | null; legacy_likes: number | null }> = {}
+  let artistMap: Record<number, { id: number; name: string; slug: string; cover_image_url: string | null; legacy_likes: number | null; score: number | null }> = {}
   if (allArtistIds.size > 0) {
     const { data: artists } = await supabase
       .from('artists')
-      .select('id, name, slug, cover_image_url, legacy_likes')
+      .select('id, name, slug, cover_image_url, legacy_likes, score')
       .in('id', Array.from(allArtistIds))
     for (const a of (artists || [])) {
       artistMap[a.id] = a as any
@@ -110,47 +117,63 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Decorate per candidate'us su pilna suggested_artists info'ja + score'u.
+  // Decorate per candidate'us + ranking pagal artists.score (0-100).
   //
-  // Score = weighted average (NE multiplication — anksciau buvo P×R×C kuris
-  // duodavo 0.04-0.32 scale'ą, vizualiai per žema):
-  //   • popularity (40%): primary_artist.legacy_likes log10-scale
-  //     (100 likes ≈ 0.4, 1000 ≈ 0.6, 10k ≈ 0.8, 100k+ ≈ 1.0)
-  //   • recency (40%):    14-day half-life exp decay nuo source_published_at
-  //     (today=1.0, 1d=0.93, 7d=0.61, 30d=0.12)
-  //   • confidence (20%): AI'aus pasitikėjimas (0.5..0.95 typical)
+  // rank = score_norm*0.6 + recency*0.3 + confidence*0.1  (0..1)
+  //   • score_norm (60%): primary_artist.score / 100 — jūsų skaičiuotas
+  //     all-time popularumas (pakeičia seną legacy_likes log10 proxy)
+  //   • recency (30%):    14-d half-life exp decay nuo source_published_at
+  //   • confidence (10%): AI pasitikėjimas
   //
-  // Praktiškai score'ai dabar 0.40-0.85 range — vizualiai aiškiau. Tooltip
-  // tooltip'e rodo breakdown.
-  const decorated = (data || []).map((c: any) => {
+  // artistScoreRaw (0-100) naudojamas SCORE_FLOOR slenksčiui. Jei atlikėjas
+  // matched ir jo score < FLOOR → slepiam (low-interest žinoma grupė). Jei
+  // atlikėjas NEmatched (null) → NEslepiam (gali būti dar nepririštas), bet
+  // rikiuojam žemai. ?all=1 apeina slėpimą.
+  const decoratedAll = (data || []).map((c: any) => {
     const artists = (c.suggested_artist_ids || [])
       .map((id: number) => artistMap[id])
       .filter(Boolean)
-    const primaryLikes = c.primary_artist?.legacy_likes ?? artists[0]?.legacy_likes ?? 0
-    const popularity = primaryLikes > 0
-      ? Math.min(1, Math.log10(primaryLikes + 1) / 5)
-      : 0.2 // baseline jeigu visai nėra likes
+    const hasArtist = !!c.primary_artist
+    const artistScoreRaw = hasArtist
+      ? (c.primary_artist?.score ?? artists[0]?.score ?? 0)
+      : null
+    const scoreNorm = Math.min(1, Math.max(0, (artistScoreRaw ?? 0) / 100))
     const dateStr = c.source_published_at || c.created_at
     const ageDays = (Date.now() - new Date(dateStr).getTime()) / 86_400_000
     const recency = Math.max(0, Math.exp(-ageDays / 14))
     const confidence = c.ai_confidence ?? 0.5
-    // Weighted average
-    const score = popularity * 0.4 + recency * 0.4 + confidence * 0.2
+    const rank = scoreNorm * 0.6 + recency * 0.3 + confidence * 0.1
     return {
       ...c,
       suggested_artists: artists,
       attachments: attachmentsMap[c.id] || [],
-      score: Math.round(score * 100) / 100,
+      _artistScoreRaw: artistScoreRaw,
+      _hasArtist: hasArtist,
+      score: Math.round(rank * 100) / 100,
       score_breakdown: {
-        popularity: Math.round(popularity * 100) / 100,
+        popularity: Math.round(scoreNorm * 100) / 100, // = artist score / 100
         recency: Math.round(recency * 100) / 100,
         confidence: Math.round(confidence * 100) / 100,
+        artist_score: artistScoreRaw == null ? null : Math.round(artistScoreRaw),
       },
     }
   })
 
+  // SCORE_FLOOR filtras — slepiam tik matched žemo-score atlikėjus.
+  const filtered = showAll
+    ? decoratedAll
+    : decoratedAll.filter((c: any) => !(c._hasArtist && (c._artistScoreRaw ?? 0) < SCORE_FLOOR))
+
+  // Rikiuojam pagal rank desc, slice iki limit. Nuimam internal _ laukus.
+  const decorated = filtered
+    .sort((a: any, b: any) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ _artistScoreRaw, _hasArtist, ...rest }: any) => rest)
+
   return NextResponse.json({
     candidates: decorated,
-    total: count || 0,
+    total: decorated.length,
+    pool: count || 0,
+    hidden_low_score: showAll ? 0 : (decoratedAll.length - filtered.length),
   })
 }
