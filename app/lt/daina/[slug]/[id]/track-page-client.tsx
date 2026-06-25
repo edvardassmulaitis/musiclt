@@ -215,25 +215,6 @@ export default function TrackPageClient({
   const { data: authSession } = useSession()
   const isLoggedIn = !!authSession?.user
 
-  // Artist genres + galerijos foto atlikėjo kortelei
-  const [artistGenres, setArtistGenres] = useState<string[]>([])
-  const [artistAltPhoto, setArtistAltPhoto] = useState<string | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    fetch(`/api/artists/${artist.id}`)
-      .then(r => r.json())
-      .then(d => {
-        if (cancelled) return
-        setArtistGenres((d.substyleNames || []).slice(0, 4))
-        const headerThumb = (artist as any).profile_thumb_url || primaryAlbum?.cover_image_url || artist.cover_image_url || null
-        const photos = (d.photos || []).filter((p: any) => p?.url && p.is_active !== false)
-        const alt = photos.find((p: any) => p.url !== headerThumb && p.url !== artist.cover_image_url) || photos[0]
-        setArtistAltPhoto(alt?.url || null)
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [artist.id])
-
   // ── Teksto pasiūlymas (kai dainos teksto nėra) ──────────────────────────────
   const [lyricsDraft, setLyricsDraft] = useState('')
   const [lyricsSubmitting, setLyricsSubmitting] = useState(false)
@@ -409,18 +390,6 @@ export default function TrackPageClient({
     )
   }
 
-  const TriviaCard = () => {
-    if (!track.description && !trivia) return null
-    return (
-      <div style={{ ...cardStyle, background: 'var(--dyk-bg)', border: '1px solid var(--dyk-border)' }}>
-        <div style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--accent-orange)', fontFamily: 'Outfit,sans-serif', marginBottom: 7 }}>★ Ar žinojai?</div>
-          <p style={{ fontSize: 12, color: 'var(--dyk-text)', lineHeight: 1.75, margin: 0 }}>{track.description || trivia}</p>
-        </div>
-      </div>
-    )
-  }
-
   const VersionsCard = () => {
     if (versions.length === 0) return null
     const vis = showAllV ? versions : versions.slice(0, 4)
@@ -556,6 +525,12 @@ export default function TrackPageClient({
         'mx-auto w-full max-w-[1400px]',
         'grid grid-cols-1',
         'lg:grid-cols-[minmax(0,55%)_minmax(0,45%)]',
+        // Desktop: fiksuoto aukščio dvi-panelių zona (viewport − top nav 56px) su
+        // overflow-hidden — tekstas/komentarai IR extras scroll'inasi VIDUJ, ne
+        // visas puslapis; video visada matomas. grid-rows-[auto_1fr] panaikina
+        // „tarpą po video" (anksčiau row-span stretchino row1). Mobile: srautas.
+        'lg:grid-rows-[auto_minmax(0,1fr)]',
+        'lg:h-[calc(100vh_-_56px)] lg:overflow-hidden',
       ].join(' ')}>
 
         {/* Video — viršus kairėje (desktop) / pirmas (mobile). Source order:
@@ -585,90 +560,31 @@ export default function TrackPageClient({
           )}
         </div>
 
-        {/* Extras — po video kairėje (desktop) / apačioje po tekstu (mobile).
-            „Daugiau" čia, NE sticky — scroll'inasi kartu. */}
-        <div className="order-3 flex flex-col gap-3 px-5 py-5 lg:col-start-1 lg:row-start-2">
+        {/* Po video (extras) — dainos APRAŠYMAS (jei įdėtas) ARBA susijusi muzika.
+            Atlikėjo „grupės info" kortelė pašalinta (Edvardo prašymu). Desktop'e
+            scroll'inasi VIDUJ (row2 = 1fr), kad neišstumtų puslapio. */}
+        <div className="order-3 flex flex-col gap-3 px-5 py-5 lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto">
             <AICard />
-            <TriviaCard />
             <VersionsCard />
-
-            {/* Left column extras — atlikėjo kortelė + albumas (vietoj atlikėjo
-                aprašymo) + „Daugiau / atlikėjas" sąrašas. Suvienodinta su albumo
-                puslapio / modalo struktūra. */}
             {(() => {
               const more = relatedTracks.filter(t => ytId(t.video_url)).slice(0, 6)
-              // Atlikėjo kortelėje — KITA foto nei header'yje (galerijos), kad būtų
-              // įvairovės. Fallback į cover.
-              const artThumb = artistAltPhoto || (artist as any).profile_thumb_url || artist.cover_image_url || null
+              const desc = plainText(track.description)
               return (
                 <div>
-                  {/* Artist card — square photo + name + genres */}
-                  <Link
-                    href={`/atlikejai/${artist.slug}`}
-                    className="group mb-3 flex items-start gap-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3.5 no-underline transition-colors hover:border-[var(--border-strong)]"
-                  >
-                    {artThumb ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={proxyImg(artThumb)}
-                        alt=""
-                        style={{ objectPosition: 'center top' }}
-                        className="h-[100px] w-[100px] shrink-0 rounded-lg object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                      />
-                    ) : (
-                      <div className="flex h-[100px] w-[100px] shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--bg-elevated)] to-[var(--bg-surface)]">
-                        <span className="font-['Outfit',sans-serif] text-[36px] font-bold text-[var(--text-muted)] opacity-40">{artist.name.charAt(0)}</span>
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1 pt-0.5">
-                      <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{artist.name}</div>
-                      {artistGenres.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {artistGenres.map(g => (
-                            <span key={g} className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-semibold text-[var(--text-muted)]">{g}</span>
-                          ))}
-                        </div>
-                      )}
-                      {artist.description && (
-                        <p className="mt-2 line-clamp-4 whitespace-pre-line font-['Outfit',sans-serif] text-[12.5px] leading-[1.55] text-[var(--text-secondary)]">
-                          {plainText(artist.description)}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                  {/* Albumas, iš kurio daina (rodom papildomai prie atlikėjo info). */}
-                  {primaryAlbum && (
-                    <Link
-                      href={`/albumai/${artist.slug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
-                      title={primaryAlbum.title}
-                      className="group mb-3 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-colors hover:border-[var(--border-strong)]"
-                    >
-                      <span className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
-                        {primaryAlbum.cover_image_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={proxyImg(primaryAlbum.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                        )}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
-                        <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
-                        {primaryAlbum.year && (
-                          <div className="text-[11.5px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
-                        )}
-                      </div>
-                      {albums.length > 1 && (
-                        <span className="shrink-0 font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-faint)]" title={albums.slice(1).map(a => a.title).join(', ')}>+{albums.length - 1}</span>
-                      )}
-                      <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-faint)] transition-colors group-hover:text-[var(--accent-orange)]">
-                        <path d="M9 18l6-6-6-6" />
-                      </svg>
-                    </Link>
-                  )}
-                  {/* „Daugiau / atlikėjas" — susijusios dainos */}
-                  {more.length > 0 && (
-                    <div className="mt-1">
+                  {/* Dainos aprašymas, jei įdėtas — kitu atveju susijusi muzika. */}
+                  {desc ? (
+                    <div className="mb-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
                       <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                        Daugiau / {artist.name}
+                        Apie dainą
+                      </div>
+                      <p className="whitespace-pre-line font-['Outfit',sans-serif] text-[13px] leading-[1.7] text-[var(--text-secondary)]">
+                        {desc}
+                      </p>
+                    </div>
+                  ) : more.length > 0 ? (
+                    <div className="mb-3">
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                        Susijusi muzika
                       </div>
                       <div className="hidden lg:flex flex-col gap-1.5">
                         {more.slice(0, 4).map(t => {
@@ -715,6 +631,34 @@ export default function TrackPageClient({
                         })}
                       </div>
                     </div>
+                  ) : null}
+                  {/* Albumas, iš kurio daina. */}
+                  {primaryAlbum && (
+                    <Link
+                      href={`/albumai/${artist.slug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
+                      title={primaryAlbum.title}
+                      className="group flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-colors hover:border-[var(--border-strong)]"
+                    >
+                      <span className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
+                        {primaryAlbum.cover_image_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={proxyImg(primaryAlbum.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
+                        <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
+                        {primaryAlbum.year && (
+                          <div className="text-[11.5px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
+                        )}
+                      </div>
+                      {albums.length > 1 && (
+                        <span className="shrink-0 font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-faint)]" title={albums.slice(1).map(a => a.title).join(', ')}>+{albums.length - 1}</span>
+                      )}
+                      <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-faint)] transition-colors group-hover:text-[var(--accent-orange)]">
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                    </Link>
                   )}
                 </div>
               )
@@ -723,7 +667,7 @@ export default function TrackPageClient({
 
         {/* Dešinė — tabai (Tekstas/Komentarai) + Patinka/Dalintis/Spotify + turinys.
             Desktop'e dešinis stulpelis per abi eilutes; mobile'e — antras. */}
-        <div className="order-2 min-h-0 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:border-l lg:border-[var(--border-subtle)]">
+        <div className="order-2 flex min-h-0 flex-col lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:border-l lg:border-[var(--border-subtle)]">
           {/* Tab juosta — VISUOSE viewport'uose (kaip modale). Dešinėje veiksmai:
               Patinka + Dalintis + Spotify (maža ikona). */}
           <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
@@ -784,6 +728,9 @@ export default function TrackPageClient({
             </div>
           </div>
 
+          {/* Scroll'inama zona — tekstas/komentarai scroll'inasi VIDUJ (desktop),
+              video lieka matomas; mobile'e — normalus puslapio srautas. */}
+          <div className="flex-1 min-h-0 lg:overflow-y-auto">
           {/* Tekstas — jei yra, rodom; jei ne — siūlymo forma (always present). */}
           <div className={[
             'min-h-0 px-5 py-5',
@@ -874,6 +821,7 @@ export default function TrackPageClient({
               title={commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Komentarai'}
               onCountChange={setCommentTotal}
             />
+          </div>
           </div>
         </div>
 
