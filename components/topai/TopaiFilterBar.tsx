@@ -18,11 +18,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FilterBar, type FilterGroup } from '@/components/ui/FilterBar'
 
-export type TopaiView = 'all' | 'lt' | 'world' | 'us' | 'uk' | 'songs' | 'albums' | 'community'
+export type TopaiView = 'all' | 'lt' | 'world' | 'us' | 'uk' | 'songs' | 'albums' | 'community' | 'members'
 
 // Kortelių matomumo filtrui (world įeina — pasiekiama per /topai/pasaulis route).
 const REGION_VIEWS: TopaiView[] = ['lt', 'world', 'us', 'uk']
-const TYPE_VIEWS: TopaiView[] = ['songs', 'albums', 'community']
+const TYPE_VIEWS: TopaiView[] = ['songs', 'albums', 'community', 'members']
 // Matomi region chip'ai (be world/all — toggle koncepcija).
 const REGION_CHIPS: TopaiView[] = ['lt', 'us', 'uk']
 
@@ -35,6 +35,7 @@ const PATHS: Record<TopaiView, string> = {
   songs: '/topai/dainos',
   albums: '/topai/albumai',
   community: '/topai/bendruomene',
+  members: '/topai/nariu',
 }
 
 export function TopaiBrowser({ initialView, children }: { initialView: TopaiView; children: ReactNode }) {
@@ -82,6 +83,7 @@ export function TopaiBrowser({ initialView, children }: { initialView: TopaiView
         { key: 'songs', label: 'Dainos', href: '/topai/dainos' },
         { key: 'albums', label: 'Albumai', href: '/topai/albumai' },
         { key: 'community', label: 'Music.lt topai', href: '/topai/bendruomene' },
+        { key: 'members', label: 'Bendruomenė', href: '/topai/nariu' },
       ],
     },
   ]
