@@ -72,6 +72,9 @@ export function NavigationProgress() {
       const target = e.target as HTMLElement | null
       const a = target?.closest('a')
       if (!a) return
+      // Client-side perimti linkai (pvz. FilterBar filtrai) — be navigacijos,
+      // tad progreso juostos nestartuojam (kitaip kabotų iki safety timeout'o).
+      if (a.hasAttribute('data-noprogress')) return
       const href = a.getAttribute('href')
       if (!href) return
       if (a.getAttribute('target') === '_blank') return
@@ -138,8 +141,8 @@ export function NavigationProgress() {
         style={{
           height: '100%',
           width: `${progress}%`,
-          background: 'var(--accent-orange, var(--accent-orange))',
-          boxShadow: '0 0 8px var(--accent-orange, var(--accent-orange)), 0 0 4px var(--accent-orange, var(--accent-orange))',
+          background: 'var(--accent-orange, #f97316)',
+          boxShadow: '0 0 8px var(--accent-orange, #f97316), 0 0 4px var(--accent-orange, #f97316)',
           borderRadius: '0 2px 2px 0',
           transition: 'width 200ms ease-out',
         }}
