@@ -270,6 +270,55 @@ export default function TrackPageClient({
     }
   }
 
+  // ── ⋯ veiksmų meniu (nuotaikos daina / pasiūlyti į dienos dainą) ──────────
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuBusy, setMenuBusy] = useState(false)
+  const [menuMsg, setMenuMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [menuOpen])
+  useEffect(() => {
+    if (!menuMsg) return
+    const t = setTimeout(() => setMenuMsg(null), 3500)
+    return () => clearTimeout(t)
+  }, [menuMsg])
+
+  const makeMoodSong = async () => {
+    if (menuBusy) return
+    if (!isLoggedIn) { setMenuOpen(false); setMenuMsg({ ok: false, text: 'Prisijunk, kad pažymėtum nuotaikos dainą.' }); return }
+    setMenuBusy(true)
+    try {
+      const res = await fetch('/api/mano-muzika/mood', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: track.id, make_active: true }),
+      })
+      const d = await res.json().catch(() => ({}))
+      setMenuMsg(res.ok ? { ok: true, text: '✓ Nustatyta kaip tavo nuotaikos daina.' } : { ok: false, text: d.error || 'Nepavyko.' })
+    } catch { setMenuMsg({ ok: false, text: 'Tinklo klaida.' }) }
+    finally { setMenuBusy(false); setMenuOpen(false) }
+  }
+
+  const nominateDienosDaina = async () => {
+    if (menuBusy) return
+    if (!isLoggedIn) { setMenuOpen(false); setMenuMsg({ ok: false, text: 'Prisijunk, kad pasiūlytum dienos dainą.' }); return }
+    setMenuBusy(true)
+    try {
+      const res = await fetch('/api/dienos-daina/nominations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: track.id }),
+      })
+      const d = await res.json().catch(() => ({}))
+      setMenuMsg(res.ok ? { ok: true, text: '✓ Pasiūlyta į dienos dainą!' } : { ok: false, text: d.error || 'Nepavyko pasiūlyti.' })
+    } catch { setMenuMsg({ ok: false, text: 'Tinklo klaida.' }) }
+    finally { setMenuBusy(false); setMenuOpen(false) }
+  }
+
   // Likers modal — universal'us pop-over visiems entity types (comment / track /
   // album / post). Atidaromas paspaudus ant ♥N badge'o.
   const [likersModalEntity, setLikersModalEntity] = useState<{ type: string; id: number; label: string } | null>(null)
@@ -586,23 +635,23 @@ export default function TrackPageClient({
                       <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                         Susijusi muzika
                       </div>
-                      <div className="hidden lg:flex flex-col gap-1.5">
-                        {more.slice(0, 4).map(t => {
+                      {/* Pills 3/eilutė → 6 itemai 2 eilutėse (geriau išnaudotas plotis). */}
+                      <div className="hidden lg:grid grid-cols-3 gap-1.5">
+                        {more.slice(0, 6).map(t => {
                           const tvid = ytId(t.video_url)
                           const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
                           return (
                             <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
                               title={`${t.title} — ${artist.name}`}
-                              className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                              <div className="aspect-video h-12 shrink-0 overflow-hidden rounded bg-black">
+                              className="group flex flex-col gap-1 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                              <div className="aspect-video w-full shrink-0 overflow-hidden rounded bg-black">
                                 {thumb && (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
                                 )}
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
-                                <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
+                              <div className="min-w-0">
+                                <div className="truncate font-['Outfit',sans-serif] text-[11.5px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</div>
                               </div>
                             </Link>
                           )
@@ -669,8 +718,10 @@ export default function TrackPageClient({
             Desktop'e dešinis stulpelis per abi eilutes; mobile'e — antras. */}
         <div className="order-2 flex min-h-0 flex-col lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:border-l lg:border-[var(--border-subtle)]">
           {/* Tab juosta — VISUOSE viewport'uose (kaip modale). Dešinėje veiksmai:
-              Patinka + Dalintis + Spotify (maža ikona). */}
-          <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
+              Patinka + Dalintis + Spotify (maža ikona). 2026-06-25: nuimtas
+              bg-elevated „bandas" — juosta susilieja su paviršiumi, lieka tik
+              vienas plonas border-b (mažiau horizontalių juostų chaoso). */}
+          <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-1.5">
             <button
               type="button"
               onClick={() => setMobileTab('lyrics')}
@@ -725,8 +776,52 @@ export default function TrackPageClient({
                   </svg>
                 </a>
               )}
+              {/* ⋯ veiksmų meniu */}
+              <div ref={menuRef} className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen(v => !v)}
+                  aria-label="Daugiau veiksmų"
+                  title="Daugiau veiksmų"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="5" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="12" cy="19" r="1.8" />
+                  </svg>
+                </button>
+                {menuOpen && (
+                  <div className="absolute right-0 top-9 z-50 w-60 overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] py-1 shadow-[0_18px_40px_-10px_rgba(0,0,0,0.5)]">
+                    <button
+                      type="button"
+                      onClick={makeMoodSong}
+                      disabled={menuBusy}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                    >
+                      <span className="text-[15px]">🌙</span>
+                      Nustatyti kaip nuotaikos dainą
+                    </button>
+                    <button
+                      type="button"
+                      onClick={nominateDienosDaina}
+                      disabled={menuBusy}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                    >
+                      <span className="text-[15px]">⭐</span>
+                      Pasiūlyti į dienos dainą
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+          {menuMsg && (
+            <div className={[
+              'shrink-0 px-4 py-2 text-center font-["Outfit",sans-serif] text-[12px] font-bold',
+              menuMsg.ok ? 'bg-[rgba(34,197,94,0.12)] text-[#16a34a]' : 'bg-[rgba(239,68,68,0.10)] text-[#dc2626]',
+            ].join(' ')}>
+              {menuMsg.text}
+            </div>
+          )}
 
           {/* Scroll'inama zona — tekstas/komentarai scroll'inasi VIDUJ (desktop),
               video lieka matomas; mobile'e — normalus puslapio srautas. */}
@@ -786,7 +881,7 @@ export default function TrackPageClient({
                 <textarea
                   value={lyricsDraft}
                   onChange={e => setLyricsDraft(e.target.value)}
-                  rows={12}
+                  rows={6}
                   placeholder="Įrašyk dainos tekstą…"
                   className="w-full resize-y rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-[13px] leading-[1.6] text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
                 />

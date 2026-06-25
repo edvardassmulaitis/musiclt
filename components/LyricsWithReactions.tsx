@@ -139,6 +139,7 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
   const [likedThis, setLikedThis] = useState(false)
   const [showComment, setShowComment] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [actionErr, setActionErr] = useState<string | null>(null)
   const [tooltip, setTooltip] = useState<{ span: Span; rect: DOMRect } | null>(null)
   const lyricsRef = useRef<HTMLDivElement | null>(null)
   const wasChipClick = useRef(false)
@@ -229,6 +230,7 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     setDraft('')
     setLikedThis(false)
     setShowComment(false)
+    setActionErr(null)
   }
 
   const reload = async () => {
@@ -244,14 +246,21 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     const p = { ...panel }
     setSaving(true)
     setLikedThis(true)
+    setActionErr(null)
     try {
-      await fetch(`/api/tracks/${trackId}/lyric-comments`, {
+      const res = await fetch(`/api/tracks/${trackId}/lyric-comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selected_text: p.text, selection_start: p.start, selection_end: p.end, type: 'like', text: '' }),
       })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setActionErr(d.error || `Nepavyko (${res.status})`)
+        setLikedThis(false)
+        return
+      }
       await reload()
-    } catch { /* silent */ }
+    } catch { setActionErr('Tinklo klaida.'); setLikedThis(false) }
     finally { setSaving(false) }
   }
 
@@ -260,15 +269,21 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     const p = { ...panel }
     const text = draft.trim()
     setSaving(true)
-    closePanel()
+    setActionErr(null)
     try {
-      await fetch(`/api/tracks/${trackId}/lyric-comments`, {
+      const res = await fetch(`/api/tracks/${trackId}/lyric-comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selected_text: p.text, selection_start: p.start, selection_end: p.end, type: 'comment', text }),
       })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setActionErr(d.error || `Nepavyko (${res.status})`)
+        return
+      }
+      closePanel()
       await reload()
-    } catch { /* silent */ }
+    } catch { setActionErr('Tinklo klaida.') }
     finally { setSaving(false) }
   }
 
@@ -488,6 +503,11 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z" /></svg>
                   Siųsti
                 </button>
+              </div>
+            )}
+            {actionErr && (
+              <div className="rounded-md bg-[rgba(239,68,68,0.10)] px-2 py-1 text-[11px] font-bold text-[#dc2626]">
+                {actionErr}
               </div>
             )}
           </div>
