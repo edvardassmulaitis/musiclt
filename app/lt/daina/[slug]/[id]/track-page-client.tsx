@@ -314,7 +314,7 @@ export default function TrackPageClient({
         body: JSON.stringify({ track_id: track.id }),
       })
       const d = await res.json().catch(() => ({}))
-      setMenuMsg(res.ok ? { ok: true, text: '✓ Pasiūlyta į dienos dainą!' } : { ok: false, text: d.error || 'Nepavyko pasiūlyti.' })
+      setMenuMsg(res.ok ? { ok: true, text: '✓ Pasirinkta Dienos daina!' } : { ok: false, text: d.error || 'Nepavyko.' })
     } catch { setMenuMsg({ ok: false, text: 'Tinklo klaida.' }) }
     finally { setMenuBusy(false); setMenuOpen(false) }
   }
@@ -487,12 +487,12 @@ export default function TrackPageClient({
 
   return (
     // route-enter: 280ms fade-in iš loading.tsx skeleton'o (žr. globals.css).
-    <div className="route-enter min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
+    <div className="route-enter min-h-screen lg:min-h-0 lg:h-[calc(100vh_-_56px)] lg:flex lg:flex-col lg:overflow-hidden bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
 
       {/* ── TOP BAR — border'as pilnu pločiu, turinys centruotas iki max-w-[1400px]
-          (suvienodinta su body grid'u — anksčiau header'is buvo full-width ir
-          „nustumtas į kairę" plačiame ekrane). ─────────────────── */}
-      <div className="border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
+          (suvienodinta su body grid'u). Desktop'e shrink-0 — fiksuoto aukščio
+          flex-col root'e, kad body zona užimtų likusį viewport'ą be page scroll. */}
+      <div className="lg:shrink-0 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
        <div className="mx-auto flex w-full max-w-[1400px] items-center gap-4 px-4 py-3 sm:px-5">
         {/* Artist thumb — paveikslėlio click'as = grįžti į atlikėjo page'ą.
             Anksčiau buvo atskira ← rodyklė + thumb, bet rodyklė atrodė kaip
@@ -574,12 +574,12 @@ export default function TrackPageClient({
         'mx-auto w-full max-w-[1400px]',
         'grid grid-cols-1',
         'lg:grid-cols-[minmax(0,55%)_minmax(0,45%)]',
-        // Desktop: fiksuoto aukščio dvi-panelių zona (viewport − top nav 56px) su
-        // overflow-hidden — tekstas/komentarai IR extras scroll'inasi VIDUJ, ne
-        // visas puslapis; video visada matomas. grid-rows-[auto_1fr] panaikina
-        // „tarpą po video" (anksčiau row-span stretchino row1). Mobile: srautas.
-        'lg:grid-rows-[auto_minmax(0,1fr)]',
-        'lg:h-[calc(100vh_-_56px)] lg:overflow-hidden',
+        // Desktop: dvi-panelių zona užima LIKUSĮ viewport'ą (flex-1 root flex-col'e,
+        // po header'io) su overflow-hidden — tekstas/komentarai IR extras scroll'inasi
+        // VIDUJ, NE visas puslapis; video visada matomas, scroll apačia matoma be
+        // page scroll. grid-rows-[auto_1fr] panaikina „tarpą po video". Mobile: srautas.
+        'lg:min-h-0 lg:flex-1 lg:grid-rows-[auto_minmax(0,1fr)]',
+        'lg:overflow-hidden',
       ].join(' ')}>
 
         {/* Video — viršus kairėje (desktop) / pirmas (mobile). Source order:
@@ -635,23 +635,24 @@ export default function TrackPageClient({
                       <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                         Susijusi muzika
                       </div>
-                      {/* Pills 3/eilutė → 6 itemai 2 eilutėse (geriau išnaudotas plotis). */}
-                      <div className="hidden lg:grid grid-cols-3 gap-1.5">
+                      {/* Kompaktiškos eilutės 2 stulpeliais (maža miniatiūra + pavadinimas),
+                          kad netilptų į scroll'ą ir nebūtų „perdidelės" kortelės. */}
+                      <div className="hidden lg:grid grid-cols-2 gap-1.5">
                         {more.slice(0, 6).map(t => {
                           const tvid = ytId(t.video_url)
                           const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
                           return (
                             <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
                               title={`${t.title} — ${artist.name}`}
-                              className="group flex flex-col gap-1 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                              <div className="aspect-video w-full shrink-0 overflow-hidden rounded bg-black">
+                              className="group flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                              <div className="aspect-video h-9 shrink-0 overflow-hidden rounded bg-black">
                                 {thumb && (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
                                 )}
                               </div>
-                              <div className="min-w-0">
-                                <div className="truncate font-['Outfit',sans-serif] text-[11.5px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</div>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate font-['Outfit',sans-serif] text-[11px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</div>
                               </div>
                             </Link>
                           )
@@ -793,21 +794,25 @@ export default function TrackPageClient({
                   <div className="absolute right-0 top-9 z-50 w-60 overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] py-1 shadow-[0_18px_40px_-10px_rgba(0,0,0,0.5)]">
                     <button
                       type="button"
-                      onClick={makeMoodSong}
-                      disabled={menuBusy}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
-                    >
-                      <span className="text-[15px]">🌙</span>
-                      Nustatyti kaip nuotaikos dainą
-                    </button>
-                    <button
-                      type="button"
                       onClick={nominateDienosDaina}
                       disabled={menuBusy}
                       className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
                     >
-                      <span className="text-[15px]">⭐</span>
-                      Pasiūlyti į dienos dainą
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--accent-orange)]">
+                        <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                      </svg>
+                      Pasirinkti Dienos dainą
+                    </button>
+                    <button
+                      type="button"
+                      onClick={makeMoodSong}
+                      disabled={menuBusy}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-muted)]">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                      </svg>
+                      Nustatyti kaip nuotaikos dainą
                     </button>
                   </div>
                 )}
