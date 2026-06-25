@@ -2684,9 +2684,9 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
               {post.title}
             </h3>
           </div>
-          <div className="mt-3 flex flex-wrap gap-3">
+          <div className="mt-3 grid gap-3" style={{ gridTemplateColumns: `repeat(${entries.length + (listCount > entries.length ? 1 : 0)}, minmax(0, 1fr))` }}>
             {entries.map((it, i) => (
-              <div key={i} className="flex w-[88px] sm:w-[96px] flex-col gap-1.5">
+              <div key={i} className="flex min-w-0 flex-col gap-1.5">
                 <div className="relative aspect-square w-full overflow-hidden rounded-lg" style={{ background: 'var(--cover-placeholder)' }}>
                   {it.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -2704,7 +2704,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
               </div>
             ))}
             {listCount > entries.length && (
-              <div className="flex w-[88px] sm:w-[96px] flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <div className="relative aspect-square w-full rounded-lg flex flex-col items-center justify-center"
                      style={{ border: '1px dashed var(--border-default)', background: 'var(--card-bg)' }}>
                   <span className="text-base font-black leading-none" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>+{listCount - entries.length}</span>
