@@ -709,10 +709,11 @@ function DailyCandidates({ onPlay }: { onPlay: (videoId: string) => void }) {
   )
 }
 
-function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, onClose, onChartVote, onDailyVote, onNavLink }: {
+function ReaderSlide({ slide, active, seen, scrollTopSignal, onScrolledChange, onPlayingChange, onClose, onChartVote, onDailyVote, onNavLink }: {
   slide: HeroSlide
   active: boolean
   seen: boolean
+  scrollTopSignal: number
   onScrolledChange: (scrolled: boolean) => void
   onPlayingChange: (playing: boolean) => void
   onClose: () => void
@@ -725,6 +726,7 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
   const [videoOn, setVideoOn] = useState(false)
   const [curVideoId, setCurVideoId] = useState<string | null>(slide.videoId || null)
   const [mini, setMini] = useState(false)
+  const [playToken, setPlayToken] = useState(0)
   const [body, setBody] = useState<string | null>(
     slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null)
   )
@@ -751,6 +753,11 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
       if (scrollRef.current) scrollRef.current.scrollTop = 0
     }
   }, [active]) // eslint-disable-line
+  /* „Į viršų" rodyklė (reels) — tėvas didina signalą, aktyvi kortelė nuslenka į
+   *  viršų ir auto-slide vėl pradeda eiti (scrolled → false). */
+  useEffect(() => {
+    if (active && scrollTopSignal > 0) scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [scrollTopSignal]) // eslint-disable-line
 
   /* Pranešam tėvui apie grojimą (groja → auto-advance stoja). */
   useEffect(() => {
@@ -811,16 +818,12 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
     if (!id) return
     setCurVideoId(id)
     setVideoOn(true)
+    // Kiekvienas paleidimas didina playToken → iframe primontuojamas iš naujo su
+    // autoplay=1 (plain <iframe>, kaip ChartYtPlayer — patikimas autoplay su garsu).
+    // Tai pataiso: (a) pirmą tapą (groja iškart, ne tik „užloadina"), (b) grįžimą po
+    // braukimo į šoną — šviežias mount visada vėl groja.
+    setPlayToken(t => t + 1)
     setMini((scrollRef.current?.scrollTop || 0) > 36)
-    const el = vwrapRef.current
-    if (el) {
-      // SVARBU: konteinerį padarom matomą SINCHRONIŠKAI (React `videoOn` state dar
-      // nepritaikytas → inline display:none liktų). iframe sukurtas display:none
-      // konteineryje NEAUTOGROja (iOS/Chrome blokuoja paslėptą autoplay) → reikėdavo
-      // antro paspaudimo. Atrišam display PRIEŠ innerHTML, kad gestas + matomumas sutaptų.
-      el.style.display = 'block'
-      el.innerHTML = `<iframe class="rdr-video" src="https://www.youtube.com/embed/${id}?autoplay=1&playsinline=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="grotuvas"></iframe>`
-    }
   }
 
   const toggleLike = async () => {
@@ -840,6 +843,7 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
   const artistName = slide.artist?.name || null
   const showArtistRow = !!artistName && slide.type !== 'event' && !isChart && !isDaily
   const showMedia = videoOn || slide.bgImg || hasVideo
+  const ytOrigin = typeof window !== 'undefined' ? `&origin=${encodeURIComponent(window.location.origin)}` : ''
 
   return (
     <div ref={scrollRef} className="rdr-slide" onScroll={onScroll}>
@@ -847,13 +851,21 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
           dešiniam kampe. Scrollinant grojantis video lieka sticky (minimizuojasi). ── */}
       {/* Grotuvo konteineris — visada kai kortelė aktyvi (iframe įdedamas imperatyviai
           paspaudimo metu). Paslėptas kol negroja. */}
-      {active && (
+      {active && videoOn && curVideoId && (
         <div
           ref={vwrapRef}
           className={`rdr-vwrap${mini ? ' mini' : ''}`}
-          style={{ display: videoOn ? undefined : 'none' }}
           onClick={mini ? () => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) : undefined}
-        />
+        >
+          <iframe
+            key={playToken}
+            className="rdr-video"
+            src={`https://www.youtube.com/embed/${curVideoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3${ytOrigin}`}
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+            title="grotuvas"
+          />
+        </div>
       )}
       {showMedia && !videoOn && (
         <div className="rdr-media">
@@ -1001,6 +1013,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   const [dragOffset, setDragOffset] = useState(0)
   const [scrolled, setScrolled] = useState(false)   // aktyvi kortelė nuscrollinta žemyn
   const [playing, setPlaying] = useState(false)      // aktyvioj kortelėj groja video
+  const [scrollTopReq, setScrollTopReq] = useState(0) // „į viršų" rodyklės signalas aktyviai kortelei
 
   const startRef = useRef<number>(0)
   const rafRef = useRef<any>(null)
@@ -1121,9 +1134,9 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
       </div>
 
       {scrolled && (
-        <div className="rdr-paused" aria-label="Pristabdyta">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
-        </div>
+        <button className="rdr-uptop" aria-label="Į viršų" onClick={() => setScrollTopReq(n => n + 1)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+        </button>
       )}
 
       <button onClick={onClose} className="rdr-close" aria-label="Uždaryti">✕</button>
@@ -1144,6 +1157,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
               slide={s}
               active={i === idx}
               seen={seenSlides.has(s.href)}
+              scrollTopSignal={i === idx ? scrollTopReq : 0}
               onScrolledChange={(sc) => { if (i === idx) setScrolled(sc) }}
               onPlayingChange={(pl) => { if (i === idx) setPlaying(pl) }}
               onClose={onClose}
@@ -3309,7 +3323,8 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-bars{position:fixed;top:12px;left:14px;right:54px;z-index:312;display:flex;gap:4px;align-items:center;pointer-events:none}
         .rdr-bar{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.22);overflow:hidden}
         .rdr-close{position:fixed;top:9px;right:14px;z-index:312;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
-        .rdr-paused{position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:311;display:flex;align-items:center;justify-content:center;width:28px;height:28px;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.55);border-radius:50%;pointer-events:none;backdrop-filter:blur(6px)}
+        .rdr-uptop{position:fixed;top:22px;left:50%;transform:translateX(-50%);z-index:312;display:flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;color:#fff;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);border-radius:50%;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+        .rdr-uptop:active{transform:translateX(-50%) scale(0.9)}
         .rdr-nav{position:fixed;top:50%;transform:translateY(-50%);z-index:308;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:24px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
         .rdr-nav-l{left:12px}.rdr-nav-r{right:12px}
         @media(min-width:900px){.rdr-nav{display:flex}.rdr-media,.rdr-np,.rdr-content,.rdr-actions{max-width:560px;margin-left:auto;margin-right:auto}}
