@@ -95,8 +95,10 @@ export function EditPostForm({ editId }: { editId: string }) {
     return <div className="min-h-[50vh] flex items-center justify-center text-sm" style={{ color: 'var(--text-faint)' }}>Kraunasi…</div>
   }
 
+  // Topas su komentarais reikalauja daugiau pločio nei paprastas tekstas.
+  const wide = postType === 'topas'
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className={`${wide ? 'max-w-4xl' : 'max-w-2xl'} mx-auto px-4 py-6`}>
       <div className="flex items-center justify-between mb-6">
         <Link href="/blogas/mano" className="text-xs hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>← Mano įrašai</Link>
         <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
