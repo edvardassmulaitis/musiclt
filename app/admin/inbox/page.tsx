@@ -190,6 +190,8 @@ export default function AdminInboxPage() {
   const [artistMeta, setArtistMeta] = useState<Record<number, SuggestedArtist>>({})
   const [artistSearchOpen, setArtistSearchOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  // Wizard'o žingsnis: 1 Turinys · 2 Muzika · 3 Nuotraukos → Paskelbti
+  const [editStep, setEditStep] = useState(1)
 
   // Body scroll lock kai edit modal'as atidarytas — užkerta iOS rubber-band
   // scroll'inimą per fixed wrapper'į ir page scroll'o leak'ą kai modal'as veikia.
@@ -278,6 +280,7 @@ export default function AdminInboxPage() {
 
   const openEdit = async (cand: Candidate) => {
     setEditing(cand)
+    setEditStep(1)
     setEditTitle(decodeHtmlEntities(cand.ai_title || ''))
     setEditBody(await fetchBody(cand.id))
     setEditImages([])
@@ -374,6 +377,7 @@ export default function AdminInboxPage() {
 
   const closeEdit = () => {
     setEditing(null)
+    setEditStep(1)
     setEditTitle('')
     setEditBody('')
     setEditImages([])
@@ -951,10 +955,37 @@ export default function AdminInboxPage() {
                 />
               )}
             </div>
+            {/* Stepper — 1 Turinys · 2 Muzika · 3 Nuotraukos */}
+            <div className="flex items-center gap-1 px-3 sm:px-4 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] shrink-0">
+              {[
+                { n: 1, label: 'Turinys' },
+                { n: 2, label: 'Muzika' },
+                { n: 3, label: 'Nuotraukos' },
+              ].map((s, i) => (
+                <div key={s.n} className="flex items-center gap-1 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setEditStep(s.n)}
+                    className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      editStep === s.n
+                        ? 'bg-emerald-600 text-white'
+                        : editStep > s.n
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+                    }`}>
+                    <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
+                      editStep === s.n ? 'bg-white/25' : editStep > s.n ? 'bg-emerald-600 text-white' : 'bg-[var(--bg-active)]'
+                    }`}>{editStep > s.n ? '✓' : s.n}</span>
+                    <span>{s.label}</span>
+                  </button>
+                  {i < 2 && <span className="text-[var(--text-faint)] text-xs">·</span>}
+                </div>
+              ))}
+            </div>
             <div className="px-3 py-2 sm:px-4 sm:py-3 space-y-3 sm:space-y-4 flex-1 overflow-y-auto">
               {/* Peržiūra — perkelta į header (toggle button + slidable panel). */}
-              {/* === Atlikėjai === */}
-              <div>
+              {/* === Atlikėjai === (žingsnis 1: Turinys) */}
+              <div className={editStep === 1 ? '' : 'hidden'}>
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
                   Atlikėjai
                 </div>
@@ -1060,8 +1091,44 @@ export default function AdminInboxPage() {
                 )}
               </div>
 
-              {/* === Susijusi muzika — collapsed į vieną button'ą, picker'is valdo viską === */}
-              <div>
+              {/* === Žingsnis 2: Muzika — video embed'ai (info) + katalogo dainos === */}
+              <div className={editStep === 2 ? 'space-y-4' : 'hidden'}>
+                {/* Video embed'ai — automatiškai iš straipsnio, eis po tekstu.
+                    NEtampa katalogo dainomis (tik įterpti video). */}
+                {(() => {
+                  const embeds = editing?.embed_urls || []
+                  if (embeds.length === 0) return null
+                  const ytThumb = (u: string) => {
+                    const v = u.match(/[?&]v=([^&]+)/)?.[1] || u.match(/youtu\.be\/([^?&]+)/)?.[1] || u.match(/youtube\.com\/(?:embed|shorts)\/([^?&/]+)/)?.[1]
+                    return v ? `https://i.ytimg.com/vi/${v}/mqdefault.jpg` : null
+                  }
+                  return (
+                    <div>
+                      <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
+                        Video <span className="ml-1 normal-case font-normal opacity-70">({embeds.length}) — eis po tekstu kaip įterpti video</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {embeds.map((u, i) => {
+                          const thumb = ytThumb(u)
+                          const isSpotify = /spotify\.com/.test(u)
+                          return (
+                            <div key={i} className="flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] p-1.5">
+                              {thumb ? (
+                                <img src={thumb} alt="" className="w-16 h-10 rounded object-cover bg-black" />
+                              ) : (
+                                <div className="w-16 h-10 rounded bg-black/80 flex items-center justify-center text-white text-[10px]">{isSpotify ? 'Spotify' : 'Video'}</div>
+                              )}
+                              <span className="text-[10px] text-[var(--text-muted)]">{isSpotify ? '🎧' : '🎬'} embed</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-[var(--text-muted)]">
+                        Šie video įterpiami automatiškai. Katalogo dainas (jei reikia) pridėk žemiau.
+                      </p>
+                    </div>
+                  )
+                })()}
                 {(() => {
                   const mentions = editing?.ai_tracks_mentioned || []
                   const suggestedCount = mentions.length
@@ -1105,8 +1172,8 @@ export default function AdminInboxPage() {
                 })()}
               </div>
 
-              {/* === Nuotraukos (multi-select, ordered: 1=hero, 2-5=galerija) === */}
-              <div>
+              {/* === Nuotraukos (multi-select, ordered: 1=hero, 2-5=galerija) === (žingsnis 3) */}
+              <div className={editStep === 3 ? '' : 'hidden'}>
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
                   Nuotraukos
                   {editImages.length > 0 && (
@@ -1220,8 +1287,8 @@ export default function AdminInboxPage() {
                 </div>
               </div>
 
-              {/* === Antraštė === */}
-              <div>
+              {/* === Antraštė === (žingsnis 1: Turinys) */}
+              <div className={editStep === 1 ? '' : 'hidden'}>
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
                   Antraštė <span className="ml-1 normal-case font-normal opacity-70">{editTitle.length}/80</span>
                 </div>
@@ -1233,8 +1300,8 @@ export default function AdminInboxPage() {
                   placeholder="Naujienos pavadinimas..."
                 />
               </div>
-              {/* === Tekstas — Tiptap WYSIWYG (B/I/U, lists, links, paragraphs). === */}
-              <div>
+              {/* === Tekstas — Tiptap WYSIWYG (B/I/U, lists, links, paragraphs). === (žingsnis 1) */}
+              <div className={editStep === 1 ? '' : 'hidden'}>
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
                   Tekstas
                 </div>
@@ -1247,17 +1314,27 @@ export default function AdminInboxPage() {
             </div>
             <div className="px-3 py-2 sm:px-4 sm:py-3 border-t border-[var(--border-subtle)] flex gap-2 items-center bg-[var(--bg-surface)] sm:rounded-b-2xl shrink-0">
               <button
-                onClick={closeEdit}
+                onClick={editStep === 1 ? closeEdit : () => setEditStep(s => s - 1)}
                 className="px-3 py-1.5 sm:py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm font-medium text-[var(--text-secondary)]">
-                Atšaukti
+                {editStep === 1 ? 'Atšaukti' : '← Atgal'}
               </button>
-              <button
-                onClick={handleSaveEdit}
-                disabled={savingEdit || !editTitle.trim() || !editBody.trim() || editArtistIds.length === 0}
-                title={editArtistIds.length === 0 ? 'Pridėk bent vieną atlikėją' : ''}
-                className="flex-1 px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-bold">
-                {savingEdit ? '...' : '✓ Paskelbti'}
-              </button>
+              {editStep < 3 ? (
+                <button
+                  onClick={() => setEditStep(s => s + 1)}
+                  disabled={editStep === 1 && (!editTitle.trim() || !editBody.trim() || editArtistIds.length === 0)}
+                  title={editStep === 1 && editArtistIds.length === 0 ? 'Pridėk bent vieną atlikėją' : ''}
+                  className="flex-1 px-4 py-1.5 sm:py-2 bg-[var(--text-primary)] hover:opacity-90 disabled:opacity-40 text-[var(--bg-surface)] rounded-lg text-sm font-bold">
+                  Pirmyn →
+                </button>
+              ) : (
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit || !editTitle.trim() || !editBody.trim() || editArtistIds.length === 0}
+                  title={editArtistIds.length === 0 ? 'Pridėk bent vieną atlikėją' : ''}
+                  className="flex-1 px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-bold">
+                  {savingEdit ? '...' : '🚀 Paskelbti į live'}
+                </button>
+              )}
             </div>
           </div>
         </div>
