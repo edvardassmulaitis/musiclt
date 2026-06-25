@@ -726,6 +726,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   const scrollRef = useRef<HTMLDivElement>(null)
   const vwrapRef = useRef<HTMLDivElement>(null)
   const ytRef = useRef<ReelsYtHandle>(null)
+  const [armed, setArmed] = useState(false)
   const [videoOn, setVideoOn] = useState(false)
   const [curVideoId, setCurVideoId] = useState<string | null>(slide.videoId || null)
   const [mini, setMini] = useState(false)
@@ -761,6 +762,10 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   useEffect(() => {
     if (active && scrollTopSignal > 0) scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [scrollTopSignal]) // eslint-disable-line
+
+  /* Kortelė bent kartą buvo aktyvi → laikom YT player'į primontuotą (žr. žemiau).
+   *  Naikinti+perkurti YT player'į perjungiant kortelę = flaky (grįžus negrotų). */
+  useEffect(() => { if (active) setArmed(true) }, [active])
 
   /* Topų/dienos dainos eilutės grojimas: ReelsYtPlayer primontuojamas tik kai
    *  videoOn → tap'o metu ytRef dar nebuvo. Šis efektas paleidžia po mount'o
@@ -858,15 +863,16 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           dešiniam kampe. Scrollinant grojantis video lieka sticky (minimizuojasi). ── */}
       {/* Grotuvo konteineris — visada kai kortelė aktyvi (iframe įdedamas imperatyviai
           paspaudimo metu). Paslėptas kol negroja. */}
-      {active && (hasVideo || videoOn) ? (
+      {(hasVideo || videoOn) ? (
         <div
           ref={vwrapRef}
           className={`rdr-vwrap${mini ? ' mini' : ''}`}
           onClick={mini ? () => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) : undefined}
         >
-          {/* YT player'is PRE-CREATED (cued) → groja 1 tapu. Posteris ant viršaus kol negroja. */}
-          <ReelsYtPlayer ref={ytRef} videoId={curVideoId} />
-          {hasVideo && !videoOn && (
+          {/* YT player'is lieka primontuotas kai kortelė bent kartą buvo aktyvi
+              (NEnaikinam perjungiant — destroy+recreate YT API flaky → grįžus negrotų). */}
+          {(active || armed) && <ReelsYtPlayer ref={ytRef} videoId={curVideoId} />}
+          {!videoOn && (
             <button className="rdr-poster" onClick={(e) => { e.stopPropagation(); play() }} aria-label="Groti">
               {slide.bgImg
                 ? <><span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImg(slide.bgImg)})` }} /><img className="rdr-poster-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} /></>
@@ -3243,22 +3249,26 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-artist-foot{margin:18px 0 0}
 
         /* ── Šviesi tema (light mode) — reels neturi būti juodas ── */
-        .hp-reels.light{background:var(--bg-body)}
+        .hp-reels.light,.hp-reels.light .hp-reels-slide,.hp-reels.light .rdr-slide{background:var(--bg-body)}
         .hp-reels.light .rdr-title,.hp-reels.light .rdr-title-link{color:var(--text-primary)}
         .hp-reels.light .rdr-date{color:var(--text-muted)}
         .hp-reels.light .rdr-excerpt,.hp-reels.light .rdr-html{color:var(--text-secondary)}
         .hp-reels.light .rdr-html h2,.hp-reels.light .rdr-html h3{color:var(--text-primary)}
+        .hp-reels.light .rdr-html a{color:var(--accent-link)}
         .hp-reels.light .rdr-artist{background:var(--bg-hover)}
         .hp-reels.light .rdr-artist span{color:var(--text-primary)}
         .hp-reels.light .rdr-author{color:var(--text-muted)}
+        .hp-reels.light .rdr-np{background:rgba(249,115,22,0.10);border-bottom-color:var(--border-default)}
         .hp-reels.light .rdr-np-t{color:var(--text-primary)}
+        .hp-reels.light .rdr-np-a{color:var(--text-muted)}
         .hp-reels.light .rdr-actions{background:linear-gradient(to top,var(--bg-body) 62%,transparent)}
-        .hp-reels.light .rdr-media-fade{background:linear-gradient(to top,var(--bg-body),transparent)}
+        .hp-reels.light .rdr-media-fade{display:none}
         .hp-reels.light .rdr-like{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-cta.subtle{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-inline-cta{border-color:var(--border-default);color:var(--text-secondary)}
-        .hp-reels.light .rdr-bar{background:rgba(0,0,0,0.14)}
-        .hp-reels.light .rdr-uptop,.hp-reels.light .rdr-close,.hp-reels.light .rdr-nav{background:rgba(0,0,0,0.06);border-color:rgba(0,0,0,0.12);color:var(--text-primary)}
+        .hp-reels.light .rdr-uptop{background:var(--bg-elevated);border-color:var(--border-default);color:var(--text-primary)}
+        .hp-reels.light .rdr-chart-info b,.hp-reels.light .rdr-top-title{color:var(--text-primary)}
+        .hp-reels.light .rdr-toplist .rdr-top-comment,.hp-reels.light .rdr-chart-info i,.hp-reels.light .rdr-top-artist{color:var(--text-muted)}
 
         /* „Groja" juostelė */
         .rdr-np{display:flex;align-items:center;gap:6px;padding:9px 20px;background:rgba(249,115,22,0.10);border-bottom:1px solid rgba(255,255,255,0.06);font-family:'Outfit',sans-serif}
