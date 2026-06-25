@@ -819,6 +819,46 @@ export function TrackInfoModal({
                     <Link href="/auth/signin" className="mt-3 inline-block rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white no-underline">Prisijungti</Link>
                   </div>
                 )}
+                {/* Daugiau / atlikėjas — mobile, NE sticky: po tekstu/įvedimu,
+                    scroll'inasi kartu su turiniu (anksčiau buvo sticky footer'is). */}
+                {(() => {
+                  const more = (artistTracks || [])
+                    .filter((t: any) => t.id !== track.id && yt(t.video_url))
+                    .slice(0, 6)
+                  if (more.length === 0) return null
+                  return (
+                    <div className="mt-5 border-t border-[var(--border-subtle)] pt-3 md:hidden">
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                        Daugiau / {artistName}
+                      </div>
+                      <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                        {more.map((t: any) => {
+                          const tvid = yt(t.video_url)
+                          const inner = (
+                            <>
+                              <span className="block aspect-video w-full overflow-hidden rounded bg-black">
+                                {tvid && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt=""
+                                    referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                )}
+                              </span>
+                              <span className="block truncate px-1 pb-0.5 pt-1 text-left font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-primary)]">
+                                {t.title}
+                              </span>
+                            </>
+                          )
+                          const cls = 'block w-[124px] shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
+                          return onSelectTrack ? (
+                            <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>{inner}</button>
+                          ) : (
+                            <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>{inner}</Link>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
               <div className={mobileTab === 'comments' ? 'block' : 'hidden'}>
                 <EntityCommentsBlock
@@ -833,45 +873,6 @@ export function TrackInfoModal({
           </div>
         </div>
 
-        {/* Daugiau — mobile only footer */}
-        {(() => {
-          const more = (artistTracks || [])
-            .filter((t: any) => t.id !== track.id && yt(t.video_url))
-            .slice(0, 6)
-          if (more.length === 0) return null
-          return (
-            <div className="shrink-0 border-t border-[var(--border-subtle)] px-4 pb-3 pt-2.5 md:hidden">
-              <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                Daugiau / {artistName}
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-                {more.map((t: any) => {
-                  const tvid = yt(t.video_url)
-                  const inner = (
-                    <>
-                      <span className="block aspect-video w-full overflow-hidden rounded bg-black">
-                        {tvid && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt=""
-                            referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                        )}
-                      </span>
-                      <span className="block truncate px-1 pb-0.5 pt-1 text-left font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-primary)]">
-                        {t.title}
-                      </span>
-                    </>
-                  )
-                  const cls = 'block w-[124px] shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
-                  return onSelectTrack ? (
-                    <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>{inner}</button>
-                  ) : (
-                    <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>{inner}</Link>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })()}
       </aside>
 
       {LikersOverlay}
