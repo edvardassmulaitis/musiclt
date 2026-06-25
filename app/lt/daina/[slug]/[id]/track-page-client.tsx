@@ -729,7 +729,7 @@ export default function TrackPageClient({
               className={[
                 "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
                 mobileTab === 'lyrics'
-                  ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                  ? 'text-[var(--accent-orange)]'
                   : 'text-[var(--text-muted)]',
               ].join(' ')}
             >
@@ -741,7 +741,7 @@ export default function TrackPageClient({
               className={[
                 "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
                 mobileTab === 'comments'
-                  ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                  ? 'text-[var(--accent-orange)]'
                   : 'text-[var(--text-muted)]',
               ].join(' ')}
             >
@@ -801,7 +801,7 @@ export default function TrackPageClient({
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--accent-orange)]">
                         <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
                       </svg>
-                      Pasirinkti Dienos dainą
+                      Pasirinkti Dienos daina
                     </button>
                     <button
                       type="button"
@@ -810,7 +810,7 @@ export default function TrackPageClient({
                       className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-muted)]">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        <path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" />
                       </svg>
                       Nustatyti kaip nuotaikos dainą
                     </button>
@@ -939,7 +939,7 @@ export default function TrackPageClient({
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
               <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800 }}>
-                Patiko {likersModalEntity.label}
+                Dainą mėgstantys nariai
                 {likersModalUsers && <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 11 }}>({likersModalUsers.length})</span>}
               </div>
               <button onClick={() => setLikersModalEntity(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 18, cursor: 'pointer' }}>✕</button>
