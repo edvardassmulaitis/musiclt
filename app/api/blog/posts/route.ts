@@ -6,6 +6,7 @@ import { ensureUserBlog } from '@/lib/ensure-blog'
 import { resolveProfile } from '@/lib/profile-resolve'
 import { detectEmbed } from '@/lib/embed-detect'
 import { logActivity } from '@/lib/activity-logger'
+import { resolveBlogThumbs } from '@/lib/blog-thumb'
 
 const POST_TYPES = ['article', 'review', 'translation', 'creation', 'event', 'topas'] as const
 type PostType = typeof POST_TYPES[number]
@@ -17,7 +18,14 @@ export async function GET(_req: NextRequest) {
   if (!profile) return NextResponse.json({ error: 'Profilio nepavyko paruošti' }, { status: 500 })
   try {
     const posts = await getAllUserPosts(profile.id)
-    return NextResponse.json(posts)
+    // Vizualų fallback'as kaip /bendruomene: įrašams be cover_image_url
+    // surandam miniatiūrą iš susietų/target dainų/albumų/atlikėjų.
+    const thumbs = await resolveBlogThumbs(posts as any[])
+    const withThumbs = (posts as any[]).map(p => ({
+      ...p,
+      fallback_thumb_url: p.cover_image_url ? null : (thumbs.get(p.id) || null),
+    }))
+    return NextResponse.json(withThumbs)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

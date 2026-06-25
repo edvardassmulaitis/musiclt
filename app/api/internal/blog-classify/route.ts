@@ -38,7 +38,7 @@ async function countRemaining(sb: ReturnType<typeof createAdminClient>, recentDa
     .from('blog_posts')
     .select('id', { count: 'exact', head: true })
     .eq('post_type', 'article')
-    .eq('status', 'published')
+    .eq('status', 'published').eq('is_deleted', false)
     .is('editorial_type', null)
     .gte('published_at', sinceIso)
   return count || 0

@@ -172,6 +172,9 @@ export async function GET(req: Request) {
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10) || 100, 300)
   const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10) || 0, 0)
   const username = (url.searchParams.get('username') || '').trim()
+  // „Paslėpti" rodinys: nario soft-delete'inti (is_deleted=true) įrašai — admin
+  // gali juos atgaivinti. Numatytai paslėpti įrašai NErodomi.
+  const deleted = url.searchParams.get('deleted') === '1'
 
   // !inner kai slepiam paslėptus narius arba filtruojam pagal username
   // (filtras DB lygyje per nested profiles); kitaip paprastas join.
@@ -182,12 +185,13 @@ export async function GET(req: Request) {
 
   // SVARBU (supabase-js): filtrai (.not/.is/.eq/.in) PRIEŠ transformacijas (.order/.range).
   let q = sb.from('blog_posts')
-    .select(`id, slug, title, post_type, editorial_type, status, published_at, created_at, homepage_reviewed_at, featured_until, home_hero, list_items, target_album_id, target_event_id, ${join}`)
+    .select(`id, slug, title, post_type, editorial_type, status, published_at, created_at, homepage_reviewed_at, featured_until, home_hero, list_items, target_album_id, target_event_id, view_count, is_deleted, ${join}`)
     .eq('status', 'published')
+    .eq('is_deleted', deleted)
     .in('post_type', ['article', 'topas', 'review', 'creation', 'translation', 'event'])
   if (!includeHidden) q = q.not('blogs.profiles.hide_from_homepage', 'is', true)
   if (username) q = q.ilike('blogs.profiles.username', `%${username}%`)
-  if (view === 'todo') q = q.is('homepage_reviewed_at', null)
+  if (view === 'todo' && !deleted) q = q.is('homepage_reviewed_at', null)
 
   const { data, error } = await q
     .order('published_at', { ascending: false, nullsFirst: false })
@@ -212,6 +216,8 @@ export async function GET(req: Request) {
       published_at: b.published_at,
       author: prof?.username || prof?.full_name || null,
       hidden: !!prof?.hide_from_homepage,
+      view_count: b.view_count || 0,
+      is_deleted: !!b.is_deleted,
       topas: b.post_type === 'topas' ? topasSummary(b.list_items) : null,
     }
   })
@@ -224,6 +230,14 @@ export async function PATCH(req: Request) {
   const id = body.id
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
   const sb = createAdminClient()
+
+  // Soft-delete atgaivinimas / paslėpimas (admin). is_deleted=false → įrašas
+  // grįžta į visus viešus surfaces; true → paslepiamas (kaip nario „Trinti").
+  if ('is_deleted' in body && !('kind' in body)) {
+    const { error } = await sb.from('blog_posts').update({ is_deleted: !!body.is_deleted }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, is_deleted: !!body.is_deleted })
+  }
 
   // „Dėmesio centre" (featured) — /atrasti viršuje iki featured_until.
   // body.featured: true → now + featured_hours (default 48h, max 14 d.); false → null.

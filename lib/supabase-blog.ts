@@ -590,7 +590,7 @@ export async function getBlogPosts(blogId: string, limit = 20, offset = 0, postT
     .from('blog_posts')
     .select('id, slug, title, summary, cover_image_url, published_at, reading_time_min, view_count, like_count, comment_count, post_type', { count: 'exact' })
     .eq('blog_id', blogId)
-    .eq('status', 'published')
+    .eq('status', 'published').eq('is_deleted', false)
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false })
   if (postType && postType !== 'all') {
@@ -611,7 +611,7 @@ export async function getBlogPostCountsByType(blogId: string) {
     .from('blog_posts')
     .select('id', { count: 'exact', head: true })
     .eq('blog_id', blogId)
-    .eq('status', 'published')
+    .eq('status', 'published').eq('is_deleted', false)
     .lte('published_at', new Date().toISOString())
   counts.all = total || 0
   // Per-type
@@ -620,7 +620,7 @@ export async function getBlogPostCountsByType(blogId: string) {
       .from('blog_posts')
       .select('id', { count: 'exact', head: true })
       .eq('blog_id', blogId)
-      .eq('status', 'published')
+      .eq('status', 'published').eq('is_deleted', false)
       .lte('published_at', new Date().toISOString())
       .eq('post_type', t)
     if ((count || 0) > 0) counts[t] = count || 0
@@ -630,10 +630,14 @@ export async function getBlogPostCountsByType(blogId: string) {
 
 export async function getAllUserPosts(userId: string) {
   const sb = createAdminClient()
+  // is_deleted=false: „ištrinti" (soft-delete) įrašai paslepiami ir nuo paties
+  // autoriaus — juos gali atgaivinti tik adminas (/admin/irasai).
+  // target_*/list_items įtraukti vizualų fallback'ui (resolveBlogThumbs).
   const { data } = await sb
     .from('blog_posts')
-    .select('id, slug, title, summary, content, cover_image_url, post_type, rating, status, published_at, reading_time_min, view_count, like_count, comment_count, created_at, updated_at, blogs:blog_id(slug)')
+    .select('id, slug, title, summary, content, cover_image_url, post_type, editorial_type, rating, status, published_at, reading_time_min, view_count, like_count, comment_count, created_at, updated_at, list_items, target_artist_id, target_album_id, target_track_id, blogs:blog_id(slug)')
     .eq('user_id', userId)
+    .eq('is_deleted', false)
     .order('updated_at', { ascending: false })
   return data || []
 }
@@ -685,6 +689,7 @@ export async function getPost(blogSlug: string, postSlug: string) {
       .select('*')
       .eq('blog_id', blog.id)
       .eq('slug', cand)
+      .eq('is_deleted', false)
       .maybeSingle()
     if (post) return { ...post, blog }
   }
@@ -747,9 +752,23 @@ export async function updatePost(postId: string, userId: string, updates: Record
   if (error) throw error
 }
 
+// Soft-delete: įrašas paslepiamas (is_deleted=true) — dingsta iš VISŲ viešų
+// surfaces (feed, profilis, paieška) IR iš paties autoriaus „Mano įrašai".
+// Atstatyti gali tik adminas per reactivatePost (/admin/irasai).
 export async function deletePost(postId: string, userId: string) {
   const sb = createAdminClient()
-  const { error } = await sb.from('blog_posts').delete().eq('id', postId).eq('user_id', userId)
+  const { error } = await sb
+    .from('blog_posts')
+    .update({ is_deleted: true })
+    .eq('id', postId)
+    .eq('user_id', userId)
+  if (error) throw error
+}
+
+// Admin: atgaivinti paslėptą įrašą (be user_id apribojimo — admin tier).
+export async function setPostDeleted(postId: string, isDeleted: boolean) {
+  const sb = createAdminClient()
+  const { error } = await sb.from('blog_posts').update({ is_deleted: isDeleted }).eq('id', postId)
   if (error) throw error
 }
 
@@ -895,7 +914,7 @@ export async function getLatestBlogPosts(limit = 6) {
   const { data } = await sb
     .from('blog_posts')
     .select('id, slug, title, summary, cover_image_url, post_type, rating, tags, published_at, reading_time_min, like_count, blogs:blog_id(slug, title, profiles:user_id(full_name, username, avatar_url))')
-    .eq('status', 'published')
+    .eq('status', 'published').eq('is_deleted', false)
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false })
     .limit(limit)
@@ -908,7 +927,7 @@ export async function getHomeHeroPosts(limit = 8) {
   const { data } = await sb
     .from('blog_posts')
     .select('id, slug, title, summary, content, cover_image_url, post_type, editorial_type, published_at, list_items, target_track_id, target_album_id, target_artist_id, embed_url, embed_type, embed_thumbnail_url, embed_title, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
-    .eq('status', 'published')
+    .eq('status', 'published').eq('is_deleted', false)
     .eq('home_hero', true)
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false })
@@ -939,7 +958,7 @@ export async function getBlogFeed(opts: {
       'blogs:blog_id(slug, title, profiles:user_id(id, full_name, username, avatar_url))',
       { count: 'exact' }
     )
-    .eq('status', 'published')
+    .eq('status', 'published').eq('is_deleted', false)
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false })
 
@@ -959,7 +978,7 @@ export async function getPopularTags(limit = 20) {
   const { data } = await sb
     .from('blog_posts')
     .select('tags')
-    .eq('status', 'published')
+    .eq('status', 'published').eq('is_deleted', false)
     .lte('published_at', new Date().toISOString())
     .not('tags', 'eq', '{}')
     .limit(500)

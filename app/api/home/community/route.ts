@@ -88,7 +88,7 @@ export async function GET() {
       //   Be 60d floor: imam naujausią KIEKVIENO tipo įrašą, net jei tipas retas (pvz. topas).
       sb.from('blog_posts')
         .select('id, slug, title, post_type, editorial_type, summary, content, cover_image_url, like_count, comment_count, published_at, list_items, target_track_id, target_album_id, target_artist_id, target_event_id, blogs:blog_id!inner(slug, profiles:user_id!inner(id, username, full_name, avatar_url, hide_from_homepage))')
-        .eq('status', 'published')
+        .eq('status', 'published').eq('is_deleted', false)
         .not('published_at', 'is', null)
         .not('blogs.profiles.hide_from_homepage', 'is', true)
         // Topas rodomas TIK patvirtintas (/admin/topai-vidiniai); kiti tipai be apribojimo.

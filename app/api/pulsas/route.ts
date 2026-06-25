@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       .from('blog_posts')
       .select('id, slug, title, summary, content, post_type, cover_image_url, blog_id, created_at, published_at, ' +
         'blogs:blog_id(slug, title, profiles:user_id(username, full_name, avatar_url))')
-      .eq('status', 'published')
+      .eq('status', 'published').eq('is_deleted', false)
       .not('published_at', 'is', null)
       .order('published_at', { ascending: false })
       .limit(120)

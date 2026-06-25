@@ -182,7 +182,7 @@ export async function GET(request: Request) {
       ? sb.from('blog_posts')
           .select('id,slug,title,summary,cover_image_url,published_at,view_count,like_count,blog_id,blogs:blog_id(slug,profiles:user_id(username,full_name,avatar_url))')
           .ilike('title_norm', pat)
-          .eq('status', 'published')
+          .eq('status', 'published').eq('is_deleted', false)
           .order('published_at', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
       : Promise.resolve(empty as R),

@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
       .select('id, slug, title, summary, cover_image_url, post_type, editorial_type, rating, like_count, comment_count, published_at, featured_until, blog_id, ' +
         'target_track_id, target_album_id, target_artist_id, target_event_id, list_items, ' +
         'blogs:blog_id(slug, profiles:user_id(id, full_name, username, avatar_url, hide_from_homepage))')
-      .eq('status', 'published')
+      .eq('status', 'published').eq('is_deleted', false)
       .not('published_at', 'is', null)
       .lte('published_at', new Date().toISOString())
     if (type) q = q.eq('post_type', type)

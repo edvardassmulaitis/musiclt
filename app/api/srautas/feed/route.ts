@@ -271,7 +271,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       }
       let q = sb.from('blog_posts')
         .select('id, slug, title, summary, cover_image_url, post_type, editorial_type, rating, published_at, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
-        .eq('status', 'published').not('published_at', 'is', null).lte('published_at', nowIso)
+        .eq('status', 'published').eq('is_deleted', false).not('published_at', 'is', null).lte('published_at', nowIso)
       if (postIds) q = q.in('id', postIds)
       q = q.order('published_at', { ascending: false }).limit(16)
       const { data } = await q
@@ -450,7 +450,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
     try {
       const { data } = await sb.from('blog_posts')
         .select('id, slug, title, summary, cover_image_url, post_type, editorial_type, rating, published_at, user_id, blogs:blog_id(slug, profiles:user_id(full_name, username, avatar_url))')
-        .eq('status', 'published').not('published_at', 'is', null).lte('published_at', nowIso)
+        .eq('status', 'published').eq('is_deleted', false).not('published_at', 'is', null).lte('published_at', nowIso)
         .in('user_id', followedIds)
         .order('published_at', { ascending: false }).limit(20)
       const rows = (data || []) as any[]

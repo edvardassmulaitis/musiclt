@@ -3021,7 +3021,8 @@ function RecentLikesCard({
   favoriteArtists, favoriteAlbums, favoriteTracks,
   albumResolvedTotal, trackResolvedTotal, onOpenMore, horizontal = false,
 }: any) {
-  const items = useMemo(() => {
+  // Organiškai (ne migruoti) pamėgti — rikiuojam pagal datą.
+  const organic = useMemo(() => {
     const arr: any[] = [
       ...(favoriteArtists || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'artist' })),
       ...(favoriteAlbums || []).filter((x: any) => x.liked_at && !x.is_imported).map((x: any) => ({ ...x, _kind: 'album' })),
@@ -3030,7 +3031,23 @@ function RecentLikesCard({
     return arr.sort((a, b) => new Date(b.liked_at).getTime() - new Date(a.liked_at).getTime()).slice(0, 12)
   }, [favoriteArtists, favoriteAlbums, favoriteTracks])
 
-  // V18k: jei nėra neseniai pamėgtos muzikos — visai nerodom kortelės.
+  // Fallback (legacy nariams, kurių VISI like'ai migruoti → nėra „naujų"):
+  // rodom mėgstamiausius (jie jau išrikiuoti pagal rank/score). Kitaip dešinė
+  // skiltis liktų visiškai tuščia (pvz. seniems music.lt nariams).
+  const fallback = useMemo(() => {
+    if (organic.length > 0) return []
+    const arr: any[] = [
+      ...(favoriteArtists || []).slice(0, 6).map((x: any) => ({ ...x, _kind: 'artist' })),
+      ...(favoriteTracks || []).slice(0, 6).map((x: any) => ({ ...x, _kind: 'track' })),
+      ...(favoriteAlbums || []).slice(0, 4).map((x: any) => ({ ...x, _kind: 'album' })),
+    ]
+    return arr.slice(0, 12)
+  }, [organic, favoriteArtists, favoriteAlbums, favoriteTracks])
+
+  const items = organic.length > 0 ? organic : fallback
+  const heading = organic.length > 0 ? 'Neseniai pamėgta' : 'Mėgstama muzika'
+
+  // Visai nieko (net mėgstamų) — nerodom kortelės.
   if (items.length === 0) return null
 
   // V18m: horizontali juosta (mobile) — viršeliai scroll'inami į šoną.
@@ -3040,7 +3057,7 @@ function RecentLikesCard({
         <h4 className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider mb-2 px-1"
             style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
           <HeartOutlineIcon size={12} />
-          Neseniai pamėgta
+          {heading}
         </h4>
         <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {items.map((it) => {
@@ -3078,7 +3095,7 @@ function RecentLikesCard({
       <h4 className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider mb-2 px-1"
           style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         <HeartOutlineIcon size={12} />
-        Neseniai pamėgta
+        {heading}
       </h4>
       {items.length > 0 ? (
         <div className="flex flex-col">

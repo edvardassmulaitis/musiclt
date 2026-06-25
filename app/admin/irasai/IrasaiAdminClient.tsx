@@ -22,6 +22,8 @@ type Item = {
   published_at: string | null
   author: string | null
   hidden: boolean
+  view_count: number
+  is_deleted: boolean
   topas: TopasInfo | null
 }
 
@@ -54,6 +56,7 @@ export default function IrasaiAdminClient() {
   const [hasMore, setHasMore] = useState(false)
   const [view, setView] = useState<'todo' | 'all'>('todo')
   const [showHidden, setShowHidden] = useState(false)
+  const [showDeleted, setShowDeleted] = useState(false)
   const [username, setUsername] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
@@ -63,11 +66,12 @@ export default function IrasaiAdminClient() {
 
   const fetchPage = useCallback(async (off: number) => {
     const p = new URLSearchParams({ view, include_hidden: showHidden ? '1' : '0', offset: String(off), limit: String(PAGE) })
+    if (showDeleted) p.set('deleted', '1')
     if (username.trim()) p.set('username', username.trim())
     const r = await fetch(`/api/admin/irasai?${p}`, { cache: 'no-store' })
     const d = await r.json()
     return { items: (Array.isArray(d.items) ? d.items : []) as Item[], hasMore: !!d.hasMore }
-  }, [view, showHidden, username])
+  }, [view, showHidden, showDeleted, username])
 
   const load = useCallback(async () => {
     setLoading(true); offsetRef.current = 0
@@ -149,6 +153,20 @@ export default function IrasaiAdminClient() {
     setBusy(null)
   }
 
+  // Soft-delete: atgaivinti (is_deleted=false) arba paslėpti (true). Po veiksmo
+  // įrašas pakeičia rodinį (atgaivintas dingsta iš „Paslėpti", paslėptas iš įprasto).
+  const setDeleted = async (id: string, isDeleted: boolean) => {
+    if (isDeleted && !confirm('Paslėpti šį įrašą iš visų puslapių?')) return
+    setBusy(id); setMsg(null)
+    try {
+      const r = await fetch('/api/admin/irasai', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, is_deleted: isDeleted }) })
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || 'klaida')
+      setItems(prev => prev.filter(it => it.id !== id))
+      setMsg(isDeleted ? 'Įrašas paslėptas ✓' : 'Įrašas atgaivintas ✓')
+    } catch (e: any) { setMsg('Klaida: ' + e.message) }
+    setBusy(null)
+  }
+
   const enrichAct = async (id: string, action: string, extra: any = {}) => {
     setBusy(id); setMsg(null)
     try {
@@ -203,6 +221,10 @@ export default function IrasaiAdminClient() {
           <input type="checkbox" checked={showHidden} onChange={e => setShowHidden(e.target.checked)} className="w-4 h-4" />
           Rodyti paslėptų narių įrašus
         </label>
+        <button onClick={() => setShowDeleted(v => !v)}
+          className={`text-sm px-3 py-1.5 rounded-lg ${showDeleted ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+          🗑 Ištrinti įrašai
+        </button>
         <div className="relative ml-auto">
           <input
             type="text" value={username} onChange={e => setUsername(e.target.value)}
@@ -227,7 +249,7 @@ export default function IrasaiAdminClient() {
       {loading ? (
         <div className="text-gray-400 text-sm py-10 text-center">Kraunama…</div>
       ) : items.length === 0 ? (
-        <div className="text-gray-400 text-sm py-10 text-center">{view === 'todo' ? 'Viskas sutvarkyta 🎉' : 'Nieko nerasta.'}</div>
+        <div className="text-gray-400 text-sm py-10 text-center">{showDeleted ? 'Ištrintų įrašų nėra.' : view === 'todo' ? 'Viskas sutvarkyta 🎉' : 'Nieko nerasta.'}</div>
       ) : (
         <>
           <div className="space-y-2">
@@ -243,12 +265,13 @@ export default function IrasaiAdminClient() {
                           ? <a href={link} target="_blank" rel="noreferrer" className="font-bold text-gray-900 hover:text-orange-600 truncate">{it.title}</a>
                           : <span className="font-bold text-gray-900 truncate">{it.title}</span>}
                         {it.hidden && <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-semibold">narys paslėptas</span>}
+                        {it.is_deleted && <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-semibold">🗑 ištrintas</span>}
                         {it.reviewed && <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">sutvarkyta</span>}
                         {it.featured && <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title={it.featured_until ? `iki ${new Date(it.featured_until).toLocaleString('lt-LT')}` : ''}>★ verta dėmesio</span>}
                         {it.home_hero && <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-semibold">🏠 hero</span>}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {it.author || 'be autoriaus'} · {it.published_at ? new Date(it.published_at).toLocaleDateString('lt-LT') : 'nepublikuotas'}
+                        {it.author || 'be autoriaus'} · {it.published_at ? new Date(it.published_at).toLocaleDateString('lt-LT') : 'nepublikuotas'} · 👁 {it.view_count.toLocaleString('lt-LT')} perž.
                       </div>
                     </div>
                     <span className={`shrink-0 text-[11px] px-2 py-1 rounded-lg font-semibold ${onHome ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -311,12 +334,19 @@ export default function IrasaiAdminClient() {
                       className={`text-sm px-3 py-1 rounded-lg disabled:opacity-50 ${it.home_hero ? 'bg-orange-600 text-white hover:bg-orange-700' : 'bg-orange-50 hover:bg-orange-100 text-orange-700'}`}>
                       {it.home_hero ? '🏠 Hero (išjungti)' : '🏠 Į hero'}
                     </button>
-                    <div className="ml-auto">
-                      {it.reviewed
-                        ? <button onClick={() => markReviewed(it.id, false)} disabled={busy === it.id}
-                            className="text-sm px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600">↩ Atžymėti</button>
-                        : <button onClick={() => markReviewed(it.id, true)} disabled={busy === it.id}
-                            className="text-sm px-3 py-1 rounded-lg bg-gray-900 hover:bg-black text-white disabled:opacity-50">✓ Sutvarkyta</button>}
+                    <div className="ml-auto flex items-center gap-2">
+                      {it.is_deleted
+                        ? <button onClick={() => setDeleted(it.id, false)} disabled={busy === it.id}
+                            className="text-sm px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">↩ Atgaivinti</button>
+                        : <>
+                            <button onClick={() => setDeleted(it.id, true)} disabled={busy === it.id} title="Paslėpti įrašą iš visų puslapių"
+                              className="text-sm px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 disabled:opacity-50">🗑 Paslėpti</button>
+                            {it.reviewed
+                              ? <button onClick={() => markReviewed(it.id, false)} disabled={busy === it.id}
+                                  className="text-sm px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600">↩ Atžymėti</button>
+                              : <button onClick={() => markReviewed(it.id, true)} disabled={busy === it.id}
+                                  className="text-sm px-3 py-1 rounded-lg bg-gray-900 hover:bg-black text-white disabled:opacity-50">✓ Sutvarkyta</button>}
+                          </>}
                     </div>
                   </div>
 

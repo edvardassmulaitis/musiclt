@@ -57,7 +57,7 @@ export async function GET(req: Request) {
     const discIds = [...new Set(alive.filter(r => r.entity_type === 'discussion' && r.entity_id).map(r => Number(r.entity_id)))]
     const E = { data: [] as any[] }
     const [bp, dc] = await Promise.all([
-      blogIds.length ? supabase.from('blog_posts').select('id').eq('status', 'published').in('id', blogIds) : Promise.resolve(E),
+      blogIds.length ? supabase.from('blog_posts').select('id').eq('status', 'published').eq('is_deleted', false).in('id', blogIds) : Promise.resolve(E),
       discIds.length ? supabase.from('discussions').select('id').eq('is_deleted', false).in('id', discIds) : Promise.resolve(E),
     ])
     const liveBlog = new Set((((bp as any).data || []) as any[]).map(x => x.id))

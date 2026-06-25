@@ -182,7 +182,7 @@ export async function GET() {
       supabase
         .from('blog_posts')
         .select('id, slug, title, cover_image_url, post_type, published_at, blogs:blog_id!inner ( slug, profiles:user_id!inner ( full_name, username, avatar_url, hide_from_homepage ) )')
-        .eq('status', 'published')
+        .eq('status', 'published').eq('is_deleted', false)
         .not('published_at', 'is', null)
         .lte('published_at', new Date().toISOString())
         .not('blogs.profiles.hide_from_homepage', 'is', true)

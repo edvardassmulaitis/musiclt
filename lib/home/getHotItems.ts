@@ -110,7 +110,7 @@ async function _getHotItems(): Promise<HotItem[]> {
     const { data: reviews } = await supabase
       .from('blog_posts')
       .select('id, slug, title, cover_image_url, user_id, like_count, comment_count, published_at, blogs:blog_id(slug)')
-      .eq('status', 'published')
+      .eq('status', 'published').eq('is_deleted', false)
       .eq('post_type', 'review')
       .gte('published_at', since)
       .order('published_at', { ascending: false })
@@ -172,7 +172,7 @@ async function _getHotItems(): Promise<HotItem[]> {
     const { data: posts } = await supabase
       .from('blog_posts')
       .select('id, slug, title, cover_image_url, user_id, like_count, comment_count, published_at, blogs:blog_id(slug)')
-      .eq('status', 'published')
+      .eq('status', 'published').eq('is_deleted', false)
       .neq('post_type', 'review')
       .gte('published_at', since)
       .order('published_at', { ascending: false })

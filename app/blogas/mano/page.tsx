@@ -23,19 +23,20 @@ type Post = {
   comment_count: number
   created_at: string
   updated_at: string
+  fallback_thumb_url?: string | null
   blogs?: { slug: string } | { slug: string }[] | null
 }
 
 type Tab = 'latest' | 'top' | 'drafts' | 'all'
 
-// Tipo ikona — inline emoji (projektas neturi ikonų bibliotekos)
-const TYPE_ICON: Record<BlogPostType, string> = {
-  article: '📝',
-  review: '⭐',
-  topas: '🏆',
-  translation: '🌐',
-  creation: '✍️',
-  event: '🎤',
+// Tipo spalva — suderinta su /bendruomene kortelėmis (spalvota juostelė + pill).
+const TYPE_COLOR: Record<BlogPostType, string> = {
+  article: 'var(--accent-orange)',
+  review: '#f59e0b',
+  topas: '#f59e0b',
+  translation: '#3b82f6',
+  creation: '#a855f7',
+  event: '#ec4899',
 }
 
 export default function MyPostsPage() {
@@ -94,7 +95,7 @@ export default function MyPostsPage() {
   }, [posts, tab, q])
 
   async function handleDelete(id: string) {
-    if (!confirm('Tikrai ištrinti šį įrašą?')) return
+    if (!confirm('Tikrai ištrinti šį įrašą? Jis bus paslėptas iš visų puslapių. Prireikus jį gali atstatyti administratorius.')) return
     const res = await fetch(`/api/blog/posts/${id}`, { method: 'DELETE' })
     if (res.ok) setPosts(posts.filter(p => p.id !== id))
   }
@@ -103,13 +104,6 @@ export default function MyPostsPage() {
     <div className="page-shell">
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="page-head">
-        <Link
-          href="/blogas"
-          className="inline-block text-xs font-semibold mb-2 transition"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          ← Visi blogai
-        </Link>
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1>Mano įrašai</h1>
@@ -127,14 +121,15 @@ export default function MyPostsPage() {
 
       {/* ── Stats hero ─────────────────────────────────────────── */}
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-7">
-          {[0, 1, 2, 3].map(i => <StatSkeleton key={i} />)}
+        <div className="grid grid-cols-3 gap-3 mb-7">
+          {[0, 1, 2].map(i => <StatSkeleton key={i} />)}
         </div>
       ) : stats.total > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-7">
+        // Peržiūros sąmoningai NErodomos nariui (maži skaičiai mažina motyvaciją) —
+        // jas mato tik adminas /admin/irasai.
+        <div className="grid grid-cols-3 gap-3 mb-7">
           <StatBox label="Publikuota" value={stats.published} icon="📄" accent
             sub={stats.drafts > 0 ? `+${stats.drafts} juodraščiai` : 'visi publikuoti'} />
-          <StatBox label="Peržiūros" value={stats.views} icon="👁" />
           <StatBox label="Patiko" value={stats.likes} icon="♥" />
           <StatBox label="Komentarai" value={stats.comments} icon="💬" />
         </div>
@@ -294,6 +289,9 @@ function PostCard({ post, onDelete }: { post: Post; onDelete: () => void }) {
   const typeMeta = POST_TYPE_OPTIONS.find(o => o.type === post.post_type)
   const excerpt = post.summary || extractExcerpt(post.content, 150)
   const published = post.status === 'published'
+  const typeColor = TYPE_COLOR[post.post_type] || 'var(--accent-orange)'
+  // Vizualas kaip /bendruomene: cover → susietos muzikos miniatiūra → spalvotas placeholder.
+  const thumb = post.cover_image_url || post.fallback_thumb_url || null
 
   return (
     <div
@@ -302,19 +300,20 @@ function PostCard({ post, onDelete }: { post: Post; onDelete: () => void }) {
     >
       <div className="flex gap-3 sm:gap-4">
         {/* Cover */}
-        {post.cover_image_url ? (
+        {thumb ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            src={post.cover_image_url}
+            src={thumb}
             alt=""
+            loading="lazy"
             className="w-20 h-20 sm:w-28 sm:h-24 rounded-xl object-cover flex-shrink-0"
           />
         ) : (
           <div
             className="w-20 h-20 sm:w-28 sm:h-24 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl"
-            style={{ background: 'var(--bg-elevated)' }}
+            style={{ background: `linear-gradient(135deg, ${typeColor}26, ${typeColor}0d)`, color: typeColor }}
           >
-            {TYPE_ICON[post.post_type] || '📝'}
+            ♬
           </div>
         )}
 
@@ -333,8 +332,8 @@ function PostCard({ post, onDelete }: { post: Post; onDelete: () => void }) {
               {published ? 'Publikuotas' : 'Juodraštis'}
             </span>
             {typeMeta && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>
-                <span>{TYPE_ICON[post.post_type]}</span>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: typeColor }}>
+                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: typeColor }} />
                 {typeMeta.label}
               </span>
             )}
@@ -370,7 +369,6 @@ function PostCard({ post, onDelete }: { post: Post; onDelete: () => void }) {
             {published && (
               <>
                 <span aria-hidden>·</span>
-                <span>👁 {post.view_count.toLocaleString('lt-LT')}</span>
                 <span>♥ {post.like_count.toLocaleString('lt-LT')}</span>
                 <span>💬 {post.comment_count.toLocaleString('lt-LT')}</span>
               </>
