@@ -114,10 +114,9 @@ function IconDropdown({ g, open, setOpen, onSelect }: {
         aria-haspopup="menu"
         onClick={() => setOpen(!open)}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h10M18 18h2" />
-          <circle cx="15" cy="6" r="2" /><circle cx="7" cy="12" r="2" /><circle cx="15" cy="18" r="2" />
+          <polygon points="21 4 3 4 10 12.5 10 19 14 21 14 12.5 21 4" />
         </svg>
       </button>
       <div className={`fb-pop${open ? ' open' : ''}`} role="menu">
