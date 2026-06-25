@@ -59,15 +59,15 @@ function Initials({ name }: { name: string }) {
 
 function CardSkeleton({ rows }: { rows: number }) {
   return (
-    <div className="rounded-2xl border border-white/5 bg-white/[0.025] p-4">
-      <div className="mb-3 h-3 w-32 animate-pulse rounded bg-white/10" />
+    <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
+      <div className="mb-3 h-3 w-32 animate-pulse rounded bg-[var(--bg-hover)]" />
       <ul className="space-y-2">
         {Array.from({ length: rows }).map((_, i) => (
           <li key={i} className="flex items-center gap-2.5">
-            <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-white/10" />
+            <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-[var(--bg-hover)]" />
             <div className="flex-1 space-y-1.5">
-              <div className="h-2.5 w-3/4 animate-pulse rounded bg-white/10" />
-              <div className="h-2 w-1/2 animate-pulse rounded bg-white/5" />
+              <div className="h-2.5 w-3/4 animate-pulse rounded bg-[var(--bg-hover)]" />
+              <div className="h-2 w-1/2 animate-pulse rounded bg-[var(--bg-active)]" />
             </div>
           </li>
         ))}
@@ -100,8 +100,8 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
   return (
     <div className="sticky top-6 flex flex-col gap-3">
       {data.topContributors.length > 0 && (
-        <div className="rounded-2xl border border-white/5 bg-white/[0.025] p-4">
-          <div className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
+          <div className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Aktyviausi nariai
           </div>
           <ul className="space-y-2">
@@ -109,7 +109,7 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
               const name = c.full_name || c.username || 'Vartotojas'
               return (
                 <li key={c.id} className="flex items-center gap-2.5">
-                  <span className="w-3 text-[10px] font-bold text-gray-600">{i + 1}.</span>
+                  <span className="w-3 text-[10px] font-bold text-[var(--text-faint)]">{i + 1}.</span>
                   {c.avatar_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={c.avatar_url} alt="" referrerPolicy="no-referrer"
@@ -118,8 +118,8 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
                     <Initials name={name} />
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-bold text-gray-200">{name}</div>
-                    <div className="text-[10px] text-gray-500">
+                    <div className="truncate text-xs font-bold text-[var(--text-primary)]">{name}</div>
+                    <div className="text-[10px] text-[var(--text-muted)]">
                       {c.count.toLocaleString()} atsakym{c.count % 10 === 1 && c.count !== 11 ? 'as' : 'ai'}
                     </div>
                   </div>
@@ -131,34 +131,34 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
       )}
 
       {data.mentionedTracks.length > 0 && (
-        <div className="rounded-2xl border border-white/5 bg-white/[0.025] p-4">
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
           <div className="mb-3 flex items-center justify-between">
-            <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
+            <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Paminėtos dainos
             </div>
-            <div className="text-[10px] text-gray-600">{data.mentionedTracks.length}</div>
+            <div className="text-[10px] text-[var(--text-muted)]">{data.mentionedTracks.length}</div>
           </div>
           <ul className="space-y-2">
             {data.mentionedTracks.map((t) => (
               <li key={t.id}>
                 <Link
                   href={`/dainos/${t.slug}-${t.id}`}
-                  className="flex items-center gap-2.5 rounded-lg p-1.5 transition-colors hover:bg-white/5"
+                  className="flex items-center gap-2.5 rounded-lg p-1.5 transition-colors hover:bg-[var(--bg-hover)]"
                 >
-                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-white/5">
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-[var(--bg-active)]">
                     {t.cover_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={t.cover_url} alt="" referrerPolicy="no-referrer"
                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-gray-600">♪</div>
+                      <div className="flex h-full w-full items-center justify-center text-xs text-[var(--text-muted)]">♪</div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12px] font-semibold text-gray-200">{t.title}</div>
-                    <div className="truncate text-[10px] text-gray-500">{t.artist_name || ''}</div>
+                    <div className="truncate text-[12px] font-semibold text-[var(--text-primary)]">{t.title}</div>
+                    <div className="truncate text-[10px] text-[var(--text-muted)]">{t.artist_name || ''}</div>
                   </div>
-                  <span className="shrink-0 rounded-full bg-white/5 px-1.5 py-0.5 text-[9px] font-bold text-gray-500">
+                  <span className="shrink-0 rounded-full bg-[var(--bg-active)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--text-muted)]">
                     ×{t.mention_count}
                   </span>
                 </Link>
@@ -169,11 +169,11 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
       )}
 
       {/* Panašios diskusijos placeholder — ateities feature */}
-      <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.015] p-4 text-center">
-        <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-600">
+      <div className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--card-bg)] p-4 text-center">
+        <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
           Panašios diskusijos
         </div>
-        <div className="mt-2 text-[11px] italic text-gray-600">netrukus</div>
+        <div className="mt-2 text-[11px] italic text-[var(--text-muted)]">netrukus</div>
       </div>
     </div>
   )
