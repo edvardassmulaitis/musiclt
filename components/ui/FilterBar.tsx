@@ -1,52 +1,48 @@
 'use client'
 // components/ui/FilterBar.tsx
 //
-// KANONINĖ filtrų juosta (pill stilius). Vienas komponentas visiems naršymo
-// puslapiams — kad filtrai nustotų dreifuoti tarp puslapių.
+// KANONINĖ filtrų juosta. Vienas komponentas visiems naršymo puslapiams.
 //
-// Modelis:
-//   • Kiekvienas filtras = grupė (`FilterGroup`) su pasirinkimais (`FilterOption`).
-//   • Pasirinkimas = TIKRAS <Link> (path-segment ARBA ?query) → crawlable (SEO).
-//   • Grupė turi `tier`: 'primary' (matoma inline mobile + desktop) arba
-//     'secondary' (desktop inline; MOBILE paslepiama už „Daugiau" — JOKIŲ
-//     dviejų eilučių, viena švari primary eilutė).
+// Grupės tipai (`tier`):
+//   • 'primary'   → inline pill chip'ai (matomi mobile + desktop). Mobile =
+//                   horizontalus scroll su scroll-snap + mask-image edge-fade.
+//   • 'secondary' → KOMPAKTIŠKAS dropdown pill (Tipas ▾). Desktop ir mobile
+//                   abu telpa VIENOJE eilutėje — jokio „Daugiau", jokios
+//                   antros eilutės. Popover'as visada DOM'e (display:none kol
+//                   uždarytas) → <a href> lieka crawlable (SEO).
 //
-// Responsive kontraktas:
-//   • Mobile primary eilutė = horizontalus scroll su scroll-snap + mask-image
-//     edge-fade (užuomina, kad galima slinkti).
-//   • Mobile secondary = „Daugiau" mygtukas atidaro panelę PO juosta
-//     (visi <Link> lieka DOM'e → SEO nenukenčia, tik display:none kol uždaryta).
-//   • Desktop = viskas inline; „Daugiau" mygtukas paslėptas.
+// Du režimai:
+//   • Su `onSelect` → CLIENT režimas: chip = <a href> (SEO) BET paspaudus
+//     preventDefault + onSelect(groupId, key) → tėvas filtruoja vietoje,
+//     JOKIO reload'o. (cmd/ctrl/shift/middle-click → leidžiam atidaryti URL.)
+//   • Be `onSelect` → tikra navigacija per <Link prefetch> (instant soft-nav).
 //
-// Spalvos/dydžiai TIK per globalius tokenus (--accent-orange, --radius-pill,
-// --fs-*, --bg-*, --border-*, --text-*). Jokio hardcode.
+// Spalvos/dydžiai TIK per globalius tokenus.
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export type FilterOption = {
-  key: string                 // unikalus key grupėje (sutampa su grupės `active`, kai pažymėta)
+  key: string
   label: string
-  href: string                // path-segment arba ?query URL
-  flagCc?: string             // flagcdn dviraidis kodas (pvz. 'lt', 'us', 'gb')
-  world?: boolean             // rodyti gaublio ikoną (vietoj vėliavos)
+  href: string
+  flagCc?: string
+  world?: boolean
 }
 
 export type FilterGroup = {
   id: string
   label: string
-  active: string              // aktyvios opcijos `key` (numatytoji = options[0].key)
+  active: string
   options: FilterOption[]
-  tier?: 'primary' | 'secondary'   // numatyta 'primary'
+  tier?: 'primary' | 'secondary'
 }
+
+type SelectFn = (groupId: string, key: string) => void
 
 function Flag({ cc }: { cc: string }) {
   return (
-    <span
-      className="fb-flag"
-      style={{ backgroundImage: `url(https://flagcdn.com/w40/${cc}.png)` }}
-      aria-hidden
-    />
+    <span className="fb-flag" style={{ backgroundImage: `url(https://flagcdn.com/w40/${cc}.png)` }} aria-hidden />
   )
 }
 
@@ -61,69 +57,135 @@ function Globe() {
   )
 }
 
-function Group({ g }: { g: FilterGroup }) {
+function OptionEl({ o, on, groupId, cls, onSelect, afterSelect }: {
+  o: FilterOption; on: boolean; groupId: string; cls: string
+  onSelect?: SelectFn; afterSelect?: () => void
+}) {
+  const inner = (
+    <>
+      {o.flagCc && <Flag cc={o.flagCc} />}
+      {o.world && <Globe />}
+      <span>{o.label}</span>
+    </>
+  )
+  const className = `${cls}${on ? ' on' : ''}${o.world ? ' fb-chip-ico' : ''}`
+
+  if (onSelect) {
+    return (
+      <a
+        href={o.href}
+        className={className}
+        aria-current={on ? 'page' : undefined}
+        onClick={(e) => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+          e.preventDefault()
+          onSelect(groupId, o.key)
+          afterSelect?.()
+        }}
+      >
+        {inner}
+      </a>
+    )
+  }
+  return (
+    <Link href={o.href} className={className} aria-current={on ? 'page' : undefined}>
+      {inner}
+    </Link>
+  )
+}
+
+function ChipGroup({ g, onSelect }: { g: FilterGroup; onSelect?: SelectFn }) {
   return (
     <div className="fb-grp">
       <span className="fb-lbl">{g.label}</span>
-      {g.options.map((o) => {
-        const on = o.key === g.active
-        return (
-          <Link
-            key={o.key}
-            href={o.href}
-            prefetch={false}
-            className={`fb-chip${on ? ' on' : ''}${o.world ? ' fb-chip-ico' : ''}`}
-            aria-current={on ? 'page' : undefined}
-          >
-            {o.flagCc && <Flag cc={o.flagCc} />}
-            {o.world && <Globe />}
-            <span>{o.label}</span>
-          </Link>
-        )
-      })}
+      {g.options.map((o) => (
+        <OptionEl key={o.key} o={o} on={o.key === g.active} groupId={g.id} cls="fb-chip" onSelect={onSelect} />
+      ))}
     </div>
   )
 }
 
-export function FilterBar({ groups, ariaLabel }: { groups: FilterGroup[]; ariaLabel?: string }) {
-  const [open, setOpen] = useState(false)
+function DropdownGroup({ g, open, setOpen, onSelect }: {
+  g: FilterGroup; open: boolean; setOpen: (v: boolean) => void; onSelect?: SelectFn
+}) {
+  const def = g.options[0]?.key
+  const isDefault = g.active === def
+  const activeOpt = g.options.find((o) => o.key === g.active)
+  const triggerLabel = isDefault ? g.label : (activeOpt?.label ?? g.label)
+  return (
+    <div className="fb-dd">
+      <button
+        type="button"
+        className={`fb-chip fb-dd-btn${!isDefault ? ' on' : ''}`}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen(!open)}
+      >
+        <span>{triggerLabel}</span>
+        <svg className="fb-cv" width="11" height="7" viewBox="0 0 11 7" fill="none" aria-hidden>
+          <path d="M1 1l4.5 4.5L10 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      <div className={`fb-pop${open ? ' open' : ''}`} role="menu">
+        {g.options.map((o) => (
+          <OptionEl
+            key={o.key}
+            o={o}
+            on={o.key === g.active}
+            groupId={g.id}
+            cls="fb-opt"
+            onSelect={onSelect}
+            afterSelect={() => setOpen(false)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function FilterBar({ groups, ariaLabel, onSelect }: {
+  groups: FilterGroup[]
+  ariaLabel?: string
+  onSelect?: SelectFn
+}) {
+  const [openId, setOpenId] = useState<string | null>(null)
+  const navRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (!openId) return
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement
+      if (!t.closest('.fb-dd')) setOpenId(null)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenId(null) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [openId])
 
   const primary = groups.filter((g) => (g.tier ?? 'primary') === 'primary')
   const secondary = groups.filter((g) => g.tier === 'secondary')
-  const hasSec = secondary.length > 0
-  // Ar kuri nors secondary grupė turi NE numatytąją (ne pirmą) reikšmę →
-  // taškas ant „Daugiau", kad vartotojas matytų: yra paslėptas aktyvus filtras.
-  const secActive = secondary.some((g) => g.active !== g.options[0]?.key)
 
   return (
-    <nav className={`fb${open ? ' fb-open' : ''}`} aria-label={ariaLabel || 'Filtrai'}>
+    <nav className="fb" aria-label={ariaLabel || 'Filtrai'} ref={navRef}>
       <style>{fbStyles}</style>
       <div className="fb-bar">
         <div className="fb-primary">
-          {primary.map((g) => <Group key={g.id} g={g} />)}
+          {primary.map((g) => <ChipGroup key={g.id} g={g} onSelect={onSelect} />)}
         </div>
-
-        {hasSec && (
-          <>
-            <span className="fb-divider" aria-hidden />
-            <div className="fb-sec">
-              {secondary.map((g) => <Group key={g.id} g={g} />)}
-            </div>
-            <button
-              type="button"
-              className={`fb-more${secActive ? ' fb-more-has' : ''}`}
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2" strokeLinecap="round" aria-hidden>
-                <path d="M3 6h18M6 12h12M10 18h4" />
-              </svg>
-              <span>Daugiau</span>
-              {secActive && <span className="fb-dot" aria-hidden />}
-            </button>
-          </>
-        )}
+        {secondary.length > 0 && <span className="fb-divider" aria-hidden />}
+        {secondary.map((g) => (
+          <DropdownGroup
+            key={g.id}
+            g={g}
+            open={openId === g.id}
+            setOpen={(v) => setOpenId(v ? g.id : null)}
+            onSelect={onSelect}
+          />
+        ))}
       </div>
     </nav>
   )
@@ -131,37 +193,35 @@ export function FilterBar({ groups, ariaLabel }: { groups: FilterGroup[]; ariaLa
 
 const fbStyles = `
   .fb { max-width: var(--page-max, 1280px); margin: 0 auto var(--page-head-gap, 22px); padding: 0 var(--page-pad-x, 24px); font-family: 'Outfit', sans-serif; }
-  .fb-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .fb-bar { display: flex; align-items: center; gap: 10px; }
   .fb-primary { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .fb-grp { display: flex; align-items: center; gap: 8px; }
-  .fb-grp + .fb-grp { margin-left: 6px; }
   .fb-lbl { font-size: var(--fs-xs, 11.5px); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint, var(--text-muted)); white-space: nowrap; }
-  .fb-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 14px; border-radius: var(--radius-pill, 999px); font-size: var(--fs-sm, 13px); font-weight: 600; line-height: 1; text-decoration: none; white-space: nowrap; background: var(--bg-hover, var(--bg-surface)); border: 1px solid var(--border-default, var(--border-subtle)); color: var(--text-secondary); transition: color .15s, border-color .15s, background .15s; }
+  .fb-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 14px; border-radius: var(--radius-pill, 999px); font-size: var(--fs-sm, 13px); font-weight: 600; line-height: 1; text-decoration: none; white-space: nowrap; background: var(--bg-hover, var(--bg-surface)); border: 1px solid var(--border-default, var(--border-subtle)); color: var(--text-secondary); transition: color .15s, border-color .15s, background .15s; cursor: pointer; }
   .fb-chip:hover { color: var(--text-primary); border-color: var(--accent-orange); }
   .fb-chip.on { background: var(--accent-orange); border-color: var(--accent-orange); color: #fff; }
   .fb-chip-ico { padding: 6px 12px; }
   .fb-chip svg { display: block; }
   .fb-flag { width: 20px; height: 14px; flex-shrink: 0; border-radius: 3px; background-size: cover; background-position: center; box-shadow: 0 0 0 1px rgba(0,0,0,0.08); }
-  .fb-divider { width: 1px; height: 22px; background: var(--border-default, rgba(0,0,0,0.1)); }
-  .fb-sec { display: flex; align-items: center; gap: 8px; }
-  .fb-more { display: none; }
-  .fb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-orange); }
+  .fb-divider { width: 1px; height: 20px; background: var(--border-default, rgba(0,0,0,0.1)); flex: 0 0 auto; margin: 0 2px; }
+  .fb-dd { position: relative; flex: 0 0 auto; }
+  .fb-dd-btn { background: transparent; }
+  .fb-cv { opacity: .55; transition: transform .15s; }
+  .fb-dd.open .fb-dd-btn, .fb-dd-btn[aria-expanded="true"] { border-color: var(--accent-orange); color: var(--text-primary); }
+  .fb-dd-btn[aria-expanded="true"] .fb-cv { transform: rotate(180deg); }
+  .fb-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; min-width: 180px; display: none; flex-direction: column; gap: 2px; padding: 7px; background: var(--bg-surface, var(--bg-elevated)); border: 1px solid var(--border-default, rgba(0,0,0,0.1)); border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,0.18); }
+  .fb-pop.open { display: flex; }
+  .fb-opt { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border-radius: 9px; font-size: var(--fs-sm, 13px); font-weight: 600; font-family: 'Outfit', sans-serif; text-decoration: none; white-space: nowrap; background: transparent; border: 1px solid transparent; color: var(--text-secondary); cursor: pointer; }
+  .fb-opt:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .fb-opt.on { color: var(--accent-orange); }
+  .fb-opt .fb-flag { width: 18px; height: 13px; }
 
   @media (max-width: 680px) {
     .fb { padding: 0 var(--page-pad-x-sm, 16px); }
-    .fb-bar { gap: 10px; }
-    .fb-primary { flex: 1 1 auto; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x mandatory; -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); padding-right: 6px; }
+    .fb-primary { flex: 1 1 auto; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x mandatory; -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent); mask-image: linear-gradient(90deg, #000 90%, transparent); padding-right: 4px; }
     .fb-primary::-webkit-scrollbar { display: none; }
     .fb-primary .fb-chip { scroll-snap-align: start; flex: 0 0 auto; }
     .fb-primary .fb-lbl { display: none; }
-    .fb-divider { display: none; }
-    .fb-more { display: inline-flex; align-items: center; gap: 6px; order: 1; flex: 0 0 auto; position: relative; padding: 6px 13px; border-radius: var(--radius-pill, 999px); font-size: var(--fs-sm, 13px); font-weight: 600; font-family: 'Outfit', sans-serif; background: var(--bg-hover, var(--bg-surface)); border: 1px solid var(--border-default, var(--border-subtle)); color: var(--text-secondary); cursor: pointer; }
-    .fb-more svg { display: block; }
-    .fb-more .fb-dot { position: absolute; top: 3px; right: 5px; }
-    .fb-open .fb-more { border-color: var(--accent-orange); color: var(--text-primary); }
-    .fb-sec { order: 2; flex-basis: 100%; display: none; flex-wrap: wrap; gap: 9px 8px; padding-top: 4px; }
-    .fb-sec .fb-grp { flex-wrap: wrap; gap: 8px; }
-    .fb-sec .fb-lbl { display: block; flex-basis: 100%; margin-bottom: 2px; }
-    .fb-open .fb-sec { display: flex; }
+    .fb-pop { right: 0; left: auto; }
   }
 `
