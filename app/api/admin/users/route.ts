@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
     .from('profiles')
     .select(
       'id, email, full_name, username, avatar_url, role, provider, is_claimed, created_at, ' +
-        'legacy_message_count, legacy_login_count, legacy_karma_points, last_seen_legacy_at, hide_from_homepage',
+        'legacy_message_count, legacy_login_count, legacy_karma_points, last_seen_legacy_at, hide_from_homepage, ' +
+        'deactivated_at, deactivated_reason',
       { count: 'exact' }
     )
 
@@ -103,6 +104,51 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: true, email: raw })
   }
 
+  // Soft-delete: paslėpti narį (+ jo turinį iš viešų vietų), ATSTATOMA.
+  // action: 'deactivate' | 'reactivate'. Tik super_admin. Negalima admin/super_admin.
+  if (body.action === 'deactivate' || body.action === 'reactivate') {
+    const { data: target } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle()
+    if (!target) return NextResponse.json({ error: 'not_found' }, { status: 404 })
+    if (target.role === 'admin' || target.role === 'super_admin') {
+      return NextResponse.json(
+        { error: 'forbidden', message: 'Negalima paslėpti administratoriaus.' },
+        { status: 403 }
+      )
+    }
+    const actorId = (session.user as any)?.id ?? null
+    if (body.action === 'deactivate') {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          deactivated_at: new Date().toISOString(),
+          deactivated_by: actorId,
+          deactivated_reason: typeof body.reason === 'string' ? body.reason.slice(0, 500) : null,
+          hide_from_homepage: true,
+          is_public: false,
+        })
+        .eq('id', userId)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ success: true, deactivated_at: new Date().toISOString() })
+    }
+    // reactivate — atgaivinam (vėl viešas + rodomas)
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        deactivated_at: null,
+        deactivated_by: null,
+        deactivated_reason: null,
+        hide_from_homepage: false,
+        is_public: true,
+      })
+      .eq('id', userId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true, deactivated_at: null })
+  }
+
   // hide_from_homepage toggle (admin + super_admin gali)
   if ('hide_from_homepage' in body) {
     const { error } = await supabase
@@ -124,4 +170,42 @@ export async function PATCH(req: NextRequest) {
   const { error } = await supabase.from('profiles').update({ role: body.role }).eq('id', userId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
+}
+
+// ── Visiškas trynimas (negrįžtama) — tik super_admin ───────────────────────
+// Per admin_delete_user RPC: atmeta admin/super_admin, nunulina autorystę
+// NO ACTION FK'uose, tada ištrina profilį (CASCADE/SET NULL sutvarko likusį).
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session || session.user?.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  // impersonacijos metu realios super_admin galios neturi — neleidžiam trinti
+  if ((session.user as any)?.impersonating) {
+    return NextResponse.json({ error: 'Negalima trinti impersonuojant.' }, { status: 403 })
+  }
+  const body = await req.json().catch(() => ({}))
+  const userId = body?.userId
+  if (!userId) return NextResponse.json({ error: 'Invalid' }, { status: 400 })
+  if (userId === (session.user as any)?.id) {
+    return NextResponse.json({ error: 'Negalima ištrinti savęs.' }, { status: 400 })
+  }
+
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.rpc('admin_delete_user', { p_user: userId })
+  if (error) {
+    const msg = error.message || ''
+    if (msg.includes('CANNOT_DELETE_ADMIN')) {
+      return NextResponse.json(
+        { error: 'forbidden', message: 'Negalima ištrinti administratoriaus. Pirma pakeisk rolę į „Narys".' },
+        { status: 403 }
+      )
+    }
+    if (msg.includes('USER_NOT_FOUND')) {
+      return NextResponse.json({ error: 'not_found', message: 'Narys nerastas.' }, { status: 404 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  const row = Array.isArray(data) ? data[0] : data
+  return NextResponse.json({ success: true, deleted: row?.deleted_email ?? null })
 }
