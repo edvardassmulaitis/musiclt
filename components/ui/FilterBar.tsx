@@ -76,6 +76,7 @@ function OptionEl({ o, on, groupId, cls, onSelect, afterSelect }: {
         href={o.href}
         className={className}
         aria-current={on ? 'page' : undefined}
+        data-noprogress
         onClick={(e) => {
           if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
           e.preventDefault()
