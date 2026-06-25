@@ -12,7 +12,7 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase'
 import { resolveDisplayWeek } from '@/lib/top-week'
 import { proxyImg } from '@/lib/img-proxy'
-import { TopaiFilterBar, type TopaiView } from '@/components/topai/TopaiFilterBar'
+import { TopaiBrowser, type TopaiView } from '@/components/topai/TopaiFilterBar'
 
 /* ───────────────────────────── Types ───────────────────────────── */
 type Region = 'lt' | 'world' | 'us' | 'uk'
@@ -196,21 +196,18 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
   // renderyje (rodomas pirmas).
   const allCards = [...songCards, ...albumCards, ...sourceCards, ...communityCards]
 
-  // ── Filtravimas pagal view ──
+  // ── Pradinis matomumas pagal view (TopaiBrowser perima client-side) ──
   const isRegion = (['lt', 'world', 'us', 'uk'] as TopaiView[]).includes(view)
   const isType = (['songs', 'albums', 'community'] as TopaiView[]).includes(view)
-  const visible = allCards.filter((c) => {
-    if (isRegion) return c.region === view
-    if (isType) return c.ctype === view
-    return true
-  })
+  const cardVisible = (c: Card) => isRegion ? c.region === view : isType ? c.ctype === view : true
+  const visible = allCards.filter(cardVisible) // tik JSON-LD'ui (atspindi šį view)
 
-  // ── Vienas bendras tinklelis, be sekcijų antraščių (Edvardo prašymu:
-  // mažiau dubliuojančio teksto, fokusas į muziką). Music.lt bendruomenės
-  // kortelės rodomos pirmos; toliau consensus + šaltinių topai. ──
-  const orderedCards = [
-    ...visible.filter((c) => c.ctype === 'community'),
-    ...visible.filter((c) => c.ctype !== 'community'),
+  // ── VISOS kortelės renderyje (community pirma) — filtravimas client-side
+  // be reload'o. Music.lt bendruomenės kortelės rodomos pirmos; toliau
+  // consensus + šaltinių topai. ──
+  const allOrdered = [
+    ...allCards.filter((c) => c.ctype === 'community'),
+    ...allCards.filter((c) => c.ctype !== 'community'),
   ]
 
   const info = VIEW_INFO[view]
@@ -260,13 +257,9 @@ export default async function TopaiHub({ view = 'all' }: { view?: TopaiView }) {
         </div>
       </header>
 
-      <TopaiFilterBar view={view} />
-
-      {orderedCards.length === 0 ? (
-        <div className="tp-none">Šios kategorijos topai šiuo metu formuojasi.</div>
-      ) : (
-        <div className="tp-grid">{orderedCards.map((c) => <ChartCard key={c.key} card={c} />)}</div>
-      )}
+      <TopaiBrowser initialView={view}>
+        {allOrdered.map((c) => <ChartCard key={c.key} card={c} hidden={!cardVisible(c)} />)}
+      </TopaiBrowser>
     </div>
   )
 }
@@ -287,13 +280,22 @@ function Flag({ country, image }: { country: string | null; image: string | null
 }
 
 /* ───────────────────────────── ChartCard ───────────────────────────── */
-function ChartCard({ card }: { card: Card }) {
+function ChartCard({ card, hidden }: { card: Card; hidden?: boolean }) {
   const accent = card.accent
   const entries = card.entries.slice(0, 5)
   const top = entries[0]
   const rest = entries.slice(1)
+  const style: Record<string, string> = {}
+  if (accent) style['--c'] = accent
+  if (hidden) style.display = 'none'
   return (
-    <div className={`tc${accent ? ' tc-brand' : ''}`} style={accent ? { ['--c' as any]: accent } : undefined}>
+    <div
+      className={`tc${accent ? ' tc-brand' : ''}`}
+      data-card
+      data-region={card.region}
+      data-ctype={card.ctype}
+      style={Object.keys(style).length ? (style as any) : undefined}
+    >
       <Link href={card.href} className="tc-main">
         <div className="tc-head">
           {!card.noFlag && <Flag country={card.country} image={card.coverImageUrl} />}
