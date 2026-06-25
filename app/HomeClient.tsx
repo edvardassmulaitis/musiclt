@@ -16,7 +16,6 @@ import { HomeListContent } from '@/components/HomeListContent'
 import Scroller from '@/components/ui/Scroller'
 import BendruomeneSection from '@/components/home/BendruomeneSection'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
-import { ReelsYtPlayer, type ReelsYtHandle } from '@/components/ReelsYtPlayer'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
@@ -724,10 +723,9 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   onNavLink: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const ytRef = useRef<ReelsYtHandle>(null)
-  const [armed, setArmed] = useState(false)
   const [videoOn, setVideoOn] = useState(false)
   const [curVideoId, setCurVideoId] = useState<string | null>(slide.videoId || null)
+  const [playToken, setPlayToken] = useState(0)
   const [body, setBody] = useState<string | null>(
     slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null)
   )
@@ -750,7 +748,6 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     if (!active) {
       setVideoOn(false)
       setCurVideoId(slide.videoId || null)
-      ytRef.current?.stop()
       if (scrollRef.current) scrollRef.current.scrollTop = 0
     }
   }, [active]) // eslint-disable-line
@@ -759,17 +756,6 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   useEffect(() => {
     if (active && scrollTopSignal > 0) scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [scrollTopSignal]) // eslint-disable-line
-
-  /* Kortelė bent kartą buvo aktyvi → laikom YT player'į primontuotą (žr. žemiau).
-   *  Naikinti+perkurti YT player'į perjungiant kortelę = flaky (grįžus negrotų). */
-  useEffect(() => { if (active) setArmed(true) }, [active])
-
-  /* Topų/dienos dainos eilutės grojimas: ReelsYtPlayer primontuojamas tik kai
-   *  videoOn → tap'o metu ytRef dar nebuvo. Šis efektas paleidžia po mount'o
-   *  (ReelsYtPlayer pats laukia, kol player'is READY). */
-  useEffect(() => {
-    if (active && videoOn && curVideoId && !hasVideo) ytRef.current?.play(curVideoId)
-  }, [videoOn, curVideoId, active]) // eslint-disable-line
 
   /* Pranešam tėvui apie grojimą (groja → auto-advance stoja). */
   useEffect(() => {
@@ -829,9 +815,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     if (!id) return
     setCurVideoId(id)
     setVideoOn(true)
-    // Grojimą paleidžiam SINKRONIŠKAI tapo handler'yje ant PARUOŠTO (cued) YT player'io
-    // → groja 1 tapu su garsu, ir grįžus po braukimo (loadVideoById priverstinis reload).
-    ytRef.current?.play(id)
+    setPlayToken(t => t + 1)   // šviežias native <iframe> kas paleidimą → groja patikimai (ir Safari, ir grįžus po braukimo)
   }
 
   const toggleLike = async () => {
@@ -860,12 +844,19 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           paspaudimo metu). Paslėptas kol negroja. */}
       {(hasVideo || videoOn) ? (
         <div className="rdr-media rdr-media-video">
-          {/* YT player'is lieka primontuotas kai kortelė bent kartą buvo aktyvi
-              (NEnaikinam perjungiant — destroy+recreate YT API flaky → grįžus negrotų). */}
-          {(active || armed) && <ReelsYtPlayer ref={ytRef} videoId={curVideoId} />}
-          {/* Posteris = DIV (NE button) → braukimas į šoną veikia ant nuotraukos;
-              groja tik mažas ▶ mygtukas. */}
-          {!videoOn && (
+          {/* Native YouTube <iframe> — šviežias kas paleidimą (key=playToken).
+              Paprasčiausia ir patikimiausia (Safari įsk.): groja kas kartą, grįžus
+              po braukimo irgi, o autoplay neuždegus — native ▶ visada po ranka. */}
+          {videoOn && curVideoId ? (
+            <iframe
+              key={playToken}
+              className="rdr-ytslot"
+              src={`https://www.youtube.com/embed/${curVideoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+              title="grotuvas"
+            />
+          ) : (
             <div className="rdr-poster-layer">
               {slide.bgImg
                 ? <><span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImg(slide.bgImg)})` }} /><img className="rdr-poster-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} /></>
@@ -3227,8 +3218,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-vclose{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.65);border:none;color:#fff;font-size:11px;line-height:1;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center}
 
         /* YT IFrame slotas (pre-created player) + posteris (contain + blur fonas) */
-        .rdr-ytslot{position:absolute;inset:0;width:100%;height:100%}
-        .rdr-ytslot iframe{width:100%;height:100%;border:0;display:block}
+        .rdr-ytslot{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#000}
         /* Video kortelės media — 16/10, NORMALUS srautas (NE sticky → scrollinasi su tekstu) */
         .rdr-media-video{aspect-ratio:16/10;max-height:none}
         .rdr-poster-layer{position:absolute;inset:0;z-index:2}
