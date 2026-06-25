@@ -53,7 +53,7 @@ const KIND_META: Record<string, { label: string; color: string }> = {
   apzvalga: { label: 'Muzikos apžvalga', color: '#ef4444' },
   koncertai: { label: 'Koncertų įspūdžiai', color: '#3b82f6' },
   topas: { label: 'Topas', color: '#f59e0b' },
-  atradimas: { label: 'Atradimas', color: '#f97316' },
+  atradimas: { label: 'Atradimas', color: 'var(--accent-orange)' },
   kuryba: { label: 'Kūryba', color: '#ec4899' },
   vertimas: { label: 'Vertimas', color: '#10b981' },
   irasas: { label: 'Įrašas', color: '#94a3b8' },

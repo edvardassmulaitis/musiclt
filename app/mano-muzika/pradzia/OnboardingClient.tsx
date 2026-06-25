@@ -290,7 +290,7 @@ function Stat({ n, label }: { n: number; label: string }) {
 
 function Confetti() {
   const pieces = Array.from({ length: 28 })
-  const colors = ['#f97316', '#a78bfa', '#34d399', '#60a5fa', '#f43f5e', '#fbbf24']
+  const colors = ['var(--accent-orange)', '#a78bfa', '#34d399', '#60a5fa', '#f43f5e', '#fbbf24']
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {pieces.map((_, i) => (

@@ -74,7 +74,7 @@ function SignInContent() {
       <div
         style={{
           width: 56, height: 56, borderRadius: '50%', margin: '0 auto 14px',
-          background: 'linear-gradient(135deg,#1a73e8,#f97316)',
+          background: 'linear-gradient(135deg,#1a73e8,var(--accent-orange))',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 8px 24px rgba(249,115,22,.28)',
         }}
@@ -95,7 +95,7 @@ function SignInContent() {
             style={{
               width: 52, height: 52, borderRadius: '50%', margin: '0 auto 14px',
               background: 'rgba(249,115,22,.12)', border: '1px solid rgba(249,115,22,.25)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f97316',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-orange)',
             }}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
@@ -105,7 +105,7 @@ function SignInContent() {
             <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{email}</span>
           </p>
           <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '8px 0 0' }}>Nuoroda galioja 24 valandas. Nepamiršk patikrinti ir šlamšto aplanko.</p>
-          <button onClick={() => setEmailSent(false)} style={{ marginTop: 18, fontSize: 13, fontWeight: 600, color: '#f97316', background: 'none', border: 'none', cursor: 'pointer' }}>
+          <button onClick={() => setEmailSent(false)} style={{ marginTop: 18, fontSize: 13, fontWeight: 600, color: 'var(--accent-orange)', background: 'none', border: 'none', cursor: 'pointer' }}>
             ← Grįžti
           </button>
         </div>
@@ -128,7 +128,7 @@ function SignInContent() {
                 background: tab === key ? 'var(--bg-surface)' : 'transparent',
                 color: tab === key ? 'var(--text-primary)' : 'var(--text-muted)',
                 border: 'none',
-                borderBottom: tab === key ? '2px solid #f97316' : '2px solid transparent',
+                borderBottom: tab === key ? '2px solid var(--accent-orange)' : '2px solid transparent',
                 transition: 'all .15s',
               }}
             >
@@ -176,7 +176,7 @@ function SignInContent() {
                 type="submit"
                 disabled={loading === 'email' || !email}
                 style={{
-                  width: '100%', background: '#f97316', color: '#fff', fontWeight: 700, fontSize: 14.5,
+                  width: '100%', background: 'var(--accent-orange)', color: '#fff', fontWeight: 700, fontSize: 14.5,
                   padding: '13px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
                   opacity: loading === 'email' || !email ? 0.6 : 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -195,7 +195,7 @@ function SignInContent() {
 
       <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-faint)', marginTop: 20 }}>
         Prisijungdami sutinkate su{' '}
-        <a href="/privatumas" style={{ color: '#f97316', textDecoration: 'none' }}>privatumo politika</a>
+        <a href="/privatumas" style={{ color: 'var(--accent-orange)', textDecoration: 'none' }}>privatumo politika</a>
       </p>
       <p style={{ textAlign: 'center', marginTop: 12 }}>
         <Link href="/" style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none' }}>Grįžti į pradžią</Link>
@@ -208,7 +208,7 @@ function SignInContent() {
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: 32, height: 32, border: '2px solid #f97316', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /></div>}>
+    <Suspense fallback={<div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: 32, height: 32, border: '2px solid var(--accent-orange)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /></div>}>
       <SignInContent />
     </Suspense>
   )

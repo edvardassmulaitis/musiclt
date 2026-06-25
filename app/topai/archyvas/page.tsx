@@ -55,7 +55,7 @@ export default async function ArchivePage() {
       </div>
 
       <div className="grid gap-8 md:grid-cols-2">
-        <ArchiveColumn label="TOP 40" weeks={top40} accent="#f97316" basePath="/topai/archyvas" />
+        <ArchiveColumn label="TOP 40" weeks={top40} accent="var(--accent-orange)" basePath="/topai/archyvas" />
         <ArchiveColumn label="LT TOP 30" weeks={top30} accent="#22c55e" basePath="/topai/archyvas" />
       </div>
 

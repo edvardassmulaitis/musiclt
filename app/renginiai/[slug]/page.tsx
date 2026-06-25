@@ -264,7 +264,7 @@ const EP_CSS = `
 .ep-hero-cta { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-top:4px; }
 .ep-price { font-family:'Outfit',sans-serif; font-weight:900; font-size:20px; color:#fb923c; }
 .ep-ticket { display:inline-flex; align-items:center; gap:7px; font-family:'Outfit',sans-serif; font-weight:800; font-size:13.5px; padding:11px 22px; border-radius:12px;
-  background:linear-gradient(135deg,#f97316,#ea580c); color:#fff; box-shadow:0 8px 28px rgba(249,115,22,0.3); transition:transform .15s; }
+  background:linear-gradient(135deg,var(--accent-orange),#ea580c); color:#fff; box-shadow:0 8px 28px rgba(249,115,22,0.3); transition:transform .15s; }
 .ep-ticket:hover { transform:scale(1.03); }
 .ep-ticket.full { width:100%; justify-content:center; margin-top:14px; }
 

@@ -175,7 +175,7 @@ function splitAttachments(html: string): { cleanHtml: string; attachments: Music
 
 function AttachmentCard({ a, resolved }: { a: MusicAttachment; resolved?: { slug: string; id: number } }) {
   const kindLabel = a.type === 'daina' ? 'Daina' : a.type === 'albumas' ? 'Albumas' : 'Atlikėjas'
-  const tint = a.type === 'daina' ? '#3b82f6' : a.type === 'albumas' ? '#f97316' : '#a855f7'
+  const tint = a.type === 'daina' ? '#3b82f6' : a.type === 'albumas' ? 'var(--accent-orange)' : '#a855f7'
   const href = resolved
     ? a.type === 'daina'
       ? `/dainos/${resolved.slug}-${resolved.id}`
@@ -330,7 +330,7 @@ export default function ThreadPageClient({
             }}>
               <Link
                 href={`/vartotojas/ghost/${encodeURIComponent(p.author_username ?? '')}`}
-                style={{ fontSize: 13, fontWeight: 800, color: '#f97316', textDecoration: 'none' }}
+                style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent-orange)', textDecoration: 'none' }}
               >
                 {p.author_username ?? 'nežinomas'}
               </Link>
@@ -366,7 +366,7 @@ export default function ThreadPageClient({
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 4,
                   border: 'none', background: 'transparent',
-                  color: (p.like_count ?? 0) > 0 ? '#f97316' : 'var(--text-faint)',
+                  color: (p.like_count ?? 0) > 0 ? 'var(--accent-orange)' : 'var(--text-faint)',
                   cursor: (p.like_count ?? 0) > 0 ? 'pointer' : 'default', padding: 0,
                   fontWeight: 700, fontSize: 11,
                 }}
@@ -378,7 +378,7 @@ export default function ThreadPageClient({
                   onClick={() => setReplyTo((r) => (r === p.legacy_id ? null : p.legacy_id))}
                   style={{
                     border: 'none', background: 'transparent',
-                    color: replyTo === p.legacy_id ? '#f97316' : 'var(--text-muted)',
+                    color: replyTo === p.legacy_id ? 'var(--accent-orange)' : 'var(--text-muted)',
                     cursor: 'pointer', padding: 0,
                     fontWeight: 700, fontSize: 11, fontFamily: 'Outfit,sans-serif',
                   }}
@@ -428,21 +428,21 @@ export default function ThreadPageClient({
         .post-body img[src*="/emotions/"], .post-body img[src*="/smiles/"] { display: inline-block; width: 20px; height: 20px; vertical-align: text-bottom; }
         .post-body iframe { max-width: 100%; border-radius: 8px; margin: 8px 0; }
         .post-body p { margin: 0 0 8px; }
-        .post-body a { color: #f97316; }
+        .post-body a { color: var(--accent-orange); }
         .wysiwyg { min-height: 72px; padding: 10px 12px; border-radius: 8px; background: var(--bg-body); border: 1px solid var(--border-subtle); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; line-height: 1.55; }
-        .wysiwyg:focus { border-color: #f97316; }
+        .wysiwyg:focus { border-color: var(--accent-orange); }
         .wysiwyg:empty:before { content: attr(data-placeholder); color: var(--text-faint); pointer-events: none; }
         .wysiwyg iframe { max-width: 100%; border-radius: 6px; margin: 6px 0; border: 1px solid var(--border-subtle); }
         .wysiwyg img { max-width: 100%; height: auto; border-radius: 6px; }
-        .wysiwyg a { color: #f97316; }
+        .wysiwyg a { color: var(--accent-orange); }
         .wysiwyg ul { list-style: disc; padding-left: 20px; margin: 4px 0; }
         .wysiwyg ol { list-style: decimal; padding-left: 24px; margin: 4px 0; }
         .wysiwyg li { margin: 2px 0; }
-        .wysiwyg blockquote { border-left: 3px solid #f97316; padding-left: 10px; margin: 6px 0; color: var(--text-muted); }
+        .wysiwyg blockquote { border-left: 3px solid var(--accent-orange); padding-left: 10px; margin: 6px 0; color: var(--text-muted); }
         .post-body ul { list-style: disc; padding-left: 20px; margin: 4px 0; }
         .post-body ol { list-style: decimal; padding-left: 24px; margin: 4px 0; }
         .post-body li { margin: 2px 0; }
-        .post-body blockquote { border-left: 3px solid #f97316; padding-left: 10px; margin: 6px 0; color: var(--text-muted); }
+        .post-body blockquote { border-left: 3px solid var(--accent-orange); padding-left: 10px; margin: 6px 0; color: var(--text-muted); }
       `}</style>
 
       <div style={{ maxWidth: 880, margin: '0 auto', padding: '32px 24px 80px' }}>
@@ -470,7 +470,7 @@ export default function ThreadPageClient({
               ) : (
                 <div style={{
                   width: 56, height: 56, borderRadius: 10,
-                  background: 'linear-gradient(135deg,#f97316,#dc2626)',
+                  background: 'linear-gradient(135deg,var(--accent-orange),#dc2626)',
                 }} />
               )}
             </Link>
@@ -531,7 +531,7 @@ export default function ThreadPageClient({
               padding: '2px 8px', borderRadius: 100,
               background: threadLikes > 0 ? 'rgba(249,115,22,.12)' : 'transparent',
               border: threadLikes > 0 ? '1px solid rgba(249,115,22,.25)' : '1px solid var(--border-subtle)',
-              color: threadLikes > 0 ? '#f97316' : 'var(--text-muted)',
+              color: threadLikes > 0 ? 'var(--accent-orange)' : 'var(--text-muted)',
               cursor: threadLikes > 0 ? 'pointer' : 'default',
               fontSize: 12, fontWeight: 700, fontFamily: 'Outfit,sans-serif',
             }}
@@ -560,7 +560,7 @@ export default function ThreadPageClient({
                   style={{
                     padding: '5px 12px', fontSize: 10, fontWeight: 700,
                     border: 'none', cursor: 'pointer',
-                    background: sort === v ? '#f97316' : 'var(--card-bg)',
+                    background: sort === v ? 'var(--accent-orange)' : 'var(--card-bg)',
                     color: sort === v ? '#fff' : 'var(--text-secondary)',
                     fontFamily: 'Outfit,sans-serif',
                   }}
@@ -630,7 +630,7 @@ function AdminInfoModal({ thread, onClose }: { thread: ThreadRow; onClose: () =>
         border: '1px solid var(--border-default)',
         borderRadius: 16, padding: 22, fontFamily: 'Outfit,sans-serif',
       }}>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.1em', color: '#f97316', textTransform: 'uppercase', marginBottom: 4 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.1em', color: 'var(--accent-orange)', textTransform: 'uppercase', marginBottom: 4 }}>
           Admin info
         </div>
         <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 14 }}>
@@ -644,7 +644,7 @@ function AdminInfoModal({ thread, onClose }: { thread: ThreadRow; onClose: () =>
         {thread.source_url && (
           <div style={{ marginTop: 14 }}>
             <a href={thread.source_url} target="_blank" rel="noopener noreferrer"
-               style={{ color: '#f97316', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+               style={{ color: 'var(--accent-orange)', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
               Atidaryti originalą music.lt →
             </a>
           </div>
@@ -817,7 +817,7 @@ function ReplyComposer({
         fontSize: 13, color: 'var(--text-muted)',
         fontFamily: 'Outfit,sans-serif',
       }}>
-        <Link href="/auth/signin" style={{ color: '#f97316', fontWeight: 700 }}>Prisijunk</Link>, kad galėtum komentuoti.
+        <Link href="/auth/signin" style={{ color: 'var(--accent-orange)', fontWeight: 700 }}>Prisijunk</Link>, kad galėtum komentuoti.
       </div>
     )
   }
@@ -880,7 +880,7 @@ function ReplyComposer({
                       fontSize: 11, fontWeight: 600, color: 'var(--text-primary)',
                     }}
                   >
-                    <span style={{ color: a.type === 'daina' ? '#3b82f6' : a.type === 'albumas' ? '#f97316' : '#a855f7', fontWeight: 800, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                    <span style={{ color: a.type === 'daina' ? '#3b82f6' : a.type === 'albumas' ? 'var(--accent-orange)' : '#a855f7', fontWeight: 800, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em' }}>
                       {a.type === 'daina' ? 'Daina' : a.type === 'albumas' ? 'Albumas' : 'Atlikėjas'}
                     </span>
                     <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
@@ -956,7 +956,7 @@ function ReplyComposer({
                           <div style={{ width: 28, height: 28, borderRadius: 4, background: 'var(--card-bg)', flexShrink: 0 }} />
                         )}
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 9, color: h.type === 'daina' ? '#3b82f6' : h.type === 'albumas' ? '#f97316' : '#a855f7', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                          <div style={{ fontSize: 9, color: h.type === 'daina' ? '#3b82f6' : h.type === 'albumas' ? 'var(--accent-orange)' : '#a855f7', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em' }}>
                             {h.type === 'daina' ? 'Daina' : h.type === 'albumas' ? 'Albumas' : 'Atlikėjas'}
                           </div>
                           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.title}</div>
@@ -974,7 +974,7 @@ function ReplyComposer({
                 disabled={sending}
                 style={{
                   padding: '5px 16px', borderRadius: 100,
-                  border: 'none', background: sending ? 'var(--card-bg)' : '#f97316',
+                  border: 'none', background: sending ? 'var(--card-bg)' : 'var(--accent-orange)',
                   color: sending ? 'var(--text-muted)' : '#fff',
                   fontSize: 12, fontWeight: 800, cursor: sending ? 'default' : 'pointer',
                   fontFamily: 'Outfit,sans-serif',

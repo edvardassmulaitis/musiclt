@@ -250,13 +250,13 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
                 {([['artist', 'Atlikėjai'], ['album', 'Albumai'], ['track', 'Dainos']] as const).map(([k, lbl]) => {
                   const on = scKinds.has(k)
                   return <button key={k} onClick={() => setScKinds(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n })}
-                    className="rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: on ? 'rgba(249,115,22,0.15)' : 'var(--bg-surface)', border: `1px solid ${on ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, color: on ? '#f97316' : 'var(--text-muted)' }}>{on ? '✓ ' : ''}{lbl}</button>
+                    className="rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: on ? 'rgba(249,115,22,0.15)' : 'var(--bg-surface)', border: `1px solid ${on ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, color: on ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{on ? '✓ ' : ''}{lbl}</button>
                 })}
               </div>
               <div className="text-[12px] font-bold mb-1.5">Kiek giliai?</div>
               <div className="flex flex-wrap gap-2 mb-3">
                 {([['best', 'Tik mėgstami ir dažni'], ['all', 'Visa klausymų istorija']] as const).map(([k, lbl]) => (
-                  <button key={k} onClick={() => setScHistory(k)} className="rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: scHistory === k ? 'rgba(249,115,22,0.15)' : 'var(--bg-surface)', border: `1px solid ${scHistory === k ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, color: scHistory === k ? '#f97316' : 'var(--text-muted)' }}>{lbl}</button>
+                  <button key={k} onClick={() => setScHistory(k)} className="rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: scHistory === k ? 'rgba(249,115,22,0.15)' : 'var(--bg-surface)', border: `1px solid ${scHistory === k ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, color: scHistory === k ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{lbl}</button>
                 ))}
               </div>
               <label className="flex items-center gap-2 text-[12px] mb-3" style={{ color: 'var(--text-muted)' }}>

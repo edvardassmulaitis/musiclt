@@ -119,7 +119,7 @@ const IconDiscussion = (p: { size?: number }) => (
 const CAT_LABELS: Record<Category, { sg: string; pl: string; Icon: (p: { size?: number }) => React.ReactElement; color: string }> = {
   artists:     { sg: 'Atlikėjas',  pl: 'Atlikėjai',   Icon: IconArtist,     color: '#a78bfa' }, // purple
   albums:      { sg: 'Albumas',    pl: 'Albumai',     Icon: IconAlbum,      color: '#60a5fa' }, // blue
-  tracks:      { sg: 'Daina',      pl: 'Dainos',      Icon: IconTrack,      color: '#f97316' }, // orange (brand)
+  tracks:      { sg: 'Daina',      pl: 'Dainos',      Icon: IconTrack,      color: 'var(--accent-orange)' }, // orange (brand)
   profiles:    { sg: 'Narys',      pl: 'Nariai',      Icon: IconProfile,    color: '#fb7185' }, // rose
   events:      { sg: 'Renginys',   pl: 'Renginiai',   Icon: IconEvent,      color: '#f472b6' }, // pink
   venues:      { sg: 'Vieta',      pl: 'Vietos',      Icon: IconVenue,      color: '#eab308' }, // amber
@@ -1251,7 +1251,7 @@ const searchCss = `
   color: var(--text-muted, #888);
   margin-bottom: 10px;
 }
-.ms-empty-title svg { color: var(--accent-orange, #f97316); }
+.ms-empty-title svg { color: var(--accent-orange, var(--accent-orange)); }
 .ms-empty-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .ms-pill {
   display: inline-flex; align-items: center; gap: 6px;

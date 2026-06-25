@@ -6,7 +6,7 @@
 //
 // Dizainas derinasi su bendra projekto paletė (CSS variables, Outfit headers,
 // DM Sans body). Akcent'ai — amber (#fbbf24) „archyvo" reikšmei, kad išsiskirtų
-// nuo produkto pagrindinio orange (#f97316) be konfliktų.
+// nuo produkto pagrindinio orange (var(--accent-orange)) be konfliktų.
 
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'

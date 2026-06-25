@@ -12,7 +12,7 @@ type Ev = { id: number; slug: string | null; title: string; start_date: string; 
 type Stats = { views: number; likes: number; followers: number; temp: number; topPos: { pos: number; title: string } | null; complete: number }
 
 const MONTHS = ['Sau', 'Vas', 'Kov', 'Bal', 'Geg', 'Bir', 'Lie', 'Rugp', 'Rugs', 'Spa', 'Lap', 'Gru']
-const ACCENTS = ['#f97316', '#e11d48', '#0ea5e9', '#10b981', '#8b5cf6']
+const ACCENTS = ['var(--accent-orange)', '#e11d48', '#0ea5e9', '#10b981', '#8b5cf6']
 const SECTIONS: { key: string; label: string }[] = [
   { key: 'social', label: 'Soc. įrašai' }, { key: 'events', label: 'Renginiai' },
   { key: 'gallery', label: 'Galerija' }, { key: 'similar', label: 'Panašūs atlikėjai' },
@@ -39,7 +39,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
   const [busy, setBusy] = useState<string | null>(null)
   const [toast, setToast] = useState<{ ok: boolean; t: string } | null>(null)
   const [theme, setTheme] = useState(artist.profile_theme)
-  const [accent, setAccent] = useState(artist.accent_color || '#f97316')
+  const [accent, setAccent] = useState(artist.accent_color || 'var(--accent-orange)')
   const [hidden, setHidden] = useState<string[]>(artist.hidden_sections || [])
 
   const flash = (ok: boolean, t: string) => { setToast({ ok, t }); setTimeout(() => setToast(null), 3500) }
@@ -98,7 +98,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
         </div>
         {/* MINI DASHBOARD */}
         <div className="ml-auto flex flex-wrap gap-2.5">
-          <Mini label="Peržiūros" value={stats.views.toLocaleString('lt-LT')} spark="#f97316" />
+          <Mini label="Peržiūros" value={stats.views.toLocaleString('lt-LT')} spark="var(--accent-orange)" />
           <Mini label="Temperatūra" value={`${stats.temp}°`} sub="vs LT atlikėjai" />
           <Mini label="Top 40 vieta" value={stats.topPos ? `#${stats.topPos.pos}` : '—'} sub={stats.topPos?.title || 'dar ne topе'} accent />
         </div>

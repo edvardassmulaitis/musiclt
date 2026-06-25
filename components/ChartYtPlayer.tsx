@@ -28,7 +28,7 @@ export const ChartYtPlayer = forwardRef<ChartYtPlayerHandle, {
   title?: string
   onActivate: () => void
   onEnded?: () => void
-}>(function ChartYtPlayer({ videoId, query, playing, posterUrl, accentHex = '#f97316', title, onActivate }, ref) {
+}>(function ChartYtPlayer({ videoId, query, playing, posterUrl, accentHex = 'var(--accent-orange)', title, onActivate }, ref) {
   // Grojimą valdo `playing` + `videoId` props (tėvas perjungia). playNow paliktas
   // suderinamumui — tikras play vyksta per state-driven iframe render'ą.
   useImperativeHandle(ref, () => ({ playNow() { /* state-driven */ } }), [])

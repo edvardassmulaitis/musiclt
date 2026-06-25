@@ -139,7 +139,7 @@ export default async function BlogPage({ params, searchParams }: Props) {
               href={buildUrl(1, t)}
               className={`text-[12px] px-3 py-1 rounded-full transition border ${
                 currentType === t
-                  ? 'bg-[#f97316]/15 text-[#f97316] border-[#f97316]/60'
+                  ? 'bg-[var(--accent-orange)]/15 text-[var(--accent-orange)] border-[var(--accent-orange)]/60'
                   : 'bg-transparent text-[#b0bdd4] border-white/[.08] hover:border-white/[.18] hover:bg-white/[.04]'
               }`}
               style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600 }}
@@ -161,7 +161,7 @@ export default async function BlogPage({ params, searchParams }: Props) {
                     <img src={p.cover_image_url} alt="" className="w-32 h-20 rounded-lg object-cover flex-shrink-0 group-hover:scale-[1.02] transition" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-lg font-bold group-hover:text-[#f97316] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>{p.title}</h2>
+                    <h2 className="text-lg font-bold group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif" }}>{p.title}</h2>
                     {p.summary && <p className="text-sm text-[#5e7290] mt-1 line-clamp-2">{p.summary}</p>}
                     <div className="text-xs text-[#334058] mt-2 flex items-center gap-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
                       <span>{new Date(p.published_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
@@ -202,7 +202,7 @@ export default async function BlogPage({ params, searchParams }: Props) {
                   href={buildUrl(p)}
                   className={`min-w-[36px] text-center px-3 py-2 text-sm rounded-lg transition ${
                     p === currentPage
-                      ? 'bg-[#f97316] text-white font-bold'
+                      ? 'bg-[var(--accent-orange)] text-white font-bold'
                       : 'border border-white/[.05] hover:border-white/[.15] hover:bg-white/[.05] text-[#b0bdd4]'
                   }`}
                 >

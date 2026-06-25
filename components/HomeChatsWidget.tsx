@@ -243,7 +243,7 @@ function Avatar({ url, name, group }: { url: string | null; name: string; group:
   return (
     <div style={{
       width: 24, height: 24, borderRadius: radius, flexShrink: 0,
-      background: 'linear-gradient(135deg, #2563eb, #f97316)',
+      background: 'linear-gradient(135deg, #2563eb, var(--accent-orange))',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: 10, fontWeight: 800, color: '#fff',
       fontFamily: 'Outfit, sans-serif',

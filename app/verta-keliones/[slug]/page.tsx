@@ -186,7 +186,7 @@ const CSS = `
 .vkd-meta svg { opacity:.85; flex-shrink:0; }
 .vkd-cta { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-top:4px; }
 .vkd-cost { font-family:'Outfit',sans-serif; font-weight:900; font-size:18px; color:#fff; padding:7px 14px; border-radius:100px; background:rgba(249,115,22,0.92); box-shadow:0 4px 16px rgba(249,115,22,0.35); }
-.vkd-ticket { display:inline-flex; align-items:center; gap:7px; font-family:'Outfit',sans-serif; font-weight:800; font-size:13.5px; padding:11px 22px; border-radius:12px; background:linear-gradient(135deg,#f97316,#ea580c); color:#fff; box-shadow:0 8px 28px rgba(249,115,22,0.3); transition:transform .15s; }
+.vkd-ticket { display:inline-flex; align-items:center; gap:7px; font-family:'Outfit',sans-serif; font-weight:800; font-size:13.5px; padding:11px 22px; border-radius:12px; background:linear-gradient(135deg,var(--accent-orange),#ea580c); color:#fff; box-shadow:0 8px 28px rgba(249,115,22,0.3); transition:transform .15s; }
 .vkd-ticket:hover { transform:scale(1.03); }
 .vkd-ticket.full { width:100%; justify-content:center; margin-top:14px; }
 

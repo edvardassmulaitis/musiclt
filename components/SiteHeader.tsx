@@ -556,7 +556,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
           <div style={{ height: 12 }} />
         </>
       )}
-      {renderSongRow('world', 'TOP 40', '/top40', '#f97316', top40)}
+      {renderSongRow('world', 'TOP 40', '/top40', 'var(--accent-orange)', top40)}
 
       {/* ── Kiti topai: visi (šalys su vėliavėlėmis + pasaulio/viral/albumai) iš eilės ── */}
       {featured.length > 0 && (
@@ -1049,7 +1049,7 @@ function MobileExpansion({
         {/* Pagrindiniai topai — LT TOP 30 + TOP 40, horizontaliai (kaip desktop) */}
         {mSongStrip('LT TOP 30', '/top30', '#22c55e', 'lt', mTop30)}
         <div style={{ height: 8 }} />
-        {mSongStrip('TOP 40', '/top40', '#f97316', 'world', mTop40)}
+        {mSongStrip('TOP 40', '/top40', 'var(--accent-orange)', 'world', mTop40)}
 
         {/* Pagal šalis / kiti topai — vėliavėlių chip'ai */}
         {mCharts.length > 0 && (
@@ -1169,7 +1169,7 @@ function MobileExpansion({
             <span className="sh-mexp-tile-icon">{I.users}</span>
             <span className="sh-mexp-tile-label">Pažink narius</span>
           </Link>
-          <Link href="/dienos-daina" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
+          <Link href="/dienos-daina" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('var(--accent-orange)') }}>
             <span className="sh-mexp-tile-icon">{I.music}</span>
             <span className="sh-mexp-tile-label">Dienos daina</span>
           </Link>

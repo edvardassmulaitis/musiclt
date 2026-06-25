@@ -510,7 +510,7 @@ export default function NewsArticleClient({
 
         .na-act { display:inline-flex; align-items:center; gap:7px; padding:7px 15px; border-radius:100px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16); color:rgba(255,255,255,0.92); font-size:12.5px; font-weight:800; font-family:'Outfit',sans-serif; cursor:pointer; transition:all .18s; backdrop-filter:blur(8px); }
         .na-act:hover { background:rgba(255,255,255,0.15); border-color:rgba(255,255,255,0.3); }
-        .na-act-liked { color:#f97316; background:rgba(249,115,22,0.14); border-color:rgba(249,115,22,0.4); }
+        .na-act-liked { color:var(--accent-orange); background:rgba(249,115,22,0.14); border-color:rgba(249,115,22,0.4); }
         .na-act-count { margin-left:3px; padding-left:8px; border-left:1px solid rgba(255,255,255,0.22); font-weight:800; cursor:pointer; }
 
         /* Foto kreditas — © ženkliukas, hover atskleidžia šaltinį */

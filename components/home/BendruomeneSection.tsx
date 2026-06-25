@@ -119,9 +119,9 @@ function PlaceholderIcon({ type }: { type: string }) {
 
 type TypeMeta = { label: string; color: string }
 function getTypeMeta(type: string, sub?: string | null, editorial?: string | null): TypeMeta {
-  if (type === 'dd') return { label: 'Dienos daina', color: '#f97316' }
+  if (type === 'dd') return { label: 'Dienos daina', color: 'var(--accent-orange)' }
   if (type === 'discussion') return { label: 'Diskusija', color: '#8b5cf6' }
-  if (type === 'atradimas') return { label: 'Atradimas', color: '#f97316' }
+  if (type === 'atradimas') return { label: 'Atradimas', color: 'var(--accent-orange)' }
   if (sub === 'topas') return { label: 'Topas', color: '#f59e0b' }
   if (sub === 'creation') return { label: 'Kūryba', color: '#ec4899' }
   if (sub === 'translation') return { label: 'Vertimas', color: '#10b981' }
@@ -235,7 +235,7 @@ function DDCard({ it }: { it: CommunityItem }) {
           }
           {/* #1 badge */}
           <span className="absolute left-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full font-['Outfit',sans-serif] text-[9px] font-black text-white"
-                style={{ background: '#f97316' }}>#1</span>
+                style={{ background: 'var(--accent-orange)' }}>#1</span>
         </div>
         <div className="min-w-0 flex-1">
           <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">{it.title}</p>
@@ -271,7 +271,7 @@ function DDCard({ it }: { it: CommunityItem }) {
              onClick={e => e.stopPropagation()}
              className="flex items-center gap-3 rounded-lg px-2 py-2.5 no-underline transition-colors hover:bg-[rgba(249,115,22,0.08)]">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(249,115,22,0.15)' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
               </svg>
             </div>

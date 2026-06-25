@@ -434,7 +434,7 @@ const FS_CSS = `
 .fs-sec-head i { flex:1; height:1px; background:var(--border-default,rgba(255,255,255,0.08)); }
 .fs-sec-dot { width:8px; height:8px; border-radius:50%; background:var(--accent-orange); box-shadow:0 0 0 4px rgba(249,115,22,0.18); }
 .fs-year { margin-bottom:24px; }
-.fs-year-label { display:flex; align-items:center; gap:9px; margin-bottom:12px; font-family:'Outfit',sans-serif; font-weight:800; font-size:15px; color:var(--accent-orange,#f97316); }
+.fs-year-label { display:flex; align-items:center; gap:9px; margin-bottom:12px; font-family:'Outfit',sans-serif; font-weight:800; font-size:15px; color:var(--accent-orange,var(--accent-orange)); }
 .fs-year-label span { font-size:10.5px; font-weight:700; color:var(--text-faint); background:var(--bg-hover); border-radius:100px; padding:2px 8px; }
 
 /* Tinklelis */

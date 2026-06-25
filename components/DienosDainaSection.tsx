@@ -400,7 +400,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   const SectionHeader = headerVariant === 'row' ? (
     <div className="mb-3 flex items-end justify-between gap-3">
       <div className="flex items-center gap-2.5">
-        <span style={{ width: 4, height: 18, borderRadius: 3, background: '#f97316' }} />
+        <span style={{ width: 4, height: 18, borderRadius: 3, background: 'var(--accent-orange)' }} />
         <h2 className="m-0 font-['Outfit',sans-serif] font-extrabold text-[var(--text-primary)]" style={{ fontSize: 'var(--section-title-size)', letterSpacing: 'var(--section-title-tracking)' }}>Dienos daina</h2>
       </div>
       {sorted.length > 0 && (

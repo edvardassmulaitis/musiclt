@@ -52,7 +52,7 @@ const POST_TYPE_LABEL: Record<string, string> = {
   translation: 'Vertimas', topas: 'Topas', self: 'Apie mane',
 }
 const POST_TYPE_COLOR: Record<string, string> = {
-  article: '#f97316', review: '#fbbf24', event: '#34d399', creation: '#f472b6',
+  article: 'var(--accent-orange)', review: '#fbbf24', event: '#34d399', creation: '#f472b6',
   translation: '#a78bfa', topas: '#60a5fa', self: '#a3a3a3',
 }
 // Kortelės badge'as. „self" (paprastas asmeninis įrašas) — JOKIO badge
@@ -519,9 +519,9 @@ function MobileProfileView(props: any) {
     // V18g: kaip desktop — be „Visi" pill'o (default='all'; aktyvų paspaudus
     // grįžta į „all"). Be spalvotų taškų.
     const out: { key: string; label: string; color: string }[] = []
-    for (const t of ['article', 'review', 'event', 'topas']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
-    if (present.has('dd')) out.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
-    for (const t of ['creation', 'translation']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+    for (const t of ['article', 'review', 'event', 'topas']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || 'var(--accent-orange)' })
+    if (present.has('dd')) out.push({ key: 'dd', label: 'Dienos dainos', color: 'var(--accent-orange)' })
+    for (const t of ['creation', 'translation']) if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || 'var(--accent-orange)' })
     if (present.has('comment')) out.push({ key: 'comment', label: 'Komentarai', color: '#60a5fa' })
     return out
   }, [feedItems])
@@ -998,7 +998,7 @@ function MobileMoodCircle({ track, onOpen }: { track: any; onOpen?: () => void }
       className="group relative flex-shrink-0" style={{ width: 52, height: 52 }}
       title={`Nuotaikos dainos${track.title ? ' — ' + track.title : ''}`} aria-label="Nuotaikos dainos">
       <span aria-hidden className="absolute -inset-1 rounded-full opacity-45"
-            style={{ background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #60a5fa, #34d399, #fbbf24, #f97316)', animation: 'moodSpinV11 16s linear infinite', filter: 'blur(3px)' }} />
+            style={{ background: 'conic-gradient(from 0deg, var(--accent-orange), #dc2626, #a78bfa, #60a5fa, #34d399, #fbbf24, var(--accent-orange))', animation: 'moodSpinV11 16s linear infinite', filter: 'blur(3px)' }} />
       {cover ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={cover} alt="" className="relative w-[52px] h-[52px] rounded-full object-cover border-2 border-white/15" style={{ animation: 'moodSpinV11 40s linear infinite' }} />
@@ -1045,7 +1045,7 @@ function MoodCard({ track }: { track: any }) {
         {/* Spinning vinyl overlay */}
         <div className="absolute bottom-1 right-1 w-[22px] h-[22px]">
           <div className="absolute inset-0 rounded-full opacity-70"
-               style={{ background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #f97316)', animation: 'moodSpinV11 14s linear infinite', filter: 'blur(1px)' }} />
+               style={{ background: 'conic-gradient(from 0deg, var(--accent-orange), #dc2626, #a78bfa, var(--accent-orange))', animation: 'moodSpinV11 14s linear infinite', filter: 'blur(1px)' }} />
           <div className="relative w-full h-full rounded-full" style={{ background: 'rgba(0,0,0,0.6)' }} />
           <div className="absolute inset-[35%] rounded-full" style={{ background: '#111' }} />
         </div>
@@ -1233,7 +1233,7 @@ function MobileMoodPill({ track, fill = false }: { track: any; fill?: boolean })
       <div className="relative w-7 h-7 flex-shrink-0">
         <div className="absolute -inset-0.5 rounded-full opacity-50"
              style={{
-               background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #60a5fa, #f97316)',
+               background: 'conic-gradient(from 0deg, var(--accent-orange), #dc2626, #a78bfa, #60a5fa, var(--accent-orange))',
                animation: 'moodSpinV11 14s linear infinite',
                filter: 'blur(2px)',
              }} />
@@ -1322,7 +1322,7 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
         <div className="relative flex-shrink-0">
           <div className="absolute -inset-1 rounded-full opacity-45"
                style={{
-                 background: 'conic-gradient(from 0deg, #f97316, #dc2626, #a78bfa, #60a5fa, #34d399, #fbbf24, #f97316)',
+                 background: 'conic-gradient(from 0deg, var(--accent-orange), #dc2626, #a78bfa, #60a5fa, #34d399, #fbbf24, var(--accent-orange))',
                  animation: 'moodSpinV11 16s linear infinite',
                  filter: 'blur(3px)',
                }} />
@@ -1567,7 +1567,7 @@ function PostTypeTagBar({
       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
         {items.map((it) => {
           const isActive = it.key === current
-          const typeColor = it.key ? (POST_TYPE_COLOR[it.key] || '#f97316') : '#f97316'
+          const typeColor = it.key ? (POST_TYPE_COLOR[it.key] || 'var(--accent-orange)') : 'var(--accent-orange)'
           return (
             <button
               key={it.key ?? 'all'}
@@ -2002,7 +2002,7 @@ function PostLaneCard({ post, blogSlug, laneType }: { post: any; blogSlug: strin
 function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
   const url = postUrl(post, blogSlug)
   const typeKey = post.display_post_type || post.post_type
-  const typeColor = POST_TYPE_COLOR[typeKey] || '#f97316'
+  const typeColor = POST_TYPE_COLOR[typeKey] || 'var(--accent-orange)'
   const typeLabel = CARD_TYPE_LABEL[typeKey] || null  // self → null → be badge
   // V16: server'is siunčia tik list_items_preview (3) + list_items_count
   const items = Array.isArray(post.list_items_preview) && post.list_items_preview.length > 0 ? post.list_items_preview : null
@@ -2375,14 +2375,14 @@ const FEED_PILL_ORDER = ['article', 'review', 'event', 'topas']
 const FEED_PILL_TAIL = ['creation', 'translation']
 
 function buildFeedPills(postTypeCounts: Record<string, number>, hasDd: boolean, hasLikes: boolean) {
-  const pills: { key: string; label: string; color: string }[] = [{ key: 'all', label: 'Visi', color: '#f97316' }]
+  const pills: { key: string; label: string; color: string }[] = [{ key: 'all', label: 'Visi', color: 'var(--accent-orange)' }]
   for (const t of FEED_PILL_ORDER) {
-    if ((postTypeCounts?.[t] || 0) > 0) pills.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+    if ((postTypeCounts?.[t] || 0) > 0) pills.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || 'var(--accent-orange)' })
   }
-  if (hasDd) pills.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
+  if (hasDd) pills.push({ key: 'dd', label: 'Dienos dainos', color: 'var(--accent-orange)' })
   if (hasLikes) pills.push({ key: 'likes', label: '♥ Mėgstama muzika', color: '#e11d48' })
   for (const t of FEED_PILL_TAIL) {
-    if ((postTypeCounts?.[t] || 0) > 0) pills.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+    if ((postTypeCounts?.[t] || 0) > 0) pills.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || 'var(--accent-orange)' })
   }
   return pills
 }
@@ -2495,11 +2495,11 @@ function ProfileBodyDesktop(props: any) {
     }
     const out: { key: string; label: string; color: string }[] = []
     for (const t of FEED_PILL_ORDER) {
-      if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+      if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || 'var(--accent-orange)' })
     }
-    if (present.has('dd')) out.push({ key: 'dd', label: 'Dienos dainos', color: '#f97316' })
+    if (present.has('dd')) out.push({ key: 'dd', label: 'Dienos dainos', color: 'var(--accent-orange)' })
     for (const t of FEED_PILL_TAIL) {
-      if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || '#f97316' })
+      if (present.has(t)) out.push({ key: t, label: FEED_PILL_LABEL[t], color: POST_TYPE_COLOR[t] || 'var(--accent-orange)' })
     }
     return out
   }, [feedItems])
@@ -2633,7 +2633,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
 }) {
   const url = postUrl(post, blogSlug)
   const typeKey = post.display_post_type || laneType
-  const typeColor = POST_TYPE_COLOR[typeKey] || POST_TYPE_COLOR[laneType] || '#f97316'
+  const typeColor = POST_TYPE_COLOR[typeKey] || POST_TYPE_COLOR[laneType] || 'var(--accent-orange)'
   // self → null → paprastas įrašas be badge (user feedback 2026-06-14)
   const typeLabel = CARD_TYPE_LABEL[typeKey] || CARD_TYPE_LABEL[laneType] || null
   const thumb = post.cover_image_url || post.fallback_thumb_url || null

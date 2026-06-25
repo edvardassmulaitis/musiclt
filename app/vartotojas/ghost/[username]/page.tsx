@@ -243,7 +243,7 @@ export default async function GhostUserPage({ params }: Props) {
                   gap: 6,
                   padding: '10px 18px',
                   borderRadius: 999,
-                  background: '#f97316',
+                  background: 'var(--accent-orange)',
                   color: '#fff',
                   fontSize: 12,
                   fontWeight: 800,
@@ -431,7 +431,7 @@ export default async function GhostUserPage({ params }: Props) {
                     </div>
                   )}
                 </div>
-                <span style={{ fontSize: 11, color: '#f97316', fontWeight: 700, fontFamily: 'Outfit,sans-serif', flexShrink: 0 }}>→</span>
+                <span style={{ fontSize: 11, color: 'var(--accent-orange)', fontWeight: 700, fontFamily: 'Outfit,sans-serif', flexShrink: 0 }}>→</span>
               </Link>
             ))}
           </div>

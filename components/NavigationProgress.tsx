@@ -138,8 +138,8 @@ export function NavigationProgress() {
         style={{
           height: '100%',
           width: `${progress}%`,
-          background: 'var(--accent-orange, #f97316)',
-          boxShadow: '0 0 8px var(--accent-orange, #f97316), 0 0 4px var(--accent-orange, #f97316)',
+          background: 'var(--accent-orange, var(--accent-orange))',
+          boxShadow: '0 0 8px var(--accent-orange, var(--accent-orange)), 0 0 4px var(--accent-orange, var(--accent-orange))',
           borderRadius: '0 2px 2px 0',
           transition: 'width 200ms ease-out',
         }}

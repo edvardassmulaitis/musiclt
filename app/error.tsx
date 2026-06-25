@@ -40,7 +40,7 @@ export default function HomeError({ reset }: { error: Error & { digest?: string 
           aria-hidden
           style={{
             width: 36, height: 36, borderRadius: '50%',
-            border: '3px solid rgba(249,115,22,0.25)', borderTopColor: '#f97316',
+            border: '3px solid rgba(249,115,22,0.25)', borderTopColor: 'var(--accent-orange)',
             display: 'inline-block', animation: 'mz-spin 0.8s linear infinite',
           }}
         />
@@ -75,7 +75,7 @@ export default function HomeError({ reset }: { error: Error & { digest?: string 
         }}
         style={{
           fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, color: '#fff',
-          background: '#f97316', border: 'none', borderRadius: 999, padding: '10px 22px', cursor: 'pointer',
+          background: 'var(--accent-orange)', border: 'none', borderRadius: 999, padding: '10px 22px', cursor: 'pointer',
         }}
       >
         Bandyti dar kartą

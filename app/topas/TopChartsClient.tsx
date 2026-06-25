@@ -81,7 +81,7 @@ function Player({ entry }: { entry: Entry | null }) {
       </div>
       <div className="tc-player-info">
         <div className="tc-player-pos">
-          <span className="tc-pos-num" style={{ color: entry.position <= 3 ? '#f97316' : '#fff' }}>#{entry.position}</span>
+          <span className="tc-pos-num" style={{ color: entry.position <= 3 ? 'var(--accent-orange)' : '#fff' }}>#{entry.position}</span>
           <TrendIndicator curr={entry.position} prev={entry.prev_position} isNew={entry.is_new} />
         </div>
         <p className="tc-player-title">{entry.tracks?.title}</p>
@@ -316,7 +316,7 @@ export default function TopChartsClient({ top40, ltTop30 }: { top40: TopData; lt
         .tc-row.top3.active { background: rgba(234,88,12,0.08); border-color: rgba(234,88,12,0.15); }
 
         .tc-pos { width: 26px; text-align: center; flex-shrink: 0; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; color: #374151; }
-        .tc-pos.top { color: #f97316; }
+        .tc-pos.top { color: var(--accent-orange); }
 
         .tc-trend { width: 32px; flex-shrink: 0; display: flex; justify-content: center; }
         .tc-new { font-size: 8px; font-weight: 800; padding: 2px 5px; border-radius: 3px; background: rgba(251,191,36,0.12); color: #f59e0b; letter-spacing: 0.06em; }

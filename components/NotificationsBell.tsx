@@ -149,8 +149,8 @@ const TYPE_TINT: Record<string, string> = {
   blog_comment: '#8b5cf6',
   favorite_artist_track: '#10b981',
   daily_song_winner: '#eab308',
-  system: '#f97316',
-  guest_signin: '#f97316',
+  system: 'var(--accent-orange)',
+  guest_signin: 'var(--accent-orange)',
 }
 
 const ACTIVITY_ICON: Record<string, React.ReactNode> = {
@@ -609,7 +609,7 @@ export function NotificationsBell() {
                   return (
                     <div style={{
                       width: 38, height: 38, borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #f97316, #2563eb)',
+                      background: 'linear-gradient(135deg, var(--accent-orange), #2563eb)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       color: '#fff',
                     }}>
@@ -633,7 +633,7 @@ export function NotificationsBell() {
                 return (
                   <div style={{
                     width: 38, height: 38, borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #2563eb, #f97316)',
+                    background: 'linear-gradient(135deg, #2563eb, var(--accent-orange))',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: '#fff', fontWeight: 800, fontSize: 16,
                   }}>

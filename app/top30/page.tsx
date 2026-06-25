@@ -66,7 +66,7 @@ export default async function Top30Page() {
         title="LT TOP 30"
         badge="Lietuvos topas"
         subtitle="Šios savaitės populiariausi lietuviški kūriniai. Tu sprendi, kas šią savaitę užims pirmą vietą."
-        accent={{ hex: '#f97316', rgb: 'rgba(249, 115, 22, 0.10)' }}
+        accent={{ hex: 'var(--accent-orange)', rgb: 'rgba(249, 115, 22, 0.10)' }}
         siblingHref="/top40"
         siblingLabel="Pasaulinė TOP 40"
       />

@@ -341,7 +341,7 @@ export default async function DiscussionPage({ params }: Props) {
               .forum-html p { margin: 0 0 0.8em 0; }
               .forum-html p:last-child { margin-bottom: 0; }
               .forum-html img { max-width: 100%; height: auto; margin: 0.5em 0; border-radius: 4px; }
-              .forum-html a { color: #f97316; text-decoration: none; }
+              .forum-html a { color: var(--accent-orange); text-decoration: none; }
               .forum-html a:hover { text-decoration: underline; }
               .forum-html b, .forum-html strong { color: #fff; }
             ` }} />

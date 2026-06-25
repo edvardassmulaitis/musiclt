@@ -378,20 +378,20 @@ export default function TrackPageClient({
                 Claude perskaitys žodžius ir sukurs interpretaciją bei abstraktų paveikslėlį, perteikiantį dainos nuotaiką.
               </p>
               <button onClick={doAI}
-                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 999, background: 'rgba(249,115,22,.12)', border: '1px solid rgba(249,115,22,.35)', color: '#f97316', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 999, background: 'rgba(249,115,22,.12)', border: '1px solid rgba(249,115,22,.35)', color: 'var(--accent-orange)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif' }}>
                 ✦ Generuoti
               </button>
             </div>
           )}
           {aiLoad && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '12px 0', color: 'var(--text-muted)', fontSize: 12 }}>
-              <span style={{ animation: 'spin 1.2s linear infinite', display: 'inline-block', fontSize: 20, color: '#f97316' }}>✦</span>
+              <span style={{ animation: 'spin 1.2s linear infinite', display: 'inline-block', fontSize: 20, color: 'var(--accent-orange)' }}>✦</span>
               Claude analizuoja žodžius…
             </div>
           )}
           {aiErr && (
             <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '6px 0' }}>
-              Nepavyko. <button onClick={doAI} style={{ color: '#f97316', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Bandyti dar kartą</button>
+              Nepavyko. <button onClick={doAI} style={{ color: 'var(--accent-orange)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Bandyti dar kartą</button>
             </div>
           )}
           {aiText && (
@@ -414,7 +414,7 @@ export default function TrackPageClient({
     return (
       <div style={{ ...cardStyle, background: 'var(--dyk-bg)', border: '1px solid var(--dyk-border)' }}>
         <div style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f97316', fontFamily: 'Outfit,sans-serif', marginBottom: 7 }}>★ Ar žinojai?</div>
+          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--accent-orange)', fontFamily: 'Outfit,sans-serif', marginBottom: 7 }}>★ Ar žinojai?</div>
           <p style={{ fontSize: 12, color: 'var(--dyk-text)', lineHeight: 1.75, margin: 0 }}>{track.description || trivia}</p>
         </div>
       </div>
@@ -433,7 +433,7 @@ export default function TrackPageClient({
             onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--card-hover-bg)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
             <div style={{ width: 28, height: 28, borderRadius: 6, background: ytId(v.video_url) ? 'rgba(249,115,22,.12)' : 'var(--cover-placeholder)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1px solid ${ytId(v.video_url) ? 'rgba(249,115,22,.2)' : 'var(--card-border-default)'}` }}>
-              {ytId(v.video_url) ? <svg width="9" height="9" viewBox="0 0 10 10" fill="#f97316"><polygon points="2,1 9,5 2,9"/></svg> : <MusicIcon s={11} c="var(--text-faint)" />}
+              {ytId(v.video_url) ? <svg width="9" height="9" viewBox="0 0 10 10" fill="var(--accent-orange)"><polygon points="2,1 9,5 2,9"/></svg> : <MusicIcon s={11} c="var(--text-faint)" />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</div>

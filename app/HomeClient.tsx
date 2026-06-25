@@ -872,7 +872,7 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
       {/* ── „Groja" juostelė (tik kai yra konkreti daina) ── */}
       {hasVideo && (slide.songTitle || slide.songArtist) && !isChart && !isDaily && (
         <div className="rdr-np">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="#f97316"><path d="M8 5v14l11-7z" /></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--accent-orange)"><path d="M8 5v14l11-7z" /></svg>
           <span className="rdr-np-t">{slide.songTitle || 'Klausyk'}</span>
           {slide.songArtist && <span className="rdr-np-a">· {slide.songArtist}</span>}
         </div>
@@ -899,7 +899,7 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
           active ? (
             <ChartVoteList
               topType={slide.type === 'chart_lt' ? 'lt_top30' : 'top40'}
-              accent="#f97316"
+              accent="var(--accent-orange)"
               onPlay={play}
             />
           ) : slide.chartTops && slide.chartTops.length > 0 ? (
@@ -967,7 +967,7 @@ function ReaderSlide({ slide, active, seen, onScrolledChange, onPlayingChange, o
             </button>
           )}
           <Link href={slide.href} onClick={onNavLink} className={`rdr-cta${isNews ? ' subtle' : ''}`}
-            style={isNews ? undefined : { background: seen ? 'rgba(255,255,255,0.18)' : (isChart ? (slide.type === 'chart_lt' ? '#f97316' : '#3b82f6') : isDaily ? '#f59e0b' : '#f97316') }}>
+            style={isNews ? undefined : { background: seen ? 'rgba(255,255,255,0.18)' : (isChart ? (slide.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6') : isDaily ? '#f59e0b' : 'var(--accent-orange)') }}>
             {(isNews ? 'Pilna versija ir komentarai' : slide.ctaLabel) || (isChart ? 'Visas topas' : isDaily ? 'Dienos daina' : 'Skaityti')}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
           </Link>
@@ -1111,7 +1111,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
           const isSeen = seenSlides.has(s.href)
           const isPast = i < idx
           const isCurrent = i === idx
-          const barColor = isCurrent ? '#f97316' : isPast ? (isSeen ? 'rgba(255,255,255,0.7)' : '#f97316') : 'rgba(255,255,255,0.0)'
+          const barColor = isCurrent ? 'var(--accent-orange)' : isPast ? (isSeen ? 'rgba(255,255,255,0.7)' : 'var(--accent-orange)') : 'rgba(255,255,255,0.0)'
           return (
             <div key={i} className="rdr-bar">
               <div style={{ height: '100%', borderRadius: 2, background: barColor, width: isPast ? '100%' : isCurrent ? `${progress * 100}%` : '0%' }} />
@@ -1892,7 +1892,7 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
 function HeroChartCard({ slide }: { slide: HeroSlide }) {
   const isLT = slide.type === 'chart_lt'
   const tops = slide.chartTops || []
-  const accent = isLT ? '#f97316' : '#3b82f6'
+  const accent = isLT ? 'var(--accent-orange)' : '#3b82f6'
   const accentSoft = isLT ? 'rgba(249,115,22,0.22)' : 'rgba(59,130,246,0.22)'
   const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
 
@@ -2367,7 +2367,7 @@ function MobileChartSlide({
   onOpen: () => void
 }) {
   const tops = slide.chartTops || []
-  const accent = slide.type === 'chart_lt' ? '#f97316' : '#3b82f6'
+  const accent = slide.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6'
   const accentShadow = slide.type === 'chart_lt' ? 'rgba(249,115,22,0.45)' : 'rgba(59,130,246,0.45)'
   const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
 
@@ -3051,7 +3051,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
       })
     })
     if (!slides.length) slides.push({
-      type: 'promo', chip: '🇱🇹 LIETUVIŠKA MUZIKA', chipBg: '#f97316',
+      type: 'promo', chip: '🇱🇹 LIETUVIŠKA MUZIKA', chipBg: 'var(--accent-orange)',
       title: 'music.lt',
       subtitle: 'Visi Lietuvos atlikėjai vienoje vietoje',
       href: '/atlikejai',
@@ -3194,7 +3194,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-video{width:100%;height:100%;border:none;display:block;background:#000}
         .rdr-media-fade{position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(to top,#000,transparent);pointer-events:none;z-index:1}
         /* Native oranžinis play (paleidžia mini-grotuvą; auto-play IŠJUNGTAS) */
-        .rdr-playbtn{position:absolute;right:14px;bottom:14px;width:54px;height:54px;border-radius:50%;background:#f97316;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;padding-left:3px;z-index:3;box-shadow:0 6px 22px rgba(249,115,22,0.55)}
+        .rdr-playbtn{position:absolute;right:14px;bottom:14px;width:54px;height:54px;border-radius:50%;background:var(--accent-orange);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;padding-left:3px;z-index:3;box-shadow:0 6px 22px rgba(249,115,22,0.55)}
         .rdr-playbtn:active{transform:scale(0.94)}
         /* Grotuvo apvalkalas — pilnas viršuje; scrollinant lieka sticky kampe
            (sticky, NE fixed — kad neišsikraipytų dėl track transform). Garsas tęsiasi. */
@@ -3218,7 +3218,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-meta{font-size:12.5px;font-weight:600;color:rgba(255,255,255,0.5);margin:0 0 12px}
         .rdr-artist{display:inline-flex;align-items:center;gap:8px;text-decoration:none;margin:0 0 14px;padding:5px 12px 5px 5px;background:rgba(255,255,255,0.06);border-radius:999px}
         .rdr-artist img{width:30px;height:30px;border-radius:50%;object-fit:cover}
-        .rdr-artist-ph{width:30px;height:30px;border-radius:50%;background:#f97316;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;text-transform:uppercase}
+        .rdr-artist-ph{width:30px;height:30px;border-radius:50%;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;text-transform:uppercase}
         .rdr-artist span{font-size:13px;font-weight:700;color:#fff}
         .rdr-excerpt{font-size:15.5px;line-height:1.62;color:rgba(255,255,255,0.82);margin:0}
         .rdr-html{font-size:15.5px;line-height:1.66;color:rgba(255,255,255,0.82)}
@@ -3230,7 +3230,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         .rdr-html img{max-width:100%;height:auto;border-radius:12px;margin:12px 0;display:block}
         .rdr-html iframe{max-width:100%;border-radius:12px;margin:12px 0}
         .rdr-html ul,.rdr-html ol{padding-left:20px;margin:0 0 14px}
-        .rdr-html blockquote{border-left:3px solid #f97316;padding-left:14px;margin:0 0 14px;color:rgba(255,255,255,0.7);font-style:italic}
+        .rdr-html blockquote{border-left:3px solid var(--accent-orange);padding-left:14px;margin:0 0 14px;color:rgba(255,255,255,0.7);font-style:italic}
         .rdr-toplist-wrap .rdr-html{margin-bottom:14px}
         .rdr-toplist{display:flex;flex-direction:column;gap:15px;margin:4px 0}
         .rdr-top-item{display:flex;gap:11px;align-items:flex-start}
@@ -3253,7 +3253,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         /* Chart sąrašas */
         .rdr-chart{display:flex;flex-direction:column;gap:8px;margin:4px 0 16px}
         .rdr-chart-row{display:flex;align-items:center;gap:10px}
-        .rdr-chart-pos{width:20px;text-align:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:15px;color:#f97316;flex-shrink:0}
+        .rdr-chart-pos{width:20px;text-align:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:15px;color:var(--accent-orange);flex-shrink:0}
         .rdr-chart-row img,.rdr-chart-ph{width:42px;height:42px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#1a1a1a}
         .rdr-chart-info{display:flex;flex-direction:column;min-width:0;flex:1}
         .rdr-chart-info b{font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -3498,7 +3498,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                 return (
                   <button key={`${slide.type}-${slide.href}`} onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
                     style={{ flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
-                      border: isSeen ? '2px solid rgba(255,255,255,0.10)' : '2px solid #f97316',
+                      border: isSeen ? '2px solid rgba(255,255,255,0.10)' : '2px solid var(--accent-orange)',
                       background: '#000', cursor: 'pointer', padding: 0, width: 188, height: 290,
                       scrollSnapAlign: 'start',
                       transition: 'opacity .15s, border-color .15s, transform .15s',
@@ -3529,7 +3529,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                       </div>
                     )}
                     {!isSeen && (
-                      <div style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 0 2px #000', zIndex: 2 }} />
+                      <div style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-orange)', boxShadow: '0 0 0 2px #000', zIndex: 2 }} />
                     )}
                   </button>
                 )
@@ -3555,7 +3555,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
             onChartVote={(s) => setChartSheet({
               topType: s.type === 'chart_lt' ? 'lt_top30' : 'top40',
               title: s.title,
-              accent: s.type === 'chart_lt' ? '#f97316' : '#3b82f6',
+              accent: s.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6',
             })}
             onDailyVote={() => setDailySheetOpen(true)}
             dk={dk}
@@ -3568,7 +3568,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
           onClose={() => setChartSheet(null)}
           topType={chartSheet?.topType || 'lt_top30'}
           title={chartSheet?.title || 'TOPAS'}
-          accent={chartSheet?.accent || '#f97316'}
+          accent={chartSheet?.accent || 'var(--accent-orange)'}
         />
 
         {/* ═══════════════ DIENOS DAINA — balsavimas + siūlymas (sheet) ═══════════════ */}
@@ -4118,7 +4118,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55, maxWidth: 480 }}>Sukurk arba perimk savo profilį Music.lt platformoje. Skelk naujienas, renginius ir naują muziką tiesiai savo gerbėjams — nemokamai.</p>
               </div>
               <Link href="/atlikejai" className="hp-ctabtn"
-                style={{ flexShrink: 0, background: '#f97316', color: '#fff', fontWeight: 800, fontSize: 13, padding: '10px 24px', borderRadius: 20, textDecoration: 'none', boxShadow: '0 4px 16px rgba(249,115,22,.3)', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif', display: 'inline-flex', alignItems: 'center', transition: 'transform .15s, box-shadow .15s' }}
+                style={{ flexShrink: 0, background: 'var(--accent-orange)', color: '#fff', fontWeight: 800, fontSize: 13, padding: '10px 24px', borderRadius: 20, textDecoration: 'none', boxShadow: '0 4px 16px rgba(249,115,22,.3)', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif', display: 'inline-flex', alignItems: 'center', transition: 'transform .15s, box-shadow .15s' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(249,115,22,.42)' }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(249,115,22,.3)' }}>
                 Pradėti nemokamai →

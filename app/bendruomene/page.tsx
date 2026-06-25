@@ -180,7 +180,7 @@ const KIND_META: Record<string, { label: string; color: string }> = {
   apzvalga: { label: 'Muzikos apžvalga', color: '#ef4444' },
   koncertai: { label: 'Koncertų įspūdžiai', color: '#3b82f6' },
   topas: { label: 'Topas', color: '#f59e0b' },
-  atradimas: { label: 'Atradimas', color: '#f97316' },
+  atradimas: { label: 'Atradimas', color: 'var(--accent-orange)' },
   diskusija: { label: 'Diskusija', color: '#8b5cf6' },
   kuryba: { label: 'Kūryba', color: '#ec4899' },
   vertimas: { label: 'Vertimas', color: '#10b981' },
@@ -534,7 +534,7 @@ function FeaturedSlider() {
       href: '',
       img: discThumb(a),
       chip: 'atradimas',
-      chipBg: '#f97316',
+      chipBg: 'var(--accent-orange)',
       chipLabel: undefined as string | undefined,
       title: a.artist_name ? `${a.artist_name}${a.track_name ? ` - ${a.track_name}` : ''}` : 'Atradimas',
       author: uname(a.author),
@@ -1093,7 +1093,7 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
       : ''
   return (
     <div className={`${ROW_BASE} ${ROW_MINH} w-full hover:border-[rgba(249,115,22,0.5)]`}>
-      <AccentBar color="#f97316" />
+      <AccentBar color="var(--accent-orange)" />
       <div className={ROW_THUMB}>
         {playing && canPlayInline ? (
           <iframe src={embedSrc} title="Grotuvas" className="absolute inset-0 h-full w-full border-0"
@@ -1125,7 +1125,7 @@ const PULSE_CHIPS: { key: string; label: string; color?: string }[] = [
   { key: 'koncertai', label: 'Koncertų įspūdžiai', color: '#3b82f6' },
   { key: 'apzvalga', label: 'Muzikos apžvalgos', color: '#ef4444' },
   { key: 'topas', label: 'Topai', color: '#f59e0b' },
-  { key: 'atradimas', label: 'Atradimai', color: '#f97316' },
+  { key: 'atradimas', label: 'Atradimai', color: 'var(--accent-orange)' },
   { key: 'diskusija', label: 'Diskusijos', color: '#8b5cf6' },
 ]
 

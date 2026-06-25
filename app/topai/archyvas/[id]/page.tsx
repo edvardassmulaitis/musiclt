@@ -71,7 +71,7 @@ export default async function ArchiveWeekPage({ params }: Props) {
         : 'Šios savaitės karščiausios pasaulinės muzikos dainos.'}
       accent={isLt
         ? { hex: '#22c55e', rgb: 'rgba(34, 197, 94, 0.10)' }
-        : { hex: '#f97316', rgb: 'rgba(249, 115, 22, 0.10)' }}
+        : { hex: 'var(--accent-orange)', rgb: 'rgba(249, 115, 22, 0.10)' }}
       siblingHref={isLt ? '/top40' : '/top30'}
       siblingLabel={isLt ? 'Pasaulinė TOP 40' : 'Lietuviška TOP 30'}
       archiveMode

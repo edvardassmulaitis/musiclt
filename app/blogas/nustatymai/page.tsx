@@ -127,8 +127,8 @@ export default function BlogSettingsPage() {
             <p className="text-sm text-yellow-400 font-semibold mb-2">Pirma reikia username</p>
             <p className="text-xs text-[#5e7290] mb-3">Username bus naudojamas tavo profilio ir blogo URL adrese</p>
             <div className="flex gap-2">
-              <input value={username} onChange={e => setUsername(e.target.value)} placeholder="pvz. jonas" className="flex-1 px-3 py-1.5 rounded-lg bg-white/[.03] border border-white/[.06] text-sm outline-none focus:border-[#f97316]/30" />
-              <button onClick={handleSetUsername} disabled={savingProfile} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#f97316] text-white hover:bg-[#ea580c] disabled:opacity-40">
+              <input value={username} onChange={e => setUsername(e.target.value)} placeholder="pvz. jonas" className="flex-1 px-3 py-1.5 rounded-lg bg-white/[.03] border border-white/[.06] text-sm outline-none focus:border-[var(--accent-orange)]/30" />
+              <button onClick={handleSetUsername} disabled={savingProfile} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--accent-orange)] text-white hover:bg-[#ea580c] disabled:opacity-40">
                 {savingProfile ? '...' : 'Nustatyti'}
               </button>
             </div>
@@ -141,7 +141,7 @@ export default function BlogSettingsPage() {
         <div className="space-y-4">
           <div>
             <label className="text-[10px] font-bold uppercase tracking-wider text-[#334058] mb-1 block" style={{ fontFamily: "'Outfit', sans-serif" }}>Blogo pavadinimas</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Jono muzikos kampas" className="w-full px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.06] text-sm outline-none focus:border-[#f97316]/30" />
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Jono muzikos kampas" className="w-full px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.06] text-sm outline-none focus:border-[var(--accent-orange)]/30" />
           </div>
 
           {mode === 'create' && (
@@ -156,24 +156,24 @@ export default function BlogSettingsPage() {
 
           <div>
             <label className="text-[10px] font-bold uppercase tracking-wider text-[#334058] mb-1 block" style={{ fontFamily: "'Outfit', sans-serif" }}>Aprašymas</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Apie ką rašysi..." className="w-full px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.06] text-sm outline-none focus:border-[#f97316]/30 resize-none" />
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Apie ką rašysi..." className="w-full px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.06] text-sm outline-none focus:border-[var(--accent-orange)]/30 resize-none" />
           </div>
 
           {mode === 'edit' && (
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-[#334058] mb-1 block" style={{ fontFamily: "'Outfit', sans-serif" }}>Cover nuotrauka (URL)</label>
-              <input value={coverUrl} onChange={e => setCoverUrl(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.06] text-sm outline-none focus:border-[#f97316]/30" />
+              <input value={coverUrl} onChange={e => setCoverUrl(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.06] text-sm outline-none focus:border-[var(--accent-orange)]/30" />
             </div>
           )}
 
-          <button onClick={handleSave} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-bold bg-[#f97316] text-white hover:bg-[#ea580c] disabled:opacity-40 transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <button onClick={handleSave} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-bold bg-[var(--accent-orange)] text-white hover:bg-[#ea580c] disabled:opacity-40 transition" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {saving ? 'Saugoma...' : mode === 'create' ? 'Sukurti blogą' : 'Išsaugoti'}
           </button>
         </div>
 
         {mode === 'edit' && (
           <div className="mt-6 pt-4 border-t border-white/[.04]">
-            <p className="text-[10px] text-[#334058]">Tavo blogo adresas: <a href={`/blogas/${slug}`} className="text-[#f97316]">music.lt/blogas/{slug}</a></p>
+            <p className="text-[10px] text-[#334058]">Tavo blogo adresas: <a href={`/blogas/${slug}`} className="text-[var(--accent-orange)]">music.lt/blogas/{slug}</a></p>
           </div>
         )}
       </div>

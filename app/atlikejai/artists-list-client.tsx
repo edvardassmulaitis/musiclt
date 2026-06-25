@@ -86,7 +86,7 @@ export default function ArtistsListClient({ artists, genres }: { artists: Artist
         :root {
           --bg:#0a0e14; --bg2:#111720; --text:#f0f2f5; --text2:#b8c4d8; --text3:#6a7a94; --text4:#3a4a60;
           --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.04);
-          --orange:#f97316; --blue:#3b82f6; --card:rgba(255,255,255,0.03);
+          --orange:var(--accent-orange); --blue:#3b82f6; --card:rgba(255,255,255,0.03);
           --font-display:'Outfit',system-ui,sans-serif; --font-body:'DM Sans',system-ui,sans-serif;
         }
         .al { background:var(--bg); color:var(--text); font-family:var(--font-body); -webkit-font-smoothing:antialiased; min-height:100vh; }
