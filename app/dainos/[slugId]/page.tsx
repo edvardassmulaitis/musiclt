@@ -103,7 +103,10 @@ const fetchTrackData = unstable_cache(
       supabase.from('album_tracks').select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio, type)').eq('track_id', id),
       supabase.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'track').eq('entity_id', id),
       supabase.from('tracks').select('id, slug, title, type, video_url').eq('artist_id', track.artist_id).ilike('title', `%${titleFragment}%`).neq('id', id).limit(10),
-      supabase.from('tracks').select('id, slug, title, type, video_url, is_new, release_date').eq('artist_id', track.artist_id).neq('id', id).order('release_date', { ascending: false }).limit(8),
+      // Susijusi muzika = TOP atlikėjo dainos (pagal score), tik su video, kad
+      // grotuvas veiktų. Anksčiau buvo pagal release_date (naujausios) — bet
+      // norим populiariausių. nullsFirst:false → bedaliai score'ai į galą.
+      supabase.from('tracks').select('id, slug, title, type, video_url, is_new, release_date, score').eq('artist_id', track.artist_id).neq('id', id).not('video_url', 'is', null).order('score', { ascending: false, nullsFirst: false }).limit(12),
     ])
     return {
       track,
