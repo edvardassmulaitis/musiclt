@@ -459,7 +459,10 @@ export default function NewsArticleClient({
     ? news.artists
     : news.artist ? [news.artist] : []) as ArtistRef[]
 
-  const hasSidebar = songs.length > 0
+  // Atmetam tuščias dainų eilutes (be pavadinimo ir be video) — kitaip
+  // player'is rodydavo tuščias „3", „4" vietas.
+  const validSongs = songs.filter(s => (s.title && s.title.trim()) || ytId(s.youtube_url))
+  const hasSidebar = validSongs.length > 0
 
   return (
     <>
@@ -478,15 +481,15 @@ export default function NewsArticleClient({
           overflow:hidden; background:#080d14;
           display:flex; align-items:flex-end;
         }
-        /* Foto dešinėje — VISO AUKŠČIO (object-contain), blur fill užpildo
-           kraštus (kaip galerijos solo / artist page, tik kitoje pusėje).
-           Niekada nenukerpa subjektui galvos/kojų. */
-        .na-hero-photo { position:absolute; inset-block:0; right:0; left:auto; width:58%; overflow:hidden; }
+        /* Foto per VISĄ hero plotį (full-bleed cover) — didelė ir ryški.
+           Blur fill lieka kaip atsarga portretinėms nuotraukoms; gradientai
+           kairėje+apačioje tamsina, kad pavadinimas liktų įskaitomas. */
+        .na-hero-photo { position:absolute; inset:0; width:100%; overflow:hidden; }
         .na-hero-blur  { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(46px) saturate(1.1) brightness(0.55); transform:scale(1.2); }
-        .na-hero-img   { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:right center; filter:saturate(1.04) contrast(1.02); }
-        /* Siaura kairio krašto blend juosta — foto įsilieja į tamsų teksto foną */
-        .na-hero-fade-l { position:absolute; inset:0; background:linear-gradient(to right, #080d14 0%, rgba(8,13,20,0.5) 14%, transparent 34%); pointer-events:none; }
-        .na-hero-fade-b { position:absolute; inset:0; background:linear-gradient(to top, rgba(8,13,20,0.5) 0%, transparent 20%); pointer-events:none; }
+        .na-hero-img   { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 28%; filter:saturate(1.04) contrast(1.02); }
+        /* Kairės + apačios tamsinimas teksto įskaitomumui (foto dešinėje lieka ryški) */
+        .na-hero-fade-l { position:absolute; inset:0; background:linear-gradient(to right, #080d14 0%, rgba(8,13,20,0.62) 38%, rgba(8,13,20,0.08) 100%); pointer-events:none; }
+        .na-hero-fade-b { position:absolute; inset:0; background:linear-gradient(to top, #080d14 0%, rgba(8,13,20,0.55) 24%, transparent 58%); pointer-events:none; }
         .na-hero-noimg  { position:absolute; inset:0; background:linear-gradient(135deg,#0d1420 0%,#111826 100%); }
         .na-hero-noimg::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.12) 0%, transparent 55%); }
 
@@ -595,8 +598,8 @@ export default function NewsArticleClient({
         }
         @media(max-width:860px){
           .na-hero { height:auto; min-height:auto; max-height:none; flex-direction:column; align-items:stretch; }
-          .na-hero-photo { position:relative; width:100%; height:210px; }
-          .na-hero-img { object-position:center bottom; }
+          .na-hero-photo { position:relative; width:100%; height:230px; }
+          .na-hero-img { object-position:center 28%; }
           .na-hero-fade-l { background:linear-gradient(to top, #080d14 4%, transparent 70%); }
           .na-hero-fade-b { display:none; }
           .na-hero-wrap { background:#080d14; padding:18px 20px 26px; max-width:100%; }
@@ -670,7 +673,7 @@ export default function NewsArticleClient({
 
             {hasSidebar && (
               <aside className="na-sidebar">
-                <MusicPlayer songs={songs} />
+                <MusicPlayer songs={validSongs} />
               </aside>
             )}
           </div>
@@ -682,4 +685,4 @@ export default function NewsArticleClient({
 }
 
 
-// redeploy: 20260618T212210Z
+// redeploy: 20260625T095808Z
