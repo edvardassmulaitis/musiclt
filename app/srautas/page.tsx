@@ -64,7 +64,7 @@ type FeedItem = {
     topTrack?: { ytId: string; title: string } | null
     albumTracks?: { ytId: string; title: string }[]
     artistThumbs?: { name: string; image: string | null; href: string }[]
-    chartRows?: { artist: string; chart: string; position: number; href: string; image?: string | null; song?: string | null; ytId?: string | null }[]
+    chartRows?: { artist: string; chart: string; position: number; href: string; image?: string | null; song?: string | null; ytId?: string | null; flag?: string }[]
   }
 }
 
@@ -391,11 +391,14 @@ function FeedCard({ it, onDismiss, onWhy, onOpenCharts, onPlay }: { it: FeedItem
         {players.length > 0 && (
           <div className="srl-minis">
             {players.map((p, i) => (
-              <button type="button" className="srl-mini srl-mini-play" key={i} onClick={e => play(e, p)} aria-label="Groti" title={p.title || 'Groti'}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={ytThumbUrl(p.ytId)} alt="" loading="lazy" />
-                <span className="srl-mini-pbtn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
-              </button>
+              <span className="srl-miniwrap" key={i}>
+                <button type="button" className="srl-mini srl-mini-play" onClick={e => play(e, p)} aria-label="Groti" title={p.title || 'Groti'}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={ytThumbUrl(p.ytId)} alt="" loading="lazy" />
+                  <span className="srl-mini-pbtn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
+                  {isAlbum && p.title && <span className="srl-mini-cap">{p.title}</span>}
+                </button>
+              </span>
             ))}
           </div>
         )}
@@ -603,6 +606,11 @@ function SrautasInner() {
           background:rgba(0,0,0,0.6); color:#fff; display:flex; align-items:center; justify-content:center; transition:background .15s; }
         .srl-mini:hover .srl-mini-pbtn { background:var(--accent-orange); }
         .srl-mini-pbtn svg { width:18px; height:18px; margin-left:2px; }
+        .srl-miniwrap { display:flex; position:relative; min-width:0; }
+        /* dainos pavadinimas ant albumo grotuvo (apačioje) */
+        .srl-mini-cap { position:absolute; left:0; right:0; bottom:0; padding:16px 8px 6px; font-size:10.5px; font-weight:600; color:#fff;
+          background:linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0)); text-align:left; line-height:1.2;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
 
         .srl-body { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:4px; padding:14px 50px 14px 16px; }
         .srl-kicker { font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; line-height:1; }
@@ -670,6 +678,7 @@ function SrautasInner() {
           /* mini grotuvai keliasi po kortele (visa eilutė) */
           .srl--hasmini { flex-wrap:wrap; }
           .srl--hasmini .srl-minis, .srl--multi .srl-minis { order:3; flex:0 0 100%; width:100%; margin:0 0 4px; flex-direction:column; align-items:stretch; }
+          .srl-miniwrap { width:100%; }
           .srl-minis .srl-mini, .srl--multi .srl-mini { width:100%; }
           .srl--hasmini .srl-body { padding-right:46px; }
           .srl-artcard-nm { max-width:120px; overflow:hidden; text-overflow:ellipsis; }
@@ -834,9 +843,9 @@ function FloatingPlayer({ item, onClose }: { item: { ytId: string; title: string
 /** Topų modalas — konkrečios dainos su mini grotuvais, grupuota pagal topą (LT→pasaulis→JAV→UK→kt.). */
 function ChartsModal({ it, onClose, onPlay }: { it: FeedItem; onClose: () => void; onPlay: (ytId: string, title: string) => void }) {
   const rows = it.meta?.chartRows || []
-  const byChart = new Map<string, { href: string; entries: { artist: string; song: string | null; position: number; image?: string | null; ytId?: string | null }[] }>()
+  const byChart = new Map<string, { href: string; flag: string; entries: { artist: string; song: string | null; position: number; image?: string | null; ytId?: string | null }[] }>()
   for (const r of rows) {
-    const g = byChart.get(r.chart) || { href: r.href, entries: [] }
+    const g = byChart.get(r.chart) || { href: r.href, flag: r.flag || '', entries: [] }
     g.entries.push({ artist: r.artist, song: r.song ?? null, position: r.position, image: r.image, ytId: r.ytId ?? null })
     byChart.set(r.chart, g)
   }
@@ -850,7 +859,7 @@ function ChartsModal({ it, onClose, onPlay }: { it: FeedItem; onClose: () => voi
         <div className="sr-ch-list">
           {Array.from(byChart.entries()).map(([chart, g]) => (
             <div className="sr-ch-grp" key={chart}>
-              <Link href={g.href} className="sr-ch-name">{chart}</Link>
+              <Link href={g.href} className="sr-ch-name">{g.flag ? `${g.flag} ` : ''}{chart}</Link>
               <div className="sr-ch-rows">
                 {g.entries.sort((a, b) => a.position - b.position).map((e, i) => (
                     <div className="sr-ch-row" key={i}>
