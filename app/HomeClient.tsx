@@ -3669,110 +3669,54 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                   thumb + title + artist. Tylesnė vizualinė akcentuotė nei
                   albumai (jie turi didesnius cover'ius). */}
               <section>
-                {/* SectionHead be CTA — „+N" button'as juostos dešinėje yra
-                    primaryinis būdas atidaryti pilną sąrašą. */}
                 <SectionHead label="Naujos dainos" />
                 {(() => {
-                  const isLT = (x: any) => {
-                    const c = x.artists?.country
-                    return !c || c === 'Lietuva' || c === 'LT' || c === 'Lithuania'
-                  }
+                  const isLT = (x: any) => { const c = x.artists?.country; return !c || c === 'Lietuva' || c === 'LT' || c === 'Lithuania' }
                   const ltT = tracks.filter(t => sanitizeTitle(t.title) && isLT(t))
                   const wT = tracks.filter(t => sanitizeTitle(t.title) && !isLT(t))
-                  return [
-                    { lane: 'lt' as const, items: ltT, total: totals.tracksLt },
-                    { lane: 'world' as const, items: wT, total: totals.tracksWorld },
+                  const boxes = [
+                    { lane: 'lt' as const, label: 'Lietuva', items: ltT },
+                    { lane: 'world' as const, label: 'Pasaulis', items: wT },
                   ]
-                })().map(({ lane, items, total }, laneIdx) => (
-                  <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
-                    {/* Wrapper: scroll container + sticky „+N" button šalia.
-                        2026-05-29: dainos perdarytos į vertikalią kortelę (cover
-                        viršuje + info apačioje) — vienodas stilius su albumais
-                        ir renginiais. */}
-                    {items.length > 0 && (
-                      <div className="mb-1 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setListModal(`tracks-${lane}`)}
-                          aria-label={`Daugiau: naujos dainos (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
-                          className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70"
-                        >
-                          Daugiau →
-                        </button>
-                      </div>
-                    )}
-                    <div className="flex items-stretch gap-3">
-                      <RowDivider icon={lane} />
-                      <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Naujos dainos">
-                        {tracksStatus === 'loading' && tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
-                          <EqSkel key={i} w={200} h={112} r={12} />
-                        )) : tracksStatus === 'error' && tracks.length === 0 ? (
-                          <LoadErrorCard onRetry={() => setLatestReload(n => n + 1)} height={112} />
-                        ) : items.length === 0 ? (
-                          <div className="flex h-[112px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
-                            {lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}
+                  const songCard = (t: any) => {
+                    const v = extractYouTubeId(t.video_url)
+                    const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
+                    const imgSrc = t.cover_url || t.albums_list?.[0]?.cover_image_url || ytThumb || t.artists?.cover_image_url || null
+                    const rd = t.video_uploaded_at || t.release_date
+                    const rel = formatRelativeDateLT(rd)
+                    const dDiff = rd ? Math.floor((Date.now() - new Date(rd).getTime()) / 86400000) : null
+                    const highlight = dDiff !== null && dDiff >= 0 && dDiff <= 14
+                    return (
+                      <button key={t.id} type="button" onClick={() => setOpenTrack(t)} className="group block no-underline text-left p-0 bg-transparent border-0 cursor-pointer">
+                        <div className="relative aspect-video overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_3px_10px_rgba(0,0,0,0.18)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
+                          {imgSrc ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                          ) : (<div className="flex h-full w-full items-center justify-center text-xl text-[var(--text-faint)]">🎵</div>)}
+                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.5)]"><svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg></span></div>
+                          {rel && (<span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel}</span>)}
+                        </div>
+                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+                        <p className="m-0 truncate text-[11px] text-[var(--text-muted)]">{t.artists?.name}</p>
+                      </button>
+                    )
+                  }
+                  return (
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      {boxes.map(box => (
+                        <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
+                          <div className="mb-3 flex items-center justify-between">
+                            <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]"><span className={`h-2 w-2 rounded-full ${box.lane === 'lt' ? 'bg-[var(--accent-orange)]' : 'bg-[var(--accent-blue)]'}`} />{box.label}</span>
+                            <button type="button" onClick={() => setListModal(`tracks-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[11.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
-                        ) : items.slice(0, 14).map(t => {
-                          const v = extractYouTubeId((t as any).video_url)
-                          const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
-                          const imgSrc = t.cover_url || (t as any).albums_list?.[0]?.cover_image_url || ytThumb || t.artists?.cover_image_url || null
-                          const rd = (t as any).video_uploaded_at || (t as any).release_date
-                          const rel = formatRelativeDateLT(rd)
-                          const dDiff = rd ? Math.floor((Date.now() - new Date(rd).getTime()) / 86400000) : null
-                          const highlight = dDiff !== null && dDiff >= 0 && dDiff <= 14
-                          return (
-                            <button
-                              key={t.id}
-                              type="button"
-                              onClick={() => setOpenTrack(t)}
-                              className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
-                              style={{ width: 200 }}
-                            >
-                              {/* 16:9 (YouTube-style) — dainos vizualiai skiriasi nuo
-                                  kvadratinių albumų cover'ių. */}
-                              <div className="relative aspect-video overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
-                                {imgSrc ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={proxyImg(imgSrc)}
-                                    alt={sanitizeTitle(t.title)}
-                                    loading="lazy"
-                                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                                    style={{ filter: 'saturate(1.05) contrast(1.02)' }}
-                                  />
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
-                                )}
-                                {/* Play overlay (hover) — atskiria dainą nuo albumo. */}
-                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.5)]">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
-                                  </span>
-                                </div>
-                                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                                {rel && (
-                                  <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${
-                                    highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
-                                  }`}>
-                                    {rel}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="mt-2 px-0.5">
-                                <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
-                                  {sanitizeTitle(t.title)}
-                                </p>
-                                <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">
-                                  {t.artists?.name}
-                                </p>
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </Scroller>
+                          <div className="grid grid-cols-2 gap-3">
+                            {tracksStatus === 'loading' && tracks.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-video rounded-lg" />)) : box.items.length === 0 ? (<div className="col-span-2 py-6 text-center text-[12px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}</div>) : box.items.slice(0, 6).map(songCard)}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
+                  )
+                })()}
               </section>
 
               {/* Nauji albumai — vertikali kortelė su kvadratiniu cover'iu
@@ -3781,115 +3725,52 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
               <section>
                 <SectionHead label="Nauji albumai" />
                 {(() => {
-                  const isLT = (x: any) => {
-                    const c = x.artists?.country
-                    return !c || c === 'Lietuva' || c === 'LT' || c === 'Lithuania'
-                  }
-                  return [
-                    { lane: 'lt' as const, items: albums.filter(isLT), total: totals.albumsLt },
-                    { lane: 'world' as const, items: albums.filter(a => !isLT(a)), total: totals.albumsWorld },
+                  const isLT = (x: any) => { const c = x.artists?.country; return !c || c === 'Lietuva' || c === 'LT' || c === 'Lithuania' }
+                  const boxes = [
+                    { lane: 'lt' as const, label: 'Lietuva', items: albums.filter(isLT) },
+                    { lane: 'world' as const, label: 'Pasaulis', items: albums.filter(a => !isLT(a)) },
                   ]
-                })().map(({ lane, items, total }, laneIdx) => (
-                  <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
-                    {items.length > 0 && (
-                      <div className="mb-1 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setListModal(`albums-${lane}`)}
-                          aria-label={`Daugiau: nauji albumai (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
-                          className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70"
-                        >
-                          Daugiau →
-                        </button>
-                      </div>
-                    )}
-                    <div className="flex items-stretch gap-3">
-                      <RowDivider icon={lane} />
-                      <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Nauji albumai">
-                        {tracksStatus === 'loading' && albums.length === 0 ? Array(8).fill(null).map((_, i) => (
-                          <EqSkel key={i} w={156} h={156} r={12} />
-                        )) : tracksStatus === 'error' && albums.length === 0 ? (
-                          <LoadErrorCard onRetry={() => setLatestReload(n => n + 1)} height={156} />
-                        ) : items.length === 0 ? (
-                        <div className="flex h-[156px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
-                          {lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}
+                  const albCard = (a: any) => {
+                    const rd = a.release_date as string | null
+                    const releaseD = rd ? new Date(rd) : null
+                    const validRD = releaseD && !isNaN(releaseD.getTime())
+                    const diff = validRD ? Math.ceil((releaseD!.getTime() - Date.now()) / 86400000) : null
+                    const isUpcoming = a.is_upcoming === true || (diff !== null && diff > 0)
+                    const hasContent = !!a.cover_image_url
+                    let label: string | null = null; let highlight = false
+                    if (isUpcoming) { const f = formatFutureDateLT(rd); if (f.label) { label = f.label; highlight = f.highlight } else if (hasContent) { label = 'Greitai'; highlight = true } }
+                    else if (validRD) { const rel = formatRelativeDateLT(rd); label = rel || String(a.year || ''); if (diff !== null && diff <= -2 && diff >= -30) highlight = true }
+                    else if (a.year) { label = String(a.year) }
+                    return (
+                      <button key={a.id} type="button" onClick={() => { setOpenAlbumId(a.id); setOpenAlbumPreview({ title: sanitizeTitle(a.title), cover_image_url: a.cover_image_url || a.artists?.cover_image_url || null, year: a.year || null }) }} className="group block no-underline text-left p-0 bg-transparent border-0 cursor-pointer">
+                        <div className="relative aspect-square overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_3px_10px_rgba(0,0,0,0.18)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
+                          {a.cover_image_url || a.artists?.cover_image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')} alt={sanitizeTitle(a.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                          ) : (<div className="flex h-full w-full items-center justify-center text-xl text-[var(--text-faint)]">💿</div>)}
+                          {label && (<span className={`absolute bottom-1 right-1 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{label}</span>)}
                         </div>
-                      ) : items.slice(0, 14).map(a => {
-                        // Album card → atidaro AlbumInfoModal (vietoj /albumai
-                        // navigacijos). Modal'as turi visą funkcionalumą:
-                        // tracklist, lyrics, prev/next ir t.t.
-                        return (
-                          <button
-                            key={a.id}
-                            type="button"
-                            onClick={() => { setOpenAlbumId(a.id); setOpenAlbumPreview({ title: sanitizeTitle(a.title), cover_image_url: a.cover_image_url || a.artists?.cover_image_url || null, year: a.year || null }) }}
-                            className="group block shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer"
-                            style={{ width: 156 }}
-                          >
-                            <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
-                              {a.cover_image_url || a.artists?.cover_image_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')}
-                                  alt={sanitizeTitle(a.title)}
-                                  loading="lazy"
-                                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                                  style={{ filter: 'saturate(1.05) contrast(1.02)' }}
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>
-                              )}
-                              {/* Hover orange tint nuo apačios */}
-                              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                              {(() => {
-                                // Nauji albumai sekcijoje rodom „Prieš X d."
-                                // (jei <30 d.) arba „Mėn. D, YYYY" senesnėms
-                                // datoms. Upcoming albumai vis tiek matomi su
-                                // „Po X d./Greitai" — bet jie dažniausiai į
-                                // Greitai pasirodys sekciją iškeliami.
-                                const rd = (a as any).release_date as string | null
-                                const releaseD = rd ? new Date(rd) : null
-                                const validRD = releaseD && !isNaN(releaseD.getTime())
-                                const diff = validRD ? Math.ceil((releaseD!.getTime() - Date.now()) / 86400000) : null
-                                const isUpcoming = (a as any).is_upcoming === true || (diff !== null && diff > 0)
-                                const hasContent = !!(a.cover_image_url)
-                                let label: string | null = null
-                                let highlight = false
-                                if (isUpcoming) {
-                                  const f = formatFutureDateLT(rd)
-                                  if (f.label) { label = f.label; highlight = f.highlight }
-                                  else if (hasContent) { label = 'Greitai'; highlight = true }
-                                } else if (validRD) {
-                                  const rel = formatRelativeDateLT(rd)
-                                  label = rel || String(a.year || '')
-                                  if (diff !== null && diff <= -2 && diff >= -30) highlight = true
-                                } else if (a.year) {
-                                  label = String(a.year)
-                                }
-                                return label ? (
-                                  <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${
-                                    highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
-                                  }`}>
-                                    {label}
-                                  </span>
-                                ) : null
-                              })()}
-                            </div>
-                            <div className="mt-2 px-0.5">
-                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
-                                {sanitizeTitle(a.title)}
-                              </p>
-                              <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">
-                                {a.artists?.name}
-                              </p>
-                            </div>
-                          </button>
-                        )
-                      })}
-                      </Scroller>
+                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(a.title)}</p>
+                        <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{a.artists?.name}</p>
+                      </button>
+                    )
+                  }
+                  return (
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      {boxes.map(box => (
+                        <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
+                          <div className="mb-3 flex items-center justify-between">
+                            <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]"><span className={`h-2 w-2 rounded-full ${box.lane === 'lt' ? 'bg-[var(--accent-orange)]' : 'bg-[var(--accent-blue)]'}`} />{box.label}</span>
+                            <button type="button" onClick={() => setListModal(`albums-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[11.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-3">
+                            {tracksStatus === 'loading' && albums.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-square rounded-lg" />)) : box.items.length === 0 ? (<div className="col-span-3 py-6 text-center text-[12px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}</div>) : box.items.slice(0, 6).map(albCard)}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
+                  )
+                })()}
               </section>
 
               {/* ── Greitai pasirodys — albumai dar neišleisti (bendras
