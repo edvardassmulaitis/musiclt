@@ -59,6 +59,8 @@ type NavPreview = {
   chartLtAlbums?:   { href: string; title: string; artist: string; image: string | null }[]
   chartWorldSongs?: { href: string; title: string; artist: string; image: string | null }[]
   chartWorldAlbums?:{ href: string; title: string; artist: string; image: string | null }[]
+  chartsLt?:    { id: number; source: string; chartKey: string; title: string; subtitle: string | null; scope: string; country: string | null; accent: string; image: string | null; period: string; size: number }[]
+  chartsWorld?: { id: number; source: string; chartKey: string; title: string; subtitle: string | null; scope: string; country: string | null; accent: string; image: string | null; period: string; size: number }[]
   tracks:       { id: number; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   events:       { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
   eventsLt?:    { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
@@ -540,13 +542,14 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
 
   const top30      = data?.topChart?.top30 || []
   const top40      = data?.topChart?.top40 || []
-  const featured   = data?.featuredCharts || []
   const votings    = data?.votings || []
   const memberTops = data?.memberTops || []
   const ltSongs     = data?.chartLtSongs     || []
   const ltAlbums    = data?.chartLtAlbums    || []
   const worldSongs  = data?.chartWorldSongs  || []
   const worldAlbums = data?.chartWorldAlbums || []
+  const ltCharts    = data?.chartsLt    || []
+  const worldCharts = data?.chartsWorld || []
 
   const anchor = (s: string) => s === 'world' ? '/topai#pasaulio-topai' : s === 'social' ? '/topai#trendai' : '/topai#lt-topai'
   const scopeGlyph = (s: string) => (s === 'social' ? I.trending : I.trophy)
@@ -627,15 +630,8 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
       </Link>
     )
   }
-  const isLtChart = (c: NonNullable<NavPreview['featuredCharts']>[number]) => {
-    const cc = (c.country || '').toLowerCase()
-    return cc === 'lt' || cc === 'lietuva' || (c.scope || '').toLowerCase() === 'lt'
-  }
-  const ltCharts    = featured.filter(isLtChart)
-  const worldCharts = featured.filter(c => !isLtChart(c))
-
   // Regiono vitrina — chart dainos + albumai juostos + „Kiti topai" chip'ai.
-  const regionView = (songs: SongItem[], albums: SongItem[], kind: 'lt' | 'world', charts: typeof featured, more: string) => (
+  const regionView = (songs: SongItem[], albums: SongItem[], kind: 'lt' | 'world', charts: typeof ltCharts, more: string) => (
     <>
       {itemStrip(songs, kind, 'Dainos', more, I.music, 'Daina')}
       <div style={{ height: 14 }} />

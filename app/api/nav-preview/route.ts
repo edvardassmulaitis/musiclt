@@ -289,7 +289,7 @@ export async function GET() {
       if (!ch) return []
       const { data: ents } = await supabase
         .from('external_chart_entries')
-        .select('position, title, artist_name, cover_url, track_id, album_id, tracks:track_id ( slug, video_url, artists:artist_id ( slug ) ), albums:album_id ( slug, artists:artist_id ( slug ) )')
+        .select('position, title, artist_name, cover_url, track_id, album_id, tracks:track_id ( slug, cover_url, video_url, artists:artist_id ( slug ) ), albums:album_id ( slug, cover_image_url, artists:artist_id ( slug ) )')
         .eq('chart_id', ch.id)
         .order('position', { ascending: true })
         .limit(limit)
@@ -304,7 +304,7 @@ export async function GET() {
           const ar = Array.isArray(al.artists) ? al.artists[0] : al.artists
           href = `/albumai/${ar?.slug ? `${ar.slug}-` : ''}${al.slug ? `${al.slug}-` : ''}${e.album_id}`
         }
-        return { href, title: e.title || '', artist: e.artist_name || '', image: e.cover_url || ytThumb(tr?.video_url) || null }
+        return { href, title: e.title || '', artist: e.artist_name || '', image: e.cover_url || tr?.cover_url || al?.cover_image_url || ytThumb(tr?.video_url) || null }
       })
     }
     const [chartLtSongs, chartLtAlbums, chartWorldSongs, chartWorldAlbums] = await Promise.all([
@@ -313,6 +313,20 @@ export async function GET() {
       chartItems('consensus', 'world', 'song', 10),
       chartItems('consensus', 'albums', 'album', 10),
     ])
+
+    // ── Visi einamieji chartai — Topai „Kiti topai" chip'ams (LT: MAMA, AGATA,
+    // Spotify LT...; pasaulis: Billboard, UK...). Be 4 pagrindinių (jau juostose). ──
+    const { data: allChartsRows } = await supabase
+      .from('external_charts')
+      .select('id, source, chart_key, title, scope, country, size')
+      .eq('is_current', true)
+      .order('size', { ascending: false })
+    const mapNavChart = (c: any) => ({ id: c.id, source: c.source, chartKey: c.chart_key, title: c.title, subtitle: null, scope: c.scope, country: c.country ?? null, accent: '#6366f1', image: null as string | null, period: '', size: c.size })
+    const MAIN_LT = new Set(['consensus-lt', 'agata-albums'])
+    const MAIN_WORLD = new Set(['consensus-world', 'consensus-albums'])
+    const isLtChartRow = (c: any) => { const cc = String(c.country || '').toLowerCase(); return cc === 'lt' || cc === 'lietuva' || String(c.scope || '').toLowerCase() === 'lt' }
+    const chartsLt    = ((allChartsRows || []) as any[]).filter(c => isLtChartRow(c) && !MAIN_LT.has(`${c.source}-${c.chart_key}`)).map(mapNavChart)
+    const chartsWorld = ((allChartsRows || []) as any[]).filter(c => !isLtChartRow(c) && !MAIN_WORLD.has(`${c.source}-${c.chart_key}`)).map(mapNavChart)
 
     // ── Narių topai (blog_posts post_type=topas) — Topai „Narių topai" skilčiai ──
     const { data: memberTopRows } = await supabase
@@ -420,6 +434,8 @@ export async function GET() {
       chartLtAlbums,
       chartWorldSongs,
       chartWorldAlbums,
+      chartsLt,
+      chartsWorld,
       tracks: (tracksRes.data || []).map((t: any) => ({
         id: t.id,
         title: t.title,
