@@ -28,8 +28,13 @@ export default function AdminEventEditPage() {
   const [priceFrom, setPriceFrom] = useState('')
   const [priceTo, setPriceTo] = useState('')
   const [isFeatured, setIsFeatured] = useState(false)
-  const [homeHero, setHomeHero] = useState(false)
   const [isFestival, setIsFestival] = useState(false)
+  // „Verta kelionės" (užsienio koncertas) — unified events su is_abroad žyma.
+  const [isAbroad, setIsAbroad] = useState(false)
+  const [destKey, setDestKey] = useState('')
+  const [why, setWhy] = useState('')
+  const [popularity, setPopularity] = useState('')
+  const [destOptions, setDestOptions] = useState<Array<{ key: string; city: string; country: string | null; reach_mode: string }>>([])
   const [artists, setArtists] = useState<ArtistRow[]>([])
   const [artistSearch, setArtistSearch] = useState('')
   const [artistResults, setArtistResults] = useState<any[]>([])
@@ -52,6 +57,11 @@ export default function AdminEventEditPage() {
       .then(r => r.ok ? r.json() : { cities: [] })
       .then(d => setCityOptions(d.cities || []))
       .catch(() => setCityOptions([]))
+    // Kelionės kryptys (travel_destinations) — „Verta kelionės" dropdown'ui.
+    fetch('/api/admin/verta-keliones')
+      .then(r => r.ok ? r.json() : { destinations: [] })
+      .then(d => setDestOptions(d.destinations || []))
+      .catch(() => setDestOptions([]))
   }, [])
 
   const filteredVenues = (venueName.trim().length === 0
@@ -81,8 +91,11 @@ export default function AdminEventEditPage() {
         setPriceFrom(ev.price_from?.toString() || '')
         setPriceTo(ev.price_to?.toString() || '')
         setIsFeatured(ev.is_featured || false)
-        setHomeHero(ev.home_hero || false)
         setIsFestival(ev.is_festival || false)
+        setIsAbroad(ev.is_abroad || false)
+        setDestKey(ev.dest_key || '')
+        setWhy(ev.why || '')
+        setPopularity(ev.popularity != null ? String(ev.popularity) : '')
         if (ev.event_artists) {
           setArtists(ev.event_artists.map((ea: any) => {
             const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists
@@ -114,9 +127,10 @@ export default function AdminEventEditPage() {
   async function handleSave() {
     if (!title.trim()) { setError('Įvesk pavadinimą'); return }
     if (!startDate) { setError('Pasirink datą'); return }
-    // Vieta privaloma — nebepakanka tik miesto. Reikia susieti su venues įrašu
-    // (išrinkti iš sąrašo arba sukurti naują).
-    if (!venueId) { setError('Pasirink renginio vietą iš sąrašo arba sukurk naują (miesto neužtenka)'); return }
+    // Vieta privaloma įprastiems renginiams (susieti su venues įrašu). Užsienio
+    // koncertams („Verta kelionės") venues lentelės nėra — vieta laisvu tekstu.
+    if (!isAbroad && !venueId) { setError('Pasirink renginio vietą iš sąrašo arba sukurk naują (miesto neužtenka)'); return }
+    if (isAbroad && !destKey) { setError('Pasirink kelionės kryptį'); return }
     setSaving(true); setError('')
 
     const body: any = {
@@ -133,8 +147,11 @@ export default function AdminEventEditPage() {
       price_from: priceFrom ? parseFloat(priceFrom) : null,
       price_to: priceTo ? parseFloat(priceTo) : null,
       is_featured: isFeatured,
-      home_hero: homeHero,
       is_festival: isFestival,
+      is_abroad: isAbroad,
+      dest_key: isAbroad ? (destKey || null) : null,
+      why: isAbroad ? (why || null) : null,
+      popularity: isAbroad && popularity ? parseInt(popularity) : null,
       artists: artists.map(a => ({ artist_id: a.artist_id, is_headliner: a.is_headliner })),
     }
 
@@ -397,14 +414,46 @@ export default function AdminEventEditPage() {
             <span className="text-sm font-medium text-[var(--text-primary)]">Featured renginys</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={homeHero} onChange={e => setHomeHero(e.target.checked)} className="accent-orange-600 w-4 h-4" />
-            <span className="text-sm font-medium text-[var(--text-primary)]">🏠 Į pradžios hero</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={isFestival} onChange={e => setIsFestival(e.target.checked)} className="accent-cyan-600 w-4 h-4" />
             <span className="text-sm font-medium text-[var(--text-primary)]">🎪 Festivalis</span>
           </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={isAbroad} onChange={e => setIsAbroad(e.target.checked)} className="accent-orange-600 w-4 h-4" />
+            <span className="text-sm font-medium text-[var(--text-primary)]">🌍 Verta kelionės (užsienis)</span>
+          </label>
         </div>
+
+        {/* Verta kelionės — kelionės laukai (rodomi tik pažymėjus) */}
+        {isAbroad && (
+          <div className="rounded-xl border border-orange-200 bg-orange-50/40 p-4 space-y-4">
+            <div className="text-xs font-bold text-orange-700 uppercase tracking-wide">🌍 Kelionės informacija</div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Kryptis *</label>
+                <select value={destKey} onChange={e => setDestKey(e.target.value)} className={inputCls}>
+                  <option value="">— pasirink kryptį —</option>
+                  {destOptions.map(d => (
+                    <option key={d.key} value={d.key}>
+                      {d.city}{d.country ? `, ${d.country}` : ''} ({d.reach_mode === 'car' ? '🚗 mašina' : '✈ skrydis'})
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[10px] text-[var(--text-muted)]">Kryptys valdomos /admin/verta-keliones</p>
+              </div>
+              <div>
+                <label className={labelCls}>Populiarumas (0–100)</label>
+                <input type="number" value={popularity} onChange={e => setPopularity(e.target.value)} className={inputCls} placeholder="80" />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Kodėl verta keliauti</label>
+              <textarea value={why} onChange={e => setWhy(e.target.value)} rows={2}
+                className="w-full rounded-lg px-3 py-2 text-sm border border-gray-200 bg-white focus:outline-none focus:border-orange-300 text-gray-700 resize-y"
+                placeholder="Pvz. vienintelis turo koncertas regione, pigus skrydis iš VNO..." />
+            </div>
+            <p className="text-[11px] text-orange-700/80">Vieta nebūtina — užsienio koncertams pildoma laisvu tekstu (venues lentelės nereikia). Festivaliui pridėk grojančius atlikėjus žemiau.</p>
+          </div>
+        )}
 
         {/* Artists */}
         <div>
