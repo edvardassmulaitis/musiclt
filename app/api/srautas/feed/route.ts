@@ -79,6 +79,19 @@ function chartRegionRank(sourceKey: string): number {
   return 4
 }
 
+// Vėliavėlė topui pagal regioną / šalies kodą slug'e.
+function chartFlag(sourceKey: string): string {
+  const r = chartRegionRank(sourceKey)
+  if (r === 0) return '🇱🇹'
+  if (r === 1) return '🌍'
+  if (r === 2) return '🇺🇸'
+  if (r === 3) return '🇬🇧'
+  const tokens = (sourceKey || '').toLowerCase().split(/[-_]/)
+  const known = ['de', 'fr', 'br', 'es', 'mx', 'it', 'nl', 'pl', 'se', 'no', 'fi', 'dk', 'ca', 'au', 'jp', 'ie', 'ru', 'ua']
+  for (const t of [...tokens].reverse()) if (known.includes(t)) return flagEmoji(t)
+  return '🌐'
+}
+
 type Kind = 'news' | 'blog' | 'track' | 'album' | 'event' | 'topic' | 'chart' | 'recording'
 type FeedItem = {
   key: string
@@ -372,36 +385,40 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       if (!charts.length) return []
       const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
       const { data: entries } = await sb.from('external_chart_entries')
-        .select('artist_id, chart_id, position, title, cover_url, track_id, artist_name').in('artist_id', artistIds).in('chart_id', charts.map(c => Number(c.id)))
+        .select('artist_id, chart_id, position, title, cover_url, track_id, album_id, artist_name').in('artist_id', artistIds).in('chart_id', charts.map(c => Number(c.id)))
         .order('position', { ascending: true }).limit(120)
       const eRows = (entries || []) as any[]
       const aids = Array.from(new Set(eRows.map(e => Number(e.artist_id)).filter(Boolean)))
       if (!aids.length) return []
-      // Atlikėjai (pills) + konkrečios dainos (track_id → pavadinimas, klipas, viršelis).
+      // Atlikėjai (pills) + KATALOGO dainos/albumai (track_id / album_id → pavadinimas, viršelis, klipas).
       const trackIds = Array.from(new Set(eRows.map(e => Number(e.track_id)).filter(Boolean)))
-      const [artsRes, tracksRes] = await Promise.all([
+      const albumIds = Array.from(new Set(eRows.map(e => Number(e.album_id)).filter(Boolean)))
+      const [artsRes, tracksRes, albumsRes] = await Promise.all([
         sb.from('artists').select('id, name, cover_image_url, slug').in('id', aids),
-        // Konkrečios dainos (kaip SUSIETA kataloge): pavadinimas, klipas, viršelis, atlikėjas.
         trackIds.length ? sb.from('tracks').select('id, title, video_url, cover_url, artists:artist_id(name)').in('id', trackIds) : Promise.resolve({ data: [] as any[] }),
+        albumIds.length ? sb.from('albums').select('id, title, cover_image_url, artists:artist_id(name)').in('id', albumIds) : Promise.resolve({ data: [] as any[] }),
       ])
       const artById = new Map<number, { name: string; image: string | null; slug: string | null }>(
         ((artsRes.data || []) as any[]).map(a => [Number(a.id), { name: a.name as string, image: a.cover_image_url || null, slug: a.slug || null }]))
       const trackById = new Map<number, { title: string; yt: string | null; cover: string | null; artist: string | null }>(
         ((tracksRes.data || []) as any[]).map(t => [Number(t.id), { title: t.title || '', yt: t.video_url?.match?.(YT_RE)?.[1] || null, cover: t.cover_url || null, artist: one(t.artists)?.name || null }]))
+      const albumById = new Map<number, { title: string; cover: string | null; artist: string | null }>(
+        ((albumsRes.data || []) as any[]).map(al => [Number(al.id), { title: al.title || '', cover: al.cover_image_url || null, artist: one(al.artists)?.name || null }]))
       const seen = new Set<string>()
-      // chartRows — DAINOS lygmuo (katalogo pavadinimas + atlikėjas + viršelis + klipas); pills — atlikėjai.
-      const rows: { artist: string; song: string | null; ytId: string | null; chart: string; position: number; href: string; image: string | null; region: number }[] = []
+      // chartRows — KATALOGO pavadinimas (daina arba albumas) + atlikėjas + viršelis + klipas; pills — atlikėjai.
+      const rows: { artist: string; song: string | null; ytId: string | null; chart: string; flag: string; position: number; href: string; image: string | null; region: number }[] = []
       const thumbs: { name: string; image: string | null; href: string }[] = []
       const seenArt = new Set<number>()
       for (const e of eRows) {
         const c = chartById.get(Number(e.chart_id)); if (!c) continue
         const a = artById.get(Number(e.artist_id)); if (!a) continue
         const tr = e.track_id ? trackById.get(Number(e.track_id)) : null
-        const song = tr?.title || e.title || null            // katalogo pavadinimas, jei susieta
-        const artistName = tr?.artist || a.name || e.artist_name
+        const al = e.album_id ? albumById.get(Number(e.album_id)) : null
+        const song = tr?.title || al?.title || e.title || null            // katalogo pavadinimas, jei susieta
+        const artistName = tr?.artist || al?.artist || a.name || e.artist_name
         const sourceKey = `${c.source}-${c.chart_key}`
         const k = `${e.artist_id}-${e.chart_id}-${song || ''}`; if (seen.has(k)) continue; seen.add(k)
-        rows.push({ artist: artistName, song, ytId: tr?.yt || null, chart: c.title || 'Topas', position: Number(e.position) || 0, href: `/topai/${sourceKey}`, image: tr?.cover || e.cover_url || a.image, region: chartRegionRank(sourceKey) })
+        rows.push({ artist: artistName, song, ytId: tr?.yt || null, chart: c.title || 'Topas', flag: chartFlag(sourceKey), position: Number(e.position) || 0, href: `/topai/${sourceKey}`, image: tr?.cover || al?.cover || e.cover_url || a.image, region: chartRegionRank(sourceKey) })
         const aid = Number(e.artist_id)
         if (!seenArt.has(aid)) { seenArt.add(aid); thumbs.push({ name: a.name, image: a.image, href: a.slug ? `/atlikejai/${a.slug}` : '/topai' }) }
       }
@@ -439,25 +456,32 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
           for (const a of (arts || []) as any[]) artCover.set(Number(a.id), { name: a.name, cover: a.cover_image_url || null })
         } catch { /* ignore */ }
       }
-      // Naujausias komentaras + kas parašė (kaip /bendruomene).
+      // Naujausias komentaras + kas parašė. DVI užklausos (be embed — patikimiau):
+      // 1) komentarai pagal discussion_id, 2) autorių profiliai atskirai (comments.author_id).
       const lastComment = new Map<number, { body: string; by: string | null; avatar: string | null }>()
       const ids = rows.map(d => d.id)
       if (ids.length) {
         try {
           const { data: cmts } = await sb.from('comments')
-            .select('discussion_id, body, created_at, profiles:author_id(full_name, username, avatar_url)')
+            .select('discussion_id, body, created_at, author_id')
             .in('discussion_id', ids).eq('is_deleted', false).not('body', 'is', null)
-            .order('created_at', { ascending: false }).limit(60)
+            .order('created_at', { ascending: false }).limit(120)
+          const picked = new Map<number, { body: string; author_id: string | null }>()
           for (const c of (cmts || []) as any[]) {
-            if (lastComment.has(c.discussion_id)) continue
+            if (picked.has(c.discussion_id)) continue
             const t = (c.body || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
             if (!t) continue
-            const pr = one(c.profiles)
-            lastComment.set(c.discussion_id, {
-              body: t.length > 400 ? t.slice(0, 400).trimEnd() + '…' : t,
-              by: pr?.full_name || pr?.username || null,
-              avatar: pr?.avatar_url || null,
-            })
+            picked.set(c.discussion_id, { body: t.length > 400 ? t.slice(0, 400).trimEnd() + '…' : t, author_id: c.author_id ? String(c.author_id) : null })
+          }
+          const authorIds = Array.from(new Set(Array.from(picked.values()).map(p => p.author_id).filter(Boolean))) as string[]
+          const profById = new Map<string, { name: string | null; avatar: string | null }>()
+          if (authorIds.length) {
+            const { data: profs } = await sb.from('profiles').select('id, full_name, username, avatar_url').in('id', authorIds)
+            for (const p of (profs || []) as any[]) profById.set(String(p.id), { name: p.full_name || p.username || null, avatar: p.avatar_url || null })
+          }
+          for (const [did, v] of picked) {
+            const pr = v.author_id ? profById.get(v.author_id) : null
+            lastComment.set(did, { body: v.body, by: pr?.name || null, avatar: pr?.avatar || null })
           }
         } catch { /* ignore */ }
       }
@@ -668,7 +692,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v24'],
+  ['srautas-feed-v25'],
   { revalidate: 90 },
 )
 
