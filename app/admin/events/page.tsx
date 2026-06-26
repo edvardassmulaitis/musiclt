@@ -7,6 +7,7 @@ import Link from 'next/link'
 
 type Event = {
   id: string; title: string; slug: string; start_date: string; city: string | null; status: string; is_featured: boolean
+  is_abroad?: boolean; is_festival?: boolean
 }
 
 export default function AdminEventsPage() {
@@ -17,6 +18,7 @@ export default function AdminEventsPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all') // all | local | abroad | festival
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
@@ -51,12 +53,16 @@ export default function AdminEventsPage() {
 
   const filtered = events.filter(e => {
     if (filter !== 'all' && e.status !== filter) return false
+    if (typeFilter === 'abroad' && !e.is_abroad) return false
+    if (typeFilter === 'local' && e.is_abroad) return false
+    if (typeFilter === 'festival' && !e.is_festival) return false
     if (search && !e.title.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
 
   const SC: Record<string, string> = { upcoming: 'text-emerald-600 bg-emerald-50', ongoing: 'text-blue-600 bg-blue-50', past: 'text-gray-500 bg-gray-100', cancelled: 'text-red-600 bg-red-50' }
   const SL: Record<string, string> = { all: 'Visi', upcoming: 'Artėjantys', ongoing: 'Vyksta', past: 'Praėję', cancelled: 'Atšaukti' }
+  const TL: Record<string, string> = { all: 'Visur', local: 'Lietuvoje', abroad: '🌍 Užsienio', festival: '🎪 Festivaliai' }
 
   return (
     <div className="min-h-screen bg-[var(--bg-elevated)]">
@@ -89,6 +95,14 @@ export default function AdminEventsPage() {
               </button>
             ))}
           </div>
+          <div className="flex gap-1 sm:border-l sm:border-[var(--border-subtle)] sm:pl-2">
+            {Object.keys(TL).map(f => (
+              <button key={f} onClick={() => setTypeFilter(f)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${typeFilter === f ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                {TL[f]}
+              </button>
+            ))}
+          </div>
         </div>
 
         {loading ? (
@@ -107,7 +121,11 @@ export default function AdminEventsPage() {
                   <p className="text-[10px] text-[var(--text-muted)]">{new Date(ev.start_date).getFullYear()}</p>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <Link href={`/admin/events/${ev.id}`} className="text-sm font-semibold text-[var(--text-primary)] hover:text-blue-600 transition truncate block">{ev.title}</Link>
+                  <Link href={`/admin/events/${ev.id}`} className="text-sm font-semibold text-[var(--text-primary)] hover:text-blue-600 transition truncate block">
+                    {ev.is_abroad && <span title="Verta kelionės (užsienis)" className="mr-1">🌍</span>}
+                    {ev.is_festival && <span title="Festivalis" className="mr-1">🎪</span>}
+                    {ev.title}
+                  </Link>
                   <p className="text-xs text-[var(--text-muted)]">{ev.city || '—'}</p>
                 </div>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${SC[ev.status] || 'text-gray-500 bg-gray-100'}`}>{ev.status}</span>
