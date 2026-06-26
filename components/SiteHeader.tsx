@@ -55,9 +55,9 @@ type NavPreview = {
   songsLt?:     { id: number; slug: string | null; title: string; image: string | null; artist: string; artistSlug: string }[]
   songsWorld?:  { id: number; slug: string | null; title: string; image: string | null; artist: string; artistSlug: string }[]
   memberTops?:  { id: number; title: string; image: string | null; author: string; href: string }[]
-  eventsHome?:   { href: string; title: string; image: string | null; meta: string }[]
-  eventsAbroad?: { href: string; title: string; image: string | null; meta: string }[]
-  festivals?:    { href: string; title: string; image: string | null; meta: string }[]
+  eventsHome?:   { href: string; title: string; image: string | null; meta: string; collage?: string[] }[]
+  eventsAbroad?: { href: string; title: string; image: string | null; meta: string; collage?: string[] }[]
+  festivals?:    { href: string; title: string; image: string | null; meta: string; collage?: string[] }[]
   recordings?:   { href: string; title: string; image: string | null; meta: string }[]
   reportages?:   { href: string; title: string; image: string | null; meta: string }[]
   chartLtSongs?:    { href: string; title: string; artist: string; image: string | null }[]
@@ -765,7 +765,7 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
     { k: 'uzsienyje',   icon: I.plane,    label: 'Užsienyje',       href: '/verta-keliones' },
     { k: 'festivaliai', icon: I.festival, label: 'Festivaliai',     href: '/festivaliai' },
     { k: 'irasai',      icon: I.video,    label: 'Koncertų įrašai', href: '/koncertu-irasai' },
-    { k: 'foto',        icon: I.gallery,  label: 'Foto reportažai', href: '/galerija' },
+    { k: 'foto',        icon: I.gallery,  label: 'Nuotraukos',      href: '/galerija' },
   ]
 
   const head = (label: string, href: string) => (
@@ -775,12 +775,14 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
     </div>
   )
 
-  type EvItem = { href: string; title: string; image: string | null; meta: string }
-  const itemGrid = (items: EvItem[], more: string, glyph: React.ReactNode, emptyLabel: string) => (
+  type EvItem = { href: string; title: string; image: string | null; meta: string; collage?: string[] }
+  const itemGrid = (items: EvItem[], more: string, glyph: React.ReactNode, emptyLabel: string, contain = false) => (
     <div className="sh-vgrid sh-vgrid-5">
       {(items.length > 0 ? items : Array(10).fill(null)).slice(0, 10).map((it: EvItem | null, i: number) => (
         <Link key={it?.href || `e-${i}`} href={it?.href || more} className="sh-vcard" title={it?.title || ''}>
-          <ImageBox src={it?.image} accent={accent} glyph={glyph} className="sh-vimg" />
+          {it?.collage && it.collage.length >= 2
+            ? <span className="sh-vimg sh-collage" aria-hidden>{it.collage.slice(0, 4).map((c, j) => (<span key={j} style={{ backgroundImage: `url(${proxyImg(c)})` }} />))}</span>
+            : <ImageBox src={it?.image} accent={accent} glyph={glyph} className={`sh-vimg${contain ? ' sh-vimg--contain' : ''}`} />}
           <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 600, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it?.title || <span style={{ opacity: 0.45 }}>{emptyLabel}</span>}</span>
           {it?.meta ? <span className="sh-vmeta">{it.meta}</span> : null}
         </Link>
@@ -807,11 +809,11 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
       </div>
 
       <div className="sh-railbody">
-        {sec === 'lietuva'     && (<div>{head('Artimiausi Lietuvoje', '/koncertai')}{itemGrid(eventsHome, '/koncertai', I.calendar, 'Koncertas')}</div>)}
-        {sec === 'uzsienyje'   && (<div>{head('Koncertai užsienyje', '/verta-keliones')}{itemGrid(eventsAbroad, '/verta-keliones', I.plane, 'Koncertas')}</div>)}
-        {sec === 'festivaliai' && (<div>{head('Festivaliai', '/festivaliai')}{itemGrid(festivals, '/festivaliai', I.festival, 'Festivalis')}</div>)}
+        {sec === 'lietuva'     && (<div>{head('Artimiausi Lietuvoje', '/koncertai')}{itemGrid(eventsHome, '/koncertai', I.calendar, 'Koncertas', true)}</div>)}
+        {sec === 'uzsienyje'   && (<div>{head('Koncertai užsienyje', '/verta-keliones')}{itemGrid(eventsAbroad, '/verta-keliones', I.plane, 'Koncertas', true)}</div>)}
+        {sec === 'festivaliai' && (<div>{head('Festivaliai', '/festivaliai')}{itemGrid(festivals, '/festivaliai', I.festival, 'Festivalis', true)}</div>)}
         {sec === 'irasai'      && (<div>{head('Koncertų įrašai', '/koncertu-irasai')}{itemGrid(recordings, '/koncertu-irasai', I.video, 'Įrašas')}</div>)}
-        {sec === 'foto'        && (<div>{head('Foto reportažai', '/galerija')}{itemGrid(reportages, '/galerija', I.gallery, 'Reportažas')}</div>)}
+        {sec === 'foto'        && (<div>{head('Nuotraukos', '/galerija')}{itemGrid(reportages, '/galerija', I.gallery, 'Nuotrauka')}</div>)}
       </div>
     </div>
   )
@@ -1817,6 +1819,11 @@ export function SiteHeader() {
           font-size: 10.5px; font-weight: 500; color: var(--text-muted);
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -2px;
         }
+        /* Plakatai/viršeliai — talpinam pagal ilgiausią kraštinę (be apkirpimo). */
+        .sh-vimg--contain { background-size: contain; background-repeat: no-repeat; }
+        /* Festivalio mini koliažas — top atlikėjų nuotraukos 2×2. */
+        .sh-collage { display: grid !important; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1px; }
+        .sh-collage > span { background-size: cover; background-position: center; display: block; }
 
         /* LT vėliavos / world mėlynos juostelės indikatorius — homepage style:
            pritrauktas prie viršaus (align-self: flex-start), 38px aukščio */

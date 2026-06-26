@@ -439,19 +439,53 @@ export async function GET() {
     const songsLt = rankSongs(aggLt, 12)
     const songsWorld = rankSongs(aggWorld, 12)
 
-    // ── Koncertai rail: namų (LT) / užsienio / festivaliai / įrašai / foto ──
-    const LT_MON = ['saus', 'vas', 'kov', 'bal', 'geg', 'birž', 'liep', 'rugp', 'rugs', 'spal', 'lapk', 'gruod']
-    const fmtD = (iso: any) => { if (!iso) return ''; try { const d = new Date(iso); return `${d.getDate()} ${LT_MON[d.getMonth()]}` } catch { return '' } }
-    const evSel = 'id, slug, title, start_date, venue_name, cover_image_url'
-    const [evHomeRes, evAbroadRes, evFestRes] = await Promise.all([
-      supabase.from('events').select(evSel).in('status', ['upcoming', 'ongoing']).or('is_abroad.is.null,is_abroad.eq.false').not('is_festival', 'is', true).order('start_date', { ascending: true }).limit(12),
-      supabase.from('events').select(evSel).in('status', ['upcoming', 'ongoing']).eq('is_abroad', true).not('is_festival', 'is', true).order('start_date', { ascending: true }).limit(12),
-      supabase.from('events').select(evSel).in('status', ['upcoming', 'ongoing']).eq('is_festival', true).order('start_date', { ascending: true }).limit(12),
+    // ── Koncertai rail: namų / užsienio / festivaliai (+ įrašai/foto) ──
+    // Tik BŪSIMI (datos grindys), MIESTAI (ne vietos), populiarumo filtras
+    // (atlikėjo score), title = atlikėjas (arba festivalio pavadinimas).
+    const MON_GEN = ['Sausio', 'Vasario', 'Kovo', 'Balandžio', 'Gegužės', 'Birželio', 'Liepos', 'Rugpjūčio', 'Rugsėjo', 'Spalio', 'Lapkričio', 'Gruodžio']
+    const fmtDate = (iso: any) => { if (!iso) return ''; try { const d = new Date(iso); return `${MON_GEN[d.getMonth()]} ${d.getDate()}` } catch { return '' } }
+    const ltToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+    const evSel2 = 'id, slug, title, start_date, end_date, city, cover_image_url, is_abroad, is_festival, venues:venue_id(city), event_artists(is_headliner, sort_order, artists(name, cover_image_url, score))'
+    const [evHomeRows, evAbroadRows] = await Promise.all([
+      supabase.from('events').select(evSel2)
+        .in('status', ['upcoming', 'ongoing'])
+        .or(`end_date.gte.${ltToday},and(end_date.is.null,start_date.gte.${ltToday})`)
+        .or('is_abroad.is.null,is_abroad.eq.false')
+        .order('start_date', { ascending: true }).limit(50),
+      supabase.from('events').select(evSel2)
+        .in('status', ['upcoming', 'ongoing'])
+        .or(`end_date.gte.${ltToday},and(end_date.is.null,start_date.gte.${ltToday})`)
+        .eq('is_abroad', true)
+        .order('start_date', { ascending: true }).limit(25),
     ])
-    const evItem = (e: any) => ({ href: `/renginiai/${e.slug}`, title: e.title || '', image: e.cover_image_url || null, meta: [fmtD(e.start_date), e.venue_name].filter(Boolean).join(' · ') })
-    const eventsHome   = ((evHomeRes.data || []) as any[]).map(evItem)
-    const eventsAbroad = ((evAbroadRes.data || []) as any[]).map(evItem)
-    const festivals    = ((evFestRes.data || []) as any[]).map(evItem)
+    const FEST_RE = /festival|fest(?:as|is|ai|ą|o)?\b|fiesta|granatos|devilstone|karkl[ėe]|positivus|bliuzo nakt|tundra|sala festival|m[ėe]nuo juodaragis|roko naktys|žalgirio nakt/i
+    const isFest = (e: any) => !!e.is_festival || FEST_RE.test(e.title || '') || (e.start_date && e.end_date && (new Date(e.end_date).getTime() - new Date(e.start_date).getTime()) / 86_400_000 >= 1)
+    const firstA = (x: any) => Array.isArray(x) ? x[0] : x
+    const evArts = (e: any) => ((e.event_artists || []) as any[]).slice().sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99)).map((ea: any) => firstA(ea.artists)).filter(Boolean)
+    const evHead = (e: any) => { const eas = ((e.event_artists || []) as any[]).slice().sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99)); const h = eas.find((ea: any) => ea.is_headliner) || eas[0]; return h ? firstA(h.artists) : null }
+    const evPop = (e: any) => evArts(e).reduce((m: number, a: any) => Math.max(m, a?.score || 0), 0)
+    const evCity = (e: any) => e.city || firstA(e.venues)?.city || ''
+    const evCard = (e: any) => {
+      const fest = isFest(e); const h = evHead(e)
+      return {
+        href: `/renginiai/${e.slug}`,
+        title: fest ? (e.title || '') : (h?.name || e.title || ''),
+        image: e.cover_image_url || h?.cover_image_url || null,
+        meta: [fmtDate(e.start_date), evCity(e)].filter(Boolean).join(' · '),
+        collage: fest ? evArts(e).map((a: any) => a?.cover_image_url).filter(Boolean).slice(0, 4) : [],
+      }
+    }
+    const homeRows = (evHomeRows.data || []) as any[]
+    const abroadRows = (evAbroadRows.data || []) as any[]
+    const POP_MIN = 10
+    const homeConcerts = homeRows.filter(e => !isFest(e))
+    let homeSel = homeConcerts.filter(e => evPop(e) >= POP_MIN)
+    if (homeSel.length < 6) homeSel = homeConcerts
+    const eventsHome   = homeSel.slice(0, 12).map(evCard)
+    const eventsAbroad = abroadRows.filter(e => !isFest(e)).slice(0, 12).map(evCard)
+    const festivals    = [...homeRows, ...abroadRows].filter(isFest)
+      .sort((a, b) => new Date(a.start_date || 0).getTime() - new Date(b.start_date || 0).getTime())
+      .slice(0, 12).map(evCard)
 
     const [recList, repList] = await Promise.all([getLatestRecordings(10), getLatestReportages(10)])
     const recordings = (recList as any[]).map((r: any) => ({
