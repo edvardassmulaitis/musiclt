@@ -452,19 +452,25 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     if (ids.length) {
       try {
         const { data: cmts } = await sb.from('comments')
-          .select('discussion_id, body, created_at, profiles:author_id(full_name, username, avatar_url)')
+          .select('discussion_id, body, created_at, author_id')
           .in('discussion_id', ids).eq('is_deleted', false).not('body', 'is', null)
-          .order('created_at', { ascending: false }).limit(40)
+          .order('created_at', { ascending: false }).limit(80)
+        const picked = new Map<number, { body: string; author_id: string | null }>()
         for (const c of (cmts || []) as any[]) {
-          if (lastComment.has(c.discussion_id)) continue
+          if (picked.has(c.discussion_id)) continue
           const t = (c.body || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
           if (!t) continue
-          const pr = one(c.profiles)
-          lastComment.set(c.discussion_id, {
-            body: t.length > 400 ? t.slice(0, 400).trimEnd() + '…' : t,
-            by: pr?.full_name || pr?.username || null,
-            avatar: pr?.avatar_url || null,
-          })
+          picked.set(c.discussion_id, { body: t.length > 400 ? t.slice(0, 400).trimEnd() + '…' : t, author_id: c.author_id ? String(c.author_id) : null })
+        }
+        const authorIds = Array.from(new Set(Array.from(picked.values()).map(p => p.author_id).filter(Boolean))) as string[]
+        const profById = new Map<string, { name: string | null; avatar: string | null }>()
+        if (authorIds.length) {
+          const { data: profs } = await sb.from('profiles').select('id, full_name, username, avatar_url').in('id', authorIds)
+          for (const p of (profs || []) as any[]) profById.set(String(p.id), { name: p.full_name || p.username || null, avatar: p.avatar_url || null })
+        }
+        for (const [did, v] of picked) {
+          const pr = v.author_id ? profById.get(v.author_id) : null
+          lastComment.set(did, { body: v.body, by: pr?.name || null, avatar: pr?.avatar || null })
         }
       } catch { /* ignore */ }
     }
@@ -515,7 +521,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v18'],
+  ['srautas-recs-v19'],
   { revalidate: 300 },
 )
 
