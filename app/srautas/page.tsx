@@ -584,14 +584,17 @@ function SrautasInner() {
         .srl:hover { border-color:var(--border-strong); box-shadow:0 8px 22px rgba(0,0,0,0.18); }
         .srl-cover { position:relative; flex:0 0 auto; width:150px; overflow:hidden; align-self:stretch;
           background:linear-gradient(135deg, var(--bg-active), var(--bg-surface)); }
-        .srl-cover img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .35s ease; }
+        .srl-cover img { width:100%; height:100%; object-fit:cover; object-position:center top; display:block; transition:transform .35s ease; }
         .srl:hover .srl-cover img { transform:scale(1.04); }
         .srl-cover--ph { display:flex; align-items:center; justify-content:center; }
         .srl-cover--ph span { font-weight:800; color:var(--text-faint); font-family:'Outfit', sans-serif; font-size:42px; }
 
         /* ── Mini grotuvai dešinėj (daina / albumo 1-2 dainos / koncerto top daina) ── */
         .srl--hasmini .srl-body { padding-right:16px; }
-        .srl-minis { display:flex; flex-direction:column; gap:8px; justify-content:center; flex:0 0 auto; margin:8px 14px 8px 6px; }
+        .srl-minis { display:flex; flex-direction:column; gap:8px; justify-content:center; align-items:flex-end; flex:0 0 auto; margin:8px 14px 8px 6px; }
+        /* albumas (2 dainos) — grotuvai šalia vienas kito */
+        .srl--multi .srl-minis { flex-direction:row; align-items:center; }
+        .srl--multi .srl-mini { width:168px; }
         .srl-mini { position:relative; width:200px; aspect-ratio:16/9; border-radius:12px; overflow:hidden; background:#000;
           box-shadow:0 3px 10px rgba(0,0,0,0.22); display:block; padding:0; border:0; cursor:pointer; }
         .srl-mini img { width:100%; height:100%; object-fit:cover; display:block; opacity:.92; transition:opacity .15s, transform .35s ease; }
@@ -666,8 +669,8 @@ function SrautasInner() {
           .srl-body { padding:11px 46px 11px 13px; }
           /* mini grotuvai keliasi po kortele (visa eilutė) */
           .srl--hasmini { flex-wrap:wrap; }
-          .srl--hasmini .srl-minis { order:3; flex:0 0 100%; width:100%; margin:0 0 4px; }
-          .srl-minis .srl-mini { width:100%; }
+          .srl--hasmini .srl-minis, .srl--multi .srl-minis { order:3; flex:0 0 100%; width:100%; margin:0 0 4px; flex-direction:column; align-items:stretch; }
+          .srl-minis .srl-mini, .srl--multi .srl-mini { width:100%; }
           .srl--hasmini .srl-body { padding-right:46px; }
           .srl-artcard-nm { max-width:120px; overflow:hidden; text-overflow:ellipsis; }
         }
