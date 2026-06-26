@@ -34,6 +34,20 @@ function tripSubtitle(destKey: string, fallbackVenue?: string | null): string | 
   return `${flag ? flag + ' ' : ''}${d.country} · ${d.city}`
 }
 
+function tripInfo(destKey: string): string | null {
+  const d = DEST_BY_KEY[destKey]
+  if (!d) return null
+  if (d.reach === 'car') {
+    const parts = ['🚗 Pasiekiama mašina']
+    if (d.driveHours) parts.push(`~${d.driveHours} val. kelio${d.driveFrom ? ` nuo ${d.driveFrom}` : ''}`)
+    return parts.join(' · ')
+  }
+  const parts = ['✈️ Skrydis']
+  if (d.carrier) parts.push(d.carrier)
+  if (d.priceFrom) parts.push(`nuo ${d.priceFrom} €`)
+  return parts.join(' · ')
+}
+
 const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
 const ytThumb = (url?: string | null) => {
   const m = url?.match?.(YT_RE)?.[1]
@@ -279,6 +293,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
           title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
           subtitle: tripSubtitle(c.destKey, c.venue), image: c.image || null,
           href: `/verta-keliones#vk-${c.id}`, date: c.date, badge: 'Koncertas, vertas kelionės',
+          meta: { tripInfo: tripInfo(c.destKey), excerpt: c.why || null },
         })
         if (queues.trip.length >= 6) break
       }
@@ -296,6 +311,25 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         if (!nm) continue
         const arr = artistGenres.get(Number(r.artist_id)) || []
         if (arr.length < 3 && !arr.includes(nm)) { arr.push(nm); artistGenres.set(Number(r.artist_id), arr) }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Rekomenduojamų atlikėjų populiariausia daina — kad kortelėje būtų inline ▶ grotuvas.
+  const topTrackByArtist = new Map<number, { ytId: string; title: string }>()
+  const topTrackTask = async () => {
+    if (!topRecIds.length) return
+    try {
+      const { data } = await sb.from('tracks')
+        .select('artist_id, title, video_url, video_views')
+        .in('artist_id', topRecIds).not('video_url', 'is', null)
+        .order('video_views', { ascending: false, nullsFirst: false }).limit(160)
+      for (const t of (data || []) as any[]) {
+        const aid = Number(t.artist_id)
+        if (topTrackByArtist.has(aid)) continue
+        const yt = t.video_url?.match?.(YT_RE)?.[1]
+        if (!yt) continue
+        topTrackByArtist.set(aid, { ytId: yt, title: t.title || '' })
       }
     } catch { /* ignore */ }
   }
@@ -390,18 +424,24 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         for (const a of (arts || []) as any[]) artCover.set(Number(a.id), { name: a.name, cover: a.cover_image_url || null })
       } catch { /* ignore */ }
     }
-    const lastComment = new Map<number, string>()
+    const lastComment = new Map<number, { body: string; by: string | null; avatar: string | null }>()
     const ids = rows.map(d => d.id)
     if (ids.length) {
       try {
         const { data: cmts } = await sb.from('comments')
-          .select('discussion_id, body, created_at')
+          .select('discussion_id, body, created_at, profiles:user_id(full_name, username, avatar_url)')
           .in('discussion_id', ids).eq('is_deleted', false).not('body', 'is', null)
           .order('created_at', { ascending: false }).limit(40)
         for (const c of (cmts || []) as any[]) {
           if (lastComment.has(c.discussion_id)) continue
           const t = (c.body || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-          if (t) lastComment.set(c.discussion_id, t.length > 110 ? t.slice(0, 110).trimEnd() + '…' : t)
+          if (!t) continue
+          const pr = one(c.profiles)
+          lastComment.set(c.discussion_id, {
+            body: t.length > 260 ? t.slice(0, 260).trimEnd() + '…' : t,
+            by: pr?.full_name || pr?.username || null,
+            avatar: pr?.avatar_url || null,
+          })
         }
       } catch { /* ignore */ }
     }
@@ -414,20 +454,20 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
       const cmt = lastComment.get(d.id)
       queues.topic.push({
         key: `topic-${d.id}`, kind: 'topic', title: cleanTitle(d.title),
-        subtitle: cmt ? `„${cmt}"` : (name || (d.comment_count ? `${d.comment_count} komentarų` : null)),
+        subtitle: name || (d.comment_count ? `${d.comment_count} komentarų` : null),
         image: cover, href: `/diskusijos/${d.slug}`,
         date: d.last_comment_at || d.created_at, badge: 'Diskusija',
         avatar: cover,
         // artist nustatom → prikabinama „nes mėgsti X" (žr. attach loop).
         artist: name ? { id: aid, name, slug: rec?.slug || null } : null,
-        meta: { comments: d.comment_count, likes: d.like_count },
+        meta: { comments: d.comment_count, likes: d.like_count, excerpt: cmt?.body || null, commentBy: cmt?.by || null, commentAvatar: cmt?.avatar || null },
       })
     }
   }
 
   // chartsTask SĄMONINGAI nebekviečiamas Tau režime: „Atlikėjai topuose" rodo
   // PAMĖGTUS atlikėjus — netinka „Tau gali patikti" (čia DAR nepamėgti).
-  await Promise.all([releasesTask(), eventsTask(), topicsTask(), vertaTask(), genresTask(), becauseTask()].map(p => p.catch(() => {})))
+  await Promise.all([releasesTask(), eventsTask(), topicsTask(), vertaTask(), genresTask(), topTrackTask(), becauseTask()].map(p => p.catch(() => {})))
 
   // Prikabinam „Nes mėgsti X" prie atlikėjų IR jų leidinių/topų/temų kortelių.
   for (const arr of [queues.artist, queues.release, queues.chart, queues.topic, queues.event]) {
@@ -437,10 +477,11 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     }
   }
 
-  // Atlikėjų kortelėms — vietoj šalies rodom stilius/žanrus (jei yra).
+  // Atlikėjų kortelėms — vietoj šalies rodom stilius/žanrus + populiariausia daina (inline ▶).
   for (const a of queues.artist) {
     const rid = a.artist?.id
     if (rid && artistGenres.has(rid)) a.subtitle = (artistGenres.get(rid) || []).join(' · ')
+    if (rid && topTrackByArtist.has(rid)) a.meta = { ...(a.meta || {}), topTrack: topTrackByArtist.get(rid) }
   }
 
   return { items: spreadByArtist(weave(queues, limit)), personalized, recommendedCount: recs.length }
@@ -451,7 +492,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v14'],
+  ['srautas-recs-v15'],
   { revalidate: 300 },
 )
 
