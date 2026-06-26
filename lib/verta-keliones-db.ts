@@ -26,7 +26,7 @@ export type VertaKelionesData = { concerts: Concert[]; destinations: Destination
 const ABROAD_SELECT = `
   id, title, slug, description, start_date, end_date, venue_name, city,
   cover_image_url, ticket_url, is_festival, dest_key, why, popularity, verified, status,
-  event_artists(artist_id, sort_order, artists(slug))
+  event_artists(artist_id, sort_order, artists(slug, cover_image_url))
 `
 
 function mapDest(d: any): Destination {
@@ -69,7 +69,7 @@ function mapEvent(e: any): Concert {
     popularity: e.popularity || 0,
     isFestival: !!e.is_festival,
     festivalName: e.is_festival ? e.title : undefined,
-    image: e.cover_image_url || undefined,
+    image: e.cover_image_url || a?.cover_image_url || undefined,
     artistSlug: a?.slug || undefined,
     why: e.why || e.description || '',
     verified: !!e.verified,
