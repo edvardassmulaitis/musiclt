@@ -18,12 +18,15 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   // /srautas — app-stiliaus feed'as: be footer'io (hard stop ties paskutiniu
   // siūlymu), kad mobile'e nesimatytų footeris po turiniu.
   const isFeed = pathname?.startsWith('/srautas')
+  // Atlikėjų pristatomieji (landing) puslapiai — pilnai immersyvūs, be jokio
+  // site chrome (header/footer/bottom-nav). Eksperimentinė funkcija.
+  const isLanding = pathname?.startsWith('/landing') || pathname === '/@jessicashy'
 
   // Apatinis mobile baras rodomas VISUR (įskaitant aktyvų pokalbį), išskyrus
   // admin'ą — kad niekur „nedingtų". Chat'as pats rezervuoja barui vietą per
   // --bottom-nav-h (height calc), todėl jam NEpridedam has-bottom-nav padding'o
   // (kitaip dubliuotųsi tarpas). Normalūs puslapiai gauna padding'ą.
-  const showBottomNav = !isAdmin
+  const showBottomNav = !isAdmin && !isLanding
   const mainHasPadding = showBottomNav && !isChat
 
   useEffect(() => {
@@ -40,11 +43,11 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
       <Suspense fallback={null}>
         <NavigationProgress />
       </Suspense>
-      {!isAdmin && <SiteHeader />}
+      {!isAdmin && !isLanding && <SiteHeader />}
       <main className={mainHasPadding ? 'has-bottom-nav' : undefined}>{children}</main>
-      {!isAdmin && !isChat && !isFeed && <SiteFooter />}
+      {!isAdmin && !isChat && !isFeed && !isLanding && <SiteFooter />}
       {showBottomNav && <MobileBottomNav />}
-      {!isAdmin && <QuickCreate />}
+      {!isAdmin && !isLanding && <QuickCreate />}
     </SiteProvider>
   )
 }

@@ -93,6 +93,15 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(dest, 301)
   }
 
+  // EKSPERIMENTAS: atlikėjų pristatomieji (landing) puslapiai po /@<slug>.
+  // /@jessicashy → vidinis rewrite į /landing/jessicashy. URL juostoje lieka
+  // /@jessicashy. Pirmenybė prieš bendrą profilio rewrite'ą žemiau.
+  if (pathname === '/@jessicashy' || pathname === '/@jessicashy/') {
+    const dest = url.clone()
+    dest.pathname = '/landing/jessicashy'
+    return NextResponse.rewrite(dest)
+  }
+
   // Kanoninis profilio URL: /@<username>(/sub) → vidinis rewrite į
   // /vartotojas/<username>(/sub). URL adreso juostoje lieka /@<username>.
   const at = pathname.match(/^\/@([^/]+)(\/.*)?$/)
