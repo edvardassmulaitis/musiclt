@@ -3978,29 +3978,26 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
             }
           >
           <section>
-            {/* ── Renginiai — afiša v2: 5 stulpeliai (mažesnės kortelės, mažesnis
-                aukštis), festivaliai/daugiaatlikėjai renginiai → mini collage
-                (top atlikėjas didesnis). Miestas tik, profilio nuotraukos pirma.
-                Be laiko/„Bilietai"/dalyvių. 2026-06-26. */}
+            {/* ── Renginiai — afiša v3: desktop 5-stulpelių tinklelis, mobile
+                horizontalus slankiklis. Festivaliai: jei įkeltas admino plakatas
+                (cover_image_url) — jis pagrindinis; jei ne — collage iš atlikėjų.
+                Užsienio koncertai (is_abroad && !festival) sujungti į VIENĄ collage
+                kortelę → /verta-keliones. Miestas tik, be laiko/„Bilietai". 2026-06-26. */}
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5">
               <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <span className="block font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">Kas vyksta</span>
-                  <h2 className="m-0 font-['Outfit',sans-serif] text-[18px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Renginiai ir koncertai</h2>
-                </div>
-                <Link href="/koncertai" className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visa afiša →</Link>
+                <h2 className="m-0 font-['Outfit',sans-serif] text-[18px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Renginiai ir koncertai</h2>
+                <Link href="/koncertai" className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Daugiau →</Link>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:grid-cols-5 lg:gap-4 lg:overflow-x-visible lg:pb-0">
                 {filtEvt.length === 0 ? Array(10).fill(null).map((_, i) => (
-                  <div key={i} className="hp-skel aspect-[3/4] rounded-xl" />
-                )) : [...filtEvt]
-                  .sort((a, b) => {
-                    const da = new Date(((a as any).start_date || a.event_date || 0) as any).getTime()
-                    const db = new Date(((b as any).start_date || b.event_date || 0) as any).getTime()
-                    return da - db
-                  })
-                  .slice(0, 10)
-                  .map(ev => {
+                  <div key={i} className="hp-skel aspect-[3/4] w-[158px] shrink-0 rounded-xl lg:w-auto" />
+                )) : (() => {
+                  const isAbroad = (e: any) => !!e.is_abroad
+                  const all = [...filtEvt].sort((x, y) => new Date(((x as any).start_date || x.event_date || 0) as any).getTime() - new Date(((y as any).start_date || y.event_date || 0) as any).getTime())
+                  const foreign = all.filter(e => isAbroad(e) && !e.is_festival)
+                  const main = all.filter(e => !(isAbroad(e) && !e.is_festival)).slice(0, foreign.length ? 9 : 10)
+                  const cardCls = "group relative block aspect-[3/4] w-[158px] shrink-0 overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] no-underline shadow-[0_5px_14px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_14px_30px_rgba(249,115,22,0.2)] lg:w-auto"
+                  const cards: React.ReactNode[] = main.map(ev => {
                     const dateRaw = (ev as any).start_date || ev.event_date
                     const d = dateRaw ? new Date(dateRaw) : null
                     const dayNum = d && !isNaN(d.getTime()) ? d.getDate() : null
@@ -4009,10 +4006,11 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     const eas = (ev.event_artists || [])
                       .map(ea => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return a ? { ...a, is_headliner: ea.is_headliner, sort_order: ea.sort_order } : null })
                       .filter(Boolean) as { name: string; country?: string | null; cover_image_url?: string | null; is_headliner?: boolean; sort_order?: number }[]
-                    const ranked = [...eas].sort((a, b) => (b.is_headliner ? 1 : 0) - (a.is_headliner ? 1 : 0) || ((a.sort_order ?? 99) - (b.sort_order ?? 99)))
+                    const ranked = [...eas].sort((p, q) => (q.is_headliner ? 1 : 0) - (p.is_headliner ? 1 : 0) || ((p.sort_order ?? 99) - (q.sort_order ?? 99)))
                     const photos = ranked.filter(a => a.cover_image_url)
-                    const useCollage = photos.length >= 2
-                    const singleImg = photos[0]?.cover_image_url || ev.cover_image_url
+                    const adminCover = ev.cover_image_url
+                    const useCollage = !(ev.is_festival && adminCover) && photos.length >= 2
+                    const singleImg = (ev.is_festival && adminCover) ? adminCover : (photos[0]?.cover_image_url || ev.cover_image_url)
                     const flag = countryFlag(ranked.find(a => a.country)?.country)
                     const city = ev.city || ev.venues?.city || ''
                     const artistList = eas.filter(a => a.name).map(a => a.name)
@@ -4024,11 +4022,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     const smalls = photos.slice(1, 4)
                     const extra = photos.length - 1 - smalls.length
                     return (
-                      <Link
-                        key={ev.id}
-                        href={`/renginiai/${ev.slug}`}
-                        className="group relative block aspect-[3/4] overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] no-underline shadow-[0_5px_14px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_14px_30px_rgba(249,115,22,0.2)]"
-                      >
+                      <Link key={ev.id} href={`/renginiai/${ev.slug}`} className={cardCls}>
                         {useCollage ? (
                           <div className="absolute inset-0 grid gap-[2px]" style={{ gridTemplateColumns: '1.6fr 1fr' }}>
                             <div className="bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(photos[0].cover_image_url!)})` }} />
@@ -4059,9 +4053,6 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                             <i className={`mt-0.5 not-italic text-[8px] font-extrabold uppercase tracking-[0.04em] ${soon ? 'text-white' : 'text-[var(--accent-orange)]'}`}>{monthLbl}</i>
                           </span>
                         )}
-                        {ev.is_festival && (
-                          <span className="absolute right-2 top-2 rounded-[5px] bg-black/55 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.05em] text-white backdrop-blur-sm">Festivalis</span>
-                        )}
                         <div className="absolute inset-x-0 bottom-0 p-2.5">
                           {city && (
                             <p className="m-0 truncate font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.05em] text-[#ffcea3]">{city}</p>
@@ -4073,7 +4064,31 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                         </div>
                       </Link>
                     )
-                  })}
+                  })
+                  if (foreign.length) {
+                    const fImgs = foreign.map(e => {
+                      const ea = (e.event_artists || []).map(x => Array.isArray(x.artists) ? x.artists[0] : x.artists).filter(Boolean) as { cover_image_url?: string | null }[]
+                      return ea.find(a => a?.cover_image_url)?.cover_image_url || e.cover_image_url || null
+                    }).filter(Boolean).slice(0, 4) as string[]
+                    cards.push(
+                      <Link key="abroad" href="/verta-keliones" className={cardCls + ' !bg-[#15203a]'}>
+                        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                          {fImgs.map((src, i) => (
+                            <div key={i} className="bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(src)})` }} />
+                          ))}
+                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-br from-[rgba(8,13,24,0.9)] to-[rgba(8,13,24,0.55)]" />
+                        <div className="absolute inset-0 flex flex-col items-start justify-center p-3 text-white">
+                          <span className="text-[20px]" aria-hidden>🌍</span>
+                          <h3 className="m-0 mt-1.5 font-['Outfit',sans-serif] text-[14px] font-black leading-tight">Koncertai užsienyje</h3>
+                          <p className="m-0 mt-1 text-[10.5px] text-[#cfe0f6]">{foreign.length} koncertų — pasiekiamų iš Lietuvos</p>
+                          <span className="mt-2.5 rounded-full bg-[var(--accent-orange)] px-3 py-1 font-['Outfit',sans-serif] text-[11px] font-extrabold">Daugiau →</span>
+                        </div>
+                      </Link>
+                    )
+                  }
+                  return cards
+                })()}
               </div>
             </div>
           </section>
