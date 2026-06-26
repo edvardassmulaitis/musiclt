@@ -18,6 +18,7 @@ import { getEmergingArtists, getFeaturedArtists } from '@/lib/radaras'
 import { formatPrice } from '@/lib/skelbimai'
 import { getLatestRecordings, recordingHref } from '@/lib/concert-recordings'
 import { getLatestReportages } from '@/lib/galerija'
+import { getDiscoveries } from '@/lib/discoveries'
 
 export const dynamic = 'force-dynamic'
 
@@ -132,7 +133,7 @@ export async function GET() {
       getNewsFeed({ scope: 'world', sort: 'newest', limit: 10 }),
     ])
     const mapFeedNews = (it: any) => ({
-      id: it.uid, slug: it.slug, title: it.title, image: it.image, date: it.date,
+      id: it.uid, slug: it.slug, title: it.title, image: it.image, date: it.date, category: it.category || null,
     })
 
     // Žanrų atlikėjų skaičiai — Muzika dropdown'o stilių chip'ai rikiuojami pagal
@@ -431,11 +432,19 @@ export async function GET() {
       cur.score += w
       m.set(e.track_id, cur)
     }
-    const rankSongs = (m: Map<number, { score: number; t: any }>, limit: number) =>
-      [...m.entries()].sort((a, b) => b[1].score - a[1].score).slice(0, limit).map(([id, v]) => {
+    const rankSongs = (m: Map<number, { score: number; t: any }>, limit: number) => {
+      const sorted = [...m.entries()].sort((a, b) => b[1].score - a[1].score)
+      const seen = new Set<string>(); const out: any[] = []
+      for (const [id, v] of sorted) {
         const ar = Array.isArray(v.t.artists) ? v.t.artists[0] : v.t.artists
-        return { id, slug: v.t.slug, title: v.t.title, image: v.t.cover_url || ytThumb(v.t.video_url) || null, artist: ar?.name || '', artistSlug: ar?.slug || '' }
-      })
+        const key = String(ar?.slug || ar?.name || `t${id}`).toLowerCase()
+        if (seen.has(key)) continue
+        seen.add(key)
+        out.push({ id, slug: v.t.slug, title: v.t.title, image: v.t.cover_url || ytThumb(v.t.video_url) || null, artist: ar?.name || '', artistSlug: ar?.slug || '' })
+        if (out.length >= limit) break
+      }
+      return out
+    }
     const songsLt = rankSongs(aggLt, 12)
     const songsWorld = rankSongs(aggWorld, 12)
 
@@ -465,14 +474,18 @@ export async function GET() {
     const evHead = (e: any) => { const eas = ((e.event_artists || []) as any[]).slice().sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99)); const h = eas.find((ea: any) => ea.is_headliner) || eas[0]; return h ? firstA(h.artists) : null }
     const evPop = (e: any) => evArts(e).reduce((m: number, a: any) => Math.max(m, a?.score || 0), 0)
     const evCity = (e: any) => e.city || firstA(e.venues)?.city || ''
-    const evCard = (e: any) => {
+    const evCard = (e: any, preferArtist = false) => {
       const fest = isFest(e); const h = evHead(e)
+      // Užsienio koncertams — atlikėjo nuotrauka (ne YT thumb iš event cover).
+      const img = preferArtist ? (h?.cover_image_url || e.cover_image_url) : (e.cover_image_url || h?.cover_image_url)
       return {
         href: `/renginiai/${e.slug}`,
         title: fest ? (e.title || '') : (h?.name || e.title || ''),
-        image: e.cover_image_url || h?.cover_image_url || null,
+        image: img || null,
         meta: [fmtDate(e.start_date), evCity(e)].filter(Boolean).join(' · '),
         collage: fest ? evArts(e).map((a: any) => a?.cover_image_url).filter(Boolean).slice(0, 4) : [],
+        // Festivalio žyma: LT vėliava (namų) arba kelionės ikona (užsienio).
+        flag: fest ? (e.is_abroad ? 'world' : 'lt') : undefined,
       }
     }
     const homeRows = (evHomeRows.data || []) as any[]
@@ -481,41 +494,106 @@ export async function GET() {
     const homeConcerts = homeRows.filter(e => !isFest(e))
     let homeSel = homeConcerts.filter(e => evPop(e) >= POP_MIN)
     if (homeSel.length < 6) homeSel = homeConcerts
-    const eventsHome   = homeSel.slice(0, 12).map(evCard)
-    const eventsAbroad = abroadRows.filter(e => !isFest(e)).slice(0, 12).map(evCard)
+    const eventsHome   = homeSel.slice(0, 12).map(e => evCard(e))
+    const eventsAbroad = abroadRows.filter(e => !isFest(e)).slice(0, 12).map(e => evCard(e, true))
     const festivals    = [...homeRows, ...abroadRows].filter(isFest)
       .sort((a, b) => new Date(a.start_date || 0).getTime() - new Date(b.start_date || 0).getTime())
-      .slice(0, 12).map(evCard)
+      .slice(0, 12).map(e => evCard(e))
 
     const [recList, repList] = await Promise.all([getLatestRecordings(10), getLatestReportages(10)])
     const recordings = (recList as any[]).map((r: any) => ({
-      href: recordingHref(r), title: r.title || '',
+      href: recordingHref(r), title: r.artist_name || r.title || '',
       image: r.thumbnail_url || (r.youtube_id ? `https://i.ytimg.com/vi/${r.youtube_id}/hqdefault.jpg` : null),
-      meta: [r.artist_name, r.recorded_year].filter(Boolean).join(' · '),
+      meta: r.recorded_year ? String(r.recorded_year) : '',
     }))
     const reportages = (repList as any[]).map((r: any) => ({
       href: r.href, title: r.title || '', image: r.coverUrl || null,
       meta: [r.city, r.eventName].filter(Boolean).join(' · '),
     }))
 
-    // ── Bendruomenė: nariai + diskusijos (dailySongs/discoveryPosts jau yra) ──
+    // ── Bendruomenė: nariai (+skonis) / diskusijos(realios) / recenzijos / atradimai ──
     const { data: memberRows } = await supabase
       .from('profiles')
-      .select('username, full_name, avatar_url')
+      .select('id, username, full_name, avatar_url')
       .in('provider', ['google', 'facebook', 'email'])
       .not('username', 'is', null)
       .not('avatar_url', 'is', null)
       .order('created_at', { ascending: false })
       .limit(14)
-    const members = ((memberRows || []) as any[]).map((p: any) => ({ href: `/@${p.username}`, name: p.full_name || p.username, avatar: p.avatar_url || null }))
+    const memBase = (memberRows || []) as any[]
+    // Muzikos skonis — top mėgstamas atlikėjas (kaip /bendruomene nario kortelė).
+    const tasteByUser = new Map<string, string>()
+    try {
+      const uids = memBase.map(p => p.id).filter(Boolean)
+      if (uids.length) {
+        const { data: lk } = await supabase.from('likes')
+          .select('user_id, entity_id, created_at').eq('entity_type', 'artist').in('user_id', uids)
+          .order('created_at', { ascending: false }).limit(uids.length * 8)
+        const firstArtByUser = new Map<string, number>()
+        for (const l of (lk || []) as any[]) { if (!firstArtByUser.has(l.user_id) && l.entity_id) firstArtByUser.set(l.user_id, l.entity_id) }
+        const artIds = [...new Set([...firstArtByUser.values()])]
+        if (artIds.length) {
+          const { data: arts } = await supabase.from('artists').select('id, name').in('id', artIds)
+          const nameById = new Map<number, string>((arts || []).map((a: any) => [a.id, a.name]))
+          for (const [uid, aid] of firstArtByUser) { const n = nameById.get(aid); if (n) tasteByUser.set(uid, n) }
+        }
+      }
+    } catch {}
+    const members = memBase.map((p: any) => ({ href: `/@${p.username}`, name: p.full_name || p.username, avatar: p.avatar_url || null, taste: tasteByUser.get(p.id) || null }))
+
+    // Diskusijos — TIK realios (legacy_kind null/discussion, ne naujienų/įrašų),
+    // su susieto atlikėjo vizualu.
     const { data: discRows } = await supabase
       .from('discussions')
-      .select('slug, title, author_name, author_avatar, comment_count')
+      .select('slug, title, author_name, author_avatar, comment_count, artist:artist_id(name, cover_image_url)')
+      .eq('is_deleted', false)
+      .or('legacy_kind.is.null,legacy_kind.eq.discussion')
       .not('slug', 'is', null)
+      .order('is_pinned', { ascending: false })
       .order('last_comment_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(10)
-    const discussions = ((discRows || []) as any[]).map((d: any) => ({ href: `/diskusijos/${d.slug}`, title: d.title || '', image: d.author_avatar || null, meta: d.author_name || '' }))
+    const discussions = ((discRows || []) as any[]).map((d: any) => {
+      const a = Array.isArray(d.artist) ? d.artist[0] : d.artist
+      return { href: `/diskusijos/${d.slug}`, title: d.title || '', image: a?.cover_image_url || d.author_avatar || null, meta: a?.name || d.author_name || '' }
+    })
+
+    // Narių įrašai — TIK redakcinės recenzijos/koncertų įspūdžiai (editorial_type).
+    const EDIT_LABEL: Record<string, string> = { recenzija: 'Apžvalga', koncertai: 'Koncertas' }
+    const { data: revRows } = await supabase
+      .from('blog_posts')
+      .select('id, slug, title, cover_image_url, editorial_type, blogs:blog_id!inner ( slug, profiles:user_id!inner ( username, full_name, hide_from_homepage ) )')
+      .eq('status', 'published')
+      .in('editorial_type', ['recenzija', 'koncertai'])
+      .not('blogs.profiles.hide_from_homepage', 'is', true)
+      .order('published_at', { ascending: false })
+      .limit(12)
+    const reviewPosts = ((revRows || []) as any[]).map((r: any) => {
+      const blg = Array.isArray(r.blogs) ? r.blogs[0] : r.blogs
+      const prof = blg ? (Array.isArray(blg.profiles) ? blg.profiles[0] : blg.profiles) : null
+      const blogSlug = blg?.slug || prof?.username || null
+      return {
+        href: blogSlug ? `/blogas/${blogSlug}/${r.slug || r.id}` : '/blogas',
+        title: r.title || '', image: r.cover_image_url || null,
+        meta: [EDIT_LABEL[r.editorial_type] || '', prof?.username || prof?.full_name || ''].filter(Boolean).join(' · '),
+        tag: EDIT_LABEL[r.editorial_type] || null,
+      }
+    })
+
+    // Atradimai — naujausi bendruomenės muzikos atradimai (forumo gija).
+    let discoveries: { href: string; title: string; image: string | null; meta: string }[] = []
+    try {
+      const discs = await getDiscoveries()
+      discoveries = (discs as any[]).slice()
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+        .slice(0, 12)
+        .map((d: any) => ({
+          href: `/muzikos-atradimai/${d.id}`,
+          title: d.artist_name || d.track_name || 'Atradimas',
+          image: d.artist_cover || null,
+          meta: (d.artist_name && d.track_name) ? d.track_name : '',
+        }))
+    } catch { discoveries = [] }
 
     const payload = {
       radar: radarArtists,
@@ -534,6 +612,8 @@ export async function GET() {
       reportages,
       members,
       discussions,
+      reviewPosts,
+      discoveries,
       chartLtSongs,
       chartLtAlbums,
       chartWorldSongs,
