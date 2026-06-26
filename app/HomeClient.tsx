@@ -3978,10 +3978,10 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
             }
           >
           <section>
-            {/* ── Renginiai — SUJUNGTA afiša (LT + užsienis vienoje vietoje,
-                pagal datą). Plakatai kaip vizuali afiša: data badge, šalies
-                vėliava, tekstas ANT kortelės su stipriu overlay (matosi ir ant
-                šviesių vizualų). Be laiko, be „Bilietai" mygtuko. 2026-06-26. */}
+            {/* ── Renginiai — afiša v2: 5 stulpeliai (mažesnės kortelės, mažesnis
+                aukštis), festivaliai/daugiaatlikėjai renginiai → mini collage
+                (top atlikėjas didesnis). Miestas tik, profilio nuotraukos pirma.
+                Be laiko/„Bilietai"/dalyvių. 2026-06-26. */}
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5">
               <div className="mb-4 flex items-center justify-between">
                 <div>
@@ -3990,65 +3990,84 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                 </div>
                 <Link href="/koncertai" className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visa afiša →</Link>
               </div>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                {filtEvt.length === 0 ? Array(8).fill(null).map((_, i) => (
-                  <div key={i} className="hp-skel aspect-[3/4] rounded-2xl" />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {filtEvt.length === 0 ? Array(10).fill(null).map((_, i) => (
+                  <div key={i} className="hp-skel aspect-[3/4] rounded-xl" />
                 )) : [...filtEvt]
                   .sort((a, b) => {
                     const da = new Date(((a as any).start_date || a.event_date || 0) as any).getTime()
                     const db = new Date(((b as any).start_date || b.event_date || 0) as any).getTime()
                     return da - db
                   })
-                  .slice(0, 8)
+                  .slice(0, 10)
                   .map(ev => {
                     const dateRaw = (ev as any).start_date || ev.event_date
                     const d = dateRaw ? new Date(dateRaw) : null
                     const dayNum = d && !isNaN(d.getTime()) ? d.getDate() : null
                     const monthLbl = d && !isNaN(d.getTime()) ? MONTHS_LT[d.getMonth()] : null
                     const soon = formatFutureDateLT(dateRaw).highlight
-                    const evArtists = (ev.event_artists || []).map(ea => Array.isArray(ea.artists) ? ea.artists[0] : ea.artists).filter(Boolean) as { name: string; country?: string | null; cover_image_url?: string | null }[]
-                    const evArtistCover = evArtists.find(a => a?.cover_image_url)?.cover_image_url || null
-                    const imgSrc = ev.image_small_url || ev.cover_image_url || (ev as any).image_url || evArtistCover
-                    const flag = countryFlag(evArtists.find(a => a?.country)?.country)
+                    const eas = (ev.event_artists || [])
+                      .map(ea => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return a ? { ...a, is_headliner: ea.is_headliner, sort_order: ea.sort_order } : null })
+                      .filter(Boolean) as { name: string; country?: string | null; cover_image_url?: string | null; is_headliner?: boolean; sort_order?: number }[]
+                    const ranked = [...eas].sort((a, b) => (b.is_headliner ? 1 : 0) - (a.is_headliner ? 1 : 0) || ((a.sort_order ?? 99) - (b.sort_order ?? 99)))
+                    const photos = ranked.filter(a => a.cover_image_url)
+                    const useCollage = photos.length >= 2
+                    const singleImg = photos[0]?.cover_image_url || ev.cover_image_url
+                    const flag = countryFlag(ranked.find(a => a.country)?.country)
                     const city = ev.city || ev.venues?.city || ''
-                    const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
-                    const place = [city, venue].filter(Boolean).join(' · ')
-                    const artistList = evArtists.filter(a => a?.name).map(a => a.name)
+                    const artistList = eas.filter(a => a.name).map(a => a.name)
                     const title = ev.is_festival
                       ? sanitizeTitle(ev.title)
                       : artistList.length > 0
                         ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '')
                         : sanitizeTitle(ev.title)
+                    const smalls = photos.slice(1, 4)
+                    const extra = photos.length - 1 - smalls.length
                     return (
                       <Link
                         key={ev.id}
                         href={`/renginiai/${ev.slug}`}
-                        className="group relative block aspect-[3/4] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] no-underline shadow-[0_6px_18px_rgba(0,0,0,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_16px_34px_rgba(249,115,22,0.22)]"
+                        className="group relative block aspect-[3/4] overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] no-underline shadow-[0_5px_14px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_14px_30px_rgba(249,115,22,0.2)]"
                       >
-                        {imgSrc ? (
+                        {useCollage ? (
+                          <div className="absolute inset-0 grid gap-[2px]" style={{ gridTemplateColumns: '1.6fr 1fr' }}>
+                            <div className="bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(photos[0].cover_image_url!)})` }} />
+                            <div className="flex flex-col gap-[2px]">
+                              {smalls.map((a, idx) => (
+                                <div key={idx} className="relative flex-1 bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(a.cover_image_url!)})` }}>
+                                  {idx === smalls.length - 1 && extra > 0 && (
+                                    <span className="absolute inset-0 flex items-center justify-center bg-black/55 font-['Outfit',sans-serif] text-[13px] font-black text-white">+{extra}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : singleImg ? (
                           <>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={proxyImg(imgSrc)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" />
+                            <img src={proxyImg(singleImg)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" />
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={proxyImg(imgSrc)} alt={title} loading="lazy" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.03]" />
+                            <img src={proxyImg(singleImg)} alt={title} loading="lazy" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.03]" />
                           </>
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-3xl text-[var(--text-faint)]">🎵</div>
+                          <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
                         )}
-                        {/* Skaitomumo overlay — stiprus apačioje, kad title matytųsi ir ant šviesių plakatų. */}
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
                         {dayNum && (
-                          <span className={`absolute left-2.5 top-2.5 flex flex-col items-center rounded-[10px] px-2.5 py-1.5 leading-none shadow-[0_4px_12px_rgba(0,0,0,0.3)] ${soon ? 'bg-[var(--accent-orange)] text-white' : 'bg-white text-[#10203a]'}`}>
-                            <b className="font-['Outfit',sans-serif] text-[18px] font-black">{dayNum}</b>
-                            <i className={`mt-0.5 not-italic text-[9px] font-extrabold uppercase tracking-[0.04em] ${soon ? 'text-white' : 'text-[var(--accent-orange)]'}`}>{monthLbl}</i>
+                          <span className={`absolute left-2 top-2 flex flex-col items-center rounded-lg px-2 py-1 leading-none shadow-[0_3px_10px_rgba(0,0,0,0.3)] ${soon ? 'bg-[var(--accent-orange)] text-white' : 'bg-white text-[#10203a]'}`}>
+                            <b className="font-['Outfit',sans-serif] text-[15px] font-black">{dayNum}</b>
+                            <i className={`mt-0.5 not-italic text-[8px] font-extrabold uppercase tracking-[0.04em] ${soon ? 'text-white' : 'text-[var(--accent-orange)]'}`}>{monthLbl}</i>
                           </span>
                         )}
-                        <div className="absolute inset-x-0 bottom-0 p-3">
-                          {place && (
-                            <p className="m-0 truncate font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.05em] text-[#ffcea3]">{place}</p>
+                        {ev.is_festival && (
+                          <span className="absolute right-2 top-2 rounded-[5px] bg-black/55 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.05em] text-white backdrop-blur-sm">Festivalis</span>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 p-2.5">
+                          {city && (
+                            <p className="m-0 truncate font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.05em] text-[#ffcea3]">{city}</p>
                           )}
-                          <h3 className="m-0 mt-1 flex items-start gap-1.5 font-['Outfit',sans-serif] text-[15px] font-black leading-tight text-white">
-                            {flag && <span className="shrink-0 text-[14px] leading-tight">{flag}</span>}
+                          <h3 className="m-0 mt-0.5 flex items-start gap-1 font-['Outfit',sans-serif] text-[12.5px] font-black leading-tight text-white">
+                            {flag && <span className="shrink-0 text-[12px] leading-tight">{flag}</span>}
                             <span className="line-clamp-2">{title}</span>
                           </h3>
                         </div>
