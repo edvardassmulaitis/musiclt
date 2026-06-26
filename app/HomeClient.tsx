@@ -3978,11 +3978,11 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
             }
           >
           <section>
-            {/* ── Renginiai — afiša v5: desktop 5-stulpelių tinklelis, mobile
-                horizontalus slankiklis. Festivaliai: jei įkeltas admino plakatas
-                (cover_image_url) — jis pagrindinis; jei ne — collage iš atlikėjų.
-                Užsienio koncertai (is_abroad && !festival) sujungti į VIENĄ collage
-                kortelę → /verta-keliones. Miestas tik, be laiko/„Bilietai". 2026-06-26. */}
+            {/* ── Renginiai — afiša v6: vienoda kortelė = vizualas viršuje (BE
+                tamsinimo) + šviesi parašo juosta apačioje. Festivalio collage:
+                headlineris per visą plotį viršuj + 2 mažesni po juo. Data badge
+                visada baltas. Populiarumo threshold (headliner score≥10, festivaliai/
+                featured praeina). Užsienis = TIK verified (kaip /verta-keliones). 2026-06-26. */}
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="m-0 font-['Outfit',sans-serif] text-[18px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Renginiai ir koncertai</h2>
@@ -3992,17 +3992,19 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                 {filtEvt.length === 0 ? Array(10).fill(null).map((_, i) => (
                   <div key={i} className="hp-skel aspect-[3/4] w-[158px] shrink-0 rounded-xl lg:w-auto" />
                 )) : (() => {
+                  const cardCls = "group relative flex aspect-[3/4] w-[158px] shrink-0 flex-col overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] no-underline shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_14px_30px_rgba(249,115,22,0.18)] lg:w-auto"
+                  const capCls = "border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2.5 py-2"
                   const isAbroad = (e: any) => !!e.is_abroad
+                  const scoreOf = (e: any) => Math.max(0, ...(e.event_artists || []).map((ea: any) => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return a?.score || 0 }))
                   const all = [...filtEvt].sort((x, y) => new Date(((x as any).start_date || x.event_date || 0) as any).getTime() - new Date(((y as any).start_date || y.event_date || 0) as any).getTime())
-                  const foreign = all.filter(e => isAbroad(e))
-                  const main = all.filter(e => !isAbroad(e)).slice(0, foreign.length ? 9 : 10)
-                  const cardCls = "group relative block aspect-[3/4] w-[158px] shrink-0 overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] no-underline shadow-[0_5px_14px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_14px_30px_rgba(249,115,22,0.2)] lg:w-auto"
+                  const foreign = all.filter(e => isAbroad(e) && (e as any).verified)
+                  const main = all.filter(e => !isAbroad(e) && (e.is_festival || (e as any).is_featured || scoreOf(e) >= 10)).slice(0, foreign.length ? 9 : 10)
+                  const photoOf = (e: any) => { const ea = (e.event_artists || []).map((x: any) => Array.isArray(x.artists) ? x.artists[0] : x.artists).filter(Boolean); return ea.find((a: any) => a?.cover_image_url)?.cover_image_url || e.cover_image_url || null }
                   const cards: React.ReactNode[] = main.map(ev => {
                     const dateRaw = (ev as any).start_date || ev.event_date
                     const d = dateRaw ? new Date(dateRaw) : null
                     const dayNum = d && !isNaN(d.getTime()) ? d.getDate() : null
                     const monthLbl = d && !isNaN(d.getTime()) ? MONTHS_LT[d.getMonth()] : null
-                    const soon = formatFutureDateLT(dateRaw).highlight
                     const eas = (ev.event_artists || [])
                       .map(ea => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return a ? { ...a, is_headliner: ea.is_headliner, sort_order: ea.sort_order } : null })
                       .filter(Boolean) as { name: string; country?: string | null; cover_image_url?: string | null; is_headliner?: boolean; sort_order?: number }[]
@@ -4019,45 +4021,42 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                       : artistList.length > 0
                         ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '')
                         : sanitizeTitle(ev.title)
-                    const smalls = photos.slice(1, 4)
+                    const smalls = photos.slice(1, 3)
                     const extra = photos.length - 1 - smalls.length
                     return (
                       <Link key={ev.id} href={`/renginiai/${ev.slug}`} className={cardCls}>
-                        {useCollage ? (
-                          <div className="absolute inset-0 grid gap-[2px]" style={{ gridTemplateColumns: '1.6fr 1fr' }}>
-                            <div className="bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(photos[0].cover_image_url!)})` }} />
-                            <div className="flex flex-col gap-[2px]">
+                        <div className="relative flex-1 overflow-hidden">
+                          {useCollage ? (
+                            <div className="grid h-full w-full grid-cols-2 grid-rows-[3fr_2fr] gap-px">
+                              <div className="col-span-2 bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(photos[0].cover_image_url!)})` }} />
                               {smalls.map((a, idx) => (
-                                <div key={idx} className="relative flex-1 bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(a.cover_image_url!)})` }}>
+                                <div key={idx} className={`relative bg-cover bg-center ${smalls.length === 1 ? 'col-span-2' : ''}`} style={{ backgroundImage: `url(${proxyImg(a.cover_image_url!)})` }}>
                                   {idx === smalls.length - 1 && extra > 0 && (
-                                    <span className="absolute inset-0 flex items-center justify-center bg-black/55 font-['Outfit',sans-serif] text-[13px] font-black text-white">+{extra}</span>
+                                    <span className="absolute inset-0 flex items-center justify-center bg-black/45 font-['Outfit',sans-serif] text-[12px] font-black text-white">+{extra}</span>
                                   )}
                                 </div>
                               ))}
                             </div>
-                          </div>
-                        ) : singleImg ? (
-                          <>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={proxyImg(singleImg)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" />
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={proxyImg(singleImg)} alt={title} loading="lazy" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.03]" />
-                          </>
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
-                        )}
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
-                        {dayNum && (
-                          <span className={`absolute left-2 top-2 flex flex-col items-center rounded-lg px-2 py-1 leading-none shadow-[0_3px_10px_rgba(0,0,0,0.3)] ${soon ? 'bg-[var(--accent-orange)] text-white' : 'bg-white text-[#10203a]'}`}>
-                            <b className="font-['Outfit',sans-serif] text-[15px] font-black">{dayNum}</b>
-                            <i className={`mt-0.5 not-italic text-[8px] font-extrabold uppercase tracking-[0.04em] ${soon ? 'text-white' : 'text-[var(--accent-orange)]'}`}>{monthLbl}</i>
-                          </span>
-                        )}
-                        <div className="absolute inset-x-0 bottom-0 p-2.5">
-                          {city && (
-                            <p className="m-0 truncate font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.05em] text-[#ffcea3]">{city}</p>
+                          ) : singleImg ? (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={proxyImg(singleImg)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-xl" />
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={proxyImg(singleImg)} alt={title} loading="lazy" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.03]" />
+                            </>
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
                           )}
-                          <h3 className="m-0 mt-0.5 flex items-start gap-1 font-['Outfit',sans-serif] text-[12.5px] font-black leading-tight text-white">
+                          {dayNum && (
+                            <span className="absolute left-2 top-2 flex flex-col items-center rounded-lg bg-white px-2 py-1 leading-none shadow-[0_3px_10px_rgba(0,0,0,0.3)]">
+                              <b className="font-['Outfit',sans-serif] text-[15px] font-black text-[#10203a]">{dayNum}</b>
+                              <i className="mt-0.5 not-italic text-[8px] font-extrabold uppercase tracking-[0.04em] text-[var(--accent-orange)]">{monthLbl}</i>
+                            </span>
+                          )}
+                        </div>
+                        <div className={capCls}>
+                          {city && <p className="m-0 truncate font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--text-muted)]">{city}</p>}
+                          <h3 className="m-0 mt-0.5 flex items-start gap-1 font-['Outfit',sans-serif] text-[12.5px] font-black leading-tight text-[var(--text-primary)]">
                             {flag && <span className="shrink-0 text-[12px] leading-tight">{flag}</span>}
                             <span className="line-clamp-2">{title}</span>
                           </h3>
@@ -4066,23 +4065,20 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     )
                   })
                   if (foreign.length) {
-                    const fImgs = foreign.map(e => {
-                      const ea = (e.event_artists || []).map(x => Array.isArray(x.artists) ? x.artists[0] : x.artists).filter(Boolean) as { cover_image_url?: string | null }[]
-                      return ea.find(a => a?.cover_image_url)?.cover_image_url || e.cover_image_url || null
-                    }).filter(Boolean).slice(0, 6) as string[]
+                    const fImgs = foreign.map(photoOf).filter(Boolean).slice(0, 6) as string[]
                     cards.push(
-                      <Link key="abroad" href="/verta-keliones" className={cardCls + ' !bg-[#15203a]'}>
-                        <div className="flex h-full w-full flex-col">
-                          <div className="grid flex-1 grid-cols-3 grid-rows-2 gap-px">
+                      <Link key="abroad" href="/verta-keliones" className={cardCls}>
+                        <div className="relative flex-1 overflow-hidden bg-[#15203a]">
+                          <div className="grid h-full w-full grid-cols-3 grid-rows-2 gap-px">
                             {fImgs.map((src, i) => (
                               <div key={i} className="bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(src)})` }} />
                             ))}
                           </div>
-                          <div className="bg-[#10203a] px-3 pb-3 pt-2 text-white">
-                            <span className="flex items-center gap-1 font-[\'Outfit\',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.06em] text-[#ffb877]"><span aria-hidden>🌍</span> Užsienyje</span>
-                            <h3 className="m-0 mt-1 font-[\'Outfit\',sans-serif] text-[13.5px] font-black leading-tight">Koncertai užsienyje</h3>
-                            <p className="m-0 mt-0.5 font-[\'Outfit\',sans-serif] text-[10.5px] font-bold text-[#ff9d4d]">{foreign.length} koncertų · Daugiau →</p>
-                          </div>
+                        </div>
+                        <div className={capCls}>
+                          <p className="m-0 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--text-muted)]">Užsienis</p>
+                          <h3 className="m-0 mt-0.5 font-['Outfit',sans-serif] text-[12.5px] font-black leading-tight text-[var(--text-primary)]">Koncertai, verti kelionės</h3>
+                          <p className="m-0 mt-1 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--accent-orange)]">Daugiau →</p>
                         </div>
                       </Link>
                     )

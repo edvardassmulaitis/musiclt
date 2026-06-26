@@ -73,11 +73,11 @@ export async function getEvents(opts: {
       id, title, slug, legacy_id, description, start_date, end_date,
       venue_name, venue_id, city, city_id, address, cover_image_url,
       ticket_url, price_from, price_to,
-      status, is_featured, is_abroad, hide_from_homepage, created_at,
+      status, is_featured, is_abroad, hide_from_homepage, verified, created_at,
       venues:venue_id(id, name, slug, city, address),
       event_artists(
         artist_id, is_headliner, sort_order,
-        artists(id, name, slug, cover_image_url, country)
+        artists(id, name, slug, cover_image_url, country, score)
       )
     `, { count: 'exact' })
     .order('start_date', { ascending: order !== 'desc' })
@@ -176,7 +176,7 @@ export async function getFestivals(opts: { limit?: number } = {}) {
     ticket_url, price_from, price_to, status, is_featured, created_at,
     event_artists(
       artist_id, is_headliner, sort_order,
-      artists(id, name, slug, cover_image_url, country)
+      artists(id, name, slug, cover_image_url, country, score)
     )
   `
 
@@ -247,7 +247,7 @@ export async function getFestivalBySlug(slug: string) {
       status, is_featured, created_at, updated_at, is_festival,
       event_artists(
         artist_id, is_headliner, sort_order,
-        artists(id, name, slug, cover_image_url, country)
+        artists(id, name, slug, cover_image_url, country, score)
       )
     `
   const data = await fetchEventRow(supabase, sel, slug)
@@ -344,7 +344,7 @@ export async function getEventBySlug(slug: string) {
       status, is_featured, is_festival, created_at, updated_at,
       event_artists(
         artist_id, is_headliner, sort_order,
-        artists(id, name, slug, cover_image_url, country)
+        artists(id, name, slug, cover_image_url, country, score)
       )
     `
   const data = await fetchEventRow(supabase, sel, slug)
