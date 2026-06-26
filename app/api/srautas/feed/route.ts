@@ -109,7 +109,7 @@ function cleanTitle(t?: string | null): string {
 }
 
 // Įrašo excerpt — HTML nuvalytas, sutrumpintas (kortelėms be viršelio).
-function excerptOf(summary?: string | null, max = 240): string | null {
+function excerptOf(summary?: string | null, max = 360): string | null {
   const t = (summary || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
   if (!t) return null
   return t.length > max ? t.slice(0, max).trimEnd() + '…' : t
@@ -156,6 +156,24 @@ function capPerArtist(items: FeedItem[], perArtist: number, score: (it: FeedItem
     arr.sort((a, b) => score(b) - score(a))
     out.push(...arr.slice(0, perArtist))
   }
+  return out
+}
+
+// Populiariausios dainos (su klipu) ytId kiekvienam atlikėjui — koncertų kortelių grotuvui.
+async function topTrackYtByArtist(sb: any, artistIds: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>()
+  const ids = Array.from(new Set(artistIds.filter(Boolean)))
+  if (!ids.length) return out
+  try {
+    const { data } = await sb.from('tracks')
+      .select('artist_id, video_url, video_views').in('artist_id', ids).not('video_url', 'is', null)
+      .order('video_views', { ascending: false, nullsFirst: false }).limit(Math.min(ids.length * 8, 300))
+    for (const t of (data || []) as any[]) {
+      const aid = Number(t.artist_id); if (out.has(aid)) continue
+      const yt = t.video_url?.match?.(YT_RE)?.[1]; if (!yt) continue
+      out.set(aid, yt)
+    }
+  } catch { /* ignore */ }
   return out
 }
 
@@ -242,23 +260,26 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
     const dedAlbums = capPerArtist(albums, 1, it => Date.parse(it.date || '') || 0)
     dedTracks.sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
     dedAlbums.sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
-    // Albumams — vedančios (populiariausios) dainos ytId, kad kortelėje būtų inline ▶ grotuvas.
+    // Albumams — kelios (≤2) populiariausios dainos su klipais → inline ▶ grotuvai.
     try {
       const albIds = dedAlbums.map(a => Number(a.key.split('-').pop())).filter(Boolean)
       if (albIds.length) {
         const { data: at } = await sb.from('album_tracks')
-          .select('album_id, tracks:track_id(video_url, video_views)').in('album_id', albIds)
-        const best = new Map<number, { yt: string; views: number }>()
+          .select('album_id, tracks:track_id(title, video_url, video_views)').in('album_id', albIds)
+        const byAlbum = new Map<number, { yt: string; title: string; views: number }[]>()
         for (const r of (at || []) as any[]) {
           const t = one(r.tracks); if (!t) continue
           const yt = t.video_url?.match?.(YT_RE)?.[1]; if (!yt) continue
-          const aid = Number(r.album_id); const views = Number(t.video_views) || 0
-          const cur = best.get(aid)
-          if (!cur || views > cur.views) best.set(aid, { yt, views })
+          const aid = Number(r.album_id)
+          const arr = byAlbum.get(aid) || []; arr.push({ yt, title: t.title || '', views: Number(t.video_views) || 0 }); byAlbum.set(aid, arr)
         }
         for (const al of dedAlbums) {
-          const b = best.get(Number(al.key.split('-').pop()))
-          if (b) al.meta = { ...(al.meta || {}), ytId: b.yt }
+          const arr = (byAlbum.get(Number(al.key.split('-').pop())) || [])
+            .sort((a, b) => b.views - a.views)
+          // unikalūs ytId, top 2
+          const seenYt = new Set<string>(); const top: { ytId: string; title: string }[] = []
+          for (const x of arr) { if (seenYt.has(x.yt)) continue; seenYt.add(x.yt); top.push({ ytId: x.yt, title: x.title }); if (top.length >= 2) break }
+          if (top.length) al.meta = { ...(al.meta || {}), albumTracks: top }
         }
       }
     } catch { /* ignore */ }
@@ -341,24 +362,33 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       if (!charts.length) return []
       const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
       const { data: entries } = await sb.from('external_chart_entries')
-        .select('artist_id, chart_id, position, title, cover_url, artist_name').in('artist_id', artistIds).in('chart_id', charts.map(c => Number(c.id)))
+        .select('artist_id, chart_id, position, title, cover_url, track_id, artist_name').in('artist_id', artistIds).in('chart_id', charts.map(c => Number(c.id)))
         .order('position', { ascending: true }).limit(120)
       const eRows = (entries || []) as any[]
       const aids = Array.from(new Set(eRows.map(e => Number(e.artist_id)).filter(Boolean)))
       if (!aids.length) return []
-      const { data: arts } = await sb.from('artists').select('id, name, cover_image_url, slug').in('id', aids)
+      // Atlikėjai (pills) + konkrečios dainos (track_id → pavadinimas, klipas, viršelis).
+      const trackIds = Array.from(new Set(eRows.map(e => Number(e.track_id)).filter(Boolean)))
+      const [artsRes, tracksRes] = await Promise.all([
+        sb.from('artists').select('id, name, cover_image_url, slug').in('id', aids),
+        trackIds.length ? sb.from('tracks').select('id, title, video_url, cover_url').in('id', trackIds) : Promise.resolve({ data: [] as any[] }),
+      ])
       const artById = new Map<number, { name: string; image: string | null; slug: string | null }>(
-        ((arts || []) as any[]).map(a => [Number(a.id), { name: a.name as string, image: a.cover_image_url || null, slug: a.slug || null }]))
+        ((artsRes.data || []) as any[]).map(a => [Number(a.id), { name: a.name as string, image: a.cover_image_url || null, slug: a.slug || null }]))
+      const trackById = new Map<number, { title: string; yt: string | null; cover: string | null }>(
+        ((tracksRes.data || []) as any[]).map(t => [Number(t.id), { title: t.title || '', yt: t.video_url?.match?.(YT_RE)?.[1] || null, cover: t.cover_url || null }]))
       const seen = new Set<string>()
-      // chartRows — DAINOS lygmuo (pavadinimas + atlikėjas + dainos viršelis); pills — atlikėjai.
-      const rows: { artist: string; song: string | null; chart: string; position: number; href: string; image: string | null }[] = []
+      // chartRows — DAINOS lygmuo (pavadinimas + atlikėjas + dainos viršelis + klipas); pills — atlikėjai.
+      const rows: { artist: string; song: string | null; ytId: string | null; chart: string; position: number; href: string; image: string | null }[] = []
       const thumbs: { name: string; image: string | null; href: string }[] = []
       const seenArt = new Set<number>()
       for (const e of eRows) {
         const c = chartById.get(Number(e.chart_id)); if (!c) continue
         const a = artById.get(Number(e.artist_id)); if (!a) continue
-        const k = `${e.artist_id}-${e.chart_id}-${e.title || ''}`; if (seen.has(k)) continue; seen.add(k)
-        rows.push({ artist: a.name || e.artist_name, song: e.title || null, chart: c.title || 'Topas', position: Number(e.position) || 0, href: `/topai/${c.source}-${c.chart_key}`, image: e.cover_url || a.image })
+        const tr = e.track_id ? trackById.get(Number(e.track_id)) : null
+        const song = tr?.title || e.title || null
+        const k = `${e.artist_id}-${e.chart_id}-${song || ''}`; if (seen.has(k)) continue; seen.add(k)
+        rows.push({ artist: a.name || e.artist_name, song, ytId: tr?.yt || null, chart: c.title || 'Topas', position: Number(e.position) || 0, href: `/topai/${c.source}-${c.chart_key}`, image: tr?.cover || e.cover_url || a.image })
         const aid = Number(e.artist_id)
         if (!seenArt.has(aid)) { seenArt.add(aid); thumbs.push({ name: a.name, image: a.image, href: a.slug ? `/atlikejai/${a.slug}` : '/topai' }) }
       }
@@ -368,7 +398,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         title: 'Tavo atlikėjai topuose',
         subtitle: null, image: null, href: '/topai', date: nowIso, badge: 'Topai',
         artistId: null, avatar: null,
-        meta: { chartRows: rows.slice(0, 50), artistThumbs: thumbs.slice(0, 14) },
+        meta: { chartRows: rows.slice(0, 50), artistThumbs: thumbs.slice(0, 16) },
       }]
     } catch { /* ignore */ }
     return []
@@ -409,7 +439,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
             if (!t) continue
             const pr = one(c.profiles)
             lastComment.set(c.discussion_id, {
-              body: t.length > 260 ? t.slice(0, 260).trimEnd() + '…' : t,
+              body: t.length > 400 ? t.slice(0, 400).trimEnd() + '…' : t,
               by: pr?.full_name || pr?.username || null,
               avatar: pr?.avatar_url || null,
             })
@@ -450,12 +480,22 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       if (eventIds) q = q.in('id', eventIds)
       q = q.order('start_date', { ascending: true }).limit(8)
       const { data } = await q
-      for (const ev of (data || []) as any[]) {
+      const evs = (data || []) as any[]
+      // Renginio atlikėjas → jo top dainos klipas (kortelės grotuvui).
+      const evArtist = new Map<number, number>()
+      try {
+        const { data: ea2 } = await sb.from('event_artists').select('event_id, artist_id').in('event_id', evs.map(e => Number(e.id)))
+        for (const r of (ea2 || []) as any[]) { const e = Number(r.event_id); if (!evArtist.has(e)) evArtist.set(e, Number(r.artist_id)) }
+      } catch { /* ignore */ }
+      const evYt = await topTrackYtByArtist(sb, Array.from(evArtist.values()))
+      for (const ev of evs) {
+        const yt = evYt.get(evArtist.get(Number(ev.id)) || 0) || null
         out.push({
           key: `event-${ev.id}`, kind: 'event', title: ev.title || '',
           subtitle: [ev.city, ev.venue_name].filter(Boolean).join(' · ') || null,
           image: ev.cover_image_url || null, href: `/renginiai/${ev.slug}`,
           date: ev.start_date, badge: 'Koncertas',
+          meta: yt ? { ytId: yt } : undefined,
         })
       }
     } catch { /* ignore */ }
@@ -524,18 +564,21 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
     if (before || !artistIds.length) return []
     const out: FeedItem[] = []
     try {
-      const { data: arts } = await sb.from('artists').select('slug, name, cover_image_url').in('id', artistIds)
+      const { data: arts } = await sb.from('artists').select('id, slug, name, cover_image_url').in('id', artistIds)
       const likedSlugs = new Set<string>()
       const likedNames = new Set<string>()
       const coverBySlug = new Map<string, string>()
       const coverByName = new Map<string, string>()
+      const idBySlug = new Map<string, number>()
+      const idByName = new Map<string, number>()
       for (const a of (arts || []) as any[]) {
-        if (a.slug) { likedSlugs.add(a.slug); if (a.cover_image_url) coverBySlug.set(a.slug, a.cover_image_url) }
-        if (a.name) { const n = String(a.name).trim().toLowerCase(); likedNames.add(n); if (a.cover_image_url) coverByName.set(n, a.cover_image_url) }
+        if (a.slug) { likedSlugs.add(a.slug); idBySlug.set(a.slug, Number(a.id)); if (a.cover_image_url) coverBySlug.set(a.slug, a.cover_image_url) }
+        if (a.name) { const n = String(a.name).trim().toLowerCase(); likedNames.add(n); idByName.set(n, Number(a.id)); if (a.cover_image_url) coverByName.set(n, a.cover_image_url) }
       }
       if (!likedSlugs.size && !likedNames.size) return out
       const { concerts } = await getVertaKelionesData()
       const now = Date.now()
+      const tripArtistId = new Map<string, number>() // trip key → artist id
       for (const c of concerts as any[]) {
         const nm = (c.artist || '').trim().toLowerCase()
         // Slug ARBA vardas — kad Coldplay (kt. slug DB) irgi pataikytų.
@@ -543,8 +586,11 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         const t = Date.parse(c.date)
         if (!Number.isFinite(t) || t < now) continue
         const cover = (c.artistSlug && coverBySlug.get(c.artistSlug)) || coverByName.get(nm) || c.image || null
+        const aid = (c.artistSlug && idBySlug.get(c.artistSlug)) || idByName.get(nm) || 0
+        const key = `trip-${c.id}`
+        if (aid) tripArtistId.set(key, aid)
         out.push({
-          key: `trip-${c.id}`, kind: 'event',
+          key, kind: 'event',
           title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
           subtitle: tripSubtitle(c.destKey, c.venue), image: c.image || cover || null,
           href: `/verta-keliones#vk-${c.id}`, date: c.date, badge: 'Koncertas, vertas kelionės',
@@ -553,6 +599,14 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         })
       }
       out.sort((a, b) => Date.parse(a.date || '') - Date.parse(b.date || ''))
+      const top = out.slice(0, 6)
+      // Atlikėjo top dainos klipas (kortelės grotuvui).
+      const ytByArtist = await topTrackYtByArtist(sb, top.map(it => tripArtistId.get(it.key) || 0))
+      for (const it of top) {
+        const yt = ytByArtist.get(tripArtistId.get(it.key) || 0)
+        if (yt) it.meta = { ...(it.meta || {}), ytId: yt }
+      }
+      return top
     } catch { /* ignore */ }
     return out.slice(0, 6)
   }
@@ -599,7 +653,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v21'],
+  ['srautas-feed-v22'],
   { revalidate: 90 },
 )
 
