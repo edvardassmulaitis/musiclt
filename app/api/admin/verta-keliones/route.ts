@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { runScout } from '@/lib/verta-keliones-scout'
+import { slugify } from '@/lib/slugify'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,12 +16,68 @@ async function guard() {
   return true
 }
 
+// events (is_abroad) eilutė → VKAdminClient „Event" formatas (suderinamumui).
+function eventToClient(ev: any) {
+  return {
+    id: String(ev.id),
+    artist_name: ev.title,
+    dest_key: ev.dest_key || '',
+    city: ev.city || null,
+    country: null,
+    venue_name: ev.venue_name || null,
+    start_date: ev.start_date ? String(ev.start_date).slice(0, 10) : '',
+    end_date: ev.end_date ? String(ev.end_date).slice(0, 10) : null,
+    image_url: ev.cover_image_url || null,
+    ticket_url: ev.ticket_url || null,
+    is_festival: !!ev.is_festival,
+    popularity: ev.popularity || 0,
+    is_published: !!ev.verified, // VK admine „Rodyti/Slėpti" valdo viešą matomumą = verified
+    verified: !!ev.verified,
+    source: null,
+  }
+}
+
+// Unikalus slug'as events lentelei.
+async function uniqueSlug(sb: any, title: string): Promise<string> {
+  let slug = slugify(title || 'koncertas')
+  const { data: existing } = await sb.from('events').select('id').eq('slug', slug).maybeSingle()
+  if (existing) slug = `${slug}-${Date.now().toString(36)}`
+  return slug
+}
+
+// Abroad-formos / kandidato laukai → events insert eilutė (is_abroad=true).
+async function buildAbroadEventRow(sb: any, src: any): Promise<any> {
+  const { data: dest } = await sb.from('travel_destinations').select('city').eq('key', src.dest_key).limit(1)
+  const di: any = dest?.[0] || {}
+  const title = (src.is_festival ? (src.festival_name || src.tour_name) : null) || src.artist_name
+  return {
+    title,
+    slug: await uniqueSlug(sb, title),
+    description: src.why || null,
+    start_date: src.start_date,
+    end_date: src.end_date || null,
+    venue_name: src.venue_name || null,
+    city: src.city || di.city || null,
+    cover_image_url: src.image_url || null,
+    ticket_url: src.ticket_url || null,
+    is_festival: !!src.is_festival,
+    is_abroad: true,
+    dest_key: src.dest_key,
+    why: src.why || null,
+    popularity: Number(src.popularity) || 0,
+    verified: src.verified === undefined ? true : !!src.verified,
+    status: 'upcoming',
+  }
+}
+
 export async function GET() {
   if (!(await guard())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const sb = createAdminClient()
   const [d, e, c] = await Promise.all([
     sb.from('travel_destinations').select('*').order('sort_order', { ascending: true }),
-    sb.from('abroad_events').select('*').order('start_date', { ascending: true }),
+    // Po merge: užsienio koncertai gyvena unified `events` (is_abroad=true).
+    sb.from('events').select('id, title, dest_key, city, venue_name, start_date, end_date, cover_image_url, ticket_url, is_festival, popularity, verified')
+      .eq('is_abroad', true).order('start_date', { ascending: true }),
     sb.from('abroad_event_candidates').select('*').eq('status', 'pending').order('start_date', { ascending: true }),
   ])
   // Slėpti praėjusius — admin tvarko tik tuos, kurie dar gali patekti į feedus
@@ -28,7 +85,7 @@ export async function GET() {
   // Daugiadieniai: pagal end_date; vienadieniai: pagal start_date (LT laiko zona).
   const ltToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
   const isUpcoming = (r: any) => (((r.end_date || r.start_date || '') as string).slice(0, 10) >= ltToday)
-  const evRows = (e.data || []) as any[]
+  const evRows = ((e.data || []) as any[]).map(eventToClient)
   const upcomingEv = evRows.filter(isUpcoming)                 // start_date ASC → artimiausi viršuje
   const pastEv = evRows.filter((r) => !isUpcoming(r)).reverse() // praėję — į apačią (naujausi pirma)
   return NextResponse.json({
@@ -76,34 +133,26 @@ export async function POST(req: NextRequest) {
       case 'event_save': {
         const e = body.event || {}
         if (!e.artist_name || !e.dest_key || !e.start_date) return NextResponse.json({ error: 'Trūksta atlikėjo/krypties/datos' }, { status: 400 })
-        const { data: dest } = await sb.from('travel_destinations').select('city, country, country_code, reach_mode').eq('key', e.dest_key).limit(1)
-        const di: any = dest?.[0] || {}
-        const row: any = {
-          artist_name: e.artist_name, artist_slug: e.artist_slug || null, artist_id: e.artist_id || null,
-          dest_key: e.dest_key, city: e.city || di.city || null, country: e.country || di.country || null,
-          country_code: e.country_code || di.country_code || null, venue_name: e.venue_name || null,
-          start_date: e.start_date, end_date: e.end_date || null, ticket_url: e.ticket_url || null,
-          image_url: e.image_url || null, genres: e.genres || [], popularity: Number(e.popularity) || 0,
-          is_festival: !!e.is_festival, festival_name: e.festival_name || null, why: e.why || null,
-          reach_mode: e.reach_mode || di.reach_mode || null, verified: !!e.verified,
-          source: e.source || 'manual', is_published: e.is_published !== false, sort_order: Number(e.sort_order) || 0,
-        }
+        const row = await buildAbroadEventRow(sb, { ...e, verified: e.verified })
         if (e.id) {
-          const { error } = await sb.from('abroad_events').update(row).eq('id', e.id)
+          // Redaguojant nelyti slug (kad nesikeistų URL) — nuimam jį iš patch'o.
+          const { slug, ...patch } = row
+          const { error } = await sb.from('events').update(patch).eq('id', e.id).eq('is_abroad', true)
           if (error) throw error
         } else {
-          const { error } = await sb.from('abroad_events').insert(row)
+          const { error } = await sb.from('events').insert(row)
           if (error) throw error
         }
         return NextResponse.json({ ok: true })
       }
       case 'event_toggle': {
-        const { error } = await sb.from('abroad_events').update({ is_published: !!body.is_published }).eq('id', body.id)
+        // VK admine „Rodyti/Slėpti" = viešas matomumas = verified.
+        const { error } = await sb.from('events').update({ verified: !!body.is_published }).eq('id', body.id).eq('is_abroad', true)
         if (error) throw error
         return NextResponse.json({ ok: true })
       }
       case 'event_delete': {
-        const { error } = await sb.from('abroad_events').delete().eq('id', body.id)
+        const { error } = await sb.from('events').delete().eq('id', body.id).eq('is_abroad', true)
         if (error) throw error
         return NextResponse.json({ ok: true })
       }
@@ -111,19 +160,10 @@ export async function POST(req: NextRequest) {
         const { data: cand } = await sb.from('abroad_event_candidates').select('*').eq('id', body.id).limit(1)
         const c = cand?.[0]
         if (!c) return NextResponse.json({ error: 'Nerasta' }, { status: 404 })
-        const { data: dest } = await sb.from('travel_destinations').select('city, country, country_code, reach_mode').eq('key', c.dest_key).limit(1)
-        const di: any = dest?.[0] || {}
-        const row = {
-          artist_name: c.artist_name, artist_slug: c.artist_slug, artist_id: c.artist_id,
-          dest_key: c.dest_key, city: c.city || di.city, country: c.country || di.country,
-          country_code: di.country_code || null, venue_name: c.venue_name,
-          start_date: c.start_date, end_date: c.end_date, ticket_url: c.ticket_url,
-          image_url: c.image_url, genres: c.genres || [], popularity: c.popularity || 0,
-          is_festival: !!c.is_festival, festival_name: c.is_festival ? c.artist_name : null,
-          why: null, reach_mode: di.reach_mode || null, verified: true, // admin patvirtinimas = verifikuota (vieša rodoma TIK verified)
-          source: 'scout', source_url: c.source_url, is_published: true, sort_order: 0,
-        }
-        const { error: insErr } = await sb.from('abroad_events').insert(row)
+        // Admin patvirtinimas = verifikuota (vieša rodoma TIK verified). Įrašom į
+        // unified events (is_abroad=true) — nebe į abroad_events.
+        const row = await buildAbroadEventRow(sb, { ...c, festival_name: c.is_festival ? c.artist_name : null, verified: true })
+        const { error: insErr } = await sb.from('events').insert(row)
         if (insErr) throw insErr
         await sb.from('abroad_event_candidates').update({ status: 'approved' }).eq('id', body.id)
         return NextResponse.json({ ok: true })
