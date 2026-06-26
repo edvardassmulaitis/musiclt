@@ -3879,7 +3879,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                   const scoreOf = (e: any) => Math.max(0, ...(e.event_artists || []).map((ea: any) => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return a?.score || 0 }))
                   const all = [...filtEvt].sort((x, y) => new Date(((x as any).start_date || x.event_date || 0) as any).getTime() - new Date(((y as any).start_date || y.event_date || 0) as any).getTime())
                   const foreign = vertaConcerts.concerts || []
-                  const main = all.filter(e => !isAbroad(e) && (e.is_festival || (e as any).is_featured || scoreOf(e) >= 10) && (!!e.cover_image_url || (e.event_artists || []).some((ea: any) => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return !!a?.cover_image_url }))).slice(0, foreign.length ? 15 : 16)
+                  const main = all.filter(e => !isAbroad(e) && (e.is_festival || (e as any).is_featured || scoreOf(e) >= 10) && (!!e.cover_image_url || (e.event_artists || []).some((ea: any) => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return !!a?.cover_image_url }))).slice(0, foreign.length ? 9 : 10)
                   const photoOf = (e: any) => { const ea = (e.event_artists || []).map((x: any) => Array.isArray(x.artists) ? x.artists[0] : x.artists).filter(Boolean); return ea.find((a: any) => a?.cover_image_url)?.cover_image_url || e.cover_image_url || null }
                   const cards: React.ReactNode[] = main.map(ev => {
                     const dateRaw = (ev as any).start_date || ev.event_date
