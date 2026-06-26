@@ -3,6 +3,10 @@
 /**
  * /srautas — ❤️ asmeninė muzikos zona. Du režimai: „Mėgstami" / „Tau gali patikti".
  *
+ * 2026-06-25 v10 — vienodas kortelių AUKŠTIS (128px fix, body overflow hidden); Topai=atlikėjų
+ *   PILLS (foto+vardas kartu, fallback raidė); Topai modale daina+atlikėjas+dainos viršelis;
+ *   albumai gauna inline ▶ grotuvą (vedanti daina, meta.ytId per album_tracks); „Nes mėgsti"=
+ *   atlikėjų avatarai (becauseArtists). Trip „kodėl" excerpt nuimtas nuo kortelės (telpa). Žemiau v9:
  * 2026-06-25 v9 — PRATURTINTOS EILUTĖS (900px, viena kolona, vienodas abiems tabams):
  *   • Dainos / rekomenduojami atlikėjai — MINI ▶ grotuvas dešinėj (in-place play,
  *     neišplečia turinio): kairėj atlikėjo foto, dešinėj klipo thumbnail→iframe.
@@ -49,7 +53,7 @@ type FeedItem = {
     tripInfo?: string | null; venue?: string | null
     topTrack?: { ytId: string; title: string } | null
     artistThumbs?: { name: string; image: string | null; href: string }[]
-    chartRows?: { artist: string; chart: string; position: number; href: string; image?: string | null }[]
+    chartRows?: { artist: string; chart: string; position: number; href: string; image?: string | null; song?: string | null }[]
   }
 }
 
@@ -188,11 +192,13 @@ function FeedCard({ it, onDismiss, onWhy, onOpenCharts }: { it: FeedItem; onDism
     it.kind === 'artist' ? 'artist' : it.kind === 'track' ? 'track' : it.kind === 'album' ? 'album' : null
   const likeId = it.kind === 'artist' ? (it.artist?.id || 0) : idFromKey(it.key)
   const isTrack = it.kind === 'track'
-  // Inline grotuvas: dainoms — pati daina; rekomenduojamiems atlikėjams — jų top daina.
-  const playYt: string | null = isTrack ? ((it.meta?.ytId as string | undefined) || null) : (isArtist ? (it.meta?.topTrack?.ytId || null) : null)
+  const isAlbum = it.kind === 'album'
+  // Inline grotuvas: dainoms / albumams — meta.ytId (albumui = vedanti daina); rekomenduojamiems atlikėjams — jų top daina.
+  const playYt: string | null = (isTrack || isAlbum) ? ((it.meta?.ytId as string | undefined) || null) : (isArtist ? (it.meta?.topTrack?.ytId || null) : null)
   // Kairysis vizualas: dainoms — atlikėjo foto (dešinėj — klipo grotuvas); kitiems — kortelės viršelis.
   const leftImg = isTrack ? (it.avatar || it.image) : it.image
   const chartThumbs = it.kind === 'chart' ? (it.meta?.artistThumbs || []) : []
+  const becauseArts = (it.becauseArtists || []).filter(a => a.name).slice(0, 3)
   const commentBy = it.meta?.commentBy || null
   const commentAvatar = it.meta?.commentAvatar || null
   const tripInfo = it.meta?.tripInfo || null
@@ -289,17 +295,20 @@ function FeedCard({ it, onDismiss, onWhy, onOpenCharts }: { it: FeedItem; onDism
           )}
 
           {chartThumbs.length > 0 && (
-            <span className="srl-thumbs">
-              {chartThumbs.slice(0, 9).map((t, i) => (
-                t.image
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img key={i} className="srl-thumb" src={proxyImgResized(t.image, 72)} alt={t.name} title={t.name} loading="lazy" />
-                  : <span key={i} className="srl-thumb srl-thumb--ph" title={t.name}>{t.name.trim()[0]?.toUpperCase() || '?'}</span>
+            <span className="srl-pills">
+              {chartThumbs.slice(0, 8).map((t, i) => (
+                <span key={i} className="srl-pill" title={t.name}>
+                  {t.image
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img className="srl-pill-av" src={proxyImgResized(t.image, 48)} alt="" loading="lazy" />
+                    : <span className="srl-pill-av srl-pill-av--ph">{t.name.trim()[0]?.toUpperCase() || '?'}</span>}
+                  <span className="srl-pill-nm">{t.name}</span>
+                </span>
               ))}
             </span>
           )}
 
-          {excerpt && <span className={`srl-excerpt${it.kind === 'topic' ? ' srl-quote' : ''}`}>{excerpt}</span>}
+          {excerpt && it.kind !== 'event' && <span className={`srl-excerpt${it.kind === 'topic' ? ' srl-quote' : ''}`}>{excerpt}</span>}
           {it.kind === 'topic' && commentBy && (
             <span className="srl-byline">
               {commentAvatar && (
@@ -313,7 +322,20 @@ function FeedCard({ it, onDismiss, onWhy, onOpenCharts }: { it: FeedItem; onDism
 
           {it.because && (
             <button type="button" className="srl-because" onClick={why} aria-label="Kodėl pasiūlyta" title="Kodėl pasiūlyta">
-              {IconLink}<span>Nes mėgsti: {it.because}</span>
+              <span className="srl-because-lbl">Nes mėgsti</span>
+              {becauseArts.length > 0 ? (
+                <span className="srl-because-arts">
+                  {becauseArts.map((a, i) => (
+                    a.image
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img key={i} className="srl-because-av" src={proxyImgResized(a.image, 48)} alt={a.name} title={a.name} loading="lazy" />
+                      : <span key={i} className="srl-because-av srl-because-av--ph" title={a.name}>{a.name.trim()[0]?.toUpperCase() || '?'}</span>
+                  ))}
+                  <span className="srl-because-nm">{becauseArts.map(a => a.name).join(' · ')}</span>
+                </span>
+              ) : (
+                <span className="srl-because-nm">{it.because}</span>
+              )}
             </button>
           )}
           {(when || stats.length > 0) && (
@@ -521,7 +543,7 @@ function SrautasInner() {
         /* ── Pilno pločio eilutė ── */
         .srl { position:relative; display:flex; align-items:stretch; gap:0; text-decoration:none; overflow:hidden; will-change:transform;
           background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:16px;
-          min-height:116px; transition:border-color .15s, box-shadow .15s; }
+          height:128px; transition:border-color .15s, box-shadow .15s; }
         .srl:hover { border-color:var(--border-strong); box-shadow:0 8px 22px rgba(0,0,0,0.18); }
         .srl-cover { position:relative; flex:0 0 auto; width:150px; overflow:hidden; align-self:stretch;
           background:linear-gradient(135deg, var(--bg-active), var(--bg-surface)); }
@@ -532,7 +554,7 @@ function SrautasInner() {
 
         /* ── Mini grotuvas dešinėj (daina / rekomenduojamo atlikėjo top daina) ── */
         .srl--hasmini .srl-body { padding-right:16px; }
-        .srl-mini { position:relative; flex:0 0 auto; width:200px; align-self:center; margin:10px 14px 10px 6px;
+        .srl-mini { position:relative; flex:0 0 auto; width:200px; align-self:center; margin:8px 14px 8px 6px;
           border-radius:12px; overflow:hidden; aspect-ratio:16/9; background:#000; box-shadow:0 3px 10px rgba(0,0,0,0.22); }
         .srl-mini-play { display:block; width:100%; height:100%; padding:0; border:0; cursor:pointer; position:relative; background:#000; }
         .srl-mini-play img { width:100%; height:100%; object-fit:cover; display:block; opacity:.92; transition:opacity .15s, transform .35s ease; }
@@ -543,34 +565,46 @@ function SrautasInner() {
         .srl-mini-pbtn svg { width:18px; height:18px; margin-left:2px; }
         .srl-mini iframe { width:100%; height:100%; border:0; display:block; }
 
-        .srl-body { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:4px; padding:13px 50px 13px 16px; }
+        .srl-body { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:4px; padding:13px 50px 13px 16px; overflow:hidden; }
         .srl-kicker { font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; line-height:1; }
         .srl-title { font-size:16px; font-weight:700; color:var(--text-primary); line-height:1.3;
           display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
         .srl-subrow { display:flex; align-items:center; gap:7px; min-width:0; }
         .srl-avatar { width:19px; height:19px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
         .srl-sub { font-size:12.5px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .srl-excerpt { font-size:13px; color:var(--text-muted); line-height:1.5; margin-top:2px;
-          display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+        .srl-excerpt { font-size:13px; color:var(--text-muted); line-height:1.45; margin-top:2px;
+          display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
         .srl-quote { font-style:italic; }
         .srl-byline { display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-secondary); margin-top:1px; }
         .srl-byline-av { width:16px; height:16px; border-radius:50%; object-fit:cover; flex:0 0 auto; }
-        .srl-trip { font-size:12px; color:var(--text-secondary); margin-top:1px; }
-        .srl-thumbs { display:flex; align-items:center; gap:6px; margin-top:5px; flex-wrap:wrap; }
-        .srl-thumb { width:34px; height:34px; border-radius:8px; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
-        .srl-thumb--ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:14px; font-family:'Outfit', sans-serif; }
-        .srl-because { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--accent-orange); margin-top:2px; min-width:0;
+        .srl-trip { font-size:12px; color:var(--text-secondary); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+        /* Topai — atlikėjų pills (foto + vardas kartu) */
+        .srl-pills { display:flex; align-items:center; gap:7px; margin-top:5px; flex-wrap:nowrap; overflow:hidden; }
+        .srl-pill { display:inline-flex; align-items:center; gap:6px; padding:3px 11px 3px 3px; border-radius:100px;
+          background:var(--bg-surface); border:1px solid var(--border-subtle); flex:0 0 auto; max-width:175px; }
+        .srl-pill-av { width:22px; height:22px; border-radius:50%; object-fit:cover; flex:0 0 auto; }
+        .srl-pill-av--ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:11px; }
+        .srl-pill-nm { font-size:12px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+        /* „Nes mėgsti" — vizualiai su atlikėjų avatarais */
+        .srl-because { display:flex; align-items:center; gap:6px; margin-top:3px; min-width:0;
           background:none; border:none; padding:0; cursor:pointer; font-family:inherit; text-align:left; }
-        .srl-because svg { width:13px; height:13px; flex:0 0 auto; }
-        .srl-because span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .srl-because:hover span { text-decoration:underline; }
+        .srl-because-lbl { font-size:11.5px; font-weight:700; color:var(--text-muted); flex:0 0 auto; text-transform:uppercase; letter-spacing:.03em; }
+        .srl-because-arts { display:flex; align-items:center; min-width:0; }
+        .srl-because-av { width:22px; height:22px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 2px var(--bg-elevated); margin-left:-7px; }
+        .srl-because-av:first-child { margin-left:0; }
+        .srl-because-av--ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:10px; }
+        .srl-because-nm { font-size:12.5px; color:var(--accent-orange); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-left:8px; }
+        .srl-because:hover .srl-because-nm { text-decoration:underline; }
         .srl-foot { display:flex; align-items:center; gap:9px; font-size:11.5px; color:var(--text-faint); margin-top:3px; flex-wrap:wrap; }
         .srl-stat { position:relative; padding-left:12px; }
         .srl-stat::before { content:''; position:absolute; left:0; top:50%; width:3px; height:3px; border-radius:50%; background:currentColor; transform:translateY(-50%); }
 
         @media (max-width:560px) {
           .srl-cover { width:108px; }
-          .srl { min-height:96px; }
+          .srl { height:auto; min-height:96px; }
+          .srl-body { overflow:visible; }
           .srl-cover--ph span { font-size:32px; }
           .srl-title { font-size:14.5px; }
           .srl-body { padding:11px 46px 11px 13px; }
@@ -622,9 +656,11 @@ function SrautasInner() {
           color:var(--text-primary); transition:background .12s; }
         .sr-ch-row:hover { background:var(--bg-surface); }
         .sr-ch-pos { font-size:12px; font-weight:800; color:var(--text-faint); min-width:26px; }
-        .sr-ch-av { width:32px; height:32px; border-radius:7px; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
-        .sr-ch-av--ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:13px; }
-        .sr-ch-art { font-size:14px; font-weight:600; }
+        .sr-ch-av { width:40px; height:40px; border-radius:7px; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
+        .sr-ch-av--ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:14px; }
+        .sr-ch-meta { display:flex; flex-direction:column; min-width:0; }
+        .sr-ch-song { font-size:14px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sr-ch-by { font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
         /* ── Pagalbiniai ── */
         .sr-end { text-align:center; padding:30px 16px 6px; }
@@ -704,10 +740,10 @@ function SrautasInner() {
 /** Topų modalas — kuris pamėgtas atlikėjas kuriame tope (grupuota pagal topą). */
 function ChartsModal({ it, onClose }: { it: FeedItem; onClose: () => void }) {
   const rows = it.meta?.chartRows || []
-  const byChart = new Map<string, { href: string; entries: { artist: string; position: number; image?: string | null }[] }>()
+  const byChart = new Map<string, { href: string; entries: { artist: string; song: string | null; position: number; image?: string | null }[] }>()
   for (const r of rows) {
     const g = byChart.get(r.chart) || { href: r.href, entries: [] }
-    g.entries.push({ artist: r.artist, position: r.position, image: r.image })
+    g.entries.push({ artist: r.artist, song: r.song ?? null, position: r.position, image: r.image })
     byChart.set(r.chart, g)
   }
   return (
@@ -727,9 +763,12 @@ function ChartsModal({ it, onClose }: { it: FeedItem; onClose: () => void }) {
                     <span className="sr-ch-pos">#{e.position}</span>
                     {e.image
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img className="sr-ch-av" src={proxyImgResized(e.image, 64)} alt="" loading="lazy" />
-                      : <span className="sr-ch-av sr-ch-av--ph">{e.artist.trim()[0]?.toUpperCase() || '?'}</span>}
-                    <span className="sr-ch-art">{e.artist}</span>
+                      ? <img className="sr-ch-av" src={proxyImgResized(e.image, 80)} alt="" loading="lazy" />
+                      : <span className="sr-ch-av sr-ch-av--ph">{(e.song || e.artist).trim()[0]?.toUpperCase() || '?'}</span>}
+                    <span className="sr-ch-meta">
+                      <span className="sr-ch-song">{e.song || e.artist}</span>
+                      {e.song && <span className="sr-ch-by">{e.artist}</span>}
+                    </span>
                   </Link>
                 ))}
               </div>
