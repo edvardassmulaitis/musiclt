@@ -60,6 +60,8 @@ type NavPreview = {
   festivals?:    { href: string; title: string; image: string | null; meta: string; collage?: string[] }[]
   recordings?:   { href: string; title: string; image: string | null; meta: string }[]
   reportages?:   { href: string; title: string; image: string | null; meta: string }[]
+  members?:      { href: string; name: string; avatar: string | null }[]
+  discussions?:  { href: string; title: string; image: string | null; meta: string }[]
   chartLtSongs?:    { href: string; title: string; artist: string; image: string | null }[]
   chartLtAlbums?:   { href: string; title: string; artist: string; image: string | null }[]
   chartWorldSongs?: { href: string; title: string; artist: string; image: string | null }[]
@@ -172,15 +174,8 @@ const NAV: NavItem[] = [
     accent: '#3b82f6',
     icon: I.calendar,
   },
-  {
-    key: 'skelbimai',
-    label: 'Skelbimai',
-    href: '/skelbimai',
-    match: ['/skelbimai'],
-    desc: 'Vinilas, instrumentai, paslaugos',
-    accent: '#10b981',
-    icon: I.market,
-  },
+  // Skelbimai laikinai paslėpti iš nav (Edvardo prašymu 2026-06-26) — route veikia,
+  // tik nerodom meniu. Grįšim vėliau.
   {
     key: 'bendruomene',
     label: 'Bendruomenė',
@@ -855,67 +850,86 @@ const gridIcon = (
   </svg>
 )
 function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: string }) {
-  const dailySongs = data?.dailySongs || []
+  // Rail: Nariai · Narių įrašai · Dienos daina · Diskusijos. Default Nariai.
+  const [sec, setSec] = useState<'nariai' | 'irasai' | 'daina' | 'diskusijos'>('nariai')
+
+  const members = data?.members || []
   const posts = data?.discoveryPosts || []
-  const items: { href: string; icon: React.ReactNode; title: string; desc: string; rgb: string }[] = [
-    { href: '/vartotojai', icon: I.users, title: 'Pažink narius', desc: 'Aktyviausi bendruomenės nariai', rgb: '#f59e0b' },
-    { href: '/diskusijos', icon: I.forum, title: 'Diskusijos', desc: 'Forumo temos ir debatai', rgb: '#8b5cf6' },
-    { href: '/pokalbiai', icon: I.chat, title: 'Pokalbių dėžutė', desc: 'Bendras gyvas chatas', rgb: '#06b6d4' },
+  const dailySongs = data?.dailySongs || []
+  const discussions = data?.discussions || []
+
+  const RAIL: { k: typeof sec; icon: React.ReactNode; label: string; href: string }[] = [
+    { k: 'nariai',     icon: I.users, label: 'Nariai',       href: '/vartotojai' },
+    { k: 'irasai',     icon: I.blog,  label: 'Narių įrašai', href: '/blogas' },
+    { k: 'daina',      icon: I.music, label: 'Dienos daina', href: '/dienos-daina' },
+    { k: 'diskusijos', icon: I.forum, label: 'Diskusijos',   href: '/diskusijos' },
   ]
-  const headLabel: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif",
-    fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)',
-  }
-  const sectionHead = (label: string, glyph: React.ReactNode, href: string, more: string, mt = 0): React.ReactNode => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: mt }}>
-      <span style={headLabel}><span className="sh-trending-glyph">{glyph}</span>{label}</span>
-      <Link href={href} className="sh-more-link">{more} →</Link>
+
+  const head = (label: string, href: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
+      <Link href={href} className="sh-more-link">Daugiau →</Link>
     </div>
   )
+
+  type Item = { href: string; title: string; image: string | null; meta: string }
+  const itemGrid = (items: Item[], more: string, glyph: React.ReactNode, emptyLabel: string) => (
+    <div className="sh-vgrid sh-vgrid-5">
+      {(items.length > 0 ? items : Array(10).fill(null)).slice(0, 10).map((it: Item | null, i: number) => (
+        <Link key={it?.href || `c-${i}`} href={it?.href || more} className="sh-vcard" title={it?.title || ''}>
+          <ImageBox src={it?.image} accent={accent} glyph={glyph} className="sh-vimg" />
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 600, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it?.title || <span style={{ opacity: 0.45 }}>{emptyLabel}</span>}</span>
+          {it?.meta ? <span className="sh-vmeta">{it.meta}</span> : null}
+        </Link>
+      ))}
+    </div>
+  )
+
+  const postItems: Item[] = posts.map((p: any) => ({
+    href: p.blogSlug ? `/blogas/${p.blogSlug}/${p.slug}` : '/blogas',
+    title: p.title || '', image: p.image || null,
+    meta: [p.postType ? POST_TYPE_LABEL[p.postType] : null, p.author].filter(Boolean).join(' · '),
+  }))
+  const songItems: Item[] = dailySongs.map((s: any) => ({
+    href: s.slug ? `/dainos/${s.slug}` : '/dienos-daina',
+    title: s.title || '', image: s.image || null, meta: s.artist || '',
+  }))
+
   return (
-    <div className="sh-panel">
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Bendruomenė</span>
+    <div className="sh-panel sh-panel-muzika sh-panel-railed" onMouseLeave={() => setSec('nariai')}>
+      <div className="sh-rail" aria-label="Bendruomenės skiltys">
+        {RAIL.map(r => (
+          <Link
+            key={r.k}
+            href={r.href}
+            aria-current={sec === r.k ? 'true' : undefined}
+            className={`sh-railitem${sec === r.k ? ' active' : ''}`}
+            onMouseEnter={() => setSec(r.k)}
+            onFocus={() => setSec(r.k)}
+          >
+            <span className="sh-railitem-ic" style={sec === r.k ? { color: accent } : undefined}>{r.icon}</span>
+            <span className="sh-railitem-label">{r.label}</span>
+          </Link>
+        ))}
       </div>
 
-      {/* Dienos dainos — nugalėtojų juosta */}
-      {sectionHead('Dienos dainos', I.music, '/dienos-daina', 'Daugiau')}
-      <div className="sh-strip-wrap">
-        <div className="sh-strip">
-          {(dailySongs.length > 0 ? dailySongs : Array(6).fill(null)).map((s: any, i: number) => (
-            <Link key={s?.slug || `ds-${i}`} href={s?.slug ? `/dainos/${s.slug}` : '/dienos-daina'} className="sh-mini sh-mini-md">
-              <ImageBox src={s?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
-              <span className="sh-mini-title sh-mini-title-2">{s?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
-              {s?.artist ? <span className="sh-mini-meta">{s.artist}</span> : null}
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Naujausi narių įrašai */}
-      {sectionHead('Naujausi narių įrašai', I.blog, '/blogas', 'Daugiau', 16)}
-      <div className="sh-strip-wrap">
-        <div className="sh-strip">
-          {(posts.length > 0 ? posts : Array(6).fill(null)).map((p: any, i: number) => (
-            <Link key={p?.id || `dp-${i}`} href={p?.blogSlug ? `/blogas/${p.blogSlug}/${p.slug}` : '/blogas'} className="sh-mini sh-mini-md">
-              <ImageBox src={p?.image} accent={accent} glyph={I.blog} className="sh-mini-img" />
-              <span className="sh-mini-title sh-mini-title-2">{p?.title || <span style={{ opacity: 0.45 }}>Įrašas</span>}</span>
-              <span className="sh-mini-meta">{postTypeMeta(p?.postType, p?.author)}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Greitos nuorodos — bendruomenės sekcijos */}
-      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div className="sh-chiprow">
-          {items.map(it => (
-            <Link key={it.href} href={it.href} className="sh-navchip" title={it.desc}>
-              <span className="sh-navchip-ic" aria-hidden>{it.icon}</span>
-              {it.title}
-            </Link>
-          ))}
-        </div>
+      <div className="sh-railbody">
+        {sec === 'nariai' && (
+          <div>
+            {head('Pažink narius', '/vartotojai')}
+            <div className="sh-vgrid sh-vgrid-5">
+              {(members.length > 0 ? members : Array(10).fill(null)).slice(0, 10).map((m: any, i: number) => (
+                <Link key={m?.href || `m-${i}`} href={m?.href || '/vartotojai'} className="sh-vcard sh-vcard--center" title={m?.name || ''}>
+                  <ImageBox src={m?.avatar} accent={accent} glyph={I.users} className="sh-vimg sh-vimg--round" />
+                  <span className="sh-vtitle" style={{ textAlign: 'center', width: '100%' }}>{m?.name || <span style={{ opacity: 0.45 }}>Narys</span>}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+        {sec === 'irasai'     && (<div>{head('Naujausi narių įrašai', '/blogas')}{itemGrid(postItems, '/blogas', I.blog, 'Įrašas')}</div>)}
+        {sec === 'daina'      && (<div>{head('Dienos dainos', '/dienos-daina')}{itemGrid(songItems, '/dienos-daina', I.music, 'Daina')}</div>)}
+        {sec === 'diskusijos' && (<div>{head('Naujausios diskusijos', '/diskusijos')}{itemGrid(discussions, '/diskusijos', I.forum, 'Tema')}</div>)}
       </div>
     </div>
   )
@@ -1824,6 +1838,9 @@ export function SiteHeader() {
         /* Festivalio mini koliažas — top atlikėjų nuotraukos 2×2. */
         .sh-collage { display: grid !important; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1px; }
         .sh-collage > span { background-size: cover; background-position: center; display: block; }
+        /* Apvalūs nario avatarai (Bendruomenė → Nariai). */
+        .sh-vimg--round { border-radius: 50%; aspect-ratio: 1 / 1; }
+        .sh-vcard--center { align-items: center; text-align: center; }
 
         /* LT vėliavos / world mėlynos juostelės indikatorius — homepage style:
            pritrauktas prie viršaus (align-self: flex-start), 38px aukščio */

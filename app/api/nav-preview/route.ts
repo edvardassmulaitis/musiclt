@@ -498,6 +498,25 @@ export async function GET() {
       meta: [r.city, r.eventName].filter(Boolean).join(' · '),
     }))
 
+    // ── Bendruomenė: nariai + diskusijos (dailySongs/discoveryPosts jau yra) ──
+    const { data: memberRows } = await supabase
+      .from('profiles')
+      .select('username, full_name, avatar_url')
+      .in('provider', ['google', 'facebook', 'email'])
+      .not('username', 'is', null)
+      .not('avatar_url', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(14)
+    const members = ((memberRows || []) as any[]).map((p: any) => ({ href: `/@${p.username}`, name: p.full_name || p.username, avatar: p.avatar_url || null }))
+    const { data: discRows } = await supabase
+      .from('discussions')
+      .select('slug, title, author_name, author_avatar, comment_count')
+      .not('slug', 'is', null)
+      .order('last_comment_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(10)
+    const discussions = ((discRows || []) as any[]).map((d: any) => ({ href: `/diskusijos/${d.slug}`, title: d.title || '', image: d.author_avatar || null, meta: d.author_name || '' }))
+
     const payload = {
       radar: radarArtists,
       artistsLt:    trLt.map(mapNavArtist),
@@ -513,6 +532,8 @@ export async function GET() {
       festivals,
       recordings,
       reportages,
+      members,
+      discussions,
       chartLtSongs,
       chartLtAlbums,
       chartWorldSongs,
