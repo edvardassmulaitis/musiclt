@@ -3978,7 +3978,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
             }
           >
           <section>
-            {/* ── Renginiai — afiša v4: desktop 5-stulpelių tinklelis, mobile
+            {/* ── Renginiai — afiša v5: desktop 5-stulpelių tinklelis, mobile
                 horizontalus slankiklis. Festivaliai: jei įkeltas admino plakatas
                 (cover_image_url) — jis pagrindinis; jei ne — collage iš atlikėjų.
                 Užsienio koncertai (is_abroad && !festival) sujungti į VIENĄ collage
@@ -4009,8 +4009,8 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     const ranked = [...eas].sort((p, q) => (q.is_headliner ? 1 : 0) - (p.is_headliner ? 1 : 0) || ((p.sort_order ?? 99) - (q.sort_order ?? 99)))
                     const photos = ranked.filter(a => a.cover_image_url)
                     const adminCover = ev.cover_image_url
-                    const useCollage = !(ev.is_festival && adminCover) && photos.length >= 2
-                    const singleImg = (ev.is_festival && adminCover) ? adminCover : (photos[0]?.cover_image_url || ev.cover_image_url)
+                    const useCollage = !adminCover && photos.length >= 2
+                    const singleImg = adminCover || photos[0]?.cover_image_url || null
                     const flag = countryFlag(ranked.find(a => a.country)?.country)
                     const city = ev.city || ev.venues?.city || ''
                     const artistList = eas.filter(a => a.name).map(a => a.name)
@@ -4072,17 +4072,18 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     }).filter(Boolean).slice(0, 6) as string[]
                     cards.push(
                       <Link key="abroad" href="/verta-keliones" className={cardCls + ' !bg-[#15203a]'}>
-                        <div className="absolute inset-0 grid grid-cols-2 grid-rows-3">
-                          {fImgs.map((src, i) => (
-                            <div key={i} className="bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(src)})` }} />
-                          ))}
+                        <div className="flex h-full w-full flex-col">
+                          <div className="grid flex-1 grid-cols-3 grid-rows-2 gap-px">
+                            {fImgs.map((src, i) => (
+                              <div key={i} className="bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(src)})` }} />
+                            ))}
+                          </div>
+                          <div className="bg-[#10203a] px-3 pb-3 pt-2 text-white">
+                            <span className="flex items-center gap-1 font-[\'Outfit\',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.06em] text-[#ffb877]"><span aria-hidden>🌍</span> Užsienyje</span>
+                            <h3 className="m-0 mt-1 font-[\'Outfit\',sans-serif] text-[13.5px] font-black leading-tight">Koncertai užsienyje</h3>
+                            <p className="m-0 mt-0.5 font-[\'Outfit\',sans-serif] text-[10.5px] font-bold text-[#ff9d4d]">{foreign.length} koncertų · Daugiau →</p>
+                          </div>
                         </div>
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/88 via-black/20 to-transparent" />
-                        <div className="absolute inset-x-0 bottom-0 p-2.5 text-white">
-                          <span className="flex items-center gap-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.06em] text-[#ffcea3]"><span aria-hidden>🌍</span> Užsienyje</span>
-                          <h3 className="m-0 mt-1 font-['Outfit',sans-serif] text-[13.5px] font-black leading-tight">Koncertai užsienyje</h3>
-                          <p className="m-0 mt-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[#ff9d4d]">{foreign.length} koncertų · Daugiau →</p>
-                                                  </div>
                       </Link>
                     )
                   }
