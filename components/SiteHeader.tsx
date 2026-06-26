@@ -55,6 +55,10 @@ type NavPreview = {
   songsLt?:     { id: number; slug: string | null; title: string; image: string | null; artist: string; artistSlug: string }[]
   songsWorld?:  { id: number; slug: string | null; title: string; image: string | null; artist: string; artistSlug: string }[]
   memberTops?:  { id: number; title: string; image: string | null; author: string; href: string }[]
+  chartLtSongs?:    { href: string; title: string; artist: string; image: string | null }[]
+  chartLtAlbums?:   { href: string; title: string; artist: string; image: string | null }[]
+  chartWorldSongs?: { href: string; title: string; artist: string; image: string | null }[]
+  chartWorldAlbums?:{ href: string; title: string; artist: string; image: string | null }[]
   tracks:       { id: number; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   events:       { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
   eventsLt?:    { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
@@ -536,18 +540,25 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
 
   const top30      = data?.topChart?.top30 || []
   const top40      = data?.topChart?.top40 || []
-  const songsLt    = data?.songsLt    || []
-  const songsWorld = data?.songsWorld || []
   const featured   = data?.featuredCharts || []
   const votings    = data?.votings || []
   const memberTops = data?.memberTops || []
+  const ltSongs     = data?.chartLtSongs     || []
+  const ltAlbums    = data?.chartLtAlbums    || []
+  const worldSongs  = data?.chartWorldSongs  || []
+  const worldAlbums = data?.chartWorldAlbums || []
 
   const anchor = (s: string) => s === 'world' ? '/topai#pasaulio-topai' : s === 'social' ? '/topai#trendai' : '/topai#lt-topai'
   const scopeGlyph = (s: string) => (s === 'social' ? I.trending : I.trophy)
 
   // ── Rail ikonos ──
+  // Music.lt — muzikinis ekvalaizeris (5 stulpeliai, brandbook stilius, oranžinis).
+  const eqBars = (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="4" y1="15" x2="4" y2="20"/><line x1="8" y1="11" x2="8" y2="20"/><line x1="12" y1="7" x2="12" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/><line x1="20" y1="13" x2="20" y2="20"/></svg>
+  )
+  // LT vėliava — HORIZONTALŪS dryžiai (geltona/žalia/raudona iš viršaus žemyn).
   const ltFlagIcon = (
-    <span style={{ width: 16, height: 11, borderRadius: 2, overflow: 'hidden', display: 'inline-flex' }} aria-hidden>
+    <span style={{ width: 16, height: 11, borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} aria-hidden>
       <span style={{ flex: 1, background: '#FDBA12' }} />
       <span style={{ flex: 1, background: '#006A44' }} />
       <span style={{ flex: 1, background: '#C1272D' }} />
@@ -556,25 +567,26 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
   const globeIcon = (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.6 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.6-3.8-9s1.3-6.5 3.8-9Z"/></svg>
   )
+  // Apdovanojimai — žvaigždė (NE medalis).
+  const starIcon = (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 17.8 6.8 19.2l1-5.8L3.5 9.3l5.9-.9L12 3Z"/></svg>
+  )
   const RAIL: { k: typeof sec; icon: React.ReactNode; label: string; href: string; iconColor?: string }[] = [
-    { k: 'musiclt',       icon: I.equalizer, label: 'Music.lt',      href: '/topai',          iconColor: 'var(--accent-orange)' },
-    { k: 'lietuva',       icon: ltFlagIcon,  label: 'Lietuvoje',     href: '/topai/lietuva' },
-    { k: 'pasaulis',      icon: globeIcon,   label: 'Pasaulyje',     href: '/topai/pasaulis' },
-    { k: 'nariu',         icon: I.users,     label: 'Narių topai',   href: '/topai/nariu' },
-    { k: 'apdovanojimai', icon: I.award,     label: 'Apdovanojimai', href: '/balsavimai' },
+    { k: 'musiclt',       icon: eqBars,     label: 'Music.lt',      href: '/topai',          iconColor: 'var(--accent-orange)' },
+    { k: 'lietuva',       icon: ltFlagIcon, label: 'Lietuvoje',     href: '/topai/lietuva' },
+    { k: 'pasaulis',      icon: globeIcon,  label: 'Pasaulyje',     href: '/topai/pasaulis' },
+    { k: 'nariu',         icon: I.users,    label: 'Narių topai',   href: '/topai/nariu' },
+    { k: 'apdovanojimai', icon: starIcon,   label: 'Apdovanojimai', href: '/balsavimai' },
   ]
 
   // Dainų juosta su rank numeriais (chart stilius). items: normalizuotos eilutės.
-  type SongItem = { key: string | number; href: string; title: string; artist: string; image: string | null }
+  type SongItem = { key?: string | number; href: string; title: string; artist: string; image: string | null }
   const topItems = (arr: TopMini[]): SongItem[] => arr.map((e, i) => ({
     key: e?.trackSlug || i, href: e?.trackSlug ? `/dainos/${e.trackSlug}` : '/topai',
     title: e?.title || '', artist: e?.artist || '', image: e?.image || null,
   }))
-  const aggItems = (arr: typeof songsLt): SongItem[] => arr.map((t, i) => ({
-    key: t?.id || i, href: t ? `/dainos/${t.artistSlug ? `${t.artistSlug}-` : ''}${t.slug ? `${t.slug}-` : ''}${t.id}` : '/topai',
-    title: t?.title || '', artist: t?.artist || '', image: t?.image || null,
-  }))
-  const songStrip = (items: SongItem[], kind: 'lt' | 'world', label: string, more: string) => (
+  // Juosta su rank numeriais — tinka dainoms IR albumams (glyph + emptyLabel parametrai).
+  const itemStrip = (items: SongItem[], kind: 'lt' | 'world', label: string, more: string, glyph: React.ReactNode, emptyLabel: string) => (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
         <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
@@ -585,10 +597,10 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
         <div className="sh-strip">
           {(items.length > 0 ? items : Array(6).fill(null)).map((it: SongItem | null, i: number) => (
             <Link key={it?.key || `${kind}-${i}`} href={it?.href || more} className="sh-mini sh-mini-xl sh-mini--meta">
-              <ImageBox src={it?.image} accent={accent} glyph={I.music} className="sh-mini-img">
+              <ImageBox src={it?.image} accent={accent} glyph={glyph} className="sh-mini-img">
                 <span className="sh-rank">{i + 1}</span>
               </ImageBox>
-              <span className="sh-mini-title sh-mini-title-1">{it?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
+              <span className="sh-mini-title sh-mini-title-1">{it?.title || <span style={{ opacity: 0.45 }}>{emptyLabel}</span>}</span>
               {it?.artist ? <span className="sh-mini-meta">{it.artist}</span> : null}
             </Link>
           ))}
@@ -622,21 +634,21 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
   const ltCharts    = featured.filter(isLtChart)
   const worldCharts = featured.filter(c => !isLtChart(c))
 
-  // Regiono vitrina — agreguoto topo dainos + chartų chip'ai apačioje.
-  const regionView = (songs: SongItem[], kind: 'lt' | 'world', charts: typeof featured, more: string, label: string) => (
+  // Regiono vitrina — chart dainos + albumai juostos + „Kiti topai" chip'ai.
+  const regionView = (songs: SongItem[], albums: SongItem[], kind: 'lt' | 'world', charts: typeof featured, more: string) => (
     <>
-      {songStrip(songs, kind, label, more)}
-      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <span style={SEC_HEAD}>Atskiri chartai</span>
-          <Link href={more} className="sh-more-link">Daugiau →</Link>
+      {itemStrip(songs, kind, 'Dainos', more, I.music, 'Daina')}
+      <div style={{ height: 14 }} />
+      {itemStrip(albums, kind, 'Albumai', more, I.vinyl, 'Albumas')}
+      {charts.length > 0 && (
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={SEC_HEAD}>Kiti topai</span>
+            <Link href={more} className="sh-more-link">Daugiau →</Link>
+          </div>
+          <div className="sh-chiprow">{charts.map(featChip)}</div>
         </div>
-        <div className="sh-chiprow">
-          {charts.length > 0
-            ? charts.map(featChip)
-            : <Link href={more} className="sh-navchip"><span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{I.trophy}</span>Visi chartai</Link>}
-        </div>
-      </div>
+      )}
     </>
   )
 
@@ -663,18 +675,18 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
       <div className="sh-railbody">
         {sec === 'musiclt' && (
           <>
-            {songStrip(topItems(top40), 'world', 'TOP 40', '/top40')}
+            {itemStrip(topItems(top40), 'world', 'TOP 40', '/top40', I.music, 'Daina')}
             {top30.filter(e => e?.image).length >= 3 && (
               <>
                 <div style={{ height: 14 }} />
-                {songStrip(topItems(top30), 'lt', 'LT TOP 30', '/top30')}
+                {itemStrip(topItems(top30), 'lt', 'LT TOP 30', '/top30', I.music, 'Daina')}
               </>
             )}
           </>
         )}
 
-        {sec === 'lietuva'  && regionView(aggItems(songsLt),    'lt',    ltCharts,    '/topai/lietuva',  'Lietuvos topas')}
-        {sec === 'pasaulis' && regionView(aggItems(songsWorld), 'world', worldCharts, '/topai/pasaulis', 'Pasaulio topas')}
+        {sec === 'lietuva'  && regionView(ltSongs,    ltAlbums,    'lt',    ltCharts,    '/topai/lietuva')}
+        {sec === 'pasaulis' && regionView(worldSongs, worldAlbums, 'world', worldCharts, '/topai/pasaulis')}
 
         {sec === 'nariu' && (
           <div>

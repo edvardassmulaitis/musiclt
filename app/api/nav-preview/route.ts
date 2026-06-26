@@ -277,6 +277,43 @@ export async function GET() {
       }
     } catch { radarArtists = [] }
 
+    // ── Konkretūs chartai Topai Lietuvoje/Pasaulyje vitrinom (dainos + albumai) ──
+    // Lietuvoje: dainos = consensus/lt, albumai = agata/albums.
+    // Pasaulyje:  dainos = consensus/world, albumai = consensus/albums.
+    const chartItems = async (source: string, chartKey: string, kind: 'song' | 'album', limit: number) => {
+      const { data: ch } = await supabase
+        .from('external_charts')
+        .select('id')
+        .eq('source', source).eq('chart_key', chartKey).eq('is_current', true)
+        .limit(1).maybeSingle()
+      if (!ch) return []
+      const { data: ents } = await supabase
+        .from('external_chart_entries')
+        .select('position, title, artist_name, cover_url, track_id, album_id, tracks:track_id ( slug, video_url, artists:artist_id ( slug ) ), albums:album_id ( slug, artists:artist_id ( slug ) )')
+        .eq('chart_id', ch.id)
+        .order('position', { ascending: true })
+        .limit(limit)
+      return ((ents || []) as any[]).map((e: any) => {
+        const tr = Array.isArray(e.tracks) ? e.tracks[0] : e.tracks
+        const al = Array.isArray(e.albums) ? e.albums[0] : e.albums
+        let href = '/topai'
+        if (kind === 'song' && e.track_id && tr) {
+          const ar = Array.isArray(tr.artists) ? tr.artists[0] : tr.artists
+          href = `/dainos/${ar?.slug ? `${ar.slug}-` : ''}${tr.slug ? `${tr.slug}-` : ''}${e.track_id}`
+        } else if (kind === 'album' && e.album_id && al) {
+          const ar = Array.isArray(al.artists) ? al.artists[0] : al.artists
+          href = `/albumai/${ar?.slug ? `${ar.slug}-` : ''}${al.slug ? `${al.slug}-` : ''}${e.album_id}`
+        }
+        return { href, title: e.title || '', artist: e.artist_name || '', image: e.cover_url || ytThumb(tr?.video_url) || null }
+      })
+    }
+    const [chartLtSongs, chartLtAlbums, chartWorldSongs, chartWorldAlbums] = await Promise.all([
+      chartItems('consensus', 'lt', 'song', 10),
+      chartItems('agata', 'albums', 'album', 10),
+      chartItems('consensus', 'world', 'song', 10),
+      chartItems('consensus', 'albums', 'album', 10),
+    ])
+
     // ── Narių topai (blog_posts post_type=topas) — Topai „Narių topai" skilčiai ──
     const { data: memberTopRows } = await supabase
       .from('blog_posts')
@@ -379,6 +416,10 @@ export async function GET() {
       songsLt,
       songsWorld,
       memberTops,
+      chartLtSongs,
+      chartLtAlbums,
+      chartWorldSongs,
+      chartWorldAlbums,
       tracks: (tracksRes.data || []).map((t: any) => ({
         id: t.id,
         title: t.title,
