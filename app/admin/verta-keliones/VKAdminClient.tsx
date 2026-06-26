@@ -12,7 +12,7 @@ type Dest = {
   is_active: boolean; sort_order: number
 }
 type Event = {
-  id: number; artist_name: string; dest_key: string; city: string | null; country: string | null
+  id: string; artist_name: string; dest_key: string; city: string | null; country: string | null
   venue_name: string | null; start_date: string; end_date: string | null; image_url: string | null
   ticket_url: string | null; is_festival: boolean; popularity: number; is_published: boolean
   verified: boolean; source: string | null
@@ -133,7 +133,11 @@ function Events({ data, act, busy }: { data: Data; act: any; busy: boolean }) {
   }
   return (
     <div>
-      <button onClick={() => setShow(s => !s)} className={`${btn} mb-3 bg-[var(--accent-orange)] text-white`}>{show ? '× Uždaryti' : '+ Pridėti koncertą'}</button>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <button onClick={() => setShow(s => !s)} className={`${btn} bg-[var(--accent-orange)] text-white`}>{show ? '× Uždaryti' : '+ Greitas pridėjimas'}</button>
+        <a href="/admin/events/new" className={`${btn} bg-[var(--bg-hover)] text-[var(--text-secondary)]`}>+ Pilnas redaktorius (logo, lineup)…</a>
+        <span className="text-xs text-[var(--text-muted)]">Užsienio koncertai dabar gyvena bendroje renginių lentelėje — festivalio logo ir grojančius atlikėjus pildyk per pilną redaktorių.</span>
+      </div>
       {show && (
         <div className={`${card} mb-4 grid gap-2 p-3 sm:grid-cols-2`}>
           <input className={inp} placeholder="Atlikėjas *" value={form.artist_name} onChange={e => setForm({ ...form, artist_name: e.target.value })} />
@@ -161,6 +165,7 @@ function Events({ data, act, busy }: { data: Data; act: any; busy: boolean }) {
               <div className="truncate font-semibold text-[var(--text-primary)]">{ev.artist_name}</div>
               <div className="truncate text-xs text-[var(--text-muted)]">{ev.city || ev.dest_key} · {ev.venue_name || '—'} · {ev.start_date}{ev.source ? ` · ${ev.source}` : ''}</div>
             </div>
+            <a href={`/admin/events/${ev.id}`} className={`${btn} bg-[var(--bg-hover)] text-[var(--text-secondary)]`} title="Pilnas redaktorius: logo, grojantys atlikėjai (lineup), vieta">✎ Redaguoti</a>
             <button disabled={busy} onClick={() => act({ action: 'event_toggle', id: ev.id, is_published: !ev.is_published })} className={`${btn} bg-[var(--bg-hover)] text-[var(--text-secondary)] disabled:opacity-50`}>{ev.is_published ? 'Slėpti' : 'Rodyti'}</button>
             <button disabled={busy} onClick={() => { if (confirm('Ištrinti koncertą?')) act({ action: 'event_delete', id: ev.id }) }} className={`${btn} bg-[var(--accent-red)] text-white disabled:opacity-50`}>Trinti</button>
           </div>
