@@ -104,11 +104,10 @@ export default function AdminVenueEditPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Miestas</label>
-            <select value={city} onChange={e => setCity(e.target.value)} className={inputCls}>
-              <option value="">— miestas —</option>
-              {city && !cityOptions.some(c => c.name === city) && <option value={city}>{city} (nestandartinis)</option>}
-              {cityOptions.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-            </select>
+            <input list="venue-city-options" value={city} onChange={e => setCity(e.target.value)} className={inputCls} placeholder="Įvesk arba pasirink (pvz. Molėtai)" />
+            <datalist id="venue-city-options">
+              {cityOptions.map(c => <option key={c.id} value={c.name} />)}
+            </datalist>
           </div>
           <div>
             <label className={labelCls}>Šalis</label>

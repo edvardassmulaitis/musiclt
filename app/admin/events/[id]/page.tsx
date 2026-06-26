@@ -298,13 +298,13 @@ export default function AdminEventEditPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Miestas{venueId || isAbroad ? '' : ' *'}</label>
-                <select value={city} onChange={e => setCity(e.target.value)} disabled={!!venueId}
+                <input list="evt-city-options" value={city} onChange={e => setCity(e.target.value)} disabled={!!venueId}
                   className={`${inputCls} ${venueId ? 'opacity-60 cursor-not-allowed' : ''}`}
-                  title={venueId ? 'Miestas imamas iš susietos vietos' : 'Pasirink miestą'}>
-                  <option value="">— miestas —</option>
-                  {city && !cityOptions.some(c => c.name === city) && <option value={city}>{city} (nestandartinis)</option>}
-                  {cityOptions.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                </select>
+                  placeholder="Įvesk arba pasirink (pvz. Molėtai)"
+                  title={venueId ? 'Miestas imamas iš susietos vietos' : 'Įvesk arba pasirink miestą'} />
+                <datalist id="evt-city-options">
+                  {cityOptions.map(c => <option key={c.id} value={c.name} />)}
+                </datalist>
               </div>
               <div>
                 <label className={labelCls}>Adresas</label>
