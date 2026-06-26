@@ -3,6 +3,11 @@
 /**
  * /srautas — ❤️ asmeninė muzikos zona. Du režimai: „Mėgstami" / „Tau gali patikti".
  *
+ * 2026-06-25 v11 — kortelės AUGA pagal turinį (min-height 120, NEnukerpa titulų/teksto);
+ *   Topai=atskira kortelė su didelėmis atlikėjų kortelėmis (kelios eilutės)+„Kokios dainos topuose"
+ *   mygtukas→modalas su DAINŲ mini grotuvais+pavadinimais; albumai=iki 2 ▶ grotuvų (.srl-minis);
+ *   koncertai gauna atlikėjo top dainos ▶; įrašo autorius perkeltas į apačią prie datos; excerpt iki
+ *   4 eil. (komentarai matosi). Žemiau v10:
  * 2026-06-25 v10 — vienodas kortelių AUKŠTIS (128px fix, body overflow hidden); Topai=atlikėjų
  *   PILLS (foto+vardas kartu, fallback raidė); Topai modale daina+atlikėjas+dainos viršelis;
  *   albumai gauna inline ▶ grotuvą (vedanti daina, meta.ytId per album_tracks); „Nes mėgsti"=
@@ -52,8 +57,9 @@ type FeedItem = {
     commentBy?: string | null; commentAvatar?: string | null
     tripInfo?: string | null; venue?: string | null
     topTrack?: { ytId: string; title: string } | null
+    albumTracks?: { ytId: string; title: string }[]
     artistThumbs?: { name: string; image: string | null; href: string }[]
-    chartRows?: { artist: string; chart: string; position: number; href: string; image?: string | null; song?: string | null }[]
+    chartRows?: { artist: string; chart: string; position: number; href: string; image?: string | null; song?: string | null; ytId?: string | null }[]
   }
 }
 
@@ -193,8 +199,12 @@ function FeedCard({ it, onDismiss, onWhy, onOpenCharts }: { it: FeedItem; onDism
   const likeId = it.kind === 'artist' ? (it.artist?.id || 0) : idFromKey(it.key)
   const isTrack = it.kind === 'track'
   const isAlbum = it.kind === 'album'
-  // Inline grotuvas: dainoms / albumams — meta.ytId (albumui = vedanti daina); rekomenduojamiems atlikėjams — jų top daina.
-  const playYt: string | null = (isTrack || isAlbum) ? ((it.meta?.ytId as string | undefined) || null) : (isArtist ? (it.meta?.topTrack?.ytId || null) : null)
+  const isBlog = it.kind === 'blog'
+  // Inline grotuvai dešinėj: daina/koncertas/rekom. atlikėjas — 1; albumas — iki 2 dainų.
+  const directYt: string | null = (it.meta?.ytId as string | undefined) || null
+  const players: { ytId: string; title: string }[] = isAlbum
+    ? (it.meta?.albumTracks || [])
+    : (directYt ? [{ ytId: directYt, title: it.title }] : (isArtist && it.meta?.topTrack?.ytId ? [{ ytId: it.meta.topTrack.ytId, title: it.meta.topTrack.title }] : []))
   // Kairysis vizualas: dainoms — atlikėjo foto (dešinėj — klipo grotuvas); kitiems — kortelės viršelis.
   const leftImg = isTrack ? (it.avatar || it.image) : it.image
   const chartThumbs = it.kind === 'chart' ? (it.meta?.artistThumbs || []) : []
@@ -203,15 +213,17 @@ function FeedCard({ it, onDismiss, onWhy, onOpenCharts }: { it: FeedItem; onDism
   const commentAvatar = it.meta?.commentAvatar || null
   const tripInfo = it.meta?.tripInfo || null
   const [imgFailed, setImgFailed] = useState(false)
-  const [playing, setPlaying] = useState(false)
+  const [playingIdx, setPlayingIdx] = useState<number | null>(null)
   const hasImg = !!leftImg && !imgFailed
-  const showPh = !hasImg && (isArtist || isTrack || it.kind === 'album')
-  const showSubAvatar = !isArtist && !isTrack && !!it.avatar
+  const showPh = !hasImg && (isArtist || isTrack || isAlbum)
+  // Autorius (įrašams) — perkeltas po tekstu, į apačią prie datos.
+  const footAuthor = isBlog && it.subtitle ? { name: it.subtitle, avatar: it.avatar || null } : null
+  const showSubAvatar = !isArtist && !isTrack && !isBlog && !!it.avatar
 
   // Footer statistika — peržiūrų NErodome (neatnaujinama); komentarai / patiko OK.
   const stats: string[] = []
   if (it.kind === 'topic' && Number(it.meta?.comments) > 0) stats.push(`${it.meta?.comments} komentarų`)
-  if (it.kind === 'blog' && Number(it.meta?.likes) > 0) stats.push(`${it.meta?.likes} patiko`)
+  if (isBlog && Number(it.meta?.likes) > 0) stats.push(`${it.meta?.likes} patiko`)
 
   // ── Swipe ──
   const [dx, setDx] = useState(0)
@@ -247,7 +259,7 @@ function FeedCard({ it, onDismiss, onWhy, onOpenCharts }: { it: FeedItem; onDism
     if (movedH.current) { e.preventDefault(); e.stopPropagation(); return }
     if (it.kind === 'chart' && it.meta?.chartRows?.length) { e.preventDefault(); onOpenCharts(it) }
   }
-  const togglePlay = (e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); setPlaying(p => !p) }
+  const togglePlay = (e: MouseEvent, i: number) => { e.preventDefault(); e.stopPropagation(); setPlayingIdx(prev => prev === i ? null : i) }
   const dismiss = (e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); setLeaving(true); setTimeout(() => onDismiss(it.key), 150) }
   const why = (e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); onWhy(it) }
 
@@ -257,11 +269,46 @@ function FeedCard({ it, onDismiss, onWhy, onOpenCharts }: { it: FeedItem; onDism
     transition: start.current ? 'none' : 'transform .17s ease, opacity .17s ease',
   }
 
+  // ── TOPAI — speciali kortelė: atlikėjų kortelės su didelėmis foto, kelios eilutės ──
+  if (it.kind === 'chart') {
+    return (
+      <div className="srl-card">
+        <div className="srl srl--chart" style={leaving ? { opacity: 0, transition: 'opacity .15s ease' } : undefined}>
+          <div className="srl-charthead">
+            <span className="srl-kicker" style={{ color: it.badgeColor || BADGE_COLOR[it.kind] }}>{it.badge}</span>
+            <span className="srl-title">{it.title}</span>
+          </div>
+          {chartThumbs.length > 0 && (
+            <div className="srl-artgrid">
+              {chartThumbs.map((t, i) => (
+                <Link href={t.href} className="srl-artcard" key={i} title={t.name}>
+                  {t.image
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img className="srl-artcard-img" src={proxyImgResized(t.image, 160)} alt="" loading="lazy" />
+                    : <span className="srl-artcard-img srl-artcard-ph">{t.name.trim()[0]?.toUpperCase() || '?'}</span>}
+                  <span className="srl-artcard-nm">{t.name}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+          {(it.meta?.chartRows?.length ?? 0) > 0 && (
+            <button type="button" className="srl-chartmore" onClick={e => { e.preventDefault(); onOpenCharts(it) }}>
+              Kokios dainos topuose →
+            </button>
+          )}
+          <button type="button" className="sr-act sr-dismiss" onClick={dismiss} aria-label="Paslėpti" title="Paslėpti">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="srl-card">
       <Link
         href={it.href}
-        className={`srl${(hasImg || showPh) ? '' : ' srl--noimg'}${isArtist ? ' srl--artist' : ''}${playYt ? ' srl--hasmini' : ''}`}
+        className={`srl${(hasImg || showPh) ? '' : ' srl--noimg'}${isArtist ? ' srl--artist' : ''}${players.length ? ' srl--hasmini' : ''}${players.length > 1 ? ' srl--multi' : ''}`}
         style={style}
         onClick={handleClick}
         onTouchStart={onTouchStart}
@@ -280,31 +327,17 @@ function FeedCard({ it, onDismiss, onWhy, onOpenCharts }: { it: FeedItem; onDism
         <div className="srl-body">
           {!isArtist && (
             <span className="srl-kicker" style={{ color: it.badgeColor || BADGE_COLOR[it.kind] }}>
-              {it.badge}{it.kind === 'blog' && it.meta?.rating ? ` · ${it.meta.rating}/10` : ''}
+              {it.badge}{isBlog && it.meta?.rating ? ` · ${it.meta.rating}/10` : ''}
             </span>
           )}
           <span className="srl-title">{it.title}</span>
-          {(it.subtitle || showSubAvatar) && (
+          {!isBlog && (it.subtitle || showSubAvatar) && (
             <span className="srl-subrow">
               {showSubAvatar && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img className="srl-avatar" src={proxyImgResized(it.avatar ?? null, 64)} alt="" loading="lazy" />
               )}
               {it.subtitle && <span className="srl-sub">{it.subtitle}</span>}
-            </span>
-          )}
-
-          {chartThumbs.length > 0 && (
-            <span className="srl-pills">
-              {chartThumbs.slice(0, 8).map((t, i) => (
-                <span key={i} className="srl-pill" title={t.name}>
-                  {t.image
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img className="srl-pill-av" src={proxyImgResized(t.image, 48)} alt="" loading="lazy" />
-                    : <span className="srl-pill-av srl-pill-av--ph">{t.name.trim()[0]?.toUpperCase() || '?'}</span>}
-                  <span className="srl-pill-nm">{t.name}</span>
-                </span>
-              ))}
             </span>
           )}
 
@@ -338,30 +371,43 @@ function FeedCard({ it, onDismiss, onWhy, onOpenCharts }: { it: FeedItem; onDism
               )}
             </button>
           )}
-          {(when || stats.length > 0) && (
+          {(when || stats.length > 0 || footAuthor) && (
             <span className="srl-foot">
+              {footAuthor && (
+                <span className="srl-footauthor">
+                  {footAuthor.avatar && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className="srl-footauthor-av" src={proxyImgResized(footAuthor.avatar, 48)} alt="" loading="lazy" />
+                  )}
+                  <span>{footAuthor.name}</span>
+                </span>
+              )}
               {when && <span>{when}</span>}
               {stats.map((s, i) => <span key={i} className="srl-stat">{s}</span>)}
             </span>
           )}
         </div>
 
-        {playYt && (
-          <div className="srl-mini" onClick={e => { e.preventDefault(); e.stopPropagation() }}>
-            {playing ? (
-              <iframe
-                src={`https://www.youtube.com/embed/${playYt}?autoplay=1&rel=0`}
-                title={it.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
-            ) : (
-              <button type="button" className="srl-mini-play" onClick={togglePlay} aria-label="Groti" title="Groti">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={ytThumbUrl(playYt)} alt="" loading="lazy" />
-                <span className="srl-mini-pbtn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
-              </button>
-            )}
+        {players.length > 0 && (
+          <div className="srl-minis" onClick={e => { e.preventDefault(); e.stopPropagation() }}>
+            {players.map((p, i) => (
+              <div className="srl-mini" key={i}>
+                {playingIdx === i ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${p.ytId}?autoplay=1&rel=0`}
+                    title={p.title || it.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                ) : (
+                  <button type="button" className="srl-mini-play" onClick={e => togglePlay(e, i)} aria-label="Groti" title={p.title || 'Groti'}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={ytThumbUrl(p.ytId)} alt="" loading="lazy" />
+                    <span className="srl-mini-pbtn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
@@ -543,7 +589,7 @@ function SrautasInner() {
         /* ── Pilno pločio eilutė ── */
         .srl { position:relative; display:flex; align-items:stretch; gap:0; text-decoration:none; overflow:hidden; will-change:transform;
           background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:16px;
-          height:128px; transition:border-color .15s, box-shadow .15s; }
+          min-height:120px; transition:border-color .15s, box-shadow .15s; }
         .srl:hover { border-color:var(--border-strong); box-shadow:0 8px 22px rgba(0,0,0,0.18); }
         .srl-cover { position:relative; flex:0 0 auto; width:150px; overflow:hidden; align-self:stretch;
           background:linear-gradient(135deg, var(--bg-active), var(--bg-surface)); }
@@ -552,10 +598,10 @@ function SrautasInner() {
         .srl-cover--ph { display:flex; align-items:center; justify-content:center; }
         .srl-cover--ph span { font-weight:800; color:var(--text-faint); font-family:'Outfit', sans-serif; font-size:42px; }
 
-        /* ── Mini grotuvas dešinėj (daina / rekomenduojamo atlikėjo top daina) ── */
+        /* ── Mini grotuvai dešinėj (daina / albumo 1-2 dainos / koncerto top daina) ── */
         .srl--hasmini .srl-body { padding-right:16px; }
-        .srl-mini { position:relative; flex:0 0 auto; width:200px; align-self:center; margin:8px 14px 8px 6px;
-          border-radius:12px; overflow:hidden; aspect-ratio:16/9; background:#000; box-shadow:0 3px 10px rgba(0,0,0,0.22); }
+        .srl-minis { display:flex; flex-direction:column; gap:8px; justify-content:center; flex:0 0 auto; margin:8px 14px 8px 6px; }
+        .srl-mini { position:relative; width:200px; border-radius:12px; overflow:hidden; aspect-ratio:16/9; background:#000; box-shadow:0 3px 10px rgba(0,0,0,0.22); }
         .srl-mini-play { display:block; width:100%; height:100%; padding:0; border:0; cursor:pointer; position:relative; background:#000; }
         .srl-mini-play img { width:100%; height:100%; object-fit:cover; display:block; opacity:.92; transition:opacity .15s, transform .35s ease; }
         .srl-mini-play:hover img { opacity:1; transform:scale(1.04); }
@@ -565,27 +611,35 @@ function SrautasInner() {
         .srl-mini-pbtn svg { width:18px; height:18px; margin-left:2px; }
         .srl-mini iframe { width:100%; height:100%; border:0; display:block; }
 
-        .srl-body { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:4px; padding:13px 50px 13px 16px; overflow:hidden; }
+        .srl-body { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:4px; padding:14px 50px 14px 16px; }
         .srl-kicker { font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; line-height:1; }
         .srl-title { font-size:16px; font-weight:700; color:var(--text-primary); line-height:1.3;
           display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
         .srl-subrow { display:flex; align-items:center; gap:7px; min-width:0; }
         .srl-avatar { width:19px; height:19px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
         .srl-sub { font-size:12.5px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .srl-excerpt { font-size:13px; color:var(--text-muted); line-height:1.45; margin-top:2px;
-          display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-        .srl-quote { font-style:italic; }
-        .srl-byline { display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-secondary); margin-top:1px; }
-        .srl-byline-av { width:16px; height:16px; border-radius:50%; object-fit:cover; flex:0 0 auto; }
+        .srl-excerpt { font-size:13px; color:var(--text-secondary); line-height:1.5; margin-top:2px;
+          display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+        .srl-quote { font-style:italic; color:var(--text-muted); }
+        .srl-byline { display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-secondary); margin-top:2px; }
+        .srl-byline-av { width:18px; height:18px; border-radius:50%; object-fit:cover; flex:0 0 auto; }
         .srl-trip { font-size:12px; color:var(--text-secondary); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .srl-footauthor { display:inline-flex; align-items:center; gap:5px; color:var(--text-secondary); font-weight:600; }
+        .srl-footauthor-av { width:16px; height:16px; border-radius:50%; object-fit:cover; flex:0 0 auto; }
 
-        /* Topai — atlikėjų pills (foto + vardas kartu) */
-        .srl-pills { display:flex; align-items:center; gap:7px; margin-top:5px; flex-wrap:nowrap; overflow:hidden; }
-        .srl-pill { display:inline-flex; align-items:center; gap:6px; padding:3px 11px 3px 3px; border-radius:100px;
-          background:var(--bg-surface); border:1px solid var(--border-subtle); flex:0 0 auto; max-width:175px; }
-        .srl-pill-av { width:22px; height:22px; border-radius:50%; object-fit:cover; flex:0 0 auto; }
-        .srl-pill-av--ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:11px; }
-        .srl-pill-nm { font-size:12px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        /* ── Topai — speciali kortelė su atlikėjų kortelėmis ── */
+        .srl--chart { position:relative; flex-direction:column; align-items:stretch; padding:15px 16px 16px; gap:11px; }
+        .srl-charthead { display:flex; flex-direction:column; gap:3px; }
+        .srl-artgrid { display:flex; flex-wrap:wrap; gap:9px; }
+        .srl-artcard { display:flex; align-items:center; gap:9px; padding:5px 14px 5px 5px; border-radius:100px; text-decoration:none;
+          background:var(--bg-surface); border:1px solid var(--border-subtle); transition:border-color .14s, background .14s; }
+        .srl-artcard:hover { border-color:var(--border-strong); background:var(--bg-hover, var(--bg-surface)); }
+        .srl-artcard-img { width:38px; height:38px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
+        .srl-artcard-ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:15px; font-family:'Outfit', sans-serif; }
+        .srl-artcard-nm { font-size:13.5px; font-weight:600; color:var(--text-primary); white-space:nowrap; }
+        .srl-chartmore { align-self:flex-start; margin-top:2px; background:none; border:none; padding:0; cursor:pointer; font-family:inherit;
+          font-size:13px; font-weight:700; color:var(--accent-orange); }
+        .srl-chartmore:hover { text-decoration:underline; }
 
         /* „Nes mėgsti" — vizualiai su atlikėjų avatarais */
         .srl-because { display:flex; align-items:center; gap:6px; margin-top:3px; min-width:0;
@@ -608,10 +662,12 @@ function SrautasInner() {
           .srl-cover--ph span { font-size:32px; }
           .srl-title { font-size:14.5px; }
           .srl-body { padding:11px 46px 11px 13px; }
-          /* mini grotuvas keliasi po kortele (visa eilutė) */
+          /* mini grotuvai keliasi po kortele (visa eilutė) */
           .srl--hasmini { flex-wrap:wrap; }
-          .srl--hasmini .srl-mini { order:3; flex:0 0 100%; width:100%; margin:0; border-radius:0; }
+          .srl--hasmini .srl-minis { order:3; flex:0 0 100%; width:100%; margin:0 0 4px; }
+          .srl-minis .srl-mini { width:100%; }
           .srl--hasmini .srl-body { padding-right:46px; }
+          .srl-artcard-nm { max-width:120px; overflow:hidden; text-overflow:ellipsis; }
         }
 
         /* ── Veiksmų ikonos ── */
@@ -645,21 +701,30 @@ function SrautasInner() {
         .sr-wm-ph { width:34px; height:34px; border-radius:50%; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
           background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:14px; }
         .sr-wm-note { font-size:12px; line-height:1.5; color:var(--text-faint); margin:0; border-top:1px solid var(--border-subtle); padding-top:12px; }
-        .sr-wm--charts { max-width:460px; }
-        .sr-ch-list { display:flex; flex-direction:column; gap:14px; max-height:60vh; overflow-y:auto; }
+        .sr-wm--charts { max-width:540px; }
+        .sr-ch-list { display:flex; flex-direction:column; gap:16px; max-height:66vh; overflow-y:auto; }
         .sr-ch-grp { }
         .sr-ch-name { display:inline-block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em;
-          color:var(--accent-orange); text-decoration:none; margin-bottom:6px; }
+          color:var(--accent-orange); text-decoration:none; margin-bottom:8px; }
         .sr-ch-name:hover { text-decoration:underline; }
-        .sr-ch-rows { display:flex; flex-direction:column; gap:2px; }
-        .sr-ch-row { display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:8px; text-decoration:none;
-          color:var(--text-primary); transition:background .12s; }
+        .sr-ch-rows { display:flex; flex-direction:column; gap:6px; }
+        .sr-ch-row { display:flex; align-items:center; gap:11px; padding:5px 6px; border-radius:10px; transition:background .12s; }
         .sr-ch-row:hover { background:var(--bg-surface); }
-        .sr-ch-pos { font-size:12px; font-weight:800; color:var(--text-faint); min-width:26px; }
-        .sr-ch-av { width:40px; height:40px; border-radius:7px; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
-        .sr-ch-av--ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:14px; }
-        .sr-ch-meta { display:flex; flex-direction:column; min-width:0; }
+        .sr-ch-pos { font-size:12px; font-weight:800; color:var(--text-faint); min-width:24px; text-align:center; }
+        .sr-ch-thumb { position:relative; width:104px; flex:0 0 auto; aspect-ratio:16/9; border-radius:8px; overflow:hidden; background:#000; }
+        .sr-ch-play { display:block; width:100%; height:100%; padding:0; border:0; cursor:pointer; position:relative; background:#000; }
+        .sr-ch-play img { width:100%; height:100%; object-fit:cover; display:block; opacity:.9; }
+        .sr-ch-play:hover img { opacity:1; }
+        .sr-ch-pbtn { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:32px; height:32px; border-radius:50%;
+          background:rgba(0,0,0,0.6); color:#fff; display:flex; align-items:center; justify-content:center; }
+        .sr-ch-play:hover .sr-ch-pbtn { background:var(--accent-orange); }
+        .sr-ch-pbtn svg { width:15px; height:15px; margin-left:1px; }
+        .sr-ch-thumb iframe { width:100%; height:100%; border:0; display:block; }
+        img.sr-ch-cover { width:104px; aspect-ratio:16/9; border-radius:8px; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
+        span.sr-ch-cover { width:104px; aspect-ratio:16/9; border-radius:8px; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:18px; }
+        .sr-ch-meta { display:flex; flex-direction:column; min-width:0; text-decoration:none; }
         .sr-ch-song { font-size:14px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sr-ch-meta:hover .sr-ch-song { text-decoration:underline; }
         .sr-ch-by { font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
         /* ── Pagalbiniai ── */
@@ -737,13 +802,14 @@ function SrautasInner() {
   )
 }
 
-/** Topų modalas — kuris pamėgtas atlikėjas kuriame tope (grupuota pagal topą). */
+/** Topų modalas — konkrečios dainos su mini grotuvais, grupuota pagal topą. */
 function ChartsModal({ it, onClose }: { it: FeedItem; onClose: () => void }) {
   const rows = it.meta?.chartRows || []
-  const byChart = new Map<string, { href: string; entries: { artist: string; song: string | null; position: number; image?: string | null }[] }>()
+  const [playKey, setPlayKey] = useState<string | null>(null)
+  const byChart = new Map<string, { href: string; entries: { artist: string; song: string | null; position: number; image?: string | null; ytId?: string | null }[] }>()
   for (const r of rows) {
     const g = byChart.get(r.chart) || { href: r.href, entries: [] }
-    g.entries.push({ artist: r.artist, song: r.song ?? null, position: r.position, image: r.image })
+    g.entries.push({ artist: r.artist, song: r.song ?? null, position: r.position, image: r.image, ytId: r.ytId ?? null })
     byChart.set(r.chart, g)
   }
   return (
@@ -758,19 +824,39 @@ function ChartsModal({ it, onClose }: { it: FeedItem; onClose: () => void }) {
             <div className="sr-ch-grp" key={chart}>
               <Link href={g.href} className="sr-ch-name">{chart}</Link>
               <div className="sr-ch-rows">
-                {g.entries.sort((a, b) => a.position - b.position).map((e, i) => (
-                  <Link href={g.href} className="sr-ch-row" key={i}>
-                    <span className="sr-ch-pos">#{e.position}</span>
-                    {e.image
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img className="sr-ch-av" src={proxyImgResized(e.image, 80)} alt="" loading="lazy" />
-                      : <span className="sr-ch-av sr-ch-av--ph">{(e.song || e.artist).trim()[0]?.toUpperCase() || '?'}</span>}
-                    <span className="sr-ch-meta">
-                      <span className="sr-ch-song">{e.song || e.artist}</span>
-                      {e.song && <span className="sr-ch-by">{e.artist}</span>}
-                    </span>
-                  </Link>
-                ))}
+                {g.entries.sort((a, b) => a.position - b.position).map((e, i) => {
+                  const k = `${chart}-${i}`
+                  return (
+                    <div className="sr-ch-row" key={i}>
+                      <span className="sr-ch-pos">#{e.position}</span>
+                      <div className="sr-ch-thumb">
+                        {e.ytId && playKey === k ? (
+                          <iframe
+                            src={`https://www.youtube.com/embed/${e.ytId}?autoplay=1&rel=0`}
+                            title={e.song || e.artist}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                          />
+                        ) : e.ytId ? (
+                          <button type="button" className="sr-ch-play" onClick={() => setPlayKey(k)} aria-label="Groti" title="Groti">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={ytThumbUrl(e.ytId)} alt="" loading="lazy" />
+                            <span className="sr-ch-pbtn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
+                          </button>
+                        ) : e.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img className="sr-ch-cover" src={proxyImgResized(e.image, 96)} alt="" loading="lazy" />
+                        ) : (
+                          <span className="sr-ch-cover sr-ch-av--ph">{(e.song || e.artist).trim()[0]?.toUpperCase() || '?'}</span>
+                        )}
+                      </div>
+                      <Link href={g.href} className="sr-ch-meta">
+                        <span className="sr-ch-song">{e.song || e.artist}</span>
+                        {e.song && <span className="sr-ch-by">{e.artist}</span>}
+                      </Link>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           ))}
