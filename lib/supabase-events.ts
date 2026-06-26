@@ -415,7 +415,7 @@ export async function getEventById(id: string) {
       id, title, slug, description, start_date, end_date,
       venue_name, venue_id, city, address, cover_image_url,
       ticket_url, price_from, price_to,
-      status, is_featured, created_at, updated_at,
+      status, is_featured, is_abroad, dest_key, why, popularity, verified, created_at, updated_at,
       event_artists(
         artist_id, is_headliner, sort_order,
         artists(id, name, slug, cover_image_url)
@@ -491,6 +491,11 @@ export async function createEvent(eventData: {
   price_to?: number
   is_featured?: boolean
   is_festival?: boolean
+  is_abroad?: boolean
+  dest_key?: string | null
+  why?: string | null
+  popularity?: number | null
+  verified?: boolean
 }, userId: string) {
   const supabase = createAdminClient()
 
