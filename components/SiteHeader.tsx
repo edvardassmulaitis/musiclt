@@ -622,13 +622,13 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
     const flag = hideFlag ? null : chartFlag(c.country)
     return (
       <Link key={c.id} href={c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : anchor(c.scope)}
-        className="sh-navchip" title={c.title}>
+        className="sh-navchip" title={c.title} style={{ maxWidth: 172, flexShrink: 0 }}>
         {hideFlag
           ? null
           : flag
             ? <img src={flag} alt="" className="sh-navchip-flag" />
             : <span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{/album/i.test(c.title) ? I.vinyl : scopeGlyph(c.scope)}</span>}
-        {c.title}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{c.title}</span>
       </Link>
     )
   }
