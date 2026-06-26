@@ -132,7 +132,7 @@ export default function AdminEventEditPage() {
     if (!startDate) { setError('Pasirink datą'); return }
     // Vieta privaloma įprastiems renginiams (susieti su venues įrašu). Užsienio
     // koncertams („Verta kelionės") venues lentelės nėra — vieta laisvu tekstu.
-    if (!isAbroad && !venueId) { setError('Pasirink renginio vietą iš sąrašo arba sukurk naują (miesto neužtenka)'); return }
+    if (!isAbroad && !venueId && !venueName.trim() && !city.trim()) { setError('Nurodyk bent miestą arba vietą'); return }
     if (isAbroad && !destKey) { setError('Pasirink kelionės kryptį'); return }
     setSaving(true); setError('')
 

@@ -3997,7 +3997,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                   const isAbroad = (e: any) => !!e.is_abroad
                   const scoreOf = (e: any) => Math.max(0, ...(e.event_artists || []).map((ea: any) => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return a?.score || 0 }))
                   const all = [...filtEvt].sort((x, y) => new Date(((x as any).start_date || x.event_date || 0) as any).getTime() - new Date(((y as any).start_date || y.event_date || 0) as any).getTime())
-                  const foreign = all.filter(e => isAbroad(e) && (e as any).verified)
+                  const foreign = vertaConcerts.concerts || []
                   const main = all.filter(e => !isAbroad(e) && (e.is_festival || (e as any).is_featured || scoreOf(e) >= 10)).slice(0, foreign.length ? 9 : 10)
                   const photoOf = (e: any) => { const ea = (e.event_artists || []).map((x: any) => Array.isArray(x.artists) ? x.artists[0] : x.artists).filter(Boolean); return ea.find((a: any) => a?.cover_image_url)?.cover_image_url || e.cover_image_url || null }
                   const cards: React.ReactNode[] = main.map(ev => {
@@ -4065,7 +4065,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     )
                   })
                   if (foreign.length) {
-                    const fImgs = foreign.map(photoOf).filter(Boolean).slice(0, 6) as string[]
+                    const fImgs = foreign.map((c: any) => c.image).filter(Boolean).slice(0, 6) as string[]
                     cards.push(
                       <Link key="abroad" href="/verta-keliones" className={cardCls}>
                         <div className="relative flex-1 overflow-hidden bg-[#15203a]">
