@@ -445,7 +445,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       if (ids.length) {
         try {
           const { data: cmts } = await sb.from('comments')
-            .select('discussion_id, body, created_at, profiles:user_id(full_name, username, avatar_url)')
+            .select('discussion_id, body, created_at, profiles:author_id(full_name, username, avatar_url)')
             .in('discussion_id', ids).eq('is_deleted', false).not('body', 'is', null)
             .order('created_at', { ascending: false }).limit(60)
           for (const c of (cmts || []) as any[]) {
@@ -668,7 +668,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v23'],
+  ['srautas-feed-v24'],
   { revalidate: 90 },
 )
 
