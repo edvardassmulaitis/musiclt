@@ -289,7 +289,7 @@ export async function GET() {
       if (!ch) return []
       const { data: ents } = await supabase
         .from('external_chart_entries')
-        .select('position, title, artist_name, cover_url, track_id, album_id, tracks:track_id ( slug, cover_url, video_url, artists:artist_id ( slug ) ), albums:album_id ( slug, cover_image_url, artists:artist_id ( slug ) )')
+        .select('position, title, artist_name, cover_url, track_id, album_id, tracks:track_id ( slug, title, cover_url, video_url, artists:artist_id ( slug ) ), albums:album_id ( slug, title, cover_image_url, artists:artist_id ( slug ) )')
         .eq('chart_id', ch.id)
         .order('position', { ascending: true })
         .limit(limit)
@@ -304,7 +304,7 @@ export async function GET() {
           const ar = Array.isArray(al.artists) ? al.artists[0] : al.artists
           href = `/albumai/${ar?.slug ? `${ar.slug}-` : ''}${al.slug ? `${al.slug}-` : ''}${e.album_id}`
         }
-        return { href, title: e.title || '', artist: e.artist_name || '', image: e.cover_url || tr?.cover_url || al?.cover_image_url || ytThumb(tr?.video_url) || null }
+        return { href, title: (kind === 'album' ? al?.title : tr?.title) || e.title || '', artist: e.artist_name || '', image: e.cover_url || tr?.cover_url || al?.cover_image_url || ytThumb(tr?.video_url) || null }
       })
       // Albumams be viršelio (AGATA/consensus entries dažnai be cover_url) —
       // bandom paimti viršelį iš katalogo pagal albumo pavadinimą.

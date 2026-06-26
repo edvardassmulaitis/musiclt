@@ -618,8 +618,8 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
     c = (c === 'uk' || c === 'en') ? 'gb' : c
     return /^[a-z]{2}$/.test(c) ? `https://flagcdn.com/w40/${c}.png` : null
   }
-  const featChip = (c: NonNullable<NavPreview['featuredCharts']>[number]) => {
-    const flag = chartFlag(c.country)
+  const featChip = (c: NonNullable<NavPreview['featuredCharts']>[number], hideFlag = false) => {
+    const flag = hideFlag ? null : chartFlag(c.country)
     return (
       <Link key={c.id} href={c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : anchor(c.scope)}
         className="sh-navchip" title={c.title}>
@@ -642,7 +642,10 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
             <span style={SEC_HEAD}>Kiti topai</span>
             <Link href={more} className="sh-more-link">Daugiau →</Link>
           </div>
-          <div className="sh-chiprow">{charts.map(featChip)}</div>
+          {/* Viena eilė (nowrap, clip) — visi per „Daugiau". LT be vėliavėlių. */}
+          <div className="sh-chiprow" style={{ flexWrap: 'nowrap', overflow: 'hidden' }}>
+            {charts.slice(0, 8).map(c => featChip(c, kind === 'lt'))}
+          </div>
         </div>
       )}
     </>
