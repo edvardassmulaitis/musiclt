@@ -196,6 +196,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         date: t.video_uploaded_at || t.release_date || albumDate(t.release_year, t.release_month, t.release_day),
         badge: 'Nauja daina', avatar: a?.cover_image_url || null,
         artist: a ? { id: t.artist_id, name: a.name, slug: a.slug } : null,
+        meta: { ytId: t.video_url?.match?.(YT_RE)?.[1] || null },
       })
     }
     for (const al of (albumsRes.data || []) as any[]) {
@@ -450,7 +451,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v13'],
+  ['srautas-recs-v14'],
   { revalidate: 300 },
 )
 
