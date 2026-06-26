@@ -452,7 +452,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
     if (ids.length) {
       try {
         const { data: cmts } = await sb.from('comments')
-          .select('discussion_id, body, created_at, profiles:user_id(full_name, username, avatar_url)')
+          .select('discussion_id, body, created_at, profiles:author_id(full_name, username, avatar_url)')
           .in('discussion_id', ids).eq('is_deleted', false).not('body', 'is', null)
           .order('created_at', { ascending: false }).limit(40)
         for (const c of (cmts || []) as any[]) {
@@ -515,7 +515,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v17'],
+  ['srautas-recs-v18'],
   { revalidate: 300 },
 )
 
