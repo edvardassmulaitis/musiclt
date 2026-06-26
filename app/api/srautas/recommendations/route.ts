@@ -213,10 +213,12 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         meta: { ytId: t.video_url?.match?.(YT_RE)?.[1] || null },
       })
     }
+    const albumIds: number[] = []
     for (const al of (albumsRes.data || []) as any[]) {
       const a = one(al.artists)
       const ad = albumDate(al.year, al.month, al.day)
       if (ad && Date.parse(ad) > Date.now()) continue // dar neišleistas (Muse – Wow Signal)
+      albumIds.push(Number(al.id))
       queues.release.push({
         key: `album-${al.id}`, kind: 'album', title: al.title || '', subtitle: a?.name || null,
         image: al.cover_image_url || a?.cover_image_url || null,
@@ -224,6 +226,26 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         date: albumDate(al.year, al.month, al.day), badge: 'Naujas albumas', avatar: a?.cover_image_url || null,
         artist: a ? { id: al.artist_id, name: a.name, slug: a.slug } : null,
       })
+    }
+    // Albumams — vedančios dainos ytId (inline ▶ grotuvui).
+    if (albumIds.length) {
+      try {
+        const { data: at } = await sb.from('album_tracks')
+          .select('album_id, tracks:track_id(video_url, video_views)').in('album_id', albumIds)
+        const best = new Map<number, { yt: string; views: number }>()
+        for (const r of (at || []) as any[]) {
+          const t = one(r.tracks); if (!t) continue
+          const yt = t.video_url?.match?.(YT_RE)?.[1]; if (!yt) continue
+          const aid = Number(r.album_id); const views = Number(t.video_views) || 0
+          const cur = best.get(aid)
+          if (!cur || views > cur.views) best.set(aid, { yt, views })
+        }
+        for (const item of queues.release) {
+          if (item.kind !== 'album') continue
+          const b = best.get(Number(item.key.split('-').pop()))
+          if (b) item.meta = { ...(item.meta || {}), ytId: b.yt }
+        }
+      } catch { /* ignore */ }
     }
     // Per-artist cap: ne daugiau 1 leidinio kiekvienam rekomenduojamam atlikėjui,
     // kad srauto nedominuotų vienas atlikėjas su daug naujų dainų.
@@ -492,7 +514,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v15'],
+  ['srautas-recs-v16'],
   { revalidate: 300 },
 )
 
