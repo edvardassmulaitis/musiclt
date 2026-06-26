@@ -125,6 +125,25 @@ function formatFutureDateLT(input: string | null | undefined): { label: string |
   return { label: `${MONTHS_LT[d.getMonth()]}. ${d.getDate()}, ${d.getFullYear()}`, highlight: false }
 }
 
+/* Šalies vėliava iš atlikėjo `country` lauko (LT pavadinimai). Nežinomai
+ * šaliai grąžina null — vėliava tiesiog nerodoma. 2026-06-26. */
+const COUNTRY_FLAG: Record<string, string> = {
+  'Lietuva': '🇱🇹', 'LT': '🇱🇹', 'Lithuania': '🇱🇹',
+  'Latvija': '🇱🇻', 'Estija': '🇪🇪', 'Lenkija': '🇵🇱', 'Rusija': '🇷🇺', 'Ukraina': '🇺🇦', 'Baltarusija': '🇧🇾',
+  'Vokietija': '🇩🇪', 'Prancūzija': '🇫🇷', 'Ispanija': '🇪🇸', 'Italija': '🇮🇹', 'Portugalija': '🇵🇹',
+  'Švedija': '🇸🇪', 'Norvegija': '🇳🇴', 'Danija': '🇩🇰', 'Suomija': '🇫🇮', 'Islandija': '🇮🇸',
+  'Nyderlandai': '🇳🇱', 'Belgija': '🇧🇪', 'Austrija': '🇦🇹', 'Šveicarija': '🇨🇭', 'Čekija': '🇨🇿',
+  'Vengrija': '🇭🇺', 'Airija': '🇮🇪', 'Graikija': '🇬🇷', 'Kroatija': '🇭🇷', 'Slovėnija': '🇸🇮',
+  'Anglija': '🇬🇧', 'Jungtinė Karalystė': '🇬🇧', 'UK': '🇬🇧', 'United Kingdom': '🇬🇧',
+  'JAV': '🇺🇸', 'USA': '🇺🇸', 'United States': '🇺🇸', 'Jungtinės Amerikos Valstijos': '🇺🇸',
+  'Kanada': '🇨🇦', 'Australija': '🇦🇺', 'Naujoji Zelandija': '🇳🇿', 'Brazilija': '🇧🇷', 'Meksika': '🇲🇽',
+  'Japonija': '🇯🇵', 'Pietų Korėja': '🇰🇷', 'Kinija': '🇨🇳',
+}
+function countryFlag(c?: string | null): string | null {
+  if (!c) return null
+  return COUNTRY_FLAG[c.trim()] || null
+}
+
 function timeAgo(d: string) {
   const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000)
   if (m < 1) return 'ką tik'
@@ -3959,150 +3978,85 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
             }
           >
           <section>
-            <SectionHead label="Renginiai" />
-            {(() => {
-              // LT/INTL filter logic — pirma žiūrim į artist'us, tada į miestą.
-              // Artist'as turi country lauką — jei BENT VIENAS event artist'as
-              // LT → renginys LT. Jei artist'ai aiškiai NE LT (visi užsienio) →
-              // renginys INTL, nepaisant city (LT artist'as gali koncertuoti Rygoje).
-              const LT_COUNTRIES = new Set(['Lietuva', 'LT', 'Lithuania'])
-              const LT_CITIES = new Set(['Vilnius','Kaunas','Klaipėda','Klaipeda','Šiauliai','Siauliai','Panevėžys','Panevezys','Alytus','Marijampolė','Marijampole','Mažeikiai','Mazeikiai','Jonava','Utena','Kėdainiai','Kedainiai','Tauragė','Taurage','Telšiai','Telsiai','Visaginas','Plungė','Plunge','Druskininkai','Palanga','Anykščiai','Anyksciai','Trakai','Birštonas','Birstonas','Ukmergė','Ukmerge','Kretinga','Šilutė','Silute','Radviliškis','Radviliskis','Rokiškis','Rokiskis','Elektrėnai','Elektrenai','Šalčininkai','Salcininkai','Pakruojis','Lentvaris'])
-              const isLT = (ev: any) => {
-                const ea = (ev.event_artists || []).map((a: any) => a.artists).filter(Boolean)
-                if (ea.length > 0) {
-                  // BENT VIENAS LT artist'as → LT renginys
-                  const anyLT = ea.some((a: any) => {
-                    const c = a?.country
-                    return !c || LT_COUNTRIES.has(c) // unknown country dažniausiai LT
+            {/* ── Renginiai — SUJUNGTA afiša (LT + užsienis vienoje vietoje,
+                pagal datą). Plakatai kaip vizuali afiša: data badge, šalies
+                vėliava, tekstas ANT kortelės su stipriu overlay (matosi ir ant
+                šviesių vizualų). Be laiko, be „Bilietai" mygtuko. 2026-06-26. */}
+            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <span className="block font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">Kas vyksta</span>
+                  <h2 className="m-0 font-['Outfit',sans-serif] text-[18px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Renginiai ir koncertai</h2>
+                </div>
+                <Link href="/koncertai" className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visa afiša →</Link>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                {filtEvt.length === 0 ? Array(8).fill(null).map((_, i) => (
+                  <div key={i} className="hp-skel aspect-[3/4] rounded-2xl" />
+                )) : [...filtEvt]
+                  .sort((a, b) => {
+                    const da = new Date(((a as any).start_date || a.event_date || 0) as any).getTime()
+                    const db = new Date(((b as any).start_date || b.event_date || 0) as any).getTime()
+                    return da - db
                   })
-                  if (anyLT) return true
-                  // Visi artist'ai aiškiai užsienio
-                  return false
-                }
-                // Be artist'ų — fallback į city heuristics
-                const c = ev.venues?.city || (ev as any).city || ''
-                return c ? LT_CITIES.has(c) : true
-              }
-              const lt = filtEvt.filter(isLT)
-              const world = filtEvt.filter(ev => !isLT(ev))
-              return (
-                <>
-                  {[
-                    { lane: 'lt' as const, items: lt },
-                    { lane: 'world' as const, items: world },
-                  ].map(({ lane, items }, laneIdx) => (
-                    <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
-                      {items.length > 0 && (
-                        <div className="mb-1 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => setListModal(`events-${lane}`)}
-                            aria-label={`Daugiau: renginiai (${lane === 'lt' ? 'Lietuva' : 'užsienis'})`}
-                            className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70"
-                          >
-                            Daugiau →
-                          </button>
+                  .slice(0, 8)
+                  .map(ev => {
+                    const dateRaw = (ev as any).start_date || ev.event_date
+                    const d = dateRaw ? new Date(dateRaw) : null
+                    const dayNum = d && !isNaN(d.getTime()) ? d.getDate() : null
+                    const monthLbl = d && !isNaN(d.getTime()) ? MONTHS_LT[d.getMonth()] : null
+                    const soon = formatFutureDateLT(dateRaw).highlight
+                    const evArtists = (ev.event_artists || []).map(ea => Array.isArray(ea.artists) ? ea.artists[0] : ea.artists).filter(Boolean) as { name: string; country?: string | null; cover_image_url?: string | null }[]
+                    const evArtistCover = evArtists.find(a => a?.cover_image_url)?.cover_image_url || null
+                    const imgSrc = ev.image_small_url || ev.cover_image_url || (ev as any).image_url || evArtistCover
+                    const flag = countryFlag(evArtists.find(a => a?.country)?.country)
+                    const city = ev.city || ev.venues?.city || ''
+                    const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
+                    const place = [city, venue].filter(Boolean).join(' · ')
+                    const artistList = evArtists.filter(a => a?.name).map(a => a.name)
+                    const title = ev.is_festival
+                      ? sanitizeTitle(ev.title)
+                      : artistList.length > 0
+                        ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '')
+                        : sanitizeTitle(ev.title)
+                    return (
+                      <Link
+                        key={ev.id}
+                        href={`/renginiai/${ev.slug}`}
+                        className="group relative block aspect-[3/4] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] no-underline shadow-[0_6px_18px_rgba(0,0,0,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_16px_34px_rgba(249,115,22,0.22)]"
+                      >
+                        {imgSrc ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={proxyImg(imgSrc)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" />
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={proxyImg(imgSrc)} alt={title} loading="lazy" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.03]" />
+                          </>
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-3xl text-[var(--text-faint)]">🎵</div>
+                        )}
+                        {/* Skaitomumo overlay — stiprus apačioje, kad title matytųsi ir ant šviesių plakatų. */}
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
+                        {dayNum && (
+                          <span className={`absolute left-2.5 top-2.5 flex flex-col items-center rounded-[10px] px-2.5 py-1.5 leading-none shadow-[0_4px_12px_rgba(0,0,0,0.3)] ${soon ? 'bg-[var(--accent-orange)] text-white' : 'bg-white text-[#10203a]'}`}>
+                            <b className="font-['Outfit',sans-serif] text-[18px] font-black">{dayNum}</b>
+                            <i className={`mt-0.5 not-italic text-[9px] font-extrabold uppercase tracking-[0.04em] ${soon ? 'text-white' : 'text-[var(--accent-orange)]'}`}>{monthLbl}</i>
+                          </span>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 p-3">
+                          {place && (
+                            <p className="m-0 truncate font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.05em] text-[#ffcea3]">{place}</p>
+                          )}
+                          <h3 className="m-0 mt-1 flex items-start gap-1.5 font-['Outfit',sans-serif] text-[15px] font-black leading-tight text-white">
+                            {flag && <span className="shrink-0 text-[14px] leading-tight">{flag}</span>}
+                            <span className="line-clamp-2">{title}</span>
+                          </h3>
                         </div>
-                      )}
-                      <div className="flex items-stretch gap-3">
-                        <RowDivider icon={lane} />
-                        <Scroller className="flex-1 min-w-0" gap={12} ariaLabel="Renginiai">
-                        {filtEvt.length === 0 ? Array(8).fill(null).map((_, i) => (
-                          <div key={i} className="shrink-0" style={{ width: 156 }}>
-                            <Skel w={156} h={156} r={12} />
-                            <div className="mt-2"><Skel w="80%" h={12} /></div>
-                            <div className="mt-1"><Skel w="60%" h={10} /></div>
-                          </div>
-                        )) : items.length === 0 ? (
-                          <div className="flex h-[156px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
-                            {lane === 'lt' ? 'Lietuvoje renginių nėra' : 'Užsienio renginių nėra'}
-                          </div>
-                        ) : items.slice(0, 14).map(ev => {
-                          const dateRaw = (ev as any).start_date || ev.event_date
-                          // Data badge ant cover'io — ta pati logika kaip „Greitai pasirodys"
-                          // albumams: „Šiandien"/„Rytoj"/„Po X d." (highlight ≤14 d.) / konkreti data.
-                          const evDate = formatFutureDateLT(dateRaw)
-                          const created = ev.created_at ? new Date(ev.created_at) : null
-                          const ageDays = created ? (Date.now() - created.getTime()) / 86400000 : 999
-                          // „Naujas" = pridėtas per pask. 2 d. (created_at). 7 d. langas
-                          // floodino visus po bulk importo, todėl sumažintas. 2026-05-29.
-                          const isNew = ageDays <= 2
-                          // Foto fallback: jei renginys neturi cover'io — imam priskirto
-                          // atlikėjo nuotrauką. 2026-05-30.
-                          const evArtistCover = (ev.event_artists || [])
-                            .map(ea => (Array.isArray(ea.artists) ? ea.artists[0] : ea.artists))
-                            .find(a => a?.cover_image_url)?.cover_image_url || null
-                          const imgSrc = ev.image_small_url || ev.cover_image_url || evArtistCover
-                          const city = ev.city || ev.venues?.city || ''
-                          const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
-                          const venueLabel = [city, venue].filter(Boolean).join(', ')
-                          const artistList = (ev.event_artists || []).filter(ea => ea.artists?.name).map(ea => ea.artists!.name)
-                          // Festivaliams — festivalio pavadinimas (NE atlikėjų sąrašas).
-                          const artistText = ev.is_festival
-                            ? sanitizeTitle(ev.title)
-                            : artistList.length > 0
-                              ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '')
-                              : sanitizeTitle(ev.title)
-                          return (
-                            <Link
-                              key={ev.id}
-                              href={`/renginiai/${ev.slug}`}
-                              className="group block shrink-0 no-underline text-left"
-                              style={{ width: 156 }}
-                            >
-                              {/* Švarus vizualas — data/vieta perkelti ŽEMYN (po cover),
-                                  nes ant margų plakatų badge'ai blogai matėsi. Naujai
-                                  pridėtas renginys (≤7 d.) — oranžinis rėmelis + taškas
-                                  (kaip neskaitytos naujienos). 2026-05-29. */}
-                              <div className={`relative aspect-square overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)] ${
-                                isNew ? 'border-[var(--accent-orange)]' : 'border-[var(--border-default)] group-hover:border-[rgba(249,115,22,0.5)]'
-                              }`}>
-                                {imgSrc ? (
-                                  <>
-                                    {/* Blur backdrop užpildo tuščius plotus; pilnas plakatas — object-contain (mažinam pagal ilgiausią kraštinę). */}
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={proxyImg(imgSrc)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-xl" />
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={proxyImg(imgSrc)} alt={artistText} loading="lazy" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.04]" />
-                                  </>
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
-                                )}
-                                {isNew && (
-                                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-orange)] shadow-[0_0_0_2px_rgba(0,0,0,0.45)]" />
-                                )}
-                                {/* Data badge — kaip „Greitai pasirodys" albumams (vietoj
-                                    teksto po cover). „Šiandien"/„Rytoj"/„Po X d." (oranžinis
-                                    ≤14 d.) arba konkreti data toliau. 2026-05-30. */}
-                                {evDate.label && (
-                                  <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${
-                                    evDate.highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
-                                  }`}>
-                                    {evDate.label}
-                                  </span>
-                                )}
-                                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                              </div>
-                              <div className="mt-2 px-0.5">
-                                <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
-                                  {artistText}
-                                </p>
-                                {venueLabel && (
-                                  <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">
-                                    {venueLabel}
-                                  </p>
-                                )}
-                              </div>
-                            </Link>
-                          )
-                        })}
-                        </Scroller>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )
-            })()}
+                      </Link>
+                    )
+                  })}
+              </div>
+            </div>
           </section>
           </LazySection>
 
