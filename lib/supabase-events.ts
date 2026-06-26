@@ -73,7 +73,7 @@ export async function getEvents(opts: {
       id, title, slug, legacy_id, description, start_date, end_date,
       venue_name, venue_id, city, city_id, address, cover_image_url,
       ticket_url, price_from, price_to,
-      status, is_featured, is_abroad, created_at,
+      status, is_featured, is_abroad, hide_from_homepage, created_at,
       venues:venue_id(id, name, slug, city, address),
       event_artists(
         artist_id, is_headliner, sort_order,
@@ -415,7 +415,7 @@ export async function getEventById(id: string) {
       id, title, slug, description, start_date, end_date,
       venue_name, venue_id, city, address, cover_image_url,
       ticket_url, price_from, price_to,
-      status, is_featured, is_abroad, dest_key, why, popularity, verified, created_at, updated_at,
+      status, is_featured, is_abroad, hide_from_homepage, dest_key, why, popularity, verified, created_at, updated_at,
       event_artists(
         artist_id, is_headliner, sort_order,
         artists(id, name, slug, cover_image_url)

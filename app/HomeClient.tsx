@@ -2662,7 +2662,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
       setPageReady(true)
     }
   })
-  const filtEvt = events
+  const filtEvt = events.filter(e => !(e as any).hide_from_homepage)
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
   // „Hero settle" — kol async šaltiniai (news/topai/events/...) trūkčioja po

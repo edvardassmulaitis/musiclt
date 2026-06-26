@@ -36,6 +36,8 @@ export default function AdminEventEditPage() {
   const [popularity, setPopularity] = useState('')
   const [destOptions, setDestOptions] = useState<Array<{ key: string; city: string; country: string | null; reach_mode: string }>>([])
   const [artists, setArtists] = useState<ArtistRow[]>([])
+  const [hideHome, setHideHome] = useState(false)
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [artistSearch, setArtistSearch] = useState('')
   const [artistResults, setArtistResults] = useState<any[]>([])
   const [saving, setSaving] = useState(false)
@@ -96,6 +98,7 @@ export default function AdminEventEditPage() {
         setDestKey(ev.dest_key || '')
         setWhy(ev.why || '')
         setPopularity(ev.popularity != null ? String(ev.popularity) : '')
+        setHideHome(ev.hide_from_homepage || false)
         if (ev.event_artists) {
           setArtists(ev.event_artists.map((ea: any) => {
             const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists
@@ -152,6 +155,7 @@ export default function AdminEventEditPage() {
       dest_key: isAbroad ? (destKey || null) : null,
       why: isAbroad ? (why || null) : null,
       popularity: isAbroad && popularity ? parseInt(popularity) : null,
+      hide_from_homepage: hideHome,
       artists: artists.map(a => ({ artist_id: a.artist_id, is_headliner: a.is_headliner })),
     }
 
@@ -386,8 +390,18 @@ export default function AdminEventEditPage() {
             </div>
             {artists.length > 0 ? (
               <div className="space-y-1.5">
-                {artists.map(a => (
-                  <div key={a.artist_id} className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-subtle)]">
+                {artists.map((a, i) => (
+                  <div
+                    key={a.artist_id}
+                    draggable
+                    onDragStart={() => setDragIdx(i)}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={() => { setArtists(prev => { if (dragIdx === null || dragIdx === i) return prev; const arr = [...prev]; const [m] = arr.splice(dragIdx, 1); arr.splice(i, 0, m); return arr }); setDragIdx(null) }}
+                    onDragEnd={() => setDragIdx(null)}
+                    className={`flex items-center gap-2 px-3 py-2 bg-[var(--bg-elevated)] rounded-lg border transition ${dragIdx === i ? 'border-orange-300 opacity-60' : 'border-[var(--border-subtle)]'}`}
+                  >
+                    <span className="cursor-grab active:cursor-grabbing text-[var(--text-faint)] select-none flex-shrink-0" title="Tempk, kad pertvarkytum">⠿</span>
+                    <span className="text-[10px] font-bold text-[var(--text-faint)] w-4 flex-shrink-0 text-center">{i + 1}</span>
                     <span className="text-sm text-[var(--text-primary)] flex-1 truncate">{a.name}</span>
                     <button onClick={() => setArtists(artists.map(x => x.artist_id === a.artist_id ? { ...x, is_headliner: !x.is_headliner } : x))}
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition flex-shrink-0 ${
@@ -398,6 +412,7 @@ export default function AdminEventEditPage() {
                       className="text-gray-300 hover:text-red-500 text-xs transition flex-shrink-0 w-6 h-6 flex items-center justify-center">✕</button>
                   </div>
                 ))}
+                <p className="text-[11px] text-[var(--text-muted)] pt-1">Tempk ⠿ kad pertvarkytum eiliškumą — pirmi atlikėjai ir headlineriai naudojami homepage collage.</p>
               </div>
             ) : (
               <p className="text-xs text-[var(--text-muted)]">Atlikėjų dar nėra. Ieškok ir pridėk — headlinerius pažymėk žvaigždute.</p>
@@ -422,6 +437,10 @@ export default function AdminEventEditPage() {
               <label className="flex items-center gap-2.5 cursor-pointer py-1">
                 <input type="checkbox" checked={isAbroad} onChange={e => setIsAbroad(e.target.checked)} className="accent-orange-600 w-4 h-4" />
                 <span className="text-sm font-medium text-[var(--text-primary)]">🌍 Verta kelionės (užsienis)</span>
+              </label>
+              <label className="flex items-center gap-2.5 cursor-pointer py-1">
+                <input type="checkbox" checked={hideHome} onChange={e => setHideHome(e.target.checked)} className="accent-red-600 w-4 h-4" />
+                <span className="text-sm font-medium text-[var(--text-primary)]">🚫 Slėpti iš pagrindinio puslapio</span>
               </label>
             </div>
 
