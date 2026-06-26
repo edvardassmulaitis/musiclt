@@ -52,6 +52,21 @@ function tripSubtitle(destKey: string, fallbackVenue?: string | null): string | 
   return `${flag ? flag + ' ' : ''}${d.country} · ${d.city}`
 }
 
+// Kelionės info: pasiekimo būdas + kaina/trukmė (iš DEST_BY_KEY seed laukų).
+function tripInfo(destKey: string): string | null {
+  const d = DEST_BY_KEY[destKey]
+  if (!d) return null
+  if (d.reach === 'car') {
+    const parts = ['🚗 Pasiekiama mašina']
+    if (d.driveHours) parts.push(`~${d.driveHours} val. kelio${d.driveFrom ? ` nuo ${d.driveFrom}` : ''}`)
+    return parts.join(' · ')
+  }
+  const parts = ['✈️ Skrydis']
+  if (d.carrier) parts.push(d.carrier)
+  if (d.priceFrom) parts.push(`nuo ${d.priceFrom} €`)
+  return parts.join(' · ')
+}
+
 const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
 
 type Kind = 'news' | 'blog' | 'track' | 'album' | 'event' | 'topic' | 'chart' | 'recording'
@@ -94,7 +109,7 @@ function cleanTitle(t?: string | null): string {
 }
 
 // Įrašo excerpt — HTML nuvalytas, sutrumpintas (kortelėms be viršelio).
-function excerptOf(summary?: string | null, max = 160): string | null {
+function excerptOf(summary?: string | null, max = 240): string | null {
   const t = (summary || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
   if (!t) return null
   return t.length > max ? t.slice(0, max).trimEnd() + '…' : t
@@ -311,24 +326,29 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       const eRows = (entries || []) as any[]
       const aids = Array.from(new Set(eRows.map(e => Number(e.artist_id)).filter(Boolean)))
       if (!aids.length) return []
-      const { data: arts } = await sb.from('artists').select('id, name').in('id', aids)
-      const nameById = new Map<number, string>(((arts || []) as any[]).map(a => [Number(a.id), a.name as string]))
+      const { data: arts } = await sb.from('artists').select('id, name, cover_image_url, slug').in('id', aids)
+      const artById = new Map<number, { name: string; image: string | null; slug: string | null }>(
+        ((arts || []) as any[]).map(a => [Number(a.id), { name: a.name as string, image: a.cover_image_url || null, slug: a.slug || null }]))
       const seen = new Set<string>()
-      const rows: { artist: string; chart: string; position: number; href: string }[] = []
+      const rows: { artist: string; chart: string; position: number; href: string; image: string | null }[] = []
+      const thumbs: { name: string; image: string | null; href: string }[] = []
+      const seenArt = new Set<number>()
       for (const e of eRows) {
         const c = chartById.get(Number(e.chart_id)); if (!c) continue
-        const nm = nameById.get(Number(e.artist_id)); if (!nm) continue
+        const a = artById.get(Number(e.artist_id)); if (!a) continue
         const k = `${e.artist_id}-${e.chart_id}`; if (seen.has(k)) continue; seen.add(k)
-        rows.push({ artist: nm, chart: c.title || 'Topas', position: Number(e.position) || 0, href: `/topai/${c.source}-${c.chart_key}` })
+        rows.push({ artist: a.name, chart: c.title || 'Topas', position: Number(e.position) || 0, href: `/topai/${c.source}-${c.chart_key}`, image: a.image })
+        const aid = Number(e.artist_id)
+        if (!seenArt.has(aid)) { seenArt.add(aid); thumbs.push({ name: a.name, image: a.image, href: a.slug ? `/atlikejai/${a.slug}` : '/topai' }) }
       }
       if (!rows.length) return []
-      const names = Array.from(new Set(rows.map(r => r.artist)))
+      const names = thumbs.map(t => t.name)
       return [{
         key: 'charts-summary', kind: 'chart',
         title: 'Tavo atlikėjai topuose',
         subtitle: null, image: null, href: '/topai', date: nowIso, badge: 'Topai',
         artistId: null, avatar: null,
-        meta: { excerpt: names.join(', '), chartRows: rows.slice(0, 50) },
+        meta: { excerpt: names.join(', '), chartRows: rows.slice(0, 50), artistThumbs: thumbs.slice(0, 12) },
       }]
     } catch { /* ignore */ }
     return []
@@ -354,19 +374,25 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
           for (const a of (arts || []) as any[]) artCover.set(Number(a.id), { name: a.name, cover: a.cover_image_url || null })
         } catch { /* ignore */ }
       }
-      // Naujausias komentaras kiekvienai diskusijai (kaip /bendruomene).
-      const lastComment = new Map<number, string>()
+      // Naujausias komentaras + kas parašė (kaip /bendruomene).
+      const lastComment = new Map<number, { body: string; by: string | null; avatar: string | null }>()
       const ids = rows.map(d => d.id)
       if (ids.length) {
         try {
           const { data: cmts } = await sb.from('comments')
-            .select('discussion_id, body, created_at')
+            .select('discussion_id, body, created_at, profiles:user_id(full_name, username, avatar_url)')
             .in('discussion_id', ids).eq('is_deleted', false).not('body', 'is', null)
             .order('created_at', { ascending: false }).limit(60)
           for (const c of (cmts || []) as any[]) {
             if (lastComment.has(c.discussion_id)) continue
             const t = (c.body || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-            if (t) lastComment.set(c.discussion_id, t.length > 110 ? t.slice(0, 110).trimEnd() + '…' : t)
+            if (!t) continue
+            const pr = one(c.profiles)
+            lastComment.set(c.discussion_id, {
+              body: t.length > 260 ? t.slice(0, 260).trimEnd() + '…' : t,
+              by: pr?.full_name || pr?.username || null,
+              avatar: pr?.avatar_url || null,
+            })
           }
         } catch { /* ignore */ }
       }
@@ -376,11 +402,11 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
         const cmt = lastComment.get(d.id)
         out.push({
           key: `topic-${d.id}`, kind: 'topic', title: cleanTitle(d.title),
-          subtitle: cmt ? `„${cmt}"` : (ac?.name || (d.comment_count ? `${d.comment_count} komentarų` : 'Diskusija')),
+          subtitle: ac?.name || (d.comment_count ? `${d.comment_count} komentarų` : 'Diskusija'),
           image: ac?.cover || null, href: `/diskusijos/${d.slug}`,
           date: d.last_comment_at || d.created_at, badge: 'Diskusija',
           artistId: aid || null, avatar: ac?.cover || null,
-          meta: { comments: d.comment_count, likes: d.like_count },
+          meta: { comments: d.comment_count, likes: d.like_count, excerpt: cmt?.body || null, commentBy: cmt?.by || null, commentAvatar: cmt?.avatar || null },
         })
       }
     } catch { /* ignore */ }
@@ -503,6 +529,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
           subtitle: tripSubtitle(c.destKey, c.venue), image: c.image || cover || null,
           href: `/verta-keliones#vk-${c.id}`, date: c.date, badge: 'Koncertas, vertas kelionės',
           avatar: cover,
+          meta: { tripInfo: tripInfo(c.destKey), excerpt: c.why || null, venue: c.venue || null },
         })
       }
       out.sort((a, b) => Date.parse(a.date || '') - Date.parse(b.date || ''))
@@ -552,7 +579,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v19'],
+  ['srautas-feed-v20'],
   { revalidate: 90 },
 )
 
