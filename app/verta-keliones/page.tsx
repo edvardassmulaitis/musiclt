@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/verta-keliones' },
 }
 
-// ISR 5 min — duomenys iš DB (travel_destinations + abroad_events), fallback į seed.
+// ISR 5 min — duomenys iš DB (travel_destinations + events kur is_abroad), fallback į seed.
 export const revalidate = 300
 
 export default async function VertaKelionesPage() {
