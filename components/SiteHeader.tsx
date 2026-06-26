@@ -747,7 +747,7 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
   // Rail (Edvardo prašymu): Lietuvoje · Užsienyje · Festivaliai · Koncertų įrašai · Foto reportažai.
   const [sec, setSec] = useState<'lietuva' | 'uzsienyje' | 'festivaliai' | 'irasai' | 'foto'>('lietuva')
 
-  const eventsHome   = data?.eventsHome   || data?.eventsLt || []
+  const eventsHome   = data?.eventsHome   || []
   const eventsAbroad = data?.eventsAbroad || []
   const festivals    = data?.festivals    || []
   const recordings   = data?.recordings   || []
